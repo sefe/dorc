@@ -116,8 +116,6 @@ export class PageMonitorRequests
         cursor: pointer;
       }
 
-      }
-
       .cover {
         object-fit: cover;
         position: fixed;

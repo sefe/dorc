@@ -91,8 +91,6 @@ export class PageServersList extends ResponsiveMixin(PageElement) {
         margin: 0;
       }
 
-      }
-
       .tag {
         font-size: var(--lumo-font-size-s);
         font-family: monospace;

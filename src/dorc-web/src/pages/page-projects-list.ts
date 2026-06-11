@@ -132,7 +132,6 @@ export class PageProjectsList extends ResponsiveMixin(PageElement) {
         flex: 1;
         min-height: 0;
       }
-      }
       paper-dialog.size-position {
         top: 16px;
         overflow: auto;

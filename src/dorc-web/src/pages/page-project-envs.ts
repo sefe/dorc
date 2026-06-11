@@ -141,8 +141,6 @@ export class PageProjectEnvs extends PageElement {
         text-decoration: none; /* no underline */
       }
 
-      }
-
       vaadin-button {
         padding: 0px;
       }

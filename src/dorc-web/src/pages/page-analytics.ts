@@ -14,9 +14,7 @@ import {
   AnalyticsUserActivityApi,
   AnalyticsTimePatternApi,
   AnalyticsComponentUsageApi,
-  AnalyticsDurationApi
-} from '../apis/dorc-api';
-import {
+  AnalyticsDurationApi,
   AnalyticsDeploymentsPerProjectApiModel,
   AnalyticsDeploymentSummaryApiModel,
   AnalyticsEnvironmentUsageApiModel,
@@ -492,6 +490,7 @@ export class PageAnalytics extends PageElement {
     const data: ThemerRiverDataItem[] = [];
 
     this.analyticsDeploymentsMonthResponse.forEach(m => {
+      if (!m.Year || !m.Month) return;
       const date: string = `${String(m.Year)}/${String(m.Month)}/${String(1)}`;
       const dataItem: ThemerRiverDataItem = [
         date,
@@ -754,6 +753,7 @@ export class PageAnalytics extends PageElement {
           | CallbackDataParams
           | undefined;
         const point = (item?.data as number[]) ?? [];
+        if (point.length < 3) return '';
         const hour = point[0];
         const day = point[1];
         const count = point[2];

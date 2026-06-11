@@ -83,8 +83,6 @@ export class PageDatabasesList extends ResponsiveMixin(PageElement) {
       vaadin-button {
         margin: 0px;
       }
-      }
-
       .tag {
         font-size: var(--lumo-font-size-s);
         font-family: monospace;

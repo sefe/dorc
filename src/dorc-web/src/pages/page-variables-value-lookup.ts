@@ -63,7 +63,6 @@ export class PageVariablesValueLookup extends ResponsiveMixin(PageElement) {
         flex: 1;
         min-height: 0;
       }
-      }
       paper-dialog.size-position {
         top: 16px;
         overflow: auto;
@@ -96,7 +95,7 @@ export class PageVariablesValueLookup extends ResponsiveMixin(PageElement) {
 
   render() {
     return html`
-      <dorc-spinner ?hidden="${!(this.loading || this.searching)}"></dorc-spinner>
+      <dorc-spinner style="--dorc-spinner-z-index: 1000" ?hidden="${!(this.loading || this.searching)}"></dorc-spinner>
       <vaadin-grid
         id="grid"
         column-reordering-allowed

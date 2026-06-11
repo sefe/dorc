@@ -119,8 +119,6 @@ export class EnvMonitor extends ResponsiveMixin(PageEnvBase) implements IDeploym
         cursor: pointer;
       }
 
-      }
-
       .cover {
         object-fit: cover;
         position: fixed;

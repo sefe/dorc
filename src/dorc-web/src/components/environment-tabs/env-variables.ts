@@ -135,7 +135,7 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
 
   render() {
     return html`
-      <dorc-spinner ?hidden="${!(this.loading || this.searching)}"></dorc-spinner>
+      <dorc-spinner style="--dorc-spinner-z-index: 1000" ?hidden="${!(this.loading || this.searching)}"></dorc-spinner>
       ${this.envLoaded
         ? html`
             <vaadin-vertical-layout style="width: 100%; height: 100%">

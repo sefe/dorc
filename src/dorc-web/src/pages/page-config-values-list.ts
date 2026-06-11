@@ -117,13 +117,6 @@ export class PageConfigValuesList extends ResponsiveMixin(PageElement) {
         margin: 0px;
       }
 
-      }
-
-      100% {
-          transform: rotate(360deg);
-        }
-      }
-
       paper-dialog.size-position {
         top: 16px;
         overflow: auto;

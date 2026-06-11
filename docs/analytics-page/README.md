@@ -4,6 +4,19 @@ Deployment analytics and statistics dashboard. Formerly served at `/about` via
 `page-about`; renamed to `/analytics` / `page-analytics` (the `/about` path now
 redirects). The reusable chart wrapper was renamed `hegs-chart` → `dorc-chart`.
 
+## Shared loading spinner (`dorc-spinner`)
+
+While replacing the analytics page's loader with the site's standard centered
+spinner, the overlay + spinner block that had been copy-pasted into ~25 pages
+and components was extracted into a single reusable
+`src/dorc-web/src/components/dorc-spinner.ts`. Each call site keeps its original
+visibility toggle — either a conditional render (`${this.loading ? ... : ...}`)
+or a `?hidden="${...}"` binding. Sites whose content sits in a raised stacking
+context override the overlay stacking via the `--dorc-spinner-z-index` custom
+property (default `2`; a few list pages use `1000`). `hegs-dialog.ts` (a modal
+backdrop) and `log-dialog.ts` (an imperative DOM spinner) intentionally keep
+their own implementations.
+
 ## Architecture
 
 | Layer | Component |

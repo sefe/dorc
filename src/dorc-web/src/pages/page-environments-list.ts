@@ -82,8 +82,7 @@ export class PageEnvironmentsList extends ResponsiveMixin(PageElement) {
         background-color: var(--dorc-warning-bg);
         color: var(--dorc-warning-text);
       }
-      }
-    `;
+      `;
   }
 
   render() {

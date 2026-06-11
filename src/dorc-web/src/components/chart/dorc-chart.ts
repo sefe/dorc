@@ -17,9 +17,7 @@ export class DorcChart extends LitElement {
   }
 
   set option(val: EChartsOption | undefined) {
-    const oldVal = this._option;
     this._option = val;
-    this.requestUpdate('option', oldVal);
     this.updateChart();
   }
 
@@ -91,5 +89,11 @@ export class DorcChart extends LitElement {
   resizeChart() {
     if (!this.chart) return;
     this.chart.resize();
+  }
+}
+
+declare global {
+  interface HTMLElementTagNameMap {
+    'dorc-chart': DorcChart;
   }
 }

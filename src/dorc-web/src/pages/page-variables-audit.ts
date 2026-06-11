@@ -82,8 +82,6 @@ export class PageVariablesAudit extends ResponsiveMixin(PageElement) {
       vaadin-grid#grid::part(delete-type) {
         background-color: var(--audit-row-remove-bg);
       }
-      }
-
       paper-dialog.size-position {
         top: 16px;
         overflow: auto;

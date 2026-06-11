@@ -65,7 +65,6 @@ export class PageDatabasesAudit extends PageElement {
       .highlight-removed {
         background-color: var(--audit-char-remove-bg);
       }
-      }
       .muted {
         color: var(--dorc-text-secondary);
         font-style: italic;

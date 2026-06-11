@@ -68,7 +68,6 @@ export class PageProjectBundles extends ResponsiveMixin(PageElement) {
         height: 100%;
       }
 
-      }
       @media (max-width: 768px) {
         vaadin-grid-cell-content {
           white-space: normal;
@@ -146,7 +145,10 @@ export class PageProjectBundles extends ResponsiveMixin(PageElement) {
 
   render() {
     return html`
-      <dorc-spinner ?hidden="${!this.loading}"></dorc-spinner>
+      <dorc-spinner
+        style="--dorc-spinner-z-index: 1000"
+        ?hidden="${!this.loading}"
+      ></dorc-spinner>
 
       <div class="header">
         <h2>${this.project} Bundles</h2>

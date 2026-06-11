@@ -109,7 +109,6 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
         text-decoration: none;
       }
 
-      }
       paper-dialog.size-position {
         top: 16px;
         overflow: auto;
@@ -127,7 +126,7 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
 
   render() {
     return html`
-      <dorc-spinner ?hidden="${!(this.loading || this.searching || this.rolesLoading)}"></dorc-spinner>
+      <dorc-spinner style="--dorc-spinner-z-index: 1000" ?hidden="${!(this.loading || this.searching || this.rolesLoading)}"></dorc-spinner>
 
       ${this.rolesLoading
         ? html``

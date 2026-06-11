@@ -19,8 +19,7 @@ export class EnvMetadata extends PageEnvBase {
         width: 100%;
         overflow-y: auto;
       }
-      }
-    `;
+      `;
   }
 
   render() {

@@ -71,7 +71,6 @@ export class PageScriptsAudit extends ResponsiveMixin(PageElement) {
       vaadin-grid#grid::part(delete-type) {
         background-color: var(--audit-row-remove-bg);
       }
-      }
       .highlight {
         background-color: var(--audit-char-add-bg);
       }

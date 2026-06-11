@@ -115,6 +115,7 @@ namespace Dorc.Api.Controllers
         [HttpGet]
         [Route("AnalyticsTimePattern")]
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(IEnumerable<AnalyticsTimePatternApiModel>))]
+        [SwaggerResponse(StatusCodes.Status500InternalServerError, Type = typeof(string))]
         public IActionResult GetTimePattern()
         {
             try
@@ -136,6 +137,7 @@ namespace Dorc.Api.Controllers
         [HttpGet]
         [Route("AnalyticsComponentUsage")]
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(IEnumerable<AnalyticsComponentUsageApiModel>))]
+        [SwaggerResponse(StatusCodes.Status500InternalServerError, Type = typeof(string))]
         public IActionResult GetComponentUsage()
         {
             try
@@ -157,6 +159,7 @@ namespace Dorc.Api.Controllers
         [HttpGet]
         [Route("AnalyticsDuration")]
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(AnalyticsDurationApiModel))]
+        [SwaggerResponse(StatusCodes.Status500InternalServerError, Type = typeof(string))]
         public IActionResult GetDuration()
         {
             try
