@@ -34,7 +34,7 @@ export function monthOptionToIndex(option: string): number | undefined {
 export function distinctMonthOptions(rows: MonthRow[]): string[] {
   const options = new Set<string>();
   rows.forEach(row => {
-    if (row.Year && row.Month) {
+    if (row.Year != null && row.Month != null) {
       options.add(formatMonthOption(row.Year, row.Month));
     }
   });
@@ -67,7 +67,7 @@ export function filterByMonthRange<T extends MonthRow>(
   if (fromIndex === undefined && toIndex === undefined) return rows;
 
   return rows.filter(row => {
-    if (!row.Year || !row.Month) return false;
+    if (row.Year == null || row.Month == null) return false;
     const index = row.Year * 12 + (row.Month - 1);
     if (fromIndex !== undefined && index < fromIndex) return false;
     if (toIndex !== undefined && index > toIndex) return false;
@@ -92,7 +92,8 @@ export interface EnvironmentStaleness {
 /**
  * Environments ranked stalest-first by days since their last successful
  * deployment. Environments that never succeeded are excluded (no date to
- * measure from).
+ * measure from). Day counts use raw epoch arithmetic, so spans crossing a
+ * DST transition can be off by one day — acceptable for a staleness signal.
  */
 export function buildEnvironmentStaleness(
   rows: AnalyticsEnvironmentUsageApiModel[],

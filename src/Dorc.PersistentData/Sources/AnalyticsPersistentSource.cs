@@ -291,7 +291,8 @@ namespace Dorc.PersistentData.Sources
             var output = new List<AnalyticsComponentReliabilityApiModel>();
             using (var context = _contextFactory.GetContext())
             {
-                // Most failures first; bounded for the dashboard.
+                // Ranked by absolute failure count purely to bound the payload;
+                // the UI re-ranks by failure rate with a minimum-volume filter.
                 output.AddRange(context.AnalyticsComponentReliability
                     .OrderByDescending(component => component.FailedCount)
                     .Take(50)

@@ -26,7 +26,14 @@ populate/select proc:
   current `DeploymentRequestStatus` enum value; `'Error'` covers legacy rows.
 - **Success** = `Status IN ('Completed', 'Success')`.
 - **Cancelled** = `Status = 'Cancelled'` (reported separately, never counted
-  as a failure).
+  as a failure, and excluded from deployment-volume counts).
+- **`Abandoned` and other non-terminal statuses** count toward totals where
+  present (e.g. environment/user `TotalDeployments`) but toward neither
+  success nor failure — a deliberate choice, not an omission.
+- Component-level metrics use the **`DeploymentResultStatus` domain** instead
+  (`Complete`/`Warning`/`Failed`/`Cancelled`/...): only attempts that executed
+  to a terminal state (`Complete`, `Warning`, `Failed`) are counted, because
+  archival snapshots mark never-executed component rows `Cancelled`.
 
 ## Expanded analytics (items 1–9)
 
@@ -35,13 +42,13 @@ the truncate-and-rebuild populate pattern over `deploy` + `archive`:
 
 | Endpoint | Table / proc | Chart |
 |---|---|---|
-| `GET /AnalyticsMonthlyOutcome` | `AnalyticsMonthlyOutcome` / `sp_PopulateAnalyticsMonthlyOutcome` | Monthly volume (prod vs non-prod stacked), failure-rate % line, cancellations |
-| `GET /AnalyticsEnvironmentWait` | `AnalyticsEnvironmentWait` / `sp_PopulateAnalyticsEnvironmentWait` | Top 10 environments by queue wait (median + P90 of Requested→Started) |
+| `GET /AnalyticsMonthlyOutcome` | `AnalyticsMonthlyOutcome` / `sp_PopulateAnalyticsMonthlyOutcome` | Monthly volume (prod vs non-prod stacked), failure-rate % line, cancellations. Volume and the failure-rate denominator are **completed deployments only** (cancellations charted separately, never in the volume); a restarted-but-unfinished request can transiently appear under its previous completion month |
+| `GET /AnalyticsEnvironmentWait` | `AnalyticsEnvironmentWait` / `sp_PopulateAnalyticsEnvironmentWait` | Top 10 environments by queue wait (median + P90 of Requested→Started). Negative waits and waits over 7 days are excluded as data artifacts/outliers |
 | `GET /AnalyticsProjectDuration` | `AnalyticsProjectDuration` / `sp_PopulateAnalyticsProjectDuration` | Per-project duration median + P90 (top 15 by volume) |
-| `GET /AnalyticsComponentReliability` | `AnalyticsComponentReliability` / `sp_PopulateAnalyticsComponentReliability` | Failure % per component (min 20 attempts; retry counts from the attempt tables, which are not archived) |
-| `GET /AnalyticsRecoveryTime` | `AnalyticsRecoveryTime` / `sp_PopulateAnalyticsRecoveryTime` | Median hours from a failed deployment to the next success per project+environment |
+| `GET /AnalyticsComponentReliability` | `AnalyticsComponentReliability` / `sp_PopulateAnalyticsComponentReliability` | Failure % per component over **executed** attempts only (`Complete`/`Warning`/`Failed`; min 20). Attempt tables are not archived, so this covers the retained window of history only |
+| `GET /AnalyticsRecoveryTime` | `AnalyticsRecoveryTime` / `sp_PopulateAnalyticsRecoveryTime` | Median hours from a failed deployment to the next success. Pairs are computed within project+environment, reported per project; consecutive failures each pair to the same recovery, so streaky outages weight the median, and gaps include calendar inactivity |
 | `/AnalyticsDuration` (extended) | `AnalyticsDuration` +P50/P90/P95 columns | Percentile stat cards |
-| `/AnalyticsEnvironmentUsage` (extended) | `AnalyticsEnvironmentUsage` +`LastSuccessfulDeployment` | Stalest environments (days since last success) |
+| `/AnalyticsEnvironmentUsage` (extended) | `AnalyticsEnvironmentUsage` +`LastSuccessfulDeployment` | Stalest environments (days since last success). Environments that have **never** succeeded have no date to measure from and are excluded from this chart |
 
 A client-side filter bar (from/to month + project) applies to the deployment
 river and monthly outcome charts; the pure filtering helpers live in

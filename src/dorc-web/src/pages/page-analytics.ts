@@ -296,6 +296,21 @@ export class PageAnalytics extends PageElement {
           width: 100%;
         }
       }
+
+      @media (max-width: 480px) {
+        .chart--sm {
+          height: 260px;
+        }
+        .chart--md {
+          height: 340px;
+        }
+        .chart--lg {
+          height: 400px;
+        }
+        .chart--xl {
+          height: 480px;
+        }
+      }
     `;
   }
 
@@ -1205,7 +1220,7 @@ export class PageAnalytics extends PageElement {
         failed: 0,
         cancelled: 0
       };
-      if (row.IsProd) {
+      if (row.IsProd === true) {
         bucket.prod += row.CountOfDeployments ?? 0;
       } else {
         bucket.nonProd += row.CountOfDeployments ?? 0;
@@ -1286,7 +1301,11 @@ export class PageAnalytics extends PageElement {
   private constructEnvironmentWaitChart(
     data: AnalyticsEnvironmentWaitApiModel[]
   ) {
-    const top = (data ?? []).slice(0, 10);
+    // The API pre-sorts by median wait, but sort defensively so the "top 10"
+    // claim holds regardless of server ordering.
+    const top = [...(data ?? [])]
+      .sort((a, b) => (b.MedianWaitMinutes ?? 0) - (a.MedianWaitMinutes ?? 0))
+      .slice(0, 10);
     const hasData = top.length > 0;
     const environments = top.map(d => d.EnvironmentName ?? '');
 
@@ -1326,7 +1345,11 @@ export class PageAnalytics extends PageElement {
   private constructProjectDurationChart(
     data: AnalyticsProjectDurationApiModel[]
   ) {
-    const top = (data ?? []).slice(0, 15);
+    // The API pre-sorts by sample count, but sort defensively so the "top 15
+    // by volume" claim holds regardless of server ordering.
+    const top = [...(data ?? [])]
+      .sort((a, b) => (b.SampleCount ?? 0) - (a.SampleCount ?? 0))
+      .slice(0, 15);
     const hasData = top.length > 0;
 
     this.projectDurationChartOptions = {
@@ -1372,7 +1395,7 @@ export class PageAnalytics extends PageElement {
     this.componentReliabilityChartOptions = {
       title: {
         text: hasData
-          ? 'Least Reliable Components (failure %, min 20 attempts)'
+          ? 'Least Reliable Components (failure %, min 20 executed attempts, recent history)'
           : 'Component Reliability (no data available)',
         left: 'center'
       },
@@ -1412,7 +1435,13 @@ export class PageAnalytics extends PageElement {
   }
 
   private constructRecoveryTimeChart(data: AnalyticsRecoveryTimeApiModel[]) {
-    const top = (data ?? []).slice(0, 10);
+    // The API pre-sorts by median recovery, but sort defensively so the
+    // "slowest" claim holds regardless of server ordering.
+    const top = [...(data ?? [])]
+      .sort(
+        (a, b) => (b.MedianRecoveryHours ?? 0) - (a.MedianRecoveryHours ?? 0)
+      )
+      .slice(0, 10);
     const hasData = top.length > 0;
 
     this.recoveryTimeChartOptions = {
