@@ -1,16 +1,16 @@
 # Encryption Migration Tool
 
-This tool migrates existing property values from legacy AES encryption to post-quantum resistant AES-256-GCM encryption.
+This tool migrates existing property values from legacy AES-CBC encryption to AES-256-GCM authenticated encryption.
 
 ## Overview
 
-DOrc has been upgraded to use quantum-resistant encryption for secure property values:
+DOrc has been upgraded to use AES-256-GCM authenticated encryption for secure property values:
 
 - **Legacy Format**: AES-CBC encryption (unversioned or `v1:` prefixed)
 - **New Format**: AES-256-GCM encryption (`v2:` prefixed) with authenticated encryption
 
 The new encryption provides:
-- Quantum-resistant symmetric encryption (AES-256-GCM)
+- Modern symmetric encryption (AES-256-GCM)
 - Authenticated encryption preventing tampering
 - Backward compatibility with legacy encrypted values
 - Version tracking for smooth migration
@@ -101,7 +101,7 @@ This allows gradual migration without service disruption.
 - IV: 16 bytes
 - No authentication
 
-**Post-Quantum (v2)**:
+**AES-GCM (v2)**:
 - Algorithm: AES-256-GCM
 - Key size: 256 bits (derived via SHA-256 if needed)
 - Nonce: 12 bytes (random per encryption)

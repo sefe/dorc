@@ -165,15 +165,16 @@ namespace Dorc.Api.Controllers
                 var bundle = _bundledRequestsPersistentSource.GetBundleById(id);
                 if (bundle == null)
                 {
-                    return NotFound();
+                    return NotFound($"Bundled request with ID {id} not found.");
                 }
+
                 // Check user has write/modify rights for the project
-                if (!_securityPrivilegesChecker.CanModifyProject(User, (int)bundle.ProjectId.Value))
+                if (!bundle.ProjectId.HasValue ||
+                    !_securityPrivilegesChecker.CanModifyProject(User, (int)bundle.ProjectId.Value))
                 {
                     return StatusCode(StatusCodes.Status403Forbidden, "User does not have Modify rights on this Project");
                 }
 
-                // Call the persistent source to delete the bundled request by ID
                 _bundledRequestsPersistentSource.DeleteRequestFromBundle(id);
 
                 return Ok($"Bundled request with ID {id} deleted successfully.");

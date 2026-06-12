@@ -50,7 +50,7 @@ namespace Dorc.PersistentData.Sources
         public BundledRequestsApiModel? GetBundleById(int id)
         {
             using var context = contextFactory.GetContext();
-            var bundledRequest = context.BundledRequests.FirstOrDefault(br => br.Id == id);
+            var bundledRequest = context.BundledRequests.AsNoTracking().FirstOrDefault(br => br.Id == id);
 
             if (bundledRequest != null)
                 return MapToBundledRequestApiModel(bundledRequest);

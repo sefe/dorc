@@ -1,19 +1,28 @@
-# DOrc Quantum-Resistant Encryption Upgrade
+# DOrc AES-256-GCM Encryption Upgrade
 
 ## Overview
 
-This document describes the upgrade of DOrc's secret encryption from legacy AES-CBC to quantum-resistant AES-256-GCM encryption.
+This document describes the upgrade of DOrc's secret encryption from legacy AES-CBC to authenticated AES-256-GCM encryption.
+
+> **A note on terminology**: earlier drafts of this work described AES-256-GCM as
+> "quantum-resistant". That label is misleading: post-quantum cryptography (PQC) refers to
+> asymmetric algorithms (key exchange, signatures) designed to resist attacks by quantum
+> computers, such as NIST's ML-KEM and ML-DSA. AES-256 is a conventional symmetric cipher.
+> It does retain a comfortable security margin against known quantum attacks (Grover's
+> algorithm offers at most a quadratic speedup, leaving roughly 128-bit effective security),
+> but it is not PQC. The real improvements delivered here are authenticated encryption,
+> per-encryption random nonces, and integrity protection.
 
 ## Summary of Changes
 
-### 1. New Quantum-Resistant Encryption Implementation
+### 1. New AES-GCM Encryption Implementation
 
-**File**: `src/Dorc.Core/VariableResolution/QuantumResistantPropertyEncryptor.cs`
+**File**: `src/Dorc.Core/VariableResolution/AesGcmPropertyEncryptor.cs`
 
-- Implements `IPropertyEncryptor` interface with quantum-resistant AES-256-GCM encryption
+- Implements `IPropertyEncryptor` interface with AES-256-GCM encryption
 - Provides authenticated encryption (confidentiality + integrity)
 - Uses 256-bit keys, 12-byte random nonces, and 16-byte authentication tags
-- Supports version tracking: `v1:` (legacy), `v2:` (quantum-resistant)
+- Supports version tracking: `v1:` (legacy AES-CBC), `v2:` (AES-256-GCM)
 - Maintains full backward compatibility with legacy encrypted values
 - Includes `MigrateFromLegacy()` method for seamless migration
 
@@ -29,7 +38,7 @@ This document describes the upgrade of DOrc's secret encryption from legacy AES-
 **Location**: `src/Tools.EncryptionMigrationCLI/`
 
 **Features**:
-- Migrates existing encrypted property values from legacy to quantum-resistant format
+- Migrates existing encrypted property values from legacy AES-CBC to AES-256-GCM format
 - Supports dry-run mode (`--dry-run`) for safe preview
 - Batched database updates (100 records per batch) for performance
 - Idempotent operation - safe to run multiple times
@@ -51,13 +60,13 @@ dotnet Tools.EncryptionMigrationCLI.dll --force
 ### 3. Updated Components
 
 **Core Registry** (`src/Dorc.Core/Lamar/CoreRegistry.cs`):
-- Changed from `PropertyEncryptor` to `QuantumResistantPropertyEncryptor`
+- Changed from `PropertyEncryptor` to `AesGcmPropertyEncryptor`
 
 **Monitor** (`src/Dorc.Monitor/Program.cs`):
-- Updated service registration to use `QuantumResistantPropertyEncryptor`
+- Updated service registration to use `AesGcmPropertyEncryptor`
 
-**Property Value Creation CLI** (`src/Tools.PropertyValueCreationCLI/Program.cs`):
-- Updated DI container to use `QuantumResistantPropertyEncryptor`
+**Property Value Creation CLI** (`src/Tools.PropertyValueCreationCLI/`):
+- Resolves `IPropertyEncryptor` through the core registry, so it now receives `AesGcmPropertyEncryptor`
 
 ### 4. UI Enhancements
 
@@ -78,7 +87,7 @@ dotnet Tools.EncryptionMigrationCLI.dll --force
 ### 5. Comprehensive Testing
 
 **Test Files**:
-1. `QuantumResistantPropertyEncryptorTests.cs` (27 tests)
+1. `AesGcmPropertyEncryptorTests.cs` (27 tests)
    - Encryption/decryption round-trip tests
    - Version prefix validation
    - Backward compatibility with legacy formats
@@ -102,16 +111,11 @@ dotnet Tools.EncryptionMigrationCLI.dll --force
 
 ## Security Benefits
 
-### Post-Quantum Resistance
-- **AES-256-GCM**: Quantum computers cannot break symmetric encryption faster than classical computers (Grover's algorithm only provides quadratic speedup)
-- **256-bit keys**: Provides 128-bit quantum security (sufficient against quantum attacks)
-- **Authenticated encryption**: Prevents tampering and ensures data integrity
-
-### Improved Security Properties
 1. **Authentication**: GCM mode provides built-in authentication, detecting any modifications
 2. **Random nonces**: Each encryption uses a unique 12-byte random nonce, preventing pattern analysis
 3. **Integrity protection**: 16-byte authentication tag ensures ciphertext hasn't been tampered with
-4. **Forward secrecy**: Compromising one encrypted value doesn't affect others
+4. **Strong key size**: 256-bit keys provide a large security margin, including against
+   Grover-style quantum search (roughly 128-bit effective security)
 
 ## Backward Compatibility
 
@@ -120,7 +124,7 @@ The system maintains full backward compatibility:
 1. **Decryption supports all formats**:
    - Unversioned legacy AES-CBC
    - `v1:` prefixed legacy AES-CBC
-   - `v2:` prefixed quantum-resistant AES-GCM
+   - `v2:` prefixed AES-256-GCM
 
 2. **Gradual migration**:
    - New encryptions automatically use v2: format
@@ -214,7 +218,7 @@ The tool reports:
 ### Encryption Issues
 
 **Problem**: Cannot decrypt v2: values
-**Solution**: Ensure `QuantumResistantPropertyEncryptor` is registered in DI container
+**Solution**: Ensure `AesGcmPropertyEncryptor` is registered in DI container
 
 **Problem**: Legacy values not decrypting
 **Solution**: Verify SecureKeys table contains correct IV and Key values
@@ -222,7 +226,8 @@ The tool reports:
 ## Future Enhancements
 
 Potential improvements:
-1. **Key-Encapsulation Mechanisms (KEM)**: Add ML-KEM-768 for hybrid encryption once available in .NET
+1. **Post-quantum cryptography**: Adopt ML-KEM-768 for any future asymmetric key exchange
+   once available in .NET — this is where genuine quantum resistance applies
 2. **Key rotation automation**: Automated re-encryption during key rotation
 3. **Encryption at rest**: Database-level encryption for additional security layer
 4. **HSM integration**: Hardware Security Module support for key storage

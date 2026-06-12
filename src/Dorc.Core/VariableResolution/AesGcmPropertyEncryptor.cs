@@ -4,7 +4,7 @@ using System.Text;
 
 namespace Dorc.Core.VariableResolution
 {
-    public class QuantumResistantPropertyEncryptor : IPropertyEncryptor
+    public class AesGcmPropertyEncryptor : IPropertyEncryptor
     {
         private const string VersionPrefix = "v2:";
         private const string LegacyVersionPrefix = "v1:";
@@ -13,7 +13,7 @@ namespace Dorc.Core.VariableResolution
         private readonly byte[] _key;
         private readonly PropertyEncryptor _legacyEncryptor;
 
-        public QuantumResistantPropertyEncryptor(string iv, string key)
+        public AesGcmPropertyEncryptor(string iv, string key)
         {
             try
             {
@@ -100,11 +100,11 @@ namespace Dorc.Core.VariableResolution
             }
             catch (CryptographicException ex)
             {
-                throw new CryptographicException("Failed to decrypt value with quantum-resistant algorithm", ex);
+                throw new CryptographicException("Failed to decrypt value with AES-GCM", ex);
             }
             catch (FormatException ex)
             {
-                throw new CryptographicException("Failed to decrypt value with quantum-resistant algorithm", ex);
+                throw new CryptographicException("Failed to decrypt value with AES-GCM", ex);
             }
         }
 
@@ -133,7 +133,7 @@ namespace Dorc.Core.VariableResolution
             }
             catch (CryptographicException ex)
             {
-                throw new CryptographicException("Failed to encrypt value with quantum-resistant algorithm", ex);
+                throw new CryptographicException("Failed to encrypt value with AES-GCM", ex);
             }
         }
 
