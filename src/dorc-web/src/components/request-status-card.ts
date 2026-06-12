@@ -155,7 +155,7 @@ export class RequestStatusCard extends LitElement {
                 .state="${this.hubConnectionState}"
               ></connection-status-indicator>
             </td>
-            ${this.deployRequest.Log !== null && this.deployRequest.Log !== '0'
+            ${this.deployRequest?.Log != null && this.deployRequest?.Log !== '0'
               ? html` <td style="vertical-align: middle">
                   <vaadin-button
                     title="View Log"
@@ -305,20 +305,20 @@ export class RequestStatusCard extends LitElement {
         </table>
         <request-controls
           style="position: absolute; right: 15px; top: 65px;"
-          .requestId="${this.deployRequest.Id ?? 0}"
-          .cancelable="${!!this.deployRequest.UserEditable &&
-          (this.deployRequest.Status === 'Running' ||
-            this.deployRequest.Status === 'Requesting' ||
-            this.deployRequest.Status === 'Pending' ||
-            this.deployRequest.Status === 'Restarting' ||
-            this.deployRequest.Status === 'Paused')}"
-          .canRestart="${!!this.deployRequest.UserEditable &&
-          this.deployRequest.Status !== 'Pending' &&
-          this.deployRequest.Status !== 'Paused'}"
-          .canPause="${!!this.deployRequest.UserEditable &&
-          this.deployRequest.Status === 'Pending'}"
-          .canResume="${!!this.deployRequest.UserEditable &&
-          this.deployRequest.Status === 'Paused'}"
+          .requestId="${this.deployRequest?.Id ?? 0}"
+          .cancelable="${!!this.deployRequest?.UserEditable &&
+          (this.deployRequest?.Status === 'Running' ||
+            this.deployRequest?.Status === 'Requesting' ||
+            this.deployRequest?.Status === 'Pending' ||
+            this.deployRequest?.Status === 'Restarting' ||
+            this.deployRequest?.Status === 'Paused')}"
+          .canRestart="${!!this.deployRequest?.UserEditable &&
+          this.deployRequest?.Status !== 'Pending' &&
+          this.deployRequest?.Status !== 'Paused'}"
+          .canPause="${!!this.deployRequest?.UserEditable &&
+          this.deployRequest?.Status === 'Pending'}"
+          .canResume="${!!this.deployRequest?.UserEditable &&
+          this.deployRequest?.Status === 'Paused'}"
         ></request-controls>
       </div>
     `;
