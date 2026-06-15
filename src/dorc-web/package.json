@@ -70,7 +70,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@openapitools/openapi-generator-cli": "^2.34.0",
+    "@openapitools/openapi-generator-cli": "^2.38.0",
     "@types/chai": "^5.2.3",
     "@types/node": "^25.9.2",
     "@typescript-eslint/eslint-plugin": "^8.60.1",
