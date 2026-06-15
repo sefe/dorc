@@ -72,6 +72,7 @@ export class PageProjectEnvs extends PageElement {
         box-shadow: 1px 2px 3px rgba(0, 0, 0, 0.2);
         width: 300px;
         min-height: 100px;
+        height: 100%;
         display: flex;
         justify-content: space-between;
         gap: var(--lumo-space-s);
@@ -116,23 +117,40 @@ export class PageProjectEnvs extends PageElement {
       }
 
       .statistics-cards__item {
-        margin: var(--lumo-space-xs);
+        margin: 0;
         flex-shrink: 0;
         background-color: var(--dorc-bg-secondary);
-        min-width: 280px;
+        width: 300px;
+        height: 100%;
       }
 
       .environments {
-        display: flex;
-        flex-direction: row;
-        flex-wrap: wrap;
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 300px));
+        gap: var(--lumo-space-xs);
+        padding: var(--lumo-space-xs) 0 0 var(--lumo-space-xs);
         justify-content: flex-start;
-        align-items: flex-start;
+        align-items: stretch;
         align-content: flex-start;
         overflow-x: hidden;
         overflow-y: auto;
         flex: 1;
         min-height: 0;
+      }
+
+      .environments > environment-card {
+        display: block;
+        height: 100%;
+      }
+
+      @media (max-width: 768px) {
+        .environments {
+          grid-template-columns: 1fr;
+        }
+
+        .statistics-cards__item {
+          width: 100%;
+        }
       }
 
       a {
