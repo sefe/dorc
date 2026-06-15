@@ -48,6 +48,11 @@ registerStyles(
      */
     :host([theme~='log-viewer']) [part='overlay'] {
       width: min(95vw, 1400px);
+      overflow: hidden;
+    }
+
+    :host([theme~='log-viewer']) [part='content'] {
+      overflow: hidden;
     }
 
     /*

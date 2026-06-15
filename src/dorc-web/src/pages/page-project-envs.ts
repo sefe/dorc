@@ -65,6 +65,7 @@ export class PageProjectEnvs extends PageElement {
         display: flex;
         flex-direction: column;
         height: 100%;
+        overflow: hidden;
       }
 
       .card-element {
@@ -298,8 +299,6 @@ export class PageProjectEnvs extends PageElement {
             ></environment-card>`
         )}
       </div>
-      <div style="padding-bottom: 20px"></div>
-
       <vaadin-dialog
         header-title="Map Environment to Project"
         .opened="${this.mapEnvDialogOpened}"
