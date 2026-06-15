@@ -381,7 +381,8 @@ export class PageAnalytics extends PageElement {
                     </h3>
                     <span class="card-element__text">Shortest Deployment</span>
                   </div>
-                  <div class="statistics-cards__item card-element">
+                  <div class="statistics-cards__item card-element"
+                    title="P50 (50th percentile): half of all deployments complete within this time">
                     <h3>
                       ${this.durationStats?.P50DurationMinutes?.toFixed(1) ??
                       '—'}
@@ -391,7 +392,8 @@ export class PageAnalytics extends PageElement {
                       >Median Duration (P50)</span
                     >
                   </div>
-                  <div class="statistics-cards__item card-element">
+                  <div class="statistics-cards__item card-element"
+                    title="P90 (90th percentile): 90% of deployments complete within this time — only 10% take longer">
                     <h3>
                       ${this.durationStats?.P90DurationMinutes?.toFixed(1) ??
                       '—'}
@@ -399,7 +401,8 @@ export class PageAnalytics extends PageElement {
                     </h3>
                     <span class="card-element__text">P90 Duration</span>
                   </div>
-                  <div class="statistics-cards__item card-element">
+                  <div class="statistics-cards__item card-element"
+                    title="P95 (95th percentile): 95% of deployments complete within this time — only the slowest 5% take longer">
                     <h3>
                       ${this.durationStats?.P95DurationMinutes?.toFixed(1) ??
                       '—'}
@@ -1253,8 +1256,7 @@ export class PageAnalytics extends PageElement {
       tooltip: { trigger: 'axis' },
       legend: {
         data: ['Non-Prod', 'Prod', 'Cancelled', 'Failure Rate %'],
-        top: 25
-      },
+        top: 40      },
       grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
       xAxis: { type: 'category', data: months },
       yAxis: [
@@ -1317,7 +1319,7 @@ export class PageAnalytics extends PageElement {
         left: 'center'
       },
       tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
-      legend: { data: ['Median Wait (min)', 'P90 Wait (min)'], top: 25 },
+      legend: { data: ['Median Wait (min)', 'P90 Wait (min)'], top: 40 },
       grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
       yAxis: {
         type: 'category',
@@ -1360,7 +1362,7 @@ export class PageAnalytics extends PageElement {
         left: 'center'
       },
       tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
-      legend: { data: ['Median (min)', 'P90 (min)'], top: 25 },
+      legend: { data: ['Median (min)', 'P90 (min)'], top: 40 },
       grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
       yAxis: {
         type: 'category',
