@@ -147,6 +147,42 @@ export class PageVariables extends PageElement {
       vaadin-combo-box {
         padding: 0px;
       }
+
+      .variable-selector-table {
+        width: fit-content;
+        max-width: 100%;
+      }
+
+      .variable-selector-cell {
+        width: auto;
+      }
+
+      .variable-selector-combo {
+        width: clamp(30rem, 46vw, 52rem);
+        min-width: 30rem;
+        max-width: none;
+        margin-left: var(--lumo-space-xs);
+      }
+
+      .variable-selector-actions {
+        white-space: nowrap;
+      }
+
+      @media (max-width: 768px) {
+        .variable-selector-table {
+          width: 100%;
+        }
+
+        .variable-selector-cell {
+          width: 100%;
+        }
+
+        .variable-selector-combo {
+          width: 100%;
+          min-width: 0;
+          margin-left: 0;
+        }
+      }
     `;
   }
 
@@ -189,7 +225,7 @@ export class PageVariables extends PageElement {
               summary="Select Variable Name"
               style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; padding-left: 10px"
             >
-              <table>
+              <table class="variable-selector-table">
                 <tr>
                   <td style="vertical-align: center; min-width: 20px">
                     ${this.loadingProperties
@@ -199,11 +235,13 @@ export class PageVariables extends PageElement {
                         ></div> `
                       : html``}
                   </td>
-                  <td style="vertical-align: center;">
+                  <td class="variable-selector-cell" style="vertical-align: center;">
                     <vaadin-combo-box
+                      class="variable-selector-combo"
                       id="properties"
                       @value-changed="${this._propNameValueChanged}"
                       .items="${this.properties}"
+                      .renderer="${this.propertyNameRenderer}"
                       label="Existing Variable Name"
                       placeholder="Select Variable Name"
                       clear-button-visible
@@ -212,11 +250,10 @@ export class PageVariables extends PageElement {
                       helper-text="${this.propertyValues
                         ? `Property contains ${this.propertyValues?.length} value(s)`
                         : 'Select Variable for info'}"
-                      style="width: 100%; max-width: 600px; margin-left: var(--lumo-space-xs)"
                       ?disabled="${this.deletingVariable}"
                     ></vaadin-combo-box>
                   </td>
-                  <td style="vertical-align: center;">
+                  <td class="variable-selector-actions" style="vertical-align: center;">
                     <vaadin-button
                       style="--lumo-primary-text-color: var(--dorc-error-color);"
                       ?disabled="${!this.isAdmin ||
@@ -234,7 +271,7 @@ export class PageVariables extends PageElement {
                         ></div> `
                       : html``}
                   </td>
-                  <td style="vertical-align: center;">
+                  <td class="variable-selector-actions" style="vertical-align: center;">
                     <vaadin-checkbox
                       id="is-variable-secure"
                       label="Secure"
@@ -519,6 +556,17 @@ export class PageVariables extends PageElement {
       );
     };
 
+  private propertyNameRenderer: ComboBoxRenderer<PropertyApiModel> = (
+    root,
+    _,
+    { item: property }
+  ) => {
+    render(
+      html`<div title="${property.Name}">${property.Name}</div>`,
+      root
+    );
+  };
+
   validateNewVariable() {
     const textField = this.shadowRoot?.querySelector(
       '#newVariable'
@@ -689,6 +737,7 @@ export class PageVariables extends PageElement {
     if (data) {
       const combo = data.target as ComboBox;
       this.propertyName = combo.value;
+      combo.title = this.propertyName;
 
       if (this.newVariableName !== '') {
         const newfoundProp = this.properties?.find(
@@ -696,6 +745,7 @@ export class PageVariables extends PageElement {
         );
         if (combo) {
           combo.selectedItem = newfoundProp;
+          combo.title = combo.value;
           this.newVariableName = '';
         }
       }
