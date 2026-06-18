@@ -34,7 +34,7 @@ namespace Dorc.Api.Tests.Controllers
             Assert.IsInstanceOfType(result, typeof(OkObjectResult));
             var ok = result as OkObjectResult;
             Assert.IsNotNull(ok);
-            Assert.AreSame(summary, ok.Value);
+            Assert.AreSame(summary, ok!.Value);
         }
 
         [TestMethod]
@@ -48,7 +48,7 @@ namespace Dorc.Api.Tests.Controllers
             Assert.IsInstanceOfType(result, typeof(ObjectResult));
             var status = result as ObjectResult;
             Assert.IsNotNull(status);
-            Assert.AreEqual(StatusCodes.Status500InternalServerError, status.StatusCode);
+            Assert.AreEqual(StatusCodes.Status500InternalServerError, status!.StatusCode);
         }
 
         [TestMethod]
@@ -65,7 +65,7 @@ namespace Dorc.Api.Tests.Controllers
             Assert.IsInstanceOfType(result, typeof(OkObjectResult));
             var ok = result as OkObjectResult;
             Assert.IsNotNull(ok);
-            Assert.AreSame(data, ok.Value);
+            Assert.AreSame(data, ok!.Value);
         }
 
         [TestMethod]
@@ -79,7 +79,7 @@ namespace Dorc.Api.Tests.Controllers
             Assert.IsInstanceOfType(result, typeof(ObjectResult));
             var status = result as ObjectResult;
             Assert.IsNotNull(status);
-            Assert.AreEqual(StatusCodes.Status500InternalServerError, status.StatusCode);
+            Assert.AreEqual(StatusCodes.Status500InternalServerError, status!.StatusCode);
         }
 
         [TestMethod]
@@ -91,9 +91,9 @@ namespace Dorc.Api.Tests.Controllers
             var result = _controller.GetDuration();
 
             Assert.IsInstanceOfType(result, typeof(ObjectResult));
-            var status2 = result as ObjectResult;
-            Assert.IsNotNull(status2);
-            Assert.AreEqual(StatusCodes.Status500InternalServerError, status2.StatusCode);
+            var status = result as ObjectResult;
+            Assert.IsNotNull(status);
+            Assert.AreEqual(StatusCodes.Status500InternalServerError, status!.StatusCode);
         }
 
         [TestMethod]
