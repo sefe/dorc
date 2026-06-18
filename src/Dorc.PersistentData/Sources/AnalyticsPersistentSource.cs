@@ -194,13 +194,14 @@ namespace Dorc.PersistentData.Sources
             using (var context = _contextFactory.GetContext())
             {
                 // The population proc stores SQL Server WEEKDAY (1-7); convert to
-                // a 0-6 index. Filter out rows outside the valid range rather than
-                // risk an IndexOutOfRangeException on unexpected data.
+                // a 0-6 index. Filter out rows outside the valid range server-side
+                // (avoids loading invalid rows and guards against an
+                // IndexOutOfRangeException), then map DayNames in-memory.
                 return context.AnalyticsTimePattern
+                    .Where(pattern => pattern.DayOfWeek >= 1 && pattern.DayOfWeek <= 7)
                     .OrderBy(pattern => pattern.HourOfDay)
                     .ThenBy(pattern => pattern.DayOfWeek)
-                    .ToList()
-                    .Where(pattern => pattern.DayOfWeek >= 1 && pattern.DayOfWeek <= 7)
+                    .AsEnumerable()
                     .Select(pattern =>
                     {
                         var dayIndex = pattern.DayOfWeek - 1;
