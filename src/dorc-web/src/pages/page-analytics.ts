@@ -879,9 +879,6 @@ export class PageAnalytics extends PageElement {
   }
 
   private constructPieChart() {
-    const tt: TooltipComponentOption = {
-      trigger: 'item'
-    };
     const title: TitleComponentOption = {
       text: 'Total Deployments By Project This Year',
       subtext: 'Not including top 3',
@@ -922,22 +919,52 @@ export class PageAnalytics extends PageElement {
     });
     const withoutTop3 = sortedDescending.slice(3);
 
+    // A pie with a long tail of tiny projects produces dozens of leader-line
+    // labels that fan vertically into the title. Keep the largest slices and
+    // roll the remainder into a single "Other" slice for readability.
+    const maxSlices = 14;
+    const visible = withoutTop3.slice(0, maxSlices);
+    const remainder = withoutTop3.slice(maxSlices);
+    const pieData = visible.map(value => ({
+      name: value.ProjectName ?? '',
+      value: value.CountOfDeployments ?? 0
+    }));
+    if (remainder.length > 0) {
+      const otherTotal = remainder.reduce(
+        (sum, p) => sum + (p.CountOfDeployments ?? 0),
+        0
+      );
+      if (otherTotal > 0) {
+        pieData.push({ name: `Other (${remainder.length})`, value: otherTotal });
+      }
+    }
+
     const series: PieSeriesOption[] = [
       {
         type: 'pie',
-        // Push the pie below the centered title/subtext and cap the radius so
-        // the slice leader-line labels don't overlap the heading.
-        center: ['50%', '58%'],
-        radius: '60%',
-        data: withoutTop3.map(value => ({
-          name: value.ProjectName ?? '',
-          value: value.CountOfDeployments
-        }))
+        // Centre-right pie with the legend on the right; labels are off so the
+        // slice leader lines can never overlap the title (the legend and
+        // tooltip carry the project names instead).
+        center: ['38%', '55%'],
+        radius: '65%',
+        label: { show: false },
+        labelLine: { show: false },
+        data: pieData
       }
     ];
 
     this.pieChartOptions = {
-      tooltip: tt,
+      tooltip: {
+        trigger: 'item',
+        formatter: '{b}: {c} ({d}%)'
+      },
+      legend: {
+        type: 'scroll',
+        orient: 'vertical',
+        right: 10,
+        top: 60,
+        bottom: 20
+      },
       title,
       series
     };
