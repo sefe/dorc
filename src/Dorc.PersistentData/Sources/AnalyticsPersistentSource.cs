@@ -191,31 +191,29 @@ namespace Dorc.PersistentData.Sources
 
         public IEnumerable<AnalyticsTimePatternApiModel> GetTimePatterns()
         {
-            var output = new List<AnalyticsTimePatternApiModel>();
             using (var context = _contextFactory.GetContext())
             {
-                var patterns = context.AnalyticsTimePattern
-                    .OrderBy(pattern => pattern.HourOfDay)
-                    .ThenBy(pattern => pattern.DayOfWeek)
-                    .ToList();
-
                 // The population proc stores SQL Server WEEKDAY (1-7); convert to
                 // a 0-6 index. Filter out rows outside the valid range rather than
                 // risk an IndexOutOfRangeException on unexpected data.
-                foreach (var pattern in patterns.Where(pattern =>
-                             pattern.DayOfWeek >= 1 && pattern.DayOfWeek <= 7))
-                {
-                    var dayIndex = pattern.DayOfWeek - 1;
-                    output.Add(new AnalyticsTimePatternApiModel
+                return context.AnalyticsTimePattern
+                    .OrderBy(pattern => pattern.HourOfDay)
+                    .ThenBy(pattern => pattern.DayOfWeek)
+                    .ToList()
+                    .Where(pattern => pattern.DayOfWeek >= 1 && pattern.DayOfWeek <= 7)
+                    .Select(pattern =>
                     {
-                        HourOfDay = pattern.HourOfDay,
-                        DayOfWeek = dayIndex,
-                        DayOfWeekName = DayNames[dayIndex],
-                        CountOfDeployments = pattern.DeploymentCount
-                    });
-                }
+                        var dayIndex = pattern.DayOfWeek - 1;
+                        return new AnalyticsTimePatternApiModel
+                        {
+                            HourOfDay = pattern.HourOfDay,
+                            DayOfWeek = dayIndex,
+                            DayOfWeekName = DayNames[dayIndex],
+                            CountOfDeployments = pattern.DeploymentCount
+                        };
+                    })
+                    .ToList();
             }
-            return output;
         }
 
         public IEnumerable<AnalyticsComponentUsageApiModel> GetComponentUsage()

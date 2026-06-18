@@ -2,6 +2,7 @@ using Dorc.Api.Tests.Mocks;
 using Dorc.PersistentData.Contexts;
 using Dorc.PersistentData.Model;
 using Dorc.PersistentData.Sources;
+using Microsoft.Extensions.Logging;
 using NSubstitute;
 
 namespace Dorc.Api.Tests.Sources
@@ -24,7 +25,8 @@ namespace Dorc.Api.Tests.Sources
             _contextFactory = Substitute.For<IDeploymentContextFactory>();
             _context = Substitute.For<IDeploymentContext>();
             _contextFactory.GetContext().Returns(_context);
-            _source = new AnalyticsPersistentSource(_contextFactory);
+            _source = new AnalyticsPersistentSource(_contextFactory,
+                Substitute.For<ILogger<AnalyticsPersistentSource>>());
         }
 
         private void SetupDateRows(List<DeploymentsByProjectDate> rows)

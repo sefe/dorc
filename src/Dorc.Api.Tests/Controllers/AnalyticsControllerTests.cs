@@ -32,7 +32,8 @@ namespace Dorc.Api.Tests.Controllers
             var result = _controller.GetDeploymentSummary();
 
             Assert.IsInstanceOfType(result, typeof(OkObjectResult));
-            var ok = (OkObjectResult)result;
+            var ok = result as OkObjectResult;
+            Assert.IsNotNull(ok);
             Assert.AreSame(summary, ok.Value);
         }
 
@@ -45,7 +46,8 @@ namespace Dorc.Api.Tests.Controllers
             var result = _controller.GetDeploymentSummary();
 
             Assert.IsInstanceOfType(result, typeof(ObjectResult));
-            var status = (ObjectResult)result;
+            var status = result as ObjectResult;
+            Assert.IsNotNull(status);
             Assert.AreEqual(StatusCodes.Status500InternalServerError, status.StatusCode);
         }
 
@@ -61,7 +63,8 @@ namespace Dorc.Api.Tests.Controllers
             var result = _controller.GetDeploymentsMonth();
 
             Assert.IsInstanceOfType(result, typeof(OkObjectResult));
-            var ok = (OkObjectResult)result;
+            var ok = result as OkObjectResult;
+            Assert.IsNotNull(ok);
             Assert.AreSame(data, ok.Value);
         }
 
@@ -74,7 +77,8 @@ namespace Dorc.Api.Tests.Controllers
             var result = _controller.GetDeploymentsMonth();
 
             Assert.IsInstanceOfType(result, typeof(ObjectResult));
-            var status = (ObjectResult)result;
+            var status = result as ObjectResult;
+            Assert.IsNotNull(status);
             Assert.AreEqual(StatusCodes.Status500InternalServerError, status.StatusCode);
         }
 
@@ -87,8 +91,9 @@ namespace Dorc.Api.Tests.Controllers
             var result = _controller.GetDuration();
 
             Assert.IsInstanceOfType(result, typeof(ObjectResult));
-            var status = (ObjectResult)result;
-            Assert.AreEqual(StatusCodes.Status500InternalServerError, status.StatusCode);
+            var status2 = result as ObjectResult;
+            Assert.IsNotNull(status2);
+            Assert.AreEqual(StatusCodes.Status500InternalServerError, status2.StatusCode);
         }
 
         [TestMethod]
