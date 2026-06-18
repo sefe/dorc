@@ -496,8 +496,9 @@ export class PageAnalytics extends PageElement {
                     @value-changed="${this.updateProjectFilter}"
                   ></vaadin-combo-box>
                   <span class="card-element__text"
-                    >Filters apply to the deployment river and monthly outcome
-                    charts</span
+                    >Month range applies to both charts. The project filter
+                    applies to the deployment river only — the monthly outcome
+                    chart always shows all projects.</span
                   >
                 </div>
                 <dorc-chart
@@ -1261,6 +1262,12 @@ export class PageAnalytics extends PageElement {
         text: hasData
           ? 'Monthly Deployments: Volume, Failure Rate and Cancellations'
           : 'Monthly Deployments (no data available)',
+        // The monthly outcome data has no project dimension, so this chart is
+        // always all-projects. Make that explicit when a project filter is set
+        // (it only narrows the river chart) to avoid implying it applied here.
+        subtext: this.filterProject
+          ? 'All projects (project filter applies to the river chart only)'
+          : undefined,
         left: 'center'
       },
       tooltip: { trigger: 'axis' },
