@@ -117,7 +117,7 @@ export class DorcNavbar extends LitElement {
       <vaadin-tabs
         orientation="vertical"
         id="tabs"
-        style="flex: 1; overflow-y: auto;"
+        style="flex: 1; min-height: 0;"
       >
         <vaadin-tab>
           <a href="${urlForName('deploy')}" @click="${this.openDeploy}">

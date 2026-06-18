@@ -118,12 +118,25 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
       vaadin-combo-box {
         padding: 0px;
       }
+
+      .env-variable-selector-combo {
+        width: clamp(24rem, 34vw, 36rem);
+        min-width: 24rem;
+        max-width: none;
+        margin-left: var(--lumo-space-xs);
+      }
       @keyframes spin {
         100% {
           transform: rotate(360deg);
         }
       }
       @media (max-width: 768px) {
+        .env-variable-selector-combo {
+          width: 100%;
+          min-width: 0;
+          margin-left: 0;
+        }
+
         vaadin-grid-cell-content {
           white-space: normal;
           word-wrap: break-word;
@@ -160,6 +173,7 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
                       </td>
                       <td style="vertical-align: top;">
                         <vaadin-combo-box
+                          class="env-variable-selector-combo"
                           id="properties"
                           @value-changed="${this._propNameValueChanged}"
                           .items="${this.properties}"
@@ -168,7 +182,6 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
                           clear-button-visible
                           item-label-path="Name"
                           item-value-path="Name"
-                          style="width: 100%; max-width: 600px; margin-left: var(--lumo-space-xs)"
                         ></vaadin-combo-box>
                       </td>
                     </tr>

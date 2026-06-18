@@ -1,0 +1,516 @@
+diff --git a/src/Dorc.Api/Controllers/RequestController.cs b/src/Dorc.Api/Controllers/RequestController.cs
+index 848f90f4..3db424e1 100644
+--- a/src/Dorc.Api/Controllers/RequestController.cs
++++ b/src/Dorc.Api/Controllers/RequestController.cs
+@@ -242,7 +242,10 @@ namespace Dorc.Api.Controllers
+ 
+                 // Broadcast restart -> Restarting
+                 _ = _deploymentEventsPublisher.PublishRequestStatusChangedAsync(
+-                    new DeploymentRequestEventData(updated));
++                    new DeploymentRequestEventData(updated))
++                    .ContinueWith(t => _log.LogWarning(t.Exception!.InnerException,
++                        "fire-and-forget publish failed for requestId={RequestId}", updated.Id),
++                        TaskContinuationOptions.OnlyOnFaulted);
+ 
+                 return StatusCode(StatusCodes.Status200OK,
+                     new RequestStatusDto { Id = updated.Id, Status = updated.Status.ToString() });
+@@ -399,7 +402,10 @@ namespace Dorc.Api.Controllers
+ 
+                 // Broadcast cancel -> Cancelling/Cancelled
+                 _ = _deploymentEventsPublisher.PublishRequestStatusChangedAsync(
+-                    new DeploymentRequestEventData(updated));
++                    new DeploymentRequestEventData(updated))
++                    .ContinueWith(t => _log.LogWarning(t.Exception!.InnerException,
++                        "fire-and-forget publish failed for requestId={RequestId}", updated.Id),
++                        TaskContinuationOptions.OnlyOnFaulted);
+ 
+                 return StatusCode(StatusCodes.Status200OK,
+                     new RequestStatusDto { Id = updated.Id, Status = updated.Status.ToString() });
+@@ -454,7 +460,10 @@ namespace Dorc.Api.Controllers
+ 
+                 // Broadcast pause -> Paused
+                 _ = _deploymentEventsPublisher.PublishRequestStatusChangedAsync(
+-                    new DeploymentRequestEventData(updated));
++                    new DeploymentRequestEventData(updated))
++                    .ContinueWith(t => _log.LogWarning(t.Exception!.InnerException,
++                        "fire-and-forget publish failed for requestId={RequestId}", updated.Id),
++                        TaskContinuationOptions.OnlyOnFaulted);
+ 
+                 return StatusCode(StatusCodes.Status200OK,
+                     new RequestStatusDto { Id = updated.Id, Status = updated.Status.ToString() });
+@@ -509,7 +518,10 @@ namespace Dorc.Api.Controllers
+ 
+                 // Broadcast resume -> Pending
+                 _ = _deploymentEventsPublisher.PublishRequestStatusChangedAsync(
+-                    new DeploymentRequestEventData(updated));
++                    new DeploymentRequestEventData(updated))
++                    .ContinueWith(t => _log.LogWarning(t.Exception!.InnerException,
++                        "fire-and-forget publish failed for requestId={RequestId}", updated.Id),
++                        TaskContinuationOptions.OnlyOnFaulted);
+ 
+                 return StatusCode(StatusCodes.Status200OK,
+                     new RequestStatusDto { Id = updated.Id, Status = updated.Status.ToString() });
+diff --git a/src/Dorc.Kafka.ErrorLog/KafkaErrorLog.cs b/src/Dorc.Kafka.ErrorLog/KafkaErrorLog.cs
+index f40cb5dc..ff2a50fe 100644
+--- a/src/Dorc.Kafka.ErrorLog/KafkaErrorLog.cs
++++ b/src/Dorc.Kafka.ErrorLog/KafkaErrorLog.cs
+@@ -51,7 +51,7 @@ public sealed class KafkaErrorLog : IKafkaErrorLog
+             MessageKey: entry.MessageKey,
+             RawPayload: payload,
+             PayloadTruncated: truncated,
+-            ExceptionType: string.Empty,
++            ExceptionType: entry.ExceptionType ?? string.Empty,
+             ExceptionMessage: entry.Error,
+             ExceptionStack: entry.Stack,
+             OccurredAt: entry.OccurredAt == default ? DateTimeOffset.UtcNow : entry.OccurredAt,
+@@ -59,7 +59,7 @@ public sealed class KafkaErrorLog : IKafkaErrorLog
+ 
+         var key = entry.MessageKey ?? $"{entry.Topic}:{entry.Partition}:{entry.Offset}";
+ 
+-        using var produceCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
++        var produceCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+         produceCts.CancelAfter(TimeSpan.FromMilliseconds(_options.ProduceTimeoutMs));
+ 
+         // ProduceAsync's CancellationToken is best-effort under librdkafka:
+@@ -69,12 +69,22 @@ public sealed class KafkaErrorLog : IKafkaErrorLog
+         // and wait via WaitAsync(token) so the caller's consume thread gets
+         // freed by ProduceTimeoutMs even when librdkafka itself ignores the
+         // cancellation request.
+-        var produceTask = Task.Run(() => _producer.ProduceAsync(
+-            dlqTopic,
+-            new Message<string, KafkaErrorEnvelope> { Key = key, Value = envelope },
+-            produceCts.Token));
++        var produceTask = Task.Run(async () =>
++        {
++            try
++            {
++                return await _producer.ProduceAsync(
++                    dlqTopic,
++                    new Message<string, KafkaErrorEnvelope> { Key = key, Value = envelope },
++                    produceCts.Token);
++            }
++            finally
++            {
++                produceCts.Dispose();
++            }
++        });
+ 
+-        var result = await produceTask.WaitAsync(produceCts.Token);
++        var result = await produceTask.WaitAsync(cancellationToken);
+ 
+         _logger.LogDebug(
+             "dlq-produce-ok dlqTopic={DlqTopic} sourceTopic={SourceTopic} sourcePartition={SourcePartition} sourceOffset={SourceOffset} truncated={Truncated}",
+diff --git a/src/Dorc.Kafka.ErrorLog/KafkaErrorLogEntry.cs b/src/Dorc.Kafka.ErrorLog/KafkaErrorLogEntry.cs
+index 3bf89ab7..60fca9ad 100644
+--- a/src/Dorc.Kafka.ErrorLog/KafkaErrorLogEntry.cs
++++ b/src/Dorc.Kafka.ErrorLog/KafkaErrorLogEntry.cs
+@@ -24,6 +24,8 @@ public class KafkaErrorLogEntry
+ 
+     public byte[]? RawPayload { get; set; }
+ 
++    public string? ExceptionType { get; set; }
++
+     public string Error { get; set; } = string.Empty;
+ 
+     public string? Stack { get; set; }
+diff --git a/src/Dorc.Kafka.Events/DependencyInjection/KafkaResultsStatusSubstrateServiceCollectionExtensions.cs b/src/Dorc.Kafka.Events/DependencyInjection/KafkaResultsStatusSubstrateServiceCollectionExtensions.cs
+index 1d4a9aa5..f1f185d7 100644
+--- a/src/Dorc.Kafka.Events/DependencyInjection/KafkaResultsStatusSubstrateServiceCollectionExtensions.cs
++++ b/src/Dorc.Kafka.Events/DependencyInjection/KafkaResultsStatusSubstrateServiceCollectionExtensions.cs
+@@ -59,7 +59,7 @@ public static class KafkaResultsStatusSubstrateServiceCollectionExtensions
+             return builder.Build("dorc-requests-publisher");
+         });
+         services.TryAddSingleton<KafkaDeploymentEventPublisher>();
+-        services.Replace(ServiceDescriptor.Scoped<IDeploymentEventsPublisher>(sp =>
++        services.Replace(ServiceDescriptor.Singleton<IDeploymentEventsPublisher>(sp =>
+             sp.GetRequiredService<KafkaDeploymentEventPublisher>()));
+ 
+         return services;
+diff --git a/src/Dorc.Kafka.Events/Publisher/DeploymentRequestsKafkaConsumer.cs b/src/Dorc.Kafka.Events/Publisher/DeploymentRequestsKafkaConsumer.cs
+index 2829e932..d90e9dcf 100644
+--- a/src/Dorc.Kafka.Events/Publisher/DeploymentRequestsKafkaConsumer.cs
++++ b/src/Dorc.Kafka.Events/Publisher/DeploymentRequestsKafkaConsumer.cs
+@@ -177,6 +177,12 @@ public sealed class DeploymentRequestsKafkaConsumer : BackgroundService
+         // record — important because the handler is a no-op signal today but
+         // future stateful additions (metrics, dedup state) would silently
+         // lose messages otherwise.
++        //
++        // IMPORTANT: HandleAsync runs synchronously on the consumer poll
++        // thread (.GetAwaiter().GetResult()). If handler latency exceeds
++        // max.poll.interval.ms (default 300s), the broker will fence this
++        // consumer and trigger a rebalance. Ensure the configured value
++        // accommodates worst-case handler latency.
+         config.EnableAutoCommit = true;
+         config.EnableAutoOffsetStore = false;
+         return config;
+@@ -211,6 +217,7 @@ public sealed class DeploymentRequestsKafkaConsumer : BackgroundService
+             RawPayload = rawRecord?.Message?.Value,
+             Error = failure.Message,
+             Stack = failure.StackTrace,
++            ExceptionType = failure.GetType().FullName,
+             OccurredAt = DateTimeOffset.UtcNow
+         };
+         WriteErrorLog(entry);
+@@ -228,6 +235,7 @@ public sealed class DeploymentRequestsKafkaConsumer : BackgroundService
+             RawPayload = null,
+             Error = failure.Message,
+             Stack = failure.StackTrace,
++            ExceptionType = failure.GetType().FullName,
+             OccurredAt = DateTimeOffset.UtcNow
+         };
+         WriteErrorLog(entry);
+diff --git a/src/Dorc.Kafka.Events/Publisher/DeploymentResultsKafkaConsumer.cs b/src/Dorc.Kafka.Events/Publisher/DeploymentResultsKafkaConsumer.cs
+index e20f6d65..31ea6fb6 100644
+--- a/src/Dorc.Kafka.Events/Publisher/DeploymentResultsKafkaConsumer.cs
++++ b/src/Dorc.Kafka.Events/Publisher/DeploymentResultsKafkaConsumer.cs
+@@ -121,15 +121,28 @@ public sealed class DeploymentResultsKafkaConsumer : BackgroundService
+                 _logger.LogInformation(
+                     "broadcast-ok topic={Topic} partition={Partition} offset={Offset} group={GroupId} requestId={RequestId}",
+                     result.Topic, result.Partition.Value, result.Offset.Value, ConsumerGroupId, result.Message.Value.RequestId);
+-                consumer.Commit(result);
+             }
+             catch (Exception ex) when (!IsCritical(ex))
+             {
+-                // Broad by design: any broadcaster failure routes to the
+-                // error log so the consume loop survives. Process-fatal
+-                // exceptions still escape.
++                // Broadcast failure routes to the error log so the consume
++                // loop survives. Process-fatal exceptions still escape.
+                 HandleFailureFromConsumeResult(consumer, result, ex, stoppingToken);
+             }
++
++            // Commit outside the broadcast try/catch: a commit failure after
++            // successful broadcast must not produce a false-positive DLQ
++            // envelope. At-least-once semantics mean re-broadcast on next
++            // poll is the correct behaviour for a transient commit failure.
++            try
++            {
++                consumer.Commit(result);
++            }
++            catch (KafkaException commitEx)
++            {
++                _logger.LogWarning(commitEx,
++                    "offset-commit-failed topic={Topic} partition={Partition} offset={Offset} group={GroupId} (broadcast succeeded; will re-deliver on next poll)",
++                    result.Topic, result.Partition.Value, result.Offset.Value, ConsumerGroupId);
++            }
+         }
+ 
+         try { consumer.Close(); } catch (KafkaException) { /* best-effort */ }
+@@ -169,6 +182,12 @@ public sealed class DeploymentResultsKafkaConsumer : BackgroundService
+         // explicitly defends against an operator setting Kafka:EnableAutoCommit
+         // = true globally and silently dropping a SignalR broadcast on crash
+         // between the timer-fired auto-commit and BroadcastAsync completion.
++        //
++        // IMPORTANT: BroadcastAsync runs synchronously on the consumer poll
++        // thread (.GetAwaiter().GetResult()). If downstream SignalR latency
++        // exceeds max.poll.interval.ms (default 300s), the broker will fence
++        // this consumer and trigger a rebalance. Ensure the configured value
++        // accommodates worst-case broadcast latency.
+         config.EnableAutoCommit = false;
+         return config;
+     }
+@@ -206,6 +225,7 @@ public sealed class DeploymentResultsKafkaConsumer : BackgroundService
+             RawPayload = rawRecord?.Message?.Value,
+             Error = failure.Message,
+             Stack = failure.StackTrace,
++            ExceptionType = failure.GetType().FullName,
+             OccurredAt = DateTimeOffset.UtcNow
+         };
+         WriteErrorLogAndCommit(consumer, entry, advanceOffset: rawRecord is not null, stoppingToken);
+@@ -227,6 +247,7 @@ public sealed class DeploymentResultsKafkaConsumer : BackgroundService
+             RawPayload = null,
+             Error = failure.Message,
+             Stack = failure.StackTrace,
++            ExceptionType = failure.GetType().FullName,
+             OccurredAt = DateTimeOffset.UtcNow
+         };
+         WriteErrorLogAndCommit(consumer, entry, advanceOffset: true, stoppingToken);
+diff --git a/src/Dorc.Kafka.Events/Publisher/KafkaDeploymentEventPublisher.cs b/src/Dorc.Kafka.Events/Publisher/KafkaDeploymentEventPublisher.cs
+index a89c26b4..e8f00ff3 100644
+--- a/src/Dorc.Kafka.Events/Publisher/KafkaDeploymentEventPublisher.cs
++++ b/src/Dorc.Kafka.Events/Publisher/KafkaDeploymentEventPublisher.cs
+@@ -30,6 +30,7 @@ public sealed class KafkaDeploymentEventPublisher : IDeploymentEventsPublisher,
+     private readonly IFallbackDeploymentEventPublisher _fallback;
+     private readonly KafkaTopicsOptions _topics;
+     private readonly ILogger<KafkaDeploymentEventPublisher> _logger;
++    private int _disposed;
+ 
+     public KafkaDeploymentEventPublisher(
+         IProducer<string, DeploymentResultEventData> resultsProducer,
+@@ -128,10 +129,17 @@ public sealed class KafkaDeploymentEventPublisher : IDeploymentEventsPublisher,
+ 
+     public void Dispose()
+     {
+-        try { _resultsProducer.Flush(TimeSpan.FromSeconds(2)); } catch (KafkaException) { /* best-effort */ }
+-        try { _requestsProducer.Flush(TimeSpan.FromSeconds(2)); } catch (KafkaException) { /* best-effort */ }
+-        _resultsProducer.Dispose();
+-        _requestsProducer.Dispose();
++        if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
++
++        try { _resultsProducer.Flush(TimeSpan.FromSeconds(2)); }
++        catch (Exception ex) when (ex is KafkaException or ObjectDisposedException) { /* best-effort */ }
++        try { _resultsProducer.Dispose(); }
++        finally
++        {
++            try { _requestsProducer.Flush(TimeSpan.FromSeconds(2)); }
++            catch (Exception ex) when (ex is KafkaException or ObjectDisposedException) { /* best-effort */ }
++            _requestsProducer.Dispose();
++        }
+     }
+ 
+     private static bool IsCritical(Exception ex) =>
+diff --git a/src/Dorc.Kafka.Lock/KafkaDistributedLockService.cs b/src/Dorc.Kafka.Lock/KafkaDistributedLockService.cs
+index beea4238..18fdf936 100644
+--- a/src/Dorc.Kafka.Lock/KafkaDistributedLockService.cs
++++ b/src/Dorc.Kafka.Lock/KafkaDistributedLockService.cs
+@@ -69,7 +69,13 @@ public sealed class KafkaDistributedLockService : IDistributedLockService
+         }
+         catch (OperationCanceledException)
+         {
+-            var outcome = cancellationToken.IsCancellationRequested ? "caller-cancelled" : "wait-timeout";
++            string outcome;
++            if (cancellationToken.IsCancellationRequested)
++                outcome = "caller-cancelled";
++            else if (timeoutCts.IsCancellationRequested)
++                outcome = "wait-timeout";
++            else
++                outcome = "revoked-mid-acquire";
+             _logger.LogInformation(
+                 "kafka-lock not acquired resourceKey={ResourceKey} partition={Partition} outcome={Outcome} waitCapMs={WaitCapMs}",
+                 resourceKey, partition, outcome, waitCapMs);
+diff --git a/src/Dorc.Kafka.Lock/KafkaLockCoordinator.cs b/src/Dorc.Kafka.Lock/KafkaLockCoordinator.cs
+index 61cdfd71..6c459d1e 100644
+--- a/src/Dorc.Kafka.Lock/KafkaLockCoordinator.cs
++++ b/src/Dorc.Kafka.Lock/KafkaLockCoordinator.cs
+@@ -207,28 +207,26 @@ public sealed class KafkaLockCoordinator : IHostedService, IAsyncDisposable
+ 
+     private void OnRevokedOrLost(int partition, bool lost)
+     {
++        PartitionSlot? oldSlot = null;
+         lock (_slotLock)
+         {
+             if (_slots.TryGetValue(partition, out var slot))
+             {
+-                // Atomic swap: signal the old cycle's LockLostToken, then publish
+-                // a fresh slot for the next ownership cycle in the same critical
+-                // section. Any concurrent WaitForPartitionOwnershipAsync caller
+-                // that resolves to this partition sees exactly one of:
+-                // - the old slot with a cancelled CTS (and they re-wait), or
+-                // - the new slot with a live uncancelled CTS.
+-                slot.Cts.Cancel();
+-                // Wake any waiter still blocked on the old slot's TCS (orphan-waiter edge:
+-                // a caller who captured AcquiredTcs.Task while ownership was pending and
+-                // then saw a revoke-without-assign). They observe OperationCanceledException
+-                // from WaitAsync and re-enter via a new call against the fresh slot below.
+-                slot.AcquiredTcs.TrySetCanceled();
++                oldSlot = slot;
+                 _slots[partition] = new PartitionSlot();
+-                _logger.LogInformation(
+-                    "KafkaLockCoordinator released partition={Partition} reason={Reason}",
+-                    partition, lost ? "lost" : "revoked");
+             }
+         }
++
++        // Cancel and signal outside the lock so synchronous cancellation
++        // callbacks cannot deadlock against _slotLock.
++        if (oldSlot is not null)
++        {
++            oldSlot.Cts.Cancel();
++            oldSlot.AcquiredTcs.TrySetCanceled();
++            _logger.LogInformation(
++                "KafkaLockCoordinator released partition={Partition} reason={Reason}",
++                partition, lost ? "lost" : "revoked");
++        }
+     }
+ 
+     public async ValueTask DisposeAsync()
+@@ -246,17 +244,20 @@ public sealed class KafkaLockCoordinator : IHostedService, IAsyncDisposable
+             catch (ObjectDisposedException) { /* loop torn down concurrently */ }
+         }
+ 
++        List<PartitionSlot> slotsToCancel;
+         lock (_slotLock)
+         {
+-            foreach (var kv in _slots)
+-            {
+-                try { kv.Value.Cts.Cancel(); }
+-                catch (ObjectDisposedException) { /* slot CTS already disposed */ }
+-                kv.Value.AcquiredTcs.TrySetCanceled();
+-            }
++            slotsToCancel = _slots.Values.ToList();
+             _slots.Clear();
+         }
+ 
++        foreach (var slot in slotsToCancel)
++        {
++            try { slot.Cts.Cancel(); }
++            catch (ObjectDisposedException) { /* slot CTS already disposed */ }
++            slot.AcquiredTcs.TrySetCanceled();
++        }
++
+         try { _consumer?.Dispose(); }
+         catch (KafkaException) { /* best-effort: consumer torn down */ }
+         catch (ObjectDisposedException) { /* already disposed */ }
+diff --git a/src/Dorc.Monitor/ComponentProcessor.cs b/src/Dorc.Monitor/ComponentProcessor.cs
+index 55c81d7c..3a53e6c3 100644
+--- a/src/Dorc.Monitor/ComponentProcessor.cs
++++ b/src/Dorc.Monitor/ComponentProcessor.cs
+@@ -80,7 +80,8 @@ namespace Dorc.Monitor
+                         eventsPublisher.PublishResultStatusChangedAsync(new DeploymentResultEventData(deploymentResult)
+                         {
+                             Status = DeploymentResultStatus.Running.ToString()
+-                        });
++                        }).ContinueWith(t => _logger.LogWarning(t.Exception!.InnerException,
++                            "fire-and-forget publish failed for result"), TaskContinuationOptions.OnlyOnFaulted);
+ 
+                         isSuccessful = terraformDispatcher.Dispatch(
+                             component,
+@@ -118,7 +119,8 @@ namespace Dorc.Monitor
+                         eventsPublisher.PublishResultStatusChangedAsync(new DeploymentResultEventData(deploymentResult)
+                         {
+                             Status = DeploymentResultStatus.Running.ToString()
+-                        });
++                        }).ContinueWith(t => _logger.LogWarning(t.Exception!.InnerException,
++                            "fire-and-forget publish failed for result"), TaskContinuationOptions.OnlyOnFaulted);
+ 
+                         // Handle PowerShell components
+                         var script = GetScripts(component.ComponentId);
+@@ -141,7 +143,8 @@ namespace Dorc.Monitor
+                             eventsPublisher.PublishResultStatusChangedAsync(new DeploymentResultEventData(deploymentResult)
+                             {
+                                 Status = deploymentResultStatus.ToString()
+-                            });
++                            }).ContinueWith(t => _logger.LogWarning(t.Exception!.InnerException,
++                                "fire-and-forget publish failed for result"), TaskContinuationOptions.OnlyOnFaulted);
+ 
+                             componentsPersistentSource.SaveEnvComponentStatus(
+                                 environmentId,
+@@ -207,7 +210,8 @@ namespace Dorc.Monitor
+                 eventsPublisher.PublishResultStatusChangedAsync(new DeploymentResultEventData(deploymentResult)
+                 {
+                     Status = deploymentResultStatus.ToString()
+-                });
++                }).ContinueWith(t => _logger.LogWarning(t.Exception!.InnerException,
++                    "fire-and-forget publish failed for result"), TaskContinuationOptions.OnlyOnFaulted);
+             }
+ 
+             return deploymentResultStatus != DeploymentResultStatus.Failed;
+diff --git a/src/Dorc.Monitor/DeploymentRequestStateProcessor.cs b/src/Dorc.Monitor/DeploymentRequestStateProcessor.cs
+index bdb7a7d1..b0867c66 100644
+--- a/src/Dorc.Monitor/DeploymentRequestStateProcessor.cs
++++ b/src/Dorc.Monitor/DeploymentRequestStateProcessor.cs
+@@ -25,7 +25,7 @@ namespace Dorc.Monitor
+         private ConcurrentDictionary<string, int> environmentRequestIdRunning = new ConcurrentDictionary<string, int>();
+         private readonly ConcurrentDictionary<string, DateTime> environmentLockBackoff = new ConcurrentDictionary<string, DateTime>();
+         private static readonly TimeSpan LockBackoffDuration = TimeSpan.FromSeconds(30);
+-        private const int EnvironmentLockLeaseTimeMs = 300000;
++        private const int EnvironmentLockAcquireTimeoutMs = 300000;
+ 
+         // Test hook: invoked when a fire-and-forget publish task is created.
+         // Null in production (zero overhead). Tests assign a callback to collect tasks
+@@ -498,7 +498,7 @@ namespace Dorc.Monitor
+                             var lockKey = $"env:{requestGroup.Key}";
+                             // Lock lease time is longer than typical request duration to handle long deployments
+                             // The lock will auto-release if the monitor crashes
+-                            envLock = await distributedLockService.TryAcquireLockAsync(lockKey, EnvironmentLockLeaseTimeMs, monitorCancellationToken);
++                            envLock = await distributedLockService.TryAcquireLockAsync(lockKey, EnvironmentLockAcquireTimeoutMs, monitorCancellationToken);
+ 
+                             if (envLock == null)
+                             {
+diff --git a/src/Dorc.Monitor/Events/SignalRDeploymentEventPublisher.cs b/src/Dorc.Monitor/Events/SignalRDeploymentEventPublisher.cs
+index 31b174cc..9cfd0da6 100644
+--- a/src/Dorc.Monitor/Events/SignalRDeploymentEventPublisher.cs
++++ b/src/Dorc.Monitor/Events/SignalRDeploymentEventPublisher.cs
+@@ -127,8 +127,12 @@ namespace Dorc.Monitor.Events
+             }
+         }
+ 
++        private int _disposeCount;
++
+         public async ValueTask DisposeAsync()
+         {
++            if (Interlocked.Exchange(ref _disposeCount, 1) != 0) return;
++
+             if (_connection != null)
+             {
+                 await _connection.DisposeAsync();
+diff --git a/src/Dorc.Monitor/RequestProcessors/PendingRequestProcessor.cs b/src/Dorc.Monitor/RequestProcessors/PendingRequestProcessor.cs
+index 87b991c3..3dc70c37 100644
+--- a/src/Dorc.Monitor/RequestProcessors/PendingRequestProcessor.cs
++++ b/src/Dorc.Monitor/RequestProcessors/PendingRequestProcessor.cs
+@@ -131,7 +131,9 @@ namespace Dorc.Monitor.RequestProcessors
+                             {
+                                 Status = deploymentRequestStatus.ToString(),
+                                 CompletedTime = DateTimeOffset.Now,
+-                            });
++                            }).ContinueWith(t => logger.LogWarning(t.Exception!.InnerException,
++                                "fire-and-forget publish failed for requestId={RequestId}", requestToExecute.Request.Id),
++                                TaskContinuationOptions.OnlyOnFaulted);
+ 
+                             return;
+                         }
+@@ -179,7 +181,9 @@ namespace Dorc.Monitor.RequestProcessors
+                             {
+                                 Status = deploymentRequestStatus.ToString(),
+                                 CompletedTime = DateTimeOffset.Now,
+-                            });
++                            }).ContinueWith(t => logger.LogWarning(t.Exception!.InnerException,
++                                "fire-and-forget publish failed for requestId={RequestId}", requestToExecute.Request.Id),
++                                TaskContinuationOptions.OnlyOnFaulted);
+ 
+                             return;
+                         }
+@@ -271,7 +275,9 @@ namespace Dorc.Monitor.RequestProcessors
+                         {
+                             Status = deploymentRequestStatus.ToString(),
+                             CompletedTime = DateTimeOffset.Now,
+-                        });
++                        }).ContinueWith(t => logger.LogWarning(t.Exception!.InnerException,
++                            "fire-and-forget publish failed for requestId={RequestId}", requestToExecute.Request.Id),
++                            TaskContinuationOptions.OnlyOnFaulted);
+                     }
+                     catch (Exception ex)
+                     {
+@@ -303,7 +309,9 @@ namespace Dorc.Monitor.RequestProcessors
+                         {
+                             Status = DeploymentRequestStatus.Errored.ToString(),
+                             CompletedTime = DateTimeOffset.Now,
+-                        });
++                        }).ContinueWith(t => logger.LogWarning(t.Exception!.InnerException,
++                            "fire-and-forget publish failed for requestId={RequestId}", requestToExecute.Request.Id),
++                            TaskContinuationOptions.OnlyOnFaulted);
+                     }
+                 }
+                 catch (Exception e)
+@@ -325,7 +333,9 @@ namespace Dorc.Monitor.RequestProcessors
+                     {
+                         Status = DeploymentRequestStatus.Errored.ToString(),
+                         CompletedTime = DateTimeOffset.Now,
+-                    });
++                    }).ContinueWith(t => logger.LogWarning(t.Exception!.InnerException,
++                        "fire-and-forget publish failed for requestId={RequestId}", requestToExecute.Request.Id),
++                        TaskContinuationOptions.OnlyOnFaulted);
+ 
+                     return;
+                 }
+@@ -364,7 +374,8 @@ namespace Dorc.Monitor.RequestProcessors
+                     eventsPublisher.PublishResultStatusChangedAsync(new DeploymentResultEventData(pendingResult)
+                     {
+                         Status = DeploymentResultStatus.Cancelled.ToString()
+-                    });
++                    }).ContinueWith(t => logger.LogWarning(t.Exception!.InnerException,
++                        "fire-and-forget publish failed for result"), TaskContinuationOptions.OnlyOnFaulted);
+                 }
+ 
+                 logger.LogInformation(
+@@ -391,7 +402,9 @@ namespace Dorc.Monitor.RequestProcessors
+             {
+                 Status = DeploymentRequestStatus.Running.ToString(),
+                 StartedTime = DateTimeOffset.Now,
+-            });
++            }).ContinueWith(t => logger.LogWarning(t.Exception!.InnerException,
++                "fire-and-forget publish failed for requestId={RequestId}", request.Id),
++                TaskContinuationOptions.OnlyOnFaulted);
+         }
+ 
+         private IList<ComponentApiModel> GetOrderedNonSkippedComponents(

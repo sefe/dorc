@@ -112,8 +112,23 @@ export class PageMonitorRequests
         margin: 0px;
       }
 
-      vaadin-grid::part(row) {
+      .id-btn {
+        font-size: 14px;
+        font-family: monospace;
+        background-color: var(--dorc-chip-bg);
+        color: var(--dorc-chip-text);
+        display: inline-block;
+        padding: 3px;
+        margin: 3px;
+        text-decoration: none;
+        border-radius: 3px;
+        border: 0;
         cursor: pointer;
+      }
+
+      .id-btn:hover {
+        background-color: var(--dorc-badge-bg);
+        color: var(--dorc-badge-text);
       }
 
       .cover {
@@ -135,8 +150,7 @@ export class PageMonitorRequests
         column-reordering-allowed
         multi-sort
         .size=${200}
-        theme="compact row-stripes no-row-borders no-border hover-highlight"
-        @active-item-changed="${this.onRowClick}"
+        theme="compact row-stripes no-row-borders no-border"
         .dataProvider=${(
           params: GridDataProviderParams<DeploymentRequestApiModel>,
           callback: GridDataProviderCallback<DeploymentRequestApiModel>
@@ -359,12 +373,10 @@ export class PageMonitorRequests
 
   connectedCallback(): void {
     super.connectedCallback();
-    this.addEventListener('keydown', this._onHostKeyDown);
   }
 
   disconnectedCallback(): void {
     super.disconnectedCallback();
-    this.removeEventListener('keydown', this._onHostKeyDown);
     if (this.hubConnection) {
       this.hubConnection.stop().catch(err => {
         console.error('Error stopping SignalR connection:', err);
@@ -657,54 +669,22 @@ export class PageMonitorRequests
     const request = model.item;
     render(
       html`
-        <span style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"> ${request.Id} </span>
+        <button
+          class="id-btn"
+          @click="${(e: Event) => {
+            e.stopPropagation();
+            this.dispatchEvent(
+              new CustomEvent('open-monitor-result', {
+                detail: { request, message: 'Show results for Request' },
+                bubbles: true,
+                composed: true
+              })
+            );
+          }}"
+        >${request.Id}</button>
       `,
       root
     );
-  };
-
-  private onRowClick = (e: CustomEvent) => {
-    const request = e.detail.value as DeploymentRequestApiModel | null;
-    if (!request) return;
-
-    // Reset active item to allow re-clicking the same row
-    const grid = this.shadowRoot?.getElementById('grid') as Grid | null;
-    if (grid) grid.activeItem = null;
-
-    this.dispatchEvent(
-      new CustomEvent('open-monitor-result', {
-        detail: {
-          request,
-          message: 'Show results for Request'
-        },
-        bubbles: true,
-        composed: true
-      })
-    );
-  };
-
-  // Enter on a focused body row opens the detail panel by activating the row,
-  // which routes through the existing active-item-changed handler. Bails when
-  // the grid is in interacting-mode (focus is inside a cell-internal control
-  // such as a column-header filter input or sort button).
-  private _onHostKeyDown = (e: KeyboardEvent) => {
-    if (e.key !== 'Enter') return;
-    const grid = this.shadowRoot?.getElementById('grid') as Grid | null;
-    if (!grid || grid.hasAttribute('interacting')) return;
-
-    const row = e.composedPath().find(
-      (el): el is HTMLElement =>
-        el instanceof HTMLElement &&
-        el.localName === 'tr' &&
-        el.getAttribute('role') === 'row'
-    );
-    if (!row) return;
-
-    const item = (row as unknown as { _item?: DeploymentRequestApiModel })._item;
-    if (!item) return;
-
-    e.preventDefault();
-    grid.activeItem = item;
   };
 
   _requestControlsRenderer(
