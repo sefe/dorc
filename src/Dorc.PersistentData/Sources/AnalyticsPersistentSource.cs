@@ -2,16 +2,20 @@
 using Dorc.PersistentData.Contexts;
 using Dorc.PersistentData.Model;
 using Dorc.PersistentData.Sources.Interfaces;
+using Microsoft.Extensions.Logging;
 
 namespace Dorc.PersistentData.Sources
 {
     public class AnalyticsPersistentSource : IAnalyticsPersistentSource
     {
         private readonly IDeploymentContextFactory _contextFactory;
+        private readonly ILogger<AnalyticsPersistentSource> _logger;
 
-        public AnalyticsPersistentSource(IDeploymentContextFactory contextFactory)
+        public AnalyticsPersistentSource(IDeploymentContextFactory contextFactory,
+            ILogger<AnalyticsPersistentSource> logger)
         {
             _contextFactory = contextFactory;
+            _logger = logger;
         }
 
         public IEnumerable<AnalyticsDeploymentsPerProjectApiModel> GetCountDeploymentsPerProjectMonth()
@@ -38,61 +42,104 @@ namespace Dorc.PersistentData.Sources
 
         public AnalyticsDeploymentSummaryApiModel GetDeploymentSummary()
         {
-            using (var context = _contextFactory.GetContext())
+            List<DeploymentsByProjectDate> rows;
+            try
             {
-                var rows = context.AnalyticsDeploymentsByProjectDate.ToList();
-                return BuildSummary(rows, DateTime.Today);
+                using var context = _contextFactory.GetContext();
+                rows = context.AnalyticsDeploymentsByProjectDate.ToList();
             }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to retrieve deployment summary data; returning empty summary");
+                return new AnalyticsDeploymentSummaryApiModel();
+            }
+
+            return BuildSummary(rows, DateTime.Today, _logger);
         }
 
         /// <summary>
         /// Pure aggregation of the per-project-per-date rows into the dashboard
         /// summary. Takes <paramref name="today"/> explicitly so the time-dependent
         /// arithmetic (this-year filter, average per day) is deterministically testable.
+        /// Each section is independently guarded so a failure in one metric does not
+        /// prevent the remaining metrics from populating.
         /// </summary>
         public static AnalyticsDeploymentSummaryApiModel BuildSummary(
-            IReadOnlyCollection<DeploymentsByProjectDate> rows, DateTime today)
+            IReadOnlyCollection<DeploymentsByProjectDate> rows, DateTime today,
+            ILogger? logger = null)
         {
+            var summary = new AnalyticsDeploymentSummaryApiModel();
             var currentYear = today.Year;
-            var thisYear = rows.Where(row => row.Year == currentYear).ToList();
+            List<DeploymentsByProjectDate> thisYear;
 
-            var summary = new AnalyticsDeploymentSummaryApiModel
+            try
             {
-                TotalDeployments = rows.Sum(row => row.CountOfDeployments),
-                TotalDeploymentsThisYear = thisYear.Sum(row => row.CountOfDeployments),
-                TotalFailedDeploymentsThisYear = thisYear.Sum(row => row.Failed)
-            };
+                thisYear = rows.Where(row => row.Year == currentYear).ToList();
+                summary.TotalDeployments = rows.Sum(row => row.CountOfDeployments);
+                summary.TotalDeploymentsThisYear = thisYear.Sum(row => row.CountOfDeployments);
+                summary.TotalFailedDeploymentsThisYear = thisYear.Sum(row => row.Failed);
+            }
+            catch (Exception ex)
+            {
+                logger?.LogError(ex, "Failed to compute deployment totals");
+                thisYear = new List<DeploymentsByProjectDate>();
+            }
 
-            // Busiest single calendar day this year, summed across all projects.
-            summary.BusiestDeploymentCount = thisYear
-                .GroupBy(row => new { row.Year, row.Month, row.Day })
-                .Select(group => group.Sum(row => row.CountOfDeployments))
-                .DefaultIfEmpty(0)
-                .Max();
+            try
+            {
+                summary.BusiestDeploymentCount = thisYear
+                    .GroupBy(row => new { row.Year, row.Month, row.Day })
+                    .Select(group => group.Sum(row => row.CountOfDeployments))
+                    .DefaultIfEmpty(0)
+                    .Max();
+            }
+            catch (Exception ex)
+            {
+                logger?.LogError(ex, "Failed to compute busiest deployment day");
+            }
 
-            summary.PercentFailedThisYear = Percentage(
-                summary.TotalFailedDeploymentsThisYear, summary.TotalDeploymentsThisYear);
+            try
+            {
+                summary.PercentFailedThisYear = Percentage(
+                    summary.TotalFailedDeploymentsThisYear, summary.TotalDeploymentsThisYear);
+            }
+            catch (Exception ex)
+            {
+                logger?.LogError(ex, "Failed to compute failure percentage");
+            }
 
-            // Days elapsed in the current year, inclusive of today and never zero,
-            // so the average is well defined even on 1 January.
-            var daysElapsed = (today.Date - new DateTime(currentYear, 1, 1)).Days + 1;
-            summary.AverageDeploymentsPerDay = (int)Math.Round(
-                (double)summary.TotalDeploymentsThisYear / Math.Max(daysElapsed, 1));
+            try
+            {
+                var daysElapsed = (today.Date - new DateTime(currentYear, 1, 1)).Days + 1;
+                summary.AverageDeploymentsPerDay = (int)Math.Round(
+                    (double)summary.TotalDeploymentsThisYear / Math.Max(daysElapsed, 1));
+            }
+            catch (Exception ex)
+            {
+                logger?.LogError(ex, "Failed to compute average deployments per day");
+            }
 
-            var projectTotals = thisYear
-                .GroupBy(row => row.ProjectName ?? string.Empty)
-                .Select(group => new AnalyticsProjectDeploymentApiModel
-                {
-                    ProjectName = group.Key,
-                    CountOfDeployments = group.Sum(row => row.CountOfDeployments)
-                })
-                .OrderByDescending(project => project.CountOfDeployments)
-                .ToList();
+            try
+            {
+                var projectTotals = thisYear
+                    .GroupBy(row => row.ProjectName ?? string.Empty)
+                    .Select(group => new AnalyticsProjectDeploymentApiModel
+                    {
+                        ProjectName = group.Key,
+                        CountOfDeployments = group.Sum(row => row.CountOfDeployments)
+                    })
+                    .OrderByDescending(project => project.CountOfDeployments)
+                    .ToList();
 
-            summary.TopProjectsThisYear = projectTotals.Take(3).ToList();
-            summary.PercentTop3Projects = Percentage(
-                summary.TopProjectsThisYear.Sum(project => project.CountOfDeployments),
-                summary.TotalDeploymentsThisYear);
+                summary.TopProjectsThisYear = projectTotals.Take(3).ToList();
+                summary.PercentTop3Projects = Percentage(
+                    summary.TopProjectsThisYear.Sum(project => project.CountOfDeployments),
+                    summary.TotalDeploymentsThisYear);
+            }
+            catch (Exception ex)
+            {
+                logger?.LogError(ex, "Failed to compute top projects");
+            }
 
             return summary;
         }
