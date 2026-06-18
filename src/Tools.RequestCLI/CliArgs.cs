@@ -12,10 +12,10 @@ namespace Tools.RequestCLI
             _request = new RequestDto();
             ParseArguments(args);
         }
-        
+
         public RequestDto Request => _request;
         public bool Wait { set; get; }
-        
+
         private void ParseArguments(string[] args)
         {
             _request = new RequestDto();
@@ -31,11 +31,18 @@ namespace Tools.RequestCLI
                 else if (strArgument.ToLower().Contains("/components:"))
                     _request.Components = strArgument.Split(':')[1].Split(';');
                 else if (strArgument.ToLower().Contains("/pinned:"))
-                    _request.Pinned = Boolean.Parse(strArgument.Split(':')[1]); 
+                    _request.Pinned = Boolean.Parse(strArgument.Split(':')[1]);
                 else if (strArgument.ToLower().Contains("/wait:"))
                     Wait = Boolean.Parse(strArgument.Split(':')[1]);
                 else if (strArgument.ToLower().Contains("/builduri:"))
-                    _request.BuildUrl = strArgument.Split(':')[1] + ":" + strArgument.Split(':')[2];
+                {
+                    var buildUri = strArgument.Split(':');
+                    if (buildUri.Length < 3)
+                    {
+                        throw new ArgumentException("Invalid build URI format. Expected format: /builduri:protocol:host");
+                    }
+                    _request.BuildUrl = buildUri[1] + ":" + buildUri[2];
+                }
         }
 
         public override string ToString()
