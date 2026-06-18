@@ -1,4 +1,5 @@
 ﻿using Dorc.ApiModel;
+using System.Security.Principal;
 
 namespace Dorc.PersistentData.Sources.Interfaces
 {
@@ -6,7 +7,7 @@ namespace Dorc.PersistentData.Sources.Interfaces
     {
         IEnumerable<AnalyticsDeploymentsPerProjectApiModel> GetCountDeploymentsPerProjectMonth();
         AnalyticsDeploymentSummaryApiModel GetDeploymentSummary();
-        IEnumerable<AnalyticsEnvironmentUsageApiModel> GetEnvironmentUsage();
+        IEnumerable<AnalyticsEnvironmentUsageApiModel> GetEnvironmentUsage(IPrincipal user);
         IEnumerable<AnalyticsUserActivityApiModel> GetUserActivity();
         IEnumerable<AnalyticsTimePatternApiModel> GetTimePatterns();
         IEnumerable<AnalyticsComponentUsageApiModel> GetComponentUsage();

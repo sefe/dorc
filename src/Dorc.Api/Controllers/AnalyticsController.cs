@@ -76,7 +76,7 @@ namespace Dorc.Api.Controllers
         {
             try
             {
-                var result = _analyticsPersistentSource.GetEnvironmentUsage();
+                var result = _analyticsPersistentSource.GetEnvironmentUsage(User);
                 return Ok(result);
             }
             catch (Exception e)

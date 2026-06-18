@@ -2,8 +2,10 @@ using Dorc.Api.Tests.Mocks;
 using Dorc.PersistentData.Contexts;
 using Dorc.PersistentData.Model;
 using Dorc.PersistentData.Sources;
+using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
+using System.Security.Principal;
 
 namespace Dorc.Api.Tests.Sources
 {
@@ -17,6 +19,7 @@ namespace Dorc.Api.Tests.Sources
     {
         private IDeploymentContextFactory _contextFactory;
         private IDeploymentContext _context;
+        private IEnvironmentsPersistentSource _environmentsPersistentSource;
         private AnalyticsPersistentSource _source;
 
         [TestInitialize]
@@ -25,7 +28,9 @@ namespace Dorc.Api.Tests.Sources
             _contextFactory = Substitute.For<IDeploymentContextFactory>();
             _context = Substitute.For<IDeploymentContext>();
             _contextFactory.GetContext().Returns(_context);
+            _environmentsPersistentSource = Substitute.For<IEnvironmentsPersistentSource>();
             _source = new AnalyticsPersistentSource(_contextFactory,
+                _environmentsPersistentSource,
                 Substitute.For<ILogger<AnalyticsPersistentSource>>());
         }
 
@@ -255,6 +260,10 @@ namespace Dorc.Api.Tests.Sources
         [TestMethod]
         public void GetEnvironmentUsage_MapsLastSuccessfulDeployment()
         {
+            var user = Substitute.For<IPrincipal>();
+            _environmentsPersistentSource.GetEnvironmentNames(user)
+                .Returns(new[] { "ENV1", "ENV2" });
+
             var lastSuccess = new DateTimeOffset(2026, 5, 1, 12, 0, 0, TimeSpan.Zero);
             var usage = new List<AnalyticsEnvironmentUsage>
             {
@@ -264,10 +273,54 @@ namespace Dorc.Api.Tests.Sources
             var dbSet = DbContextMock.GetQueryableMockDbSet(usage);
             _context.AnalyticsEnvironmentUsage.Returns(dbSet);
 
-            var result = _source.GetEnvironmentUsage().ToList();
+            var result = _source.GetEnvironmentUsage(user).ToList();
 
             Assert.AreEqual(lastSuccess, result.Single(e => e.EnvironmentName == "ENV1").LastSuccessfulDeployment);
             Assert.IsNull(result.Single(e => e.EnvironmentName == "ENV2").LastSuccessfulDeployment);
+        }
+
+        [TestMethod]
+        public void GetEnvironmentUsage_ExcludesEnvironmentsNotAccessibleToUser()
+        {
+            var user = Substitute.For<IPrincipal>();
+            // User can only see ENV1; ENV2 (no access) and Z_GMT_DELETED (not a live
+            // environment) must be filtered out of the analytics snapshot.
+            _environmentsPersistentSource.GetEnvironmentNames(user)
+                .Returns(new[] { "ENV1" });
+
+            var usage = new List<AnalyticsEnvironmentUsage>
+            {
+                new() { EnvironmentName = "ENV1", TotalDeployments = 10, FailCount = 1 },
+                new() { EnvironmentName = "ENV2", TotalDeployments = 5, FailCount = 0 },
+                new() { EnvironmentName = "Z_GMT_DELETED", TotalDeployments = 3, FailCount = 0 }
+            };
+            var dbSet = DbContextMock.GetQueryableMockDbSet(usage);
+            _context.AnalyticsEnvironmentUsage.Returns(dbSet);
+
+            var result = _source.GetEnvironmentUsage(user).ToList();
+
+            Assert.AreEqual(1, result.Count);
+            Assert.AreEqual("ENV1", result.Single().EnvironmentName);
+        }
+
+        [TestMethod]
+        public void GetEnvironmentUsage_MatchesEnvironmentNamesCaseInsensitively()
+        {
+            var user = Substitute.For<IPrincipal>();
+            _environmentsPersistentSource.GetEnvironmentNames(user)
+                .Returns(new[] { "env1" });
+
+            var usage = new List<AnalyticsEnvironmentUsage>
+            {
+                new() { EnvironmentName = "ENV1", TotalDeployments = 10, FailCount = 1 }
+            };
+            var dbSet = DbContextMock.GetQueryableMockDbSet(usage);
+            _context.AnalyticsEnvironmentUsage.Returns(dbSet);
+
+            var result = _source.GetEnvironmentUsage(user).ToList();
+
+            Assert.AreEqual(1, result.Count);
+            Assert.AreEqual("ENV1", result.Single().EnvironmentName);
         }
 
         [TestMethod]

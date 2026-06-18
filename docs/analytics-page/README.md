@@ -48,7 +48,7 @@ the truncate-and-rebuild populate pattern over `deploy` + `archive`:
 | `GET /AnalyticsComponentReliability` | `AnalyticsComponentReliability` / `sp_PopulateAnalyticsComponentReliability` | Failure % per component over **executed** attempts only (`Complete`/`Warning`/`Failed`; min 20). Attempt tables are not archived, so this covers the retained window of history only |
 | `GET /AnalyticsRecoveryTime` | `AnalyticsRecoveryTime` / `sp_PopulateAnalyticsRecoveryTime` | Median hours from a failed deployment to the next success. Pairs are computed within project+environment, reported per project; consecutive failures each pair to the same recovery, so streaky outages weight the median, and gaps include calendar inactivity |
 | `/AnalyticsDuration` (extended) | `AnalyticsDuration` +P50/P90/P95 columns | Percentile stat cards |
-| `/AnalyticsEnvironmentUsage` (extended) | `AnalyticsEnvironmentUsage` +`LastSuccessfulDeployment` | Stalest environments (days since last success). Environments that have **never** succeeded have no date to measure from and are excluded from this chart |
+| `/AnalyticsEnvironmentUsage` (extended) | `AnalyticsEnvironmentUsage` +`LastSuccessfulDeployment` | Stalest environments (days since last success). Environments that have **never** succeeded have no date to measure from and are excluded from this chart. The snapshot is intersected server-side with the caller's accessible live environments (`IEnvironmentsPersistentSource.GetEnvironmentNames`), so deleted/renamed environments and ones the user has no access to are excluded — matching what the Environments tab shows |
 
 A client-side filter bar (from/to month + project) applies to the deployment
 river and monthly outcome charts; the pure filtering helpers live in

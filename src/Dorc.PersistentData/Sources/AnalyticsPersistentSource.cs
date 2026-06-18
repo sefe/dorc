@@ -3,18 +3,22 @@ using Dorc.PersistentData.Contexts;
 using Dorc.PersistentData.Model;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.Extensions.Logging;
+using System.Security.Principal;
 
 namespace Dorc.PersistentData.Sources
 {
     public class AnalyticsPersistentSource : IAnalyticsPersistentSource
     {
         private readonly IDeploymentContextFactory _contextFactory;
+        private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
         private readonly ILogger<AnalyticsPersistentSource> _logger;
 
         public AnalyticsPersistentSource(IDeploymentContextFactory contextFactory,
+            IEnvironmentsPersistentSource environmentsPersistentSource,
             ILogger<AnalyticsPersistentSource> logger)
         {
             _contextFactory = contextFactory;
+            _environmentsPersistentSource = environmentsPersistentSource;
             _logger = logger;
         }
 
@@ -149,13 +153,26 @@ namespace Dorc.PersistentData.Sources
             return whole > 0 ? (int)Math.Round((double)part / whole * 100) : 0;
         }
 
-        public IEnumerable<AnalyticsEnvironmentUsageApiModel> GetEnvironmentUsage()
+        public IEnumerable<AnalyticsEnvironmentUsageApiModel> GetEnvironmentUsage(IPrincipal user)
         {
+            // The AnalyticsEnvironmentUsage snapshot is keyed by environment name and
+            // populated by an external job. It is neither access-trimmed nor pruned of
+            // deleted/renamed environments. Intersect it with the caller's accessible
+            // live environments so the analytics view matches what the Environments tab
+            // shows: deleted environments fall away (not in the live set) and non-admin
+            // users only see environments they have access to.
+            var accessibleNames = new HashSet<string>(
+                _environmentsPersistentSource.GetEnvironmentNames(user),
+                StringComparer.OrdinalIgnoreCase);
+
             var output = new List<AnalyticsEnvironmentUsageApiModel>();
             using (var context = _contextFactory.GetContext())
             {
                 output.AddRange(context.AnalyticsEnvironmentUsage
                     .OrderByDescending(env => env.TotalDeployments)
+                    .AsEnumerable()
+                    .Where(env => env.EnvironmentName != null
+                        && accessibleNames.Contains(env.EnvironmentName))
                     .Select(env =>
                         new AnalyticsEnvironmentUsageApiModel
                         {
