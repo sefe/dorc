@@ -852,12 +852,17 @@ export class PageAnalytics extends PageElement {
     };
     const title: TitleComponentOption = {
       text: 'Top 3 Total Deployments By Project This Year',
-      subtext: `${String(this.percentTop3ProjectsThisYear)}%`
+      subtext: `${String(this.percentTop3ProjectsThisYear)}%`,
+      left: 'center'
     };
 
     const series: PieSeriesOption[] = [
       {
         type: 'pie',
+        // Push the pie below the centered title/subtext and cap the radius so
+        // the slice leader-line labels don't overlap the heading.
+        center: ['50%', '58%'],
+        radius: '60%',
         data: this.topProjectsThisYear.map(value => ({
           name: value.project,
           value: value.numDeployments
@@ -878,7 +883,8 @@ export class PageAnalytics extends PageElement {
     };
     const title: TitleComponentOption = {
       text: 'Total Deployments By Project This Year',
-      subtext: 'Not including top 3'
+      subtext: 'Not including top 3',
+      left: 'center'
     };
 
     const currentYear = new Date().getFullYear();
@@ -918,6 +924,10 @@ export class PageAnalytics extends PageElement {
     const series: PieSeriesOption[] = [
       {
         type: 'pie',
+        // Push the pie below the centered title/subtext and cap the radius so
+        // the slice leader-line labels don't overlap the heading.
+        center: ['50%', '58%'],
+        radius: '60%',
         data: withoutTop3.map(value => ({
           name: value.ProjectName ?? '',
           value: value.CountOfDeployments
