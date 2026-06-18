@@ -22,11 +22,17 @@ export class EnvironmentCard extends LitElement {
 
   static get styles() {
     return css`
+      :host {
+        display: block;
+        height: 100%;
+      }
+
       .card-element {
         padding: 10px;
         box-shadow: 1px 2px 3px rgba(0, 0, 0, 0.2);
         width: 300px;
-        min-height: 100px;
+        min-height: 110px;
+        height: 100%;
         display: flex;
         justify-content: space-between;
         gap: var(--lumo-space-s);
@@ -64,8 +70,9 @@ export class EnvironmentCard extends LitElement {
         flex-wrap: wrap;
       }
       .statistics-cards__item {
-        margin: 5px;
+        margin: 0;
         flex-shrink: 0;
+        height: 100%;
       }
       a {
         color: var(--dorc-link-color);
