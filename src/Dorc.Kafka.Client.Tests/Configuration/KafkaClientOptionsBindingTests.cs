@@ -144,6 +144,42 @@ public class KafkaClientOptionsBindingTests
     }
 
     [TestMethod]
+    public void Validate_SessionTimeoutBelowBrokerMinimum_Fails()
+    {
+        // Audit F3: a sub-6s session timeout is rejected by the broker anyway
+        // and would push KafkaLockCoordinator's liveness watchdog into a
+        // sub-second firing range, churning lock slots.
+        var opts = new KafkaClientOptions
+        {
+            BootstrapServers = "broker1:9092",
+            SessionTimeoutMs = 5_000,
+            HeartbeatIntervalMs = 2_000,
+            MaxPollIntervalMs = 300_000
+        };
+
+        var result = new KafkaClientOptionsValidator().Validate(Options.DefaultName, opts);
+
+        Assert.IsTrue(result.Failed);
+        StringAssert.Contains(string.Join("|", result.Failures!), nameof(KafkaClientOptions.SessionTimeoutMs));
+    }
+
+    [TestMethod]
+    public void Validate_SessionTimeoutAtBrokerMinimum_Passes()
+    {
+        var opts = new KafkaClientOptions
+        {
+            BootstrapServers = "broker1:9092",
+            SessionTimeoutMs = 6_000,
+            HeartbeatIntervalMs = 2_000,
+            MaxPollIntervalMs = 300_000
+        };
+
+        var result = new KafkaClientOptionsValidator().Validate(Options.DefaultName, opts);
+
+        Assert.IsTrue(result.Succeeded, string.Join("|", result.Failures ?? Array.Empty<string>()));
+    }
+
+    [TestMethod]
     public void OptionsBuilder_ValidateOnStart_ThrowsAtServiceResolve_WithKeyInMessage()
     {
         var config = BuildConfig(new Dictionary<string, string?>

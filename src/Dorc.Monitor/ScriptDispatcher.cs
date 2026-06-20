@@ -142,15 +142,38 @@ namespace Dorc.Monitor
                                 logger.LogDebug("Waiting for process to exit.");
                                 using var killOnCancel = cancellationToken.Register(() =>
                                 {
-                                    try
+                                    // This callback can fire SYNCHRONOUSLY on the Kafka
+                                    // rebalance/poll thread: when a distributed lock is lost,
+                                    // KafkaLockCoordinator cancels LockLostToken inline, and this
+                                    // token is linked to it (DeploymentRequestStateProcessor).
+                                    // process.Kill() can block on a slow/zombie child, and blocking
+                                    // the poll thread past max.poll.interval.ms fences the lock
+                                    // consumer and stalls distributed locking fleet-wide (audit CR#1).
+                                    // Offload the blocking termination so the cancellation callback
+                                    // returns immediately — honouring the "callbacks on LockLostToken
+                                    // must be fast/non-blocking" contract documented in
+                                    // KafkaLockCoordinator. Use a DEDICATED thread, not Task.Run: under
+                                    // thread-pool saturation a queued Kill could run arbitrarily late,
+                                    // leaving a runaway Runner executing deployment work after the
+                                    // distributed lock was lost (audit round-2 #6). A dedicated thread
+                                    // runs promptly regardless of pool state.
+                                    logger.LogInformation("Cancellation requested — terminating Runner process for request ID '{RequestId}'.", requestId);
+                                    var killThread = new Thread(() =>
                                     {
-                                        logger.LogInformation("Cancellation requested — terminating Runner process for request ID '{RequestId}'.", requestId);
-                                        process.Kill();
-                                    }
-                                    catch (Exception ex)
+                                        try
+                                        {
+                                            process.Kill();
+                                        }
+                                        catch (Exception ex)
+                                        {
+                                            logger.LogDebug(ex, "Failed to terminate Runner process (may have already exited).");
+                                        }
+                                    })
                                     {
-                                        logger.LogDebug(ex, "Failed to terminate Runner process (may have already exited).");
-                                    }
+                                        IsBackground = true,
+                                        Name = $"runner-kill-{requestId}"
+                                    };
+                                    killThread.Start();
                                 });
                                 var resultCode = process.WaitForExit();
                                 logger.LogInformation($"Runner finished for request ID '{requestId}' with result code [{resultCode}]");

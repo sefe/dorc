@@ -141,41 +141,44 @@ public class KafkaLockCoordinatorTests
         Assert.AreEqual(expected, c.GetPartitionFor("foobar"));
     }
 
-    // ---- Finding 8 / 11a: slot teardown runs off-thread, outside _slotLock, and disposes the CTS ----
+    // ---- C2 fix: slot CTS must be cancelled synchronously in OnRevokedOrLost,
+    //             outside _slotLock and before returning from the rebalance callback ----
 
     [TestMethod]
-    public async Task Revoke_RunsLockLostCallbacks_OffRevokingThread_AndOutsideSlotLock()
+    public async Task Revoke_CancelsLockLostToken_SynchronouslyOutsideSlotLock_BeforeCallbackReturns()
     {
+        // The CTS MUST be cancelled synchronously before OnRevokedOrLost returns.
+        // In a cooperative rebalance the broker does not send OnAssigned to the peer
+        // until after our callback returns, so cancelling before return ensures the
+        // old holder's LockLostToken fires before any peer can acquire the lock.
+        // Callbacks running on the revoking thread is acceptable: production callbacks
+        // (linked CTS cancellation, event signalling) are quick and do not block.
         await using var c = NewCoordinator();
         InvokePrivate(c, "OnAssigned", 4);
         var token = await c.WaitForPartitionOwnershipAsync(4, CancellationToken.None);
 
         var slotLock = GetPrivateField(c, "_slotLock");
         bool? slotLockHeldInCallback = null;
-        var callbackThreadId = -1;
-        using var done = new ManualResetEventSlim();
+        bool cancelledBeforeReturn = false;
         using var reg = token.Register(() =>
         {
             slotLockHeldInCallback = System.Threading.Monitor.IsEntered(slotLock);
-            callbackThreadId = Environment.CurrentManagedThreadId;
-            done.Set();
+            cancelledBeforeReturn = true;
         });
 
-        var revokingThreadId = Environment.CurrentManagedThreadId;
         InvokePrivate(c, "OnRevokedOrLost", 4, false);
 
-        Assert.IsTrue(done.Wait(TimeSpan.FromSeconds(10)), "LockLostToken callback must fire.");
+        // The callback must have fired BEFORE OnRevokedOrLost returned (synchronous).
+        Assert.IsTrue(cancelledBeforeReturn, "LockLostToken callback must fire synchronously during OnRevokedOrLost.");
+        Assert.IsTrue(token.IsCancellationRequested, "LockLostToken must be cancelled before OnRevokedOrLost returns.");
         Assert.IsFalse(slotLockHeldInCallback!.Value,
             "Lock-lost callbacks must not run under _slotLock (deadlock risk).");
-        Assert.AreNotEqual(revokingThreadId, callbackThreadId,
-            "Lock-lost callbacks must not run inline on the revoking (consume/rebalance) thread.");
     }
 
-    // Regression (found by SC2a against a live broker): the revoked slot's
-    // LockLostToken has escaped to lock holders, who may block on
-    // token.WaitHandle or call token.Register to observe loss. Disposing the
-    // CTS makes both throw ObjectDisposedException on the holder's side, so
-    // the coordinator must cancel but never dispose an escaped CTS (a
+    // Regression: the revoked slot's LockLostToken has escaped to lock holders,
+    // who may block on token.WaitHandle or call token.Register to observe loss.
+    // Disposing the CTS makes both throw ObjectDisposedException on the holder's
+    // side, so the coordinator must cancel but never dispose an escaped CTS (a
     // cancelled, timerless CTS is plain managed memory for the GC).
     [TestMethod]
     public async Task Revoke_ReplacedSlotToken_RemainsObservableByHolders()
@@ -189,9 +192,8 @@ public class KafkaLockCoordinatorTests
 
         InvokePrivate(c, "OnRevokedOrLost", 6, false);
 
-        // Teardown (cancel → callbacks) is asynchronous; wait for cancellation
-        // the way a real holder does — via the wait handle.
-        Assert.IsTrue(escapedToken.WaitHandle.WaitOne(TimeSpan.FromSeconds(10)),
+        // CTS is now cancelled synchronously; WaitHandle and Register must still work.
+        Assert.IsTrue(escapedToken.WaitHandle.WaitOne(TimeSpan.Zero),
             "Holder must observe cancellation via WaitHandle after revoke.");
         Assert.IsTrue(escapedToken.IsCancellationRequested);
         // Both observation paths must stay usable after teardown completes.
@@ -225,6 +227,28 @@ public class KafkaLockCoordinatorTests
     }
 
     [TestMethod]
+    public async Task Liveness_Trip_RequestsConsumerRebuild_ToGuaranteeReassignment()
+    {
+        // Audit CR#5: forcing a rebuild on a liveness trip is deliberate and
+        // load-bearing. Without it, a transient disconnect that recovers before
+        // session.timeout.ms leaves the group with no rebalance to clear
+        // _connectivitySuspect, wedging slot re-establishment until process
+        // restart. The churn this can cause on a flapping broker is bounded by
+        // the rebuild backoff and is the lesser evil. Pin the intent so a future
+        // change can't silently drop the rebuild.
+        var time = new ManualTimeProvider();
+        await using var c = NewCoordinator(livenessTimeoutMs: 1_000, timeProvider: time);
+        c.RecordBrokerContact();
+
+        Assert.IsFalse(c.IsConsumerRebuildRequested, "No rebuild requested before any liveness trip.");
+
+        time.Advance(TimeSpan.FromSeconds(2));
+        Assert.IsTrue(c.EvaluateLiveness(), "Watchdog must trip once the liveness timeout elapses without contact.");
+        Assert.IsTrue(c.IsConsumerRebuildRequested,
+            "A liveness trip must request a consumer rebuild so the group re-joins and OnAssigned re-fires.");
+    }
+
+    [TestMethod]
     public async Task Liveness_AfterTrip_SlotsReestablishOnReassign_AndWatchdogRearms()
     {
         var time = new ManualTimeProvider();
@@ -250,14 +274,21 @@ public class KafkaLockCoordinatorTests
     }
 
     [TestMethod]
-    public async Task ResolveLivenessTimeout_DefaultsToSessionTimeoutWithThirtySecondFloor()
+    public async Task ResolveLivenessTimeout_HalfSessionTimeout_ClampedBelowSessionMinus2s()
     {
+        // Low session timeout: floor at 10s, clamped below session-2s (8s).
         await using (var low = NewCoordinator(sessionTimeoutMs: 10_000))
-            Assert.AreEqual(TimeSpan.FromSeconds(30), low.ResolveLivenessTimeout());
+            Assert.AreEqual(TimeSpan.FromSeconds(8), low.ResolveLivenessTimeout());
 
+        // High session timeout: 60s×0.5=30s, clamped below 58s → 30s.
         await using (var high = NewCoordinator(sessionTimeoutMs: 60_000))
-            Assert.AreEqual(TimeSpan.FromSeconds(60), high.ResolveLivenessTimeout());
+            Assert.AreEqual(TimeSpan.FromSeconds(30), high.ResolveLivenessTimeout());
 
+        // Default session timeout (30s): 30s×0.5=15s, floor=10s → 15s, clamped below 28s → 15s.
+        await using (var def = NewCoordinator(sessionTimeoutMs: 30_000))
+            Assert.AreEqual(TimeSpan.FromSeconds(15), def.ResolveLivenessTimeout());
+
+        // Explicit configuration always wins.
         await using (var configured = NewCoordinator(livenessTimeoutMs: 1_234, sessionTimeoutMs: 60_000))
             Assert.AreEqual(TimeSpan.FromMilliseconds(1_234), configured.ResolveLivenessTimeout());
     }
@@ -288,6 +319,50 @@ public class KafkaLockCoordinatorTests
 
         Assert.IsTrue(WaitForCancellation(token));
         Assert.IsTrue(c.IsConsumerRebuildRequested);
+    }
+
+    // ---- Round 3 C1-revoke fix: cooperative revoke clears _connectivitySuspect ----
+
+    [TestMethod]
+    public async Task CooperativeRevoke_ClearsConnectivitySuspect()
+    {
+        // A transport-class error sets _connectivitySuspect=true, causing empty
+        // polls to stop counting as broker contact. A subsequent cooperative revoke
+        // (OnRevokedOrLost(lost:false)) proves the broker is reachable — the
+        // coordinator received a rebalance callback, which requires a healthy
+        // broker session. It must clear the flag so the consumer can resume
+        // normal empty-poll liveness behaviour after reconnect.
+        await using var c = NewCoordinator();
+        InvokePrivate(c, "OnAssigned", 0);
+
+        // Transport error: marks connectivity suspect.
+        c.OnConsumerError(new Error(ErrorCode.Local_Transport, "transient outage", false));
+        Assert.IsTrue((bool)GetPrivateField(c, "_connectivitySuspect"),
+            "Transport-class error must set _connectivitySuspect=true.");
+
+        // Cooperative revoke: broker-driven rebalance proves contact.
+        InvokePrivate(c, "OnRevokedOrLost", 0, false);
+        Assert.IsFalse((bool)GetPrivateField(c, "_connectivitySuspect"),
+            "Cooperative revoke (lost=false) must clear _connectivitySuspect — " +
+            "a rebalance round-trip with the broker proves connectivity is restored.");
+    }
+
+    [TestMethod]
+    public async Task LostRevoke_DoesNotClearConnectivitySuspect()
+    {
+        // A "lost" revoke (max.poll.interval exceeded, or local session expiry)
+        // is determined locally by librdkafka without a round-trip to the broker.
+        // It must NOT clear _connectivitySuspect — it provides no evidence the
+        // broker is actually reachable.
+        await using var c = NewCoordinator();
+        InvokePrivate(c, "OnAssigned", 1);
+
+        c.OnConsumerError(new Error(ErrorCode.Local_Transport, "transient", false));
+        InvokePrivate(c, "OnRevokedOrLost", 1, true); // lost=true
+
+        Assert.IsTrue((bool)GetPrivateField(c, "_connectivitySuspect"),
+            "A 'lost' revoke (local timeout, no broker round-trip) must NOT clear " +
+            "_connectivitySuspect.");
     }
 
     private sealed class FakeConnectionProvider : Dorc.Kafka.Client.Connection.IKafkaConnectionProvider

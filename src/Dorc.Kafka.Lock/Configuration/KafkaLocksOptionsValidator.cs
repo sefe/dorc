@@ -16,6 +16,13 @@ public sealed class KafkaLocksOptionsValidator : IValidateOptions<KafkaLocksOpti
 
         if (string.IsNullOrWhiteSpace(options.ConsumerGroupId))
             errors.Add($"{KafkaLocksOptions.SectionName}:{nameof(KafkaLocksOptions.ConsumerGroupId)} is required.");
+        else if (options.ConsumerGroupId.Equals(KafkaLocksOptions.SharedDefaultConsumerGroupId, StringComparison.OrdinalIgnoreCase))
+            errors.Add(
+                $"{KafkaLocksOptions.SectionName}:{nameof(KafkaLocksOptions.ConsumerGroupId)} is still set to the shared default value '{KafkaLocksOptions.SharedDefaultConsumerGroupId}'. " +
+                "Every deployment tier MUST use a distinct, explicitly configured group ID — e.g. 'dorc.monitor.locks.nonprod' for NonProd, " +
+                "'dorc.monitor.locks.prod' for Prod. Sharing a group ID across tiers causes lock partitions to be assigned across tiers, " +
+                "stalling deployments in whichever tier doesn't own the partition. " +
+                "IMPORTANT: ensure the Prod configuration does NOT inherit a '.nonprod' suffixed group ID from a base appsettings file.");
 
         if (options.AcquireWaitMs <= 0)
             errors.Add($"{KafkaLocksOptions.SectionName}:{nameof(KafkaLocksOptions.AcquireWaitMs)} must be > 0.");

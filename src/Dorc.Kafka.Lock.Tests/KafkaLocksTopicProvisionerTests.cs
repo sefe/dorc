@@ -113,8 +113,18 @@ public class KafkaLocksTopicProvisionerTests
     }
 
     [TestMethod]
-    public async Task TopicExists_MetadataUnavailable_LogsAndContinues()
+    public async Task TopicExists_MetadataUnavailable_ContinuesStartup()
     {
+        // Audit CR#3 (deliberately reverses the earlier "M1" fail-fast decision):
+        // when the topic already exists but partition-count cannot be verified
+        // because the broker is transiently unreachable during the metadata
+        // fetch, the provisioner must LOG and CONTINUE rather than throw and
+        // abort host startup. Crashing here on a transient blip during a routine
+        // restart takes down the DB-poll fallback path too, and is asymmetric
+        // with the topic-missing path (which already logs and continues). A
+        // genuine partition-count MISMATCH still fails fast — that path throws
+        // InvalidOperationException, not KafkaException (see
+        // TopicExists_WrongPartitionCount_FailsFast).
         var (provisioner, logger) = Build();
         var admin = new ScriptedAdminClient
         {
@@ -122,8 +132,12 @@ public class KafkaLocksTopicProvisionerTests
             OnGetMetadata = (_, _) => throw new KafkaException(new Error(ErrorCode.Local_Transport, "down"))
         };
 
+        // Must not throw.
         await provisioner.ProvisionAsync(admin, CancellationToken.None);
-        Assert.IsTrue(logger.Messages.Any(m => m.Contains("verification failed")));
+
+        Assert.IsTrue(
+            logger.Messages.Any(m => m.Contains("could not be verified")),
+            "A transient broker outage during verification must be logged and tolerated, not fatal.");
     }
 
     [TestMethod]

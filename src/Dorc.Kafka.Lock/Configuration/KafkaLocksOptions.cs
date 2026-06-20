@@ -9,6 +9,15 @@ public sealed class KafkaLocksOptions
     public const string SectionName = "Kafka:Locks";
 
     /// <summary>
+    /// The shared default lock <see cref="ConsumerGroupId"/>. This value is
+    /// deliberately REJECTED by <c>KafkaLocksOptionsValidator</c> at startup:
+    /// every deployment tier must set a distinct, explicit group id (see
+    /// <see cref="ConsumerGroupId"/>). Kept as a single const so the default and
+    /// the validator guard can never drift apart (audit CR#4/#8).
+    /// </summary>
+    public const string SharedDefaultConsumerGroupId = "dorc.monitor.locks";
+
+    /// <summary>
     /// Master enable flag surfaced via <c>IDistributedLockService.IsEnabled</c>.
     /// Independent of the substrate-selector flag: the substrate decides which
     /// type is registered; this decides whether the active type reports
@@ -27,11 +36,18 @@ public sealed class KafkaLocksOptions
     public short ReplicationFactor { get; set; } = 3;
 
     /// <summary>
-    /// All Monitor replicas share this group id so partitions split across the
-    /// fleet (mutual-exclusion model), distinct from per-replica group
-    /// id (fan-out model).
+    /// All Monitor replicas for a given deployment tier share this group id so
+    /// partitions split across the fleet (mutual-exclusion model), distinct from
+    /// per-replica group id (fan-out model).
+    ///
+    /// <b>IMPORTANT:</b> This value MUST differ between Prod and NonProd monitor
+    /// deployments. If both share the same group id, Kafka assigns lock partitions
+    /// across all monitors regardless of tier — a NonProd lock partition may land
+    /// on the Prod monitor, which never processes NonProd work, silently stalling
+    /// NonProd deployments. Set this to a tier-specific value in each environment's
+    /// configuration (e.g. <c>dorc.monitor.locks.prod</c> / <c>dorc.monitor.locks.nonprod</c>).
     /// </summary>
-    public string ConsumerGroupId { get; set; } = "dorc.monitor.locks";
+    public string ConsumerGroupId { get; set; } = SharedDefaultConsumerGroupId;
 
     /// <summary>
     /// Upper bound (ms) a single <c>TryAcquireLockAsync</c> call waits for

@@ -41,6 +41,12 @@ public static class KafkaAvroServiceCollectionExtensions
                     $"{KafkaClientOptions.SectionName}:{nameof(KafkaClientOptions.SchemaRegistry)}:{nameof(KafkaSchemaRegistryOptions.Url)} is required for Avro serialization but is missing or empty. Set it to the schema registry base URL (e.g. http://localhost:8081).");
 
             var schemaRegistryConfig = new SchemaRegistryConfig { Url = url };
+            // Propagate the CA certificate path so the schema registry client
+            // uses the same trust root as the broker clients. Without this,
+            // TLS verification fails on Aiven / custom-CA deployments even when
+            // broker auth succeeds.
+            if (!string.IsNullOrEmpty(kafkaOptions.SslCaLocation))
+                schemaRegistryConfig.SslCaLocation = kafkaOptions.SslCaLocation;
             if (!string.IsNullOrEmpty(kafkaOptions.SchemaRegistry.BasicAuthUsername))
             {
                 schemaRegistryConfig.BasicAuthUserInfo =

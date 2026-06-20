@@ -1,4 +1,5 @@
 using Confluent.Kafka;
+using Confluent.SchemaRegistry;
 using Dorc.Core.Events;
 using Dorc.Kafka.Client.Connection;
 using Dorc.Kafka.Client.Consumers;
@@ -23,9 +24,9 @@ namespace Dorc.Kafka.Events.Publisher;
 ///
 /// Consumer group id: per-replica <c>dorc-monitor-requests.{HostInstanceId}</c>
 /// so every Monitor replica sees every event (fan-out, mirroring ).
-/// AutoOffsetReset overridden to Earliest to narrow the visibility gap on
-/// consumer restart; rebalance-replay is harmless because handler is
-/// idempotent + DB-state guards downstream paths.
+/// AutoOffsetReset overridden to Latest: this consumer is a per-replica
+/// fan-out — replaying the full topic on K8s restart/rollout would cause
+/// thundering-herd replays. The DB-poll baseline covers any gap on restart.
 ///
 /// Failure path mirrors results consumer: deserialise failure or
 /// handler exception →  IKafkaErrorLog DAL → fall back to structured
@@ -81,6 +82,10 @@ public sealed class DeploymentRequestsKafkaConsumer : BackgroundService
 
     private void RunLoop(CancellationToken stoppingToken)
     {
+        // Warn early if falling back to MachineName: co-hosted replicas without
+        // DORC_REPLICA_ID share a consumer group, breaking the fan-out invariant.
+        HostInstanceId.WarnIfFallingBackToMachineName(_logger);
+
         WarmupSerializers();
         using var consumer = BuildConsumer();
         consumer.Subscribe(Topics);
@@ -98,6 +103,21 @@ public sealed class DeploymentRequestsKafkaConsumer : BackgroundService
             catch (OperationCanceledException) { break; }
             catch (ConsumeException ex)
             {
+                // Distinguish transient schema-registry connectivity failures from
+                // actual poison messages. A registry outage throws ConsumeException
+                // wrapping HttpRequestException (network failure) or
+                // SchemaRegistryException (HTTP error) — routing these to the DLQ
+                // would permanently discard perfectly valid deployment requests.
+                if (IsRegistryConnectivityFailure(ex))
+                {
+                    _logger.LogWarning(ex,
+                        "Schema registry connectivity failure on Consume — backing off 5s before retry. " +
+                        "Message will be redelivered; offset NOT advanced.");
+                    try { Task.Delay(TimeSpan.FromSeconds(5), stoppingToken).Wait(stoppingToken); }
+                    catch (OperationCanceledException) { break; }
+                    continue;
+                }
+
                 HandleFailure(ex.ConsumerRecord, ex, stoppingToken);
                 // Offset-store is disabled globally; advance past the poison
                 // message so the consume loop doesn't busy-spin on it once the
@@ -121,6 +141,18 @@ public sealed class DeploymentRequestsKafkaConsumer : BackgroundService
                 }
                 continue;
             }
+            catch (KafkaException ex) when (!IsCritical(ex))
+            {
+                // Non-consume KafkaExceptions (e.g. unexpected broker errors not
+                // surfaced as ConsumeException) must not escape the loop: an
+                // unhandled exception from a BackgroundService faults the hosted
+                // service and triggers StopHost (default .NET 8 behaviour), taking
+                // the entire Monitor down and defeating the DB-poll fallback design.
+                _logger.LogError(ex, "Kafka requests consumer unexpected non-consume error; backing off 5s. code={Code}", ex.Error.Code);
+                try { Task.Delay(TimeSpan.FromSeconds(5), stoppingToken).Wait(stoppingToken); }
+                catch (OperationCanceledException) { break; }
+                continue;
+            }
 
             if (result is null) continue;
 
@@ -130,7 +162,7 @@ public sealed class DeploymentRequestsKafkaConsumer : BackgroundService
                     .GetAwaiter().GetResult();
                 consumer.StoreOffset(result);
                 // Debug, not Information: per-record logging at Information
-                // makes a full-topic replay (Earliest reset + fresh group)
+                // makes a full-topic replay (Latest reset + fresh group)
                 // operationally noisy — thousands of lines per restart.
                 _logger.LogDebug(
                     "request-event-consumed topic={Topic} partition={Partition} offset={Offset} group={GroupId} requestId={RequestId} status={Status}",
@@ -175,7 +207,7 @@ public sealed class DeploymentRequestsKafkaConsumer : BackgroundService
     internal ConsumerConfig BuildConsumerConfig()
     {
         var config = _connectionProvider.GetConsumerConfig(ConsumerGroupId);
-        config.AutoOffsetReset = AutoOffsetReset.Earliest;
+        config.AutoOffsetReset = AutoOffsetReset.Latest;
         // Auto-commit timer is left enabled (low-overhead) but offset storage
         // is moved off the consume call and onto explicit StoreOffset after
         // handler success. This prevents a crash between consume return and
@@ -184,11 +216,21 @@ public sealed class DeploymentRequestsKafkaConsumer : BackgroundService
         // future stateful additions (metrics, dedup state) would silently
         // lose messages otherwise.
         //
-        // IMPORTANT: HandleAsync runs synchronously on the consumer poll
-        // thread (.GetAwaiter().GetResult()). If handler latency exceeds
-        // max.poll.interval.ms (default 300s), the broker will fence this
-        // consumer and trigger a rebalance. Ensure the configured value
-        // accommodates worst-case handler latency.
+        // AutoOffsetReset.Latest: this consumer is a per-replica fan-out for
+        // wake-up signals — replaying the full topic history on every restart
+        // (Earliest) would cause massive replay storms on Kubernetes rollouts
+        // (each new pod gets a fresh group ID and replays all retention).
+        // Latest is correct: on restart, the DB-poll baseline catches up with
+        // any missed signals so no deployments are lost.
+        //
+        // Accepted trade-off (audit CR#6): request events produced during the
+        // restart window — after the old replica left and before the new one
+        // subscribes — are NOT replayed (fresh group + Latest tails the log).
+        // The cost is bounded to added START LATENCY for those requests (picked
+        // up on the next periodic DB poll), never data loss. This is deliberately
+        // preferred over the replay-storm / fresh-group-Earliest alternative; a
+        // zero-latency fix would require a stable per-replica group with committed
+        // offsets, a larger redesign of the fan-out model not undertaken here.
         config.EnableAutoCommit = true;
         config.EnableAutoOffsetStore = false;
         return config;
@@ -263,4 +305,20 @@ public sealed class DeploymentRequestsKafkaConsumer : BackgroundService
             or StackOverflowException
             or AccessViolationException
             or System.Threading.ThreadAbortException;
+
+    /// <summary>
+    /// Returns <see langword="true"/> when the <see cref="ConsumeException"/> was caused by a
+    /// transient schema registry failure rather than a malformed (poison) message.
+    /// <para>
+    /// <see cref="Confluent.SchemaRegistry.SchemaRegistryException"/> inherits from
+    /// <see cref="System.Net.Http.HttpRequestException"/>, so sub-type order matters:
+    /// </para>
+    /// <list type="bullet">
+    ///   <item>5xx <see cref="Confluent.SchemaRegistry.SchemaRegistryException"/> — server error, transient → back off.</item>
+    ///   <item>4xx <see cref="Confluent.SchemaRegistry.SchemaRegistryException"/> (e.g. 40403 Schema Not Found) — deterministic failure → DLQ.</item>
+    ///   <item>Plain <see cref="System.Net.Http.HttpRequestException"/> (no HTTP response) — network unreachable → back off.</item>
+    /// </list>
+    /// </summary>
+    internal static bool IsRegistryConnectivityFailure(ConsumeException ex)
+        => KafkaRegistryFailureClassifier.IsTransientRegistryFailure(ex);
 }

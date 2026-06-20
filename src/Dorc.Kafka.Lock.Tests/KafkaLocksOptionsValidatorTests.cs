@@ -10,7 +10,7 @@ public class KafkaLocksOptionsValidatorTests
     {
         PartitionCount = 12,
         ReplicationFactor = 3,
-        ConsumerGroupId = "dorc.monitor.locks",
+        ConsumerGroupId = "dorc.monitor.locks.test",
         AcquireWaitMs = 5_000
     };
 
@@ -78,5 +78,32 @@ public class KafkaLocksOptionsValidatorTests
         opts.LivenessTimeoutMs = null; // auto: max(session.timeout.ms, 30s)
         var r = new KafkaLocksOptionsValidator().Validate(null, opts);
         Assert.IsTrue(r.Succeeded);
+    }
+
+    /// <summary>
+    /// The shared default "dorc.monitor.locks" must be rejected to prevent
+    /// Prod and NonProd Monitor tiers from fighting over the same consumer-group
+    /// partition assignment, which would stall whichever tier doesn't own the
+    /// partition. Deleting lines 19-25 of KafkaLocksOptionsValidator must
+    /// cause this test to fail — it pins the split-brain guard.
+    /// </summary>
+    [TestMethod]
+    public void Validate_ConsumerGroupIdIsSharedDefault_ExactMatch_Fails()
+    {
+        var opts = Valid();
+        opts.ConsumerGroupId = "dorc.monitor.locks";
+        var r = new KafkaLocksOptionsValidator().Validate(null, opts);
+        Assert.IsTrue(r.Failed, "Exact shared default must be rejected.");
+        StringAssert.Contains(string.Join("; ", r.Failures!), "ConsumerGroupId");
+    }
+
+    [TestMethod]
+    public void Validate_ConsumerGroupIdIsSharedDefault_CaseInsensitive_Fails()
+    {
+        var opts = Valid();
+        opts.ConsumerGroupId = "DORC.MONITOR.LOCKS";
+        var r = new KafkaLocksOptionsValidator().Validate(null, opts);
+        Assert.IsTrue(r.Failed, "Case-insensitive match of shared default must be rejected.");
+        StringAssert.Contains(string.Join("; ", r.Failures!), "ConsumerGroupId");
     }
 }

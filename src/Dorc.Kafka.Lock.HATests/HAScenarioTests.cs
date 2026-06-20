@@ -32,7 +32,15 @@ public class HAScenarioTests
         return (l2!, c2.Coord, c1.Svc);
     }
 
-    /// <summary>Leader-kill failover within 60s.</summary>
+    /// <summary>Leader-kill failover within 60s.
+    ///
+    /// NOTE: uses <see cref="HAHarness.RemoveCandidateAsync"/> which calls
+    /// <c>DisposeAsync()</c> — a *cooperative* group leave.  This exercises
+    /// partition reassignment after a clean shutdown, not a crash/session-timeout
+    /// recovery scenario.  Crash simulation requires multi-process isolation
+    /// (preventing heartbeat delivery); that is out of scope for an in-process
+    /// test harness.
+    /// </summary>
     [TestMethod]
     public async Task SC2a_LeaderKillFailover()
     {
@@ -64,7 +72,11 @@ public class HAScenarioTests
         Assert.IsNotNull(failover, $"Failover acquire must succeed within 60s (elapsed={sw.Elapsed}).");
     }
 
-    /// <summary> / SC-2b — new-deployment acceptance post-failover ≤30s.</summary>
+    /// <summary> / SC-2b — new-deployment acceptance post-failover ≤30s.
+    ///
+    /// NOTE: same cooperative-close caveat as SC2a — not a crash/session-timeout
+    /// simulation.
+    /// </summary>
     [TestMethod]
     public async Task SC2b_NewDeploymentAcceptancePostFailover()
     {
@@ -195,6 +207,7 @@ public class HAScenarioTests
                 using (var read = new SqliteConnection(connStr))
                 {
                     read.Open();
+                    using (var pragma = read.CreateCommand()) { pragma.CommandText = "PRAGMA busy_timeout = 5000;"; pragma.ExecuteNonQuery(); }
                     using var cmd = read.CreateCommand();
                     cmd.CommandText = "SELECT IFNULL(MAX(Seq), 0) + 1 FROM oplog WHERE LockKey = $k";
                     cmd.Parameters.AddWithValue("$k", key);
@@ -210,6 +223,7 @@ public class HAScenarioTests
                 using (var write = new SqliteConnection(connStr))
                 {
                     write.Open();
+                    using (var pragma = write.CreateCommand()) { pragma.CommandText = "PRAGMA busy_timeout = 5000;"; pragma.ExecuteNonQuery(); }
                     using var cmd = write.CreateCommand();
                     cmd.CommandText = "INSERT INTO oplog (LockKey, Seq, WriterId) VALUES ($k, $s, $w)";
                     cmd.Parameters.AddWithValue("$k", key);

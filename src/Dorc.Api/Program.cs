@@ -334,12 +334,11 @@ builder.Services.AddSingleton<IDeploymentSubscriptionsGroupTracker, DeploymentSu
 // Kafka). Operators upgrading an existing install can either ship a
 // Kafka:Enabled=false override or rely on the empty-BootstrapServers
 // startup-validation fallback below to skip Kafka without crashing.
-var kafkaEnabledApi = builder.Configuration.GetValue("Kafka:Enabled", true);
-if (kafkaEnabledApi && string.IsNullOrWhiteSpace(builder.Configuration["Kafka:BootstrapServers"]))
-{
-    Console.WriteLine("[startup] Kafka:Enabled=true but Kafka:BootstrapServers is empty; running in SignalR-only fallback mode.");
-    kafkaEnabledApi = false;
-}
+// Upgrade-safety gate shared with the Monitor host (Dorc.Kafka.Client KafkaStartupGate):
+// if Kafka is enabled but a required setting is missing, fall back cleanly rather
+// than crash at DI resolution. Runs in SignalR-only fallback mode when false.
+var kafkaEnabledApi = Dorc.Kafka.Client.Configuration.KafkaStartupGate.IsKafkaEnabled(
+    builder.Configuration, "SignalR-only fallback mode", Console.WriteLine);
 if (kafkaEnabledApi)
 {
     builder.Services.AddSingleton<Dorc.Kafka.Events.Publisher.IDeploymentResultBroadcaster,

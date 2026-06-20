@@ -218,6 +218,97 @@ public class KafkaDistributedLockServiceTests
             $"Expected wait-timeout outcome; got: {string.Join(" | ", logger.Messages)}");
     }
 
+    // ---- M8 fix: intra-process gate (SemaphoreSlim per resource key) ----
+
+    [TestMethod]
+    public async Task Acquire_SecondCallSameKey_BlocksUntilFirstReleased()
+    {
+        // Partition ownership is per-process, not per-caller. Without the gate,
+        // two concurrent TryAcquireLockAsync("env:Production") calls in the same
+        // process would both succeed — split-brain within the process. The gate
+        // must serialise them: the second call must time out while the first holds it.
+        var (coord, svc) = Build(acquireWaitMs: 500);
+        await using var _ = coord;
+        for (var p = 0; p < coord.Options.PartitionCount; p++)
+            InvokePrivate(coord, "OnAssigned", p);
+
+        // First acquire succeeds immediately.
+        var first = await svc.TryAcquireLockAsync("env:Production", leaseTimeMs: 0, CancellationToken.None);
+        Assert.IsNotNull(first, "First acquire must succeed.");
+        Assert.IsTrue(first!.IsValid);
+
+        // Second concurrent acquire for the same key — the gate is held by the first.
+        // The wait cap (500ms) must expire rather than letting the call past the gate.
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        var second = await svc.TryAcquireLockAsync("env:Production", leaseTimeMs: 0, CancellationToken.None);
+        sw.Stop();
+
+        Assert.IsNull(second, "Second concurrent acquire of the same key must fail: intra-process gate still held.");
+        Assert.IsTrue(sw.Elapsed < TimeSpan.FromSeconds(10),
+            $"Gate wait must be bounded by AcquireWaitMs (500ms); took {sw.Elapsed}.");
+
+        // After the first lock is released the gate is free — a new acquire succeeds.
+        first.Dispose();
+        var third = await svc.TryAcquireLockAsync("env:Production", leaseTimeMs: 0, CancellationToken.None);
+        Assert.IsNotNull(third, "After the first lock is disposed the gate is released; acquire must succeed.");
+    }
+
+    [TestMethod]
+    public async Task Acquire_TwoDifferentKeys_IndependentGates_BothSucceed()
+    {
+        // Each resource key has its own gate. Acquiring key A must not block key B.
+        var (coord, svc) = Build(acquireWaitMs: 5_000);
+        await using var _ = coord;
+        for (var p = 0; p < coord.Options.PartitionCount; p++)
+            InvokePrivate(coord, "OnAssigned", p);
+
+        var a = await svc.TryAcquireLockAsync("env:Production", leaseTimeMs: 0, CancellationToken.None);
+        var b = await svc.TryAcquireLockAsync("env:Staging",    leaseTimeMs: 0, CancellationToken.None);
+
+        Assert.IsNotNull(a, "First key acquire must succeed.");
+        Assert.IsNotNull(b, "Second key (different resource) must not be blocked by the first key's gate.");
+    }
+
+    // ---- Audit CR#7: the intra-process gate map must stay bounded ----
+
+    [TestMethod]
+    public async Task Acquire_ThenDispose_ReclaimsGate()
+    {
+        var (coord, svc) = Build();
+        await using var _ = coord;
+        for (var p = 0; p < coord.Options.PartitionCount; p++)
+            InvokePrivate(coord, "OnAssigned", p);
+
+        var handle = await svc.TryAcquireLockAsync("env:Production", leaseTimeMs: 0, CancellationToken.None);
+        Assert.IsNotNull(handle);
+        Assert.AreEqual(1, GateCount(svc), "Gate must exist while the lock is held.");
+
+        handle!.Dispose();
+        Assert.AreEqual(0, GateCount(svc),
+            "Gate must be reclaimed once the lock is released so the map stays bounded (audit CR#7).");
+    }
+
+    [TestMethod]
+    public async Task Acquire_TimesOut_ReclaimsGate()
+    {
+        var (coord, svc) = Build(acquireWaitMs: 50);
+        await using var _ = coord;
+        // No partitions assigned → the ownership wait times out and returns null.
+        var handle = await svc.TryAcquireLockAsync("env:Foo", leaseTimeMs: 0, CancellationToken.None);
+
+        Assert.IsNull(handle);
+        Assert.AreEqual(0, GateCount(svc),
+            "A failed acquire must not leak a gate entry (audit CR#7).");
+    }
+
+    private static int GateCount(KafkaDistributedLockService svc)
+    {
+        var dict = typeof(KafkaDistributedLockService)
+            .GetField("_inProcessGates", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(svc)!;
+        return (int)dict.GetType().GetProperty("Count")!.GetValue(dict)!;
+    }
+
     private sealed class CapturingLogger : ILogger<KafkaDistributedLockService>
     {
         public ConcurrentQueue<string> Messages { get; } = new();

@@ -30,7 +30,6 @@ public class S007IntegrationTests
             await WaitUntilAssigned(consumer, TimeSpan.FromSeconds(15));
 
             // Produce 3 events with the same RequestId → same partition → ordered.
-            var publisher = harness.BuildPublisher();
             var sent = new List<DeploymentResultEventData>();
             for (var i = 0; i < 3; i++)
             {
@@ -40,19 +39,20 @@ public class S007IntegrationTests
                     StartedTime: DateTimeOffset.UtcNow, CompletedTime: null,
                     Timestamp: DateTimeOffset.UtcNow.AddSeconds(i));
                 sent.Add(e);
-                await PublishToTopic(publisher, topic, e);
+                await PublishToTopic(topic, e);
             }
 
-            await WaitUntil(() => harness.Broadcaster.Received.Count >= 3, TimeSpan.FromSeconds(15));
+            await WaitUntil(() => harness.Broadcaster.Count >= 3, TimeSpan.FromSeconds(15));
             cts.Cancel();
             await consumer.StopAsync(CancellationToken.None);
 
-            Assert.AreEqual(3, harness.Broadcaster.Received.Count);
+            var snap = harness.Broadcaster.Snapshot();
+            Assert.AreEqual(3, snap.Count);
             // Per-RequestId ordering preserved (single partition for key 7777).
             for (var i = 0; i < 3; i++)
             {
-                Assert.AreEqual(sent[i].ResultId, harness.Broadcaster.Received[i].Event.ResultId);
-                Assert.AreEqual(sent[i].Status, harness.Broadcaster.Received[i].Event.Status);
+                Assert.AreEqual(sent[i].ResultId, snap[i].Event.ResultId);
+                Assert.AreEqual(sent[i].Status, snap[i].Event.Status);
             }
         }
         finally
@@ -79,7 +79,6 @@ public class S007IntegrationTests
             await consumer.StartAsync(cts.Token);
             await WaitUntilAssigned(consumer, TimeSpan.FromSeconds(15));
 
-            var publisher = harness.BuildPublisher();
             // Use 5 distinct RequestIds to spread across more partitions of
             // the 12-partition topic; interleave 10 events for each.
             const int EventsPerKey = 10;
@@ -87,17 +86,17 @@ public class S007IntegrationTests
             for (var i = 0; i < EventsPerKey; i++)
             {
                 foreach (var k in keys)
-                    await PublishToTopic(publisher, topic, NewEvent(k, i));
+                    await PublishToTopic(topic, NewEvent(k, i));
             }
 
-            await WaitUntil(() => harness.Broadcaster.Received.Count >= EventsPerKey * keys.Length, TimeSpan.FromSeconds(30));
+            await WaitUntil(() => harness.Broadcaster.Count >= EventsPerKey * keys.Length, TimeSpan.FromSeconds(30));
             cts.Cancel();
             await consumer.StopAsync(CancellationToken.None);
 
             // Sort by arrival-order call-index (NOT by OccurredAt or source
             // list order) then project per-key. Per-RequestId ordering must
             // hold; inter-key order is arbitrary under partition assignment.
-            var orderedArrivals = harness.Broadcaster.Received
+            var orderedArrivals = harness.Broadcaster.Snapshot()
                 .OrderBy(r => r.ArrivalIndex)
                 .ToList();
             foreach (var k in keys)
@@ -149,18 +148,17 @@ public class S007IntegrationTests
                 });
             }
 
-            await WaitUntil(() => harness.ErrorLog.Entries.Count >= 1, TimeSpan.FromSeconds(15));
+            await WaitUntil(() => harness.ErrorLog.Count >= 1, TimeSpan.FromSeconds(15));
 
             // Also produce a valid follow-up to prove the consumer advances.
-            var publisher = harness.BuildPublisher();
             var followUp = NewEvent(4242, 0);
-            await PublishToTopic(publisher, topic, followUp);
-            await WaitUntil(() => harness.Broadcaster.Received.Count >= 1, TimeSpan.FromSeconds(15));
+            await PublishToTopic(topic, followUp);
+            await WaitUntil(() => harness.Broadcaster.Count >= 1, TimeSpan.FromSeconds(15));
 
             cts.Cancel();
             await consumer.StopAsync(CancellationToken.None);
 
-            var entry = harness.ErrorLog.Entries.Single();
+            var entry = harness.ErrorLog.Snapshot().Single();
             Assert.AreEqual(topic, entry.Topic);
             Assert.AreEqual(0, entry.Partition);
             Assert.AreEqual(0L, entry.Offset);
@@ -169,7 +167,7 @@ public class S007IntegrationTests
             CollectionAssert.AreEqual(Encoding.UTF8.GetBytes("not-valid-avro"), entry.RawPayload);
             Assert.IsFalse(string.IsNullOrWhiteSpace(entry.Error));
             // Consumer advanced past the poison and processed the follow-up.
-            Assert.AreEqual(4242, harness.Broadcaster.Received.Single().Event.RequestId);
+            Assert.AreEqual(4242, harness.Broadcaster.Snapshot().Single().Event.RequestId);
         }
         finally
         {
@@ -207,16 +205,15 @@ public class S007IntegrationTests
             // The consumer loop must survive the DAL throw; produce a valid
             // follow-up and verify it gets broadcast (proves offset advanced
             // even though the poison's InsertAsync threw).
-            var publisher = harness.BuildPublisher();
-            await PublishToTopic(publisher, topic, NewEvent(5555, 0));
-            await WaitUntil(() => harness.Broadcaster.Received.Count >= 1, TimeSpan.FromSeconds(15));
+            await PublishToTopic(topic, NewEvent(5555, 0));
+            await WaitUntil(() => harness.Broadcaster.Count >= 1, TimeSpan.FromSeconds(15));
 
             cts.Cancel();
             await consumer.StopAsync(CancellationToken.None);
 
-            Assert.AreEqual(5555, harness.Broadcaster.Received.Single().Event.RequestId);
+            Assert.AreEqual(5555, harness.Broadcaster.Snapshot().Single().Event.RequestId);
             // No error-log rows recorded (DAL threw on every insert).
-            Assert.AreEqual(0, harness.ErrorLog.Entries.Count);
+            Assert.AreEqual(0, harness.ErrorLog.Count);
         }
         finally
         {
@@ -277,11 +274,13 @@ public class S007IntegrationTests
         StartedTime: DateTimeOffset.UtcNow, CompletedTime: null,
         Timestamp: DateTimeOffset.UtcNow);
 
-    private static async Task PublishToTopic(KafkaDeploymentEventPublisher _, string topic, DeploymentResultEventData e)
+    private static async Task PublishToTopic(string topic, DeploymentResultEventData e)
     {
         // The publisher is hard-wired to ResultsStatusTopic. For integration
         // tests with a unique topic name we bypass it and produce directly
         // via the Avro factory — same serialisation path, same key shape.
+        // KafkaDeploymentEventPublisher behaviour (dual-publish, fallback, error
+        // handling) is covered by unit tests and S008 integration tests.
         using var registry = AvroKafkaTestHarness.BuildRegistry();
         var factory = AvroKafkaTestHarness.BuildFactory(registry);
         var provider = new Dorc.Kafka.Client.Connection.KafkaConnectionProvider(

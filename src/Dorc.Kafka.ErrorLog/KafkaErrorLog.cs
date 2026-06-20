@@ -62,6 +62,12 @@ public sealed class KafkaErrorLog : IKafkaErrorLog
         var produceCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         produceCts.CancelAfter(TimeSpan.FromMilliseconds(_options.ProduceTimeoutMs));
 
+        // Capture the token BEFORE Task.Run to avoid an ObjectDisposedException:
+        // the Task.Run delegate disposes produceCts in its finally block, and the
+        // delegate can complete (and dispose) before the main thread reaches
+        // WaitAsync — reading produceCts.Token after disposal throws.
+        var produceToken = produceCts.Token;
+
         // ProduceAsync's CancellationToken is best-effort under librdkafka:
         // when the local produce queue is full (e.g. brokers unreachable), the
         // synchronous prologue inside librdkafka can block the calling thread
@@ -76,7 +82,7 @@ public sealed class KafkaErrorLog : IKafkaErrorLog
                 return await _producer.ProduceAsync(
                     dlqTopic,
                     new Message<string, KafkaErrorEnvelope> { Key = key, Value = envelope },
-                    produceCts.Token);
+                    produceToken);
             }
             finally
             {
@@ -87,7 +93,7 @@ public sealed class KafkaErrorLog : IKafkaErrorLog
         DeliveryResult<string, KafkaErrorEnvelope> result;
         try
         {
-            result = await produceTask.WaitAsync(produceCts.Token);
+            result = await produceTask.WaitAsync(produceToken);
         }
         catch (OperationCanceledException)
         {

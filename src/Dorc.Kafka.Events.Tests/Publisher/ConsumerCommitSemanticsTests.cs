@@ -111,19 +111,22 @@ public class ConsumerCommitSemanticsTests
     }
 
     [TestMethod]
-    public void RequestsConsumer_AutoOffsetResetIsEarliest_EvenWhenProviderSaysLatest()
+    public void RequestsConsumer_AutoOffsetResetIsLatest_EvenWhenProviderSaysEarliest()
     {
+        // The requests consumer is a per-replica fan-out (unique group id per instance).
+        // AutoOffsetReset.Latest prevents K8s rollout replay storms: on restart the
+        // DB-poll baseline catches up any missed events (C6 fix).
         var sut = NewRequestsConsumer(new StubConnectionProvider(
             new ConsumerConfig
             {
                 BootstrapServers = "127.0.0.1:1",
                 GroupId = "ignored",
-                AutoOffsetReset = AutoOffsetReset.Latest
+                AutoOffsetReset = AutoOffsetReset.Earliest
             }));
 
         var config = sut.BuildConsumerConfig();
 
-        Assert.AreEqual(AutoOffsetReset.Earliest, config.AutoOffsetReset);
+        Assert.AreEqual(AutoOffsetReset.Latest, config.AutoOffsetReset);
     }
 
     [TestMethod]

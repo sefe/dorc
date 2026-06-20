@@ -114,15 +114,16 @@ builder.Services.AddTransient<ScriptDispatcher>();
 // replaces RabbitMQ with Kafka). Operators upgrading an existing install
 // can either ship a Kafka:Enabled=false override or rely on the empty-
 // BootstrapServers startup-validation fallback to skip Kafka cleanly.
-var kafkaEnabled = configurationRoot.GetValue("Kafka:Enabled", true);
-if (kafkaEnabled && string.IsNullOrWhiteSpace(configurationRoot["Kafka:BootstrapServers"]))
-{
-    // Upgrade-safety: an existing install that picked up the new Kafka
-    // section without setting BootstrapServers shouldn't crash. Run in
-    // DB-poll fallback and surface a warning so operators see the gap.
-    Console.WriteLine("[startup] Kafka:Enabled=true but Kafka:BootstrapServers is empty; running in DB-poll fallback mode.");
-    kafkaEnabled = false;
-}
+//
+// IMPORTANT: use builder.Configuration (not the dedicated configurationRoot
+// above) so environment-variable and CLI overrides for Kafka settings are
+// honoured. The dedicated configurationRoot reads only appsettings.json and
+// would silently ignore Kubernetes secret / env-var overrides for these keys.
+// Upgrade-safety gate shared with the API host (Dorc.Kafka.Client KafkaStartupGate):
+// if Kafka is enabled but a required setting is missing, fall back cleanly rather
+// than crash at DI resolution. Runs in DB-poll fallback mode when it returns false.
+var kafkaEnabled = Dorc.Kafka.Client.Configuration.KafkaStartupGate.IsKafkaEnabled(
+    builder.Configuration, "DB-poll fallback mode", Console.WriteLine);
 // SignalR-client publisher is registered unconditionally as a single
 // concrete singleton with two interface forwards. This mirrors the API's
 // DirectDeploymentEventPublisher pattern: one instance reachable through
@@ -139,17 +140,17 @@ builder.Services.AddSingleton<Dorc.Core.Interfaces.IFallbackDeploymentEventPubli
 
 if (kafkaEnabled)
 {
-    builder.Services.AddDorcKafkaDistributedLock(configurationRoot);
-    builder.Services.AddDorcKafkaErrorLog(configurationRoot);
-    builder.Services.AddDorcKafkaRequestLifecycleSubstrate(configurationRoot);
-    builder.Services.AddDorcKafkaAvro(configurationRoot);
+    builder.Services.AddDorcKafkaDistributedLock(builder.Configuration);
+    builder.Services.AddDorcKafkaErrorLog(builder.Configuration);
+    builder.Services.AddDorcKafkaRequestLifecycleSubstrate(builder.Configuration);
+    builder.Services.AddDorcKafkaAvro(builder.Configuration);
     // , the Monitor is the producer of results-status
     // events. Without this registration the new dorc.results.status topic
     // would never be produced to and the API-side projection consumer
     // would subscribe to a permanently empty topic. AddDorcKafkaPublisher
     // Replaces the IDeploymentEventsPublisher registration above with the
     // dual-publish KafkaDeploymentEventPublisher.
-    builder.Services.AddDorcKafkaPublisher(configurationRoot);
+    builder.Services.AddDorcKafkaPublisher(builder.Configuration);
 }
 else
 {

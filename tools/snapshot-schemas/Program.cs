@@ -69,7 +69,11 @@ var pairs = new (string Subject, string Schema)[]
 {
     ($"{topics.RequestsNew}-value", DorcEventSchemas.GenerateRequestEventSchema()),
     ($"{topics.RequestsStatus}-value", DorcEventSchemas.GenerateRequestEventSchema()),
-    ($"{topics.ResultsStatus}-value", DorcEventSchemas.GenerateResultEventSchema())
+    ($"{topics.ResultsStatus}-value", DorcEventSchemas.GenerateResultEventSchema()),
+    // DLQ schema: must be registered so the first DLQ write can serialise;
+    // omitting it causes a serialisation failure at exactly the moment the
+    // error-handling path is needed.
+    ($"{topics.RequestsNewDlq}-value", DorcEventSchemas.GenerateErrorEnvelopeSchema())
 };
 
 Console.WriteLine($"[snapshot-schemas] registry={registryUrl}");

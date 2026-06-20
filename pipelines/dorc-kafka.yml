@@ -44,6 +44,24 @@ steps:
     podman compose -f $(composeFile) ps
   displayName: 'Podman compose status (diagnostic)'
 
+# Wait for Karapace schema registry to be ready before running the schema gate.
+# Without this wait, the gate's 2-second live probe times out and falls back to
+# snapshot comparison — a schema change + snapshot refresh in the same PR can
+# pass CI without ever hitting the live compatibility check.
+- script: |
+    echo "Waiting for Karapace schema registry to be ready..."
+    for i in $(seq 1 30); do
+      if curl -sf http://localhost:8081/subjects > /dev/null 2>&1; then
+        echo "Schema registry is ready (attempt $i)"
+        exit 0
+      fi
+      echo "Attempt $i/30: not ready yet, waiting 5s..."
+      sleep 5
+    done
+    echo "ERROR: Schema registry did not become ready after 150s"
+    exit 1
+  displayName: 'Wait for Karapace schema registry readiness'
+
 - script: |
     dotnet run --project tools/schema-gate/schema-gate.csproj -- \
       docs/kafka-migration/schemas/current \

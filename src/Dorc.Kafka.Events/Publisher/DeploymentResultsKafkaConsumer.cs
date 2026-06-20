@@ -78,11 +78,54 @@ public sealed class DeploymentResultsKafkaConsumer : BackgroundService
 
     public int InsertTimeoutMs { get; init; } = 5_000;
 
+    /// <summary>
+    /// Per-attempt cap on <see cref="IDeploymentResultBroadcaster.BroadcastAsync"/>.
+    /// The broadcast runs synchronously on the consume/poll thread, so a stalled
+    /// broadcaster (e.g. a wedged SignalR backplane) that exceeds
+    /// <c>max.poll.interval.ms</c> fences the consumer and triggers an endless
+    /// rebalance. Bounding each attempt keeps the worst-case total broadcast time
+    /// (<see cref="MaxBroadcastAttempts"/> × this + retry delays) safely under
+    /// <c>max.poll.interval.ms</c> (default 300s). Audit finding F2.
+    /// <para>Enforced via <see cref="System.Threading.Tasks.Task.WaitAsync(TimeSpan, CancellationToken)"/>,
+    /// so the poll thread is released on timeout even if the broadcaster ignores
+    /// the cancellation token (the production strongly-typed SignalR send does not
+    /// observe one). The abandoned send is left to complete in the background.</para>
+    /// </summary>
+    public int BroadcastTimeoutMs { get; init; } = 10_000;
+
+    /// <summary>
+    /// Number of <see cref="IDeploymentResultBroadcaster.BroadcastAsync"/>
+    /// attempts before a record is routed to the error-log path and its offset
+    /// committed. <c>results.status</c> has no DLQ, so a single transient
+    /// broadcaster failure would otherwise drop a real-time UI event forever;
+    /// bounded retry recovers the transient case without stalling the partition
+    /// on a permanently-failing record. Audit finding F1.
+    /// </summary>
+    public int MaxBroadcastAttempts { get; init; } = 3;
+
+    /// <summary>Delay between broadcast retry attempts.</summary>
+    public int BroadcastRetryDelayMs { get; init; } = 200;
+
+    /// <summary>Outcome of a (possibly retried) broadcast attempt sequence.</summary>
+    internal enum BroadcastOutcome
+    {
+        /// <summary>Delivered successfully — offset may be committed.</summary>
+        Delivered,
+        /// <summary>Stopping token fired — shut down without committing.</summary>
+        ShuttingDown,
+        /// <summary>All attempts failed — route to the error-log + commit path.</summary>
+        Failed
+    }
+
     protected override Task ExecuteAsync(CancellationToken stoppingToken)
         => Task.Run(() => RunLoop(stoppingToken), stoppingToken);
 
     private void RunLoop(CancellationToken stoppingToken)
     {
+        // Warn early if falling back to MachineName: co-hosted replicas without
+        // DORC_REPLICA_ID share a consumer group, breaking the fan-out invariant.
+        HostInstanceId.WarnIfFallingBackToMachineName(_logger);
+
         WarmupSerializers();
         using var consumer = BuildConsumer();
         consumer.Subscribe(TopicName);
@@ -103,6 +146,24 @@ public sealed class DeploymentResultsKafkaConsumer : BackgroundService
             }
             catch (ConsumeException ex)
             {
+                // Distinguish transient schema-registry connectivity failures from
+                // actual poison messages. A registry outage throws ConsumeException
+                // wrapping HttpRequestException (network unreachable) — routing
+                // these to the error log would permanently discard valid deployment
+                // result events that could not be deserialized only because the
+                // schema registry was temporarily down. The results-status topic
+                // has no DLQ, so routing to HandleFailure would silently drop the
+                // message. Back off and leave the offset un-advanced instead.
+                if (IsRegistryConnectivityFailure(ex))
+                {
+                    _logger.LogWarning(ex,
+                        "Schema registry connectivity failure on results Consume — backing off 5s before retry. " +
+                        "Message will be redelivered; offset NOT advanced.");
+                    try { Task.Delay(TimeSpan.FromSeconds(5), stoppingToken).Wait(stoppingToken); }
+                    catch (OperationCanceledException) { break; }
+                    continue;
+                }
+
                 HandleFailure(consumer, ex.ConsumerRecord, ex, stoppingToken);
                 // On pure transport-failure ConsumeException (no ConsumerRecord),
                 // back off briefly so a dead broker doesn't busy-spin the loop
@@ -114,26 +175,40 @@ public sealed class DeploymentResultsKafkaConsumer : BackgroundService
                 }
                 continue;
             }
+            catch (KafkaException ex) when (!IsCritical(ex))
+            {
+                // Non-consume KafkaExceptions must not escape the loop: an unhandled
+                // exception from a BackgroundService faults the hosted service and
+                // triggers StopHost, taking the entire API down and defeating the
+                // DB-poll fallback design.
+                _logger.LogError(ex, "Kafka results consumer unexpected non-consume error; backing off 5s. code={Code}", ex.Error.Code);
+                try { Task.Delay(TimeSpan.FromSeconds(5), stoppingToken).Wait(stoppingToken); }
+                catch (OperationCanceledException) { break; }
+                continue;
+            }
 
             if (result is null) continue;
 
-            try
+            var outcome = TryBroadcast(result.Message.Value, stoppingToken, out var broadcastFailure);
+            if (outcome == BroadcastOutcome.ShuttingDown)
+                // Shutdown in progress — break out before committing: the
+                // broadcast never reached clients, so the offset must not
+                // advance. The record will be redelivered after restart.
+                break;
+            if (outcome == BroadcastOutcome.Failed)
             {
-                _broadcaster.BroadcastAsync(result.Message.Value, stoppingToken)
-                    .GetAwaiter().GetResult();
-                _logger.LogInformation(
-                    "broadcast-ok topic={Topic} partition={Partition} offset={Offset} group={GroupId} requestId={RequestId}",
-                    result.Topic, result.Partition.Value, result.Offset.Value, ConsumerGroupId, result.Message.Value.RequestId);
-            }
-            catch (Exception ex) when (!IsCritical(ex))
-            {
-                // Broadcast failure routes to the error log so the consume
-                // loop survives. Process-fatal exceptions still escape.
-                // HandleFailureFromConsumeResult commits the offset internally
-                // via WriteErrorLogAndCommit, so skip the happy-path commit.
-                HandleFailureFromConsumeResult(consumer, result, ex, stoppingToken);
+                // Bounded retries exhausted (or a process-fatal exception was
+                // re-thrown out of TryBroadcast). Route to the error log so the
+                // payload is preserved (results.status has no DLQ) and the
+                // offset is committed internally via WriteErrorLogAndCommit, so
+                // the loop doesn't stall on a permanently-failing record.
+                HandleFailureFromConsumeResult(consumer, result, broadcastFailure!, stoppingToken);
                 continue;
             }
+
+            _logger.LogInformation(
+                "broadcast-ok topic={Topic} partition={Partition} offset={Offset} group={GroupId} requestId={RequestId}",
+                result.Topic, result.Partition.Value, result.Offset.Value, ConsumerGroupId, result.Message.Value.RequestId);
 
             // Commit OUTSIDE the broadcast try: the broadcast already
             // succeeded, so a commit failure (e.g. mid-rebalance) is NOT a
@@ -156,6 +231,100 @@ public sealed class DeploymentResultsKafkaConsumer : BackgroundService
 
         try { consumer.Close(); } catch (KafkaException) { /* best-effort */ }
     }
+
+    /// <summary>
+    /// Runs the broadcast on the consume thread with a per-attempt timeout
+    /// (<see cref="BroadcastTimeoutMs"/>) and bounded retries
+    /// (<see cref="MaxBroadcastAttempts"/>). Audit findings F1 (retry transient
+    /// failures before dropping a UI event on the DLQ-less results.status topic)
+    /// and F2 (cap each attempt so a stalled broadcaster can't fence the
+    /// consumer). Returns:
+    /// <list type="bullet">
+    ///   <item><see cref="BroadcastOutcome.Delivered"/> on success;</item>
+    ///   <item><see cref="BroadcastOutcome.ShuttingDown"/> if the stopping token
+    ///   fired (caller must break without committing);</item>
+    ///   <item><see cref="BroadcastOutcome.Failed"/> when every attempt failed —
+    ///   <paramref name="lastFailure"/> carries the final exception for the
+    ///   error-log path.</item>
+    /// </list>
+    /// Process-fatal exceptions (see <see cref="IsCritical"/>) are never caught.
+    /// </summary>
+    internal BroadcastOutcome TryBroadcast(
+        DeploymentResultEventData eventData,
+        CancellationToken stoppingToken,
+        out Exception? lastFailure)
+    {
+        lastFailure = null;
+        var attempts = Math.Max(1, MaxBroadcastAttempts);
+        for (var attempt = 1; attempt <= attempts; attempt++)
+        {
+            if (stoppingToken.IsCancellationRequested) return BroadcastOutcome.ShuttingDown;
+
+            // Bound each attempt with Task.WaitAsync rather than relying on the
+            // broadcaster to honour a cancellation token. The production SignalR
+            // broadcaster's strongly-typed hub send does NOT observe a token, so a
+            // token-based timeout would be inert; WaitAsync releases the poll
+            // thread after BroadcastTimeoutMs regardless, which is what F2 actually
+            // needs to prevent a max.poll.interval.ms fence. stoppingToken is still
+            // passed to the broadcaster so a cooperative implementation can abort
+            // early on shutdown.
+            // Assigned inside the try so a broadcaster that throws synchronously
+            // is still routed through the failure path rather than escaping.
+            Task? broadcastTask = null;
+            try
+            {
+                broadcastTask = _broadcaster.BroadcastAsync(eventData, stoppingToken);
+                broadcastTask
+                    .WaitAsync(TimeSpan.FromMilliseconds(BroadcastTimeoutMs), stoppingToken)
+                    .GetAwaiter().GetResult();
+                // Clear any earlier-attempt failure: on Delivered the out-param
+                // must be null so callers never mistake a recovered transient
+                // error for a real failure.
+                lastFailure = null;
+                return BroadcastOutcome.Delivered;
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                // Genuine shutdown — not an attempt failure.
+                return BroadcastOutcome.ShuttingDown;
+            }
+            catch (Exception ex) when (!IsCritical(ex))
+            {
+                // Covers transient broadcaster failures AND a per-attempt timeout
+                // (WaitAsync throws TimeoutException). lastFailure carries the
+                // accurate reason for the error-log path — a timeout reads as a
+                // TimeoutException, not a generic cancellation.
+                var timedOut = ex is TimeoutException;
+                if (timedOut && broadcastTask is not null)
+                    // The orphaned send may still be running after the timeout;
+                    // observe its eventual outcome so a later fault can't surface
+                    // as an unobserved-task exception.
+                    ObserveOrphanedBroadcast(broadcastTask);
+                lastFailure = ex;
+                _logger.LogWarning(ex,
+                    "broadcast-attempt-failed attempt={Attempt}/{Max} timedOut={TimedOut} requestId={RequestId}",
+                    attempt, attempts, timedOut, eventData.RequestId);
+
+                if (attempt < attempts)
+                {
+                    try { Task.Delay(BroadcastRetryDelayMs, stoppingToken).Wait(stoppingToken); }
+                    catch (OperationCanceledException) { return BroadcastOutcome.ShuttingDown; }
+                }
+            }
+        }
+        return BroadcastOutcome.Failed;
+    }
+
+    /// <summary>
+    /// Observes a broadcast task abandoned after a per-attempt timeout so its
+    /// eventual failure (if any) doesn't become an unobserved-task exception.
+    /// </summary>
+    private static void ObserveOrphanedBroadcast(Task broadcastTask)
+        => _ = broadcastTask.ContinueWith(
+            static t => { _ = t.Exception; },
+            CancellationToken.None,
+            TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default);
 
     private void WarmupSerializers()
     {
@@ -306,4 +475,23 @@ public sealed class DeploymentResultsKafkaConsumer : BackgroundService
             or StackOverflowException
             or AccessViolationException
             or System.Threading.ThreadAbortException;
+
+    /// <summary>
+    /// Returns <see langword="true"/> when the <see cref="ConsumeException"/> was caused by a
+    /// transient schema registry failure rather than a malformed (poison) message.
+    /// <para>
+    /// <see cref="Confluent.SchemaRegistry.SchemaRegistryException"/> inherits from
+    /// <see cref="System.Net.Http.HttpRequestException"/>, so sub-type order matters:
+    /// </para>
+    /// <list type="bullet">
+    ///   <item>5xx <see cref="Confluent.SchemaRegistry.SchemaRegistryException"/> — server error, transient → back off.</item>
+    ///   <item>4xx <see cref="Confluent.SchemaRegistry.SchemaRegistryException"/> (e.g. 40403 Schema Not Found) — deterministic failure → HandleFailure.</item>
+    ///   <item>Plain <see cref="System.Net.Http.HttpRequestException"/> (no HTTP response) — network unreachable → back off.</item>
+    /// </list>
+    /// The results-status topic has no DLQ; routing 4xx errors to HandleFailure
+    /// is still preferable to an infinite backoff loop that permanently stalls
+    /// the partition.
+    /// </summary>
+    internal static bool IsRegistryConnectivityFailure(ConsumeException ex)
+        => KafkaRegistryFailureClassifier.IsTransientRegistryFailure(ex);
 }

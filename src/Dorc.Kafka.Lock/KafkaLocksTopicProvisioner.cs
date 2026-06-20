@@ -19,8 +19,11 @@ namespace Dorc.Kafka.Lock;
 /// <item>Partition-count mismatch → fail fast (<see cref="InvalidOperationException"/>
 /// stops the host): the configured count drives lock-key routing, so a
 /// mismatch silently mis-routes locks → split-brain.</item>
-/// <item>Broker unreachable at boot (<see cref="KafkaException"/>) → log error
-/// and continue startup; the coordinator's consume loop retries connectivity.</item>
+/// <item>Broker unreachable at boot (<see cref="KafkaException"/>), whether the
+/// topic is missing or already exists → log error and continue startup; the
+/// coordinator's consume loop retries connectivity and the next boot re-verifies.
+/// A transient broker blip must not crash the host and take the DB-poll fallback
+/// down with it (audit CR#3).</item>
 /// <item>Topic creation rejected (ACL, policy, anything other than
 /// topic-already-exists) → log error including a clear "distributed locking
 /// may be unavailable" warning, and continue.</item>
@@ -104,10 +107,24 @@ public sealed class KafkaLocksTopicProvisioner : IHostedService
             }
             catch (KafkaException kex)
             {
+                // Broker unreachable DURING verification (not a partition-count
+                // mismatch — that throws InvalidOperationException, which still
+                // escapes and stops the host below). Previously this also threw and
+                // aborted host startup, but a transient broker blip during a routine
+                // restart (lock topic already exists) would then crash the Monitor —
+                // taking down the DB-poll fallback deployment path too, the exact
+                // outcome the rest of this branch works to avoid. Worse, the same
+                // blip on first-ever startup (topic missing) is caught below and
+                // startup continues, so failure depended only on whether the topic
+                // existed. Match that graceful degradation: log and continue; the
+                // coordinator's consume loop retries connectivity and the next boot
+                // re-verifies the partition count (audit CR#3).
                 _logger.LogError(kex,
-                    "Kafka lock topic partition-count verification failed (broker unreachable?): topic={Topic}. " +
-                    "Continuing startup; distributed locking may be unavailable until connectivity is restored.",
-                    _topics.Locks);
+                    "Kafka lock topic '{Topic}' already exists but partition-count could not be verified (broker unreachable). " +
+                    "Continuing startup; the lock consumer loop will retry connectivity and the next boot re-verifies. " +
+                    "If the topic's partition count does not match KafkaLocksOptions.PartitionCount={Expected}, lock routing " +
+                    "will be incorrect — verify the topic once connectivity returns.",
+                    _topics.Locks, _options.PartitionCount);
             }
         }
         catch (CreateTopicsException ex)

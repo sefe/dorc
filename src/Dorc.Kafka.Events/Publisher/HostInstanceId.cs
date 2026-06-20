@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Logging;
+
 namespace Dorc.Kafka.Events.Publisher;
 
 /// <summary>
@@ -28,10 +30,9 @@ namespace Dorc.Kafka.Events.Publisher;
 /// <item><description>Otherwise, <c>{MachineName}</c> alone. Stable
 /// across restarts — a PID-style suffix would mint a fresh consumer
 /// group on every restart, accumulating orphan groups in
-/// <c>__consumer_offsets</c> and (with <c>AutoOffsetReset.Earliest</c>
-/// on the requests consumer) replaying the whole retained topic each
-/// restart. Unique across single-replica-per-host deployments; NOT
-/// unique for multiple replicas on one host (set
+/// <c>__consumer_offsets</c> and replaying any messages from Latest
+/// on the requests consumer. Unique across single-replica-per-host
+/// deployments; NOT unique for multiple replicas on one host (set
 /// <c>DORC_REPLICA_ID</c> explicitly in that topology).</description></item>
 /// </list>
 /// </summary>
@@ -56,5 +57,23 @@ public static class HostInstanceId
             return $"{machineName}-{configured.Trim()}";
 
         return machineName;
+    }
+
+    /// <summary>
+    /// Emits a warning when <c>DORC_REPLICA_ID</c> is not set. Call once at
+    /// host startup (before consumers subscribe) so the misconfiguration is
+    /// visible in structured logs before any fan-out invariant breaks silently.
+    /// </summary>
+    public static void WarnIfFallingBackToMachineName(ILogger logger)
+    {
+        if (!string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(EnvironmentVariable)))
+            return;
+
+        logger.LogWarning(
+            "DORC_REPLICA_ID environment variable is not set. HostInstanceId is falling back to MachineName='{MachineName}'. " +
+            "If more than one API or Monitor replica runs on this host, they will share a Kafka consumer group and the " +
+            "fan-out invariant (every replica receives every event) will be silently broken. " +
+            "Set DORC_REPLICA_ID to a unique per-replica identifier (e.g. the Kubernetes pod UID via the downward API).",
+            Environment.MachineName);
     }
 }

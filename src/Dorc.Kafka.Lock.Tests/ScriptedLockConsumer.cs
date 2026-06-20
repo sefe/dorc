@@ -22,7 +22,13 @@ internal sealed class ScriptedLockConsumer : IConsumer<byte[], byte[]>
         => Consume(TimeSpan.FromMilliseconds(millisecondsTimeout));
 
     public ConsumeResult<byte[], byte[]> Consume(CancellationToken cancellationToken = default)
-        => Consume(TimeSpan.FromMilliseconds(100));
+    {
+        // Honor the token so coordinator tests that cancel via stoppingToken
+        // see OperationCanceledException on the Consume call, matching
+        // librdkafka's real behaviour.
+        cancellationToken.ThrowIfCancellationRequested();
+        return Consume(TimeSpan.FromMilliseconds(100));
+    }
 
     public ConsumeResult<byte[], byte[]> Consume(TimeSpan timeout)
     {

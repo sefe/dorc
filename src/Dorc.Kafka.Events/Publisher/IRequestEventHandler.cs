@@ -8,6 +8,16 @@ namespace Dorc.Kafka.Events.Publisher;
 /// performs the acceleration-only side effect (raising the poll signal in
 /// production). The consumer never executes requests through this handler;
 /// it only signals the Monitor poll loop to wake up sooner.
+///
+/// <para><b>Idempotency invariant (audit F4):</b> implementations MUST be
+/// idempotent. <see cref="DeploymentRequestsKafkaConsumer"/> consumes
+/// at-least-once — it stages offsets via <c>StoreOffset</c> after the handler
+/// succeeds and relies on the auto-commit timer to flush them, so a crash in
+/// the window between handler success and the next commit will redeliver the
+/// record on restart. The production
+/// <see cref="PollSignalRequestEventHandler"/> satisfies this (raising the
+/// poll signal twice is harmless); any future stateful handler (dedup state,
+/// metrics, side-effecting writes) must tolerate duplicate delivery.</para>
 /// </summary>
 public interface IRequestEventHandler
 {

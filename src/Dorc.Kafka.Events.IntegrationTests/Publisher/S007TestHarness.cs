@@ -116,12 +116,16 @@ internal sealed class S007TestHarness : IAsyncDisposable
     {
         private int _counter;
         private readonly object _lock = new();
+        private readonly List<(int ArrivalIndex, DeploymentResultEventData Event)> _received = new();
 
-        public List<(int ArrivalIndex, DeploymentResultEventData Event)> Received { get; } = new();
+        // Thread-safe accessors — consumer writes on its poll thread; tests read on the test thread.
+        public int Count { get { lock (_lock) return _received.Count; } }
+        public IReadOnlyList<(int ArrivalIndex, DeploymentResultEventData Event)> Snapshot()
+        { lock (_lock) return _received.ToList(); }
 
         public Task BroadcastAsync(DeploymentResultEventData eventData, CancellationToken cancellationToken)
         {
-            lock (_lock) Received.Add((Interlocked.Increment(ref _counter), eventData));
+            lock (_lock) _received.Add((Interlocked.Increment(ref _counter), eventData));
             return Task.CompletedTask;
         }
     }
@@ -130,20 +134,28 @@ internal sealed class S007TestHarness : IAsyncDisposable
     {
         private int _seq;
         private readonly object _lock = new();
-        public List<(int Sequence, KafkaErrorLogEntry Entry)> Recorded { get; } = new();
-        public List<KafkaErrorLogEntry> Entries => Recorded.Select(r => r.Entry).ToList();
+        private readonly List<(int Sequence, KafkaErrorLogEntry Entry)> _recorded = new();
+
+        // Thread-safe count for polling; Snapshot() for assertion reads.
+        public int Count { get { lock (_lock) return _recorded.Count; } }
+        public IReadOnlyList<KafkaErrorLogEntry> Snapshot()
+        { lock (_lock) return _recorded.Select(r => r.Entry).ToList(); }
+        // Ordered snapshot including sequence numbers (for ordering assertions).
+        public IReadOnlyList<(int Sequence, KafkaErrorLogEntry Entry)> SnapshotWithSeq()
+        { lock (_lock) return _recorded.ToList(); }
+
         public Func<KafkaErrorLogEntry, CancellationToken, Task>? InsertOverride { get; set; }
 
         public Task InsertAsync(KafkaErrorLogEntry entry, CancellationToken cancellationToken)
         {
             if (InsertOverride is not null) return InsertOverride(entry, cancellationToken);
-            lock (_lock) Recorded.Add((Interlocked.Increment(ref _seq), entry));
+            lock (_lock) _recorded.Add((Interlocked.Increment(ref _seq), entry));
             return Task.CompletedTask;
         }
 
         public Task<IReadOnlyList<KafkaErrorLogEntry>> QueryAsync(
             string? topic, string? consumerGroup, DateTimeOffset? sinceUtc, int maxRows, CancellationToken cancellationToken)
-            => Task.FromResult<IReadOnlyList<KafkaErrorLogEntry>>(Entries);
+            => Task.FromResult(Snapshot());
 
         public Task<int> PurgeAsync(CancellationToken cancellationToken) => Task.FromResult(0);
     }

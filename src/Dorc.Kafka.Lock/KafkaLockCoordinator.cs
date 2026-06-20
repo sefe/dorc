@@ -41,7 +41,9 @@ public sealed class KafkaLockCoordinator : IHostedService, IAsyncDisposable
 {
     private const int RebuildBackoffInitialMs = 500;
     private const int RebuildBackoffMaxMs = 30_000;
-    private const int LivenessFloorMs = 30_000;
+    // Absolute lower bound on the liveness timeout so very short
+    // session.timeout.ms values don't produce a sub-second watchdog.
+    private const int LivenessFloorMs = 10_000;
     private const int LibrdkafkaDefaultSessionTimeoutMs = 45_000;
 
     private readonly IKafkaConnectionProvider _connectionProvider;
@@ -61,8 +63,8 @@ public sealed class KafkaLockCoordinator : IHostedService, IAsyncDisposable
     // Connectivity watchdog state. _lastBrokerContactTimestamp is a
     // TimeProvider timestamp; _livenessTripped makes the trip one-shot until
     // contact is restored; _connectivitySuspect is set when the error handler
-    // reports a transport-class error so that empty poll returns (which
-    // librdkafka also produces while disconnected) stop counting as contact.
+    // reports a transport-class error, suppressing empty-poll contact counting
+    // (librdkafka also returns empty polls during half-open TCP connections).
     private long _lastBrokerContactTimestamp;
     private volatile bool _livenessTripped;
     private volatile bool _connectivitySuspect;
@@ -185,15 +187,21 @@ public sealed class KafkaLockCoordinator : IHostedService, IAsyncDisposable
                     var result = _consumer?.Consume(TimeSpan.FromMilliseconds(500));
                     if (result is not null)
                     {
-                        // A delivered record/event is proof of broker contact.
+                        // A delivered record is unambiguous proof of broker contact.
                         _connectivitySuspect = false;
                         RecordBrokerContact();
                     }
                     else if (!_connectivitySuspect)
                     {
-                        // An empty poll return counts as contact unless the error
-                        // handler has reported a transport-class failure —
-                        // librdkafka returns empty polls while disconnected too.
+                        // The lock topic carries no user records by design, so on an
+                        // idle topic with a healthy broker, empty polls are the only
+                        // available contact signal. We count them ONLY when no
+                        // transport-class error has been flagged: OnConsumerError sets
+                        // _connectivitySuspect = true for Local_Transport /
+                        // Local_AllBrokersDown errors, and librdkafka can return empty
+                        // polls during a half-open TCP connection — counting those
+                        // would allow the watchdog to keep resetting during a silent
+                        // disconnect (the split-brain scenario it exists to prevent).
                         RecordBrokerContact();
                     }
                     rebuildBackoffMs = RebuildBackoffInitialMs;
@@ -219,6 +227,14 @@ public sealed class KafkaLockCoordinator : IHostedService, IAsyncDisposable
                     {
                         _connectivitySuspect = false;
                         RecordBrokerContact();
+                    }
+                    else if (ex.Error.Code is ErrorCode.Local_Transport or ErrorCode.Local_AllBrokersDown)
+                    {
+                        // Mirror the OnConsumerError logic: transport-class ConsumeExceptions
+                        // must also suppress empty-poll contact counting so the watchdog
+                        // fires correctly when the error arrives via the consume path rather
+                        // than the error callback.
+                        _connectivitySuspect = true;
                     }
 
                     _logger.LogWarning(ex, "KafkaLockCoordinator consume warning: {Reason}", ex.Error.Reason);
@@ -335,9 +351,12 @@ public sealed class KafkaLockCoordinator : IHostedService, IAsyncDisposable
     /// <summary>
     /// Effective connectivity-watchdog timeout:
     /// <see cref="KafkaLocksOptions.LivenessTimeoutMs"/> when configured,
-    /// otherwise max(session.timeout.ms, 30s) — once the session times out the
-    /// broker has reassigned our partitions, so any longer silence means a
-    /// peer may already hold them.
+    /// otherwise <c>max(session.timeout.ms × 0.5, 10s)</c> clamped below
+    /// <c>session.timeout.ms - 2s</c> — this ensures the watchdog fires
+    /// BEFORE the broker reassigns our partitions to a peer, preventing a
+    /// split-brain window. With the prior formula of
+    /// <c>max(session.timeout.ms, 30s)</c>, the watchdog fired at the same
+    /// instant the broker could reassign (or later, for short timeouts).
     /// </summary>
     internal TimeSpan ResolveLivenessTimeout()
     {
@@ -347,7 +366,14 @@ public sealed class KafkaLockCoordinator : IHostedService, IAsyncDisposable
         var sessionTimeoutMs = _connectionProvider
             .GetConsumerConfig(_options.ConsumerGroupId)
             .SessionTimeoutMs ?? LibrdkafkaDefaultSessionTimeoutMs;
-        return TimeSpan.FromMilliseconds(Math.Max(sessionTimeoutMs, LivenessFloorMs));
+
+        // Target: 50% of session timeout, at least LivenessFloorMs, and
+        // strictly less than session timeout (by at least 2s safety margin).
+        var halfSession = sessionTimeoutMs / 2;
+        var floored = Math.Max(halfSession, LivenessFloorMs);
+        var clamped = Math.Min(floored, sessionTimeoutMs - 2_000);
+        // Absolute safety: never below 1s regardless of configuration.
+        return TimeSpan.FromMilliseconds(Math.Max(clamped, 1_000));
     }
 
     private TimeSpan LivenessTimeout => _livenessTimeout ??= ResolveLivenessTimeout();
@@ -362,9 +388,13 @@ public sealed class KafkaLockCoordinator : IHostedService, IAsyncDisposable
     /// <summary>
     /// Connectivity watchdog, evaluated every consume-loop iteration. If no
     /// broker contact has been recorded within the liveness timeout, every
-    /// slot is cancelled (locks report lost) exactly once per outage; the loop
-    /// keeps running so slots re-establish when partitions are reassigned on
-    /// reconnect. Returns true when the watchdog trips on this call.
+    /// slot is cancelled (locks report lost) exactly once per outage; the
+    /// consumer is also rebuilt to force a fresh group-join and a new
+    /// <c>OnAssigned</c> callback — required when the network recovers before
+    /// <c>session.timeout.ms</c> elapses (no broker-side eviction, no
+    /// automatic rebalance) so that <c>_connectivitySuspect</c> is cleared
+    /// and slot re-establishment is guaranteed. Returns true when the watchdog
+    /// trips on this call.
     /// </summary>
     internal bool EvaluateLiveness()
     {
@@ -375,9 +405,26 @@ public sealed class KafkaLockCoordinator : IHostedService, IAsyncDisposable
 
         _livenessTripped = true;
         _logger.LogError(
-            "KafkaLockCoordinator has had no broker contact for over {LivenessTimeout}; the broker may have reassigned our partitions to a peer (split-brain guard). Cancelling all lock slots; they re-establish on reconnect.",
+            "KafkaLockCoordinator has had no broker contact for over {LivenessTimeout}; " +
+            "the broker may have reassigned our partitions to a peer (split-brain guard). " +
+            "Cancelling all lock slots and rebuilding the consumer to guarantee re-assignment.",
             LivenessTimeout);
         CancelAllSlots("liveness-timeout");
+        // Force consumer rebuild so the group re-joins and OnAssigned fires.
+        // Without this, a transient disconnect that recovers before session.timeout.ms
+        // leaves _connectivitySuspect=true with no rebalance to clear it — new slots
+        // would wait for OnAssigned indefinitely and the coordinator would be permanently
+        // wedged until process restart.
+        //
+        // Trade-off (audit CR#5): on a flapping broker this can cause repeated
+        // teardown/rebuild cycles. That churn is the deliberate lesser evil — a
+        // sustained loss of broker contact means the broker may already have
+        // reassigned our partitions to a peer, so cancelling our slots and
+        // re-joining is the *correct* response, and the rebuild's bounded
+        // exponential backoff (RebuildBackoff*Ms in RebuildConsumer) caps the
+        // cost. Riding the outage out instead would risk the permanent wedge
+        // above. _livenessTripped makes this one-shot per outage.
+        _rebuildRequested = true;
         return true;
     }
 
@@ -441,8 +488,13 @@ public sealed class KafkaLockCoordinator : IHostedService, IAsyncDisposable
     {
         // Cooperative revoke is coordinator-driven (broker contact); "lost" can
         // be a purely local decision (e.g. max.poll exceeded), so it is not
-        // treated as contact.
-        if (!lost) RecordBrokerContact();
+        // treated as contact. Clear _connectivitySuspect on cooperative revoke:
+        // a coordinator-driven rebalance round-trip proves the broker is reachable.
+        if (!lost)
+        {
+            _connectivitySuspect = false;
+            RecordBrokerContact();
+        }
 
         PartitionSlot? replaced = null;
         lock (_slotLock)
@@ -466,10 +518,34 @@ public sealed class KafkaLockCoordinator : IHostedService, IAsyncDisposable
 
         if (replaced is not null)
         {
-            // Fire LockLostToken off-thread: lock-holder callbacks must never run
-            // inline on the rebalance/consume thread (max.poll eviction risk) or
-            // under _slotLock (deadlock risk).
-            _ = TearDownSlotsAsync(new[] { replaced });
+            // Synchronously cancel the lock-lost CTS BEFORE returning from the
+            // rebalance callback. This is the critical split-brain guard: once
+            // cancelled, any peer that receives OnAssigned for this partition
+            // will see the old holder's LockLostToken already fired. Without
+            // this synchronous cancel, the Task.Run below races the peer's
+            // acquisition — the peer can observe "still valid" while the old
+            // holder hasn't yet been notified of the loss.
+            //
+            // CTS.Cancel() runs all registered token callbacks synchronously on
+            // the calling (rebalance) thread before returning. IMPORTANT: any code
+            // that calls LockLostToken.Register(...) MUST register only fast,
+            // non-blocking callbacks (flag flips, linked-CTS flips, etc.). If a
+            // callback blocks or does I/O, it will directly block the rebalance
+            // thread, potentially exceeding max.poll.interval.ms and triggering
+            // a broker-side consumer eviction. In this codebase the only
+            // production registrations are linked CancellationTokenSource objects
+            // created via CreateLinkedTokenSource — these are safe (in-memory
+            // flag flip). Document this contract clearly if adding new registrations.
+            try { replaced.Cts.Cancel(); }
+            catch (ObjectDisposedException) { /* torn down concurrently */ }
+            catch (AggregateException ex)
+            {
+                _logger.LogWarning(ex, "KafkaLockCoordinator lock-lost callback threw during synchronous cancel");
+            }
+
+            // Wake orphaned TCS waiters off-thread (no callbacks to invoke
+            // inline on the rebalance thread; max.poll risk + deadlock avoided).
+            _ = Task.Run(() => replaced.AcquiredTcs.TrySetCanceled());
         }
     }
 

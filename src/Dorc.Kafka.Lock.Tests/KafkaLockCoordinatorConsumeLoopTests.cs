@@ -107,51 +107,66 @@ public class KafkaLockCoordinatorConsumeLoopTests
     }
 
     [TestMethod]
-    public async Task TransportConsumeErrors_TripLivenessWatchdog_WithoutRevokeCallback()
+    public async Task TransportConsumeErrors_TripLivenessWatchdog_RebuildConsumer_LocksReEstablish()
     {
-        // Scenario from the review: broker connectivity lost, librdkafka fires
-        // no revoked/lost callback, Consume throws local/transport errors. The
-        // broker reassigns our partitions after session.timeout.ms — the
-        // watchdog must cancel locks here or two holders exist (split-brain).
+        // Scenario: broker connectivity lost (no revoked/lost callback fired by librdkafka),
+        // Consume throws Local_Transport errors. The watchdog must:
+        // 1. Cancel all held locks (split-brain guard — broker may have reassigned partitions).
+        // 2. Force a consumer rebuild so the group re-joins and OnAssigned fires with certainty.
+        //    Without the rebuild, a brief disconnect that recovers before session.timeout.ms
+        //    triggers no broker-side eviction and no rebalance — _connectivitySuspect stays
+        //    true forever and new slot tasks are never resolved.
         var time = new ManualTimeProvider();
-        var consumer = new ScriptedLockConsumer
+        var consumers = new List<ScriptedLockConsumer>();
+        var factory = () =>
         {
-            OnConsume = _ =>
-            {
-                time.Advance(TimeSpan.FromMilliseconds(600));
-                Thread.Sleep(5);
-                throw NewConsumeException(ErrorCode.Local_Transport, "broker down", isFatal: false);
-            }
+            var c2 = new ScriptedLockConsumer();
+            // First consumer: always throws transport error (simulates persistent outage).
+            // Subsequent consumers: idle (simulates post-rebuild healthy state).
+            c2.OnConsume = consumers.Count == 0
+                ? _ =>
+                {
+                    time.Advance(TimeSpan.FromMilliseconds(600));
+                    Thread.Sleep(5);
+                    throw NewConsumeException(ErrorCode.Local_Transport, "broker down", isFatal: false);
+                }
+                : _ => { Thread.Sleep(10); return null; };
+            consumers.Add(c2);
+            return (IConsumer<byte[], byte[]>)c2;
         };
 
-        var rebuilds = 0;
-        var c = NewRunningCoordinatorCandidate(
-            () => { rebuilds++; return consumer; }, time, livenessTimeoutMs: 1_000);
+        var c = NewRunningCoordinatorCandidate(factory, time, livenessTimeoutMs: 1_000);
         await using var _ = c;
         await c.StartAsync(CancellationToken.None);
 
         InvokePrivate(c, "OnAssigned", 0);
         var token = await c.WaitForPartitionOwnershipAsync(0, CancellationToken.None);
 
+        // Watchdog fires after liveness timeout → lock cancelled.
         Assert.IsTrue(WaitForCancellation(token, TimeSpan.FromSeconds(30)),
-            "With no broker contact beyond the liveness timeout, held locks must report lost.");
-        Assert.IsFalse(c.IsConsumerRebuildRequested,
-            "Transport errors are transient — the loop must keep running, not rebuild.");
-        Assert.AreEqual(1, rebuilds, "The consumer must not be torn down on transport errors.");
+            "Transport errors beyond the liveness timeout must cancel held locks.");
 
-        // Reconnect: a rebalance reassignment re-establishes the slot.
+        // Watchdog must also have requested a consumer rebuild (to guarantee a fresh
+        // OnAssigned that clears _connectivitySuspect on reconnect).
+        Assert.IsTrue(SpinWait.SpinUntil(() => consumers.Count >= 2, TimeSpan.FromSeconds(15)),
+            "Watchdog trip must trigger consumer rebuild to guarantee re-assignment on reconnect.");
+        Assert.IsTrue(consumers[0].Disposed, "The dead consumer must be disposed after rebuild.");
+
+        // Simulate re-assignment after rebuild: broker grants partition to new consumer.
         InvokePrivate(c, "OnAssigned", 0);
         var fresh = await c.WaitForPartitionOwnershipAsync(0, CancellationToken.None)
             .WaitAsync(TimeSpan.FromSeconds(10));
-        Assert.IsFalse(fresh.IsCancellationRequested);
+        Assert.IsFalse(fresh.IsCancellationRequested,
+            "After rebuild and OnAssigned, new lock slots must resolve successfully.");
     }
 
     [TestMethod]
-    public async Task SilentDisconnect_EmptyPollsPlusTransportErrorEvent_TripsWatchdog()
+    public async Task EmptyPolls_WhenHealthy_ResetWatchdog_DoNotTripLiveness()
     {
-        // librdkafka can keep returning empty polls while disconnected,
-        // surfacing the outage only through the error handler. Empty polls
-        // count as contact ONLY while connectivity is not suspect.
+        // On an idle lock topic (no records by design), empty polls from a
+        // healthy broker must count as broker contact and prevent false watchdog
+        // trips. _connectivitySuspect defaults to false; empty polls refresh the
+        // timestamp and the watchdog never fires.
         var time = new ManualTimeProvider();
         var consumer = new ScriptedLockConsumer
         {
@@ -170,17 +185,52 @@ public class KafkaLockCoordinatorConsumeLoopTests
         InvokePrivate(c, "OnAssigned", 0);
         var token = await c.WaitForPartitionOwnershipAsync(0, CancellationToken.None);
 
-        // Healthy: empty polls refresh contact, watchdog never trips even
-        // though far more fake-time than the liveness timeout elapses.
-        await Task.Delay(300);
+        // Allow ~100ms real time (~20 poll iterations, >10,000ms fake time = 10×
+        // the liveness window). If empty polls don't count, the watchdog trips
+        // after the 2nd poll (1200ms fake > 1000ms liveness). With the fix, the
+        // token must remain live throughout.
+        Thread.Sleep(TimeSpan.FromMilliseconds(200));
+
         Assert.IsFalse(token.IsCancellationRequested,
-            "Empty polls must count as contact while connectivity is healthy.");
+            "Empty polls on a healthy broker must keep the watchdog re-armed; " +
+            "the lock must NOT be falsely cancelled on an idle topic.");
+    }
 
-        // Error handler reports a transport failure → polls stop counting.
-        c.OnConsumerError(new Error(ErrorCode.Local_Transport, "connection refused", false));
+    [TestMethod]
+    public async Task EmptyPolls_AfterConnectivitySuspect_DoNotResetWatchdog_WatchdogFires()
+    {
+        // Once _connectivitySuspect is true (set by OnConsumerError on a
+        // transport-class error), empty polls must no longer count as broker
+        // contact. librdkafka can return empty polls during a half-open TCP
+        // connection; counting those would defeat the split-brain guard.
+        var time = new ManualTimeProvider();
+        var consumer = new ScriptedLockConsumer
+        {
+            OnConsume = _ =>
+            {
+                time.Advance(TimeSpan.FromMilliseconds(600));
+                Thread.Sleep(5);
+                return null;
+            }
+        };
 
-        Assert.IsTrue(WaitForCancellation(token, TimeSpan.FromSeconds(30)),
-            "Once connectivity is suspect, silence beyond the liveness timeout must cancel held locks.");
+        var c = NewRunningCoordinatorCandidate(() => consumer, time, livenessTimeoutMs: 1_000);
+        await using var _ = c;
+        await c.StartAsync(CancellationToken.None);
+
+        InvokePrivate(c, "OnAssigned", 0);
+        var token = await c.WaitForPartitionOwnershipAsync(0, CancellationToken.None);
+
+        // Mark connectivity as suspect — subsequent empty polls must NOT record
+        // broker contact. Only a rebalance callback (OnAssigned / OnRevoked) or
+        // a real record delivery re-clears the flag.
+        InvokePrivate(c, "OnConsumerError", new Error(ErrorCode.Local_Transport, "broker unreachable", false));
+
+        // After 2 empty polls (1200ms fake > 1000ms liveness), the watchdog must
+        // trip and cancel all lock slots.
+        Assert.IsTrue(WaitForCancellation(token, TimeSpan.FromSeconds(15)),
+            "After a transport-class error, empty polls must NOT reset the watchdog; " +
+            "the lock must be cancelled when the liveness window elapses.");
     }
 
     private sealed class FakeConnectionProvider : Dorc.Kafka.Client.Connection.IKafkaConnectionProvider
