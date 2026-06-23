@@ -15,5 +15,11 @@ namespace Dorc.PersistentData
     public interface ISecurityObjectFilter
     {
         bool HasPrivilege<T>(T securityObject, IPrincipal user, AccessLevel accessLevel) where T : SecurityObject;
+        
+        /// <summary>
+        /// Checks if user has the specified privilege WITHOUT admin bypass.
+        /// Use this for permissions that should apply equally to all users including admins.
+        /// </summary>
+        bool HasPrivilegeStrict<T>(T securityObject, IPrincipal user, AccessLevel accessLevel) where T : SecurityObject;
     }
 }
