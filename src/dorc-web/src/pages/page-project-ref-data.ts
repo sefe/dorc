@@ -9,7 +9,9 @@ import { PageElement } from '../helpers/page-element';
 import { RefDataApi, RefDataApiModel, ComponentApiModel } from '../apis/dorc-api';
 import { retrieveErrorMessage } from '../helpers/errorMessage-retriever';
 
-const ALLOWED_COMPONENT_NAME_REGEX = /^[a-zA-Z0-9 ,./?|:;'"<>()*&$#@!\-_=+]+$/;
+const ALLOWED_COMPONENT_NAME_REGEX = new RegExp(
+  "^[a-zA-Z0-9 ,./?|:;'\"<>()\\[\\]{}_*&$#@!\\-=+]+$"
+);
 
 let editorValue: string | undefined = '';
 @customElement('page-project-ref-data')
@@ -18,6 +20,12 @@ export class PageProjectRefData extends PageElement {
 
   static get styles() {
     return css`
+      :host {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        overflow: hidden;
+      }
       .btn {
         position: fixed;
         right: 40px;
@@ -70,7 +78,7 @@ export class PageProjectRefData extends PageElement {
 
   render() {
     return html`
-      <div id="editor" style="width: 100%; height: calc(100vh - 50px);">
+      <div id="editor" style="width: 100%; flex: 1; min-height: 200px;">
         Loading...
       </div>
       <div class="loader" ?hidden="${!this.refDataLoading}"></div>
@@ -144,7 +152,7 @@ export class PageProjectRefData extends PageElement {
       if (invalidNames.length > 0) {
         this.errorAlert(
           `Component name(s) contain invalid characters: ${invalidNames.join(', ')}. ` +
-          `Only alphanumeric characters, spaces, and these symbols are allowed: ,./?|:;'"<>()*&$#@!-_=+`
+          `Only alphanumeric characters, spaces, and these symbols are allowed: ,./?|:;'"<>()[]{}*&$#@!-_=+`
         );
         this.refDataLoading = false;
         return;

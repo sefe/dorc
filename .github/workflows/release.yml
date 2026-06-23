@@ -1,4 +1,4 @@
-name: DOrc Release Build
+name: DOrc Build
 
 on:
   push:
@@ -11,6 +11,7 @@ on:
       - 'hotfix/**'
       - 'migration/**'
       - 'copilot/**'
+      - 'claude/**'
   pull_request:
     branches:
       - main
@@ -29,22 +30,22 @@ jobs:
     
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
       
     - name: Setup .NET
-      uses: actions/setup-dotnet@v4
+      uses: actions/setup-dotnet@v5
       with:
         dotnet-version: ${{ env.DOTNET_VERSION }}
         
     - name: Setup Node.js
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@v6
       with:
         node-version: ${{ env.NODE_VERSION }}
         cache: 'npm'
         cache-dependency-path: src/dorc-web/package-lock.json
         
     - name: Setup MSBuild
-      uses: microsoft/setup-msbuild@v2
+      uses: microsoft/setup-msbuild@v3
       
     - name: Install WiX Toolset
       run: |
@@ -68,7 +69,49 @@ jobs:
     - name: Build web site
       working-directory: src/dorc-web
       run: npm run build
-      
+
+    # The next three steps assume Windows (pwsh + the Windows cache path).
+    # The whole job is windows-latest today; the `if: runner.os == 'Windows'`
+    # guards align them so adding a Linux/macOS matrix entry later is a
+    # localised change here rather than a silent CI mis-fire.
+    - name: Get installed Playwright version
+      id: playwright-version
+      if: runner.os == 'Windows'
+      working-directory: src/dorc-web
+      shell: pwsh
+      run: |
+        $version = (npm ls @playwright/test --json 2>$null `
+          | ConvertFrom-Json).dependencies.'@playwright/test'.version
+        if (-not $version) {
+          $version = (npm ls playwright --json 2>$null `
+            | ConvertFrom-Json).dependencies.playwright.version
+        }
+        if (-not $version) {
+          # Refuse to write an empty cache key — would produce
+          # `playwright-Windows-` and silently match every run forever.
+          Write-Error "Could not determine installed Playwright version"
+          exit 1
+        }
+        echo "version=$version" >> $env:GITHUB_OUTPUT
+
+    - name: Cache Playwright browsers
+      id: playwright-cache
+      if: runner.os == 'Windows'
+      uses: actions/cache@v5
+      with:
+        path: ~\AppData\Local\ms-playwright
+        key: playwright-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
+
+    - name: Install Playwright browsers
+      if: runner.os == 'Windows' && steps.playwright-cache.outputs.cache-hit != 'true'
+      working-directory: src/dorc-web
+      run: npx playwright install chromium firefox webkit
+
+    - name: Run web tests
+      if: runner.os == 'Windows'
+      working-directory: src/dorc-web
+      run: npm test
+
     - name: Version AssemblyInfo files
       shell: pwsh
       env:
@@ -120,7 +163,7 @@ jobs:
         }
       
     - name: Cache NuGet packages
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: ~/.nuget/packages
         key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json', '**/*.csproj') }}
@@ -144,10 +187,14 @@ jobs:
           New-Item -ItemType Directory -Force -Path $resultsDir | Out-Null
         }
         
-        # Find test assemblies, excluding integration tests that require external dependencies
-        $testAssemblies = Get-ChildItem -Path "${{ github.workspace }}\src" -Recurse -Include "*Tests.dll","*Test.dll" | 
-          Where-Object { 
-            $_.FullName -notmatch "\\obj\\" -and 
+        # Find test assemblies. Only the plural "*Tests.dll" suffix — the singular
+        # "*Test.dll" picks up non-test projects (Tools.RabbitMqOAuthTest is a console
+        # exe with no testhost, Org.OpenAPITools.Test is an empty auto-generated client),
+        # which crashed VSTest's parallel manager with "Could not find testhost".
+        # IntegrationTests and Acceptance are excluded — they need external resources.
+        $testAssemblies = Get-ChildItem -Path "${{ github.workspace }}\src" -Recurse -Include "*Tests.dll" |
+          Where-Object {
+            $_.FullName -notmatch "\\obj\\" -and
             $_.FullName -notmatch "IntegrationTests" -and
             $_.FullName -notmatch "Acceptance"
           }
@@ -274,7 +321,7 @@ jobs:
         }
 
     - name: Upload build artifacts
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: dorc-release-${{ steps.version.outputs.VERSION }}
         path: artifacts/

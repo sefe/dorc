@@ -36,6 +36,7 @@ import {
 } from '../apis/dorc-api';
 import { RefDataServersApi } from '../apis/dorc-api';
 import { PageElement } from '../helpers/page-element';
+import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import '../components/server-tags';
 import { AttachedServers } from '../components/attached-servers';
 import '../components/grid-button-groups/server-controls';
@@ -50,7 +51,7 @@ const osName = 'OsName';
 const applicationTags = 'ApplicationTags';
 
 @customElement('page-servers-list')
-export class PageServersList extends PageElement {
+export class PageServersList extends ResponsiveMixin(PageElement) {
   @property({ type: Boolean }) loading = true;
   @property({ type: Boolean }) searching = false;
   @query('#grid') grid: Grid | undefined;
@@ -73,10 +74,16 @@ export class PageServersList extends PageElement {
 
   static get styles() {
     return css`
-      vaadin-grid {
+      :host {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
         overflow: hidden;
-        height: calc(100vh - 56px);
         --divider-color: var(--dorc-border-color);
+      }
+      vaadin-grid {
+        flex: 1;
+        min-height: 0;
       }
       vaadin-text-field {
         padding: 0;
@@ -121,7 +128,7 @@ export class PageServersList extends PageElement {
       }
 
       .tag {
-        font-size: 14px;
+        font-size: var(--lumo-font-size-s);
         font-family: monospace;
         background-color: var(--dorc-chip-bg);
         color: var(--dorc-chip-text);
@@ -140,7 +147,7 @@ export class PageServersList extends PageElement {
       }
 
       .env {
-        font-size: 14px;
+        font-size: var(--lumo-font-size-s);
         border: 0;
         font-family: monospace;
         background-color: var(
@@ -249,11 +256,13 @@ export class PageServersList extends PageElement {
           .headerRenderer='${this.osHeaderRenderer}'
           auto-width
           flex-grow='0'
+          ?hidden='${this._narrowScreen}'
         ></vaadin-grid-column>
         <vaadin-grid-column
           .renderer='${this.applicationTagsRenderer}'
           resizable
           .headerRenderer='${this.appTagsHeaderRenderer}'
+          ?hidden='${this._narrowScreen}'
         ></vaadin-grid-column>
         <vaadin-grid-column
           width='300px'
@@ -262,6 +271,7 @@ export class PageServersList extends PageElement {
           .headerRenderer='${this.environmentNamesHeaderRenderer}'
           resizable
           header='Mapped Environments'
+          ?hidden='${this._narrowScreen}'
         ></vaadin-grid-column>
         <vaadin-grid-column
           width='200px'

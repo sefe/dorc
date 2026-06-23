@@ -27,10 +27,11 @@ import { ScriptAuditApiModel } from '../apis/dorc-api/models/ScriptAuditApiModel
 import { GetScriptsAuditListResponseDto } from '../apis/dorc-api/models/GetScriptsAuditListResponseDto';
 import { ScriptsAuditApi } from '../apis/dorc-api/apis/ScriptsAuditApi';
 import { PageElement } from '../helpers/page-element';
+import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import { getShortLogonName } from '../helpers/user-extensions';
 
 @customElement('page-scripts-audit')
-export class PageScriptsAudit extends PageElement {
+export class PageScriptsAudit extends ResponsiveMixin(PageElement) {
   @property({ type: Boolean }) loading = true;
 
   @property({ type: Boolean }) searching = false;
@@ -47,16 +48,27 @@ export class PageScriptsAudit extends PageElement {
 
     static get styles() {
         return css`
+      :host {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        min-height: 0;
+        --audit-row-add-bg: color-mix(in srgb, var(--dorc-success-bg) 35%, var(--dorc-bg-primary));
+        --audit-row-remove-bg: color-mix(in srgb, var(--dorc-failure-bg) 35%, var(--dorc-bg-primary));
+        --audit-char-add-bg: var(--dorc-success-bg);
+        --audit-char-remove-bg: var(--dorc-failure-bg);
+      }
       vaadin-grid#grid {
+        flex: 1 1 auto;
+        min-height: 0;
         overflow: auto;
-        height: calc(100vh - 96px);
-        --divider-color: rgb(223, 232, 239);
+        --divider-color: var(--dorc-border-color);
       }
       vaadin-grid#grid::part(insert-type) {
-        background-color: #b1ffb7;
+        background-color: var(--audit-row-add-bg);
       }
       vaadin-grid#grid::part(delete-type) {
-        background-color: #ffd9d9;
+        background-color: var(--audit-row-remove-bg);
       }
       .overlay {
         width: 100%;
@@ -79,8 +91,8 @@ export class PageScriptsAudit extends PageElement {
         height: 75px;
         display: inline-block;
         border-width: 2px;
-        border-color: rgba(255, 255, 255, 0.05);
-        border-top-color: cornflowerblue;
+        border-color: var(--dorc-border-color);
+        border-top-color: var(--dorc-link-color);
         animation: spin 1s infinite linear;
         border-radius: 100%;
         border-style: solid;
@@ -91,13 +103,20 @@ export class PageScriptsAudit extends PageElement {
         }
       }
       .highlight {
-        background-color: #b4d5ff;
+        background-color: var(--audit-char-add-bg);
       }
       .highlight-removed {
-        background-color: #ffb4c2;
+        background-color: var(--audit-char-remove-bg);
       }
       .value-line {
         white-space: nowrap;
+      }
+      @media (max-width: 768px) {
+        vaadin-grid-cell-content {
+          white-space: normal;
+          word-wrap: break-word;
+          overflow-wrap: break-word;
+        }
       }
     `;
     }
@@ -161,6 +180,7 @@ export class PageScriptsAudit extends PageElement {
           resizable
           auto-width
           flex-grow="0"
+          ?hidden="${this._narrowScreen}"
         ></vaadin-grid-column>
       </vaadin-grid>
     `;

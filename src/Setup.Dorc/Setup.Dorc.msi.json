@@ -90,6 +90,14 @@
       "DeployProperty": "AADTENANT"
     },
     {
+      "MSIParameter": "GITHUBTOKEN",
+      "DeployProperty": "GITHUBTOKEN"
+    },
+    {
+      "MSIParameter": "GITHUBARTIFACTDOWNLOADFOLDER",
+      "DeployProperty": "GITHUBARTIFACTDOWNLOADFOLDER"
+    },
+    {
       "MSIParameter": "DOMAINNAME",
       "DeployProperty": "DOMAINNAME"
     },
@@ -236,6 +244,10 @@
     {
       "MSIParameter": "HA.RABBITMQ.VIRTUALHOST",
       "DeployProperty": "HA_RABBITMQ_VIRTUALHOST"
+    },
+    {
+      "MSIParameter": "HA.RABBITMQ.CONSUMERTIMEOUTMS",
+      "DeployProperty": "HA_RABBITMQ_CONSUMERTIMEOUTMS"
     },
     {
       "MSIParameter": "HA.RABBITMQ.OAUTH.CLIENTID",

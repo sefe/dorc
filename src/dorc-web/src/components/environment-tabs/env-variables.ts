@@ -35,6 +35,7 @@ import {
   RefDataScopedPropertyValuesApi
 } from '../../apis/dorc-api';
 import { PageEnvBase } from './page-env-base';
+import { ResponsiveMixin } from '../../helpers/responsive-mixin';
 import { ErrorNotification } from '../notifications/error-notification';
 import { Notification } from '@vaadin/notification';
 
@@ -45,7 +46,7 @@ const variableIsShowDefaultProps = 'ShowDefaults';
 
 let _environment: EnvironmentApiModel | undefined;
 @customElement('env-variables')
-export class EnvVariables extends PageEnvBase {
+export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
   private secureMessage =
     'This environment is not secure which includes default variables during deployments';
 
@@ -116,6 +117,13 @@ export class EnvVariables extends PageEnvBase {
       vaadin-combo-box {
         padding: 0px;
       }
+
+      .env-variable-selector-combo {
+        width: clamp(24rem, 34vw, 36rem);
+        min-width: 24rem;
+        max-width: none;
+        margin-left: var(--lumo-space-xs);
+      }
       .overlay {
         width: 100%;
         height: 100%;
@@ -148,6 +156,19 @@ export class EnvVariables extends PageEnvBase {
           transform: rotate(360deg);
         }
       }
+      @media (max-width: 768px) {
+        .env-variable-selector-combo {
+          width: 100%;
+          min-width: 0;
+          margin-left: 0;
+        }
+
+        vaadin-grid-cell-content {
+          white-space: normal;
+          word-wrap: break-word;
+          overflow-wrap: break-word;
+        }
+      }
     `;
   }
 
@@ -174,7 +195,7 @@ export class EnvVariables extends PageEnvBase {
                 style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; width: 100%; margin: 0px;"
               >
                 <div
-                  style="display: flex; flex-wrap: wrap; flex-direction: row"
+                  style="display: flex; flex-wrap: wrap; flex-direction: row; width: 100%"
                 >
                   <table>
                     <tr>
@@ -188,6 +209,7 @@ export class EnvVariables extends PageEnvBase {
                       </td>
                       <td style="vertical-align: top;">
                         <vaadin-combo-box
+                          class="env-variable-selector-combo"
                           id="properties"
                           @value-changed="${this._propNameValueChanged}"
                           .items="${this.properties}"
@@ -196,12 +218,11 @@ export class EnvVariables extends PageEnvBase {
                           clear-button-visible
                           item-label-path="Name"
                           item-value-path="Name"
-                          style="min-width: 600px; margin-left: 5px; "
                         ></vaadin-combo-box>
                       </td>
                     </tr>
                   </table>
-                  <table>
+                  <table style="flex: 1; min-width: 400px">
                     <tr>
                       <td style="vertical-align: center; min-width: 20px">
                         ${this.loadingScopeOptions
@@ -211,7 +232,7 @@ export class EnvVariables extends PageEnvBase {
                             ></div> `
                           : html``}
                       </td>
-                      <td style="vertical-align: top;">
+                      <td style="vertical-align: top; width: 100%;">
                         <vaadin-combo-box
                           allow-custom-value
                           .items="${this.propertyValueScopeOptions}"
@@ -220,21 +241,21 @@ export class EnvVariables extends PageEnvBase {
                           .renderer="${this.comboboxRenderer}"
                           id="newVariableValue"
                           label="Value"
-                          style="min-width: 400px; "
+                          style="min-width: 400px; width: 100%"
                           helper-text="Include a resolver eg. $AnotherVariable$ or specify value directly"
                         ></vaadin-combo-box>
                       </td>
-                      <td style="vertical-align: center;">
+                      <td style="vertical-align: middle;">
                         <vaadin-button
                           @click="${this._addVariableValueClick}"
                           ?disabled="${!this.environment?.UserEditable}"
                           >Add Variable Value</vaadin-button
                         >
                       </td>
-                      <td style="vertical-align: center; min-width: 20px">
+                      <td style="vertical-align: middle; min-width: 20px">
                         ${this.addingVariableValue
                           ? html`<div
-                              style="vertical-align: center"
+                              style="vertical-align: middle"
                               class="small-loader"
                             ></div> `
                           : html``}
@@ -367,6 +388,7 @@ export class EnvVariables extends PageEnvBase {
                   resizable
                   auto-width
                   flex-grow="0"
+                  ?hidden="${this._narrowScreen}"
                 ></vaadin-grid-column>
                 <vaadin-grid-column
                   path="Secure"
@@ -376,6 +398,7 @@ export class EnvVariables extends PageEnvBase {
                   .renderer="${this.secureRenderer}"
                   .headerRenderer="${this.secureHeaderRenderer}"
                   flex-grow="0"
+                  ?hidden="${this._narrowScreen}"
                 >
                 </vaadin-grid-column>
                 <vaadin-grid-column
@@ -383,8 +406,8 @@ export class EnvVariables extends PageEnvBase {
                   .headerRenderer="${this.valueHeaderRenderer}"
                   .renderer="${this.variableValueControlsRenderer}"
                   resizable
-                  flex-grow="0"
-                  width="60rem"
+                  flex-grow="1"
+                  width="20rem"
                 ></vaadin-grid-column>
               </vaadin-grid>
             </vaadin-vertical-layout>
@@ -622,8 +645,7 @@ export class EnvVariables extends PageEnvBase {
     console.error(errs);
 
     errs.forEach(element => {
-      let msg = '';
-      msg = this.processError(element);
+      const msg = this.processError(element);
       if (msg !== '') {
         const notification = new ErrorNotification();
         notification.setAttribute('errorMessage', msg);

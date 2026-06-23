@@ -16,7 +16,7 @@ import type { AjaxResponse } from 'rxjs/ajax';
 import { BaseAPI, throwIfNullOrUndefined, encodeURI } from '../runtime';
 import type { OperationOpts, HttpHeaders, HttpQuery } from '../runtime';
 import type {
-    ServiceStatusApiModel,
+    DaemonStatusApiModel,
 } from '../models';
 
 export interface DaemonStatusEnvNameGetRequest {
@@ -28,7 +28,7 @@ export interface DaemonStatusGetRequest {
 }
 
 export interface DaemonStatusPutRequest {
-    serviceStatusApiModel?: ServiceStatusApiModel;
+    daemonStatusApiModel?: DaemonStatusApiModel;
 }
 
 /**
@@ -38,12 +38,12 @@ export class DaemonStatusApi extends BaseAPI {
 
     /**
      */
-    daemonStatusEnvNameGet({ envName }: DaemonStatusEnvNameGetRequest): Observable<Array<ServiceStatusApiModel>>
-    daemonStatusEnvNameGet({ envName }: DaemonStatusEnvNameGetRequest, opts?: OperationOpts): Observable<AjaxResponse<Array<ServiceStatusApiModel>>>
-    daemonStatusEnvNameGet({ envName }: DaemonStatusEnvNameGetRequest, opts?: OperationOpts): Observable<Array<ServiceStatusApiModel> | AjaxResponse<Array<ServiceStatusApiModel>>> {
+    daemonStatusEnvNameGet({ envName }: DaemonStatusEnvNameGetRequest): Observable<Array<DaemonStatusApiModel>>
+    daemonStatusEnvNameGet({ envName }: DaemonStatusEnvNameGetRequest, opts?: OperationOpts): Observable<AjaxResponse<Array<DaemonStatusApiModel>>>
+    daemonStatusEnvNameGet({ envName }: DaemonStatusEnvNameGetRequest, opts?: OperationOpts): Observable<Array<DaemonStatusApiModel> | AjaxResponse<Array<DaemonStatusApiModel>>> {
         throwIfNullOrUndefined(envName, 'envName', 'daemonStatusEnvNameGet');
 
-        return this.request<Array<ServiceStatusApiModel>>({
+        return this.request<Array<DaemonStatusApiModel>>({
             url: '/DaemonStatus/{envName}'.replace('{envName}', encodeURI(envName)),
             method: 'GET',
         }, opts?.responseOpts);
@@ -51,15 +51,15 @@ export class DaemonStatusApi extends BaseAPI {
 
     /**
      */
-    daemonStatusGet({ id }: DaemonStatusGetRequest): Observable<Array<ServiceStatusApiModel>>
-    daemonStatusGet({ id }: DaemonStatusGetRequest, opts?: OperationOpts): Observable<AjaxResponse<Array<ServiceStatusApiModel>>>
-    daemonStatusGet({ id }: DaemonStatusGetRequest, opts?: OperationOpts): Observable<Array<ServiceStatusApiModel> | AjaxResponse<Array<ServiceStatusApiModel>>> {
+    daemonStatusGet({ id }: DaemonStatusGetRequest): Observable<Array<DaemonStatusApiModel>>
+    daemonStatusGet({ id }: DaemonStatusGetRequest, opts?: OperationOpts): Observable<AjaxResponse<Array<DaemonStatusApiModel>>>
+    daemonStatusGet({ id }: DaemonStatusGetRequest, opts?: OperationOpts): Observable<Array<DaemonStatusApiModel> | AjaxResponse<Array<DaemonStatusApiModel>>> {
 
         const query: HttpQuery = {};
 
         if (id != null) { query['id'] = id; }
 
-        return this.request<Array<ServiceStatusApiModel>>({
+        return this.request<Array<DaemonStatusApiModel>>({
             url: '/DaemonStatus',
             method: 'GET',
             query,
@@ -68,19 +68,19 @@ export class DaemonStatusApi extends BaseAPI {
 
     /**
      */
-    daemonStatusPut({ serviceStatusApiModel }: DaemonStatusPutRequest): Observable<ServiceStatusApiModel>
-    daemonStatusPut({ serviceStatusApiModel }: DaemonStatusPutRequest, opts?: OperationOpts): Observable<AjaxResponse<ServiceStatusApiModel>>
-    daemonStatusPut({ serviceStatusApiModel }: DaemonStatusPutRequest, opts?: OperationOpts): Observable<ServiceStatusApiModel | AjaxResponse<ServiceStatusApiModel>> {
+    daemonStatusPut({ daemonStatusApiModel }: DaemonStatusPutRequest): Observable<DaemonStatusApiModel>
+    daemonStatusPut({ daemonStatusApiModel }: DaemonStatusPutRequest, opts?: OperationOpts): Observable<AjaxResponse<DaemonStatusApiModel>>
+    daemonStatusPut({ daemonStatusApiModel }: DaemonStatusPutRequest, opts?: OperationOpts): Observable<DaemonStatusApiModel | AjaxResponse<DaemonStatusApiModel>> {
 
         const headers: HttpHeaders = {
             'Content-Type': 'application/json',
         };
 
-        return this.request<ServiceStatusApiModel>({
+        return this.request<DaemonStatusApiModel>({
             url: '/DaemonStatus',
             method: 'PUT',
             headers,
-            body: serviceStatusApiModel,
+            body: daemonStatusApiModel,
         }, opts?.responseOpts);
     };
 

@@ -10,7 +10,7 @@ import { RefDataDaemonsApi } from '../apis/dorc-api';
 @customElement('add-daemon')
 export class AddDaemon extends LitElement {
 
-  private readonly maxFieldLength = 50;
+  private readonly maxFieldLength = 250;
 
   @state() private displayName = '';
 
@@ -43,7 +43,8 @@ export class AddDaemon extends LitElement {
         display: flex;
         align-items: center;
         justify-content: center;
-        width: 500px;
+        width: 100%;
+        max-width: 500px;
       }
       .small-loader {
         border: 2px solid #f3f3f3; /* Light grey */
@@ -100,7 +101,6 @@ export class AddDaemon extends LitElement {
             auto-validate
             @input="${this._accountNameValueChanged}"
             .value="${this.accountName ?? ''}"
-            .readonly="${true}"
           ></vaadin-text-field>
           <vaadin-text-field
             class="block"
@@ -112,7 +112,6 @@ export class AddDaemon extends LitElement {
             auto-validate
             @input="${this._serviceTypeValueChanged}"
             .value="${this.serviceType ?? ''}"
-            .readonly="${true}"
           >
           </vaadin-text-field>
         </vaadin-vertical-layout>
@@ -186,7 +185,7 @@ export class AddDaemon extends LitElement {
       },
       (err: any) => {
         this.isBusy = false;
-        this.overlayMessage = 'Error creating daemon!';
+        this.overlayMessage = this._extractErrorMessage(err) ?? 'Error creating daemon!';
         console.error(err);
       },
       () => {
@@ -194,6 +193,16 @@ export class AddDaemon extends LitElement {
         this.reset();
       }
     );
+  }
+
+  private _extractErrorMessage(err: any): string | null {
+    if (err?.response) {
+      if (typeof err.response === 'string') return err.response;
+      if (typeof err.response.ExceptionMessage === 'string') return err.response.ExceptionMessage;
+      if (typeof err.response.message === 'string') return err.response.message;
+    }
+    if (err?.message) return err.message;
+    return null;
   }
 
   _addDaemon(data: DaemonApiModel) {

@@ -6,7 +6,7 @@ namespace Dorc.Core.Tests
     [TestClass]
     public class EncryptionMigrationTests
     {
-        private QuantumResistantPropertyEncryptor _encryptor;
+        private AesGcmPropertyEncryptor _encryptor;
         private PropertyEncryptor _legacyEncryptor;
         private string _testKey;
         private string _testIv;
@@ -22,7 +22,7 @@ namespace Dorc.Core.Tests
             RandomNumberGenerator.Fill(ivBytes);
             _testIv = Convert.ToBase64String(ivBytes);
 
-            _encryptor = new QuantumResistantPropertyEncryptor(_testIv, _testKey);
+            _encryptor = new AesGcmPropertyEncryptor(_testIv, _testKey);
             _legacyEncryptor = new PropertyEncryptor(_testIv, _testKey);
         }
 

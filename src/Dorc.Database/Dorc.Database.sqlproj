@@ -301,6 +301,12 @@
     <Build Include="deploy\Stored Procedures\sp_Select_Deployments_By_Project_Month.sql" />
     <Build Include="deploy\Tables\RefDataAuditAction.sql" />
     <Build Include="deploy\Tables\RefDataAudit.sql" />
+    <Build Include="deploy\Tables\Daemon.sql" />
+    <Build Include="deploy\Tables\ServerDaemon.sql" />
+    <Build Include="deploy\Tables\DaemonAudit.sql" />
+    <Build Include="deploy\Tables\DaemonObservation.sql" />
+    <Build Include="deploy\Tables\ServerAudit.sql" />
+    <Build Include="deploy\Tables\DatabaseAudit.sql" />
     <Build Include="deploy\Stored Procedures\AppendRequestLog.sql" />
     <Build Include="deploy\Stored Procedures\get_global_properties.sql" />
     <Build Include="deploy\Stored Procedures\get_environment_properties.sql" />
@@ -316,8 +322,6 @@
     <Build Include="dbo\Tables\ENVIRONMENT_USER_MAP.sql" />
     <Build Include="dbo\Tables\PERMISSION.sql" />
     <Build Include="dbo\Tables\SERVER.sql" />
-    <Build Include="dbo\Tables\SERVER_SERVICE_MAP.sql" />
-    <Build Include="dbo\Tables\SERVICE.sql" />
     <Build Include="dbo\Tables\SQL_PORTS.sql" />
     <Build Include="dbo\Tables\USERS.sql" />
     <Build Include="deploy\Stored Procedures\sp_Select_Deployments_By_Project.sql" />
@@ -342,12 +346,6 @@
     </Build>
     <Build Include="Schema Objects\Schemas\deploy\Tables\DeploymentRequestProcess.table.sql" />
     <Build Include="Schema Objects\Schemas\deploy\Tables\Keys\FK_DeploymentRequestProcess_DeploymentRequest.fkey.sql" />
-    <Build Include="dbo\Tables\Constraints\UC_Service_Service_Name.sql">
-      <SubType>Code</SubType>
-    </Build>
-    <Build Include="dbo\Tables\Constraints\UC_Service_Display_Name.sql">
-      <SubType>Code</SubType>
-    </Build>
     <Build Include="Schema Objects\Schemas\deploy\Tables\Indexes\IX_DeploymentResult_DeploymentRequestId.sql" />
     <Build Include="deploy\Tables\BundledRequests.sql" />
     <Build Include="deploy\Stored Procedures\GetFullEnvironmentChain.sql" />
@@ -369,8 +367,12 @@
     <Build Include="deploy\Tables\AnalyticsTimePattern.sql" />
     <Build Include="deploy\Tables\AnalyticsUserActivity.sql" />
     <None Include="Scripts\Post-Deployment\CleanupOrphanedScripts.sql" />
+    <None Include="Scripts\Post-Deployment\SetFileShareSourceControlType.sql" />
     <Build Include="Schema Objects\Schemas\deploy\Tables\AuditScript.table.sql" />
     <None Include="Scripts\Pre-Deployment\AddCancelledFieldsToArchiveDeploymentRequests.sql" />
+    <None Include="Scripts\Pre-Deployment\StageServicesForMigration.sql" />
+    <None Include="Scripts\Post-Deployment\MigrateStagedServicesToDaemons.sql" />
+    <None Include="Scripts\Post-Deployment\SeedRefDataAuditActions.sql" />
     <Build Include="Schema Objects\Schemas\deploy\Tables\DeploymentRequestAttempt.table.sql" />
     <Build Include="Schema Objects\Schemas\deploy\Tables\DeploymentResultAttempt.table.sql" />
   </ItemGroup>
@@ -381,6 +383,8 @@
     <Build Include="Schema Objects\Database Level Objects\Security\Schemas\archive.schema.sql" />
     <Build Include="Schema Objects\Schemas\deploy\Tables\Indexes\IX_PropertyValueFilter_PropertyValueId.index.sql" />
     <Build Include="Schema Objects\Schemas\deploy\Tables\Indexes\IX_PropertyValue_PropertyId.index.sql" />
+    <Build Include="Schema Objects\Schemas\deploy\Tables\Indexes\IX_DeploymentRequest_Environment.index.sql" />
+    <Build Include="Schema Objects\Schemas\deploy\Tables\Indexes\IX_DeploymentRequest_Project.index.sql" />
     <None Include="Scripts\Post-Deployment\Props-to-Configuration.sql" />
   </ItemGroup>
   <ItemGroup>

@@ -1,6 +1,4 @@
 ﻿using Dorc.Core.Configuration;
-using Microsoft.Extensions.Configuration;
-using Microsoft.IdentityModel.Tokens;
 using RestSharp;
 using RestSharp.Authenticators.OAuth2;
 using System.Net;
@@ -8,11 +6,6 @@ using System.Text.Json;
 
 namespace Dorc.Core
 {
-    public class ContentResponse
-    {
-        public string Message { get; set; } = default!;
-    }
-
     public interface IApiCaller
     {
         ApiResult<T> Call<T>(Endpoints endpoint, Method method, Dictionary<string, string> segments = null, string body = null) where T : class;
@@ -21,7 +14,7 @@ namespace Dorc.Core
     public class ApiCaller : IApiCaller
     {
         private RestClient Client;
-        
+
         private readonly IOAuthClientConfiguration _configuration;
 
         public ApiCaller(IOAuthClientConfiguration configuration)
@@ -65,20 +58,8 @@ namespace Dorc.Core
                 }
                 else
                 {
-                    if (response.ContentType != null
-                        && response.ContentType.Contains(ContentType.Json))
-                    {
-                        ContentResponse? contentResponse = JsonSerializer.Deserialize<ContentResponse>(responseContent);
-                        if (contentResponse != null)
-                        {
-                            result.ErrorMessage = contentResponse.Message;
-                        }
-                    }
-                    else
-                    {
-                        result.ErrorMessage = responseContent;
-                    }
                     result.IsModelValid = false;
+                    result.ErrorMessage = responseContent.Trim('"');
                 }
             }
             catch (Exception e)
@@ -109,10 +90,26 @@ namespace Dorc.Core
             Client = new RestClient(options);
         }
 
+        private static readonly Dictionary<Endpoints, string> EndpointPaths = new()
+        {
+            { Endpoints.Properties, "Properties" },
+            { Endpoints.PropertyValues, "PropertyValues" },
+            { Endpoints.Request, "Request" },
+            { Endpoints.ConfigValues, "ConfigValues" },
+            { Endpoints.CopyEnvBuild, "CopyEnvBuild" },
+            { Endpoints.RefDataEnvironments, "RefDataEnvironments" },
+            { Endpoints.RefDataDatabases, "RefDataDatabases" },
+            { Endpoints.RefDataDatabasesByType, "RefDataDatabases/ByType" },
+            { Endpoints.RefDataServers, "RefDataServers" },
+            { Endpoints.RefDataServersAppServersByEnvName, "RefDataServers/AppServersByEnvName" },
+            { Endpoints.RefDataSqlPorts, "RefDataSqlPorts" },
+            { Endpoints.RefDataSqlPortsByInstance, "RefDataSqlPorts/ByInstance" },
+            { Endpoints.RefDataEnvironmentsHistory, "RefDataEnvironmentsHistory" },
+        };
+
         private string GetEndpointPath(Endpoints value)
         {
-            string? endpointName = Enum.GetName(typeof(Endpoints), value);
-            return endpointName ?? string.Empty;
+            return EndpointPaths.TryGetValue(value, out var path) ? path : (Enum.GetName(typeof(Endpoints), value) ?? string.Empty);
         }
     }
 

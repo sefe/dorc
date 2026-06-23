@@ -62,7 +62,11 @@ export class PageEnvBase extends LitElement {
   public loadEnvironmentInfo() {
     const envName = location.pathname.split('/')[2];
     console.log(`Browser Location.pathname: ${location.pathname}`);
-    this.environmentName = decodeURIComponent(envName);
+    try {
+      this.environmentName = decodeURIComponent(envName);
+    } catch {
+      this.environmentName = envName;
+    }
 
     if (
       this.environment !== undefined &&
@@ -225,7 +229,7 @@ export class PageEnvBase extends LitElement {
   protected onErrorAlert(event: CustomEvent) {
     const notification = new ErrorNotification();
 
-    let msg = '';
+    let msg: string;
     if (event && event.detail) {
       if (
         event.detail.result &&
