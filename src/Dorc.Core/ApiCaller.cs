@@ -70,12 +70,18 @@ namespace Dorc.Core
             return result;
         }
 
+        // Property names, in priority order, that may carry a human-readable error message:
+        // "Message" (CopyEnvBuildResponseDto, serialized exceptions), "detail"/"title"
+        // (RFC 7807 ProblemDetails / ASP.NET validation responses).
+        private static readonly string[] ErrorMessagePropertyNames =
+            { "Message", "message", "detail", "title" };
+
         /// <summary>
         /// Produces a human-readable error message from a failed response body. Handles the
-        /// three shapes the API emits: a JSON object carrying a "Message" property
-        /// (e.g. CopyEnvBuildResponseDto or a serialized exception), a bare JSON string
-        /// (e.g. BadRequest("...")), and plain text. Falls back to the raw content when the
-        /// body is not JSON or has no recognisable message.
+        /// shapes the API emits: a JSON object carrying a message property (see
+        /// <see cref="ErrorMessagePropertyNames"/>), a bare JSON string (e.g. BadRequest("...")),
+        /// and plain text. Falls back to the raw content when the body is not JSON or has no
+        /// recognisable, non-empty message.
         /// </summary>
         private static string ExtractErrorMessage(string responseContent)
         {
@@ -86,17 +92,22 @@ namespace Dorc.Core
 
                 if (root.ValueKind == JsonValueKind.String)
                 {
-                    return root.GetString() ?? responseContent;
+                    var value = root.GetString();
+                    return string.IsNullOrEmpty(value) ? responseContent : value;
                 }
 
                 if (root.ValueKind == JsonValueKind.Object)
                 {
-                    foreach (var propertyName in new[] { "Message", "message" })
+                    foreach (var propertyName in ErrorMessagePropertyNames)
                     {
                         if (root.TryGetProperty(propertyName, out var message)
                             && message.ValueKind == JsonValueKind.String)
                         {
-                            return message.GetString() ?? responseContent;
+                            var value = message.GetString();
+                            if (!string.IsNullOrEmpty(value))
+                            {
+                                return value;
+                            }
                         }
                     }
                 }

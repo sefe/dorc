@@ -713,6 +713,7 @@ export class PageMonitorRequests
     render(
       html`
         <button
+          type="button"
           class="id-btn"
           @click="${(e: Event) => {
             e.stopPropagation();
