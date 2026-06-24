@@ -72,7 +72,7 @@ export class PageProjectEnvs extends PageElement {
         padding: 10px;
         box-shadow: 1px 2px 3px rgba(0, 0, 0, 0.2);
         width: 300px;
-        min-height: 100px;
+        min-height: 110px;
         height: 100%;
         display: flex;
         justify-content: space-between;

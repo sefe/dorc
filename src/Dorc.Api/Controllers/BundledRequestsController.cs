@@ -28,6 +28,21 @@ namespace Dorc.Api.Controllers
         }
 
         /// <summary>
+        /// Returns a 403 result when the current user cannot modify the given project, or null
+        /// when the user is permitted. A missing project id is treated as not permitted.
+        /// </summary>
+        private IActionResult? EnsureCanModifyProject(long? projectId)
+        {
+            if (!projectId.HasValue ||
+                !_securityPrivilegesChecker.CanModifyProject(User, (int)projectId.Value))
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, "User does not have Modify rights on this Project");
+            }
+
+            return null;
+        }
+
+        /// <summary>
         /// Get the list of request bundles
         /// </summary>
         /// <param name="projectNames"></param>
@@ -99,9 +114,10 @@ namespace Dorc.Api.Controllers
                 }
 
                 // Check user has write/modify rights for the project
-                if (!_securityPrivilegesChecker.CanModifyProject(User, (int)model.ProjectId.Value))
+                var forbidden = EnsureCanModifyProject(model.ProjectId);
+                if (forbidden != null)
                 {
-                    return StatusCode(StatusCodes.Status403Forbidden, "User does not have Modify rights on this Project");
+                    return forbidden;
                 }
 
                 _bundledRequestsPersistentSource.AddRequestToBundle(model);
@@ -136,9 +152,10 @@ namespace Dorc.Api.Controllers
                 }
 
                 // Check user has write/modify rights for the project
-                if (!_securityPrivilegesChecker.CanModifyProject(User, (int)model.ProjectId.Value))
+                var forbidden = EnsureCanModifyProject(model.ProjectId);
+                if (forbidden != null)
                 {
-                    return StatusCode(StatusCodes.Status403Forbidden, "User does not have Modify rights on this Project");
+                    return forbidden;
                 }
 
                 _bundledRequestsPersistentSource.UpdateRequestInBundle(model);
@@ -169,10 +186,10 @@ namespace Dorc.Api.Controllers
                 }
 
                 // Check user has write/modify rights for the project
-                if (!bundle.ProjectId.HasValue ||
-                    !_securityPrivilegesChecker.CanModifyProject(User, (int)bundle.ProjectId.Value))
+                var forbidden = EnsureCanModifyProject(bundle.ProjectId);
+                if (forbidden != null)
                 {
-                    return StatusCode(StatusCodes.Status403Forbidden, "User does not have Modify rights on this Project");
+                    return forbidden;
                 }
 
                 _bundledRequestsPersistentSource.DeleteRequestFromBundle(id);

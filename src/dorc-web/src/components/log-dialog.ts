@@ -49,7 +49,7 @@ export class LogDialog extends LitElement {
         justify-content: center;
         align-items: center;
         width: 100%;
-        height: var(--log-viewer-height, 70vh);
+        height: calc(85dvh - 90px);
         flex-direction: column;
       }
 

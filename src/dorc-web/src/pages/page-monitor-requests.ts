@@ -418,10 +418,6 @@ export class PageMonitorRequests
     this.location = location;
   }
 
-  connectedCallback(): void {
-    super.connectedCallback();
-  }
-
   disconnectedCallback(): void {
     super.disconnectedCallback();
     if (this.hubConnection) {

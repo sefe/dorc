@@ -36,12 +36,15 @@ namespace Tools.RequestCLI
                     Wait = Boolean.Parse(strArgument.Split(':')[1]);
                 else if (strArgument.ToLower().Contains("/builduri:"))
                 {
-                    var buildUri = strArgument.Split(':');
-                    if (buildUri.Length < 3)
+                    // Split only on the first ':' so the URL (which may itself contain a
+                    // port or path with further colons) is preserved in full.
+                    var separatorIndex = strArgument.IndexOf(':');
+                    var buildUrl = strArgument.Substring(separatorIndex + 1).Trim();
+                    if (string.IsNullOrWhiteSpace(buildUrl))
                     {
-                        throw new ArgumentException("Invalid build URI format. Expected format: /builduri:protocol:host");
+                        throw new ArgumentException("Invalid build URI format. Expected format: /builduri:<url>");
                     }
-                    _request.BuildUrl = buildUri[1] + ":" + buildUri[2];
+                    _request.BuildUrl = buildUrl;
                 }
         }
 

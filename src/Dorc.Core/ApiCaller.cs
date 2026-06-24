@@ -59,7 +59,7 @@ namespace Dorc.Core
                 else
                 {
                     result.IsModelValid = false;
-                    result.ErrorMessage = responseContent.Trim('"');
+                    result.ErrorMessage = ExtractErrorMessage(responseContent);
                 }
             }
             catch (Exception e)
@@ -68,6 +68,45 @@ namespace Dorc.Core
                 result.ErrorMessage = e.Message;
             }
             return result;
+        }
+
+        /// <summary>
+        /// Produces a human-readable error message from a failed response body. Handles the
+        /// three shapes the API emits: a JSON object carrying a "Message" property
+        /// (e.g. CopyEnvBuildResponseDto or a serialized exception), a bare JSON string
+        /// (e.g. BadRequest("...")), and plain text. Falls back to the raw content when the
+        /// body is not JSON or has no recognisable message.
+        /// </summary>
+        private static string ExtractErrorMessage(string responseContent)
+        {
+            try
+            {
+                using var document = JsonDocument.Parse(responseContent);
+                var root = document.RootElement;
+
+                if (root.ValueKind == JsonValueKind.String)
+                {
+                    return root.GetString() ?? responseContent;
+                }
+
+                if (root.ValueKind == JsonValueKind.Object)
+                {
+                    foreach (var propertyName in new[] { "Message", "message" })
+                    {
+                        if (root.TryGetProperty(propertyName, out var message)
+                            && message.ValueKind == JsonValueKind.String)
+                        {
+                            return message.GetString() ?? responseContent;
+                        }
+                    }
+                }
+            }
+            catch (JsonException)
+            {
+                // Not JSON - fall through and surface the raw content.
+            }
+
+            return responseContent;
         }
 
         private void EnsureClientCreatedAuthenticated()
