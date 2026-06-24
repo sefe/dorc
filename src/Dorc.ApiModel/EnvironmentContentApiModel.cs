@@ -13,5 +13,6 @@ namespace Dorc.ApiModel
         public IEnumerable<EnvironmentContentBuildsApiModel> Builds { set; get; }
         public IEnumerable<UserApiModel> EndurUsers { set; get; }
         public IEnumerable<ProjectApiModel> MappedProjects { get; set; }
+        public IEnumerable<ApiApiModel> Apis { get; set; }
     }
 }

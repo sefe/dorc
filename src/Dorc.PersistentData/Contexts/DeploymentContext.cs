@@ -33,6 +33,7 @@ namespace Dorc.PersistentData.Contexts
 
         public DbSet<AccessControl> AccessControls { get; set; }
         public DbSet<AdGroup> AdGroups { get; set; }
+        public DbSet<Api> Apis { get; set; }
         public DbSet<Audit> Audits { get; set; }
         public DbSet<AuditProperty> AuditProperties { get; set; }
         public DbSet<AuditScript> AuditScripts { get; set; }
@@ -145,6 +146,7 @@ namespace Dorc.PersistentData.Contexts
                 .HasKey(x => x.Id);
 
             new AdGroupEntityTypeConfiguration().Configure(modelBuilder.Entity<AdGroup>());
+            new ApiEntityTypeConfiguration().Configure(modelBuilder.Entity<Api>());
             new AuditEntityTypeConfiguration().Configure(modelBuilder.Entity<Audit>());
             new AuditPropertyEntityTypeConfiguration().Configure(modelBuilder.Entity<AuditProperty>());
             new AuditScriptEntityTypeConfiguration().Configure(modelBuilder.Entity<AuditScript>());

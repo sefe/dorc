@@ -283,6 +283,9 @@
     <Build Include="Schema Objects\Schemas\deploy\Tables\EnvironmentComponentStatus.table.sql">
       <SubType>Code</SubType>
     </Build>
+    <Build Include="Schema Objects\Schemas\deploy\Tables\Api.table.sql">
+      <SubType>Code</SubType>
+    </Build>
     <Build Include="Schema Objects\Schemas\deploy\Tables\ProjectProperty.table.sql" />
     <Build Include="Schema Objects\Schemas\deploy\Tables\ConfigValue.sql" />
     <Build Include="deploy\Stored Procedures\sp_Select_ProjectComponents.sql" />

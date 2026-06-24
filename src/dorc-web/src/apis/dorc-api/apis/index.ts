@@ -17,6 +17,7 @@ export * from './PropertiesApi';
 export * from './PropertyValuesApi';
 export * from './PropertyValuesAuditApi';
 export * from './RefDataApi';
+export * from './RefDataApisApi';
 export * from './RefDataAppServersApi';
 export * from './RefDataComponentsApi';
 export * from './RefDataConfigApi';

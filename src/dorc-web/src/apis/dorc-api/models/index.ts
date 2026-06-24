@@ -3,6 +3,7 @@ export * from './AccessControlType';
 export * from './AccessSecureApiModel';
 export * from './AccountGranularity';
 export * from './AnalyticsDeploymentsPerProjectApiModel';
+export * from './ApiApiModel';
 export * from './ApiBoolResult';
 export * from './ApiConfigModel';
 export * from './ApiEndpoints';

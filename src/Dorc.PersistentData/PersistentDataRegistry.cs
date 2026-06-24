@@ -24,6 +24,7 @@ namespace Dorc.PersistentData
             For<IAccountPersistentSource>().Use<AccountPersistentSource>().Scoped();
             For<IAdGroupPersistentSource>().Use<AdGroupPersistentSource>().Scoped();
             For<IAnalyticsPersistentSource>().Use<AnalyticsPersistentSource>().Scoped();
+            For<IApisPersistentSource>().Use<ApisPersistentSource>().Scoped();
             For<IBundledRequestsPersistentSource>().Use<BundledRequestsPersistentSource>().Scoped();
             For<IComponentsPersistentSource>().Use<ComponentsPersistentSource>().Scoped();
             For<IConfigValuesPersistentSource>().Use<ConfigValuesPersistentSource>().Scoped();

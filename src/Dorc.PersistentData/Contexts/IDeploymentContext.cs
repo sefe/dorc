@@ -39,6 +39,7 @@ namespace Dorc.PersistentData.Contexts
         DbSet<ServerAudit> ServerAudits { get; set; }
         DbSet<DatabaseAudit> DatabaseAudits { get; set; }
         DbSet<AdGroup> AdGroups { get; set; }
+        DbSet<Api> Apis { get; set; }
         DbSet<Database> Databases { get; set; }
         DbSet<EnvironmentHistory> EnvironmentHistories { get; set; }
         DbSet<Permission> Permissions { get; set; }

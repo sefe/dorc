@@ -51,6 +51,7 @@ namespace Dorc.Api.Services
             For<IRequestsManager>().Use<RequestsManager>();
             For<ISqlUserPasswordReset>().Use<SqlUserPasswordReset>();
             For<IApiServices>().Use<ApiServices>();
+            For<IApiEndpointResolver>().Use<ApiEndpointResolver>();
             For<IManageUsers>().Use<ManageUsers>();
             For<IEnvironmentMapper>().Use<EnvironmentMapper>();
             For<IAccountExistenceChecker>().Use<AccountExistenceChecker>().Scoped();
