@@ -1,6 +1,9 @@
 ﻿using Dorc.ApiModel;
 using System;
+using System.Runtime.CompilerServices;
 using System.Text.Json;
+
+[assembly: InternalsVisibleTo("Tools.RequestCLI.Tests")]
 
 namespace Tools.RequestCLI
 {

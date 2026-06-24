@@ -83,7 +83,7 @@ namespace Dorc.Core
         /// and plain text. Falls back to the raw content when the body is not JSON or has no
         /// recognisable, non-empty message.
         /// </summary>
-        private static string ExtractErrorMessage(string responseContent)
+        internal static string ExtractErrorMessage(string responseContent)
         {
             try
             {
