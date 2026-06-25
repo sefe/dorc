@@ -186,38 +186,33 @@ jobs:
         if (-not (Test-Path $resultsDir)) {
           New-Item -ItemType Directory -Force -Path $resultsDir | Out-Null
         }
-        
-        # Find test assemblies. Only the plural "*Tests.dll" suffix — the singular
-        # "*Test.dll" picks up non-test projects (Tools.RabbitMqOAuthTest is a console
-        # exe with no testhost, Org.OpenAPITools.Test is an empty auto-generated client),
-        # which crashed VSTest's parallel manager with "Could not find testhost".
+
+        # Run each unit-test project with `dotnet test` (SDK-native: it resolves the correct
+        # net8.0 testhost itself, so there is no fragile hunt for Visual Studio's
+        # vstest.console.exe). Only the plural "*Tests.csproj" suffix is matched — the singular
+        # "*Test.csproj" (Tools.RabbitMqOAuthTest, Org.OpenAPITools.Test) are not test projects.
         # IntegrationTests and Acceptance are excluded — they need external resources.
-        $testAssemblies = Get-ChildItem -Path "${{ github.workspace }}\src" -Recurse -Include "*Tests.dll" |
+        $testProjects = Get-ChildItem -Path "${{ github.workspace }}\src" -Recurse -Filter "*Tests.csproj" |
           Where-Object {
-            $_.FullName -notmatch "\\obj\\" -and
             $_.FullName -notmatch "IntegrationTests" -and
             $_.FullName -notmatch "Acceptance"
           }
-        
-        if ($testAssemblies.Count -gt 0) {
-          Write-Host "Found $($testAssemblies.Count) test assemblies (excluding integration/acceptance tests):"
-          $testAssemblies | ForEach-Object { Write-Host "  - $($_.FullName)" }
-          
-          # Use full path to vstest.console.exe
-          $vstestPath = "${env:ProgramFiles}\Microsoft Visual Studio\2022\Enterprise\Common7\IDE\CommonExtensions\Microsoft\TestWindow\vstest.console.exe"
-          if (-not (Test-Path $vstestPath)) {
-            # Try Community edition
-            $vstestPath = "${env:ProgramFiles}\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\TestWindow\vstest.console.exe"
-          }
-          if (-not (Test-Path $vstestPath)) {
-            Write-Host "VSTest not found at expected locations, trying PATH..."
-            $vstestPath = "vstest.console.exe"
-          }
-          
-          Write-Host "Using VSTest from: $vstestPath"
-          & $vstestPath $testAssemblies.FullName /Parallel /Logger:trx /ResultsDirectory:$resultsDir
+
+        if ($testProjects.Count -eq 0) {
+          Write-Host "No unit-test projects found"
         } else {
-          Write-Host "No test assemblies found"
+          Write-Host "Found $($testProjects.Count) unit-test project(s):"
+          $testProjects | ForEach-Object { Write-Host "  - $($_.FullName)" }
+
+          foreach ($proj in $testProjects) {
+            $trxName = "$($proj.BaseName).trx"
+            Write-Host "::group::dotnet test $($proj.Name)"
+            dotnet test $proj.FullName `
+              --configuration ${{ env.BUILD_CONFIGURATION }} `
+              --logger "trx;LogFileName=$trxName" `
+              --results-directory $resultsDir
+            Write-Host "::endgroup::"
+          }
         }
       continue-on-error: true
       
