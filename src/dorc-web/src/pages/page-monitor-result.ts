@@ -1,4 +1,5 @@
 import '@vaadin/button';
+import '../components/dorc-spinner';
 import '@vaadin/details';
 import '@vaadin/dialog';
 import '@vaadin/grid';
@@ -74,37 +75,6 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
         flex-direction: column;
         height: 100%;
         overflow: hidden;
-      }
-
-      .overlay {
-        width: 100%;
-        height: 100%;
-        position: fixed;
-      }
-
-      .overlay__inner {
-        width: 100%;
-        height: 100%;
-        position: absolute;
-      }
-
-      .overlay__content {
-        left: 20%;
-        position: absolute;
-        top: 20%;
-        transform: translate(-50%, -50%);
-      }
-
-      .spinner {
-        width: 75px;
-        height: 75px;
-        display: inline-block;
-        border-width: 2px;
-        border-color: var(--dorc-border-color);
-        border-top-color: var(--dorc-link-color);
-        animation: spin 1s infinite linear;
-        border-radius: 100%;
-        border-style: solid;
       }
 
       .small-loader {
@@ -411,13 +381,7 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
         ? html``
         : this.loading
         ? html`
-            <div class="overlay" style="z-index: 2">
-              <div class="overlay__inner">
-                <div class="overlay__content">
-                  <span class="spinner"></span>
-                </div>
-              </div>
-            </div>
+            <dorc-spinner></dorc-spinner>
           `
         : html`
             <request-status-card

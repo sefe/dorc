@@ -4,22 +4,20 @@ import { css, LitElement, PropertyValues } from 'lit';
 import { customElement } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 
-@customElement('hegs-chart')
-export class HegsChart extends LitElement {
+@customElement('dorc-chart')
+export class DorcChart extends LitElement {
   private chart: ECharts | undefined;
 
-  private _option!: EChartsOption;
+  private _option: EChartsOption | undefined;
 
   private _resizeObserver: ResizeObserver | undefined;
 
-  get option() {
+  get option(): EChartsOption | undefined {
     return this._option;
   }
 
-  set option(val) {
-    const oldVal = this._option;
+  set option(val: EChartsOption | undefined) {
     this._option = val;
-    this.requestUpdate('option', oldVal);
     this.updateChart();
   }
 
@@ -91,5 +89,11 @@ export class HegsChart extends LitElement {
   resizeChart() {
     if (!this.chart) return;
     this.chart.resize();
+  }
+}
+
+declare global {
+  interface HTMLElementTagNameMap {
+    'dorc-chart': DorcChart;
   }
 }

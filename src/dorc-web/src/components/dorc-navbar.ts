@@ -270,9 +270,9 @@ export class DorcNavbar extends LitElement {
             `
           : html``}
         <vaadin-tab>
-          <a href="${urlForName('about')}">
-            <vaadin-icon icon="vaadin:at" theme="small"></vaadin-icon>
-            About
+          <a href="${urlForName('analytics')}">
+            <vaadin-icon icon="vaadin:chart" theme="small"></vaadin-icon>
+            Analytics
           </a>
         </vaadin-tab>
       </vaadin-tabs>

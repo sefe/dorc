@@ -16,7 +16,7 @@ import '../components/environment-tabs/env-monitor.ts'
 import '../components/environment-tabs/env-containers.ts'
 import '../components/environment-tabs/env-cloud.ts'
 import '../components/environment-tabs/env-apis.ts'
-import '../pages/page-about.ts'
+import '../pages/page-analytics.ts'
 import '../pages/page-config-values-list.ts'
 import '../pages/page-daemons-audit.ts'
 import '../pages/page-daemons-list.ts'
@@ -91,12 +91,22 @@ export const routes = [
         }
       },
       {
+        path: '/analytics',
+        name: 'analytics',
+        component: 'page-analytics',
+        metadata: {
+          title: 'Analytics',
+          description: 'Deployment analytics and statistics'
+        }
+      },
+      {
         path: '/about',
         name: 'about',
-        component: 'page-about',
+        action: (_context: RouteContext, commands: Commands) =>
+          commands.redirect('/analytics'),
         metadata: {
-          title: 'About',
-          description: 'About page description'
+          title: 'Analytics',
+          description: 'Deployment analytics and statistics'
         }
       },
       {

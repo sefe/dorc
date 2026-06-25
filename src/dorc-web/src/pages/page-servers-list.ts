@@ -1,4 +1,5 @@
 import '@vaadin/button';
+import '../components/dorc-spinner';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/grid/vaadin-grid-column';
 import '@vaadin/grid/vaadin-grid-sort-column';
@@ -88,43 +89,6 @@ export class PageServersList extends ResponsiveMixin(PageElement) {
       vaadin-text-field {
         padding: 0;
         margin: 0;
-      }
-
-      .overlay {
-        width: 100%;
-        height: 100%;
-        position: fixed;
-      }
-
-      .overlay__inner {
-        width: 100%;
-        height: 100%;
-        position: absolute;
-      }
-
-      .overlay__content {
-        left: 20%;
-        position: absolute;
-        top: 20%;
-        transform: translate(-50%, -50%);
-      }
-
-      .spinner {
-        width: 75px;
-        height: 75px;
-        display: inline-block;
-        border-width: 2px;
-        border-color: var(--dorc-border-color);
-        border-top-color: var(--dorc-link-color);
-        animation: spin 1s infinite linear;
-        border-radius: 100%;
-        border-style: solid;
-      }
-
-      @keyframes spin {
-        100% {
-          transform: rotate(360deg);
-        }
       }
 
       .tag {
@@ -222,17 +186,7 @@ export class PageServersList extends ResponsiveMixin(PageElement) {
         ${dialogRenderer(this.renderEditTagsDialog, [this.selectedServer])}
         ${dialogFooterRenderer(this.renderEditTagsFooter, [])}
       ></vaadin-dialog>
-      <div
-        class='overlay'
-        style='z-index: 2'
-        ?hidden='${!(this.loading || this.searching)}'
-      >
-        <div class='overlay__inner'>
-          <div class='overlay__content'>
-            <span class='spinner'></span>
-          </div>
-        </div>
-      </div>
+      <dorc-spinner ?hidden="${!(this.loading || this.searching)}"></dorc-spinner>
       <vaadin-grid
         id='grid'
         .dataProvider='${this.debouncedDataProvider}'

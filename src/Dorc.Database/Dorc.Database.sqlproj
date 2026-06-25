@@ -361,6 +361,16 @@
     <Build Include="deploy\Stored Procedures\sp_PopulateAnalyticsEnvironmentUsage.sql" />
     <Build Include="deploy\Stored Procedures\sp_PopulateAnalyticsTimePattern.sql" />
     <Build Include="deploy\Stored Procedures\sp_PopulateAnalyticsUserActivity.sql" />
+    <Build Include="deploy\Stored Procedures\sp_PopulateAnalyticsMonthlyOutcome.sql" />
+    <Build Include="deploy\Stored Procedures\sp_PopulateAnalyticsEnvironmentWait.sql" />
+    <Build Include="deploy\Stored Procedures\sp_PopulateAnalyticsProjectDuration.sql" />
+    <Build Include="deploy\Stored Procedures\sp_PopulateAnalyticsComponentReliability.sql" />
+    <Build Include="deploy\Stored Procedures\sp_PopulateAnalyticsRecoveryTime.sql" />
+    <Build Include="deploy\Tables\AnalyticsMonthlyOutcome.sql" />
+    <Build Include="deploy\Tables\AnalyticsEnvironmentWait.sql" />
+    <Build Include="deploy\Tables\AnalyticsProjectDuration.sql" />
+    <Build Include="deploy\Tables\AnalyticsComponentReliability.sql" />
+    <Build Include="deploy\Tables\AnalyticsRecoveryTime.sql" />
     <Build Include="deploy\Tables\AnalyticsComponentUsage.sql" />
     <Build Include="deploy\Tables\AnalyticsDuration.sql" />
     <Build Include="deploy\Tables\AnalyticsEnvironmentUsage.sql" />
