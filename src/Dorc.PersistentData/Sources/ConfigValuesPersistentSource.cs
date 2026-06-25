@@ -30,6 +30,18 @@ namespace Dorc.PersistentData.Sources
             return defaultValue;
         }
 
+        public string? GetNonSecureConfigValue(string key)
+        {
+            using var context = _contextFactory.GetContext();
+            var configValue = context.ConfigValues.SingleOrDefault(x => x.Key == key);
+
+            // Never disclose secure values through this accessor.
+            if (configValue == null || configValue.Secure)
+                return null;
+
+            return configValue.Value;
+        }
+
         public IEnumerable<ConfigValueApiModel> GetAllConfigValues(bool decryptSecure)
         {
             using var context = _contextFactory.GetContext();
