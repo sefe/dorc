@@ -2,6 +2,7 @@ using System.Security.Claims;
 using System.Security.Principal;
 using Dorc.Api.Controllers;
 using Dorc.PersistentData;
+using Dorc.PersistentData.Sources;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -47,15 +48,17 @@ namespace Dorc.Api.Tests.Controllers
         }
 
         [TestMethod]
-        public void GetConfigValue_AdminRequestingSecureKey_NotFound()
+        public void GetConfigValue_AdminRequestingSecureKey_Forbidden()
         {
             _roleChecker.IsAdmin(Arg.Any<IPrincipal>()).Returns(true);
-            // GetNonSecureConfigValue returns null for secure keys.
-            _configValues.GetNonSecureConfigValue("DORC_NonProdDeployPassword").Returns((string?)null);
+            // GetNonSecureConfigValue throws for secure keys; the endpoint must not expose them.
+            _configValues.GetNonSecureConfigValue("DORC_NonProdDeployPassword")
+                .Returns<string?>(_ => throw new SecureConfigValueRequestedException("DORC_NonProdDeployPassword"));
 
             var result = _controller.GetConfigValue("DORC_NonProdDeployPassword");
 
-            Assert.IsInstanceOfType(result, typeof(NotFoundObjectResult));
+            var objectResult = (ObjectResult)result;
+            Assert.AreEqual(StatusCodes.Status403Forbidden, objectResult.StatusCode);
         }
 
         [TestMethod]

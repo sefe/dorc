@@ -1,6 +1,7 @@
 ﻿using Dorc.Core.Configuration;
 using RestSharp;
 using RestSharp.Authenticators.OAuth2;
+using System.Linq;
 using System.Net;
 using System.Text.Json;
 
@@ -98,17 +99,16 @@ namespace Dorc.Core
 
                 if (root.ValueKind == JsonValueKind.Object)
                 {
-                    foreach (var propertyName in ErrorMessagePropertyNames)
+                    var rootElement = root;
+                    var message = ErrorMessagePropertyNames
+                        .Select(name => rootElement.TryGetProperty(name, out var prop) ? prop : (JsonElement?)null)
+                        .Where(prop => prop is { ValueKind: JsonValueKind.String })
+                        .Select(prop => prop!.Value.GetString())
+                        .FirstOrDefault(value => !string.IsNullOrEmpty(value));
+
+                    if (!string.IsNullOrEmpty(message))
                     {
-                        if (root.TryGetProperty(propertyName, out var message)
-                            && message.ValueKind == JsonValueKind.String)
-                        {
-                            var value = message.GetString();
-                            if (!string.IsNullOrEmpty(value))
-                            {
-                                return value;
-                            }
-                        }
+                        return message;
                     }
                 }
             }

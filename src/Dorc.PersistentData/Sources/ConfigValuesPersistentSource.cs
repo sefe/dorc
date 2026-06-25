@@ -35,9 +35,13 @@ namespace Dorc.PersistentData.Sources
             using var context = _contextFactory.GetContext();
             var configValue = context.ConfigValues.SingleOrDefault(x => x.Key == key);
 
-            // Never disclose secure values through this accessor.
-            if (configValue == null || configValue.Secure)
+            if (configValue == null)
                 return null;
+
+            // Secure values must never be disclosed through this accessor; signal explicitly
+            // rather than silently returning null so the caller can report it accurately.
+            if (configValue.Secure)
+                throw new SecureConfigValueRequestedException(key);
 
             return configValue.Value;
         }
