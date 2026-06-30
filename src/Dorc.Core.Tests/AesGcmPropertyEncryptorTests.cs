@@ -4,9 +4,9 @@ using System.Security.Cryptography;
 namespace Dorc.Core.Tests
 {
     [TestClass]
-    public class QuantumResistantPropertyEncryptorTests
+    public class AesGcmPropertyEncryptorTests
     {
-        private QuantumResistantPropertyEncryptor _encryptor;
+        private AesGcmPropertyEncryptor _encryptor;
         private string _testKey;
         private string _testIv;
 
@@ -21,7 +21,7 @@ namespace Dorc.Core.Tests
             RandomNumberGenerator.Fill(ivBytes);
             _testIv = Convert.ToBase64String(ivBytes);
 
-            _encryptor = new QuantumResistantPropertyEncryptor(_testIv, _testKey);
+            _encryptor = new AesGcmPropertyEncryptor(_testIv, _testKey);
         }
 
         [TestMethod]
@@ -162,7 +162,7 @@ namespace Dorc.Core.Tests
         public void Constructor_HandlesShorterKeyByHashing()
         {
             var shortKey = Convert.ToBase64String(new byte[] { 1, 2, 3, 4, 5 });
-            var encryptor = new QuantumResistantPropertyEncryptor(_testIv, shortKey);
+            var encryptor = new AesGcmPropertyEncryptor(_testIv, shortKey);
 
             var plaintext = "test";
             var encrypted = encryptor.EncryptValue(plaintext);
@@ -178,7 +178,7 @@ namespace Dorc.Core.Tests
             RandomNumberGenerator.Fill(key32Bytes);
             var key32 = Convert.ToBase64String(key32Bytes);
 
-            var encryptor = new QuantumResistantPropertyEncryptor(_testIv, key32);
+            var encryptor = new AesGcmPropertyEncryptor(_testIv, key32);
 
             var plaintext = "test with 32 byte key";
             var encrypted = encryptor.EncryptValue(plaintext);
@@ -194,7 +194,7 @@ namespace Dorc.Core.Tests
             RandomNumberGenerator.Fill(longKeyBytes);
             var longKey = Convert.ToBase64String(longKeyBytes);
 
-            var encryptor = new QuantumResistantPropertyEncryptor(_testIv, longKey);
+            var encryptor = new AesGcmPropertyEncryptor(_testIv, longKey);
 
             var plaintext = "test with long key";
             var encrypted = encryptor.EncryptValue(plaintext);
@@ -291,7 +291,7 @@ namespace Dorc.Core.Tests
         [TestMethod]
         public void Constructor_HandlesInvalidKeyGracefully()
         {
-            var encryptor = new QuantumResistantPropertyEncryptor("invalid", "invalid");
+            var encryptor = new AesGcmPropertyEncryptor("invalid", "invalid");
             
             var plaintext = "test";
             var encrypted = encryptor.EncryptValue(plaintext);
@@ -322,9 +322,9 @@ namespace Dorc.Core.Tests
         }
 
         [TestMethod]
-        public void QuantumResistantEncryption_UsesAesGcm256()
+        public void Encryption_UsesAesGcm256()
         {
-            var plaintext = "quantum resistant test";
+            var plaintext = "aes gcm round trip test";
             var encrypted = _encryptor.EncryptValue(plaintext);
             
             Assert.IsTrue(encrypted.StartsWith("v2:"), "Should use v2 format");

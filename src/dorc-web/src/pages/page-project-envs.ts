@@ -1,4 +1,5 @@
 import { css, PropertyValues } from 'lit';
+import '../components/dorc-spinner';
 import '@vaadin/button';
 import '@vaadin/icons';
 import '@vaadin/icon';
@@ -65,13 +66,15 @@ export class PageProjectEnvs extends PageElement {
         display: flex;
         flex-direction: column;
         height: 100%;
+        overflow: hidden;
       }
 
       .card-element {
         padding: 10px;
         box-shadow: 1px 2px 3px rgba(0, 0, 0, 0.2);
         width: 300px;
-        min-height: 100px;
+        min-height: 110px;
+        height: 100%;
         display: flex;
         justify-content: space-between;
         gap: var(--lumo-space-s);
@@ -116,18 +119,20 @@ export class PageProjectEnvs extends PageElement {
       }
 
       .statistics-cards__item {
-        margin: var(--lumo-space-xs);
+        margin: 0;
         flex-shrink: 0;
         background-color: var(--dorc-bg-secondary);
-        min-width: 280px;
+        width: 300px;
+        height: 100%;
       }
 
       .environments {
-        display: flex;
-        flex-direction: row;
-        flex-wrap: wrap;
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 300px));
+        gap: var(--lumo-space-xs);
+        padding: var(--lumo-space-xs) 0 0 var(--lumo-space-xs);
         justify-content: flex-start;
-        align-items: flex-start;
+        align-items: stretch;
         align-content: flex-start;
         overflow-x: hidden;
         overflow-y: auto;
@@ -135,46 +140,24 @@ export class PageProjectEnvs extends PageElement {
         min-height: 0;
       }
 
+      .environments > environment-card {
+        display: block;
+        height: 100%;
+      }
+
+      @media (max-width: 768px) {
+        .environments {
+          grid-template-columns: 1fr;
+        }
+
+        .statistics-cards__item {
+          width: 100%;
+        }
+      }
+
       a {
         color: var(--dorc-link-color);
         text-decoration: none; /* no underline */
-      }
-
-      .overlay {
-        width: 100%;
-        height: 100%;
-        position: fixed;
-      }
-
-      .overlay__inner {
-        width: 100%;
-        height: 100%;
-        position: absolute;
-      }
-
-      .overlay__content {
-        left: 30%;
-        position: absolute;
-        top: 20%;
-        transform: translate(-50%, -50%);
-      }
-
-      .spinner {
-        width: 75px;
-        height: 75px;
-        display: inline-block;
-        border-width: 2px;
-        border-color: var(--dorc-border-color);
-        border-top-color: var(--dorc-link-color);
-        animation: spin 1s infinite linear;
-        border-radius: 100%;
-        border-style: solid;
-      }
-
-      @keyframes spin {
-        100% {
-          transform: rotate(360deg);
-        }
       }
 
       vaadin-button {
@@ -185,13 +168,7 @@ export class PageProjectEnvs extends PageElement {
 
   render() {
     return html`
-      <div class="overlay" ?hidden="${!this.loading}">
-        <div class="overlay__inner">
-          <div class="overlay__content">
-            <span class="spinner"></span>
-          </div>
-        </div>
-      </div>
+      <dorc-spinner ?hidden="${!this.loading}"></dorc-spinner>
       <add-edit-access-control
         id="add-edit-access-control"
         .secureName="${this.secureName}"
@@ -280,8 +257,6 @@ export class PageProjectEnvs extends PageElement {
             ></environment-card>`
         )}
       </div>
-      <div style="padding-bottom: 20px"></div>
-
       <vaadin-dialog
         header-title="Map Environment to Project"
         .opened="${this.mapEnvDialogOpened}"

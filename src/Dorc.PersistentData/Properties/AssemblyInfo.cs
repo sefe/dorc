@@ -1,6 +1,12 @@
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 [assembly: AssemblyCulture("")]
+
+// This project sets GenerateAssemblyInfo=False, so the <InternalsVisibleTo> MSBuild items in
+// the .csproj are ignored; the attributes must be declared in source here instead.
+[assembly: InternalsVisibleTo("Dorc.Core.Tests")]
+[assembly: InternalsVisibleTo("Dorc.Monitor.Tests")]
 
 // Setting ComVisible to false makes the types in this assembly not visible 
 // to COM components.  If you need to access a type in this assembly from 

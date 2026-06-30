@@ -234,7 +234,7 @@ builder.Services.AddTransient<IPropertyEncryptor>(serviceProvider =>
     {
         throw new InvalidOperationException("Instance of the interface 'ISecureKeyPersistentDataSource' is not found in the dependency container.");
     }
-    return new QuantumResistantPropertyEncryptor(secureKeyPersistentDataSource.GetInitialisationVector(),
+    return new AesGcmPropertyEncryptor(secureKeyPersistentDataSource.GetInitialisationVector(),
         secureKeyPersistentDataSource.GetSymmetricKey());
 });
 

@@ -4,5 +4,6 @@ CREATE TABLE [deploy].[AnalyticsEnvironmentUsage] (
     [TotalDeployments]  INT            NOT NULL,
     [SuccessCount]      INT            NOT NULL,
     [FailCount]         INT            NOT NULL,
+    [LastSuccessfulDeployment] DATETIMEOFFSET (7) NULL,
     CONSTRAINT [PK_AnalyticsEnvironmentUsage] PRIMARY KEY CLUSTERED ([Id] ASC)
 );

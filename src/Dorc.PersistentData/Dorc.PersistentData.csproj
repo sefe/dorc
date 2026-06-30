@@ -55,6 +55,7 @@
     <ProjectReference Include="..\Dorc.ApiModel\Dorc.ApiModel.csproj" />
   </ItemGroup>
   <ItemGroup>
+	  <!-- NOTE: GenerateAssemblyInfo=False, so these are declared in Properties/AssemblyInfo.cs. -->
 	  <InternalsVisibleTo Include="Dorc.Monitor.Tests" />
   </ItemGroup>
 </Project>
