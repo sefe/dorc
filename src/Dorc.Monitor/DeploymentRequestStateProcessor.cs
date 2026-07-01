@@ -253,7 +253,6 @@ namespace Dorc.Monitor
                 {
                     TerminateRequestExecution(id, requestCancellationSources);
                 }
-                ;
 
                 // Uses optimistic concurrency: only updates requests still in 'fromStatus'
                 int updatedRequestCount = this.requestsPersistentSource.SwitchDeploymentRequestStatuses(
