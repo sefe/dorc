@@ -10,6 +10,7 @@ using System.Text;
 using System.Text.Json;
 using Dorc.Monitor.RunnerProcess;
 using Dorc.Monitor.RunnerProcess.Interop.Windows.Kernel32;
+using Dorc.Kafka.Events.Publisher;
 
 namespace Dorc.Monitor
 {
@@ -88,7 +89,7 @@ namespace Dorc.Monitor
                 //Create named pipe server for each process that is for each script group
                 using (var pipeCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
                 {
-                    string startedScriptGroupPipeName = "DOrcMonitor-" + requestId;
+                    string startedScriptGroupPipeName = $"DOrcMonitor-{HostInstanceId.Value}-{requestId}";
                     Task scriptGroupPipeTask = scriptGroupPipeServer.Start(
                             startedScriptGroupPipeName,
                             scriptGroup,
