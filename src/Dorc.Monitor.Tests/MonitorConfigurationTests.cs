@@ -1,185 +1,120 @@
+using Dorc.Monitor;
 using Microsoft.Extensions.Configuration;
 
 namespace Dorc.Monitor.Tests
 {
+    /// <summary>
+    /// Binding/parsing behaviour of the Monitor's remaining configuration
+    /// surface. (The previous MonitorConfigurationTests file was deleted with
+    /// the RabbitMQ/HA config keys it covered.)
+    /// </summary>
     [TestClass]
     public class MonitorConfigurationTests
     {
-        private MonitorConfiguration CreateConfiguration(Dictionary<string, string?> settings)
-        {
-            var configurationRoot = new ConfigurationBuilder()
-                .AddInMemoryCollection(settings)
-                .Build();
-            return new MonitorConfiguration(configurationRoot);
-        }
+        private static IConfigurationRoot Config(Dictionary<string, string?> values)
+            => new ConfigurationBuilder().AddInMemoryCollection(values).Build();
 
-        // --- LockAcquisitionTimeoutSeconds ---
+        private static MonitorConfiguration Sut(Dictionary<string, string?>? values = null)
+            => new(Config(values ?? new Dictionary<string, string?>()));
 
         [TestMethod]
-        public void LockAcquisitionTimeoutSeconds_WhenNotConfigured_ReturnsDefault5()
+        public void IsProduction_DefaultsFalse_AndParsesTrue()
         {
-            var config = CreateConfiguration(new Dictionary<string, string?>());
-
-            Assert.AreEqual(5, config.LockAcquisitionTimeoutSeconds);
+            Assert.IsFalse(Sut().IsProduction);
+            Assert.IsTrue(Sut(new() { ["AppSettings:IsProduction"] = "true" }).IsProduction);
         }
 
         [TestMethod]
-        public void LockAcquisitionTimeoutSeconds_WhenConfigured_ReturnsConfiguredValue()
+        public void RequestProcessingIterationDelay_ParsesValue_AndDefaultsToZeroOnGarbage()
         {
-            var config = CreateConfiguration(new Dictionary<string, string?>
+            Assert.AreEqual(2500, Sut(new() { ["AppSettings:requestProcessingIterationDelayMs"] = "2500" })
+                .RequestProcessingIterationDelayMs);
+            // int.TryParse zeroes the out param on failure — the documented-by-
+            // behaviour fallback is 0, not the field initialiser's 1000.
+            Assert.AreEqual(0, Sut(new() { ["AppSettings:requestProcessingIterationDelayMs"] = "not-a-number" })
+                .RequestProcessingIterationDelayMs);
+        }
+
+        [TestMethod]
+        public void ServiceName_Missing_ThrowsWithActionableMessage()
+        {
+            var ex = Assert.Throws<InvalidOperationException>(() => _ = Sut().ServiceName);
+            StringAssert.Contains(ex.Message, "Service name");
+        }
+
+        [TestMethod]
+        public void DOrcConnectionString_MissingThrows_PresentReturns()
+        {
+            Assert.Throws<InvalidOperationException>(() => _ = Sut().DOrcConnectionString);
+            Assert.AreEqual("Server=.;Database=dorc",
+                Sut(new() { ["ConnectionStrings:DOrcConnectionString"] = "Server=.;Database=dorc" })
+                    .DOrcConnectionString);
+        }
+
+        [TestMethod]
+        public void RefDataApiUrl_MissingThrows_PresentReturns()
+        {
+            Assert.Throws<InvalidOperationException>(() => _ = Sut().RefDataApiUrl);
+            Assert.AreEqual("https://dorc.local/api",
+                Sut(new() { ["AppSettings:RefDataApiUrl"] = "https://dorc.local/api" }).RefDataApiUrl);
+        }
+
+        [DataTestMethod]
+        [DataRow("ClientId")]
+        [DataRow("ClientSecret")]
+        [DataRow("Scope")]
+        public void OAuthValues_MissingThrowNamingTheKey(string key)
+        {
+            var sut = Sut();
+            var ex = Assert.Throws<InvalidOperationException>(() => _ = key switch
             {
-                { "AppSettings:HighAvailability:LockAcquisitionTimeoutSeconds", "10" }
+                "ClientId" => sut.DorcApiClientId,
+                "ClientSecret" => sut.DorcApiClientSecret,
+                _ => sut.DorcApiScope
+            });
+            StringAssert.Contains(ex.Message, key);
+        }
+
+        [TestMethod]
+        public void DisableSignalR_DefaultsFalse()
+        {
+            Assert.IsFalse(Sut().DisableSignalR);
+            Assert.IsTrue(Sut(new() { ["AppSettings:DisableSignalR"] = "true" }).DisableSignalR);
+        }
+
+        [TestMethod]
+        public void Environment_DefaultsToUnknown()
+        {
+            Assert.AreEqual("unknown", Sut().Environment);
+            Assert.AreEqual("uat", Sut(new() { ["AppSettings:Environment"] = "uat" }).Environment);
+        }
+
+        [TestMethod]
+        public void MaxConcurrentDeployments_ZeroMeansUnlimited_NegativeAndGarbageFallBackToZero()
+        {
+            Assert.AreEqual(0, Sut().MaxConcurrentDeployments);
+            Assert.AreEqual(4, Sut(new() { ["AppSettings:MaxConcurrentDeployments"] = "4" }).MaxConcurrentDeployments);
+            Assert.AreEqual(0, Sut(new() { ["AppSettings:MaxConcurrentDeployments"] = "-2" }).MaxConcurrentDeployments);
+            Assert.AreEqual(0, Sut(new() { ["AppSettings:MaxConcurrentDeployments"] = "lots" }).MaxConcurrentDeployments);
+        }
+
+        [TestMethod]
+        public void OAuthClientConfiguration_FromMonitorConfiguration_MapsAllFields()
+        {
+            var sut = Sut(new()
+            {
+                ["AppSettings:RefDataApiUrl"] = "https://dorc.local/api",
+                ["AppSettings:DorcApi:ClientId"] = "client",
+                ["AppSettings:DorcApi:ClientSecret"] = "secret",
+                ["AppSettings:DorcApi:Scope"] = "scope"
             });
 
-            Assert.AreEqual(10, config.LockAcquisitionTimeoutSeconds);
-        }
+            var oauth = OAuthClientConfiguration.FromMonitorConfiguration(sut);
 
-        [TestMethod]
-        public void LockAcquisitionTimeoutSeconds_WhenZero_ReturnsDefault5()
-        {
-            var config = CreateConfiguration(new Dictionary<string, string?>
-            {
-                { "AppSettings:HighAvailability:LockAcquisitionTimeoutSeconds", "0" }
-            });
-
-            Assert.AreEqual(5, config.LockAcquisitionTimeoutSeconds);
-        }
-
-        [TestMethod]
-        public void LockAcquisitionTimeoutSeconds_WhenNegative_ReturnsDefault5()
-        {
-            var config = CreateConfiguration(new Dictionary<string, string?>
-            {
-                { "AppSettings:HighAvailability:LockAcquisitionTimeoutSeconds", "-3" }
-            });
-
-            Assert.AreEqual(5, config.LockAcquisitionTimeoutSeconds);
-        }
-
-        [TestMethod]
-        public void LockAcquisitionTimeoutSeconds_WhenNonNumeric_ReturnsDefault5()
-        {
-            var config = CreateConfiguration(new Dictionary<string, string?>
-            {
-                { "AppSettings:HighAvailability:LockAcquisitionTimeoutSeconds", "abc" }
-            });
-
-            Assert.AreEqual(5, config.LockAcquisitionTimeoutSeconds);
-        }
-
-        // --- LockReacquisitionRetryWindowSeconds ---
-
-        /// <summary>
-        /// S-002 T1: When not configured, the retry window defaults to 150 seconds
-        /// (midpoint estimate of the observed ~2-3 min FM-3 broker recovery window).
-        /// </summary>
-        [TestMethod]
-        public void LockReacquisitionRetryWindowSeconds_WhenNotConfigured_ReturnsDefault150()
-        {
-            var config = CreateConfiguration(new Dictionary<string, string?>());
-
-            Assert.AreEqual(150, config.LockReacquisitionRetryWindowSeconds);
-        }
-
-        /// <summary>
-        /// S-002 T2: When configured, the retry window returns the configured value.
-        /// </summary>
-        [TestMethod]
-        public void LockReacquisitionRetryWindowSeconds_WhenConfigured_ReturnsConfiguredValue()
-        {
-            var config = CreateConfiguration(new Dictionary<string, string?>
-            {
-                { "AppSettings:HighAvailability:LockReacquisitionRetryWindowSeconds", "300" }
-            });
-
-            Assert.AreEqual(300, config.LockReacquisitionRetryWindowSeconds);
-        }
-
-        [TestMethod]
-        public void LockReacquisitionRetryWindowSeconds_WhenZero_ReturnsDefault150()
-        {
-            var config = CreateConfiguration(new Dictionary<string, string?>
-            {
-                { "AppSettings:HighAvailability:LockReacquisitionRetryWindowSeconds", "0" }
-            });
-
-            Assert.AreEqual(150, config.LockReacquisitionRetryWindowSeconds);
-        }
-
-        [TestMethod]
-        public void LockReacquisitionRetryWindowSeconds_WhenNegative_ReturnsDefault150()
-        {
-            var config = CreateConfiguration(new Dictionary<string, string?>
-            {
-                { "AppSettings:HighAvailability:LockReacquisitionRetryWindowSeconds", "-10" }
-            });
-
-            Assert.AreEqual(150, config.LockReacquisitionRetryWindowSeconds);
-        }
-
-        [TestMethod]
-        public void LockReacquisitionRetryWindowSeconds_WhenNonNumeric_ReturnsDefault150()
-        {
-            var config = CreateConfiguration(new Dictionary<string, string?>
-            {
-                { "AppSettings:HighAvailability:LockReacquisitionRetryWindowSeconds", "abc" }
-            });
-
-            Assert.AreEqual(150, config.LockReacquisitionRetryWindowSeconds);
-        }
-
-        // --- OAuthTokenRefreshCheckIntervalMinutes ---
-
-        [TestMethod]
-        public void OAuthTokenRefreshCheckIntervalMinutes_WhenNotConfigured_ReturnsDefault15()
-        {
-            var config = CreateConfiguration(new Dictionary<string, string?>());
-
-            Assert.AreEqual(15, config.OAuthTokenRefreshCheckIntervalMinutes);
-        }
-
-        [TestMethod]
-        public void OAuthTokenRefreshCheckIntervalMinutes_WhenConfigured_ReturnsConfiguredValue()
-        {
-            var config = CreateConfiguration(new Dictionary<string, string?>
-            {
-                { "AppSettings:HighAvailability:OAuthTokenRefreshCheckIntervalMinutes", "30" }
-            });
-
-            Assert.AreEqual(30, config.OAuthTokenRefreshCheckIntervalMinutes);
-        }
-
-        [TestMethod]
-        public void OAuthTokenRefreshCheckIntervalMinutes_WhenZero_ReturnsDefault15()
-        {
-            var config = CreateConfiguration(new Dictionary<string, string?>
-            {
-                { "AppSettings:HighAvailability:OAuthTokenRefreshCheckIntervalMinutes", "0" }
-            });
-
-            Assert.AreEqual(15, config.OAuthTokenRefreshCheckIntervalMinutes);
-        }
-
-        [TestMethod]
-        public void OAuthTokenRefreshCheckIntervalMinutes_WhenNegative_ReturnsDefault15()
-        {
-            var config = CreateConfiguration(new Dictionary<string, string?>
-            {
-                { "AppSettings:HighAvailability:OAuthTokenRefreshCheckIntervalMinutes", "-5" }
-            });
-
-            Assert.AreEqual(15, config.OAuthTokenRefreshCheckIntervalMinutes);
-        }
-
-        [TestMethod]
-        public void OAuthTokenRefreshCheckIntervalMinutes_WhenNonNumeric_ReturnsDefault15()
-        {
-            var config = CreateConfiguration(new Dictionary<string, string?>
-            {
-                { "AppSettings:HighAvailability:OAuthTokenRefreshCheckIntervalMinutes", "xyz" }
-            });
-
-            Assert.AreEqual(15, config.OAuthTokenRefreshCheckIntervalMinutes);
+            Assert.AreEqual("https://dorc.local/api", oauth.BaseUrl);
+            Assert.AreEqual("client", oauth.ClientId);
+            Assert.AreEqual("secret", oauth.ClientSecret);
+            Assert.AreEqual("scope", oauth.Scope);
         }
     }
 }

@@ -7,7 +7,7 @@ using TypedSignalR.Client;
 
 namespace Dorc.Monitor.Events
 {
-    public sealed class SignalRDeploymentEventPublisher : IDeploymentEventsPublisher, IAsyncDisposable
+    public sealed class SignalRDeploymentEventPublisher : IDeploymentEventsPublisher, IFallbackDeploymentEventPublisher, IAsyncDisposable
     {
         private readonly string? _hubUrl;
         private readonly ILogger _logger;
@@ -127,8 +127,12 @@ namespace Dorc.Monitor.Events
             }
         }
 
+        private int _disposeCount;
+
         public async ValueTask DisposeAsync()
         {
+            if (Interlocked.Exchange(ref _disposeCount, 1) != 0) return;
+
             if (_connection != null)
             {
                 await _connection.DisposeAsync();

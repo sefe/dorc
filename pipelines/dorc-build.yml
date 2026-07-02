@@ -115,6 +115,7 @@ steps:
     testAssemblyVer2: |
       **\*tests.dll
       !**\obj\**
+      !**\IntegrationTests\**
       runInParallel: true
       codeCoverageEnabled: true
       diagnosticsEnabled: True

@@ -10,6 +10,9 @@ using Dorc.Core.Interfaces;
 using Dorc.Core.Lamar;
 using Dorc.Core.Security;
 using Dorc.Core.VariableResolution;
+using Dorc.Kafka.Client.DependencyInjection;
+using Dorc.Kafka.ErrorLog.DependencyInjection;
+using Dorc.Kafka.Events.DependencyInjection;
 using Dorc.OpenSearchData;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Contexts;
@@ -20,6 +23,7 @@ using Microsoft.AspNetCore.Authentication.Negotiate;
 using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.OpenApi.Models;
 using OpenTelemetry.Logs;
+using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using Serilog;
 using Serilog.Extensions.Logging;
@@ -61,6 +65,26 @@ if (!string.IsNullOrEmpty(otlpEndpoint))
             }));
 
         logging.AddOtlpExporter(options =>
+        {
+            options.Endpoint = new Uri(otlpEndpoint);
+        });
+    });
+
+    // Export the Kafka consumer lag/state meter alongside logs. Operators
+    // wiring an OTLP collector get consumer lag dashboards for free.
+    builder.Services.AddOpenTelemetry().WithMetrics(metrics =>
+    {
+        metrics.SetResourceBuilder(ResourceBuilder.CreateDefault()
+            .AddService("Dorc.Api", serviceVersion: Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "1.0.0")
+            .AddAttributes(new Dictionary<string, object>
+            {
+                ["service.namespace"] = "DOrc",
+                ["deployment.environment"] = configurationSettings.GetEnvironment(),
+                ["host.name"] = Environment.MachineName
+            }));
+
+        metrics.AddMeter(Dorc.Kafka.Client.Observability.KafkaConsumerMetrics.MeterName);
+        metrics.AddOtlpExporter(options =>
         {
             options.Endpoint = new Uri(otlpEndpoint);
         });
@@ -287,8 +311,43 @@ if (configBuilder.GetValue<bool>("Azure:SignalR:IsUseAzureSignalR"))
         conf.ApplicationName = configurationSettings.GetEnvironment(true);
     });
 }
-builder.Services.AddScoped<IDeploymentEventsPublisher, DirectDeploymentEventPublisher>();
+// Direct (SignalR-only) publisher: registered as a concrete service so the
+// S-007 fallback adapter can inject it, AND exposed as IDeploymentEventsPublisher
+// (backcompat default). The Kafka-substrate extension below will Replace the
+// interface mapping when Kafka mode is active.
+// Singletons throughout this cluster: all underlying dependencies
+// (IHubContext, group tracker) are singletons, and the Kafka-substrate
+// publisher that injects IFallbackDeploymentEventPublisher is itself a
+// singleton — a scoped registration here would be a captive dependency
+// (and fails ValidateOnBuild in Development).
+builder.Services.AddSingleton<DirectDeploymentEventPublisher>();
+builder.Services.AddSingleton<IDeploymentEventsPublisher>(sp =>
+    sp.GetRequiredService<DirectDeploymentEventPublisher>());
+builder.Services.AddSingleton<Dorc.Core.Interfaces.IFallbackDeploymentEventPublisher,
+    Dorc.Api.Events.FallbackDeploymentEventPublisher>();
 builder.Services.AddSingleton<IDeploymentSubscriptionsGroupTracker, DeploymentSubscriptionsGroupTracker>();
+
+// Master Kafka switch. When false, the API skips Kafka producer / consumer
+// wiring and IDeploymentEventsPublisher resolves to the
+// DirectDeploymentEventPublisher registered above (SignalR-only path).
+// Default true per the migration intent (this PR replaces RabbitMQ with
+// Kafka). Operators upgrading an existing install can either ship a
+// Kafka:Enabled=false override or rely on the empty-BootstrapServers
+// startup-validation fallback below to skip Kafka without crashing.
+// Upgrade-safety gate shared with the Monitor host (Dorc.Kafka.Client KafkaStartupGate):
+// if Kafka is enabled but a required setting is missing, fall back cleanly rather
+// than crash at DI resolution. Runs in SignalR-only fallback mode when false.
+var kafkaEnabledApi = Dorc.Kafka.Client.Configuration.KafkaStartupGate.IsKafkaEnabled(
+    builder.Configuration, "SignalR-only fallback mode", Console.WriteLine);
+if (kafkaEnabledApi)
+{
+    builder.Services.AddSingleton<Dorc.Kafka.Events.Publisher.IDeploymentResultBroadcaster,
+        Dorc.Api.Events.SignalRDeploymentResultBroadcaster>();
+    builder.Services.AddDorcKafkaClient(builder.Configuration);
+    builder.Services.AddDorcKafkaAvro(builder.Configuration);
+    builder.Services.AddDorcKafkaErrorLog(builder.Configuration);
+    builder.Services.AddDorcKafkaResultsStatusSubstrate(builder.Configuration);
+}
 
 builder.Services.AddMemoryCache();
 builder.Services.AddHttpClient();
