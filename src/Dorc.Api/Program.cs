@@ -337,8 +337,13 @@ builder.Services.AddSingleton<IDeploymentSubscriptionsGroupTracker, DeploymentSu
 // Upgrade-safety gate shared with the Monitor host (Dorc.Kafka.Client KafkaStartupGate):
 // if Kafka is enabled but a required setting is missing, fall back cleanly rather
 // than crash at DI resolution. Runs in SignalR-only fallback mode when false.
+// The fallback report goes through Serilog (configured above), NOT the
+// console: under IIS/Windows-service hosting there is no attached console,
+// so a Console.WriteLine here is discarded and operators get no trace of
+// why the Kafka substrate is off.
 var kafkaEnabledApi = Dorc.Kafka.Client.Configuration.KafkaStartupGate.IsKafkaEnabled(
-    builder.Configuration, "SignalR-only fallback mode", Console.WriteLine);
+    builder.Configuration, "SignalR-only fallback mode",
+    message => Log.Warning("{KafkaStartupGateMessage}", message));
 if (kafkaEnabledApi)
 {
     builder.Services.AddSingleton<Dorc.Kafka.Events.Publisher.IDeploymentResultBroadcaster,

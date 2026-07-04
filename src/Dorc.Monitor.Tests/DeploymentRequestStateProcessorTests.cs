@@ -1348,13 +1348,14 @@ namespace Dorc.Monitor.Tests
         }
 
         // =====================================================================
-        // SwitchRequestsStatus - isProd guard
+        // SwitchRequestsStatus - prod requests are cancellable (#755/#758)
         // =====================================================================
 
         [TestMethod]
-        public void CancelRequests_WhenRequestIsProd_DoesNotCancel()
+        public void CancelRequests_WhenRequestIsProd_CancelsLikeAnyOther()
         {
-            // Arrange - request is on a production environment
+            // #755/#758 removed the IsProd guard: production deployments must
+            // be cancellable through the same path as non-production ones.
             var prodRequests = new List<DeploymentRequestApiModel>
             {
                 new() { Id = 140, EnvironmentName = "ProdEnv", Status = DeploymentRequestStatus.Cancelling.ToString(),
@@ -1369,12 +1370,12 @@ namespace Dorc.Monitor.Tests
             // Act
             sut.CancelRequests(false, cancellationSources, CancellationToken.None);
 
-            // Assert - should NOT switch status because IsProd is true
-            mockRequestsPersistentSource.DidNotReceive()
+            // Assert - the prod request proceeds Cancelling → Cancelled
+            mockRequestsPersistentSource.Received(1)
                 .SwitchDeploymentRequestStatuses(
-                    Arg.Any<IList<DeploymentRequestApiModel>>(),
-                    Arg.Any<DeploymentRequestStatus>(),
-                    Arg.Any<DeploymentRequestStatus>(),
+                    Arg.Is<IList<DeploymentRequestApiModel>>(l => l.Count == 1 && l[0].Id == 140),
+                    DeploymentRequestStatus.Cancelling,
+                    DeploymentRequestStatus.Cancelled,
                     Arg.Any<DateTimeOffset>());
         }
 

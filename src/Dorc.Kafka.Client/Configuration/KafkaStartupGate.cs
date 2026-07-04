@@ -49,6 +49,28 @@ public static class KafkaStartupGate
             }
         }
 
+        // SaslSsl requires credentials. The WiX installers force
+        // Kafka:AuthMode=SaslSsl while KAFKA.SASL.USERNAME/PASSWORD default to
+        // empty, so "brokers configured, credentials not yet delivered" is a
+        // routine half-configured upgrade state. KafkaClientOptionsValidator
+        // enforces the same precondition via ValidateOnStart AFTER Kafka DI is
+        // wired — reaching it means both hosts crash at startup instead of
+        // taking this gate's documented clean fallback. Keep the two
+        // preconditions aligned: whatever the validator requires at
+        // ValidateOnStart, this gate must require first.
+        if (string.Equals(configuration["Kafka:AuthMode"], nameof(KafkaAuthMode.SaslSsl), StringComparison.OrdinalIgnoreCase))
+        {
+            foreach (var key in new[] { "Kafka:Sasl:Username", "Kafka:Sasl:Password" })
+            {
+                if (string.IsNullOrWhiteSpace(configuration[key]))
+                {
+                    reportFallback(
+                        $"[startup] Kafka:Enabled=true with Kafka:AuthMode=SaslSsl but {key} is empty (SASL credentials incomplete); running in {fallbackModeLabel}.");
+                    return false;
+                }
+            }
+        }
+
         return true;
     }
 }

@@ -50,6 +50,10 @@ dotnet test src/Dorc.Kafka.Events.IntegrationTests/Dorc.Kafka.Events.Integration
 
 These tests connect to `localhost:9092` (Kafka) + `http://localhost:8081` (Karapace) by default. Override via the `KAFKA_BOOTSTRAP` and `KAFKA_SCHEMA_REGISTRY` environment variables if the stack runs on non-default ports. CI excludes this project via the `IntegrationTests` path filter, so the suite runs only when explicitly invoked locally.
 
+### Running the DOrc hosts against the local stack
+
+The shipped `appsettings.json` sets `Kafka:Avro:AllowAutomaticSchemaRegistration` to `false` — production schemas must be pre-registered via the PR-time schema gate, never auto-registered at first publish. When running Dorc.Api / Dorc.Monitor against a **fresh local compose stack** (empty registry), override it to `true` (e.g. `Kafka__Avro__AllowAutomaticSchemaRegistration=true` as an environment variable) so first publish registers the schemas, or pre-seed the registry with `tools/snapshot-schemas`. Do not flip the shipped default back — that silently voids the schema gate in every installed environment.
+
 ## Port overrides
 
 Set env vars before `up` to avoid collisions:
