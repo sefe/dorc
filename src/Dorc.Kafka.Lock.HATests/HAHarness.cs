@@ -80,7 +80,14 @@ internal sealed class HAHarness : IAsyncDisposable
             PartitionCount = _partitionCount,
             ReplicationFactor = 1,
             ConsumerGroupId = _groupId,
-            AcquireWaitMs = 5_000
+            AcquireWaitMs = 5_000,
+            // The HA scenarios run several coordinators inside ONE process and
+            // exercise dynamic-membership rebalance semantics (clean close →
+            // immediate reassignment). Static membership would (a) give every
+            // candidate the same derived group.instance.id — the broker fences
+            // duplicates — and (b) suppress the clean-close rebalances SC2a/SC2c
+            // assert on. Production keeps the default (true).
+            UseStaticGroupMembership = false
         });
 
         var topicsOpts = Options.Create(new KafkaTopicsOptions

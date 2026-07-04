@@ -131,6 +131,13 @@ public class KafkaLockCoordinatorConsumeLoopTests
                     throw NewConsumeException(ErrorCode.Local_Transport, "broker down", isFatal: false);
                 }
                 : _ => { Thread.Sleep(10); return null; };
+            if (consumers.Count == 0)
+            {
+                // Persistent outage: the connectivity probe must fail too, or
+                // it would (correctly) clear the suspicion and avert the trip.
+                c2.OnCommitted = () => throw new KafkaException(
+                    new Error(ErrorCode.Local_Transport, "broker down"));
+            }
             consumers.Add(c2);
             return (IConsumer<byte[], byte[]>)c2;
         };
@@ -211,7 +218,11 @@ public class KafkaLockCoordinatorConsumeLoopTests
                 time.Advance(TimeSpan.FromMilliseconds(600));
                 Thread.Sleep(5);
                 return null;
-            }
+            },
+            // Genuine outage: the probe must fail, or it would (correctly)
+            // clear the suspicion and this trip test would never fire.
+            OnCommitted = () => throw new KafkaException(
+                new Error(ErrorCode.Local_Transport, "broker unreachable"))
         };
 
         var c = NewRunningCoordinatorCandidate(() => consumer, time, livenessTimeoutMs: 1_000);
@@ -222,8 +233,8 @@ public class KafkaLockCoordinatorConsumeLoopTests
         var token = await c.WaitForPartitionOwnershipAsync(0, CancellationToken.None);
 
         // Mark connectivity as suspect — subsequent empty polls must NOT record
-        // broker contact. Only a rebalance callback (OnAssigned / OnRevoked) or
-        // a real record delivery re-clears the flag.
+        // broker contact. Only a rebalance callback (OnAssigned / OnRevoked),
+        // a real record delivery, or a successful probe re-clears the flag.
         InvokePrivate(c, "OnConsumerError", new Error(ErrorCode.Local_Transport, "broker unreachable", false));
 
         // After 2 empty polls (1200ms fake > 1000ms liveness), the watchdog must
@@ -231,6 +242,47 @@ public class KafkaLockCoordinatorConsumeLoopTests
         Assert.IsTrue(WaitForCancellation(token, TimeSpan.FromSeconds(15)),
             "After a transport-class error, empty polls must NOT reset the watchdog; " +
             "the lock must be cancelled when the liveness window elapses.");
+    }
+
+    [TestMethod]
+    public async Task BenignTransportError_ProbeSucceeds_SuspicionCleared_NoFalseTrip()
+    {
+        // Scenario: a single transport-class error from a routine broker
+        // idle-connection reap on a HEALTHY cluster. The locks topic is idle
+        // by design, so no record can ever clear the suspicion passively —
+        // before the active probe existed, this false-tripped the watchdog and
+        // cancelled every held lock ~LivenessTimeout later. The probe (a
+        // group-coordinator round-trip) succeeds against the healthy broker,
+        // clears the suspicion, and re-arms the watchdog: no trip, lock lives.
+        var time = new ManualTimeProvider();
+        var consumer = new ScriptedLockConsumer
+        {
+            OnConsume = _ =>
+            {
+                time.Advance(TimeSpan.FromMilliseconds(600));
+                Thread.Sleep(5);
+                return null;
+            }
+            // OnCommitted deliberately unset: default probe behaviour = success.
+        };
+
+        var c = NewRunningCoordinatorCandidate(() => consumer, time, livenessTimeoutMs: 1_000);
+        await using var _ = c;
+        await c.StartAsync(CancellationToken.None);
+
+        InvokePrivate(c, "OnAssigned", 0);
+        var token = await c.WaitForPartitionOwnershipAsync(0, CancellationToken.None);
+
+        // Benign disconnect: suspicion set exactly as a real idle reap would.
+        InvokePrivate(c, "OnConsumerError", new Error(ErrorCode.Local_Transport, "idle connection reaped", false));
+
+        // ~40 poll iterations advance fake time ~24s — 24× the liveness window.
+        // Without the probe the watchdog trips on the second post-error poll.
+        Thread.Sleep(TimeSpan.FromMilliseconds(200));
+
+        Assert.IsFalse(token.IsCancellationRequested,
+            "A transport-class error on a healthy cluster must be cleared by the " +
+            "connectivity probe; held locks must NOT be cancelled.");
     }
 
     private sealed class FakeConnectionProvider : Dorc.Kafka.Client.Connection.IKafkaConnectionProvider

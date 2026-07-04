@@ -65,10 +65,17 @@ public sealed class KafkaLockCoordinator : IHostedService, IAsyncDisposable
     // contact is restored; _connectivitySuspect is set when the error handler
     // reports a transport-class error, suppressing empty-poll contact counting
     // (librdkafka also returns empty polls during half-open TCP connections).
+    // While suspect, an active probe (group-coordinator round-trip via
+    // Committed) runs every ProbeIntervalMs — a healthy cluster clears the
+    // suspicion within one probe, so a benign single-connection disconnect
+    // (idle reap, one broker of three restarting) can never trip the watchdog.
     private long _lastBrokerContactTimestamp;
+    private long _lastProbeTimestamp;
     private volatile bool _livenessTripped;
     private volatile bool _connectivitySuspect;
     private TimeSpan? _livenessTimeout;
+    private const int ProbeIntervalMs = 5_000;
+    private static readonly TimeSpan ProbeTimeout = TimeSpan.FromSeconds(3);
 
     // Set on fatal consumer errors; the consume loop disposes and rebuilds the
     // consumer (with bounded backoff) instead of spinning on a dead handle.
@@ -140,6 +147,18 @@ public sealed class KafkaLockCoordinator : IHostedService, IAsyncDisposable
         // (the topic has no meaningful records) and cheaper than manual commit.
         config.EnableAutoCommit = true;
         config.AutoOffsetReset = AutoOffsetReset.Latest;
+        // Lock-specific session timeout: the outage-grace budget for held
+        // locks (see KafkaLocksOptions.SessionTimeoutMs). The liveness
+        // watchdog derives from the same effective value below.
+        if (_options.SessionTimeoutMs is { } sessionMs)
+            config.SessionTimeoutMs = sessionMs;
+        // Static membership: a restart that rejoins within session.timeout.ms
+        // reclaims the same partitions with no rebalance, so peer Monitors'
+        // held locks survive routine service restarts / rolling upgrades.
+        // The instance id must be unique per group member: group id scopes it
+        // per tier, host identity scopes it per machine/replica.
+        if (_options.UseStaticGroupMembership)
+            config.GroupInstanceId = $"{_options.ConsumerGroupId}.{Events.Publisher.HostInstanceId.Value}";
 
         var handlers = new KafkaRebalanceHandlers<byte[], byte[]>(_logger, "dorc-lock-coordinator");
 
@@ -251,6 +270,7 @@ public sealed class KafkaLockCoordinator : IHostedService, IAsyncDisposable
                     if (!SleepUnlessStopping(1_000, stoppingToken)) break;
                 }
 
+                MaybeProbeConnectivity();
                 EvaluateLiveness();
             }
         }
@@ -363,9 +383,13 @@ public sealed class KafkaLockCoordinator : IHostedService, IAsyncDisposable
         if (_options.LivenessTimeoutMs is { } configuredMs)
             return TimeSpan.FromMilliseconds(configuredMs);
 
-        var sessionTimeoutMs = _connectionProvider
-            .GetConsumerConfig(_options.ConsumerGroupId)
-            .SessionTimeoutMs ?? LibrdkafkaDefaultSessionTimeoutMs;
+        // Must mirror BuildConsumer's effective session timeout: the lock-
+        // specific override wins over the shared client value.
+        var sessionTimeoutMs = _options.SessionTimeoutMs
+            ?? _connectionProvider
+                .GetConsumerConfig(_options.ConsumerGroupId)
+                .SessionTimeoutMs
+            ?? LibrdkafkaDefaultSessionTimeoutMs;
 
         // Target: 50% of session timeout, at least LivenessFloorMs, and
         // strictly less than session timeout (by at least 2s safety margin).
@@ -383,6 +407,49 @@ public sealed class KafkaLockCoordinator : IHostedService, IAsyncDisposable
     {
         Interlocked.Exchange(ref _lastBrokerContactTimestamp, _timeProvider.GetTimestamp());
         _livenessTripped = false;
+    }
+
+    /// <summary>
+    /// Active connectivity probe, run from the consume loop while
+    /// <c>_connectivitySuspect</c> is set (at most once per
+    /// <see cref="ProbeIntervalMs"/>). The locks topic is idle by design, so
+    /// after a transport-class error there is no passive signal that could
+    /// ever clear the suspicion — records never arrive, and librdkafka handles
+    /// heartbeats internally without surfacing them. Without this probe a
+    /// single benign disconnect (broker idle-connection reap, one broker of a
+    /// healthy cluster restarting) pinned the suspicion until the watchdog
+    /// cancelled every held lock.
+    ///
+    /// <c>Committed</c> is a group-coordinator round-trip: success proves the
+    /// exact connection that our session/partition-assignment lifecycle
+    /// depends on is healthy, so suspicion is cleared and contact recorded.
+    /// Failure (any exception) leaves the suspicion in place — a genuine
+    /// partition still trips the watchdog before the broker can reassign our
+    /// partitions to a peer. The call blocks the consume thread for at most
+    /// <see cref="ProbeTimeout"/>, well inside max.poll.interval.
+    /// </summary>
+    internal void MaybeProbeConnectivity()
+    {
+        if (!_connectivitySuspect) return;
+        var lastProbe = Interlocked.Read(ref _lastProbeTimestamp);
+        if (lastProbe != 0 && _timeProvider.GetElapsedTime(lastProbe) < TimeSpan.FromMilliseconds(ProbeIntervalMs))
+            return;
+        Interlocked.Exchange(ref _lastProbeTimestamp, _timeProvider.GetTimestamp());
+
+        try
+        {
+            _consumer?.Committed(new[] { new TopicPartition(_topics.Locks, 0) }, ProbeTimeout);
+            _connectivitySuspect = false;
+            RecordBrokerContact();
+            _logger.LogInformation(
+                "KafkaLockCoordinator connectivity probe succeeded after transport-class error; suspicion cleared.");
+        }
+        catch (Exception ex) when (!IsCritical(ex))
+        {
+            _logger.LogWarning(
+                "KafkaLockCoordinator connectivity probe failed ({Message}); broker contact still unconfirmed.",
+                ex.Message);
+        }
     }
 
     /// <summary>

@@ -14,6 +14,13 @@ internal sealed class ScriptedLockConsumer : IConsumer<byte[], byte[]>
     /// <summary>Invoked for every Consume call; throw to script errors.</summary>
     public Func<TimeSpan, ConsumeResult<byte[], byte[]>?>? OnConsume { get; set; }
 
+    /// <summary>
+    /// Invoked for the coordinator's connectivity probe (Committed); throw to
+    /// script probe failure (broker unreachable). Default: succeed, matching a
+    /// healthy broker.
+    /// </summary>
+    public Func<List<TopicPartitionOffset>>? OnCommitted { get; set; }
+
     public bool Closed { get; private set; }
     public bool Disposed { get; private set; }
     public IReadOnlyList<string> SubscribedTopics => _subscribedTopics;
@@ -70,7 +77,8 @@ internal sealed class ScriptedLockConsumer : IConsumer<byte[], byte[]>
     public void StoreOffset(ConsumeResult<byte[], byte[]> result) { }
     public void StoreOffset(TopicPartitionOffset offset) { }
     public List<TopicPartitionOffset> Committed(TimeSpan timeout) => new();
-    public List<TopicPartitionOffset> Committed(IEnumerable<TopicPartition> partitions, TimeSpan timeout) => new();
+    public List<TopicPartitionOffset> Committed(IEnumerable<TopicPartition> partitions, TimeSpan timeout)
+        => OnCommitted is not null ? OnCommitted() : new();
     public List<TopicPartitionOffset> Commit() => new();
     public void Commit(IEnumerable<TopicPartitionOffset> offsets) { }
     public void Commit(ConsumeResult<byte[], byte[]> result) { }
