@@ -83,9 +83,21 @@ public static class KafkaResultsStatusSubstrateServiceCollectionExtensions
     /// projects results-status events to SignalR via the broadcaster).
     /// Idempotent via marker singleton.</para>
     /// </summary>
+    /// <param name="services">The service collection.</param>
+    /// <param name="configuration">Host configuration.</param>
+    /// <param name="useSharedConsumerGroup">
+    /// True when SignalR runs on a service-wide backplane (Azure SignalR
+    /// Service): hub sends then reach ALL clients regardless of which replica
+    /// sends, so the per-replica fan-out consumer-group design would deliver
+    /// every results-status event N times per client. In shared mode all
+    /// replicas join ONE competing consumer group and exactly one replica
+    /// projects each event. False (default) keeps per-replica fan-out for
+    /// in-process SignalR, where each replica reaches only its own clients.
+    /// </param>
     public static IServiceCollection AddDorcKafkaResultsStatusSubstrate(
         this IServiceCollection services,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        bool useSharedConsumerGroup = false)
     {
         if (services.Any(sd => sd.ServiceType == typeof(DorcKafkaResultsStatusSubstrateMarker)))
             return services;
@@ -105,7 +117,24 @@ public static class KafkaResultsStatusSubstrateServiceCollectionExtensions
             services.AddHostedService<KafkaResultsStatusTopicProvisioner>();
         }
 
-        services.AddSingleton<DeploymentResultsKafkaConsumer>();
+        if (useSharedConsumerGroup)
+        {
+            services.AddSingleton(sp => new DeploymentResultsKafkaConsumer(
+                sp.GetRequiredService<Client.Connection.IKafkaConnectionProvider>(),
+                sp.GetRequiredService<Client.Serialization.IKafkaSerializerFactory>(),
+                sp.GetRequiredService<IDeploymentResultBroadcaster>(),
+                sp.GetRequiredService<ErrorLog.IKafkaErrorLog>(),
+                sp.GetRequiredService<IOptions<ErrorLog.KafkaErrorLogOptions>>(),
+                sp.GetRequiredService<IOptions<KafkaTopicsOptions>>(),
+                sp.GetRequiredService<Client.Observability.IKafkaConsumerMetrics>(),
+                sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<DeploymentResultsKafkaConsumer>>(),
+                sp.GetService<IOptions<Client.Configuration.KafkaClientOptions>>(),
+                useSharedConsumerGroup: true));
+        }
+        else
+        {
+            services.AddSingleton<DeploymentResultsKafkaConsumer>();
+        }
         services.AddHostedService(sp => sp.GetRequiredService<DeploymentResultsKafkaConsumer>());
 
         return services;

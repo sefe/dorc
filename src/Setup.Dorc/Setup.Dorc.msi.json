@@ -282,6 +282,14 @@
       "DeployProperty": "KAFKA_TOPICS_REQUESTSNEWDLQ"
     },
     {
+      "MSIParameter": "KAFKA.LOCKS.CONSUMERGROUPID.PROD",
+      "DeployProperty": "KAFKA_LOCKS_CONSUMERGROUPID_PROD"
+    },
+    {
+      "MSIParameter": "KAFKA.LOCKS.CONSUMERGROUPID.NONPROD",
+      "DeployProperty": "KAFKA_LOCKS_CONSUMERGROUPID_NONPROD"
+    },
+    {
       "MSIParameter": "PAUSE.DEPLOYMENT.ENABLED",
       "DeployProperty": "PAUSE_DEPLOYMENT_ENABLED"
     }

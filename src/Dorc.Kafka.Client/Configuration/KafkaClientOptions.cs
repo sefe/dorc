@@ -16,6 +16,19 @@ public sealed class KafkaClientOptions
 
     public string? ConsumerGroupId { get; set; }
 
+    /// <summary>
+    /// Per-replica disambiguator for consumer-group identity when more than
+    /// one DOrc service shares a machine name (e.g. the Prod and NonProd
+    /// Monitor/API services the MSI co-installs on one host — the installers
+    /// write "prod" / "nonprod" here). Combined with the machine name as
+    /// <c>{MachineName}-{ReplicaId}</c> for per-replica consumer groups.
+    /// Empty (default) falls back to <c>DORC_REPLICA_ID</c> / machine name.
+    /// Config-bound so every install channel (appsettings, MSI JsonFile
+    /// writes, env vars via <c>Kafka__ReplicaId</c>) can set it — the
+    /// env-var-only channel had no installer surface.
+    /// </summary>
+    public string? ReplicaId { get; set; }
+
     public KafkaAutoOffsetReset AutoOffsetReset { get; set; } = KafkaAutoOffsetReset.Earliest;
 
     public bool EnableAutoCommit { get; set; } = false;

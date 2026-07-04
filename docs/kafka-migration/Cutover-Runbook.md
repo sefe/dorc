@@ -199,12 +199,17 @@ The `Kafka:Locks:*` block in Monitor's `appsettings.json` carries:
 - `ReplicationFactor` = `3`
 - `ConsumerGroupId` = `dorc.monitor.locks.nonprod` (**default shipped in `appsettings.json`**)
 
-**The `ConsumerGroupId` MUST be overridden per environment.** The startup validator
-rejects the value `dorc.monitor.locks` (the old pre-fix default), so the value in
-`appsettings.json` is intentionally environment-specific: `.nonprod` for
-NonProd, and the MSI / deployment pipeline MUST supply
-`dorc.monitor.locks.prod` for Production via the `Kafka:Locks:ConsumerGroupId`
-MSI parameter (or equivalent environment-variable override).
+**The `ConsumerGroupId` MUST differ per tier — and the installer now enforces
+this without manual steps.** The startup validator rejects the value
+`dorc.monitor.locks` (the old pre-fix default). The WiX installers write
+`$.Kafka.Locks.ConsumerGroupId` per tier from the
+`KAFKA.LOCKS.CONSUMERGROUPID.PROD` / `KAFKA.LOCKS.CONSUMERGROUPID.NONPROD`
+MSI parameters (defaults `dorc.monitor.locks.prod` /
+`dorc.monitor.locks.nonprod` in `Install.Orchestrator.bat`, deploy properties
+`KAFKA_LOCKS_CONSUMERGROUPID_PROD` / `_NONPROD` in
+`DeploySettings.template.json`), so the co-installed Prod and NonProd Monitor
+services always join distinct lock consumer groups. Override the parameters
+only if the enterprise group-naming convention requires it.
 
 **Rationale:** each environment needs an isolated consumer group so its
 coordinator holds only that environment's lock partitions. A shared group

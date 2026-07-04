@@ -51,7 +51,9 @@ public sealed class DeploymentResultsKafkaConsumer : BackgroundService
         IOptions<KafkaErrorLogOptions> errorLogOptions,
         IOptions<KafkaTopicsOptions> topics,
         IKafkaConsumerMetrics metrics,
-        ILogger<DeploymentResultsKafkaConsumer> logger)
+        ILogger<DeploymentResultsKafkaConsumer> logger,
+        IOptions<Client.Configuration.KafkaClientOptions>? clientOptions = null,
+        bool useSharedConsumerGroup = false)
     {
         _connectionProvider = connectionProvider;
         _serializerFactory = serializerFactory;
@@ -64,9 +66,25 @@ public sealed class DeploymentResultsKafkaConsumer : BackgroundService
         _metrics = metrics;
         _logger = logger;
         TopicName = topics.Value.ResultsStatus;
+        // Group identity has two modes (assigned in the ctor so test
+        // object-initializer overrides still win):
+        // - Per-replica (default, in-process SignalR): every replica consumes
+        //   every event and broadcasts to ITS locally-pinned hub clients —
+        //   exactly-once per client. Kafka:ReplicaId (MSI-written, tier-
+        //   distinct) disambiguates co-hosted services.
+        // - Shared/competing (Azure SignalR Service): hub sends are delivered
+        //   service-wide to ALL clients regardless of which replica sends, so
+        //   per-replica fan-out would broadcast every event N times per
+        //   client. Exactly ONE consumer service-wide must project each event.
+        _configuredReplicaId = clientOptions?.Value.ReplicaId;
+        ConsumerGroupId = useSharedConsumerGroup
+            ? ConsumerGroupPrefix
+            : $"{ConsumerGroupPrefix}.{HostInstanceId.For(_configuredReplicaId)}";
     }
 
-    public string ConsumerGroupId { get; init; } = $"{ConsumerGroupPrefix}.{HostInstanceId.Value}";
+    private readonly string? _configuredReplicaId;
+
+    public string ConsumerGroupId { get; init; }
 
     /// <summary>
     /// The topic the consumer subscribes to. Default resolves to
@@ -123,8 +141,8 @@ public sealed class DeploymentResultsKafkaConsumer : BackgroundService
     private void RunLoop(CancellationToken stoppingToken)
     {
         // Warn early if falling back to MachineName: co-hosted replicas without
-        // DORC_REPLICA_ID share a consumer group, breaking the fan-out invariant.
-        HostInstanceId.WarnIfFallingBackToMachineName(_logger);
+        // a replica identity share a consumer group, breaking the fan-out invariant.
+        HostInstanceId.WarnIfFallingBackToMachineName(_logger, _configuredReplicaId);
 
         WarmupSerializers();
         using var consumer = BuildConsumer();

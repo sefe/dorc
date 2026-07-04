@@ -351,7 +351,12 @@ if (kafkaEnabledApi)
     builder.Services.AddDorcKafkaClient(builder.Configuration);
     builder.Services.AddDorcKafkaAvro(builder.Configuration);
     builder.Services.AddDorcKafkaErrorLog(builder.Configuration);
-    builder.Services.AddDorcKafkaResultsStatusSubstrate(builder.Configuration);
+    // Azure SignalR Service delivers hub sends service-wide, so the
+    // per-replica fan-out consumer design would broadcast every event
+    // N× per client. Shared/competing consumer group in that mode.
+    builder.Services.AddDorcKafkaResultsStatusSubstrate(
+        builder.Configuration,
+        useSharedConsumerGroup: builder.Configuration.GetValue("Azure:SignalR:IsUseAzureSignalR", false));
 }
 
 builder.Services.AddMemoryCache();

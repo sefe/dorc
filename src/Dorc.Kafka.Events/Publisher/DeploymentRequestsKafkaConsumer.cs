@@ -51,7 +51,8 @@ public sealed class DeploymentRequestsKafkaConsumer : BackgroundService
         IKafkaErrorLog errorLog,
         IOptions<KafkaTopicsOptions> topics,
         IKafkaConsumerMetrics metrics,
-        ILogger<DeploymentRequestsKafkaConsumer> logger)
+        ILogger<DeploymentRequestsKafkaConsumer> logger,
+        IOptions<Client.Configuration.KafkaClientOptions>? clientOptions = null)
     {
         _connectionProvider = connectionProvider;
         _serializerFactory = serializerFactory;
@@ -63,9 +64,17 @@ public sealed class DeploymentRequestsKafkaConsumer : BackgroundService
         _metrics = metrics;
         _logger = logger;
         Topics = new[] { topics.Value.RequestsNew, topics.Value.RequestsStatus };
+        // Config-bound replica identity wins over env-var/machine-name: the
+        // MSI writes tier-distinct Kafka:ReplicaId values so co-hosted Prod
+        // and NonProd services never share this per-replica group. Assigned
+        // in the ctor so test object-initializer overrides still win.
+        _configuredReplicaId = clientOptions?.Value.ReplicaId;
+        ConsumerGroupId = $"{ConsumerGroupPrefix}.{HostInstanceId.For(_configuredReplicaId)}";
     }
 
-    public string ConsumerGroupId { get; init; } = $"{ConsumerGroupPrefix}.{HostInstanceId.Value}";
+    private readonly string? _configuredReplicaId;
+
+    public string ConsumerGroupId { get; init; }
 
     /// <summary>
     /// Subscribed topic set. Default is <c>{ KafkaTopicsOptions.RequestsNew,
@@ -83,8 +92,8 @@ public sealed class DeploymentRequestsKafkaConsumer : BackgroundService
     private void RunLoop(CancellationToken stoppingToken)
     {
         // Warn early if falling back to MachineName: co-hosted replicas without
-        // DORC_REPLICA_ID share a consumer group, breaking the fan-out invariant.
-        HostInstanceId.WarnIfFallingBackToMachineName(_logger);
+        // a replica identity share a consumer group, breaking the fan-out invariant.
+        HostInstanceId.WarnIfFallingBackToMachineName(_logger, _configuredReplicaId);
 
         WarmupSerializers();
         using var consumer = BuildConsumer();

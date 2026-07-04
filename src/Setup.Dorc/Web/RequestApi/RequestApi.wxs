@@ -94,6 +94,8 @@
 		<Json:JsonFile Id="KafkaTopicsRequestsStatusApi" ElementPath="$.Kafka.Topics.RequestsStatus" Value="[KAFKA.TOPICS.REQUESTSSTATUS]" File="[#DeployApiWebConfig]" />
 		<Json:JsonFile Id="KafkaTopicsResultsStatusApi" ElementPath="$.Kafka.Topics.ResultsStatus" Value="[KAFKA.TOPICS.RESULTSSTATUS]" File="[#DeployApiWebConfig]" />
 		<Json:JsonFile Id="KafkaTopicsRequestsNewDlqApi" ElementPath="$.Kafka.Topics.RequestsNewDlq" Value="[KAFKA.TOPICS.REQUESTSNEWDLQ]" File="[#DeployApiWebConfig]" />
+		<!-- Per-service replica identity for the per-replica consumer groups. -->
+		<Json:JsonFile Id="KafkaReplicaIdApi" ElementPath="$.Kafka.ReplicaId" Value="nonprod" File="[#DeployApiWebConfig]" />
       </Component>
 
 	  <Component Id="RequestApiComponentProd" Guid="{2B641300-DCCB-4817-90D8-2A5B0C59AD11}" KeyPath="yes" Directory="RequestApi" Condition="ENVIRONMENTISPRODUCTION = &quot;TRUE&quot;">
@@ -177,6 +179,8 @@
 			<Json:JsonFile Id="KafkaTopicsRequestsStatusApiProd" ElementPath="$.Kafka.Topics.RequestsStatus" Value="[KAFKA.TOPICS.REQUESTSSTATUS]" File="[#DeployApiWebConfig]" />
 			<Json:JsonFile Id="KafkaTopicsResultsStatusApiProd" ElementPath="$.Kafka.Topics.ResultsStatus" Value="[KAFKA.TOPICS.RESULTSSTATUS]" File="[#DeployApiWebConfig]" />
 			<Json:JsonFile Id="KafkaTopicsRequestsNewDlqApiProd" ElementPath="$.Kafka.Topics.RequestsNewDlq" Value="[KAFKA.TOPICS.REQUESTSNEWDLQ]" File="[#DeployApiWebConfig]" />
+			<!-- Per-service replica identity for the per-replica consumer groups. -->
+			<Json:JsonFile Id="KafkaReplicaIdApiProd" ElementPath="$.Kafka.ReplicaId" Value="prod" File="[#DeployApiWebConfig]" />
 	  </Component>
   </Fragment>
 </Wix>
