@@ -11,14 +11,21 @@ namespace Dorc.Kafka.Events.Tests.Publisher;
 /// </summary>
 internal sealed class ScriptedAdminClient : IAdminClient
 {
-    public Func<IEnumerable<TopicSpecification>, Task>? OnCreateTopics { get; set; }
+    public Func<IReadOnlyList<TopicSpecification>, Task>? OnCreateTopics { get; set; }
     public Func<string, TimeSpan, Metadata>? OnGetMetadata { get; set; }
-    public List<TopicSpecification> CreateRequests { get; } = new();
+
+    /// <summary>
+    /// One entry per CreateTopicsAsync CALL, each carrying that call's full
+    /// spec batch — the provisioners are expected to batch all their topics
+    /// into a single admin round-trip, and tests pin that shape.
+    /// </summary>
+    public List<IReadOnlyList<TopicSpecification>> CreateRequests { get; } = new();
 
     public Task CreateTopicsAsync(IEnumerable<TopicSpecification> topics, CreateTopicsOptions? options = null)
     {
-        CreateRequests.AddRange(topics);
-        return OnCreateTopics?.Invoke(CreateRequests) ?? Task.CompletedTask;
+        var batch = topics.ToList();
+        CreateRequests.Add(batch);
+        return OnCreateTopics?.Invoke(batch) ?? Task.CompletedTask;
     }
 
     public Metadata GetMetadata(string topic, TimeSpan timeout)

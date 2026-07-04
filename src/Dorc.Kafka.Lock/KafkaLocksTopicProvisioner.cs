@@ -1,6 +1,7 @@
 using Confluent.Kafka;
 using Confluent.Kafka.Admin;
 using Dorc.Kafka.Client.Connection;
+using Dorc.Kafka.Client.Provisioning;
 using Dorc.Kafka.Events.Configuration;
 using Dorc.Kafka.Lock.Configuration;
 using Microsoft.Extensions.Hosting;
@@ -52,18 +53,9 @@ public sealed class KafkaLocksTopicProvisioner : IHostedService
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var producerConfig = _connectionProvider.GetProducerConfig();
-        var adminConfig = new AdminClientConfig
-        {
-            BootstrapServers = producerConfig.BootstrapServers,
-            SecurityProtocol = producerConfig.SecurityProtocol,
-            SaslMechanism = producerConfig.SaslMechanism,
-            SaslUsername = producerConfig.SaslUsername,
-            SaslPassword = producerConfig.SaslPassword,
-            SslCaLocation = producerConfig.SslCaLocation
-        };
-
-        using var admin = new AdminClientBuilder(adminConfig).Build();
+        // Admin config comes from the same connection provider the
+        // producers/consumers use, so SASL + bootstrap are single-sourced.
+        using var admin = new AdminClientBuilder(_connectionProvider.GetAdminConfig()).Build();
         await ProvisionAsync(admin, cancellationToken).ConfigureAwait(false);
     }
 
@@ -91,7 +83,12 @@ public sealed class KafkaLocksTopicProvisioner : IHostedService
         {
             // The admin API takes no CancellationToken; honor StartAsync's token
             // via WaitAsync so a cancelled host start doesn't hang on a dead broker.
-            await admin.CreateTopicsAsync(new[] { spec }).WaitAsync(cancellationToken).ConfigureAwait(false);
+            // Also bound the call with a timeout: librdkafka's admin default is
+            // ~60s, so without it an unattended service start against a dead
+            // broker hangs for a minute before continuing.
+            await admin.CreateTopicsAsync(new[] { spec })
+                .WaitAsync(IdempotentTopicProvisioner.AdminCallTimeout, cancellationToken)
+                .ConfigureAwait(false);
             _logger.LogInformation(
                 "Kafka lock topic created: topic={Topic} partitions={Partitions} rf={Rf} minIsr={MinIsr}",
                 _topics.Locks, spec.NumPartitions, spec.ReplicationFactor, minIsr);
@@ -143,9 +140,10 @@ public sealed class KafkaLocksTopicProvisioner : IHostedService
                 "until the topic exists — concurrent Monitor instances will not be mutually excluded.",
                 _topics.Locks);
         }
-        catch (KafkaException ex)
+        catch (Exception ex) when (ex is KafkaException or TimeoutException)
         {
-            // Broker unreachable / timed out at boot. Crash-looping the host here
+            // Broker unreachable at boot (KafkaException), or the WaitAsync
+            // bound above expired (TimeoutException). Crash-looping the host here
             // gains nothing — the coordinator's consume loop retries connectivity
             // and the next boot re-attempts provisioning.
             _logger.LogError(ex,

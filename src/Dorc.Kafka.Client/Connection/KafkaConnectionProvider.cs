@@ -47,6 +47,21 @@ public sealed class KafkaConnectionProvider : IKafkaConnectionProvider
         return config;
     }
 
+    /// <summary>
+    /// Built from options + <see cref="ApplySecurity"/> (rather than the
+    /// interface's producer-copy default) so any security field added to
+    /// <see cref="ApplySecurity"/> flows to admin clients automatically.
+    /// </summary>
+    public AdminClientConfig GetAdminConfig()
+    {
+        var config = new AdminClientConfig
+        {
+            BootstrapServers = _options.BootstrapServers
+        };
+        ApplySecurity(config);
+        return config;
+    }
+
     private void ApplySecurity(ClientConfig config)
     {
         if (_options.AuthMode != KafkaAuthMode.SaslSsl) return;

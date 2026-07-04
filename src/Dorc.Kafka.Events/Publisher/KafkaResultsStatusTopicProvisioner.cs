@@ -2,6 +2,7 @@ using Confluent.Kafka;
 using Confluent.Kafka.Admin;
 using Dorc.Kafka.Client.Configuration;
 using Dorc.Kafka.Client.Connection;
+using Dorc.Kafka.Client.Provisioning;
 using Dorc.Kafka.Events.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -22,6 +23,10 @@ namespace Dorc.Kafka.Events.Publisher;
 /// throw (per-RequestId ordering is preserved for a fixed count).
 /// - RF-rejection on single-broker dev -> Warning, no throw (producer
 /// will fail-loud on first publish if topic genuinely missing).
+///
+/// The error-triage/verification policy itself lives in the shared
+/// <see cref="IdempotentTopicProvisioner"/> core (also used by the DLQ
+/// provisioner); this class owns only the topic set and their specs.
 /// </summary>
 public sealed class KafkaResultsStatusTopicProvisioner : IHostedService
 {
@@ -44,20 +49,9 @@ public sealed class KafkaResultsStatusTopicProvisioner : IHostedService
 
     public async Task StartAsync(CancellationToken cancellationToken)
     {
-        // Derive admin-client config from the same connection provider the
+        // Admin config comes from the same connection provider the
         // producers/consumers use, so SASL + bootstrap are single-sourced.
-        var producerConfig = _connectionProvider.GetProducerConfig();
-        var adminConfig = new AdminClientConfig
-        {
-            BootstrapServers = producerConfig.BootstrapServers,
-            SecurityProtocol = producerConfig.SecurityProtocol,
-            SaslMechanism = producerConfig.SaslMechanism,
-            SaslUsername = producerConfig.SaslUsername,
-            SaslPassword = producerConfig.SaslPassword,
-            SslCaLocation = producerConfig.SslCaLocation
-        };
-
-        using var admin = new AdminClientBuilder(adminConfig).Build();
+        using var admin = new AdminClientBuilder(_connectionProvider.GetAdminConfig()).Build();
         await ProvisionAsync(admin, cancellationToken);
     }
 
@@ -71,16 +65,17 @@ public sealed class KafkaResultsStatusTopicProvisioner : IHostedService
         // Validator (KafkaTopicsOptionsValidator) guarantees non-empty values
         // post-startup, so iteration here may treat each property as non-null
         // without runtime defensive checks.
-        var topics = new[]
+        var specs = new[]
         {
             _topics.ResultsStatus,
             // inherits — provisioned here so its consumer/producer can assume presence.
             _topics.RequestsNew,
             _topics.RequestsStatus
-        };
+        }.Select(BuildTopicSpecification).ToArray();
 
-        foreach (var topic in topics)
-            await ProvisionOneAsync(admin, topic, cancellationToken);
+        // One batched create for all three topics; the shared core triages
+        // the broker's per-topic results and never lets a failure escape.
+        await IdempotentTopicProvisioner.ProvisionAsync(admin, specs, "Kafka", _logger, cancellationToken);
     }
 
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
@@ -120,103 +115,5 @@ public sealed class KafkaResultsStatusTopicProvisioner : IHostedService
             ReplicationFactor = rf,
             Configs = configs
         };
-    }
-
-    private async Task ProvisionOneAsync(IAdminClient admin, string topic, CancellationToken cancellationToken)
-    {
-        var spec = BuildTopicSpecification(topic);
-        var minIsr = spec.Configs["min.insync.replicas"];
-
-        try
-        {
-            await admin.CreateTopicsAsync(new[] { spec });
-            _logger.LogInformation(
-                "Kafka topic created: topic={Topic} partitions={Partitions} rf={Rf} minIsr={MinIsr}",
-                topic, spec.NumPartitions, spec.ReplicationFactor, minIsr);
-        }
-        catch (CreateTopicsException ex) when (ex.Results[0].Error.Code == ErrorCode.TopicAlreadyExists)
-        {
-            await VerifyPartitionCountAsync(admin, topic, spec.NumPartitions, cancellationToken);
-        }
-        catch (CreateTopicsException ex)
-        {
-            var code = ex.Results[0].Error.Code;
-            var reason = ex.Results[0].Error.Reason;
-            // Distinguish broker-side rejection classes so an ACL
-            // misconfiguration is loud (LogError), while RF-rejection on
-            // single-broker dev is expected noise (LogWarning). Either way
-            // the provisioner does NOT throw — startup continues and the
-            // producer fail-loud on first publish is the backstop.
-            if (code is ErrorCode.TopicAuthorizationFailed
-                     or ErrorCode.ClusterAuthorizationFailed)
-            {
-                _logger.LogError(
-                    "Kafka topic create denied by broker ACL: topic={Topic} code={Code} reason={Reason}. Check service-account permissions.",
-                    topic, code, reason);
-            }
-            else if (code is ErrorCode.InvalidReplicationFactor
-                          or ErrorCode.PolicyViolation)
-            {
-                _logger.LogWarning(
-                    "Kafka topic create rejected (dev-style config issue): topic={Topic} code={Code} reason={Reason}.",
-                    topic, code, reason);
-            }
-            else
-            {
-                _logger.LogError(
-                    "Kafka topic create failed: topic={Topic} code={Code} reason={Reason}.",
-                    topic, code, reason);
-            }
-        }
-        // Broker unreachable / admin request timed out (plain KafkaException,
-        // not the CreateTopicsException subclass). Letting this escape
-        // StartAsync aborts IHost.StartAsync — a crash-loop for the Monitor
-        // Windows service and a failed app start for the API — for an
-        // outage the consumers/producers already tolerate with retry.
-        catch (KafkaException ex)
-        {
-            _logger.LogError(ex,
-                "Kafka topic provisioning skipped (broker unreachable): topic={Topic} reason={Reason}. Startup continues; consumers retry and the producer fails loud on first publish.",
-                topic, ex.Error.Reason);
-        }
-    }
-
-    private async Task VerifyPartitionCountAsync(IAdminClient admin, string topic, int expected, CancellationToken cancellationToken)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        Metadata metadata;
-        try
-        {
-            metadata = admin.GetMetadata(topic, TimeSpan.FromSeconds(3));
-        }
-        catch (KafkaException ex)
-        {
-            _logger.LogWarning(ex,
-                "Kafka topic partition-count verification skipped (metadata fetch failed): topic={Topic} reason={Reason}.",
-                topic, ex.Error.Reason);
-            return;
-        }
-        var meta = metadata.Topics.FirstOrDefault(t => t.Topic == topic);
-        if (meta is null)
-        {
-            _logger.LogWarning("Kafka topic existence ack conflict: topic={Topic} not present in metadata fetch.", topic);
-            return;
-        }
-
-        var actual = meta.Partitions.Count;
-        if (actual == expected)
-        {
-            _logger.LogInformation(
-                "Kafka topic already present with expected partition count: topic={Topic} partitions={Partitions}",
-                topic, actual);
-        }
-        else
-        {
-            _logger.LogWarning(
-                "Kafka topic present with DIFFERENT partition count: topic={Topic} expected={Expected} actual={Actual}. Per-key ordering still holds for a fixed count, but this is topology drift the operator should reconcile.",
-                topic, expected, actual);
-        }
-
-        await Task.CompletedTask;
     }
 }
