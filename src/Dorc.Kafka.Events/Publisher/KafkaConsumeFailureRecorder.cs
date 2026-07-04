@@ -1,3 +1,5 @@
+using Confluent.Kafka;
+using Dorc.Kafka.Client;
 using Dorc.Kafka.ErrorLog;
 using Microsoft.Extensions.Logging;
 
@@ -6,8 +8,11 @@ namespace Dorc.Kafka.Events.Publisher;
 /// <summary>
 /// Shared failure-recording collaborator for the Kafka consumers
 /// (<see cref="DeploymentRequestsKafkaConsumer"/> and
-/// <see cref="DeploymentResultsKafkaConsumer"/>). Implements the three-tier
-/// failure-handling contract in ONE place so the consumers cannot drift:
+/// <see cref="DeploymentResultsKafkaConsumer"/>). Owns both the construction
+/// of <see cref="KafkaErrorLogEntry"/> records (see
+/// <see cref="RecordRawRecordFailure"/> /
+/// <see cref="RecordTypedRecordFailure{TValue}"/>) and the three-tier
+/// failure-handling contract, in ONE place so the consumers cannot drift:
 /// <list type="number">
 /// <item><description>DLQ tier — <see cref="IKafkaErrorLog.InsertAsync"/>
 /// under a timeout linked to the host's stopping token (so shutdown is never
@@ -48,17 +53,100 @@ internal sealed class KafkaConsumeFailureRecorder
     }
 
     /// <summary>
+    /// Builds and records the entry for a raw-record failure — a consume /
+    /// deserialization error, where <c>ConsumeException.ConsumerRecord</c>
+    /// may be null (pure transport failure with no record attached). The raw
+    /// bytes are preserved so the DLQ envelope (where one exists) stays
+    /// replayable.
+    /// </summary>
+    /// <param name="rawRecord">The failed raw record, if any.</param>
+    /// <param name="topicFallback">Fills <see cref="KafkaErrorLogEntry.Topic"/>
+    /// when no record is available. The results consumer passes its single
+    /// subscribed topic name; the requests consumer subscribes to multiple
+    /// topics (no singular fallback exists) so it passes <c>""</c> — the
+    /// difference is a deliberate, visible argument instead of drift between
+    /// hand-rolled entry copies.</param>
+    /// <param name="consumerGroup">The reporting consumer's group id.</param>
+    /// <param name="failure">The consume/deserialize exception.</param>
+    /// <param name="insertTimeout">Upper bound on the DLQ insert.</param>
+    /// <param name="stoppingToken">Host stopping token; linked into the
+    /// insert so shutdown isn't blocked for up to the timeout per record.</param>
+    public void RecordRawRecordFailure(
+        ConsumeResult<byte[], byte[]>? rawRecord,
+        string topicFallback,
+        string consumerGroup,
+        Exception failure,
+        TimeSpan insertTimeout,
+        CancellationToken stoppingToken)
+    {
+        var entry = new KafkaErrorLogEntry
+        {
+            Topic = rawRecord?.Topic ?? topicFallback,
+            Partition = rawRecord?.Partition.Value ?? -1,
+            Offset = rawRecord?.Offset.Value ?? -1,
+            ConsumerGroup = consumerGroup,
+            MessageKey = rawRecord?.Message?.Key is byte[] kb ? System.Text.Encoding.UTF8.GetString(kb) : null,
+            // Deserialization failure: ConsumeException.ConsumerRecord carries
+            // the raw bytes — preserve them for triage/replay.
+            RawPayload = rawRecord?.Message?.Value,
+            Error = failure.Message,
+            ExceptionType = failure.GetType().FullName,
+            Stack = failure.StackTrace,
+            OccurredAt = DateTimeOffset.UtcNow
+        };
+        Record(entry, insertTimeout, stoppingToken);
+    }
+
+    /// <summary>
+    /// Builds and records the entry for a typed-record failure — a handler /
+    /// broadcast exception thrown after successful deserialization. The raw
+    /// Kafka bytes are gone at that point, so the typed value is re-serialised
+    /// as JSON via <see cref="SerializeTypedPayload{T}"/>: without a payload
+    /// the entry is untriageable once the consumer's offset advances.
+    /// </summary>
+    /// <param name="result">The successfully-deserialised record whose
+    /// handling failed.</param>
+    /// <param name="consumerGroup">The reporting consumer's group id.</param>
+    /// <param name="failure">The handler/broadcast exception.</param>
+    /// <param name="insertTimeout">Upper bound on the DLQ insert.</param>
+    /// <param name="stoppingToken">Host stopping token; linked into the
+    /// insert so shutdown isn't blocked for up to the timeout per record.</param>
+    public void RecordTypedRecordFailure<TValue>(
+        ConsumeResult<string, TValue> result,
+        string consumerGroup,
+        Exception failure,
+        TimeSpan insertTimeout,
+        CancellationToken stoppingToken)
+    {
+        var entry = new KafkaErrorLogEntry
+        {
+            Topic = result.Topic,
+            Partition = result.Partition.Value,
+            Offset = result.Offset.Value,
+            ConsumerGroup = consumerGroup,
+            MessageKey = result.Message.Key,
+            RawPayload = SerializeTypedPayload(result.Message.Value),
+            Error = failure.Message,
+            ExceptionType = failure.GetType().FullName,
+            Stack = failure.StackTrace,
+            OccurredAt = DateTimeOffset.UtcNow
+        };
+        Record(entry, insertTimeout, stoppingToken);
+    }
+
+    /// <summary>
     /// Records a consume/handler failure through the three tiers. Never
     /// throws (other than process-fatal exceptions, which always escape).
     /// </summary>
-    /// <param name="entry">The failure record; callers populate
+    /// <param name="entry">The failure record; the
+    /// <c>Record*RecordFailure</c> factory methods populate
     /// <see cref="KafkaErrorLogEntry.RawPayload"/> (raw bytes for
     /// deserialization failures, JSON of the typed value for handler
     /// failures) and <see cref="KafkaErrorLogEntry.ExceptionType"/>.</param>
     /// <param name="insertTimeout">Upper bound on the DLQ insert.</param>
     /// <param name="stoppingToken">Host stopping token; linked into the
     /// insert so shutdown isn't blocked for up to the timeout per record.</param>
-    public void Record(KafkaErrorLogEntry entry, TimeSpan insertTimeout, CancellationToken stoppingToken)
+    internal void Record(KafkaErrorLogEntry entry, TimeSpan insertTimeout, CancellationToken stoppingToken)
     {
         try
         {
@@ -69,7 +157,7 @@ internal sealed class KafkaConsumeFailureRecorder
                 "error-logged topic={Topic} partition={Partition} offset={Offset} group={GroupId} error={Error}",
                 entry.Topic, entry.Partition, entry.Offset, entry.ConsumerGroup, entry.Error);
         }
-        catch (Exception dalEx) when (!IsCritical(dalEx))
+        catch (Exception dalEx) when (!CriticalExceptions.IsCritical(dalEx))
         {
             try
             {
@@ -82,7 +170,7 @@ internal sealed class KafkaConsumeFailureRecorder
                     entry.Topic, entry.Partition, entry.Offset, entry.ConsumerGroup, entry.MessageKey,
                     entry.Error, entry.ExceptionType, EncodePayloadForLog(entry.RawPayload));
             }
-            catch (Exception logEx) when (!IsCritical(logEx))
+            catch (Exception logEx) when (!CriticalExceptions.IsCritical(logEx))
             {
                 // Super-degraded: logger itself threw. Swallow so the
                 // consumer loop survives a single bad record instead of
@@ -121,15 +209,9 @@ internal sealed class KafkaConsumeFailureRecorder
         {
             return System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(value);
         }
-        catch (Exception ex) when (!IsCritical(ex))
+        catch (Exception ex) when (!CriticalExceptions.IsCritical(ex))
         {
             return null;
         }
     }
-
-    private static bool IsCritical(Exception ex) =>
-        ex is OutOfMemoryException
-            or StackOverflowException
-            or AccessViolationException
-            or System.Threading.ThreadAbortException;
 }

@@ -1,6 +1,5 @@
 using Dorc.Kafka.Client.Configuration;
 using Dorc.Kafka.Client.Connection;
-using Dorc.Kafka.Client.Consumers;
 using Dorc.Kafka.Client.DependencyInjection;
 using Dorc.Kafka.Client.Producers;
 using Dorc.Kafka.Client.Serialization;
@@ -22,7 +21,6 @@ public class KafkaClientServiceCollectionExtensionsTests
         Assert.IsNotNull(sp.GetRequiredService<IKafkaConnectionProvider>());
         Assert.IsNotNull(sp.GetRequiredService<IKafkaSerializerFactory>());
         Assert.IsNotNull(sp.GetRequiredService<IKafkaProducerBuilder<string, byte[]>>());
-        Assert.IsNotNull(sp.GetRequiredService<IKafkaConsumerBuilder<string, byte[]>>());
         Assert.AreEqual("broker:9092", sp.GetRequiredService<IOptions<KafkaClientOptions>>().Value.BootstrapServers);
     }
 
@@ -57,23 +55,6 @@ public class KafkaClientServiceCollectionExtensionsTests
         var ex = Assert.ThrowsExactly<OptionsValidationException>(
             () => _ = sp.GetRequiredService<IOptions<KafkaClientOptions>>().Value);
         StringAssert.Contains(ex.Message, nameof(KafkaClientOptions.BootstrapServers));
-    }
-
-    [TestMethod]
-    public void AddDorcKafkaClient_ConsumerBuilderResolvedViaDI_CanBuildRealConsumer()
-    {
-        var sp = BuildProvider(new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?>
-            {
-                ["Kafka:BootstrapServers"] = "127.0.0.1:1",
-                ["Kafka:ConsumerGroupId"] = "unit-test-group"
-            })
-            .Build());
-
-        var builder = sp.GetRequiredService<IKafkaConsumerBuilder<string, byte[]>>();
-        using var consumer = builder.Build("ut-consumer");
-
-        Assert.IsNotNull(consumer);
     }
 
     private static ServiceProvider BuildProvider(IConfiguration configuration)

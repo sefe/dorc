@@ -288,6 +288,6 @@ public class KafkaLockCoordinatorConsumeLoopTests
     private sealed class FakeConnectionProvider : Dorc.Kafka.Client.Connection.IKafkaConnectionProvider
     {
         public ProducerConfig GetProducerConfig() => new();
-        public ConsumerConfig GetConsumerConfig(string? groupIdOverride = null) => new() { GroupId = groupIdOverride ?? "test" };
+        public ConsumerConfig GetConsumerConfig(string groupId) => new() { GroupId = groupId };
     }
 }

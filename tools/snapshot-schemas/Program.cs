@@ -89,7 +89,7 @@ foreach (var (subject, schema) in pairs)
 
     var latestJson = await http.GetStringAsync($"/subjects/{subject}/versions/latest");
     var stored = JsonDocument.Parse(latestJson).RootElement.GetProperty("schema").GetString()!;
-    var canonical = Canonicalise(JsonNode.Parse(stored))!.ToJsonString();
+    var canonical = AvroJsonCanonicaliser.Canonicalise(JsonNode.Parse(stored))!.ToJsonString();
 
     var outPath = Path.Combine(outDir, $"{subject}.avsc");
     File.WriteAllText(outPath, canonical);
@@ -97,22 +97,3 @@ foreach (var (subject, schema) in pairs)
 }
 
 return 0;
-
-static JsonNode? Canonicalise(JsonNode? node)
-{
-    switch (node)
-    {
-        case JsonObject obj:
-            var ordered = new JsonObject();
-            foreach (var kv in obj.OrderBy(p => p.Key, StringComparer.Ordinal))
-                ordered[kv.Key] = Canonicalise(kv.Value?.DeepClone());
-            return ordered;
-        case JsonArray arr:
-            var newArr = new JsonArray();
-            foreach (var item in arr)
-                newArr.Add(Canonicalise(item?.DeepClone()));
-            return newArr;
-        default:
-            return node;
-    }
-}

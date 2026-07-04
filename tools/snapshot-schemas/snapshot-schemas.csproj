@@ -6,6 +6,7 @@
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
     <RootNamespace>Dorc.Tools.SnapshotSchemas</RootNamespace>
+    <AssemblyName>Dorc.Tools.SnapshotSchemas</AssemblyName>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Dorc.Kafka.Events\Dorc.Kafka.Events.csproj" />

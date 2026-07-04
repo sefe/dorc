@@ -15,17 +15,18 @@ using Microsoft.Extensions.Options;
 namespace Dorc.Kafka.Events.IntegrationTests.Publisher;
 
 /// <summary>
-/// Shared harness for  integration tests (..). Builds a full
-/// Kafka client layer (producer + consumer) against the local compose
-/// stack, wires it through the Dorc.Kafka.Events production classes, and
-/// substitutes fakes only where the spec explicitly permits (broadcaster,
-/// error log).
+/// Shared harness for the requests/results substrate integration tests
+/// (<see cref="RequestsSubstrateAcceptanceIntegrationTests"/> and the
+/// consumer-resilience suite). Builds a full Kafka client layer (producer +
+/// consumer) against the local compose stack, wires it through the
+/// Dorc.Kafka.Events production classes, and substitutes fakes only where
+/// the spec explicitly permits (broadcaster, error log).
 /// </summary>
-internal sealed class S007TestHarness : IAsyncDisposable
+internal sealed class RequestsSubstrateTestHarness : IAsyncDisposable
 {
     private readonly List<IDisposable> _disposables = new();
 
-    public S007TestHarness()
+    public RequestsSubstrateTestHarness()
     {
         Registry = AvroKafkaTestHarness.BuildRegistry();
         _disposables.Add(Registry);
@@ -88,7 +89,6 @@ internal sealed class S007TestHarness : IAsyncDisposable
             Factory,
             Broadcaster,
             ErrorLog,
-            Options.Create(new KafkaErrorLogOptions()),
             topicsOptions,
             new Dorc.Kafka.Client.Observability.NoOpKafkaConsumerMetrics(),
             NullLogger<DeploymentResultsKafkaConsumer>.Instance)

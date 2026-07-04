@@ -25,18 +25,20 @@ public sealed class KafkaConnectionProvider : IKafkaConnectionProvider
         return config;
     }
 
-    public ConsumerConfig GetConsumerConfig(string? groupIdOverride = null)
+    public ConsumerConfig GetConsumerConfig(string groupId)
     {
-        var groupId = groupIdOverride ?? _options.ConsumerGroupId
-            ?? throw new InvalidOperationException(
-                $"{KafkaClientOptions.SectionName}:{nameof(KafkaClientOptions.ConsumerGroupId)} is required to build a consumer config (no override supplied).");
+        if (string.IsNullOrWhiteSpace(groupId))
+            throw new ArgumentException(
+                "A consumer group id is required to build a consumer config — every consumer owns its group identity explicitly.",
+                nameof(groupId));
 
+        // Deliberately no EnableAutoCommit / AutoOffsetReset here: offset
+        // semantics are per-consumer decisions, and every consumer in this
+        // codebase sets both explicitly on the returned config.
         var config = new ConsumerConfig
         {
             BootstrapServers = _options.BootstrapServers,
             GroupId = groupId,
-            EnableAutoCommit = _options.EnableAutoCommit,
-            AutoOffsetReset = Map(_options.AutoOffsetReset),
             SessionTimeoutMs = _options.SessionTimeoutMs,
             HeartbeatIntervalMs = _options.HeartbeatIntervalMs,
             MaxPollIntervalMs = _options.MaxPollIntervalMs,
@@ -74,14 +76,6 @@ public sealed class KafkaConnectionProvider : IKafkaConnectionProvider
         if (!string.IsNullOrWhiteSpace(_options.SslCaLocation))
             config.SslCaLocation = _options.SslCaLocation;
     }
-
-    private static AutoOffsetReset Map(KafkaAutoOffsetReset reset) => reset switch
-    {
-        KafkaAutoOffsetReset.Earliest => AutoOffsetReset.Earliest,
-        KafkaAutoOffsetReset.Latest => AutoOffsetReset.Latest,
-        KafkaAutoOffsetReset.Error => AutoOffsetReset.Error,
-        _ => AutoOffsetReset.Earliest
-    };
 
     private static SaslMechanism ParseMechanism(string mechanism) => mechanism.ToUpperInvariant() switch
     {

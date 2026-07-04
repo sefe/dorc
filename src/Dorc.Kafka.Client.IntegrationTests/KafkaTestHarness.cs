@@ -20,6 +20,9 @@ internal static class KafkaTestHarness
     public static string NewTopicName(string prefix)
         => $"{prefix}-{Guid.NewGuid():N}";
 
+    public static string NewGroupId()
+        => $"it-{Guid.NewGuid():N}";
+
     public static async Task CreateTopicAsync(string topic, int partitions)
     {
         using var admin = new AdminClientBuilder(new AdminClientConfig { BootstrapServers = BootstrapServers }).Build();
@@ -70,11 +73,9 @@ internal static class KafkaTestHarness
             logger ?? NullLogger<KafkaConsumerBuilder<TKey, TValue>>.Instance);
     }
 
-    public static KafkaClientOptions DefaultOptions(string? groupId = null) => new()
+    public static KafkaClientOptions DefaultOptions() => new()
     {
         BootstrapServers = BootstrapServers,
-        ConsumerGroupId = groupId ?? $"it-{Guid.NewGuid():N}",
-        EnableAutoCommit = false,
         SessionTimeoutMs = 10_000,
         HeartbeatIntervalMs = 3_000,
         MaxPollIntervalMs = 60_000

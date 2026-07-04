@@ -14,8 +14,6 @@ public sealed class KafkaClientOptions
 
     public KafkaSchemaRegistryOptions SchemaRegistry { get; set; } = new();
 
-    public string? ConsumerGroupId { get; set; }
-
     /// <summary>
     /// Per-replica disambiguator for consumer-group identity when more than
     /// one DOrc service shares a machine name (e.g. the Prod and NonProd
@@ -28,10 +26,6 @@ public sealed class KafkaClientOptions
     /// env-var-only channel had no installer surface.
     /// </summary>
     public string? ReplicaId { get; set; }
-
-    public KafkaAutoOffsetReset AutoOffsetReset { get; set; } = KafkaAutoOffsetReset.Earliest;
-
-    public bool EnableAutoCommit { get; set; } = false;
 
     public int SessionTimeoutMs { get; set; } = 30_000;
 
@@ -64,11 +58,4 @@ public sealed class KafkaSchemaRegistryOptions
     public string? BasicAuthUsername { get; set; }
 
     public string? BasicAuthPassword { get; set; }
-}
-
-public enum KafkaAutoOffsetReset
-{
-    Earliest,
-    Latest,
-    Error
 }

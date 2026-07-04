@@ -137,7 +137,7 @@ public class AvroRoundTripTests
             }
 
             var groupId = $"at6-group-{Guid.NewGuid():N}";
-            using var consumer = AvroKafkaTestHarness.ConsumerBuilder<DeploymentRequestEventData>(factory, groupId).Build("at6-consumer");
+            using var consumer = AvroKafkaTestHarness.ConsumerBuilder<DeploymentRequestEventData>(factory).Build("at6-consumer", groupId);
             consumer.Subscribe(topic);
 
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));

@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using Confluent.Kafka;
+using Dorc.Kafka.Client;
 using Dorc.Kafka.Client.Connection;
 using Dorc.Kafka.Client.Consumers;
 using Dorc.Kafka.Events.Configuration;
@@ -260,12 +261,12 @@ public sealed class KafkaLockCoordinator : IHostedService, IAsyncDisposable
                     // Back off briefly so a dead broker doesn't busy-spin.
                     if (!SleepUnlessStopping(1_000, stoppingToken)) break;
                 }
-                catch (Exception ex) when (!IsCritical(ex))
+                catch (Exception ex) when (!CriticalExceptions.IsCritical(ex))
                 {
                     // Safety net for the long-running consume loop: log and
                     // continue rather than tear the host down on a transient
                     // unknown failure. Process-fatal exceptions still escape
-                    // via IsCritical so the runtime can restart us cleanly.
+                    // via CriticalExceptions.IsCritical so the runtime can restart us cleanly.
                     _logger.LogError(ex, "KafkaLockCoordinator unexpected consume-loop error");
                     if (!SleepUnlessStopping(1_000, stoppingToken)) break;
                 }
@@ -277,7 +278,7 @@ public sealed class KafkaLockCoordinator : IHostedService, IAsyncDisposable
         finally
         {
             try { _consumer?.Close(); }
-            catch (Exception ex) when (!IsCritical(ex))
+            catch (Exception ex) when (!CriticalExceptions.IsCritical(ex))
             {
                 _logger.LogWarning(ex, "KafkaLockCoordinator consumer-close failed");
             }
@@ -296,9 +297,9 @@ public sealed class KafkaLockCoordinator : IHostedService, IAsyncDisposable
         if (dead is not null)
         {
             try { dead.Close(); }
-            catch (Exception ex) when (!IsCritical(ex)) { _logger.LogWarning(ex, "KafkaLockCoordinator close of dead consumer failed"); }
+            catch (Exception ex) when (!CriticalExceptions.IsCritical(ex)) { _logger.LogWarning(ex, "KafkaLockCoordinator close of dead consumer failed"); }
             try { dead.Dispose(); }
-            catch (Exception ex) when (!IsCritical(ex)) { _logger.LogWarning(ex, "KafkaLockCoordinator dispose of dead consumer failed"); }
+            catch (Exception ex) when (!CriticalExceptions.IsCritical(ex)) { _logger.LogWarning(ex, "KafkaLockCoordinator dispose of dead consumer failed"); }
         }
 
         if (!SleepUnlessStopping(backoffMs, stoppingToken)) return;
@@ -313,7 +314,7 @@ public sealed class KafkaLockCoordinator : IHostedService, IAsyncDisposable
             _logger.LogInformation(
                 "KafkaLockCoordinator consumer rebuilt and resubscribed after fatal error: topic={Topic}", _topics.Locks);
         }
-        catch (Exception ex) when (!IsCritical(ex))
+        catch (Exception ex) when (!CriticalExceptions.IsCritical(ex))
         {
             _logger.LogError(ex, "KafkaLockCoordinator consumer rebuild failed; retrying with backoff");
         }
@@ -331,12 +332,6 @@ public sealed class KafkaLockCoordinator : IHostedService, IAsyncDisposable
             return false;
         }
     }
-
-    private static bool IsCritical(Exception ex) =>
-        ex is OutOfMemoryException
-            or StackOverflowException
-            or AccessViolationException
-            or System.Threading.ThreadAbortException;
 
     /// <summary>
     /// Consumer error-handler hook. Fatal errors cancel every slot and request
@@ -444,7 +439,7 @@ public sealed class KafkaLockCoordinator : IHostedService, IAsyncDisposable
             _logger.LogInformation(
                 "KafkaLockCoordinator connectivity probe succeeded after transport-class error; suspicion cleared.");
         }
-        catch (Exception ex) when (!IsCritical(ex))
+        catch (Exception ex) when (!CriticalExceptions.IsCritical(ex))
         {
             _logger.LogWarning(
                 "KafkaLockCoordinator connectivity probe failed ({Message}); broker contact still unconfirmed.",

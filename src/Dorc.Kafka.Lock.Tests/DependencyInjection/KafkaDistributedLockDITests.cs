@@ -20,7 +20,6 @@ public class KafkaDistributedLockDITests
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["Kafka:BootstrapServers"] = "localhost:9092",
-                ["Kafka:ConsumerGroupId"] = "test",
                 ["Kafka:AuthMode"] = "Plaintext",
                 ["Kafka:Locks:ConsumerGroupId"] = "dorc.monitor.locks.test"
             })

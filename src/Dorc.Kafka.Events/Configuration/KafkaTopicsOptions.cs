@@ -29,4 +29,12 @@ public sealed class KafkaTopicsOptions
     /// poison messages fall straight through to the structured-log tier.
     /// </summary>
     public string RequestsNewDlq { get; set; } = "dorc.requests.new.dlq";
+
+    /// <summary>
+    /// Replication factor applied on first creation to the topics this host
+    /// provisions: <see cref="ResultsStatus"/>, <see cref="RequestsNew"/>,
+    /// <see cref="RequestsStatus"/>. Production = 3 (Aiven 3-broker
+    /// cluster); single-broker dev compose overrides to 1.
+    /// </summary>
+    public short ReplicationFactor { get; set; } = 3;
 }

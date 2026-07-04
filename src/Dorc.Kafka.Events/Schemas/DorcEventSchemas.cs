@@ -21,7 +21,7 @@ public static class DorcEventSchemas
         var jsonWriter = new JsonSchemaWriter();
         var schema = schemaBuilder.BuildSchema<T>();
         var natural = jsonWriter.Write(schema);
-        return Canonicalise(JsonNode.Parse(natural))!.ToJsonString();
+        return AvroJsonCanonicaliser.Canonicalise(JsonNode.Parse(natural))!.ToJsonString();
     }
 
     public static string GenerateRequestEventSchema()
@@ -32,23 +32,4 @@ public static class DorcEventSchemas
 
     public static string GenerateErrorEnvelopeSchema()
         => GenerateJsonFor<KafkaErrorEnvelope>();
-
-    private static JsonNode? Canonicalise(JsonNode? node)
-    {
-        switch (node)
-        {
-            case JsonObject obj:
-                var ordered = new JsonObject();
-                foreach (var kv in obj.OrderBy(p => p.Key, StringComparer.Ordinal))
-                    ordered[kv.Key] = Canonicalise(kv.Value?.DeepClone());
-                return ordered;
-            case JsonArray arr:
-                var newArr = new JsonArray();
-                foreach (var item in arr)
-                    newArr.Add(Canonicalise(item?.DeepClone()));
-                return newArr;
-            default:
-                return node;
-        }
-    }
 }

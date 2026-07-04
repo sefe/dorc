@@ -1,6 +1,7 @@
 using Confluent.Kafka;
 using Confluent.SchemaRegistry;
 using Dorc.Core.Events;
+using Dorc.Kafka.Client;
 using Dorc.Kafka.Client.Connection;
 using Dorc.Kafka.Client.Consumers;
 using Dorc.Kafka.Client.Observability;
@@ -150,7 +151,7 @@ public sealed class DeploymentRequestsKafkaConsumer : BackgroundService
                 }
                 continue;
             }
-            catch (KafkaException ex) when (!IsCritical(ex))
+            catch (KafkaException ex) when (!CriticalExceptions.IsCritical(ex))
             {
                 // Non-consume KafkaExceptions (e.g. unexpected broker errors not
                 // surfaced as ConsumeException) must not escape the loop: an
@@ -178,7 +179,7 @@ public sealed class DeploymentRequestsKafkaConsumer : BackgroundService
                     result.Topic, result.Partition.Value, result.Offset.Value, ConsumerGroupId,
                     result.Message.Value.RequestId, result.Message.Value.Status);
             }
-            catch (Exception ex) when (!IsCritical(ex))
+            catch (Exception ex) when (!CriticalExceptions.IsCritical(ex))
             {
                 // Broad by design: any handler-side failure (deserialize,
                 // DAL, cancellation) routes to the error log so the consume
@@ -263,57 +264,25 @@ public sealed class DeploymentRequestsKafkaConsumer : BackgroundService
     }
 
     private void HandleFailure(ConsumeResult<byte[], byte[]>? rawRecord, Exception failure, CancellationToken stoppingToken)
-    {
-        var entry = new KafkaErrorLogEntry
-        {
-            Topic = rawRecord?.Topic ?? "",
-            Partition = rawRecord?.Partition.Value ?? -1,
-            Offset = rawRecord?.Offset.Value ?? -1,
-            ConsumerGroup = ConsumerGroupId,
-            MessageKey = rawRecord?.Message?.Key is byte[] kb ? System.Text.Encoding.UTF8.GetString(kb) : null,
-            // Deserialization failure: ConsumeException.ConsumerRecord carries
-            // the raw bytes — preserve them so the DLQ envelope is replayable.
-            RawPayload = rawRecord?.Message?.Value,
-            Error = failure.Message,
-            ExceptionType = failure.GetType().FullName,
-            Stack = failure.StackTrace,
-            OccurredAt = DateTimeOffset.UtcNow
-        };
-        _failureRecorder.Record(entry, TimeSpan.FromMilliseconds(InsertTimeoutMs), stoppingToken);
-    }
+        // Topic fallback is "" (not a topic name): this consumer subscribes
+        // to BOTH requests topics, so a record-less transport failure has no
+        // singular topic to attribute the entry to.
+        => _failureRecorder.RecordRawRecordFailure(
+            rawRecord, topicFallback: "", ConsumerGroupId, failure,
+            TimeSpan.FromMilliseconds(InsertTimeoutMs), stoppingToken);
 
     private void HandleFailureFromConsumeResult(
         ConsumeResult<string, DeploymentRequestEventData> result,
         Exception failure,
         CancellationToken stoppingToken)
-    {
-        var entry = new KafkaErrorLogEntry
-        {
-            Topic = result.Topic,
-            Partition = result.Partition.Value,
-            Offset = result.Offset.Value,
-            ConsumerGroup = ConsumerGroupId,
-            MessageKey = result.Message.Key,
-            // Handler failure: the raw bytes are gone (already deserialised)
-            // but the typed message is available — serialise it so the DLQ
-            // envelope (requests.new has a DLQ) stays replayable and the
-            // structured-log fallback can preserve the content. The DLQ tier
-            // enforces KafkaErrorLogOptions.MaxPayloadBytes (with truncation
-            // flag) on this value.
-            RawPayload = KafkaConsumeFailureRecorder.SerializeTypedPayload(result.Message.Value),
-            Error = failure.Message,
-            ExceptionType = failure.GetType().FullName,
-            Stack = failure.StackTrace,
-            OccurredAt = DateTimeOffset.UtcNow
-        };
-        _failureRecorder.Record(entry, TimeSpan.FromMilliseconds(InsertTimeoutMs), stoppingToken);
-    }
-
-    private static bool IsCritical(Exception ex) =>
-        ex is OutOfMemoryException
-            or StackOverflowException
-            or AccessViolationException
-            or System.Threading.ThreadAbortException;
+        // Handler failure: the recorder re-serialises the typed message so
+        // the DLQ envelope (requests.new has a DLQ) stays replayable and the
+        // structured-log fallback can preserve the content. The DLQ tier
+        // enforces KafkaErrorLogOptions.MaxPayloadBytes (with truncation
+        // flag) on that value.
+        => _failureRecorder.RecordTypedRecordFailure(
+            result, ConsumerGroupId, failure,
+            TimeSpan.FromMilliseconds(InsertTimeoutMs), stoppingToken);
 
     /// <summary>
     /// Returns <see langword="true"/> when the <see cref="ConsumeException"/> was caused by a

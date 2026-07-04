@@ -1,5 +1,6 @@
 using Confluent.Kafka;
 using Dorc.Core.Events;
+using Dorc.Kafka.Client;
 using Dorc.Kafka.Client.Configuration;
 using Dorc.Kafka.Client.Connection;
 using Dorc.Kafka.Client.Consumers;
@@ -29,7 +30,7 @@ namespace Dorc.Kafka.Events.Publisher;
 /// KafkaErrorLogEntry via IKafkaErrorLog; if the DAL itself
 /// throws, fall back to a structured LogError; super-degraded (logger
 /// throws too) is swallowed so the consumer loop never crashes.
-/// Offset commits only after the log path completes.
+/// Offsets are stored only after the log path completes.
 /// </summary>
 public sealed class DeploymentResultsKafkaConsumer : BackgroundService
 {
@@ -39,7 +40,6 @@ public sealed class DeploymentResultsKafkaConsumer : BackgroundService
     private readonly IKafkaSerializerFactory _serializerFactory;
     private readonly IDeploymentResultBroadcaster _broadcaster;
     private readonly KafkaConsumeFailureRecorder _failureRecorder;
-    private readonly KafkaErrorLogOptions _errorLogOptions;
     private readonly IKafkaConsumerMetrics _metrics;
     private readonly ILogger<DeploymentResultsKafkaConsumer> _logger;
 
@@ -48,7 +48,6 @@ public sealed class DeploymentResultsKafkaConsumer : BackgroundService
         IKafkaSerializerFactory serializerFactory,
         IDeploymentResultBroadcaster broadcaster,
         IKafkaErrorLog errorLog,
-        IOptions<KafkaErrorLogOptions> errorLogOptions,
         IOptions<KafkaTopicsOptions> topics,
         IKafkaConsumerMetrics metrics,
         ILogger<DeploymentResultsKafkaConsumer> logger,
@@ -62,7 +61,6 @@ public sealed class DeploymentResultsKafkaConsumer : BackgroundService
         // registration in the substrate extension stays untouched; the
         // collaborator itself is unit-tested directly via InternalsVisibleTo.
         _failureRecorder = new KafkaConsumeFailureRecorder(errorLog, logger);
-        _errorLogOptions = errorLogOptions.Value;
         _metrics = metrics;
         _logger = logger;
         TopicName = topics.Value.ResultsStatus;
@@ -114,7 +112,7 @@ public sealed class DeploymentResultsKafkaConsumer : BackgroundService
     /// <summary>
     /// Number of <see cref="IDeploymentResultBroadcaster.BroadcastAsync"/>
     /// attempts before a record is routed to the error-log path and its offset
-    /// committed. <c>results.status</c> has no DLQ, so a single transient
+    /// stored. <c>results.status</c> has no DLQ, so a single transient
     /// broadcaster failure would otherwise drop a real-time UI event forever;
     /// bounded retry recovers the transient case without stalling the partition
     /// on a permanently-failing record. Audit finding F1.
@@ -127,11 +125,11 @@ public sealed class DeploymentResultsKafkaConsumer : BackgroundService
     /// <summary>Outcome of a (possibly retried) broadcast attempt sequence.</summary>
     internal enum BroadcastOutcome
     {
-        /// <summary>Delivered successfully — offset may be committed.</summary>
+        /// <summary>Delivered successfully — offset may be stored.</summary>
         Delivered,
-        /// <summary>Stopping token fired — shut down without committing.</summary>
+        /// <summary>Stopping token fired — shut down without storing the offset.</summary>
         ShuttingDown,
-        /// <summary>All attempts failed — route to the error-log + commit path.</summary>
+        /// <summary>All attempts failed — route to the error-log + offset-advance path.</summary>
         Failed
     }
 
@@ -193,7 +191,7 @@ public sealed class DeploymentResultsKafkaConsumer : BackgroundService
                 }
                 continue;
             }
-            catch (KafkaException ex) when (!IsCritical(ex))
+            catch (KafkaException ex) when (!CriticalExceptions.IsCritical(ex))
             {
                 // Non-consume KafkaExceptions must not escape the loop: an unhandled
                 // exception from a BackgroundService faults the hosted service and
@@ -209,8 +207,8 @@ public sealed class DeploymentResultsKafkaConsumer : BackgroundService
 
             var outcome = TryBroadcast(result.Message.Value, stoppingToken, out var broadcastFailure);
             if (outcome == BroadcastOutcome.ShuttingDown)
-                // Shutdown in progress — break out before committing: the
-                // broadcast never reached clients, so the offset must not
+                // Shutdown in progress — break out before storing the offset:
+                // the broadcast never reached clients, so the offset must not
                 // advance. The record will be redelivered after restart.
                 break;
             if (outcome == BroadcastOutcome.Failed)
@@ -218,31 +216,33 @@ public sealed class DeploymentResultsKafkaConsumer : BackgroundService
                 // Bounded retries exhausted (or a process-fatal exception was
                 // re-thrown out of TryBroadcast). Route to the error log so the
                 // payload is preserved (results.status has no DLQ) and the
-                // offset is committed internally via WriteErrorLogAndCommit, so
+                // offset is stored internally via AdvancePastFailedRecord, so
                 // the loop doesn't stall on a permanently-failing record.
                 HandleFailureFromConsumeResult(consumer, result, broadcastFailure!, stoppingToken);
                 continue;
             }
 
-            _logger.LogInformation(
+            _logger.LogDebug(
                 "broadcast-ok topic={Topic} partition={Partition} offset={Offset} group={GroupId} requestId={RequestId}",
                 result.Topic, result.Partition.Value, result.Offset.Value, ConsumerGroupId, result.Message.Value.RequestId);
 
-            // Commit OUTSIDE the broadcast try: the broadcast already
-            // succeeded, so a commit failure (e.g. mid-rebalance) is NOT a
-            // message failure — routing it into the error-log path would
-            // produce a spurious DLQ/DlqNotConfiguredException entry and a
-            // second commit attempt. A warning suffices: on rebalance the
-            // record is redelivered and re-broadcast (idempotent for UI
-            // status projections).
+            // Store the offset only AFTER broadcast success (auto-offset-store
+            // is disabled in BuildConsumerConfig; the auto-commit timer then
+            // flushes stored offsets in the background — same pattern as the
+            // sibling requests consumer). A crash between broadcast and the
+            // next auto-commit means redelivery, which the file's contract
+            // accepts: the record is re-broadcast, idempotent for UI status
+            // projections. StoreOffset failure (e.g. partition revoked
+            // mid-rebalance) is NOT a message failure — a warning suffices,
+            // the record is redelivered and re-broadcast.
             try
             {
-                consumer.Commit(result);
+                consumer.StoreOffset(result);
             }
-            catch (KafkaException commitEx)
+            catch (KafkaException storeEx)
             {
-                _logger.LogWarning(commitEx,
-                    "offset-commit-failed-after-broadcast topic={Topic} partition={Partition} offset={Offset} group={GroupId} — broadcast already delivered; record may be redelivered after rebalance.",
+                _logger.LogWarning(storeEx,
+                    "offset-store-failed-after-broadcast topic={Topic} partition={Partition} offset={Offset} group={GroupId} — broadcast already delivered; record may be redelivered after rebalance.",
                     result.Topic, result.Partition.Value, result.Offset.Value, ConsumerGroupId);
             }
         }
@@ -260,12 +260,12 @@ public sealed class DeploymentResultsKafkaConsumer : BackgroundService
     /// <list type="bullet">
     ///   <item><see cref="BroadcastOutcome.Delivered"/> on success;</item>
     ///   <item><see cref="BroadcastOutcome.ShuttingDown"/> if the stopping token
-    ///   fired (caller must break without committing);</item>
+    ///   fired (caller must break without storing the offset);</item>
     ///   <item><see cref="BroadcastOutcome.Failed"/> when every attempt failed —
     ///   <paramref name="lastFailure"/> carries the final exception for the
     ///   error-log path.</item>
     /// </list>
-    /// Process-fatal exceptions (see <see cref="IsCritical"/>) are never caught.
+    /// Process-fatal exceptions (see <see cref="CriticalExceptions.IsCritical"/>) are never caught.
     /// </summary>
     internal BroadcastOutcome TryBroadcast(
         DeploymentResultEventData eventData,
@@ -306,7 +306,7 @@ public sealed class DeploymentResultsKafkaConsumer : BackgroundService
                 // Genuine shutdown — not an attempt failure.
                 return BroadcastOutcome.ShuttingDown;
             }
-            catch (Exception ex) when (!IsCritical(ex))
+            catch (Exception ex) when (!CriticalExceptions.IsCritical(ex))
             {
                 // Covers transient broadcaster failures AND a per-attempt timeout
                 // (WaitAsync throws TimeoutException). lastFailure carries the
@@ -359,10 +359,10 @@ public sealed class DeploymentResultsKafkaConsumer : BackgroundService
 
     /// <summary>
     /// Shapes the consumer configuration. Exposed as <c>internal</c> so the
-    /// tests can pin the commit-semantics invariants (see
-    /// strong-2/3 finding: a global <c>EnableAutoCommit=true</c> override
-    /// must not leak into this consumer or a crash mid-broadcast can
-    /// silently drop a SignalR projection).
+    /// tests can pin the offset-semantics invariants (see
+    /// strong-2/3 finding: store-on-consume must not leak into this
+    /// consumer or a crash mid-broadcast can silently drop a SignalR
+    /// projection — offset storage is gated on broadcast success).
     /// </summary>
     internal ConsumerConfig BuildConsumerConfig()
     {
@@ -372,19 +372,24 @@ public sealed class DeploymentResultsKafkaConsumer : BackgroundService
         // identity.
         var config = _connectionProvider.GetConsumerConfig(ConsumerGroupId);
         config.AutoOffsetReset = AutoOffsetReset.Latest;
-        // Manual commit-only: every offset advances via consumer.Commit(result)
-        // after broadcast success or via WriteErrorLogAndCommit's typed
-        // TopicPartitionOffset commit on the error path. Setting this
-        // explicitly defends against an operator setting Kafka:EnableAutoCommit
-        // = true globally and silently dropping a SignalR broadcast on crash
-        // between the timer-fired auto-commit and BroadcastAsync completion.
+        // Auto-commit timer stays enabled (low-overhead) but offset STORAGE
+        // is moved off the consume call and onto explicit StoreOffset — after
+        // broadcast success on the happy path, or after the error-log tiers
+        // via AdvancePastFailedRecord on the failure path (same pattern as
+        // the sibling requests consumer). Setting both explicitly defends
+        // against a provider/librdkafka default silently re-enabling
+        // store-on-consume, which would let a crash mid-broadcast advance
+        // past an undelivered SignalR projection. The crash-redelivery window
+        // (stored but not yet timer-committed) is accepted: redelivered
+        // records are re-broadcast, idempotent for UI status projections.
         //
         // IMPORTANT: BroadcastAsync runs synchronously on the consumer poll
         // thread (.GetAwaiter().GetResult()). If downstream SignalR latency
         // exceeds max.poll.interval.ms (default 300s), the broker will fence
         // this consumer and trigger a rebalance. Ensure the configured value
         // accommodates worst-case broadcast latency.
-        config.EnableAutoCommit = false;
+        config.EnableAutoCommit = true;
+        config.EnableAutoOffsetStore = false;
         return config;
     }
 
@@ -411,22 +416,18 @@ public sealed class DeploymentResultsKafkaConsumer : BackgroundService
         Exception failure,
         CancellationToken stoppingToken)
     {
-        var entry = new KafkaErrorLogEntry
-        {
-            Topic = rawRecord?.Topic ?? TopicName,
-            Partition = rawRecord?.Partition.Value ?? -1,
-            Offset = rawRecord?.Offset.Value ?? -1,
-            ConsumerGroup = ConsumerGroupId,
-            MessageKey = rawRecord?.Message?.Key is byte[] kb ? System.Text.Encoding.UTF8.GetString(kb) : null,
-            // Deserialization failure: ConsumeException.ConsumerRecord carries
-            // the raw bytes — preserve them for triage/replay.
-            RawPayload = rawRecord?.Message?.Value,
-            Error = failure.Message,
-            ExceptionType = failure.GetType().FullName,
-            Stack = failure.StackTrace,
-            OccurredAt = DateTimeOffset.UtcNow
-        };
-        WriteErrorLogAndCommit(consumer, entry, advanceOffset: rawRecord is not null, stoppingToken);
+        // Three-tier failure recording (DLQ → structured log → swallow) and
+        // entry construction live in the shared collaborator so both
+        // consumers stay in lock-step. Topic fallback is this consumer's
+        // single subscribed topic — a record-less transport failure is still
+        // attributable to it.
+        _failureRecorder.RecordRawRecordFailure(
+            rawRecord, TopicName, ConsumerGroupId, failure,
+            TimeSpan.FromMilliseconds(InsertTimeoutMs), stoppingToken);
+
+        // No record ⇒ nothing to advance past.
+        if (rawRecord is null) return;
+        AdvancePastFailedRecord(consumer, rawRecord.Topic, rawRecord.Partition.Value, rawRecord.Offset.Value);
     }
 
     private void HandleFailureFromConsumeResult(
@@ -435,64 +436,43 @@ public sealed class DeploymentResultsKafkaConsumer : BackgroundService
         Exception failure,
         CancellationToken stoppingToken)
     {
-        var entry = new KafkaErrorLogEntry
-        {
-            Topic = result.Topic,
-            Partition = result.Partition.Value,
-            Offset = result.Offset.Value,
-            ConsumerGroup = ConsumerGroupId,
-            MessageKey = result.Message.Key,
-            // Broadcast failure: the raw bytes are gone (already deserialised)
-            // but the typed message is available — serialise it so the
-            // structured-log fallback preserves the content (results.status
-            // has no DLQ route; the entry otherwise loses its payload forever
-            // once the offset is committed below).
-            RawPayload = KafkaConsumeFailureRecorder.SerializeTypedPayload(result.Message.Value),
-            Error = failure.Message,
-            ExceptionType = failure.GetType().FullName,
-            Stack = failure.StackTrace,
-            OccurredAt = DateTimeOffset.UtcNow
-        };
-        WriteErrorLogAndCommit(consumer, entry, advanceOffset: true, stoppingToken);
+        // Broadcast failure: the recorder re-serialises the typed message so
+        // the structured-log fallback preserves the content (results.status
+        // has no DLQ route; the entry otherwise loses its payload forever
+        // once the offset advances below).
+        _failureRecorder.RecordTypedRecordFailure(
+            result, ConsumerGroupId, failure,
+            TimeSpan.FromMilliseconds(InsertTimeoutMs), stoppingToken);
+
+        AdvancePastFailedRecord(consumer, result.Topic, result.Partition.Value, result.Offset.Value);
     }
 
-    private void WriteErrorLogAndCommit(
+    private void AdvancePastFailedRecord(
         IConsumer<string, DeploymentResultEventData> consumer,
-        KafkaErrorLogEntry entry,
-        bool advanceOffset,
-        CancellationToken stoppingToken)
+        string topic,
+        int partition,
+        long offset)
     {
-        // Three-tier failure recording (DLQ → structured log → swallow) lives
-        // in the shared collaborator so both consumers stay in lock-step.
-        _failureRecorder.Record(entry, TimeSpan.FromMilliseconds(InsertTimeoutMs), stoppingToken);
-
-        if (!advanceOffset) return;
-
         try
         {
-            // Scope commit to the failed message's partition only. The no-arg
-            // overload would commit every assigned partition's last consumed
-            // offset, which under CooperativeSticky rebalancing can advance
-            // partitions whose in-flight messages haven't been processed yet.
+            // Store the failed record's next offset after the error-log tiers
+            // ran, so the poisoned record doesn't stall the partition. Same
+            // StoreOffset semantics as the happy path (auto-commit timer
+            // flushes it); inherently scoped to the failed message's
+            // partition only.
             var nextOffset = new TopicPartitionOffset(
-                entry.Topic,
-                new Partition(entry.Partition),
-                new Offset(entry.Offset + 1));
-            consumer.Commit(new[] { nextOffset });
+                topic,
+                new Partition(partition),
+                new Offset(offset + 1));
+            consumer.StoreOffset(nextOffset);
         }
-        catch (KafkaException commitEx)
+        catch (KafkaException storeEx)
         {
-            _logger.LogError(commitEx,
-                "Kafka offset commit failed after error-log path for topic={Topic} partition={Partition} offset={Offset}",
-                entry.Topic, entry.Partition, entry.Offset);
+            _logger.LogError(storeEx,
+                "Kafka offset store failed after error-log path for topic={Topic} partition={Partition} offset={Offset}",
+                topic, partition, offset);
         }
     }
-
-    private static bool IsCritical(Exception ex) =>
-        ex is OutOfMemoryException
-            or StackOverflowException
-            or AccessViolationException
-            or System.Threading.ThreadAbortException;
 
     /// <summary>
     /// Returns <see langword="true"/> when the <see cref="ConsumeException"/> was caused by a

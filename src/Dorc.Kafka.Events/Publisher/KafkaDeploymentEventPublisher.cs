@@ -1,6 +1,7 @@
 using Confluent.Kafka;
 using Dorc.Core.Events;
 using Dorc.Core.Interfaces;
+using Dorc.Kafka.Client;
 using Dorc.Kafka.Events.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -76,7 +77,7 @@ public sealed class KafkaDeploymentEventPublisher : IDeploymentEventsPublisher, 
             // it to every client a second time.
             return;
         }
-        catch (Exception ex) when (!IsCritical(ex))
+        catch (Exception ex) when (!CriticalExceptions.IsCritical(ex))
         {
             LogProduceFailure(ex, _topics.ResultsStatus, eventData.RequestId);
         }
@@ -86,7 +87,7 @@ public sealed class KafkaDeploymentEventPublisher : IDeploymentEventsPublisher, 
         // updated; best-effort because there is nothing further to fall
         // back to.
         try { await _fallback.PublishResultStatusChangedAsync(eventData); }
-        catch (Exception ex) when (!IsCritical(ex))
+        catch (Exception ex) when (!CriticalExceptions.IsCritical(ex))
         {
             _logger.LogWarning(ex,
                 "signalr-fallback-failed kind=result requestId={RequestId} resultId={ResultId}",
@@ -104,8 +105,8 @@ public sealed class KafkaDeploymentEventPublisher : IDeploymentEventsPublisher, 
         // SignalR fan-out is best-effort by design; catch broadly so any
         // hub-side or transport exception is logged WARN without
         // suppressing the Kafka emit. Process-fatal exceptions still
-        // propagate via IsCritical.
-        catch (Exception ex) when (!IsCritical(ex))
+        // propagate via CriticalExceptions.IsCritical.
+        catch (Exception ex) when (!CriticalExceptions.IsCritical(ex))
         {
             _logger.LogWarning(ex,
                 "signalr-fanout-failed kind={Kind} requestId={RequestId}", kind, eventData.RequestId);
@@ -125,7 +126,7 @@ public sealed class KafkaDeploymentEventPublisher : IDeploymentEventsPublisher, 
         // so a throw here becomes an unobserved-task exception rather than
         // anyone's error handling. The Monitor's DB-poll baseline still
         // picks the request up; the Kafka emit is the acceleration path.
-        catch (Exception ex) when (!IsCritical(ex))
+        catch (Exception ex) when (!CriticalExceptions.IsCritical(ex))
         {
             LogProduceFailure(ex, topic, eventData.RequestId);
         }
@@ -162,10 +163,4 @@ public sealed class KafkaDeploymentEventPublisher : IDeploymentEventsPublisher, 
             _requestsProducer.Dispose();
         }
     }
-
-    private static bool IsCritical(Exception ex) =>
-        ex is OutOfMemoryException
-            or StackOverflowException
-            or AccessViolationException
-            or System.Threading.ThreadAbortException;
 }

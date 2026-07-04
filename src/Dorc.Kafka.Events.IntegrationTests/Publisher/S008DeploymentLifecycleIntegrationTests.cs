@@ -75,7 +75,7 @@ public class S008DeploymentLifecycleIntegrationTests
             var handler = new RecordingHandler();
             var groupId = $"s008-at1-{Guid.NewGuid():N}";
             using var consumer = new DeploymentRequestsKafkaConsumer(
-                BuildConnection(groupId), factory, handler,
+                BuildConnection(), factory, handler,
                 new NoopErrorLog(), topicsOptions,
                 new Dorc.Kafka.Client.Observability.NoOpKafkaConsumerMetrics(),
                 NullLogger<DeploymentRequestsKafkaConsumer>.Instance)
@@ -133,11 +133,10 @@ public class S008DeploymentLifecycleIntegrationTests
 
     // ---- helpers ----
 
-    private static IKafkaConnectionProvider BuildConnection(string? groupId = null)
+    private static IKafkaConnectionProvider BuildConnection()
         => new KafkaConnectionProvider(Options.Create(new KafkaClientOptions
         {
             BootstrapServers  = AvroKafkaTestHarness.BootstrapServers,
-            ConsumerGroupId   = groupId ?? $"s008-pub-{Guid.NewGuid():N}",
             SchemaRegistry    = { Url = AvroKafkaTestHarness.SchemaRegistryUrl },
             SessionTimeoutMs  = 10_000,
             HeartbeatIntervalMs = 3_000,

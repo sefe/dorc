@@ -1,6 +1,5 @@
 using Dorc.Kafka.Client.Configuration;
 using Dorc.Kafka.Client.Connection;
-using Dorc.Kafka.Client.Consumers;
 using Dorc.Kafka.Client.Observability;
 using Dorc.Kafka.Client.Producers;
 using Dorc.Kafka.Client.Serialization;
@@ -33,7 +32,6 @@ public static class KafkaClientServiceCollectionExtensions
         // into their OpenTelemetry pipeline; the meter is dormant otherwise.
         services.TryAddSingleton<IKafkaConsumerMetrics, KafkaConsumerMetrics>();
         services.TryAddSingleton(typeof(IKafkaProducerBuilder<,>), typeof(KafkaProducerBuilder<,>));
-        services.TryAddSingleton(typeof(IKafkaConsumerBuilder<,>), typeof(KafkaConsumerBuilder<,>));
 
         return services;
     }

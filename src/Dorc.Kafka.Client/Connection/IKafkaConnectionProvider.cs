@@ -6,7 +6,13 @@ public interface IKafkaConnectionProvider
 {
     ProducerConfig GetProducerConfig();
 
-    ConsumerConfig GetConsumerConfig(string? groupIdOverride = null);
+    /// <summary>
+    /// Consumer config carrying connection/security/timeout settings for the
+    /// given (required) consumer group. Offset semantics (EnableAutoCommit,
+    /// AutoOffsetReset) are deliberately NOT set here — they are per-consumer
+    /// decisions that every consumer applies explicitly to the returned config.
+    /// </summary>
+    ConsumerConfig GetConsumerConfig(string groupId);
 
     /// <summary>
     /// Admin-client config sharing the same bootstrap + security settings as

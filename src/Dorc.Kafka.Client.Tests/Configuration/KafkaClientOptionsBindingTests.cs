@@ -22,9 +22,6 @@ public class KafkaClientOptionsBindingTests
             ["Kafka:SchemaRegistry:Url"] = "https://registry.example:8081",
             ["Kafka:SchemaRegistry:BasicAuthUsername"] = "sr-user",
             ["Kafka:SchemaRegistry:BasicAuthPassword"] = "sr-pass",
-            ["Kafka:ConsumerGroupId"] = "dorc-monitor",
-            ["Kafka:AutoOffsetReset"] = "Latest",
-            ["Kafka:EnableAutoCommit"] = "true",
             ["Kafka:SessionTimeoutMs"] = "45000",
             ["Kafka:HeartbeatIntervalMs"] = "15000",
             ["Kafka:MaxPollIntervalMs"] = "600000"
@@ -42,9 +39,6 @@ public class KafkaClientOptionsBindingTests
         Assert.AreEqual("https://registry.example:8081", opts.SchemaRegistry.Url);
         Assert.AreEqual("sr-user", opts.SchemaRegistry.BasicAuthUsername);
         Assert.AreEqual("sr-pass", opts.SchemaRegistry.BasicAuthPassword);
-        Assert.AreEqual("dorc-monitor", opts.ConsumerGroupId);
-        Assert.AreEqual(KafkaAutoOffsetReset.Latest, opts.AutoOffsetReset);
-        Assert.IsTrue(opts.EnableAutoCommit);
         Assert.AreEqual(45_000, opts.SessionTimeoutMs);
         Assert.AreEqual(15_000, opts.HeartbeatIntervalMs);
         Assert.AreEqual(600_000, opts.MaxPollIntervalMs);
@@ -62,8 +56,6 @@ public class KafkaClientOptionsBindingTests
         config.GetSection(KafkaClientOptions.SectionName).Bind(opts);
 
         Assert.AreEqual(KafkaAuthMode.Plaintext, opts.AuthMode);
-        Assert.AreEqual(KafkaAutoOffsetReset.Earliest, opts.AutoOffsetReset);
-        Assert.IsFalse(opts.EnableAutoCommit);
         Assert.AreEqual(30_000, opts.SessionTimeoutMs);
         Assert.AreEqual(10_000, opts.HeartbeatIntervalMs);
         Assert.AreEqual(300_000, opts.MaxPollIntervalMs);

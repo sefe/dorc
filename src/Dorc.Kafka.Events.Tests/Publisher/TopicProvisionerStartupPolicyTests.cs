@@ -29,7 +29,6 @@ public class TopicProvisionerStartupPolicyTests
         var log = new ListLogger<KafkaResultsStatusTopicProvisioner>();
         return (new KafkaResultsStatusTopicProvisioner(
             new ThrowingConnectionProvider(),
-            Options.Create(new KafkaSubstrateOptions()),
             Options.Create(Topics),
             log), log);
     }

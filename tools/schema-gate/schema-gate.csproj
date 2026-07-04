@@ -6,6 +6,7 @@
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
     <RootNamespace>Dorc.Tools.SchemaGate</RootNamespace>
+    <AssemblyName>Dorc.Tools.SchemaGate</AssemblyName>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Dorc.Kafka.Events\Dorc.Kafka.Events.csproj" />

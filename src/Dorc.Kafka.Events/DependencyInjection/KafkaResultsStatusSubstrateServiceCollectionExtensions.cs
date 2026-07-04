@@ -7,7 +7,6 @@ using Dorc.Kafka.Events.Publisher;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 
 namespace Dorc.Kafka.Events.DependencyInjection;
@@ -33,20 +32,12 @@ public static class KafkaResultsStatusSubstrateServiceCollectionExtensions
 
         services.AddSingleton<DorcKafkaPublisherMarker>();
 
-        // KafkaTopicsOptions / KafkaSubstrateOptions are registered by every
-        // Kafka.Events entry-point that needs them — see the long-running
-        // idempotency comments on the consumer extensions. Repeating here
-        // means publisher-only callers (Monitor) get a fully-validated
-        // options graph without taking on the consumer wiring.
-        services.AddOptions<KafkaSubstrateOptions>()
-            .Bind(configuration.GetSection(KafkaSubstrateOptions.SectionName))
-            .ValidateOnStart();
-        services.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<KafkaSubstrateOptions>, KafkaSubstrateOptionsValidator>());
-
-        services.AddOptions<KafkaTopicsOptions>()
-            .Bind(configuration.GetSection(KafkaTopicsOptions.SectionName))
-            .ValidateOnStart();
-        services.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<KafkaTopicsOptions>, KafkaTopicsOptionsValidator>());
+        // KafkaTopicsOptions is registered by every Kafka.Events entry-point
+        // that needs it — see the idempotency comments on the shared
+        // registration block. Repeating here means publisher-only callers
+        // (Monitor) get a fully-validated options graph without taking on
+        // the consumer wiring.
+        KafkaEventsOptionsRegistration.AddKafkaEventOptions(services, configuration);
 
         services.TryAddSingleton<IProducer<string, DeploymentResultEventData>>(sp =>
         {
@@ -111,11 +102,7 @@ public static class KafkaResultsStatusSubstrateServiceCollectionExtensions
         // deployment the consumer hits UnknownTopicOrPartition in a tight
         // loop until provisioning completes. Guarded: the request-lifecycle
         // substrate extension registers the same provisioner.
-        if (!services.Any(sd => sd.ServiceType == typeof(IHostedService)
-                && sd.ImplementationType == typeof(KafkaResultsStatusTopicProvisioner)))
-        {
-            services.AddHostedService<KafkaResultsStatusTopicProvisioner>();
-        }
+        KafkaEventsOptionsRegistration.EnsureResultsStatusTopicProvisioner(services);
 
         if (useSharedConsumerGroup)
         {
@@ -124,7 +111,6 @@ public static class KafkaResultsStatusSubstrateServiceCollectionExtensions
                 sp.GetRequiredService<Client.Serialization.IKafkaSerializerFactory>(),
                 sp.GetRequiredService<IDeploymentResultBroadcaster>(),
                 sp.GetRequiredService<ErrorLog.IKafkaErrorLog>(),
-                sp.GetRequiredService<IOptions<ErrorLog.KafkaErrorLogOptions>>(),
                 sp.GetRequiredService<IOptions<KafkaTopicsOptions>>(),
                 sp.GetRequiredService<Client.Observability.IKafkaConsumerMetrics>(),
                 sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<DeploymentResultsKafkaConsumer>>(),

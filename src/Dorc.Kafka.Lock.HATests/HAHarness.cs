@@ -60,7 +60,6 @@ internal sealed class HAHarness : IAsyncDisposable
         var clientOpts = Options.Create(new KafkaClientOptions
         {
             BootstrapServers = HATestPrereq.Bootstrap,
-            ConsumerGroupId = _groupId,
             AuthMode = HATestPrereq.SaslUser is null ? KafkaAuthMode.Plaintext : KafkaAuthMode.SaslSsl,
             Sasl = new KafkaSaslOptions
             {

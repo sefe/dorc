@@ -1,6 +1,5 @@
 using Confluent.Kafka;
 using Confluent.Kafka.Admin;
-using Dorc.Kafka.Client.Configuration;
 using Dorc.Kafka.Client.Connection;
 using Dorc.Kafka.Client.Provisioning;
 using Dorc.Kafka.Events.Configuration;
@@ -16,8 +15,9 @@ namespace Dorc.Kafka.Events.Publisher;
 /// because  lands first;  inherits it via the same hook.
 ///
 /// :
-/// - Topic creation with 12 partitions, RF from KafkaSubstrateOptions,
-/// min.insync.replicas = 2 (or 1 for RF=1 dev).
+/// - Topic creation with 12 partitions, RF from
+/// KafkaTopicsOptions.ReplicationFactor, min.insync.replicas = 2 (or 1 for
+/// RF=1 dev).
 /// - Existing topic with same partition count -> Information log, no-op.
 /// - Existing topic with different partition count -> Warning log, no
 /// throw (per-RequestId ordering is preserved for a fixed count).
@@ -31,18 +31,15 @@ namespace Dorc.Kafka.Events.Publisher;
 public sealed class KafkaResultsStatusTopicProvisioner : IHostedService
 {
     private readonly IKafkaConnectionProvider _connectionProvider;
-    private readonly KafkaSubstrateOptions _substrateOptions;
     private readonly KafkaTopicsOptions _topics;
     private readonly ILogger<KafkaResultsStatusTopicProvisioner> _logger;
 
     public KafkaResultsStatusTopicProvisioner(
         IKafkaConnectionProvider connectionProvider,
-        IOptions<KafkaSubstrateOptions> substrateOptions,
         IOptions<KafkaTopicsOptions> topics,
         ILogger<KafkaResultsStatusTopicProvisioner> logger)
     {
         _connectionProvider = connectionProvider;
-        _substrateOptions = substrateOptions.Value;
         _topics = topics.Value;
         _logger = logger;
     }
@@ -98,7 +95,7 @@ public sealed class KafkaResultsStatusTopicProvisioner : IHostedService
     /// </summary>
     internal TopicSpecification BuildTopicSpecification(string topic)
     {
-        var rf = _substrateOptions.ResultsStatusReplicationFactor;
+        var rf = _topics.ReplicationFactor;
         var minIsr = rf >= 3 ? 2 : 1;
         var configs = new Dictionary<string, string>
         {

@@ -6,6 +6,7 @@
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
     <RootNamespace>Dorc.Tools.AivenConnectivityCheck</RootNamespace>
+    <AssemblyName>Dorc.Tools.AivenConnectivityCheck</AssemblyName>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Confluent.Kafka" Version="2.11.1" />

@@ -44,6 +44,9 @@ public sealed class KafkaTopicsOptionsValidator : IValidateOptions<KafkaTopicsOp
         foreach (var dup in duplicates)
             errors.Add($"{KafkaTopicsOptions.SectionName}: topic names must be distinct — duplicate value shared by: {dup}.");
 
+        if (options.ReplicationFactor < 1)
+            errors.Add($"{KafkaTopicsOptions.SectionName}:{nameof(KafkaTopicsOptions.ReplicationFactor)} must be >= 1.");
+
         return errors.Count == 0
             ? ValidateOptionsResult.Success
             : ValidateOptionsResult.Fail(errors);

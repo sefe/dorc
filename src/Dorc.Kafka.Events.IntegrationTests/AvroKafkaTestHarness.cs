@@ -82,22 +82,19 @@ internal static class AvroKafkaTestHarness
             connection, factory, NullLogger<KafkaProducerBuilder<string, TValue>>.Instance);
     }
 
-    public static KafkaConsumerBuilder<string, TValue> ConsumerBuilder<TValue>(
-        AvroKafkaSerializerFactory factory,
-        string groupId)
+    public static KafkaConsumerBuilder<string, TValue> ConsumerBuilder<TValue>(AvroKafkaSerializerFactory factory)
     {
-        var connection = BuildConnection(groupId);
+        var connection = BuildConnection();
         return new KafkaConsumerBuilder<string, TValue>(
             connection, factory, new Dorc.Kafka.Client.Observability.NoOpKafkaConsumerMetrics(),
             NullLogger<KafkaConsumerBuilder<string, TValue>>.Instance);
     }
 
-    private static IKafkaConnectionProvider BuildConnection(string? groupId = null)
+    private static IKafkaConnectionProvider BuildConnection()
     {
         var options = new KafkaClientOptions
         {
             BootstrapServers = BootstrapServers,
-            ConsumerGroupId = groupId ?? $"it-{Guid.NewGuid():N}",
             SchemaRegistry = { Url = SchemaRegistryUrl },
             SessionTimeoutMs = 10_000,
             HeartbeatIntervalMs = 3_000,
