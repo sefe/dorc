@@ -249,16 +249,10 @@ namespace Dorc.Monitor
 
                 this.logger.LogInformation($"Going to {methodName} the requests: [{idsString}]");
 
-                if (requests.Any(r => r.IsProd))
-                {
-                    this.logger.LogError($"Cannot {methodName} the request with id '{requests.First(r => r.IsProd).Id}' because request is running on production environment");
-                    return 0;
-                }
-
                 foreach (var id in ids)
                 {
                     TerminateRequestExecution(id, requestCancellationSources);
-                };
+                }
 
                 // Uses optimistic concurrency: only updates requests still in 'fromStatus'
                 int updatedRequestCount = this.requestsPersistentSource.SwitchDeploymentRequestStatuses(
@@ -573,7 +567,7 @@ namespace Dorc.Monitor
                     {
                         this.RemoveCancellationTokenSource(requestToExecute.Request.Id, requestCancellationSources);
                         environmentRequestIdRunning.TryRemove(requestGroup.Key, out _);
-                        
+
                         // Release the distributed lock
                         if (envLock != null)
                         {

@@ -63,8 +63,16 @@ export class AttachedServers extends ResponsiveMixin(LitElement) {
         overflow: auto;
         padding: 10px;
       }
+      :host {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        min-height: 0;
+        height: 100%;
+      }
       vaadin-grid#grid {
-        overflow: auto;
+        flex: 1;
+        min-height: 0;
         width: calc(100% - 4px);
         --divider-color: var(--dorc-border-color);
       }
@@ -131,7 +139,6 @@ export class AttachedServers extends ResponsiveMixin(LitElement) {
         .items=${this.servers}
         theme="compact row-stripes no-row-borders no-border"
         multi-sort
-        all-rows-visible
       >
         <vaadin-grid-column
           path="Name"
