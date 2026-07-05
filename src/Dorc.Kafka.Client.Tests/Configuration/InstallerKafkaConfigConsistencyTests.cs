@@ -151,4 +151,80 @@ public class InstallerKafkaConfigConsistencyTests
         yield return ("NonProdActionService.wxs", NonProdWxs);
         yield return ("RequestApi.wxs", RequestApiWxs);
     }
+
+    /// <summary>
+    /// Kafka appsettings keys deliberately NOT written by the installer:
+    /// tuning values whose shipped defaults are correct for every install and
+    /// which operators override via config/env channels, not MSI parameters.
+    /// A key belongs here only with a reason — this list is the explicit
+    /// record that its absence from WiX is a decision, not a forgotten line.
+    /// </summary>
+    private static readonly IReadOnlyDictionary<string, string> InstallerExemptAppSettingsKeys =
+        new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["Kafka.Locks.PartitionCount"] = "immutable post-cutover; runbook-controlled, never per-install",
+            ["Kafka.Locks.ReplicationFactor"] = "cluster-level constant; dev stacks override via env",
+            ["Kafka.Locks.AcquireWaitMs"] = "tuning value; shipped default correct everywhere",
+            ["Kafka.Locks.SessionTimeoutMs"] = "outage-grace budget; deliberate shipped default (150s), env-overridable",
+            ["Kafka.ErrorLog.MaxPayloadBytes"] = "tuning value",
+            ["Kafka.ErrorLog.ProduceTimeoutMs"] = "tuning value",
+            ["Kafka.ErrorLog.PartitionCount"] = "cluster-level constant",
+            ["Kafka.ErrorLog.ReplicationFactor"] = "cluster-level constant",
+            ["Kafka.ErrorLog.RetentionMs"] = "tuning value",
+            ["Kafka.Sasl.Mechanism"] = "SCRAM-SHA-256 everywhere; changing it is a broker-migration event, not an install parameter",
+            ["Kafka.Avro.AllowAutomaticSchemaRegistration"] = "must stay false in every installed environment (schema gate); dev-only env override",
+        };
+
+    /// <summary>
+    /// The reverse-direction guard: every Kafka key SHIPPED in the two
+    /// appsettings templates must either be written by the WiX installers or
+    /// appear in <see cref="InstallerExemptAppSettingsKeys"/> with a reason.
+    /// Without this direction, a new appsettings key whose JsonFile write was
+    /// forgotten sails through the other three tests — the exact
+    /// silently-runs-with-defaults failure this class exists to prevent.
+    /// </summary>
+    [TestMethod]
+    public void EveryShippedKafkaAppSettingsKey_IsInstallerWrittenOrExplicitlyExempt()
+    {
+        var wxsPaths = WxsFiles()
+            .SelectMany(f => KafkaElementPaths(f.Content))
+            .Select(p => p.TrimStart('$', '.'))   // "$.Kafka.Topics.Locks" -> "Kafka.Topics.Locks"
+            .ToHashSet(StringComparer.Ordinal);
+
+        foreach (var appSettings in new[]
+                 {
+                     ("src/Dorc.Monitor/appsettings.json", ReadRepoFile("src", "Dorc.Monitor", "appsettings.json")),
+                     ("src/Dorc.Api/appsettings.json", ReadRepoFile("src", "Dorc.Api", "appsettings.json")),
+                 })
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(appSettings.Item2);
+            if (!doc.RootElement.TryGetProperty("Kafka", out var kafka)) continue;
+
+            var leaves = new List<string>();
+            CollectLeafKeys(kafka, "Kafka", leaves);
+
+            var unaccounted = leaves
+                .Where(k => !wxsPaths.Contains(k) && !InstallerExemptAppSettingsKeys.ContainsKey(k))
+                .OrderBy(k => k)
+                .ToList();
+
+            Assert.AreEqual(0, unaccounted.Count,
+                $"Kafka key(s) shipped in {appSettings.Item1} that no WiX JsonFile writes and no exemption documents: "
+                + string.Join(", ", unaccounted)
+                + " — either add the installer wiring (wxs + bat + msi.json + DeploySettings.template.json) "
+                + "or add an InstallerExemptAppSettingsKeys entry stating why the shipped default is universal.");
+        }
+    }
+
+    private static void CollectLeafKeys(System.Text.Json.JsonElement element, string prefix, List<string> leaves)
+    {
+        foreach (var prop in element.EnumerateObject())
+        {
+            var path = $"{prefix}.{prop.Name}";
+            if (prop.Value.ValueKind == System.Text.Json.JsonValueKind.Object)
+                CollectLeafKeys(prop.Value, path, leaves);
+            else
+                leaves.Add(path);
+        }
+    }
 }

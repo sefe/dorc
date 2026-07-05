@@ -9,7 +9,9 @@ findings; each was independently verified (CONFIRMED / PLAUSIBLE / REFUTED
 with code-cited justification). 29 findings survived. This document maps every
 confirmed finding to its remediation or its explicit deferral rationale, per
 the repo's review process (findings triaged as Accept / Downgrade / Defer /
-Reject).
+Reject). The 29 findings appear across 27 rows: row 10 merges the two
+replica-identity findings, and the commit-pattern LOW bullet merges the
+sync-commit and log-level findings.
 
 ## Confirmed findings → fixes
 
@@ -32,16 +34,16 @@ Reject).
 
 | # | Finding | Fix |
 |---|---------|-----|
-| 6 | Startup gate checked only BootstrapServers + SchemaRegistry:Url while the installers force `AuthMode=SaslSsl` with empty credential defaults — the resulting half-configured install passed the gate then crashed both hosts at `ValidateOnStart`. | Gate requires `Kafka:Sasl:Username`/`Password` when `Kafka:AuthMode=SaslSsl`; gate preconditions now explicitly track the validator's. Tests call the production gate (removing the hand-copied mirror the test file's own TODO flagged). |
+| 6 | Startup gate checked only BootstrapServers + SchemaRegistry:Url while the installers force `AuthMode=SaslSsl` with empty credential defaults — the resulting half-configured install passed the gate then crashed both hosts at `ValidateOnStart`. | Gate requires `Kafka:Sasl:Username`/`Password`/`Mechanism` when `Kafka:AuthMode=SaslSsl` (enum parsed with binder-equivalent tolerance, incl. numeric values); gate preconditions now explicitly track the validator's. The gate-decision tests call the production `KafkaStartupGate` (retiring that half of the test file's hand-copy TODO; the fallback DI-wiring mirror in `BuildFallbackRegistrations` remains a documented known limitation). |
 | 7 | Both production appsettings shipped `Kafka:Avro:AllowAutomaticSchemaRegistration=true`, contradicting the option's own documentation and silently voiding the PR-time schema gate in every installed environment. | Flipped to `false` in both appsettings; local-dev README documents the compose-stack override (`Kafka__Avro__AllowAutomaticSchemaRegistration=true` or pre-seed via `tools/snapshot-schemas`). |
 | 8 | With Azure SignalR Service enabled (a supported install-time option), hub sends are delivered service-wide, so the per-replica fan-out consumer design broadcast every results-status event N× per client. | `AddDorcKafkaResultsStatusSubstrate(..., useSharedConsumerGroup)` wired from `Azure:SignalR:IsUseAzureSignalR`: in that mode all API replicas join one competing consumer group and exactly one projects each event. Broadcaster doc states both modes' invariants. |
-| 9 | Results + DLQ topic provisioners awaited `CreateTopicsAsync` with no timeout or cancellation (sequential, in `IHostedService.StartAsync`): an unreachable broker delayed Monitor startup ~5 minutes and the API ~4 before the DB-poll fallback could run. | Shared `IdempotentTopicProvisioner` core (Dorc.Kafka.Client): every admin call bounded by `WaitAsync(30s, cancellationToken)`; the results provisioner's three topics batch into one `CreateTopicsAsync`. The locks provisioner keeps its documented fail-fast mismatch policy but gains the same timeout bound. |
+| 9 | Results + DLQ topic provisioners awaited `CreateTopicsAsync` with no timeout or cancellation (sequential, in `IHostedService.StartAsync`): an unreachable broker delayed Monitor startup ~5 minutes and the API ~4 before the DB-poll fallback could run. | Shared `IdempotentTopicProvisioner` core (Dorc.Kafka.Client): every admin call bounded by `WaitAsync(30s, cancellationToken)`; the results provisioner's three topics batch into one `CreateTopicsAsync`. The locks provisioner keeps its documented fail-fast mismatch policy but gains the same timeout bound. Includes a public-interface addition: `IKafkaConnectionProvider.GetAdminConfig()` (default interface method + provider override through `ApplySecurity`) replaces the 6-field `AdminClientConfig` hand-copy in all three provisioners, single-sourcing admin security config. |
 | 10 | Per-replica consumer-group identity: co-hosted Prod/NonProd services shared `{MachineName}` groups (wake-signals partition-split between tiers); the doc-recommended K8s pod UID contradicted the class's own stable-across-restarts requirement (orphan groups per rollout); no installer surface could set `DORC_REPLICA_ID`. | Config-bound `Kafka:ReplicaId` (`{MachineName}-{ReplicaId}` suffix; MSI writes `prod`/`nonprod` for the Monitor services and API components). `HostInstanceId` docs now require rollout-stable identity (e.g. StatefulSet pod name) and explicitly proscribe the pod UID. |
 | 11 | `KafkaConsumeFailureRecorder` exists so "the consumers cannot drift", yet the ~95-line `KafkaErrorLogEntry` mapping lived outside it, duplicated per consumer, and had already drifted (`TopicName` vs `""` fallback). | Entry construction moved into recorder factory methods; consumers reduced to one-line calls. *(Cleanup batch A)* |
 | 12 | `KafkaSubstrateOptions` survived the removed substrate-selector mode carrying one misleadingly-named property (`ResultsStatusReplicationFactor` actually sets RF for all three topics); its `Kafka:Substrate` section exists in no appsettings. | Folded into `KafkaTopicsOptions.ReplicationFactor`; class + validator + duplicate registrations deleted. *(Cleanup batch B)* |
 | 13 | `KafkaClientOptions.EnableAutoCommit` / `AutoOffsetReset` / `ConsumerGroupId` were dead operator surface — every consumer deliberately overrides them; an operator setting them sees no change. | Removed; `GetConsumerConfig` takes a required group id, per-consumer policy is explicit at each call site. *(Cleanup batch B)* |
 | 14 | The Envelope feature (`KafkaEnvelope`, extensions, header names) and the `IKafkaConsumerBuilder` DI registration are referenced by no production code — scaffolding from S-002 the final wiring never adopted, silently promising correlation-header tracing that doesn't exist. | Deleted (tests migrated to direct construction where they used the builder). *(Cleanup batch B)* |
-| 15 | The 13-key Kafka config surface spans 9 hand-synchronized sites across 7 installer/config files with no consistency guard — a missed WiX line silently drops that install into fallback mode. | Consistency test parses the three `.wxs` files, `Setup.Dorc.msi.json`, and `Install.Orchestrator.bat` and asserts every Kafka key present in the appsettings templates is wired through each layer. *(Cleanup batch C)* |
+| 15 | The 13-key Kafka config surface spans 9 hand-synchronized sites across 7 installer/config files with no consistency guard — a missed WiX line silently drops that install into fallback mode. | `InstallerKafkaConfigConsistencyTests`: forward direction (every WiX-referenced `[KAFKA.*]` property has a bat default, an msi.json mapping, and a DeploySettings seed; Prod↔NonProd ElementPath parity) plus the reverse direction (every Kafka key shipped in either appsettings template is WiX-written or carries a documented exemption with its reason) — the reverse guard is what catches a forgotten JsonFile line. *(Cleanup batch C + round 2)* |
 
 ### LOW (fixed)
 
@@ -62,6 +64,21 @@ Reject).
 | `MurmurHash2` hand-rolled for broker-partitioner parity | Verified acceptable-with-tests: known-answer vectors from Apache Kafka's reference implementation pin the hash, and the alignment comment self-documents the librdkafka `consistent_random` caveat. Residual risk noted: `KafkaLocksOptions.PartitionCount` divergence between nodes is the more plausible split-brain-by-config vector — flagged in the cutover runbook's immutability warning. |
 | New `tools/` console apps target `net8.0`, not the current LTS (.NET 10) | Every CI pipeline pins the .NET 8 SDK and the whole solution is net8.0; retargeting the tools alone would break CI. Tracked as part of the solution-wide net10 migration needed before net8 EOL (Nov 2026). |
 | Serializer-cache `lock` on the publish path | REFUTED as material (nanosecond critical section at deployment-scale event rates); left as-is. |
+
+## Round 2 (review of the remediation itself)
+
+A second adversarial panel reviewed the remediation diff. Confirmed round-2
+findings and their fixes:
+
+| Finding | Fix |
+|---------|-----|
+| The `Kafka:Substrate:ResultsStatusReplicationFactor` → `Kafka:Topics:ReplicationFactor` rename had no back-compat binding, and the old claim that "dev compose overrides to 1" was implemented nowhere — an out-of-repo legacy override would silently revert to RF=3 and topic creation would fail warn-only. | Legacy key honoured as a `PostConfigure` fallback (new key wins); option doc states the explicit dev-stack override. |
+| `Kafka:ReplicaId` (written unconditionally by the MSI) outranked `DORC_REPLICA_ID`, silently collapsing per-replica identities a site had established via the env var. | Precedence inverted: env var → config → machine name, documented on `HostInstanceId.For`. |
+| The lock coordinator derived its static `group.instance.id` from a different identity channel (`HostInstanceId.Value`) than the event consumers — co-hosted tiers would have fenced each other. | Coordinator uses the same `HostInstanceId.For(Kafka:ReplicaId)` resolution; fencing risk for same-tier co-hosting documented (requires `DORC_REPLICA_ID`, same as the fan-out warning). |
+| The startup gate string-matched `AuthMode` against the literal name only and skipped `Sasl:Mechanism`, so numeric enum values or a blanked mechanism crashed at `ValidateOnStart` past the gate. | `Enum.TryParse` (name/number, case-insensitive) + Mechanism completeness check; tests cover both. |
+| Cutover-Runbook timings (ST-3 "SessionTimeoutMs default 10 s", §8.2 defaults) predated the 150s session / static-membership semantics. | Runbook budgets and defaults updated, including the crashed-incarnation ghost window and decommission cost. |
+| The consistency test only checked the forward (wxs → bat/msi/template) direction, so a forgotten WiX write for an appsettings key was invisible. | Reverse-direction guard added with a documented exemption list (see finding 15). |
+| Doc-accuracy: finding-count arithmetic, the unlisted `GetAdminConfig` interface addition, and the over-claimed TODO retirement in finding 6. | Corrected in this document. |
 
 ## Verification
 

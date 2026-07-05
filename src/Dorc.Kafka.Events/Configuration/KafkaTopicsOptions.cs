@@ -33,8 +33,11 @@ public sealed class KafkaTopicsOptions
     /// <summary>
     /// Replication factor applied on first creation to the topics this host
     /// provisions: <see cref="ResultsStatus"/>, <see cref="RequestsNew"/>,
-    /// <see cref="RequestsStatus"/>. Production = 3 (Aiven 3-broker
-    /// cluster); single-broker dev compose overrides to 1.
+    /// <see cref="RequestsStatus"/>. Production = 3 (Aiven 3-broker cluster).
+    /// Hosts run against a single-broker dev stack must set this to 1
+    /// explicitly (e.g. <c>Kafka__Topics__ReplicationFactor=1</c>); the
+    /// legacy key <c>Kafka:Substrate:ResultsStatusReplicationFactor</c> is
+    /// still honoured as a fallback (see KafkaEventsOptionsRegistration).
     /// </summary>
     public short ReplicationFactor { get; set; } = 3;
 }

@@ -29,6 +29,21 @@ internal static class KafkaEventsOptionsRegistration
     {
         services.AddOptions<KafkaTopicsOptions>()
             .Bind(configuration.GetSection(KafkaTopicsOptions.SectionName))
+            // Back-compat: the replication factor used to live at
+            // Kafka:Substrate:ResultsStatusReplicationFactor (the deleted
+            // KafkaSubstrateOptions). Environments that set the old key
+            // out-of-repo (e.g. Kafka__Substrate__ResultsStatusReplicationFactor=1
+            // against a single-broker dev stack) must not silently revert to
+            // RF=3 — that makes topic creation fail warn-only and consumers
+            // loop on UnknownTopicOrPartition. The new key wins when both set.
+            .PostConfigure(options =>
+            {
+                if (configuration[$"{KafkaTopicsOptions.SectionName}:{nameof(KafkaTopicsOptions.ReplicationFactor)}"] is null
+                    && short.TryParse(configuration["Kafka:Substrate:ResultsStatusReplicationFactor"], out var legacyRf))
+                {
+                    options.ReplicationFactor = legacyRf;
+                }
+            })
             .ValidateOnStart();
 
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<KafkaTopicsOptions>, KafkaTopicsOptionsValidator>());

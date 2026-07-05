@@ -57,15 +57,22 @@ public static class KafkaStartupGate
         // wired — reaching it means both hosts crash at startup instead of
         // taking this gate's documented clean fallback. Keep the two
         // preconditions aligned: whatever the validator requires at
-        // ValidateOnStart, this gate must require first.
-        if (string.Equals(configuration["Kafka:AuthMode"], nameof(KafkaAuthMode.SaslSsl), StringComparison.OrdinalIgnoreCase))
+        // ValidateOnStart, this gate must require first. Enum.TryParse
+        // mirrors the options binder's tolerance (name, any casing, or the
+        // numeric enum value) so a numerically-configured AuthMode can't
+        // sneak past the gate and crash at validation anyway.
+        if (Enum.TryParse<KafkaAuthMode>(configuration["Kafka:AuthMode"], ignoreCase: true, out var authMode)
+            && authMode == KafkaAuthMode.SaslSsl)
         {
-            foreach (var key in new[] { "Kafka:Sasl:Username", "Kafka:Sasl:Password" })
+            // Mechanism has a non-empty appsettings default, but an override
+            // channel can blank it; the validator rejects empty/unsupported
+            // mechanisms, so incompleteness must gate to fallback here too.
+            foreach (var key in new[] { "Kafka:Sasl:Username", "Kafka:Sasl:Password", "Kafka:Sasl:Mechanism" })
             {
                 if (string.IsNullOrWhiteSpace(configuration[key]))
                 {
                     reportFallback(
-                        $"[startup] Kafka:Enabled=true with Kafka:AuthMode=SaslSsl but {key} is empty (SASL credentials incomplete); running in {fallbackModeLabel}.");
+                        $"[startup] Kafka:Enabled=true with Kafka:AuthMode=SaslSsl but {key} is empty (SASL configuration incomplete); running in {fallbackModeLabel}.");
                     return false;
                 }
             }

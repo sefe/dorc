@@ -87,7 +87,8 @@ public sealed class KafkaLockCoordinator : IHostedService, IAsyncDisposable
         IOptions<KafkaLocksOptions> options,
         IOptions<KafkaTopicsOptions> topics,
         ILogger<KafkaLockCoordinator> logger,
-        TimeProvider? timeProvider = null)
+        TimeProvider? timeProvider = null,
+        IOptions<Client.Configuration.KafkaClientOptions>? clientOptions = null)
     {
         _connectionProvider = connectionProvider;
         _options = options.Value;
@@ -95,7 +96,14 @@ public sealed class KafkaLockCoordinator : IHostedService, IAsyncDisposable
         _logger = logger;
         _timeProvider = timeProvider ?? TimeProvider.System;
         _lastBrokerContactTimestamp = _timeProvider.GetTimestamp();
+        _configuredReplicaId = clientOptions?.Value.ReplicaId;
     }
+
+    // Same replica-identity channel as the event consumers (Kafka:ReplicaId
+    // config, DORC_REPLICA_ID env var outranking it) so the static
+    // group.instance.id below can never diverge from the identity the rest
+    // of the substrate uses.
+    private readonly string? _configuredReplicaId;
 
     public KafkaLocksOptions Options => _options;
 
@@ -157,9 +165,13 @@ public sealed class KafkaLockCoordinator : IHostedService, IAsyncDisposable
         // reclaims the same partitions with no rebalance, so peer Monitors'
         // held locks survive routine service restarts / rolling upgrades.
         // The instance id must be unique per group member: group id scopes it
-        // per tier, host identity scopes it per machine/replica.
+        // per tier, host identity scopes it per machine/replica. Two members
+        // presenting the SAME instance id fence each other (fatal error →
+        // slot cancel → rebuild → re-fence, a locking-outage ping-pong), so
+        // same-tier co-hosted replicas MUST set DORC_REPLICA_ID — the
+        // fan-out consumer warning covers the same topology.
         if (_options.UseStaticGroupMembership)
-            config.GroupInstanceId = $"{_options.ConsumerGroupId}.{Events.Publisher.HostInstanceId.Value}";
+            config.GroupInstanceId = $"{_options.ConsumerGroupId}.{Events.Publisher.HostInstanceId.For(_configuredReplicaId)}";
 
         var handlers = new KafkaRebalanceHandlers<byte[], byte[]>(_logger, "dorc-lock-coordinator");
 

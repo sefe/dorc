@@ -120,8 +120,42 @@ public class KafkaStartupFallbackTests
             ("Kafka:SchemaRegistry:Url", "https://registry:8081"),
             ("Kafka:AuthMode", "SaslSsl"),
             ("Kafka:Sasl:Username", "dorc"),
-            ("Kafka:Sasl:Password", "secret"));
+            ("Kafka:Sasl:Password", "secret"),
+            ("Kafka:Sasl:Mechanism", "SCRAM-SHA-256"));
         Assert.IsTrue(EvaluateKafkaEnabled(cfg));
+    }
+
+    [TestMethod]
+    public void KafkaEnabled_SaslSslAsNumericEnum_EmptyCredentials_ReturnsFalse()
+    {
+        // The options binder accepts the numeric enum value; the gate must
+        // parse AuthMode the same way or a numerically-configured install
+        // sneaks past the gate and crashes at ValidateOnStart.
+        var cfg = Config(
+            ("Kafka:Enabled", "true"),
+            ("Kafka:BootstrapServers", "broker:9092"),
+            ("Kafka:SchemaRegistry:Url", "https://registry:8081"),
+            ("Kafka:AuthMode", ((int)Dorc.Kafka.Client.Configuration.KafkaAuthMode.SaslSsl).ToString()),
+            ("Kafka:Sasl:Username", ""),
+            ("Kafka:Sasl:Password", ""));
+        Assert.IsFalse(EvaluateKafkaEnabled(cfg),
+            "Numeric AuthMode must be recognised — validator parity.");
+    }
+
+    [TestMethod]
+    public void KafkaEnabled_SaslSslWithBlankedMechanism_ReturnsFalse()
+    {
+        // An override channel blanking Kafka:Sasl:Mechanism fails the
+        // validator; the gate must route that to fallback, not a crash.
+        var cfg = Config(
+            ("Kafka:Enabled", "true"),
+            ("Kafka:BootstrapServers", "broker:9092"),
+            ("Kafka:SchemaRegistry:Url", "https://registry:8081"),
+            ("Kafka:AuthMode", "SaslSsl"),
+            ("Kafka:Sasl:Username", "dorc"),
+            ("Kafka:Sasl:Password", "secret"),
+            ("Kafka:Sasl:Mechanism", ""));
+        Assert.IsFalse(EvaluateKafkaEnabled(cfg));
     }
 
     [TestMethod]

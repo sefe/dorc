@@ -18,12 +18,8 @@ namespace Dorc.Kafka.Events.Publisher;
 /// <c>__consumer_offsets</c> indefinitely.</description></item>
 /// </list>
 ///
-/// <para>Resolution order:</para>
+/// <para>Resolution order (see <see cref="For"/>):</para>
 /// <list type="number">
-/// <item><description><c>Kafka:ReplicaId</c> configuration (via
-/// <see cref="For"/>), the installer-friendly channel: the MSI writes
-/// tier-distinct values ("prod"/"nonprod") so co-hosted services never
-/// share a per-replica group.</description></item>
 /// <item><description><c>DORC_REPLICA_ID</c> environment variable, if
 /// set. The value must be <b>stable across restarts AND rollouts</b> —
 /// in K8s use a rollout-stable identity such as the StatefulSet pod
@@ -31,9 +27,13 @@ namespace Dorc.Kafka.Events.Publisher;
 /// (<c>metadata.uid</c>): it changes on every pod recreation, so each
 /// rollout mints a brand-new consumer group, orphaning the previous
 /// one in <c>__consumer_offsets</c> until offset retention expires.
-/// <b>Deployments that run more than one replica on the same host with
-/// no config channel MUST set this</b> — the fallback below cannot
-/// distinguish co-hosted replicas.</description></item>
+/// <b>Deployments that run more than one SAME-TIER replica on the same
+/// host MUST set this</b> — neither the config channel (tier-level) nor
+/// the machine-name fallback can distinguish them.</description></item>
+/// <item><description><c>Kafka:ReplicaId</c> configuration, the
+/// installer-friendly channel: the MSI writes tier-distinct values
+/// ("prod"/"nonprod") so co-hosted Prod/NonProd services never share a
+/// per-replica group.</description></item>
 /// <item><description>Otherwise, <c>{MachineName}</c> alone. Stable
 /// across restarts — a PID-style suffix would mint a fresh consumer
 /// group on every restart, accumulating orphan groups in
@@ -54,16 +54,26 @@ public static class HostInstanceId
     private static string Resolve() => Resolve(Environment.GetEnvironmentVariable, Environment.MachineName);
 
     /// <summary>
-    /// Effective per-replica suffix honouring the config channel: a non-empty
-    /// <c>Kafka:ReplicaId</c> combines with the machine name
+    /// Effective per-replica suffix. Precedence:
+    /// <c>DORC_REPLICA_ID</c> env var → <c>Kafka:ReplicaId</c> config →
+    /// machine name. The env var outranks the config channel deliberately:
+    /// the MSI writes tier-level config values ("prod"/"nonprod")
+    /// unconditionally, and a site that already distinguishes same-tier
+    /// co-hosted replicas via a per-replica <c>DORC_REPLICA_ID</c> must not
+    /// have those identities silently collapsed onto the tier value by an
+    /// upgrade. The config channel combines with the machine name
     /// (<c>{MachineName}-{ReplicaId}</c>) — unique per machine AND per
-    /// co-hosted service tier; otherwise falls back to the
-    /// <c>DORC_REPLICA_ID</c> / machine-name resolution of <see cref="Value"/>.
+    /// co-hosted service tier.
     /// </summary>
     public static string For(string? configuredReplicaId)
-        => string.IsNullOrWhiteSpace(configuredReplicaId)
+    {
+        if (!string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(EnvironmentVariable)))
+            return Value;
+
+        return string.IsNullOrWhiteSpace(configuredReplicaId)
             ? Value
             : $"{Environment.MachineName}-{configuredReplicaId.Trim()}";
+    }
 
     /// <summary>
     /// Pure resolver split out for testability — the static <see cref="Value"/>
