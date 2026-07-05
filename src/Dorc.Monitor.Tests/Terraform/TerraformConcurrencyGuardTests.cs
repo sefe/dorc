@@ -65,6 +65,17 @@ namespace Dorc.Monitor.Tests.Terraform
         }
 
         [TestMethod]
+        public void Acquire_SpaceAndHyphenEnvironments_AreDistinctSlots()
+        {
+            var guard = NewGuard();
+            // "Prod EU" and "Prod-EU" are distinct environment names and map
+            // to distinct terraform states (the state-key sanitizer hex-escapes
+            // the space), so holding one slot must not block the other.
+            using var withSpace = guard.Acquire("Prod EU", "comp-a", "op-1");
+            guard.Acquire("Prod-EU", "comp-a", "op-2", TimeSpan.FromMilliseconds(50)).Dispose();
+        }
+
+        [TestMethod]
         public void Exception_CarriesContendingOperationId()
         {
             var guard = NewGuard();

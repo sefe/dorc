@@ -330,6 +330,42 @@ deprecated: false
                 "First-violation-wins finds 'address_space: List' before 'subnets: List' in declaration order.");
         }
 
+        // ----- Latest-version resolution (GetAsync(name) overload) -----
+
+        // Guards the numeric per-component ordering: lexical string ordering
+        // would pick 1.9.0 over 1.10.0.
+        [TestMethod]
+        public async Task GetAsyncLatest_OrdersVersionsNumericallyPerComponent()
+        {
+            File.WriteAllText(Path.Join(_tempDir, "testmod-1.9.0.yaml"),
+                BuildSingleParamYaml("testmod", "1.9.0", "alpha", "String"));
+            File.WriteAllText(Path.Join(_tempDir, "testmod-1.10.0.yaml"),
+                BuildSingleParamYaml("testmod", "1.10.0", "alpha", "String"));
+
+            var catalog = new GitTemplateCatalog(_tempDir, NullLogger<GitTemplateCatalog>.Instance);
+            var latest = await catalog.GetAsync("testmod");
+
+            Assert.IsNotNull(latest, "GetAsync(name) should resolve the template.");
+            Assert.AreEqual("1.10.0", latest.Version,
+                "1.10.0 is numerically newer than 1.9.0; lexical ordering would wrongly pick 1.9.0.");
+        }
+
+        [TestMethod]
+        public async Task GetAsyncLatest_VPrefixedVersionParsesAndWins()
+        {
+            File.WriteAllText(Path.Join(_tempDir, "testmod-1.9.0.yaml"),
+                BuildSingleParamYaml("testmod", "1.9.0", "alpha", "String"));
+            File.WriteAllText(Path.Join(_tempDir, "testmod-v2.0.0.yaml"),
+                BuildSingleParamYaml("testmod", "v2.0.0", "alpha", "String"));
+
+            var catalog = new GitTemplateCatalog(_tempDir, NullLogger<GitTemplateCatalog>.Instance);
+            var latest = await catalog.GetAsync("testmod");
+
+            Assert.IsNotNull(latest, "GetAsync(name) should resolve the template.");
+            Assert.AreEqual("v2.0.0", latest.Version,
+                "A 'v'-prefixed version must parse numerically (2.0.0) and beat 1.9.0.");
+        }
+
         // ----- Helpers -----
 
         // Generates a minimal valid YAML with one parameter of the supplied

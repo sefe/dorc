@@ -30,8 +30,9 @@ namespace Dorc.Terraform.Catalog.Tests
             IReadOnlyList<string>? allowedValues = null,
             string? pattern = null,
             decimal? min = null,
-            decimal? max = null)
-            => new(name, type, required, null, null, allowedValues, pattern, min, max);
+            decimal? max = null,
+            bool sensitive = false)
+            => new(name, type, required, null, null, allowedValues, pattern, min, max, sensitive);
 
         [TestMethod]
         public void Validate_AllRequiredSupplied_ReturnsValid()
@@ -133,6 +134,72 @@ namespace Dorc.Terraform.Catalog.Tests
             Assert.IsFalse(result.IsValid);
             Assert.IsTrue(result.Errors.Any(e =>
                 e.Kind == ParameterValidationErrorKind.UnknownParameter && e.ParameterName == "unknown"));
+        }
+
+        // ---------- Sensitive-value redaction in error messages ----------
+
+        [TestMethod]
+        public void Validate_SensitiveNumberTypeMismatch_RedactsValueInMessage()
+        {
+            var manifest = Manifest(Param("secret_count", TerraformParameterType.Number, sensitive: true));
+            var supplied = new Dictionary<string, string?> { ["secret_count"] = "hunter2-not-a-number" };
+
+            var result = validator.Validate(manifest, supplied);
+
+            Assert.IsFalse(result.IsValid);
+            Assert.AreEqual(ParameterValidationErrorKind.TypeMismatch, result.Errors[0].Kind);
+            StringAssert.Contains(result.Errors[0].Message, "[REDACTED]",
+                "Sensitive parameter's error message must carry the redaction marker.");
+            Assert.IsFalse(result.Errors[0].Message.Contains("hunter2-not-a-number"),
+                "Sensitive parameter's raw value must never appear in a validation error message.");
+        }
+
+        [TestMethod]
+        public void Validate_SensitivePatternMismatch_RedactsValueInMessage()
+        {
+            var manifest = Manifest(Param("api_key", pattern: "^[a-z0-9]+$", sensitive: true));
+            var supplied = new Dictionary<string, string?> { ["api_key"] = "Secret-Value!" };
+
+            var result = validator.Validate(manifest, supplied);
+
+            Assert.IsFalse(result.IsValid);
+            Assert.AreEqual(ParameterValidationErrorKind.PatternMismatch, result.Errors[0].Kind);
+            StringAssert.Contains(result.Errors[0].Message, "[REDACTED]",
+                "Sensitive parameter's error message must carry the redaction marker.");
+            Assert.IsFalse(result.Errors[0].Message.Contains("Secret-Value!"),
+                "Sensitive parameter's raw value must never appear in a validation error message.");
+        }
+
+        [TestMethod]
+        public void Validate_SensitiveNumberBelowMin_RedactsValueInMessage()
+        {
+            var manifest = Manifest(Param("secret_size", TerraformParameterType.Number, min: 10, sensitive: true));
+            var supplied = new Dictionary<string, string?> { ["secret_size"] = "3" };
+
+            var result = validator.Validate(manifest, supplied);
+
+            Assert.IsFalse(result.IsValid);
+            Assert.AreEqual(ParameterValidationErrorKind.OutOfRange, result.Errors[0].Kind);
+            StringAssert.Contains(result.Errors[0].Message, "[REDACTED]",
+                "Sensitive parameter's error message must carry the redaction marker.");
+            Assert.IsFalse(result.Errors[0].Message.Contains("3"),
+                "Sensitive parameter's raw value must never appear in a validation error message.");
+        }
+
+        [TestMethod]
+        public void Validate_NonSensitivePatternMismatch_ShowsValueInMessage()
+        {
+            var manifest = Manifest(Param("server_name", pattern: "^[a-z][a-z0-9-]+$"));
+            var supplied = new Dictionary<string, string?> { ["server_name"] = "BadName!" };
+
+            var result = validator.Validate(manifest, supplied);
+
+            Assert.IsFalse(result.IsValid);
+            Assert.AreEqual(ParameterValidationErrorKind.PatternMismatch, result.Errors[0].Kind);
+            StringAssert.Contains(result.Errors[0].Message, "'BadName!'",
+                "Non-sensitive parameter's value is still interpolated (quoted) for diagnosability.");
+            Assert.IsFalse(result.Errors[0].Message.Contains("[REDACTED]"),
+                "Non-sensitive parameters must not be redacted.");
         }
 
         [TestMethod]

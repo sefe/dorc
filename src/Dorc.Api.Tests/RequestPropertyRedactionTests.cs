@@ -1,4 +1,5 @@
 using Dorc.ApiModel;
+using Dorc.Core;
 
 namespace Dorc.Api.Tests
 {
@@ -110,6 +111,96 @@ namespace Dorc.Api.Tests
             var p = new RequestProperty { PropertyName = "x", PropertyValue = "y" };
             Assert.IsFalse(p.IsSensitive,
                 "Existing JSON payloads omitting IsSensitive must deserialise to false (additive change).");
+        }
+
+        // ---------- RedactRequestDetailsXml ----------
+        // The XML payloads below are produced by the real
+        // Dorc.Core.DeploymentRequestDetailSerializer so these tests also
+        // prove the serializer round-trip of the PropertyPair.IsSensitive
+        // flag, not just string surgery on a hand-written fixture.
+
+        private static string SerializeDetail(params PropertyPair[] properties)
+        {
+            var detail = new DeploymentRequestDetail
+            {
+                EnvironmentName = "TEVO DV 11",
+                Components = new List<string> { "storage-account" },
+                Properties = properties.ToList(),
+            };
+            return new DeploymentRequestDetailSerializer().Serialize(detail);
+        }
+
+        [TestMethod]
+        public void RedactRequestDetailsXml_ReplacesSensitiveValue_PreservesNonSensitive()
+        {
+            var xml = SerializeDetail(
+                new PropertyPair("rg", "rg-prod"),
+                new PropertyPair("password", "hunter2-original") { IsSensitive = true });
+
+            var redacted = RequestPropertyRedaction.RedactRequestDetailsXml(xml);
+
+            Assert.IsFalse(redacted.Contains("hunter2-original"),
+                "Sensitive value must not survive redaction anywhere in the payload.");
+            StringAssert.Contains(redacted, RequestPropertyRedaction.Marker,
+                "Sensitive value is replaced with the marker.");
+            StringAssert.Contains(redacted, "rg-prod",
+                "Non-sensitive value is preserved verbatim.");
+        }
+
+        [TestMethod]
+        public void RedactRequestDetailsXml_NoSensitiveProperties_ReturnsSameInstance()
+        {
+            var xml = SerializeDetail(
+                new PropertyPair("rg", "rg-prod"),
+                new PropertyPair("loc", "uksouth"));
+
+            var result = RequestPropertyRedaction.RedactRequestDetailsXml(xml);
+
+            Assert.AreSame(xml, result,
+                "Payloads without a sensitive property skip parsing and are returned unchanged (same instance).");
+        }
+
+        [TestMethod]
+        public void RedactRequestDetailsXml_NullOrEmpty_ReturnedUnchanged()
+        {
+            Assert.IsNull(RequestPropertyRedaction.RedactRequestDetailsXml(null!));
+            Assert.AreEqual(string.Empty, RequestPropertyRedaction.RedactRequestDetailsXml(string.Empty));
+        }
+
+        [TestMethod]
+        public void RedactRequestDetailsXml_MalformedXml_ReturnedUnchanged()
+        {
+            // Contains the sensitive marker substring (so the cheap pre-check
+            // does not short-circuit) but is not well-formed XML.
+            const string malformed = "<DeploymentRequestDetail><Properties><PropertyPair>"
+                + "<Name>password</Name><Value>hunter2-original</Value>"
+                + "<IsSensitive>true</IsSensitive>";
+
+            var result = RequestPropertyRedaction.RedactRequestDetailsXml(malformed);
+
+            Assert.AreSame(malformed, result,
+                "Malformed XML must be returned unchanged rather than throwing at a read surface.");
+        }
+
+        [TestMethod]
+        public void RedactRequestDetailsXml_ResultStillDeserializes_WithMarkerValue()
+        {
+            var xml = SerializeDetail(
+                new PropertyPair("rg", "rg-prod"),
+                new PropertyPair("password", "hunter2-original") { IsSensitive = true });
+
+            var redacted = RequestPropertyRedaction.RedactRequestDetailsXml(xml);
+            var roundTripped = new DeploymentRequestDetailSerializer().Deserialize(redacted);
+
+            var sensitive = roundTripped.Properties.Single(p => p.Name == "password");
+            Assert.AreEqual(RequestPropertyRedaction.Marker, sensitive.Value,
+                "Redacted payload must still deserialize, with the sensitive value replaced by the marker.");
+            Assert.IsTrue(sensitive.IsSensitive,
+                "IsSensitive flag survives redaction and round-trip.");
+
+            var plain = roundTripped.Properties.Single(p => p.Name == "rg");
+            Assert.AreEqual("rg-prod", plain.Value, "Non-sensitive value survives round-trip unchanged.");
+            Assert.IsFalse(plain.IsSensitive);
         }
     }
 }
