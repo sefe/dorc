@@ -104,11 +104,34 @@ namespace Dorc.Terraform.Catalog
         public async Task<TerraformTemplateManifest?> GetAsync(string name, CancellationToken cancellationToken = default)
         {
             var all = await ListAsync(cancellationToken).ConfigureAwait(false);
-            // Highest semver wins; semver compared lexically here is naive but
-            // sufficient for stock-modules tags in the form vMAJOR.MINOR.PATCH.
+            // Highest version wins, compared numerically per dotted component
+            // (lexical ordering would pick 1.9.0 over 1.10.0). Versions that
+            // do not parse sort below any parseable version and fall back to
+            // ordinal comparison amongst themselves.
             return all.Where(m => string.Equals(m.Name, name, StringComparison.Ordinal))
-                      .OrderByDescending(m => m.Version, StringComparer.Ordinal)
+                      .OrderByDescending(m => TryParseVersion(m.Version), NullsFirstVersionComparer.Instance)
+                      .ThenByDescending(m => m.Version, StringComparer.Ordinal)
                       .FirstOrDefault();
+        }
+
+        private static Version? TryParseVersion(string version)
+        {
+            var v = version.StartsWith("v", StringComparison.OrdinalIgnoreCase) ? version[1..] : version;
+            // System.Version needs at least major.minor.
+            if (!v.Contains('.')) v += ".0";
+            return Version.TryParse(v, out var parsed) ? parsed : null;
+        }
+
+        private sealed class NullsFirstVersionComparer : IComparer<Version?>
+        {
+            public static readonly NullsFirstVersionComparer Instance = new();
+            public int Compare(Version? x, Version? y)
+            {
+                if (x is null && y is null) return 0;
+                if (x is null) return -1;
+                if (y is null) return 1;
+                return x.CompareTo(y);
+            }
         }
 
         public async Task<TerraformTemplateManifest?> GetAsync(string name, string version, CancellationToken cancellationToken = default)

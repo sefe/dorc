@@ -85,6 +85,7 @@ export * from './SourceControlType';
 export * from './TerraformSourceType';
 export * from './TerraformTemplateManifest';
 export * from './TerraformTemplateInstantiateRequestApiModel';
+export * from './TerraformTemplateInstantiateResponseApiModel';
 export * from './UpdateEnvironmentHistoryRequest';
 export * from './UserAccountType';
 export * from './UserApiModel';

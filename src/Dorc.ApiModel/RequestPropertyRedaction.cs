@@ -1,6 +1,9 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Xml;
+using System.Xml.Linq;
 
 namespace Dorc.ApiModel
 {
@@ -71,6 +74,49 @@ namespace Dorc.ApiModel
                 sb.Append(p.IsSensitive ? Marker : (p.PropertyValue ?? string.Empty));
             }
             return sb.ToString();
+        }
+
+        /// <summary>
+        /// Redacts sensitive property values inside a serialized
+        /// DeploymentRequest.RequestDetails XML payload (the
+        /// Dorc.Core.DeploymentRequestDetail shape, where each property is a
+        /// PropertyPair element carrying Name/Value/IsSensitive). Intended
+        /// for API emission boundaries only - the stored payload must keep
+        /// cleartext values because the Monitor feeds them to the runner.
+        /// Never write the result of this method back to the database.
+        /// Payloads without a sensitive property (including all payloads
+        /// persisted before the IsSensitive flag existed) are returned
+        /// unchanged; malformed XML is returned unchanged rather than
+        /// throwing at a read surface.
+        /// </summary>
+        public static string RedactRequestDetailsXml(string requestDetailsXml)
+        {
+            if (string.IsNullOrEmpty(requestDetailsXml)) return requestDetailsXml;
+            // Cheap pre-check so the overwhelmingly common case (no sensitive
+            // properties) skips XML parsing on hot list endpoints.
+            if (requestDetailsXml.IndexOf("<IsSensitive>true</IsSensitive>", StringComparison.OrdinalIgnoreCase) < 0)
+                return requestDetailsXml;
+
+            try
+            {
+                var root = XElement.Parse(requestDetailsXml);
+                foreach (var propertyPair in root.Descendants("PropertyPair"))
+                {
+                    var sensitiveElement = propertyPair.Element("IsSensitive");
+                    if (sensitiveElement != null
+                        && bool.TryParse(sensitiveElement.Value, out var isSensitive)
+                        && isSensitive)
+                    {
+                        var valueElement = propertyPair.Element("Value");
+                        if (valueElement != null) valueElement.Value = Marker;
+                    }
+                }
+                return root.ToString(SaveOptions.DisableFormatting);
+            }
+            catch (XmlException)
+            {
+                return requestDetailsXml;
+            }
         }
     }
 }

@@ -23,7 +23,6 @@ namespace Dorc.Api.Controllers
         private readonly IRequestsManager _requestsManager;
         private readonly IRequestsPersistentSource _requestsPersistentSource;
         private readonly IProjectsPersistentSource _projectsPersistentSource;
-        private readonly IComponentsPersistentSource _componentsPersistentSource;
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
         private readonly IDeploymentEventsPublisher _deploymentEventsPublisher;
         private readonly IConfigurationSettings _configurationSettings;
@@ -34,7 +33,6 @@ namespace Dorc.Api.Controllers
         public RequestController(IRequestService service, ISecurityPrivilegesChecker apiSecurityService, ILogger<RequestController> log,
             IRequestsManager requestsManager, IRequestsPersistentSource requestsPersistentSource,
             IProjectsPersistentSource projectsPersistentSource,
-            IComponentsPersistentSource componentsPersistentSource,
             IClaimsPrincipalReader claimsPrincipalReader,
             IDeploymentEventsPublisher deploymentEventsPublisher,
             IConfigurationSettings configurationSettings,
@@ -44,7 +42,6 @@ namespace Dorc.Api.Controllers
             )
         {
             _projectsPersistentSource = projectsPersistentSource;
-            _componentsPersistentSource = componentsPersistentSource;
             _requestsPersistentSource = requestsPersistentSource;
             _requestsManager = requestsManager;
             _service = service;
@@ -641,27 +638,38 @@ namespace Dorc.Api.Controllers
         }
 
         /// <summary>
-        /// resolves the (BuildUrl=empty, Components=non-empty) case
-        ///. Looks up each named component; if all are Catalog-mode,
+        /// resolves the (BuildUrl=empty, Components=non-empty) case.
+        /// Resolves each named component strictly within the request's
+        /// project (component names are only unique per project - a global
+        /// lookup could bind to another project's component, or throw on
+        /// cross-project duplicates). If every component is Catalog-mode,
         /// substitutes the Catalog sentinel BuildUrl and returns null
-        /// (proceed). If any component is not Catalog-mode (mixed) or the
-        /// component cannot be bound to a manifest (null catalog reference),
-        /// returns a 400 IActionResult ready to short-circuit the controller.
-        /// Cross-project enumeration safety: identical 400 status
-        /// + identical body for "component not found" and "component exists
-        /// but in a different project / catalog reference null".
+        /// (proceed). If none is Catalog-mode this is a legacy request -
+        /// returns null without touching BuildUrl so the pre-catalog
+        /// behaviour (RequestService's ArtefactsUrl fallback) is preserved.
+        /// Mixed Catalog + non-Catalog, or a Catalog component with a null
+        /// manifest binding, returns a 400 IActionResult ready to
+        /// short-circuit the controller. Cross-project enumeration safety:
+        /// identical 400 status + identical body for "component not found"
+        /// and "catalog reference null".
         /// </summary>
         private IActionResult? ResolveCatalogOnlyRouting(RequestDto requestDto)
         {
             const string genericRejection = "One or more components in this request cannot be deployed without a build artifact URL. Either supply a build artifact, or ensure every component is a fully-instantiated Catalog-mode component.";
+
+            var projectComponents = _projectsPersistentSource
+                .GetComponentsForProject(requestDto.Project)
+                .GroupBy(c => c.ComponentName, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+
+            var catalogComponents = new List<ComponentApiModel>();
             var anyNonCatalog = false;
             foreach (var componentName in requestDto.Components)
             {
-                var component = _componentsPersistentSource.GetComponentByName(componentName);
-                // Identical 400 for not-found and cross-project / null-binding
-                // cases avoids leaking component existence across project
-                // scopes.
-                if (component == null)
+                // Membership in the project was validated earlier in
+                // CreateRequest; a miss here (e.g. concurrent delete) gets
+                // the same opaque rejection as a null catalog binding.
+                if (!projectComponents.TryGetValue(componentName, out var component))
                 {
                     return BadRequest(genericRejection);
                 }
@@ -670,6 +678,23 @@ namespace Dorc.Api.Controllers
                     anyNonCatalog = true;
                     continue;
                 }
+                catalogComponents.Add(component);
+            }
+
+            if (catalogComponents.Count == 0)
+            {
+                // No Catalog components at all: legacy empty-BuildUrl request.
+                return null;
+            }
+
+            if (anyNonCatalog)
+            {
+                //  case (d): mixed Catalog + non-Catalog with empty BuildUrl.
+                return BadRequest(genericRejection);
+            }
+
+            foreach (var component in catalogComponents)
+            {
                 if (string.IsNullOrEmpty(component.TerraformTemplateName) ||
                     string.IsNullOrEmpty(component.TerraformTemplateVersion))
                 {
@@ -678,12 +703,6 @@ namespace Dorc.Api.Controllers
                     // 400 rather than an opaque runner failure later.
                     return BadRequest(genericRejection);
                 }
-            }
-
-            if (anyNonCatalog)
-            {
-                //  case (d): mixed Catalog + non-Catalog with empty BuildUrl.
-                return BadRequest(genericRejection);
             }
 
             //  case (a): every component is Catalog-mode.

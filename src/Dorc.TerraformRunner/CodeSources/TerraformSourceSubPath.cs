@@ -67,7 +67,14 @@ namespace Dorc.TerraformRunner.CodeSources
                 throw new ArgumentException($"Terraform sub-path '{subPath}' not found in repository.");
             }
 
-            var tempExtractDir = Path.Join(Path.GetTempPath(), $"terraform-extract-{Guid.NewGuid()}");
+            // Stage as a sibling of workingDir, not under %TEMP%:
+            // Directory.Move throws IOException across volumes, and on
+            // hardened hosts %TEMP% and the terraform work root
+            // (%ProgramData%\dorc\...) can live on different drives. A
+            // sibling is on the same volume by construction.
+            var workingDirParent = Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(Path.GetFullPath(workingDir)))
+                ?? throw new ArgumentException("workingDir must have a parent directory", nameof(workingDir));
+            var tempExtractDir = Path.Join(workingDirParent, $"terraform-extract-{Guid.NewGuid()}");
             Directory.CreateDirectory(tempExtractDir);
 
             try

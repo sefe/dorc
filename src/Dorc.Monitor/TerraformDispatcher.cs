@@ -148,7 +148,8 @@ namespace Dorc.Monitor
                 scriptGroup.TerraformStateContainerName = stateContainer;
                 scriptGroup.TerraformStateResourceGroup = stateRg;
                 scriptGroup.TerraformStateKey =
-                    SanitizeStateKey(environmentName) + "/" + SanitizeStateKey(component.ComponentName) + ".tfstate";
+                    TerraformStateKeySanitizer.Sanitize(environmentName) + "/" +
+                    TerraformStateKeySanitizer.Sanitize(component.ComponentName) + ".tfstate";
             }
 
             var domainName = _configurationSettingsEngine.GetConfigurationDomainNameIntra();
@@ -407,26 +408,6 @@ namespace Dorc.Monitor
                     $"Refused to start Terraform {operation} for component '{componentName}' on environment '{environmentName}': another operation in flight (correlation '{ex.ContendingOperationId}').");
                 return null;
             }
-        }
-
-        // Project/component/environment names can contain spaces and other
-        // characters that are inadvisable in a blob storage key. Map to a
-        // conservative, reversible-ish set: lowercase alnum + dash. Two names
-        // that differ only by case will collide; documented as a known
-        // limitation - the practical environment + component naming rules in
-        // DOrc do not produce such pairs.
-        private static string SanitizeStateKey(string raw)
-        {
-            if (string.IsNullOrEmpty(raw)) return "unknown";
-            var sb = new StringBuilder(raw.Length);
-            foreach (var c in raw)
-            {
-                if (char.IsLetterOrDigit(c)) sb.Append(char.ToLowerInvariant(c));
-                else if (c == '-' || c == '_') sb.Append(c);
-                else sb.Append('-');
-            }
-            var trimmed = sb.ToString().Trim('-');
-            return string.IsNullOrEmpty(trimmed) ? "unknown" : trimmed;
         }
 
         private class TerraformPlanInfo

@@ -8612,6 +8612,14 @@
           "TerraformSubPath": {
             "type": "string",
             "nullable": true
+          },
+          "TerraformTemplateName": {
+            "type": "string",
+            "nullable": true
+          },
+          "TerraformTemplateVersion": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -10498,7 +10506,8 @@
           "SharedFolder",
           "Git",
           "AzureArtifact",
-          "GitHubArtifact"
+          "GitHubArtifact",
+          "Catalog"
         ],
         "type": "string"
       },

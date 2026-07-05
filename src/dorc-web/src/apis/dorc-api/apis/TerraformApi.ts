@@ -16,10 +16,10 @@ import type { AjaxResponse } from 'rxjs/ajax';
 import { BaseAPI, throwIfNullOrUndefined, encodeURI } from '../runtime';
 import type { OperationOpts } from '../runtime';
 import type {
-    ComponentApiModel,
     TerraformPlanApiModel,
     TerraformTemplateManifest,
     TerraformTemplateInstantiateRequestApiModel,
+    TerraformTemplateInstantiateResult,
 } from '../models';
 
 export interface TerraformTemplateInstantiateRequest {
@@ -136,16 +136,18 @@ export class TerraformApi extends BaseAPI {
 
     /**
      * Instantiate a stock template as a new Catalog-mode component in the
-     * destination project. Does not trigger a deployment - the engineer
-     * deploys the resulting component via the existing DOrc deploy flow.
+     * destination project. When the request carries an EnvironmentName the
+     * server also submits a deploy request and returns the
+     * {component, requestId, requestStatus} envelope; without one it
+     * returns the bare ComponentApiModel.
      */
-    terraformTemplateInstantiatePost({ name, version, body }: TerraformTemplateInstantiateRequest): Observable<ComponentApiModel>
-    terraformTemplateInstantiatePost({ name, version, body }: TerraformTemplateInstantiateRequest, opts?: OperationOpts): Observable<AjaxResponse<ComponentApiModel>>
-    terraformTemplateInstantiatePost({ name, version, body }: TerraformTemplateInstantiateRequest, opts?: OperationOpts): Observable<ComponentApiModel | AjaxResponse<ComponentApiModel>> {
+    terraformTemplateInstantiatePost({ name, version, body }: TerraformTemplateInstantiateRequest): Observable<TerraformTemplateInstantiateResult>
+    terraformTemplateInstantiatePost({ name, version, body }: TerraformTemplateInstantiateRequest, opts?: OperationOpts): Observable<AjaxResponse<TerraformTemplateInstantiateResult>>
+    terraformTemplateInstantiatePost({ name, version, body }: TerraformTemplateInstantiateRequest, opts?: OperationOpts): Observable<TerraformTemplateInstantiateResult | AjaxResponse<TerraformTemplateInstantiateResult>> {
         throwIfNullOrUndefined(name, 'name', 'terraformTemplateInstantiatePost');
         throwIfNullOrUndefined(version, 'version', 'terraformTemplateInstantiatePost');
         throwIfNullOrUndefined(body, 'body', 'terraformTemplateInstantiatePost');
-        return this.request<ComponentApiModel>({
+        return this.request<TerraformTemplateInstantiateResult>({
             url: '/Terraform/templates/{name}/{version}/instantiate'
                 .replace('{name}', encodeURI(name))
                 .replace('{version}', encodeURI(version)),

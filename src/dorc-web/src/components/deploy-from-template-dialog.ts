@@ -15,6 +15,7 @@ import {
   RefDataProjectsApi,
   RefDataProjectEnvironmentMappingsApi,
   TerraformApi,
+  TerraformTemplateInstantiateResponseApiModel,
   TerraformTemplateManifest,
   TerraformTemplateParameter,
   EnvironmentApiModel,
@@ -417,10 +418,12 @@ export class DeployFromTemplateDialog extends LitElement {
         } as any,
       })
       .subscribe({
-        next: (response: any) => {
+        next: (response) => {
           this.submitting = false;
           this.opened = false;
-          const requestId = response?.requestId;
+          // The wizard always sets EnvironmentName, so the server replies
+          // with the create-and-deploy envelope.
+          const requestId = (response as TerraformTemplateInstantiateResponseApiModel)?.requestId;
           const message = requestId
             ? `Created component '${this.componentName}' and submitted deploy request #${requestId} to ${this.selectedEnvironmentName}.`
             : `Created component '${this.componentName}'.`;

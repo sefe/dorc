@@ -5,6 +5,11 @@ namespace Dorc.Terraform.Catalog
 {
     public sealed class ParameterValidator : IParameterValidator
     {
+        // Matches the convention used by Dorc.ApiModel.RequestPropertyRedaction
+        // and Dorc.TerraformRunner.Logging.SensitivePropertyRedactor (this
+        // assembly references neither, so the marker is duplicated by value).
+        private const string RedactedValue = "[REDACTED]";
+
         public ParameterValidationResult Validate(
             TerraformTemplateManifest manifest,
             IReadOnlyDictionary<string, string?> suppliedValues)
@@ -66,12 +71,17 @@ namespace Dorc.Terraform.Catalog
                 // string parameters do not fire CS8604.
                 var raw = rawNullable!;
 
+                // Validation errors travel back in HTTP 400 bodies and are
+                // rendered in the deploy wizard, so a Sensitive parameter's
+                // value must never be interpolated into a message.
+                var displayValue = p.Sensitive ? RedactedValue : $"'{raw}'";
+
                 if (!TryCoerceType(raw, p.Type))
                 {
                     errors.Add(new ParameterValidationError(
                         p.Name,
                         ParameterValidationErrorKind.TypeMismatch,
-                        $"parameter '{p.Name}' value '{raw}' is not a valid {p.Type}"));
+                        $"parameter '{p.Name}' value {displayValue} is not a valid {p.Type}"));
                     continue;
                 }
 
@@ -80,7 +90,7 @@ namespace Dorc.Terraform.Catalog
                     errors.Add(new ParameterValidationError(
                         p.Name,
                         ParameterValidationErrorKind.NotAllowed,
-                        $"parameter '{p.Name}' value '{raw}' is not in the allowed-values list"));
+                        $"parameter '{p.Name}' value {displayValue} is not in the allowed-values list"));
                     continue;
                 }
 
@@ -103,7 +113,7 @@ namespace Dorc.Terraform.Catalog
                         errors.Add(new ParameterValidationError(
                             p.Name,
                             ParameterValidationErrorKind.PatternMismatch,
-                            $"parameter '{p.Name}' value '{raw}' does not match required pattern"));
+                            $"parameter '{p.Name}' value {displayValue} does not match required pattern"));
                         continue;
                     }
                 }
@@ -117,14 +127,14 @@ namespace Dorc.Terraform.Catalog
                         errors.Add(new ParameterValidationError(
                             p.Name,
                             ParameterValidationErrorKind.OutOfRange,
-                            $"parameter '{p.Name}' value '{n}' is below minimum {p.Min}"));
+                            $"parameter '{p.Name}' value {(p.Sensitive ? RedactedValue : $"'{n}'")} is below minimum {p.Min}"));
                     }
                     if (p.Max is not null && n > p.Max)
                     {
                         errors.Add(new ParameterValidationError(
                             p.Name,
                             ParameterValidationErrorKind.OutOfRange,
-                            $"parameter '{p.Name}' value '{n}' is above maximum {p.Max}"));
+                            $"parameter '{p.Name}' value {(p.Sensitive ? RedactedValue : $"'{n}'")} is above maximum {p.Max}"));
                     }
                 }
             }

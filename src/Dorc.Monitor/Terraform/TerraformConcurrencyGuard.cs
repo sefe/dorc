@@ -48,8 +48,13 @@ namespace Dorc.Monitor.Terraform
             return new Release(slot);
         }
 
+        // Uses the same normalization as the blob state key so the guard
+        // serializes exactly the set of operations that would contend on
+        // one tfstate (e.g. "Prod EU" and "Prod-EU" are distinct states
+        // and may run concurrently; "PROD" and "prod" are the same state
+        // and are serialized).
         private static string MakeKey(string environment, string component)
-            => environment.ToLowerInvariant() + "|" + component.ToLowerInvariant();
+            => TerraformStateKeySanitizer.Sanitize(environment) + "|" + TerraformStateKeySanitizer.Sanitize(component);
 
         private sealed class KeyedSlot
         {

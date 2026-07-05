@@ -30,7 +30,8 @@ env:
   # Pinned by SHA to mitigate the supply-chain risk of running untrusted
   # plugin releases on every PR (see  ).
   TFLINT_VERSION: 'v0.50.3'
-  TFLINT_AZURERM_VERSION: 'v0.27.0'
+  # The azurerm tflint-ruleset version is pinned in .tflint.hcl, which is
+  # where tflint --init reads it from.
 
 jobs:
   fmt:

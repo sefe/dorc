@@ -55,15 +55,19 @@ namespace Dorc.Monitor.RunnerProcess
             #endregion
                 
             var runnerFileInfo = new FileInfo(this.RunnerExecutableFullName);
+            // Path-valued arguments are quoted: the runner log / plan / lock
+            // paths live under configurable roots that can contain spaces,
+            // and CommandLineParser would otherwise split them into
+            // separate tokens.
             string commandLine = runnerFileInfo.Name
                 +" -p " + this.ScriptGroupPipeName
-                +" -l " + this.RunnerLogPath
-                +" -t " + this.PlanFilePath
-                +" -c " + this.PlanContentFilePath
+                +" -l \"" + this.RunnerLogPath + "\""
+                +" -t \"" + this.PlanFilePath + "\""
+                +" -c \"" + this.PlanContentFilePath + "\""
                 +" -o " + (int)this.TerraformRunnerOperation;
             if (!string.IsNullOrEmpty(this.LockFilePath))
             {
-                commandLine += " -k " + this.LockFilePath;
+                commandLine += " -k \"" + this.LockFilePath + "\"";
             }
 #if DEBUG
             commandLine += " --useFile=true";

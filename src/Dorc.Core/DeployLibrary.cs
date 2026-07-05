@@ -69,10 +69,7 @@ namespace Dorc.Core
                             $"Cannot find deployment component called '{x}'");
                     return component;
                 }).ToArray();
-            var properties = requestProperties
-                ?.Select(x => new KeyValuePair<string, string>(x.PropertyName, x.PropertyValue))
-                .ToArray();
-            return CreateRequest(project, environment, uri, buildDefinitionName, components, properties, user)
+            return CreateRequest(project, environment, uri, buildDefinitionName, components, requestProperties, user)
                 .RequestId;
         }
 
@@ -118,7 +115,7 @@ namespace Dorc.Core
                             : Enumerable.Empty<string>()).ToList(),
                     EnvironmentName = toEnvironment,
                     Properties =
-                        properties?.Select(x => new PropertyPair(x.PropertyName, x.PropertyValue)).ToList()
+                        properties?.Select(x => new PropertyPair(x.PropertyName, x.PropertyValue) { IsSensitive = x.IsSensitive }).ToList()
                 };
 
                 Trace.WriteLine($"Creating Req: build:{requestDetail.BuildDetail.BuildNumber} Comp:{string.Join("|", requestDetail.Components)}");
@@ -162,7 +159,7 @@ namespace Dorc.Core
 
         private CreateResponse CreateRequest(ProjectApiModel project, EnvironmentApiModel environment,
             string buildUrl, string buildDefinitionName,
-            ComponentApiModel[] components, IEnumerable<KeyValuePair<string, string>> properties, ClaimsPrincipal user)
+            ComponentApiModel[] components, IEnumerable<RequestProperty> properties, ClaimsPrincipal user)
         {
             try
             {
@@ -173,8 +170,7 @@ namespace Dorc.Core
                     BuildDefinitionName = buildDefinitionName,
                     BuildUrl = buildUrl,
                     Components = components.Select(c => c.ComponentName).ToList(),
-                    Properties =
-                        properties?.Select(x => new RequestProperty { PropertyName = x.Key, PropertyValue = x.Value })
+                    Properties = properties
                 };
 
                 var response = CreateRequestAsync(request, user).Result;
@@ -293,7 +289,8 @@ namespace Dorc.Core
             if (createRequest.Properties != null)
                 foreach (var requestProperty in createRequest.Properties)
                     requestDetail.Properties.Add(new PropertyPair(requestProperty.PropertyName,
-                        requestProperty.PropertyValue));
+                        requestProperty.PropertyValue)
+                    { IsSensitive = requestProperty.IsSensitive });
 
             var requestId = CreateRequest(requestDetail, user);
 

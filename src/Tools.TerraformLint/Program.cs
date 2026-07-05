@@ -201,8 +201,13 @@ public static class SecretOutputsLint
     private static readonly Regex SecretNamePattern =
         new(@"(token|pat|secret|password|key|connectionstring)", RegexOptions.IgnoreCase);
 
+    // Matches the block header only; the body is extracted with a
+    // brace-balanced scan (a [^}]* body regex would stop at the first '}'
+    // and silently drop the tail of outputs whose value expression itself
+    // contains braces, e.g. a `{ for ... }` map comprehension - including
+    // any `sensitive = true` declared after it).
     private static readonly Regex OutputBlock =
-        new(@"output\s+""([^""]+)""\s*\{([^}]*)\}", RegexOptions.Singleline);
+        new(@"output\s+""([^""]+)""\s*\{", RegexOptions.Singleline);
 
     private static readonly Regex SensitiveFalse =
         new(@"sensitive\s*=\s*false", RegexOptions.IgnoreCase);
@@ -229,7 +234,7 @@ public static class SecretOutputsLint
         foreach (Match m in OutputBlock.Matches(src))
         {
             var name = m.Groups[1].Value;
-            var body = m.Groups[2].Value;
+            var body = ExtractBalancedBody(src, m.Index + m.Length);
             if (!SecretNamePattern.IsMatch(name)) continue;
             if (SensitiveFalse.IsMatch(body))
             {
@@ -243,6 +248,23 @@ public static class SecretOutputsLint
             }
         }
         return failures;
+    }
+
+    // Brace-balanced body extraction starting just after the block's opening
+    // '{'. Braces inside string literals are counted too - acceptable for a
+    // structural lint, and strictly better than stopping at the first '}'.
+    // An unbalanced file yields the remainder of the source.
+    private static string ExtractBalancedBody(string src, int bodyStartIndex)
+    {
+        var depth = 1;
+        for (var i = bodyStartIndex; i < src.Length; i++)
+        {
+            var c = src[i];
+            if (c == '{') depth++;
+            else if (c == '}' && --depth == 0)
+                return src.Substring(bodyStartIndex, i - bodyStartIndex);
+        }
+        return src.Substring(bodyStartIndex);
     }
 }
 
@@ -342,13 +364,21 @@ internal static class SelfTest
             File.WriteAllText(Path.Join(mod4.FullName, "outputs.tf"),
                 "output \"resource_id\" {\n  value = \"qux\"\n}\n");
 
+            // Module 5: clean — secret-named output whose value expression
+            // contains nested braces (map comprehension) BEFORE the
+            // sensitive declaration. A first-'}'-terminated body regex
+            // would drop the `sensitive = true` and false-flag this.
+            var mod5 = Directory.CreateDirectory(Path.Join(temp.FullName, "module-nested-braces"));
+            File.WriteAllText(Path.Join(mod5.FullName, "outputs.tf"),
+                "output \"subnet_keys\" {\n  value     = { for k, s in var.subnets : k => s.id }\n  sensitive = true\n}\n");
+
             using var sw = new StringWriter();
             var failures = SecretOutputsLint.LintDirectory(temp, sw);
             AssertCount("secret-outputs: expected exactly two failures", 2, failures);
             var output = sw.ToString();
             if (!output.Contains("api_key") || !output.Contains("admin_password"))
                 throw new InvalidOperationException($"failures should name api_key and admin_password: {output}");
-            if (output.Contains("connection_string") || output.Contains("resource_id"))
+            if (output.Contains("connection_string") || output.Contains("resource_id") || output.Contains("subnet_keys"))
                 throw new InvalidOperationException($"clean / non-secret modules must not be flagged: {output}");
         }
         finally
