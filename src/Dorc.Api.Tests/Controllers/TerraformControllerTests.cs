@@ -152,8 +152,8 @@ namespace Dorc.Api.Tests.Controllers
                 },
                 CancellationToken.None);
 
-            var objectResult = result as ObjectResult;
-            Assert.IsNotNull(objectResult, "Deploy-path RBAC failure returns StatusCode(403, message).");
+            Assert.IsInstanceOfType(result, typeof(ObjectResult), "Deploy-path RBAC failure returns StatusCode(403, message).");
+            var objectResult = (ObjectResult)result;
             Assert.AreEqual(StatusCodes.Status403Forbidden, objectResult.StatusCode);
             _requestService.DidNotReceiveWithAnyArgs().CreateRequest(default!, default!);
         }
@@ -209,10 +209,10 @@ namespace Dorc.Api.Tests.Controllers
                 },
                 CancellationToken.None);
 
-            var badRequest = result as BadRequestObjectResult;
-            Assert.IsNotNull(badRequest, "Validation failure must produce 400.");
-            var body = badRequest.Value as string;
-            Assert.IsNotNull(body, "400 body is the validation message string.");
+            Assert.IsInstanceOfType(result, typeof(BadRequestObjectResult), "Validation failure must produce 400.");
+            var badRequest = (BadRequestObjectResult)result;
+            Assert.IsInstanceOfType(badRequest.Value, typeof(string), "400 body is the validation message string.");
+            var body = (string)badRequest.Value!;
             Assert.IsFalse(body.Contains(rawSecret),
                 "Sensitive parameter's raw value must not appear in the 400 response body.");
             StringAssert.Contains(body, "[REDACTED]",
@@ -244,8 +244,8 @@ namespace Dorc.Api.Tests.Controllers
                 },
                 CancellationToken.None);
 
-            var ok = result as OkObjectResult;
-            Assert.IsNotNull(ok, "Happy-path create-and-deploy returns 200.");
+            Assert.IsInstanceOfType(result, typeof(OkObjectResult), "Happy-path create-and-deploy returns 200.");
+            var ok = (OkObjectResult)result;
             _manageProjects.Received(1).CreateComponent(
                 Arg.Any<ComponentApiModel>(), ProjectId, Arg.Any<int?>(), Arg.Any<string>());
             _requestService.Received(1).CreateRequest(
@@ -257,7 +257,11 @@ namespace Dorc.Api.Tests.Controllers
 
             // The 200 body is an anonymous object { component, requestId, requestStatus }.
             var requestIdProperty = ok.Value!.GetType().GetProperty("requestId");
-            Assert.IsNotNull(requestIdProperty, "200 body carries a requestId member.");
+            if (requestIdProperty is null)
+            {
+                Assert.Fail("200 body carries a requestId member.");
+                return;
+            }
             Assert.AreEqual(newRequestId, (int)requestIdProperty.GetValue(ok.Value)!);
         }
 
@@ -272,10 +276,10 @@ namespace Dorc.Api.Tests.Controllers
                 new TerraformTemplateInstantiateRequestApiModel { ProjectId = ProjectId },
                 CancellationToken.None);
 
-            var ok = result as OkObjectResult;
-            Assert.IsNotNull(ok, "Create-only mode returns 200.");
-            var component = ok.Value as ComponentApiModel;
-            Assert.IsNotNull(component, "Create-only 200 body is the created ComponentApiModel.");
+            Assert.IsInstanceOfType(result, typeof(OkObjectResult), "Create-only mode returns 200.");
+            var ok = (OkObjectResult)result;
+            Assert.IsInstanceOfType(ok.Value, typeof(ComponentApiModel), "Create-only 200 body is the created ComponentApiModel.");
+            var component = (ComponentApiModel)ok.Value!;
             Assert.AreEqual(TemplateName, component.TerraformTemplateName);
             Assert.AreEqual(TemplateVersion, component.TerraformTemplateVersion);
             _manageProjects.Received(1).CreateComponent(

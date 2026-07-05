@@ -345,7 +345,7 @@ deprecated: false
             var catalog = new GitTemplateCatalog(_tempDir, NullLogger<GitTemplateCatalog>.Instance);
             var latest = await catalog.GetAsync("testmod");
 
-            Assert.IsNotNull(latest, "GetAsync(name) should resolve the template.");
+            if (latest is null) { Assert.Fail("GetAsync(name) should resolve the template."); return; }
             Assert.AreEqual("1.10.0", latest.Version,
                 "1.10.0 is numerically newer than 1.9.0; lexical ordering would wrongly pick 1.9.0.");
         }
@@ -361,7 +361,7 @@ deprecated: false
             var catalog = new GitTemplateCatalog(_tempDir, NullLogger<GitTemplateCatalog>.Instance);
             var latest = await catalog.GetAsync("testmod");
 
-            Assert.IsNotNull(latest, "GetAsync(name) should resolve the template.");
+            if (latest is null) { Assert.Fail("GetAsync(name) should resolve the template."); return; }
             Assert.AreEqual("v2.0.0", latest.Version,
                 "A 'v'-prefixed version must parse numerically (2.0.0) and beat 1.9.0.");
         }
