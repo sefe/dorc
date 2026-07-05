@@ -17,22 +17,16 @@ namespace Dorc.Api.Services
 
         public override void Write(Utf8JsonWriter writer, Exception value, JsonSerializerOptions options)
         {
+            // Deliberately does NOT serialize the stack trace, the inner-exception
+            // chain, or the fully-qualified type. Those disclose internal paths,
+            // dependency internals, and potentially connection strings to any
+            // caller that triggers a handled exception returned via
+            // StatusCode(500, e). Emit only a short, safe shape (matching
+            // DefaultExceptionHandler for unhandled exceptions).
             writer.WriteStartObject();
-            writer.WriteString(nameof(Exception.Message), value.Message);
-
-            if (value.InnerException != null)
-            {
-                writer.WriteStartObject(nameof(Exception.InnerException));
-                Write(writer, value.InnerException, options);
-                writer.WriteEndObject();
-            }
-
-            if (value.StackTrace != null)
-            {
-                writer.WriteString(nameof(Exception.StackTrace), value.StackTrace);
-            }
-
-            writer.WriteString(nameof(Type), value.GetType().ToString());
+            writer.WriteString(nameof(Type), value.GetType().Name);
+            writer.WriteString(nameof(Exception.Message), "An unexpected error occurred");
+            writer.WriteString("ExceptionMessage", value.Message);
             writer.WriteEndObject();
         }
     }

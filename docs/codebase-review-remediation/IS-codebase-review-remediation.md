@@ -116,6 +116,8 @@ Common to both directions:
 **Why.** E-1, E-5 — stack traces, internal types, and possibly connection strings returned to callers.
 **Verification intent.** A handled exception returns a sanitized message with no stack/type/inner-chain; validation failures return 400; the previously NRE-throwing inputs return a clean 4xx.
 
+> **Implementation note (2026-07-05).** E-1 (the disclosure) is fixed at the single choke point: `ExceptionJsonConverter` no longer serializes the stack trace, the inner-exception chain, or the fully-qualified type — it emits only `{ Type=Name, Message="An unexpected error occurred", ExceptionMessage }`, matching `DefaultExceptionHandler`. This sanitizes every `StatusCode(500, e)` site at once. Also fixed the one site that bypassed the converter by serializing `exception.ToString()` (`RequestStatusesController.Get`). Delivered with `ExceptionJsonConverterTests`. **Remaining (E-5, quality — security impact now neutralized since no stack traces leak):** convert the specific validation-failure 500s to 400 and add the targeted NRE guards (e.g. `RequestController.GetBuildDefinitions` null project, `DirectorySearchController` null query param) — tracked as follow-up.
+
 ### S-008 — Keep decrypted secrets out of logs/stdout/OpenSearch
 **What changes.** In both PowerShell runners, stop serializing property values on `SetVariable` failure (log the property name/type only); in the Terraform runner, avoid logging raw plan/apply output that can echo secrets (mask known secret values or suppress), and ensure secret handling in tfvars is addressed together with cleanup in S-010.
 **Why.** D-2, D-3 — decrypted secrets written to runner logs, stdout, and OpenSearch.

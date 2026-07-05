@@ -104,7 +104,8 @@ namespace Dorc.Api.Controllers
             }
             catch (Exception exception)
             {
-                return StatusCode(StatusCodes.Status500InternalServerError, exception.ToString());
+                _log.LogError(exception, "Failed to get request {RequestId}", requestId);
+                return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred");
             }
 
             if (result == null)
