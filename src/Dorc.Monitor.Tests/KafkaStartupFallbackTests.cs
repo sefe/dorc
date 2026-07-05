@@ -143,6 +143,23 @@ public class KafkaStartupFallbackTests
     }
 
     [TestMethod]
+    public void KafkaEnabled_SaslSslWithUnsupportedMechanism_ReturnsFalse()
+    {
+        // A typo'd deploy property (validator rejects unsupported mechanisms
+        // at ValidateOnStart) must gate to fallback, not a startup crash.
+        var cfg = Config(
+            ("Kafka:Enabled", "true"),
+            ("Kafka:BootstrapServers", "broker:9092"),
+            ("Kafka:SchemaRegistry:Url", "https://registry:8081"),
+            ("Kafka:AuthMode", "SaslSsl"),
+            ("Kafka:Sasl:Username", "dorc"),
+            ("Kafka:Sasl:Password", "secret"),
+            ("Kafka:Sasl:Mechanism", "SCRAM-SHA-265"));
+        Assert.IsFalse(EvaluateKafkaEnabled(cfg),
+            "Unsupported SASL mechanism must fall back cleanly — validator parity.");
+    }
+
+    [TestMethod]
     public void KafkaEnabled_SaslSslWithBlankedMechanism_ReturnsFalse()
     {
         // An override channel blanking Kafka:Sasl:Mechanism fails the

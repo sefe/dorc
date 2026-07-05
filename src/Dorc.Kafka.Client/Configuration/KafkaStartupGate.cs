@@ -76,6 +76,19 @@ public static class KafkaStartupGate
                     return false;
                 }
             }
+
+            // Mechanism must also be a value the validator accepts — a typo'd
+            // deploy property (e.g. "SCRAM-SHA-265") would otherwise pass the
+            // gate and crash both hosts at ValidateOnStart. Single-sourced
+            // from KafkaSaslOptions.SupportedMechanisms.
+            var mechanism = configuration["Kafka:Sasl:Mechanism"]!;
+            if (!KafkaSaslOptions.SupportedMechanisms.Contains(mechanism))
+            {
+                reportFallback(
+                    $"[startup] Kafka:Enabled=true with Kafka:AuthMode=SaslSsl but Kafka:Sasl:Mechanism value '{mechanism}' is not supported "
+                    + $"(valid: {string.Join(", ", KafkaSaslOptions.SupportedMechanisms)}); running in {fallbackModeLabel}.");
+                return false;
+            }
         }
 
         return true;

@@ -86,9 +86,14 @@ findings and their fixes:
 |---------|-----|
 | **Install-breaker:** the four new `$.Kafka.ReplicaId` WiX writes targeted a key that shipped in neither appsettings.json — WixJsonFileExtension's `setValue` fails on a JSONPath with no matches and rolls back the ENTIRE install. | `"ReplicaId": ""` shipped in both appsettings; new forward-direction consistency test (`EveryWxsKafkaElementPath_TargetsAKeyShippedInTheCorrespondingAppSettings`) makes any future WiX-write-without-shipped-key a build failure. |
 | The Azure SignalR shared consumer group used the bare prefix with no tier discriminator: Prod and NonProd share one broker and one results topic, so both tiers' APIs would join ONE competing group and each event would reach only one tier's SignalR service. | Shared group is suffixed with `Kafka:ReplicaId` (tier value, not machine name — the group must span a tier's machines): `dorc-api-results-status.prod` / `.nonprod`. |
+| The gate checked `Kafka:Sasl:Mechanism` for non-empty only, while the validator also requires membership in the supported-mechanism set — a typo'd deploy property passed the gate and crashed both hosts at `ValidateOnStart`. | `KafkaSaslOptions.SupportedMechanisms` is now the single source shared by the validator and the gate; a typo'd mechanism gates to clean fallback. |
+
+Convergence: candidate volume fell 29 → 7 → 3 across rounds, with two of the
+three round-3 findings independently duplicated by both round-3 reviewers and
+fixed within the round. All confirmed findings are fixed; nothing is escalated.
 
 ## Verification
 
-- Unit suites (Dorc.Kafka.Client/Events/Lock/ErrorLog.Tests, Dorc.Monitor.Tests): green locally on .NET 8.
+- Unit suites (Dorc.Kafka.Client/Events/Lock/ErrorLog.Tests, Dorc.Monitor.Tests): green locally on .NET 8 (56/142/60/17/72 after all rounds).
 - Compose-based integration + HA suites run in CI (`kafka-integration.yml`); the HA harness explicitly opts out of static membership and pins its own 10s session timeout, so scenario timings are unchanged.
 - A stale test asserting the pre-#758 prod-cancellation guard (removed on `main`) was updated to pin the merged behaviour.

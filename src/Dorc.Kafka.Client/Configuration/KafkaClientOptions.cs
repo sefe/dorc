@@ -44,6 +44,17 @@ public sealed class KafkaClientOptions
 
 public sealed class KafkaSaslOptions
 {
+    /// <summary>
+    /// The single source of truth for supported SASL mechanisms. Shared by
+    /// <c>KafkaClientOptionsValidator</c> (ValidateOnStart rejection),
+    /// <c>KafkaStartupGate</c> (clean-fallback gating — the gate must never
+    /// pass a value the validator will crash on), and mirrored by
+    /// <c>KafkaConnectionProvider.ParseMechanism</c>.
+    /// </summary>
+    public static readonly IReadOnlySet<string> SupportedMechanisms =
+        new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            { "SCRAM-SHA-256", "SCRAM-SHA-512", "PLAIN", "GSSAPI", "OAUTHBEARER" };
+
     public string Mechanism { get; set; } = "SCRAM-SHA-256";
 
     public string? Username { get; set; }
