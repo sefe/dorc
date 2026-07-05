@@ -4,7 +4,7 @@
 
 ## Overview
 
-This version uses user JWT/Bearer token authentication and optional user impersonation headers for DORC API calls.
+This version authenticates users via Identity Server and sends user identity to DORC for audit.
 
 ## Quick Start
 
@@ -14,54 +14,38 @@ This version uses user JWT/Bearer token authentication and optional user imperso
 Import-Module "C:\Path\To\DOrc.Cmdlet\0.0.0-demo\DOrc.Cmdlet.psd1" -Force
 ```
 
-### 2) Use export/import cmdlets
+### 2) Configure Identity Server (once per session)
+
+```powershell
+Set-DOrcIdentityServerConfig `
+	-AuthorityUrl "https://identityserver:5200" `
+	-TokenEndpoint "/connect/token" `
+	-ClientId "dorc-cli" `
+	-Scope "openid profile"
+```
+
+### 3) Connect as current user
+
+```powershell
+Connect-DOrcIdentityServer
+```
+
+This opens the system browser to the Identity Server login page (Authorization Code + PKCE flow). Once you complete login, the access token is stored automatically and the tab can be closed.
+
+### 4) Use export/import cmdlets
 
 ```powershell
 Export-DOrcProperties -Environment "SAMPLE_ENV" -CsvFile "C:\Temp\sample-export.csv" -ApiUrl $DorcApiUrl
 Import-DOrcProperties -CsvFile "C:\Temp\sample-import.csv" -ApiUrl $DorcApiUrl
 ```
 
-## Use User JWT/Bearer Token (Postman-style)
+If no token is present in the current session, these cmdlets trigger Identity Server authentication automatically.
 
-If you already have a user access token (for example from Postman login flow),
-you can use it directly for properties import/export.
+## Impersonation Header and DORC Audit
 
-### Set token once, run multiple commands
+This module sends `X-Impersonate-User` with the current user identity. During import, this is set automatically so the username appears in DORC audit records.
 
-```powershell
-$userJwt = "<JWT_TOKEN>"
-Set-DOrcBearerToken -Token $userJwt
-
-Export-DOrcProperties -Environment "SAMPLE_ENV" -CsvFile "C:\Temp\sample-export.csv" -ApiUrl $DorcApiUrl
-Import-DOrcProperties -CsvFile "C:\Temp\sample-import.csv" -ApiUrl $DorcApiUrl
-```
-
-### Pass token inline per command
-
-```powershell
-$userJwt = "<JWT_TOKEN>"
-Export-DOrcProperties -Environment "SAMPLE_ENV" -CsvFile "C:\Temp\sample-export.csv" -ApiUrl $DorcApiUrl -BearerToken $userJwt
-Import-DOrcProperties -CsvFile "C:\Temp\sample-import.csv" -ApiUrl $DorcApiUrl -BearerToken $userJwt
-```
-
-### Optional token maintenance
-
-```powershell
-Get-DOrcBearerTokenStatus
-Clear-DOrcBearerToken
-```
-
-### Optional inline token usage
-
-```powershell
-$userJwt = "<JWT_TOKEN>"
-Export-DOrcProperties -Environment "SAMPLE_ENV" -CsvFile "C:\Temp\sample-export.csv" -ApiUrl $DorcApiUrl -BearerToken $userJwt
-Import-DOrcProperties -CsvFile "C:\Temp\sample-import.csv" -ApiUrl $DorcApiUrl -BearerToken $userJwt
-```
-
-## Impersonation Header (Optional)
-
-If your DORC API is configured to accept a custom header, you can send the current user identity:
+You can still set it manually when needed:
 
 ```powershell
 Set-DOrcImpersonateUser
@@ -76,8 +60,8 @@ Clear-DOrcImpersonateUser
 
 ## Notes
 
-- This module requires a valid bearer token. It does not fall back to Windows Integrated Authentication.
-- Only JWT/Bearer token authentication is supported in this module.
+- Primary authentication flow is Identity Server delegated user login via `Connect-DOrcIdentityServer`.
+- Manual bearer-token entry is no longer used; token lifecycle is handled by `Connect-DOrcIdentityServer`.
 
 ## Tests and Docs
 

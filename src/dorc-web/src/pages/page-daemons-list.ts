@@ -1,4 +1,5 @@
 import { css, PropertyValues, render } from 'lit';
+import '../components/dorc-spinner';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid';
 import '@vaadin/button';
@@ -18,12 +19,13 @@ import { Router } from '@vaadin/router';
 import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { PageElement } from '../helpers/page-element';
+import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import { DaemonApiModel, RefDataDaemonsApi, ServerDaemonsApi } from '../apis/dorc-api';
 import type { ServerApiModel } from '../apis/dorc-api';
 import GlobalCache from '../global-cache';
 
 @customElement('page-daemons-list')
-export class PageDaemonsList extends PageElement {
+export class PageDaemonsList extends ResponsiveMixin(PageElement) {
   @property({ type: Array }) daemons: Array<DaemonApiModel> = [];
 
   @property({ type: Array }) filteredDaemons: Array<DaemonApiModel> = [];
@@ -82,42 +84,16 @@ export class PageDaemonsList extends PageElement {
 
   static get styles() {
     return css`
-      vaadin-grid#grid {
+      :host {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
         overflow: hidden;
-        height: calc(100vh - 110px);
         --divider-color: var(--dorc-border-color);
       }
-      .overlay {
-        width: 100%;
-        height: 100%;
-        position: fixed;
-      }
-      .overlay__inner {
-        width: 100%;
-        height: 100%;
-        position: absolute;
-      }
-      .overlay__content {
-        left: 20%;
-        position: absolute;
-        top: 20%;
-        transform: translate(-50%, -50%);
-      }
-      .spinner {
-        width: 75px;
-        height: 75px;
-        display: inline-block;
-        border-width: 2px;
-        border-color: var(--dorc-border-color);
-        border-top-color: var(--dorc-link-color);
-        animation: spin 1s infinite linear;
-        border-radius: 100%;
-        border-style: solid;
-      }
-      @keyframes spin {
-        100% {
-          transform: rotate(360deg);
-        }
+      vaadin-grid#grid {
+        flex: 1;
+        min-height: 0;
       }
       paper-dialog.size-position {
         top: 16px;
@@ -127,6 +103,13 @@ export class PageDaemonsList extends PageElement {
       .row-actions vaadin-button {
         padding: 0;
         margin: 0 2px;
+      }
+      @media (max-width: 768px) {
+        vaadin-grid-cell-content {
+          white-space: normal;
+          word-wrap: break-word;
+          overflow-wrap: break-word;
+        }
       }
     `;
   }
@@ -215,13 +198,7 @@ export class PageDaemonsList extends PageElement {
 
       ${this.loading
         ? html`
-            <div class="overlay" style="z-index: 2">
-              <div class="overlay__inner">
-                <div class="overlay__content">
-                  <span class="spinner"></span>
-                </div>
-              </div>
-            </div>
+            <dorc-spinner></dorc-spinner>
           `
         : html`
             <vaadin-grid
@@ -240,22 +217,26 @@ export class PageDaemonsList extends PageElement {
                 path="DisplayName"
                 header="Display Name"
                 resizable
+                ?hidden="${this._narrowScreen}"
               ></vaadin-grid-sort-column>
               <vaadin-grid-sort-column
                 path="AccountName"
                 header="Account Name"
                 resizable
+                ?hidden="${this._narrowScreen}"
               ></vaadin-grid-sort-column>
               <vaadin-grid-sort-column
                 path="ServiceType"
                 header="Type"
                 resizable
+                ?hidden="${this._narrowScreen}"
               ></vaadin-grid-sort-column>
               <vaadin-grid-sort-column
                 path="LastSeenDate"
                 header="Last Seen"
                 resizable
                 direction="desc"
+                ?hidden="${this._narrowScreen}"
                 .renderer="${this._lastSeenRenderer}"
               ></vaadin-grid-sort-column>
               <vaadin-grid-column

@@ -20,6 +20,7 @@ namespace Dorc.TerraformRunner.CodeSources
                 { TerraformSourceType.SharedFolder, new SharedFolderCodeSourceProvider(logger) },
                 { TerraformSourceType.Git, new GitCodeSourceProvider(logger) },
                 { TerraformSourceType.AzureArtifact, new AzureArtifactCodeSourceProvider(logger) },
+                { TerraformSourceType.GitHubArtifact, new GitHubArtifactCodeSourceProvider(logger) },
                 { TerraformSourceType.Catalog, new CatalogReferenceCodeSourceProvider(logger, catalog) }
             };
         }

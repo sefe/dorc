@@ -1,4 +1,5 @@
 import '@polymer/paper-toggle-button';
+import '../dorc-spinner';
 import '@vaadin/details';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/grid/vaadin-grid-sort-column';
@@ -35,37 +36,6 @@ export class EnvDeployments extends PageEnvBase {
         flex-direction: column;
       }
 
-      .overlay {
-        width: 100%;
-        height: 100%;
-        position: fixed;
-      }
-
-      .overlay__inner {
-        width: 100%;
-        height: 100%;
-        position: absolute;
-      }
-
-      .overlay__content {
-        left: 20%;
-        position: absolute;
-        top: 20%;
-        transform: translate(-50%, -50%);
-      }
-
-      .spinner {
-        width: 75px;
-        height: 75px;
-        display: inline-block;
-        border-width: 2px;
-        border-color: var(--dorc-border-color);
-        border-top-color: var(--dorc-link-color);
-        animation: spin 1s infinite linear;
-        border-radius: 100%;
-        border-style: solid;
-      }
-
       @keyframes spin {
         100% {
           transform: rotate(360deg);
@@ -100,13 +70,7 @@ export class EnvDeployments extends PageEnvBase {
   render() {
     return html`
       ${this.loading
-        ? html` <div class="overlay">
-            <div class="overlay__inner">
-              <div class="overlay__content">
-                <span class="spinner"></span>
-              </div>
-            </div>
-          </div>`
+        ? html` <dorc-spinner></dorc-spinner>`
         : html`
             <vaadin-details
               opened

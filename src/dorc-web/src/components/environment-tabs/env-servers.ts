@@ -28,7 +28,10 @@ export class EnvServers extends PageEnvBase {
   static get styles() {
     return css`
       :host {
+        display: flex;
+        flex-direction: column;
         width: 100%;
+        height: 100%;
       }
       .span {
         font-family: var(--lumo-font-family);
@@ -43,15 +46,38 @@ export class EnvServers extends PageEnvBase {
         vertical-align: middle;
       }
       .buttons {
-        font-size: 10px;
+        font-size: var(--lumo-font-size-s);
         color: var(--dorc-link-color);
-        padding: 2px;
+        padding: var(--lumo-space-xs);
       }
       vaadin-details {
-        overflow: auto;
+        overflow: hidden;
         width: calc(100% - 4px);
-        height: calc(100vh - 175px);
+        flex: 1;
+        min-height: 0;
         --divider-color: var(--dorc-border-color);
+        display: flex;
+        flex-direction: column;
+      }
+      vaadin-details::part(content) {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        padding: 2;
+      }
+      .details-content {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        min-height: 0;
+      }
+      .servers-wrapper {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
       }
     `;
   }
@@ -63,7 +89,7 @@ export class EnvServers extends PageEnvBase {
         summary="Application Server Details"
         style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; margin: 0px;"
       >
-        <div>
+        <div class="details-content">
           <div class="inline">
             <vaadin-button
               title="Attach Server"
@@ -83,6 +109,7 @@ export class EnvServers extends PageEnvBase {
             ${dialogFooterRenderer(this.renderAttachServerFooter, [])}
           ></vaadin-dialog>
           </div>
+          <div class="servers-wrapper">
             <attached-servers
               id="attached-servers"
               .envId="${this.environmentId ?? 0}"

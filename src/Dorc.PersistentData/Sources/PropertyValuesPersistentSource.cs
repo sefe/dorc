@@ -174,17 +174,9 @@ namespace Dorc.PersistentData.Sources
                 var propertyValue = MapToPropertyValue(propertyValueDto, property);
                 if (property.Secure)
                 {
-                    if (property.IsArray)
-                    {
-                        var encrypted = JsonSerializer.Deserialize<string[]>(propertyValueDto.Value)
-                            ?.Select(s => _encrypt.EncryptValue(propertyValue.Value)).ToList();
-
-                        propertyValue.Value = JsonSerializer.Serialize(encrypted);
-                    }
-                    else
-                    {
-                        propertyValue.Value = _encrypt.EncryptValue(propertyValue.Value);
-                    }
+                    propertyValue.Value = property.IsArray
+                        ? EncryptArrayValue(propertyValueDto.Value, _encrypt)
+                        : _encrypt.EncryptValue(propertyValue.Value);
                 }
                 context.PropertyValues.Add(propertyValue);
 
@@ -731,7 +723,7 @@ namespace Dorc.PersistentData.Sources
                 {
                     case true:
                         {
-                            t.Value = _encrypt.DecryptValue(t.Value.ToString());
+                            t.Value = DecryptStoredValue(t.Value.ToString(), t.Property.IsArray);
                             AddKeyPair(properties, t.Property.Name, t);
                             break;
                         }
@@ -790,7 +782,7 @@ namespace Dorc.PersistentData.Sources
             if (propertyValue.Property.Secure
                 && propertyValue.Value != null)
             {
-                return _encrypt.DecryptValue(propertyValue.Value);
+                return DecryptStoredValue(propertyValue.Value, propertyValue.Property.IsArray);
             }
 
             return propertyValue.Value;
@@ -801,10 +793,40 @@ namespace Dorc.PersistentData.Sources
             if (propertyValue.Property.Secure
                 && propertyValue.Value != null)
             {
-                propertyValue.Value = _encrypt.DecryptValue(propertyValue.Value);
+                propertyValue.Value = DecryptStoredValue(propertyValue.Value, propertyValue.Property.IsArray);
             }
 
             return propertyValue;
+        }
+
+        private string DecryptStoredValue(string value, bool isArray)
+        {
+            return isArray
+                ? DecryptArrayValue(value, _encrypt)
+                : _encrypt.DecryptValue(value);
+        }
+
+        // Secure array values are stored as a JSON array of per-element ciphertexts. Encrypt and
+        // decrypt must be symmetric: encrypt each element, decrypt each element. (A previous
+        // version encrypted the whole serialized array for every element, corrupting the data.)
+        internal static string EncryptArrayValue(string serializedArray, IPropertyEncryptor encryptor)
+        {
+            var items = JsonSerializer.Deserialize<string[]>(serializedArray);
+            if (items == null)
+                return serializedArray;
+
+            var encrypted = items.Select(encryptor.EncryptValue).ToList();
+            return JsonSerializer.Serialize(encrypted);
+        }
+
+        internal static string DecryptArrayValue(string serializedArray, IPropertyEncryptor encryptor)
+        {
+            var items = JsonSerializer.Deserialize<string[]>(serializedArray);
+            if (items == null)
+                return serializedArray;
+
+            var decrypted = items.Select(encryptor.DecryptValue).ToList();
+            return JsonSerializer.Serialize(decrypted);
         }
 
         private static void AddKeyPair(IDictionary<string, PropertyValueDto> properties, string key, PropertyValueDto value)

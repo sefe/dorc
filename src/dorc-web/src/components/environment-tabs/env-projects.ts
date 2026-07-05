@@ -14,12 +14,16 @@ export class EnvProjects extends PageEnvBase {
   static get styles() {
     return css`
       :host {
+        display: flex;
+        flex-direction: column;
         width: 100%;
+        height: 100%;
       }
       vaadin-details {
         overflow: auto;
-        width: calc(100% - 4px);
-        height: calc(100vh - 180px);
+        width: 100%;
+        flex: 1;
+        min-height: 0;
       }
     `;
   }

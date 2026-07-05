@@ -1,4 +1,5 @@
 import { css, PropertyValues } from 'lit';
+import '../components/dorc-spinner';
 import '@vaadin/button';
 import '@vaadin/icons';
 import '@vaadin/icon';
@@ -61,12 +62,30 @@ export class PageProjectEnvs extends PageElement {
 
   static get styles() {
     return css`
+      :host {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        overflow: hidden;
+      }
+
       .card-element {
         padding: 10px;
         box-shadow: 1px 2px 3px rgba(0, 0, 0, 0.2);
         width: 300px;
-        height: 126px;
-        position: relative;
+        min-height: 110px;
+        height: 100%;
+        display: flex;
+        justify-content: space-between;
+        gap: var(--lumo-space-s);
+        box-sizing: border-box;
+      }
+
+      @media (max-width: 768px) {
+        .card-element {
+          width: 100%;
+          min-width: 0;
+        }
       }
 
       .card-element__heading {
@@ -75,32 +94,65 @@ export class PageProjectEnvs extends PageElement {
 
       .card-element__text {
         color: gray;
-        width: 180px;
         word-wrap: break-word;
         display: block;
-        font-size: small;
+        font-size: var(--lumo-font-size-s);
+      }
+
+      .card-content {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .card-actions {
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+        gap: var(--lumo-space-xs);
+        flex-shrink: 0;
       }
 
       .statistics-cards {
-        max-width: 500px;
+        max-width: 100%;
         display: flex;
         flex-wrap: wrap;
       }
 
       .statistics-cards__item {
-        margin: 5px;
+        margin: 0;
         flex-shrink: 0;
         background-color: var(--dorc-bg-secondary);
+        width: 300px;
+        height: 100%;
       }
 
       .environments {
-        display: flex;
-        flex-direction: row;
-        flex-wrap: wrap;
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 300px));
+        gap: var(--lumo-space-xs);
+        padding: var(--lumo-space-xs) 0 0 var(--lumo-space-xs);
         justify-content: flex-start;
+        align-items: stretch;
+        align-content: flex-start;
         overflow-x: hidden;
         overflow-y: auto;
-        height: calc(100vh - 50px);
+        flex: 1;
+        min-height: 0;
+      }
+
+      .environments > environment-card {
+        display: block;
+        height: 100%;
+      }
+
+      @media (max-width: 768px) {
+        .environments {
+          grid-template-columns: 1fr;
+        }
+
+        .statistics-cards__item {
+          width: 100%;
+        }
       }
 
       a {
@@ -108,58 +160,15 @@ export class PageProjectEnvs extends PageElement {
         text-decoration: none; /* no underline */
       }
 
-      .overlay {
-        width: 100%;
-        height: 100%;
-        position: fixed;
-      }
-
-      .overlay__inner {
-        width: 100%;
-        height: 100%;
-        position: absolute;
-      }
-
-      .overlay__content {
-        left: 30%;
-        position: absolute;
-        top: 20%;
-        transform: translate(-50%, -50%);
-      }
-
-      .spinner {
-        width: 75px;
-        height: 75px;
-        display: inline-block;
-        border-width: 2px;
-        border-color: var(--dorc-border-color);
-        border-top-color: var(--dorc-link-color);
-        animation: spin 1s infinite linear;
-        border-radius: 100%;
-        border-style: solid;
-      }
-
-      @keyframes spin {
-        100% {
-          transform: rotate(360deg);
-        }
-      }
-
       vaadin-button {
-        padding: 2px;
+        padding: 0px;
       }
     `;
   }
 
   render() {
     return html`
-      <div class="overlay" ?hidden="${!this.loading}">
-        <div class="overlay__inner">
-          <div class="overlay__content">
-            <span class="spinner"></span>
-          </div>
-        </div>
-      </div>
+      <dorc-spinner ?hidden="${!this.loading}"></dorc-spinner>
       <add-edit-access-control
         id="add-edit-access-control"
         .secureName="${this.secureName}"
@@ -172,7 +181,7 @@ export class PageProjectEnvs extends PageElement {
       ></add-edit-project>
       <div class="environments">
         <div class="statistics-cards__item card-element">
-          <div style="position: absolute; left: 10px; max-width: 250px">
+          <div class="card-content">
             <h3 class="card-element__heading" style="margin: 0px">
               ${this.project}
             </h3>
@@ -187,58 +196,56 @@ export class PageProjectEnvs extends PageElement {
                 >`}
           </div>
 
-          <div style="right: 8px; bottom: 8px; position: absolute;">
-            <vaadin-vertical-layout style="gap: 8px; align-items: end;">
-              <vaadin-horizontal-layout style="gap: 8px;">
-                <vaadin-button
-                  title="Attach Environment"
-                  theme="icon"
-                  @click="${this.openAttachEnv}"
-                  style="margin: 0;"
-                >
-                  <vaadin-icon
-                    icon="icons:link"
-                    style="color: var(--dorc-link-color)"
-                  ></vaadin-icon>
-                </vaadin-button>
-                <vaadin-button
-                  title="Bundles"
-                  theme="icon"
-                  @click="${this.openBundles}"
-                  style="margin: 0;"
-                  ?hidden="${!this.projectUserEditable}"
-                >
-                  <vaadin-icon
-                    icon="vaadin:package"
-                    style="color: var(--dorc-link-color)"
-                  ></vaadin-icon>
-                </vaadin-button>
-              </vaadin-horizontal-layout>
-              <vaadin-horizontal-layout style="gap: 8px;">
-                <vaadin-button
-                  title="Reference Data"
-                  theme="icon"
-                  @click="${this.openRefData}"
-                  style="margin: 0;"
-                >
-                  <vaadin-icon
-                    icon="vaadin:curly-brackets"
-                    style="color: var(--dorc-link-color)"
-                  ></vaadin-icon>
-                </vaadin-button>
-                <vaadin-button
-                  title="Edit Metadata..."
-                  theme="icon"
-                  @click="${this.openProjectMetadata}"
-                  style="margin: 0;"
-                >
-                  <vaadin-icon
-                    icon="lumo:edit"
-                    style="color: var(--dorc-link-color)"
-                  ></vaadin-icon>
-                </vaadin-button>
-              </vaadin-horizontal-layout>
-            </vaadin-vertical-layout>
+          <div class="card-actions">
+            <vaadin-horizontal-layout style="gap: 4px;">
+              <vaadin-button
+                title="Attach Environment"
+                theme="icon"
+                @click="${this.openAttachEnv}"
+                style="margin: 0;"
+              >
+                <vaadin-icon
+                  icon="icons:link"
+                  style="color: var(--dorc-link-color)"
+                ></vaadin-icon>
+              </vaadin-button>
+              <vaadin-button
+                title="Bundles"
+                theme="icon"
+                @click="${this.openBundles}"
+                style="margin: 0;"
+                ?hidden="${!this.projectUserEditable}"
+              >
+                <vaadin-icon
+                  icon="vaadin:package"
+                  style="color: var(--dorc-link-color)"
+                ></vaadin-icon>
+              </vaadin-button>
+            </vaadin-horizontal-layout>
+            <vaadin-horizontal-layout style="gap: 4px;">
+              <vaadin-button
+                title="Reference Data"
+                theme="icon"
+                @click="${this.openRefData}"
+                style="margin: 0;"
+              >
+                <vaadin-icon
+                  icon="vaadin:curly-brackets"
+                  style="color: var(--dorc-link-color)"
+                ></vaadin-icon>
+              </vaadin-button>
+              <vaadin-button
+                title="Edit Metadata..."
+                theme="icon"
+                @click="${this.openProjectMetadata}"
+                style="margin: 0;"
+              >
+                <vaadin-icon
+                  icon="lumo:edit"
+                  style="color: var(--dorc-link-color)"
+                ></vaadin-icon>
+              </vaadin-button>
+            </vaadin-horizontal-layout>
           </div>
         </div>
         ${this.environments?.map(
@@ -250,8 +257,6 @@ export class PageProjectEnvs extends PageElement {
             ></environment-card>`
         )}
       </div>
-      <div style="padding-bottom: 20px"></div>
-
       <vaadin-dialog
         header-title="Map Environment to Project"
         .opened="${this.mapEnvDialogOpened}"

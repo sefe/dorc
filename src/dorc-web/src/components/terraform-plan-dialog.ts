@@ -155,6 +155,7 @@ export class TerraformPlanDialog extends LitElement {
         .opened="${this.opened}"
         @opened-changed="${this._onDialogOpenedChanged}"
         header-title="Terraform Plan"
+        theme="wide"
         resizable
         draggable
         modeless

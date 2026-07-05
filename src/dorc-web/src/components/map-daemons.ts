@@ -58,6 +58,7 @@ export class ServerDaemonMapping extends LitElement {
       }
       .attach-row {
         display: flex;
+        flex-wrap: wrap;
         align-items: baseline;
         gap: 8px;
         margin-bottom: 10px;
@@ -65,6 +66,13 @@ export class ServerDaemonMapping extends LitElement {
       vaadin-button {
         padding: 0px;
         margin: 0px;
+      }
+      @media (max-width: 768px) {
+        vaadin-grid-cell-content {
+          white-space: normal;
+          word-wrap: break-word;
+          overflow-wrap: break-word;
+        }
       }
     `;
   }
@@ -89,7 +97,7 @@ export class ServerDaemonMapping extends LitElement {
           ?disabled="${this.readonly}"
           @value-changed="${this.onDaemonSelected}"
           placeholder="Select Daemon"
-          style="width: 300px"
+          style="width: 100%; max-width: 300px"
           clear-button-visible
         ></vaadin-combo-box>
         <vaadin-button

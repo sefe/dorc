@@ -1,4 +1,5 @@
 import type { Grid, GridItemModel } from '@vaadin/grid';
+import '../dorc-spinner';
 import {
   GridDataProviderCallback,
   GridDataProviderParams,
@@ -39,6 +40,7 @@ import { retrieveErrorMessage } from '../../helpers/errorMessage-retriever.js';
 import type { PropertyValues } from 'lit';
 import type { PageLocation } from '../../helpers/page-element';
 import { PageEnvBase } from './page-env-base';
+import { ResponsiveMixin } from '../../helpers/responsive-mixin';
 
 const username = 'Username';
 const status = 'Status';
@@ -47,7 +49,7 @@ const details = 'Details';
 const id = 'Id';
 
 @customElement('env-monitor')
-export class EnvMonitor extends PageEnvBase implements IDeploymentsEventsClient{
+export class EnvMonitor extends ResponsiveMixin(PageEnvBase) implements IDeploymentsEventsClient{
   @query('#grid') grid: Grid | undefined;
 
   // since grid is being refreshed with multiple requests (pages) in non-deterministic way,
@@ -113,41 +115,8 @@ export class EnvMonitor extends PageEnvBase implements IDeploymentsEventsClient{
         margin: 0px;
       }
 
-      .overlay {
-        width: 100%;
-        height: 100%;
-        position: fixed;
-      }
-
-      .overlay__inner {
-        width: 100%;
-        height: 100%;
-        position: absolute;
-      }
-
-      .overlay__content {
-        left: 20%;
-        position: absolute;
-        top: 20%;
-        transform: translate(-50%, -50%);
-      }
-
-      .spinner {
-        width: 75px;
-        height: 75px;
-        display: inline-block;
-        border-width: 2px;
-        border-color: rgba(255, 255, 255, 0.05);
-        border-top-color: cornflowerblue;
-        animation: spin 1s infinite linear;
-        border-radius: 100%;
-        border-style: solid;
-      }
-
-      @keyframes spin {
-        100% {
-          transform: rotate(360deg);
-        }
+      vaadin-grid::part(row) {
+        cursor: pointer;
       }
 
       .cover {
@@ -157,25 +126,27 @@ export class EnvMonitor extends PageEnvBase implements IDeploymentsEventsClient{
         left: 50%;
         transform: translate(-50%, -50%);
       }
+      @media (max-width: 768px) {
+        vaadin-grid-cell-content {
+          white-space: normal;
+          word-wrap: break-word;
+          overflow-wrap: break-word;
+        }
+      }
     `;
   }
 
   render() {
     return html`
-      <div id="loading" class="overlay" style="z-index: 2" ?hidden="${!this.isLoading && !this.isSearching}">
-        <div class="overlay__inner">
-          <div class="overlay__content">
-            <span class="spinner"></span>
-          </div>
-        </div>
-      </div>
+      <dorc-spinner ?hidden="${!this.isLoading && !this.isSearching}"></dorc-spinner>
       
       <vaadin-grid
         id="grid"
         column-reordering-allowed
         multi-sort
         .size=${200}
-        theme="compact row-stripes no-row-borders no-border"
+        theme="compact row-stripes no-row-borders no-border hover-highlight"
+        @active-item-changed="${this.onRowClick}"
         .dataProvider=${(
           params: GridDataProviderParams<DeploymentRequestApiModel>,
           callback: GridDataProviderCallback<DeploymentRequestApiModel>
@@ -305,6 +276,7 @@ export class EnvMonitor extends PageEnvBase implements IDeploymentsEventsClient{
           .renderer="${this.timingsRenderer}"
           header="Timings"
           auto-width
+          ?hidden="${this._narrowScreen}"
         ></vaadin-grid-column>
         <vaadin-grid-column
           header="User"
@@ -312,6 +284,7 @@ export class EnvMonitor extends PageEnvBase implements IDeploymentsEventsClient{
           .renderer="${this.usernameRenderer}"
           resizable
           auto-width
+          ?hidden="${this._narrowScreen}"
         >
         </vaadin-grid-column>
         <vaadin-grid-column
@@ -334,6 +307,7 @@ export class EnvMonitor extends PageEnvBase implements IDeploymentsEventsClient{
           .renderer="${this.componentsRenderer}"
           resizable
           auto-width
+          ?hidden="${this._narrowScreen}"
         >
         </vaadin-grid-column>
       </vaadin-grid>
@@ -389,8 +363,14 @@ export class EnvMonitor extends PageEnvBase implements IDeploymentsEventsClient{
   this.location = location;
   }
 
+  connectedCallback(): void {
+    super.connectedCallback();
+    this.addEventListener('keydown', this._onHostKeyDown);
+  }
+
   disconnectedCallback(): void {
     super.disconnectedCallback();
+    this.removeEventListener('keydown', this._onHostKeyDown);
     if (this.hubConnection) {
       this.hubConnection.stop().catch((err) => {
         console.error('Error stopping SignalR connection:', err);
@@ -631,32 +611,53 @@ export class EnvMonitor extends PageEnvBase implements IDeploymentsEventsClient{
     const request = model.item;
     render(
       html`
-        <vaadin-horizontal-layout style="align-items: center;" theme="spacing">
-          <span style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"> ${request.Id} </span>
-          <vaadin-button
-            title="View Detailed Results"
-            theme="icon small"
-            @click="${() => {
-          const event = new CustomEvent('open-monitor-result', {
-            detail: {
-              request,
-              message: 'Show results for Request'
-            },
-            bubbles: true,
-            composed: true
-          });
-          this.dispatchEvent(event);
-        }}"
-          >
-            <vaadin-icon
-              icon="vaadin:ellipsis-dots-h"
-              style="color: cornflowerblue"
-            ></vaadin-icon>
-          </vaadin-button>
-        </vaadin-horizontal-layout>
+        <span style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"> ${request.Id} </span>
       `,
       root
     );
+  };
+
+  private onRowClick = (e: CustomEvent) => {
+    const request = e.detail.value as DeploymentRequestApiModel | null;
+    if (!request) return;
+
+    const grid = this.shadowRoot?.getElementById('grid') as Grid | null;
+    if (grid) grid.activeItem = null;
+
+    this.dispatchEvent(
+      new CustomEvent('open-monitor-result', {
+        detail: {
+          request,
+          message: 'Show results for Request'
+        },
+        bubbles: true,
+        composed: true
+      })
+    );
+  };
+
+  // Enter on a focused body row opens the detail panel by activating the row,
+  // which routes through the existing active-item-changed handler. Bails when
+  // the grid is in interacting-mode (focus is inside a cell-internal control
+  // such as a column-header filter input or sort button).
+  private _onHostKeyDown = (e: KeyboardEvent) => {
+    if (e.key !== 'Enter') return;
+    const grid = this.shadowRoot?.getElementById('grid') as Grid | null;
+    if (!grid || grid.hasAttribute('interacting')) return;
+
+    const row = e.composedPath().find(
+      (el): el is HTMLElement =>
+        el instanceof HTMLElement &&
+        el.localName === 'tr' &&
+        el.getAttribute('role') === 'row'
+    );
+    if (!row) return;
+
+    const item = (row as unknown as { _item?: DeploymentRequestApiModel })._item;
+    if (!item) return;
+
+    e.preventDefault();
+    grid.activeItem = item;
   };
 
   _requestControlsRenderer(

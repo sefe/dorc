@@ -1,4 +1,5 @@
 import '@polymer/paper-dialog';
+import '../components/dorc-spinner';
 import '@vaadin/button';
 import {
   GridCellPartNameGenerator,
@@ -27,10 +28,11 @@ import { ScriptAuditApiModel } from '../apis/dorc-api/models/ScriptAuditApiModel
 import { GetScriptsAuditListResponseDto } from '../apis/dorc-api/models/GetScriptsAuditListResponseDto';
 import { ScriptsAuditApi } from '../apis/dorc-api/apis/ScriptsAuditApi';
 import { PageElement } from '../helpers/page-element';
+import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import { getShortLogonName } from '../helpers/user-extensions';
 
 @customElement('page-scripts-audit')
-export class PageScriptsAudit extends PageElement {
+export class PageScriptsAudit extends ResponsiveMixin(PageElement) {
   @property({ type: Boolean }) loading = true;
 
   @property({ type: Boolean }) searching = false;
@@ -69,38 +71,6 @@ export class PageScriptsAudit extends PageElement {
       vaadin-grid#grid::part(delete-type) {
         background-color: var(--audit-row-remove-bg);
       }
-      .overlay {
-        width: 100%;
-        height: 100%;
-        position: fixed;
-      }
-      .overlay__inner {
-        width: 100%;
-        height: 100%;
-        position: absolute;
-      }
-      .overlay__content {
-        left: 20%;
-        position: absolute;
-        top: 20%;
-        transform: translate(-50%, -50%);
-      }
-      .spinner {
-        width: 75px;
-        height: 75px;
-        display: inline-block;
-        border-width: 2px;
-        border-color: var(--dorc-border-color);
-        border-top-color: var(--dorc-link-color);
-        animation: spin 1s infinite linear;
-        border-radius: 100%;
-        border-style: solid;
-      }
-      @keyframes spin {
-        100% {
-          transform: rotate(360deg);
-        }
-      }
       .highlight {
         background-color: var(--audit-char-add-bg);
       }
@@ -110,22 +80,19 @@ export class PageScriptsAudit extends PageElement {
       .value-line {
         white-space: nowrap;
       }
+      @media (max-width: 768px) {
+        vaadin-grid-cell-content {
+          white-space: normal;
+          word-wrap: break-word;
+          overflow-wrap: break-word;
+        }
+      }
     `;
     }
 
   render() {
     return html`
-      <div
-        class="overlay"
-        style="z-index: 2"
-        ?hidden="${!(this.loading || this.searching)}"
-      >
-        <div class="overlay__inner">
-          <div class="overlay__content">
-            <span class="spinner"></span>
-          </div>
-        </div>
-      </div>
+      <dorc-spinner ?hidden="${!(this.loading || this.searching)}"></dorc-spinner>
       <vaadin-grid
         id="grid"
         column-reordering-allowed
@@ -172,6 +139,7 @@ export class PageScriptsAudit extends PageElement {
           resizable
           auto-width
           flex-grow="0"
+          ?hidden="${this._narrowScreen}"
         ></vaadin-grid-column>
       </vaadin-grid>
     `;

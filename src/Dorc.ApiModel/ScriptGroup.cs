@@ -23,6 +23,13 @@ namespace Dorc.ApiModel
         public string AzureProjects { get; set; }
         public string AzureOrganization { get; set; }
 
+        // GitHub Actions source configuration
+        public string GitHubToken { get; set; }
+        public string GitHubOwner { get; set; }
+        public string GitHubRepo { get; set; }
+        public string GitHubRunId { get; set; }
+        public string GitHubApiBaseUrl { get; set; }
+
         // Platform-rendered Terraform state backend.
         // Set by the Monitor dispatcher; consumed by the runner to write
         // _dorc_backend.tf into the working directory before `terraform init`.

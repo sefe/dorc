@@ -8,7 +8,7 @@ namespace Dorc.Api.Model
         {
             BuildUrl = url;
         }
-        public BuildDetails(RequestDto request)
+        public BuildDetails(RequestDto request, SourceControlType sourceControlType = SourceControlType.AzureDevOps)
         {
             BuildUrl = request.BuildUrl;
             BuildText = request.BuildText;
@@ -16,6 +16,7 @@ namespace Dorc.Api.Model
             VstsUrl = request.VstsUrl;
             Project = request.Project;
             Pinned = request.Pinned;
+            SourceControlType = sourceControlType;
         }
 
         public BuildType Type => GetBuildType(BuildUrl);
@@ -25,6 +26,7 @@ namespace Dorc.Api.Model
         public string? VstsUrl { set; get; } = default!;
         public string Project { set; get; }
         public bool? Pinned { set; get; }
+        public SourceControlType SourceControlType { set; get; }
 
         // sentinel scheme. Catalog-only deploy requests have no build
         // artifact; the controller substitutes this prefix for the empty
@@ -38,8 +40,22 @@ namespace Dorc.Api.Model
         {
             if (string.IsNullOrEmpty(url)) return BuildType.UnknownBuildType;
             if (url.StartsWith(CatalogSentinel, StringComparison.OrdinalIgnoreCase)) return BuildType.Catalog;
-            if (url.ToLower().StartsWith("http")) return BuildType.TfsBuild;
-            if (url.ToLower().StartsWith("file")) return BuildType.FileShareBuild;
+            if (url.StartsWith("file", StringComparison.OrdinalIgnoreCase)) return BuildType.FileShareBuild;
+            if (SourceControlType == SourceControlType.FileShare) return BuildType.FileShareBuild;
+
+            // SourceControlType is the authoritative classifier when set explicitly. URL-shape
+            // sniffing below remains as a fallback for projects that haven't been migrated to
+            // the new column. GitHub Enterprise URLs ("https://github.acme.local/owner/repo/
+            // actions/runs/12345") contain neither "github.com" nor "/repos/" so the legacy
+            // sniff would mis-route them to TfsBuild.
+            if (SourceControlType == SourceControlType.GitHub)
+            {
+                if (long.TryParse(url, out _)) return BuildType.GitHubBuild;
+                if (url.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+                    return BuildType.GitHubBuild;
+            }
+
+            if (url.StartsWith("http", StringComparison.OrdinalIgnoreCase)) return BuildType.TfsBuild;
             return BuildType.UnknownBuildType;
         }
     }
@@ -48,6 +64,7 @@ namespace Dorc.Api.Model
     {
         TfsBuild,
         FileShareBuild,
+        GitHubBuild,
         UnknownBuildType,
         // Catalog-mode deploy requests use a sentinel BuildUrl
         // (BuildDetails.CatalogSentinel) and dispatch via CatalogDeployableBuild.
