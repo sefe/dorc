@@ -149,7 +149,13 @@ public sealed class KafkaLockCoordinator : IHostedService, IAsyncDisposable
     private IConsumer<byte[], byte[]> CreateConsumer() =>
         ConsumerFactoryOverride?.Invoke() ?? BuildConsumer();
 
-    private IConsumer<byte[], byte[]> BuildConsumer()
+    /// <summary>
+    /// Lock-consumer configuration, split from <see cref="BuildConsumer"/> as
+    /// an internal seam so the unit tests can pin the config invariants
+    /// (static membership id, session-timeout override, auto-commit,
+    /// offset-reset) without constructing a librdkafka consumer.
+    /// </summary>
+    internal ConsumerConfig BuildConsumerConfig()
     {
         var config = _connectionProvider.GetConsumerConfig(_options.ConsumerGroupId);
         // Lock semantics don't use committed offsets — auto-commit is harmless
@@ -158,7 +164,7 @@ public sealed class KafkaLockCoordinator : IHostedService, IAsyncDisposable
         config.AutoOffsetReset = AutoOffsetReset.Latest;
         // Lock-specific session timeout: the outage-grace budget for held
         // locks (see KafkaLocksOptions.SessionTimeoutMs). The liveness
-        // watchdog derives from the same effective value below.
+        // watchdog derives from the same effective value.
         if (_options.SessionTimeoutMs is { } sessionMs)
             config.SessionTimeoutMs = sessionMs;
         // Static membership: a restart that rejoins within session.timeout.ms
@@ -172,6 +178,12 @@ public sealed class KafkaLockCoordinator : IHostedService, IAsyncDisposable
         // fan-out consumer warning covers the same topology.
         if (_options.UseStaticGroupMembership)
             config.GroupInstanceId = $"{_options.ConsumerGroupId}.{Events.Publisher.HostInstanceId.For(_configuredReplicaId)}";
+        return config;
+    }
+
+    private IConsumer<byte[], byte[]> BuildConsumer()
+    {
+        var config = BuildConsumerConfig();
 
         var handlers = new KafkaRebalanceHandlers<byte[], byte[]>(_logger, "dorc-lock-coordinator");
 

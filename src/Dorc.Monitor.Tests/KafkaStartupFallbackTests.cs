@@ -20,13 +20,12 @@ namespace Dorc.Monitor.Tests;
 ///   <item>No Kafka background (IHostedService) registered in fallback mode.</item>
 /// </list>
 ///
-/// <b>Known limitation:</b> <see cref="BuildFallbackRegistrations"/> is a
-/// hand-copy of Program.cs's fallback-branch DI wiring rather than an
-/// invocation of the production code itself; it must be kept in sync with
-/// Program.cs manually, so the FallbackPath_* assertions verify the copy, not
-/// the production path. The gate decision itself, however, IS production code:
-/// <see cref="EvaluateKafkaEnabled"/> calls the shared
-/// <c>KafkaStartupGate.IsKafkaEnabled</c> that both Program.cs files invoke.
+/// Both halves exercise production code: <see cref="EvaluateKafkaEnabled"/>
+/// calls the shared <c>KafkaStartupGate.IsKafkaEnabled</c> that both
+/// Program.cs files invoke, and <see cref="BuildFallbackRegistrations"/> calls
+/// <see cref="DbPollFallbackRegistration.Register"/> — the extracted
+/// else-branch wiring Program.cs itself uses (the previous known limitation,
+/// a hand-copied mirror of the fallback DI wiring, is retired).
 /// </summary>
 [TestClass]
 public class KafkaStartupFallbackTests
@@ -190,24 +189,28 @@ public class KafkaStartupFallbackTests
 
     // ── fallback service registrations ─────────────────────────────────────
 
-    // Builds a ServiceCollection that mirrors Program.cs's fallback branch.
-    // We inspect registrations rather than resolve instances so this test has
-    // no dependency on SignalRDeploymentEventPublisher's full constructor
+    // Builds a ServiceCollection carrying the fallback-mode registrations.
+    // The else-branch wiring comes from the PRODUCTION method
+    // (DbPollFallbackRegistration.Register); only the SignalR publisher
+    // registrations are mirrored here, because in Program.cs they are
+    // unconditional and live OUTSIDE the kafkaEnabled gate. We inspect
+    // registrations rather than resolve instances so this test has no
+    // dependency on SignalRDeploymentEventPublisher's full constructor
     // (which requires IMonitorConfiguration / a live hub URL).
-    private static ServiceCollection BuildFallbackRegistrations()
+    private static ServiceCollection BuildFallbackRegistrations(List<string>? warnings = null)
     {
         var services = new ServiceCollection();
         services.AddLogging();
 
-        // Mirror Program.cs lines 146–177 (fallback branch).
+        // Mirror Program.cs's unconditional SignalR publisher registrations.
         services.AddSingleton<SignalRDeploymentEventPublisher>();
         services.AddSingleton<IDeploymentEventsPublisher>(sp =>
             sp.GetRequiredService<SignalRDeploymentEventPublisher>());
         services.AddSingleton<IFallbackDeploymentEventPublisher>(sp =>
             sp.GetRequiredService<SignalRDeploymentEventPublisher>());
 
-        services.AddSingleton<IDistributedLockService, NoOpDistributedLockService>();
-        services.AddSingleton<IRequestPollSignal, RequestPollSignal>();
+        // Production fallback wiring (Program.cs else-branch).
+        DbPollFallbackRegistration.Register(services, message => warnings?.Add(message));
         return services;
     }
 
@@ -243,6 +246,19 @@ public class KafkaStartupFallbackTests
                 sd.ServiceType == typeof(IRequestPollSignal) &&
                 sd.ImplementationType == typeof(RequestPollSignal)),
             "IRequestPollSignal must be registered in fallback mode (DB poll still runs).");
+    }
+
+    [TestMethod]
+    public void FallbackPath_EmitsSingleReplicaWarning()
+    {
+        // The warning is the only split-brain guard in fallback mode (the NoOp
+        // lock service cannot detect peer replicas), so its emission is a
+        // load-bearing part of the registration path.
+        var warnings = new List<string>();
+        BuildFallbackRegistrations(warnings);
+
+        Assert.HasCount(1, warnings, "Register must emit exactly one warning.");
+        StringAssert.Contains(warnings[0], "EXACTLY ONE Monitor replica");
     }
 
     [TestMethod]

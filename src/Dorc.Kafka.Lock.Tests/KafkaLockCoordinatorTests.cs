@@ -22,7 +22,9 @@ public class KafkaLockCoordinatorTests
         int? livenessTimeoutMs = null,
         TimeProvider? timeProvider = null,
         int? sessionTimeoutMs = null,
-        int? lockSessionTimeoutMs = null)
+        int? lockSessionTimeoutMs = null,
+        bool useStaticGroupMembership = true,
+        string? replicaId = null)
     {
         var opts = Options.Create(new KafkaLocksOptions
         {
@@ -30,7 +32,8 @@ public class KafkaLockCoordinatorTests
             PartitionCount = partitionCount,
             ConsumerGroupId = "test",
             LivenessTimeoutMs = livenessTimeoutMs,
-            SessionTimeoutMs = lockSessionTimeoutMs
+            SessionTimeoutMs = lockSessionTimeoutMs,
+            UseStaticGroupMembership = useStaticGroupMembership
         });
         var topics = Options.Create(new KafkaTopicsOptions());
         return new KafkaLockCoordinator(
@@ -38,7 +41,10 @@ public class KafkaLockCoordinatorTests
             opts,
             topics,
             NullLogger<KafkaLockCoordinator>.Instance,
-            timeProvider);
+            timeProvider,
+            replicaId is null
+                ? null
+                : Options.Create(new Dorc.Kafka.Client.Configuration.KafkaClientOptions { ReplicaId = replicaId }));
     }
 
     private static void InvokePrivate(object target, string name, params object[] args)
@@ -372,6 +378,75 @@ public class KafkaLockCoordinatorTests
         Assert.IsTrue((bool)GetPrivateField(c, "_connectivitySuspect"),
             "A 'lost' revoke (local timeout, no broker round-trip) must NOT clear " +
             "_connectivitySuspect.");
+    }
+
+    // ---- BuildConsumerConfig seam: lock-consumer config invariants ----
+
+    [TestMethod]
+    public async Task BuildConsumerConfig_PinsAutoCommitAndOffsetReset()
+    {
+        await using var c = NewCoordinator();
+        var config = c.BuildConsumerConfig();
+
+        // Lock semantics don't use committed offsets: auto-commit on, join at Latest.
+        Assert.IsTrue(config.EnableAutoCommit);
+        Assert.AreEqual(AutoOffsetReset.Latest, config.AutoOffsetReset);
+    }
+
+    [TestMethod]
+    public async Task BuildConsumerConfig_LockSessionTimeoutOverride_WinsOverSharedClientValue()
+    {
+        await using var c = NewCoordinator(sessionTimeoutMs: 30_000, lockSessionTimeoutMs: 150_000);
+        Assert.AreEqual(150_000, c.BuildConsumerConfig().SessionTimeoutMs);
+    }
+
+    [TestMethod]
+    public async Task BuildConsumerConfig_NoLockSessionTimeout_InheritsSharedClientValue()
+    {
+        await using var c = NewCoordinator(sessionTimeoutMs: 30_000, lockSessionTimeoutMs: null);
+        Assert.AreEqual(30_000, c.BuildConsumerConfig().SessionTimeoutMs);
+    }
+
+    [TestMethod]
+    public async Task BuildConsumerConfig_StaticMembership_SetsGroupScopedHostInstanceId()
+    {
+        // group.instance.id = "{group}.{HostInstanceId.For(replicaId)}". The
+        // expectation is computed through HostInstanceId.For itself — the
+        // honest pin, since DORC_REPLICA_ID in the test environment outranks
+        // any configured replica id and would change the raw string.
+        await using var c = NewCoordinator(useStaticGroupMembership: true);
+        Assert.AreEqual(
+            $"test.{Dorc.Kafka.Events.Publisher.HostInstanceId.For(null)}",
+            c.BuildConsumerConfig().GroupInstanceId);
+    }
+
+    [TestMethod]
+    public async Task BuildConsumerConfig_StaticMembershipDisabled_LeavesGroupInstanceIdNull()
+    {
+        await using var c = NewCoordinator(useStaticGroupMembership: false);
+        Assert.IsNull(c.BuildConsumerConfig().GroupInstanceId);
+    }
+
+    [TestMethod]
+    public async Task BuildConsumerConfig_ConfiguredReplicaId_FlowsIntoGroupInstanceId()
+    {
+        // Kafka:ReplicaId (constructor-injected KafkaClientOptions) must reach
+        // the static-membership id via the same HostInstanceId channel the
+        // event consumers use.
+        await using var c = NewCoordinator(replicaId: "tier1");
+        var groupInstanceId = c.BuildConsumerConfig().GroupInstanceId;
+
+        Assert.AreEqual(
+            $"test.{Dorc.Kafka.Events.Publisher.HostInstanceId.For("tier1")}",
+            groupInstanceId);
+
+        // When the env var is not set, the config channel combines with the
+        // machine name — pin the exact "{MachineName}-{ReplicaId}" suffix.
+        if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(
+                Dorc.Kafka.Events.Publisher.HostInstanceId.EnvironmentVariable)))
+        {
+            Assert.AreEqual($"test.{Environment.MachineName}-tier1", groupInstanceId);
+        }
     }
 
     private sealed class FakeConnectionProvider : Dorc.Kafka.Client.Connection.IKafkaConnectionProvider

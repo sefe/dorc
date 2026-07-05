@@ -24,7 +24,8 @@ namespace Dorc.Monitor
         private bool disposedValue;
         private ConcurrentDictionary<string, int> environmentRequestIdRunning = new ConcurrentDictionary<string, int>();
         private readonly ConcurrentDictionary<string, DateTime> environmentLockBackoff = new ConcurrentDictionary<string, DateTime>();
-        private static readonly TimeSpan LockBackoffDuration = TimeSpan.FromSeconds(30);
+        // Internal (not private) so the unit tests can pin the backoff window.
+        internal static readonly TimeSpan LockBackoffDuration = TimeSpan.FromSeconds(30);
         private const int EnvironmentLockAcquireTimeoutMs = 300000;
 
         // Test hook: invoked when a fire-and-forget publish task is created.

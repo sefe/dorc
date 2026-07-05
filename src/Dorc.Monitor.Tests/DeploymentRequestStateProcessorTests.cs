@@ -528,6 +528,15 @@ namespace Dorc.Monitor.Tests
                     Arg.Any<DateTimeOffset>());
         }
 
+        [TestMethod]
+        public void LockBackoffDuration_Is30Seconds()
+        {
+            // The backoff window after a failed distributed-lock acquisition is
+            // an operational contract: an environment held by a peer Monitor is
+            // retried after 30s, not busy-retried every sweep.
+            Assert.AreEqual(TimeSpan.FromSeconds(30), DeploymentRequestStateProcessor.LockBackoffDuration);
+        }
+
         // =====================================================================
         // TryAdd race condition fix: environmentRequestIdRunning.TryAdd before Task.Run
         // =====================================================================
@@ -1001,6 +1010,52 @@ namespace Dorc.Monitor.Tests
             mockRequestsPersistentSource.DidNotReceive()
                 .UpdateNonProcessedRequest(
                     Arg.Any<DeploymentRequestApiModel>(),
+                    Arg.Any<DeploymentRequestStatus>(),
+                    Arg.Any<DateTimeOffset>());
+        }
+
+        [TestMethod]
+        public async Task ExecuteRequests_WhenPausedRequestIsBehindPendingHead_ExecutesTheHead()
+        {
+            // Converse of the paused-head case: a Paused request LATER in the
+            // queue (higher ID) must not block the environment — only a Paused
+            // HEAD does. Request 95 (Pending, lowest ID) executes; 96 is Paused.
+            var requests = new List<DeploymentRequestApiModel>
+            {
+                new() { Id = 95, EnvironmentName = "EnvPauseBehind", Status = DeploymentRequestStatus.Pending.ToString(),
+                        IsProd = false, UserName = "testuser",
+                        RequestDetails = "<DeploymentRequestDetail xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\"><Components /><ComponentsToSkip /><Properties /></DeploymentRequestDetail>" },
+                new() { Id = 96, EnvironmentName = "EnvPauseBehind", Status = DeploymentRequestStatus.Paused.ToString(),
+                        IsProd = false, UserName = "testuser",
+                        RequestDetails = "<DeploymentRequestDetail xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\"><Components /><ComponentsToSkip /><Properties /></DeploymentRequestDetail>" }
+            };
+            mockRequestsPersistentSource
+                .GetRequestsWithStatus(
+                    DeploymentRequestStatus.Pending,
+                    DeploymentRequestStatus.Running,
+                    DeploymentRequestStatus.Confirmed,
+                    DeploymentRequestStatus.Paused,
+                    false)
+                .Returns(requests);
+
+            mockDistributedLockService.IsEnabled.Returns(false);
+            mockRequestsPersistentSource
+                .UpdateNonProcessedRequest(
+                    Arg.Any<DeploymentRequestApiModel>(),
+                    Arg.Any<DeploymentRequestStatus>(),
+                    Arg.Any<DateTimeOffset>())
+                .Returns(0); // Return 0 to avoid going deeper into execution
+
+            var cancellationSources = new ConcurrentDictionary<int, CancellationTokenSource>();
+
+            // Act
+            var tasks = sut.ExecuteRequests(false, cancellationSources, CancellationToken.None);
+            await Task.WhenAll(tasks);
+
+            // Assert - the Pending head is processed (environment NOT skipped)
+            mockRequestsPersistentSource.Received(1)
+                .UpdateNonProcessedRequest(
+                    Arg.Is<DeploymentRequestApiModel>(r => r.Id == 95),
                     Arg.Any<DeploymentRequestStatus>(),
                     Arg.Any<DateTimeOffset>());
         }

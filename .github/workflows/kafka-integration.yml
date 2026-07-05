@@ -11,6 +11,11 @@ on:
     paths:
       - 'src/Dorc.Kafka.*/**'
       - 'src/Dorc.Kafka.*.Tests/**'
+      # Monitor-side substrate wiring (poll signal, lock consumers, fallback
+      # registration) lives outside src/Dorc.Kafka.* — changes there must also
+      # trigger the live-broker suite.
+      - 'src/Dorc.Monitor/**'
+      - 'src/Dorc.Core/**'
       - 'compose.kafka.yml'
       - '.github/workflows/kafka-integration.yml'
   push:
@@ -19,6 +24,8 @@ on:
       - feat/kafka-migration
     paths:
       - 'src/Dorc.Kafka.*/**'
+      - 'src/Dorc.Monitor/**'
+      - 'src/Dorc.Core/**'
       - 'compose.kafka.yml'
       - '.github/workflows/kafka-integration.yml'
 
