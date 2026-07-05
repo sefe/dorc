@@ -44,6 +44,20 @@ namespace Dorc.Api.Tests
         }
 
         [TestMethod]
+        public void Write_DoesNotLeakTopLevelExceptionMessage()
+        {
+            // The top-level message is the common leak vector (e.g. a SqlException
+            // "Login failed for user 'X'... Cannot open database 'Y'").
+            var json = Serialize(new InvalidOperationException(
+                "Login failed for user 'svc_acct' on server SQLPROD01, database Payroll"));
+
+            StringAssert.DoesNotMatch(json, new System.Text.RegularExpressions.Regex("Login failed"));
+            StringAssert.DoesNotMatch(json, new System.Text.RegularExpressions.Regex("SQLPROD01"));
+            StringAssert.DoesNotMatch(json, new System.Text.RegularExpressions.Regex("Payroll"));
+            StringAssert.Contains(json, "An unexpected error occurred");
+        }
+
+        [TestMethod]
         public void Write_EmitsShortTypeNameOnly_NotFullyQualified()
         {
             var json = Serialize(new ApplicationException("boom"));

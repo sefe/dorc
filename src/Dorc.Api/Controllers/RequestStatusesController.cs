@@ -68,16 +68,24 @@ namespace Dorc.Api.Controllers
         /// <param name="requestId">Request ID</param>
         /// <returns></returns>
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(string))]
+        [SwaggerResponse(StatusCodes.Status403Forbidden)]
         [SwaggerResponse(StatusCodes.Status404NotFound)]
         [HttpGet("Log")]
         public IActionResult GetLog(int requestId)
         {
-            // Only return a log for a request the caller can resolve, mirroring the
-            // neighbouring Get action rather than returning any request's log by id.
             var request = _requestsPersistentSource.GetRequestForUser(requestId, User);
             if (request == null)
             {
                 return StatusCode(StatusCodes.Status404NotFound, $"The request with id {requestId} is not found.");
+            }
+
+            // The full deployment log can contain script output/paths; require
+            // modify rights on the owning environment. (GetRequestForUser resolves
+            // the request row but does not itself enforce a permission, so an
+            // explicit privilege check is required here.)
+            if (!CanModifyOwningEnvironment(requestId))
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, "You are not authorized to view this request's log.");
             }
 
             var result = _requestsPersistentSource.GetRequestLog(requestId);
@@ -199,10 +207,28 @@ namespace Dorc.Api.Controllers
             // Reject any character that is not valid in a Windows path.
             if (uncLogPath.IndexOfAny(System.IO.Path.GetInvalidPathChars()) >= 0)
                 return false;
-            // Require \\server\share (at least a server and a share segment).
+            // Reject a colon anywhere: it enables drive-qualified paths and NTFS
+            // alternate data streams (e.g. \\s\share\log.txt:hidden), neither of
+            // which Path.GetInvalidPathChars() catches.
+            if (uncLogPath.Contains(':'))
+                return false;
+            // Require \\server\share (at least a server and a share segment) and
+            // reject '..' traversal segments that would escape the share.
             var remainder = uncLogPath.Substring(2);
             var segments = remainder.Split(new[] { '\\' }, StringSplitOptions.RemoveEmptyEntries);
-            return segments.Length >= 2;
+            if (segments.Length < 2)
+                return false;
+            foreach (var segment in segments)
+            {
+                if (segment == "..")
+                    return false;
+            }
+            // Reject drive-letter administrative shares (\\server\C$\...), which
+            // expose an entire volume. Named hidden shares (e.g. logs$) are allowed.
+            var share = segments[1];
+            if (share.Length == 2 && share[1] == '$' && char.IsLetter(share[0]))
+                return false;
+            return true;
         }
     }
 }

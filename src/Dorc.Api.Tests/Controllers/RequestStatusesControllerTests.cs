@@ -150,9 +150,35 @@ namespace Dorc.Api.Tests.Controllers
         [DataRow("http://evil/share", false)]
         [DataRow("", false)]
         [DataRow(null, false)]
+        [DataRow(@"\\server\share\..\..\..\other", false)]  // traversal off the share
+        [DataRow(@"\\server\share\log.txt:hidden", false)]  // alternate data stream
+        [DataRow(@"\\server\C$\Windows\Temp\x", false)]     // colon rejected (drive-qualified)
         public void IsValidUncPath_ValidatesAsExpected(string path, bool expected)
         {
             Assert.AreEqual(expected, RequestStatusesController.IsValidUncPath(path));
+        }
+
+        [TestMethod]
+        public void GetLog_WithoutModifyRights_ReturnsForbidden_AndDoesNotReadLog()
+        {
+            _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(false);
+
+            var result = _controller.GetLog(RequestId);
+
+            Assert.AreEqual(StatusCodes.Status403Forbidden, StatusOf(result));
+            _requests.DidNotReceive().GetRequestLog(RequestId);
+        }
+
+        [TestMethod]
+        public void GetLog_WithModifyRights_ReturnsLog()
+        {
+            _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(true);
+            _requests.GetRequestLog(RequestId).Returns("the log");
+
+            var result = _controller.GetLog(RequestId);
+
+            Assert.AreEqual(StatusCodes.Status200OK, StatusOf(result));
+            _requests.Received(1).GetRequestLog(RequestId);
         }
     }
 }

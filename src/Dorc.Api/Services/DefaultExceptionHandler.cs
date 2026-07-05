@@ -18,10 +18,12 @@ namespace Dorc.Api.Services
             {
                 Type = exception.GetType().Name,
                 Message = "An unexpected error occurred",
-                ExceptionMessage = exception.Message,
             };
 
-            var logMessage = result.ExceptionMessage;
+            // The raw exception message is logged server-side only, never returned
+            // to the caller (it can carry sensitive detail such as SQL login/DB
+            // names or file paths).
+            var logMessage = exception.Message;
             var user = httpContext?.User;
             if (user != null)
             {

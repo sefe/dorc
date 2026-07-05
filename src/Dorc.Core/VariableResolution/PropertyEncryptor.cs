@@ -10,15 +10,19 @@ namespace Dorc.Core.VariableResolution
 
         public PropertyEncryptor(string iv, string key)
         {
+            Aes? provider = null;
             try
             {
-                var provider = Aes.Create();
+                provider = Aes.Create();
                 provider.IV = Convert.FromBase64String(iv);
                 provider.Key = Convert.FromBase64String(key);
                 _provider = provider;
             }
             catch (Exception ex)
             {
+                // Dispose the partially-initialised provider (e.g. IV set but Key
+                // rejected) rather than leaking it.
+                provider?.Dispose();
                 // Do NOT silently fall back to a fresh random key. The old
                 // behaviour (`_provider = Aes.Create()`) produced ciphertext that
                 // could never be decrypted after a restart and masked a genuine
