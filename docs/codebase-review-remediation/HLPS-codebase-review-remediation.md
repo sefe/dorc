@@ -2,10 +2,12 @@
 
 | Field       | Value                                   |
 |-------------|-----------------------------------------|
-| **Status**  | DRAFT                                   |
+| **Status**  | REVISION (round-1 adversarial review applied) |
 | **Author**  | Agent                                   |
 | **Date**    | 2026-07-05                              |
 | **Folder**  | docs/codebase-review-remediation/       |
+
+> **Review record.** Round 1: three independent reviewers (coverage/completeness, sequencing/risk, solution-correctness). All 54 findings confirmed to map to steps with no orphans. Accepted corrections applied to this HLPS and the IS: SC-03 reworded to the retained-and-hardened `fn:` outcome; U-6 mechanism corrected to environment-lock probing; U-7 promoted to blocking S-014; U-9 added (A-4 server-side-enforcement spike); D-1 audit and D-2 on-disk closure notes added; prioritisation revised (G-1 XSS and C-7 hotfix promoted to Tier 1). No findings were rejected. Awaiting user approval at the HLPS checkpoint (only the adversarial panel + user may move this to APPROVED).
 
 ---
 
@@ -136,7 +138,7 @@ Findings are grouped by remediation workstream. Severity is the reviewer's asses
 |-------|-------------------|
 | SC-01 | Every CRITICAL and HIGH finding (A-1, A-2, B-1, B-2, C-1..C-7, D-1, E-1, G-1, G-2, C-2) is remediated with an automated test that demonstrates the vulnerable behaviour is no longer reachable (authorization denied, injection rejected, correct failure status, no secret in output). |
 | SC-02 | No authenticated user can perform an action or read data for an environment/resource they lack rights to; authorization is enforced server-side for every state-changing and sensitive-read endpoint. Client-side gating (A-4) is confirmed to be backed by server-side checks. |
-| SC-03 | No user-supplied value reaches a T-SQL, LDAP, or shell/script execution context without parameterisation or a strict allow-list; the `fn:` C# evaluator (B-2) is either removed or sandboxed with an explicit opt-in and no ambient host access. |
+| SC-03 | No user-supplied value reaches a T-SQL, LDAP, or shell/script execution context without parameterisation or a strict allow-list. For the `fn:` evaluator (B-2, which U-2 confirms must be retained): the evaluator is capability-restricted so an expression cannot reach host/IO/process/reflection/network (by construction under Direction A, or by out-of-process token restriction under Direction B — imports-restriction alone is **not** sufficient) **and** authorship is permission-gated **and** evaluation is timeout-bounded, with the residual-risk note recorded. |
 | SC-04 | A deployment (Terraform or PowerShell) that fails, is cancelled, or hits an unknown component type is never reported Complete; cancellation stops the underlying process; and a single wedged runner cannot block cancellation processing for the whole monitor. |
 | SC-05 | Decrypted secrets do not appear in logs, stdout, OpenSearch, on-disk temp files after a failed run, or in HTTP error responses. The legacy encryptor no longer silently substitutes a random key. |
 | SC-06 | Every change is covered by tests at the level the defect occurs (unit for logic, integration for pipe/broker/process behaviour). No change alters the external API contract, DB schema (beyond additive), or runner protocol without explicit call-out. |
@@ -181,9 +183,10 @@ Conceptual approach per workstream; detailed design belongs to the JIT Specs.
 | U-3 | Do the committed `.pfx` files (D-5) contain live private keys currently in use? If so they require rotation, not just removal from source. | User | **Blocking D-5 rotation** (not blocking their removal from source) | Open. |
 | U-4 | For D-4/D-7, will RabbitMQ and SQL Server present CA-trusted certificates in production, or must the client pin a specific thumbprint for self-signed certs? | User | **Blocking D-4 final form** | Open. Default: replace "accept all" with a pinned-thumbprint validator, configurable, failing closed. |
 | U-5 | Is `Database.EnsureCreated()` (F-4) relied upon by any dev/test bootstrap or first-run flow? | User | Non-blocking (default: remove; provide a documented test-DB setup if needed) | Open. |
-| U-6 | Is startup recovery (C-8) expected to run in a true HA (multi-node) configuration today, or is HA single-active? This determines whether "flip Running→Pending" must be scoped by node/lock ownership. | User | **Blocking C-8** | Open. Default: scope resume to requests this node owns via the lock, never blanket-flip. |
-| U-7 | Are deployments idempotent enough that a corrected startup-resume (C-8) may safely re-run an interrupted request? (Mirrors the monitor-robustness U-5, previously confirmed idempotent — re-confirm it still holds.) | User | Non-blocking (prior answer: yes) | Assumed resolved (idempotent) per prior HLPS; re-confirm. |
-| U-8 | Is the `dorc-web` generated API client (G-3) still regenerated from the OpenAPI spec as part of any build, or is it now effectively hand-maintained? This determines whether we restore the generator+patch workflow or formally adopt the file as source. | User | Non-blocking | Open. |
+| U-6 | Is startup recovery (C-8) expected to run in a true HA (multi-node) configuration today, or is HA single-active? Determines the environment-lock-probing design for resume. | User | **Blocking S-014** | Open. Correct mechanism (per round-1 review): probe/`TryAcquire` the per-environment lock before resuming a Running request — a successful acquire proves no live peer; do **not** blanket-flip, and do **not** restrict to "this node's" requests (would strand crashed-node work). |
+| U-7 | Are deployments idempotent enough that a corrected startup-resume (C-8/S-014) may safely re-run an interrupted request? (Mirrors monitor-robustness U-5, previously confirmed idempotent.) | User | **Blocking S-014** (promoted from non-blocking per round-1 review — it is load-bearing for resume correctness) | Prior answer: yes (idempotent). **Re-confirmation required before S-014 ships.** |
+| U-8 | Is the `dorc-web` generated API client (G-3) still regenerated from the OpenAPI spec as part of any build, or is it now effectively hand-maintained? Determines whether we restore the generator+patch workflow or formally adopt the file as source. | User | Non-blocking | Open. |
+| U-9 | (A-4) Does server-side enforcement exist behind the client-gated delete-environment and reset-SQL-password actions? | Answerable by code inspection — see Tier-1 spike **S-000** | **Blocking A-4 severity classification** | Open — resolved by S-000 up front, not deferred. If enforcement is absent, A-4 is a Tier-1 authz hole, not a Tier-3 MEDIUM. |
 
 ---
 
@@ -198,9 +201,12 @@ Conceptual approach per workstream; detailed design belongs to the JIT Specs.
 
 ## 9. Prioritisation Summary
 
-Recommended remediation order (detailed in the IS):
+Recommended remediation order (detailed in the IS; revised after the round-1 review):
 
-1. **Tier 1 — Stop active exploitation paths (CRITICAL/HIGH auth, injection, RCE, secret theft):** A-1, A-2, B-1, C-1, C-2, B-2, D-1, E-1, D-3, D-2.
-2. **Tier 2 — Deployment-integrity correctness (HIGH/MEDIUM):** C-3, C-4, C-5, C-6, C-7, C-9, C-10, C-11, C-8, E-2, E-3.
-3. **Tier 3 — Disclosure, data-access, and remaining MEDIUM:** A-3, A-4, D-4, E-4, E-5, F-1, F-2, F-3, F-4, G-1, G-2, G-3.
-4. **Tier 4 — LOW hardening & hygiene:** remaining A-5, B-3, C-12..C-14, D-5..D-8, E-6, F-5, F-6, G-4..G-10, X-1.
+1. **Tier 1 — Stop active exploitation paths (CRITICAL/HIGH auth, injection, RCE, secret theft, XSS):** A-4 spike (S-000), A-1, B-2, B-1, C-1, C-2, A-2, E-1/E-5, D-2(logs)/D-3, D-1, **C-7 busy-loop hotfix (S-012a)**, **G-1 XSS (promoted)**.
+2. **Tier 2 — Deployment-integrity correctness (HIGH/MEDIUM):** C-3/C-4/C-11 (S-010) **paired with** C-6 (S-012), C-5, C-9/C-10, C-8 (S-014, gated), E-2, E-3.
+3. **Tier 3 — Disclosure, data-access, and remaining MEDIUM:** A-3/A-5 (+A-4 confirm), D-4/D-7/D-8, E-4/E-6, F-1/F-2, F-3/F-4, G-2, G-3.
+4. **Tier 4 — LOW hardening & hygiene:** B-3, C-12..C-14, D-5, D-6, E-6, F-5, F-6, G-4..G-10, X-1.
+
+> **Note on D-2 closure:** the log/OpenSearch half of D-2 is fixed in Tier 1 (S-008), but the on-disk `tfvars` half is only closed with the Terraform cleanup in S-010 (Tier 2). SC-05 is not fully satisfied until S-010 ships.
+> **Note on D-1 audit:** because S-009 turns silently-corrupted values into hard read-time failures, the "audit for undecryptable values" (§8) is **promoted from out-of-scope to a companion action** delivered with S-009 (a `Tools.EncryptionMigrationCLI` dry-run scan).
