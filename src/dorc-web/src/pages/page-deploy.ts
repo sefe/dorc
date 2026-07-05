@@ -1,7 +1,7 @@
 import '@vaadin/combo-box';
 import { ComboBoxItemModel } from '@vaadin/combo-box';
 import { ComboBox } from '@vaadin/combo-box/src/vaadin-combo-box';
-import { css } from 'lit';
+import { css, render } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { DeployEnv } from '../components/deploy/deploy-env';
@@ -154,7 +154,7 @@ export class PageDeploy extends PageElement {
     model: ComboBoxItemModel<ProjectApiModel>
   ) {
     const template = model.item as ProjectApiModel;
-    root.innerHTML = `<div>${template.ProjectName}</div>`;
+    render(html`<div>${template.ProjectName}</div>`, root);
   }
 
   _projectValueChanged(data: any) {

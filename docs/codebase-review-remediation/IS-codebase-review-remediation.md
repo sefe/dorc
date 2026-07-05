@@ -142,6 +142,8 @@ Common to both directions:
 **Why.** G-1 — stored XSS executing in an authenticated **admin** session is an active exploitation path to full admin capability, the same category Tier 1 targets; it should not sit ~20 steps deep.
 **Verification intent.** A value containing `<img src=x onerror=...>` renders as text, not executable markup, across every affected grid/combo-box; the post-render imperative work (e.g. json-viewer expand) still functions.
 
+> **Implementation note (2026-07-05).** All ten `root.innerHTML = \`…${backendValue}…\`` renderers converted to `render(html\`…\`, root)` (auto-escaping): `attach-server`, `attach-database`, `add-edit-database`, `add-sql-port`, `edit-database-permissions` (×2), `page-scripts-list` (×2, post-render `json-viewer.expand` preserved), `page-project-components` (×3, one manual click-listener replaced with a Lit `@click`), `page-project-bundles` (×2), `page-deploy`, and `addUserOrGroupTemplateHelper`. No `unsafeHTML` introduced. `tsc --noEmit` is clean (0 errors). A regression test (`tests/components/renderer-xss.test.ts`) asserts a malicious `DisplayName` renders as text; it type-checks but could not be executed in this sandbox (the pre-installed Playwright browser build 1194 vs the project's expected 1223) — it runs in CI.
+
 ---
 
 ## Tier 2 — Deployment-integrity correctness

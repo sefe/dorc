@@ -1,4 +1,4 @@
-import { css, LitElement } from 'lit';
+import { css, LitElement, render } from 'lit';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/combo-box';
@@ -218,7 +218,7 @@ export class AddEditDatabase extends LitElement {
   ) {
     // only render the checkbox once, to avoid re-creating during subsequent calls
     const groupApiModel = model.item as GroupApiModel;
-    root.innerHTML = `<paper-item>${groupApiModel.GroupName}</paper-item>`;
+    render(html`<paper-item>${groupApiModel.GroupName}</paper-item>`, root);
   }
 
   _reset() {
