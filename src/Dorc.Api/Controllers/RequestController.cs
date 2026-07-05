@@ -693,16 +693,14 @@ namespace Dorc.Api.Controllers
                 return BadRequest(genericRejection);
             }
 
-            foreach (var component in catalogComponents)
+            // U-12 / pre-existing-but-null catalog row: per the
+            // post-verification intent, an unbindable Catalog component is a
+            // controller-time 400 rather than an opaque runner failure later.
+            if (catalogComponents.Any(component =>
+                    string.IsNullOrEmpty(component.TerraformTemplateName) ||
+                    string.IsNullOrEmpty(component.TerraformTemplateVersion)))
             {
-                if (string.IsNullOrEmpty(component.TerraformTemplateName) ||
-                    string.IsNullOrEmpty(component.TerraformTemplateVersion))
-                {
-                    // U-12 / pre-existing-but-null catalog row:'s
-                    // post-verification intent, this is a controller-time
-                    // 400 rather than an opaque runner failure later.
-                    return BadRequest(genericRejection);
-                }
+                return BadRequest(genericRejection);
             }
 
             //  case (a): every component is Catalog-mode.
