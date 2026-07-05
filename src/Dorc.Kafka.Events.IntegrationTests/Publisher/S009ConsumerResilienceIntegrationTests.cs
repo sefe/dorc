@@ -27,8 +27,9 @@ namespace Dorc.Kafka.Events.IntegrationTests.Publisher;
 ///   </description></item>
 ///   <item><description>
 ///     AT2 — pre-commit crash replay: when the consumer is stopped during
-///     <see cref="IDeploymentResultBroadcaster.BroadcastAsync"/> (before the
-///     manual <c>consumer.Commit(result)</c>), the offset is NOT committed.
+///     <see cref="IDeploymentResultBroadcaster.BroadcastAsync"/> (before
+///     <c>consumer.StoreOffset(result)</c>), the offset is never stored
+///     (auto-offset-store is disabled) and therefore never committed.
 ///     A new consumer on the same group replays that record — demonstrating
 ///     the at-least-once guarantee built into <see cref="DeploymentResultsKafkaConsumer"/>.
 ///   </description></item>
@@ -52,7 +53,7 @@ public class S009ConsumerResilienceIntegrationTests
 
         try
         {
-            await using var harness = new S007TestHarness();
+            await using var harness = new RequestsSubstrateTestHarness();
 
             var groupId = $"s009-at1-{Guid.NewGuid():N}";
 
@@ -124,7 +125,7 @@ public class S009ConsumerResilienceIntegrationTests
 
         try
         {
-            await using var harness = new S007TestHarness();
+            await using var harness = new RequestsSubstrateTestHarness();
             var groupId = $"s009-at2-{Guid.NewGuid():N}";
 
             // ── Phase 1: consumer A commits event 100 so the group has a
@@ -138,10 +139,11 @@ public class S009ConsumerResilienceIntegrationTests
 
             await ProduceResultEvent(topic, requestId: 100); // will be committed
             await WaitUntil(() => firstCycleReady.BroadcastsCompleted >= 1, TimeSpan.FromSeconds(20));
-            // Allow the consumer loop to execute consumer.Commit(result) after BroadcastAsync
-            // returns. The RunLoop is synchronous (.GetAwaiter().GetResult()) but runs on a
-            // separate thread; a short pause avoids a race where we produce event 999 before
-            // the commit for event 100 has been issued to the broker.
+            // Allow the consumer loop to execute consumer.StoreOffset(result) after
+            // BroadcastAsync returns (the stored offset is flushed by the auto-commit
+            // timer / on Close). The RunLoop is synchronous (.GetAwaiter().GetResult())
+            // but runs on a separate thread; a short pause avoids a race where we produce
+            // event 999 before the offset for event 100 has been stored.
             await Task.Delay(500);
 
             // ── Phase 2: produce event 999 and let consumer A poll it.
@@ -152,7 +154,8 @@ public class S009ConsumerResilienceIntegrationTests
 
             // Stop consumer A. The OperationCanceledException path in
             // DeploymentResultsKafkaConsumer.RunLoop exits the loop before
-            // consumer.Commit(result) for event 999.
+            // consumer.StoreOffset(result) for event 999 — an unstored offset
+            // is never committed, not even by the Close() flush.
             await consumerA.StopAsync(CancellationToken.None);
 
             // ── Phase 3: consumer B on the same group. Committed offset is
@@ -254,7 +257,8 @@ public class S009ConsumerResilienceIntegrationTests
         // Named BroadcastsCompleted (not CommittedCount) because completion of
         // BroadcastAsync precedes — but does not guarantee — the broker commit;
         // callers should add a short delay after observing this value to allow
-        // the consumer loop's consumer.Commit(result) to execute.
+        // the consumer loop's consumer.StoreOffset(result) to execute (the
+        // auto-commit timer / Close() then flushes the stored offset).
         private volatile int _broadcastsCompleted;
         private volatile bool _blockingCallStarted;
 
@@ -269,7 +273,7 @@ public class S009ConsumerResilienceIntegrationTests
             if (n <= _commitThreshold)
             {
                 // Complete normally → DeploymentResultsKafkaConsumer.RunLoop
-                // proceeds to consumer.Commit(result) for this record.
+                // proceeds to consumer.StoreOffset(result) for this record.
                 Interlocked.Increment(ref _broadcastsCompleted);
                 return;
             }
@@ -278,24 +282,24 @@ public class S009ConsumerResilienceIntegrationTests
             _blockingCallStarted = true;
             // Propagate OCE so the RunLoop's
             // catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
-            // path exits before consumer.Commit(result).
+            // path exits before consumer.StoreOffset(result).
             await Task.Delay(Timeout.Infinite, ct);
         }
     }
 }
 
-// ── S009-local S007TestHarness extension ──────────────────────────────────
-// S007TestHarness.BuildConsumer() is hard-wired to the harness's own
+// ── S009-local RequestsSubstrateTestHarness extension ──────────────────────────────────
+// RequestsSubstrateTestHarness.BuildConsumer() is hard-wired to the harness's own
 // RecordingBroadcaster.  We need to inject our own broadcaster in S009,
 // so we extend with a local helper that accepts an arbitrary broadcaster.
 // KafkaConnectionProvider is a config-factory (not a connection holder), so
 // sharing the harness.ConnectionProvider across multiple consumer instances
 // is safe.
 
-internal static class S007TestHarnessExtensions
+internal static class RequestsSubstrateTestHarnessExtensions
 {
     internal static DeploymentResultsKafkaConsumer BuildConsumer(
-        this S007TestHarness harness,
+        this RequestsSubstrateTestHarness harness,
         string topic,
         string groupId,
         IDeploymentResultBroadcaster broadcaster)
@@ -304,7 +308,6 @@ internal static class S007TestHarnessExtensions
             harness.Factory,
             broadcaster,
             harness.ErrorLog,
-            Options.Create(new KafkaErrorLogOptions()),
             Options.Create(new KafkaTopicsOptions()),
             new Dorc.Kafka.Client.Observability.NoOpKafkaConsumerMetrics(),
             NullLogger<DeploymentResultsKafkaConsumer>.Instance)

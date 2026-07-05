@@ -49,6 +49,48 @@ public static class KafkaStartupGate
             }
         }
 
+        // SaslSsl requires credentials. The WiX installers force
+        // Kafka:AuthMode=SaslSsl while KAFKA.SASL.USERNAME/PASSWORD default to
+        // empty, so "brokers configured, credentials not yet delivered" is a
+        // routine half-configured upgrade state. KafkaClientOptionsValidator
+        // enforces the same precondition via ValidateOnStart AFTER Kafka DI is
+        // wired — reaching it means both hosts crash at startup instead of
+        // taking this gate's documented clean fallback. Keep the two
+        // preconditions aligned: whatever the validator requires at
+        // ValidateOnStart, this gate must require first. Enum.TryParse
+        // mirrors the options binder's tolerance (name, any casing, or the
+        // numeric enum value) so a numerically-configured AuthMode can't
+        // sneak past the gate and crash at validation anyway.
+        if (Enum.TryParse<KafkaAuthMode>(configuration["Kafka:AuthMode"], ignoreCase: true, out var authMode)
+            && authMode == KafkaAuthMode.SaslSsl)
+        {
+            // Mechanism has a non-empty appsettings default, but an override
+            // channel can blank it; the validator rejects empty/unsupported
+            // mechanisms, so incompleteness must gate to fallback here too.
+            foreach (var key in new[] { "Kafka:Sasl:Username", "Kafka:Sasl:Password", "Kafka:Sasl:Mechanism" })
+            {
+                if (string.IsNullOrWhiteSpace(configuration[key]))
+                {
+                    reportFallback(
+                        $"[startup] Kafka:Enabled=true with Kafka:AuthMode=SaslSsl but {key} is empty (SASL configuration incomplete); running in {fallbackModeLabel}.");
+                    return false;
+                }
+            }
+
+            // Mechanism must also be a value the validator accepts — a typo'd
+            // deploy property (e.g. "SCRAM-SHA-265") would otherwise pass the
+            // gate and crash both hosts at ValidateOnStart. Single-sourced
+            // from KafkaSaslOptions.SupportedMechanisms.
+            var mechanism = configuration["Kafka:Sasl:Mechanism"]!;
+            if (!KafkaSaslOptions.SupportedMechanisms.Contains(mechanism))
+            {
+                reportFallback(
+                    $"[startup] Kafka:Enabled=true with Kafka:AuthMode=SaslSsl but Kafka:Sasl:Mechanism value '{mechanism}' is not supported "
+                    + $"(valid: {string.Join(", ", KafkaSaslOptions.SupportedMechanisms)}); running in {fallbackModeLabel}.");
+                return false;
+            }
+        }
+
         return true;
     }
 }

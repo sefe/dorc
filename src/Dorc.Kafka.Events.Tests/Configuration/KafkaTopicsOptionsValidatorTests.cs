@@ -67,4 +67,23 @@ public class KafkaTopicsOptionsValidatorTests
         Assert.IsTrue(r.Failed);
         StringAssert.Contains(string.Join("; ", r.Failures!), "Kafka:Topics:ResultsStatus");
     }
+
+    [TestMethod]
+    public void Validate_ReplicationFactorZero_Fails()
+    {
+        var opts = Valid();
+        opts.ReplicationFactor = 0;
+        var r = new KafkaTopicsOptionsValidator().Validate(null, opts);
+        Assert.IsTrue(r.Failed);
+        StringAssert.Contains(string.Join("; ", r.Failures!), "Kafka:Topics:ReplicationFactor");
+    }
+
+    [TestMethod]
+    public void Validate_ReplicationFactorOne_SingleBrokerDev_Succeeds()
+    {
+        var opts = Valid();
+        opts.ReplicationFactor = 1;
+        var r = new KafkaTopicsOptionsValidator().Validate(null, opts);
+        Assert.IsTrue(r.Succeeded, string.Join("; ", r.Failures ?? Array.Empty<string>()));
+    }
 }

@@ -2,6 +2,7 @@ using Confluent.Kafka;
 using Confluent.Kafka.Admin;
 using Dorc.Kafka.Client.Configuration;
 using Dorc.Kafka.Client.Connection;
+using Dorc.Kafka.Client.Provisioning;
 using Dorc.Kafka.ErrorLog;
 using Dorc.Kafka.Events.Configuration;
 using Dorc.Kafka.Events.Publisher;
@@ -15,7 +16,8 @@ namespace Dorc.Kafka.Events.Tests.Publisher;
 /// (results/requests + DLQ): provisioning is best-effort, so NOTHING here may
 /// escape StartAsync — a broker that is down at boot used to throw a plain
 /// KafkaException out of IHost.StartAsync and crash-loop the Monitor Windows
-/// service / fail API startup.
+/// service / fail API startup. Also pins the batching contract: each
+/// provisioner makes ONE CreateTopicsAsync call carrying all its specs.
 /// </summary>
 [TestClass]
 public class TopicProvisionerStartupPolicyTests
@@ -27,7 +29,6 @@ public class TopicProvisionerStartupPolicyTests
         var log = new ListLogger<KafkaResultsStatusTopicProvisioner>();
         return (new KafkaResultsStatusTopicProvisioner(
             new ThrowingConnectionProvider(),
-            Options.Create(new KafkaSubstrateOptions()),
             Options.Create(Topics),
             log), log);
     }
@@ -42,8 +43,15 @@ public class TopicProvisionerStartupPolicyTests
             log), log);
     }
 
-    private static CreateTopicsException TopicError(string topic, ErrorCode code)
-        => new(new List<CreateTopicReport> { new() { Topic = topic, Error = new Error(code, "scripted") } });
+    /// <summary>
+    /// Broker-faithful CreateTopicsException: a batched create fails as one
+    /// exception whose Results carry a per-topic report for EVERY spec in the
+    /// batch, so the scripted error must cover the whole batch too.
+    /// </summary>
+    private static CreateTopicsException BatchError(IReadOnlyList<TopicSpecification> batch, ErrorCode code)
+        => new(batch
+            .Select(s => new CreateTopicReport { Topic = s.Name, Error = new Error(code, "scripted") })
+            .ToList());
 
     private static Metadata MetadataWithPartitions(string topic, int partitionCount)
     {
@@ -69,9 +77,12 @@ public class TopicProvisionerStartupPolicyTests
 
         Assert.IsTrue(log.Entries.Any(e => e.Level == LogLevel.Error && e.Message.Contains("Startup continues")),
             "Broker-down must be logged as a skipped provision, not thrown.");
-        // All three topics must still be attempted - one unreachable answer
-        // must not short-circuit the rest of the provisioning pass.
-        Assert.AreEqual(3, admin.CreateRequests.Count);
+        // All three topics must travel in ONE batched admin call — a broker
+        // round-trip per topic triples the startup stall when the broker is slow.
+        Assert.AreEqual(1, admin.CreateRequests.Count);
+        CollectionAssert.AreEquivalent(
+            new[] { Topics.ResultsStatus, Topics.RequestsNew, Topics.RequestsStatus },
+            admin.CreateRequests.Single().Select(s => s.Name).ToArray());
     }
 
     [TestMethod]
@@ -80,7 +91,7 @@ public class TopicProvisionerStartupPolicyTests
         var (sut, log) = ResultsProvisioner();
         var admin = new ScriptedAdminClient
         {
-            OnCreateTopics = _ => throw TopicError(Topics.ResultsStatus, ErrorCode.TopicAlreadyExists),
+            OnCreateTopics = batch => throw BatchError(batch, ErrorCode.TopicAlreadyExists),
             OnGetMetadata = (topic, _) => MetadataWithPartitions(topic, 6) // expected 12
         };
 
@@ -96,7 +107,7 @@ public class TopicProvisionerStartupPolicyTests
         var (sut, log) = ResultsProvisioner();
         var admin = new ScriptedAdminClient
         {
-            OnCreateTopics = _ => throw TopicError(Topics.ResultsStatus, ErrorCode.TopicAlreadyExists),
+            OnCreateTopics = batch => throw BatchError(batch, ErrorCode.TopicAlreadyExists),
             OnGetMetadata = (_, _) => throw new KafkaException(new Error(ErrorCode.Local_Transport, "gone"))
         };
 
@@ -111,13 +122,14 @@ public class TopicProvisionerStartupPolicyTests
         var (sut, log) = ResultsProvisioner();
         var admin = new ScriptedAdminClient
         {
-            OnCreateTopics = _ => throw TopicError(Topics.ResultsStatus, ErrorCode.TopicAuthorizationFailed)
+            OnCreateTopics = batch => throw BatchError(batch, ErrorCode.TopicAuthorizationFailed)
         };
 
         await sut.ProvisionAsync(admin, CancellationToken.None);
 
         Assert.IsTrue(log.Entries.Any(e => e.Level == LogLevel.Error && e.Message.Contains("ACL")));
-        Assert.AreEqual(3, admin.CreateRequests.Count);
+        Assert.AreEqual(1, admin.CreateRequests.Count);
+        Assert.AreEqual(3, admin.CreateRequests.Single().Count);
     }
 
     [TestMethod]
@@ -126,7 +138,7 @@ public class TopicProvisionerStartupPolicyTests
         var (sut, log) = ResultsProvisioner();
         var admin = new ScriptedAdminClient
         {
-            OnCreateTopics = _ => throw TopicError(Topics.ResultsStatus, ErrorCode.InvalidReplicationFactor)
+            OnCreateTopics = batch => throw BatchError(batch, ErrorCode.InvalidReplicationFactor)
         };
 
         await sut.ProvisionAsync(admin, CancellationToken.None);
@@ -134,6 +146,56 @@ public class TopicProvisionerStartupPolicyTests
         Assert.IsTrue(log.Entries.Any(e => e.Level == LogLevel.Warning && e.Message.Contains("dev-style")));
         Assert.IsFalse(log.Entries.Any(e => e.Level == LogLevel.Error),
             "Expected single-broker dev noise must not page operators at ERROR.");
+    }
+
+    [TestMethod]
+    public async Task Results_MixedBatchOutcome_TriagesEachTopicIndependently()
+    {
+        // The broker answers a batched create with per-topic results; one
+        // topic already existing must not mask another's creation.
+        var (sut, log) = ResultsProvisioner();
+        var admin = new ScriptedAdminClient
+        {
+            OnCreateTopics = batch => throw new CreateTopicsException(batch
+                .Select(s => new CreateTopicReport
+                {
+                    Topic = s.Name,
+                    Error = new Error(s.Name == Topics.ResultsStatus ? ErrorCode.TopicAlreadyExists : ErrorCode.NoError, "scripted")
+                })
+                .ToList()),
+            OnGetMetadata = (topic, _) => MetadataWithPartitions(topic, 12)
+        };
+
+        await sut.ProvisionAsync(admin, CancellationToken.None);
+
+        Assert.IsTrue(log.Entries.Any(e => e.Level == LogLevel.Information && e.Message.Contains("already present")),
+            "The existing topic must be verified, not treated as created.");
+        Assert.AreEqual(2, log.Entries.Count(e => e.Level == LogLevel.Information && e.Message.Contains("topic created")),
+            "The two NoError results must each be logged as created.");
+        Assert.IsFalse(log.Entries.Any(e => e.Level >= LogLevel.Warning));
+    }
+
+    /// <summary>
+    /// CreateTopicsAsync takes no CancellationToken, so the shared core bounds
+    /// it with WaitAsync(timeout, ct). The resulting TimeoutException must be
+    /// swallowed like broker-unreachable — an admin call that hangs (dead
+    /// broker, black-holed TCP) must neither hang StartAsync nor crash it.
+    /// </summary>
+    [TestMethod]
+    [Timeout(10_000)]
+    public async Task ProvisionCore_AdminCallNeverCompletes_TimesOutLogsAndReturns()
+    {
+        var log = new ListLogger<KafkaResultsStatusTopicProvisioner>();
+        var never = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var admin = new ScriptedAdminClient { OnCreateTopics = _ => never.Task };
+        var specs = new[] { new TopicSpecification { Name = "dorc.hung", NumPartitions = 1, ReplicationFactor = 1 } };
+
+        await IdempotentTopicProvisioner.ProvisionAsync(
+            admin, specs, "Kafka", log, CancellationToken.None,
+            adminCallTimeout: TimeSpan.FromMilliseconds(50));
+
+        Assert.IsTrue(log.Entries.Any(e => e.Level == LogLevel.Error && e.Message.Contains("Startup continues")),
+            $"A timed-out admin call must be logged as a skipped provision; got: {string.Join(" | ", log.Entries.Select(e => e.Message))}");
     }
 
     [TestMethod]
@@ -158,7 +220,7 @@ public class TopicProvisionerStartupPolicyTests
 
         await sut.ProvisionAsync(admin, CancellationToken.None);
 
-        var spec = admin.CreateRequests.Single();
+        var spec = admin.CreateRequests.Single().Single();
         Assert.AreEqual(Topics.RequestsNewDlq, spec.Name);
         Assert.AreEqual(3, spec.NumPartitions);
         Assert.AreEqual("1000", spec.Configs["retention.ms"]);
@@ -171,7 +233,7 @@ public class TopicProvisionerStartupPolicyTests
         var (sut, log) = DlqProvisioner();
         var admin = new ScriptedAdminClient
         {
-            OnCreateTopics = _ => throw TopicError(Topics.RequestsNewDlq, ErrorCode.TopicAlreadyExists),
+            OnCreateTopics = batch => throw BatchError(batch, ErrorCode.TopicAlreadyExists),
             OnGetMetadata = (topic, _) => MetadataWithPartitions(topic, 3)
         };
 
@@ -184,6 +246,8 @@ public class TopicProvisionerStartupPolicyTests
     /// <summary>
     /// ProvisionAsync receives a ready admin client; touching the connection
     /// provider from inside the seam means broker coupling leaked back in.
+    /// (GetAdminConfig's default implementation delegates to GetProducerConfig,
+    /// so it throws too.)
     /// </summary>
     private sealed class ThrowingConnectionProvider : IKafkaConnectionProvider
     {

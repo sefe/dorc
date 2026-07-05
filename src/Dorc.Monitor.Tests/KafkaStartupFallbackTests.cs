@@ -20,29 +20,21 @@ namespace Dorc.Monitor.Tests;
 ///   <item>No Kafka background (IHostedService) registered in fallback mode.</item>
 /// </list>
 ///
-/// <b>Known limitation:</b> <see cref="EvaluateKafkaEnabled"/> and
-/// <see cref="BuildFallbackRegistrations"/> are hand-copies of Program.cs logic
-/// rather than invocations of the production code itself. They must be kept in
-/// sync with Program.cs manually.  The FallbackPath_* assertions are therefore
-/// tautological (they verify the hand-copy, not the production path).
-/// TODO: extract the startup gate and DI wiring into a testable static method
-/// or extension (e.g. MonitorKafkaStartup.ResolveEnabled + AddMonitorEventSubstrate)
-/// called by Program.cs, and test that method directly.
+/// <b>Known limitation:</b> <see cref="BuildFallbackRegistrations"/> is a
+/// hand-copy of Program.cs's fallback-branch DI wiring rather than an
+/// invocation of the production code itself; it must be kept in sync with
+/// Program.cs manually, so the FallbackPath_* assertions verify the copy, not
+/// the production path. The gate decision itself, however, IS production code:
+/// <see cref="EvaluateKafkaEnabled"/> calls the shared
+/// <c>KafkaStartupGate.IsKafkaEnabled</c> that both Program.cs files invoke.
 /// </summary>
 [TestClass]
 public class KafkaStartupFallbackTests
 {
-    // Mirrors the kafkaEnabled decision in Monitor/Program.cs lines 122-137.
-    // MUST be kept in sync with Program.cs if the startup conditions change.
+    // The production gate shared by Monitor and API Program.cs.
     private static bool EvaluateKafkaEnabled(IConfiguration config)
-    {
-        var enabled = config.GetValue("Kafka:Enabled", defaultValue: true);
-        if (enabled && string.IsNullOrWhiteSpace(config["Kafka:BootstrapServers"]))
-            enabled = false;
-        if (enabled && string.IsNullOrWhiteSpace(config["Kafka:SchemaRegistry:Url"]))
-            enabled = false;
-        return enabled;
-    }
+        => Dorc.Kafka.Client.Configuration.KafkaStartupGate.IsKafkaEnabled(
+            config, "test fallback mode", _ => { });
 
     private static IConfigurationRoot Config(params (string key, string? value)[] pairs)
         => new ConfigurationBuilder()
@@ -99,6 +91,101 @@ public class KafkaStartupFallbackTests
             ("Kafka:BootstrapServers", "localhost:9092"),
             ("Kafka:SchemaRegistry:Url", "http://localhost:8081"));
         Assert.IsTrue(EvaluateKafkaEnabled(cfg), "Kafka:Enabled must default to true when the key is absent.");
+    }
+
+    [TestMethod]
+    public void KafkaEnabled_SaslSslWithEmptyCredentials_ReturnsFalse()
+    {
+        // The WiX installers force Kafka:AuthMode=SaslSsl while the SASL
+        // username/password MSI parameters default to empty — the gate must
+        // treat that half-configured state as fallback, or ValidateOnStart
+        // (KafkaClientOptionsValidator) crashes both hosts at startup instead.
+        var cfg = Config(
+            ("Kafka:Enabled", "true"),
+            ("Kafka:BootstrapServers", "broker:9092"),
+            ("Kafka:SchemaRegistry:Url", "https://registry:8081"),
+            ("Kafka:AuthMode", "SaslSsl"),
+            ("Kafka:Sasl:Username", ""),
+            ("Kafka:Sasl:Password", ""));
+        Assert.IsFalse(EvaluateKafkaEnabled(cfg),
+            "SaslSsl with empty credentials must fall back cleanly, not crash at ValidateOnStart.");
+    }
+
+    [TestMethod]
+    public void KafkaEnabled_SaslSslWithCredentials_ReturnsTrue()
+    {
+        var cfg = Config(
+            ("Kafka:Enabled", "true"),
+            ("Kafka:BootstrapServers", "broker:9092"),
+            ("Kafka:SchemaRegistry:Url", "https://registry:8081"),
+            ("Kafka:AuthMode", "SaslSsl"),
+            ("Kafka:Sasl:Username", "dorc"),
+            ("Kafka:Sasl:Password", "secret"),
+            ("Kafka:Sasl:Mechanism", "SCRAM-SHA-256"));
+        Assert.IsTrue(EvaluateKafkaEnabled(cfg));
+    }
+
+    [TestMethod]
+    public void KafkaEnabled_SaslSslAsNumericEnum_EmptyCredentials_ReturnsFalse()
+    {
+        // The options binder accepts the numeric enum value; the gate must
+        // parse AuthMode the same way or a numerically-configured install
+        // sneaks past the gate and crashes at ValidateOnStart.
+        var cfg = Config(
+            ("Kafka:Enabled", "true"),
+            ("Kafka:BootstrapServers", "broker:9092"),
+            ("Kafka:SchemaRegistry:Url", "https://registry:8081"),
+            ("Kafka:AuthMode", ((int)Dorc.Kafka.Client.Configuration.KafkaAuthMode.SaslSsl).ToString()),
+            ("Kafka:Sasl:Username", ""),
+            ("Kafka:Sasl:Password", ""));
+        Assert.IsFalse(EvaluateKafkaEnabled(cfg),
+            "Numeric AuthMode must be recognised — validator parity.");
+    }
+
+    [TestMethod]
+    public void KafkaEnabled_SaslSslWithUnsupportedMechanism_ReturnsFalse()
+    {
+        // A typo'd deploy property (validator rejects unsupported mechanisms
+        // at ValidateOnStart) must gate to fallback, not a startup crash.
+        var cfg = Config(
+            ("Kafka:Enabled", "true"),
+            ("Kafka:BootstrapServers", "broker:9092"),
+            ("Kafka:SchemaRegistry:Url", "https://registry:8081"),
+            ("Kafka:AuthMode", "SaslSsl"),
+            ("Kafka:Sasl:Username", "dorc"),
+            ("Kafka:Sasl:Password", "secret"),
+            ("Kafka:Sasl:Mechanism", "SCRAM-SHA-265"));
+        Assert.IsFalse(EvaluateKafkaEnabled(cfg),
+            "Unsupported SASL mechanism must fall back cleanly — validator parity.");
+    }
+
+    [TestMethod]
+    public void KafkaEnabled_SaslSslWithBlankedMechanism_ReturnsFalse()
+    {
+        // An override channel blanking Kafka:Sasl:Mechanism fails the
+        // validator; the gate must route that to fallback, not a crash.
+        var cfg = Config(
+            ("Kafka:Enabled", "true"),
+            ("Kafka:BootstrapServers", "broker:9092"),
+            ("Kafka:SchemaRegistry:Url", "https://registry:8081"),
+            ("Kafka:AuthMode", "SaslSsl"),
+            ("Kafka:Sasl:Username", "dorc"),
+            ("Kafka:Sasl:Password", "secret"),
+            ("Kafka:Sasl:Mechanism", ""));
+        Assert.IsFalse(EvaluateKafkaEnabled(cfg));
+    }
+
+    [TestMethod]
+    public void KafkaEnabled_PlaintextWithoutCredentials_ReturnsTrue()
+    {
+        // SASL completeness is only required when AuthMode is SaslSsl —
+        // Plaintext (dev/compose) needs no credentials.
+        var cfg = Config(
+            ("Kafka:Enabled", "true"),
+            ("Kafka:BootstrapServers", "localhost:9092"),
+            ("Kafka:SchemaRegistry:Url", "http://localhost:8081"),
+            ("Kafka:AuthMode", "Plaintext"));
+        Assert.IsTrue(EvaluateKafkaEnabled(cfg));
     }
 
     // ── fallback service registrations ─────────────────────────────────────

@@ -69,29 +69,10 @@ foreach (var (file, json) in pairs)
 {
     // Canonicalise (alphabetical key order) so the checked-in canonical and the
     // registry-acknowledged snapshot are human-diffable without spurious noise.
-    var canonical = Canonicalise(JsonNode.Parse(json))!.ToJsonString();
+    var canonical = AvroJsonCanonicaliser.Canonicalise(JsonNode.Parse(json))!.ToJsonString();
     var path = Path.Combine(targetDir, file);
     File.WriteAllText(path, canonical);
     Console.WriteLine($"Wrote {path} ({canonical.Length} bytes)");
 }
 
 return 0;
-
-static JsonNode? Canonicalise(JsonNode? node)
-{
-    switch (node)
-    {
-        case JsonObject obj:
-            var ordered = new JsonObject();
-            foreach (var kv in obj.OrderBy(p => p.Key, StringComparer.Ordinal))
-                ordered[kv.Key] = Canonicalise(kv.Value?.DeepClone());
-            return ordered;
-        case JsonArray arr:
-            var newArr = new JsonArray();
-            foreach (var item in arr)
-                newArr.Add(Canonicalise(item?.DeepClone()));
-            return newArr;
-        default:
-            return node;
-    }
-}

@@ -21,14 +21,16 @@ public class KafkaLockCoordinatorTests
         int partitionCount = 12,
         int? livenessTimeoutMs = null,
         TimeProvider? timeProvider = null,
-        int? sessionTimeoutMs = null)
+        int? sessionTimeoutMs = null,
+        int? lockSessionTimeoutMs = null)
     {
         var opts = Options.Create(new KafkaLocksOptions
         {
             Enabled = false, // disabled so no consumer is built in StartAsync
             PartitionCount = partitionCount,
             ConsumerGroupId = "test",
-            LivenessTimeoutMs = livenessTimeoutMs
+            LivenessTimeoutMs = livenessTimeoutMs,
+            SessionTimeoutMs = lockSessionTimeoutMs
         });
         var topics = Options.Create(new KafkaTopicsOptions());
         return new KafkaLockCoordinator(
@@ -291,6 +293,13 @@ public class KafkaLockCoordinatorTests
         // Explicit configuration always wins.
         await using (var configured = NewCoordinator(livenessTimeoutMs: 1_234, sessionTimeoutMs: 60_000))
             Assert.AreEqual(TimeSpan.FromMilliseconds(1_234), configured.ResolveLivenessTimeout());
+
+        // The lock-specific session timeout (outage-grace budget) overrides
+        // the shared client session timeout: 150s × 0.5 = 75s liveness. This
+        // is the shipped Monitor configuration — a broker blip shorter than
+        // ~75s must not cancel held locks.
+        await using (var locks = NewCoordinator(sessionTimeoutMs: 30_000, lockSessionTimeoutMs: 150_000))
+            Assert.AreEqual(TimeSpan.FromSeconds(75), locks.ResolveLivenessTimeout());
     }
 
     // ---- Finding 2: fatal consumer errors ----
@@ -369,7 +378,7 @@ public class KafkaLockCoordinatorTests
     {
         public int? SessionTimeoutMs { get; set; }
         public Confluent.Kafka.ProducerConfig GetProducerConfig() => new();
-        public Confluent.Kafka.ConsumerConfig GetConsumerConfig(string? groupIdOverride = null) =>
-            new() { GroupId = groupIdOverride ?? "test", SessionTimeoutMs = SessionTimeoutMs };
+        public Confluent.Kafka.ConsumerConfig GetConsumerConfig(string groupId) =>
+            new() { GroupId = groupId, SessionTimeoutMs = SessionTimeoutMs };
     }
 }

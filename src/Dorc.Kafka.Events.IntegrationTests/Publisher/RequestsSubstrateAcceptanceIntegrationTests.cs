@@ -6,11 +6,21 @@ using Dorc.PersistentData.Model;
 
 namespace Dorc.Kafka.Events.IntegrationTests.Publisher;
 
+/// <summary>
+/// Acceptance integration tests for the requests/results Kafka substrate,
+/// run against the local compose stack (Kafka + Karapace). They drive the
+/// production <see cref="DeploymentResultsKafkaConsumer"/> end-to-end and
+/// verify: per-RequestId ordering (same key → same partition → in-order
+/// broadcast, including under multi-key interleaving), poison-message
+/// routing to the Kafka error log with full entry fidelity followed by the
+/// consumer advancing past the poison record, error-log fault tolerance
+/// (a throwing DAL must not stall or crash the consume loop), and
+/// topic-provisioner idempotency (re-create is a no-op; partition-count
+/// drift is observed, not fatal).
+/// </summary>
 [TestClass]
-public class S007IntegrationTests
+public class RequestsSubstrateAcceptanceIntegrationTests
 {
-    // Integration tests for
-    // against the local compose stack (Kafka + Karapace).
 
     // --------: End-to-end round-trip via Kafka → Broadcaster --------
 
@@ -20,7 +30,7 @@ public class S007IntegrationTests
         var topic = AvroKafkaTestHarness.NewTopic("s007-at2");
         await AvroKafkaTestHarness.CreateTopicAsync(topic, partitions: 12);
 
-        await using var harness = new S007TestHarness();
+        await using var harness = new RequestsSubstrateTestHarness();
         try
         {
             var consumer = harness.BuildConsumer(topic, groupId: $"s007-at2-{Guid.NewGuid():N}");
@@ -70,7 +80,7 @@ public class S007IntegrationTests
         var topic = AvroKafkaTestHarness.NewTopic("s007-at3");
         await AvroKafkaTestHarness.CreateTopicAsync(topic, partitions: 12);
 
-        await using var harness = new S007TestHarness();
+        await using var harness = new RequestsSubstrateTestHarness();
         try
         {
             var consumer = harness.BuildConsumer(topic, groupId: $"s007-at3-{Guid.NewGuid():N}");
@@ -126,7 +136,7 @@ public class S007IntegrationTests
         var topic = AvroKafkaTestHarness.NewTopic("s007-at4");
         await AvroKafkaTestHarness.CreateTopicAsync(topic, partitions: 1);
 
-        await using var harness = new S007TestHarness();
+        await using var harness = new RequestsSubstrateTestHarness();
         try
         {
             var groupId = $"s007-at4-{Guid.NewGuid():N}";
@@ -184,7 +194,7 @@ public class S007IntegrationTests
         var topic = AvroKafkaTestHarness.NewTopic("s007-at5");
         await AvroKafkaTestHarness.CreateTopicAsync(topic, partitions: 1);
 
-        await using var harness = new S007TestHarness();
+        await using var harness = new RequestsSubstrateTestHarness();
         // Make the error-log DAL throw on every insert — DB-unavailable case.
         harness.ErrorLog.InsertOverride = (_, _) => throw new InvalidOperationException("DB down");
 

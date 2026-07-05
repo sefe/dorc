@@ -498,6 +498,20 @@
           "Value": "dorc.requests.new.dlq"
         },
         {
+          "AccountNameProperty": "",
+          "IsPath": false,
+          "IsSecure": false,
+          "Name": "KAFKA_LOCKS_CONSUMERGROUPID_PROD",
+          "Value": "dorc.monitor.locks.prod"
+        },
+        {
+          "AccountNameProperty": "",
+          "IsPath": false,
+          "IsSecure": false,
+          "Name": "KAFKA_LOCKS_CONSUMERGROUPID_NONPROD",
+          "Value": "dorc.monitor.locks.nonprod"
+        },
+        {
           "AccountNameProperty": "OTEL_COLLECTOR_URL",
           "IsPath": false,
           "IsSecure": true,

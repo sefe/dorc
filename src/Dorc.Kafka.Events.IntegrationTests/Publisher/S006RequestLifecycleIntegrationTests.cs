@@ -40,7 +40,7 @@ public class S006RequestLifecycleIntegrationTests
             var handler = new RecordingHandler();
             var groupId = $"s006-it-{Guid.NewGuid():N}";
             using var consumer = new DeploymentRequestsKafkaConsumer(
-                BuildConnection(groupId),
+                BuildConnection(),
                 factory,
                 handler,
                 new NoopErrorLog(),
@@ -98,9 +98,12 @@ public class S006RequestLifecycleIntegrationTests
             using var signal = new RequestPollSignal();
             var groupId = $"s006-it-{Guid.NewGuid():N}";
             using var consumer = new DeploymentRequestsKafkaConsumer(
-                BuildConnection(groupId),
+                BuildConnection(),
                 factory,
-                new PollSignalRequestEventHandler(signal),
+                // The handler only signals for records from the RequestsNew
+                // topic, so point it at the fixture topic under test.
+                new PollSignalRequestEventHandler(signal,
+                    Options.Create(new KafkaTopicsOptions { RequestsNew = topic })),
                 new NoopErrorLog(),
                 Options.Create(new KafkaTopicsOptions()),
                 new NoOpKafkaConsumerMetrics(),
@@ -150,7 +153,7 @@ public class S006RequestLifecycleIntegrationTests
             var handler = new RecordingHandler();
             var groupId = $"s006-it-{Guid.NewGuid():N}";
             using var consumer = new DeploymentRequestsKafkaConsumer(
-                BuildConnection(groupId),
+                BuildConnection(),
                 factory,
                 handler,
                 new NoopErrorLog(),
@@ -214,8 +217,8 @@ public class S006RequestLifecycleIntegrationTests
     /// and read the follow-up — the test would pass with or without the StoreOffset.
     ///
     /// The requests consumer uses EnableAutoCommit=true + EnableAutoOffsetStore=false
-    /// (StoreOffset path), distinct from the manual consumer.Commit path in the
-    /// results consumer tested in S007.
+    /// (StoreOffset path) — the same pattern the results consumer uses (see
+    /// RequestsSubstrateAcceptanceIntegrationTests).
     /// </summary>
     [TestMethod]
     public async Task AT4_PoisonMessage_OffsetCommittedOnRestart_PoisonNotReplayed_FollowUpHandled()
@@ -236,7 +239,7 @@ public class S006RequestLifecycleIntegrationTests
                 using var registry = AvroKafkaTestHarness.BuildRegistry();
                 var factory = AvroKafkaTestHarness.BuildFactory(registry);
                 using var consumerA = new DeploymentRequestsKafkaConsumer(
-                    BuildConnection(groupId), factory, handler, errorLog,
+                    BuildConnection(), factory, handler, errorLog,
                     Options.Create(new KafkaTopicsOptions()),
                     new NoOpKafkaConsumerMetrics(),
                     NullLogger<DeploymentRequestsKafkaConsumer>.Instance)
@@ -272,7 +275,7 @@ public class S006RequestLifecycleIntegrationTests
                 var factory = AvroKafkaTestHarness.BuildFactory(registry);
                 using var followUpProducer =
                     new KafkaProducerBuilder<string, DeploymentRequestEventData>(
-                        BuildConnection(groupId), factory,
+                        BuildConnection(), factory,
                         NullLogger<KafkaProducerBuilder<string, DeploymentRequestEventData>>.Instance)
                     .Build("s006-at4-followup");
 
@@ -288,7 +291,7 @@ public class S006RequestLifecycleIntegrationTests
                 using var registry = AvroKafkaTestHarness.BuildRegistry();
                 var factory = AvroKafkaTestHarness.BuildFactory(registry);
                 using var consumerB = new DeploymentRequestsKafkaConsumer(
-                    BuildConnection(groupId), factory, handler, errorLog,
+                    BuildConnection(), factory, handler, errorLog,
                     Options.Create(new KafkaTopicsOptions()),
                     new NoOpKafkaConsumerMetrics(),
                     NullLogger<DeploymentRequestsKafkaConsumer>.Instance)
@@ -329,11 +332,10 @@ public class S006RequestLifecycleIntegrationTests
             await Task.Delay(100);
     }
 
-    private static IKafkaConnectionProvider BuildConnection(string groupId)
+    private static IKafkaConnectionProvider BuildConnection()
         => new KafkaConnectionProvider(Options.Create(new KafkaClientOptions
         {
             BootstrapServers = AvroKafkaTestHarness.BootstrapServers,
-            ConsumerGroupId = groupId,
             SchemaRegistry = { Url = AvroKafkaTestHarness.SchemaRegistryUrl },
             SessionTimeoutMs = 10_000,
             HeartbeatIntervalMs = 3_000,

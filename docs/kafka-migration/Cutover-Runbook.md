@@ -35,7 +35,7 @@ evidence transcript.
 |---|---|---|---|---|---|
 | ST-1 | API health | `GET /api/health` returns 200 with JSON containing the deployed build number | HTTP 200; JSON `version` field matches expected build | ≤5 s | Yes |
 | ST-2 | Monitor service running | `Get-Service DeploymentActionService{Prod\|NonProd}` shows `Running` on each Monitor host | Service status `Running` on every replica | ≤10 s per replica | Yes |
-| ST-3 | Kafka lock coordinator joined | Monitor log shows `KafkaLockCoordinator subscribed: topic=dorc.locks group=dorc.monitor.locks.{env} partitions=12` followed by a `partitions incrementally assigned` line within `SessionTimeoutMs` (default 10 s). Group ID is environment-specific: `dorc.monitor.locks.prod` on Production, `dorc.monitor.locks.nonprod` on NonProd. | Both log lines present in the post-startup window | ≤30 s after Monitor start | Yes |
+| ST-3 | Kafka lock coordinator joined | Monitor log shows `KafkaLockCoordinator subscribed: topic=dorc.locks group=dorc.monitor.locks.{env} partitions=12` followed by a `partitions incrementally assigned` line. Group ID is environment-specific: `dorc.monitor.locks.prod` on Production, `dorc.monitor.locks.nonprod` on NonProd. NOTE: the lock consumer uses static group membership with `Kafka:Locks:SessionTimeoutMs` = 150 s — a first join assigns immediately, but if a PREVIOUS incarnation of this host crashed (or was decommissioned) within the last 150 s, its ghost holds the partitions and assignment can take up to 150 s; a restart that rejoins within the window reclaims its own partitions instantly. | Both log lines present in the post-startup window | ≤60 s after Monitor start (≤150 s if replacing a crashed/decommissioned incarnation) | Yes |
 | ST-4 | Synthetic deployment end-to-end | Submit a deployment request to a smoke-test environment with a no-op script; observe `Pending → Requesting → Running → Complete` transitions | Final status `Complete` reached within the budget | ≤5 min | Yes |
 | ST-5 | SignalR live UI | Connect the web UI; submit ST-4 in another tab; observe the deployment row's status update live (without page refresh) | Live status update observed within 2 s of the Kafka commit log line | ≤30 s | Yes |
 | ST-6 | Avro schema resolution observability | Producer + consumer logs show `avro-schema-resolved subject={Subject} type={Type} kind={serializer\|deserializer}` for every in-scope subject (`dorc.results.status-value`, `dorc.requests.new-value`, `dorc.requests.status-value`) | All six lines present (3 subjects × 2 kinds) within ST-4's window | ≤10 s | No (warn only) |
@@ -197,14 +197,31 @@ The `Kafka:Locks:*` block in Monitor's `appsettings.json` carries:
 - `Topic` = `dorc.locks`
 - `PartitionCount` = `12`
 - `ReplicationFactor` = `3`
-- `ConsumerGroupId` = `dorc.monitor.locks.nonprod` (**default shipped in `appsettings.json`**)
+- `ConsumerGroupId` = `dorc.monitor.locks.nonprod` (**default shipped in `appsettings.json`**; the MSI writes the tier-correct value — see below)
+- `SessionTimeoutMs` = `150000` — the outage-grace budget for held locks: broker
+  blips shorter than ~75 s (half the session) no longer cancel in-flight
+  deployments. **Failover trade-off:** a crashed Monitor's lock partitions stay
+  assigned to the dead member for up to 150 s before a peer can acquire them —
+  budget lock-failover verification steps accordingly.
+- `UseStaticGroupMembership` = `true` (code default) — a Monitor restarting
+  within the session window reclaims its partitions with no rebalance, so peer
+  Monitors' in-flight deployments survive rolling restarts. A **cleanly stopped**
+  static member does not leave the group: after permanent decommission its
+  partitions stay unassignable for up to 150 s (one-time cost). Same-tier
+  replicas co-hosted on one machine MUST set `DORC_REPLICA_ID` per replica or
+  their identical instance ids fence each other.
 
-**The `ConsumerGroupId` MUST be overridden per environment.** The startup validator
-rejects the value `dorc.monitor.locks` (the old pre-fix default), so the value in
-`appsettings.json` is intentionally environment-specific: `.nonprod` for
-NonProd, and the MSI / deployment pipeline MUST supply
-`dorc.monitor.locks.prod` for Production via the `Kafka:Locks:ConsumerGroupId`
-MSI parameter (or equivalent environment-variable override).
+**The `ConsumerGroupId` MUST differ per tier — and the installer now enforces
+this without manual steps.** The startup validator rejects the value
+`dorc.monitor.locks` (the old pre-fix default). The WiX installers write
+`$.Kafka.Locks.ConsumerGroupId` per tier from the
+`KAFKA.LOCKS.CONSUMERGROUPID.PROD` / `KAFKA.LOCKS.CONSUMERGROUPID.NONPROD`
+MSI parameters (defaults `dorc.monitor.locks.prod` /
+`dorc.monitor.locks.nonprod` in `Install.Orchestrator.bat`, deploy properties
+`KAFKA_LOCKS_CONSUMERGROUPID_PROD` / `_NONPROD` in
+`DeploySettings.template.json`), so the co-installed Prod and NonProd Monitor
+services always join distinct lock consumer groups. Override the parameters
+only if the enterprise group-naming convention requires it.
 
 **Rationale:** each environment needs an isolated consumer group so its
 coordinator holds only that environment's lock partitions. A shared group

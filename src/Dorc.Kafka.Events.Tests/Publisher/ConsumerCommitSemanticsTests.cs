@@ -14,40 +14,46 @@ namespace Dorc.Kafka.Events.Tests.Publisher;
 
 /// <summary>
 /// Pin the strong-2/3 commit-semantics finding from PR #611's adversarial
-/// review (Sonnet+Haiku). Both consumers must enforce their commit-mode
-/// invariants regardless of what an operator sets globally on
-/// <see cref="KafkaClientOptions.EnableAutoCommit"/>; otherwise a crash
-/// mid-broadcast / mid-handler can silently advance past an unprocessed
-/// record. The tests exercise <c>BuildConsumerConfig</c> directly so any
-/// future refactor that drops the explicit override fails CI.
+/// review (Sonnet+Haiku). Both consumers must enforce their offset-semantics
+/// invariants regardless of what the connection provider (or a librdkafka
+/// default) puts on the returned config; otherwise a crash mid-broadcast /
+/// mid-handler can silently advance past an unprocessed record. Both
+/// consumers use the same pattern: auto-commit timer ON, auto-offset-store
+/// OFF, offsets stored via explicit StoreOffset only after
+/// broadcast/handler success. The tests exercise <c>BuildConsumerConfig</c>
+/// directly so any future refactor that drops the explicit override fails CI.
 ///
 /// Connection-provider behaviour is stubbed out — the test plants the
-/// "hostile" config (EnableAutoCommit=true) directly on the returned
-/// ConsumerConfig and asserts the consumer override flips it. That way a
-/// future refactor of <see cref="KafkaConnectionProvider"/> that stops
-/// honouring the global option can't make these tests pass for the wrong
-/// reason.
+/// "hostile" config directly on the returned ConsumerConfig and asserts the
+/// consumer override flips it. That way a future refactor of
+/// <see cref="KafkaConnectionProvider"/> can't make these tests pass for
+/// the wrong reason.
 /// </summary>
 [TestClass]
 public class ConsumerCommitSemanticsTests
 {
     [TestMethod]
-    public void ResultsConsumer_OverridesGlobalEnableAutoCommitToFalse()
+    public void ResultsConsumer_KeepsAutoCommit_ButDisablesOffsetStore_OverridingProvider()
     {
-        // Hostile baseline: provider returns a config with auto-commit on,
-        // exactly the misconfiguration that motivated the strong 2/3 finding.
+        // Hostile baseline: provider returns a config with auto-offset-store
+        // ON (the librdkafka default) and the auto-commit timer OFF. The
+        // consumer must flip both: storage gated on broadcast success, timer
+        // enabled so stored offsets actually flush.
         var sut = NewResultsConsumer(new StubConnectionProvider(
             new ConsumerConfig
             {
                 BootstrapServers = "127.0.0.1:1",
                 GroupId = "ignored-by-consumer",
-                EnableAutoCommit = true
+                EnableAutoCommit = false,
+                EnableAutoOffsetStore = true
             }));
 
         var config = sut.BuildConsumerConfig();
 
-        Assert.IsFalse(config.EnableAutoCommit ?? true,
-            "Results consumer must force EnableAutoCommit=false; otherwise a global override would silently auto-commit on a background timer between consume() and BroadcastAsync completion.");
+        Assert.IsTrue(config.EnableAutoCommit ?? false,
+            "Results consumer leaves the auto-commit timer enabled (low-overhead); StoreOffset-after-broadcast provides the delivery gate.");
+        Assert.IsFalse(config.EnableAutoOffsetStore ?? true,
+            "Results consumer must disable auto-offset-store; otherwise a crash between consume() and BroadcastAsync completion silently drops a SignalR projection.");
     }
 
     [TestMethod]
@@ -149,7 +155,6 @@ public class ConsumerCommitSemanticsTests
             new DefaultKafkaSerializerFactory(),
             new StubBroadcaster(),
             new NoopErrorLog(),
-            Options.Create(new KafkaErrorLogOptions()),
             Options.Create(new KafkaTopicsOptions()),
             new NoOpKafkaConsumerMetrics(),
             NullLogger<DeploymentResultsKafkaConsumer>.Instance);
@@ -175,7 +180,7 @@ public class ConsumerCommitSemanticsTests
 
         public StubConnectionProvider(ConsumerConfig consumerConfig) => _consumerConfig = consumerConfig;
 
-        public ConsumerConfig GetConsumerConfig(string? groupIdOverride = null)
+        public ConsumerConfig GetConsumerConfig(string groupId)
         {
             // Honour the per-replica group id the consumer passes in (so the
             // GroupId tests can observe it) but preserve every other field
@@ -183,7 +188,7 @@ public class ConsumerCommitSemanticsTests
             var copy = new ConsumerConfig();
             foreach (var kv in _consumerConfig)
                 copy.Set(kv.Key, kv.Value);
-            if (groupIdOverride is not null) copy.GroupId = groupIdOverride;
+            copy.GroupId = groupId;
             return copy;
         }
 

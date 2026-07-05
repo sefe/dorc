@@ -17,13 +17,15 @@ public class RebalanceTests
         await KafkaTestHarness.CreateTopicAsync(topic, partitions: 4);
         try
         {
-            var options = KafkaTestHarness.DefaultOptions(groupId: $"rebalance-{Guid.NewGuid():N}");
+            var options = KafkaTestHarness.DefaultOptions();
+            // Both consumers must join the SAME group to trigger a rebalance.
+            var groupId = $"rebalance-{Guid.NewGuid():N}";
             var loggerA = new RecordingLogger();
             var loggerB = new RecordingLogger();
 
             using var consumerA = KafkaTestHarness
                 .ConsumerBuilder<string, byte[]>(options, Wrap<KafkaConsumerBuilder<string, byte[]>>(loggerA))
-                .Build("consumer-a");
+                .Build("consumer-a", groupId);
             consumerA.Subscribe(topic);
 
             await PumpFor(new[] { consumerA }, TimeSpan.FromSeconds(8));
@@ -31,7 +33,7 @@ public class RebalanceTests
 
             using var consumerB = KafkaTestHarness
                 .ConsumerBuilder<string, byte[]>(options, Wrap<KafkaConsumerBuilder<string, byte[]>>(loggerB))
-                .Build("consumer-b");
+                .Build("consumer-b", groupId);
             consumerB.Subscribe(topic);
 
             await PumpFor(new[] { consumerA, consumerB }, TimeSpan.FromSeconds(15));

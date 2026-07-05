@@ -63,7 +63,42 @@ public sealed class KafkaLocksOptions
     /// lost (LockLostToken fires), because the broker may already have
     /// reassigned our partitions to a peer after <c>session.timeout.ms</c>
     /// without librdkafka surfacing a revoke/lost callback locally.
-    /// Null (default) resolves to <c>max(session.timeout.ms, 30s)</c>.
+    /// Null (default) resolves to <c>max(session.timeout.ms × 0.5, 10s)</c>
+    /// clamped below <c>session.timeout.ms - 2s</c>.
     /// </summary>
     public int? LivenessTimeoutMs { get; set; }
+
+    /// <summary>
+    /// <c>session.timeout.ms</c> for the lock consumer group only. Null
+    /// inherits <c>Kafka:SessionTimeoutMs</c> (30s shipped default).
+    ///
+    /// This is the outage-grace budget for held locks: the watchdog cancels
+    /// locks at roughly half this value, and the broker cannot reassign our
+    /// partitions to a peer before the full value elapses. The shipped Monitor
+    /// appsettings set 150000 (150s) to match the broker-recovery window the
+    /// RabbitMQ lock service was calibrated to
+    /// (LockReacquisitionRetryWindowSeconds=150): a broker blip shorter than
+    /// ~75s no longer cancels in-flight deployments. The trade-off is failover
+    /// latency — a crashed Monitor's lock partitions stay assigned to the dead
+    /// member for up to this long before a peer can acquire them.
+    /// </summary>
+    public int? SessionTimeoutMs { get; set; }
+
+    /// <summary>
+    /// When true (default), the lock consumer joins with a static
+    /// <c>group.instance.id</c> derived from the group id and host identity.
+    /// A Monitor restarting within <see cref="SessionTimeoutMs"/> then
+    /// reclaims its previous partitions with NO rebalance, so peer Monitors'
+    /// held locks (and their in-flight deployments) survive routine service
+    /// restarts and rolling upgrades. Scale-out still rebalances — adding a
+    /// replica migrates some partitions and revokes any locks they back.
+    ///
+    /// Trade-off: a cleanly stopped static member does not leave the group;
+    /// after permanent decommission its partitions stay assigned to the ghost
+    /// until <c>session.timeout.ms</c> expires, stalling new lock acquisition
+    /// for those partitions for up to that long (one-time cost per
+    /// decommission). Disable only in test harnesses that run multiple
+    /// coordinators in one process (duplicate instance ids fence each other).
+    /// </summary>
+    public bool UseStaticGroupMembership { get; set; } = true;
 }

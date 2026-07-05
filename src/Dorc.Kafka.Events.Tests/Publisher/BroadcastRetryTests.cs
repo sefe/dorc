@@ -146,7 +146,6 @@ public class BroadcastRetryTests
             new DefaultKafkaSerializerFactory(),
             broadcaster,
             new NoopErrorLog(),
-            Options.Create(new KafkaErrorLogOptions()),
             Options.Create(new KafkaTopicsOptions()),
             new NoOpKafkaConsumerMetrics(),
             NullLogger<DeploymentResultsKafkaConsumer>.Instance)
@@ -176,7 +175,7 @@ public class BroadcastRetryTests
     /// <summary>TryBroadcast never touches the connection provider; fail loudly if it does.</summary>
     private sealed class ThrowingConnectionProvider : IKafkaConnectionProvider
     {
-        public ConsumerConfig GetConsumerConfig(string? groupIdOverride = null) => throw new NotSupportedException();
+        public ConsumerConfig GetConsumerConfig(string groupId) => throw new NotSupportedException();
         public ProducerConfig GetProducerConfig() => throw new NotSupportedException();
     }
 

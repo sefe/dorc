@@ -6,6 +6,15 @@ using Microsoft.Extensions.Logging;
 
 namespace Dorc.Kafka.Client.Consumers;
 
+/// <summary>
+/// Builds fully-wired consumers (connection config, rebalance/error/statistics
+/// handlers, serializer-factory deserializers) for test harnesses. NOT
+/// registered in DI: the production consumers each shape their own
+/// ConsumerConfig (group identity, offset semantics) and build their consumer
+/// directly; the integration-test harnesses construct this builder themselves
+/// (see Dorc.Kafka.Client.IntegrationTests.KafkaTestHarness and
+/// Dorc.Kafka.Events.IntegrationTests.AvroKafkaTestHarness).
+/// </summary>
 public sealed class KafkaConsumerBuilder<TKey, TValue> : IKafkaConsumerBuilder<TKey, TValue>
 {
     private readonly IKafkaConnectionProvider _connectionProvider;
@@ -25,9 +34,15 @@ public sealed class KafkaConsumerBuilder<TKey, TValue> : IKafkaConsumerBuilder<T
         _logger = logger;
     }
 
-    public IConsumer<TKey, TValue> Build(string name, string? groupIdOverride = null)
+    public IConsumer<TKey, TValue> Build(string name, string groupId)
     {
-        var config = _connectionProvider.GetConsumerConfig(groupIdOverride);
+        var config = _connectionProvider.GetConsumerConfig(groupId);
+        // Harness-oriented offset semantics, matching the historical global
+        // defaults: manual commit (tests drive Commit explicitly) and
+        // Earliest so a consumer subscribing after the produce still sees
+        // the records under test.
+        config.EnableAutoCommit = false;
+        config.AutoOffsetReset = AutoOffsetReset.Earliest;
         var handlers = new KafkaRebalanceHandlers<TKey, TValue>(_logger, name, _metrics);
 
         var builder = new ConsumerBuilder<TKey, TValue>(config)

@@ -27,7 +27,7 @@ public class RoundTripTests
                 Assert.AreEqual(PersistenceStatus.Persisted, result.Status);
             }
 
-            using var consumer = KafkaTestHarness.ConsumerBuilder<string, byte[]>(options).Build("at2-consumer");
+            using var consumer = KafkaTestHarness.ConsumerBuilder<string, byte[]>(options).Build("at2-consumer", KafkaTestHarness.NewGroupId());
             consumer.Subscribe(topic);
 
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
@@ -61,8 +61,10 @@ public class RoundTripTests
             }
 
             var consumerBuilder = KafkaTestHarness.ConsumerBuilder<string, byte[]>(options);
+            // Phase 2 must resume the SAME group's committed offset.
+            var groupId = KafkaTestHarness.NewGroupId();
 
-            using (var consumer = consumerBuilder.Build("at2-consumer-phase1"))
+            using (var consumer = consumerBuilder.Build("at2-consumer-phase1", groupId))
             {
                 consumer.Subscribe(topic);
                 using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
@@ -72,7 +74,7 @@ public class RoundTripTests
                 consumer.Close();
             }
 
-            using (var consumer = consumerBuilder.Build("at2-consumer-phase2"))
+            using (var consumer = consumerBuilder.Build("at2-consumer-phase2", groupId))
             {
                 consumer.Subscribe(topic);
                 using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));

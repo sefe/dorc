@@ -77,7 +77,7 @@ public class KafkaResultsStatusTopicProvisionerTests
     [TestMethod]
     public void BuildTopicSpecification_SingleBrokerDev_MinIsrIsOne()
     {
-        var sut = NewProvisioner(substrate: new KafkaSubstrateOptions { ResultsStatusReplicationFactor = 1 });
+        var sut = NewProvisioner(new KafkaTopicsOptions { ReplicationFactor = 1 });
 
         var spec = sut.BuildTopicSpecification(Topics.ResultsStatus);
 
@@ -85,11 +85,9 @@ public class KafkaResultsStatusTopicProvisionerTests
     }
 
     private static KafkaResultsStatusTopicProvisioner NewProvisioner(
-        KafkaTopicsOptions? topics = null,
-        KafkaSubstrateOptions? substrate = null)
+        KafkaTopicsOptions? topics = null)
         => new(
             new UnusedConnectionProvider(),
-            Options.Create(substrate ?? new KafkaSubstrateOptions()),
             Options.Create(topics ?? new KafkaTopicsOptions()),
             NullLogger<KafkaResultsStatusTopicProvisioner>.Instance);
 
@@ -99,7 +97,7 @@ public class KafkaResultsStatusTopicProvisionerTests
     /// </summary>
     private sealed class UnusedConnectionProvider : IKafkaConnectionProvider
     {
-        public ConsumerConfig GetConsumerConfig(string? groupIdOverride = null) => throw new NotSupportedException();
+        public ConsumerConfig GetConsumerConfig(string groupId) => throw new NotSupportedException();
         public ProducerConfig GetProducerConfig() => throw new NotSupportedException();
     }
 }

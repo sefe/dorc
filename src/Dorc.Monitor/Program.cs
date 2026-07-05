@@ -122,8 +122,13 @@ builder.Services.AddTransient<ScriptDispatcher>();
 // Upgrade-safety gate shared with the API host (Dorc.Kafka.Client KafkaStartupGate):
 // if Kafka is enabled but a required setting is missing, fall back cleanly rather
 // than crash at DI resolution. Runs in DB-poll fallback mode when it returns false.
+// The fallback report goes through Serilog (configured above), NOT the
+// console: under AddWindowsService there is no attached console, so a
+// Console.WriteLine here is discarded and operators get no trace of why
+// distributed locking vanished.
 var kafkaEnabled = Dorc.Kafka.Client.Configuration.KafkaStartupGate.IsKafkaEnabled(
-    builder.Configuration, "DB-poll fallback mode", Console.WriteLine);
+    builder.Configuration, "DB-poll fallback mode",
+    message => Log.Warning("{KafkaStartupGateMessage}", message));
 // SignalR-client publisher is registered unconditionally as a single
 // concrete singleton with two interface forwards. This mirrors the API's
 // DirectDeploymentEventPublisher pattern: one instance reachable through
@@ -158,9 +163,11 @@ else
     // environment-lock acquisition short-circuits to success, so a second
     // Monitor replica in this mode would deploy concurrently to the same
     // environments (split brain). Nothing can detect peer replicas from
-    // here — the warning is the guard, the runbook is the control.
-    Console.WriteLine(
-        "[startup] WARNING: Kafka disabled - distributed locking is OFF. " +
+    // here — the warning is the guard, the runbook is the control. Logged
+    // at Error through Serilog so it survives Windows-service hosting
+    // (Console.WriteLine is discarded without an attached console).
+    Log.Error(
+        "Kafka disabled - distributed locking is OFF. " +
         "Run EXACTLY ONE Monitor replica in this mode; a second replica causes concurrent deployments to the same environment.");
     builder.Services.AddSingleton<IDistributedLockService, NoOpDistributedLockService>();
     builder.Services.AddSingleton<Dorc.Core.Events.IRequestPollSignal, Dorc.Core.Events.RequestPollSignal>();

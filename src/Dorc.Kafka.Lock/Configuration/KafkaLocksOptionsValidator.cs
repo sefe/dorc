@@ -28,7 +28,12 @@ public sealed class KafkaLocksOptionsValidator : IValidateOptions<KafkaLocksOpti
             errors.Add($"{KafkaLocksOptions.SectionName}:{nameof(KafkaLocksOptions.AcquireWaitMs)} must be > 0.");
 
         if (options.LivenessTimeoutMs is <= 0)
-            errors.Add($"{KafkaLocksOptions.SectionName}:{nameof(KafkaLocksOptions.LivenessTimeoutMs)} must be > 0 when specified (omit for the default of max(session.timeout.ms, 30s)).");
+            errors.Add($"{KafkaLocksOptions.SectionName}:{nameof(KafkaLocksOptions.LivenessTimeoutMs)} must be > 0 when specified (omit for the default of half the effective session timeout).");
+
+        // Broker default floor is group.min.session.timeout.ms = 6000; below
+        // that the group join is rejected and the lock substrate never starts.
+        if (options.SessionTimeoutMs is < 6_000)
+            errors.Add($"{KafkaLocksOptions.SectionName}:{nameof(KafkaLocksOptions.SessionTimeoutMs)} must be >= 6000 when specified (omit to inherit Kafka:SessionTimeoutMs).");
 
         return errors.Count == 0
             ? ValidateOptionsResult.Success

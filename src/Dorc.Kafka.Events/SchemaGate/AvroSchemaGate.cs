@@ -355,27 +355,8 @@ public sealed class AvroSchemaGate
 
     internal static bool SchemasEquivalent(string left, string right)
     {
-        var l = Canonicalise(JsonNode.Parse(left))?.ToJsonString();
-        var r = Canonicalise(JsonNode.Parse(right))?.ToJsonString();
+        var l = AvroJsonCanonicaliser.Canonicalise(JsonNode.Parse(left))?.ToJsonString();
+        var r = AvroJsonCanonicaliser.Canonicalise(JsonNode.Parse(right))?.ToJsonString();
         return string.Equals(l, r, StringComparison.Ordinal);
-    }
-
-    private static JsonNode? Canonicalise(JsonNode? node)
-    {
-        switch (node)
-        {
-            case JsonObject obj:
-                var ordered = new JsonObject();
-                foreach (var kv in obj.OrderBy(p => p.Key, StringComparer.Ordinal))
-                    ordered[kv.Key] = Canonicalise(kv.Value?.DeepClone());
-                return ordered;
-            case JsonArray arr:
-                var newArr = new JsonArray();
-                foreach (var item in arr)
-                    newArr.Add(Canonicalise(item?.DeepClone()));
-                return newArr;
-            default:
-                return node;
-        }
     }
 }

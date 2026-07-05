@@ -3,6 +3,7 @@ using Confluent.Kafka;
 using Confluent.Kafka.SyncOverAsync;
 using Confluent.SchemaRegistry;
 using Dorc.Core.Events;
+using Dorc.Kafka.Client;
 using Dorc.Kafka.Client.Serialization;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -88,7 +89,7 @@ public sealed class AvroKafkaSerializerFactory : IKafkaSerializerFactory, IDispo
         foreach (var s in _serializers.Values.OfType<IDisposable>())
         {
             try { s.Dispose(); }
-            catch (Exception ex) when (!IsCritical(ex))
+            catch (Exception ex) when (!CriticalExceptions.IsCritical(ex))
             {
                 _logger.LogWarning(ex, "avro-dispose-failed inner={InnerType}", s.GetType().Name);
             }
@@ -96,7 +97,7 @@ public sealed class AvroKafkaSerializerFactory : IKafkaSerializerFactory, IDispo
         foreach (var d in _deserializers.Values.OfType<IDisposable>())
         {
             try { d.Dispose(); }
-            catch (Exception ex) when (!IsCritical(ex))
+            catch (Exception ex) when (!CriticalExceptions.IsCritical(ex))
             {
                 _logger.LogWarning(ex, "avro-dispose-failed inner={InnerType}", d.GetType().Name);
             }
@@ -104,12 +105,6 @@ public sealed class AvroKafkaSerializerFactory : IKafkaSerializerFactory, IDispo
         _serializers.Clear();
         _deserializers.Clear();
     }
-
-    private static bool IsCritical(Exception ex) =>
-        ex is OutOfMemoryException
-            or StackOverflowException
-            or AccessViolationException
-            or System.Threading.ThreadAbortException;
 
     /// <summary>
     /// Pre-builds the deserializer for <typeparamref name="T"/> against each
@@ -128,7 +123,7 @@ public sealed class AvroKafkaSerializerFactory : IKafkaSerializerFactory, IDispo
         foreach (var topic in topics)
         {
             try { d.Prebuild(topic); }
-            catch (Exception ex) when (!IsCritical(ex))
+            catch (Exception ex) when (!CriticalExceptions.IsCritical(ex))
             {
                 _logger.LogWarning(ex,
                     "avro-warmup-failed kind=deserializer topic={Topic} type={Type}",
@@ -151,7 +146,7 @@ public sealed class AvroKafkaSerializerFactory : IKafkaSerializerFactory, IDispo
         foreach (var topic in topics)
         {
             try { s.Prebuild(topic); }
-            catch (Exception ex) when (!IsCritical(ex))
+            catch (Exception ex) when (!CriticalExceptions.IsCritical(ex))
             {
                 _logger.LogWarning(ex,
                     "avro-warmup-failed kind=serializer topic={Topic} type={Type}",
@@ -185,7 +180,7 @@ public sealed class AvroKafkaSerializerFactory : IKafkaSerializerFactory, IDispo
                 foreach (var d in _byTopic.Values.OfType<IDisposable>())
                 {
                     try { d.Dispose(); }
-                    catch (Exception ex) when (!IsCritical(ex))
+                    catch (Exception ex) when (!CriticalExceptions.IsCritical(ex))
                     {
                         _logger.LogWarning(ex, "avro-serializer-dispose-failed type={Type}", typeof(T).Name);
                     }
@@ -259,7 +254,7 @@ public sealed class AvroKafkaSerializerFactory : IKafkaSerializerFactory, IDispo
                 foreach (var d in _byTopic.Values.OfType<IDisposable>())
                 {
                     try { d.Dispose(); }
-                    catch (Exception ex) when (!IsCritical(ex))
+                    catch (Exception ex) when (!CriticalExceptions.IsCritical(ex))
                     {
                         _logger.LogWarning(ex, "avro-deserializer-dispose-failed type={Type}", typeof(T).Name);
                     }

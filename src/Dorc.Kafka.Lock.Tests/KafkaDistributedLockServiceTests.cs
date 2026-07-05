@@ -321,6 +321,6 @@ public class KafkaDistributedLockServiceTests
     private sealed class FakeConnectionProvider : Dorc.Kafka.Client.Connection.IKafkaConnectionProvider
     {
         public Confluent.Kafka.ProducerConfig GetProducerConfig() => new();
-        public Confluent.Kafka.ConsumerConfig GetConsumerConfig(string? groupIdOverride = null) => new() { GroupId = groupIdOverride ?? "test" };
+        public Confluent.Kafka.ConsumerConfig GetConsumerConfig(string groupId) => new() { GroupId = groupId };
     }
 }

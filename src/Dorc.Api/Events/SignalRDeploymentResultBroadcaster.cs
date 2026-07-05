@@ -14,12 +14,19 @@ namespace Dorc.Api.Events
     /// existing group-tracker so the web UI sees the event identically to
     /// the direct-SignalR path.
     ///
-    /// multi-replica fan-out: every API replica has its
-    /// own Kafka consumer group (so all replicas receive all events) and
-    /// this broadcaster fans out to whichever clients are pinned to THIS
-    /// replica's SignalR hub instance. Combined with the per-replica
-    /// group.id pattern, each connected client receives each event exactly
-    /// once.
+    /// Exactly-once delivery depends on the consumer-group mode matching the
+    /// SignalR topology (decided in AddDorcKafkaResultsStatusSubstrate):
+    /// <list type="bullet">
+    /// <item><description><b>In-process SignalR</b> (per-replica consumer
+    /// groups): every replica receives every event; a hub send reaches only
+    /// the clients pinned to THIS replica's hub instance — exactly once per
+    /// client.</description></item>
+    /// <item><description><b>Azure SignalR Service</b> (shared/competing
+    /// group): a hub send is delivered service-wide to ALL clients, so
+    /// exactly one replica may consume each event — the shared group
+    /// guarantees that. Per-replica groups in this mode would deliver every
+    /// event N× per client.</description></item>
+    /// </list>
     /// </summary>
     public sealed class SignalRDeploymentResultBroadcaster : IDeploymentResultBroadcaster
     {

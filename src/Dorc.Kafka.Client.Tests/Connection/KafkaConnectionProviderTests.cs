@@ -54,17 +54,14 @@ public class KafkaConnectionProviderTests
         var provider = Build(new KafkaClientOptions
         {
             BootstrapServers = "b:9092",
-            ConsumerGroupId = "dorc-monitor",
             SessionTimeoutMs = 40_000,
             HeartbeatIntervalMs = 13_000,
             MaxPollIntervalMs = 400_000
         });
 
-        var cfg = provider.GetConsumerConfig();
+        var cfg = provider.GetConsumerConfig("dorc-monitor");
 
         Assert.AreEqual("dorc-monitor", cfg.GroupId);
-        Assert.IsFalse(cfg.EnableAutoCommit);
-        Assert.AreEqual(AutoOffsetReset.Earliest, cfg.AutoOffsetReset);
         Assert.AreEqual(40_000, cfg.SessionTimeoutMs);
         Assert.AreEqual(13_000, cfg.HeartbeatIntervalMs);
         Assert.AreEqual(400_000, cfg.MaxPollIntervalMs);
@@ -72,26 +69,27 @@ public class KafkaConnectionProviderTests
     }
 
     [TestMethod]
-    public void ConsumerConfig_GroupIdOverride_WinsOverConfigured()
+    public void ConsumerConfig_LeavesOffsetSemanticsUnset_PerConsumerDecision()
     {
-        var provider = Build(new KafkaClientOptions
-        {
-            BootstrapServers = "b:9092",
-            ConsumerGroupId = "default-group"
-        });
+        // Offset semantics are per-consumer decisions: every consumer sets
+        // EnableAutoCommit / AutoOffsetReset explicitly on the returned
+        // config, so the provider must not impose a global value.
+        var provider = Build(new KafkaClientOptions { BootstrapServers = "b:9092" });
 
-        var cfg = provider.GetConsumerConfig(groupIdOverride: "per-component-group");
+        var cfg = provider.GetConsumerConfig("g");
 
-        Assert.AreEqual("per-component-group", cfg.GroupId);
+        Assert.IsNull(cfg.EnableAutoCommit);
+        Assert.IsNull(cfg.AutoOffsetReset);
     }
 
     [TestMethod]
-    public void ConsumerConfig_NoGroupIdAnywhere_Throws()
+    public void ConsumerConfig_MissingGroupId_Throws()
     {
         var provider = Build(new KafkaClientOptions { BootstrapServers = "b:9092" });
 
-        var ex = Assert.ThrowsExactly<InvalidOperationException>(() => _ = provider.GetConsumerConfig());
-        StringAssert.Contains(ex.Message, nameof(KafkaClientOptions.ConsumerGroupId));
+        Assert.ThrowsExactly<ArgumentException>(() => _ = provider.GetConsumerConfig(""));
+        Assert.ThrowsExactly<ArgumentException>(() => _ = provider.GetConsumerConfig("   "));
+        Assert.ThrowsExactly<ArgumentException>(() => _ = provider.GetConsumerConfig(null!));
     }
 
     [TestMethod]

@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using Confluent.Kafka;
+using Dorc.Kafka.Client;
 using Dorc.Kafka.Client.Connection;
 using Dorc.Kafka.Client.Consumers;
 using Dorc.Kafka.Events.Configuration;
@@ -65,10 +66,17 @@ public sealed class KafkaLockCoordinator : IHostedService, IAsyncDisposable
     // contact is restored; _connectivitySuspect is set when the error handler
     // reports a transport-class error, suppressing empty-poll contact counting
     // (librdkafka also returns empty polls during half-open TCP connections).
+    // While suspect, an active probe (group-coordinator round-trip via
+    // Committed) runs every ProbeIntervalMs — a healthy cluster clears the
+    // suspicion within one probe, so a benign single-connection disconnect
+    // (idle reap, one broker of three restarting) can never trip the watchdog.
     private long _lastBrokerContactTimestamp;
+    private long _lastProbeTimestamp;
     private volatile bool _livenessTripped;
     private volatile bool _connectivitySuspect;
     private TimeSpan? _livenessTimeout;
+    private const int ProbeIntervalMs = 5_000;
+    private static readonly TimeSpan ProbeTimeout = TimeSpan.FromSeconds(3);
 
     // Set on fatal consumer errors; the consume loop disposes and rebuilds the
     // consumer (with bounded backoff) instead of spinning on a dead handle.
@@ -79,7 +87,8 @@ public sealed class KafkaLockCoordinator : IHostedService, IAsyncDisposable
         IOptions<KafkaLocksOptions> options,
         IOptions<KafkaTopicsOptions> topics,
         ILogger<KafkaLockCoordinator> logger,
-        TimeProvider? timeProvider = null)
+        TimeProvider? timeProvider = null,
+        IOptions<Client.Configuration.KafkaClientOptions>? clientOptions = null)
     {
         _connectionProvider = connectionProvider;
         _options = options.Value;
@@ -87,7 +96,14 @@ public sealed class KafkaLockCoordinator : IHostedService, IAsyncDisposable
         _logger = logger;
         _timeProvider = timeProvider ?? TimeProvider.System;
         _lastBrokerContactTimestamp = _timeProvider.GetTimestamp();
+        _configuredReplicaId = clientOptions?.Value.ReplicaId;
     }
+
+    // Same replica-identity channel as the event consumers (Kafka:ReplicaId
+    // config, DORC_REPLICA_ID env var outranking it) so the static
+    // group.instance.id below can never diverge from the identity the rest
+    // of the substrate uses.
+    private readonly string? _configuredReplicaId;
 
     public KafkaLocksOptions Options => _options;
 
@@ -140,6 +156,22 @@ public sealed class KafkaLockCoordinator : IHostedService, IAsyncDisposable
         // (the topic has no meaningful records) and cheaper than manual commit.
         config.EnableAutoCommit = true;
         config.AutoOffsetReset = AutoOffsetReset.Latest;
+        // Lock-specific session timeout: the outage-grace budget for held
+        // locks (see KafkaLocksOptions.SessionTimeoutMs). The liveness
+        // watchdog derives from the same effective value below.
+        if (_options.SessionTimeoutMs is { } sessionMs)
+            config.SessionTimeoutMs = sessionMs;
+        // Static membership: a restart that rejoins within session.timeout.ms
+        // reclaims the same partitions with no rebalance, so peer Monitors'
+        // held locks survive routine service restarts / rolling upgrades.
+        // The instance id must be unique per group member: group id scopes it
+        // per tier, host identity scopes it per machine/replica. Two members
+        // presenting the SAME instance id fence each other (fatal error →
+        // slot cancel → rebuild → re-fence, a locking-outage ping-pong), so
+        // same-tier co-hosted replicas MUST set DORC_REPLICA_ID — the
+        // fan-out consumer warning covers the same topology.
+        if (_options.UseStaticGroupMembership)
+            config.GroupInstanceId = $"{_options.ConsumerGroupId}.{Events.Publisher.HostInstanceId.For(_configuredReplicaId)}";
 
         var handlers = new KafkaRebalanceHandlers<byte[], byte[]>(_logger, "dorc-lock-coordinator");
 
@@ -241,23 +273,24 @@ public sealed class KafkaLockCoordinator : IHostedService, IAsyncDisposable
                     // Back off briefly so a dead broker doesn't busy-spin.
                     if (!SleepUnlessStopping(1_000, stoppingToken)) break;
                 }
-                catch (Exception ex) when (!IsCritical(ex))
+                catch (Exception ex) when (!CriticalExceptions.IsCritical(ex))
                 {
                     // Safety net for the long-running consume loop: log and
                     // continue rather than tear the host down on a transient
                     // unknown failure. Process-fatal exceptions still escape
-                    // via IsCritical so the runtime can restart us cleanly.
+                    // via CriticalExceptions.IsCritical so the runtime can restart us cleanly.
                     _logger.LogError(ex, "KafkaLockCoordinator unexpected consume-loop error");
                     if (!SleepUnlessStopping(1_000, stoppingToken)) break;
                 }
 
+                MaybeProbeConnectivity();
                 EvaluateLiveness();
             }
         }
         finally
         {
             try { _consumer?.Close(); }
-            catch (Exception ex) when (!IsCritical(ex))
+            catch (Exception ex) when (!CriticalExceptions.IsCritical(ex))
             {
                 _logger.LogWarning(ex, "KafkaLockCoordinator consumer-close failed");
             }
@@ -276,9 +309,9 @@ public sealed class KafkaLockCoordinator : IHostedService, IAsyncDisposable
         if (dead is not null)
         {
             try { dead.Close(); }
-            catch (Exception ex) when (!IsCritical(ex)) { _logger.LogWarning(ex, "KafkaLockCoordinator close of dead consumer failed"); }
+            catch (Exception ex) when (!CriticalExceptions.IsCritical(ex)) { _logger.LogWarning(ex, "KafkaLockCoordinator close of dead consumer failed"); }
             try { dead.Dispose(); }
-            catch (Exception ex) when (!IsCritical(ex)) { _logger.LogWarning(ex, "KafkaLockCoordinator dispose of dead consumer failed"); }
+            catch (Exception ex) when (!CriticalExceptions.IsCritical(ex)) { _logger.LogWarning(ex, "KafkaLockCoordinator dispose of dead consumer failed"); }
         }
 
         if (!SleepUnlessStopping(backoffMs, stoppingToken)) return;
@@ -293,7 +326,7 @@ public sealed class KafkaLockCoordinator : IHostedService, IAsyncDisposable
             _logger.LogInformation(
                 "KafkaLockCoordinator consumer rebuilt and resubscribed after fatal error: topic={Topic}", _topics.Locks);
         }
-        catch (Exception ex) when (!IsCritical(ex))
+        catch (Exception ex) when (!CriticalExceptions.IsCritical(ex))
         {
             _logger.LogError(ex, "KafkaLockCoordinator consumer rebuild failed; retrying with backoff");
         }
@@ -311,12 +344,6 @@ public sealed class KafkaLockCoordinator : IHostedService, IAsyncDisposable
             return false;
         }
     }
-
-    private static bool IsCritical(Exception ex) =>
-        ex is OutOfMemoryException
-            or StackOverflowException
-            or AccessViolationException
-            or System.Threading.ThreadAbortException;
 
     /// <summary>
     /// Consumer error-handler hook. Fatal errors cancel every slot and request
@@ -363,9 +390,13 @@ public sealed class KafkaLockCoordinator : IHostedService, IAsyncDisposable
         if (_options.LivenessTimeoutMs is { } configuredMs)
             return TimeSpan.FromMilliseconds(configuredMs);
 
-        var sessionTimeoutMs = _connectionProvider
-            .GetConsumerConfig(_options.ConsumerGroupId)
-            .SessionTimeoutMs ?? LibrdkafkaDefaultSessionTimeoutMs;
+        // Must mirror BuildConsumer's effective session timeout: the lock-
+        // specific override wins over the shared client value.
+        var sessionTimeoutMs = _options.SessionTimeoutMs
+            ?? _connectionProvider
+                .GetConsumerConfig(_options.ConsumerGroupId)
+                .SessionTimeoutMs
+            ?? LibrdkafkaDefaultSessionTimeoutMs;
 
         // Target: 50% of session timeout, at least LivenessFloorMs, and
         // strictly less than session timeout (by at least 2s safety margin).
@@ -383,6 +414,49 @@ public sealed class KafkaLockCoordinator : IHostedService, IAsyncDisposable
     {
         Interlocked.Exchange(ref _lastBrokerContactTimestamp, _timeProvider.GetTimestamp());
         _livenessTripped = false;
+    }
+
+    /// <summary>
+    /// Active connectivity probe, run from the consume loop while
+    /// <c>_connectivitySuspect</c> is set (at most once per
+    /// <see cref="ProbeIntervalMs"/>). The locks topic is idle by design, so
+    /// after a transport-class error there is no passive signal that could
+    /// ever clear the suspicion — records never arrive, and librdkafka handles
+    /// heartbeats internally without surfacing them. Without this probe a
+    /// single benign disconnect (broker idle-connection reap, one broker of a
+    /// healthy cluster restarting) pinned the suspicion until the watchdog
+    /// cancelled every held lock.
+    ///
+    /// <c>Committed</c> is a group-coordinator round-trip: success proves the
+    /// exact connection that our session/partition-assignment lifecycle
+    /// depends on is healthy, so suspicion is cleared and contact recorded.
+    /// Failure (any exception) leaves the suspicion in place — a genuine
+    /// partition still trips the watchdog before the broker can reassign our
+    /// partitions to a peer. The call blocks the consume thread for at most
+    /// <see cref="ProbeTimeout"/>, well inside max.poll.interval.
+    /// </summary>
+    internal void MaybeProbeConnectivity()
+    {
+        if (!_connectivitySuspect) return;
+        var lastProbe = Interlocked.Read(ref _lastProbeTimestamp);
+        if (lastProbe != 0 && _timeProvider.GetElapsedTime(lastProbe) < TimeSpan.FromMilliseconds(ProbeIntervalMs))
+            return;
+        Interlocked.Exchange(ref _lastProbeTimestamp, _timeProvider.GetTimestamp());
+
+        try
+        {
+            _consumer?.Committed(new[] { new TopicPartition(_topics.Locks, 0) }, ProbeTimeout);
+            _connectivitySuspect = false;
+            RecordBrokerContact();
+            _logger.LogInformation(
+                "KafkaLockCoordinator connectivity probe succeeded after transport-class error; suspicion cleared.");
+        }
+        catch (Exception ex) when (!CriticalExceptions.IsCritical(ex))
+        {
+            _logger.LogWarning(
+                "KafkaLockCoordinator connectivity probe failed ({Message}); broker contact still unconfirmed.",
+                ex.Message);
+        }
     }
 
     /// <summary>

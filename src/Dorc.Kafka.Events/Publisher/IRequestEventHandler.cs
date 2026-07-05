@@ -1,4 +1,6 @@
 using Dorc.Core.Events;
+using Dorc.Kafka.Events.Configuration;
+using Microsoft.Extensions.Options;
 
 namespace Dorc.Kafka.Events.Publisher;
 
@@ -27,11 +29,24 @@ public interface IRequestEventHandler
 public sealed class PollSignalRequestEventHandler : IRequestEventHandler
 {
     private readonly IRequestPollSignal _signal;
-    public PollSignalRequestEventHandler(IRequestPollSignal signal) => _signal = signal;
+    private readonly string _requestsNewTopic;
+
+    public PollSignalRequestEventHandler(IRequestPollSignal signal, IOptions<KafkaTopicsOptions> topics)
+    {
+        _signal = signal;
+        _requestsNewTopic = topics.Value.RequestsNew;
+    }
 
     public Task HandleAsync(string topic, DeploymentRequestEventData eventData, CancellationToken cancellationToken)
     {
-        _signal.Signal();
+        // Only requests.new events wake the poll loop: they are the "a new
+        // request needs picking up" signal the acceleration path exists for.
+        // requests.status events include the Monitor's OWN status publishes,
+        // so signalling on them made every processed request wake the loop
+        // again (self-wake) — and each wake costs a forced full GC plus four
+        // DB sweeps in DeploymentEngine.
+        if (string.Equals(topic, _requestsNewTopic, StringComparison.Ordinal))
+            _signal.Signal();
         return Task.CompletedTask;
     }
 }

@@ -32,10 +32,8 @@ public sealed class KafkaClientOptionsValidator : IValidateOptions<KafkaClientOp
                 // Validate the mechanism value eagerly so a typo (e.g. "SCRAM-SHA-265")
                 // is caught at startup rather than throwing InvalidOperationException
                 // the first time a producer or consumer is constructed.
-                var validMechanisms = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-                    { "SCRAM-SHA-256", "SCRAM-SHA-512", "PLAIN", "GSSAPI", "OAUTHBEARER" };
-                if (!validMechanisms.Contains(options.Sasl.Mechanism))
-                    errors.Add($"{KafkaClientOptions.SectionName}:{nameof(KafkaClientOptions.Sasl)}:{nameof(KafkaSaslOptions.Mechanism)} value '{options.Sasl.Mechanism}' is not supported. Valid values: {string.Join(", ", validMechanisms)}.");
+                if (!KafkaSaslOptions.SupportedMechanisms.Contains(options.Sasl.Mechanism))
+                    errors.Add($"{KafkaClientOptions.SectionName}:{nameof(KafkaClientOptions.Sasl)}:{nameof(KafkaSaslOptions.Mechanism)} value '{options.Sasl.Mechanism}' is not supported. Valid values: {string.Join(", ", KafkaSaslOptions.SupportedMechanisms)}.");
             }
         }
 
