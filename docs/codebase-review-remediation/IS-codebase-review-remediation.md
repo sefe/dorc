@@ -67,6 +67,8 @@ This IS orders the remediation into atomic, independently-reviewable steps. Step
 **Why.** A-1 — any authenticated user can currently confirm/decline/read any Terraform plan and trigger infrastructure changes.
 **Verification intent.** A user without rights on the target environment receives 403 on view/confirm/decline; a user with modify rights succeeds; existing confirm→Monitor-execute flow is unchanged for authorised users.
 
+> **Implementation note (2026-07-05).** Confirm/decline gate on `CanModifyEnvironment` (env resolved from the deployment result's owning request via `GetRequestForUser`). **View is gated at the same modify level** because the ACL model exposes no distinct read tier (`AccessLevel` = None/Write/ReadSecrets/Owner) and the plan content describes infrastructure changes — gating view at modify fails closed for sensitive content. Resolves fail-closed when the owning environment cannot be determined. Also fixed a latent bug the stubs masked: the denial paths used `Forbid("message")`, which ASP.NET Core treats as an auth *scheme* name (would throw); switched to `StatusCode(403, message)`. Delivered with `TerraformControllerTests` (5 cases).
+
 ### S-002 — Sandbox/replace & permission-gate the `fn:` C# evaluator
 **What changes.** The capability stays (U-2 RESOLVED — actively used, required), but the implementation is reworked. **The design decision is gated on the Q-2a usage audit** (see below), because the two viable directions differ fundamentally:
 

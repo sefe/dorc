@@ -60,7 +60,7 @@ namespace Dorc.Api.Controllers
                 // Check if user has permission to view this deployment
                 if (!HasViewPermission(deploymentResult))
                 {
-                    return Forbid("You do not have permission to view this Terraform plan");
+                    return StatusCode(StatusCodes.Status403Forbidden, "You do not have permission to view this Terraform plan");
                 }
 
                 // Load plan content from storage
@@ -107,7 +107,7 @@ namespace Dorc.Api.Controllers
                 // Security check - ensure user has permission to confirm
                 if (!HasConfirmPermission(deploymentResult))
                 {
-                    return Forbid("You do not have permission to confirm this Terraform plan");
+                    return StatusCode(StatusCodes.Status403Forbidden, "You do not have permission to confirm this Terraform plan");
                 }
 
                 // Validate that the deployment is in the correct status
@@ -170,7 +170,7 @@ namespace Dorc.Api.Controllers
                 // Security check - ensure user has permission to decline
                 if (!HasDeclinePermission(deploymentResult))
                 {
-                    return Forbid("You do not have permission to decline this Terraform plan");
+                    return StatusCode(StatusCodes.Status403Forbidden, "You do not have permission to decline this Terraform plan");
                 }
 
                 // Validate that the deployment is in the correct status
@@ -207,20 +207,49 @@ namespace Dorc.Api.Controllers
             }
         }
 
+        /// <summary>
+        /// Resolves the environment that owns the given deployment result. Returns
+        /// null when the owning request (and therefore the environment) cannot be
+        /// determined, in which case callers must fail closed.
+        /// </summary>
+        private string? GetEnvironmentNameForResult(DeploymentResultApiModel deploymentResult)
+        {
+            var request = _requestsPersistentSource.GetRequestForUser(deploymentResult.RequestId, User);
+            return request?.EnvironmentName;
+        }
+
+        // View is gated at the same level as confirm/decline (modify rights on the
+        // owning environment). The access-control model exposes no distinct "read"
+        // tier (AccessLevel is None/Write/ReadSecrets/Owner), and the plan content
+        // is the terraform plan output describing infrastructure changes, so gating
+        // view at modify level fails closed for sensitive content. See U-1.
         private bool HasViewPermission(DeploymentResultApiModel deploymentResult)
         {
-            return true;
+            return HasModifyPermission(deploymentResult);
         }
 
         private bool HasConfirmPermission(DeploymentResultApiModel deploymentResult)
         {
-            return true;
+            return HasModifyPermission(deploymentResult);
         }
 
         private bool HasDeclinePermission(DeploymentResultApiModel deploymentResult)
         {
-            // Same permission logic as confirm for now
-            return HasConfirmPermission(deploymentResult);
+            return HasModifyPermission(deploymentResult);
+        }
+
+        private bool HasModifyPermission(DeploymentResultApiModel deploymentResult)
+        {
+            var environmentName = GetEnvironmentNameForResult(deploymentResult);
+            if (string.IsNullOrEmpty(environmentName))
+            {
+                _log.LogWarning(
+                    "Denying Terraform plan action for deployment result {DeploymentResultId}: owning environment could not be resolved.",
+                    deploymentResult.Id);
+                return false;
+            }
+
+            return _apiSecurityService.CanModifyEnvironment(User, environmentName);
         }
 
         private string LoadPlanContentFromStorage(int deploymentResultId)
