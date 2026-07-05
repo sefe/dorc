@@ -25,9 +25,12 @@ namespace Dorc.Monitor
         {
             get
             {
-                int delay = 1000;
-                int.TryParse(configurationRoot.GetSection(appSettings)["requestProcessingIterationDelayMs"], out delay);
-                return delay;
+                var delayStr = configurationRoot.GetSection(appSettings)["RequestProcessingIterationDelayMs"];
+                if (int.TryParse(delayStr, out int delay))
+                {
+                    return delay; // explicit values win, including 0 (busy-poll opt-in)
+                }
+                return 1000; // absent or unparseable: default 1s poll cadence
             }
         }
 

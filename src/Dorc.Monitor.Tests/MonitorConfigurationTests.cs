@@ -25,13 +25,19 @@ namespace Dorc.Monitor.Tests
         }
 
         [TestMethod]
-        public void RequestProcessingIterationDelay_ParsesValue_AndDefaultsToZeroOnGarbage()
+        public void RequestProcessingIterationDelay_ParsesValue_AndDefaultsTo1000OnGarbageOrAbsent()
         {
-            Assert.AreEqual(2500, Sut(new() { ["AppSettings:requestProcessingIterationDelayMs"] = "2500" })
+            Assert.AreEqual(2500, Sut(new() { ["AppSettings:RequestProcessingIterationDelayMs"] = "2500" })
                 .RequestProcessingIterationDelayMs);
-            // int.TryParse zeroes the out param on failure — the documented-by-
-            // behaviour fallback is 0, not the field initialiser's 1000.
-            Assert.AreEqual(0, Sut(new() { ["AppSettings:requestProcessingIterationDelayMs"] = "not-a-number" })
+            // Absent or unparseable must fall back to 1000ms — the previous
+            // int.TryParse zeroed the out param on failure, yielding a 0ms
+            // busy-spin (with a forced full GC per iteration) whenever the key
+            // was missing or garbage.
+            Assert.AreEqual(1000, Sut().RequestProcessingIterationDelayMs);
+            Assert.AreEqual(1000, Sut(new() { ["AppSettings:RequestProcessingIterationDelayMs"] = "not-a-number" })
+                .RequestProcessingIterationDelayMs);
+            // An explicit 0 is a deliberate operator opt-in and must be honoured.
+            Assert.AreEqual(0, Sut(new() { ["AppSettings:RequestProcessingIterationDelayMs"] = "0" })
                 .RequestProcessingIterationDelayMs);
         }
 
