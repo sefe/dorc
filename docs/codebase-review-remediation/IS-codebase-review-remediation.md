@@ -18,8 +18,8 @@ Two steps (S-002 for B-2, S-016 for D-5 rotation, S-013 for C-8) are **gated on 
 
 | ID    | Title | Addresses | Tier | Depends On / Gate |
 |-------|-------|-----------|------|-------------------|
-| S-001 | Enforce Terraform plan authorization | A-1 | 1 | Gate: U-1 |
-| S-002 | Remove or sandbox the `fn:` C# evaluator | B-2 | 1 | Gate: U-2 |
+| S-001 | Enforce Terraform plan authorization | A-1 | 1 | U-1 RESOLVED |
+| S-002 | Sandbox & permission-gate the `fn:` C# evaluator | B-2 | 1 | U-2 RESOLVED |
 | S-003 | Harden SQL login reset (random password, safe DDL) | B-1 | 1 | — |
 | S-004 | Secure the runner named-pipe channel | C-1 | 1 | — |
 | S-005 | Restrictive DACL on the runner process | C-2 | 1 | — |
@@ -53,16 +53,19 @@ Two steps (S-002 for B-2, S-016 for D-5 rotation, S-013 for C-8) are **gated on 
 ## Tier 1 — Stop active exploitation paths
 
 ### S-001 — Enforce Terraform plan authorization
-**What changes.** Replace the three `return true` stubs in `TerraformController` with real checks using the existing security infrastructure: view requires read access to the deployment's environment; confirm/decline require modify rights on that environment (per U-1).
+**What changes.** Replace the three `return true` stubs in `TerraformController` with real checks using the existing security infrastructure (`ISecurityPrivilegesChecker` / `CanModifyEnvironment`, as used by the request-lifecycle endpoints): view requires read access to the deployment's environment; confirm and decline require modify rights on that environment. (U-1 RESOLVED — mirror `CanModifyEnvironment`; no separate owner-only tier.)
 **Why.** A-1 — any authenticated user can currently confirm/decline/read any Terraform plan and trigger infrastructure changes.
-**Gate.** U-1 (permission model) must be confirmed before authoring the JIT Spec.
-**Verification intent.** A user without rights on the target environment receives 403 on view/confirm/decline; a user with rights succeeds; existing confirm→Monitor-execute flow is unchanged for authorised users.
+**Verification intent.** A user without rights on the target environment receives 403 on view/confirm/decline; a user with modify rights succeeds; existing confirm→Monitor-execute flow is unchanged for authorised users.
 
-### S-002 — Remove or sandbox the `fn:` C# evaluator
-**What changes.** Per U-2: if the feature is unused, remove the `fn:` branch and the `CSharpScript` dependency; if used, gate it behind explicit configuration and a restricted `ScriptOptions` with no imports and no host object, and replace the blocking `.Result` and the process-global cache.
-**Why.** B-2 — arbitrary code execution during variable resolution by anyone able to set a property value.
-**Gate.** U-2.
-**Verification intent.** A property value beginning `fn:` does not execute arbitrary code (either rejected, or evaluated only within the sandbox with no host/file/process access); resolution of ordinary values is unchanged.
+### S-002 — Sandbox & permission-gate the `fn:` C# evaluator
+**What changes.** The feature stays (U-2 RESOLVED — actively used, required). Harden it:
+1. Constrain `CSharpScript` execution with a restricted `ScriptOptions` — no arbitrary assembly/namespace imports beyond an explicit safe allow-list, and no host globals object, so `fn:` expressions cannot reach `System.IO`, `System.Diagnostics.Process`, reflection, or network types.
+2. Restrict authorship: only users with the appropriate property-edit permission may create/modify a value containing `fn:` (reuse existing property ACLs; surface a clear error otherwise).
+3. Replace the blocking `.Result` with proper async and replace the process-global static cache keyed only on expression text with a correctly-scoped cache (or remove caching if resolution is cheap), so a value computed in one context is not returned in another.
+**Residual risk.** `CSharpScript` sandboxing is not a security boundary against a determined author; the permission gate (item 2) is the primary control. This must be documented, and the sub-questions below answered during JIT-spec authoring.
+**Open sub-questions (JIT spec):** Q-2a — what is the minimal allow-list of namespaces real `fn:` expressions need (audit existing property values in the DB)? Q-2b — which property permission should gate authorship, and is there a migration concern for existing `fn:` values authored by users who would fail the new check? Q-2c — should evaluation run under a constrained AppDomain/process or timeout to bound runaway expressions?
+**Why.** B-2 — arbitrary code execution during variable resolution; blocking `.Result`; cross-context cache bleed.
+**Verification intent.** An `fn:` expression attempting file/process/network/reflection access fails; a legitimate arithmetic/string `fn:` expression still evaluates correctly; an unauthorised user cannot save an `fn:` value; identical expression text in two contexts no longer returns a stale cached result.
 
 ### S-003 — Harden SQL login reset
 **What changes.** Generate a strong random password (not the username); construct the `ALTER LOGIN` via a quoted-identifier-safe path (`QUOTENAME`-based stored procedure or equivalent) and pass the password as a parameter where the provider allows; tighten the identifier allow-list to exclude quote characters; validate `targetDbServer` against a known-server list rather than concatenating it into the connection string.
