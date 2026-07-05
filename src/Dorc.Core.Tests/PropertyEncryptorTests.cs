@@ -78,15 +78,34 @@ namespace Dorc.Core.Tests
         }
 
         [TestMethod]
-        public void Constructor_HandlesFallbackOnException()
+        public void Constructor_WithInvalidIvOrKey_DoesNotThrow()
+        {
+            // Construction must not throw, so a deployment that never touches
+            // legacy values is unaffected by a malformed legacy IV/Key.
+            var encryptor = new PropertyEncryptor("invalid-iv", "invalid-key");
+            Assert.IsNotNull(encryptor);
+        }
+
+        [TestMethod]
+        public void DecryptValue_WithInvalidIvOrKey_FailsLoudly_InsteadOfSilentRandomKey()
+        {
+            // Previously the constructor silently substituted a fresh random key,
+            // producing undecryptable ciphertext and masking misconfiguration.
+            // It must now fail loudly with a clear message when actually used.
+            var encryptor = new PropertyEncryptor("invalid-iv", "invalid-key");
+
+            var ex = Assert.Throws<InvalidOperationException>(
+                () => encryptor.DecryptValue("v1data"));
+            Assert.IsTrue(ex.Message.Contains("Legacy PropertyEncryptor could not be initialised"));
+        }
+
+        [TestMethod]
+        public void EncryptValue_WithInvalidIvOrKey_FailsLoudly()
         {
             var encryptor = new PropertyEncryptor("invalid-iv", "invalid-key");
-            
-            var plaintext = "test with fallback";
-            var encrypted = encryptor.EncryptValue(plaintext);
-            var decrypted = encryptor.DecryptValue(encrypted);
 
-            Assert.AreEqual(plaintext, decrypted);
+            Assert.Throws<InvalidOperationException>(
+                () => encryptor.EncryptValue("anything"));
         }
     }
 }

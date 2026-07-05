@@ -126,6 +126,8 @@ Common to both directions:
 **Why.** D-1 — silent random-key substitution corrupts secrets and masks misconfiguration; fail-loud must not become a surprise mid-deploy outage.
 **Verification intent.** A malformed global key/IV throws at startup, not mid-run; a single undecryptable value fails only its own request; the CLI dry-run lists affected values; genuinely-valid legacy data still decrypts; new writes use v2.
 
+> **Implementation note (2026-07-05).** The random-key fallback is removed. Refinement vs the draft: rather than throwing at *construction* (which would break a deployment that has a non-base64 legacy key but no legacy data — v2 still derives its key by hashing, so v2 works), `PropertyEncryptor` now records the init failure and **fails loudly with a clear `InvalidOperationException` only when actually used** to encrypt/decrypt a legacy value. This keeps deployments without legacy data unaffected while eliminating the silent-wrong-data path. Delivered with `PropertyEncryptorTests`. **Remaining companion action:** the `Tools.EncryptionMigrationCLI` dry-run scan for undecryptable values (still to do — tracked separately).
+
 ### S-012a — Hotfix: iteration-delay floor + config key
 **What changes.** Small, low-risk, expedited fix split out of S-012: guard the `int.TryParse` in `MonitorConfiguration` so a parse failure does not overwrite the default with 0 (the `out` parameter is set to 0 on failure — clamp to a safe minimum floor instead), and add the `requestProcessingIterationDelayMs` key to the shipped `appsettings.json`.
 **Why.** C-7 — this is an **active** production degradation *today* (0-delay busy loop with a forced full GC every iteration), not latent; it should not wait behind the larger, riskier timeout rework in S-012.
