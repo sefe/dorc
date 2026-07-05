@@ -73,10 +73,18 @@ public sealed class DeploymentResultsKafkaConsumer : BackgroundService
         // - Shared/competing (Azure SignalR Service): hub sends are delivered
         //   service-wide to ALL clients regardless of which replica sends, so
         //   per-replica fan-out would broadcast every event N times per
-        //   client. Exactly ONE consumer service-wide must project each event.
+        //   client. Exactly ONE consumer PER TIER must project each event —
+        //   the shared group is still suffixed with Kafka:ReplicaId
+        //   ("prod"/"nonprod", NOT the machine name: the group must span a
+        //   tier's machines) because Prod and NonProd share one broker and
+        //   one results topic; a single cross-tier group would deliver each
+        //   event to exactly one tier's Azure SignalR service and silently
+        //   starve the other tier's UI clients.
         _configuredReplicaId = clientOptions?.Value.ReplicaId;
         ConsumerGroupId = useSharedConsumerGroup
-            ? ConsumerGroupPrefix
+            ? string.IsNullOrWhiteSpace(_configuredReplicaId)
+                ? ConsumerGroupPrefix
+                : $"{ConsumerGroupPrefix}.{_configuredReplicaId.Trim()}"
             : $"{ConsumerGroupPrefix}.{HostInstanceId.For(_configuredReplicaId)}";
     }
 

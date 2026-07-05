@@ -227,4 +227,45 @@ public class InstallerKafkaConfigConsistencyTests
                 leaves.Add(path);
         }
     }
+
+    /// <summary>
+    /// The install-breaking direction: WixJsonFileExtension's default
+    /// <c>setValue</c> action FAILS (rolling back the entire install) when the
+    /// JSONPath matches nothing — it does not create missing keys. So every
+    /// <c>$.Kafka.*</c> ElementPath a .wxs file writes must exist as a shipped
+    /// key in the appsettings.json that WiX write targets. A write added to
+    /// WiX without shipping the key bricks every MSI install of that host.
+    /// </summary>
+    [TestMethod]
+    public void EveryWxsKafkaElementPath_TargetsAKeyShippedInTheCorrespondingAppSettings()
+    {
+        var cases = new (string WxsName, string Wxs, string AppSettingsName, string AppSettingsJson)[]
+        {
+            ("ProdActionService.wxs", ProdWxs, "src/Dorc.Monitor/appsettings.json", ReadRepoFile("src", "Dorc.Monitor", "appsettings.json")),
+            ("NonProdActionService.wxs", NonProdWxs, "src/Dorc.Monitor/appsettings.json", ReadRepoFile("src", "Dorc.Monitor", "appsettings.json")),
+            ("RequestApi.wxs", RequestApiWxs, "src/Dorc.Api/appsettings.json", ReadRepoFile("src", "Dorc.Api", "appsettings.json")),
+        };
+
+        foreach (var c in cases)
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(c.AppSettingsJson);
+            Assert.IsTrue(doc.RootElement.TryGetProperty("Kafka", out var kafka),
+                $"{c.AppSettingsName} has no Kafka section but {c.WxsName} writes $.Kafka.* paths.");
+
+            var shipped = new List<string>();
+            CollectLeafKeys(kafka, "Kafka", shipped);
+            var shippedSet = shipped.ToHashSet(StringComparer.Ordinal);
+
+            var unbacked = KafkaElementPaths(c.Wxs)
+                .Select(p => p.TrimStart('$', '.'))
+                .Where(p => !shippedSet.Contains(p))
+                .OrderBy(p => p)
+                .ToList();
+
+            Assert.AreEqual(0, unbacked.Count,
+                $"ElementPath(s) written by {c.WxsName} with no matching key shipped in {c.AppSettingsName}: "
+                + string.Join(", ", unbacked)
+                + " — WixJsonFileExtension setValue fails on missing keys and ROLLS BACK THE INSTALL; ship the key (empty value is fine).");
+        }
+    }
 }

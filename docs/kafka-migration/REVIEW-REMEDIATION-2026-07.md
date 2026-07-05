@@ -80,6 +80,13 @@ findings and their fixes:
 | The consistency test only checked the forward (wxs → bat/msi/template) direction, so a forgotten WiX write for an appsettings key was invisible. | Reverse-direction guard added with a documented exemption list (see finding 15). |
 | Doc-accuracy: finding-count arithmetic, the unlisted `GetAdminConfig` interface addition, and the over-claimed TODO retirement in finding 6. | Corrected in this document. |
 
+## Round 3 (convergence check)
+
+| Finding | Fix |
+|---------|-----|
+| **Install-breaker:** the four new `$.Kafka.ReplicaId` WiX writes targeted a key that shipped in neither appsettings.json — WixJsonFileExtension's `setValue` fails on a JSONPath with no matches and rolls back the ENTIRE install. | `"ReplicaId": ""` shipped in both appsettings; new forward-direction consistency test (`EveryWxsKafkaElementPath_TargetsAKeyShippedInTheCorrespondingAppSettings`) makes any future WiX-write-without-shipped-key a build failure. |
+| The Azure SignalR shared consumer group used the bare prefix with no tier discriminator: Prod and NonProd share one broker and one results topic, so both tiers' APIs would join ONE competing group and each event would reach only one tier's SignalR service. | Shared group is suffixed with `Kafka:ReplicaId` (tier value, not machine name — the group must span a tier's machines): `dorc-api-results-status.prod` / `.nonprod`. |
+
 ## Verification
 
 - Unit suites (Dorc.Kafka.Client/Events/Lock/ErrorLog.Tests, Dorc.Monitor.Tests): green locally on .NET 8.
