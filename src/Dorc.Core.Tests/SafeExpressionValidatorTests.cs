@@ -20,6 +20,20 @@ namespace Dorc.Core.Tests
         [DataRow("1 + 1; System.IO.File.ReadAllText(\"x\")")]  // trailing statement
         [DataRow("a => a")]                                       // lambda
         [DataRow("someVariable")]                                 // bare identifier
+        // Unicode-escaped GetType: raw text is "GetType" but the compiler binds
+        // it to GetType(). Must be caught via ValueText, not Text (regression for the
+        // round-2 CRITICAL bypass that achieved arbitrary file write).
+        [DataRow("\"\".GetType()")]
+        [DataRow("\"\".Get\\u0054ype()")]  // literal T escape reaching the validator
+        [DataRow("\"\".GetType().Assembly")]
+        [DataRow("\"\".GetType().Assembly.CreateInstance(\"System.Text.StringBuilder\")")]
+        [DataRow("\"\".GetType().Assembly.GetType(\"System.IO.File\").GetMethod(\"WriteAllText\")")]
+        // Size-amplification DoS: PadLeft/PadRight are not on the instance allow-list.
+        [DataRow("\"x\".PadRight(2000000000)")]
+        [DataRow("\"x\".PadLeft(2000000000)")]
+        // Predefined-type static receivers are not (currently) allow-listed.
+        [DataRow("string.Format(\"{0}\", \"x\")")]
+        [DataRow("int.Parse(\"5\")")]
         public void IsSafe_RejectsDangerousExpressions(string expression)
         {
             Assert.IsFalse(SafeExpressionValidator.IsSafe(expression, out _), $"Should have rejected: {expression}");
