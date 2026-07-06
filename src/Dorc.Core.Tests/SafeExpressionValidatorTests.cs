@@ -34,6 +34,11 @@ namespace Dorc.Core.Tests
         // Predefined-type static receivers are not (currently) allow-listed.
         [DataRow("string.Format(\"{0}\", \"x\")")]
         [DataRow("int.Parse(\"5\")")]
+        // Bare-identifier static receivers (Math/Convert) are rejected: the scripting
+        // host has no imports so they cannot execute, and allowing them would rest the
+        // safety guarantee on the runtime happening to lack a System import.
+        [DataRow("Math.Max(1, 2)")]
+        [DataRow("Convert.ToInt32(\"5\")")]
         public void IsSafe_RejectsDangerousExpressions(string expression)
         {
             Assert.IsFalse(SafeExpressionValidator.IsSafe(expression, out _), $"Should have rejected: {expression}");
@@ -51,9 +56,9 @@ namespace Dorc.Core.Tests
         [DataRow("\"a-b-c\".Replace(\"-\", \"_\")")]
         [DataRow("\"abc\".Length")]
         [DataRow("\"abc\".Contains(\"b\")")]
-        [DataRow("Math.Max(1, 2)")]
-        [DataRow("Convert.ToInt32(\"5\") + 1")]
+        [DataRow("1 > 0 ? \"yes\" : \"no\"")]
         [DataRow("\"abc\".Substring(1).ToUpper()")]
+        [DataRow("\"a\".Length + 2 * 3")]
         public void IsSafe_AllowsSimpleStringAndMathExpressions(string expression)
         {
             Assert.IsTrue(SafeExpressionValidator.IsSafe(expression, out var reason), $"Should have allowed '{expression}' but: {reason}");

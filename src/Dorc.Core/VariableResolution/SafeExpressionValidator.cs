@@ -17,11 +17,14 @@ namespace Dorc.Core.VariableResolution
     /// This validator parses the expression and walks the syntax tree, permitting
     /// ONLY: literals, parentheses, arithmetic/comparison/logical operators, the
     /// ternary conditional, and method/property access whose <b>member name is on an
-    /// allow-list</b> — either an allow-listed instance member on a value (string /
-    /// number), or any static member of the pure BCL types <c>Math</c>/<c>Convert</c>.
-    /// Everything else is refused: bare identifiers (how a type name such as
-    /// <c>File</c> is referenced), <c>typeof</c>, <c>new</c>, lambdas, indexers,
-    /// generic member names, and any member not on the allow-list.
+    /// allow-list</b> of safe instance members, called on a value (a string/number
+    /// literal or the result of another safe operation). Everything else is refused:
+    /// ALL bare identifiers (how a type name such as <c>File</c> or <c>Math</c> is
+    /// referenced), <c>typeof</c>, <c>new</c>, lambdas, indexers, generic member
+    /// names, and any member not on the allow-list. (The scripting host runs with no
+    /// imports, so bare type names like <c>Math</c>/<c>Convert</c> would not even
+    /// compile — the validator matches that reality rather than promising support
+    /// for statics that cannot execute.)
     ///
     /// Two rules make the reflection escape impossible:
     ///  1. Member names are compared via <see cref="SyntaxToken.ValueText"/> (the
@@ -34,15 +37,6 @@ namespace Dorc.Core.VariableResolution
     /// </summary>
     public static class SafeExpressionValidator
     {
-        // Bare identifiers permitted as a receiver: pure BCL static types whose
-        // members cannot perform IO / process / reflection and do not allocate on an
-        // unbounded caller-controlled size.
-        private static readonly HashSet<string> AllowedStaticTypes = new(StringComparer.Ordinal)
-        {
-            "Math",
-            "Convert"
-        };
-
         // Instance members permitted on a value receiver (a string/number literal or
         // the result of a safe operation). Deliberately EXCLUDES GetType (the
         // reflection gateway present on every object) and the size-amplifying
@@ -154,8 +148,6 @@ namespace Dorc.Core.VariableResolution
             }
         }
 
-        private enum ReceiverKind { Rejected, Value, StaticAllowListed }
-
         /// <summary>
         /// A member name is only usable if it is a plain (non-generic) identifier.
         /// Generic member names (e.g. <c>CreateDelegate&lt;T&gt;</c>) are rejected —
@@ -184,29 +176,23 @@ namespace Dorc.Core.VariableResolution
                 return false;
             }
 
-            var receiver = ClassifyReceiver(member.Expression, out reason);
-            if (receiver == ReceiverKind.Rejected)
-            {
-                return false;
-            }
-
-            if (receiver == ReceiverKind.Value && !AllowedInstanceMembers.Contains(memberName))
+            if (!AllowedInstanceMembers.Contains(memberName))
             {
                 reason = $"Member '{memberName}' is not permitted.";
                 return false;
             }
 
-            return true;
+            return IsSafeReceiver(member.Expression, out reason);
         }
 
         private static bool IsSafeInvocation(InvocationExpressionSyntax invocation, out string reason)
         {
-            // Only method calls of the form <receiver>.<method>(args) are allowed —
+            // Only method calls of the form <value>.<method>(args) are allowed —
             // never a bare call to an in-scope function.
             if (invocation.Expression is not MemberAccessExpressionSyntax member ||
                 !member.IsKind(SyntaxKind.SimpleMemberAccessExpression))
             {
-                reason = "Only method calls on a value or on Math/Convert are permitted.";
+                reason = "Only method calls on a value are permitted.";
                 return false;
             }
 
@@ -216,17 +202,14 @@ namespace Dorc.Core.VariableResolution
                 return false;
             }
 
-            var receiver = ClassifyReceiver(member.Expression, out reason);
-            if (receiver == ReceiverKind.Rejected)
+            if (!AllowedInstanceMembers.Contains(methodName))
             {
+                reason = $"Method '{methodName}' is not permitted.";
                 return false;
             }
 
-            // On a value receiver only allow-listed instance methods are callable.
-            // On the Math/Convert static types any (non-generic) member is safe.
-            if (receiver == ReceiverKind.Value && !AllowedInstanceMembers.Contains(methodName))
+            if (!IsSafeReceiver(member.Expression, out reason))
             {
-                reason = $"Method '{methodName}' is not permitted.";
                 return false;
             }
 
@@ -242,30 +225,22 @@ namespace Dorc.Core.VariableResolution
         }
 
         /// <summary>
-        /// Classifies a receiver expression. An allow-listed static type
-        /// (<c>Math</c>/<c>Convert</c>) grants access to any of its (pure) members; a
-        /// value receiver (literal or safe sub-expression) grants access only to the
-        /// allow-listed instance members. A bare identifier that is not an
-        /// allow-listed static type is rejected — that is how a type such as
-        /// <c>File</c>, <c>Environment</c>, or <c>Type</c> would be referenced.
+        /// A receiver must be a value — a literal or the result of another safe
+        /// operation. ANY bare identifier is rejected: that is exactly how a type
+        /// name such as <c>File</c>, <c>Environment</c>, <c>Type</c>, <c>Math</c>, or
+        /// <c>Convert</c> would be referenced, and (because the scripting host runs
+        /// with no imports) such names could not compile anyway.
         /// </summary>
-        private static ReceiverKind ClassifyReceiver(ExpressionSyntax receiver, out string reason)
+        private static bool IsSafeReceiver(ExpressionSyntax receiver, out string reason)
         {
             reason = string.Empty;
             if (receiver is IdentifierNameSyntax identifier)
             {
-                if (AllowedStaticTypes.Contains(identifier.Identifier.ValueText))
-                {
-                    return ReceiverKind.StaticAllowListed;
-                }
-
                 reason = $"Identifier '{identifier.Identifier.ValueText}' is not permitted.";
-                return ReceiverKind.Rejected;
+                return false;
             }
 
-            return IsSafeExpression(receiver, out reason)
-                ? ReceiverKind.Value
-                : ReceiverKind.Rejected;
+            return IsSafeExpression(receiver, out reason);
         }
     }
 }
