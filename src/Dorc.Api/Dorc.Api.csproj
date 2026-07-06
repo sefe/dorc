@@ -38,6 +38,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Dorc.Core\Dorc.Core.csproj" />
     <ProjectReference Include="..\Dorc.OpenSearchData\Dorc.OpenSearchData.csproj" />
+    <ProjectReference Include="..\Dorc.Terraform.Catalog\Dorc.Terraform.Catalog.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -47,5 +48,16 @@
     <None Update="DorcNonProdSSLCert.pfx">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+  </ItemGroup>
+
+  <!-- Stock-module catalog manifests are bundled with the API output so the
+       default Terraform:Catalog:ManifestsDirectory binding resolves to a
+       valid location without operator pre-provisioning. Operators may
+       override the directory via appsettings.json. -->
+  <ItemGroup>
+    <None Include="..\..\stock-modules-manifests\**\*.yaml"
+          Link="stock-modules-manifests\%(RecursiveDir)%(Filename)%(Extension)"
+          CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

@@ -1,0 +1,85 @@
+name: sql-database
+version: 1.0.0
+source:
+  kind: git
+  locator: https://github.com/sefe/dorc.git
+  ref: stock-modules/sql-database/v1.0.0
+parameters:
+  - name: resource_group_name
+    type: String
+    required: true
+    description: Existing resource group name (1-90 characters).
+  - name: location
+    type: String
+    required: true
+    description: Azure region; must match the resource group.
+  - name: server_name
+    type: String
+    required: true
+    description: SQL logical server name. 1-63 lowercase alnum + hyphens.
+    pattern: "^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$"
+  - name: database_name
+    type: String
+    required: true
+    description: 1-128 chars; reserved chars (<>*%&:\\/?) forbidden.
+  - name: administrator_login
+    type: String
+    required: false
+    description: SQL admin login (default sqladmin); reserved names rejected.
+    default: sqladmin
+  - name: administrator_password
+    type: String
+    required: true
+    sensitive: true
+    description: SQL admin password. Supplied via DOrc sensitive property; min 16 chars. Never defaulted.
+    pattern: "^.{16,}$"
+  - name: sku_name
+    type: String
+    required: false
+    description: Database SKU; allow-listed.
+    default: S0
+    allowed_values:
+      - Basic
+      - S0
+      - S1
+      - S2
+      - S3
+      - GP_S_Gen5_2
+      - GP_Gen5_2
+      - GP_Gen5_4
+  - name: max_size_gb
+    type: Number
+    required: false
+    description: Maximum database size in GB.
+    default: "10"
+    min: 1
+    max: 4096
+  - name: allow_azure_services
+    type: Bool
+    required: false
+    description: If true, creates a firewall rule permitting Azure-internal services. Default false.
+    default: "false"
+outputs:
+  - name: sql_server_id
+    type: String
+    description: Resource ID of the logical SQL server.
+  - name: sql_server_name
+    type: String
+  - name: sql_server_fqdn
+    type: String
+  - name: database_id
+    type: String
+  - name: database_name
+    type: String
+description: Azure SQL logical server + single user database. Public network access disabled by default; AllowAzureServices firewall rule is opt-in.
+tags:
+  - data
+  - azure
+  - sql
+category: Data
+required_providers:
+  azurerm: "~> 3.100"
+required_terraform_version: ">= 1.5.0"
+owner: DOrc platform team
+deprecated: false
+deprecation_reason: ""

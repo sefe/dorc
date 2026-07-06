@@ -133,7 +133,7 @@ static void ConfigureOAuth(WebApplicationBuilder builder, IConfigurationSettings
     string? authority = configurationSettings.GetOAuthAuthority();
     string dorcApiResourceName = configurationSettings.GetOAuthApiResourceName();
     string dorcApiGlobalScope = configurationSettings.GetOAuthApiGlobalScope();
-    
+
     // Get DORC API secret from secrets manager
     string dorcApiSecret = secretsReader.GetDorcApiSecret();
 
@@ -216,7 +216,7 @@ static void AddSwaggerGen(IServiceCollection services, IConfigurationSettings co
 {
     string? authority = configurationSettings.GetOAuthAuthority();
     string dorcApiGlobalScope = configurationSettings.GetOAuthApiGlobalScope();
-    
+
     services.AddSwaggerGen(options =>
     {
         // Always configure OAuth2 for Swagger UI regardless of auth scheme
@@ -289,6 +289,20 @@ if (configBuilder.GetValue<bool>("Azure:SignalR:IsUseAzureSignalR"))
 }
 builder.Services.AddScoped<IDeploymentEventsPublisher, DirectDeploymentEventPublisher>();
 builder.Services.AddSingleton<IDeploymentSubscriptionsGroupTracker, DeploymentSubscriptionsGroupTracker>();
+
+// Terraform stock-template catalog. Manifest YAMLs live under
+// stock-modules-manifests/ at repo root by default; the path is overridable
+// via Terraform:Catalog:ManifestsDirectory in appsettings.json. The runner
+// also reads its own catalog binding; this binding is for
+// the API surface that exposes templates to the dorc-web UI.
+builder.Services.AddSingleton<Dorc.Terraform.Catalog.IParameterValidator, Dorc.Terraform.Catalog.ParameterValidator>();
+builder.Services.AddSingleton<Dorc.Terraform.Catalog.ITemplateCatalog>(sp =>
+{
+    var dir = configBuilder.GetValue<string>("Terraform:Catalog:ManifestsDirectory")
+              ?? Path.Join(AppContext.BaseDirectory, "stock-modules-manifests");
+    var logger = sp.GetRequiredService<ILogger<Dorc.Terraform.Catalog.GitTemplateCatalog>>();
+    return new Dorc.Terraform.Catalog.GitTemplateCatalog(dir, logger);
+});
 
 builder.Services.AddMemoryCache();
 builder.Services.AddHttpClient();

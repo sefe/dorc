@@ -40,6 +40,7 @@ import '../pages/page-projects-list.ts'
 import '../pages/page-servers-audit.ts'
 import '../pages/page-scripts-list.ts'
 import '../pages/page-scripts-audit.ts'
+import '../pages/page-stock-modules.ts'
 import '../pages/page-servers-list.ts'
 import '../pages/page-sql-ports-list.ts'
 import '../pages/page-users-list.ts'
@@ -206,6 +207,15 @@ export const routes = [
         metadata: {
           title: 'Scripts',
           description: 'List of all scripts'
+        }
+      },
+      {
+        path: '/stock-modules',
+        name: 'stock-modules',
+        component: 'page-stock-modules',
+        metadata: {
+          title: 'Stock Terraform modules',
+          description: 'Browse the curated Terraform modules available in DOrc'
         }
       },
       {

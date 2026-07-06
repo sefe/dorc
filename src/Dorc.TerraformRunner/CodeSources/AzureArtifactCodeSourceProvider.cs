@@ -207,7 +207,7 @@ namespace Dorc.TerraformRunner.CodeSources
             {
                 // Copy entire directory
                 _logger.FileLogger.LogInformation($"Copying directory from {sourcePath} to {workingDir}");
-                await DirectoryHelper.CopyDirectoryAsync(sourcePath, workingDir, cancellationToken);
+                await DirectoryTreeCopy.CopyAsync(sourcePath, workingDir, cancellationToken);
             }
             else
             {
@@ -215,7 +215,7 @@ namespace Dorc.TerraformRunner.CodeSources
                 if (sourcePath.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
                 {
                     _logger.FileLogger.LogInformation($"Extracting ZIP file from {sourcePath} to {workingDir}");
-                    ZipFile.ExtractToDirectory(sourcePath, workingDir, true);
+                    new ZipArchiveExtractor(ZipArchiveExtractionOptions.Default).Extract(sourcePath, workingDir);
                 }
                 else
                 {
@@ -259,7 +259,7 @@ namespace Dorc.TerraformRunner.CodeSources
                         await response.Content.CopyToAsync(fileStream, cancellationToken);
                     }
 
-                    ZipFile.ExtractToDirectory(tempZipFile, workingDir, true);
+                    new ZipArchiveExtractor(ZipArchiveExtractionOptions.Default).Extract(tempZipFile, workingDir);
 
                     return true;
                 }

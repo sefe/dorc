@@ -1,0 +1,171 @@
+name: terraform-modules-ci
+
+on:
+  pull_request:
+    paths:
+      - 'stock-modules/**'
+      - 'stock-modules-manifests/**'
+      - 'docs/Terraform/**'
+      - 'scripts/manifest-immutability.sh'
+      - 'src/Tools.TerraformLint/**'
+      - '.github/workflows/terraform-modules-ci.yml'
+      - '.tflint.hcl'
+  push:
+    branches:
+      - main
+    paths:
+      - 'stock-modules/**'
+      - 'stock-modules-manifests/**'
+      - 'docs/Terraform/**'
+      - 'scripts/manifest-immutability.sh'
+      - 'src/Tools.TerraformLint/**'
+      - '.github/workflows/terraform-modules-ci.yml'
+      - '.tflint.hcl'
+
+permissions:
+  contents: read
+
+env:
+  TF_VERSION: '1.7.5'
+  # Pinned by SHA to mitigate the supply-chain risk of running untrusted
+  # plugin releases on every PR (see  ).
+  TFLINT_VERSION: 'v0.50.3'
+  # The azurerm tflint-ruleset version is pinned in .tflint.hcl, which is
+  # where tflint --init reads it from.
+
+jobs:
+  fmt:
+    name: terraform fmt -check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        with:
+          persist-credentials: false
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+      - name: terraform fmt -check -recursive
+        run: terraform fmt -check -recursive stock-modules docs/Terraform/examples
+
+  validate:
+    name: terraform validate
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        module:
+          - stock-modules/vnet
+          - stock-modules/sql-database
+          - stock-modules/storage-account
+          - stock-modules/vnet/examples/basic
+          - stock-modules/sql-database/examples/basic
+          - stock-modules/storage-account/examples/basic
+          - docs/Terraform/examples/terraform-project
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        with:
+          persist-credentials: false
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+      - name: terraform init -backend=false
+        working-directory: ${{ matrix.module }}
+        # init -backend=false avoids needing real Azure credentials in CI;
+        # provider binaries still download from the registry. A committed
+        # provider mirror is tracked but not yet
+        # populated; for now we rely on Hashicorp's signed registry.
+        run: terraform init -backend=false
+      - name: terraform validate
+        working-directory: ${{ matrix.module }}
+        run: terraform validate
+
+  tflint:
+    name: tflint
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        module:
+          - stock-modules/vnet
+          - stock-modules/sql-database
+          - stock-modules/storage-account
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        with:
+          persist-credentials: false
+      - name: Install tflint (pinned + checksum-verified)
+        run: |
+          set -euo pipefail
+          BASE="https://github.com/terraform-linters/tflint/releases/download/${TFLINT_VERSION}"
+          # Download both the artifact and the release's official checksums
+          # file from the same TLS-protected origin; verify before running.
+          # This satisfies the supply-chain check without committing
+          # a fragile per-version sha512 into this repo.
+          curl -fsSLO "${BASE}/tflint_linux_amd64.zip"
+          curl -fsSLO "${BASE}/checksums.txt"
+          grep ' tflint_linux_amd64.zip$' checksums.txt | sha256sum -c -
+          unzip -q tflint_linux_amd64.zip
+          sudo mv tflint /usr/local/bin/
+          tflint --version
+      - name: tflint --init (pinned plugins from .tflint.hcl)
+        working-directory: ${{ matrix.module }}
+        run: tflint --init
+      - name: tflint
+        working-directory: ${{ matrix.module }}
+        run: tflint --recursive --disable-rule=terraform_required_providers --disable-rule=terraform_required_version
+
+  secret-output-check:
+    name: forbid 'sensitive = false' on secret-pattern outputs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@3e891b0cb619bf60e2c25674b222b8940e2c1c25 # v4.1.0
+        with:
+          dotnet-version: '8.0.x'
+      - name: build
+        # Outputs whose names match the secret pattern
+        # (?i)(token|pat|secret|password|key|connectionstring) must NOT carry
+        # sensitive = false. Modules that omit a sensitive attribute on a
+        # secret-named output are also flagged - they should be explicit. This
+        # is a structural lint over outputs.tf files only. See
+        # docs/Terraform/MODULE-CONTRACT.md.
+        run: dotnet build src/Tools.TerraformLint/Tools.TerraformLint.csproj -c Release --nologo
+      - name: scan stock-modules
+        run: dotnet src/Tools.TerraformLint/bin/Release/net8.0/Tools.TerraformLint.dll secret-outputs stock-modules/
+
+  manifest-immutability:
+    name: manifest immutability gate
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - name: self-test
+        run: ./scripts/manifest-immutability.sh --self-test
+      - name: enforce immutability
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: ./scripts/manifest-immutability.sh
+
+  manifest-sensitive-name-lint:
+    name: manifest sensitive-name lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@3e891b0cb619bf60e2c25674b222b8940e2c1c25 # v4.1.0
+        with:
+          dotnet-version: '8.0.x'
+      - name: build
+        run: dotnet build src/Tools.TerraformLint/Tools.TerraformLint.csproj -c Release --nologo
+      - name: self-test
+        run: dotnet src/Tools.TerraformLint/bin/Release/net8.0/Tools.TerraformLint.dll --self-test
+      - name: lint manifests
+        run: dotnet src/Tools.TerraformLint/bin/Release/net8.0/Tools.TerraformLint.dll manifest-sensitive-names stock-modules-manifests/

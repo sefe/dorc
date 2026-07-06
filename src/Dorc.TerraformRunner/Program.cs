@@ -100,14 +100,27 @@ namespace Dorc.TerraformRunner
                 else
                     scriptGroupReader = new ScriptGroupPipeClient(fileLogger);
 
-                var terraformProcesor = new TerraformProcessor(runnerLogger, scriptGroupReader);
-                switch (options.TerrafromRunnerOperation)
+                // Catalog binding for the runner. The manifests directory
+                // is configurable via Terraform:Catalog:ManifestsDirectory
+                // and defaults to a sibling directory next to the runner exe.
+                var catalogManifestsDir = config.GetSection("Terraform:Catalog")["ManifestsDirectory"]
+                    ?? System.IO.Path.Join(AppContext.BaseDirectory, "stock-modules-manifests");
+                // Route the catalog's manifest-rejection warnings (its only
+                // diagnostic channel) into the runner's file log; NullLogger
+                // would silently swallow the reason a manifest on disk fails
+                // to resolve.
+                var templateCatalog = new Dorc.Terraform.Catalog.GitTemplateCatalog(
+                    catalogManifestsDir,
+                    new Dorc.TerraformRunner.Logging.TypedLoggerAdapter<Dorc.Terraform.Catalog.GitTemplateCatalog>(fileLogger));
+
+                var terraformProcesor = new TerraformProcessor(runnerLogger, scriptGroupReader, templateCatalog);
+                switch (options.TerraformRunnerOperation)
                 {
-                    case TerrafromRunnerOperations.CreatePlan:
-                        result = await terraformProcesor.PreparePlanAsync(options.PipeName, requestId, options.PlanFilePath, options.PlanContentFilePath, CancellationToken.None);
+                    case TerraformRunnerOperations.CreatePlan:
+                        result = await terraformProcesor.PreparePlanAsync(options.PipeName, requestId, options.PlanFilePath, options.PlanContentFilePath, options.LockFilePath, CancellationToken.None);
                         break;
-                    case TerrafromRunnerOperations.ApplyPlan:
-                        result = await terraformProcesor.ExecuteConfirmedPlanAsync(options.PipeName, requestId, options.PlanFilePath, CancellationToken.None);
+                    case TerraformRunnerOperations.ApplyPlan:
+                        result = await terraformProcesor.ExecuteConfirmedPlanAsync(options.PipeName, requestId, options.PlanFilePath, options.LockFilePath, CancellationToken.None);
                         break;
                 }
             }

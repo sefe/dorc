@@ -67,6 +67,34 @@ export class TerraformPlanDialog extends LitElement {
         line-height: 1.4;
       }
 
+      /* No display: block - we rely on the parent <pre> preserving
+         the trailing newline inside each span so each line gets its
+         own colour band without double-spacing. */
+
+      /* Colour contrast targets WCAG AA (>= 4.5:1) against the lumo
+         contrast-5pct background used by .plan-content. Lumo's success/
+         error/warning text colours are tuned for that ratio. */
+      .plan-line-add {
+        color: var(--lumo-success-text-color);
+        background-color: var(--lumo-success-color-10pct);
+      }
+
+      .plan-line-destroy {
+        color: var(--lumo-error-text-color);
+        background-color: var(--lumo-error-color-10pct);
+      }
+
+      .plan-line-change {
+        color: var(--lumo-warning-text-color);
+        background-color: var(--lumo-warning-color-10pct);
+      }
+
+      .plan-line-replace {
+        color: var(--lumo-error-text-color);
+        background-color: var(--lumo-warning-color-10pct);
+        font-weight: 600;
+      }
+
       .actions {
         display: flex;
         gap: 12px;
@@ -181,7 +209,7 @@ export class TerraformPlanDialog extends LitElement {
       </div>
 
       <div class="plan-content">
-        <pre class="plan-text">${this.plan.PlanContent || 'No plan content available'}</pre>
+        ${this._renderPlanBody()}
       </div>
 
       <div class="actions">
@@ -219,6 +247,66 @@ export class TerraformPlanDialog extends LitElement {
       
       <vaadin-button @click="${this._close}">Close</vaadin-button>
     `;
+  }
+
+  // The secret-name pattern below mirrors the server-side
+  // SensitivePropertyRedactor default so the plan dialog redacts the
+  // same shape of values the runner redacts in logs. Inlined in
+  // _maskSensitiveValues for a single source of truth at the call site.
+  private _renderPlanBody() {
+    const content = this.plan?.PlanContent;
+    if (!content || content.trim() === '') {
+      return html`
+        <div class="error-message">
+          No plan content available. The plan may have failed to generate; check the deployment log for details.
+        </div>
+      `;
+    }
+
+    const lines = content.split(/\r?\n/);
+    return html`<pre class="plan-text">${lines.map((line) => {
+      const cls = this._classifyPlanLine(line);
+      const masked = this._maskSensitiveValues(line);
+      return html`<span class="plan-line ${cls}">${masked}\n</span>`;
+    })}</pre>`;
+  }
+
+  private _classifyPlanLine(line: string): string {
+    // Terraform plan output starts each resource-action line with a
+    // leading two-character marker after the indent: '  +', '  -',
+    // '  ~', '-/+' for replace. We classify the first non-whitespace
+    // marker character.
+    const trimmed = line.replace(/^\s+/, '');
+    if (trimmed.startsWith('-/+') || trimmed.startsWith('+/-')) {
+      return 'plan-line-replace';
+    }
+    if (trimmed.startsWith('+ ')) {
+      return 'plan-line-add';
+    }
+    if (trimmed.startsWith('- ')) {
+      return 'plan-line-destroy';
+    }
+    if (trimmed.startsWith('~ ')) {
+      return 'plan-line-change';
+    }
+    return '';
+  }
+
+  private _maskSensitiveValues(line: string): string {
+    // 1) Terraform's own marker for sensitive values: replace verbatim.
+    if (line.includes('(sensitive value)')) {
+      return line.replace(/=\s*"[^"]*"/g, '= (sensitive value)');
+    }
+    // 2) Heuristic: redact the right-hand side of a `key = value` assignment
+    //    where the key matches the secret pattern. Covers quoted strings,
+    //    bare numbers/booleans/identifiers, and heredoc openers (<<-EOT /
+    //    <<EOT) so a sensitive-named Number/Bool value or a multi-line
+    //    heredoc is not shown in the clear. Best-effort, single-line: the
+    //    body of a heredoc block is not redacted here, only its opener.
+    return line.replace(
+      /(["']?)([A-Za-z0-9_.-]*?(token|pat|secret|password|key|connectionstring)[A-Za-z0-9_.-]*?)\1(\s*=\s*)(".*?"|<<-?[A-Za-z0-9_]+|[^\s#]+)/gi,
+      (_match, q, name, _kw, eq) => `${q}${name}${q}${eq}[REDACTED]`,
+    );
   }
 
   private _getStatusClass(status: string | null | undefined): string {

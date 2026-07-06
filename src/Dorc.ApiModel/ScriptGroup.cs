@@ -30,6 +30,25 @@ namespace Dorc.ApiModel
         public string GitHubRunId { get; set; }
         public string GitHubApiBaseUrl { get; set; }
 
+        // Platform-rendered Terraform state backend.
+        // Set by the Monitor dispatcher; consumed by the runner to write
+        // _dorc_backend.tf into the working directory before `terraform init`.
+        // When TerraformStateKey is null/empty the runner skips backend
+        // rendering (legacy behaviour) - this preserves backward compatibility
+        // until the consolidated lifecycle path is the default.
+        // Plain `string` (not `string?`) because Dorc.ApiModel targets
+        // netstandard2.0 / C# 7.3 - nullable reference types require C# 8+.
+        public string TerraformStateStorageAccount { get; set; }
+        public string TerraformStateContainerName { get; set; }
+        public string TerraformStateKey { get; set; }
+        public string TerraformStateResourceGroup { get; set; }
+
+        // Catalog reference. When TerraformSourceType=Catalog these identify
+        // the stock template the runner should resolve via ITemplateCatalog
+        //.
+        public string TerraformTemplateName { get; set; }
+        public string TerraformTemplateVersion { get; set; }
+
         public IDictionary<string, VariableValue> CommonProperties { get; set; }
         public IList<ScriptProperties> ScriptProperties { get; set; }
     }
