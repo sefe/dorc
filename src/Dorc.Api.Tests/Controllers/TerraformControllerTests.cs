@@ -5,6 +5,7 @@ using Dorc.Core.AzureStorageAccount;
 using Dorc.Core.Interfaces;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Model;
+using Dorc.PersistentData.Sources;
 using Dorc.PersistentData.Sources.Interfaces;
 using Dorc.Terraform.Catalog;
 using Microsoft.AspNetCore.Http;
@@ -289,6 +290,90 @@ namespace Dorc.Api.Tests.Controllers
             _manageProjects.Received(1).CreateComponent(
                 Arg.Any<ComponentApiModel>(), ProjectId, Arg.Any<int?>(), Arg.Any<string>());
             _requestService.DidNotReceiveWithAnyArgs().CreateRequest(default!, default!);
+        }
+
+        [TestMethod]
+        public async Task InstantiateTemplate_DuplicateComponentNameInProject_Returns409()
+        {
+            GivenTemplateAndProject(Manifest());
+            // Destination project already owns a component with the manifest's
+            // name (the default when the request omits ComponentName); the
+            // legacy rename-the-existing-component behaviour must be rejected
+            // with an explicit conflict instead.
+            _projects.GetComponentsForProject(ProjectName).Returns(new List<ComponentApiModel>
+            {
+                new ComponentApiModel { ComponentId = 55, ComponentName = TemplateName }
+            });
+
+            var result = await _controller.InstantiateTemplate(
+                TemplateName,
+                TemplateVersion,
+                new TerraformTemplateInstantiateRequestApiModel { ProjectId = ProjectId },
+                CancellationToken.None);
+
+            Assert.IsInstanceOfType(result, typeof(ConflictObjectResult),
+                "A duplicate component name inside the destination project returns 409 Conflict.");
+            var conflict = (ConflictObjectResult)result;
+            Assert.IsInstanceOfType(conflict.Value, typeof(string), "409 body is the conflict message string.");
+            StringAssert.Contains((string)conflict.Value!, TemplateName,
+                "Conflict message names the contested component name.");
+            _manageProjects.DidNotReceiveWithAnyArgs()
+                .CreateComponent(default!, default, default, default!);
+        }
+
+        [TestMethod]
+        public async Task InstantiateTemplate_ValidateComponentsRejects_Returns400()
+        {
+            GivenTemplateAndProject(Manifest());
+            _manageProjects.When(x => x.ValidateComponents(
+                    Arg.Any<IList<ComponentApiModel>>(), ProjectId, HttpRequestType.Post))
+                .Do(_ => throw new ArgumentException("bad component name"));
+
+            var result = await _controller.InstantiateTemplate(
+                TemplateName,
+                TemplateVersion,
+                new TerraformTemplateInstantiateRequestApiModel { ProjectId = ProjectId },
+                CancellationToken.None);
+
+            Assert.IsInstanceOfType(result, typeof(BadRequestObjectResult),
+                "ValidateComponents rejection surfaces as 400 Bad Request.");
+            var badRequest = (BadRequestObjectResult)result;
+            Assert.IsInstanceOfType(badRequest.Value, typeof(string), "400 body is the validation message.");
+            StringAssert.Contains((string)badRequest.Value!, "bad component name",
+                "400 body carries the ArgumentException message.");
+            _manageProjects.DidNotReceiveWithAnyArgs()
+                .CreateComponent(default!, default, default, default!);
+        }
+
+        [TestMethod]
+        public async Task InstantiateTemplate_ParentComponentNotInProject_Returns400()
+        {
+            GivenTemplateAndProject(Manifest());
+            // The project has one component (id 10); the requested parent id
+            // does not belong to it, so the graft must be rejected.
+            _projects.GetComponentsForProject(ProjectName).Returns(new List<ComponentApiModel>
+            {
+                new ComponentApiModel { ComponentId = 10, ComponentName = "existing-other" }
+            });
+
+            var result = await _controller.InstantiateTemplate(
+                TemplateName,
+                TemplateVersion,
+                new TerraformTemplateInstantiateRequestApiModel
+                {
+                    ProjectId = ProjectId,
+                    ParentComponentId = 999
+                },
+                CancellationToken.None);
+
+            Assert.IsInstanceOfType(result, typeof(BadRequestObjectResult),
+                "A ParentComponentId outside the destination project returns 400 Bad Request.");
+            var badRequest = (BadRequestObjectResult)result;
+            Assert.IsInstanceOfType(badRequest.Value, typeof(string), "400 body is the rejection message.");
+            StringAssert.Contains((string)badRequest.Value!, "999",
+                "Rejection message names the offending parent component id.");
+            _manageProjects.DidNotReceiveWithAnyArgs()
+                .CreateComponent(default!, default, default, default!);
         }
 
         // ---------- View ----------

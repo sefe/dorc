@@ -146,6 +146,77 @@ namespace Dorc.TerraformRunner.Tests.CodeSources
             Assert.AreEqual(UnsafeArchiveReason.TotalSizeExceeded, ex.Reason);
         }
 
+        // Every entry is individually under MaxBytesPerEntry (so the declared-size
+        // early reject never fires), but the ACTUALLY-inflated bytes accumulate
+        // across entries and blow the total budget on the third entry. Guards the
+        // running-total enforcement inside CopyWithCap.
+        [TestMethod]
+        public void Extract_TotalCapExceededAcrossEntriesEachUnderPerEntryCap_ThrowsTotalSizeExceeded()
+        {
+            BuildArchive(a =>
+            {
+                WriteEntry(a, "a.txt", new string('x', 40));
+                WriteEntry(a, "b.txt", new string('y', 40));
+                WriteEntry(a, "c.txt", new string('z', 40));
+            });
+
+            var options = new ZipArchiveExtractionOptions
+            {
+                MaxBytesPerEntry = 50,
+                MaxBytesTotal = 100
+            };
+            var extractor = new ZipArchiveExtractor(options);
+
+            var ex = Assert.ThrowsExactly<UnsafeArchiveException>(
+                () => extractor.Extract(ArchivePath(), TargetDir()));
+            Assert.AreEqual(UnsafeArchiveReason.TotalSizeExceeded, ex.Reason,
+                "Overrunning the remaining whole-archive budget is a total-size violation, not a per-entry one.");
+            Assert.AreEqual("c.txt", ex.EntryName,
+                "The first two entries (80 bytes) fit the 100-byte budget; the third is the offender.");
+        }
+
+        // Directory-only entries now count toward MaxEntryCount: millions of
+        // directory entries would otherwise exhaust inodes / the MFT while
+        // staying under every byte cap.
+        [TestMethod]
+        public void Extract_DirectoryOnlyEntriesExceedEntryCount_ThrowsEntryCountExceeded()
+        {
+            BuildArchive(a =>
+            {
+                a.CreateEntry("dir1/");
+                a.CreateEntry("dir2/");
+                a.CreateEntry("dir3/");
+            });
+
+            var options = new ZipArchiveExtractionOptions { MaxEntryCount = 2 };
+            var extractor = new ZipArchiveExtractor(options);
+
+            var ex = Assert.ThrowsExactly<UnsafeArchiveException>(
+                () => extractor.Extract(ArchivePath(), TargetDir()));
+            Assert.AreEqual(UnsafeArchiveReason.EntryCountExceeded, ex.Reason);
+        }
+
+        // Boundary companion to the directory-count test: exactly at the cap
+        // (directories included) still extracts successfully.
+        [TestMethod]
+        public void Extract_DirectoryAndFileEntriesAtEntryCap_Succeeds()
+        {
+            BuildArchive(a =>
+            {
+                a.CreateEntry("dir1/");
+                a.CreateEntry("dir2/");
+                WriteEntry(a, "file.txt", "hello");
+            });
+
+            var options = new ZipArchiveExtractionOptions { MaxEntryCount = 3 };
+            var extractor = new ZipArchiveExtractor(options);
+            extractor.Extract(ArchivePath(), TargetDir());
+
+            Assert.IsTrue(Directory.Exists(CombineUnder(TargetDir(), "dir1")));
+            Assert.IsTrue(Directory.Exists(CombineUnder(TargetDir(), "dir2")));
+            Assert.AreEqual("hello", File.ReadAllText(CombineUnder(TargetDir(), "file.txt")));
+        }
+
         [TestMethod]
         public void Extract_NormalisesAndContains_NoEscape()
         {

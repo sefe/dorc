@@ -330,6 +330,100 @@ deprecated: false
                 "First-violation-wins finds 'address_space: List' before 'subnets: List' in declaration order.");
         }
 
+        // ----- Robust enumeration (per-file skip, duplicate identity,
+        // ----- template name/version charset) -----
+
+        // A syntactically broken YAML file (unclosed flow sequence -> YamlException)
+        // must be warn-skipped without aborting the whole enumeration; the
+        // remaining valid manifest still loads.
+        [TestMethod]
+        public async Task SkipsMalformedYamlFile_AndLoadsRemainingValidManifest()
+        {
+            File.WriteAllText(Path.Join(_tempDir, "broken-1.0.0.yaml"), "name: [unclosed");
+            File.WriteAllText(Path.Join(_tempDir, "validmod-1.0.0.yaml"),
+                BuildSingleParamYaml("validmod", "1.0.0", "alpha", "String"));
+
+            var recordingLogger = new RecordingLogger<GitTemplateCatalog>();
+            var catalog = new GitTemplateCatalog(_tempDir, recordingLogger);
+            var manifests = await catalog.ListAsync();
+
+            Assert.AreEqual(1, manifests.Count,
+                "A single malformed manifest must not take down the whole catalog.");
+            Assert.AreEqual("validmod", manifests[0].Name);
+            Assert.AreEqual(1, recordingLogger.Warnings.Count,
+                "Exactly one WARNING should be emitted for the malformed file.");
+            StringAssert.Contains(recordingLogger.Warnings[0], "broken-1.0.0.yaml",
+                "WARNING should include the offending file path.");
+        }
+
+        // Two DIFFERENT filenames both declaring the same (name, version):
+        // the first in ordinal filename order wins; the second is warn-skipped.
+        [TestMethod]
+        public async Task KeepsFirstFile_WhenSecondFileDeclaresDuplicateIdentity()
+        {
+            // "adup..." sorts before "bdup..." ordinally, so the alpha-parameter
+            // manifest is the first seen and must be the one kept.
+            File.WriteAllText(Path.Join(_tempDir, "adup-1.0.0.yaml"),
+                BuildSingleParamYaml("dup", "1.0.0", "alpha", "String"));
+            File.WriteAllText(Path.Join(_tempDir, "bdup-1.0.0.yaml"),
+                BuildSingleParamYaml("dup", "1.0.0", "beta", "String"));
+
+            var recordingLogger = new RecordingLogger<GitTemplateCatalog>();
+            var catalog = new GitTemplateCatalog(_tempDir, recordingLogger);
+            var manifests = await catalog.ListAsync();
+
+            Assert.AreEqual(1, manifests.Count,
+                "Exactly one manifest per (name, version) identity must be returned.");
+            Assert.AreEqual("dup", manifests[0].Name);
+            Assert.AreEqual("1.0.0", manifests[0].Version);
+            Assert.AreEqual("alpha", manifests[0].Parameters.Single().Name,
+                "The FIRST file in ordinal filename order (adup...) must win.");
+            Assert.AreEqual(1, recordingLogger.Warnings.Count,
+                "Exactly one WARNING should be emitted for the duplicate file.");
+            StringAssert.Contains(recordingLogger.Warnings[0], "bdup-1.0.0.yaml",
+                "WARNING should name the duplicate (skipped) file.");
+            StringAssert.Contains(recordingLogger.Warnings[0], "dup@1.0.0",
+                "WARNING should carry the contested identity.");
+        }
+
+        // Template name flows into runner git arguments / sub-path fallback,
+        // so a path-traversal name like `../evil` must be rejected at load time
+        // regardless of the (arbitrary) filename it hides behind.
+        [TestMethod]
+        public async Task RejectsManifest_WhenTemplateNameContainsPathTraversal()
+        {
+            var yaml = BuildSingleParamYaml("../evil", "1.0.0", "alpha", "String");
+            File.WriteAllText(Path.Join(_tempDir, "evil-1.0.0.yaml"), yaml);
+
+            var recordingLogger = new RecordingLogger<GitTemplateCatalog>();
+            var catalog = new GitTemplateCatalog(_tempDir, recordingLogger);
+            var manifests = await catalog.ListAsync();
+
+            Assert.AreEqual(0, manifests.Count,
+                "A manifest whose internal name fails the [a-zA-Z0-9._-] charset must not be returned.");
+            Assert.AreEqual(1, recordingLogger.Warnings.Count);
+            StringAssert.Contains(recordingLogger.Warnings[0], "../evil",
+                "WARNING should name the offending template name.");
+        }
+
+        // Same charset rule for the version field (<=64 chars, [a-zA-Z0-9._-]).
+        [TestMethod]
+        public async Task RejectsManifest_WhenTemplateVersionContainsInvalidCharacters()
+        {
+            var yaml = BuildSingleParamYaml("charsetmod", "1.0.0 --upgrade", "alpha", "String");
+            File.WriteAllText(Path.Join(_tempDir, "charsetmod-1.0.0.yaml"), yaml);
+
+            var recordingLogger = new RecordingLogger<GitTemplateCatalog>();
+            var catalog = new GitTemplateCatalog(_tempDir, recordingLogger);
+            var manifests = await catalog.ListAsync();
+
+            Assert.AreEqual(0, manifests.Count,
+                "A manifest whose version fails the [a-zA-Z0-9._-] charset must not be returned.");
+            Assert.AreEqual(1, recordingLogger.Warnings.Count);
+            StringAssert.Contains(recordingLogger.Warnings[0], "version",
+                "WARNING should identify the version rule as the reject reason.");
+        }
+
         // ----- Latest-version resolution (GetAsync(name) overload) -----
 
         // Guards the numeric per-component ordering: lexical string ordering

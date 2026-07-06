@@ -107,6 +107,30 @@ namespace Dorc.Terraform.Catalog.Tests
             Assert.AreEqual(ParameterValidationErrorKind.PatternMismatch, result.Errors[0].Kind);
         }
 
+        // ReDoS guard: a manifest pattern with catastrophic backtracking run
+        // against a long non-matching value must yield a PatternMismatch
+        // validation error instead of hanging the request thread. Depending on
+        // the runtime's regex optimisations the engine either times out (the
+        // 1s RegexMatchTimeout converts the hang into an error) or completes
+        // with a non-match; both surface as PatternMismatch, so the assertion
+        // is deliberately tolerant of which path fires.
+        [TestMethod]
+        public void Validate_CatastrophicBacktrackingPattern_ReportsPatternMismatchInsteadOfHanging()
+        {
+            var manifest = Manifest(Param("host_name", pattern: "^(a+)+$"));
+            var supplied = new Dictionary<string, string?>
+            {
+                ["host_name"] = new string('a', 40) + "!"
+            };
+
+            var result = validator.Validate(manifest, supplied);
+
+            Assert.IsFalse(result.IsValid);
+            Assert.IsTrue(result.Errors.Any(e =>
+                e.Kind == ParameterValidationErrorKind.PatternMismatch && e.ParameterName == "host_name"),
+                "A PatternMismatch error must be recorded for the pathological pattern.");
+        }
+
         [TestMethod]
         public void Validate_NumericRangeEnforced()
         {
