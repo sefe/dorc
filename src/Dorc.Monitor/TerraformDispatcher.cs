@@ -74,12 +74,21 @@ namespace Dorc.Monitor
 
             logger.LogInformation($"TerraformDispatcher.DispatchAsync called for component '{component.ComponentName}' with id '{component.ComponentId}', deployment result id '{deploymentResult.Id}', environment '{environmentName}'.");
 
-            // serialise plan/apply per (environment, component) within
-            // this monitor instance. Acquired once around the whole Dispatch
-            // body; released on scope exit. Cross-monitor concurrency relies
-            // on the azurerm backend's blob-lease state lock under the hood.
+            // The request is loaded before the guard because the project name
+            // is part of the state identity: environments are shared across
+            // projects and component names are not globally unique, so
+            // (project, environment, component) is the smallest collision-free
+            // key - see docs/Terraform/STATE-MODEL.md.
+            var request = _requestsPersistentSource.GetRequest(requestId);
+            var projectName = request?.Project ?? string.Empty;
+
+            // serialise plan/apply per (project, environment, component)
+            // within this monitor instance. Acquired once around the whole
+            // Dispatch body; released on scope exit. Cross-monitor concurrency
+            // relies on the azurerm backend's blob-lease state lock under the
+            // hood.
             using var concurrencyGuard = TryAcquireConcurrencyGuard(
-                environmentName, component.ComponentName, deploymentResult.Id, terreformOperation);
+                projectName, environmentName, component.ComponentName, deploymentResult.Id, terreformOperation);
             if (concurrencyGuard is null)
             {
                 isScriptExecutionSuccessful = false;
@@ -107,8 +116,8 @@ namespace Dorc.Monitor
                 return isScriptExecutionSuccessful;
             }
 
-            // Get request and project information for Terraform source configuration
-            var request = _requestsPersistentSource.GetRequest(requestId);
+            // Project information for Terraform source configuration (the
+            // request itself was loaded before the concurrency guard).
             ProjectApiModel? project = null;
             if (!string.IsNullOrEmpty(request?.Project))
             {
@@ -147,9 +156,15 @@ namespace Dorc.Monitor
                 scriptGroup.TerraformStateStorageAccount = stateAccount;
                 scriptGroup.TerraformStateContainerName = stateContainer;
                 scriptGroup.TerraformStateResourceGroup = stateRg;
+                // {project}/{component}/{environment}.tfstate per
+                // docs/Terraform/STATE-MODEL.md. Project is a mandatory
+                // dimension: environments (e.g. "Prod") are shared across
+                // projects and component names are not globally unique, so
+                // omitting it lets two projects share one state file.
                 scriptGroup.TerraformStateKey =
-                    TerraformStateKeySanitizer.Sanitize(environmentName) + "/" +
-                    TerraformStateKeySanitizer.Sanitize(component.ComponentName) + ".tfstate";
+                    TerraformStateKeySanitizer.Sanitize(projectName) + "/" +
+                    TerraformStateKeySanitizer.Sanitize(component.ComponentName) + "/" +
+                    TerraformStateKeySanitizer.Sanitize(environmentName) + ".tfstate";
             }
 
             var domainName = _configurationSettingsEngine.GetConfigurationDomainNameIntra();
@@ -386,6 +401,7 @@ namespace Dorc.Monitor
         }
 
         private IDisposable? TryAcquireConcurrencyGuard(
+            string projectName,
             string environmentName,
             string componentName,
             int deploymentResultId,
@@ -398,6 +414,7 @@ namespace Dorc.Monitor
                 // longer than a couple of minutes signals a genuinely stuck
                 // sibling operation and we should refuse rather than queue.
                 return TerraformConcurrencyGuard.Instance.Acquire(
+                    projectName,
                     environmentName,
                     componentName,
                     operationCorrelationId: $"{operation}:{deploymentResultId}");
@@ -405,7 +422,7 @@ namespace Dorc.Monitor
             catch (TerraformConcurrentOperationException ex)
             {
                 logger.LogError(ex,
-                    $"Refused to start Terraform {operation} for component '{componentName}' on environment '{environmentName}': another operation in flight (correlation '{ex.ContendingOperationId}').");
+                    $"Refused to start Terraform {operation} for component '{componentName}' on project '{projectName}' / environment '{environmentName}': another operation in flight (correlation '{ex.ContendingOperationId}').");
                 return null;
             }
         }

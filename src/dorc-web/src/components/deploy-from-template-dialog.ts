@@ -374,10 +374,21 @@ export class DeployFromTemplateDialog extends LitElement {
     `;
   };
 
+  // Clears any entered parameter values (which may include a plaintext
+  // sensitive value, e.g. administrator_password) so they do not linger in
+  // this long-lived component's reactive state after the dialog closes.
+  private clearEnteredValues() {
+    this.paramValues = {};
+    this.error = null;
+  }
+
   private footerRenderer = () => html`
     <vaadin-button
       theme="tertiary"
-      @click="${() => (this.opened = false)}"
+      @click="${() => {
+        this.opened = false;
+        this.clearEnteredValues();
+      }}"
       .disabled="${this.submitting}"
     >
       Cancel
@@ -429,6 +440,7 @@ export class DeployFromTemplateDialog extends LitElement {
             : `Created component '${this.componentName}'.`;
           const n = Notification.show(message, { duration: 5000, position: 'bottom-end' });
           n.setAttribute('theme', 'success');
+          this.clearEnteredValues();
           Router.go('/monitor-requests');
         },
         error: (err: any) => {

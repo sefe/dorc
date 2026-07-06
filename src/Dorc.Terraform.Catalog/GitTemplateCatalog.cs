@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
+using YamlDotNet.Core;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 
@@ -33,6 +34,14 @@ namespace Dorc.Terraform.Catalog
         // to v2 alongside runner support.
         private static readonly Regex ParameterNameRegex =
             new("^[a-zA-Z0-9_]+$", RegexOptions.Compiled);
+        // Template name/version flow into the runner's git arguments and the
+        // stock-modules/{name} sub-path fallback, and into DB columns
+        // (name<=256, version<=64). Constrain both to a safe charset+length so
+        // a manifest cannot smuggle path/argument metacharacters downstream.
+        private static readonly Regex TemplateNameRegex =
+            new(@"^[a-zA-Z0-9._-]{1,256}$", RegexOptions.Compiled);
+        private static readonly Regex TemplateVersionRegex =
+            new(@"^[a-zA-Z0-9._-]{1,64}$", RegexOptions.Compiled);
         private static readonly HashSet<TerraformParameterType> AllowedParameterTypes =
             new() { TerraformParameterType.String, TerraformParameterType.Number, TerraformParameterType.Bool };
 
@@ -52,11 +61,33 @@ namespace Dorc.Terraform.Catalog
 
             var deserializer = BuildDeserializer();
             var manifests = new List<TerraformTemplateManifest>();
-            foreach (var file in Directory.EnumerateFiles(manifestsDirectory, "*.yaml", SearchOption.TopDirectoryOnly))
+            var seenIdentities = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            // Enumerate in a stable (ordinal filename) order so resolution is
+            // deterministic regardless of filesystem enumeration order.
+            foreach (var file in Directory.EnumerateFiles(manifestsDirectory, "*.yaml", SearchOption.TopDirectoryOnly)
+                         .OrderBy(f => f, StringComparer.Ordinal))
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                var yaml = File.ReadAllText(file);
-                var dto = deserializer.Deserialize<ManifestDto>(yaml);
+
+                ManifestDto? dto;
+                try
+                {
+                    var yaml = File.ReadAllText(file);
+                    dto = deserializer.Deserialize<ManifestDto>(yaml);
+                }
+                catch (Exception ex) when (ex is YamlException || ex is IOException)
+                {
+                    // A single malformed manifest (bad YAML, or an
+                    // unrecognized enum value like `type: list` that YamlDotNet
+                    // rejects before the allow-list rule can skip-and-warn)
+                    // must not abort the whole catalog - that would take down
+                    // template listing, instantiation, and the runner's source
+                    // resolution for EVERY template. Warn and skip, matching the
+                    // validation-rule rejection path below.
+                    logger.LogWarning(ex, "Catalog manifest at {File} could not be read/parsed and was skipped.", file);
+                    continue;
+                }
+
                 var (manifest, rejectReason) = TryValidateAndProject(dto);
                 if (rejectReason is not null)
                 {
@@ -64,7 +95,23 @@ namespace Dorc.Terraform.Catalog
                     logger.LogWarning("Catalog manifest at {File} rejected: {Reason}", file, rejectReason);
                     continue;
                 }
-                if (manifest is not null) manifests.Add(manifest);
+                if (manifest is not null)
+                {
+                    // Reject a second file declaring the same (name, version):
+                    // the per-(name,version) immutability CI gate only guards
+                    // edits to an existing file, not a duplicate-identity file
+                    // added elsewhere, which would otherwise make resolution
+                    // ambiguous. Keep the first (ordinal filename order) and warn.
+                    var identity = manifest.Name + "@" + manifest.Version;
+                    if (!seenIdentities.Add(identity))
+                    {
+                        logger.LogWarning(
+                            "Catalog manifest at {File} declares duplicate identity {Identity}; ignoring in favour of the first file seen.",
+                            file, identity);
+                        continue;
+                    }
+                    manifests.Add(manifest);
+                }
                 // (manifest == null && rejectReason == null) preserves the
                 // silent-skip path for under-specified DTOs.
             }
@@ -82,6 +129,11 @@ namespace Dorc.Terraform.Catalog
             if (string.IsNullOrEmpty(dto.Name)) return (null, null);
             if (string.IsNullOrEmpty(dto.Version)) return (null, null);
             if (dto.Source is null) return (null, null);
+
+            if (!TemplateNameRegex.IsMatch(dto.Name))
+                return (null, $"template name '{dto.Name}' is invalid (only [a-zA-Z0-9._-], up to 256 chars)");
+            if (!TemplateVersionRegex.IsMatch(dto.Version))
+                return (null, $"template version '{dto.Version}' is invalid (only [a-zA-Z0-9._-], up to 64 chars)");
 
             // Iterate parameters in YAML declaration order so the first violation
             // determines the WARNING message deterministically.

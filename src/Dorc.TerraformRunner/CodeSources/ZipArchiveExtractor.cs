@@ -24,13 +24,25 @@ namespace Dorc.TerraformRunner.CodeSources
 
             using var archive = ZipFile.OpenRead(archivePath);
 
-            int fileEntryCount = 0;
+            int entryCount = 0;
             long totalBytes = 0L;
 
             foreach (var entry in archive.Entries)
             {
                 ValidateEntryShape(entry);
                 var destinationFullPath = ResolveAndContain(canonicalTarget, entry.FullName, entry);
+
+                // Count every entry - directories included - toward the cap.
+                // Millions of directory-only entries would otherwise exhaust
+                // inodes / the MFT while staying under every byte cap.
+                entryCount++;
+                if (entryCount > options.MaxEntryCount)
+                {
+                    throw new UnsafeArchiveException(
+                        UnsafeArchiveReason.EntryCountExceeded,
+                        entry.FullName,
+                        $"archive entry count exceeded {options.MaxEntryCount}");
+                }
 
                 bool isDirectoryEntry = string.IsNullOrEmpty(entry.Name);
                 if (isDirectoryEntry)
@@ -39,30 +51,17 @@ namespace Dorc.TerraformRunner.CodeSources
                     continue;
                 }
 
-                fileEntryCount++;
-                if (fileEntryCount > options.MaxEntryCount)
-                {
-                    throw new UnsafeArchiveException(
-                        UnsafeArchiveReason.EntryCountExceeded,
-                        entry.FullName,
-                        $"archive entry count exceeded {options.MaxEntryCount}");
-                }
-
+                // entry.Length is the DECLARED uncompressed size from the zip
+                // central directory - attacker-controlled, so it is only a
+                // cheap early reject, never the authoritative cap. The real
+                // enforcement is on bytes actually inflated (CopyWithCap
+                // below), which also feeds the running total.
                 if (entry.Length > options.MaxBytesPerEntry)
                 {
                     throw new UnsafeArchiveException(
                         UnsafeArchiveReason.EntrySizeExceeded,
                         entry.FullName,
                         $"entry uncompressed size {entry.Length} exceeded per-entry cap {options.MaxBytesPerEntry}");
-                }
-
-                totalBytes += entry.Length;
-                if (totalBytes > options.MaxBytesTotal)
-                {
-                    throw new UnsafeArchiveException(
-                        UnsafeArchiveReason.TotalSizeExceeded,
-                        entry.FullName,
-                        $"total uncompressed size exceeded cap {options.MaxBytesTotal}");
                 }
 
                 var parent = Path.GetDirectoryName(destinationFullPath);
@@ -74,7 +73,14 @@ namespace Dorc.TerraformRunner.CodeSources
                     FileMode.Create,
                     FileAccess.Write,
                     FileShare.None);
-                CopyWithCap(sourceStream, destinationStream, options.MaxBytesPerEntry, entry.FullName);
+                // Enforce BOTH the per-entry cap and the remaining total
+                // budget against actually-inflated bytes, so a zip that
+                // declares Length=0 but inflates to gigabytes is stopped.
+                var remainingTotalBudget = options.MaxBytesTotal - totalBytes;
+                var effectiveCap = Math.Min(options.MaxBytesPerEntry, remainingTotalBudget);
+                var written = CopyWithCap(sourceStream, destinationStream, effectiveCap, entry.FullName,
+                    remainingTotalBudget < options.MaxBytesPerEntry);
+                totalBytes += written;
             }
         }
 
@@ -147,7 +153,12 @@ namespace Dorc.TerraformRunner.CodeSources
             return fullPath.EndsWith(sep) ? fullPath : fullPath + sep;
         }
 
-        private static void CopyWithCap(Stream source, Stream destination, long cap, string entryName)
+        // Copies source→destination, aborting if inflated bytes exceed cap.
+        // Returns the number of bytes actually written. When capIsTotalBudget
+        // is true the cap represents the remaining whole-archive budget, so an
+        // overrun is reported as TotalSizeExceeded rather than a per-entry
+        // violation.
+        private static long CopyWithCap(Stream source, Stream destination, long cap, string entryName, bool capIsTotalBudget)
         {
             var buffer = new byte[81920];
             long copied = 0L;
@@ -158,12 +169,15 @@ namespace Dorc.TerraformRunner.CodeSources
                 if (copied > cap)
                 {
                     throw new UnsafeArchiveException(
-                        UnsafeArchiveReason.EntrySizeExceeded,
+                        capIsTotalBudget ? UnsafeArchiveReason.TotalSizeExceeded : UnsafeArchiveReason.EntrySizeExceeded,
                         entryName,
-                        $"entry exceeded per-entry byte cap mid-stream");
+                        capIsTotalBudget
+                            ? "archive exceeded total uncompressed byte cap mid-stream"
+                            : "entry exceeded per-entry byte cap mid-stream");
                 }
                 destination.Write(buffer, 0, read);
             }
+            return copied;
         }
     }
 }

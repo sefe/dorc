@@ -297,12 +297,15 @@ export class TerraformPlanDialog extends LitElement {
     if (line.includes('(sensitive value)')) {
       return line.replace(/=\s*"[^"]*"/g, '= (sensitive value)');
     }
-    // 2) Heuristic: redact the right-hand side of a key = "..." assignment
-    //    where the key matches the secret pattern. Conservative: only
-    //    inside a quoted string so we never mangle unrelated content.
+    // 2) Heuristic: redact the right-hand side of a `key = value` assignment
+    //    where the key matches the secret pattern. Covers quoted strings,
+    //    bare numbers/booleans/identifiers, and heredoc openers (<<-EOT /
+    //    <<EOT) so a sensitive-named Number/Bool value or a multi-line
+    //    heredoc is not shown in the clear. Best-effort, single-line: the
+    //    body of a heredoc block is not redacted here, only its opener.
     return line.replace(
-      /(["']?)([A-Za-z0-9_.-]*?(token|pat|secret|password|key|connectionstring)[A-Za-z0-9_.-]*?)\1\s*=\s*"([^"]*)"/gi,
-      (_match, q, name) => `${q}${name}${q} = "[REDACTED]"`,
+      /(["']?)([A-Za-z0-9_.-]*?(token|pat|secret|password|key|connectionstring)[A-Za-z0-9_.-]*?)\1(\s*=\s*)(".*?"|<<-?[A-Za-z0-9_]+|[^\s#]+)/gi,
+      (_match, q, name, _kw, eq) => `${q}${name}${q}${eq}[REDACTED]`,
     );
   }
 

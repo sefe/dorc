@@ -6,6 +6,7 @@ using Dorc.Core.AzureStorageAccount;
 using Dorc.Core.Interfaces;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Model;
+using Dorc.PersistentData.Sources;
 using Dorc.PersistentData.Sources.Interfaces;
 using Dorc.Terraform.Catalog;
 using Microsoft.AspNetCore.Authorization;
@@ -164,6 +165,47 @@ namespace Dorc.Api.Controllers
             // pattern used by the rest of this controller; avoids leaking
             // an email-classed PII into platform logs.
             var safeUserId = SanitizeForLog(_claimsPrincipalReader.GetUserName(User));
+
+            // Same validation pipeline as RefDataController's component
+            // create/update paths: charset, 64-char limit, and cross-project
+            // name ownership. Without this, CreateComponent's legacy
+            // duplicate handler would silently rename an existing same-named
+            // component - even one owned by a different project - to a GUID
+            // and hand its name to the one created here.
+            try
+            {
+                _manageProjectsPersistentSource.ValidateComponents(
+                    new List<ComponentApiModel> { component }, request.ProjectId, HttpRequestType.Post);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+
+            var projectComponents = _projectsPersistentSource
+                .GetComponentsForProject(project.ProjectName)
+                .ToList();
+
+            // A duplicate inside the destination project passes the
+            // cross-project validation above but would still trigger the
+            // legacy rename-the-existing-component behaviour: reject it
+            // explicitly instead.
+            if (projectComponents.Any(c =>
+                    string.Equals(c.ComponentName, componentName, StringComparison.OrdinalIgnoreCase)))
+            {
+                return Conflict(
+                    $"A component named '{componentName}' already exists in project '{project.ProjectName}'. Choose a different component name.");
+            }
+
+            // The parent, when supplied, must belong to the destination
+            // project - otherwise the new component is grafted into another
+            // project's component tree.
+            if (request.ParentComponentId is int parentComponentId
+                && !projectComponents.Any(c => c.ComponentId == parentComponentId))
+            {
+                return BadRequest(
+                    $"Parent component id {parentComponentId} does not belong to project '{project.ProjectName}'.");
+            }
 
             try
             {
@@ -336,6 +378,14 @@ namespace Dorc.Api.Controllers
                 };
 
                 return Ok(plan);
+            }
+            catch (FileNotFoundException)
+            {
+                // No plan-content blob for this result (plan phase never ran,
+                // failed early, or a legacy result) is a "not found", not a
+                // server error.
+                _log.LogInformation("No Terraform plan content found for deployment result ID {DeploymentResultId}.", deploymentResultId);
+                return NotFound($"No Terraform plan content found for deployment result {deploymentResultId}.");
             }
             catch (Exception ex)
             {

@@ -10,6 +10,10 @@ namespace Dorc.Terraform.Catalog
         // assembly references neither, so the marker is duplicated by value).
         private const string RedactedValue = "[REDACTED]";
 
+        // Upper bound on a single manifest-pattern match against a
+        // user-supplied value; guards the request thread against ReDoS.
+        private static readonly TimeSpan RegexMatchTimeout = TimeSpan.FromSeconds(1);
+
         public ParameterValidationResult Validate(
             TerraformTemplateManifest manifest,
             IReadOnlyDictionary<string, string?> suppliedValues)
@@ -97,7 +101,11 @@ namespace Dorc.Terraform.Catalog
                 if (!string.IsNullOrEmpty(p.Pattern))
                 {
                     Regex regex;
-                    try { regex = new Regex(p.Pattern, RegexOptions.CultureInvariant); }
+                    // Bound every match: a manifest pattern with catastrophic
+                    // backtracking (e.g. `^(a+)+$`) run against an unbounded
+                    // user-supplied value on the request thread is a ReDoS
+                    // vector. A timeout turns a hang into a validation error.
+                    try { regex = new Regex(p.Pattern, RegexOptions.CultureInvariant, RegexMatchTimeout); }
                     catch (ArgumentException)
                     {
                         // Bad regex in the manifest itself; surface as a TypeMismatch
@@ -108,7 +116,17 @@ namespace Dorc.Terraform.Catalog
                             $"parameter '{p.Name}' has an invalid regex pattern in the manifest"));
                         continue;
                     }
-                    if (!regex.IsMatch(raw))
+                    bool patternMatched;
+                    try { patternMatched = regex.IsMatch(raw); }
+                    catch (RegexMatchTimeoutException)
+                    {
+                        errors.Add(new ParameterValidationError(
+                            p.Name,
+                            ParameterValidationErrorKind.PatternMismatch,
+                            $"parameter '{p.Name}' could not be validated against its pattern within the time limit"));
+                        continue;
+                    }
+                    if (!patternMatched)
                     {
                         errors.Add(new ParameterValidationError(
                             p.Name,

@@ -105,9 +105,13 @@ namespace Dorc.TerraformRunner
                 // and defaults to a sibling directory next to the runner exe.
                 var catalogManifestsDir = config.GetSection("Terraform:Catalog")["ManifestsDirectory"]
                     ?? System.IO.Path.Join(AppContext.BaseDirectory, "stock-modules-manifests");
+                // Route the catalog's manifest-rejection warnings (its only
+                // diagnostic channel) into the runner's file log; NullLogger
+                // would silently swallow the reason a manifest on disk fails
+                // to resolve.
                 var templateCatalog = new Dorc.Terraform.Catalog.GitTemplateCatalog(
                     catalogManifestsDir,
-                    Microsoft.Extensions.Logging.Abstractions.NullLogger<Dorc.Terraform.Catalog.GitTemplateCatalog>.Instance);
+                    new Dorc.TerraformRunner.Logging.TypedLoggerAdapter<Dorc.Terraform.Catalog.GitTemplateCatalog>(fileLogger));
 
                 var terraformProcesor = new TerraformProcessor(runnerLogger, scriptGroupReader, templateCatalog);
                 switch (options.TerraformRunnerOperation)

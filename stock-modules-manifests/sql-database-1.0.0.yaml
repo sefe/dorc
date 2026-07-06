@@ -32,6 +32,7 @@ parameters:
     required: true
     sensitive: true
     description: SQL admin password. Supplied via DOrc sensitive property; min 16 chars. Never defaulted.
+    pattern: "^.{16,}$"
   - name: sku_name
     type: String
     required: false

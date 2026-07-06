@@ -85,13 +85,16 @@ Each module's README declares an `Owner:` field in the metadata table. Initial o
 The repository CI runs against every module under `stock-modules/`:
 
 - `terraform fmt -check`
-- `terraform init -backend=false` (using a committed plugin mirror)
+- `terraform init -backend=false`
 - `terraform validate`
-- `tflint` with plugin SHAs pinned in `.tflint.hcl`
+- `tflint` with plugin versions pinned in `.tflint.hcl`
 - A custom check enforcing the secret-output rule above
-- Verification that `.terraform.lock.hcl` is committed and current
 
 Failure blocks merge.
+
+> Note: provider-version lock-file (`.terraform.lock.hcl`) verification and a
+> committed plugin mirror are planned but not yet enforced by
+> `terraform-modules-ci.yml`.
 
 ## Manifest immutability
 `stock-modules-manifests/<name>-<version>.yaml` files are **immutable per `(name, version)`**. The CI immutability gate rejects any pull request that modifies an existing manifest version file. Allowed operations:

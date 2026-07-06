@@ -25,15 +25,15 @@ namespace Dorc.Monitor.Terraform
         // forever. Caller may override.
         public TimeSpan DefaultAcquisitionTimeout { get; init; } = TimeSpan.FromMinutes(2);
 
-        public IDisposable Acquire(string environment, string component, string operationCorrelationId)
-            => Acquire(environment, component, operationCorrelationId, DefaultAcquisitionTimeout);
+        public IDisposable Acquire(string project, string environment, string component, string operationCorrelationId)
+            => Acquire(project, environment, component, operationCorrelationId, DefaultAcquisitionTimeout);
 
-        public IDisposable Acquire(string environment, string component, string operationCorrelationId, TimeSpan timeout)
+        public IDisposable Acquire(string project, string environment, string component, string operationCorrelationId, TimeSpan timeout)
         {
             if (string.IsNullOrEmpty(environment)) throw new ArgumentException("environment required", nameof(environment));
             if (string.IsNullOrEmpty(component)) throw new ArgumentException("component required", nameof(component));
 
-            var key = MakeKey(environment, component);
+            var key = MakeKey(project, environment, component);
             var slot = Slots.GetOrAdd(key, _ => new KeyedSlot());
 
             if (!slot.Semaphore.Wait(timeout))
@@ -48,13 +48,17 @@ namespace Dorc.Monitor.Terraform
             return new Release(slot);
         }
 
-        // Uses the same normalization as the blob state key so the guard
-        // serializes exactly the set of operations that would contend on
-        // one tfstate (e.g. "Prod EU" and "Prod-EU" are distinct states
-        // and may run concurrently; "PROD" and "prod" are the same state
-        // and are serialized).
-        private static string MakeKey(string environment, string component)
-            => TerraformStateKeySanitizer.Sanitize(environment) + "|" + TerraformStateKeySanitizer.Sanitize(component);
+        // Uses the same normalization and the same (project, environment,
+        // component) triple as the blob state key, so the guard serializes
+        // exactly the set of operations that would contend on one tfstate
+        // (e.g. "Prod EU" and "Prod-EU" are distinct states and may run
+        // concurrently; "PROD" and "prod" are the same state and are
+        // serialized; the same component + environment under two different
+        // projects are distinct states).
+        private static string MakeKey(string project, string environment, string component)
+            => TerraformStateKeySanitizer.Sanitize(project) + "|" +
+               TerraformStateKeySanitizer.Sanitize(environment) + "|" +
+               TerraformStateKeySanitizer.Sanitize(component);
 
         private sealed class KeyedSlot
         {
