@@ -115,6 +115,10 @@ namespace Dorc.Api.Tests.Controllers
                 ProjectId = ProjectId,
                 ProjectName = ProjectName
             });
+            // Destination project has no existing components by default, so the
+            // duplicate-name conflict and parent-in-project checks pass; a test
+            // that wants a collision overrides this.
+            _projects.GetComponentsForProject(ProjectName).Returns(new List<ComponentApiModel>());
             _security.IsProjectOwnerOrAdmin(Arg.Any<ClaimsPrincipal>(), ProjectName).Returns(true);
         }
 
