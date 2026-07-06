@@ -449,15 +449,18 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
     const script = model.item as ScriptApiModel;
 
     if (script.IsPathJSON) {
-      root.innerHTML = `<hegs-json-viewer style="font-size: small ">${
-        script.Path
-      }</hegs-json-viewer>`;
+      render(
+        html`<hegs-json-viewer style="font-size: small "
+          >${script.Path}</hegs-json-viewer
+        >`,
+        root
+      );
       const viewer = root.querySelector(
         'hegs-json-viewer'
       ) as unknown as HegsJsonViewer;
       viewer.expand('**');
     } else {
-      root.innerHTML = `<div>${script.Path}</div>`;
+      render(html`<div>${script.Path}</div>`, root);
     }
   }
 

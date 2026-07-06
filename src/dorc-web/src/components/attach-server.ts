@@ -1,4 +1,4 @@
-import { css, LitElement } from 'lit';
+import { css, LitElement, render } from 'lit';
 import { ComboBoxItemModel } from '@vaadin/combo-box';
 import '@vaadin/button';
 import '@vaadin/combo-box';
@@ -104,7 +104,7 @@ export class AttachServer extends LitElement {
   ) {
     // only render the checkbox once, to avoid re-creating during subsequent calls
     const serverApiModel = item as ServerApiModel;
-    root.innerHTML = `<div>${serverApiModel.Name}</div>`;
+    render(html`<div>${serverApiModel.Name}</div>`, root);
   }
 
   setSelectedServer(data: CustomEvent) {

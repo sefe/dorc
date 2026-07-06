@@ -252,9 +252,13 @@ namespace Dorc.PersistentData.Sources
                     context.SaveChanges();
                     return GetEnvironment(envId, user);
                 }
-                catch
+                catch (Exception ex)
                 {
-                    return new EnvironmentApiModel();
+                    // Do not swallow into an empty model: that hid the real error
+                    // (including the "Invalid or unknown server Id" ArgumentException
+                    // the controller is written to surface) and logged nothing.
+                    logger.LogError(ex, "Failed to attach server {ServerId} to environment {EnvId}", serverId, envId);
+                    throw;
                 }
             }
         }
@@ -283,9 +287,10 @@ namespace Dorc.PersistentData.Sources
                     context.SaveChanges();
                     return GetEnvironment(envId, user);
                 }
-                catch
+                catch (Exception ex)
                 {
-                    return new EnvironmentApiModel();
+                    logger.LogError(ex, "Failed to detach server {ServerId} from environment {EnvId}", serverId, envId);
+                    throw;
                 }
             }
         }

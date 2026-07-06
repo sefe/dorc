@@ -328,9 +328,12 @@ export class PageProjectBundles extends ResponsiveMixin(PageElement) {
   ) {
     const bundle = model.item as BundledRequestsApiModel;
 
-    root.innerHTML = `<hegs-json-viewer style="font-size: small ">${
-      bundle.Request
-    }</hegs-json-viewer>`;
+    render(
+      html`<hegs-json-viewer style="font-size: small "
+        >${bundle.Request}</hegs-json-viewer
+      >`,
+      root
+    );
     const viewer = root.querySelector(
       'hegs-json-viewer'
     ) as unknown as HegsJsonViewer;
@@ -347,7 +350,7 @@ export class PageProjectBundles extends ResponsiveMixin(PageElement) {
     // API returns Type as string name ("JobRequest", "CopyEnvBuild") not number
     const typeString = (bundle.Type as unknown as string) || 'Unknown';
 
-    root.innerHTML = `<span>${typeString}</span>`;
+    render(html`<span>${typeString}</span>`, root);
   }
 
   private fetchBundledRequests() {

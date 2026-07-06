@@ -39,15 +39,26 @@ namespace Dorc.PersistentData
                 denied |= accessControl.Deny;
             }
 
-            var allow = IsBitSet((byte)allowed, (int)accessLevel);
-            return denied <= 0 && allow;
+            return IsAllowed(allowed, denied, accessLevel);
         }
 
         #endregion
 
-        private static bool IsBitSet(byte b, int pos)
+        /// <summary>
+        /// Decides whether the requested access level is granted, given the
+        /// accumulated allow/deny masks. Deny is scoped to the requested level: an
+        /// explicit deny only blocks the level(s) it applies to. Previously the code
+        /// returned false whenever <em>any</em> deny bit was set (e.g. a Deny of
+        /// Write also blocked ReadSecrets and Owner) — see finding F-2.
+        /// AccessLevel is a [Flags]-style power-of-two set, so a mask (&amp;) test is
+        /// the correct way to ask "does the granted set include any requested bit".
+        /// </summary>
+        internal static bool IsAllowed(int allowed, int denied, AccessLevel accessLevel)
         {
-            return (b & pos) != 0;
+            var requested = (int)accessLevel;
+            var allow = (allowed & requested) != 0;
+            var deny = (denied & requested) != 0;
+            return allow && !deny;
         }
 
         private IEnumerable<AccessControlApiModel> GetUserAccessControls<T>(T securityObject, IPrincipal user)

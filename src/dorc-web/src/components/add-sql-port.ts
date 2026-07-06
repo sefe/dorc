@@ -1,4 +1,4 @@
-import { css, LitElement } from 'lit';
+import { css, LitElement, render } from 'lit';
 import { ComboBoxItemModel } from '@vaadin/combo-box';
 import { ComboBox } from '@vaadin/combo-box/src/vaadin-combo-box';
 import '@vaadin/number-field';
@@ -122,7 +122,7 @@ export class AddSqlPort extends LitElement {
     model: ComboBoxItemModel<string>
   ) {
     const template = model.item as string;
-    root.innerHTML = `<div>${template}</div>`;
+    render(html`<div>${template}</div>`, root);
   }
 
   _databaseValueChanged(data: any) {

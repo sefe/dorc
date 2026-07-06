@@ -251,7 +251,7 @@ namespace Dorc.TerraformRunner
             var output = outputBuilder.ToString();
             var error = errorBuilder.ToString();
 
-            if (process.ExitCode == 1)
+            if (!IsTerraformCommandSuccessful(process.ExitCode, arguments))
             {
                 var errorMessage = $"Terraform command {tfCommand} failed with exit code {process.ExitCode}";
                 logger.Error($"{errorMessage}. Error: {error}");
@@ -260,6 +260,30 @@ namespace Dorc.TerraformRunner
 
             logger.Information($"Terraform command {tfCommand} completed successfully. Output:{Environment.NewLine}{output}");
             return output;
+        }
+
+        /// <summary>
+        /// Interprets a terraform process exit code, correctly for the command that
+        /// produced it. A <c>plan</c> run with <c>-detailed-exitcode</c> returns
+        /// <b>2</b> for "succeeded, there ARE changes to apply" — the normal case
+        /// for any real deployment — so 2 must be treated as success, not failure.
+        /// For every other command (init/apply/show, no <c>-detailed-exitcode</c>)
+        /// any non-zero exit code is a failure. The previous code only failed on
+        /// exit code 1, so a crashed/OOM-killed <c>apply</c> (exit code ≠ 0,1) was
+        /// silently reported as success (finding C-3).
+        /// </summary>
+        public static bool IsTerraformCommandSuccessful(int exitCode, string arguments)
+        {
+            var usesDetailedExitCode = arguments != null
+                && arguments.Contains("-detailed-exitcode", StringComparison.Ordinal);
+
+            if (usesDetailedExitCode)
+            {
+                // 0 = no changes, 2 = success with changes. 1 (or anything else) = error.
+                return exitCode == 0 || exitCode == 2;
+            }
+
+            return exitCode == 0;
         }
 
         public async Task<bool> ExecuteConfirmedPlanAsync(

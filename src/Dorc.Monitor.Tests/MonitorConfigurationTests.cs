@@ -13,6 +13,51 @@ namespace Dorc.Monitor.Tests
             return new MonitorConfiguration(configurationRoot);
         }
 
+        // --- RequestProcessingIterationDelayMs (S-012a) ---
+
+        [TestMethod]
+        public void RequestProcessingIterationDelayMs_WhenNotConfigured_ReturnsDefault1000_NotZero()
+        {
+            var config = CreateConfiguration(new Dictionary<string, string?>());
+
+            // The historic bug used int.TryParse(out delay) which set delay to 0
+            // on a missing key, producing a 0-delay busy loop.
+            Assert.AreEqual(1000, config.RequestProcessingIterationDelayMs);
+        }
+
+        [TestMethod]
+        public void RequestProcessingIterationDelayMs_WhenConfigured_ReturnsConfiguredValue()
+        {
+            var config = CreateConfiguration(new Dictionary<string, string?>
+            {
+                { "AppSettings:requestProcessingIterationDelayMs", "2500" }
+            });
+
+            Assert.AreEqual(2500, config.RequestProcessingIterationDelayMs);
+        }
+
+        [TestMethod]
+        public void RequestProcessingIterationDelayMs_WhenZero_ReturnsDefault1000()
+        {
+            var config = CreateConfiguration(new Dictionary<string, string?>
+            {
+                { "AppSettings:requestProcessingIterationDelayMs", "0" }
+            });
+
+            Assert.AreEqual(1000, config.RequestProcessingIterationDelayMs);
+        }
+
+        [TestMethod]
+        public void RequestProcessingIterationDelayMs_WhenNonNumeric_ReturnsDefault1000()
+        {
+            var config = CreateConfiguration(new Dictionary<string, string?>
+            {
+                { "AppSettings:requestProcessingIterationDelayMs", "abc" }
+            });
+
+            Assert.AreEqual(1000, config.RequestProcessingIterationDelayMs);
+        }
+
         // --- LockAcquisitionTimeoutSeconds ---
 
         [TestMethod]

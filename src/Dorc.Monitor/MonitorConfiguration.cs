@@ -21,13 +21,22 @@ namespace Dorc.Monitor
                 .GetSection(appSettings)["IsProduction"] ?? "false");
             }
         }
+        // Default polling delay between request-processing iterations. Also used
+        // as the floor: a missing, unparseable, or non-positive configured value
+        // must never yield 0, which would turn the processing loop into a busy
+        // spin (with a forced full GC every iteration in DeploymentEngine).
+        internal const int DefaultRequestProcessingIterationDelayMs = 1000;
+
         public int RequestProcessingIterationDelayMs
         {
             get
             {
-                int delay = 1000;
-                int.TryParse(configurationRoot.GetSection(appSettings)["requestProcessingIterationDelayMs"], out delay);
-                return delay;
+                var configured = configurationRoot.GetSection(appSettings)["requestProcessingIterationDelayMs"];
+                if (int.TryParse(configured, out int delay) && delay > 0)
+                {
+                    return delay;
+                }
+                return DefaultRequestProcessingIterationDelayMs;
             }
         }
 

@@ -1,4 +1,4 @@
-import { css, LitElement } from 'lit';
+import { css, LitElement, render } from 'lit';
 import '@vaadin/combo-box';
 import '@vaadin/confirm-dialog';
 import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
@@ -197,9 +197,12 @@ export class AttachDatabase extends LitElement {
     model: GridItemModel<DatabaseApiModel>
   ) {
     const groupApiModel = model.item as DatabaseApiModel;
-    root.innerHTML = `<paper-item><span>${groupApiModel.Name} - ${
-      groupApiModel.ServerName
-    }</span></paper-item>`;
+    render(
+      html`<paper-item
+        ><span>${groupApiModel.Name} - ${groupApiModel.ServerName}</span></paper-item
+      >`,
+      root
+    );
   }
 
   _submit() {

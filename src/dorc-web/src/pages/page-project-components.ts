@@ -1,4 +1,4 @@
-import { css, PropertyValues } from 'lit';
+import { css, PropertyValues, render } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import '@vaadin/combo-box';
@@ -550,22 +550,23 @@ export class PageProjectComponents extends ResponsiveMixin(PageElement) {
         const row = model.item;
         
         if (row.build && row.requestId) {
-            root.innerHTML = `
-                <span class="request-link build-number" data-request-id="${row.requestId}">
-                    ${row.buildNumber}
-                </span>
-            `;
-            
-            const link = root.querySelector('.request-link');
-            if (link) {
-                link.addEventListener('click', () => {
-                    window.open(`/monitor-result/${row.requestId}`, '_blank');
-                });
-            }
+            render(
+                html`
+                    <span
+                        class="request-link build-number"
+                        data-request-id="${row.requestId}"
+                        @click=${() =>
+                            window.open(`/monitor-result/${row.requestId}`, '_blank')}
+                    >
+                        ${row.buildNumber}
+                    </span>
+                `,
+                root
+            );
         } else if (row.buildNumber === 'Not deployed') {
-            root.innerHTML = `<span class="no-deployment">${row.buildNumber}</span>`;
+            render(html`<span class="no-deployment">${row.buildNumber}</span>`, root);
         } else {
-            root.innerHTML = `<span class="build-number">${row.buildNumber}</span>`;
+            render(html`<span class="build-number">${row.buildNumber}</span>`, root);
         }
     }
 
@@ -585,7 +586,7 @@ export class PageProjectComponents extends ResponsiveMixin(PageElement) {
     ) {
         const row = model.item;
         const statusClass = this.getStatusClass(row.status);
-        root.innerHTML = `<span class="${statusClass}">${row.status}</span>`;
+        render(html`<span class="${statusClass}">${row.status}</span>`, root);
     }
 
     private getStatusClass(status: string | null | undefined): string {
