@@ -1,6 +1,5 @@
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
-using YamlDotNet.Core;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 
@@ -75,7 +74,7 @@ namespace Dorc.Terraform.Catalog
                     var yaml = File.ReadAllText(file);
                     dto = deserializer.Deserialize<ManifestDto>(yaml);
                 }
-                catch (Exception ex) when (ex is YamlException || ex is IOException)
+                catch (Exception ex) when (ex is YamlDotNet.Core.YamlException || ex is IOException)
                 {
                     // A single malformed manifest (bad YAML, or an
                     // unrecognized enum value like `type: list` that YamlDotNet
