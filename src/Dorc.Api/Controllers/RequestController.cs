@@ -602,6 +602,18 @@ namespace Dorc.Api.Controllers
                 //   (b) Catalog-only + non-empty       → existing path
                 //   (c) Mixed + non-empty              → existing path
                 //   (d) Mixed + empty                  → 400
+                // The catalog sentinel is a server-internal marker substituted
+                // by ResolveCatalogOnlyRouting after it has verified every
+                // component is Catalog-mode. A client must never supply it
+                // directly - doing so would otherwise bypass that verification
+                // and route unvalidated (possibly mixed / non-Catalog)
+                // components straight to CatalogDeployableBuild.
+                if (!string.IsNullOrEmpty(requestDto.BuildUrl)
+                    && requestDto.BuildUrl.StartsWith(Dorc.Api.Model.BuildDetails.CatalogSentinel, StringComparison.OrdinalIgnoreCase))
+                {
+                    return BadRequest("BuildUrl must not use the reserved catalog scheme.");
+                }
+
                 if (string.IsNullOrEmpty(requestDto.BuildUrl) && requestDto.Components != null && requestDto.Components.Count > 0)
                 {
                     var routingResult = ResolveCatalogOnlyRouting(requestDto);

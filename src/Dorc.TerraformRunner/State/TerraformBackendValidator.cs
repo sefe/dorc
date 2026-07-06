@@ -23,6 +23,14 @@ namespace Dorc.TerraformRunner.State
             @"\bbackend\s*""[^""]+""",
             RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
+        // *.tf.json encodes the same structure as JSON: a top-level
+        // "terraform" object containing a "backend" key. Detect a "backend"
+        // property key (quoted, followed by a colon) anywhere in the file;
+        // like the HCL scan this can over-report but only ever over-rejects.
+        private static readonly Regex JsonBackendKeyRegex = new(
+            @"""backend""\s*:",
+            RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
         public sealed record Finding(string FilePath, int LineNumber);
 
         public static IReadOnlyList<Finding> Scan(string workingDirectory)
@@ -36,15 +44,22 @@ namespace Dorc.TerraformRunner.State
 
             var findings = new List<Finding>();
             // Filter out the platform-rendered file in the source sequence so
-            // re-scans don't flag DOrc's own backend file.
+            // re-scans don't flag DOrc's own backend file. Terraform honours
+            // both HCL (*.tf) and JSON (*.tf.json) configuration, so both are
+            // scanned - a backend declared in JSON syntax would otherwise
+            // bypass the "DOrc owns the backend" control on the legacy
+            // (no platform-rendered backend) path.
             var inputFiles = Directory
                 .EnumerateFiles(workingDirectory, "*.tf", SearchOption.AllDirectories)
+                .Concat(Directory.EnumerateFiles(workingDirectory, "*.tf.json", SearchOption.AllDirectories))
                 .Where(f => Path.GetFileName(f) != TerraformBackendRenderer.BackendFileName);
 
             foreach (var file in inputFiles)
             {
                 var content = File.ReadAllText(file);
-                var backendIndex = FindBackendInsideTerraformBlock(content);
+                var backendIndex = file.EndsWith(".tf.json", StringComparison.OrdinalIgnoreCase)
+                    ? FindBackendInJson(content)
+                    : FindBackendInsideTerraformBlock(content);
                 if (backendIndex >= 0)
                 {
                     var lineNumber = 1 + content.Substring(0, backendIndex).Count(c => c == '\n');
@@ -77,6 +92,12 @@ namespace Dorc.TerraformRunner.State
                 }
             }
             return -1;
+        }
+
+        private static int FindBackendInJson(string content)
+        {
+            var m = JsonBackendKeyRegex.Match(content);
+            return m.Success ? m.Index : -1;
         }
 
         private static int FindMatchingClose(string content, int afterOpenBrace)

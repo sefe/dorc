@@ -44,27 +44,24 @@ namespace Dorc.Api.Services
 
         public RequestStatusDto Process(RequestDto request, ClaimsPrincipal user)
         {
+            // Defensive: a Catalog request with no components is malformed;
+            // fail cleanly rather than NRE on .ToList().
+            if (request.Components == null || request.Components.Count == 0)
+            {
+                return new RequestStatusDto { Id = 0, Status = "Catalog request has no components." };
+            }
+
             // No artifact URL is forwarded to the deploy library. Components
             // resolve their source via Dorc.TerraformRunner's
             // CatalogReferenceCodeSourceProvider at dispatch time.
-            var sId = _deployLibrary.SubmitRequest(
+            var id = _deployLibrary.SubmitRequest(
                 projectName: request.Project,
                 environmentName: request.Environment,
                 uri: string.Empty,
                 buildDefinitionName: string.Empty,
                 requestComponents: request.Components.ToList(),
-                requestProperties: request.RequestProperties.ToList(),
+                requestProperties: request.RequestProperties?.ToList() ?? new List<RequestProperty>(),
                 user: user);
-
-            int id;
-            try
-            {
-                id = Convert.ToInt32(sId);
-            }
-            catch (Exception e) when (e is FormatException || e is OverflowException || e is ArgumentNullException)
-            {
-                return new RequestStatusDto() { Id = 0, Status = e.Message };
-            }
 
             return id <= 0
                 ? new RequestStatusDto() { Id = 0, Status = "DeployLibrary has returned zero result" }

@@ -134,6 +134,19 @@ namespace Dorc.Terraform.Catalog
             if (!TemplateVersionRegex.IsMatch(dto.Version))
                 return (null, $"template version '{dto.Version}' is invalid (only [a-zA-Z0-9._-], up to 64 chars)");
 
+            // The runner presents the environment's Terraform PAT to whatever
+            // host the locator resolves to, so an unvalidated locator (a
+            // foreign https host, or a local filesystem path LibGit2Sharp
+            // would happily clone) is a credential-exfiltration / arbitrary-
+            // fetch vector. Require an absolute https URL; manifest authorship
+            // is privileged, so this is defence-in-depth.
+            var locator = dto.Source.Locator ?? string.Empty;
+            if (!Uri.TryCreate(locator, UriKind.Absolute, out var locatorUri)
+                || !string.Equals(locatorUri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
+            {
+                return (null, $"template source locator '{locator}' is invalid (an absolute https:// URL is required)");
+            }
+
             // Iterate parameters in YAML declaration order so the first violation
             // determines the WARNING message deterministically.
             foreach (var p in dto.Parameters ?? new List<ParameterDto>())
