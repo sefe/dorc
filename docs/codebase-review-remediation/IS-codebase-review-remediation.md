@@ -194,6 +194,8 @@ Common to both directions:
 **Why.** E-2, E-3 — failures reported as success; unresolved `$(token)` deployed as config.
 **Verification intent.** A forced DB error on attach/detach/remove returns failure and logs; a resolution error fails the request rather than deploying a literal placeholder.
 
+> **Implementation note (2026-07-06) — partial.** Done: `EnvironmentsPersistentSource.AttachServerToEnv`/`DetachServerFromEnv` no longer swallow into an empty `EnvironmentApiModel()` — they log and rethrow. This also un-breaks dead code: the calling controller (`RefDataEnvironmentsDetailsController.Put`) already has a `catch (ArgumentOutOfRangeException)` that surfaces the "Invalid or unknown server Id" message, which the swallow had made unreachable. **Deferred (needs a DB/integration harness this sandbox lacks, or invasive DI change):** (a) `PropertyValuesPersistentSource`/`ConfigValuesPersistentSource` `Remove*` swallow-and-return-false — these classes have no injected logger, so fixing E-3 properly means adding one through the DI graph; (b) `PropertyEvaluator`/`VariableResolver` returning the unresolved token on error — a behavior change in the deployment hot path (note `VariableResolver.GetPropertyValue` already logs the error at line 85, so it is not fully silent today). Both deferred to a pass with integration coverage.
+
 ---
 
 ## Tier 3 — Disclosure, data access, remaining medium
