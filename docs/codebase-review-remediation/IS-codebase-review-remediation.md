@@ -223,6 +223,8 @@ Common to both directions:
 **Why.** F-1, F-2 — whole-table loads and over-broad deny logic.
 **Verification intent.** The name filter is translated to SQL (no full-table load); a Deny of Write does not block ReadSecrets/Owner; existing allow/deny cases still pass.
 
+> **Implementation note (2026-07-06) — F-2 done.** `SecurityObjectFilter.HasPrivilege` now scopes deny to the requested level via the extracted pure `IsAllowed(allowed, denied, accessLevel)`: `allow = (allowed & requested) != 0; deny = (denied & requested) != 0; return allow && !deny`. Previously `denied <= 0 && allow` meant *any* deny bit (e.g. a Deny of Write) blocked *every* level including ReadSecrets/Owner. The misleadingly-named `IsBitSet` mask test is gone. Delivered with `SecurityObjectFilterTests` (5 cases). **Deferred (needs DB/query verification):** F-1 whole-table load in `AccessControlPersistentSource` (the premature `IEnumerable` cast) — confirming the `IQueryable` translates to server-side SQL needs an integration harness this sandbox lacks.
+
 ### S-020 — Set-based permission queries & remove `EnsureCreated`
 **What changes.** Rewrite the correlated per-row permission subqueries in the paged property queries as set-based joins/EXISTS that translate efficiently; remove `Database.EnsureCreated()` and its racy static gate (schema is DACPAC-managed), providing a documented test-DB setup if U-5 shows a bootstrap depends on it.
 **Why.** F-3, F-4 — poor scaling and EF/DACPAC schema divergence.
