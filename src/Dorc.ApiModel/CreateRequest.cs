@@ -11,6 +11,11 @@ namespace Dorc.ApiModel
         public string DropFolder { get; set; }
         public ICollection<string> Components { get; set; }
         public IEnumerable<RequestProperty> Properties { get; set; }
+
+        // Catalog-mode deploy: no build artifact; the runner resolves each
+        // component's Terraform source from its manifest. Suppresses
+        // artifact-URL resolution in DeployLibrary.CreateRequestAsync.
+        public bool IsCatalog { get; set; }
     }
 
     public class RequestProperty

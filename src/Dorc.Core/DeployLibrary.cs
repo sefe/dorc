@@ -51,7 +51,7 @@ namespace Dorc.Core
 
         public int SubmitRequest(string projectName, string environmentName, string uri,
             string buildDefinitionName, List<string> requestComponents, List<RequestProperty> requestProperties,
-            ClaimsPrincipal user)
+            ClaimsPrincipal user, bool isCatalog = false)
         {
             var project = _projectsPersistentSource.GetProject(projectName);
             if (project == null)
@@ -69,7 +69,7 @@ namespace Dorc.Core
                             $"Cannot find deployment component called '{x}'");
                     return component;
                 }).ToArray();
-            return CreateRequest(project, environment, uri, buildDefinitionName, components, requestProperties, user)
+            return CreateRequest(project, environment, uri, buildDefinitionName, components, requestProperties, user, isCatalog)
                 .RequestId;
         }
 
@@ -159,7 +159,8 @@ namespace Dorc.Core
 
         private CreateResponse CreateRequest(ProjectApiModel project, EnvironmentApiModel environment,
             string buildUrl, string buildDefinitionName,
-            ComponentApiModel[] components, IEnumerable<RequestProperty> properties, ClaimsPrincipal user)
+            ComponentApiModel[] components, IEnumerable<RequestProperty> properties, ClaimsPrincipal user,
+            bool isCatalog = false)
         {
             try
             {
@@ -170,7 +171,8 @@ namespace Dorc.Core
                     BuildDefinitionName = buildDefinitionName,
                     BuildUrl = buildUrl,
                     Components = components.Select(c => c.ComponentName).ToList(),
-                    Properties = properties
+                    Properties = properties,
+                    IsCatalog = isCatalog
                 };
 
                 var response = CreateRequestAsync(request, user).Result;
@@ -195,7 +197,17 @@ namespace Dorc.Core
                 Project = createRequest.Project
             };
 
-            if (project.SourceControlType == SourceControlType.GitHub &&
+            // Catalog-mode deploys carry no build artifact: the runner's
+            // CatalogReferenceCodeSourceProvider resolves the source from the
+            // component's manifest at dispatch time. Skip artifact resolution
+            // entirely - it would otherwise throw for any project that has an
+            // ADO/GitHub/file-share artifact source configured (empty
+            // BuildUrl/BuildDefinitionName can't resolve an artifact).
+            if (createRequest.IsCatalog)
+            {
+                buildDetail.DropLocation = string.Empty;
+            }
+            else if (project.SourceControlType == SourceControlType.GitHub &&
                 !string.IsNullOrEmpty(project.ArtefactsUrl) && project.ArtefactsUrl.StartsWith("http"))
             {
                 // GitHub Actions: resolve artifact download URL via the GitHub API
