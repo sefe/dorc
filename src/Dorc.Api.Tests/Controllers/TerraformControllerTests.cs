@@ -251,8 +251,13 @@ namespace Dorc.Api.Tests.Controllers
 
             Assert.IsInstanceOfType(result, typeof(OkObjectResult), "Happy-path create-and-deploy returns 200.");
             var ok = (OkObjectResult)result;
+            // ComponentId must be 0 (not the int? default of null): the Post
+            // validation pipeline requires it, and CreateComponent only
+            // inserts inside `if (ComponentId == 0)`. A null id would pass the
+            // mock here but silently no-op the real persistence.
             _manageProjects.Received(1).CreateComponent(
-                Arg.Any<ComponentApiModel>(), ProjectId, Arg.Any<int?>(), Arg.Any<string>());
+                Arg.Is<ComponentApiModel>(c => c.ComponentId == 0),
+                ProjectId, Arg.Any<int?>(), Arg.Any<string>());
             _requestService.Received(1).CreateRequest(
                 Arg.Is<RequestDto>(dto =>
                     dto.Environment == EnvName
@@ -288,7 +293,8 @@ namespace Dorc.Api.Tests.Controllers
             Assert.AreEqual(TemplateName, component.TerraformTemplateName);
             Assert.AreEqual(TemplateVersion, component.TerraformTemplateVersion);
             _manageProjects.Received(1).CreateComponent(
-                Arg.Any<ComponentApiModel>(), ProjectId, Arg.Any<int?>(), Arg.Any<string>());
+                Arg.Is<ComponentApiModel>(c => c.ComponentId == 0),
+                ProjectId, Arg.Any<int?>(), Arg.Any<string>());
             _requestService.DidNotReceiveWithAnyArgs().CreateRequest(default!, default!);
         }
 

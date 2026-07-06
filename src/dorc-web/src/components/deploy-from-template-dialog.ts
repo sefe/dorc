@@ -210,7 +210,14 @@ export class DeployFromTemplateDialog extends LitElement {
     return html`
       <vaadin-dialog
         .opened="${this.opened}"
-        @opened-changed="${(e: CustomEvent) => (this.opened = e.detail.value)}"
+        @opened-changed="${(e: CustomEvent) => {
+          this.opened = e.detail.value;
+          // Closing via Escape / overlay dismiss routes through here rather
+          // than the Cancel/submit handlers; clear entered (possibly
+          // sensitive) values on every close so they never linger in this
+          // long-lived component's state.
+          if (!e.detail.value) this.clearEnteredValues();
+        }}"
         header-title="Deploy from template${this.template ? `: ${this.template.Name}@${this.template.Version}` : ''}"
         modeless
         ${dialogRenderer(this.bodyRenderer, [

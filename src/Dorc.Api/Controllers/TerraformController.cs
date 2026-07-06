@@ -145,6 +145,12 @@ namespace Dorc.Api.Controllers
 
             var component = new ComponentApiModel
             {
+                // Explicitly 0 (not the int? default of null): the Post
+                // validation pipeline requires ids to be 0, and
+                // ManageProjectsPersistentSource.CreateComponent only
+                // performs the insert inside `if (ComponentId == 0)` - a null
+                // id silently no-ops the create.
+                ComponentId = 0,
                 ComponentName = componentName,
                 ScriptPath = string.Empty,
                 ComponentType = ComponentType.Terraform,
