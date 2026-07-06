@@ -175,6 +175,14 @@ namespace Dorc.Monitor
                         }
                         break;
                     default:
+                        // Fail closed: an unrecognised component type must not be
+                        // silently treated as success (which previously left the
+                        // status at StatusNotSet and returned true, completing the
+                        // request with nothing deployed).
+                        deploymentResultStatus = DeploymentResultStatus.Failed;
+                        var unknownTypeMessage = $"Component '{component.ComponentName}' has an unsupported component type '{component.ComponentType}'; marking as failed.";
+                        _logger.LogError(unknownTypeMessage);
+                        componentResultLogBuilder.AppendLine(unknownTypeMessage);
                         break;
                 }
             }
