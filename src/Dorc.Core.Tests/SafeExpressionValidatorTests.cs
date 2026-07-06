@@ -1,0 +1,56 @@
+using Dorc.Core.VariableResolution;
+
+namespace Dorc.Core.Tests
+{
+    [TestClass]
+    public class SafeExpressionValidatorTests
+    {
+        // ---- Rejected: arbitrary-code-execution / reflection vectors ----
+        [DataTestMethod]
+        [DataRow("System.IO.File.ReadAllText(\"/etc/passwd\")")]
+        [DataRow("File.ReadAllText(\"x\")")]
+        [DataRow("System.Diagnostics.Process.Start(\"calc\")")]
+        [DataRow("Environment.Exit(1)")]
+        [DataRow("AppDomain.CurrentDomain")]
+        [DataRow("typeof(string)")]
+        [DataRow("new System.Net.WebClient()")]
+        [DataRow("\"x\".GetType()")]
+        [DataRow("\"x\".GetType().Assembly")]
+        [DataRow("Directory.GetFiles(\"c:/\")")]
+        [DataRow("1 + 1; System.IO.File.ReadAllText(\"x\")")]  // trailing statement
+        [DataRow("a => a")]                                       // lambda
+        [DataRow("someVariable")]                                 // bare identifier
+        public void IsSafe_RejectsDangerousExpressions(string expression)
+        {
+            Assert.IsFalse(SafeExpressionValidator.IsSafe(expression, out _), $"Should have rejected: {expression}");
+        }
+
+        // ---- Allowed: the simple string/math operations fn: is used for ----
+        [DataTestMethod]
+        [DataRow("\"abc\".ToUpper()")]
+        [DataRow("\"ABC\".ToLower()")]
+        [DataRow("2 + 3 * 4")]
+        [DataRow("(1 + 2) * 3")]
+        [DataRow("\"a\" + \"b\" + \"c\"")]
+        [DataRow("\"hello world\".Substring(0, 5)")]
+        [DataRow("\"  x  \".Trim()")]
+        [DataRow("\"a-b-c\".Replace(\"-\", \"_\")")]
+        [DataRow("\"abc\".Length")]
+        [DataRow("\"abc\".Contains(\"b\")")]
+        [DataRow("Math.Max(1, 2)")]
+        [DataRow("Convert.ToInt32(\"5\") + 1")]
+        [DataRow("\"abc\".Substring(1).ToUpper()")]
+        public void IsSafe_AllowsSimpleStringAndMathExpressions(string expression)
+        {
+            Assert.IsTrue(SafeExpressionValidator.IsSafe(expression, out var reason), $"Should have allowed '{expression}' but: {reason}");
+        }
+
+        [TestMethod]
+        public void IsSafe_RejectsMalformedExpression()
+        {
+            Assert.IsFalse(SafeExpressionValidator.IsSafe("bad(", out _));
+            Assert.IsFalse(SafeExpressionValidator.IsSafe("", out _));
+            Assert.IsFalse(SafeExpressionValidator.IsSafe(null, out _));
+        }
+    }
+}
