@@ -30,7 +30,7 @@ namespace Dorc.TerraformRunner.Tests.CodeSources
         [TestInitialize]
         public void Setup()
         {
-            _tempRoot = Path.Combine(Path.GetTempPath(), "gcsp-" + Guid.NewGuid().ToString("N"));
+            _tempRoot = Path.Join(Path.GetTempPath(), "gcsp-" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(_tempRoot);
             _sourceRepoPath = CreateSourceRepository();
             _provider = new GitCodeSourceProvider(Substitute.For<IRunnerLogger>());
@@ -60,14 +60,14 @@ namespace Dorc.TerraformRunner.Tests.CodeSources
         /// </summary>
         private string CreateSourceRepository()
         {
-            var sourcePath = Path.Combine(_tempRoot, "source");
+            var sourcePath = Path.Join(_tempRoot, "source");
             Directory.CreateDirectory(sourcePath);
             Repository.Init(sourcePath);
 
             using var repo = new Repository(sourcePath);
             var signature = new Signature("Test User", "test.user@example.com", DateTimeOffset.Now);
 
-            File.WriteAllText(Path.Combine(sourcePath, FileName), ContentV1);
+            File.WriteAllText(Path.Join(sourcePath, FileName), ContentV1);
             Commands.Stage(repo, FileName);
             var firstCommit = repo.Commit("v1", signature, signature);
             _firstCommitSha = firstCommit.Sha;
@@ -75,7 +75,7 @@ namespace Dorc.TerraformRunner.Tests.CodeSources
             repo.ApplyTag(TagName);
             repo.CreateBranch(BranchName);
 
-            File.WriteAllText(Path.Combine(sourcePath, FileName), ContentV2);
+            File.WriteAllText(Path.Join(sourcePath, FileName), ContentV2);
             Commands.Stage(repo, FileName);
             repo.Commit("v2", signature, signature);
 
@@ -93,7 +93,7 @@ namespace Dorc.TerraformRunner.Tests.CodeSources
             };
         }
 
-        private string NewWorkingDir() => Path.Combine(_tempRoot, "work-" + Guid.NewGuid().ToString("N"));
+        private string NewWorkingDir() => Path.Join(_tempRoot, "work-" + Guid.NewGuid().ToString("N"));
 
         [TestMethod]
         public async Task ProvisionCodeAsync_TagRef_ChecksOutTaggedCommit()
@@ -102,7 +102,7 @@ namespace Dorc.TerraformRunner.Tests.CodeSources
 
             await _provider.ProvisionCodeAsync(BuildScriptGroup(TagName), workingDir, CancellationToken.None);
 
-            var content = File.ReadAllText(Path.Combine(workingDir, FileName));
+            var content = File.ReadAllText(Path.Join(workingDir, FileName));
             Assert.AreEqual(ContentV1, content, "Tag ref must check out the tagged commit, not the branch head");
         }
 
@@ -113,7 +113,7 @@ namespace Dorc.TerraformRunner.Tests.CodeSources
 
             await _provider.ProvisionCodeAsync(BuildScriptGroup(BranchName), workingDir, CancellationToken.None);
 
-            var content = File.ReadAllText(Path.Combine(workingDir, FileName));
+            var content = File.ReadAllText(Path.Join(workingDir, FileName));
             Assert.AreEqual(ContentV1, content, "Non-default branch must resolve via its remote-tracking ref");
         }
 
@@ -124,7 +124,7 @@ namespace Dorc.TerraformRunner.Tests.CodeSources
 
             await _provider.ProvisionCodeAsync(BuildScriptGroup(_firstCommitSha), workingDir, CancellationToken.None);
 
-            var content = File.ReadAllText(Path.Combine(workingDir, FileName));
+            var content = File.ReadAllText(Path.Join(workingDir, FileName));
             Assert.AreEqual(ContentV1, content, "Commit SHA ref must check out that commit");
         }
 
