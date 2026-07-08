@@ -161,9 +161,61 @@ export class PageProjectsAudit extends ResponsiveMixin(PageElement) {
       .diff-header > div.right {
         border-right: none;
       }
-      .diff-pane-scroll {
+      /* Wrapper around the scrollable diff and the overview ruler. The
+         max-height moves here so both children share the same vertical box
+         and the ruler can position markers as a percentage of total content. */
+      .diff-viewport {
+        display: flex;
+        position: relative;
         max-height: 60vh;
+      }
+      .diff-pane-scroll {
+        flex: 1 1 auto;
+        min-width: 0;
         overflow: auto;
+      }
+      /* Scroll overview ruler: a thin column to the right of the scroll pane
+         showing every changed row as a coloured tick at its proportional
+         vertical position, with a translucent box marking the visible
+         viewport. Clicking jumps the diff to that point. */
+      .diff-overview {
+        position: relative;
+        flex: 0 0 12px;
+        width: 12px;
+        background: var(--dorc-bg-secondary);
+        border-left: 1px solid var(--dorc-border-color);
+        cursor: pointer;
+        overflow: hidden;
+      }
+      .diff-overview:focus-visible {
+        outline: 2px solid var(--dorc-link-color);
+        outline-offset: -2px;
+      }
+      .diff-overview-marker {
+        position: absolute;
+        left: 1px;
+        right: 1px;
+        min-height: 2px;
+        border-radius: 1px;
+        pointer-events: none;
+      }
+      .diff-overview-marker.marker-add {
+        background-color: var(--dorc-success-color, #4caf50);
+      }
+      .diff-overview-marker.marker-remove {
+        background-color: var(--dorc-error-color);
+      }
+      .diff-overview-marker.marker-change {
+        background-color: var(--dorc-link-color);
+      }
+      .diff-overview-viewport {
+        position: absolute;
+        left: 0;
+        right: 0;
+        background: color-mix(in srgb, var(--dorc-text-secondary) 18%, transparent);
+        border-top: 1px solid color-mix(in srgb, var(--dorc-text-secondary) 45%, transparent);
+        border-bottom: 1px solid color-mix(in srgb, var(--dorc-text-secondary) 45%, transparent);
+        pointer-events: none;
       }
       vaadin-icon.chevron {
         cursor: pointer;
@@ -508,7 +560,15 @@ export class PageProjectsAudit extends ResponsiveMixin(PageElement) {
     const ops = this.computeLineDiff(prev, curr);
     const rows = this.buildSideBySide(ops);
     const cells: unknown[] = [];
-    for (const r of rows) {
+    // Markers are emitted in row order so the overview ruler can render each
+    // change at its proportional vertical position (idx / totalRows). Keep
+    // rows produce no marker.
+    const markers: { idx: number; cls: string }[] = [];
+    rows.forEach((r, idx) => {
+      if (r.kind === 'change') markers.push({ idx, cls: 'marker-change' });
+      else if (r.kind === 'insert') markers.push({ idx, cls: 'marker-add' });
+      else if (r.kind === 'delete') markers.push({ idx, cls: 'marker-remove' });
+
       // Pure insert/delete lines: tint the whole cell — there's no paired
       // counterpart to diff against, so the entire line is what changed.
       // 'change' rows (a delete paired with an insert) get character-level
@@ -536,7 +596,18 @@ export class PageProjectsAudit extends ResponsiveMixin(PageElement) {
         cells.push(html`<div class="${leftCls}">${r.left ?? ''}</div>`);
         cells.push(html`<div class="${rightCls}">${r.right ?? ''}</div>`);
       }
-    }
+    });
+
+    const totalRows = rows.length;
+    const markerEls = markers.map(m => {
+      const top = (m.idx / totalRows) * 100;
+      const height = (1 / totalRows) * 100;
+      return html`<div
+        class="diff-overview-marker ${m.cls}"
+        style="top: ${top}%; height: ${height}%;"
+      ></div>`;
+    });
+
     render(
       html`
         <div class="details-pane">
@@ -544,13 +615,134 @@ export class PageProjectsAudit extends ResponsiveMixin(PageElement) {
             <div>Before</div>
             <div class="right">After</div>
           </div>
-          <div class="diff-pane-scroll">
-            <div class="diff-grid">${cells}</div>
+          <div class="diff-viewport">
+            <div class="diff-pane-scroll" @scroll="${this.onDiffScroll}">
+              <div class="diff-grid">${cells}</div>
+            </div>
+            <div
+              class="diff-overview"
+              role="button"
+              tabindex="0"
+              aria-label="Diff overview, ${markers.length} changed row${markers.length === 1 ? '' : 's'}. Press Enter or Down Arrow to jump to the next change, Up Arrow for previous."
+              title="${markers.length} changed row${markers.length === 1 ? '' : 's'} · click or press Enter to jump"
+              @click="${this.onOverviewClick}"
+              @keydown="${this.onOverviewKeydown}"
+            >
+              ${markerEls}
+              <div class="diff-overview-viewport"></div>
+            </div>
           </div>
         </div>
       `,
       root
     );
+
+    // Layout isn't measured until the next frame, so defer the initial
+    // viewport-indicator sizing until then.
+    requestAnimationFrame(() => {
+      const pane = root.querySelector('.diff-pane-scroll') as HTMLElement | null;
+      const viewport = root.querySelector('.diff-overview-viewport') as HTMLElement | null;
+      if (pane && viewport) this.updateOverviewViewport(pane, viewport);
+    });
+  };
+
+  // Sync the translucent viewport box on the overview ruler with the diff
+  // pane's current scroll position. Hidden when content fits without
+  // scrolling so the ruler doesn't suggest a scroll that isn't possible.
+  private updateOverviewViewport(pane: HTMLElement, viewport: HTMLElement) {
+    if (pane.scrollHeight <= pane.clientHeight) {
+      viewport.style.display = 'none';
+      return;
+    }
+    viewport.style.display = '';
+    const top = (pane.scrollTop / pane.scrollHeight) * 100;
+    const height = (pane.clientHeight / pane.scrollHeight) * 100;
+    viewport.style.top = `${top}%`;
+    viewport.style.height = `${height}%`;
+  }
+
+  private onDiffScroll = (e: Event) => {
+    const pane = e.currentTarget as HTMLElement;
+    const viewport = pane.parentElement?.querySelector(
+      '.diff-overview-viewport'
+    ) as HTMLElement | null;
+    if (viewport) this.updateOverviewViewport(pane, viewport);
+  };
+
+  // Click anywhere on the overview ruler to centre the diff scroll on that
+  // proportional point — the same interaction model as VS Code's overview
+  // ruler / GitHub's diff minimap.
+  private onOverviewClick = (e: MouseEvent) => {
+    const overview = e.currentTarget as HTMLElement;
+    const pane = overview.parentElement?.querySelector(
+      '.diff-pane-scroll'
+    ) as HTMLElement | null;
+    if (!pane) return;
+    const rect = overview.getBoundingClientRect();
+    // Bail on a degenerate (collapsed) ruler — dividing by 0 would taint the
+    // scrollTo target with NaN/Infinity.
+    if (rect.height <= 0) return;
+    // Clamp into [0, 1] so a clientY outside the ruler (synthetic events,
+    // racy resize) still produces a sensible target.
+    const ratio = Math.min(1, Math.max(0, (e.clientY - rect.top) / rect.height));
+    const target = ratio * pane.scrollHeight - pane.clientHeight / 2;
+    pane.scrollTo({
+      top: Math.max(0, Math.min(target, pane.scrollHeight - pane.clientHeight)),
+      behavior: 'smooth'
+    });
+  };
+
+  // Keyboard equivalent of clicking the ruler: cycles through the change
+  // markers so the ruler remains usable without a mouse. Enter/Space/Down
+  // jump to the next change, Up jumps to the previous, Home/End to the
+  // first/last. Marker pixel positions are derived from the rendered
+  // marker DOM (style.top is set as a percentage of pane.scrollHeight).
+  private onOverviewKeydown = (e: KeyboardEvent) => {
+    const key = e.key;
+    if (
+      key !== 'Enter' &&
+      key !== ' ' &&
+      key !== 'ArrowDown' &&
+      key !== 'ArrowUp' &&
+      key !== 'Home' &&
+      key !== 'End'
+    ) {
+      return;
+    }
+    e.preventDefault();
+    const overview = e.currentTarget as HTMLElement;
+    const pane = overview.parentElement?.querySelector(
+      '.diff-pane-scroll'
+    ) as HTMLElement | null;
+    if (!pane) return;
+    const markers = Array.from(
+      overview.querySelectorAll<HTMLElement>('.diff-overview-marker')
+    );
+    if (markers.length === 0) return;
+
+    const positions = markers
+      .map(m => (parseFloat(m.style.top) / 100) * pane.scrollHeight)
+      .sort((a, b) => a - b);
+
+    const viewCenter = pane.scrollTop + pane.clientHeight / 2;
+    let target: number;
+    if (key === 'Home') {
+      target = positions[0];
+    } else if (key === 'End') {
+      target = positions[positions.length - 1];
+    } else if (key === 'ArrowUp') {
+      const prev = [...positions].reverse().find(p => p < viewCenter - 1);
+      target = prev ?? positions[positions.length - 1];
+    } else {
+      // Enter, Space, ArrowDown — next change, cycling at the end.
+      const next = positions.find(p => p > viewCenter + 1);
+      target = next ?? positions[0];
+    }
+    const top = target - pane.clientHeight / 2;
+    pane.scrollTo({
+      top: Math.max(0, Math.min(top, pane.scrollHeight - pane.clientHeight)),
+      behavior: 'smooth'
+    });
   };
 
   // Convert the line-LCS ops into a side-by-side row stream. Within each run
