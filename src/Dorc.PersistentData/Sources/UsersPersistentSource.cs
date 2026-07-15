@@ -41,19 +41,6 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        public IEnumerable<UserApiModel> GetEnvironmentUsers(int envId)
-        {
-            using (var context = _contextFactory.GetContext())
-            {
-                var env = EnvironmentUnifier.GetEnvironment(context, envId);
-
-                var result = context.Users
-                    .Where(e => e.Environments.Any(en => en.Id == env.Id))
-                    .Select(u => u);
-                return result.ToList().Select(MapToUserApiModel).ToList();
-            }
-        }
-
         public IEnumerable<UserApiModel> GetEnvironmentUsers(int envId, UserAccountType type)
         {
             using (var context = _contextFactory.GetContext())
@@ -80,27 +67,9 @@ namespace Dorc.PersistentData.Sources
                         }
                     default:
                         {
-                            return GetEnvironmentUsers(envId);
+                            return new List<UserApiModel>();
                         }
                 }
-            }
-        }
-
-        public bool IsDelegatedUser(int envId, IPrincipal user)
-        {
-            using (var context = _contextFactory.GetContext())
-            {
-                var env = EnvironmentUnifier.GetEnvironment(context, envId);
-
-                var users = context.Users
-                    .Where(e => e.Environments.Any(en => en.Id == env.Id))
-                    .Select(u => u);
-
-                string username = _claimsPrincipalReader.GetUserLogin(user);
-
-                return users.Any(user =>
-                    EF.Functions.Collate(user.LanId, DeploymentContext.CaseInsensitiveCollation)
-                    == EF.Functions.Collate(username, DeploymentContext.CaseInsensitiveCollation));
             }
         }
 
@@ -158,69 +127,6 @@ namespace Dorc.PersistentData.Sources
                     .OrderBy(u => u.DisplayName);
 
                 return result.Select(MapToUserApiModel).ToList();
-            }
-        }
-
-        public IEnumerable<UserApiModel> GetUnallocatedUsers(string envName)
-        {
-            using (var context = _contextFactory.GetContext())
-            {
-                var environmentDetails = context.Environments.Include(e => e.Users)
-                    .First(ed => ed.Name.Equals(envName));
-
-                var delegatedUsers = environmentDetails.Users.Select(u => u.Id).ToList();
-
-                var users = from user in context.Users
-                            where user.LoginType == "ENDUR" && user.LanIdType == "USER" && !delegatedUsers.Contains(user.Id)
-                            orderby user.DisplayName
-                            select user;
-
-                return users.ToList().Select(MapToUserApiModel).ToList();
-            }
-        }
-
-        public UserApiModel AddDelegatedUser(int userId, string envName, IPrincipal principal)
-        {
-            using (var context = _contextFactory.GetContext())
-            {
-                var environmentDetails = context.Environments.Include(e => e.Users)
-                    .First(ed => ed.Name.Equals(envName));
-
-                var user = context.Users.FirstOrDefault(u => u.Id == userId);
-                if (user == null)
-                    return null;
-
-                environmentDetails.Users.Add(user);
-
-                var username = _claimsPrincipalReader.GetUserFullDomainName(principal);
-                EnvironmentHistoryPersistentSource.AddHistory(environmentDetails, string.Empty,
-                    "Adding Delegated user " + user.DisplayName,
-                    username, "Add Delegated User", context);
-
-                context.SaveChanges();
-                return MapToUserApiModel(user);
-            }
-        }
-
-        public bool DeleteDelegatedUser(int userId, string envName, IPrincipal principal)
-        {
-            using (var context = _contextFactory.GetContext())
-            {
-                var environmentDetails = context.Environments.Include(e => e.Users)
-                    .First(ed => ed.Name.Equals(envName));
-
-                var user = environmentDetails.Users.FirstOrDefault(u => u.Id == userId);
-                if (user == null)
-                    return false;
-
-                string username = _claimsPrincipalReader.GetUserFullDomainName(principal);
-                EnvironmentHistoryPersistentSource.AddHistory(environmentDetails, string.Empty,
-                    "Removing Delegated user " + user.DisplayName,
-                    username, "Remove Delegated User", context);
-
-                environmentDetails.Users.Remove(user);
-                context.SaveChanges();
-                return true;
             }
         }
 

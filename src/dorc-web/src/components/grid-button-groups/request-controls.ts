@@ -30,6 +30,11 @@ export class RequestControls extends LitElement {
 
   static get styles() {
     return css`
+      :host {
+        display: inline-flex;
+        align-items: center;
+        flex-wrap: nowrap;
+      }
       vaadin-button {
         padding: 0px;
         margin: 0px;
@@ -68,7 +73,7 @@ export class RequestControls extends LitElement {
       color: this.canPause ? 'var(--dorc-badge-text)' : 'var(--dorc-text-secondary)'
     };
     const resumeStyles = {
-      color: this.canResume ? 'var(--dorc-success-bg)' : 'var(--dorc-text-secondary)'
+      color: this.canResume ? 'var(--dorc-success-text)' : 'var(--dorc-text-secondary)'
     };
     return html`
       <table style="height: 36px">

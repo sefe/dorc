@@ -1,4 +1,5 @@
 import { css, PropertyValues, render } from 'lit';
+import '../components/dorc-spinner';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/button';
@@ -10,6 +11,7 @@ import { PaperDialogElement } from '@polymer/paper-dialog';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { PageElement } from '../helpers/page-element';
+import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import { ConfigValueApiModel, RefDataConfigApi } from "../apis/dorc-api";
 import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
 import { GridItemModel } from '@vaadin/grid';
@@ -19,7 +21,7 @@ import '../components/add-config-value';
 import { RefDataRolesApi } from '../apis/dorc-api';
 
 @customElement('page-config-values-list')
-export class PageConfigValuesList extends PageElement {
+export class PageConfigValuesList extends ResponsiveMixin(PageElement) {
   @property({ type: Array }) configValues: Array<ConfigValueApiModel> = [];
 
   @property({ type: Array }) filteredConfigValues: Array<ConfigValueApiModel> = [];
@@ -91,11 +93,17 @@ export class PageConfigValuesList extends PageElement {
 
   static get styles() {
     return css`
+      :host {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        overflow: hidden;
+      }
       vaadin-grid#grid {
-        height: calc(100vh - 110px);
+        flex: 1;
+        min-height: 0;
         --divider-color: var(--dorc-border-color);
         width: 100%;
-        min-width: 100%;
       }
 
       vaadin-text-field {
@@ -109,56 +117,17 @@ export class PageConfigValuesList extends PageElement {
         margin: 0px;
       }
 
-      .overlay {
-        width: 100%;
-        height: 100%;
-        position: fixed;
-      }
-
-      .overlay__inner {
-        width: 100%;
-        height: 100%;
-        position: absolute;
-      }
-
-      .overlay__content {
-        left: 20%;
-        position: absolute;
-        top: 20%;
-        transform: translate(-50%, -50%);
-      }
-
-      .spinner {
-        width: 75px;
-        height: 75px;
-        display: inline-block;
-        border-width: 2px;
-        border-color: var(--dorc-border-color);
-        border-top-color: var(--dorc-link-color);
-        animation: spin 1s infinite linear;
-        border-radius: 100%;
-        border-style: solid;
-      }
-
-      @keyframes spin {
-        100% {
-          transform: rotate(360deg);
-        }
-      }
-
-      @keyframes spin {
-        0% {
-          transform: rotate(0deg);
-        }
-        100% {
-          transform: rotate(360deg);
-        }
-      }
-
       paper-dialog.size-position {
         top: 16px;
         overflow: auto;
         padding: 10px;
+      }
+      @media (max-width: 768px) {
+        vaadin-grid-cell-content {
+          white-space: normal;
+          word-wrap: break-word;
+          overflow-wrap: break-word;
+        }
       }
     `;
   }
@@ -200,13 +169,7 @@ export class PageConfigValuesList extends PageElement {
       </paper-dialog>
       ${this.loading
         ? html`
-            <div class="overlay" style="z-index: 2">
-              <div class="overlay__inner">
-                <div class="overlay__content">
-                  <span class="spinner"></span>
-                </div>
-              </div>
-            </div>
+            <dorc-spinner></dorc-spinner>
           `
         : html`
             <vaadin-grid
@@ -230,6 +193,7 @@ export class PageConfigValuesList extends PageElement {
                 width="100px"
                 flex-grow="0"
                 .renderer=${this.isSecuredRenderer}
+                ?hidden="${this._narrowScreen}"
               ></vaadin-grid-sort-column>
               <vaadin-grid-sort-column
                 path="IsForProd"
@@ -238,6 +202,7 @@ export class PageConfigValuesList extends PageElement {
                 width="100px"
                 flex-grow="0"
                 .renderer=${this.isForProdRenderer}
+                ?hidden="${this._narrowScreen}"
               ></vaadin-grid-sort-column>
               <vaadin-grid-column
                 header="Config Value"

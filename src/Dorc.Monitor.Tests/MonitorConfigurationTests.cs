@@ -67,6 +67,67 @@ namespace Dorc.Monitor.Tests
             Assert.AreEqual(5, config.LockAcquisitionTimeoutSeconds);
         }
 
+        // --- LockReacquisitionRetryWindowSeconds ---
+
+        /// <summary>
+        /// S-002 T1: When not configured, the retry window defaults to 150 seconds
+        /// (midpoint estimate of the observed ~2-3 min FM-3 broker recovery window).
+        /// </summary>
+        [TestMethod]
+        public void LockReacquisitionRetryWindowSeconds_WhenNotConfigured_ReturnsDefault150()
+        {
+            var config = CreateConfiguration(new Dictionary<string, string?>());
+
+            Assert.AreEqual(150, config.LockReacquisitionRetryWindowSeconds);
+        }
+
+        /// <summary>
+        /// S-002 T2: When configured, the retry window returns the configured value.
+        /// </summary>
+        [TestMethod]
+        public void LockReacquisitionRetryWindowSeconds_WhenConfigured_ReturnsConfiguredValue()
+        {
+            var config = CreateConfiguration(new Dictionary<string, string?>
+            {
+                { "AppSettings:HighAvailability:LockReacquisitionRetryWindowSeconds", "300" }
+            });
+
+            Assert.AreEqual(300, config.LockReacquisitionRetryWindowSeconds);
+        }
+
+        [TestMethod]
+        public void LockReacquisitionRetryWindowSeconds_WhenZero_ReturnsDefault150()
+        {
+            var config = CreateConfiguration(new Dictionary<string, string?>
+            {
+                { "AppSettings:HighAvailability:LockReacquisitionRetryWindowSeconds", "0" }
+            });
+
+            Assert.AreEqual(150, config.LockReacquisitionRetryWindowSeconds);
+        }
+
+        [TestMethod]
+        public void LockReacquisitionRetryWindowSeconds_WhenNegative_ReturnsDefault150()
+        {
+            var config = CreateConfiguration(new Dictionary<string, string?>
+            {
+                { "AppSettings:HighAvailability:LockReacquisitionRetryWindowSeconds", "-10" }
+            });
+
+            Assert.AreEqual(150, config.LockReacquisitionRetryWindowSeconds);
+        }
+
+        [TestMethod]
+        public void LockReacquisitionRetryWindowSeconds_WhenNonNumeric_ReturnsDefault150()
+        {
+            var config = CreateConfiguration(new Dictionary<string, string?>
+            {
+                { "AppSettings:HighAvailability:LockReacquisitionRetryWindowSeconds", "abc" }
+            });
+
+            Assert.AreEqual(150, config.LockReacquisitionRetryWindowSeconds);
+        }
+
         // --- OAuthTokenRefreshCheckIntervalMinutes ---
 
         [TestMethod]

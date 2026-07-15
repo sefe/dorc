@@ -205,18 +205,29 @@ namespace Dorc.Core
             throw new ArgumentException($"Failed to locate an entity with SID: {sid}");
         }
 
+        // Allowed characters for a directory search term. NOTE: the hyphen is intentionally last
+        // so it is a literal, not a range. A previous version used "'-_" which is a character
+        // RANGE (0x27-0x5F) that silently permitted LDAP metacharacters such as * ( ) and \.
+        internal static bool IsValidSearchName(string name)
+        {
+            return name != null && Regex.IsMatch(name, @"^[a-zA-Z0-9'_. -]+(\(External\))?$");
+        }
+
         public UserElementApiModel GetUserData(string name)
         {
-            if (!Regex.IsMatch(name, @"^[a-zA-Z'-_. ]+(\(External\))?$"))
+            if (!IsValidSearchName(name))
             {
-                throw new ArgumentException("Invalid search criteria. Search criteria must be \"^[a-zA-Z-_. ]+(\\(External\\))?$\"!");
+                throw new ArgumentException("Invalid search criteria. Search criteria must match \"^[a-zA-Z0-9'_. -]+(\\(External\\))?$\"!");
             }
 
+            // Defence in depth: escape LDAP metacharacters even though validation should have
+            // rejected them, so the value can never alter the filter structure.
+            var escapedName = EscapeLdapFilter(name);
             using (var dirSearcher = new DirectorySearcher(new DirectoryEntry())
             {
                 SearchScope = SearchScope.Subtree,
                 Filter = string.Format("(&(objectClass=user)(|(cn={0})(sn={0}*)(givenName={0})(DisplayName={0}*)(sAMAccountName={0}*)))",
-                    name)
+                    escapedName)
             })
             {
                 dirSearcher.PropertiesToLoad.Add("mail");        // smtp mail address
@@ -253,7 +264,7 @@ namespace Dorc.Core
 
             DirectorySearcher ds = new DirectorySearcher();
 
-            ds.Filter = $"(&(objectClass=user)(sAMAccountName={name}))";
+            ds.Filter = $"(&(objectClass=user)(sAMAccountName={EscapeLdapFilter(name)}))";
             SearchResult sr = ds.FindOne();
 
             DirectoryEntry user = sr.GetDirectoryEntry();

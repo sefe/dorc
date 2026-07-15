@@ -116,6 +116,7 @@ export class MakeLikeProductionDialog extends LitElement {
       <vaadin-dialog
         id="dialog"
         header-title="Queue Bundle Request Set"
+        theme="wide"
         .opened="${this.bundleRequestDialogOpened}"
         resizable
         draggable

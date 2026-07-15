@@ -164,24 +164,6 @@ namespace Tests.Acceptance.Support
             }
         }
 
-        public int GetEnvironmentUserCount(int environmentId)
-        {
-            using (SqlConnection sqlConnection = new SqlConnection(this.connectionString))
-            using (SqlCommand selectCommand = new SqlCommand(
-                "SELECT COUNT(*) FROM [deploy].[EnvironmentDelegatedUser] WHERE [EnvId] = @environmentId ;", sqlConnection))
-            {
-                SqlParameter parameter = new SqlParameter("@environmentId", SqlDbType.Int);
-                parameter.Value = environmentId;
-                selectCommand.Parameters.Add(parameter);
-
-                sqlConnection.Open();
-
-                var rowCunt = selectCommand.ExecuteScalar();
-
-                return (int)rowCunt;
-            }
-        }
-
         public IEnumerable<int> GetEnvironmentComponentStatuses(int environmentId)
         {
             using (SqlConnection sqlConnection = new SqlConnection(this.connectionString))

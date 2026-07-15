@@ -151,18 +151,19 @@ namespace Dorc.PersistentData.Sources
                 if (env == null) return false;
 
                 var permissions = _accessControlPersistentSource.GetAccessControls(env.ObjectId);
-                var ownerAccess = permissions.FirstOrDefault(p => p.Allow.HasAccessLevel(AccessLevel.Owner));
-                if (ownerAccess == null) return false;
+                var ownerAccessList = permissions.Where(p => p.Allow.HasAccessLevel(AccessLevel.Owner)).ToList();
+                if (ownerAccessList.Count == 0) return false;
 
                 string userId = _claimsPrincipalReader.GetUserId(user);
                 string userlogin = _claimsPrincipalReader.GetUserLogin(user);
                 // Direct OID from token, unaffected by IsUseAdSidsForAccessControl config
                 string userOid = user.FindFirst("oid")?.Value ?? string.Empty;
 
-                return ownerAccess.Pid == userId ||    // 1. oauth user, permission was added via oauth with pid
-                    ownerAccess.Pid == userOid ||       // 2. oauth user, GetUserId returned AD SID due to config, but Pid stores OID
-                    ownerAccess.Sid == userId ||         // 3. winauth user, permission was added via AD with sid
-                    ownerAccess.Sid == userlogin;        // 4. oauth user, permission was added via AD and sid was set as loginId
+                return ownerAccessList.Any(ownerAccess =>
+                    ownerAccess.Pid == userId ||    // 1. oauth user, permission was added via oauth with pid
+                    ownerAccess.Pid == userOid ||   // 2. oauth user, GetUserId returned AD SID due to config, but Pid stores OID
+                    ownerAccess.Sid == userId ||     // 3. winauth user, permission was added via AD with sid
+                    ownerAccess.Sid == userlogin);   // 4. oauth user, permission was added via AD and sid was set as loginId
             }
         }
 
@@ -367,10 +368,6 @@ namespace Dorc.PersistentData.Sources
                     into accessControlEnvironments
                 from allAccessControlEnvironments in accessControlEnvironments.DefaultIfEmpty()
                 where project.Name == projectName
-                let isDelegate =
-                    (from env in context.Environments
-                     where env.Name == environment.Name && environment.Users.Select(u => u.LoginId).Contains(username)
-                     select environment.Name).Any()
                 let permissions = (from env in context.Environments
                                    join ac in context.AccessControls on env.ObjectId equals ac.ObjectId
                                    where env.Name == environment.Name && (EF.Constant(userSids).Contains(ac.Sid) || ac.Pid != null && EF.Constant(userSids).Contains(ac.Pid)) &&
@@ -381,8 +378,7 @@ namespace Dorc.PersistentData.Sources
                 select new EnvironmentData
                 {
                     Environment = environment,
-                    UserEditable = isOwner || hasPermission || isDelegate || isAdmin,
-                    IsDelegate = isDelegate,
+                    UserEditable = isOwner || hasPermission || isAdmin,
                     IsModify = hasPermission,
                     IsOwner = isOwner,
                 });
@@ -412,7 +408,6 @@ namespace Dorc.PersistentData.Sources
             if (string.IsNullOrEmpty(environmentName))
                 return null;
 
-            string username = _claimsPrincipalReader.GetUserLogin(user);
             var userSids = _claimsPrincipalReader.GetSidsForUser(user);
 
             using (var context = contextFactory.GetContext())
@@ -438,16 +433,10 @@ namespace Dorc.PersistentData.Sources
                 }
                 else
                 {
-                    var isDelegate = context.Environments
-                        .Where(env => env.Name == environment.Name && env.Users.Select(u => u.LoginId).Contains(username))
-                        .Select(env => env.Name).Any();
-
                     var isModify = envPermissions
                         .Any(p => (p.Allow & (int)(AccessLevel.Write | AccessLevel.Owner)) != 0);
 
-                    var userEditable = isOwner || isModify || isDelegate;
-                    result.UserEditable = userEditable;
-
+                    result.UserEditable = isOwner || isModify;
                 }
                 return result;
             }
@@ -614,7 +603,6 @@ namespace Dorc.PersistentData.Sources
                                 .Include(e => e.Histories)
                                 .Include(e => e.Projects)
                                 .Include(e => e.Servers)
-                                .Include(e => e.Users)
                                 .SingleOrDefault(e =>
                                     EF.Functions.Collate(e.Name, DeploymentContext.CaseInsensitiveCollation)
                                     == EF.Functions.Collate(env.EnvironmentName, DeploymentContext.CaseInsensitiveCollation));
@@ -645,7 +633,6 @@ namespace Dorc.PersistentData.Sources
                             environment.AccessControls.Clear();
                             environment.Databases.Clear();
                             environment.Servers.Clear();
-                            environment.Users.Clear();
                             environment.Projects.Clear();
 
                             // Environment histories will be preserved automatically by the database foreign key constraint
@@ -736,10 +723,6 @@ namespace Dorc.PersistentData.Sources
                           join ac in context.AccessControls on environment.ObjectId equals ac.ObjectId into
                               accessControlEnvironments
                           from allAccessControlEnvironments in accessControlEnvironments.DefaultIfEmpty()
-                          let isDelegate =
-                              (from env in context.Environments
-                               where env.Name == environment.Name && env.Users.Select(u => u.LoginId).Contains(username)
-                               select env.Name).Any()
                           let permissions = (from env in context.Environments
                                              join ac in context.AccessControls on env.ObjectId equals ac.ObjectId
                                              where env.Name == environment.Name && (EF.Constant(userSids).Contains(ac.Sid) || ac.Pid != null && EF.Constant(userSids).Contains(ac.Pid))
@@ -749,8 +732,7 @@ namespace Dorc.PersistentData.Sources
                           select new EnvironmentData
                           {
                               Environment = environment,
-                              UserEditable = isOwner || isModify || isDelegate,
-                              IsDelegate = isDelegate,
+                              UserEditable = isOwner || isModify,
                               IsModify = isModify,
                               IsOwner = isOwner
                           });

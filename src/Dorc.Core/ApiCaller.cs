@@ -1,18 +1,12 @@
 ﻿using Dorc.Core.Configuration;
-using Microsoft.Extensions.Configuration;
-using Microsoft.IdentityModel.Tokens;
 using RestSharp;
 using RestSharp.Authenticators.OAuth2;
+using System.Linq;
 using System.Net;
 using System.Text.Json;
 
 namespace Dorc.Core
 {
-    public class ContentResponse
-    {
-        public string Message { get; set; } = default!;
-    }
-
     public interface IApiCaller
     {
         ApiResult<T> Call<T>(Endpoints endpoint, Method method, Dictionary<string, string> segments = null, string body = null) where T : class;
@@ -21,7 +15,7 @@ namespace Dorc.Core
     public class ApiCaller : IApiCaller
     {
         private RestClient Client;
-        
+
         private readonly IOAuthClientConfiguration _configuration;
 
         public ApiCaller(IOAuthClientConfiguration configuration)
@@ -65,20 +59,8 @@ namespace Dorc.Core
                 }
                 else
                 {
-                    if (response.ContentType != null
-                        && response.ContentType.Contains(ContentType.Json))
-                    {
-                        ContentResponse? contentResponse = JsonSerializer.Deserialize<ContentResponse>(responseContent);
-                        if (contentResponse != null)
-                        {
-                            result.ErrorMessage = contentResponse.Message;
-                        }
-                    }
-                    else
-                    {
-                        result.ErrorMessage = responseContent;
-                    }
                     result.IsModelValid = false;
+                    result.ErrorMessage = ExtractErrorMessage(responseContent);
                 }
             }
             catch (Exception e)
@@ -87,6 +69,55 @@ namespace Dorc.Core
                 result.ErrorMessage = e.Message;
             }
             return result;
+        }
+
+        // Property names, in priority order, that may carry a human-readable error message:
+        // "Message" (CopyEnvBuildResponseDto, serialized exceptions), "detail"/"title"
+        // (RFC 7807 ProblemDetails / ASP.NET validation responses).
+        private static readonly string[] ErrorMessagePropertyNames =
+            { "Message", "message", "detail", "title" };
+
+        /// <summary>
+        /// Produces a human-readable error message from a failed response body. Handles the
+        /// shapes the API emits: a JSON object carrying a message property (see
+        /// <see cref="ErrorMessagePropertyNames"/>), a bare JSON string (e.g. BadRequest("...")),
+        /// and plain text. Falls back to the raw content when the body is not JSON or has no
+        /// recognisable, non-empty message.
+        /// </summary>
+        internal static string ExtractErrorMessage(string responseContent)
+        {
+            try
+            {
+                using var document = JsonDocument.Parse(responseContent);
+                var root = document.RootElement;
+
+                if (root.ValueKind == JsonValueKind.String)
+                {
+                    var value = root.GetString();
+                    return string.IsNullOrEmpty(value) ? responseContent : value;
+                }
+
+                if (root.ValueKind == JsonValueKind.Object)
+                {
+                    var rootElement = root;
+                    var message = ErrorMessagePropertyNames
+                        .Select(name => rootElement.TryGetProperty(name, out var prop) ? prop : (JsonElement?)null)
+                        .Where(prop => prop is { ValueKind: JsonValueKind.String })
+                        .Select(prop => prop!.Value.GetString())
+                        .FirstOrDefault(value => !string.IsNullOrEmpty(value));
+
+                    if (!string.IsNullOrEmpty(message))
+                    {
+                        return message;
+                    }
+                }
+            }
+            catch (JsonException)
+            {
+                // Not JSON - fall through and surface the raw content.
+            }
+
+            return responseContent;
         }
 
         private void EnsureClientCreatedAuthenticated()
@@ -109,10 +140,26 @@ namespace Dorc.Core
             Client = new RestClient(options);
         }
 
+        private static readonly Dictionary<Endpoints, string> EndpointPaths = new()
+        {
+            { Endpoints.Properties, "Properties" },
+            { Endpoints.PropertyValues, "PropertyValues" },
+            { Endpoints.Request, "Request" },
+            { Endpoints.ConfigValues, "ConfigValues" },
+            { Endpoints.CopyEnvBuild, "CopyEnvBuild" },
+            { Endpoints.RefDataEnvironments, "RefDataEnvironments" },
+            { Endpoints.RefDataDatabases, "RefDataDatabases" },
+            { Endpoints.RefDataDatabasesByType, "RefDataDatabases/ByType" },
+            { Endpoints.RefDataServers, "RefDataServers" },
+            { Endpoints.RefDataServersAppServersByEnvName, "RefDataServers/AppServersByEnvName" },
+            { Endpoints.RefDataSqlPorts, "RefDataSqlPorts" },
+            { Endpoints.RefDataSqlPortsByInstance, "RefDataSqlPorts/ByInstance" },
+            { Endpoints.RefDataEnvironmentsHistory, "RefDataEnvironmentsHistory" },
+        };
+
         private string GetEndpointPath(Endpoints value)
         {
-            string? endpointName = Enum.GetName(typeof(Endpoints), value);
-            return endpointName ?? string.Empty;
+            return EndpointPaths.TryGetValue(value, out var path) ? path : (Enum.GetName(typeof(Endpoints), value) ?? string.Empty);
         }
     }
 

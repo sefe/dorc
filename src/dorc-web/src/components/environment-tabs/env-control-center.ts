@@ -50,7 +50,7 @@ export class EnvControlCenter extends PageEnvBase {
   @property({ type: String }) secureName = '';
 
   @state()
-  private isEnvOwnerOrDelegate = false;
+  private isEnvOwner = false;
 
   @state()
   private isAdmin = false;
@@ -132,7 +132,7 @@ export class EnvControlCenter extends PageEnvBase {
           <vaadin-button
             title="Delete Environment &amp; Properties"
             @click="${this.deleteEnvironment}"
-            ?disabled="${!(this.isAdmin || this.isEnvOwnerOrDelegate)}"
+            ?disabled="${!(this.isAdmin || this.isEnvOwner)}"
           >
             <vaadin-icon icon="icons:delete" slot="prefix"></vaadin-icon
             >Delete Environment...</vaadin-button>
@@ -163,7 +163,7 @@ export class EnvControlCenter extends PageEnvBase {
             @click="${this.resetAppPasswordBehalf}"
             ?hidden="${!this.isEndur}"
             .disabled="${this.environment?.EnvironmentIsProd ||
-            !(this.isEnvOwnerOrDelegate || this.isAdmin)}"
+            !(this.isEnvOwner || this.isAdmin)}"
           >
             <vaadin-icon icon="vaadin:safe" slot="prefix"></vaadin-icon
             >Reset SQL Account Password for...</vaadin-button>
@@ -175,7 +175,11 @@ export class EnvControlCenter extends PageEnvBase {
   constructor() {
     super();
 
-    super.loadEnvironmentInfo();
+    this.addEventListener(
+      'close-mlp-dialog',
+      this.closeMlpDialog as EventListener
+    );
+
     const gc = GlobalCache.getInstance();
     if (gc.userRoles === undefined) {
       gc.allRolesResp?.subscribe({
@@ -199,11 +203,11 @@ export class EnvControlCenter extends PageEnvBase {
   isEnvironmentOwner() {
     const api = new RefDataEnvironmentsApi();
     api
-      .refDataEnvironmentsIsEnvironmentOwnerOrDelegateGet({
+      .refDataEnvironmentsIsEnvironmentOwnerGet({
         envName: this.environment?.EnvironmentName ?? ''
       })
       .subscribe(value => {
-        this.isEnvOwnerOrDelegate = value;
+        this.isEnvOwner = value;
       });
   }
 
@@ -213,11 +217,6 @@ export class EnvControlCenter extends PageEnvBase {
 
   firstUpdated(_changedProperties: PropertyValues) {
     super.firstUpdated(_changedProperties);
-
-    this.addEventListener(
-      'close-mlp-dialog',
-      this.closeMlpDialog as EventListener
-    );
   }
 
   openAccessControl() {
@@ -306,6 +305,11 @@ export class EnvControlCenter extends PageEnvBase {
     } else {
       this.isEndur = false;
     }
+
+    this.envFilter =
+      this.environment?.Details?.ThinClient !== null
+        ? this.environment?.Details?.ThinClient
+        : undefined;
 
     this.mappedProjects = this.envContent?.MappedProjects?.map(
       p => p.ProjectName ?? ''

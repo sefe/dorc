@@ -35,5 +35,15 @@ export interface AnalyticsDurationApiModel {
      * @type {number}
      * @memberof AnalyticsDurationApiModel
      */
-    TotalDeployments?: number;
+    P50DurationMinutes?: number | null;
+    /**
+     * @type {number}
+     * @memberof AnalyticsDurationApiModel
+     */
+    P90DurationMinutes?: number | null;
+    /**
+     * @type {number}
+     * @memberof AnalyticsDurationApiModel
+     */
+    P95DurationMinutes?: number | null;
 }

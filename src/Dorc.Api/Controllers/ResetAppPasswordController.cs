@@ -57,7 +57,7 @@ namespace Dorc.Api.Controllers
         [HttpPut]
         public IActionResult Put(string envFilter, string envName, string username)
         {
-            return _securityPrivilegesChecker.IsEnvironmentOwnerOrAdminOrDelegate(User, envName)
+            return _securityPrivilegesChecker.CanModifyEnvironment(User, envName)
                 ? ResetPassword(envFilter, envName, username)
                 : StatusCode(StatusCodes.Status403Forbidden,
                     $"You are not authorized to reset passwords for {envName}");

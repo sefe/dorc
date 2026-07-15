@@ -1,4 +1,4 @@
-name: DOrc Release Build
+name: DOrc Build
 
 on:
   push:
@@ -11,6 +11,7 @@ on:
       - 'hotfix/**'
       - 'migration/**'
       - 'copilot/**'
+      - 'claude/**'
   pull_request:
     branches:
       - main
@@ -29,22 +30,22 @@ jobs:
     
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
       
     - name: Setup .NET
-      uses: actions/setup-dotnet@v4
+      uses: actions/setup-dotnet@v5
       with:
         dotnet-version: ${{ env.DOTNET_VERSION }}
         
     - name: Setup Node.js
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@v6
       with:
         node-version: ${{ env.NODE_VERSION }}
         cache: 'npm'
         cache-dependency-path: src/dorc-web/package-lock.json
         
     - name: Setup MSBuild
-      uses: microsoft/setup-msbuild@v2
+      uses: microsoft/setup-msbuild@v3
       
     - name: Install WiX Toolset
       run: |
@@ -68,7 +69,49 @@ jobs:
     - name: Build web site
       working-directory: src/dorc-web
       run: npm run build
-      
+
+    # The next three steps assume Windows (pwsh + the Windows cache path).
+    # The whole job is windows-latest today; the `if: runner.os == 'Windows'`
+    # guards align them so adding a Linux/macOS matrix entry later is a
+    # localised change here rather than a silent CI mis-fire.
+    - name: Get installed Playwright version
+      id: playwright-version
+      if: runner.os == 'Windows'
+      working-directory: src/dorc-web
+      shell: pwsh
+      run: |
+        $version = (npm ls @playwright/test --json 2>$null `
+          | ConvertFrom-Json).dependencies.'@playwright/test'.version
+        if (-not $version) {
+          $version = (npm ls playwright --json 2>$null `
+            | ConvertFrom-Json).dependencies.playwright.version
+        }
+        if (-not $version) {
+          # Refuse to write an empty cache key — would produce
+          # `playwright-Windows-` and silently match every run forever.
+          Write-Error "Could not determine installed Playwright version"
+          exit 1
+        }
+        echo "version=$version" >> $env:GITHUB_OUTPUT
+
+    - name: Cache Playwright browsers
+      id: playwright-cache
+      if: runner.os == 'Windows'
+      uses: actions/cache@v5
+      with:
+        path: ~\AppData\Local\ms-playwright
+        key: playwright-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
+
+    - name: Install Playwright browsers
+      if: runner.os == 'Windows' && steps.playwright-cache.outputs.cache-hit != 'true'
+      working-directory: src/dorc-web
+      run: npx playwright install chromium firefox webkit
+
+    - name: Run web tests
+      if: runner.os == 'Windows'
+      working-directory: src/dorc-web
+      run: npm test
+
     - name: Version AssemblyInfo files
       shell: pwsh
       env:
@@ -120,7 +163,7 @@ jobs:
         }
       
     - name: Cache NuGet packages
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: ~/.nuget/packages
         key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json', '**/*.csproj') }}
@@ -144,33 +187,38 @@ jobs:
           New-Item -ItemType Directory -Force -Path $resultsDir | Out-Null
         }
         
-        # Find test assemblies, excluding integration tests that require external dependencies
-        $testAssemblies = Get-ChildItem -Path "${{ github.workspace }}\src" -Recurse -Include "*Tests.dll","*Test.dll" | 
-          Where-Object { 
-            $_.FullName -notmatch "\\obj\\" -and 
+        # Find test projects (plural *Tests.csproj only — singular *Test.csproj
+        # picks up non-test projects like Tools.RabbitMqOAuthTest).
+        # IntegrationTests and Acceptance are excluded — they need external resources.
+        $testProjects = Get-ChildItem -Path "${{ github.workspace }}\src" -Recurse -Include "*Tests.csproj" |
+          Where-Object {
             $_.FullName -notmatch "IntegrationTests" -and
             $_.FullName -notmatch "Acceptance"
           }
         
-        if ($testAssemblies.Count -gt 0) {
-          Write-Host "Found $($testAssemblies.Count) test assemblies (excluding integration/acceptance tests):"
-          $testAssemblies | ForEach-Object { Write-Host "  - $($_.FullName)" }
+        if ($testProjects.Count -gt 0) {
+          Write-Host "Found $($testProjects.Count) test projects (excluding integration/acceptance tests):"
+          $testProjects | ForEach-Object { Write-Host "  - $($_.FullName)" }
           
-          # Use full path to vstest.console.exe
-          $vstestPath = "${env:ProgramFiles}\Microsoft Visual Studio\2022\Enterprise\Common7\IDE\CommonExtensions\Microsoft\TestWindow\vstest.console.exe"
-          if (-not (Test-Path $vstestPath)) {
-            # Try Community edition
-            $vstestPath = "${env:ProgramFiles}\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\TestWindow\vstest.console.exe"
-          }
-          if (-not (Test-Path $vstestPath)) {
-            Write-Host "VSTest not found at expected locations, trying PATH..."
-            $vstestPath = "vstest.console.exe"
+          $failedProjects = @()
+          foreach ($proj in $testProjects) {
+            Write-Host "`nRunning tests for: $($proj.Name)"
+            dotnet test $proj.FullName --configuration ${{ env.BUILD_CONFIGURATION }} --no-build --logger "trx" --results-directory $resultsDir
+            # A non-zero exit covers both test failures and projects that never
+            # ran (e.g. not built by the solution, so --no-build has no output).
+            # Record these so the failure-check step cannot miss them when no
+            # .trx was produced.
+            if ($LASTEXITCODE -ne 0) {
+              Write-Host "::warning::dotnet test returned exit code $LASTEXITCODE for $($proj.Name)"
+              $failedProjects += $proj.Name
+            }
           }
           
-          Write-Host "Using VSTest from: $vstestPath"
-          & $vstestPath $testAssemblies.FullName /Parallel /Logger:trx /ResultsDirectory:$resultsDir
+          if ($failedProjects.Count -gt 0) {
+            Set-Content -Path (Join-Path $resultsDir "failed-projects.txt") -Value ($failedProjects -join "`n")
+          }
         } else {
-          Write-Host "No test assemblies found"
+          Write-Host "No test projects found"
         }
       continue-on-error: true
       
@@ -184,13 +232,29 @@ jobs:
           exit 0
         }
         
+        $failed = $false
+
+        # Projects whose `dotnet test` exited non-zero (test failures, or
+        # projects that failed to run/build and produced no .trx).
+        $sentinel = Join-Path $resultsDir "failed-projects.txt"
+        if (Test-Path $sentinel) {
+          $failedProjects = Get-Content $sentinel | Where-Object { $_ -ne "" }
+          if ($failedProjects) {
+            Write-Host "Test run reported non-zero exit for: $($failedProjects -join ', ')"
+            $failed = $true
+          }
+        }
+
         $trxFiles = Get-ChildItem -Path $resultsDir -Recurse -Include *.trx -ErrorAction SilentlyContinue
         if (-not $trxFiles) {
+          if ($failed) {
+            Write-Error "Test run reported failures but no .trx files were produced. Failing workflow."
+            exit 1
+          }
           Write-Host "No test result files found, skipping test failure check"
           exit 0
         }
         
-        $failed = $false
         foreach ($file in $trxFiles) {
           [xml]$xml = Get-Content $file.FullName
           $failCount = ($xml.TestRun.Results.UnitTestResult | Where-Object { $_.outcome -eq "Failed" }).Count
@@ -274,7 +338,7 @@ jobs:
         }
 
     - name: Upload build artifacts
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: dorc-release-${{ steps.version.outputs.VERSION }}
         path: artifacts/

@@ -39,7 +39,7 @@ namespace Dorc.PersistentData.Contexts
         public DbSet<BundledRequests> BundledRequests { get; set; }
         public DbSet<Component> Components { get; set; }
         public DbSet<ConfigValue> ConfigValues { get; set; }
-        public DbSet<Daemon> Services { get; set; }
+        public DbSet<Daemon> Daemons { get; set; }
         public DbSet<Database> Databases { get; set; }
         public DbSet<DeploymentRequestProcess> DeploymentRequestProcesses { get; set; }
         public DbSet<DeploymentRequest> DeploymentRequests { get; set; }
@@ -51,6 +51,11 @@ namespace Dorc.PersistentData.Contexts
         public DbSet<AnalyticsTimePattern> AnalyticsTimePattern { get; set; }
         public DbSet<AnalyticsComponentUsage> AnalyticsComponentUsage { get; set; }
         public DbSet<AnalyticsDuration> AnalyticsDuration { get; set; }
+        public DbSet<AnalyticsMonthlyOutcome> AnalyticsMonthlyOutcome { get; set; }
+        public DbSet<AnalyticsEnvironmentWait> AnalyticsEnvironmentWait { get; set; }
+        public DbSet<AnalyticsProjectDuration> AnalyticsProjectDuration { get; set; }
+        public DbSet<AnalyticsComponentReliability> AnalyticsComponentReliability { get; set; }
+        public DbSet<AnalyticsRecoveryTime> AnalyticsRecoveryTime { get; set; }
         public DbSet<Environment> Environments { get; set; }
         public DbSet<EnvironmentComponentStatus> EnvironmentComponentStatuses { get; set; }
         public DbSet<EnvironmentHistory> EnvironmentHistories { get; set; }
@@ -63,12 +68,18 @@ namespace Dorc.PersistentData.Contexts
         public DbSet<PropertyValueFilter> PropertyValueFilters { get; set; }
         public DbSet<RefDataAudit> RefDataAudits { get; set; }
         public DbSet<RefDataAuditAction> RefDataAuditActions { get; set; }
+        public DbSet<DaemonAudit> DaemonAudits { get; set; }
+        public DbSet<DaemonObservation> DaemonObservations { get; set; }
+        public DbSet<ServerAudit> ServerAudits { get; set; }
+        public DbSet<DatabaseAudit> DatabaseAudits { get; set; }
         public DbSet<RequestStatuses> RequestStatuses { get; set; }
         public DbSet<Script> Scripts { get; set; }
         public DbSet<SecureKey> SecureKeys { get; set; }
         public DbSet<Server> Servers { get; set; }
         public DbSet<SqlPort> SqlPorts { get; set; }
         public DbSet<User> Users { get; set; }
+        public DbSet<DeploymentRequestAttempt> DeploymentRequestAttempts { get; set; }
+        public DbSet<DeploymentResultAttempt> DeploymentResultAttempts { get; set; }
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
@@ -138,6 +149,26 @@ namespace Dorc.PersistentData.Contexts
                 .ToTable("AnalyticsDuration", "deploy")
                 .HasKey(x => x.Id);
 
+            modelBuilder.Entity<AnalyticsMonthlyOutcome>()
+                .ToTable("AnalyticsMonthlyOutcome", "deploy")
+                .HasKey(x => x.Id);
+
+            modelBuilder.Entity<AnalyticsEnvironmentWait>()
+                .ToTable("AnalyticsEnvironmentWait", "deploy")
+                .HasKey(x => x.Id);
+
+            modelBuilder.Entity<AnalyticsProjectDuration>()
+                .ToTable("AnalyticsProjectDuration", "deploy")
+                .HasKey(x => x.Id);
+
+            modelBuilder.Entity<AnalyticsComponentReliability>()
+                .ToTable("AnalyticsComponentReliability", "deploy")
+                .HasKey(x => x.Id);
+
+            modelBuilder.Entity<AnalyticsRecoveryTime>()
+                .ToTable("AnalyticsRecoveryTime", "deploy")
+                .HasKey(x => x.Id);
+
             new AdGroupEntityTypeConfiguration().Configure(modelBuilder.Entity<AdGroup>());
             new AuditEntityTypeConfiguration().Configure(modelBuilder.Entity<Audit>());
             new AuditPropertyEntityTypeConfiguration().Configure(modelBuilder.Entity<AuditProperty>());
@@ -158,11 +189,17 @@ namespace Dorc.PersistentData.Contexts
             new PropertyValueFilterEntityTypeConfiguration().Configure(modelBuilder.Entity<PropertyValueFilter>());
             new RefDataAuditEntityTypeConfiguration().Configure(modelBuilder.Entity<RefDataAudit>());
             new RefDataAuditActionConfiguration().Configure(modelBuilder.Entity<RefDataAuditAction>());
+            new DaemonAuditEntityTypeConfiguration().Configure(modelBuilder.Entity<DaemonAudit>());
+            new DaemonObservationEntityTypeConfiguration().Configure(modelBuilder.Entity<DaemonObservation>());
+            new ServerAuditEntityTypeConfiguration().Configure(modelBuilder.Entity<ServerAudit>());
+            new DatabaseAuditEntityTypeConfiguration().Configure(modelBuilder.Entity<DatabaseAudit>());
             new ScriptEntityTypeConfiguration().Configure(modelBuilder.Entity<Script>());
             new SecureKeyEntityTypeConfiguration().Configure(modelBuilder.Entity<SecureKey>());
             new ServerEntityTypeConfiguration().Configure(modelBuilder.Entity<Server>());
             new SqlPortEntityTypeConfiguration().Configure(modelBuilder.Entity<SqlPort>());
             new UserEntityTypeConfiguration().Configure(modelBuilder.Entity<User>());
+            new DeploymentRequestAttemptEntityTypeConfiguration().Configure(modelBuilder.Entity<DeploymentRequestAttempt>());
+            new DeploymentResultAttemptEntityTypeConfiguration().Configure(modelBuilder.Entity<DeploymentResultAttempt>());
         }
 
         public new DbSet<TEntity> Set<TEntity>() where TEntity : class => base.Set<TEntity>();

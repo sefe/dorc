@@ -1,5 +1,6 @@
 ﻿using Dorc.ApiModel;
 using Dorc.PersistentData.Contexts;
+using Dorc.PersistentData.Exceptions;
 using Dorc.PersistentData.Model;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.EntityFrameworkCore;
@@ -9,9 +10,15 @@ namespace Dorc.PersistentData.Sources
     public sealed class DaemonsPersistentSource : IDaemonsPersistentSource
     {
         private readonly IDeploymentContextFactory _contextFactory;
+        private readonly IDaemonObservationPersistentSource _daemonObservationPersistentSource;
 
-        public DaemonsPersistentSource(IDeploymentContextFactory contextFactory) =>
+        public DaemonsPersistentSource(
+            IDeploymentContextFactory contextFactory,
+            IDaemonObservationPersistentSource daemonObservationPersistentSource)
+        {
             _contextFactory = contextFactory;
+            _daemonObservationPersistentSource = daemonObservationPersistentSource;
+        }
 
         public IEnumerable<DaemonApiModel> GetDaemonsForServer(int serverId)
         {
@@ -20,7 +27,7 @@ namespace Dorc.PersistentData.Sources
             {
                 var server = GetServer(serverId, context);
                 result = server != null
-                    ? server.Services.Select(daemon => Map(daemon, server)).ToList()
+                    ? server.Daemons.Select(daemon => Map(daemon, server)).ToList()
                     : new List<DaemonApiModel>();
             }
             return result;
@@ -28,15 +35,76 @@ namespace Dorc.PersistentData.Sources
 
         private static Server GetServer(int serverId, IDeploymentContext context) => context
                             .Servers
-                            .Include(d => d.Services)
+                            .Include(d => d.Daemons)
                             .FirstOrDefault(s => s.Id == serverId);
 
-        public IEnumerable<DaemonApiModel> GetDaemons()
+        public IEnumerable<ServerApiModel> GetServersForDaemon(int daemonId)
         {
             using (var context = _contextFactory.GetContext())
             {
-                return context.Services.Select(Map).ToList();
+                var daemon = context.Daemons
+                    .Include(d => d.Server)
+                    .FirstOrDefault(d => d.Id == daemonId);
+
+                if (daemon == null) return Enumerable.Empty<ServerApiModel>();
+
+                return daemon.Server
+                    .Select(s => new ServerApiModel
+                    {
+                        ServerId = s.Id,
+                        Name = s.Name,
+                        OsName = s.OsName,
+                        ApplicationTags = s.ApplicationTags
+                    })
+                    .ToList();
             }
+        }
+
+        public IEnumerable<DaemonApiModel> GetDaemons()
+        {
+            List<DaemonApiModel> mapped;
+            using (var context = _contextFactory.GetContext())
+            {
+                mapped = context.Daemons.Select(Map).ToList();
+            }
+
+            if (mapped.Count == 0) return mapped;
+
+            var lastSeen = _daemonObservationPersistentSource.GetLastSeenByDaemon(
+                mapped.Select(d => d.Id));
+
+            foreach (var daemon in mapped)
+            {
+                if (lastSeen.TryGetValue(daemon.Id, out var observation))
+                {
+                    daemon.LastSeenDate = observation.ObservedAt;
+                    daemon.LastSeenStatus = observation.Status;
+                }
+            }
+
+            return mapped;
+        }
+
+        public DaemonApiModel? GetDaemonById(int daemonId)
+        {
+            DaemonApiModel? result;
+            using (var context = _contextFactory.GetContext())
+            {
+                var daemon = context.Daemons.FirstOrDefault(d => d.Id == daemonId);
+                result = daemon == null ? null : Map(daemon);
+            }
+
+            if (result != null)
+            {
+                var lastSeen = _daemonObservationPersistentSource.GetLastSeenByDaemon(new[] { daemonId });
+                if (lastSeen.TryGetValue(daemonId, out var observation))
+                {
+                    result.LastSeenDate = observation.ObservedAt;
+                    result.LastSeenStatus = observation.Status;
+                }
+            }
+
+            return result;
         }
 
         private DaemonApiModel Map(Daemon daemon) =>
@@ -72,33 +140,43 @@ namespace Dorc.PersistentData.Sources
 
         public DaemonApiModel Add(DaemonApiModel daemonApiModel)
         {
-            DaemonApiModel result;
             using (var context = _contextFactory.GetContext())
             {
-                var mapToDatabase = Map(daemonApiModel);
+                if (context.Daemons.Any(d => d.Name == daemonApiModel.Name))
+                {
+                    throw new DaemonDuplicateException(
+                        $"A daemon with Name '{daemonApiModel.Name}' already exists");
+                }
 
-                context.Services.Add(mapToDatabase);
+                if (!string.IsNullOrEmpty(daemonApiModel.DisplayName)
+                    && context.Daemons.Any(d => d.DisplayName == daemonApiModel.DisplayName))
+                {
+                    throw new DaemonDuplicateException(
+                        $"A daemon with DisplayName '{daemonApiModel.DisplayName}' already exists");
+                }
+
+                var mapToDatabase = Map(daemonApiModel);
+                context.Daemons.Add(mapToDatabase);
                 context.SaveChanges();
-                result = context
-                    .Services
-                    .Where(daemon => daemon.Name.Equals(daemonApiModel.Name)).AsEnumerable()
-                    .Select(Map)
-                    .First();
+
+                return Map(mapToDatabase);
             }
-            return result;
         }
 
         public bool Delete(int daemonApiModelId)
         {
             using (var context = _contextFactory.GetContext())
             {
-                var entity = context.Services.Find(daemonApiModelId);
+                var entity = context.Daemons
+                    .Include(d => d.Server)
+                    .FirstOrDefault(d => d.Id == daemonApiModelId);
                 if (entity == null)
                 {
                     return false;
                 }
 
-                context.Services.Remove(entity);
+                entity.Server.Clear();
+                context.Daemons.Remove(entity);
                 context.SaveChanges();
                 return true;
             }
@@ -106,45 +184,43 @@ namespace Dorc.PersistentData.Sources
 
         public DaemonApiModel Update(DaemonApiModel model)
         {
-            DaemonApiModel result = null;
             using (var context = _contextFactory.GetContext())
             {
-                var updatedDaemon = Map(model);
-
-                var existingDaemon = context.Services
+                var existingDaemon = context.Daemons
                     .FirstOrDefault(daemon => daemon.Id == model.Id);
 
-                if (existingDaemon != null)
+                // Interface contract is non-nullable; throw on missing rather than returning
+                // null so any caller that skips the controller's pre-check fails loudly here.
+                if (existingDaemon == null)
                 {
-                    existingDaemon.ServiceType = updatedDaemon.ServiceType;
-                    existingDaemon.AccountName = updatedDaemon.AccountName;
-                    existingDaemon.DisplayName = updatedDaemon.DisplayName;
-
-                    context.SaveChanges();
-                    result = context
-                        .Services
-                        .Where(d => d.Id == updatedDaemon.Id).AsEnumerable()
-                        .Select(Map)
-                        .First();
+                    throw new KeyNotFoundException($"Daemon with Id {model.Id} not found");
                 }
+
+                var updatedDaemon = Map(model);
+                existingDaemon.Name = updatedDaemon.Name;
+                existingDaemon.ServiceType = updatedDaemon.ServiceType;
+                existingDaemon.AccountName = updatedDaemon.AccountName;
+                existingDaemon.DisplayName = updatedDaemon.DisplayName;
+
+                context.SaveChanges();
+                return Map(existingDaemon);
             }
-            return result;
         }
 
         public bool AttachDaemonToServer(int serverId, int daemonId)
         {
             using var context = _contextFactory.GetContext();
             var server = context.Servers
-                .Include(s => s.Services)
+                .Include(s => s.Daemons)
                 .FirstOrDefault(s => s.Id == serverId);
             if (server == null) return false;
 
-            var daemon = context.Services.Find(daemonId);
+            var daemon = context.Daemons.Find(daemonId);
             if (daemon == null) return false;
 
-            if (server.Services.Any(d => d.Id == daemonId)) return true;
+            if (server.Daemons.Any(d => d.Id == daemonId)) return true;
 
-            server.Services.Add(daemon);
+            server.Daemons.Add(daemon);
             context.SaveChanges();
             return true;
         }
@@ -153,37 +229,16 @@ namespace Dorc.PersistentData.Sources
         {
             using var context = _contextFactory.GetContext();
             var server = context.Servers
-                .Include(s => s.Services)
+                .Include(s => s.Daemons)
                 .FirstOrDefault(s => s.Id == serverId);
             if (server == null) return false;
 
-            var daemon = server.Services.FirstOrDefault(d => d.Id == daemonId);
+            var daemon = server.Daemons.FirstOrDefault(d => d.Id == daemonId);
             if (daemon == null) return false;
 
-            server.Services.Remove(daemon);
+            server.Daemons.Remove(daemon);
             context.SaveChanges();
             return true;
-        }
-
-        public void DiscoverAndMapDaemonsForServer(int serverId, IEnumerable<string> confirmedServiceNames)
-        {
-            using var context = _contextFactory.GetContext();
-            var server = context.Servers
-                .Include(s => s.Services)
-                .FirstOrDefault(s => s.Id == serverId);
-            if (server == null) return;
-
-            var daemonsByName = context.Services
-                .Where(d => confirmedServiceNames.Contains(d.Name))
-                .ToList();
-
-            foreach (var daemon in daemonsByName)
-            {
-                if (!server.Services.Any(s => s.Id == daemon.Id))
-                    server.Services.Add(daemon);
-            }
-
-            context.SaveChanges();
         }
     }
 }

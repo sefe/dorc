@@ -1,5 +1,6 @@
 using Dorc.Core;
 using Dorc.Core.AzureStorageAccount;
+using Dorc.Core.BuildServer;
 using Dorc.Core.Configuration;
 using Dorc.Core.Interfaces;
 using Dorc.Core.Security;
@@ -92,6 +93,13 @@ PersistentSourcesRegistry.Register(builder.Services);
 // (_runningTasks, environmentRequestIdRunning, environmentLockBackoff) that must be scoped
 // to a single MonitorService hosted-service lifetime. Transient ensures each resolution
 // gets a fresh instance, which is correct because MonitorService resolves them once at startup.
+// Explicit shutdown timeout matching the Windows SCM ServicesPipeTimeout (S-003).
+// The host's graceful window is the single controlling timeout for in-flight deployments.
+builder.Services.Configure<HostOptions>(options =>
+{
+    options.ShutdownTimeout = TimeSpan.FromSeconds(30);
+});
+
 builder.Services.AddTransient<Dorc.Monitor.IDeploymentEngine, DeploymentEngine>();
 builder.Services.AddTransient<IDeploymentRequestStateProcessor, DeploymentRequestStateProcessor>();
 
@@ -115,6 +123,17 @@ builder.Services.AddTransient<IComponentProcessor, ComponentProcessor>();
 builder.Services.AddTransient<IScriptDispatcher, ScriptDispatcher>();
 builder.Services.AddTransient<ITerraformDispatcher, TerraformDispatcher>();
 builder.Services.AddTransient<IAzureStorageAccountWorker, AzureStorageAccountWorker>();
+builder.Services.AddSingleton<IGitHubHostValidator, GitHubHostValidator>();
+
+builder.Services.AddTransient<GitHubRetryHandler>();
+builder.Services.AddHttpClient("GitHubActions", client =>
+{
+    client.DefaultRequestHeaders.Add("Accept", "application/vnd.github+json");
+    client.DefaultRequestHeaders.Add("User-Agent", "DOrc-Monitor");
+    client.DefaultRequestHeaders.Add("X-GitHub-Api-Version", "2022-11-28");
+    client.Timeout = TimeSpan.FromSeconds(300);
+}).AddHttpMessageHandler<GitHubRetryHandler>();
+builder.Services.AddTransient<IGitHubArtifactDownloader, GitHubArtifactDownloader>();
 
 builder.Services.AddTransient<IConfigurationSettings, ConfigurationSettings>();
 
@@ -139,7 +158,7 @@ builder.Services.AddTransient<IPropertyEncryptor>(serviceProvider =>
     {
         throw new InvalidOperationException("Instance of the interface 'ISecureKeyPersistentDataSource' is not found in the dependency container.");
     }
-    return new PropertyEncryptor(secureKeyPersistentDataSource.GetInitialisationVector(),
+    return new AesGcmPropertyEncryptor(secureKeyPersistentDataSource.GetInitialisationVector(),
         secureKeyPersistentDataSource.GetSymmetricKey());
 });
 

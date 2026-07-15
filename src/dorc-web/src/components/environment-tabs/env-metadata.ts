@@ -1,10 +1,13 @@
 import { css, PropertyValues } from 'lit';
+import '../dorc-spinner';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { PageEnvBase } from './page-env-base';
 import '../add-edit-environment';
+import './env-control-center';
+import type { EnvControlCenter } from './env-control-center';
 
 @customElement('env-metadata')
 export class EnvMetadata extends PageEnvBase {
@@ -14,52 +17,15 @@ export class EnvMetadata extends PageEnvBase {
     return css`
       :host {
         width: 100%;
-        overflow: hidden;
+        overflow-y: auto;
       }
-      .overlay {
-        width: 100%;
-        height: 100%;
-        position: fixed;
-      }
-      .overlay__inner {
-        width: 100%;
-        height: 100%;
-        position: absolute;
-      }
-      .overlay__content {
-        left: 20%;
-        position: absolute;
-        top: 20%;
-        transform: translate(-50%, -50%);
-      }
-      .spinner {
-        width: 75px;
-        height: 75px;
-        display: inline-block;
-        border-width: 2px;
-        border-color: var(--dorc-border-color);
-        border-top-color: var(--dorc-link-color);
-        animation: spin 1s infinite linear;
-        border-radius: 100%;
-        border-style: solid;
-      }
-      @keyframes spin {
-        100% {
-          transform: rotate(360deg);
-        }
-      }
-    `;
+      `;
   }
 
   render() {
     return html`
-      <div class="overlay" ?hidden="${!this.loading}">
-        <div class="overlay__inner">
-          <div class="overlay__content">
-            <span class="spinner"></span>
-          </div>
-        </div>
-      </div>
+      <dorc-spinner ?hidden="${!this.loading}"></dorc-spinner>
+      <env-control-center ?hidden="${this.loading}"></env-control-center>
       <add-edit-environment
         .readonly="${!this.environment?.UserEditable}"
         ?hidden="${this.loading}"
@@ -69,8 +35,19 @@ export class EnvMetadata extends PageEnvBase {
     `;
   }
 
+  notifyEnvironmentReady() {
+    const cc = this.shadowRoot?.querySelector(
+      'env-control-center'
+    ) as EnvControlCenter | null;
+    if (cc) cc.notifyEnvironmentReady();
+  }
+
   notifyEnvironmentContentReady() {
     this.loading = false;
+    const cc = this.shadowRoot?.querySelector(
+      'env-control-center'
+    ) as EnvControlCenter | null;
+    if (cc) cc.notifyEnvironmentContentReady();
   }
 
   protected firstUpdated(_changedProperties: PropertyValues) {
@@ -80,6 +57,8 @@ export class EnvMetadata extends PageEnvBase {
       'environment-details-updated',
       this.environmentDetailsUpdated as EventListener
     );
+
+    super.loadEnvironmentInfo();
   }
 
   environmentDetailsUpdated() {
@@ -88,7 +67,5 @@ export class EnvMetadata extends PageEnvBase {
 
   connectedCallback() {
     super.connectedCallback?.();
-
-    super.loadEnvironmentInfo();
   }
 }

@@ -48,5 +48,8 @@ namespace Dorc.PersistentData.Sources.Interfaces
         int SubmitRequest(DeploymentRequest deploymentRequest);
         void UpdateRequestDetails(int requestId, string requestDetails);
         void UpdateEnvironmentOwnerEmail(int requestId, string email);
+        void ArchiveCurrentAttempt(int requestId);
+        IEnumerable<DeploymentRequestAttemptApiModel> GetAttemptsForRequest(int requestId);
+        int GetNextAttemptNumber(int requestId);
     }
 }

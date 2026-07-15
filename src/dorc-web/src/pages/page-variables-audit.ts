@@ -1,4 +1,5 @@
 import '@polymer/paper-dialog';
+import '../components/dorc-spinner';
 import '@vaadin/button';
 import {
   GridCellPartNameGenerator,
@@ -27,10 +28,11 @@ import {
   PropertyValueAuditApiModel
 } from '../apis/dorc-api/models';
 import { PageElement } from '../helpers/page-element';
+import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import { getShortLogonName } from '../helpers/user-extensions';
 
 @customElement('page-variables-audit')
-export class PageVariablesAudit extends PageElement {
+export class PageVariablesAudit extends ResponsiveMixin(PageElement) {
   @property({ type: Array }) scripts: Array<PropertyValueAuditApiModel> = [];
 
   @property({ type: Array }) appConfig = [];
@@ -53,50 +55,33 @@ export class PageVariablesAudit extends PageElement {
 
   static get styles() {
     return css`
-      vaadin-grid#grid {
+      :host {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        min-height: 0;
         overflow: hidden;
-        height: calc(100vh - 96px);
+        /* Audit highlight palette derived from already-themable global
+           tokens, so light/dark switching is automatic. Whole-row tints
+           are a 35% wash of the success/failure colour over the page bg
+           (subtle); char-level tints use the saturated tokens directly. */
+        --audit-row-add-bg: color-mix(in srgb, var(--dorc-success-bg) 35%, var(--dorc-bg-primary));
+        --audit-row-remove-bg: color-mix(in srgb, var(--dorc-failure-bg) 35%, var(--dorc-bg-primary));
+        --audit-char-add-bg: var(--dorc-success-bg);
+        --audit-char-remove-bg: var(--dorc-failure-bg);
+      }
+      vaadin-grid#grid {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow: hidden;
         --divider-color: var(--dorc-border-color);
       }
       vaadin-grid#grid::part(insert-type) {
-        background-color: var(--dorc-success-bg);
+        background-color: var(--audit-row-add-bg);
       }
       vaadin-grid#grid::part(delete-type) {
-        background-color: var(--dorc-failure-bg);
+        background-color: var(--audit-row-remove-bg);
       }
-      .overlay {
-        width: 100%;
-        height: 100%;
-        position: fixed;
-      }
-      .overlay__inner {
-        width: 100%;
-        height: 100%;
-        position: absolute;
-      }
-      .overlay__content {
-        left: 20%;
-        position: absolute;
-        top: 20%;
-        transform: translate(-50%, -50%);
-      }
-      .spinner {
-        width: 75px;
-        height: 75px;
-        display: inline-block;
-        border-width: 2px;
-        border-color: var(--dorc-border-color);
-        border-top-color: var(--dorc-link-color);
-        animation: spin 1s infinite linear;
-        border-radius: 100%;
-        border-style: solid;
-      }
-      @keyframes spin {
-        100% {
-          transform: rotate(360deg);
-        }
-      }
-
       paper-dialog.size-position {
         top: 16px;
         overflow: auto;
@@ -104,28 +89,25 @@ export class PageVariablesAudit extends PageElement {
       }
 
       .highlight {
-        background-color: var(--dorc-chip-bg);
+        background-color: var(--audit-char-add-bg);
       }
 
       .highlight-removed {
-        background-color: var(--dorc-failure-bg);
+        background-color: var(--audit-char-remove-bg);
+      }
+      @media (max-width: 768px) {
+        vaadin-grid-cell-content {
+          white-space: normal;
+          word-wrap: break-word;
+          overflow-wrap: break-word;
+        }
       }
     `;
   }
 
   render() {
     return html`
-      <div
-        class="overlay"
-        style="z-index: 2"
-        ?hidden="${!(this.loading || this.searching)}"
-      >
-        <div class="overlay__inner">
-          <div class="overlay__content">
-            <span class="spinner"></span>
-          </div>
-        </div>
-      </div>
+      <dorc-spinner ?hidden="${!(this.loading || this.searching)}"></dorc-spinner>
       <vaadin-grid
         id="grid"
         column-reordering-allowed
@@ -157,6 +139,7 @@ export class PageVariablesAudit extends PageElement {
           .headerRenderer="${this.userHeaderRenderer}"
           resizable
           auto-width
+          ?hidden="${this._narrowScreen}"
         ></vaadin-grid-column>
         <vaadin-grid-sort-column
           path="UpdatedDate"
@@ -165,6 +148,7 @@ export class PageVariablesAudit extends PageElement {
           .renderer="${this.UpdatedRenderer}"
           resizable
           auto-width
+          ?hidden="${this._narrowScreen}"
         ></vaadin-grid-sort-column>
         <vaadin-grid-column
           header="Value"

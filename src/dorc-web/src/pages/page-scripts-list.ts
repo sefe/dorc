@@ -1,4 +1,5 @@
 import { css, PropertyValues, render } from 'lit';
+import '../components/dorc-spinner';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid-filter';
 import '@vaadin/grid/vaadin-grid';
@@ -21,6 +22,7 @@ import { customElement, property, query } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { Checkbox } from '@vaadin/checkbox';
 import { PageElement } from '../helpers/page-element';
+import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import {
   PagedDataSorting,
   PowerShellVersionDto,
@@ -40,7 +42,7 @@ const variablePath = 'Path';
 const variableProjectNames = 'ProjectNames';
 
 @customElement('page-scripts-list')
-export class PageScriptsList extends PageElement {
+export class PageScriptsList extends ResponsiveMixin(PageElement) {
   @property({ type: Array }) scripts: Array<ScriptApiModel> = [];
 
   @property({ type: Array }) appConfig = [];
@@ -82,35 +84,8 @@ export class PageScriptsList extends PageElement {
         --divider-color: var(--dorc-border-color);
         height: 100%;
       }
-      .overlay {
-        width: 100%;
-        height: 100%;
-        position: fixed;
-      }
-      .overlay__inner {
-        width: 100%;
-        height: 100%;
-        position: absolute;
-      }
-      .overlay__content {
-        left: 20%;
-        position: absolute;
-        top: 20%;
-        transform: translate(-50%, -50%);
-      }
-      .spinner {
-        width: 75px;
-        height: 75px;
-        display: inline-block;
-        border-width: 2px;
-        border-color: var(--dorc-border-color);
-        border-top-color: var(--dorc-link-color);
-        animation: spin 1s infinite linear;
-        border-radius: 100%;
-        border-style: solid;
-      }
       .project-tag {
-        font-size: 14px;
+        font-size: var(--lumo-font-size-s);
         border: 0;
         font-family: monospace;
         background-color: var(
@@ -134,32 +109,24 @@ export class PageScriptsList extends PageElement {
         text-decoration: none;
       }
 
-      @keyframes spin {
-        100% {
-          transform: rotate(360deg);
-        }
-      }
       paper-dialog.size-position {
         top: 16px;
         overflow: auto;
         padding: 10px;
+      }
+      @media (max-width: 768px) {
+        vaadin-grid-cell-content {
+          white-space: normal;
+          word-wrap: break-word;
+          overflow-wrap: break-word;
+        }
       }
     `;
   }
 
   render() {
     return html`
-      <div
-        class="overlay"
-        style="z-index: 1000"
-        ?hidden="${!(this.loading || this.searching || this.rolesLoading)}"
-      >
-        <div class="overlay__inner">
-          <div class="overlay__content">
-            <span class="spinner"></span>
-          </div>
-        </div>
-      </div>
+      <dorc-spinner style="--dorc-spinner-z-index: 1000" ?hidden="${!(this.loading || this.searching || this.rolesLoading)}"></dorc-spinner>
 
       ${this.rolesLoading
         ? html``
@@ -267,6 +234,7 @@ export class PageScriptsList extends PageElement {
               flex-grow="0"
               .renderer="${this.projectNamesRenderer.bind(this)}"
               .headerRenderer="${this.projectNamesHeaderRenderer.bind(this)}"
+              ?hidden="${this._narrowScreen}"
             >
             </vaadin-grid-column>
             <vaadin-grid-sort-column
@@ -276,6 +244,7 @@ export class PageScriptsList extends PageElement {
               width="150px"
               flex-grow="0"
               .renderer="${this.nonProdRenderer}"
+              ?hidden="${this._narrowScreen}"
             ></vaadin-grid-sort-column>
             <vaadin-grid-column
               path="Path"
@@ -283,12 +252,14 @@ export class PageScriptsList extends PageElement {
               resizable
               .renderer="${this._jsonRenderer}"
               .headerRenderer="${this.pathHeaderRenderer}"
+              ?hidden="${this._narrowScreen}"
             ></vaadin-grid-column>
             <vaadin-grid-column
               path="PowerShellVersionNumber"
               header="PS Version"
               resizable
               .renderer="${this.psVersionRenderer.bind(this)}"
+              ?hidden="${this._narrowScreen}"
             ></vaadin-grid-column>
           </vaadin-grid>`}
     `;

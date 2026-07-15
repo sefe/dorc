@@ -39,6 +39,16 @@ namespace Dorc.PersistentData.Sources
 
                 if (operators.Filters != null && operators.Filters.Any())
                 {
+                    var detailFilters = operators.Filters
+                        .Where(f => f != null && (f.Path == "Project" || f.Path == "EnvironmentName" || f.Path == "BuildNumber"))
+                        .ToList();
+
+                    var hasDistinctDetailValues = detailFilters
+                        .Select(f => f.FilterValue)
+                        .Where(v => !string.IsNullOrEmpty(v))
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .Count() > 1;
+
                     var filterLambdas =
                         new List<Expression<Func<DeploymentRequestApiModel, bool>>>();
                     foreach (var pagedDataFilter in operators.Filters)
@@ -46,23 +56,40 @@ namespace Dorc.PersistentData.Sources
                         if (pagedDataFilter == null)
                             continue;
 
-                        // For env specific monitor
+                        // For env specific monitor: equality predicate on Environment, SARGable
+                        // against IX_DeploymentRequest_Environment. The sole consumer
+                        // (env-monitor.ts) always pushes a fully-qualified environment name,
+                        // so equality is row-set-equivalent to the previous substring match for
+                        // production input while removing the LIKE '%...%' table-scan cost.
                         if (pagedDataFilter.Path == "EnvironmentNameExact")
                         {
-                            var containsExpression = reqStatusesQueryable.ContainsExpression("EnvironmentName",
-                                pagedDataFilter.FilterValue);
-                            if (containsExpression != null)
-                                reqStatusesQueryable = reqStatusesQueryable.Where(containsExpression);
+                            var environmentName = pagedDataFilter.FilterValue;
+                            if (!string.IsNullOrEmpty(environmentName))
+                                reqStatusesQueryable = reqStatusesQueryable.Where(req => req.EnvironmentName == environmentName);
                             continue;
                         }
 
                         if (pagedDataFilter.Path == "Project" || pagedDataFilter.Path == "EnvironmentName" ||
-                            pagedDataFilter.Path == "BuildNumber") // this isn't pleasant but given this is built specifically for the UI
+                            pagedDataFilter.Path == "BuildNumber")
                         {
-                            var containsExpression = reqStatusesQueryable.ContainsExpression(pagedDataFilter.Path,
-                                pagedDataFilter.FilterValue);
-                            if (containsExpression != null)
-                                filterLambdas.Add(containsExpression);
+                            if (string.IsNullOrEmpty(pagedDataFilter.FilterValue))
+                                continue;
+
+                            // Project + EnvironmentName use prefix (StartsWith) -- SARGable, seeks
+                            // IX_DeploymentRequest_Project / IX_DeploymentRequest_Environment.
+                            // BuildNumber retains substring (Contains); when combined with a
+                            // SARGable Project/Environment predicate the residual scan is bounded
+                            // (HLPS SC2). BuildNumber-only filtering is explicitly out of perf scope.
+                            var predicate = pagedDataFilter.Path == "BuildNumber"
+                                ? reqStatusesQueryable.ContainsExpression(pagedDataFilter.Path, pagedDataFilter.FilterValue)
+                                : reqStatusesQueryable.StartsWithExpression(pagedDataFilter.Path, pagedDataFilter.FilterValue);
+                            if (predicate != null)
+                            {
+                                if (hasDistinctDetailValues)
+                                    reqStatusesQueryable = reqStatusesQueryable.Where(predicate);
+                                else
+                                    filterLambdas.Add(predicate);
+                            }
                             continue;
                         }
                         if (!string.IsNullOrEmpty(pagedDataFilter.Path) && !string.IsNullOrEmpty(pagedDataFilter.FilterValue))
@@ -156,11 +183,6 @@ namespace Dorc.PersistentData.Sources
             var reqStatusesQueryable = from req in context.DeploymentRequests
                                        join environment in context.Environments on req.Environment equals
                                            environment.Name
-                                       let isDelegate =
-                                           (from envDetail in context.Environments
-                                            join env in context.Environments on envDetail.Name equals env.Name
-                                            where env.Name == environment.Name && envDetail.Users.Select(u => u.LoginId).Contains(userName)
-                                            select envDetail.Name).Any()
                                        let permissions =
                                            (from env in context.Environments
                                             join ac in context.AccessControls on env.ObjectId equals ac.ObjectId
@@ -189,7 +211,7 @@ namespace Dorc.PersistentData.Sources
                                            UncLogPath = req.UncLogPath,
                                            CancelledBy = req.CancelledBy,
                                            CancelledTime = req.CancelledTime,
-                                           UserEditable = isOwner || isDelegate || isPermissioned
+                                           UserEditable = isOwner  || isPermissioned
                                        };
 
             //var sql = reqStatusesQueryable.ToString();

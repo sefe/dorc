@@ -21,6 +21,7 @@ export class LogDialog extends LitElement {
   isLoading = false;
 
   private editor: ace.Ace.Editor | undefined;
+  private readonly viewerHeight = 'calc(85dvh - 90px)';
 
   static get styles() {
     return css`
@@ -47,15 +48,15 @@ export class LogDialog extends LitElement {
         display: flex;
         justify-content: center;
         align-items: center;
-        width: 80vw;
-        height: 80vh;
+        width: 100%;
+        height: calc(85dvh - 90px);
         flex-direction: column;
       }
 
       .loading-text {
         margin-top: 20px;
         color: #666;
-        font-size: 14px;
+        font-size: var(--lumo-font-size-s);
       }
     `;
   }
@@ -63,6 +64,7 @@ export class LogDialog extends LitElement {
   render() {
     return html`
       <vaadin-dialog
+        theme="log-viewer"
         .opened="${this.isOpened}"
         draggable="true"
         @opened-changed="${(event: DialogOpenedChangedEvent) => {
@@ -101,7 +103,7 @@ export class LogDialog extends LitElement {
           let loadingDiv = root.querySelector('.loading-container') as HTMLElement;
           if (!loadingDiv) {
             loadingDiv = document.createElement('div');
-            loadingDiv.style.cssText = 'display: flex; justify-content: center; align-items: center; width: 80vw; height: 80vh; flex-direction: column;';
+            loadingDiv.style.cssText = `display: flex; justify-content: center; align-items: center; width: 100%; height: ${this.viewerHeight}; flex-direction: column;`;
             
             const spinnerDiv = document.createElement('div');
             spinnerDiv.style.cssText = `
@@ -118,7 +120,7 @@ export class LogDialog extends LitElement {
             `;
             
             const textDiv = document.createElement('div');
-            textDiv.style.cssText = 'margin-top: 20px; color: #666; font-size: 14px;';
+            textDiv.style.cssText = 'margin-top: 20px; color: #666; font-size: var(--lumo-font-size-s, 14px);';
             textDiv.textContent = 'Loading log...';
             
             // Add keyframe animation
@@ -155,7 +157,7 @@ export class LogDialog extends LitElement {
         if (!editorDiv){
           editorDiv = document.createElement('div');
           editorDiv.setAttribute('id', 'logViewer');
-          editorDiv.setAttribute('style', 'width:80vw; height:80vh;');
+          editorDiv.setAttribute('style', `width: 100%; height: ${this.viewerHeight};`);
   
           root.appendChild(editorDiv);
           

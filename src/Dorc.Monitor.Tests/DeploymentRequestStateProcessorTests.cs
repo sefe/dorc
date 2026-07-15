@@ -2,6 +2,7 @@ using Dorc.ApiModel;
 using Dorc.Core.Events;
 using Dorc.Core.Interfaces;
 using Dorc.Monitor.HighAvailability;
+using Dorc.Monitor.RequestProcessors;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
@@ -240,7 +241,7 @@ namespace Dorc.Monitor.Tests
             sut.RestartRequests(false, cancellationSources, CancellationToken.None);
 
             // Assert - all SwitchStatus calls happened before ClearResults
-            Assert.AreEqual(2, callOrder.Count);
+            Assert.HasCount(2, callOrder);
             Assert.AreEqual("SwitchStatus", callOrder[0]);
             Assert.AreEqual("ClearResults", callOrder[1]);
         }
@@ -585,13 +586,10 @@ namespace Dorc.Monitor.Tests
         // =====================================================================
 
         [TestMethod]
-        public void CancelStaleRequests_WhenHAEnabledAndEnvironmentLockIsHeld_SkipsCleanup()
+        public async Task CancelStaleRequests_WhenHAEnabled_ResumesRunningRequestsAsPending()
         {
-            // Arrange - HA is enabled, but another monitor still holds the environment lock
+            // Arrange - HA is enabled; Running → Pending resume is independent of the lock service (S-004 R4)
             mockDistributedLockService.IsEnabled.Returns(true);
-            mockDistributedLockService
-                .TryAcquireLockAsync("env:EnvHA", Arg.Any<int>(), Arg.Any<CancellationToken>())
-                .Returns((IDistributedLock?)null);
 
             var staleRunning = new List<DeploymentRequestApiModel>
             {
@@ -600,33 +598,38 @@ namespace Dorc.Monitor.Tests
             mockRequestsPersistentSource
                 .GetRequestsWithStatus(DeploymentRequestStatus.Running, false)
                 .Returns(staleRunning);
+            mockRequestsPersistentSource
+                .GetRequestsWithStatus(DeploymentRequestStatus.Requesting, false)
+                .Returns(Enumerable.Empty<DeploymentRequestApiModel>());
+            mockRequestsPersistentSource
+                .SwitchDeploymentRequestStatuses(
+                    Arg.Any<IList<DeploymentRequestApiModel>>(),
+                    DeploymentRequestStatus.Running,
+                    DeploymentRequestStatus.Pending)
+                .Returns(1);
 
             // Act
             sut.CancelStaleRequests(false);
+            await Task.WhenAll(publishTasks);
 
-            // Assert - lock was checked, but cleanup was skipped
-            mockDistributedLockService.Received(1)
-                .TryAcquireLockAsync("env:EnvHA", Arg.Any<int>(), Arg.Any<CancellationToken>());
-            mockRequestsPersistentSource.DidNotReceive()
+            // Assert - Running resumed as Pending; lock service not involved in startup recovery
+            mockRequestsPersistentSource.Received(1)
                 .SwitchDeploymentRequestStatuses(
                     Arg.Any<IList<DeploymentRequestApiModel>>(),
-                    Arg.Any<DeploymentRequestStatus>(),
-                    Arg.Any<DeploymentRequestStatus>(),
-                    Arg.Any<DateTimeOffset>());
-            mockEventPublisher.DidNotReceive()
-                .PublishRequestStatusChangedAsync(Arg.Any<DeploymentRequestEventData>());
+                    DeploymentRequestStatus.Running,
+                    DeploymentRequestStatus.Pending);
+            mockDistributedLockService.DidNotReceive()
+                .TryAcquireLockAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>());
+            mockEventPublisher.Received(1)
+                .PublishRequestStatusChangedAsync(Arg.Is<DeploymentRequestEventData>(e =>
+                    e.RequestId == 45 && e.Status == DeploymentRequestStatus.Pending.ToString()));
         }
 
         [TestMethod]
-        public async Task CancelStaleRequests_WhenHAEnabledAndEnvironmentLockIsRecovered_CancelsRequests()
+        public void CancelStaleRequests_WhenConcurrentInstanceAlreadyResumed_NoEventPublished()
         {
-            // Arrange - HA is enabled and no other monitor holds the environment lock anymore
-            mockDistributedLockService.IsEnabled.Returns(true);
-            var mockLock = Substitute.For<IDistributedLock>();
-            mockDistributedLockService
-                .TryAcquireLockAsync("env:EnvRecovered", Arg.Any<int>(), Arg.Any<CancellationToken>())
-                .Returns(mockLock);
-
+            // Arrange - another monitor instance already transitioned this request to Pending;
+            // SwitchDeploymentRequestStatuses uses optimistic concurrency and returns 0
             var staleRunning = new List<DeploymentRequestApiModel>
             {
                 new() { Id = 145, EnvironmentName = "EnvRecovered", Status = DeploymentRequestStatus.Running.ToString(), IsProd = false, UserName = "testuser" }
@@ -641,30 +644,21 @@ namespace Dorc.Monitor.Tests
                 .SwitchDeploymentRequestStatuses(
                     Arg.Any<IList<DeploymentRequestApiModel>>(),
                     DeploymentRequestStatus.Running,
-                    DeploymentRequestStatus.Cancelled,
-                    Arg.Any<DateTimeOffset>())
-                .Returns(1);
+                    DeploymentRequestStatus.Pending)
+                .Returns(0); // already transitioned by another instance
 
             // Act
             sut.CancelStaleRequests(false);
-            await Task.WhenAll(publishTasks);
 
-            // Assert
-            mockRequestsPersistentSource.Received(1)
-                .SwitchDeploymentRequestStatuses(
-                    Arg.Any<IList<DeploymentRequestApiModel>>(),
-                    DeploymentRequestStatus.Running,
-                    DeploymentRequestStatus.Cancelled,
-                    Arg.Any<DateTimeOffset>());
-            mockEventPublisher.Received(1)
-                .PublishRequestStatusChangedAsync(Arg.Is<DeploymentRequestEventData>(e => e.RequestId == 145 && e.Status == DeploymentRequestStatus.Cancelled.ToString()));
-            await mockLock.Received(1).DisposeAsync();
+            // Assert - no event published when transition is a no-op (AC-6)
+            mockEventPublisher.DidNotReceive()
+                .PublishRequestStatusChangedAsync(Arg.Any<DeploymentRequestEventData>());
         }
 
         [TestMethod]
-        public async Task CancelStaleRequests_WhenHADisabled_PerformsCleanup()
+        public async Task CancelStaleRequests_WhenHADisabled_ResumesRunningRequestsAsPending()
         {
-            // Arrange - HA is disabled (single node), so stale cleanup is safe
+            // Arrange - HA is disabled (single node); resume behavior is identical (S-004 R4 / AC-8)
             mockDistributedLockService.IsEnabled.Returns(false);
 
             var staleRunning = new List<DeploymentRequestApiModel>
@@ -681,25 +675,22 @@ namespace Dorc.Monitor.Tests
                 .SwitchDeploymentRequestStatuses(
                     Arg.Any<IList<DeploymentRequestApiModel>>(),
                     DeploymentRequestStatus.Running,
-                    DeploymentRequestStatus.Cancelled,
-                    Arg.Any<DateTimeOffset>())
+                    DeploymentRequestStatus.Pending)
                 .Returns(1);
 
             // Act
             sut.CancelStaleRequests(false);
-
-            // Wait for fire-and-forget event publish tasks to complete
             await Task.WhenAll(publishTasks);
 
-            // Assert - stale requests should be cancelled
+            // Assert - Running resumed as Pending with a Pending event (AC-1, AC-7, AC-8)
             mockRequestsPersistentSource.Received(1)
                 .SwitchDeploymentRequestStatuses(
                     Arg.Any<IList<DeploymentRequestApiModel>>(),
                     DeploymentRequestStatus.Running,
-                    DeploymentRequestStatus.Cancelled,
-                    Arg.Any<DateTimeOffset>());
+                    DeploymentRequestStatus.Pending);
             mockEventPublisher.Received(1)
-                .PublishRequestStatusChangedAsync(Arg.Any<DeploymentRequestEventData>());
+                .PublishRequestStatusChangedAsync(Arg.Is<DeploymentRequestEventData>(e =>
+                    e.RequestId == 46 && e.Status == DeploymentRequestStatus.Pending.ToString()));
         }
 
         [TestMethod]
@@ -726,7 +717,7 @@ namespace Dorc.Monitor.Tests
         }
 
         [TestMethod]
-        public async Task CancelStaleRequests_WithRunningRequests_CancelsThemAndPublishesEvents()
+        public async Task CancelStaleRequests_WithRunningRequests_ResumesThemAsPendingAndPublishesEvents()
         {
             // Arrange
             var staleRunning = new List<DeploymentRequestApiModel>
@@ -740,39 +731,65 @@ namespace Dorc.Monitor.Tests
             mockRequestsPersistentSource
                 .GetRequestsWithStatus(DeploymentRequestStatus.Requesting, false)
                 .Returns(Enumerable.Empty<DeploymentRequestApiModel>());
-
             mockRequestsPersistentSource
                 .SwitchDeploymentRequestStatuses(
                     Arg.Any<IList<DeploymentRequestApiModel>>(),
                     DeploymentRequestStatus.Running,
-                    DeploymentRequestStatus.Cancelled,
-                    Arg.Any<DateTimeOffset>())
-                .Returns(2);
+                    DeploymentRequestStatus.Pending)
+                .Returns(1); // per-request call returns 1 each time
 
             // Act
             sut.CancelStaleRequests(false);
-
-            // Wait for fire-and-forget event publish tasks to complete
             await Task.WhenAll(publishTasks);
 
-            // Assert - status switched to Cancelled
-            mockRequestsPersistentSource.Received(1)
+            // Assert - status switched to Pending (not Cancelled), once per request — AC-1
+            mockRequestsPersistentSource.Received(2)
                 .SwitchDeploymentRequestStatuses(
                     Arg.Any<IList<DeploymentRequestApiModel>>(),
                     DeploymentRequestStatus.Running,
-                    DeploymentRequestStatus.Cancelled,
-                    Arg.Any<DateTimeOffset>());
+                    DeploymentRequestStatus.Pending);
 
-            // Assert - deployment results also cancelled
-            mockRequestsPersistentSource.Received(1)
+            // Assert - deployment results NOT touched for Running → Pending path
+            mockRequestsPersistentSource.DidNotReceive()
                 .SwitchDeploymentResultsStatuses(
                     Arg.Any<IList<DeploymentRequestApiModel>>(),
-                    Arg.Is<DeploymentResultStatus>(s => s.Value == "Pending"),
-                    Arg.Is<DeploymentResultStatus>(s => s.Value == "Cancelled"));
+                    Arg.Any<DeploymentResultStatus>(),
+                    Arg.Any<DeploymentResultStatus>());
 
-            // Assert - events published for each request
+            // Assert - Pending events published for each resumed request — AC-7
             mockEventPublisher.Received(2)
-                .PublishRequestStatusChangedAsync(Arg.Any<DeploymentRequestEventData>());
+                .PublishRequestStatusChangedAsync(Arg.Is<DeploymentRequestEventData>(e =>
+                    e.Status == DeploymentRequestStatus.Pending.ToString()));
+        }
+
+        [TestMethod]
+        public async Task CancelStaleRequests_WithRunningRequests_DoesNotTerminateRunnerProcesses()
+        {
+            // Arrange - runner processes are gone when previous instance exits; no cleanup needed (S-004 R1)
+            var staleRunning = new List<DeploymentRequestApiModel>
+            {
+                new() { Id = 52, EnvironmentName = "EnvE", Status = DeploymentRequestStatus.Running.ToString(), IsProd = false, UserName = "testuser" }
+            };
+            mockRequestsPersistentSource
+                .GetRequestsWithStatus(DeploymentRequestStatus.Running, false)
+                .Returns(staleRunning);
+            mockRequestsPersistentSource
+                .GetRequestsWithStatus(DeploymentRequestStatus.Requesting, false)
+                .Returns(Enumerable.Empty<DeploymentRequestApiModel>());
+            mockRequestsPersistentSource
+                .SwitchDeploymentRequestStatuses(
+                    Arg.Any<IList<DeploymentRequestApiModel>>(),
+                    DeploymentRequestStatus.Running,
+                    DeploymentRequestStatus.Pending)
+                .Returns(1);
+
+            // Act
+            sut.CancelStaleRequests(false);
+            await Task.WhenAll(publishTasks);
+
+            // Assert - TerminateRunnerProcesses not called for resumed requests
+            mockProcessesPersistentSource.DidNotReceive()
+                .GetAssociatedRunnerProcessIds(52);
         }
 
         [TestMethod]
@@ -820,7 +837,7 @@ namespace Dorc.Monitor.Tests
         [TestMethod]
         public void CancelStaleRequests_WhenSwitchReturnsZero_DoesNotPublishEvents()
         {
-            // Arrange: another monitor already cleaned these up
+            // Arrange: another monitor instance already resumed this request (optimistic concurrency returns 0)
             var staleRunning = new List<DeploymentRequestApiModel>
             {
                 new() { Id = 70, EnvironmentName = "EnvD", Status = DeploymentRequestStatus.Running.ToString(), IsProd = false, UserName = "testuser" }
@@ -831,22 +848,20 @@ namespace Dorc.Monitor.Tests
             mockRequestsPersistentSource
                 .GetRequestsWithStatus(DeploymentRequestStatus.Requesting, false)
                 .Returns(Enumerable.Empty<DeploymentRequestApiModel>());
-
             mockRequestsPersistentSource
                 .SwitchDeploymentRequestStatuses(
                     Arg.Any<IList<DeploymentRequestApiModel>>(),
                     DeploymentRequestStatus.Running,
-                    DeploymentRequestStatus.Cancelled,
-                    Arg.Any<DateTimeOffset>())
+                    DeploymentRequestStatus.Pending)
                 .Returns(0);
 
             // Act
             sut.CancelStaleRequests(false);
 
-            // Assert - no events published
+            // Assert - no events published when transition is a no-op
             mockEventPublisher.DidNotReceive()
                 .PublishRequestStatusChangedAsync(Arg.Any<DeploymentRequestEventData>());
-            // Assert - deployment results not cancelled either
+            // Assert - deployment results not touched
             mockRequestsPersistentSource.DidNotReceive()
                 .SwitchDeploymentResultsStatuses(
                     Arg.Any<IList<DeploymentRequestApiModel>>(),
@@ -1163,6 +1178,176 @@ namespace Dorc.Monitor.Tests
         }
 
         // =====================================================================
+        // ExecuteRequests - S-003 token decoupling
+        // =====================================================================
+
+        [TestMethod]
+        public async Task ExecuteRequests_WhenMonitorCancellationFires_DoesNotCancelRequestToken()
+        {
+            // Arrange - S-003: request CTS must NOT be linked to monitorCancellationToken
+            var requests = CreatePendingRequests("EnvToken", 200);
+            mockRequestsPersistentSource
+                .GetRequestsWithStatus(
+                    DeploymentRequestStatus.Pending,
+                    DeploymentRequestStatus.Running,
+                    DeploymentRequestStatus.Confirmed,
+                    DeploymentRequestStatus.Paused,
+                    false)
+                .Returns(requests);
+            mockDistributedLockService.IsEnabled.Returns(false);
+
+            // Advance past early-exit guard so CTS is created and Execute is called
+            mockRequestsPersistentSource
+                .UpdateNonProcessedRequest(Arg.Any<DeploymentRequestApiModel>(), Arg.Any<DeploymentRequestStatus>(), Arg.Any<DateTimeOffset>())
+                .Returns(1);
+
+            CancellationToken capturedToken = default;
+            var mockPendingProcessor = Substitute.For<IPendingRequestProcessor>();
+            mockPendingProcessor
+                .When(p => p.Execute(Arg.Any<RequestToProcessDto>(), Arg.Any<CancellationToken>()))
+                .Do(ci => capturedToken = ci.Arg<CancellationToken>());
+            mockServiceProvider.GetService(typeof(IPendingRequestProcessor)).Returns(mockPendingProcessor);
+
+            var monitorCts = new CancellationTokenSource();
+            var cancellationSources = new ConcurrentDictionary<int, CancellationTokenSource>();
+
+            // Act
+            var tasks = sut.ExecuteRequests(false, cancellationSources, monitorCts.Token);
+            await Task.WhenAll(tasks);
+
+            // Cancel monitor after task completes — decoupled token must still not be cancelled
+            monitorCts.Cancel();
+
+            // Assert - the request token was NOT triggered by monitorCancellationToken (S-003 AC-1)
+            Assert.IsFalse(capturedToken.IsCancellationRequested,
+                "Request CancellationToken must not be linked to monitorCancellationToken after S-003 token decoupling");
+        }
+
+        [TestMethod]
+        public async Task ExecuteRequests_WhenHADisabled_RequestTokenIsIndependentOfMonitorToken()
+        {
+            // Arrange - S-003 HA-disabled path: independent CTS, not linked to any shared token
+            var requests = CreatePendingRequests("EnvNoHA", 201);
+            mockRequestsPersistentSource
+                .GetRequestsWithStatus(
+                    DeploymentRequestStatus.Pending,
+                    DeploymentRequestStatus.Running,
+                    DeploymentRequestStatus.Confirmed,
+                    DeploymentRequestStatus.Paused,
+                    false)
+                .Returns(requests);
+            mockDistributedLockService.IsEnabled.Returns(false);
+            mockRequestsPersistentSource
+                .UpdateNonProcessedRequest(Arg.Any<DeploymentRequestApiModel>(), Arg.Any<DeploymentRequestStatus>(), Arg.Any<DateTimeOffset>())
+                .Returns(1);
+
+            CancellationToken capturedToken = default;
+            var mockPendingProcessor = Substitute.For<IPendingRequestProcessor>();
+            mockPendingProcessor
+                .When(p => p.Execute(Arg.Any<RequestToProcessDto>(), Arg.Any<CancellationToken>()))
+                .Do(ci => capturedToken = ci.Arg<CancellationToken>());
+            mockServiceProvider.GetService(typeof(IPendingRequestProcessor)).Returns(mockPendingProcessor);
+
+            var monitorCts = new CancellationTokenSource();
+            var cancellationSources = new ConcurrentDictionary<int, CancellationTokenSource>();
+
+            // Act
+            var tasks = sut.ExecuteRequests(false, cancellationSources, monitorCts.Token);
+            await Task.WhenAll(tasks);
+            monitorCts.Cancel();
+
+            // Assert - independent token is not cancelled when monitor cancels (S-003 R1 / AC-5)
+            Assert.IsFalse(capturedToken.IsCancellationRequested,
+                "HA-disabled request token must be independent of monitorCancellationToken");
+        }
+
+        [TestMethod]
+        public async Task ExecuteRequests_TerminateRequestExecution_StillCancelsRequestToken()
+        {
+            // Arrange - S-003: user-initiated cancellation via TerminateRequestExecution must still work.
+            // The mock blocks Execute until signalled, so the CTS is still in the dict when we cancel it.
+            var requests = CreatePendingRequests("EnvTerminate", 202);
+            mockRequestsPersistentSource
+                .GetRequestsWithStatus(
+                    DeploymentRequestStatus.Pending,
+                    DeploymentRequestStatus.Running,
+                    DeploymentRequestStatus.Confirmed,
+                    DeploymentRequestStatus.Paused,
+                    false)
+                .Returns(requests);
+            mockDistributedLockService.IsEnabled.Returns(false);
+            mockRequestsPersistentSource
+                .UpdateNonProcessedRequest(Arg.Any<DeploymentRequestApiModel>(), Arg.Any<DeploymentRequestStatus>(), Arg.Any<DateTimeOffset>())
+                .Returns(1);
+
+            CancellationToken capturedToken = default;
+            var executionStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var releaseExecution = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            var mockPendingProcessor = Substitute.For<IPendingRequestProcessor>();
+            mockPendingProcessor
+                .When(p => p.Execute(Arg.Any<RequestToProcessDto>(), Arg.Any<CancellationToken>()))
+                .Do(ci =>
+                {
+                    capturedToken = ci.Arg<CancellationToken>();
+                    executionStarted.SetResult();
+                    releaseExecution.Task.GetAwaiter().GetResult(); // block until signalled
+                });
+            mockServiceProvider.GetService(typeof(IPendingRequestProcessor)).Returns(mockPendingProcessor);
+
+            var cancellationSources = new ConcurrentDictionary<int, CancellationTokenSource>();
+
+            // Act - start tasks; Execute will block until released
+            var tasks = sut.ExecuteRequests(false, cancellationSources, CancellationToken.None);
+            await executionStarted.Task; // wait until Execute has captured the token
+
+            // At this point the task is blocked in Execute — CTS is still in the dict
+            Assert.IsTrue(cancellationSources.ContainsKey(202), "CTS must be in the dict while Execute is running");
+            cancellationSources[202].Cancel(); // simulate TerminateRequestExecution
+            var cancelledByTerminate = capturedToken.IsCancellationRequested;
+
+            releaseExecution.SetResult(); // unblock Execute
+            await Task.WhenAll(tasks);
+
+            // Assert - cancelling the stored CTS must have cancelled the token passed to Execute (S-003 R1 / AC-4)
+            Assert.IsTrue(cancelledByTerminate,
+                "TerminateRequestExecution (Cancel on stored CTS) must cancel the request token");
+        }
+
+        [TestMethod]
+        public async Task ExecuteRequests_WhenMonitorAlreadyCancelled_DoesNotStartDeploymentTask()
+        {
+            // Arrange - S-003: ThrowIfCancellationRequested guard must prevent new work from starting
+            // after shutdown is signalled, even though the request token is no longer linked to monitorCts.
+            var requests = CreatePendingRequests("EnvGuard", 203);
+            mockRequestsPersistentSource
+                .GetRequestsWithStatus(
+                    DeploymentRequestStatus.Pending,
+                    DeploymentRequestStatus.Running,
+                    DeploymentRequestStatus.Confirmed,
+                    DeploymentRequestStatus.Paused,
+                    false)
+                .Returns(requests);
+            mockDistributedLockService.IsEnabled.Returns(false);
+
+            var mockPendingProcessor = Substitute.For<IPendingRequestProcessor>();
+            mockServiceProvider.GetService(typeof(IPendingRequestProcessor)).Returns(mockPendingProcessor);
+
+            var monitorCts = new CancellationTokenSource();
+            monitorCts.Cancel(); // pre-cancel: monitor is already stopping when ExecuteRequests is called
+
+            var cancellationSources = new ConcurrentDictionary<int, CancellationTokenSource>();
+
+            // Act - Task.Run with a pre-cancelled token transitions the task to Cancelled without running it
+            var tasks = sut.ExecuteRequests(false, cancellationSources, monitorCts.Token);
+            try { await Task.WhenAll(tasks); } catch (OperationCanceledException) { /* expected */ }
+
+            // Assert - the guard prevented Execute from being called
+            mockPendingProcessor.DidNotReceive()
+                .Execute(Arg.Any<RequestToProcessDto>(), Arg.Any<CancellationToken>());
+        }
+
+        // =====================================================================
         // SwitchRequestsStatus - isProd guard
         // =====================================================================
 
@@ -1279,11 +1464,11 @@ namespace Dorc.Monitor.Tests
             var cancellationSources = new ConcurrentDictionary<int, CancellationTokenSource>();
 
             // Act
-            Assert.AreEqual(0, publishTasks.Count);
+            Assert.IsEmpty(publishTasks);
             sut.RestartRequests(false, cancellationSources, CancellationToken.None);
 
             // Assert - callback should have been invoked
-            Assert.IsTrue(publishTasks.Count > 0, "OnPublishTaskCreated callback should be invoked for fire-and-forget tasks");
+            Assert.IsNotEmpty(publishTasks, "OnPublishTaskCreated callback should be invoked for fire-and-forget tasks");
 
             // Wait for all tracked tasks to complete deterministically (no Task.Delay needed)
             await Task.WhenAll(publishTasks);

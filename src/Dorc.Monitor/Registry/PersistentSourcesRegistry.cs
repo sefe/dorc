@@ -17,12 +17,14 @@ namespace Dorc.Monitor.Registry
             collection.AddTransient<IPropertiesPersistentSource, PropertiesPersistentSource>();
             collection.AddTransient<IServersPersistentSource, ServersPersistentSource>();
             collection.AddTransient<IDaemonsPersistentSource, DaemonsPersistentSource>();
+            collection.AddTransient<IDaemonObservationPersistentSource, DaemonObservationPersistentSource>();
             collection.AddTransient<IDatabasesPersistentSource, DatabasesPersistentSource>();
             collection.AddTransient<IUserPermsPersistentSource, UserPermsPersistentSource>();
             collection.AddTransient<IAccessControlPersistentSource, AccessControlPersistentSource>();
             collection.AddTransient<IProjectsPersistentSource, ProjectsPersistentSource>();
             collection.AddSingleton<ISecureKeyPersistentDataSource, SecureKeyPersistentDataSource>();
             collection.AddTransient<IConfigValuesPersistentSource, ConfigValuesPersistentSource>();
+            collection.AddTransient<IScriptsAuditPersistentSource, ScriptsAuditPersistentSource>();
         }
     }
 }

@@ -13,14 +13,13 @@ import AppConfig from '../app-config';
 import '../components/grid-button-groups/edit-comments-controls';
 import { Configuration, EnvironmentHistoryApiModel } from '../apis/dorc-api';
 import { RefDataEnvironmentsHistoryApi } from '../apis/dorc-api/apis';
-import { PageElement } from '../helpers/page-element';
+import { PageElement, PageLocation } from '../helpers/page-element';
+import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import { router } from '../router/router';
 import { EnvironmentHistoryApiModelExtended } from '../components/model-extensions/environment-history-api-model-extended';
 
 @customElement('page-env-history')
-export class PageEnvironmentHistory extends PageElement {
-  @property({ type: Object }) location = router.location;
-
+export class PageEnvironmentHistory extends ResponsiveMixin(PageElement) {
   @property({ type: Array })
   envHistory: EnvironmentHistoryApiModelExtended[] = [];
 
@@ -28,6 +27,7 @@ export class PageEnvironmentHistory extends PageElement {
 
   constructor() {
     super();
+    this.location = router.location as PageLocation;
 
     const appConfig = new Configuration({
       basePath: new AppConfig().dorcApi
@@ -47,10 +47,16 @@ export class PageEnvironmentHistory extends PageElement {
 
   static get styles() {
     return css`
-      vaadin-grid#grid {
+      :host {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
         overflow: hidden;
-        height: calc(100vh - 65px);
         --divider-color: var(--dorc-border-color);
+      }
+      vaadin-grid#grid {
+        flex: 1;
+        min-height: 0;
       }
       vaadin-button {
         padding: 0px;
@@ -93,28 +99,33 @@ export class PageEnvironmentHistory extends PageElement {
           resizable
           path="UpdatedBy"
           header="Updated By"
+          ?hidden="${this._narrowScreen}"
         ></vaadin-grid-sort-column>
         <vaadin-grid-sort-column
           resizable
           path="UpdateType"
           header="Update Type"
+          ?hidden="${this._narrowScreen}"
         ></vaadin-grid-sort-column>
         <vaadin-grid-sort-column
           resizable
           path="FromValue"
           header="Old Version"
           width="170px"
+          ?hidden="${this._narrowScreen}"
         ></vaadin-grid-sort-column>
         <vaadin-grid-sort-column
           resizable
           path="ToValue"
           header="New Version"
           width="170px"
+          ?hidden="${this._narrowScreen}"
         ></vaadin-grid-sort-column>
         <vaadin-grid-sort-column
           resizable
           path="Details"
           header="Details"
+          ?hidden="${this._narrowScreen}"
         ></vaadin-grid-sort-column>
         <vaadin-grid-column
           resizable

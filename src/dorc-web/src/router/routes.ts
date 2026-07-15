@@ -1,11 +1,10 @@
-import type { Route } from '@vaadin/router';
+import type { Commands, RouteContext } from '@vaadin/router';
 import {appConfig} from '../app-config';
 
 import '../components/dorc-app.ts'
-import '../components/environment-tabs/env-control-center.ts'
+
 import '../components/environment-tabs/env-daemons.ts'
 import '../components/environment-tabs/env-databases.ts'
-import '../components/environment-tabs/env-delegated-users.ts'
 import '../components/environment-tabs/env-deployments.ts'
 import '../components/environment-tabs/env-metadata.ts'
 import '../components/environment-tabs/env-projects.ts'
@@ -14,13 +13,19 @@ import '../components/environment-tabs/env-users.ts'
 import '../components/environment-tabs/env-variables.ts'
 import '../components/environment-tabs/env-tenants.ts'
 import '../components/environment-tabs/env-monitor.ts'
-import '../pages/page-about.ts'
+import '../components/environment-tabs/env-containers.ts'
+import '../components/environment-tabs/env-cloud.ts'
+import '../components/environment-tabs/env-apis.ts'
+import '../pages/page-analytics.ts'
 import '../pages/page-config-values-list.ts'
+import '../pages/page-daemons-audit.ts'
 import '../pages/page-daemons-list.ts'
+import '../pages/page-databases-audit.ts'
 import '../pages/page-databases-list.ts'
 import '../pages/page-deploy.ts'
 import '../pages/page-env-history.ts'
 import '../pages/page-environment.ts'
+import '../pages/page-environment-components.ts'
 import '../pages/page-environments-list.ts'
 import '../pages/page-monitor-requests.ts'
 import '../pages/page-monitor-result.ts'
@@ -30,7 +35,9 @@ import '../pages/page-project-envs.ts'
 import '../pages/page-project-bundles.ts'
 import '../pages/page-project-components.ts'
 import '../pages/page-project-ref-data.ts'
+import '../pages/page-projects-audit.ts'
 import '../pages/page-projects-list.ts'
+import '../pages/page-servers-audit.ts'
 import '../pages/page-scripts-list.ts'
 import '../pages/page-scripts-audit.ts'
 import '../pages/page-servers-list.ts'
@@ -47,7 +54,7 @@ export type RouteMeta = Readonly<{
   };
 }>;
 
-export const routes: Route<RouteMeta>[] = [
+export const routes = [
   {
     path: '',
     component: 'dorc-app',
@@ -84,12 +91,22 @@ export const routes: Route<RouteMeta>[] = [
         }
       },
       {
+        path: '/analytics',
+        name: 'analytics',
+        component: 'page-analytics',
+        metadata: {
+          title: 'Analytics',
+          description: 'Deployment analytics and statistics'
+        }
+      },
+      {
         path: '/about',
         name: 'about',
-        component: 'page-about',
+        action: (_context: RouteContext, commands: Commands) =>
+          commands.redirect('/analytics'),
         metadata: {
-          title: 'About',
-          description: 'About page description'
+          title: 'Analytics',
+          description: 'Deployment analytics and statistics'
         }
       },
       {
@@ -99,6 +116,15 @@ export const routes: Route<RouteMeta>[] = [
         metadata: {
           title: 'Projects',
           description: 'List of all projects you have permission to view'
+        }
+      },
+      {
+        path: '/projects/audit',
+        name: 'projects-audit',
+        component: 'page-projects-audit',
+        metadata: {
+          title: 'Projects Audit',
+          description: 'Audit history across all projects'
         }
       },
       {
@@ -120,12 +146,30 @@ export const routes: Route<RouteMeta>[] = [
         }
       },
       {
+        path: '/servers/audit',
+        name: 'servers-audit',
+        component: 'page-servers-audit',
+        metadata: {
+          title: 'Servers Audit',
+          description: 'Audit history across all servers'
+        }
+      },
+      {
         path: '/databases',
         name: 'databases',
         component: 'page-databases-list',
         metadata: {
           title: 'Databases',
           description: 'List of all databases you have permission to view'
+        }
+      },
+      {
+        path: '/databases/audit',
+        name: 'databases-audit',
+        component: 'page-databases-audit',
+        metadata: {
+          title: 'Databases Audit',
+          description: 'Audit history across all databases'
         }
       },
       {
@@ -144,6 +188,15 @@ export const routes: Route<RouteMeta>[] = [
         metadata: {
           title: 'Daemons',
           description: 'List of all daemons'
+        }
+      },
+      {
+        path: '/daemons/audit',
+        name: 'daemons-audit',
+        component: 'page-daemons-audit',
+        metadata: {
+          title: 'Daemons Audit',
+          description: 'Audit history across all daemons'
         }
       },
       {
@@ -281,28 +334,68 @@ export const routes: Route<RouteMeta>[] = [
             }
           },
           {
-            path: '/servers',
-            component: 'env-servers',
+            path: '/components',
+            component: 'page-environment-components',
             metadata: {
-              title: 'Servers',
-              description: 'Environment servers details'
-            }
-          },
-          {
-            path: '/databases',
-            component: 'env-databases',
-            metadata: {
-              title: 'Databases',
-              description: 'Environment database details'
-            }
-          },
-          {
-            path: '/daemons',
-            component: 'env-daemons',
-            metadata: {
-              title: 'Daemons',
-              description: 'Environment daemons details'
-            }
+              title: 'Components',
+              description: 'Environment components'
+            },
+            children: [
+              {
+                path: '/',
+                action: (_context: RouteContext, commands: Commands) =>
+                  commands.redirect(_context.pathname + '/servers'),
+                metadata: { title: 'Components', description: 'Default redirect' }
+              },
+              {
+                path: '/servers',
+                component: 'env-servers',
+                metadata: {
+                  title: 'Servers',
+                  description: 'Environment servers details'
+                }
+              },
+              {
+                path: '/databases',
+                component: 'env-databases',
+                metadata: {
+                  title: 'Databases',
+                  description: 'Environment database details'
+                }
+              },
+              {
+                path: '/daemons',
+                component: 'env-daemons',
+                metadata: {
+                  title: 'Daemons',
+                  description: 'Environment daemons details'
+                }
+              },
+              {
+                path: '/containers',
+                component: 'env-containers',
+                metadata: {
+                  title: 'Containers',
+                  description: 'Environment containers details'
+                }
+              },
+              {
+                path: '/cloud',
+                component: 'env-cloud',
+                metadata: {
+                  title: 'Cloud',
+                  description: 'Environment cloud resources details'
+                }
+              },
+              {
+                path: '/apis',
+                component: 'env-apis',
+                metadata: {
+                  title: 'APIs',
+                  description: 'Environment APIs details'
+                }
+              }
+            ]
           },
           {
             path: '/deployments',
@@ -318,14 +411,6 @@ export const routes: Route<RouteMeta>[] = [
             metadata: {
               title: 'Users',
               description: 'Environment user details'
-            }
-          },
-          {
-            path: '/delegated-users',
-            component: 'env-delegated-users',
-            metadata: {
-              title: 'Delegated Users',
-              description: 'Environment delegated User details'
             }
           },
           {
@@ -345,14 +430,6 @@ export const routes: Route<RouteMeta>[] = [
             }
           },
           {
-            path: '/control-center',
-            component: 'env-control-center',
-            metadata: {
-              title: 'Control Center',
-              description: 'Environment control center'
-            }
-          },
-          {
             path: '/tenants',
             component: 'env-tenants',
             metadata: {
@@ -368,7 +445,6 @@ export const routes: Route<RouteMeta>[] = [
               description: 'Monitor for the environment'
             }
           }
-
         ]
       },
       {

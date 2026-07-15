@@ -1,4 +1,5 @@
 import '@vaadin/button';
+import '../components/dorc-spinner';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/grid/vaadin-grid-column';
 import '@vaadin/grid/vaadin-grid-sort-column';
@@ -36,6 +37,7 @@ import {
 } from '../apis/dorc-api';
 import { RefDataServersApi } from '../apis/dorc-api';
 import { PageElement } from '../helpers/page-element';
+import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import '../components/server-tags';
 import { AttachedServers } from '../components/attached-servers';
 import '../components/grid-button-groups/server-controls';
@@ -50,7 +52,7 @@ const osName = 'OsName';
 const applicationTags = 'ApplicationTags';
 
 @customElement('page-servers-list')
-export class PageServersList extends PageElement {
+export class PageServersList extends ResponsiveMixin(PageElement) {
   @property({ type: Boolean }) loading = true;
   @property({ type: Boolean }) searching = false;
   @query('#grid') grid: Grid | undefined;
@@ -73,55 +75,24 @@ export class PageServersList extends PageElement {
 
   static get styles() {
     return css`
-      vaadin-grid {
+      :host {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
         overflow: hidden;
-        height: calc(100vh - 56px);
         --divider-color: var(--dorc-border-color);
+      }
+      vaadin-grid {
+        flex: 1;
+        min-height: 0;
       }
       vaadin-text-field {
         padding: 0;
         margin: 0;
       }
 
-      .overlay {
-        width: 100%;
-        height: 100%;
-        position: fixed;
-      }
-
-      .overlay__inner {
-        width: 100%;
-        height: 100%;
-        position: absolute;
-      }
-
-      .overlay__content {
-        left: 20%;
-        position: absolute;
-        top: 20%;
-        transform: translate(-50%, -50%);
-      }
-
-      .spinner {
-        width: 75px;
-        height: 75px;
-        display: inline-block;
-        border-width: 2px;
-        border-color: var(--dorc-border-color);
-        border-top-color: var(--dorc-link-color);
-        animation: spin 1s infinite linear;
-        border-radius: 100%;
-        border-style: solid;
-      }
-
-      @keyframes spin {
-        100% {
-          transform: rotate(360deg);
-        }
-      }
-
       .tag {
-        font-size: 14px;
+        font-size: var(--lumo-font-size-s);
         font-family: monospace;
         background-color: var(--dorc-chip-bg);
         color: var(--dorc-chip-text);
@@ -140,7 +111,7 @@ export class PageServersList extends PageElement {
       }
 
       .env {
-        font-size: 14px;
+        font-size: var(--lumo-font-size-s);
         border: 0;
         font-family: monospace;
         background-color: var(
@@ -215,17 +186,7 @@ export class PageServersList extends PageElement {
         ${dialogRenderer(this.renderEditTagsDialog, [this.selectedServer])}
         ${dialogFooterRenderer(this.renderEditTagsFooter, [])}
       ></vaadin-dialog>
-      <div
-        class='overlay'
-        style='z-index: 2'
-        ?hidden='${!(this.loading || this.searching)}'
-      >
-        <div class='overlay__inner'>
-          <div class='overlay__content'>
-            <span class='spinner'></span>
-          </div>
-        </div>
-      </div>
+      <dorc-spinner ?hidden="${!(this.loading || this.searching)}"></dorc-spinner>
       <vaadin-grid
         id='grid'
         .dataProvider='${this.debouncedDataProvider}'
@@ -249,11 +210,13 @@ export class PageServersList extends PageElement {
           .headerRenderer='${this.osHeaderRenderer}'
           auto-width
           flex-grow='0'
+          ?hidden='${this._narrowScreen}'
         ></vaadin-grid-column>
         <vaadin-grid-column
           .renderer='${this.applicationTagsRenderer}'
           resizable
           .headerRenderer='${this.appTagsHeaderRenderer}'
+          ?hidden='${this._narrowScreen}'
         ></vaadin-grid-column>
         <vaadin-grid-column
           width='300px'
@@ -262,6 +225,7 @@ export class PageServersList extends PageElement {
           .headerRenderer='${this.environmentNamesHeaderRenderer}'
           resizable
           header='Mapped Environments'
+          ?hidden='${this._narrowScreen}'
         ></vaadin-grid-column>
         <vaadin-grid-column
           width='200px'
