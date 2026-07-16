@@ -1,12 +1,16 @@
-# HLPS: Environment Details Component Tabs Completion + Tag Capacity Expansion
+# HLPS: Environment Details Component Tabs Completion
 
 | Field       | Value                                        |
 |-------------|----------------------------------------------|
-| **Status**  | DRAFT                                        |
+| **Status**  | IN REVIEW (v2, post round-1 revision)        |
 | **Author**  | Agent                                        |
 | **Date**    | 2026-07-16                                   |
 | **Folder**  | docs/env-details-component-tabs/             |
 | **Branch**  | claude/env-details-component-tabs-p7othg     |
+
+> **v2 changes:** all round-1 panel findings applied (see `REVIEW-HLPS-round1.md`).
+> Tag capacity expansion **removed from this HLPS** — it will be delivered in a separate PR
+> with its own HLPS, carrying over the tag-related round-1 findings.
 
 ---
 
@@ -14,165 +18,203 @@
 
 The environment details page presents a **Components** tab
 (`src/dorc-web/src/pages/page-environment-components.ts`) with six sub-tabs routed under
-`/environment/:id/components/*`. Three of them — **Containers**, **Cloud**, and **APIs** —
-are placeholder stubs (`env-containers.ts`, `env-cloud.ts`, `env-apis.ts`, ~39 lines each)
-that render only "*… functionality will be implemented here.*" Users navigating to these
-tabs see dead ends in a shipped UI. There is **no backend support at all** for these three
-component types: no SQL tables, EF entities, persistent sources, API models, or controllers.
+`/environment/:id/components/*` in `src/dorc-web/src/router/routes.ts`. Three of them —
+**Containers**, **Cloud**, and **APIs** — are placeholder stubs (`env-containers.ts`,
+`env-cloud.ts`, `env-apis.ts`, ~39 lines each) that render only
+"*… functionality will be implemented here.*" Users navigating to these tabs meet dead ends
+in a shipped UI.
 
-Separately, **tags cannot be used at the scale users now need**. Server tags
-(`ApplicationTags`, semicolon-separated) are capped at 250 characters by EF configuration,
-and database tags (`ArrayName`) at 50 characters — but the layers disagree with each other,
-so the effective limit is the *lowest* layer and overruns fail late (silent truncation or a
-DB-layer exception) instead of failing clearly at the API boundary:
-
-| Layer | Server `ApplicationTags` | Database `ArrayName` |
-|-------|--------------------------|----------------------|
-| SQL (`Dorc.Database/dbo/Tables/`) | `NVARCHAR(1000)` (`SERVER.Application_Server_Name`) | `NVARCHAR(250)` (`DATABASE.Array_Name`) |
-| EF (`EntityTypeConfigurations/`) | `HasMaxLength(250)` (`ServerEntityTypeConfiguration.cs:32`) | `HasMaxLength(50)` (`DatabaseEntityTypeConfiguration.cs`) |
-| API validation | none | none |
-| UI | `tags-input.ts`: no limit | `add-edit-database.ts`: `maxlength=50` |
+There is **no backend support at all** for these three component types: no SQL tables, EF
+entities, persistent sources, API models, or controllers.
 
 ## 2. Desired Outcome
 
-1. All six Components sub-tabs are functional. Containers, Cloud, and APIs each support:
-   viewing items attached to the environment, attaching/detaching existing items, and
-   creating/editing/deleting items — with the same permission gating as Servers.
-2. Server and database tags accept values far beyond 250 characters, with **one consistent
-   limit enforced at every layer** and a clear 400 response when exceeded.
+All six Components sub-tabs are functional. Containers, Cloud, and APIs each support:
+viewing items attached to the environment, attaching/detaching existing items, and
+creating/editing/deleting items — with authorization at least as strict as the strongest
+existing reference-data vertical (Daemons), returning 403 for unauthorized writes.
 
 ## 3. Scope
 
 **In scope:**
-- `Dorc.Database` (new tables + widened columns), `Dorc.PersistentData` (entities,
-  configurations, `DeploymentContext`, persistent sources), `Dorc.ApiModel` (DTOs),
-  `Dorc.Api` (new RefData controllers, `EnvironmentContentApiModel` extension, validation)
-- `src/dorc-web`: regenerated `dorc-api` client (`npm run dorc-api-gen`), replacement of the
-  three stub tabs, tag-related components (`tags-input.ts`, `server-tags.ts`,
-  `add-edit-database.ts`)
-- Unit tests in `Dorc.Api.Tests` and web component tests in `src/dorc-web/tests`
+- `Dorc.Database`: three new entity tables + three environment join tables
+- `Dorc.PersistentData`: entities, `IEntityTypeConfiguration`s, `DbSet`s on
+  `DeploymentContext`, persistent sources, **and their DI registration in
+  `PersistentDataRegistry.cs`** (Monitor's `Registry/PersistentSourcesRegistry.cs` is not
+  touched unless the Monitor needs the new types — it does not, this iteration)
+- `Dorc.ApiModel`: three DTOs
+- `Dorc.Api`: three RefData controllers (CRUD + typed attach/detach, see U-9), audit wiring
+- `src/dorc-web`: regenerated `dorc-api` client, replacement of the three stub tabs and
+  their attach/attached/add-edit child components
+- Tests: `Dorc.Api.Tests` (controller/source unit tests), `src/dorc-web/tests` (component
+  tests). `Tests.Acceptance` checked for impact; new feature coverage there is optional
+  parity (see U-10).
 
 **Out of scope:**
-- Live introspection of container runtimes / cloud providers / API gateways — this
-  iteration is **reference-data CRUD + environment mapping only** (matching how Servers
-  work: DOrc records what exists; it does not discover it). (See U-3.)
-- Deployment/variable-resolution integration for the new component types
-  (`VariableScopeOptionsResolver` reads server tags; no equivalent for new types yet).
-- Changing the semicolon tag encoding or migrating tags to a normalised table (see §7
-  Alternatives).
-- The existing working tabs (Servers, Databases, Daemons) beyond the tag changes above.
+- Tag capacity expansion on servers/databases — **separate PR/HLPS** (user direction).
+- Live introspection of container runtimes / cloud providers / API gateways. The
+  *recommended* position (pending U-3) is reference-data CRUD + environment mapping only,
+  matching how Servers work: DOrc records what exists, it does not discover it.
+- Deployment/variable-resolution integration for the new component types (pending U-3).
+- The existing working tabs (Servers, Databases, Daemons).
+- `EnvironmentContentApiModel` and the monolithic environment-details load path — the new
+  tabs deliberately do **not** extend it (see §5.4).
 
 ## 4. Constraints
 
 - C# / .NET, existing repo patterns; namespaces `Dorc.[Component].[Feature]`; no grab-bag
   class names.
-- Schema changes are declarative via the SSDT project; only non-destructive (widening)
-  changes to existing columns.
-- The typed web client is generated from `swagger.json` via `npm run dorc-api-gen`
-  (`typescript-rxjs`); hand-editing generated files is not acceptable.
-- Write operations on the new component types must reuse
-  `ISecurityPrivilegesChecker.CanModifyEnvironment` gating, as
-  `RefDataServersController.Put/Delete` does.
+- Schema is dual-sourced: SSDT project (existing DBs, dacpac publish) **and** the EF model
+  (`DeploymentContext` uses `EnsureCreated()` for fresh databases). New tables must land
+  identically in both, in the same step.
+- The typed web client is regenerated from the running API's spec:
+  `dorc-web/README.md:213` — obtain `swagger.json` from `/swagger/v1/swagger.json` of a
+  locally-run `Dorc.Api`, then `npm run dorc-api-gen`. Hand-editing generated client files
+  or the committed `swagger.json` is not acceptable. If the dev environment cannot run the
+  API locally, this becomes a blocker escalated at the corresponding IS step.
+- Write endpoints must return **403** (not 200-with-false) for authorization failures.
 - Test-first development; adversarial review per step (CLAUDE.md).
 
 ## 5. Proposed Solution Shape (strategic — details in IS/JIT specs)
 
-### 5.1 Three new component types (mirror the Servers vertical)
+Working entity names (see U-1): **`Container`**, **`CloudResource`**, **`ApiRegistration`**
+(not `ApiEndpoint` — that collides with the existing `Dorc.Api.Services.ApiEndpoints` and
+its generated client model; "Component" is also avoided as it already means *deployable
+project component* in this domain, e.g. `ApiServices.ChangeEnvComponent`).
 
-For each of **Container**, **CloudResource**, and **ApiEndpoint** (working names, see U-1):
+### 5.1 Data layer
 
-1. **SQL**: `dbo` table + `deploy.Environment<Type>` join table (page-compressed PK,
-   style of `SERVER.sql` / `EnvironmentServer`).
-2. **EF**: model class + `IEntityTypeConfiguration` + `DbSet` on `DeploymentContext`
-   (mirror `Server.cs` / `ServerEntityTypeConfiguration.cs`).
-3. **Persistence**: `I<Type>sPersistentSource` + implementation (list/get/add/update/
-   delete/attach/detach, mirroring `ServersPersistentSource`).
-4. **API**: DTO extending `EnvironmentUiPartBase`; `RefData<Type>sController` with the
-   same authorization shape as `RefDataServersController` (writes require
-   `CanModifyEnvironment` on every mapped environment); audit rows mirroring
-   `IServersAuditPersistentSource` usage.
-5. **Environment content**: extend `EnvironmentContentApiModel` (and its population in the
-   RefDataEnvironmentsDetails path) with collections for the three new types so
-   `PageEnvBase.envContent` feeds the tabs the same way `AppServers` feeds `env-servers`.
-6. **UI**: replace each stub with a tab mirroring `env-servers.ts`: `attached-<type>s`
-   grid, `attach-<type>` dialog, `add-edit-<type>` dialog, actions disabled when
-   `!environment.UserEditable`, refresh via `environment-stale` pattern.
+For each type: a `deploy`-schema table (the modern convention — `deploy.Daemon` — rather
+than legacy `dbo` uppercase tables) plus a `deploy.Environment<Type>` join table with an
+**explicit composite primary key** on (EnvId, \<Type\>Id). Note: the existing
+`deploy.EnvironmentServer` / `deploy.EnvironmentDatabase` SSDT definitions have **no**
+PK/unique constraint and permit duplicate attach rows — the new join tables must not copy
+that omission.
 
-Proposed minimal schemas (to be confirmed — U-1; all string fields NVARCHAR, generous):
+EF: model class + `IEntityTypeConfiguration` + `DbSet` on `DeploymentContext`, matching the
+SSDT DDL exactly (see §4 dual-source constraint).
+
+Proposed minimal schemas (to be confirmed — U-1; all string fields sized NVARCHAR):
 
 - **Container**: Id, Name, Image, Registry, HostServerName (nullable), Tags
 - **CloudResource**: Id, Name, Provider, ResourceType, ResourceIdentifier (URI/ARN/id),
   Subscription (nullable), Tags
-- **ApiEndpoint**: Id, Name, BaseUrl, Version (nullable), HealthCheckUrl (nullable), Tags
+- **ApiRegistration**: Id, Name, BaseUrl, Version (nullable), HealthCheckUrl (nullable), Tags
 
-All three carry `Tags` from day one, sharing the server tag limit and `tag-parser.ts`
-semantics.
+All three carry `Tags` from day one (limit aligned with whatever the separate tag-capacity
+PR decides; until then, 250 to match current server behaviour).
 
-### 5.2 Tag capacity expansion
+### 5.2 Persistence layer
 
-1. Single limit constant **4000 characters** (recommended; see U-6) applied to:
-   - `SERVER.Application_Server_Name` → `NVARCHAR(4000)` (widen from 1000)
-   - `DATABASE.Array_Name` → `NVARCHAR(4000)` (widen from 250)
-   - `HasMaxLength(4000)` in both entity configurations
-   - New component types' `Tags` columns
-2. API-layer max-length validation on the affected DTO properties so overlong input
-   returns 400 with a clear message (today: EF/SqlClient behaviour is truncation or an
-   opaque exception).
-   Rationale for 4000 over `NVARCHAR(MAX)`: tags are filtered with `Contains` (e.g.
-   `ServersPersistentSource.cs:77`); keeping the column a sized NVARCHAR preserves the
-   option of indexing and avoids MAX-column row-overflow costs on hot ref-data tables.
-3. UI: raise `add-edit-database.ts` `maxlength` for `ArrayName` to 4000; verify
-   `tags-input.ts` / grids render large tag sets acceptably (`page-servers-list.ts:689`,
-   `attached-servers.ts:181`).
-4. **Optional (U-7)**: replace the plain `ArrayName` text input with the chip-style
-   `tags-input` editor (as `server-tags.ts` does), making database tags first-class.
+`I<Type>sPersistentSource` + implementation per type: list/get/add/update/delete +
+attach/detach (see U-9), registered in `PersistentDataRegistry.cs`.
+
+**Mirror the shape of `ServersPersistentSource`, not its defects.** Explicit do-not-copy
+list (verified in round-1 review):
+
+1. `DeleteServer` dereferences the entity outside its null-guard (NRE on unknown id) —
+   new sources must guard.
+2. Related collections are read without `Include` (no lazy-loading proxies are configured),
+   so e.g. `svr.Environments` is silently empty and `UserEditable` (computed via `All()`
+   over an empty sequence) is wrongly `true` — new sources must eager-load what they
+   project.
+3. Iteration of child collections without loading them (`server.Daemons`).
+
+### 5.3 API layer
+
+DTO extending `EnvironmentUiPartBase`; `RefData<Type>sController` per type.
+
+**Authorization follows the `RefDataDaemonsController` precedent, not
+`RefDataServersController`** (whose `Post` is entirely ungated and whose `Put`/`Delete`
+gating over *mapped* environments is vacuous for unattached items, and whose `Delete`
+returns 200-with-false):
+
+- Create: `IsPowerUser || IsAdmin` (403 otherwise).
+- Update/Delete: `CanModifyEnvironment` on **every** mapped environment; if the item is
+  mapped to no environment, fall back to `IsPowerUser || IsAdmin`. 403 otherwise.
+- Attach/Detach: `CanModifyEnvironment` on the target environment. 403 otherwise.
+- Reads: any authenticated user.
+
+Audit rows mirror the servers/daemons audit pattern (before/after JSON — see U-8).
+
+### 5.4 Environment data flow (revised in v2)
+
+The new tabs do **not** extend `EnvironmentContentApiModel`. That model is populated
+monolithically (`ApiServices.GetEnvironmentsDetails` loads every collection on every
+environment-details request) and cached module-wide by `page-env-base.ts`; adding three
+collections would tax every environment load whether or not the tabs are opened.
+
+Instead each tab self-fetches on activation via a per-type
+`GET RefData<Type>s/ByEnvId/{envId}` endpoint — the same pattern `env-daemons` /
+`application-daemons` already uses. `PageEnvBase` still supplies `environment`
+(for `UserEditable`) and `environmentId`.
+
+### 5.5 Attach/detach endpoints (U-9)
+
+Today's attach/detach for servers/databases runs through
+`RefDataEnvironmentsDetailsController.Put` → `ApiServices.ChangeEnvComponent`, a
+stringly-typed `{"server"|"database"} × {"attach"|"detach"}` dispatcher with a string
+switch for audit. **Recommended:** give each new controller typed
+`PUT <type>/{id}/environments/{envId}` attach / `DELETE …` detach endpoints instead of
+growing the dispatcher to five magic strings; the new UI components call the typed
+endpoints. The dispatcher and existing UI are untouched.
+
+### 5.6 UI
+
+Replace each stub with a tab mirroring `env-servers.ts`: `attached-<type>s` grid,
+`attach-<type>` dialog, `add-edit-<type>` dialog, actions disabled when
+`!environment.UserEditable`, refresh via the `environment-stale` event pattern — but data
+loading per §5.4. Client regenerated per §4.
 
 ## 6. Success Criteria
 
-- Navigating to `/environment/<env>/components/containers|cloud|apis` shows a working
-  grid-based tab (no placeholder text remains in the repo).
-- Each new type supports create, edit, delete, attach, detach end-to-end through the UI,
-  with write actions rejected (403 / disabled controls) for users lacking environment
-  write permission.
-- A server tag string and database tag string of 3,900 characters round-trips through
-  UI → API → DB → UI unmodified; a 4,100-character string is rejected with HTTP 400 and a
-  human-readable message.
-- All existing and new unit/component tests pass; `dorc-web` builds clean.
+- **SC-1**: Navigating to `/environment/<env>/components/containers|cloud|apis` shows a
+  working grid-based tab; the placeholder text "will be implemented here" no longer exists
+  in the repo (today: exactly three files).
+- **SC-2**: For each new type, create → attach → edit → detach → delete succeeds end-to-end
+  through the UI for a user with environment write permission. Demonstrated by: unit tests
+  in `Dorc.Api.Tests` per endpoint, web component tests per new component, and a manual UI
+  round-trip recorded at the step's review.
+- **SC-3**: Each write endpoint returns 403 for a user lacking the §5.3 privilege, verified
+  by controller unit tests; UI controls are disabled when `!environment.UserEditable`.
+- **SC-4**: Duplicate attach of the same item to the same environment is impossible
+  (composite PK) and surfaces as a clean 4xx, not a 500.
+- **SC-5**: All existing tests still pass; `dorc-web` builds clean; regenerated client
+  diff contains only additions for the new types.
 
 ## 7. Alternatives Considered
 
-- **NVARCHAR(MAX) for tags**: maximum headroom, but forfeits indexability and adds
-  row-overflow I/O on tables queried with `Contains` filters. Rejected pending U-6.
-- **Normalised tag table (Tag + join tables)**: cleanest long-term model, enables per-tag
-  queries and dedup, but a much larger migration touching every tag consumer, and out of
-  proportion to the stated need (longer tag strings). Deferred — the 4000-char widening
-  does not preclude it later.
-- **One generic "EnvironmentComponent" table for containers/cloud/APIs**: fewer tables,
-  but degenerates into a grab-bag entity with nullable type-specific columns and weakens
-  typing through the whole stack. Rejected on cohesion grounds (CLAUDE.md naming
-  principle applies to schemas too).
+- **One generic "EnvironmentComponent" table** for all three types: fewer tables, but a
+  grab-bag entity with nullable type-specific columns, weak typing through the stack, and
+  it compounds the existing "Component" terminology overload. Rejected on cohesion grounds.
+- **Extending `EnvironmentContentApiModel`** (v1 approach): rejected in round-1 review —
+  taxes the hot environment-details path for data only three tabs need (§5.4).
+- **Extending `ApiServices.ChangeEnvComponent`** for attach/detach: keeps one endpoint
+  shape but grows a stringly-typed dispatcher; recommended against (§5.5, U-9).
 
 ## 8. Unknowns Register
 
-| ID | Unknown | Blocking? | Proposed resolution |
-|----|---------|-----------|---------------------|
-| U-1 | Field schemas for Container / CloudResource / ApiEndpoint | **Yes** | §5.1 proposal; user confirms/amends at HLPS checkpoint |
-| U-2 | Attach semantics: many-to-many (like servers/databases) or owned by one environment | **Yes** | Recommend many-to-many for consistency with all existing component types |
-| U-3 | Deployment/variable integration now, or CRUD + mapping only | **Yes** | Recommend CRUD-only this iteration; integration is a separate HLPS |
-| U-4 | Permission model for new types | **Yes** | Recommend identical to servers: reads authenticated, writes gated by `CanModifyEnvironment` on mapped environments |
-| U-5 | `swagger.json` regeneration workflow (file is committed; generator consumes it — how is it refreshed from the running API?) | No — resolvable during IS | Investigate repo scripts/CI; worst case, hand-extend swagger.json consistently with existing entries before running `dorc-api-gen` |
-| U-6 | Tag limit value: 4000 vs MAX vs other | **Yes** (user preference) | Recommend 4000 |
-| U-7 | Chip-style tags editor for database `ArrayName` | **Yes** (user preference, small scope impact) | Recommend yes — reuses `tags-input` + `tag-parser` |
-| U-8 | Audit coverage for new types (servers have `ServerAudit`; databases likewise) | No — default to parity | Mirror the servers audit pattern unless user objects |
+| ID | Unknown | Blocking? | Owner | Proposed resolution |
+|----|---------|-----------|-------|---------------------|
+| U-1 | Field schemas + entity names for Container / CloudResource / ApiRegistration | **Yes** | User | §5.1 proposal; confirm/amend at HLPS checkpoint |
+| U-2 | Attach semantics: many-to-many (like servers/databases/daemons) or owned by one environment | **Yes** | User | Recommend many-to-many — matches every existing component type |
+| U-3 | Deployment/variable integration now, or CRUD + mapping only | **Yes** | User | Recommend CRUD-only this iteration; integration is a separate HLPS |
+| U-4 | Authorization model | **Yes** | User | Recommend §5.3 (Daemons precedent, strengthened for unattached items) |
+| U-8 | Audit coverage for new types | No | Agent (IS) | Default: parity with servers/daemons audit pattern |
+| U-9 | Typed attach/detach endpoints vs extending `ChangeEnvComponent` dispatcher | No | Agent (IS) | Recommend typed endpoints (§5.5); user may veto at checkpoint |
+| U-10 | `Tests.Acceptance` parity coverage for new RefData controllers | No | Agent (IS) | Default: not this iteration; existing acceptance features unaffected |
+| U-11 | Can the dev environment run `Dorc.Api` locally to serve `/swagger/v1/swagger.json` for client regeneration? | No — becomes blocking at the client-regen IS step if answer is no | Agent (IS) | Verify early in IS; escalate immediately if not possible |
+
+(U-5/U-6/U-7 from v1 concerned tag capacity and moved to the separate tag PR's HLPS.)
 
 ## 9. Risks
 
-- **R-1**: `EnvironmentContentApiModel` is on a hot path (environment details load); three
-  new eager collections could slow the endpoint. Mitigation: load only what the tabs need;
-  measure before/after.
-- **R-2**: Widening `Array_Name`/`Application_Server_Name` is non-destructive, but any
-  external consumer (reports, scripts) assuming old widths could truncate downstream.
-  Mitigation: call out in release notes; no in-repo consumers found beyond those listed.
-- **R-3**: Generated client churn — `dorc-api-gen` regenerates the whole `dorc-api`
-  folder; unrelated diff noise possible if generator version drifted. Mitigation: pin to
-  repo's `@openapitools/openapi-generator-cli` version via `npm run`.
+- **R-2**: Naming: `ApiRegistration` still lands near existing generated-client models;
+  final names checked against the generated client during the client-regen step.
+- **R-3**: Generated client churn — regeneration rewrites the whole `dorc-api` folder;
+  diff noise if generator version drifted. Mitigation: pin via repo's
+  `@openapitools/openapi-generator-cli` through `npm run dorc-api-gen`; SC-5 requires an
+  additions-only diff.
+- **R-4**: Dual schema source drift — SSDT and EF must ship the same DDL in the same step;
+  dacpac publish must precede API deployment. Mitigation: IS orders schema steps first;
+  step review compares SSDT DDL against EF configuration.
