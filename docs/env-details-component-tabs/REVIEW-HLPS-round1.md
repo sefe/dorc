@@ -4,9 +4,9 @@ Panel: 3 independent reviewers (completeness lens, architecture/risk lens, proce
 Verdict: REVISION required. 2 HIGH, 10 MEDIUM, 11 LOW. Triage below; all revisions applied in HLPS v2.
 
 > **Scope change after round 1 (user direction, 2026-07-16):** tag capacity expansion moves to a
-> **separate PR** with its own HLPS. Tag-specific findings below (B1, B3, B4, B7, B8, C5, C11 and the
-> tag parts of A3/A4) are triaged **Accept — carried over** to that future document rather than into
-> HLPS v2, which now covers the component tabs only.
+> **separate PR** with its own HLPS. Tag-specific findings below (B1, B3, B4, B7, B8, C5, C11, A6 and
+> the tag parts of A3/A4) are triaged **Accept — carried over** to that future document rather than
+> into HLPS v2, which now covers the component tabs only.
 
 | ID | Sev | Finding (abridged) | Triage | Resolution in HLPS v2 |
 |----|-----|--------------------|--------|------------------------|

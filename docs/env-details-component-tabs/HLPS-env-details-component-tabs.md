@@ -2,7 +2,7 @@
 
 | Field       | Value                                        |
 |-------------|----------------------------------------------|
-| **Status**  | IN REVIEW (v3, post round-2 revision)        |
+| **Status**  | APPROVED (panel, round 3) — pending user checkpoint |
 | **Author**  | Agent                                        |
 | **Date**    | 2026-07-16                                   |
 | **Folder**  | docs/env-details-component-tabs/             |
