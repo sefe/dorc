@@ -376,6 +376,13 @@ if (authenticationScheme is ConfigAuthScheme.OAuth)
 }
 
 // Map SignalR hub
-app.MapHub<DeploymentsHub>("/hubs/deployments");
+var hubEndpoint = app.MapHub<DeploymentsHub>("/hubs/deployments")
+    .RequireCors(dorcCorsRefDataPolicy);
+
+if (authenticationScheme is ConfigAuthScheme.OAuth)
+{
+    // Enforce the same authorization policy (scope requirement) on SignalR hub
+    hubEndpoint.RequireAuthorization(apiScopeAuthorizationPolicy);
+}
 
 app.Run();

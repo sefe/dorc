@@ -1,6 +1,5 @@
 using Dorc.Core.Events;
 using Dorc.Core.Interfaces;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Logging;
@@ -13,8 +12,10 @@ namespace Dorc.Api.Events
     /// <remarks>
     /// You can generate Typescript client for that SignalR hub using the following command:
     /// <code>dotnet tsrts --project Dorc.Core/Dorc.Core.csproj --output Dorc-web/src/services/ServerEvents/DeploymentEventsGenerated</code>
+    /// Authorization is enforced at the endpoint level in Program.cs via RequireAuthorization(apiScopeAuthorizationPolicy)
+    /// which ensures users have the required scope claim.
     /// </remarks>
-    [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+    [Authorize]
     public sealed class DeploymentsHub : Hub<IDeploymentsEventsClient>, IDeploymentEventsHub
     {
         private readonly IDeploymentSubscriptionsGroupTracker _tracker;
