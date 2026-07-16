@@ -31,7 +31,7 @@ Verdict: REVISION required. 2 HIGH, 10 MEDIUM, 11 LOW. Triage below; all revisio
 | C9 | LOW | `ApiEndpoint` collides with existing `ApiEndpoints` service class; "Component" domain term overloaded | Accept | Working name changed to `ApiRegistration`; noted in U-1 |
 | C10 | LOW | New tables proposed in legacy `dbo`; newer reference entities live in `deploy` | Accept | §5.1.1 recommends `deploy` schema |
 | C11 | LOW | Longer tag strings amplify substring-match false positives (`Contains("appserv")`, `ContainsExpression`) | Accept | Noted under R-2 |
-| A6 | LOW | U-7 over-classified blocking | Accept (downgrade) | U-7 non-blocking, default yes; still surfaced at checkpoint |
+| A6 | LOW | U-7 over-classified blocking | Accept — carried over | U-7 is tag work; finding carries to the separate tag PR's HLPS with the other tag findings |
 | A7 | LOW | §5.1.4 commits to audit while U-8 open | Accept | Cross-reference added |
 | A8 | LOW | R-1 mitigation unfalsifiable | Superseded | R-1 removed by C4 design change |
 | A9 | LOW | Unknowns Register lacks Owner column (exemplar has one) | Accept | Column added |

@@ -2,7 +2,7 @@
 
 | Field       | Value                                        |
 |-------------|----------------------------------------------|
-| **Status**  | IN REVIEW (v2, post round-1 revision)        |
+| **Status**  | IN REVIEW (v3, post round-2 revision)        |
 | **Author**  | Agent                                        |
 | **Date**    | 2026-07-16                                   |
 | **Folder**  | docs/env-details-component-tabs/             |
@@ -31,17 +31,22 @@ entities, persistent sources, API models, or controllers.
 
 All six Components sub-tabs are functional. Containers, Cloud, and APIs each support:
 viewing items attached to the environment, attaching/detaching existing items, and
-creating/editing/deleting items — with authorization at least as strict as the strongest
-existing reference-data vertical (Daemons), returning 403 for unauthorized writes.
+creating/editing/deleting items — with **no ungated write endpoints** and 403 semantics
+exactly as specified in §5.3 (adopting the Daemons controller's gating *discipline*;
+the specific privilege per operation is §5.3's, pending U-4).
 
 ## 3. Scope
 
 **In scope:**
-- `Dorc.Database`: three new entity tables + three environment join tables
+- `Dorc.Database`: three new entity tables + three environment join tables + three
+  `<Type>Audit` tables (the servers/daemons audit pattern is per-type tables —
+  `deploy/Tables/ServerAudit.sql`, `DaemonAudit.sql`; the generic `RefDataAudit` is
+  project-scoped and unsuitable — see U-8)
 - `Dorc.PersistentData`: entities, `IEntityTypeConfiguration`s, `DbSet`s on
-  `DeploymentContext`, persistent sources, **and their DI registration in
-  `PersistentDataRegistry.cs`** (Monitor's `Registry/PersistentSourcesRegistry.cs` is not
-  touched unless the Monitor needs the new types — it does not, this iteration)
+  `DeploymentContext`, persistent sources (including audit sources per U-8), **and their
+  DI registration in `PersistentDataRegistry.cs`** (Monitor's
+  `Registry/PersistentSourcesRegistry.cs` is not touched unless the Monitor needs the new
+  types — it does not, this iteration)
 - `Dorc.ApiModel`: three DTOs
 - `Dorc.Api`: three RefData controllers (CRUD + typed attach/detach, see U-9), audit wiring
 - `src/dorc-web`: regenerated `dorc-api` client, replacement of the three stub tabs and
@@ -144,10 +149,14 @@ monolithically (`ApiServices.GetEnvironmentsDetails` loads every collection on e
 environment-details request) and cached module-wide by `page-env-base.ts`; adding three
 collections would tax every environment load whether or not the tabs are opened.
 
-Instead each tab self-fetches on activation via a per-type
-`GET RefData<Type>s/ByEnvId/{envId}` endpoint — the same pattern `env-daemons` /
-`application-daemons` already uses. `PageEnvBase` still supplies `environment`
-(for `UserEditable`) and `environmentId`.
+Instead each tab self-fetches on activation via a new per-type
+`GET RefData<Type>s/ByEnvId/{envId}` endpoint on its own controller. The nearest existing
+precedent is the Daemons tab, which fetches independently of `envContent` — though via
+`DaemonStatusController` by environment *name*, and only on a manual "Load Daemons" click
+whose button is disabled when `!UserEditable`. Two aspects of that precedent are
+**not copied**: the new tabs load automatically on activation, and reads are *not* gated
+on editability (per §5.3, reads are open to any authenticated user). `PageEnvBase` still
+supplies `environment` (for `UserEditable`) and `environmentId`.
 
 ### 5.5 Attach/detach endpoints (U-9)
 
@@ -174,7 +183,9 @@ loading per §5.4. Client regenerated per §4.
 - **SC-2**: For each new type, create → attach → edit → detach → delete succeeds end-to-end
   through the UI for a user with environment write permission. Demonstrated by: unit tests
   in `Dorc.Api.Tests` per endpoint, web component tests per new component, and a manual UI
-  round-trip recorded at the step's review.
+  round-trip recorded at the step's review (if the dev environment cannot run the full
+  stack — see U-11 — the manual round-trip transfers to the user's environment and the
+  test-level evidence stands as the gate).
 - **SC-3**: Each write endpoint returns 403 for a user lacking the §5.3 privilege, verified
   by controller unit tests; UI controls are disabled when `!environment.UserEditable`.
 - **SC-4**: Duplicate attach of the same item to the same environment is impossible
@@ -196,21 +207,27 @@ loading per §5.4. Client regenerated per §4.
 
 | ID | Unknown | Blocking? | Owner | Proposed resolution |
 |----|---------|-----------|-------|---------------------|
-| U-1 | Field schemas + entity names for Container / CloudResource / ApiRegistration | **Yes** | User | §5.1 proposal; confirm/amend at HLPS checkpoint |
-| U-2 | Attach semantics: many-to-many (like servers/databases/daemons) or owned by one environment | **Yes** | User | Recommend many-to-many — matches every existing component type |
+| U-1 | Field schemas + entity names for Container / CloudResource / ApiRegistration | **Yes** | User | §5.1 proposal; confirm/amend at HLPS checkpoint. Note: `Container` collides with `Lamar.Container` (DI) — usable with namespace qualification, or pick e.g. `ContainerInstance` |
+| U-2 | Attach semantics: many-to-many or owned by one environment | **Yes** | User | Recommend many-to-many — matches servers and databases (daemons map to *servers*, not environments, so the precedent rests on those two) |
 | U-3 | Deployment/variable integration now, or CRUD + mapping only | **Yes** | User | Recommend CRUD-only this iteration; integration is a separate HLPS |
 | U-4 | Authorization model | **Yes** | User | Recommend §5.3 (Daemons precedent, strengthened for unattached items) |
 | U-8 | Audit coverage for new types | No | Agent (IS) | Default: parity with servers/daemons audit pattern |
 | U-9 | Typed attach/detach endpoints vs extending `ChangeEnvComponent` dispatcher | No | Agent (IS) | Recommend typed endpoints (§5.5); user may veto at checkpoint |
 | U-10 | `Tests.Acceptance` parity coverage for new RefData controllers | No | Agent (IS) | Default: not this iteration; existing acceptance features unaffected |
-| U-11 | Can the dev environment run `Dorc.Api` locally to serve `/swagger/v1/swagger.json` for client regeneration? | No — becomes blocking at the client-regen IS step if answer is no | Agent (IS) | Verify early in IS; escalate immediately if not possible |
+| U-11 | Can the dev environment run the stack locally — `Dorc.Api` (for `/swagger/v1/swagger.json` client regen) and, for SC-2's manual round-trip, API + SQL database + web dev server together? | No — becomes blocking at the client-regen IS step if the API can't run | Agent (IS) | Verify early in IS; if the full stack can't run, SC-2 falls back to its test-level evidence and the manual UI round-trip transfers to the user's environment |
 
-(U-5/U-6/U-7 from v1 concerned tag capacity and moved to the separate tag PR's HLPS.)
+(v1's U-6/U-7 concerned tag capacity and move to the separate tag PR's HLPS. v1's U-5 —
+the swagger regeneration workflow — was *resolved* by `dorc-web/README.md` into the §4
+constraint and superseded by U-11; it does not carry to the tag PR.)
 
 ## 9. Risks
 
-- **R-2**: Naming: `ApiRegistration` still lands near existing generated-client models;
-  final names checked against the generated client during the client-regen step.
+- **R-5**: Naming: `ApiRegistration` still lands near existing generated-client models,
+  and an entity named `Container` collides with `Lamar.Container` (the repo's DI library)
+  in files importing both namespaces — resolvable by qualification, surfaced under U-1.
+  Final names are checked against the generated client during the client-regen step.
+  (Risk IDs R-1/R-2 from v1 are retired: R-1 was removed by the §5.4 design change; R-2 —
+  tag-consumer truncation — carries to the separate tag PR.)
 - **R-3**: Generated client churn — regeneration rewrites the whole `dorc-api` folder;
   diff noise if generator version drifted. Mitigation: pin via repo's
   `@openapitools/openapi-generator-cli` through `npm run dorc-api-gen`; SC-5 requires an
