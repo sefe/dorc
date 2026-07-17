@@ -1,4 +1,5 @@
 import { css, LitElement } from 'lit';
+import { query } from 'lit/decorators.js';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/combo-box';
@@ -19,11 +20,17 @@ import {
   DatabaseApiModel,
   GroupApiModel
 } from '../apis/dorc-api';
+import './tags-input';
+import { TagsInput } from './tags-input';
+import { splitTags, joinTags } from '../helpers/tag-parser';
+import { MAX_TAG_STRING_LENGTH } from '../helpers/tag-limits';
 
 @customElement('add-edit-database')
 export class AddEditDatabase extends LitElement {
 
-  private readonly maxFieldLength = 50;
+  private readonly maxNameLength = 50;
+  private readonly maxTypeLength = 50;
+  private readonly maxInstanceLength = 50;
 
   @property({ type: Object })
   get database(): DatabaseApiModel {
@@ -42,6 +49,7 @@ export class AddEditDatabase extends LitElement {
     this.DbServerName = this._database.ServerName ?? '';
     this.AdGroup = this._database.AdGroup ?? '';
     this.ArrayName = this._database.ArrayName ?? '';
+    this.tags = splitTags(this.ArrayName);
 
     // Clear any previous error messages when setting new database
     this.ErrorMessage = '';
@@ -71,6 +79,12 @@ export class AddEditDatabase extends LitElement {
 
   @property({ type: String })
   public ArrayName = '';
+
+  @property({ type: Array })
+  private tags: string[] = [];
+
+  @query('#db-tags-input')
+  private tagsInput: TagsInput | undefined;
 
   @property({ type: String })
   public AdGroup = '';
@@ -136,8 +150,8 @@ export class AddEditDatabase extends LitElement {
           <vaadin-text-field
             class="block"
             label="Database"
-            maxlength="${this.maxFieldLength}"
-            title="Maximum length: ${this.maxFieldLength} symbols"
+            maxlength="${this.maxNameLength}"
+            title="Maximum length: ${this.maxNameLength} symbols"
             pattern="^[a-zA-Z0-9_]{1,128}?$"
             required
             auto-validate
@@ -147,8 +161,8 @@ export class AddEditDatabase extends LitElement {
           <vaadin-text-field
             class="block"
             label="Application Tag"
-            maxlength="${this.maxFieldLength}"
-            title="Maximum length: ${this.maxFieldLength} symbols"
+            maxlength="${this.maxTypeLength}"
+            title="Maximum length: ${this.maxTypeLength} symbols"
             pattern="^[a-zA-Z0-9&.\\- ]+$"
             required
             auto-validate
@@ -159,22 +173,19 @@ export class AddEditDatabase extends LitElement {
             class="block"
             pattern="^[a-zA-Z0-9_\\-]{1,128}(\\\\[a-zA-Z0-9_\\-]{1,128})?$"
             label="Instance"
-            maxlength="${this.maxFieldLength}"
-            title="Maximum length: ${this.maxFieldLength} symbols"
+            maxlength="${this.maxInstanceLength}"
+            title="Maximum length: ${this.maxInstanceLength} symbols"
             required
             auto-validate
             @input="${this._sqlServerValueChanged}"
             .value="${this.DbServerName}"
           ></vaadin-text-field>
-          <vaadin-text-field
-            class="block"
-            label="Array Name (leave blank if unknown)"
-            maxlength="${this.maxFieldLength}"
-            title="Maximum length: ${this.maxFieldLength} symbols"
-            @input="${this._dbaArrayNameValueChanged}"
-            auto-validate
-            .value="${this.ArrayName}"
-          ></vaadin-text-field>
+          <div class="block" style="flex-direction: column; align-items: stretch;">
+            <label style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
+              >Tags (leave blank if unknown)</label
+            >
+            <tags-input id="db-tags-input" .tags="${this.tags}"></tags-input>
+          </div>
           <vaadin-combo-box
             class="block"
             id="active-dir-groups"
@@ -232,6 +243,7 @@ export class AddEditDatabase extends LitElement {
     this.DatabaseType = '';
     this.DbServerName = '';
     this.ArrayName = '';
+    this.tags = [];
     this.AdGroup = '';
     this.ErrorMessage = '';
     this.infoMessage = '';
@@ -240,6 +252,11 @@ export class AddEditDatabase extends LitElement {
   }
 
   saveDatabase() {
+    this.ArrayName = joinTags(this.tagsInput?.tags ?? this.tags);
+    if (this.ArrayName.length > MAX_TAG_STRING_LENGTH) {
+      this.ErrorMessage = `Tags must be at most ${MAX_TAG_STRING_LENGTH} characters when joined (currently ${this.ArrayName.length}).`;
+      return;
+    }
     if (this._database.Id !== undefined && this._database.Id > 0) {
       const api = new RefDataDatabasesApi();
       api.refDataDatabasesPut({
@@ -304,11 +321,6 @@ export class AddEditDatabase extends LitElement {
       }
     });
     this.dispatchEvent(event);
-  }
-
-  _dbaArrayNameValueChanged(data: any) {
-    this.ArrayName = data.currentTarget.value;
-    this.checkDBExists();
   }
 
   _dbTypeValueChanged(data: any) {
