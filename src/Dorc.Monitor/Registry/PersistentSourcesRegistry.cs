@@ -17,6 +17,9 @@ namespace Dorc.Monitor.Registry
             collection.AddTransient<IPropertiesPersistentSource, PropertiesPersistentSource>();
             collection.AddTransient<IServersPersistentSource, ServersPersistentSource>();
             collection.AddTransient<IDaemonsPersistentSource, DaemonsPersistentSource>();
+            collection.AddTransient<IContainersPersistentSource, ContainersPersistentSource>();
+            collection.AddTransient<ICloudResourcesPersistentSource, CloudResourcesPersistentSource>();
+            collection.AddTransient<IApiRegistrationsPersistentSource, ApiRegistrationsPersistentSource>();
             collection.AddTransient<IDaemonObservationPersistentSource, DaemonObservationPersistentSource>();
             collection.AddTransient<IDatabasesPersistentSource, DatabasesPersistentSource>();
             collection.AddTransient<IUserPermsPersistentSource, UserPermsPersistentSource>();
