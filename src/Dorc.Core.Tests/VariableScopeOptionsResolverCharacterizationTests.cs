@@ -21,6 +21,12 @@ namespace Dorc.Core.Tests
         private IDaemonsPersistentSource _daemons = null!;
         private IDatabasesPersistentSource _databases = null!;
         private IUserPermsPersistentSource _userPerms = null!;
+        // S-005 wiring only: the resolver's constructor grew three component sources;
+        // they are stubbed to return empty so the frozen call-set assertions below are
+        // untouched (conditional emission keeps the resolver silent for empty sources).
+        private IContainersPersistentSource _containers = null!;
+        private ICloudResourcesPersistentSource _cloudResources = null!;
+        private IApiRegistrationsPersistentSource _apiRegistrations = null!;
         private List<(string Name, object? Value)> _calls = null!;
 
         [TestInitialize]
@@ -31,11 +37,18 @@ namespace Dorc.Core.Tests
             _daemons = Substitute.For<IDaemonsPersistentSource>();
             _databases = Substitute.For<IDatabasesPersistentSource>();
             _userPerms = Substitute.For<IUserPermsPersistentSource>();
+            _containers = Substitute.For<IContainersPersistentSource>();
+            _containers.GetForEnvironmentId(Arg.Any<int>()).Returns(Array.Empty<ContainerApiModel>());
+            _cloudResources = Substitute.For<ICloudResourcesPersistentSource>();
+            _cloudResources.GetForEnvironmentId(Arg.Any<int>()).Returns(Array.Empty<CloudResourceApiModel>());
+            _apiRegistrations = Substitute.For<IApiRegistrationsPersistentSource>();
+            _apiRegistrations.GetForEnvironmentId(Arg.Any<int>()).Returns(Array.Empty<ApiRegistrationApiModel>());
             _calls = new List<(string, object?)>();
         }
 
         private VariableScopeOptionsResolver CreateResolver() =>
-            new(_properties, _servers, _daemons, _databases, _userPerms);
+            new(_properties, _servers, _daemons, _databases, _userPerms,
+                _containers, _cloudResources, _apiRegistrations);
 
         private IVariableResolver CreateRecordingVariableResolver()
         {

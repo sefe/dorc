@@ -12,18 +12,27 @@ namespace Dorc.Core
         private readonly IDaemonsPersistentSource _daemonsPersistentSource;
         private readonly IDatabasesPersistentSource _databasesPersistentSource;
         private readonly IUserPermsPersistentSource _userPermsPersistentSource;
+        private readonly IContainersPersistentSource _containersPersistentSource;
+        private readonly ICloudResourcesPersistentSource _cloudResourcesPersistentSource;
+        private readonly IApiRegistrationsPersistentSource _apiRegistrationsPersistentSource;
 
         public VariableScopeOptionsResolver(IPropertiesPersistentSource propertiesPersistentSource,
             IServersPersistentSource serversPersistentSource,
             IDaemonsPersistentSource daemonsPersistentSource,
             IDatabasesPersistentSource databasesPersistentSource,
-            IUserPermsPersistentSource userPermsPersistentSource)
+            IUserPermsPersistentSource userPermsPersistentSource,
+            IContainersPersistentSource containersPersistentSource,
+            ICloudResourcesPersistentSource cloudResourcesPersistentSource,
+            IApiRegistrationsPersistentSource apiRegistrationsPersistentSource)
         {
             _userPermsPersistentSource = userPermsPersistentSource;
             _databasesPersistentSource = databasesPersistentSource;
             _daemonsPersistentSource = daemonsPersistentSource;
             _serversPersistentSource = serversPersistentSource;
             _propertiesPersistentSource = propertiesPersistentSource;
+            _containersPersistentSource = containersPersistentSource;
+            _cloudResourcesPersistentSource = cloudResourcesPersistentSource;
+            _apiRegistrationsPersistentSource = apiRegistrationsPersistentSource;
         }
 
         public void SetPropertyValues(IVariableResolver variableResolver, EnvironmentApiModel environment)
@@ -147,6 +156,66 @@ namespace Dorc.Core
                 variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.EnvOwnerEmails,
                     new VariableValue { Value = emailsArray, Type = emailsArray.GetType() });
             }
+
+            AddEnvironmentComponentProperties(variableResolver, environment.EnvironmentId);
+        }
+
+        // Emission is conditional by design (HLPS env-details-component-tabs §5.7.3):
+        // environments with no attached components produce exactly the pre-change
+        // variable set, so the integration is inert when unused.
+        private void AddEnvironmentComponentProperties(IVariableResolver variableResolver, int environmentId)
+        {
+            var containers = _containersPersistentSource.GetForEnvironmentId(environmentId).ToArray();
+            if (containers.Length > 0)
+            {
+                var values = containers.Select(c => new VariableValueContainers
+                {
+                    Name = c.Name,
+                    Image = c.Image,
+                    Registry = c.Registry,
+                    HostServerName = c.HostServerName,
+                    Tags = c.Tags
+                }).ToArray();
+                variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.EnvironmentContainers,
+                    new VariableValue { Value = values, Type = values.GetType() });
+                AddPropertiesForNamesByTag(variableResolver, PropertyValueScopeOptionsFixed.ContainerNames,
+                    containers.Select(c => (c.Name, c.Tags)));
+            }
+
+            var cloudResources = _cloudResourcesPersistentSource.GetForEnvironmentId(environmentId).ToArray();
+            if (cloudResources.Length > 0)
+            {
+                var values = cloudResources.Select(c => new VariableValueCloudResources
+                {
+                    Name = c.Name,
+                    Provider = c.Provider,
+                    ResourceType = c.ResourceType,
+                    ResourceIdentifier = c.ResourceIdentifier,
+                    Subscription = c.Subscription,
+                    Tags = c.Tags
+                }).ToArray();
+                variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.EnvironmentCloudResources,
+                    new VariableValue { Value = values, Type = values.GetType() });
+                AddPropertiesForNamesByTag(variableResolver, PropertyValueScopeOptionsFixed.CloudResourceNames,
+                    cloudResources.Select(c => (c.Name, c.Tags)));
+            }
+
+            var apiRegistrations = _apiRegistrationsPersistentSource.GetForEnvironmentId(environmentId).ToArray();
+            if (apiRegistrations.Length > 0)
+            {
+                var values = apiRegistrations.Select(a => new VariableValueApiRegistrations
+                {
+                    Name = a.Name,
+                    BaseUrl = a.BaseUrl,
+                    Version = a.Version,
+                    HealthCheckUrl = a.HealthCheckUrl,
+                    Tags = a.Tags
+                }).ToArray();
+                variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.EnvironmentApiRegistrations,
+                    new VariableValue { Value = values, Type = values.GetType() });
+                AddPropertiesForNamesByTag(variableResolver, PropertyValueScopeOptionsFixed.ApiRegistrationNames,
+                    apiRegistrations.Select(a => (a.Name, a.Tags)));
+            }
         }
 
         private VariableValueDbPerm GetDbPermission(DatabaseApiModel databaseApiModel)
@@ -163,31 +232,43 @@ namespace Dorc.Core
 
         private static void AddPropertiesForServerNamesByType(IVariableResolver variableResolver, IEnumerable<ServerApiModel> serverApiModels)
         {
-            var serverTypeWithServerNames = new Dictionary<string, List<string>>();
-            foreach (var server in serverApiModels)
+            AddPropertiesForNamesByTag(variableResolver, PropertyValueScopeOptionsFixed.ServerNames,
+                serverApiModels.Select(s => (s.Name, s.ApplicationTags)));
+        }
+
+        // Shared per-tag name-list emission for servers and environment components.
+        // Deliberate semantics carried over from the original server-only code: spaces in
+        // tag names become underscores, and a tag held by exactly one item emits a scalar
+        // string while multiple items emit a string array. Null/empty tags yield no
+        // per-tag variable (the original inline code threw NRE on a null tag string).
+        private static void AddPropertiesForNamesByTag(IVariableResolver variableResolver, string prefix,
+            IEnumerable<(string Name, string Tags)> taggedItems)
+        {
+            var tagWithNames = new Dictionary<string, List<string>>();
+            foreach (var item in taggedItems)
             {
-                var semicolonSeparatedServerTypes = server.ApplicationTags;
-                var serverTypes =
-                    semicolonSeparatedServerTypes.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries);
-                foreach (var serverType in serverTypes)
-                    if (serverTypeWithServerNames.ContainsKey(serverType))
-                        serverTypeWithServerNames[serverType].Add(server.Name);
+                if (string.IsNullOrEmpty(item.Tags))
+                    continue;
+
+                var tags = item.Tags.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries);
+                foreach (var tag in tags)
+                    if (tagWithNames.ContainsKey(tag))
+                        tagWithNames[tag].Add(item.Name);
                     else
-                        serverTypeWithServerNames.Add(serverType, new List<string> { server.Name });
+                        tagWithNames.Add(tag, new List<string> { item.Name });
             }
 
-            foreach (var serverType in serverTypeWithServerNames)
+            foreach (var tag in tagWithNames)
             {
-                var sType = serverType.Key.Replace(" ", "_");
-                if (serverType.Value.Count > 1)
+                var tagName = tag.Key.Replace(" ", "_");
+                if (tag.Value.Count > 1)
                 {
-                    var serverNames = serverType.Value.ToArray();
-                    variableResolver.SetPropertyValue($"{PropertyValueScopeOptionsFixed.ServerNames}{sType}",
-                        new VariableValue { Value = serverNames, Type = serverNames.GetType() });
-
+                    var names = tag.Value.ToArray();
+                    variableResolver.SetPropertyValue($"{prefix}{tagName}",
+                        new VariableValue { Value = names, Type = names.GetType() });
                 }
                 else
-                    variableResolver.SetPropertyValue($"{PropertyValueScopeOptionsFixed.ServerNames}{sType}", serverType.Value.Single());
+                    variableResolver.SetPropertyValue($"{prefix}{tagName}", tag.Value.Single());
             }
         }
 
