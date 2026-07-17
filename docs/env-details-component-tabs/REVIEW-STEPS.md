@@ -24,7 +24,37 @@ PKs (incl. composite join PKs), FK directions, and unique index names.
   inherited repo pattern, accepted as-is.
 - LOW reflection coupling in model test → accepted (documented in-code).
 
-## S-003 — sources + DI (this commit) — gate pending
-Boundary adjustments vs IS recorded in SPEC-S-003 (DTOs pulled forward from S-004;
-ByPage deferred; audit sources insert-only). Includes the S-002-gate-driven
-DeleteEnvironment fix.
+## S-003 — sources + DI (commit 5296e8d) — APPROVE
+All do-not-copy items verified path-by-path; triplication fidelity confirmed by
+normalized diff; attach/detach outcomes exhaustive with SaveChanges only on mutation;
+DeleteEnvironment change verified inside the existing transaction.
+- MED "Monitor registry got 3 of the spec's 6 registrations (audit sources omitted)" →
+  **Accepted, fixed in 7ec9e25's parent commit (dbd5b1b)**: three audit registrations added.
+- LOW missing no-save assertions on two attach tests → fixed same commit.
+- LOW GetAll/GetByName untested; LOW Include not falsifiable under mocked contexts →
+  accepted (inherent to repo test pattern, enforcement by inspection).
+
+## S-005 — resolver integration (commit e03bd7e) — APPROVE
+Gate criterion held: characterization edit verified wiring-only; helper fidelity exact
+for non-null tags; conditional emission appended last; runner deserialization symmetric
+with VariableValueServers[]; all consumers resolve via DI (no direct construction).
+- LOW SPEC silent on Id omission in variable DTOs → SPEC-S-005 R2 amended.
+- LOW quirks tested via containers path only → accepted (shared helper).
+- LOW no JSON round-trip test → delivered in S-008 sweep
+  (`VariableValueComponentSerializationTests`, 3 tests).
+
+## S-004 — API controllers (commit dbd5b1b) — REVISE → fixed (7ec9e25)
+Pattern-setter conformed to the SPEC endpoint/auth table exactly; replicas logic-identical;
+HLPS §5.3 conformance verified with no deviation; Swashbuckle complete for generation.
+- HIGH missing Detach unprivileged→403 tests ×3 → **fixed**: added with no-mutation
+  assertion.
+- MED Delete TOCTOU could 200-with-false → **fixed**: maps to 404, race test added.
+- LOW switch default equated unexpected outcome with success → **fixed**: explicit
+  success cases, throw on unexpected.
+- LOW residual concurrency races (double-detach 500, duplicate-name unique-index 500)
+  → deferred (outside SC-4 scope; recorded here).
+- LOW replica `var container` naming residue → fixed during replication rerun.
+
+## S-006 + S-007 — client regen + UI (commits a7b9ef6, a1342d8) — gate pending
+Material discovery recorded in SPEC-S-006: committed client/spec/generator drifted apart
+independently; minimal faithful splice chosen; follow-up maintenance task flagged.
