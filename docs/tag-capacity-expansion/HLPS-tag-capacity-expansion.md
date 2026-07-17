@@ -2,101 +2,184 @@
 
 | Field       | Value                                    |
 |-------------|------------------------------------------|
-| **Status**  | DRAFT — awaiting adversarial panel review |
+| **Status**  | IN REVIEW (v2, post round-1 revision)    |
 | **Author**  | Agent                                    |
 | **Date**    | 2026-07-17                               |
 | **Folder**  | docs/tag-capacity-expansion/             |
 | **Branch**  | claude/tag-capacity-expansion            |
-| **Origin**  | Split out of `docs/env-details-component-tabs/` by user direction; carry-over findings below were produced and verified by that feature's adversarial review panel (`REVIEW-HLPS-round1.md` on branch `claude/env-details-component-tabs-p7othg`, PR #773) |
+| **Origin**  | Split out of `docs/env-details-component-tabs/` by user direction (PR #773); §3 findings were produced and verified by that feature's adversarial panel |
+
+> **v2 changes** (round-1 panel, see `REVIEW-HLPS-round1.md`): Success Criteria and
+> Constraints sections added; enforcement-layer statement corrected (EF `HasMaxLength`
+> is metadata, not a save-time validator); U-4 given an explicit fallback; deployment
+> ordering, risks, alternatives, and out-of-scope sections added; U-2 split; stored-proc
+> liveness question registered.
 
 ---
 
 ## 1. Problem Statement
 
-Tags are used far more heavily than the current limits allow ("use in a lot more anger").
-Server tags live in `ApplicationTags` (semicolon-separated, edited via
-`components/server-tags.ts` + `tags-input.ts`, parsed by `helpers/tag-parser.ts`); the
-database equivalent is the `ArrayName` field (a plain text input today).
+Tags are used far more heavily than the current limits allow. Server tags live in
+`ApplicationTags` (semicolon-separated, edited via `components/server-tags.ts` +
+`tags-input.ts`, parsed by `helpers/tag-parser.ts`); the database equivalent is the
+`ArrayName` field (a plain text input today, verified pure pass-through — U-3).
 
-The layers **disagree with each other**, so the effective limit is the lowest layer and
-overruns fail late (silent truncation or an opaque DB exception) instead of clearly at
-the API boundary:
+The layers **disagree with each other**:
 
 | Layer | Server `ApplicationTags` | Database `ArrayName` |
 |-------|--------------------------|----------------------|
 | SQL (`Dorc.Database/dbo/Tables/`) | `SERVER.Application_Server_Name NVARCHAR(1000)` | `DATABASE.Array_Name NVARCHAR(250)` |
-| Stored proc | `usp_Insert_Server_Detail.sql` param `@APPLICATION_SERVER_NAME NVARCHAR(1000)` | — |
-| EF (`EntityTypeConfigurations/`) | `ServerEntityTypeConfiguration.cs` `HasMaxLength(250)` | `DatabaseEntityTypeConfiguration.cs` `HasMaxLength(50)` |
+| Stored proc | `usp_Insert_Server_Detail.sql` param `NVARCHAR(1000)` (liveness unknown — U-6) | — |
+| EF (`EntityTypeConfigurations/`) | `HasMaxLength(250)` | `HasMaxLength(50)` |
 | API validation | none | none |
 | UI | `tags-input.ts`: no limit | `add-edit-database.ts`: `maxlength=50` |
 
-Additionally, the new environment-component types delivered in PR #773 (`Container`,
-`CloudResource`, `ApiRegistration`) each carry a `Tags NVARCHAR(250)` column sized "to
-match current server behaviour, pending the tag-capacity PR" — they should be widened in
-the same change.
+**Where enforcement actually happens** (corrected in v2): EF's `HasMaxLength` is model
+metadata, not a save-time validator — writes through `SaveChanges` succeed up to the real
+column width. So on dacpac-deployed databases the effective limits are **1000** (server)
+and **250** (database, further capped to **50 by the UI**); anything longer fails at the
+DB layer with an opaque provider error. On `EnsureCreated()`-bootstrapped databases the
+EF metadata *becomes* the column widths (250/50) — the dual-source drift is already live
+behaviour today, not a hypothetical.
 
 ## 2. Desired Outcome
 
-One generous, **consistent** tag limit enforced at every layer for server tags, database
-tags, and the three component-type tags, with overruns rejected as a clear 400 at the API
-boundary.
+One generous, **consistent** tag limit (value = U-1) enforced identically at every layer
+for server tags, database tags, and — per U-4 — the three component-type `Tags` columns
+from PR #773, with overruns rejected as a clear 400 at the API boundary instead of a
+truncation or DB exception.
 
-## 3. Carry-over findings (verified by the prior adversarial panel — must be addressed)
+## 3. Carry-over findings (verified by the prior panel; re-verified on this branch)
 
 1. **HIGH** — `usp_Insert_Server_Detail.sql` declares `@APPLICATION_SERVER_NAME
-   NVARCHAR(1000)`: widening the column alone leaves a silent 1000-char truncation path
-   through the proc — the exact failure mode this work exists to eliminate.
-2. **MED** — `add-edit-database.ts` uses one shared `maxFieldLength = 50` constant across
-   **four** fields (DB name, type, instance, Array Name). Naively raising it loosens the
-   other three far beyond their EF `HasMaxLength(50)` limits; per-field limits are
-   required.
-3. **MED** — the prior risk survey found these additional in-repo tag consumers (all
-   width-compatible with widening, but each must be re-verified at the chosen limit):
-   `ServersPersistentSource.GetAppServerDetails` (`Contains("appserv")` filter),
-   `DaemonsPersistentSource` (tag projection), `Tools.PostRestoreEndurCLI/RefreshEndur.cs`
-   (tag matching), `VariableScopeOptionsResolver` (tag splitting → deployment variables;
-   note PR #773 generalized this into a shared helper).
-4. **MED (technical correction)** — do not justify the limit with indexability:
-   `NVARCHAR(4000)` exceeds SQL Server's 1700-byte index key limit and the existing
-   `LIKE '%…%'` filters can't seek an index anyway. The honest rationale for a sized
-   column over `NVARCHAR(MAX)` is avoiding LOB semantics/row-overflow on hot ref-data
-   tables.
-5. **LOW** — API 400s should come from `[StringLength]` DataAnnotations +
-   `[ApiController]` automatic 400 (controllers already carry `[ApiController]`).
-6. **LOW** — long-value rendering must be verified in *all* grids showing tags:
-   server grids (`page-servers-list.ts`, `attached-servers.ts`) **and** database grids
-   (`attached-databases.ts`, `page-databases-list.ts`).
-7. **LOW** — longer multi-tag strings amplify substring-match false positives in
-   `Contains`-based filters (e.g. `"appserv"`); record as an accepted behaviour or
-   tighten matching.
-8. **LOW** — `Tests.Acceptance/Features/RefDataServers.feature` exercises
-   `ApplicationTags`; new API validation must not break it.
+   NVARCHAR(1000)`: widening the column alone leaves a truncation path through the proc.
+   *v2 note:* the proc has **no in-repo callers** (only the sqlproj references it;
+   `install-scripts/TestHarness.ps1` builds an offline DataTable and never calls it) —
+   see U-6: widen it, or delete a dead proc.
+2. **MED** — `add-edit-database.ts` uses one shared `maxFieldLength = 50` across **four**
+   fields (DB name, type, instance, Array Name). Raising it naively loosens the other
+   three; per-field limits are required.
+3. **MED** — verified in-repo tag consumers, each to be re-verified at the chosen limit:
+   `ServersPersistentSource.GetAppServerDetails` (`Contains("appserv")`),
+   `DaemonsPersistentSource` (projection), `Tools.PostRestoreEndurCLI/RefreshEndur.cs`
+   (`Contains` match), `VariableScopeOptionsResolver` (semicolon split → deployment
+   variables; on the #773 branch this is a shared helper — see U-4).
+4. **MED (technical)** — do not justify the limit with indexability: `NVARCHAR(4000)` is
+   8000 bytes, over SQL Server's 1700-byte index key limit, and the existing `LIKE '%…%'`
+   filters can't seek anyway. The honest rationale for a sized column over
+   `NVARCHAR(MAX)` is avoiding LOB semantics/row-overflow on hot ref-data tables.
+5. **LOW** — API 400s via `[StringLength]` DataAnnotations + `[ApiController]` automatic
+   400 (verified present on both controllers).
+6. **LOW** — long-value rendering must be checked in **five** surfaces:
+   `page-servers-list.ts`, `attached-servers.ts`, `attached-databases.ts`,
+   `page-databases-list.ts`, and `attach-server.ts` (renders `ApplicationTags` in the
+   attach dialog — added in v2).
+7. **LOW** — longer multi-tag strings amplify `Contains` false positives (e.g.
+   `"appserv"`). Disposition is U-5; `RefDataAppServers.feature` ("non empty list of
+   appservers") is the natural regression test, alongside `RefDataServers.feature`.
+8. **LOW** — `Tests.Acceptance` exercises `ApplicationTags` (`RefDataServers.feature`)
+   and the appserv filter (`RefDataAppServers.feature`); new validation must not break
+   either. (`Support/DataAccessor.cs` verified out of scope: its NVarChar(250) params
+   don't cover tags and its DATABASE insert omits `Array_Name`.)
 
-## 4. Proposed scope (strategic)
+## 4. Constraints
 
-1. Pick the limit — **recommend `NVARCHAR(4000)`** (rationale per finding 4; `MAX` is the
-   alternative if 4000 ever proves tight — decide at checkpoint, see U-1).
-2. Apply consistently: SSDT columns (`SERVER.Application_Server_Name`,
-   `DATABASE.Array_Name`, three component `Tags` columns), the stored-proc parameter
-   (finding 1), EF `HasMaxLength` in all five configurations, `[StringLength]` on the
-   five DTO properties, per-field UI `maxlength`s (finding 2).
-3. Fail-loudly: API-boundary 400s (finding 5); a boundary test at N accepted / N+1
-   rejected.
-4. **Optional (U-2)**: give databases the chip-style `tags-input` editing experience that
-   servers have (`server-tags.ts` pattern, split/join via `tag-parser.ts`), making
-   database tags first-class rather than a plain `ArrayName` text field.
+- **Dual-source schema, same step** (inherited from the prior HLPS, and §1 shows the
+  drift is already live): SSDT column widths and EF `HasMaxLength` must change
+  identically in one step; the gate compares them side by side.
+- **Runtime rollout ordering**: the dacpac (columns + proc parameter) must be published
+  to existing databases **before** an API/UI that accepts longer values ships — otherwise
+  overruns hit the DB layer again, the exact failure §1 describes (see R-1).
+- **Client regeneration**: `[StringLength]` on DTOs changes the OpenAPI `maxLength`
+  metadata; the committed `swagger.json`/client must be updated via the regeneration
+  workflow, not hand-edited. The prior feature's minimal-splice precedent and drift
+  discovery apply (`SPEC-S-006-client-regeneration.md` on the #773 branch).
+- **Dev-environment limits** (inherited from TOOLCHAIN-S-001, same environment class):
+  no SQL Server and no Linux dacpac build — schema/proc changes gate on textual review +
+  CI; boundary behaviour gates on unit/component tests; live round-trip transfers to the
+  user's environment.
+- C# / .NET, existing repo patterns; test-first; adversarial review per step.
 
-## 5. Unknowns Register
+## 5. Proposed scope (strategic — IS defines steps)
+
+1. **Limit** (U-1): recommend **`NVARCHAR(4000)`**. Sizing evidence: the widest layer
+   today is 1000, no surveyed consumer implies a need beyond 4× that, and 4000 avoids
+   LOB semantics (finding 4). `MAX` remains the fallback if 4000 ever proves tight.
+2. **Apply consistently**: SSDT columns (`SERVER.Application_Server_Name`,
+   `DATABASE.Array_Name`), the stored-proc parameter (or proc deletion — U-6), EF
+   `HasMaxLength`, `[StringLength]` on `ServerApiModel.ApplicationTags` and
+   `DatabaseApiModel.ArrayName`, per-field UI `maxlength`s (finding 2). **Component
+   `Tags` columns**: included when the #773 schema is present (see U-4 fallback).
+3. **Fail loudly**: API-boundary 400s (finding 5).
+4. **Optional** (U-2a): chip-style `tags-input` editor for database tags (`server-tags.ts`
+   pattern, `tag-parser.ts` split/join); (U-2b) relabel "Array Name" → "Tags" in grids
+   and dialog. For chip editors the UI limit is enforced on the **joined
+   semicolon-separated string** (the IS defines the enforcement point; `tags-input.ts`
+   has no single input to cap).
+
+## 6. Success Criteria
+
+- **SC-1 (boundary)**: for each write endpoint accepting tags
+  (`RefDataServersController.Put/Post`, `RefDataDatabasesController` equivalents, and
+  component controllers when in scope), a value of exactly N chars is accepted and N+1
+  is rejected with HTTP 400 and a readable message — `Dorc.Api.Tests`.
+- **SC-2 (layer agreement)**: a single check (test or gate artifact) shows all layers
+  declare the same N per column: SSDT DDL, proc parameter (if kept), EF configuration,
+  DTO `[StringLength]`, UI `maxlength`/joined-string limit.
+- **SC-3 (round-trip)**: a tag string longer than the old effective ceiling (>1000 chars
+  for servers, >250 for databases) persists and re-reads unmodified through the API
+  layer — API-level test with mocked persistence for mapping, plus live round-trip in
+  the user's environment per the constraints.
+- **SC-4 (rendering)**: the five §3-finding-6 surfaces render a near-N tag set without
+  layout breakage — web component tests where feasible, otherwise the manual pass.
+- **SC-5 (no regressions)**: all suites at their recorded baselines;
+  `RefDataServers.feature` and `RefDataAppServers.feature` unaffected (compile + CI).
+- **SC-6 (chip editor, if U-2a approved)**: database tags edited as chips split/join
+  identically to server tags (`tag-parser.ts` round-trip test).
+
+## 7. Out of scope
+
+- Non-API ingress paths: direct external proc callers (beyond the U-6 disposition) and
+  `RefreshEndur.cs`'s own write paths.
+- Tightening `Contains`-based tag matching (unless U-5 decides otherwise).
+- Normalised tag tables (rejected in the prior HLPS's alternatives; unchanged here).
+- The #773 feature itself; only its `Tags` columns are touched, per U-4.
+
+## 8. Unknowns Register
 
 | ID | Unknown | Blocking? | Owner | Proposed resolution |
 |----|---------|-----------|-------|---------------------|
-| U-1 | Limit value: 4000 vs MAX vs other | **Yes** | User | Recommend 4000 (finding 4 rationale) |
-| U-2 | Chip-style tags editor for database `ArrayName` | No (default **yes**) | User may veto | Reuses `tags-input` + `tag-parser`; small scope |
-| U-3 | Is `ArrayName` semantically "tags", or does anything treat it as a single array name? | ~~Yes~~ **VERIFIED 2026-07-17** | Agent | Surveyed every consumer (`DatabasesPersistentSource`, `ApiServices`, DTO, `attached-databases.ts` grid column, `page-databases-list.ts`, `add-edit-database.ts`): pure pass-through — nothing parses, splits, filters, or resolves it. Re-purposing as semicolon-tags is code-safe; existing values become single tags. Residual user choice folded into U-2: the visible label ("Array Name" → "Tags"?) if the chip editor lands |
-| U-4 | Rebase/merge base | No | Agent | If PR #773 merges first, rebase to pick up the component `Tags` columns; the schema work assumes their presence |
+| U-1 | Limit value: 4000 vs MAX | **Yes** | User | Recommend 4000 (§5.1 sizing evidence) |
+| U-2a | Chip-style tags editor for database tags | No (default **yes**) | User may veto | Reuses `tags-input` + `tag-parser` |
+| U-2b | Relabel "Array Name" → "Tags" in grid/dialog | No (default **yes** if U-2a lands) | User may veto | Display-only; data field name unchanged |
+| U-3 | `ArrayName` semantics | **VERIFIED** | Agent | Pure pass-through everywhere; tag re-purposing code-safe; existing values become single tags |
+| U-4 | PR #773 merge order vs the three component `Tags` columns | No — with explicit fallback | Agent (IS) | **Fallback**: if #773 is unmerged when the schema step executes, deliver the two existing columns now and record a follow-up item to widen the component columns on rebase/merge; if merged, all five in one step. The IS schema step re-checks at execution time |
+| U-5 | `Contains` false-positive amplification: accept & document, or tighten matching | No (default: accept & document) | User may veto at checkpoint | `RefDataAppServers.feature` guards the behaviour either way |
+| U-6 | Is `usp_Insert_Server_Detail` called by anything outside the repo? | No — resolves at IS | User (org knowledge) / Agent | If dead: delete instead of widening. If alive/unknown: widen the parameter. Default when unknowable: widen (safe either way) |
 
-## 6. Process note
+## 9. Risks
 
-This document is a DRAFT: per CLAUDE.md it must pass the adversarial review panel and a
-user checkpoint before an Implementation Sequence is drafted. The prior feature's process
-artifacts are the reference pattern (`docs/env-details-component-tabs/`).
+- **R-1 (rollout ordering)**: raising API/UI limits before the dacpac widens existing
+  databases reintroduces the DB-layer failure. Mitigation: constraint §4 ordering; release
+  note mirrors the prior feature's dacpac-first requirement.
+- **R-2 (dual-source drift)**: already live (§1 — EnsureCreated databases have 250/50
+  columns today). The same-step constraint prevents widening from worsening it; the gate's
+  DDL↔EF comparison is the check.
+- **R-3 (client regen)**: OpenAPI `maxLength` changes ride the known-drifted generated
+  client; the minimal-splice approach from SPEC-S-006 applies until the client true-up
+  task lands.
+
+## 10. Alternatives considered
+
+- **`NVARCHAR(MAX)`**: maximal headroom, LOB/row-overflow costs on hot ref-data tables,
+  no practical benefit at surveyed usage — fallback only (U-1).
+- **Normalised tag table**: cleanest long-term model; rejected in the prior HLPS as out
+  of proportion to the need, unchanged here — widening does not preclude it later.
+- **Validation-only (no widening)**: enforcing 250 everywhere would make behaviour
+  consistent but contradicts the point of the feature (more capacity, "in anger").
+
+## 11. Process note
+
+DRAFT → IN REVIEW under the CLAUDE.md lifecycle; only the adversarial panel approves,
+then the user checkpoint resolves U-1 (blocking) and the default-yes/veto items
+(U-2a/U-2b/U-5/U-6) before an IS is drafted.
