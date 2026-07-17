@@ -1,8 +1,8 @@
-# HLPS: Server & Database Tag Capacity Expansion
+# HLPS: Server Tag Capacity Expansion
 
 | Field       | Value                                    |
 |-------------|------------------------------------------|
-| **Status**  | **DELIVERED** 2026-07-17 (IS executed S-001..S-006; evidence in VERIFICATION-S-006.md) |
+| **Status**  | **DELIVERED (CORRECTED — server tags only)** 2026-07-17; database scope reverted, see Correction below |
 | **Author**  | Agent                                    |
 | **Date**    | 2026-07-17                               |
 | **Folder**  | docs/tag-capacity-expansion/             |
@@ -14,6 +14,34 @@
 > is metadata, not a save-time validator); U-4 given an explicit fallback; deployment
 > ordering, risks, alternatives, and out-of-scope sections added; U-2 split; stored-proc
 > liveness question registered.
+
+---
+
+## ⚠ CORRECTION (v3, 2026-07-17, post-delivery user domain review)
+
+**U-3 is overturned.** The code survey verified `ArrayName` is a pure pass-through with
+no in-code consumers — which is true — but the *domain* meaning was wrong: **`ArrayName`
+records the storage array the source database sits on**. It is infrastructure metadata,
+not a free-text field available for repurposing as tags. Code-level "safe to repurpose"
+was never sufficient grounds; the field carries operational meaning to its human readers.
+
+**Consequences applied on this branch:**
+
+- All database-tag work is **reverted to `main`**: `DATABASE.Array_Name` stays
+  `NVARCHAR(250)` / EF `HasMaxLength(50)`; no `[StringLength]` on `DatabaseApiModel`;
+  the chip editor (`database-tags.ts`), the "Array Name" → "Tags" relabels, and the
+  related grid/dialog changes are removed; the swagger `DatabaseApiModel` fragment is
+  restored from `main`.
+- U-2a, U-2b, and the database half of U-1's application are **void**.
+- The delivered scope is **server `ApplicationTags` capacity only** (NVARCHAR(4000) at
+  every layer, API 400 on overrun, UI pre-validation) plus the follow-up hook for the
+  PR #773 component `Tags` columns (U-4 fallback unchanged).
+- A regression test now pins the corrected state:
+  `DeploymentContextTagWidthTests.DatabaseFields_KeepTheirCurrentWidths`.
+
+If database tagging is still wanted, it must be a **new dedicated column/model**, not a
+repurposed field — `DB_Type` is likewise unavailable (exact-match category semantics,
+see `REVIEW-STEPS.md`). That is a separate HLPS, to be started only on user request.
 
 ---
 
@@ -152,7 +180,7 @@ truncation or DB exception.
 | U-1 | Limit value | ~~Yes~~ **RESOLVED 2026-07-17** | User | **NVARCHAR(4000)** |
 | U-2a | Chip-style tags editor for database tags | **RESOLVED 2026-07-17** | User | **Yes** — chip editor via `tags-input` + `tag-parser` |
 | U-2b | Relabel "Array Name" → "Tags" in grid/dialog | **RESOLVED 2026-07-17** | User | **Yes** — display-only relabel |
-| U-3 | `ArrayName` semantics | **VERIFIED** | Agent | Pure pass-through everywhere; tag re-purposing code-safe; existing values become single tags |
+| U-3 | `ArrayName` semantics | ~~VERIFIED~~ **OVERTURNED 2026-07-17** | User | Storage array the source DB sits on — infrastructure metadata, not repurposable as tags. Database scope reverted (see Correction, v3) |
 | U-4 | PR #773 merge order vs the three component `Tags` columns | No — with explicit fallback | Agent (IS) | **Fallback**: if #773 is unmerged when the schema step executes, deliver the two existing columns now and record a follow-up item to widen the component columns on rebase/merge; if merged, all five in one step. The IS schema step re-checks at execution time |
 | U-5 | `Contains` false-positive amplification | **RESOLVED 2026-07-17** | User | **Accept & document**; `RefDataAppServers.feature` guards the behaviour |
 | U-6 | `usp_Insert_Server_Detail` external liveness | **RESOLVED 2026-07-17** | User | Unknown externally → **widen the parameter** (safe either way) |

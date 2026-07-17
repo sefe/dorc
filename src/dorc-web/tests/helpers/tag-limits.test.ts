@@ -14,10 +14,4 @@ describe('tag capacity layer agreement', () => {
       MAX_TAG_STRING_LENGTH
     );
   });
-
-  it('database ArrayName maxLength matches the UI constant', () => {
-    expect(schemas.DatabaseApiModel.properties.ArrayName.maxLength).to.equal(
-      MAX_TAG_STRING_LENGTH
-    );
-  });
 });

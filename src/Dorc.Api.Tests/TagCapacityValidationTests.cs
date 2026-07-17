@@ -39,25 +39,6 @@ namespace Dorc.Api.Tests
         }
 
         [TestMethod]
-        public void DatabaseTags_AtLimit_Valid()
-        {
-            var model = new DatabaseApiModel { Name = "d", ArrayName = new string('a', TagLimits.MaxTagStringLength) };
-
-            Assert.AreEqual(0, Validate(model).Count);
-        }
-
-        [TestMethod]
-        public void DatabaseTags_OverLimit_InvalidWithReadableMessage()
-        {
-            var model = new DatabaseApiModel { Name = "d", ArrayName = new string('a', TagLimits.MaxTagStringLength + 1) };
-
-            var results = Validate(model);
-            Assert.AreEqual(1, results.Count);
-            StringAssert.Contains(results[0].ErrorMessage, "4000");
-            CollectionAssert.Contains(results[0].MemberNames.ToList(), nameof(DatabaseApiModel.ArrayName));
-        }
-
-        [TestMethod]
         public void MappingRoundTrip_BeyondOldCeiling_Unmodified()
         {
             // SC-3's mocked half: a value past the old effective 1000-char server

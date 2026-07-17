@@ -24,26 +24,25 @@ namespace Dorc.Core.Tests
         }
 
         [TestMethod]
-        public void TagProperties_AreWidenedToTheLimit()
+        public void ServerTags_AreWidenedToTheLimit()
         {
             using var context = CreateContextWithoutEnsureCreated();
-            var model = context.Model;
 
             Assert.AreEqual(TagLimits.MaxTagStringLength,
-                model.FindEntityType(typeof(Server))!.FindProperty(nameof(Server.ApplicationTags))!.GetMaxLength());
-            Assert.AreEqual(TagLimits.MaxTagStringLength,
-                model.FindEntityType(typeof(Database))!.FindProperty(nameof(Database.ArrayName))!.GetMaxLength());
+                context.Model.FindEntityType(typeof(Server))!.FindProperty(nameof(Server.ApplicationTags))!.GetMaxLength());
         }
 
         [TestMethod]
-        public void OtherDatabaseFields_KeepTheirCurrentWidths()
+        public void DatabaseFields_KeepTheirCurrentWidths()
         {
             using var context = CreateContextWithoutEnsureCreated();
             var entity = context.Model.FindEntityType(typeof(Database))!;
 
-            // Name and ServerName sit under the unique filtered index
-            // IX_DATABASE_Server_Name_DB_Name — widening them would overflow the
-            // 1700-byte index key limit on EnsureCreated databases.
+            // ArrayName is the storage array the source database sits on — NOT a tag
+            // field (correction recorded in the HLPS after user domain review) — and
+            // stays at its original width. Name and ServerName sit under the unique
+            // filtered index IX_DATABASE_Server_Name_DB_Name.
+            Assert.AreEqual(50, entity.FindProperty(nameof(Database.ArrayName))!.GetMaxLength());
             Assert.AreEqual(50, entity.FindProperty(nameof(Database.Name))!.GetMaxLength());
             Assert.AreEqual(50, entity.FindProperty(nameof(Database.Type))!.GetMaxLength());
             Assert.AreEqual(50, entity.FindProperty(nameof(Database.ServerName))!.GetMaxLength());

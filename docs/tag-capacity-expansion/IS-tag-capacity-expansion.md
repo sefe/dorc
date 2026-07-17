@@ -1,8 +1,15 @@
 # IS: Server & Database Tag Capacity Expansion — Implementation Sequence
 
+> **⚠ CORRECTION (2026-07-17, post-delivery)**: U-3 was overturned by user domain review —
+> `ArrayName` is the storage array the source database sits on, not a tag field. Every
+> database-facing deliverable in this sequence (the `ArrayName` widening in S-002, the
+> `DatabaseApiModel` validation in S-003, the chip editor and relabel in S-004/S-005) has
+> been **reverted to `main`**. The delivered scope is server `ApplicationTags` only. See
+> the HLPS v3 Correction section for the full record.
+
 | Field       | Value                                        |
 |-------------|----------------------------------------------|
-| **Status**  | **DELIVERED** 2026-07-17 — S-001..S-006 executed, all gates closed (REVIEW-STEPS.md); live round-trip transfers to the user (VERIFICATION-S-006.md) |
+| **Status**  | **DELIVERED (CORRECTED — server scope only)** 2026-07-17 — database-facing parts of S-002..S-005 reverted post-delivery; see Correction above |
 | **Author**  | Agent                                        |
 | **Date**    | 2026-07-17                                   |
 | **HLPS**    | HLPS-tag-capacity-expansion.md (APPROVED v2; checkpoint decisions in its §8) |

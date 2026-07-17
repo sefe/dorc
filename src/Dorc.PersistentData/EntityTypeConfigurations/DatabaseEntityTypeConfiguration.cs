@@ -20,7 +20,7 @@ namespace Dorc.PersistentData.EntityTypeConfigurations
 
             builder.Property(e => e.Id).HasColumnName("DB_ID");
             builder.Property(e => e.ArrayName)
-                .HasMaxLength(4000)
+                .HasMaxLength(50)
                 .HasColumnName("Array_Name");
             builder.Property(e => e.Name)
                 .HasMaxLength(50)

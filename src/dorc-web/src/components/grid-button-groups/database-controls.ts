@@ -55,18 +55,6 @@ export class DatabaseControls extends LitElement {
       </vaadin-button>
 
       <vaadin-button
-        title="Edit Database Tags"
-        theme="icon"
-        @click="${this.fireManageDatabaseTags}"
-        ?disabled="${this.readonly}"
-      >
-        <vaadin-icon
-          icon="vaadin:tags"
-          style=${styleMap(editStyles)}
-        ></vaadin-icon>
-      </vaadin-button>
-
-      <vaadin-button
         title="Delete database"
         theme="icon"
         @click="${this.deleteDatabase}"
@@ -78,18 +66,6 @@ export class DatabaseControls extends LitElement {
         ></vaadin-icon>
       </vaadin-button>
     `;
-  }
-
-  private fireManageDatabaseTags() {
-    this.dispatchEvent(
-      new CustomEvent('manage-database-tags', {
-        bubbles: true,
-        composed: true,
-        detail: {
-          database: this.databaseDetails
-        }
-      })
-    );
   }
 
   deleteDatabase() {

@@ -1,5 +1,15 @@
 # Step Gate Log — tag-capacity-expansion
 
+> **⚠ CORRECTION (2026-07-17, post-delivery)**: the gates below correctly verified what
+> was built, but S-002..S-005's database-facing scope was built on U-3, which user domain
+> review overturned — `ArrayName` is the storage array the source DB sits on, not a tag
+> field. That scope is reverted to `main`; server-tag findings stand. The panel's process
+> lesson: a code-level "pure pass-through, safe to repurpose" verification cannot settle
+> the *domain* meaning of a field — that needs the user. Note also that the visible
+> "Application Tag" chips on the databases grid render `DB_Type`, which the backend
+> matches with exact equality (`GetDatabaseByType`), so `Type` is not repurposable as
+> multi-tags either; genuine database tagging would need a new dedicated column.
+
 ## S-001..S-003 — baselines, schema, API (commits a607bb3, b759916, 5c56168) — REVISE → fixed
 Gate verified the side-by-side DDL↔EF artifact (all three DDL items and both EF
 properties at 4000, nothing else changed, frozen widths locked by the model test) and

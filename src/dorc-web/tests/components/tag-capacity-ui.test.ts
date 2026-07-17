@@ -16,126 +16,14 @@ class FakeTagify {
   }
 }
 (window as any).Tagify = FakeTagify;
-import '../../src/components/add-edit-database.js';
-import '../../src/components/database-tags.js';
 import '../../src/components/server-tags.js';
-import type { AddEditDatabase } from '../../src/components/add-edit-database.js';
-import type { DatabaseTags } from '../../src/components/database-tags.js';
 import type { ServerTags } from '../../src/components/server-tags.js';
-import { RefDataDatabasesApi, RefDataServersApi } from '../../src/apis/dorc-api';
+import { RefDataServersApi } from '../../src/apis/dorc-api';
 import { MAX_TAG_STRING_LENGTH } from '../../src/helpers/tag-limits';
 
-// docs/tag-capacity-expansion IS S-004: per-field limits (nothing silently loosens),
-// chip-style database tag editing (U-2a), and joined-string enforcement in both save
-// paths so the UI never submits what the API will 400.
-
-describe('add-edit-database per-field limits and chip editor', () => {
-  it('keeps name/type/instance at 50 and replaces the Array Name text field with chips', async () => {
-    const el = await fixture<AddEditDatabase>(html`<add-edit-database></add-edit-database>`);
-    await el.updateComplete;
-
-    const fields = Array.from(el.shadowRoot!.querySelectorAll('vaadin-text-field'));
-    const byLabel = new Map(fields.map(f => [f.getAttribute('label'), f]));
-    expect(byLabel.get('Database')!.getAttribute('maxlength')).to.equal('50');
-    expect(byLabel.get('Application Tag')!.getAttribute('maxlength')).to.equal('50');
-    expect(byLabel.get('Instance')!.getAttribute('maxlength')).to.equal('50');
-    // The plain Array Name field is gone; the chip editor is present.
-    expect([...byLabel.keys()].some(l => l?.startsWith('Array Name'))).to.be.false;
-    expect(el.shadowRoot!.querySelector('#db-tags-input')).to.not.be.null;
-  });
-
-  it('splits an existing ArrayName into chips', async () => {
-    const el = await fixture<AddEditDatabase>(html`<add-edit-database></add-edit-database>`);
-    el.database = { Id: 3, Name: 'db', ArrayName: 'edge;web tier' };
-    await el.updateComplete;
-
-    const tagsInput = el.shadowRoot!.querySelector('#db-tags-input') as any;
-    expect(tagsInput.tags).to.deep.equal(['edge', 'web tier']);
-  });
-});
-
-describe('database-tags joined-string enforcement', () => {
-  it('round-trips ArrayName through chips', async () => {
-    const el = await fixture<DatabaseTags>(html`<database-tags></database-tags>`);
-    el.database = { Id: 3, Name: 'db', ArrayName: 'b;a' };
-    await el.updateComplete;
-
-    const tagsInput = el.shadowRoot!.querySelector('#tag-input') as any;
-    // splitTags sorts; join preserves the chip list.
-    expect(tagsInput.tags).to.deep.equal(['a', 'b']);
-  });
-
-  it('rejects an over-limit joined string without calling the API', async () => {
-    const original = RefDataDatabasesApi.prototype.refDataDatabasesPut;
-    let called = 0;
-    (RefDataDatabasesApi.prototype as any).refDataDatabasesPut = () => {
-      called += 1;
-      return of({});
-    };
-    try {
-      const el = await fixture<DatabaseTags>(html`<database-tags></database-tags>`);
-      const oversized = Array.from({ length: 200 }, (_, i) => `tag-${i}-${'x'.repeat(20)}`);
-      expect(oversized.join(';').length).to.be.greaterThan(MAX_TAG_STRING_LENGTH);
-      el.database = { Id: 3, Name: 'db', ArrayName: oversized.join(';') };
-      await el.updateComplete;
-
-      el.save();
-      expect(called).to.equal(0);
-      // The rejection is visible: a notification card naming the limit appears.
-      await new Promise(r => setTimeout(r, 50));
-      const card = document.querySelector('vaadin-notification-card');
-      expect(card?.textContent).to.contain('4000');
-      document.querySelectorAll('vaadin-notification-card').forEach(c => c.remove());
-    } finally {
-      (RefDataDatabasesApi.prototype as any).refDataDatabasesPut = original;
-    }
-  });
-
-  it('saves an exactly-at-limit joined string through the API', async () => {
-    const original = RefDataDatabasesApi.prototype.refDataDatabasesPut;
-    const payloads: any[] = [];
-    (RefDataDatabasesApi.prototype as any).refDataDatabasesPut = (req: any) => {
-      payloads.push(req);
-      return of({});
-    };
-    try {
-      const el = await fixture<DatabaseTags>(html`<database-tags></database-tags>`);
-      const atLimit = 'x'.repeat(MAX_TAG_STRING_LENGTH);
-      el.database = { Id: 3, Name: 'db', ArrayName: atLimit };
-      await el.updateComplete;
-
-      el.save();
-      expect(payloads.length).to.equal(1);
-      expect(payloads[0].databaseApiModel.ArrayName.length).to.equal(MAX_TAG_STRING_LENGTH);
-    } finally {
-      (RefDataDatabasesApi.prototype as any).refDataDatabasesPut = original;
-    }
-  });
-});
-
-describe('add-edit-database over-limit save', () => {
-  it('shows the inline error and does not call the API', async () => {
-    const originalPut = RefDataDatabasesApi.prototype.refDataDatabasesPut;
-    let called = 0;
-    (RefDataDatabasesApi.prototype as any).refDataDatabasesPut = () => {
-      called += 1;
-      return of({});
-    };
-    try {
-      const el = await fixture<AddEditDatabase>(html`<add-edit-database></add-edit-database>`);
-      el.database = { Id: 3, Name: 'db', ArrayName: 'y'.repeat(MAX_TAG_STRING_LENGTH + 1) };
-      await el.updateComplete;
-
-      el.saveDatabase();
-      await el.updateComplete;
-
-      expect(called).to.equal(0);
-      expect(el.ErrorMessage).to.contain('4000');
-    } finally {
-      (RefDataDatabasesApi.prototype as any).refDataDatabasesPut = originalPut;
-    }
-  });
-});
+// docs/tag-capacity-expansion IS S-004 (as rescoped to server tags only): the joined
+// semicolon string is validated client-side so the UI never submits what the API will
+// 400, and the rejection is visible.
 
 describe('server-tags joined-string enforcement', () => {
   it('rejects an over-limit joined string without calling the API', async () => {
@@ -153,6 +41,31 @@ describe('server-tags joined-string enforcement', () => {
 
       el.save();
       expect(called).to.equal(0);
+      // The rejection is visible: a notification card naming the limit appears.
+      await new Promise(r => setTimeout(r, 50));
+      const card = document.querySelector('vaadin-notification-card');
+      expect(card?.textContent).to.contain('4000');
+      document.querySelectorAll('vaadin-notification-card').forEach(c => c.remove());
+    } finally {
+      (RefDataServersApi.prototype as any).refDataServersPut = original;
+    }
+  });
+
+  it('saves an exactly-at-limit joined string through the API', async () => {
+    const original = RefDataServersApi.prototype.refDataServersPut;
+    const payloads: any[] = [];
+    (RefDataServersApi.prototype as any).refDataServersPut = (req: any) => {
+      payloads.push(req);
+      return of({});
+    };
+    try {
+      const el = await fixture<ServerTags>(html`<server-tags></server-tags>`);
+      el.setTags({ ServerId: 1, Name: 's', ApplicationTags: 'x'.repeat(MAX_TAG_STRING_LENGTH) });
+      await el.updateComplete;
+
+      el.save();
+      expect(payloads.length).to.equal(1);
+      expect(payloads[0].serverApiModel.ApplicationTags.length).to.equal(MAX_TAG_STRING_LENGTH);
     } finally {
       (RefDataServersApi.prototype as any).refDataServersPut = original;
     }

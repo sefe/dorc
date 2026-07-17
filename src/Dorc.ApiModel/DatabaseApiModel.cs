@@ -1,6 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
-
-namespace Dorc.ApiModel
+﻿namespace Dorc.ApiModel
 {
     public class DatabaseApiModel : EnvironmentUiPartBase
     {
@@ -9,9 +7,6 @@ namespace Dorc.ApiModel
         public string ServerName { set; get; }
         public string AdGroup { set; get; }
         public int Id { set; get; }
-
-        [StringLength(TagLimits.MaxTagStringLength,
-            ErrorMessage = "Tags must be at most {1} characters (semicolon-separated).")]
         public string ArrayName { set; get; }
     }
 }

@@ -1,5 +1,13 @@
 # S-006 — Final Verification Sweep (2026-07-17)
 
+> **⚠ CORRECTION (2026-07-17, post-delivery)**: U-3 overturned by user domain review —
+> `ArrayName` is storage-array metadata, not tags. All database-facing work was reverted
+> to `main` (HLPS v3 Correction). The database rows/claims below are therefore void; the
+> server-tag claims stand. Post-revert re-verification: `Dorc.Core.Tests` 140/140,
+> `Dorc.Api.Tests` 218 pass / same 22 platform failures, `dorc-web` 121/121 (14 files),
+> web build clean. The live database-tag round-trip item is withdrawn; only the live
+> **server**-tag round-trip transfers to the user.
+
 > Finalized 2026-07-17: all step gates closed (REVIEW-STEPS.md). Final web count 130/130
 > (the visibility/at-limit strengthening added one test).
 

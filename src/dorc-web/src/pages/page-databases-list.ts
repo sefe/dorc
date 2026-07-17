@@ -39,7 +39,6 @@ import { PageElement } from '../helpers/page-element';
 import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import { AttachedDatabases } from '../components/attached-databases';
 import '../components/grid-button-groups/database-controls';
-import '../components/database-tags';
 import '@vaadin/grid/vaadin-grid-sorter';
 import { ErrorNotification } from '../components/notifications/error-notification';
 
@@ -62,9 +61,6 @@ export class PageDatabasesList extends ResponsiveMixin(PageElement) {
 
   @property({ type: Object })
   selectedDatabase: DatabaseApiModel | undefined;
-
-  @state()
-  private manageTagsDialogOpened = false;
 
   environmentNamesFilter: string = '';
   nameFilter: string = '';
@@ -156,17 +152,6 @@ export class PageDatabasesList extends ResponsiveMixin(PageElement) {
         }}'
         ${dialogRenderer(this.renderAddEditDatabaseDialog, [this.selectedDatabase])}
         ${dialogFooterRenderer(this.renderAddEditDatabaseFooter, [])}
-      ></vaadin-dialog>
-      <vaadin-dialog
-        id='database-tags-dialog'
-        header-title='Edit Database Tags for ${this.selectedDatabase?.Name ?? ''}'
-        .opened='${this.manageTagsDialogOpened}'
-        draggable
-        @opened-changed='${(event: DialogOpenedChangedEvent) => {
-          this.manageTagsDialogOpened = event.detail.value;
-        }}'
-        ${dialogRenderer(this.renderDatabaseTagsDialog, [this.selectedDatabase])}
-        ${dialogFooterRenderer(this.renderDatabaseTagsFooter, [])}
       ></vaadin-dialog>
       <dorc-spinner ?hidden="${!(this.loading || this.searching)}"></dorc-spinner>
       <vaadin-grid
@@ -343,24 +328,6 @@ export class PageDatabasesList extends ResponsiveMixin(PageElement) {
       >Close</vaadin-button
     >
   `;
-
-  private renderDatabaseTagsDialog = () => html`
-    <database-tags
-      .database="${this.selectedDatabase}"
-      @database-tags-updated="${this.databaseTagsUpdated}"
-    ></database-tags>
-  `;
-
-  private renderDatabaseTagsFooter = () => html`
-    <vaadin-button @click="${() => (this.manageTagsDialogOpened = false)}"
-      >Close</vaadin-button
-    >
-  `;
-
-  private databaseTagsUpdated() {
-    this.manageTagsDialogOpened = false;
-    this.updateGrid();
-  }
 
   private closeAddEditDatabaseDialog() {
     this.addEditDatabaseDialogOpened = false;
@@ -752,7 +719,6 @@ export class PageDatabasesList extends ResponsiveMixin(PageElement) {
 
   openManageDatabaseTagsDialog(e: CustomEvent) {
     this.selectedDatabase = e.detail.database;
-    this.manageTagsDialogOpened = true;
   }
 
   databaseUpdated(e: CustomEvent) {
