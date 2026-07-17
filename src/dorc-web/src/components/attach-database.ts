@@ -9,6 +9,7 @@ import '@vaadin/button';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { ApiBoolResult, DatabaseApiModel } from '../apis/dorc-api';
+import { splitTags, hasTag } from '../helpers/tag-parser';
 import {
   RefDataDatabasesApi,
   RefDataEnvironmentsDetailsApi
@@ -43,6 +44,9 @@ export class AttachDatabase extends LitElement {
 
   @property({ type: Object })
   private existingDatabaseWithSameTag: DatabaseApiModel | undefined;
+
+  @property({ type: Array })
+  private overlappingTags: string[] = [];
 
   constructor() {
     super();
@@ -100,7 +104,7 @@ export class AttachDatabase extends LitElement {
             >
           </h3>
           <h3>
-            Application Tag:
+            Tags:
             <span style="color: var(--dorc-link-color)"
               >${this.selectedDatabase?.Type}</span
             >
@@ -119,9 +123,10 @@ export class AttachDatabase extends LitElement {
 
         ${this.showSameTagWarning ? html`
           <div class="warning-box">
-            <div class="warning-title">⚠️ Warning - Duplicate Application Tag</div>
+            <div class="warning-title">⚠️ Warning - Duplicate Tag</div>
             <div>
-              A database with the tag '<strong>${this.selectedDatabase?.Type}</strong>' is already attached to this environment:
+              A database sharing the tag${this.overlappingTags.length > 1 ? 's' : ''}
+              '<strong>${this.overlappingTags.join("', '")}</strong>' is already attached to this environment:
               <br><strong>${this.existingDatabaseWithSameTag?.Name}</strong> on ${this.existingDatabaseWithSameTag?.ServerName}
             </div>
           </div>
@@ -155,10 +160,18 @@ export class AttachDatabase extends LitElement {
   }
 
   private checkForSameTagWarning() {
-    if (this.selectedDatabase?.Type) {
-      this.existingDatabaseWithSameTag = this.existingDatabases?.find(
-        db => db.Type === this.selectedDatabase?.Type
+    const selectedTags = splitTags(this.selectedDatabase?.Type);
+    if (selectedTags.length > 0) {
+      // Tag-set overlap (docs/database-tags, IS S-005): any shared tag between
+      // the selected database and an already-attached one triggers the warning.
+      this.existingDatabaseWithSameTag = this.existingDatabases?.find(db =>
+        selectedTags.some(tag => hasTag(db.Type, tag))
       );
+      this.overlappingTags = this.existingDatabaseWithSameTag
+        ? selectedTags.filter(tag =>
+            hasTag(this.existingDatabaseWithSameTag?.Type, tag)
+          )
+        : [];
       this.showSameTagWarning = !!this.existingDatabaseWithSameTag;
     }
   }

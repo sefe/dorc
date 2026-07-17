@@ -18,6 +18,7 @@ import '../make-like-production-dialog';
 import '@polymer/paper-dialog';
 import '../add-edit-environment';
 import { PageEnvBase } from './page-env-base';
+import { hasTag } from '../../helpers/tag-parser';
 import { AddEditAccessControl } from '../add-edit-access-control';
 import GlobalCache from '../../global-cache';
 import { ResetAppPasswordBehalf } from '../reset-app-password-behalf';
@@ -315,7 +316,11 @@ export class EnvControlCenter extends PageEnvBase {
       p => p.ProjectName ?? ''
     );
 
-    // since ThinClient is a DB tag and DB type and environment filter, we can use it to find the app database server
-    this.appDbServer = this.envContent?.DbServers?.find(s => s.Type === this.environment?.Details?.ThinClient);
+    // since ThinClient is a DB tag and DB type and environment filter, we can use
+    // it to find the app database server — matched as tag membership over the
+    // semicolon-separated Type list (docs/database-tags, IS S-005).
+    this.appDbServer = this.envContent?.DbServers?.find(s =>
+      hasTag(s.Type, this.environment?.Details?.ThinClient)
+    );
   }
 }

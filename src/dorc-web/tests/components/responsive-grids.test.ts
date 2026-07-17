@@ -270,10 +270,10 @@ describe('Responsive grid column hiding (rendered)', () => {
         (sr.querySelector('vaadin-grid-column[path="Name"]') as HTMLElement).hidden
       ).to.equal(false, 'Name should be visible');
 
-      // Hidden on narrow — Application Tag has no path, select by header
+      // Hidden on narrow — the Tags column has no path, select by header
       expect(
-        (sr.querySelector('vaadin-grid-column[header="Application Tag"]') as HTMLElement).hidden
-      ).to.equal(true, 'Application Tag should be hidden');
+        (sr.querySelector('vaadin-grid-column[header="Tags"]') as HTMLElement).hidden
+      ).to.equal(true, 'Tags should be hidden');
       expect(
         (sr.querySelector('vaadin-grid-column[path="ArrayName"]') as HTMLElement).hidden
       ).to.equal(true, 'ArrayName should be hidden');

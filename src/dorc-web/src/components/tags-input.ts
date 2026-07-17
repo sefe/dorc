@@ -28,6 +28,9 @@ export class TagsInput extends LitElement {
 
   @property({ type: String }) label = 'Tags';
 
+  /** Optional per-tag pattern; invalid entries are rejected by Tagify. */
+  @property({ type: String }) pattern: string | undefined;
+
   private _tags: string[] = [];
 
   tagify: Tagify | undefined;
@@ -64,10 +67,21 @@ export class TagsInput extends LitElement {
     super.firstUpdated(_changedProperties);
 
     const input = this.shadowRoot?.querySelector('input') as HTMLInputElement;
-    this.tagify = new window.Tagify(input, {});
+    this.tagify = new window.Tagify(
+      input,
+      this.pattern ? { pattern: new RegExp(this.pattern) } : {}
+    );
     if (this.tagify !== null && this._tags.length > 0) {
       this.tagify.removeAllTags();
       this.tagify.addTags(this._tags);
     }
+    // Surface chip edits to hosts that validate as the user types. Guarded:
+    // test shims may not implement Tagify's event API.
+    const notify = () =>
+      this.dispatchEvent(
+        new CustomEvent('tags-changed', { detail: { tags: this.tags } })
+      );
+    (this.tagify as any).on?.('add', notify);
+    (this.tagify as any).on?.('remove', notify);
   }
 }

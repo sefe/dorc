@@ -92,7 +92,9 @@ namespace Dorc.Api.Controllers
             if (string.IsNullOrWhiteSpace(type) || type.Contains(TagString.Delimiter))
                 return BadRequest("The 'type' parameter must be a single non-empty tag and must not contain ';'.");
 
-            var database = _databasesPersistentSource.GetDatabaseByType(envName, type);
+            // Trim at the boundary so the EF delimiter pattern and the in-memory
+            // tokenizer see the same needle (S-001..S-003 gate F-3).
+            var database = _databasesPersistentSource.GetDatabaseByType(envName, type.Trim());
             if (database == null)
                 return NotFound($"No database of type '{type}' found for environment '{envName}'.");
             return Ok(database);

@@ -62,7 +62,9 @@ namespace Dorc.Api.Controllers
             if (dbType != null && (string.IsNullOrWhiteSpace(dbType) || dbType.Contains(TagString.Delimiter)))
                 return BadRequest("The 'dbType' parameter, when supplied, must be a single non-empty tag and must not contain ';'.");
 
-            var userPermissions = _userPermsPersistentSource.GetUserDbPermissions(serverName, databaseName, dbType);
+            // Trim at the boundary so the EF delimiter pattern and the in-memory
+            // tokenizer see the same needle (S-001..S-003 gate F-3).
+            var userPermissions = _userPermsPersistentSource.GetUserDbPermissions(serverName, databaseName, dbType?.Trim());
 
             return StatusCode(StatusCodes.Status200OK, userPermissions);
         }

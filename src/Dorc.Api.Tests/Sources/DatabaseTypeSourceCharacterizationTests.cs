@@ -205,6 +205,84 @@ namespace Dorc.Api.Tests.Sources
             StringAssert.Contains(multiTag, "ENDUR_END_DV10.cfg");
         }
 
+        // ---- Null-Type rows are excluded everywhere (gate F-2) ----
+
+        [TestMethod]
+        public void NullTypeDatabases_AreExcludedFromTagLookups()
+        {
+            var context = ContextWithEnvironmentDatabases(
+                new Database { Id = 1, Name = "N1", Type = null, ServerName = "s1" },
+                new Database { Id = 2, Name = "E1", Type = "Endur", ServerName = "s2" });
+            var source = DatabasesSource(context);
+            var env = new EnvironmentApiModel { EnvironmentId = 42, EnvironmentName = "Endur DV 10" };
+
+            // Sites 1 & 4: the null-Type row neither matches nor causes a duplicate.
+            Assert.AreEqual("E1", source.GetDatabaseByType(env, "Endur").Name);
+            Assert.AreEqual("E1", source.GetDatabaseByType("Endur DV 10", "Endur")!.Name);
+        }
+
+        [TestMethod]
+        public void GetConfigurationFilePath_NullTypeExcluded_AndSharedTagThrows()
+        {
+            var environment = new EnvironmentApiModel
+            {
+                EnvironmentId = 42,
+                EnvironmentName = "Endur DV 10",
+                Details = new EnvironmentDetailsApiModel { FileShare = @"\\share" }
+            };
+
+            // Site 5, null-Type row excluded (gate F-2).
+            var hit = PropertiesSourceFor(
+                    new Database { Id = 1, Name = "X1", Type = null },
+                    new Database { Id = 2, Name = "END_DV10_DB", Type = "Endur" })
+                .GetConfigurationFilePath(environment);
+            StringAssert.Contains(hit, "ENDUR_END_DV10.cfg");
+
+            // Site 5, U-1 collision-throw fixture (gate F-1): two databases carrying
+            // the Endur tag still throw.
+            Assert.Throws<InvalidOperationException>(() =>
+                PropertiesSourceFor(
+                        new Database { Id = 1, Name = "A_DB", Type = "Endur;Ops" },
+                        new Database { Id = 2, Name = "B_DB", Type = "Endur" })
+                    .GetConfigurationFilePath(environment));
+        }
+
+        [TestMethod]
+        public void NullTypeDatabases_AreInvisibleToUsersJoinAndPermsFilter()
+        {
+            // Sites 2 & 3 (gate F-2): a null-Type database matches no tag.
+            var context = Substitute.For<IDeploymentContext>();
+            var env = new Environment { Id = 42, Name = "Endur DV 10" };
+            var nullDb = new Database { Id = 12, Name = "D3", ServerName = "s1", Type = null };
+            nullDb.Environments = new List<Environment> { env };
+            var envSet = DbContextMock.GetQueryableMockDbSet(new List<Environment> { env });
+            var dbSet = DbContextMock.GetQueryableMockDbSet(new List<Database> { nullDb });
+            var userSet = DbContextMock.GetQueryableMockDbSet(new List<User>
+            {
+                new() { Id = 3, LanId = "null.user", LoginId = "null.user" }
+            });
+            var envUserSet = DbContextMock.GetQueryableMockDbSet(new List<EnvironmentUser>
+            {
+                new() { DbId = 12, UserId = 3, PermissionId = 5 }
+            });
+            var permSet = DbContextMock.GetQueryableMockDbSet(new List<Permission>
+            {
+                new() { Id = 5, Name = "dbo", DisplayName = "Owner" }
+            });
+            context.Environments.Returns(envSet);
+            context.Databases.Returns(dbSet);
+            context.Users.Returns(userSet);
+            context.EnvironmentUsers.Returns(envUserSet);
+            context.Permissions.Returns(permSet);
+
+            var usersSource = new UsersPersistentSource(FactoryFor(context), Substitute.For<IClaimsPrincipalReader>());
+            Assert.AreEqual(0, usersSource.GetEnvironmentUsers(42, UserAccountType.Endur).Count());
+
+            var permsSource = new UserPermsPersistentSource(FactoryFor(context));
+            Assert.AreEqual(0, permsSource.GetUserDbPermissions("s1", "D3", "Endur").Count);
+            Assert.AreEqual(1, permsSource.GetUserDbPermissions("s1", "D3").Count);
+        }
+
         // ---- Padded legacy rows: the EF pattern vs in-memory tokenization ----
 
         [TestMethod]
