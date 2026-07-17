@@ -74,17 +74,24 @@ namespace Dorc.Api.Controllers
         }
 
         /// <summary>
-        ///     Return database details by environment name and database type
+        ///     Return database details by environment name and database tag
         /// </summary>
         /// <param name="envName">Environment name</param>
-        /// <param name="type">Database type (e.g. "Endur")</param>
+        /// <param name="type">A single database tag (e.g. "Endur") — matches any one entry of the database's semicolon-separated tag list</param>
         /// <returns></returns>
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(DatabaseApiModel))]
+        [SwaggerResponse(StatusCodes.Status400BadRequest, Type = typeof(string))]
         [SwaggerResponse(StatusCodes.Status404NotFound, Type = typeof(string))]
         [HttpGet]
         [Route("ByType")]
         public IActionResult GetByType([FromQuery] string envName, [FromQuery] string type)
         {
+            // A lookup tag must be a single non-empty tag: an empty needle would match
+            // every untagged database, and a ';'-bearing one would perform sub-list
+            // matching (docs/database-tags HLPS §3).
+            if (string.IsNullOrWhiteSpace(type) || type.Contains(TagString.Delimiter))
+                return BadRequest("The 'type' parameter must be a single non-empty tag and must not contain ';'.");
+
             var database = _databasesPersistentSource.GetDatabaseByType(envName, type);
             if (database == null)
                 return NotFound($"No database of type '{type}' found for environment '{envName}'.");

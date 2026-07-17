@@ -14,4 +14,11 @@ describe('tag capacity layer agreement', () => {
       MAX_TAG_STRING_LENGTH
     );
   });
+
+  it('database Type maxLength matches the UI constant', () => {
+    // docs/database-tags IS S-004: DB_Type is the database tags column.
+    expect(schemas.DatabaseApiModel.properties.Type.maxLength).to.equal(
+      MAX_TAG_STRING_LENGTH
+    );
+  });
 });
