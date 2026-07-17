@@ -97,3 +97,6 @@ export * from './AnalyticsComponentUsageApiModel';
 export * from './AnalyticsDurationApiModel';
 export * from './DeploymentRequestAttemptApiModel';
 export * from './DeploymentResultAttemptApiModel';
+export * from './ApiRegistrationApiModel';
+export * from './CloudResourceApiModel';
+export * from './ContainerApiModel';
