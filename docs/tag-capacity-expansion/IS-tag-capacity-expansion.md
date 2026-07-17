@@ -2,7 +2,7 @@
 
 | Field       | Value                                        |
 |-------------|----------------------------------------------|
-| **Status**  | IN REVIEW (v2, post round-1 revision)        |
+| **Status**  | APPROVED (panel, round 2) — pending user checkpoint |
 | **Author**  | Agent                                        |
 | **Date**    | 2026-07-17                                   |
 | **HLPS**    | HLPS-tag-capacity-expansion.md (APPROVED v2; checkpoint decisions in its §8) |
@@ -28,8 +28,8 @@ relabel yes; `Contains` behaviour accepted & documented; proc parameter widened.
 | S-001 | Baselines, toolchain + splice-workflow check, U-4 record  | SC-5, U-4                    | —          |
 | S-002 | Schema, dual-sourced: widen columns + proc parameter      | SC-2 (schema/EF layers), R-2, U-6 | S-001 |
 | S-003 | API validation, consumer re-verification, spec metadata   | SC-1, SC-2 (API layer), SC-3, SC-5, R-3, HLPS §3.3 | S-002 |
-| S-004 | UI: chip editor + joined-string enforcement + per-field limits | SC-2 (UI layer), SC-6   | S-003      |
-| S-005 | UI: grid tag-dialog integration, relabel, rendering sweep | SC-4, U-2a/U-2b              | S-004      |
+| S-004 | UI: chip editor + joined-string enforcement + per-field limits | SC-2 (UI layer), SC-6, U-2a | S-003      |
+| S-005 | UI: grid tag-dialog integration, relabel, rendering sweep | SC-4, U-2a (grid access), U-2b | S-004      |
 | S-006 | Final verification sweep + release notes                  | SC-1..SC-6, R-1, U-5         | S-003, S-005 |
 
 Sequencing rationale (honest version): schema → API → UI ordering guarantees each layer
@@ -84,7 +84,7 @@ One step, both schema sources (HLPS §4):
 - Gate artifact: side-by-side DDL↔EF comparison per changed column; **explicit check
   that no other property/column width changed** (esp. the other three Database fields).
 - Model-build test asserting the EF model's max length equals N for each changed
-  property and remains 50/250 for the untouched Database fields. (The prior feature's
+  property and remains at the current widths for the untouched Database fields (all 50). (The prior feature's
   `DeploymentContextModelTests` pattern is cross-branch; the S-002 JIT spec carries the
   pattern inline — build the model offline via the `EnsureCreated` static-flag
   workaround and inspect `IModel` properties.)
