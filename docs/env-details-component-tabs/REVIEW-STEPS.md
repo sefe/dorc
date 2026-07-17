@@ -55,6 +55,23 @@ HLPS §5.3 conformance verified with no deviation; Swashbuckle complete for gene
   → deferred (outside SC-4 scope; recorded here).
 - LOW replica `var container` naming residue → fixed during replication rerun.
 
-## S-006 + S-007 — client regen + UI (commits a7b9ef6, a1342d8) — gate pending
-Material discovery recorded in SPEC-S-006: committed client/spec/generator drifted apart
-independently; minimal faithful splice chosen; follow-up maintenance task flagged.
+## S-006 + S-007 — client regen + UI (commits a7b9ef6, a1342d8) — REVISE → APPROVED (fix d5bb36b)
+S-006 verified clean: byte-identical claim, drift narrative, spec/client consistency, and
+index emission style all confirmed; the per-op oauth header blocks in new files are a
+recorded drift artifact, runtime-benign (runtime.ts overwrites Authorization).
+- HIGH "tabs never load on the cold-cache path" (PageEnvBase assigns `environment` —
+  firing notifyEnvironmentReady — before `environmentId`; deep links / hard refreshes
+  rendered a permanently empty grid) → **fixed d5bb36b**: tabs derive the id from
+  `environment.EnvironmentId`; loader parameterized. Fix-verification pass traced both
+  cold and warm paths and confirmed the regression test fails against pre-fix code.
+- MED lifecycle/gating derivation untested → **fixed**: two lifecycle tests reproduce the
+  exact base-class ordering with a stubbed typed client (containers as representative;
+  replicas verified identical by diff).
+- LOW attach dialogs lacked envId>0 guard → **fixed** in all three.
+- LOW notes for the drift true-up task: oauth header churn on next full regen;
+  openapitools.json trailing newline.
+Verification pass verdict: APPROVE (135/135 web tests, build clean).
+
+## S-008 — final sweep — complete
+Evidence in VERIFICATION-S-008.md; deferred S-005 round-trip tests delivered; U-10
+compile-level check done; release notes carry the R-4/R-7 ops actions.

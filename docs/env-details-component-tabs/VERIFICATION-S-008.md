@@ -1,5 +1,10 @@
 # S-008 — Final Verification Sweep (2026-07-17)
 
+> Final counts after the S-007 gate fix (d5bb36b): `Dorc.Core.Tests` 149/149,
+> `Dorc.Api.Tests` 314 pass (+22 pre-existing platform failures), `Dorc.Monitor.Tests`
+> 109 pass (+4 pre-existing), web **135/135** (17 tests in the tab suite including the
+> cold-cache lifecycle regressions). All step gates APPROVED — see REVIEW-STEPS.md.
+
 ## Test evidence (this environment; baselines from TOOLCHAIN-S-001)
 
 | Suite | Result | Baseline delta |

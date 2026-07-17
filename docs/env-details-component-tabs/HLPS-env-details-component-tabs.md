@@ -2,7 +2,7 @@
 
 | Field       | Value                                        |
 |-------------|----------------------------------------------|
-| **Status**  | APPROVED (v5 — panel round 3 + v4-amendment delta review; user checkpoint passed 2026-07-17, decisions in §8) |
+| **Status**  | **DELIVERED** 2026-07-17 (v5 approved; IS executed S-001..S-008, all gates passed — see IS, REVIEW-STEPS.md, VERIFICATION-S-008.md) |
 | **Author**  | Agent                                        |
 | **Date**    | 2026-07-16                                   |
 | **Folder**  | docs/env-details-component-tabs/             |
