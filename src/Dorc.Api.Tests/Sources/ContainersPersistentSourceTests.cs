@@ -168,6 +168,7 @@ namespace Dorc.Api.Tests.Sources
             SetupEnvironments(Env(1, "DV 01"));
 
             Assert.AreEqual(EnvironmentAttachmentOutcome.ItemNotFound, _source.AttachToEnvironment(9, 1));
+            _context.DidNotReceive().SaveChanges();
         }
 
         [TestMethod]
@@ -177,6 +178,7 @@ namespace Dorc.Api.Tests.Sources
             SetupEnvironments();
 
             Assert.AreEqual(EnvironmentAttachmentOutcome.EnvironmentNotFound, _source.AttachToEnvironment(5, 9));
+            _context.DidNotReceive().SaveChanges();
         }
 
         [TestMethod]

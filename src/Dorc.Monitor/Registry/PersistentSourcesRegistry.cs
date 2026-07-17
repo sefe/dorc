@@ -20,6 +20,9 @@ namespace Dorc.Monitor.Registry
             collection.AddTransient<IContainersPersistentSource, ContainersPersistentSource>();
             collection.AddTransient<ICloudResourcesPersistentSource, CloudResourcesPersistentSource>();
             collection.AddTransient<IApiRegistrationsPersistentSource, ApiRegistrationsPersistentSource>();
+            collection.AddTransient<IContainerAuditPersistentSource, ContainerAuditPersistentSource>();
+            collection.AddTransient<ICloudResourceAuditPersistentSource, CloudResourceAuditPersistentSource>();
+            collection.AddTransient<IApiRegistrationAuditPersistentSource, ApiRegistrationAuditPersistentSource>();
             collection.AddTransient<IDaemonObservationPersistentSource, DaemonObservationPersistentSource>();
             collection.AddTransient<IDatabasesPersistentSource, DatabasesPersistentSource>();
             collection.AddTransient<IUserPermsPersistentSource, UserPermsPersistentSource>();

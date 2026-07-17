@@ -18,7 +18,9 @@
 ### R2 — Variable DTOs (`Dorc.ApiModel.MonitorRunnerApi`)
 `VariableValueContainers`, `VariableValueCloudResources`, `VariableValueApiRegistrations`
 — plain property bags mirroring `VariableValueServers`' (plural-name-per-item) convention,
-carrying the §5.1 fields. Placement in `Dorc.ApiModel` is what
+carrying the §5.1 *descriptive* fields. The surrogate `Id` is deliberately omitted: the
+mirror convention wins (no existing `VariableValue*` DTO exposes a DB key) and a key has
+no deploy-time use. (Recorded post-gate per S-005 review finding.) Placement in `Dorc.ApiModel` is what
 `VariableValueJsonConverter`'s type resolution requires (HLPS §3/§5.7.1 discrepancy
 resolved in IS v2).
 
