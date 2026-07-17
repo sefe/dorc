@@ -2,7 +2,7 @@
 
 | Field       | Value                                        |
 |-------------|----------------------------------------------|
-| **Status**  | IN REVIEW (v2 — round-1 panel findings applied, see REVIEW-IS-round1.md) |
+| **Status**  | **APPROVED** (v3, 2026-07-17 — round-2 delta APPROVE; three LOW nits folded in; see REVIEW-IS-round2.md). Execution: auto-pilot |
 | **Author**  | Agent                                        |
 | **Date**    | 2026-07-17                                   |
 | **HLPS**    | HLPS-database-tags.md (APPROVED v3; checkpoint resolutions in its §8) |
@@ -20,8 +20,8 @@ relabelled to "Tags" (U-4); same PR #774 (U-6); U-7 audit acknowledged; executio
 | ID    | Title                                                        | Addresses                          | Depends On |
 |-------|--------------------------------------------------------------|------------------------------------|------------|
 | S-001 | Baselines + characterization freeze of sites 1–7             | SC-1, C-5                          | —          |
-| S-002 | Schema, dual-sourced: widen `DB_Type` + proc parameter + EF  | SC-3 (schema layers), C-1, U-3     | S-001      |
-| S-003 | Tag-membership semantics: `TagString`, expression factory, rewrite sites 1–7, write-normalization, `ToQueryString` artifact | SC-1, SC-2, SC-3 (translation artifact) | S-001, S-002 |
+| S-002 | Schema, dual-sourced: widen `DB_Type` + proc parameter + EF  | SC-3 (schema layers), C-1, C-3, U-3 | S-001      |
+| S-003 | Tag-membership semantics: `TagString`, expression factory, rewrite sites 1–7, write-normalization, `ToQueryString` artifact | SC-1, SC-2, SC-3 (translation artifact), U-1, U-5 | S-001, S-002 |
 | S-004 | API: validation (`[StringLength]`, lookup-param rejection), boundary tests, swagger splice, spec↔UI agreement test | SC-3 (spec↔UI check), SC-4, C-4 | S-003 |
 | S-005 | UI: chip editor, attach-overlap, ThinClient membership, relabel | SC-2 (site-9 clause), SC-5, U-4  | S-004      |
 | S-006 | Operational scripts (U-2 normalization, U-7 audit), final sweep, rollout notes, PR #774 update | SC-6, U-2, U-7, R-1..R-4, U-6 | S-003, S-005 |
@@ -120,8 +120,8 @@ gate clarity.
   membership-semantics descriptions on both params — **the descriptions originate as
   C# controller/model annotations** so the splice remains generator-produced and the
   byte-identical-generation proof holds.
-- Spec↔UI agreement test (SC-3): extend `tests/helpers/tag-limits.test.ts` with the
-  `DatabaseApiModel.Type.maxLength === MAX_TAG_STRING_LENGTH` assertion.
+- Spec↔UI agreement test (SC-3): extend `src/dorc-web/tests/helpers/tag-limits.test.ts`
+  with the `DatabaseApiModel.Type.maxLength === MAX_TAG_STRING_LENGTH` assertion.
 - Gate: boundary evidence (incl. absent-vs-empty) + splice diff + the agreement test.
 
 ## S-005 — UI
@@ -137,7 +137,8 @@ gate clarity.
   membership predicate into `tag-parser` (unit-tested directly) with a new component
   test asserting the wiring via the protected `environment`/`envContent` setters
   (which trigger `notifyEnvironmentContentReady` synchronously, no network); the
-  page's base-class statics are reset between tests.
+  base class's module-level shared state (`_environment`/`_envContent` in
+  `page-env-base.ts` — not `static` fields) is reset between tests.
 - Relabel (U-4): dialog field and remaining headers → "Tags" (display only).
 - Gate: vitest evidence for SC-5's **five** assertions (chip round-trip; over-limit
   visible rejection with no API call; exactly-at-limit accept; attach overlap warn
