@@ -2,7 +2,7 @@
 
 | Field       | Value                                        |
 |-------------|----------------------------------------------|
-| **Status**  | APPROVED (panel round 3; user checkpoint passed 2026-07-17, decisions in §8; v4 integration amendment under delta review) |
+| **Status**  | APPROVED (v5 — panel round 3 + v4-amendment delta review; user checkpoint passed 2026-07-17, decisions in §8) |
 | **Author**  | Agent                                        |
 | **Date**    | 2026-07-16                                   |
 | **Folder**  | docs/env-details-component-tabs/             |
@@ -16,6 +16,11 @@
 > **against** the CRUD-only recommendation: deployment/variable-resolution integration is
 > **in scope** this iteration — added as §5.7, with the Monitor DI registry and
 > `Dorc.Core.Tests` pulled into §3 scope accordingly.
+>
+> **v5 changes:** delta-review findings on the v4 amendment applied (see
+> `REVIEW-HLPS-v4-delta.md`): conditional variable emission decided, SC-6 made
+> falsifiable, deploy-time blast-radius (R-6) and variable-namespace collision (R-7)
+> risks added, prefix naming aligned.
 
 ---
 
@@ -55,13 +60,14 @@ variables at deploy time (§5.7).
   `Registry/PersistentSourcesRegistry.cs`** — the Monitor consumes the new sources at
   deploy time via `VariableScopeOptionsResolver` (§5.7, per the U-3 decision)
 - `Dorc.Core`: `VariableScopeOptionsResolver` extension + new fixed property-value names
-  and variable DTOs (§5.7)
+  and variable DTOs (§5.7); resolver coverage is NSubstitute-mocked unit tests (the
+  project has no integration fixture)
 - `Dorc.ApiModel`: three DTOs
 - `Dorc.Api`: three RefData controllers (CRUD + typed attach/detach, see U-9), audit wiring
 - `src/dorc-web`: regenerated `dorc-api` client, replacement of the three stub tabs and
   their attach/attached/add-edit child components
 - Tests: `Dorc.Api.Tests` (controller/source unit tests), `Dorc.Core.Tests` (resolver
-  integration, §5.7), `src/dorc-web/tests` (component tests). `Tests.Acceptance` checked
+  unit tests, §5.7), `src/dorc-web/tests` (component tests). `Tests.Acceptance` checked
   for impact; new feature coverage there is optional parity (see U-10).
 
 **Out of scope:**
@@ -107,7 +113,7 @@ that omission.
 EF: model class + `IEntityTypeConfiguration` + `DbSet` on `DeploymentContext`, matching the
 SSDT DDL exactly (see §4 dual-source constraint).
 
-Proposed minimal schemas (to be confirmed — U-1; all string fields sized NVARCHAR):
+Minimal schemas (confirmed at checkpoint — U-1; all string fields sized NVARCHAR):
 
 - **Container**: Id, Name, Image, Registry, HostServerName (nullable), Tags
 - **CloudResource**: Id, Name, Provider, ResourceType, ResourceIdentifier (URI/ARN/id),
@@ -195,17 +201,23 @@ types are exposed the same way servers are:
    each carrying a typed array DTO (modelled on `VariableValueServers` in
    `Dorc.ApiModel.MonitorRunnerApi`) with the §5.1 fields.
 2. **Per-tag name lists** — prefixes `ContainerNames_`, `CloudResourceNames_`,
-   `ApiNames_`, mirroring the existing `ServerNames_<tag>` semantics
-   (`AddPropertiesForServerNamesByType`): each semicolon-separated tag yields a variable
-   listing the names of items carrying that tag. The tag-splitting logic is shared, not
-   duplicated three more times.
+   `ApiRegistrationNames_` (aligned with the entity names — no abbreviated `ApiNames_`),
+   mirroring the existing `ServerNames_<tag>` semantics of
+   `AddPropertiesForServerNamesByType`, **including** its two behavioural quirks, which
+   tests must cover: spaces in tag names become underscores, and a tag with exactly one
+   item yields a scalar string while multiple items yield a string array. That method is
+   today `private static` and typed to `ServerApiModel` with a hard-coded prefix — it is
+   generalized and shared, not duplicated three more times.
 3. The resolver gains the three new persistent sources via constructor injection; they are
-   therefore registered in **both** DI registries (§3). Deployments in environments with
-   no containers/cloud/APIs attached must behave exactly as today (empty collections, no
-   per-tag variables, no errors) — the integration is additive and inert when unused.
+   therefore registered in **both** DI registries (§3). **Emission is conditional**: unlike
+   the server precedent (which sets `AllServers`/`EnvironmentServers` even when empty),
+   the new collection variables and per-tag variables are set **only when at least one
+   item of that type is attached** to the environment. An environment with none attached
+   therefore produces exactly the pre-change variable set (SC-6), and the integration is
+   inert when unused.
 
-Tests for the resolver extension live in `Dorc.Core.Tests` alongside any existing
-`VariableScopeOptionsResolver` coverage.
+Tests for the resolver extension are NSubstitute-mocked unit tests in `Dorc.Core.Tests`
+extending the existing `VariableScopeOptionsResolverTests` (all injected sources stubbed).
 
 ## 6. Success Criteria
 
@@ -226,8 +238,10 @@ Tests for the resolver extension live in `Dorc.Core.Tests` alongside any existin
   diff contains only additions for the new types.
 - **SC-6** (v4): For an environment with attached items of each new type, variable
   resolution yields the three collection variables and the per-tag name-list variables of
-  §5.7, verified by `Dorc.Core.Tests`; for an environment with none attached, resolution
-  output is byte-identical to pre-change behaviour (regression test).
+  §5.7, verified by `Dorc.Core.Tests`. For an environment with none attached, the
+  **recorded set of `SetPropertyValue` calls** (names and values captured on the mocked
+  `IVariableResolver`) is identical to the pre-change set, asserted by a characterization
+  test written against the resolver *before* the §5.7 change lands.
 
 ## 7. Alternatives Considered
 
@@ -248,8 +262,8 @@ Tests for the resolver extension live in `Dorc.Core.Tests` alongside any existin
 | U-3 | Deployment/variable integration now, or CRUD + mapping only | ~~Yes~~ **RESOLVED 2026-07-17** | User | **Integration included** (against the CRUD-only recommendation) — design in §5.7 |
 | U-4 | Authorization model | ~~Yes~~ **RESOLVED 2026-07-17** | User | **Environment-write based** per §5.3 |
 | U-8 | Audit coverage for new types | No | Agent (IS) | Default: parity with servers/daemons audit pattern |
-| U-9 | Typed attach/detach endpoints vs extending `ChangeEnvComponent` dispatcher | No | Agent (IS) | Recommend typed endpoints (§5.5); user may veto at checkpoint |
-| U-10 | `Tests.Acceptance` parity coverage for new RefData controllers | No | Agent (IS) | Default: not this iteration; existing acceptance features unaffected |
+| U-9 | Typed attach/detach endpoints vs extending `ChangeEnvComponent` dispatcher | No | Agent (IS) | Recommend typed endpoints (§5.5); user may veto at the IS-approval checkpoint |
+| U-10 | `Tests.Acceptance` parity coverage for new RefData controllers | No | Agent (IS) | Default: no new acceptance features this iteration. §5.7 touches the deploy-time resolution path, so "existing acceptance features unaffected" is now a claim to **verify** during IS, not assume |
 | U-11 | Can the dev environment run the stack locally — `Dorc.Api` (for `/swagger/v1/swagger.json` client regen) and, for SC-2's manual round-trip, API + SQL database + web dev server together? | No — becomes blocking at the client-regen IS step if the API can't run | Agent (IS) | Verify early in IS; if the full stack can't run, SC-2 falls back to its test-level evidence and the manual UI round-trip transfers to the user's environment |
 
 (v1's U-6/U-7 concerned tag capacity and move to the separate tag PR's HLPS. v1's U-5 —
@@ -260,10 +274,27 @@ constraint and superseded by U-11; it does not carry to the tag PR.)
 
 - **R-5**: Naming: `ApiRegistration` still lands near existing generated-client models,
   and an entity named `Container` collides with `Lamar.Container` (the repo's DI library)
-  in files importing both namespaces — resolvable by qualification, surfaced under U-1.
-  Final names are checked against the generated client during the client-regen step.
+  in files importing both namespaces — resolvable by qualification, surfaced under U-1
+  (resolved: name kept, qualification accepted). Final names are checked against the
+  generated client during the client-regen step.
   (Risk IDs R-1/R-2 from v1 are retired: R-1 was removed by the §5.4 design change; R-2 —
   tag-consumer truncation — carries to the separate tag PR.)
+- **R-6** (v4/v5): Deploy-time blast radius — §5.7 puts new code and three new
+  constructor-injected sources on the path `PendingRequestProcessor` runs for **every**
+  deployment; a resolver defect or a missed registration in Monitor's
+  `PersistentSourcesRegistry.cs` fails all deployments, not just the new tabs.
+  Mitigations: SC-6's characterization test; conditional emission (§5.7.3) keeps the
+  change inert when unused; Monitor's integration-test base calls
+  `PersistentSourcesRegistry.Register` so a missing registration surfaces in
+  `Dorc.Monitor.IntegrationTests`, and the IS adds an explicit DI-resolution check to the
+  integration step's gate.
+- **R-7** (v4/v5): Variable-namespace collision — the new fixed names and
+  `<Type>Names_<tag>` variables share one namespace with user-defined properties in live
+  environments; a collision would silently override or shadow existing values at
+  resolution time. Mitigations: distinctive prefixes chosen (§5.7.2); the IS integration
+  step queries existing property definitions (via `IPropertiesPersistentSource`) for the
+  new fixed names and prefixes and documents the resolver's precedence order; conditional
+  emission limits exposure to environments actually using the new types.
 - **R-3**: Generated client churn — regeneration rewrites the whole `dorc-api` folder;
   diff noise if generator version drifted. Mitigation: pin via repo's
   `@openapitools/openapi-generator-cli` through `npm run dorc-api-gen`; SC-5 requires an
