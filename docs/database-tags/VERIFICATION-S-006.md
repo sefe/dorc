@@ -62,6 +62,31 @@
    (e.g. `Endur;Reporting`) through the chip editor, confirm `ByType?type=Reporting`
    finds it, and confirm a deployment resolves `DbServer_Reporting`/`DbName_Reporting`.
 
+## U-7 audit — EXECUTED against the live estate (user, 2026-07-17)
+
+`AuditDatabaseTags.sql` results (screenshot reviewed):
+
+- **Report 1 (multi-tag rows): none.** No `;`-bearing values exist, so the deploy
+  changes matching behaviour for zero existing rows — SC-1's single-value
+  invariance covers the whole estate.
+- **Report 2 (padded rows): one** — DB 38424 `BI_TAB_UAT3_IF_PnLCmp`
+  (`I&R Integration Flow Cube Cmp`, whole-value whitespace). Auto-remediated by
+  the shipped normalization script, which runs in the dacpac **before** the new
+  API/UI deploys — zero exposure window.
+- **Report 3 (collisions): 11 groups, all pre-existing whole-string duplicates**
+  (Report 1 being empty proves it) — e.g. `DBAMaint` ×588 in DBANonProd, `TFS` ×5
+  in TFS DEV/LIVE, `Deploy v2`/`EnvMgt` ×5 in Dorc ACL. These already throw under
+  today's exact-equality `SingleOrDefault` if looked up; behaviour is identical
+  after deploy. **None involve the pipeline's fixed lookups** (`Endur`,
+  `Endur Reporting`, `Endur External`), so deployment variable resolution is
+  unaffected; the affected per-tag variables were already arrays.
+
+**Audit verdict: deploy is safe** — one row self-heals via the shipped script;
+everything else is provably unchanged. (Observation for a possible future item:
+`ByType` on a bulk-category tag like `DBAMaint` throws a 500 on ambiguity — it
+did before this feature too; a 409-on-ambiguous response would be a separate,
+small improvement.)
+
 ## Rollout notes
 
 1. **Audit first (U-7)**: run `AuditDatabaseTags.sql` against prod before deploying —
