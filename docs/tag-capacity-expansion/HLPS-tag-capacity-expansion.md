@@ -2,7 +2,7 @@
 
 | Field       | Value                                    |
 |-------------|------------------------------------------|
-| **Status**  | IN REVIEW (v2, post round-1 revision)    |
+| **Status**  | APPROVED (panel, round 2) — pending user checkpoint |
 | **Author**  | Agent                                    |
 | **Date**    | 2026-07-17                               |
 | **Folder**  | docs/tag-capacity-expansion/             |
