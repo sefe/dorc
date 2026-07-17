@@ -2,7 +2,7 @@
 
 | Field       | Value                                            |
 |-------------|--------------------------------------------------|
-| **Status**  | APPROVED (panel, round 2) — pending user checkpoint |
+| **Status**  | APPROVED (panel round 2; user 2026-07-17 — auto-pilot enabled, typed endpoints confirmed (U-9), single branch/PR) |
 | **Author**  | Agent                                            |
 | **Date**    | 2026-07-17                                       |
 | **HLPS**    | HLPS-env-details-component-tabs.md (APPROVED v5) |
