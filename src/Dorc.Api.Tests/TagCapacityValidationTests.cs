@@ -54,6 +54,7 @@ namespace Dorc.Api.Tests
             var results = Validate(model);
             Assert.AreEqual(1, results.Count);
             StringAssert.Contains(results[0].ErrorMessage, "4000");
+            CollectionAssert.Contains(results[0].MemberNames.ToList(), nameof(DatabaseApiModel.ArrayName));
         }
 
         [TestMethod]

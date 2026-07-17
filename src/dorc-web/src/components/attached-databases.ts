@@ -1,4 +1,6 @@
 import '@polymer/paper-dialog';
+import './database-tags';
+import { DatabaseTags } from './database-tags';
 import { PaperDialogElement } from '@polymer/paper-dialog';
 import '@vaadin/button';
 import '@vaadin/grid';
@@ -109,7 +111,7 @@ export class AttachedDatabases extends ResponsiveMixin(LitElement) {
         ></vaadin-grid-column>
         <vaadin-grid-column
           path="ArrayName"
-          header="Array Name"
+          header="Tags"
           resizable
           ?hidden="${this._narrowScreen}"
         ></vaadin-grid-column>
@@ -130,6 +132,16 @@ export class AttachedDatabases extends ResponsiveMixin(LitElement) {
           id="edit"
           .envId="${this.envId}"
         ></edit-database-permissions>
+        <div style="display: flex; justify-content: flex-end">
+          <vaadin-button dialog-confirm>Close</vaadin-button>
+        </div>
+      </paper-dialog>
+
+      <paper-dialog class="size-position" id="database-tags-dialog" allow-click-through modal>
+        <database-tags
+          id="database-tags"
+          @database-tags-updated="${this.databaseTagsUpdated}"
+        ></database-tags>
         <div style="display: flex; justify-content: flex-end">
           <vaadin-button dialog-confirm>Close</vaadin-button>
         </div>
@@ -218,6 +230,13 @@ export class AttachedDatabases extends ResponsiveMixin(LitElement) {
           edit.setDbId(db.Id || 0);
           this.openDialog('permissions');
         }}"
+        @manage-database-tags="${() => {
+          const tags = this.shadowRoot?.getElementById(
+            'database-tags'
+          ) as DatabaseTags;
+          tags.setTags(db);
+          this.openDialog('database-tags-dialog');
+        }}"
         @view-database-perms="${() => {
           const view = this.shadowRoot?.getElementById(
             'view'
@@ -228,6 +247,20 @@ export class AttachedDatabases extends ResponsiveMixin(LitElement) {
         }}"
       ></database-env-controls>`,
       root
+    );
+  }
+
+  databaseTagsUpdated() {
+    const dialog = this.shadowRoot?.getElementById(
+      'database-tags-dialog'
+    ) as PaperDialogElement;
+    dialog?.close();
+    this.dispatchEvent(
+      new CustomEvent('environment-stale', {
+        bubbles: true,
+        composed: true,
+        detail: {}
+      })
     );
   }
 

@@ -6,6 +6,7 @@ import { of } from 'rxjs';
 // removeAllTags) honest for these tests.
 class FakeTagify {
   value: { value: string }[] = [];
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   constructor(_input: HTMLInputElement, _opts: unknown) {}
   addTags(tags: string[]) {
     this.value.push(...tags.map(t => ({ value: t })));
