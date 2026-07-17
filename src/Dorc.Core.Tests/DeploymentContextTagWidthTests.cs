@@ -33,6 +33,16 @@ namespace Dorc.Core.Tests
         }
 
         [TestMethod]
+        public void DatabaseTags_AreWidenedToTheLimit()
+        {
+            // DB_Type is the database tags column (docs/database-tags, IS S-002).
+            using var context = CreateContextWithoutEnsureCreated();
+
+            Assert.AreEqual(TagLimits.MaxTagStringLength,
+                context.Model.FindEntityType(typeof(Database))!.FindProperty(nameof(Database.Type))!.GetMaxLength());
+        }
+
+        [TestMethod]
         public void DatabaseFields_KeepTheirCurrentWidths()
         {
             using var context = CreateContextWithoutEnsureCreated();
@@ -44,7 +54,6 @@ namespace Dorc.Core.Tests
             // filtered index IX_DATABASE_Server_Name_DB_Name.
             Assert.AreEqual(50, entity.FindProperty(nameof(Database.ArrayName))!.GetMaxLength());
             Assert.AreEqual(50, entity.FindProperty(nameof(Database.Name))!.GetMaxLength());
-            Assert.AreEqual(50, entity.FindProperty(nameof(Database.Type))!.GetMaxLength());
             Assert.AreEqual(50, entity.FindProperty(nameof(Database.ServerName))!.GetMaxLength());
         }
     }
