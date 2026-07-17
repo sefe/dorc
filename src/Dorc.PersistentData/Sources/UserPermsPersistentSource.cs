@@ -67,7 +67,10 @@ namespace Dorc.PersistentData.Sources
 
                 if (!string.IsNullOrEmpty(dbType))
                 {
-                    result = result.Where(r => r.DbType == dbType);
+                    // Tag membership over the semicolon-separated Type list — the
+                    // EF-translatable delimiter-wrap pattern (DatabaseTagMatch),
+                    // inlined because the filter runs on the projected DTO.
+                    result = result.Where(r => (";" + r.DbType + ";").Contains(";" + dbType + ";"));
                 }
 
                 return result.ToList();

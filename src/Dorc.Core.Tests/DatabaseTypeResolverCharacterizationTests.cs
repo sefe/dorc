@@ -80,29 +80,96 @@ namespace Dorc.Core.Tests
         }
 
         [TestMethod]
-        public void MultiTagType_MatchesNothing_AndEmitsTheJoinedNameVerbatim()
+        public void MultiTagType_SatisfiesEveryTag_AndEmitsPerTagVariables()
         {
-            // Flip candidate (S-003): today a semicolon value is one opaque string.
+            // FLIPPED by S-003 (declared flip candidate): a semicolon value is now a
+            // tag list — each tag matches, and no joined-name variable is emitted.
             var (resolver, variableResolver, calls, _) = CreateResolver(
                 new DatabaseApiModel { Id = 1, Name = "R1", Type = "Endur;Endur Reporting", ServerName = "s1" });
 
             resolver.SetPropertyValues(variableResolver, Environment42());
 
-            CollectionAssert.DoesNotContain(calls, "ReportingDatabaseName");
-            CollectionAssert.Contains(calls, "DbServer_Endur;Endur_Reporting");
-            CollectionAssert.DoesNotContain(calls, "DbServer_Endur");
-            CollectionAssert.DoesNotContain(calls, "DbServer_Endur_Reporting");
+            CollectionAssert.Contains(calls, "ReportingDatabaseName");
+            CollectionAssert.Contains(calls, "DbServer_Endur");
+            CollectionAssert.Contains(calls, "DbServer_Endur_Reporting");
+            CollectionAssert.Contains(calls, "DbName_Endur");
+            CollectionAssert.DoesNotContain(calls, "DbServer_Endur;Endur_Reporting");
         }
 
         [TestMethod]
-        public void NullType_ThrowsNullReference_Today()
+        public void NullType_ContributesNothing_AndNoLongerThrows()
         {
-            // Flip candidate (S-003): the rewrite makes null mean "no tags" (skip).
-            var (resolver, variableResolver, _, _) = CreateResolver(
-                new DatabaseApiModel { Id = 1, Name = "N1", Type = null, ServerName = "s1" });
+            // FLIPPED by S-003 (declared flip candidate): null means "no tags" — the
+            // database is skipped instead of crashing variable resolution.
+            var (resolver, variableResolver, calls, _) = CreateResolver(
+                new DatabaseApiModel { Id = 1, Name = "N1", Type = null, ServerName = "s1" },
+                new DatabaseApiModel { Id = 2, Name = "W1", Type = "Warehouse", ServerName = "s2" });
 
-            Assert.Throws<NullReferenceException>(
+            resolver.SetPropertyValues(variableResolver, Environment42());
+
+            CollectionAssert.Contains(calls, "DbServer_Warehouse");
+            Assert.IsFalse(calls.Any(c => c.StartsWith("DbServer_N1") || c == "DbServer_"));
+        }
+
+        [TestMethod]
+        public void SharedTagAcrossDatabases_ThrowsAtFixedLookups_AndEmitsArrayInLoop()
+        {
+            // U-1 with tag semantics: a shared *resolution* tag still throws at the
+            // fixed lookups; the per-tag loop handles sharing with the array shape.
+            var (resolver, variableResolver, _, _) = CreateResolver(
+                new DatabaseApiModel { Id = 1, Name = "R1", Type = "Endur Reporting;Extra", ServerName = "s1" },
+                new DatabaseApiModel { Id = 2, Name = "R2", Type = "Endur Reporting", ServerName = "s2" });
+
+            Assert.Throws<InvalidOperationException>(
                 () => resolver.SetPropertyValues(variableResolver, Environment42()));
+
+            // The same sharing on a non-resolution tag emits the array shape.
+            var (resolver2, variableResolver2, calls2, values2) = CreateResolver(
+                new DatabaseApiModel { Id = 1, Name = "W1", Type = "Warehouse;Extra", ServerName = "s1" },
+                new DatabaseApiModel { Id = 2, Name = "W2", Type = "Warehouse", ServerName = "s2" });
+            resolver2.SetPropertyValues(variableResolver2, Environment42());
+            CollectionAssert.Contains(calls2, "DbServer_Warehouse");
+            Assert.IsInstanceOfType(values2["DbServer_Warehouse"]!.Value, typeof(string[]));
+            Assert.IsInstanceOfType(values2["DbServer_Extra"]!.Value, typeof(string));
+        }
+
+        [TestMethod]
+        public void CaseDifferingTags_SurviveOrdinalDedup_AndEmitSeparately()
+        {
+            // U-5: tokenization is Ordinal — "Endur" and "endur" are distinct tags,
+            // matching today's behaviour for two whole-Type strings differing by case.
+            var (resolver, variableResolver, calls, _) = CreateResolver(
+                new DatabaseApiModel { Id = 1, Name = "D1", Type = "Warehouse;warehouse", ServerName = "s1" });
+
+            resolver.SetPropertyValues(variableResolver, Environment42());
+
+            CollectionAssert.Contains(calls, "DbServer_Warehouse");
+            CollectionAssert.Contains(calls, "DbServer_warehouse");
+        }
+
+        [TestMethod]
+        public void PaddedEntries_AreTrimmedByTokenization_InMemory()
+        {
+            var (resolver, variableResolver, calls, _) = CreateResolver(
+                new DatabaseApiModel { Id = 1, Name = "D1", Type = " Warehouse ; Extra ", ServerName = "s1" });
+
+            resolver.SetPropertyValues(variableResolver, Environment42());
+
+            CollectionAssert.Contains(calls, "DbServer_Warehouse");
+            CollectionAssert.Contains(calls, "DbServer_Extra");
+        }
+
+        [TestMethod]
+        public void DatabasePermissions_CarryTheRawJoinedTypeVerbatim()
+        {
+            // HLPS §3 position: DatabaseDefinition.Type passes through unmodified.
+            var (resolver, variableResolver, _, values) = CreateResolver(
+                new DatabaseApiModel { Id = 1, Name = "D1", Type = "Endur;Extra", ServerName = "s1" });
+
+            resolver.SetPropertyValues(variableResolver, Environment42());
+
+            var perms = (VariableValueDbPerm[])values["DatabasePermissions"]!.Value;
+            Assert.AreEqual("Endur;Extra", perms.Single().Database.Type);
         }
 
         [TestMethod]

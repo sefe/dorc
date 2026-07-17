@@ -12,10 +12,10 @@ using Environment = Dorc.PersistentData.Model.Environment;
 namespace Dorc.Api.Tests.Sources
 {
     /// <summary>
-    /// docs/database-tags IS S-001: characterization freeze of the persistent-source
-    /// database-Type consumers (survey sites 1-5) on today's whole-string semantics.
-    /// Multi-tag misses are the declared flip candidates for S-003; duplicate-Type
-    /// throws (U-1) and omitted-filter behaviour (site 3) must survive the rewrite.
+    /// docs/database-tags IS S-001 characterization, updated by S-003: the declared
+    /// flip candidates (multi-tag misses) now assert tag-membership semantics; the
+    /// U-1 duplicate/shared-tag throws and site 3's omitted-means-no-filter
+    /// behaviour survive unchanged from the freeze.
     /// </summary>
     [TestClass]
     public class DatabaseTypeSourceCharacterizationTests
@@ -48,7 +48,7 @@ namespace Dorc.Api.Tests.Sources
         }
 
         [TestMethod]
-        public void GetDatabaseByType_EnvironmentOverload_MatchesWholeStringOnly()
+        public void GetDatabaseByType_EnvironmentOverload_UsesTagMembership()
         {
             var context = ContextWithEnvironmentDatabases(
                 new Database { Id = 1, Name = "END_DB_DV10", Type = "Endur", ServerName = "s1" },
@@ -56,22 +56,23 @@ namespace Dorc.Api.Tests.Sources
             var source = DatabasesSource(context);
             var env = new EnvironmentApiModel { EnvironmentId = 42, EnvironmentName = "Endur DV 10" };
 
-            Assert.AreEqual("END_DB_DV10", source.GetDatabaseByType(env, "Endur").Name);
-            // Flip candidate (S-003): the multi-tag row misses today.
-            Assert.IsNull(source.GetDatabaseByType(env, "Reporting"));
+            // FLIPPED by S-003: "Endur" now matches the multi-tag row too, so the
+            // shared tag throws (U-1); the unique tag resolves the multi-tag row.
+            Assert.Throws<InvalidOperationException>(() => source.GetDatabaseByType(env, "Endur"));
+            Assert.AreEqual("M1", source.GetDatabaseByType(env, "Reporting").Name);
         }
 
         [TestMethod]
-        public void GetDatabaseByType_EnvNameOverload_MatchesWholeStringOnly()
+        public void GetDatabaseByType_EnvNameOverload_UsesTagMembership()
         {
             var context = ContextWithEnvironmentDatabases(
                 new Database { Id = 1, Name = "END_DB_DV10", Type = "Endur", ServerName = "s1" },
                 new Database { Id = 2, Name = "M1", Type = "Endur;Reporting", ServerName = "s2" });
             var source = DatabasesSource(context);
 
-            Assert.AreEqual("END_DB_DV10", source.GetDatabaseByType("Endur DV 10", "Endur")!.Name);
-            // Flip candidate (S-003): the multi-tag row misses today.
-            Assert.IsNull(source.GetDatabaseByType("Endur DV 10", "Reporting"));
+            // FLIPPED by S-003: same tag-membership semantics as the EF overload.
+            Assert.Throws<InvalidOperationException>(() => source.GetDatabaseByType("Endur DV 10", "Endur"));
+            Assert.AreEqual("M1", source.GetDatabaseByType("Endur DV 10", "Reporting")!.Name);
         }
 
         [TestMethod]
@@ -91,7 +92,7 @@ namespace Dorc.Api.Tests.Sources
         // ---- Site 2: Endur users join ----
 
         [TestMethod]
-        public void GetEnvironmentUsers_MatchesEndurTypeAsWholeStringOnly()
+        public void GetEnvironmentUsers_MatchesEndurByTagMembership()
         {
             var context = Substitute.For<IDeploymentContext>();
             var env = new Environment { Id = 42, Name = "Endur DV 10" };
@@ -119,10 +120,11 @@ namespace Dorc.Api.Tests.Sources
 
             var users = source.GetEnvironmentUsers(42, UserAccountType.Endur).ToList();
 
-            // Flip candidate (S-003): the user mapped via the multi-tag database is
-            // invisible today because "Endur;Ops" != "Endur".
-            Assert.AreEqual(1, users.Count);
-            Assert.AreEqual("endur.user", users[0].LanId);
+            // FLIPPED by S-003: the multi-tag database now carries the "Endur" tag,
+            // so its user is visible alongside the single-value one.
+            Assert.AreEqual(2, users.Count);
+            CollectionAssert.AreEquivalent(new[] { "endur.user", "multi.user" },
+                users.Select(u => u.LanId).ToArray());
         }
 
         // ---- Site 3: permissions dbType filter ----
@@ -162,13 +164,13 @@ namespace Dorc.Api.Tests.Sources
         }
 
         [TestMethod]
-        public void GetUserDbPermissions_FilterMatchesJoinedStringExactly()
+        public void GetUserDbPermissions_FilterUsesTagMembership()
         {
             var source = PermsSourceWithOneMultiTagDb(out _);
-            // Flip candidates (S-003): per-tag membership will match "Endur" and stop
-            // treating the joined string as the only match key.
-            Assert.AreEqual(0, source.GetUserDbPermissions("s1", "db1", "Endur").Count);
-            Assert.AreEqual(1, source.GetUserDbPermissions("s1", "db1", "Endur;Ops").Count);
+            // FLIPPED by S-003: the filter is per-tag membership now.
+            Assert.AreEqual(1, source.GetUserDbPermissions("s1", "db1", "Endur").Count);
+            Assert.AreEqual(1, source.GetUserDbPermissions("s1", "db1", "Ops").Count);
+            Assert.AreEqual(0, source.GetUserDbPermissions("s1", "db1", "Endu").Count);
         }
 
         // ---- Site 5: configuration file path ----
@@ -184,7 +186,7 @@ namespace Dorc.Api.Tests.Sources
         }
 
         [TestMethod]
-        public void GetConfigurationFilePath_ResolvesFromWholeStringEndurTypeOnly()
+        public void GetConfigurationFilePath_ResolvesFromEndurTagMembership()
         {
             var environment = new EnvironmentApiModel
             {
@@ -197,10 +199,46 @@ namespace Dorc.Api.Tests.Sources
                 .GetConfigurationFilePath(environment);
             StringAssert.Contains(hit, "ENDUR_END_DV10.cfg");
 
-            // Flip candidate (S-003): a multi-tag row misses and the path is lost.
-            var miss = PropertiesSourceFor(new Database { Id = 1, Name = "END_DV10_DB", Type = "Endur;Ops" })
+            // FLIPPED by S-003: a multi-tag row carrying "Endur" resolves the path.
+            var multiTag = PropertiesSourceFor(new Database { Id = 1, Name = "END_DV10_DB", Type = "Endur;Ops" })
                 .GetConfigurationFilePath(environment);
-            Assert.IsNull(miss);
+            StringAssert.Contains(multiTag, "ENDUR_END_DV10.cfg");
+        }
+
+        // ---- Padded legacy rows: the EF pattern vs in-memory tokenization ----
+
+        [TestMethod]
+        public void PaddedEntries_MissAtTheEfPattern_ButMatchInMemory()
+        {
+            // The delimiter-wrap pattern is exact about whitespace: a legacy padded
+            // entry ("Endur ;Ops") misses at EF sites until the one-time U-2
+            // normalization runs. In-memory sites trim during tokenization and are
+            // immune. Both behaviours are by design (HLPS §3, R-4).
+            var context = ContextWithEnvironmentDatabases(
+                new Database { Id = 1, Name = "P1", Type = "Endur ;Ops", ServerName = "s1" });
+            var source = DatabasesSource(context);
+            var env = new EnvironmentApiModel { EnvironmentId = 42, EnvironmentName = "Endur DV 10" };
+
+            Assert.IsNull(source.GetDatabaseByType(env, "Endur"));            // EF pattern: miss
+            Assert.AreEqual("P1", source.GetDatabaseByType(env, "Ops").Name); // unpadded entry: hit
+            Assert.AreEqual("P1", source.GetDatabaseByType("Endur DV 10", "Endur")!.Name); // in-memory: trimmed hit
+        }
+
+        [TestMethod]
+        public void WriteNormalization_TrimsDedupsAndPreservesOrder()
+        {
+            var context = ContextWithEnvironmentDatabases();
+            var addedDatabases = new List<Database>();
+            context.Databases.When(x => x.Add(Arg.Any<Database>()))
+                .Do(call => addedDatabases.Add(call.Arg<Database>()));
+            var adGroupSet = DbContextMock.GetQueryableMockDbSet(new List<AdGroup>());
+            context.AdGroups.Returns(adGroupSet);
+            var source = DatabasesSource(context);
+
+            source.AddDatabase(new DatabaseApiModel
+            { Name = "N1", ServerName = "s9", Type = " Endur ; Ops ;; Endur " });
+
+            Assert.AreEqual("Endur;Ops", addedDatabases.Single().Type);
         }
     }
 }

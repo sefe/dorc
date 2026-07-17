@@ -53,12 +53,15 @@ namespace Dorc.PersistentData.Sources
                 {
                     case UserAccountType.Endur:
                         {
+                            // Tag membership over the semicolon-separated Type list —
+                            // the EF-translatable delimiter-wrap pattern (DatabaseTagMatch).
                             var result = from user in context.Users
                                          from eu in context.EnvironmentUsers
                                          from env in context.Environments
                                          from db in context.Databases
                                          where env.Id == environmentDetail.Id &&
-                                               db.Environments.Any(e => e.Id == environmentDetail.Id) && db.Type == "Endur" &&
+                                               db.Environments.Any(e => e.Id == environmentDetail.Id) &&
+                                               (";" + db.Type + ";").Contains(";Endur;") &&
                                                eu.DbId == db.Id && user.Id == eu.UserId
                                          select user;
                             var users = result.ToList();

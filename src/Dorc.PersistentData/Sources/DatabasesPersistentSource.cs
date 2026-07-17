@@ -116,7 +116,7 @@ namespace Dorc.PersistentData.Sources
                 var dbDetails = context.Environments
                     .Include(env => env.Databases)
                     .Single(e => e.Name == envName)
-                    .Databases.SingleOrDefault(x => x.Type == type);
+                    .Databases.SingleOrDefault(x => TagString.HasTag(x.Type, type));
                 return dbDetails != null ? MapToDatabaseApiModel(dbDetails) : null;
             }
         }
@@ -153,9 +153,8 @@ namespace Dorc.PersistentData.Sources
                 var endurDb = context.Databases
                     .Include(d => d.Environments)
                     .Include(d => d.Group)
-                    .SingleOrDefault(d =>
-                        d.Type == type
-                        && d.Environments.FirstOrDefault().Name == environment.EnvironmentName);
+                    .Where(DatabaseTagMatch.HasTag(type))
+                    .SingleOrDefault(d => d.Environments.FirstOrDefault().Name == environment.EnvironmentName);
                 return endurDb != null ? MapToDatabaseApiModel(endurDb) : null;
             }
         }
@@ -369,7 +368,7 @@ namespace Dorc.PersistentData.Sources
                 existingDatabase.Name = database.Name;
                 existingDatabase.ServerName = database.ServerName;
                 existingDatabase.ArrayName = database.ArrayName;
-                existingDatabase.Type = database.Type;
+                existingDatabase.Type = TagString.Normalize(database.Type);
 
                 var adGroup = context.AdGroups
                     .FirstOrDefault(g => g.Name == database.AdGroup);
@@ -395,7 +394,7 @@ namespace Dorc.PersistentData.Sources
                 Id = db.Id,
                 Name = db.Name,
                 ServerName = db.ServerName,
-                Type = db.Type,
+                Type = TagString.Normalize(db.Type),
                 ArrayName = db.ArrayName
             };
         }
