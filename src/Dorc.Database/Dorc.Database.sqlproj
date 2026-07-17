@@ -304,6 +304,15 @@
     <Build Include="deploy\Tables\Daemon.sql" />
     <Build Include="deploy\Tables\ServerDaemon.sql" />
     <Build Include="deploy\Tables\DaemonAudit.sql" />
+    <Build Include="deploy\Tables\Container.sql" />
+    <Build Include="deploy\Tables\CloudResource.sql" />
+    <Build Include="deploy\Tables\ApiRegistration.sql" />
+    <Build Include="deploy\Tables\EnvironmentContainer.sql" />
+    <Build Include="deploy\Tables\EnvironmentCloudResource.sql" />
+    <Build Include="deploy\Tables\EnvironmentApiRegistration.sql" />
+    <Build Include="deploy\Tables\ContainerAudit.sql" />
+    <Build Include="deploy\Tables\CloudResourceAudit.sql" />
+    <Build Include="deploy\Tables\ApiRegistrationAudit.sql" />
     <Build Include="deploy\Tables\DaemonObservation.sql" />
     <Build Include="deploy\Tables\ServerAudit.sql" />
     <Build Include="deploy\Tables\DatabaseAudit.sql" />

@@ -69,6 +69,12 @@ namespace Dorc.PersistentData.Contexts
         public DbSet<RefDataAudit> RefDataAudits { get; set; }
         public DbSet<RefDataAuditAction> RefDataAuditActions { get; set; }
         public DbSet<DaemonAudit> DaemonAudits { get; set; }
+        public DbSet<Container> Containers { get; set; }
+        public DbSet<CloudResource> CloudResources { get; set; }
+        public DbSet<ApiRegistration> ApiRegistrations { get; set; }
+        public DbSet<ContainerAudit> ContainerAudits { get; set; }
+        public DbSet<CloudResourceAudit> CloudResourceAudits { get; set; }
+        public DbSet<ApiRegistrationAudit> ApiRegistrationAudits { get; set; }
         public DbSet<DaemonObservation> DaemonObservations { get; set; }
         public DbSet<ServerAudit> ServerAudits { get; set; }
         public DbSet<DatabaseAudit> DatabaseAudits { get; set; }
@@ -190,6 +196,12 @@ namespace Dorc.PersistentData.Contexts
             new RefDataAuditEntityTypeConfiguration().Configure(modelBuilder.Entity<RefDataAudit>());
             new RefDataAuditActionConfiguration().Configure(modelBuilder.Entity<RefDataAuditAction>());
             new DaemonAuditEntityTypeConfiguration().Configure(modelBuilder.Entity<DaemonAudit>());
+            new ContainerEntityTypeConfiguration().Configure(modelBuilder.Entity<Container>());
+            new CloudResourceEntityTypeConfiguration().Configure(modelBuilder.Entity<CloudResource>());
+            new ApiRegistrationEntityTypeConfiguration().Configure(modelBuilder.Entity<ApiRegistration>());
+            new ContainerAuditEntityTypeConfiguration().Configure(modelBuilder.Entity<ContainerAudit>());
+            new CloudResourceAuditEntityTypeConfiguration().Configure(modelBuilder.Entity<CloudResourceAudit>());
+            new ApiRegistrationAuditEntityTypeConfiguration().Configure(modelBuilder.Entity<ApiRegistrationAudit>());
             new DaemonObservationEntityTypeConfiguration().Configure(modelBuilder.Entity<DaemonObservation>());
             new ServerAuditEntityTypeConfiguration().Configure(modelBuilder.Entity<ServerAudit>());
             new DatabaseAuditEntityTypeConfiguration().Configure(modelBuilder.Entity<DatabaseAudit>());

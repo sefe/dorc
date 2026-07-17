@@ -93,8 +93,15 @@ namespace Dorc.Core.Tests
             { Id = 10, Name = "END_DB_DV07", Type = "Endur", ServerName = "sql01" };
             var reportingDb = new DatabaseApiModel
             { Id = 11, Name = "REP_DB", Type = "Endur Reporting", ServerName = "sql02" };
+            // Two databases sharing a type exercise the array variants of DbServer_/DbName_.
+            var auditDb1 = new DatabaseApiModel
+            { Id = 12, Name = "AUD1", Type = "Audit", ServerName = "sql03" };
+            var auditDb2 = new DatabaseApiModel
+            { Id = 13, Name = "AUD2", Type = "Audit", ServerName = "sql03" };
+            var externalDb = new DatabaseApiModel
+            { Id = 14, Name = "EXT_DB", Type = "Endur External", ServerName = "sql04" };
             _databases.GetDatabasesForEnvironmentName("IAR DV 07")
-                .Returns(new[] { endurDb, reportingDb });
+                .Returns(new[] { endurDb, reportingDb, auditDb1, auditDb2, externalDb });
             _databases.GetDatabaseByType(environment, "Endur").Returns(endurDb);
 
             _properties.GetConfigurationFilePath(environment).Returns("cfg/path");
@@ -105,6 +112,9 @@ namespace Dorc.Core.Tests
                 new UserPermDto { User = @"DOM\alice", Role = "db_datareader" }
             });
             _userPerms.GetPermissions(11).Returns(Array.Empty<UserPermDto>());
+            _userPerms.GetPermissions(12).Returns(Array.Empty<UserPermDto>());
+            _userPerms.GetPermissions(13).Returns(Array.Empty<UserPermDto>());
+            _userPerms.GetPermissions(14).Returns(Array.Empty<UserPermDto>());
 
             CreateResolver().SetPropertyValues(CreateRecordingVariableResolver(), environment);
 
@@ -122,10 +132,16 @@ namespace Dorc.Core.Tests
                 "ReportingDatabaseName",
                 "ReportingDatabaseServer",
                 "SsisPackageServer",
+                "ExternalDatabaseName",
+                "ExternalDatabaseServer",
                 "DbServer_Endur",
                 "DbName_Endur",
                 "DbServer_Endur_Reporting",
                 "DbName_Endur_Reporting",
+                "DbServer_Audit",
+                "DbName_Audit",
+                "DbServer_Endur_External",
+                "DbName_Endur_External",
                 "ServerNames_appserv",
                 "ServerNames_web_tier",
                 "DatabasePermissions",
@@ -144,9 +160,16 @@ namespace Dorc.Core.Tests
             var envServers = (VariableValueServers[])((VariableValue)ValueOf("EnvironmentServers")!).Value;
             Assert.AreEqual(2, envServers.Length);
             Assert.AreEqual("web01", envServers[0].Name);
+            Assert.AreEqual("Win2022", envServers[0].OsName);
             Assert.AreEqual("appserv;web tier", envServers[0].ApplicationServerName);
             Assert.AreEqual(1, envServers[0].Services.Length);
             Assert.AreEqual("EndurSvc", envServers[0].Services[0].Name);
+            Assert.AreEqual("Endur Service", envServers[0].Services[0].DisplayName);
+            Assert.AreEqual(@"DOM\svc", envServers[0].Services[0].AccountName);
+            Assert.AreEqual("WindowsService", envServers[0].Services[0].ServiceType);
+            Assert.AreEqual("web02", envServers[1].Name);
+            Assert.AreEqual("Win2022", envServers[1].OsName);
+            Assert.AreEqual("web tier", envServers[1].ApplicationServerName);
             Assert.AreEqual(0, envServers[1].Services.Length);
 
             Assert.AreEqual(@"\\share\dv07", ValueOf("EndurFileShare"));
@@ -158,12 +181,21 @@ namespace Dorc.Core.Tests
             Assert.AreEqual("REP_DB", ValueOf("ReportingDatabaseName"));
             Assert.AreEqual("sql02", ValueOf("ReportingDatabaseServer"));
             Assert.AreEqual("sql02", ValueOf("SsisPackageServer"));
+            Assert.AreEqual("EXT_DB", ValueOf("ExternalDatabaseName"));
+            Assert.AreEqual("sql04", ValueOf("ExternalDatabaseServer"));
 
             // Single database per type → scalar string inside VariableValue.
             Assert.AreEqual("sql01", ((VariableValue)ValueOf("DbServer_Endur")!).Value);
             Assert.AreEqual("END_DB_DV07", ((VariableValue)ValueOf("DbName_Endur")!).Value);
             Assert.AreEqual("sql02", ((VariableValue)ValueOf("DbServer_Endur_Reporting")!).Value);
             Assert.AreEqual("REP_DB", ((VariableValue)ValueOf("DbName_Endur_Reporting")!).Value);
+            // Two databases of one type → string[] variants.
+            CollectionAssert.AreEqual(new[] { "sql03", "sql03" },
+                (string[])((VariableValue)ValueOf("DbServer_Audit")!).Value);
+            CollectionAssert.AreEqual(new[] { "AUD1", "AUD2" },
+                (string[])((VariableValue)ValueOf("DbName_Audit")!).Value);
+            Assert.AreEqual("sql04", ((VariableValue)ValueOf("DbServer_Endur_External")!).Value);
+            Assert.AreEqual("EXT_DB", ((VariableValue)ValueOf("DbName_Endur_External")!).Value);
 
             // Per-tag quirks: one server → scalar via string overload; two → string[] in VariableValue;
             // tag "web tier" becomes ServerNames_web_tier (space → underscore).
@@ -172,7 +204,9 @@ namespace Dorc.Core.Tests
             CollectionAssert.AreEqual(new[] { "web01", "web02" }, webTierServers);
 
             var dbPerms = (VariableValueDbPerm[])((VariableValue)ValueOf("DatabasePermissions")!).Value;
-            Assert.AreEqual(2, dbPerms.Length);
+            Assert.AreEqual(5, dbPerms.Length);
+            Assert.AreEqual("END_DB_DV07", dbPerms[0].Database.Name);
+            Assert.AreEqual("Endur", dbPerms[0].Database.Type);
             Assert.AreEqual(1, dbPerms[0].Users.Length);
             Assert.AreEqual(@"DOM\alice", dbPerms[0].Users[0].User);
             CollectionAssert.AreEqual(new[] { "db_owner", "db_datareader" }, dbPerms[0].Users[0].Roles);
