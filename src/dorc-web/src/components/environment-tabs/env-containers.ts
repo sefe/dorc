@@ -166,13 +166,15 @@ export class EnvContainers extends PageEnvBase {
 
   override notifyEnvironmentReady() {
     this.envReadOnly = !this.environment?.UserEditable;
-    this.loadContainers();
+    // The base class assigns `environment` (which fires this hook) before it assigns
+    // `environmentId` on the cold-cache path, so derive the id from the environment.
+    this.loadContainers(this.environment?.EnvironmentId ?? this.environmentId);
   }
 
-  private loadContainers() {
-    if (this.environmentId <= 0) return;
+  private loadContainers(envId: number = this.environmentId) {
+    if (envId <= 0) return;
     new RefDataContainersApi()
-      .refDataContainersByEnvIdEnvIdGet({ envId: this.environmentId })
+      .refDataContainersByEnvIdEnvIdGet({ envId })
       .subscribe({
         next: (data: ContainerApiModel[]) => {
           this.containers = data;

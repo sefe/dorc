@@ -173,13 +173,15 @@ export class EnvCloud extends PageEnvBase {
 
   override notifyEnvironmentReady() {
     this.envReadOnly = !this.environment?.UserEditable;
-    this.loadCloudResources();
+    // The base class assigns `environment` (which fires this hook) before it assigns
+    // `environmentId` on the cold-cache path, so derive the id from the environment.
+    this.loadCloudResources(this.environment?.EnvironmentId ?? this.environmentId);
   }
 
-  private loadCloudResources() {
-    if (this.environmentId <= 0) return;
+  private loadCloudResources(envId: number = this.environmentId) {
+    if (envId <= 0) return;
     new RefDataCloudResourcesApi()
-      .refDataCloudResourcesByEnvIdEnvIdGet({ envId: this.environmentId })
+      .refDataCloudResourcesByEnvIdEnvIdGet({ envId })
       .subscribe({
         next: (data: CloudResourceApiModel[]) => {
           this.cloudResources = data;

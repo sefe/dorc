@@ -7,6 +7,8 @@ import '../../src/components/add-edit-cloud-resource.js';
 import '../../src/components/add-edit-api-registration.js';
 import '../../src/components/attach-container.js';
 import type { AddEditContainer } from '../../src/components/add-edit-container.js';
+import { RefDataContainersApi } from '../../src/apis/dorc-api';
+import { of } from 'rxjs';
 
 // IS S-007 (docs/env-details-component-tabs): the three Components sub-tabs are real
 // grid-based tabs — attach + create controls gated on environment editability, per-type
@@ -93,6 +95,62 @@ for (const c of tabCases) {
     });
   });
 }
+
+describe('env-containers self-fetch lifecycle', () => {
+  // Regression for the S-006/S-007 gate HIGH: PageEnvBase assigns `environment`
+  // (which fires notifyEnvironmentReady synchronously) BEFORE it assigns
+  // `environmentId` on the cold-cache path. The tab must derive the id from the
+  // environment itself or a deep link renders a permanently empty grid.
+  it('loads items when environment arrives before environmentId (cold cache)', async () => {
+    const items = [{ Id: 1, Name: 'web01', Image: 'nginx:1' }];
+    const original = RefDataContainersApi.prototype.refDataContainersByEnvIdEnvIdGet;
+    const calls: number[] = [];
+    (RefDataContainersApi.prototype as any).refDataContainersByEnvIdEnvIdGet = function (
+      req: { envId: number }
+    ) {
+      calls.push(req.envId);
+      return of(items);
+    };
+
+    try {
+      const el = await fixture(
+        document.createElement('env-containers') as unknown as ReturnType<typeof html>
+      );
+      // Reproduce the base-class cold-path ordering: environment set while
+      // environmentId is still the default (-1).
+      (el as any).environmentId = -1;
+      (el as any).environment = { EnvironmentId: 42, UserEditable: true };
+      await (el as any).updateComplete;
+
+      expect(calls).to.include(42);
+      const grid = el.shadowRoot!.getElementById('containers-grid') as any;
+      expect(grid.items).to.deep.equal(items);
+      expect((el as any).envReadOnly).to.be.false;
+    } finally {
+      (RefDataContainersApi.prototype as any).refDataContainersByEnvIdEnvIdGet = original;
+    }
+  });
+
+  it('derives read-only gating from environment.UserEditable', async () => {
+    const original = RefDataContainersApi.prototype.refDataContainersByEnvIdEnvIdGet;
+    (RefDataContainersApi.prototype as any).refDataContainersByEnvIdEnvIdGet = () => of([]);
+
+    try {
+      const el = await fixture(
+        document.createElement('env-containers') as unknown as ReturnType<typeof html>
+      );
+      (el as any).environment = { EnvironmentId: 42, UserEditable: false };
+      await (el as any).updateComplete;
+      expect((el as any).envReadOnly).to.be.true;
+
+      (el as any).environment = { EnvironmentId: 42, UserEditable: true };
+      await (el as any).updateComplete;
+      expect((el as any).envReadOnly).to.be.false;
+    } finally {
+      (RefDataContainersApi.prototype as any).refDataContainersByEnvIdEnvIdGet = original;
+    }
+  });
+});
 
 describe('add-edit-container form', () => {
   it('binds the container fields into the inputs', async () => {

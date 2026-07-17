@@ -54,6 +54,14 @@ export class AttachContainer extends LitElement {
   }
 
   private attach() {
+    if (this.envId <= 0) {
+      Notification.show('Environment is still loading — try again', {
+        theme: 'error',
+        position: 'bottom-start',
+        duration: 5000
+      });
+      return;
+    }
     if (!this.selected?.Id) {
       Notification.show('Select a container to attach', {
         theme: 'error',

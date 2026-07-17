@@ -166,13 +166,15 @@ export class EnvApis extends PageEnvBase {
 
   override notifyEnvironmentReady() {
     this.envReadOnly = !this.environment?.UserEditable;
-    this.loadApiRegistrations();
+    // The base class assigns `environment` (which fires this hook) before it assigns
+    // `environmentId` on the cold-cache path, so derive the id from the environment.
+    this.loadApiRegistrations(this.environment?.EnvironmentId ?? this.environmentId);
   }
 
-  private loadApiRegistrations() {
-    if (this.environmentId <= 0) return;
+  private loadApiRegistrations(envId: number = this.environmentId) {
+    if (envId <= 0) return;
     new RefDataApiRegistrationsApi()
-      .refDataApiRegistrationsByEnvIdEnvIdGet({ envId: this.environmentId })
+      .refDataApiRegistrationsByEnvIdEnvIdGet({ envId })
       .subscribe({
         next: (data: ApiRegistrationApiModel[]) => {
           this.apiRegistrations = data;
