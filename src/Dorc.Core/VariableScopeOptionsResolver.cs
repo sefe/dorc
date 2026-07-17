@@ -252,8 +252,8 @@ namespace Dorc.Core
 
                 var tags = item.Tags.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries);
                 foreach (var tag in tags)
-                    if (tagWithNames.ContainsKey(tag))
-                        tagWithNames[tag].Add(item.Name);
+                    if (tagWithNames.TryGetValue(tag, out var names))
+                        names.Add(item.Name);
                     else
                         tagWithNames.Add(tag, new List<string> { item.Name });
             }

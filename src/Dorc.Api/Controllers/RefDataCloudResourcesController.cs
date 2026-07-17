@@ -270,12 +270,11 @@ namespace Dorc.Api.Controllers
                 return null;
             }
 
-            foreach (var environmentName in environmentNames)
-            {
-                if (!_securityPrivilegesChecker.CanModifyEnvironment(User, environmentName))
-                    return StatusCode(StatusCodes.Status403Forbidden,
-                        $"You need write permission on environment '{environmentName}' to {action} this cloud resource");
-            }
+            var unauthorizedEnvironment = environmentNames.FirstOrDefault(
+                environmentName => !_securityPrivilegesChecker.CanModifyEnvironment(User, environmentName));
+            if (unauthorizedEnvironment != null)
+                return StatusCode(StatusCodes.Status403Forbidden,
+                    $"You need write permission on environment '{unauthorizedEnvironment}' to {action} this cloud resource");
 
             return null;
         }

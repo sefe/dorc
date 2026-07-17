@@ -332,10 +332,10 @@ namespace Dorc.Api.Tests.Controllers
         {
             _source.GetForEnvironmentId(1).Returns(new[] { new CloudResourceApiModel { Id = 1, Name = "web" } });
 
-            var result = _controller.GetByEnvId(1) as OkObjectResult;
+            var actionResult = _controller.GetByEnvId(1);
 
-            Assert.IsNotNull(result);
-            var items = (List<CloudResourceApiModel>)result.Value!;
+            Assert.IsInstanceOfType(actionResult, typeof(OkObjectResult));
+            var items = (List<CloudResourceApiModel>)((OkObjectResult)actionResult).Value!;
             Assert.AreEqual(1, items.Count);
         }
     }
