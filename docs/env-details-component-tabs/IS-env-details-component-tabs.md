@@ -2,7 +2,7 @@
 
 | Field       | Value                                            |
 |-------------|--------------------------------------------------|
-| **Status**  | IN REVIEW (v2, post round-1 revision)            |
+| **Status**  | APPROVED (panel, round 2) — pending user checkpoint |
 | **Author**  | Agent                                            |
 | **Date**    | 2026-07-17                                       |
 | **HLPS**    | HLPS-env-details-component-tabs.md (APPROVED v5) |
@@ -147,7 +147,7 @@ S-002.
 
 ---
 
-## S-004 — API: DTOs, RefData controllers, controller tests
+## S-004 — API: DTOs, RefData controllers (CRUD + typed attach/detach + ByEnvId), controller tests
 
 ### What changes
 Three DTOs extending `EnvironmentUiPartBase` in `Dorc.ApiModel`; three controllers
@@ -233,8 +233,9 @@ escalates per U-11 before S-007 is scheduled), S-004 (endpoints must exist to ap
 the spec).
 
 ### Verification intent
-- Regenerated diff reviewed: additions for the new types plus at most formatting-stable
-  churn; no removals of existing models/apis (SC-5).
+- **R-3 gate**: regenerated diff reviewed — additions for the new types plus at most
+  formatting-stable churn; no removals of existing models/apis (SC-5); generator pinned
+  via `npm run dorc-api-gen`.
 - **R-5 gate**: generated model/api names checked for collisions or confusable adjacency
   with existing generated types (`ApiRegistration*` vs existing `ApiEndpoints`;
   `Container*` names) — the HLPS commits this check to the client-regen step.
