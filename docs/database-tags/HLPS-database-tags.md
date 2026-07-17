@@ -2,7 +2,7 @@
 
 | Field       | Value                                    |
 |-------------|------------------------------------------|
-| **Status**  | **APPROVED** (v3, 2026-07-17 — round-2 delta panel APPROVE conditional on NEW-1/NEW-2, both folded in; see REVIEW-HLPS-round2.md). Awaiting user checkpoint (U-2/U-4/U-6, U-7 acknowledgement) |
+| **Status**  | **APPROVED** (v3, 2026-07-17 — round-2 delta panel; see REVIEW-HLPS-round2.md). **Checkpoint resolved 2026-07-17**: U-2 ship the script; U-4 relabel yes; U-6 same PR #774; U-7 acknowledged; execution auto-pilot |
 | **Author**  | Agent                                    |
 | **Date**    | 2026-07-17                               |
 | **Folder**  | docs/database-tags/                      |
@@ -222,12 +222,12 @@ databases-list `Type` filter (server-side paged `Contains` substring via
 | ID | Unknown | Blocking? | Owner | Proposed resolution |
 |----|---------|-----------|-------|---------------------|
 | U-1 | Two databases in one environment sharing a resolution tag → `SingleOrDefault` throws (incl. via RefreshEndur CLI) | No | Agent | **Keep the throw** (same failure as duplicate exact `Type` today); U-7 audit surfaces existing collisions pre-deploy; document in rollout notes |
-| U-2 | Legacy padded values (`"Endur "`, `"a; b"`) defeat the delimiter pattern that SQL `=` forgave | No | User (checkpoint) | **One-time dacpac post-deploy normalization of ALL `DB_Type` rows** (trim entries, drop empties, dedup — the same rules as write-normalization — re-join); fallback: accept + document as data-hygiene prerequisite |
+| U-2 | Legacy padded values (`"Endur "`, `"a; b"`) defeat the delimiter pattern that SQL `=` forgave | **RESOLVED 2026-07-17** | User | **Ship the script** — one-time dacpac post-deploy normalization of ALL `DB_Type` rows (trim entries, drop empties, dedup — the same rules as write-normalization — re-join) |
 | U-3 | `usp_Insert_Database_Detail` external liveness (no in-repo callers found) | No | Agent | Mirror server U-6: **widen the parameter** (safe either way) |
-| U-4 | Relabel `Type` displays ("Application Tag" headers, dialog field) to "Tags" | No — default yes | User (checkpoint) | Display-only relabel, mirroring the approved server-side convention |
+| U-4 | Relabel `Type` displays ("Application Tag" headers, dialog field) to "Tags" | **RESOLVED 2026-07-17** | User | **Yes** — display-only relabel, mirroring the approved server-side convention |
 | U-5 | Case sensitivity of tag matching | No | Agent | **No change to comparison semantics, only tokenization** — DB collation at EF sites, Ordinal in-memory, inheriting (not widening) the pre-existing overload divergence documented in §3 |
-| U-6 | PR scoping: fold into PR #774 vs separate PR | **Yes** (checkpoint) | User | Default: same branch/PR #774 (it is the tag-capacity PR and the user said "fix the database tags **too**") |
-| U-7 | Unknown pre-existing multi-tag / padded / colliding rows in production data | No — but gates rollout | User (ops, with provided script) | **Pre-deploy audit query shipped with the feature**: reports `;`-bearing rows, padded rows, and per-environment tag collisions, so behaviour changes at deploy are enumerated, not discovered |
+| U-6 | PR scoping: fold into PR #774 vs separate PR | **RESOLVED 2026-07-17** | User | **Same branch/PR #774**; PR title/body updated to server + database tag scope at delivery |
+| U-7 | Unknown pre-existing multi-tag / padded / colliding rows in production data | **ACKNOWLEDGED 2026-07-17** — gates rollout | User (ops, with provided script) | **Pre-deploy audit query shipped with the feature**: reports `;`-bearing rows, padded rows, and per-environment tag collisions, so behaviour changes at deploy are enumerated, not discovered |
 
 ## 9. Risks
 
