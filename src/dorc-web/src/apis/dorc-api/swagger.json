@@ -8857,6 +8857,8 @@
             "format": "int32"
           },
           "ArrayName": {
+            "maxLength": 4000,
+            "minLength": 0,
             "type": "string",
             "nullable": true
           }
@@ -10407,6 +10409,8 @@
             "nullable": true
           },
           "ApplicationTags": {
+            "maxLength": 4000,
+            "minLength": 0,
             "type": "string",
             "nullable": true
           }
