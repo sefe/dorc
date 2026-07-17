@@ -2,7 +2,7 @@
 
 | Field       | Value                                    |
 |-------------|------------------------------------------|
-| **Status**  | IN REVIEW (v2 — round-1 panel findings applied, see REVIEW-HLPS-round1.md) |
+| **Status**  | **APPROVED** (v3, 2026-07-17 — round-2 delta panel APPROVE conditional on NEW-1/NEW-2, both folded in; see REVIEW-HLPS-round2.md). Awaiting user checkpoint (U-2/U-4/U-6, U-7 acknowledgement) |
 | **Author**  | Agent                                    |
 | **Date**    | 2026-07-17                               |
 | **Folder**  | docs/database-tags/                      |
@@ -117,7 +117,12 @@ databases-list `Type` filter (server-side paged `Contains` substring via
   delimiter) — enforced by the chip editor's per-tag pattern and by API-side
   normalization; a *lookup* parameter containing `;` (possible at the public
   `RefDataDatabases/ByType` and `dbType` permission-filter endpoints) is rejected as a
-  400 rather than silently performing adjacent-sublist matching.
+  400 rather than silently performing adjacent-sublist matching. **Null, empty, or
+  whitespace-only lookup parameters are rejected the same way**: after the rewrite an
+  empty needle would become `";;"` — exactly the COALESCE'd haystack of a null-`Type`
+  row — flipping `type=""` from matching nothing today to matching every untyped
+  database (round-2 NEW-1); `TagString.HasTag` returns false for null/empty/whitespace
+  arguments for the same reason.
 - **Write normalization** (`DatabasesPersistentSource` Add/Update): split on `;`, trim
   each entry, drop empties, **dedup exact (Ordinal) duplicates keeping first
   occurrence**, re-join with `;`, **preserving original order** (order determines
@@ -168,15 +173,16 @@ databases-list `Type` filter (server-side paged `Contains` substring via
 3. Matching semantics: expression factory + `TagString` + rewrite sites 1–7 +
    write-normalization + `ToQueryString` translation artifact; membership tests incl.
    `Endur;Reporting` cases, null-`Type`, padded and duplicate-tag fixtures.
-4. API: `[StringLength]` on `DatabaseApiModel.Type`, `;`-in-lookup-param rejection,
-   boundary tests, swagger splice (maxLength + membership-semantics descriptions on
-   the `ByType` `type` param **and** the permissions `dbType` param).
+4. API: `[StringLength]` on `DatabaseApiModel.Type`, rejection of `;`-bearing and
+   null/empty/whitespace lookup params, boundary tests, swagger splice (maxLength +
+   membership-semantics descriptions on the `ByType` `type` param **and** the
+   permissions `dbType` param).
 5. UI: chip editor in `add-edit-database` (per-tag pattern retained, joined-limit
    validation, visible rejection), tag-overlap duplicate check in `attach-database`,
    tag-membership ThinClient lookup in `env-control-center`, relabel per U-4.
-6. Operational scripts + final sweep: U-2 normalization script (trim/normalize **all**
-   rows), U-7 pre-deploy audit query (multi-tag rows + tag-collision report per
-   environment), rollout notes, suite baselines.
+6. Operational scripts + final sweep: U-2 normalization script (trim/dedup/normalize
+   **all** rows), U-7 pre-deploy audit query (multi-tag rows, padded rows, and
+   tag-collision report per environment), rollout notes, suite baselines.
 
 ## 6. Success Criteria
 
@@ -196,7 +202,7 @@ databases-list `Type` filter (server-side paged `Contains` substring via
   as the EF-translation artifact.
 - **SC-4 (boundary)**: 4000 accepted / 4001 rejected as a 400 whose message names the
   member and the 4000 limit (mirrors `TagCapacityValidationTests` message shape);
-  `;`-bearing lookup params rejected as 400.
+  `;`-bearing and null/empty/whitespace lookup params rejected as 400.
 - **SC-5 (UI)**: chip round-trip; over-limit joined string visibly rejected with no API
   call; exactly-4000 accepted; `attach-database` warns on tag-set **overlap** (single-
   value behaviour unchanged); `env-control-center` resolves the app DB server when
@@ -216,7 +222,7 @@ databases-list `Type` filter (server-side paged `Contains` substring via
 | ID | Unknown | Blocking? | Owner | Proposed resolution |
 |----|---------|-----------|-------|---------------------|
 | U-1 | Two databases in one environment sharing a resolution tag → `SingleOrDefault` throws (incl. via RefreshEndur CLI) | No | Agent | **Keep the throw** (same failure as duplicate exact `Type` today); U-7 audit surfaces existing collisions pre-deploy; document in rollout notes |
-| U-2 | Legacy padded values (`"Endur "`, `"a; b"`) defeat the delimiter pattern that SQL `=` forgave | No | User (checkpoint) | **One-time dacpac post-deploy normalization of ALL `DB_Type` rows** (trim entries, drop empties, re-join); fallback: accept + document as data-hygiene prerequisite |
+| U-2 | Legacy padded values (`"Endur "`, `"a; b"`) defeat the delimiter pattern that SQL `=` forgave | No | User (checkpoint) | **One-time dacpac post-deploy normalization of ALL `DB_Type` rows** (trim entries, drop empties, dedup — the same rules as write-normalization — re-join); fallback: accept + document as data-hygiene prerequisite |
 | U-3 | `usp_Insert_Database_Detail` external liveness (no in-repo callers found) | No | Agent | Mirror server U-6: **widen the parameter** (safe either way) |
 | U-4 | Relabel `Type` displays ("Application Tag" headers, dialog field) to "Tags" | No — default yes | User (checkpoint) | Display-only relabel, mirroring the approved server-side convention |
 | U-5 | Case sensitivity of tag matching | No | Agent | **No change to comparison semantics, only tokenization** — DB collation at EF sites, Ordinal in-memory, inheriting (not widening) the pre-existing overload divergence documented in §3 |
