@@ -34,14 +34,11 @@ namespace Dorc.ApiModel
 
         public static string Normalize(string joined)
         {
-            var seen = new List<string>();
-            foreach (var tag in Split(joined))
-            {
-                if (!seen.Contains(tag, StringComparer.Ordinal))
-                    seen.Add(tag);
-            }
+            // Distinct is documented to keep the first occurrence in source order,
+            // preserving the keep-first, order-stable dedup contract.
+            var seen = Split(joined).Distinct(StringComparer.Ordinal).ToArray();
 
-            return seen.Count == 0 ? null : string.Join(Delimiter.ToString(), seen);
+            return seen.Length == 0 ? null : string.Join(Delimiter.ToString(), seen);
         }
     }
 }
