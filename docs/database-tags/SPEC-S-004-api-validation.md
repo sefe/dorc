@@ -13,7 +13,14 @@ absent-vs-empty) + splice diff + agreement test.
   membership semantics ("matches any one entry of the semicolon-separated tag list").
 - `RefDataDatabaseUsersController.GetDbUsersPermissions`: a **supplied** `dbType` gets
   the same rule; an **omitted** one keeps no-filter semantics (SC-4 reconciliation,
-  IS v3). XML doc updated.
+  IS v3). XML doc updated. **Binding-reality note (final gate F-B)**: over real HTTP,
+  ASP.NET's simple-type binder converts an empty or whitespace-only query value to
+  `null` — so `?dbType=` behaves as *omitted* (no filter, 200) and the in-action
+  empty-check is defense-in-depth reachable by direct/method callers only. This is
+  safe by construction: `null` routes into the source's `IsNullOrEmpty` no-filter
+  guard, so the NEW-1 `";;"` hazard cannot arise on any path. `ByType`'s `type` is
+  implicitly required, so a missing/empty value is already a model-binding 400
+  (ProblemDetails shape); the in-action guard adds the `;` rule and message.
 - Swagger splice: `DatabaseApiModel.Type` gains `maxLength: 4000, minLength: 0` —
   exactly mirroring the Swashbuckle-emitted `ServerApiModel.ApplicationTags` fragment
   shape; diff is 2 added lines, trailing newline preserved. **Note (recorded for the

@@ -2,7 +2,7 @@
 
 | Field       | Value                                        |
 |-------------|----------------------------------------------|
-| **Status**  | **EXECUTED** 2026-07-17 — S-001..S-006 delivered (specs + REVIEW-STEPS.md); S-001..S-003 gate PASS with findings closed; S-004..S-006 gate in progress; evidence in VERIFICATION-S-006.md |
+| **Status**  | **DELIVERED** 2026-07-17 — S-001..S-006 executed, both gates closed (S-001..S-003 PASS + follow-ups; S-004..S-006 REVISE → fixed, incl. the F-A chip-rebuild HIGH); evidence in VERIFICATION-S-006.md, gate log in REVIEW-STEPS.md |
 | **Author**  | Agent                                        |
 | **Date**    | 2026-07-17                                   |
 | **HLPS**    | HLPS-database-tags.md (APPROVED v3; checkpoint resolutions in its §8) |

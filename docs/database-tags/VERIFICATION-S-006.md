@@ -26,9 +26,11 @@
   side-by-side in SPEC-S-002; `ToQueryString` SQL artifact in SPEC-S-003,
   independently re-captured byte-identical by the gate.
 - **SC-4 (boundary)** ✅ — 4000 accepted / 4001 rejected naming member + limit;
-  `;`-bearing and supplied-empty/whitespace lookup params rejected as 400 with the
-  absent-param regression proving omission keeps no-filter semantics; params trimmed
-  at the boundary (gate F-3).
+  `;`-bearing lookup params rejected as 400 with the absent-param regression proving
+  omission keeps no-filter semantics; params trimmed at the boundary (gate F-3).
+  Empty/whitespace `dbType` over real HTTP **binds as omitted** (no filter — safe by
+  construction via the source's null guard); the in-action empty-check is
+  defense-in-depth for direct callers (final gate F-B; detail in SPEC-S-004).
 - **SC-5 (UI)** ✅ — all five assertions green in vitest: chip round-trip; over-limit
   visible rejection with zero API calls; exactly-4000 accepted; attach-database
   overlap warning naming the overlapping tag(s) (single-value behaviour unchanged);
@@ -41,7 +43,10 @@
 - **U-2**: `Dorc.Database/Scripts/Post-Deployment/NormalizeDatabaseTags.sql`, wired
   into `Script.PostDeployment.sql` and the sqlproj. Compat-100-safe (CHARINDEX walk,
   no STRING_SPLIT), idempotent, order-preserving, binary-collation keep-first dedup,
-  all-dropped → NULL — the same rules as `TagString.Normalize`.
+  all-dropped → NULL — `TagString.Normalize`'s rules with one scoped difference
+  (final gate F-C): T-SQL LTRIM/RTRIM trim **spaces only**, exactly the class SQL
+  `=` used to forgive; tab/CR/LF-padded entries never matched before, are no
+  regression, and converge on the next application write.
 - **U-7**: `install-scripts/AuditDatabaseTags.sql`, read-only, three reports
   (multi-tag rows; padded rows; per-environment tag collisions via a recursive-CTE
   splitter). Run before deploy.

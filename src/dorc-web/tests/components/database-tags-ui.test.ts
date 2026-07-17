@@ -35,8 +35,39 @@ describe('add-edit-database tag editing', () => {
 
     const tagsInput = el.shadowRoot?.getElementById('db-tags') as any;
     expect(tagsInput).to.exist;
-    // splitTags sorts; both chips are present.
+    // splitTags sorts; both chips are present. Relabel (U-4): the field says Tags.
     expect(tagsInput.tags).to.deep.equal(['a', 'b']);
+    expect(tagsInput.label).to.equal('Tags');
+  });
+
+  it('re-rendering the host with unchanged tags does not rebuild the chips', async () => {
+    // Final gate F-A: hosts bind freshly-built arrays each render; the tags
+    // setter must no-op when the chip set is unchanged, or every keystroke in a
+    // sibling field tears down and rebuilds the chips (and real Tagify fires
+    // add events on programmatic addTags).
+    const el = await fixture<AddEditDatabase>(html`<add-edit-database></add-edit-database>`);
+    el.database = { Id: 5, Name: 'D1', ServerName: 'S1', Type: 'a;b', ArrayName: '' };
+    await el.updateComplete;
+
+    const tagsInput = el.shadowRoot?.getElementById('db-tags') as any;
+    const tagify = tagsInput.tagify;
+    let rebuilds = 0;
+    const originalRemoveAll = tagify.removeAllTags.bind(tagify);
+    tagify.removeAllTags = () => {
+      rebuilds += 1;
+      originalRemoveAll();
+    };
+
+    // An unrelated host re-render (same Type) must not touch the chips.
+    (el as any).DatabaseName = 'D1-renamed';
+    await el.updateComplete;
+    expect(rebuilds).to.equal(0);
+
+    // A genuine tag change still rebuilds.
+    el.database = { Id: 5, Name: 'D1', ServerName: 'S1', Type: 'a;b;c', ArrayName: '' };
+    await el.updateComplete;
+    expect(rebuilds).to.be.greaterThan(0);
+    expect(tagsInput.tags).to.deep.equal(['a', 'b', 'c']);
   });
 
   it('rejects an over-limit joined string without calling the API', async () => {

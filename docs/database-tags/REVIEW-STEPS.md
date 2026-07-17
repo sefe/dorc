@@ -41,3 +41,44 @@ exactly-at-limit accept, overlap warning naming the tag, ThinClient membership);
 relabel verified (header selector test updated + green); render sweep green
 (responsive-grids 24/24); web 136/136; build clean. Formal S-004/S-005 panel review
 runs with the S-006 final sweep.
+
+## S-004..S-006 — final gate (diff 8b91903..5fd9c35) — REVISE → fixed
+
+Gate independently re-verified: all five S-001..S-003 follow-up closures real; suite
+counts reproduced; both SQL scripts line-by-line sound on the critical checklist
+(compat-100 legality, idempotence incl. the `'a'` no-op and `' ; ; '`→NULL cases,
+no SUBSTRING truncation, genuinely-binary keep-first dedup, batch safety after the
+`GO`-terminated predecessor, splitter termination on all value shapes, MAXRECURSION
+placement, join names vs DDL and vs the EF relationship the runtime resolves
+through); SC-5 assertions non-vacuous; swagger splice minimal; RefreshEndur
+unaffected.
+
+Findings triage:
+
+- **F-A HIGH** (chip rebuild storm: hosts bind fresh arrays each render, the tags
+  setter rebuilt chips unconditionally, and real Tagify fires add events on
+  programmatic addTags — cascading into per-keystroke network calls; invisible to
+  the suite because FakeTagify has no event API) → **fixed**: dirty-check in the
+  `tags` setter (no-op when the chip set is unchanged) + a regression test that
+  counts rebuilds across an unrelated host re-render; `edit:updated` also wired so
+  in-place chip edits reach live validation (closes LOW-3).
+- **F-B MED** (supplied-empty `dbType` 400 unreachable over HTTP: the binder turns
+  `?dbType=`/whitespace into null → no-filter 200; docs claimed otherwise) →
+  **fixed by documentation**: SPEC-S-004 and VERIFICATION SC-4 now state
+  empty-binds-as-omitted, safe by construction via the source's null guard, with
+  the in-action check recorded as defense-in-depth for direct callers.
+- **F-C MED** (normalization script's LTRIM/RTRIM is space-only vs TagString's
+  all-whitespace Trim; header overclaimed "same rules") → **fixed by scoped
+  documentation** in the script header and VERIFICATION: space-only is exactly the
+  class SQL `=` forgave; other whitespace never matched before and converges on the
+  next application write.
+- **LOW 1** (chip editor alphabetizes stored tag order via splitTags' sort) →
+  **accepted**: HLPS records order as display-only; noted here for the record.
+- **LOW 2** (relabel evidence partial) → **fixed**: the dialog's tags-input label
+  is now test-asserted alongside the grid header.
+- **LOW 4** (audit Report 3 groups under DB collation — over-reports vs Ordinal
+  sites; cursor could be STATIC) → **accepted**: conservative over-reporting is the
+  right direction for a pre-deploy audit; both noted for any future revision.
+
+Post-fix verification: web **137/137** (regression test added), build clean; .NET
+suites unaffected by the fix (UI-only + docs). Gate closed.

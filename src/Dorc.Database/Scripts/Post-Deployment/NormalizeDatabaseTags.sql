@@ -3,10 +3,16 @@
 
  The tag-membership pattern (';' + DB_Type + ';' LIKE '%;<tag>;%') is exact about
  whitespace, while the old equality matching was forgiven trailing spaces by SQL's
- '=' — so every row is normalized once with the same rules the application applies
- on write: split on ';', trim each entry, drop empties, dedup exact duplicates
+ '=' — so every row is normalized once with the rules the application applies on
+ write: split on ';', trim each entry, drop empties, dedup exact duplicates
  keeping the first occurrence (binary comparison — same as the app's Ordinal),
  preserve order, re-join; a value with no surviving entries becomes NULL.
+
+ Scope note: LTRIM/RTRIM trim SPACES only, which is exactly the class of padding
+ SQL '=' used to forgive (its padding rules are space-only too). Entries padded
+ with other whitespace (tab/CR/LF) never matched the old equality either, are not
+ a regression, and converge the next time the application rewrites the row
+ (TagString.Normalize trims all .NET whitespace).
 
  Idempotent: an already-normalized value re-normalizes to itself and is skipped.
  Compat-100-safe: no STRING_SPLIT (unavailable below 130); manual CHARINDEX walk.
