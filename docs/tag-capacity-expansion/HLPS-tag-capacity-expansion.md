@@ -2,7 +2,7 @@
 
 | Field       | Value                                    |
 |-------------|------------------------------------------|
-| **Status**  | APPROVED (panel, round 2) — pending user checkpoint |
+| **Status**  | APPROVED (panel round 2; user checkpoint passed 2026-07-17 — decisions in §8) |
 | **Author**  | Agent                                    |
 | **Date**    | 2026-07-17                               |
 | **Folder**  | docs/tag-capacity-expansion/             |
@@ -149,13 +149,13 @@ truncation or DB exception.
 
 | ID | Unknown | Blocking? | Owner | Proposed resolution |
 |----|---------|-----------|-------|---------------------|
-| U-1 | Limit value: 4000 vs MAX | **Yes** | User | Recommend 4000 (§5.1 sizing evidence) |
-| U-2a | Chip-style tags editor for database tags | No (default **yes**) | User may veto | Reuses `tags-input` + `tag-parser` |
-| U-2b | Relabel "Array Name" → "Tags" in grid/dialog | No (default **yes** if U-2a lands) | User may veto | Display-only; data field name unchanged |
+| U-1 | Limit value | ~~Yes~~ **RESOLVED 2026-07-17** | User | **NVARCHAR(4000)** |
+| U-2a | Chip-style tags editor for database tags | **RESOLVED 2026-07-17** | User | **Yes** — chip editor via `tags-input` + `tag-parser` |
+| U-2b | Relabel "Array Name" → "Tags" in grid/dialog | **RESOLVED 2026-07-17** | User | **Yes** — display-only relabel |
 | U-3 | `ArrayName` semantics | **VERIFIED** | Agent | Pure pass-through everywhere; tag re-purposing code-safe; existing values become single tags |
 | U-4 | PR #773 merge order vs the three component `Tags` columns | No — with explicit fallback | Agent (IS) | **Fallback**: if #773 is unmerged when the schema step executes, deliver the two existing columns now and record a follow-up item to widen the component columns on rebase/merge; if merged, all five in one step. The IS schema step re-checks at execution time |
-| U-5 | `Contains` false-positive amplification: accept & document, or tighten matching | No (default: accept & document) | User may veto at checkpoint | `RefDataAppServers.feature` guards the behaviour either way |
-| U-6 | Is `usp_Insert_Server_Detail` called by anything outside the repo? | No — resolves at IS | User (org knowledge) / Agent | If dead: delete instead of widening. If alive/unknown: widen the parameter. Default when unknowable: widen (safe either way) |
+| U-5 | `Contains` false-positive amplification | **RESOLVED 2026-07-17** | User | **Accept & document**; `RefDataAppServers.feature` guards the behaviour |
+| U-6 | `usp_Insert_Server_Detail` external liveness | **RESOLVED 2026-07-17** | User | Unknown externally → **widen the parameter** (safe either way) |
 
 ## 9. Risks
 
