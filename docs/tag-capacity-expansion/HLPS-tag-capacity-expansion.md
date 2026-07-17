@@ -2,7 +2,7 @@
 
 | Field       | Value                                    |
 |-------------|------------------------------------------|
-| **Status**  | APPROVED (panel round 2; user checkpoint passed 2026-07-17 — decisions in §8) |
+| **Status**  | **DELIVERED** 2026-07-17 (IS executed S-001..S-006; evidence in VERIFICATION-S-006.md) |
 | **Author**  | Agent                                    |
 | **Date**    | 2026-07-17                               |
 | **Folder**  | docs/tag-capacity-expansion/             |

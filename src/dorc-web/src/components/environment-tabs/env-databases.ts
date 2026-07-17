@@ -105,6 +105,11 @@ export class EnvDatabases extends PageEnvBase {
   constructor() {
     super();
 
+    // Tag saves from the attached grid dispatch environment-stale (and
+    // database-tags-updated bubbles too); refresh so the Tags column isn't stale.
+    this.addEventListener('environment-stale', (() =>
+      this.refreshEnvDetails(this.environment)) as EventListener);
+
     super.loadEnvironmentInfo();
   }
 

@@ -1,6 +1,7 @@
 # S-006 — Final Verification Sweep (2026-07-17)
 
-> Draft assembled during execution; finalized after the S-004/S-005 gate closes.
+> Finalized 2026-07-17: all step gates closed (REVIEW-STEPS.md). Final web count 130/130
+> (the visibility/at-limit strengthening added one test).
 
 ## Suites vs S-001 baselines
 
@@ -9,7 +10,7 @@
 | `Dorc.Core.Tests` | 136 | **140/140 pass** (+2 width, +2 consumer) |
 | `Dorc.Api.Tests` | 213 pass / 22 platform | **220 pass / same 22** (+5 boundary, +2 source-consumer) |
 | `Dorc.Monitor.Tests` | 107 pass / 4 platform | unchanged (no Monitor code touched) |
-| `dorc-web` (chromium) | 118 | **129/129 pass** (+2 agreement, +6 S-004, +3 S-005) |
+| `dorc-web` (chromium) | 118 | **130/130 pass** (+2 agreement, +7 S-004, +3 S-005) |
 
 ## Success criteria
 

@@ -2,7 +2,7 @@
 
 | Field       | Value                                        |
 |-------------|----------------------------------------------|
-| **Status**  | APPROVED (panel round 2; user "proceed" 2026-07-17 — auto-pilot) |
+| **Status**  | **DELIVERED** 2026-07-17 — S-001..S-006 executed, all gates closed (REVIEW-STEPS.md); live round-trip transfers to the user (VERIFICATION-S-006.md) |
 | **Author**  | Agent                                        |
 | **Date**    | 2026-07-17                                   |
 | **HLPS**    | HLPS-tag-capacity-expansion.md (APPROVED v2; checkpoint decisions in its §8) |

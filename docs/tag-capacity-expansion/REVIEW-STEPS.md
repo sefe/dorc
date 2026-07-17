@@ -26,8 +26,20 @@ suite baselines (+11 tests over S-001 baselines, no regressions).
   (PackageReference-based, facade type-forwarding); not Linux-buildable — CI covers,
   per TOOLCHAIN-S-001.
 
-## S-004 — chip editor, per-field limits, enforcement (committed) — gate pending
-## S-005 — grid integration, relabel, rendering (this commit) — gate pending
+## S-004 + S-005 — UI (commits 5f35b55, 85ed6db) — REVISE → fixed
 Noteworthy discovery: main already carried dead `manage-database-tags` wiring in
 `page-databases-list.ts` (listener + stub handler, no emitter, no dialog) — S-005
-completes it rather than inventing a parallel path.
+completed it rather than inventing a parallel path. Gate verified: per-field limits
+intact, no ArrayName bypass path, PUT payload data-loss-safe against the real
+persistent-source update semantics, relabel complete (zero "Array Name" left), folded
+backend fixes drive the real sources.
+- **HIGH** "environment-stale dispatched but nothing on the databases tab listens —
+  grid stale after tag save" (the mirror copied the dispatch, not the subscription) →
+  **fixed**: `env-databases.ts` now listens and refreshes, mirroring `env-servers`.
+- **MED** at-limit accept was 8 chars, not 4000 → **fixed**: exactly-4000 accept test.
+- **MED** error visibility unasserted → **fixed**: notification-card content asserted for
+  database-tags; add-edit-database's inline `ErrorMessage` path now has its own test.
+- **LOW ×3 deferred** (recorded): near-limit cell-content inspection (SC-4 rides the
+  user-environment pass); `database = undefined` guard mirrors server-tags' pre-existing
+  pattern and is unreachable from the wired dialogs; dead `?? this.tags` fallback
+  unreachable in practice.

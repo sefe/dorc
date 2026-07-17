@@ -81,12 +81,17 @@ describe('database-tags joined-string enforcement', () => {
 
       el.save();
       expect(called).to.equal(0);
+      // The rejection is visible: a notification card naming the limit appears.
+      await new Promise(r => setTimeout(r, 50));
+      const card = document.querySelector('vaadin-notification-card');
+      expect(card?.textContent).to.contain('4000');
+      document.querySelectorAll('vaadin-notification-card').forEach(c => c.remove());
     } finally {
       (RefDataDatabasesApi.prototype as any).refDataDatabasesPut = original;
     }
   });
 
-  it('saves an at-limit joined string through the API', async () => {
+  it('saves an exactly-at-limit joined string through the API', async () => {
     const original = RefDataDatabasesApi.prototype.refDataDatabasesPut;
     const payloads: any[] = [];
     (RefDataDatabasesApi.prototype as any).refDataDatabasesPut = (req: any) => {
@@ -95,14 +100,39 @@ describe('database-tags joined-string enforcement', () => {
     };
     try {
       const el = await fixture<DatabaseTags>(html`<database-tags></database-tags>`);
-      el.database = { Id: 3, Name: 'db', ArrayName: 'edge;web' };
+      const atLimit = 'x'.repeat(MAX_TAG_STRING_LENGTH);
+      el.database = { Id: 3, Name: 'db', ArrayName: atLimit };
       await el.updateComplete;
 
       el.save();
       expect(payloads.length).to.equal(1);
-      expect(payloads[0].databaseApiModel.ArrayName).to.equal('edge;web');
+      expect(payloads[0].databaseApiModel.ArrayName.length).to.equal(MAX_TAG_STRING_LENGTH);
     } finally {
       (RefDataDatabasesApi.prototype as any).refDataDatabasesPut = original;
+    }
+  });
+});
+
+describe('add-edit-database over-limit save', () => {
+  it('shows the inline error and does not call the API', async () => {
+    const originalPut = RefDataDatabasesApi.prototype.refDataDatabasesPut;
+    let called = 0;
+    (RefDataDatabasesApi.prototype as any).refDataDatabasesPut = () => {
+      called += 1;
+      return of({});
+    };
+    try {
+      const el = await fixture<AddEditDatabase>(html`<add-edit-database></add-edit-database>`);
+      el.database = { Id: 3, Name: 'db', ArrayName: 'y'.repeat(MAX_TAG_STRING_LENGTH + 1) };
+      await el.updateComplete;
+
+      el.saveDatabase();
+      await el.updateComplete;
+
+      expect(called).to.equal(0);
+      expect(el.ErrorMessage).to.contain('4000');
+    } finally {
+      (RefDataDatabasesApi.prototype as any).refDataDatabasesPut = originalPut;
     }
   });
 });
