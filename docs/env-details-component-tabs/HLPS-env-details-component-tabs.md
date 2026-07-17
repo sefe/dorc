@@ -2,7 +2,7 @@
 
 | Field       | Value                                        |
 |-------------|----------------------------------------------|
-| **Status**  | APPROVED (panel, round 3) — pending user checkpoint |
+| **Status**  | APPROVED (panel round 3; user checkpoint passed 2026-07-17, decisions in §8; v4 integration amendment under delta review) |
 | **Author**  | Agent                                        |
 | **Date**    | 2026-07-16                                   |
 | **Folder**  | docs/env-details-component-tabs/             |
@@ -11,6 +11,11 @@
 > **v2 changes:** all round-1 panel findings applied (see `REVIEW-HLPS-round1.md`).
 > Tag capacity expansion **removed from this HLPS** — it will be delivered in a separate PR
 > with its own HLPS, carrying over the tag-related round-1 findings.
+>
+> **v4 changes:** user checkpoint resolved U-1..U-4 (recorded in §8). U-3 was decided
+> **against** the CRUD-only recommendation: deployment/variable-resolution integration is
+> **in scope** this iteration — added as §5.7, with the Monitor DI registry and
+> `Dorc.Core.Tests` pulled into §3 scope accordingly.
 
 ---
 
@@ -33,7 +38,9 @@ All six Components sub-tabs are functional. Containers, Cloud, and APIs each sup
 viewing items attached to the environment, attaching/detaching existing items, and
 creating/editing/deleting items — with **no ungated write endpoints** and 403 semantics
 exactly as specified in §5.3 (adopting the Daemons controller's gating *discipline*;
-the specific privilege per operation is §5.3's, pending U-4).
+the specific privilege per operation is §5.3's, confirmed at checkpoint via U-4).
+Additionally (v4, per U-3): attached items of all three types are exposed as deployment
+variables at deploy time (§5.7).
 
 ## 3. Scope
 
@@ -44,23 +51,24 @@ the specific privilege per operation is §5.3's, pending U-4).
   project-scoped and unsuitable — see U-8)
 - `Dorc.PersistentData`: entities, `IEntityTypeConfiguration`s, `DbSet`s on
   `DeploymentContext`, persistent sources (including audit sources per U-8), **and their
-  DI registration in `PersistentDataRegistry.cs`** (Monitor's
-  `Registry/PersistentSourcesRegistry.cs` is not touched unless the Monitor needs the new
-  types — it does not, this iteration)
+  DI registration in both `PersistentDataRegistry.cs` (API) and Monitor's
+  `Registry/PersistentSourcesRegistry.cs`** — the Monitor consumes the new sources at
+  deploy time via `VariableScopeOptionsResolver` (§5.7, per the U-3 decision)
+- `Dorc.Core`: `VariableScopeOptionsResolver` extension + new fixed property-value names
+  and variable DTOs (§5.7)
 - `Dorc.ApiModel`: three DTOs
 - `Dorc.Api`: three RefData controllers (CRUD + typed attach/detach, see U-9), audit wiring
 - `src/dorc-web`: regenerated `dorc-api` client, replacement of the three stub tabs and
   their attach/attached/add-edit child components
-- Tests: `Dorc.Api.Tests` (controller/source unit tests), `src/dorc-web/tests` (component
-  tests). `Tests.Acceptance` checked for impact; new feature coverage there is optional
-  parity (see U-10).
+- Tests: `Dorc.Api.Tests` (controller/source unit tests), `Dorc.Core.Tests` (resolver
+  integration, §5.7), `src/dorc-web/tests` (component tests). `Tests.Acceptance` checked
+  for impact; new feature coverage there is optional parity (see U-10).
 
 **Out of scope:**
 - Tag capacity expansion on servers/databases — **separate PR/HLPS** (user direction).
-- Live introspection of container runtimes / cloud providers / API gateways. The
-  *recommended* position (pending U-3) is reference-data CRUD + environment mapping only,
-  matching how Servers work: DOrc records what exists, it does not discover it.
-- Deployment/variable-resolution integration for the new component types (pending U-3).
+- Live introspection of container runtimes / cloud providers / API gateways: DOrc records
+  what exists, it does not discover it (confirmed at checkpoint — the U-3 decision adds
+  variable *exposure* of recorded data, not runtime discovery).
 - The existing working tabs (Servers, Databases, Daemons).
 - `EnvironmentContentApiModel` and the monolithic environment-details load path — the new
   tabs deliberately do **not** extend it (see §5.4).
@@ -175,6 +183,30 @@ Replace each stub with a tab mirroring `env-servers.ts`: `attached-<type>s` grid
 `!environment.UserEditable`, refresh via the `environment-stale` event pattern — but data
 loading per §5.4. Client regenerated per §4.
 
+### 5.7 Deployment variable integration (added in v4 per U-3 decision)
+
+At deploy time, `VariableScopeOptionsResolver.SetPropertyValues` (`Dorc.Core`) injects
+environment topology into the variable resolver — consumed by the Monitor's
+`PendingRequestProcessor` and previewed via the API's `PropertyValuesController`. The new
+types are exposed the same way servers are:
+
+1. **Collection variables** — new names on `PropertyValueScopeOptionsFixed`:
+   `EnvironmentContainers`, `EnvironmentCloudResources`, `EnvironmentApiRegistrations`,
+   each carrying a typed array DTO (modelled on `VariableValueServers` in
+   `Dorc.ApiModel.MonitorRunnerApi`) with the §5.1 fields.
+2. **Per-tag name lists** — prefixes `ContainerNames_`, `CloudResourceNames_`,
+   `ApiNames_`, mirroring the existing `ServerNames_<tag>` semantics
+   (`AddPropertiesForServerNamesByType`): each semicolon-separated tag yields a variable
+   listing the names of items carrying that tag. The tag-splitting logic is shared, not
+   duplicated three more times.
+3. The resolver gains the three new persistent sources via constructor injection; they are
+   therefore registered in **both** DI registries (§3). Deployments in environments with
+   no containers/cloud/APIs attached must behave exactly as today (empty collections, no
+   per-tag variables, no errors) — the integration is additive and inert when unused.
+
+Tests for the resolver extension live in `Dorc.Core.Tests` alongside any existing
+`VariableScopeOptionsResolver` coverage.
+
 ## 6. Success Criteria
 
 - **SC-1**: Navigating to `/environment/<env>/components/containers|cloud|apis` shows a
@@ -192,6 +224,10 @@ loading per §5.4. Client regenerated per §4.
   (composite PK) and surfaces as a clean 4xx, not a 500.
 - **SC-5**: All existing tests still pass; `dorc-web` builds clean; regenerated client
   diff contains only additions for the new types.
+- **SC-6** (v4): For an environment with attached items of each new type, variable
+  resolution yields the three collection variables and the per-tag name-list variables of
+  §5.7, verified by `Dorc.Core.Tests`; for an environment with none attached, resolution
+  output is byte-identical to pre-change behaviour (regression test).
 
 ## 7. Alternatives Considered
 
@@ -205,12 +241,12 @@ loading per §5.4. Client regenerated per §4.
 
 ## 8. Unknowns Register
 
-| ID | Unknown | Blocking? | Owner | Proposed resolution |
-|----|---------|-----------|-------|---------------------|
-| U-1 | Field schemas + entity names for Container / CloudResource / ApiRegistration | **Yes** | User | §5.1 proposal; confirm/amend at HLPS checkpoint. Note: `Container` collides with `Lamar.Container` (DI) — usable with namespace qualification, or pick e.g. `ContainerInstance` |
-| U-2 | Attach semantics: many-to-many or owned by one environment | **Yes** | User | Recommend many-to-many — matches servers and databases (daemons map to *servers*, not environments, so the precedent rests on those two) |
-| U-3 | Deployment/variable integration now, or CRUD + mapping only | **Yes** | User | Recommend CRUD-only this iteration; integration is a separate HLPS |
-| U-4 | Authorization model | **Yes** | User | Recommend §5.3 (Daemons precedent, strengthened for unattached items) |
+| ID | Unknown | Blocking? | Owner | Resolution |
+|----|---------|-----------|-------|------------|
+| U-1 | Field schemas + entity names | ~~Yes~~ **RESOLVED 2026-07-17** | User | **As proposed in §5.1**; `Container` kept as entity name with namespace qualification against `Lamar.Container` |
+| U-2 | Attach semantics | ~~Yes~~ **RESOLVED 2026-07-17** | User | **Many-to-many**, join tables with composite PK |
+| U-3 | Deployment/variable integration now, or CRUD + mapping only | ~~Yes~~ **RESOLVED 2026-07-17** | User | **Integration included** (against the CRUD-only recommendation) — design in §5.7 |
+| U-4 | Authorization model | ~~Yes~~ **RESOLVED 2026-07-17** | User | **Environment-write based** per §5.3 |
 | U-8 | Audit coverage for new types | No | Agent (IS) | Default: parity with servers/daemons audit pattern |
 | U-9 | Typed attach/detach endpoints vs extending `ChangeEnvComponent` dispatcher | No | Agent (IS) | Recommend typed endpoints (§5.5); user may veto at checkpoint |
 | U-10 | `Tests.Acceptance` parity coverage for new RefData controllers | No | Agent (IS) | Default: not this iteration; existing acceptance features unaffected |
