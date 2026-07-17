@@ -2,7 +2,7 @@
 
 | Field       | Value                                        |
 |-------------|----------------------------------------------|
-| **Status**  | **APPROVED** (v3, 2026-07-17 — round-2 delta APPROVE; three LOW nits folded in; see REVIEW-IS-round2.md). Execution: auto-pilot |
+| **Status**  | **EXECUTED** 2026-07-17 — S-001..S-006 delivered (specs + REVIEW-STEPS.md); S-001..S-003 gate PASS with findings closed; S-004..S-006 gate in progress; evidence in VERIFICATION-S-006.md |
 | **Author**  | Agent                                        |
 | **Date**    | 2026-07-17                                   |
 | **HLPS**    | HLPS-database-tags.md (APPROVED v3; checkpoint resolutions in its §8) |

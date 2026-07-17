@@ -2,7 +2,7 @@
 
 | Field       | Value                                    |
 |-------------|------------------------------------------|
-| **Status**  | **APPROVED** (v3, 2026-07-17 — round-2 delta panel; see REVIEW-HLPS-round2.md). **Checkpoint resolved 2026-07-17**: U-2 ship the script; U-4 relabel yes; U-6 same PR #774; U-7 acknowledged; execution auto-pilot |
+| **Status**  | **DELIVERED** 2026-07-17 (IS executed S-001..S-006; evidence in VERIFICATION-S-006.md; final gate in REVIEW-STEPS.md). Checkpoint resolutions: U-2 script shipped; U-4 relabelled; U-6 same PR #774; U-7 audit shipped |
 | **Author**  | Agent                                    |
 | **Date**    | 2026-07-17                               |
 | **Folder**  | docs/database-tags/                      |
