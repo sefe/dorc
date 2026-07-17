@@ -603,6 +603,9 @@ namespace Dorc.PersistentData.Sources
                                 .Include(e => e.Histories)
                                 .Include(e => e.Projects)
                                 .Include(e => e.Servers)
+                                .Include(e => e.Containers)
+                                .Include(e => e.CloudResources)
+                                .Include(e => e.ApiRegistrations)
                                 .SingleOrDefault(e =>
                                     EF.Functions.Collate(e.Name, DeploymentContext.CaseInsensitiveCollation)
                                     == EF.Functions.Collate(env.EnvironmentName, DeploymentContext.CaseInsensitiveCollation));
@@ -633,6 +636,9 @@ namespace Dorc.PersistentData.Sources
                             environment.AccessControls.Clear();
                             environment.Databases.Clear();
                             environment.Servers.Clear();
+                            environment.Containers.Clear();
+                            environment.CloudResources.Clear();
+                            environment.ApiRegistrations.Clear();
                             environment.Projects.Clear();
 
                             // Environment histories will be preserved automatically by the database foreign key constraint

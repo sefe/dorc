@@ -62,3 +62,6 @@ export * from './AnalyticsTimePatternApi';
 export * from './AnalyticsComponentUsageApi';
 export * from './AnalyticsDurationApi';
 export * from './TerraformApi';
+export * from './RefDataApiRegistrationsApi';
+export * from './RefDataCloudResourcesApi';
+export * from './RefDataContainersApi';
