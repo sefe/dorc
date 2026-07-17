@@ -203,6 +203,18 @@ namespace Dorc.Api.Tests.Controllers
             Assert.AreEqual(404, StatusOf(_controller.Delete(9)));
         }
 
+        [TestMethod]
+        public void Delete_RaceVanishedItem_Returns404NotFalse()
+        {
+            MakePowerUser();
+            _source.GetEnvironmentNamesForId(9).Returns(new List<string>());
+            _source.GetById(9).Returns(new ApiRegistrationApiModel { Id = 9, Name = "web" });
+            _source.Delete(9).Returns(false);
+
+            Assert.AreEqual(404, StatusOf(_controller.Delete(9)));
+            _audit.DidNotReceiveWithAnyArgs().InsertApiRegistrationAudit(default!, default, default, default, default);
+        }
+
         // ---- Attach / Detach ----
 
         private void SetupEnvironment(int envId = 1, string name = "DV 01")
@@ -270,6 +282,15 @@ namespace Dorc.Api.Tests.Controllers
             Assert.AreEqual(200, StatusOf(result));
             _audit.Received(1).InsertApiRegistrationAudit(@"DOM\alice", ActionType.Attach, 9,
                 Arg.Is<string?>(s => s == null), Arg.Is<string>(s => s.Contains("DV 01")));
+        }
+
+        [TestMethod]
+        public void Detach_WithoutEnvWrite_Returns403()
+        {
+            SetupEnvironment();
+
+            Assert.AreEqual(403, StatusOf(_controller.Detach(9, 1)));
+            _source.DidNotReceive().DetachFromEnvironment(Arg.Any<int>(), Arg.Any<int>());
         }
 
         [TestMethod]

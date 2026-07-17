@@ -61,10 +61,10 @@ namespace Dorc.Api.Controllers
         [Route("ById/{id}")]
         public IActionResult GetById(int id)
         {
-            var container = _cloudResourcesPersistentSource.GetById(id);
-            if (container == null)
+            var cloudResource = _cloudResourcesPersistentSource.GetById(id);
+            if (cloudResource == null)
                 return NotFound($"Cloud resource with id {id} not found");
-            return Ok(container);
+            return Ok(cloudResource);
         }
 
         /// <summary>
@@ -162,17 +162,17 @@ namespace Dorc.Api.Controllers
                 return NotFound($"Cloud resource with id {id} not found");
 
             var result = _cloudResourcesPersistentSource.Delete(id);
-            if (result)
-            {
-                _cloudResourceAuditPersistentSource.InsertCloudResourceAudit(
-                    _claimsPrincipalReader.GetUserFullDomainName(User),
-                    ActionType.Delete,
-                    id,
-                    fromValue: JsonSerializer.Serialize(before, _auditJsonOptions),
-                    toValue: null);
-            }
+            if (!result)
+                return NotFound($"Cloud resource with id {id} not found");
 
-            return Ok(new ApiBoolResult { Result = result });
+            _cloudResourceAuditPersistentSource.InsertCloudResourceAudit(
+                _claimsPrincipalReader.GetUserFullDomainName(User),
+                ActionType.Delete,
+                id,
+                fromValue: JsonSerializer.Serialize(before, _auditJsonOptions),
+                toValue: null);
+
+            return Ok(new ApiBoolResult { Result = true });
         }
 
         /// <summary>
@@ -201,7 +201,7 @@ namespace Dorc.Api.Controllers
                         return NotFound($"Environment with id {envId} not found");
                     case EnvironmentAttachmentOutcome.AlreadyAttached:
                         return Conflict("Cloud resource is already attached to this environment");
-                    default:
+                    case EnvironmentAttachmentOutcome.Attached:
                         _cloudResourceAuditPersistentSource.InsertCloudResourceAudit(
                             _claimsPrincipalReader.GetUserFullDomainName(User),
                             ActionType.Attach,
@@ -209,6 +209,8 @@ namespace Dorc.Api.Controllers
                             fromValue: null,
                             toValue: $"Attached to environment '{environment!.EnvironmentName}'");
                         return Ok(new ApiBoolResult { Result = true });
+                    default:
+                        throw new InvalidOperationException($"Unexpected attach outcome: {outcome}");
                 }
             }
             catch (DbUpdateException)
@@ -241,7 +243,7 @@ namespace Dorc.Api.Controllers
                     return NotFound($"Cloud resource with id {id} not found");
                 case EnvironmentAttachmentOutcome.NotAttached:
                     return Conflict("Cloud resource is not attached to this environment");
-                default:
+                case EnvironmentAttachmentOutcome.Detached:
                     _cloudResourceAuditPersistentSource.InsertCloudResourceAudit(
                         _claimsPrincipalReader.GetUserFullDomainName(User),
                         ActionType.Detach,
@@ -249,6 +251,8 @@ namespace Dorc.Api.Controllers
                         fromValue: $"Attached to environment '{environment!.EnvironmentName}'",
                         toValue: null);
                     return Ok(new ApiBoolResult { Result = true });
+                default:
+                    throw new InvalidOperationException($"Unexpected detach outcome: {outcome}");
             }
         }
 

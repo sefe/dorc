@@ -61,10 +61,10 @@ namespace Dorc.Api.Controllers
         [Route("ById/{id}")]
         public IActionResult GetById(int id)
         {
-            var container = _apiRegistrationsPersistentSource.GetById(id);
-            if (container == null)
+            var apiRegistration = _apiRegistrationsPersistentSource.GetById(id);
+            if (apiRegistration == null)
                 return NotFound($"API registration with id {id} not found");
-            return Ok(container);
+            return Ok(apiRegistration);
         }
 
         /// <summary>
@@ -162,17 +162,17 @@ namespace Dorc.Api.Controllers
                 return NotFound($"API registration with id {id} not found");
 
             var result = _apiRegistrationsPersistentSource.Delete(id);
-            if (result)
-            {
-                _apiRegistrationAuditPersistentSource.InsertApiRegistrationAudit(
-                    _claimsPrincipalReader.GetUserFullDomainName(User),
-                    ActionType.Delete,
-                    id,
-                    fromValue: JsonSerializer.Serialize(before, _auditJsonOptions),
-                    toValue: null);
-            }
+            if (!result)
+                return NotFound($"API registration with id {id} not found");
 
-            return Ok(new ApiBoolResult { Result = result });
+            _apiRegistrationAuditPersistentSource.InsertApiRegistrationAudit(
+                _claimsPrincipalReader.GetUserFullDomainName(User),
+                ActionType.Delete,
+                id,
+                fromValue: JsonSerializer.Serialize(before, _auditJsonOptions),
+                toValue: null);
+
+            return Ok(new ApiBoolResult { Result = true });
         }
 
         /// <summary>
@@ -201,7 +201,7 @@ namespace Dorc.Api.Controllers
                         return NotFound($"Environment with id {envId} not found");
                     case EnvironmentAttachmentOutcome.AlreadyAttached:
                         return Conflict("API registration is already attached to this environment");
-                    default:
+                    case EnvironmentAttachmentOutcome.Attached:
                         _apiRegistrationAuditPersistentSource.InsertApiRegistrationAudit(
                             _claimsPrincipalReader.GetUserFullDomainName(User),
                             ActionType.Attach,
@@ -209,6 +209,8 @@ namespace Dorc.Api.Controllers
                             fromValue: null,
                             toValue: $"Attached to environment '{environment!.EnvironmentName}'");
                         return Ok(new ApiBoolResult { Result = true });
+                    default:
+                        throw new InvalidOperationException($"Unexpected attach outcome: {outcome}");
                 }
             }
             catch (DbUpdateException)
@@ -241,7 +243,7 @@ namespace Dorc.Api.Controllers
                     return NotFound($"API registration with id {id} not found");
                 case EnvironmentAttachmentOutcome.NotAttached:
                     return Conflict("API registration is not attached to this environment");
-                default:
+                case EnvironmentAttachmentOutcome.Detached:
                     _apiRegistrationAuditPersistentSource.InsertApiRegistrationAudit(
                         _claimsPrincipalReader.GetUserFullDomainName(User),
                         ActionType.Detach,
@@ -249,6 +251,8 @@ namespace Dorc.Api.Controllers
                         fromValue: $"Attached to environment '{environment!.EnvironmentName}'",
                         toValue: null);
                     return Ok(new ApiBoolResult { Result = true });
+                default:
+                    throw new InvalidOperationException($"Unexpected detach outcome: {outcome}");
             }
         }
 
