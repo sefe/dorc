@@ -92,7 +92,7 @@ boundary.
 |----|---------|-----------|-------|---------------------|
 | U-1 | Limit value: 4000 vs MAX vs other | **Yes** | User | Recommend 4000 (finding 4 rationale) |
 | U-2 | Chip-style tags editor for database `ArrayName` | No (default **yes**) | User may veto | Reuses `tags-input` + `tag-parser`; small scope |
-| U-3 | Is `ArrayName` semantically "tags", or does anything treat it as a single array name? | **Yes** | Agent (verify) then User | Survey consumers before re-labelling the field in the UI |
+| U-3 | Is `ArrayName` semantically "tags", or does anything treat it as a single array name? | ~~Yes~~ **VERIFIED 2026-07-17** | Agent | Surveyed every consumer (`DatabasesPersistentSource`, `ApiServices`, DTO, `attached-databases.ts` grid column, `page-databases-list.ts`, `add-edit-database.ts`): pure pass-through — nothing parses, splits, filters, or resolves it. Re-purposing as semicolon-tags is code-safe; existing values become single tags. Residual user choice folded into U-2: the visible label ("Array Name" → "Tags"?) if the chip editor lands |
 | U-4 | Rebase/merge base | No | Agent | If PR #773 merges first, rebase to pick up the component `Tags` columns; the schema work assumes their presence |
 
 ## 6. Process note
