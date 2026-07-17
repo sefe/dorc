@@ -4,7 +4,7 @@
     [DB_Type]      NVARCHAR (250) NULL,
     [Server_Name]  NVARCHAR (250) NULL,
     [Group_ID]     INT           NULL,
-	[Array_Name]   NVARCHAR (250) NULL,
+	[Array_Name]   NVARCHAR (4000) NULL,
     CONSTRAINT [PK_DATABASE] PRIMARY KEY CLUSTERED ([DB_ID] ASC) WITH (DATA_COMPRESSION = PAGE),
     CONSTRAINT [DATABASE_AD_GROUP_Group_ID_fk] FOREIGN KEY ([Group_ID]) REFERENCES [dbo].[AD_GROUP] ([Group_ID]),
     INDEX [IX_DATABASE_Server_Name_DB_Name] NONCLUSTERED ([Server_Name],[DB_Name])

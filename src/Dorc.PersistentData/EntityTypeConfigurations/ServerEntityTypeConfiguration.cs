@@ -29,7 +29,7 @@ namespace Dorc.PersistentData.EntityTypeConfigurations
             builder
                 .Property(e => e.ApplicationTags)
                 .HasColumnName("Application_Server_Name")
-                .HasMaxLength(250);
+                .HasMaxLength(4000);
 
             builder
                 .HasMany(s => s.Daemons)
