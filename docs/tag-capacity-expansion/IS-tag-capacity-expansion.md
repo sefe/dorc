@@ -2,7 +2,7 @@
 
 | Field       | Value                                        |
 |-------------|----------------------------------------------|
-| **Status**  | APPROVED (panel, round 2) — pending user checkpoint |
+| **Status**  | APPROVED (panel round 2; user "proceed" 2026-07-17 — auto-pilot) |
 | **Author**  | Agent                                        |
 | **Date**    | 2026-07-17                                   |
 | **HLPS**    | HLPS-tag-capacity-expansion.md (APPROVED v2; checkpoint decisions in its §8) |
