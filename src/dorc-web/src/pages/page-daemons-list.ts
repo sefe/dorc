@@ -99,6 +99,9 @@ export class PageDaemonsList extends ResponsiveMixin(PageElement) {
         top: 16px;
         overflow: auto;
         padding: 10px;
+        width: 560px;
+        max-width: calc(100vw - 32px);
+        box-sizing: border-box;
       }
       .row-actions vaadin-button {
         padding: 0;
