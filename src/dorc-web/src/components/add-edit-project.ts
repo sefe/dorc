@@ -36,6 +36,7 @@ export class AddEditProject extends LitElement {
     this.setTextField('proj-url', this._project.ArtefactsUrl ?? '');
     this.setTextField('proj-azure', this._project.ArtefactsSubPaths ?? '');
     this.setTextField('proj-regex', this._project.ArtefactsBuildRegex ?? '');
+    this.setTextField('proj-leanix-url', this._project.LeanIXUrl ?? '');
     this.setTextField('proj-terraform-git-url', this._project.TerraformGitRepoUrl ?? '');
 
     // Reset so updated() will set the combo-box for the new project
@@ -251,6 +252,16 @@ export class AddEditProject extends LitElement {
             @value-changed="${this._buildDefinitionRegexChanged}"
           ></vaadin-text-field>` : html``}
           <vaadin-text-field
+            id="proj-leanix-url"
+            style="width: 490px;"
+            label="LeanIX URL"
+            maxlength="${this.maxFieldLength}"
+            title="Maximum length: ${this.maxFieldLength} symbols"
+            value="${this._project?.LeanIXUrl ?? ''}"
+            @value-changed="${this._leanIxUrlChanged}"
+            helper-text="LeanIX workspace URL (e.g., https://.../factSheets)">
+          </vaadin-text-field>
+          <vaadin-text-field
             id="proj-terraform-git-url"
             style="width: 490px;"
             label="Terraform Git Repository URL"
@@ -285,6 +296,7 @@ export class AddEditProject extends LitElement {
       ArtefactsBuildRegex: '',
       ArtefactsSubPaths: '',
       ArtefactsUrl: '',
+      LeanIXUrl: '',
       SourceControlType: 'AzureDevOps' as any
     };
   }
@@ -357,6 +369,16 @@ export class AddEditProject extends LitElement {
       const model: ProjectApiModel = JSON.parse(JSON.stringify(this._project));
 
       model.TerraformGitRepoUrl = data.target.value;
+      this._project = model;
+      this._inputValueChanged();
+    }
+  }
+
+  _leanIxUrlChanged(data: any) {
+    if (this._project !== undefined && data.target !== undefined) {
+      const model: ProjectApiModel = JSON.parse(JSON.stringify(this._project));
+
+      model.LeanIXUrl = data.target.value;
       this._project = model;
       this._inputValueChanged();
     }

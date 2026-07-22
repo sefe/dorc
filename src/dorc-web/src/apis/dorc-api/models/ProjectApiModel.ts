@@ -59,6 +59,11 @@ export interface ProjectApiModel {
      */
     TerraformGitRepoUrl?: string | null;
     /**
+     * @type {string}
+     * @memberof ProjectApiModel
+     */
+    LeanIXUrl?: string | null;
+    /**
      * @type {DatabaseApiModel}
      * @memberof ProjectApiModel
      */
