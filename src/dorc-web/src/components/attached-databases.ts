@@ -104,7 +104,7 @@ export class AttachedDatabases extends ResponsiveMixin(LitElement) {
         <vaadin-grid-column
           .renderer="${this.applicationTagsRenderer}"
           resizable
-          header="Application Tag"
+          header="Tags"
           ?hidden="${this._narrowScreen}"
         ></vaadin-grid-column>
         <vaadin-grid-column

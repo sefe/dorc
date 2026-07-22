@@ -1,7 +1,7 @@
 ﻿CREATE TABLE [dbo].[DATABASE] (
     [DB_ID]        INT           IDENTITY (1, 1) NOT NULL,
     [DB_Name]      NVARCHAR (250) NULL,
-    [DB_Type]      NVARCHAR (250) NULL,
+    [DB_Type]      NVARCHAR (4000) NULL,
     [Server_Name]  NVARCHAR (250) NULL,
     [Group_ID]     INT           NULL,
 	[Array_Name]   NVARCHAR (250) NULL,

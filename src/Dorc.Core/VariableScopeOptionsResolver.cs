@@ -78,7 +78,7 @@ namespace Dorc.Core
 
             var databaseApiModels = databasesForEnvId as DatabaseApiModel[] ?? databasesForEnvId.ToArray();
             var reportingDatabase =
-                databaseApiModels.SingleOrDefault(d => d.Type == "Endur Reporting");
+                databaseApiModels.SingleOrDefault(d => TagString.HasTag(d.Type, "Endur Reporting"));
             if (reportingDatabase != null)
             {
                 variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.ReportingDatabaseName, reportingDatabase.Name);
@@ -87,7 +87,7 @@ namespace Dorc.Core
             }
 
             var externalDatabase =
-                databaseApiModels.SingleOrDefault(d => d.Type == "Endur External");
+                databaseApiModels.SingleOrDefault(d => TagString.HasTag(d.Type, "Endur External"));
             if (externalDatabase != null)
             {
                 variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.ExternalDatabaseName, externalDatabase.Name);
@@ -97,12 +97,17 @@ namespace Dorc.Core
             var databasePermissions = databaseApiModels
                 .Select(GetDbPermission).ToArray();
 
-            var dbTypes = databaseApiModels.Select(d => d.Type).Distinct();
+            // Per-tag grouping over the semicolon-separated Type list: a database
+            // carrying several tags contributes to each tag's variables; a null/empty
+            // Type contributes nothing (it used to throw here).
+            var dbTags = databaseApiModels
+                .SelectMany(d => TagString.Split(d.Type))
+                .Distinct();
 
-            foreach (var dbType in dbTypes)
+            foreach (var dbTag in dbTags)
             {
-                var dbs = databaseApiModels.Where(d => d.Type.Equals(dbType)).ToList();
-                var propertyName = dbType.Replace(" ", "_");
+                var dbs = databaseApiModels.Where(d => TagString.HasTag(d.Type, dbTag)).ToList();
+                var propertyName = dbTag.Replace(" ", "_");
 
                 if (dbs.Count == 1)
                 {

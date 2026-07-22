@@ -203,7 +203,7 @@ namespace Dorc.PersistentData.Sources
                     .FirstOrDefault(e => e.Id == environment.EnvironmentId);
                 if (env != null)
                 {
-                    var database = env.Databases.SingleOrDefault(d => d.Type == "Endur");
+                    var database = env.Databases.SingleOrDefault(d => TagString.HasTag(d.Type, "Endur"));
                     if (database == null) return null;
 
                     var shortName = GetEnvironmentShortNameFromDatabaseName(database.Name);

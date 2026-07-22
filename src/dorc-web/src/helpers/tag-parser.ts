@@ -27,6 +27,25 @@ export function joinTags(tags: string[] | undefined): string {
   if (!tags || tags.length === 0) {
     return '';
   }
-  
+
   return tags.join(';');
+}
+
+/**
+ * Tag membership over a semicolon-separated tag string (mirrors the backend
+ * TagString.HasTag contract): exact per-entry match after trimming, and a
+ * null/empty/whitespace tag or tag string never matches.
+ * @param tagsString The semicolon-separated string of tags
+ * @param tag The single tag sought
+ * @returns true when the tag list contains an entry equal to the trimmed tag
+ */
+export function hasTag(
+  tagsString: string | undefined | null,
+  tag: string | undefined | null
+): boolean {
+  if (!tag || tag.trim().length === 0) {
+    return false;
+  }
+  const sought = tag.trim();
+  return splitTags(tagsString).some(t => t.trim() === sought);
 } 

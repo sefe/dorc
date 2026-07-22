@@ -13,3 +13,4 @@ Example:      :setvar TableName MyTable
 :r .\SeedRefDataAuditActions.sql
 :r .\CleanupOrphanedScripts.sql
 :r .\SetFileShareSourceControlType.sql
+:r .\NormalizeDatabaseTags.sql

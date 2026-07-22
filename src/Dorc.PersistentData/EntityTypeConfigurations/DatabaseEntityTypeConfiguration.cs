@@ -26,7 +26,7 @@ namespace Dorc.PersistentData.EntityTypeConfigurations
                 .HasMaxLength(50)
                 .HasColumnName("DB_Name");
             builder.Property(e => e.Type)
-                .HasMaxLength(50)
+                .HasMaxLength(4000)
                 .HasColumnName("DB_Type");
             builder.Property(e => e.GroupId).HasColumnName("Group_ID");
             builder.Property(e => e.ServerName)

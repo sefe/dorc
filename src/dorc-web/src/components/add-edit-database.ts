@@ -19,6 +19,11 @@ import {
   DatabaseApiModel,
   GroupApiModel
 } from '../apis/dorc-api';
+import { Notification } from '@vaadin/notification';
+import './tags-input';
+import { TagsInput } from './tags-input';
+import { splitTags, joinTags } from '../helpers/tag-parser';
+import { MAX_TAG_STRING_LENGTH } from '../helpers/tag-limits';
 
 @customElement('add-edit-database')
 export class AddEditDatabase extends LitElement {
@@ -144,17 +149,14 @@ export class AddEditDatabase extends LitElement {
             @input="${this._dbNameValueChanged}"
             .value="${this.DatabaseName}"
           ></vaadin-text-field>
-          <vaadin-text-field
+          <tags-input
+            id="db-tags"
             class="block"
-            label="Application Tag"
-            maxlength="${this.maxFieldLength}"
-            title="Maximum length: ${this.maxFieldLength} symbols"
+            label="Tags"
             pattern="^[a-zA-Z0-9&.\\- ]+$"
-            required
-            auto-validate
-            @input="${this._dbTypeValueChanged}"
-            .value="${this.DatabaseType}"
-          ></vaadin-text-field>
+            .tags="${splitTags(this.DatabaseType)}"
+            @tags-changed="${this._dbTagsChanged}"
+          ></tags-input>
           <vaadin-text-field
             class="block"
             pattern="^[a-zA-Z0-9_\\-]{1,128}(\\\\[a-zA-Z0-9_\\-]{1,128})?$"
@@ -240,6 +242,20 @@ export class AddEditDatabase extends LitElement {
   }
 
   saveDatabase() {
+    // Read the chips at save time and enforce the joined-string limit so the UI
+    // never submits what the API would 400 (docs/database-tags, IS S-005).
+    const tagsInput = this.shadowRoot?.getElementById('db-tags') as TagsInput | null;
+    if (tagsInput?.tagify !== undefined) {
+      this.DatabaseType = joinTags(tagsInput.tags);
+    }
+    if (this.DatabaseType.length > MAX_TAG_STRING_LENGTH) {
+      Notification.show(
+        `Tags must be at most ${MAX_TAG_STRING_LENGTH} characters when joined (currently ${this.DatabaseType.length})`,
+        { theme: 'error', position: 'bottom-start', duration: 5000 }
+      );
+      return;
+    }
+
     if (this._database.Id !== undefined && this._database.Id > 0) {
       const api = new RefDataDatabasesApi();
       api.refDataDatabasesPut({
@@ -311,8 +327,8 @@ export class AddEditDatabase extends LitElement {
     this.checkDBExists();
   }
 
-  _dbTypeValueChanged(data: any) {
-    this.DatabaseType = data.currentTarget.value.trim();
+  _dbTagsChanged(e: CustomEvent) {
+    this.DatabaseType = joinTags(e.detail.tags);
     this.checkDBExists();
   }
 
