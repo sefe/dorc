@@ -1,8 +1,8 @@
-using Dorc.ApiModel;
+﻿using Dorc.ApiModel;
 using Dorc.Core;
 using Dorc.Core.Events;
 using Dorc.Core.Interfaces;
-using Dorc.Monitor.HighAvailability;
+using Dorc.Core.HighAvailability;
 using Dorc.Monitor.RequestProcessors;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.Extensions.Logging;
@@ -24,8 +24,9 @@ namespace Dorc.Monitor
         private bool disposedValue;
         private ConcurrentDictionary<string, int> environmentRequestIdRunning = new ConcurrentDictionary<string, int>();
         private readonly ConcurrentDictionary<string, DateTime> environmentLockBackoff = new ConcurrentDictionary<string, DateTime>();
-        private static readonly TimeSpan LockBackoffDuration = TimeSpan.FromSeconds(30);
-        private const int EnvironmentLockLeaseTimeMs = 300000;
+        // Internal (not private) so the unit tests can pin the backoff window.
+        internal static readonly TimeSpan LockBackoffDuration = TimeSpan.FromSeconds(30);
+        private const int EnvironmentLockAcquireTimeoutMs = 300000;
 
         // Test hook: invoked when a fire-and-forget publish task is created.
         // Null in production (zero overhead). Tests assign a callback to collect tasks
@@ -490,9 +491,11 @@ namespace Dorc.Monitor
                         if (distributedLockService.IsEnabled)
                         {
                             var lockKey = $"env:{requestGroup.Key}";
-                            // Lock lease time is longer than typical request duration to handle long deployments
-                            // The lock will auto-release if the monitor crashes
-                            envLock = await distributedLockService.TryAcquireLockAsync(lockKey, EnvironmentLockLeaseTimeMs, monitorCancellationToken);
+                            // leaseTimeMs is advisory: the Kafka partition-ownership
+                            // lock has no lease concept and ignores it (acquire wait
+                            // is capped by Kafka:Locks:AcquireWaitMs); ownership
+                            // auto-releases via group rebalance if this monitor dies
+                            envLock = await distributedLockService.TryAcquireLockAsync(lockKey, EnvironmentLockAcquireTimeoutMs, monitorCancellationToken);
 
                             if (envLock == null)
                             {

@@ -1,0 +1,178 @@
+using Confluent.Kafka;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+
+namespace Dorc.Kafka.ErrorLog;
+
+/// <summary>
+/// DLQ-tier producer per K-2 resolution. Routes <see cref="KafkaErrorLogEntry"/>
+/// to the DLQ topic configured for the source topic; throws
+/// <see cref="DlqNotConfiguredException"/> when the source topic has no DLQ
+/// (the consumer's catch then falls through to the structured-log tier per
+/// the   #4 three-tier model). Throws on produce
+/// failure (broker down, oversized payload, etc.) — same fallback contract.
+/// </summary>
+public sealed class KafkaErrorLog : IKafkaErrorLog
+{
+    private readonly IProducer<string, KafkaErrorEnvelope> _producer;
+    private readonly KafkaErrorLogOptions _options;
+    private readonly IReadOnlyDictionary<string, string> _routes;
+    private readonly ILogger<KafkaErrorLog> _logger;
+
+    /// <param name="routes">
+    /// Source-topic → DLQ-topic map. Missing key means "no DLQ for this source"
+    /// — <see cref="InsertAsync"/> throws <see cref="DlqNotConfiguredException"/>
+    /// for unmapped source topics. Wired by the DI extension from
+    /// <c>KafkaTopicsOptions</c>.
+    /// </param>
+    public KafkaErrorLog(
+        IProducer<string, KafkaErrorEnvelope> producer,
+        IOptions<KafkaErrorLogOptions> options,
+        IReadOnlyDictionary<string, string> routes,
+        ILogger<KafkaErrorLog> logger)
+    {
+        _producer = producer;
+        _options = options.Value;
+        _routes = routes;
+        _logger = logger;
+    }
+
+    public async Task InsertAsync(KafkaErrorLogEntry entry, CancellationToken cancellationToken)
+    {
+        if (!_routes.TryGetValue(entry.Topic, out var dlqTopic))
+            throw new DlqNotConfiguredException(entry.Topic);
+
+        var (payload, truncated) = TruncatePayload(entry.RawPayload, _options.MaxPayloadBytes);
+        var envelope = new KafkaErrorEnvelope(
+            SourceTopic: entry.Topic,
+            SourcePartition: entry.Partition,
+            SourceOffset: entry.Offset,
+            ConsumerGroup: entry.ConsumerGroup,
+            MessageKey: entry.MessageKey,
+            RawPayload: payload,
+            PayloadTruncated: truncated,
+            ExceptionType: entry.ExceptionType ?? string.Empty,
+            ExceptionMessage: entry.Error,
+            ExceptionStack: entry.Stack,
+            OccurredAt: entry.OccurredAt == default ? DateTimeOffset.UtcNow : entry.OccurredAt,
+            LoggedAt: DateTimeOffset.UtcNow);
+
+        var key = entry.MessageKey ?? $"{entry.Topic}:{entry.Partition}:{entry.Offset}";
+
+        var produceCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        produceCts.CancelAfter(TimeSpan.FromMilliseconds(_options.ProduceTimeoutMs));
+
+        // Capture the token BEFORE Task.Run to avoid an ObjectDisposedException:
+        // the Task.Run delegate disposes produceCts in its finally block, and the
+        // delegate can complete (and dispose) before the main thread reaches
+        // WaitAsync — reading produceCts.Token after disposal throws.
+        var produceToken = produceCts.Token;
+
+        // ProduceAsync's CancellationToken is best-effort under librdkafka:
+        // when the local produce queue is full (e.g. brokers unreachable), the
+        // synchronous prologue inside librdkafka can block the calling thread
+        // before the call ever yields. Force the call onto the thread pool
+        // and wait via WaitAsync(token) so the caller's consume thread gets
+        // freed by ProduceTimeoutMs even when librdkafka itself ignores the
+        // cancellation request.
+        var produceTask = Task.Run(async () =>
+        {
+            try
+            {
+                return await _producer.ProduceAsync(
+                    dlqTopic,
+                    new Message<string, KafkaErrorEnvelope> { Key = key, Value = envelope },
+                    produceToken);
+            }
+            finally
+            {
+                produceCts.Dispose();
+            }
+        });
+
+        DeliveryResult<string, KafkaErrorEnvelope> result;
+        try
+        {
+            result = await produceTask.WaitAsync(produceToken);
+        }
+        catch (OperationCanceledException)
+        {
+            // WaitAsync only abandons the in-flight ProduceAsync — the task
+            // keeps running inside librdkafka. Attach a continuation so its
+            // eventual outcome is observed: a late FAILURE would otherwise
+            // surface as an unobserved-task exception; a late SUCCESS means
+            // the DLQ write actually landed even though this method throws —
+            // the caller's structured-log fallback then ALSO records the
+            // record (double-accounting: same poison record in both the DLQ
+            // and the app log). Benign — preferred over losing the record.
+            ObserveAbandonedProduce(produceTask, entry, dlqTopic);
+            throw;
+        }
+
+        _logger.LogDebug(
+            "dlq-produce-ok dlqTopic={DlqTopic} sourceTopic={SourceTopic} sourcePartition={SourcePartition} sourceOffset={SourceOffset} truncated={Truncated}",
+            result.Topic, entry.Topic, entry.Partition, entry.Offset, truncated);
+    }
+
+    private void ObserveAbandonedProduce(
+        Task<DeliveryResult<string, KafkaErrorEnvelope>> produceTask,
+        KafkaErrorLogEntry entry,
+        string dlqTopic)
+    {
+        _ = produceTask.ContinueWith(t =>
+        {
+            try
+            {
+                if (t.IsFaulted)
+                {
+                    _logger.LogWarning(t.Exception?.GetBaseException(),
+                        "dlq-produce-late-failure dlqTopic={DlqTopic} sourceTopic={SourceTopic} sourcePartition={SourcePartition} sourceOffset={SourceOffset} — abandoned produce eventually failed.",
+                        dlqTopic, entry.Topic, entry.Partition, entry.Offset);
+                }
+                else if (t.IsCanceled)
+                {
+                    _logger.LogDebug(
+                        "dlq-produce-late-cancel dlqTopic={DlqTopic} sourceTopic={SourceTopic} sourcePartition={SourcePartition} sourceOffset={SourceOffset}",
+                        dlqTopic, entry.Topic, entry.Partition, entry.Offset);
+                }
+                else
+                {
+                    _logger.LogWarning(
+                        "dlq-produce-late-success dlqTopic={DlqTopic} sourceTopic={SourceTopic} sourcePartition={SourcePartition} sourceOffset={SourceOffset} — DLQ write landed after the timeout; the record is double-accounted (DLQ envelope AND structured-log fallback).",
+                        dlqTopic, entry.Topic, entry.Partition, entry.Offset);
+                }
+            }
+            catch (Exception)
+            {
+                // Best-effort observation only — a throwing log sink must not
+                // create a new unobserved-task exception.
+            }
+        }, CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+    }
+
+    internal static (byte[]? Payload, bool Truncated) TruncatePayload(byte[]? raw, int maxBytes)
+    {
+        if (raw is null) return (null, false);
+        if (raw.Length <= maxBytes) return (raw, false);
+        var truncated = new byte[maxBytes];
+        Buffer.BlockCopy(raw, 0, truncated, 0, maxBytes);
+        return (truncated, true);
+    }
+}
+
+/// <summary>
+/// Thrown by <see cref="KafkaErrorLog.InsertAsync"/> when the source topic of
+/// the failed message has no DLQ configured. Caught by the consumer's
+/// existing structured-log fallback path (  #4
+/// three-tier model).
+/// </summary>
+public sealed class DlqNotConfiguredException : Exception
+{
+    public string SourceTopic { get; }
+
+    public DlqNotConfiguredException(string sourceTopic)
+        : base($"No DLQ configured for source topic '{sourceTopic}'. Falling through to structured-log tier.")
+    {
+        SourceTopic = sourceTopic;
+    }
+}

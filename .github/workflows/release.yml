@@ -188,7 +188,7 @@ jobs:
         }
         
         # Find test projects (plural *Tests.csproj only — singular *Test.csproj
-        # picks up non-test projects like Tools.RabbitMqOAuthTest).
+        # picks up non-test projects like auto-generated client stubs).
         # IntegrationTests and Acceptance are excluded — they need external resources.
         $testProjects = Get-ChildItem -Path "${{ github.workspace }}\src" -Recurse -Include "*Tests.csproj" |
           Where-Object {

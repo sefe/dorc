@@ -384,3 +384,16 @@ GitExtensions.settings.backup
 src/.NCrunch_Dorc/
 .idea
 /src/dorc/src/Tests.Acceptance/Features/*.cs 
+
+# --- Secrets / credentials / local-only config (NEVER commit) ---
+# Aiven & other CA certs
+ca.pem
+**/ca.pem
+*.pem
+# Local developer overrides that may contain secrets
+**/appsettings.local.json
+**/appsettings.Local.json
+**/aiven-creds*
+**/.secrets/
+**/.env
+**/.env.local

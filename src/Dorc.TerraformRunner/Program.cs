@@ -72,7 +72,9 @@ namespace Dorc.TerraformRunner
                 runnerLogger = loggerRegistry.InitializeLogger(options.LogPath, config);
 
                 var fileLogger = runnerLogger.FileLogger;
-                var requestId = int.Parse(options.PipeName.Substring(options.PipeName.IndexOf("-", StringComparison.Ordinal) + 1));
+                // Parse requestId from pipe name. Format: DOrcMonitor-{HostInstanceId}-{RequestId}
+                // HostInstanceId may contain hyphens, so we take the last segment after the final hyphen.
+                var requestId = int.Parse(options.PipeName.Substring(options.PipeName.LastIndexOf("-", StringComparison.Ordinal) + 1));
                 var dorcPath = loggerRegistry.LogFileName.Replace("c:", @"\\" + System.Environment.GetEnvironmentVariable("COMPUTERNAME"));
                 fileLogger.LogInformation($"Logger Started for pipeline {options.PipeName}: request Id {requestId} formatted path to logs {dorcPath}");
 

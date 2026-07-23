@@ -242,7 +242,10 @@ namespace Dorc.Api.Controllers
 
                 // Broadcast restart -> Restarting
                 _ = _deploymentEventsPublisher.PublishRequestStatusChangedAsync(
-                    new DeploymentRequestEventData(updated));
+                    new DeploymentRequestEventData(updated))
+                    .ContinueWith(t => _log.LogWarning(t.Exception!.InnerException,
+                        "fire-and-forget publish failed for requestId={RequestId}", updated.Id),
+                        TaskContinuationOptions.OnlyOnFaulted);
 
                 return StatusCode(StatusCodes.Status200OK,
                     new RequestStatusDto { Id = updated.Id, Status = updated.Status.ToString() });
@@ -399,7 +402,10 @@ namespace Dorc.Api.Controllers
 
                 // Broadcast cancel -> Cancelling/Cancelled
                 _ = _deploymentEventsPublisher.PublishRequestStatusChangedAsync(
-                    new DeploymentRequestEventData(updated));
+                    new DeploymentRequestEventData(updated))
+                    .ContinueWith(t => _log.LogWarning(t.Exception!.InnerException,
+                        "fire-and-forget publish failed for requestId={RequestId}", updated.Id),
+                        TaskContinuationOptions.OnlyOnFaulted);
 
                 return StatusCode(StatusCodes.Status200OK,
                     new RequestStatusDto { Id = updated.Id, Status = updated.Status.ToString() });
@@ -454,7 +460,10 @@ namespace Dorc.Api.Controllers
 
                 // Broadcast pause -> Paused
                 _ = _deploymentEventsPublisher.PublishRequestStatusChangedAsync(
-                    new DeploymentRequestEventData(updated));
+                    new DeploymentRequestEventData(updated))
+                    .ContinueWith(t => _log.LogWarning(t.Exception!.InnerException,
+                        "fire-and-forget publish failed for requestId={RequestId}", updated.Id),
+                        TaskContinuationOptions.OnlyOnFaulted);
 
                 return StatusCode(StatusCodes.Status200OK,
                     new RequestStatusDto { Id = updated.Id, Status = updated.Status.ToString() });
@@ -509,7 +518,10 @@ namespace Dorc.Api.Controllers
 
                 // Broadcast resume -> Pending
                 _ = _deploymentEventsPublisher.PublishRequestStatusChangedAsync(
-                    new DeploymentRequestEventData(updated));
+                    new DeploymentRequestEventData(updated))
+                    .ContinueWith(t => _log.LogWarning(t.Exception!.InnerException,
+                        "fire-and-forget publish failed for requestId={RequestId}", updated.Id),
+                        TaskContinuationOptions.OnlyOnFaulted);
 
                 return StatusCode(StatusCodes.Status200OK,
                     new RequestStatusDto { Id = updated.Id, Status = updated.Status.ToString() });

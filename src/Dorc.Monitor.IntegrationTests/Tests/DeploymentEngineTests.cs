@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Logging;
+using Dorc.Core.Events;
 using NSubstitute;
 using System.Collections.Concurrent;
 
@@ -15,7 +16,7 @@ namespace Dorc.Monitor.IntegrationTests.Tests
             var configMock = Substitute.For<IMonitorConfiguration>();
             configMock.MaxConcurrentDeployments.Returns(0); // 0 = unlimited
             drsp.When(d => d.AbandonRequests(Arg.Any<bool>(), Arg.Any<ConcurrentDictionary<int, CancellationTokenSource>>(), Arg.Any<CancellationToken>())).Do(c => throw new ArgumentException());
-            var deploymentEngine = new DeploymentEngine(loggerMock, drsp, configMock);
+            var deploymentEngine = new DeploymentEngine(loggerMock, drsp, configMock, new RequestPollSignal());
 
             await Assert.ThrowsAsync<ArgumentException>(async () =>
             {
@@ -32,7 +33,7 @@ namespace Dorc.Monitor.IntegrationTests.Tests
             var configMock = Substitute.For<IMonitorConfiguration>();
             configMock.MaxConcurrentDeployments.Returns(0); // 0 = unlimited
             CancellationTokenSource source = new CancellationTokenSource();
-            var deploymentEngine = new DeploymentEngine(loggerMock, drsp, configMock);
+            var deploymentEngine = new DeploymentEngine(loggerMock, drsp, configMock, new RequestPollSignal());
             var task = deploymentEngine.ProcessDeploymentRequestsAsync(false, new ConcurrentDictionary<int, CancellationTokenSource>(), source.Token, iterationDelayMs);
             await Task.Delay(iterationDelayMs * 2);
 
