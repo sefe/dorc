@@ -55,7 +55,12 @@ namespace Dorc.TerraformRunner
                 if (props.TryGetValue(name, out var vv))
                 {
                     var v = vv?.Value?.ToString();
-                    if (!string.IsNullOrEmpty(v)) values.Add(v);
+                    // IsNullOrWhiteSpace, not IsNullOrEmpty: a whitespace-only
+                    // value can never be a meaningful secret, and redacting it
+                    // would rewrite every matching run of spaces in the
+                    // terraform log. Values that merely CONTAIN spaces are
+                    // still kept and redacted.
+                    if (!string.IsNullOrWhiteSpace(v)) values.Add(v);
                 }
             }
             return values;
