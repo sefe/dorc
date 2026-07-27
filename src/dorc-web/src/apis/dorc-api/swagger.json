@@ -7814,6 +7814,191 @@
         }
       }
     },
+    "/Terraform/templates": {
+      "get": {
+        "tags": [
+          "Terraform"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TerraformTemplateManifest"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TerraformTemplateManifest"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/Terraform/templates/{name}": {
+      "get": {
+        "tags": [
+          "Terraform"
+        ],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TerraformTemplateManifest"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TerraformTemplateManifest"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/Terraform/templates/{name}/{version}": {
+      "get": {
+        "tags": [
+          "Terraform"
+        ],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "version",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TerraformTemplateManifest"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TerraformTemplateManifest"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/Terraform/templates/{name}/{version}/instantiate": {
+      "post": {
+        "tags": [
+          "Terraform"
+        ],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "version",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TerraformTemplateInstantiateRequestApiModel"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TerraformTemplateInstantiateRequestApiModel"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/TerraformTemplateInstantiateRequestApiModel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TerraformTemplateInstantiateResponseApiModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TerraformTemplateInstantiateResponseApiModel"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "409": {
+            "description": "Conflict"
+          }
+        }
+      }
+    },
     "/Terraform/plan/{deploymentResultId}": {
       "get": {
         "tags": [
@@ -10475,6 +10660,17 @@
         },
         "additionalProperties": false
       },
+      "TerraformParameterType": {
+        "enum": [
+          "String",
+          "Number",
+          "Bool",
+          "List",
+          "Map",
+          "Object"
+        ],
+        "type": "string"
+      },
       "TerraformPlanApiModel": {
         "type": "object",
         "properties": {
@@ -10510,6 +10706,199 @@
           "Catalog"
         ],
         "type": "string"
+      },
+      "TerraformTemplateInstantiateRequestApiModel": {
+        "type": "object",
+        "properties": {
+          "ProjectId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "ComponentName": {
+            "type": "string",
+            "nullable": true
+          },
+          "ParentComponentId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "EnvironmentName": {
+            "type": "string",
+            "nullable": true
+          },
+          "Parameters": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "TerraformTemplateInstantiateResponseApiModel": {
+        "type": "object",
+        "properties": {
+          "component": {
+            "$ref": "#/components/schemas/ComponentApiModel"
+          },
+          "requestId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "requestStatus": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "TerraformTemplateManifest": {
+        "type": "object",
+        "properties": {
+          "Name": {
+            "type": "string"
+          },
+          "Version": {
+            "type": "string"
+          },
+          "Source": {
+            "$ref": "#/components/schemas/TerraformTemplateSource"
+          },
+          "Parameters": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TerraformTemplateParameter"
+            }
+          },
+          "Outputs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TerraformTemplateOutput"
+            }
+          },
+          "Description": {
+            "type": "string",
+            "nullable": true
+          },
+          "Tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "Category": {
+            "type": "string",
+            "nullable": true
+          },
+          "RequiredProviders": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "RequiredTerraformVersion": {
+            "type": "string"
+          },
+          "Owner": {
+            "type": "string",
+            "nullable": true
+          },
+          "Deprecated": {
+            "type": "boolean"
+          },
+          "DeprecationReason": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "TerraformTemplateOutput": {
+        "type": "object",
+        "properties": {
+          "Name": {
+            "type": "string"
+          },
+          "Type": {
+            "$ref": "#/components/schemas/TerraformParameterType"
+          },
+          "Description": {
+            "type": "string",
+            "nullable": true
+          },
+          "Sensitive": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "TerraformTemplateParameter": {
+        "type": "object",
+        "properties": {
+          "Name": {
+            "type": "string"
+          },
+          "Type": {
+            "$ref": "#/components/schemas/TerraformParameterType"
+          },
+          "Required": {
+            "type": "boolean"
+          },
+          "Description": {
+            "type": "string",
+            "nullable": true
+          },
+          "Default": {
+            "type": "string",
+            "nullable": true
+          },
+          "AllowedValues": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "Pattern": {
+            "type": "string",
+            "nullable": true
+          },
+          "Min": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "Max": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "Sensitive": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "TerraformTemplateSource": {
+        "type": "object",
+        "properties": {
+          "Kind": {
+            "type": "string"
+          },
+          "Locator": {
+            "type": "string"
+          },
+          "Ref": {
+            "type": "string"
+          },
+          "SubPath": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
       },
       "UpdateEnvironmentHistoryRequest": {
         "type": "object",

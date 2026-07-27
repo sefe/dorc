@@ -41,6 +41,12 @@ namespace Dorc.Terraform.Catalog
             new(@"^[a-zA-Z0-9._-]{1,256}$", RegexOptions.Compiled);
         private static readonly Regex TemplateVersionRegex =
             new(@"^[a-zA-Z0-9._-]{1,64}$", RegexOptions.Compiled);
+        // Must stay in lockstep with GitCodeSourceProvider.SanitizeGitParameter:
+        // a ref accepted here is passed to git verbatim (sanitisation is a
+        // no-op on this charset), so validation failure - not silent
+        // rewriting - is the only outcome for a hostile ref.
+        private static readonly Regex TemplateSourceRefRegex =
+            new(@"^[a-zA-Z0-9\-_/.]{1,256}$", RegexOptions.Compiled);
         private static readonly HashSet<TerraformParameterType> AllowedParameterTypes =
             new() { TerraformParameterType.String, TerraformParameterType.Number, TerraformParameterType.Bool };
 
@@ -145,6 +151,22 @@ namespace Dorc.Terraform.Catalog
                 || !string.Equals(locatorUri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
             {
                 return (null, $"template source locator '{locator}' is invalid (an absolute https:// URL is required)");
+            }
+
+            // The ref is the immutability pin: without it the runner would
+            // fall back to the clone default branch, a moving target, while
+            // the UI and DB record claim the fixed name@version was deployed.
+            // The charset mirrors GitCodeSourceProvider.SanitizeGitParameter
+            // exactly, so a ref that validates here is checked out verbatim -
+            // never silently rewritten by sanitisation.
+            var sourceRef = dto.Source.Ref ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(sourceRef))
+            {
+                return (null, "template source ref is required (a tag or commit pinning the module version)");
+            }
+            if (!TemplateSourceRefRegex.IsMatch(sourceRef))
+            {
+                return (null, $"template source ref '{sourceRef}' is invalid (only [a-zA-Z0-9-_/.], up to 256 chars)");
             }
 
             // Iterate parameters in YAML declaration order so the first violation

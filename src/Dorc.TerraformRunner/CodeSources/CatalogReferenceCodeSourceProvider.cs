@@ -68,6 +68,18 @@ namespace Dorc.TerraformRunner.CodeSources
                     "Only 'git' source kind is supported by the runner today.");
             }
 
+            // The ref is the immutability pin behind name@version. The catalog
+            // rejects ref-less manifests at load time; this guard is defence in
+            // depth so a manifest that slips through any other path fails
+            // loudly instead of silently deploying the clone default branch (a
+            // moving target) under a fixed recorded version.
+            if (string.IsNullOrWhiteSpace(manifest.Source.Ref))
+            {
+                throw new InvalidOperationException(
+                    $"Stock template '{manifest.Name}@{manifest.Version}' has no source ref; " +
+                    "a tag or commit pinning the module version is required. Fix the manifest.");
+            }
+
             // Set the Git fields on the script group so GitCodeSourceProvider
             // sees an unambiguous Git clone target. The original Catalog mode
             // values are preserved on scriptGroup for downstream consumers.

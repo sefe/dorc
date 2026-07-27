@@ -100,13 +100,33 @@ namespace Dorc.TerraformRunner.Tests.State
         }
 
         [TestMethod]
-        public void Scan_PlatformBackendFile_Skipped()
+        public void Scan_UserSuppliedFileNamedLikePlatformBackend_Flagged()
         {
-            // The platform-rendered _dorc_backend.tf must not be re-flagged
-            // on a re-scan of the working dir.
+            // The scan runs before DOrc renders its own backend file, so a
+            // pre-existing _dorc_backend.tf is user content attempting to
+            // claim the backend by borrowing the platform file name - it must
+            // be flagged like any other backend declaration.
             File.WriteAllText(
                 Path.Join(_tempRoot, TerraformBackendRenderer.BackendFileName),
                 "terraform { backend \"azurerm\" { storage_account_name = \"x\" } }");
+
+            var findings = TerraformBackendValidator.Scan(_tempRoot);
+
+            Assert.AreEqual(1, findings.Count);
+        }
+
+        [TestMethod]
+        public void Scan_BackendInNestedDirectory_NotFlagged()
+        {
+            // Terraform resolves backend configuration from the root module
+            // only; a backend block in examples/ or a child module is inert
+            // to this run and must not reject the deployment.
+            var nested = Path.Join(_tempRoot, "examples", "basic");
+            Directory.CreateDirectory(nested);
+            File.WriteAllText(Path.Join(nested, "main.tf"),
+                "terraform { backend \"azurerm\" { storage_account_name = \"x\" } }");
+            File.WriteAllText(Path.Join(_tempRoot, "main.tf"),
+                "variable \"x\" { type = string }");
 
             var findings = TerraformBackendValidator.Scan(_tempRoot);
 

@@ -198,6 +198,74 @@ deprecated: false
                 "WARNING should include the file path.");
         }
 
+        // Reject manifest whose git source omits the ref: without the
+        // immutability pin the runner would deploy the clone default branch
+        // (a moving target) under a fixed recorded name@version.
+        [TestMethod]
+        public async Task RejectsManifest_WhenSourceRefIsMissing()
+        {
+            var yaml = @"name: noref
+version: 1.0.0
+source:
+  kind: git
+  locator: https://example.com/repo.git
+parameters:
+  - name: alpha
+    type: String
+    required: true
+outputs: []
+description: manifest without a source ref
+tags: []
+required_providers: {}
+required_terraform_version: "">= 1.5.0""
+deprecated: false
+";
+            var path = Path.Join(_tempDir, "noref-1.0.0.yaml");
+            File.WriteAllText(path, yaml);
+
+            var recordingLogger = new RecordingLogger<GitTemplateCatalog>();
+            var catalog = new GitTemplateCatalog(_tempDir, recordingLogger);
+            var manifests = await catalog.ListAsync();
+
+            Assert.AreEqual(0, manifests.Count, "Manifest without a source ref must be rejected.");
+            Assert.AreEqual(1, recordingLogger.Warnings.Count, "Exactly one WARNING should be emitted.");
+            StringAssert.Contains(recordingLogger.Warnings[0], "ref",
+                "WARNING should say the ref is required.");
+        }
+
+        // Reject manifest whose ref carries characters the git sanitiser
+        // would strip: silent rewriting would check out a different ref than
+        // the manifest declares.
+        [TestMethod]
+        public async Task RejectsManifest_WhenSourceRefContainsInvalidCharacters()
+        {
+            var yaml = @"name: badref
+version: 1.0.0
+source:
+  kind: git
+  locator: https://example.com/repo.git
+  ref: ""v1.0.0;rm -rf""
+parameters: []
+outputs: []
+description: manifest with hostile ref
+tags: []
+required_providers: {}
+required_terraform_version: "">= 1.5.0""
+deprecated: false
+";
+            var path = Path.Join(_tempDir, "badref-1.0.0.yaml");
+            File.WriteAllText(path, yaml);
+
+            var recordingLogger = new RecordingLogger<GitTemplateCatalog>();
+            var catalog = new GitTemplateCatalog(_tempDir, recordingLogger);
+            var manifests = await catalog.ListAsync();
+
+            Assert.AreEqual(0, manifests.Count, "Manifest with an invalid source ref must be rejected.");
+            Assert.AreEqual(1, recordingLogger.Warnings.Count, "Exactly one WARNING should be emitted.");
+            StringAssert.Contains(recordingLogger.Warnings[0], "ref",
+                "WARNING should name the offending field.");
+        }
+
         // Test 2 reject manifest with List-typed parameter.
         [TestMethod]
         public async Task RejectsManifest_WhenParameterTypeIsList()

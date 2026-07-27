@@ -18,9 +18,11 @@ provider "azurerm" {
 }
 
 # Reference a stock module from the DOrc stock-modules library at a pinned tag.
-# In CI/local you can use a relative source; in DOrc deploys, set the
-# component property Terraform_Template_Name = "sql-database" and
-# Terraform_Template_Version = "1.0.0" (catalog API; see docs/Terraform/MODULE-CONTRACT.md).
+# In CI/local you can use a relative source; in DOrc, use the Stock Modules
+# page's "Deploy from template" wizard (POST /api/Terraform/templates/
+# {name}/{version}/instantiate) instead - it creates a Terraform component
+# with TerraformSourceType = Catalog and TerraformTemplateName = "sql-database",
+# TerraformTemplateVersion = "1.0.0" (see docs/Terraform/MODULES.md).
 module "sql" {
   source = "../../../../stock-modules/sql-database"
 

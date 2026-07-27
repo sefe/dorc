@@ -43,16 +43,18 @@ namespace Dorc.TerraformRunner.State
             if (!Directory.Exists(workingDirectory)) return Array.Empty<Finding>();
 
             var findings = new List<Finding>();
-            // Filter out the platform-rendered file in the source sequence so
-            // re-scans don't flag DOrc's own backend file. Terraform honours
+            // Terraform resolves backend configuration from the ROOT module
+            // only, so the scan is scoped to top-level files: a backend block
+            // in a nested directory (examples/, child modules) is inert to
+            // this run and must not reject the deployment. Terraform honours
             // both HCL (*.tf) and JSON (*.tf.json) configuration, so both are
-            // scanned - a backend declared in JSON syntax would otherwise
-            // bypass the "DOrc owns the backend" control on the legacy
-            // (no platform-rendered backend) path.
+            // scanned. No filename is exempt: the scan runs before DOrc
+            // renders its own backend file, so anything found here - even a
+            // file named _dorc_backend.tf - is user-supplied content trying
+            // to claim the backend.
             var inputFiles = Directory
-                .EnumerateFiles(workingDirectory, "*.tf", SearchOption.AllDirectories)
-                .Concat(Directory.EnumerateFiles(workingDirectory, "*.tf.json", SearchOption.AllDirectories))
-                .Where(f => Path.GetFileName(f) != TerraformBackendRenderer.BackendFileName);
+                .EnumerateFiles(workingDirectory, "*.tf", SearchOption.TopDirectoryOnly)
+                .Concat(Directory.EnumerateFiles(workingDirectory, "*.tf.json", SearchOption.TopDirectoryOnly));
 
             foreach (var file in inputFiles)
             {

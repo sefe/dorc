@@ -121,17 +121,33 @@ export class DeployFromTemplateDialog extends LitElement {
   private envMappingsApi = new RefDataProjectEnvironmentMappingsApi();
   private terraformApi = new TerraformApi();
 
+  // Monotonic token guarding the environments request. Each new request
+  // (or anything that invalidates the current environment list, e.g. a
+  // project switch) bumps it; a response is applied only if its captured
+  // token still matches, so a slow response for a previously selected
+  // project can never overwrite the list for the current one.
+  private environmentsRequestToken = 0;
+
   open(template: TerraformTemplateManifest) {
     this.template = template;
     this.componentName = template.Name;
     this.selectedProject = null;
     this.selectedEnvironmentName = '';
+    // Invalidate any environments request still in flight from a previous
+    // use of this long-lived dialog.
+    this.environmentsRequestToken += 1;
     this.environments = [];
     this.paramValues = {};
     // Pre-fill defaults from the manifest.
     for (const p of template.Parameters ?? []) {
       if (p.Default != null && p.Default !== '') {
         this.paramValues = { ...this.paramValues, [p.Name]: p.Default };
+      } else if (p.Type === 'Bool') {
+        // An unchecked checkbox is a valid value ('false'), but
+        // checked-changed only fires when the box is toggled, so without
+        // seeding here a required Bool with no default could only be
+        // satisfied by checking and unchecking the box.
+        this.paramValues = { ...this.paramValues, [p.Name]: 'false' };
       }
     }
     this.error = null;
@@ -151,13 +167,16 @@ export class DeployFromTemplateDialog extends LitElement {
   }
 
   private loadEnvironmentsForProject(projectName: string) {
+    const token = ++this.environmentsRequestToken;
     this.envMappingsApi
       .refDataProjectEnvironmentMappingsGet({ project: projectName, includeRead: false })
       .subscribe({
         next: (wrapper: EnvironmentApiModelTemplateApiModel) => {
+          if (token !== this.environmentsRequestToken) return; // stale response
           this.environments = wrapper.Items ?? [];
         },
         error: (err) => {
+          if (token !== this.environmentsRequestToken) return; // stale response
           this.error = retrieveErrorMessage(err) ?? 'Failed to load environments for the chosen project.';
           this.environments = [];
         },
@@ -165,6 +184,10 @@ export class DeployFromTemplateDialog extends LitElement {
   }
 
   private onProjectChange(project: ProjectApiModel | null) {
+    // Invalidate any in-flight environments request for the previous
+    // project; when a new project is chosen loadEnvironmentsForProject
+    // bumps the token again for its own request.
+    this.environmentsRequestToken += 1;
     this.selectedProject = project;
     this.selectedEnvironmentName = '';
     this.environments = [];

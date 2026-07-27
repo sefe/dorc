@@ -118,5 +118,46 @@ namespace Dorc.ApiModel
                 return requestDetailsXml;
             }
         }
+
+        /// <summary>
+        /// Extracts the names of every property flagged sensitive in a
+        /// RequestDetails XML payload. Used by the Monitor dispatchers to
+        /// hand the runner an exact-name redaction list, so runner-side log
+        /// redaction does not depend on the property NAME matching a
+        /// heuristic pattern. Returns an empty list for payloads without a
+        /// sensitive property and for malformed XML (this feeds a log-hygiene
+        /// mechanism; failing the deployment over it would be worse).
+        /// </summary>
+        public static IReadOnlyList<string> GetSensitivePropertyNames(string requestDetailsXml)
+        {
+            if (string.IsNullOrEmpty(requestDetailsXml)) return Array.Empty<string>();
+            if (requestDetailsXml.IndexOf("<IsSensitive>true</IsSensitive>", StringComparison.OrdinalIgnoreCase) < 0)
+                return Array.Empty<string>();
+
+            try
+            {
+                var root = XElement.Parse(requestDetailsXml);
+                var names = new List<string>();
+                foreach (var propertyPair in root.Descendants("PropertyPair"))
+                {
+                    var sensitiveElement = propertyPair.Element("IsSensitive");
+                    if (sensitiveElement != null
+                        && bool.TryParse(sensitiveElement.Value, out var isSensitive)
+                        && isSensitive)
+                    {
+                        var nameElement = propertyPair.Element("Name");
+                        if (nameElement != null && !string.IsNullOrEmpty(nameElement.Value))
+                        {
+                            names.Add(nameElement.Value);
+                        }
+                    }
+                }
+                return names;
+            }
+            catch (XmlException)
+            {
+                return Array.Empty<string>();
+            }
+        }
     }
 }

@@ -12,7 +12,8 @@ namespace Tools.TerraformLint;
 //     producer omissions for human review.
 //
 //   secret-outputs <stock-modules-root>
-//     Walks every outputs.tf under the supplied root; for every
+//     Walks every *.tf file under the supplied root (Terraform accepts
+//     `output` blocks in any .tf file, not just outputs.tf); for every
 //     `output "name" { ... }` block whose name matches a built-in secret
 //     pattern (token / pat / secret / password / key / connectionstring),
 //     fails the build if the body declares `sensitive = false` or omits
@@ -218,11 +219,26 @@ public static class SecretOutputsLint
     public static int LintDirectory(DirectoryInfo root, TextWriter errWriter)
     {
         var failures = 0;
-        foreach (var file in root.GetFiles("outputs.tf", SearchOption.AllDirectories).OrderBy(f => f.FullName))
+        // Scan every .tf file: Terraform accepts `output` blocks in any .tf
+        // file, so restricting the scan to files named outputs.tf would let
+        // a secret-pattern output in e.g. main.tf bypass the blocking gate.
+        // Files under a `.terraform` directory (provider/module caches left
+        // by `terraform init`) are skipped - they are third-party code, not
+        // part of the module under review.
+        foreach (var file in root.GetFiles("*.tf", SearchOption.AllDirectories)
+                     .Where(f => !IsUnderDotTerraformDirectory(f))
+                     .OrderBy(f => f.FullName))
         {
             failures += LintFile(file.FullName, errWriter);
         }
         return failures;
+    }
+
+    private static bool IsUnderDotTerraformDirectory(FileInfo file)
+    {
+        return file.FullName
+            .Split(new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar })
+            .Contains(".terraform");
     }
 
     public static int LintFile(string path, TextWriter errWriter)
@@ -372,14 +388,30 @@ internal static class SelfTest
             File.WriteAllText(Path.Join(mod5.FullName, "outputs.tf"),
                 "output \"subnet_keys\" {\n  value     = { for k, s in var.subnets : k => s.id }\n  sensitive = true\n}\n");
 
+            // Module 6: secret-named output declared in main.tf rather than
+            // outputs.tf (must fail — the gate scans every .tf file, so
+            // placement outside outputs.tf is not a bypass).
+            var mod6 = Directory.CreateDirectory(Path.Join(temp.FullName, "module-output-in-main"));
+            File.WriteAllText(Path.Join(mod6.FullName, "main.tf"),
+                "resource \"null_resource\" \"x\" {}\n\noutput \"storage_connectionstring\" {\n  value     = \"quux\"\n  sensitive = false\n}\n");
+
+            // Module 7: violating output inside a .terraform cache directory
+            // (must NOT be flagged — third-party provider/module caches are
+            // out of scope).
+            var mod7 = Directory.CreateDirectory(Path.Join(temp.FullName, "module-with-cache", ".terraform", "modules", "vendored"));
+            File.WriteAllText(Path.Join(mod7.FullName, "outputs.tf"),
+                "output \"vendored_secret\" {\n  value = \"corge\"\n}\n");
+
             using var sw = new StringWriter();
             var failures = SecretOutputsLint.LintDirectory(temp, sw);
-            AssertCount("secret-outputs: expected exactly two failures", 2, failures);
+            AssertCount("secret-outputs: expected exactly three failures", 3, failures);
             var output = sw.ToString();
-            if (!output.Contains("api_key") || !output.Contains("admin_password"))
-                throw new InvalidOperationException($"failures should name api_key and admin_password: {output}");
-            if (output.Contains("connection_string") || output.Contains("resource_id") || output.Contains("subnet_keys"))
+            if (!output.Contains("api_key") || !output.Contains("admin_password") || !output.Contains("storage_connectionstring"))
+                throw new InvalidOperationException($"failures should name api_key, admin_password and storage_connectionstring: {output}");
+            if (output.Contains("connection_string\"") || output.Contains("resource_id") || output.Contains("subnet_keys"))
                 throw new InvalidOperationException($"clean / non-secret modules must not be flagged: {output}");
+            if (output.Contains("vendored_secret"))
+                throw new InvalidOperationException($".terraform cache directories must be skipped: {output}");
         }
         finally
         {

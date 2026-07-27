@@ -2,7 +2,7 @@
 
 A library of curated, opinionated Terraform modules engineers can use as starting points when building application infrastructure under DOrc.
 
-Each module satisfies `docs/Terraform/MODULE-CONTRACT.md`: pinned provider versions, validated inputs, secure-by-default outputs, a per-module `README.md` and a runnable `examples/basic/`. Modules are versioned via Git tags `stock-modules/<name>/v<X.Y.Z>` and may be referenced from a DOrc component by setting `Terraform_Template_Name` and `Terraform_Template_Version` (when the catalog API ships) or directly via Terraform `source = "git::...//stock-modules/<name>?ref=stock-modules/<name>/v1.0.0"`.
+Each module satisfies `docs/Terraform/MODULE-CONTRACT.md`: pinned provider versions, validated inputs, secure-by-default outputs, a per-module `README.md` and a runnable `examples/basic/`. Modules are versioned via Git tags `stock-modules/<name>/v<X.Y.Z>` and may be consumed from DOrc via the **Stock Modules** page's **Deploy from template** wizard (`POST /api/Terraform/templates/{name}/{version}/instantiate`), which creates a Terraform component with `TerraformSourceType = Catalog` and the component fields `TerraformTemplateName` / `TerraformTemplateVersion` set — or referenced directly from your own Terraform via `source = "git::...//stock-modules/<name>?ref=stock-modules/<name>/v1.0.0"`.
 
 | Module | Category | Status | Owner |
 |---|---|---|---|

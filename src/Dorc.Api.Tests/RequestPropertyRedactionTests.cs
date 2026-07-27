@@ -183,6 +183,31 @@ namespace Dorc.Api.Tests
         }
 
         [TestMethod]
+        public void GetSensitivePropertyNames_ReturnsFlaggedNamesOnly()
+        {
+            var xml = SerializeDetail(
+                new PropertyPair("rg", "rg-prod"),
+                new PropertyPair("launch_code", "0000") { IsSensitive = true },
+                new PropertyPair("administrator_password", "hunter2") { IsSensitive = true });
+
+            var names = RequestPropertyRedaction.GetSensitivePropertyNames(xml);
+
+            CollectionAssert.AreEquivalent(
+                new[] { "launch_code", "administrator_password" }, names.ToList());
+        }
+
+        [TestMethod]
+        public void GetSensitivePropertyNames_NoSensitiveOrMalformed_ReturnsEmpty()
+        {
+            var clean = SerializeDetail(new PropertyPair("rg", "rg-prod"));
+            Assert.AreEqual(0, RequestPropertyRedaction.GetSensitivePropertyNames(clean).Count);
+            Assert.AreEqual(0, RequestPropertyRedaction.GetSensitivePropertyNames(string.Empty).Count);
+            Assert.AreEqual(0, RequestPropertyRedaction.GetSensitivePropertyNames(
+                "<x><IsSensitive>true</IsSensitive>").Count,
+                "malformed XML yields an empty list rather than throwing");
+        }
+
+        [TestMethod]
         public void RedactRequestDetailsXml_ResultStillDeserializes_WithMarkerValue()
         {
             var xml = SerializeDetail(

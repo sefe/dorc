@@ -77,7 +77,10 @@ namespace Dorc.Monitor.RequestProcessors
 
                     try
                     {
-                        logger.LogDebug($"Request details:\r\n{requestToExecute.Request.RequestDetails}");
+                        // Debug-level convenience dump; RequestDetails carries
+                        // sensitive wizard parameter values in cleartext, so
+                        // redact before the payload touches any log sink.
+                        logger.LogDebug($"Request details:\r\n{RequestPropertyRedaction.RedactRequestDetailsXml(requestToExecute.Request.RequestDetails)}");
 
                         var requestDetail = requestToExecute.Details;
 

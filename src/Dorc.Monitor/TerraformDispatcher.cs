@@ -392,7 +392,13 @@ namespace Dorc.Monitor
                 DeployResultId = deploymentResultId,
                 ScriptsLocation = scriptsLocation,
                 CommonProperties = properties,
-                ScriptProperties = new List<ScriptProperties>()
+                ScriptProperties = new List<ScriptProperties>(),
+                // Exact names of sensitive wizard parameters, so runner-side
+                // log redaction covers flagged properties whose names don't
+                // match the heuristic pattern.
+                SensitivePropertyNames = RequestPropertyRedaction
+                    .GetSensitivePropertyNames(request?.RequestDetails ?? string.Empty)
+                    .ToList()
             };
 
             // Use the configurator to set Terraform-specific fields based on source type

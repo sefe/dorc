@@ -146,20 +146,26 @@ namespace Dorc.TerraformRunner
                 logger.FileLogger.LogInformation($"Successfully extracted path {scriptGroup.TerraformSubPath}");
             }
 
-            // Reject any user-checked-in `terraform { backend ... }` block before
-            // we render the platform backend; DOrc owns the backend.
-            // The validator throws with a precise error string identifying the
-            // offending file when the engineer must remove the declaration.
-            TerraformBackendValidator.RejectIfUserBackendBlocksPresent(workingDir);
-
-            // Render the platform-managed backend if the dispatcher provided one.
-            // Empty TerraformStateKey is the legacy path (no backend rendered);
-            // this preserves backward compatibility until the consolidated
-            // lifecycle is the default.
-            if (!string.IsNullOrEmpty(scriptGroup.TerraformStateKey)
+            // "DOrc owns the backend" applies only when DOrc actually renders
+            // one. When the platform state backend is configured (all three
+            // settings present) we reject user-checked-in backend blocks and
+            // render _dorc_backend.tf in their place. On the legacy path (no
+            // platform backend configured) a component's own backend block is
+            // the only thing keeping its state remote across throwaway working
+            // dirs, so rejecting it would break every pre-existing component.
+            var renderPlatformBackend = !string.IsNullOrEmpty(scriptGroup.TerraformStateKey)
                 && !string.IsNullOrEmpty(scriptGroup.TerraformStateStorageAccount)
-                && !string.IsNullOrEmpty(scriptGroup.TerraformStateContainerName))
+                && !string.IsNullOrEmpty(scriptGroup.TerraformStateContainerName);
+
+            if (renderPlatformBackend)
             {
+                // The validator throws with a precise error string identifying
+                // the offending file when the engineer must remove the
+                // declaration. It runs before the platform file is written, so
+                // ANY backend declaration found here - including a file named
+                // _dorc_backend.tf - is user content.
+                TerraformBackendValidator.RejectIfUserBackendBlocksPresent(workingDir);
+
                 TerraformBackendRenderer.WriteToWorkingDirectory(
                     workingDir,
                     new TerraformBackendRenderer.AzureBlobBackend(
@@ -169,6 +175,16 @@ namespace Dorc.TerraformRunner
                         ResourceGroup: scriptGroup.TerraformStateResourceGroup));
                 logger.FileLogger.LogInformation(
                     $"Rendered platform backend (key={scriptGroup.TerraformStateKey})");
+            }
+
+            // Catalog modules follow the module contract (no provider blocks;
+            // the consuming root supplies them). DOrc runs the module AS the
+            // root, so there is no consumer: render the provider configuration
+            // the module cannot declare for itself or `terraform plan` fails
+            // on azurerm's mandatory `features {}` block.
+            if (scriptGroup.TerraformSourceType == TerraformSourceType.Catalog)
+            {
+                TerraformProviderRenderer.WriteAzureRmIfRequired(workingDir);
             }
 
             logger.Information($"Terraform working directory has been set up at: {workingDir}");

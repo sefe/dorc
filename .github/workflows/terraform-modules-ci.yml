@@ -107,12 +107,18 @@ jobs:
           unzip -q tflint_linux_amd64.zip
           sudo mv tflint /usr/local/bin/
           tflint --version
+      # tflint resolves its config from --config / TFLINT_CONFIG_FILE /
+      # ./.tflint.hcl / ~/.tflint.hcl - it does NOT walk parent directories.
+      # The config lives at the repo root while these steps run inside each
+      # module, so it must be passed explicitly; the path must be absolute
+      # because --recursive re-resolves a relative --config in every scanned
+      # subdirectory.
       - name: tflint --init (pinned plugins from .tflint.hcl)
         working-directory: ${{ matrix.module }}
-        run: tflint --init
+        run: tflint --init --config "${GITHUB_WORKSPACE}/.tflint.hcl"
       - name: tflint
         working-directory: ${{ matrix.module }}
-        run: tflint --recursive --disable-rule=terraform_required_providers --disable-rule=terraform_required_version
+        run: tflint --recursive --config "${GITHUB_WORKSPACE}/.tflint.hcl" --disable-rule=terraform_required_providers --disable-rule=terraform_required_version
 
   secret-output-check:
     name: forbid 'sensitive = false' on secret-pattern outputs
@@ -129,7 +135,8 @@ jobs:
         # (?i)(token|pat|secret|password|key|connectionstring) must NOT carry
         # sensitive = false. Modules that omit a sensitive attribute on a
         # secret-named output are also flagged - they should be explicit. This
-        # is a structural lint over outputs.tf files only. See
+        # is a structural lint over every .tf file (Terraform accepts output
+        # blocks in any .tf file, not just outputs.tf). See
         # docs/Terraform/MODULE-CONTRACT.md.
         run: dotnet build src/Tools.TerraformLint/Tools.TerraformLint.csproj -c Release --nologo
       - name: scan stock-modules

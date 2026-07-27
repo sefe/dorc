@@ -128,7 +128,20 @@ namespace Dorc.Api.Controllers
                 return NotFound($"Stock template '{name}@{version}' was not found in the catalog.");
             }
 
-            var project = _projectsPersistentSource.GetProject(request.ProjectId);
+            // ProjectsPersistentSource.GetProject(int) resolves via
+            // Single(), which throws InvalidOperationException for an
+            // unknown id instead of returning null (despite the nullable
+            // return type). Translate that into the declared 404 rather
+            // than letting it surface as an opaque 500.
+            ProjectApiModel? project;
+            try
+            {
+                project = _projectsPersistentSource.GetProject(request.ProjectId);
+            }
+            catch (InvalidOperationException)
+            {
+                project = null;
+            }
             if (project is null)
             {
                 return NotFound($"Project with id {request.ProjectId} was not found.");
@@ -192,15 +205,35 @@ namespace Dorc.Api.Controllers
                 .GetComponentsForProject(project.ProjectName)
                 .ToList();
 
+            var deployRequested = !string.IsNullOrWhiteSpace(request.EnvironmentName);
+
             // A duplicate inside the destination project passes the
             // cross-project validation above but would still trigger the
             // legacy rename-the-existing-component behaviour: reject it
             // explicitly instead.
-            if (projectComponents.Any(c =>
-                    string.Equals(c.ComponentName, componentName, StringComparison.OrdinalIgnoreCase)))
+            //
+            // One exception, for retryability: a previous create-and-deploy
+            // call may have persisted the component and then failed to submit
+            // the deploy request (we deliberately leave the component in
+            // place — see the comment above the deploy block). When the
+            // caller retries the same create-and-deploy request and the
+            // existing component is an identical Catalog-mode instantiation
+            // of this template version, reuse it and proceed to the deploy
+            // instead of trapping the caller behind a 409.
+            var existingComponent = projectComponents.FirstOrDefault(c =>
+                string.Equals(c.ComponentName, componentName, StringComparison.OrdinalIgnoreCase));
+            if (existingComponent is not null)
             {
-                return Conflict(
-                    $"A component named '{componentName}' already exists in project '{project.ProjectName}'. Choose a different component name.");
+                var isIdenticalCatalogComponent =
+                    existingComponent.ComponentType == ComponentType.Terraform
+                    && existingComponent.TerraformSourceType == TerraformSourceType.Catalog
+                    && string.Equals(existingComponent.TerraformTemplateName, manifest.Name, StringComparison.OrdinalIgnoreCase)
+                    && string.Equals(existingComponent.TerraformTemplateVersion, manifest.Version, StringComparison.OrdinalIgnoreCase);
+                if (!deployRequested || !isIdenticalCatalogComponent)
+                {
+                    return Conflict(
+                        $"A component named '{componentName}' already exists in project '{project.ProjectName}'. Choose a different component name.");
+                }
             }
 
             // The parent, when supplied, must belong to the destination
@@ -213,31 +246,44 @@ namespace Dorc.Api.Controllers
                     $"Parent component id {parentComponentId} does not belong to project '{project.ProjectName}'.");
             }
 
-            try
+            if (existingComponent is not null)
             {
-                _manageProjectsPersistentSource.CreateComponent(
-                    component,
-                    request.ProjectId,
-                    request.ParentComponentId,
-                    username);
+                // Retry path: the identical Catalog-mode component already
+                // exists from a previous partially-failed create-and-deploy
+                // call; reuse it instead of creating a second one.
+                component = existingComponent;
+                _log.LogInformation(
+                    "Stock template '{Manifest}' retry: reusing existing component '{Component}' in project '{ProjectName}' (id {ProjectId}) by {UserId}.",
+                    $"{manifest.Name}@{manifest.Version}", safeComponentName, project.ProjectName, request.ProjectId, safeUserId);
             }
-            catch (InvalidOperationException ex)
+            else
             {
-                // Persistence-layer business/state failures (duplicate component
-                // name, project-shape violation, etc.) are the expected,
-                // actionable case here. Anything else bubbles up to the
-                // framework's centralized handler so stacks and types are
-                // preserved instead of being masked as a flat 500.
-                _log.LogError(ex,
-                    "Failed to instantiate template '{Manifest}' as component '{Component}' in project {ProjectId}.",
-                    $"{manifest.Name}@{manifest.Version}", safeComponentName, request.ProjectId);
-                return StatusCode(StatusCodes.Status500InternalServerError,
-                    "Failed to create the component for the chosen template. See server logs.");
-            }
+                try
+                {
+                    _manageProjectsPersistentSource.CreateComponent(
+                        component,
+                        request.ProjectId,
+                        request.ParentComponentId,
+                        username);
+                }
+                catch (InvalidOperationException ex)
+                {
+                    // Persistence-layer business/state failures (duplicate component
+                    // name, project-shape violation, etc.) are the expected,
+                    // actionable case here. Anything else bubbles up to the
+                    // framework's centralized handler so stacks and types are
+                    // preserved instead of being masked as a flat 500.
+                    _log.LogError(ex,
+                        "Failed to instantiate template '{Manifest}' as component '{Component}' in project {ProjectId}.",
+                        $"{manifest.Name}@{manifest.Version}", safeComponentName, request.ProjectId);
+                    return StatusCode(StatusCodes.Status500InternalServerError,
+                        "Failed to create the component for the chosen template. See server logs.");
+                }
 
-            _log.LogInformation(
-                "Stock template '{Manifest}' instantiated as component '{Component}' in project '{ProjectName}' (id {ProjectId}) by {UserId}.",
-                $"{manifest.Name}@{manifest.Version}", safeComponentName, project.ProjectName, request.ProjectId, safeUserId);
+                _log.LogInformation(
+                    "Stock template '{Manifest}' instantiated as component '{Component}' in project '{ProjectName}' (id {ProjectId}) by {UserId}.",
+                    $"{manifest.Name}@{manifest.Version}", safeComponentName, project.ProjectName, request.ProjectId, safeUserId);
+            }
 
             // create-and-deploy mode. When the wizard supplies an
             // environment + parameter values, additionally validate the
@@ -246,8 +292,9 @@ namespace Dorc.Api.Controllers
             // RequestDto, and submit it through the existing
             // IRequestService.CreateRequest path. On failure we return an
             // error WITH the created Component still persisted; the caller
-            // sees the component in their project and can retry the deploy.
-            var deployRequested = !string.IsNullOrWhiteSpace(request.EnvironmentName);
+            // sees the component in their project and can retry the deploy
+            // (the identical-catalog-component reuse above makes that retry
+            // succeed instead of 409ing).
             if (deployRequested)
             {
                 // C-13 RBAC controller-pin: this check lives in the controller,
@@ -272,7 +319,8 @@ namespace Dorc.Api.Controllers
 
                 // Compose RequestDto. BuildUrl is set to the catalog sentinel
                 // directly because we already know this single component is
-                // Catalog-mode (we just created it). RequestProperties carry
+                // Catalog-mode (we just created it, or verified the reused
+                // one is an identical Catalog instantiation). RequestProperties carry
                 // each manifest parameter's value with IsSensitive sourced
                 // from the manifest's Sensitive flag so the closed
                 //  redaction surface covers them.
@@ -529,6 +577,15 @@ namespace Dorc.Api.Controllers
         private bool HasViewPermission(DeploymentRequestApiModel? request)
         {
             if (request is null) return false;
+            // Anyone permitted to confirm or decline the plan must be able to
+            // read it first: the confirmation dialog loads the plan before it
+            // renders the Confirm/Decline actions, so a narrower view gate
+            // would strand confirm-capable users' deployments in
+            // WaitingConfirmation.
+            if (HasConfirmPermission(request))
+            {
+                return true;
+            }
             if (!string.IsNullOrEmpty(request.EnvironmentName)
                 && _apiSecurityService.IsEnvironmentOwnerOrAdmin(User, request.EnvironmentName))
             {

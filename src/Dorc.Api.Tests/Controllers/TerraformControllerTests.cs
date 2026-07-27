@@ -141,6 +141,47 @@ namespace Dorc.Api.Tests.Controllers
         }
 
         [TestMethod]
+        public async Task InstantiateTemplate_UnknownProject_Returns404()
+        {
+            _catalog.GetAsync(TemplateName, TemplateVersion, Arg.Any<CancellationToken>())
+                .Returns(Manifest());
+            // ProjectsPersistentSource.GetProject(int) resolves via Single(),
+            // which throws for an unknown id instead of returning null; the
+            // controller must translate that into the declared 404.
+            _projects.When(x => x.GetProject(ProjectId))
+                .Do(_ => throw new InvalidOperationException("Sequence contains no elements"));
+
+            var result = await _controller.InstantiateTemplate(
+                TemplateName,
+                TemplateVersion,
+                new TerraformTemplateInstantiateRequestApiModel { ProjectId = ProjectId },
+                CancellationToken.None);
+
+            Assert.IsInstanceOfType(result, typeof(NotFoundObjectResult));
+            _manageProjects.DidNotReceiveWithAnyArgs()
+                .CreateComponent(default!, default, default, default!);
+        }
+
+        [TestMethod]
+        public async Task InstantiateTemplate_NotProjectOwnerOrAdmin_Returns403()
+        {
+            GivenTemplateAndProject(Manifest());
+            _security.IsProjectOwnerOrAdmin(Arg.Any<ClaimsPrincipal>(), ProjectName).Returns(false);
+
+            var result = await _controller.InstantiateTemplate(
+                TemplateName,
+                TemplateVersion,
+                new TerraformTemplateInstantiateRequestApiModel { ProjectId = ProjectId },
+                CancellationToken.None);
+
+            Assert.IsInstanceOfType(result, typeof(ForbidResult),
+                "Create-path RBAC failure (not project owner/admin) returns Forbid.");
+            _manageProjects.DidNotReceiveWithAnyArgs()
+                .CreateComponent(default!, default, default, default!);
+            _requestService.DidNotReceiveWithAnyArgs().CreateRequest(default!, default!);
+        }
+
+        [TestMethod]
         public async Task InstantiateTemplate_DeployRequestedButCannotModifyEnvironment_Returns403()
         {
             GivenTemplateAndProject(Manifest());
@@ -328,6 +369,111 @@ namespace Dorc.Api.Tests.Controllers
         }
 
         [TestMethod]
+        public async Task InstantiateTemplate_RetryAfterPartialFailure_ReusesIdenticalCatalogComponentAndDeploys()
+        {
+            // Retry path: a previous create-and-deploy call persisted the
+            // component but failed to submit the deploy request. Retrying the
+            // identical create-and-deploy request must reuse the existing
+            // Catalog-mode component and proceed to the deploy instead of
+            // returning 409.
+            const int existingComponentId = 55;
+            const int newRequestId = 321;
+            GivenTemplateAndProject(Manifest());
+            _projects.GetComponentsForProject(ProjectName).Returns(new List<ComponentApiModel>
+            {
+                new ComponentApiModel
+                {
+                    ComponentId = existingComponentId,
+                    ComponentName = TemplateName,
+                    ComponentType = ComponentType.Terraform,
+                    TerraformSourceType = TerraformSourceType.Catalog,
+                    TerraformTemplateName = TemplateName,
+                    TerraformTemplateVersion = TemplateVersion,
+                }
+            });
+            _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(true);
+            _parameterValidator.Validate(
+                    Arg.Any<TerraformTemplateManifest>(),
+                    Arg.Any<IReadOnlyDictionary<string, string?>>())
+                .Returns(new ParameterValidationResult(true, Array.Empty<ParameterValidationError>()));
+            _requestService.CreateRequest(Arg.Any<RequestDto>(), Arg.Any<ClaimsPrincipal>())
+                .Returns(new RequestStatusDto { Id = newRequestId, Status = "Pending" });
+
+            var result = await _controller.InstantiateTemplate(
+                TemplateName,
+                TemplateVersion,
+                new TerraformTemplateInstantiateRequestApiModel
+                {
+                    ProjectId = ProjectId,
+                    EnvironmentName = EnvName,
+                    Parameters = new Dictionary<string, string>()
+                },
+                CancellationToken.None);
+
+            Assert.IsInstanceOfType(result, typeof(OkObjectResult),
+                "Retrying an identical catalog instantiation in create-and-deploy mode succeeds instead of 409ing.");
+            _manageProjects.DidNotReceiveWithAnyArgs()
+                .CreateComponent(default!, default, default, default!);
+            _requestService.Received(1).CreateRequest(
+                Arg.Is<RequestDto>(dto =>
+                    dto.Environment == EnvName
+                    && dto.Project == ProjectName
+                    && dto.Components.Contains(TemplateName)),
+                Arg.Any<ClaimsPrincipal>());
+
+            // The 200 envelope carries the reused (already persisted) component.
+            var ok = (OkObjectResult)result;
+            var componentProperty = ok.Value!.GetType().GetProperty("component");
+            if (componentProperty is null)
+            {
+                Assert.Fail("200 body carries a component member.");
+                return;
+            }
+            var component = (ComponentApiModel)componentProperty.GetValue(ok.Value)!;
+            Assert.AreEqual(existingComponentId, component.ComponentId,
+                "The envelope's component is the reused existing component, not a newly created one.");
+        }
+
+        [TestMethod]
+        public async Task InstantiateTemplate_RetryWithDifferentTemplateVersion_StillReturns409()
+        {
+            // The reuse exception is strictly for identical instantiations: an
+            // existing same-named Catalog component of a DIFFERENT template
+            // version must still be rejected with 409.
+            GivenTemplateAndProject(Manifest());
+            _projects.GetComponentsForProject(ProjectName).Returns(new List<ComponentApiModel>
+            {
+                new ComponentApiModel
+                {
+                    ComponentId = 55,
+                    ComponentName = TemplateName,
+                    ComponentType = ComponentType.Terraform,
+                    TerraformSourceType = TerraformSourceType.Catalog,
+                    TerraformTemplateName = TemplateName,
+                    TerraformTemplateVersion = "0.9.0",
+                }
+            });
+            _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(true);
+
+            var result = await _controller.InstantiateTemplate(
+                TemplateName,
+                TemplateVersion,
+                new TerraformTemplateInstantiateRequestApiModel
+                {
+                    ProjectId = ProjectId,
+                    EnvironmentName = EnvName,
+                    Parameters = new Dictionary<string, string>()
+                },
+                CancellationToken.None);
+
+            Assert.IsInstanceOfType(result, typeof(ConflictObjectResult),
+                "A same-named catalog component of a different version is not reusable and returns 409.");
+            _manageProjects.DidNotReceiveWithAnyArgs()
+                .CreateComponent(default!, default, default, default!);
+            _requestService.DidNotReceiveWithAnyArgs().CreateRequest(default!, default!);
+        }
+
+        [TestMethod]
         public async Task InstantiateTemplate_ValidateComponentsRejects_Returns400()
         {
             GivenTemplateAndProject(Manifest());
@@ -410,11 +556,31 @@ namespace Dorc.Api.Tests.Controllers
         }
 
         [TestMethod]
-        public void GetTerraformPlan_NeitherOwnerNorAdmin_Returns403()
+        public void GetTerraformPlan_CanModifyEnvironmentOnly_Returns200()
+        {
+            // A user who is neither env nor project owner/admin but holds
+            // env-modify (Write) rights can confirm/decline the plan, so the
+            // view gate must admit them too - otherwise the confirmation
+            // dialog can never render its actions for exactly the role
+            // permitted to confirm.
+            GivenStandardDeploymentResult();
+            _security.IsEnvironmentOwnerOrAdmin(Arg.Any<ClaimsPrincipal>(), Arg.Any<string>()).Returns(false);
+            _security.IsProjectOwnerOrAdmin(Arg.Any<ClaimsPrincipal>(), Arg.Any<string>()).Returns(false);
+            _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(true);
+            _storage.LoadFileFromBlobs(Arg.Any<string>()).Returns("plan-content");
+
+            var result = _controller.GetTerraformPlan(DeploymentResultId);
+
+            Assert.IsInstanceOfType(result, typeof(OkObjectResult));
+        }
+
+        [TestMethod]
+        public void GetTerraformPlan_NeitherOwnerNorAdminNorEnvModifier_Returns403()
         {
             GivenStandardDeploymentResult();
             _security.IsEnvironmentOwnerOrAdmin(Arg.Any<ClaimsPrincipal>(), Arg.Any<string>()).Returns(false);
             _security.IsProjectOwnerOrAdmin(Arg.Any<ClaimsPrincipal>(), Arg.Any<string>()).Returns(false);
+            _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), Arg.Any<string>()).Returns(false);
 
             var result = _controller.GetTerraformPlan(DeploymentResultId);
 

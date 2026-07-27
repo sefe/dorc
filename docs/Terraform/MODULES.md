@@ -21,7 +21,7 @@ module "vnet" {
 }
 ```
 
-In DOrc deploys, set the component properties `Terraform_Template_Name` and `Terraform_Template_Version`.
+In DOrc, catalog templates are consumed via the component itself, not via DOrc properties: use the **Stock Modules** page's **Deploy from template** wizard (or `POST /api/Terraform/templates/{name}/{version}/instantiate`), which creates a Terraform component with `TerraformSourceType = Catalog` and the component fields `TerraformTemplateName` / `TerraformTemplateVersion` set to the chosen template. The engineer then deploys that component through the normal DOrc deploy flow.
 
 ## Adding a new module
 

@@ -49,6 +49,14 @@ namespace Dorc.ApiModel
         public string TerraformTemplateName { get; set; }
         public string TerraformTemplateVersion { get; set; }
 
+        // Names of properties the request flags as sensitive (wizard
+        // parameters with sensitive: true). Additive: absent in payloads
+        // produced before the field existed, which deserializes as the empty
+        // default. The runner merges these into its log-redaction options so
+        // redaction of a flagged property does not depend on its NAME
+        // matching the heuristic pattern.
+        public IList<string> SensitivePropertyNames { get; set; } = new List<string>();
+
         public IDictionary<string, VariableValue> CommonProperties { get; set; }
         public IList<ScriptProperties> ScriptProperties { get; set; }
     }

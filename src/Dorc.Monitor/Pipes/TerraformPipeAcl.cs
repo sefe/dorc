@@ -42,9 +42,14 @@ namespace Dorc.Monitor.Pipes
             // Runner connects under the deployment user; we don't have that
             // SID here, so grant AuthenticatedUsers the minimum needed to
             // read+write the pipe payload. Anonymous logon is excluded.
+            // ReadWrite (not bare ReadData|WriteData) is required: the client's
+            // CreateFile requests GENERIC_READ/GENERIC_WRITE, which the access
+            // check expands to include ReadAttributes, ReadExtendedAttributes
+            // and ReadPermissions (READ_CONTROL) — a DACL granting only the
+            // Data bits fails the handshake with ERROR_ACCESS_DENIED.
             ps.SetAccessRule(new PipeAccessRule(
                 new SecurityIdentifier(WellKnownSidType.AuthenticatedUserSid, null),
-                PipeAccessRights.ReadData | PipeAccessRights.WriteData | PipeAccessRights.Synchronize,
+                PipeAccessRights.ReadWrite | PipeAccessRights.Synchronize,
                 AccessControlType.Allow));
 
             return ps;

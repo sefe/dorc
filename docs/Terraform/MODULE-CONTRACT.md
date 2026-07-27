@@ -101,11 +101,11 @@ Failure blocks merge.
 
 - **Add** a new version file (`<name>-<next>.yaml`).
 - **Delete** a version file (so a future v2 can reinstate a previously-removed module at a new path).
-- **Rename** is treated as a (delete + add) pair.
+- **Rename with identical content** (git diff status `R100`) is treated as a (delete + add) pair. A rename that also changes content (`R` with similarity below 100) is a modification of the old path in disguise and is rejected.
 
-Forbidden: editing the body of an existing version file. To publish a fix to a stock module's interface, create a new version with a bumped `version:` field.
+Forbidden: editing the body of an existing version file — including via rename. To publish a fix to a stock module's interface, create a new version with a bumped `version:` field.
 
-The gate runs on every PR (not on `push: main`) and lives in `scripts/manifest-immutability.sh`. The script's `--self-test` flag exercises the four diff-status letters (`A`, `D`, `R`, `M`) against synthetic fixtures.
+The gate runs on every PR (not on `push: main`) and lives in `scripts/manifest-immutability.sh`. It fails closed: a git error (e.g. unreachable base commit) fails the build rather than passing the gate. The script's `--self-test` flag exercises the gate's real classification function against synthetic diff-status fixtures (`A`, `D`, `R100`, `R<sim>`, `M`, `T`, and unknown statuses).
 
 ## Sensitive-name lint
 A non-blocking CI lint warns when a manifest parameter's `name` matches a secret-shape substring (case-insensitive) but does not declare `sensitive: true`. Default patterns: `password`, `secret`, `key`, `token`, `connection_string`. The pattern list is configurable via `stock-modules-manifests/.sensitive-name-patterns` (one substring per line; `#` comments and blank lines are stripped).
