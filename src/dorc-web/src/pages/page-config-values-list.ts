@@ -121,6 +121,9 @@ export class PageConfigValuesList extends ResponsiveMixin(PageElement) {
         top: 16px;
         overflow: auto;
         padding: 10px;
+        width: 560px;
+        max-width: calc(100vw - 32px);
+        box-sizing: border-box;
       }
       @media (max-width: 768px) {
         vaadin-grid-cell-content {

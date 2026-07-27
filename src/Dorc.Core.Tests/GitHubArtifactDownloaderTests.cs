@@ -154,6 +154,16 @@ namespace Dorc.Core.Tests
             // to IGitHubHostValidator — we don't try to complete the download
             // because that would require a full HttpClient mock.
             _hostValidator.ValidateHost("api.github.com"); // no throw = allowed
+
+            // Point the downloader at a writable temp folder so it doesn't
+            // fall back to DorcProgramData.Root (%ProgramData%\dorc on Windows,
+            // /usr/share/dorc on macOS/Linux — write-protected on non-Windows).
+            var tempRoot = Path.Join(Path.GetTempPath(), "dorc-test-" + Guid.NewGuid().ToString("N"));
+            var appSettings = Substitute.For<IConfigurationSection>();
+            appSettings["GitHubArtifactDownloadFolder"].Returns(tempRoot);
+            appSettings[Arg.Is<string>(k => k != "GitHubArtifactDownloadFolder")].Returns((string?)null);
+            _configuration.GetSection("AppSettings").Returns(appSettings);
+
             var sut = CreateSut();
 
             // The download itself will fail (no HTTP mocking), but the host
@@ -164,11 +174,18 @@ namespace Dorc.Core.Tests
             }
             catch (Exception ex) when (ex is HttpRequestException
                                        or TaskCanceledException
-                                       or IOException)
+                                       or IOException
+                                       or UnauthorizedAccessException)
             {
                 // expected — real HttpClient against api.github.com without
                 // auth returns 404 → HttpRequestException; without network,
-                // TaskCanceledException or IOException.
+                // TaskCanceledException or IOException. UnauthorizedAccessException
+                // can occur if the temp path is unexpectedly restricted.
+            }
+            finally
+            {
+                if (Directory.Exists(tempRoot))
+                    Directory.Delete(tempRoot, recursive: true);
             }
 
             _hostValidator.Received().ValidateHost("api.github.com");

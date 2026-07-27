@@ -223,6 +223,12 @@ export class PageProjectsList extends ResponsiveMixin(PageElement) {
                 resizable
                 ?hidden="${this._narrowScreen}"
               ></vaadin-grid-sort-column>
+              <vaadin-grid-sort-column
+                path="LeanIXUrl"
+                header="LeanIX URL"
+                resizable
+                ?hidden="${this._narrowScreen}"
+              ></vaadin-grid-sort-column>
               <vaadin-grid-column
                 width="180px"
                 .attachedPPLControl="${this}"
@@ -329,14 +335,16 @@ export class PageProjectsList extends ResponsiveMixin(PageElement) {
         ProjectName,
         ProjectDescription,
         ArtefactsBuildRegex,
-        ArtefactsSubPaths
+        ArtefactsSubPaths,
+        LeanIXUrl
       }) =>
         filters.some(
           filter =>
             filter.test(ProjectName || '') ||
             filter.test(ProjectDescription || '') ||
             filter.test(ArtefactsBuildRegex || '') ||
-            filter.test(ArtefactsSubPaths || '')
+            filter.test(ArtefactsSubPaths || '') ||
+            filter.test(LeanIXUrl || '')
         )
     );
   }
@@ -348,7 +356,8 @@ export class PageProjectsList extends ResponsiveMixin(PageElement) {
       ProjectName: '',
       ArtefactsBuildRegex: '',
       ArtefactsSubPaths: '',
-      ArtefactsUrl: ''
+      ArtefactsUrl: '',
+      LeanIXUrl: ''
     };
   }
 

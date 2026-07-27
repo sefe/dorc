@@ -131,7 +131,9 @@ namespace Dorc.Monitor.RequestProcessors
                             {
                                 Status = deploymentRequestStatus.ToString(),
                                 CompletedTime = DateTimeOffset.Now,
-                            });
+                            }).ContinueWith(t => logger.LogWarning(t.Exception!.InnerException,
+                                "fire-and-forget publish failed for requestId={RequestId}", requestToExecute.Request.Id),
+                                TaskContinuationOptions.OnlyOnFaulted);
 
                             return;
                         }
@@ -179,7 +181,9 @@ namespace Dorc.Monitor.RequestProcessors
                             {
                                 Status = deploymentRequestStatus.ToString(),
                                 CompletedTime = DateTimeOffset.Now,
-                            });
+                            }).ContinueWith(t => logger.LogWarning(t.Exception!.InnerException,
+                                "fire-and-forget publish failed for requestId={RequestId}", requestToExecute.Request.Id),
+                                TaskContinuationOptions.OnlyOnFaulted);
 
                             return;
                         }
@@ -271,7 +275,9 @@ namespace Dorc.Monitor.RequestProcessors
                         {
                             Status = deploymentRequestStatus.ToString(),
                             CompletedTime = DateTimeOffset.Now,
-                        });
+                        }).ContinueWith(t => logger.LogWarning(t.Exception!.InnerException,
+                            "fire-and-forget publish failed for requestId={RequestId}", requestToExecute.Request.Id),
+                            TaskContinuationOptions.OnlyOnFaulted);
                     }
                     catch (Exception ex)
                     {
@@ -303,7 +309,9 @@ namespace Dorc.Monitor.RequestProcessors
                         {
                             Status = DeploymentRequestStatus.Errored.ToString(),
                             CompletedTime = DateTimeOffset.Now,
-                        });
+                        }).ContinueWith(t => logger.LogWarning(t.Exception!.InnerException,
+                            "fire-and-forget publish failed for requestId={RequestId}", requestToExecute.Request.Id),
+                            TaskContinuationOptions.OnlyOnFaulted);
                     }
                 }
                 catch (Exception e)
@@ -325,7 +333,9 @@ namespace Dorc.Monitor.RequestProcessors
                     {
                         Status = DeploymentRequestStatus.Errored.ToString(),
                         CompletedTime = DateTimeOffset.Now,
-                    });
+                    }).ContinueWith(t => logger.LogWarning(t.Exception!.InnerException,
+                        "fire-and-forget publish failed for requestId={RequestId}", requestToExecute.Request.Id),
+                        TaskContinuationOptions.OnlyOnFaulted);
 
                     return;
                 }
@@ -364,7 +374,8 @@ namespace Dorc.Monitor.RequestProcessors
                     eventsPublisher.PublishResultStatusChangedAsync(new DeploymentResultEventData(pendingResult)
                     {
                         Status = DeploymentResultStatus.Cancelled.ToString()
-                    });
+                    }).ContinueWith(t => logger.LogWarning(t.Exception!.InnerException,
+                        "fire-and-forget publish failed for result"), TaskContinuationOptions.OnlyOnFaulted);
                 }
 
                 logger.LogInformation(
@@ -391,7 +402,9 @@ namespace Dorc.Monitor.RequestProcessors
             {
                 Status = DeploymentRequestStatus.Running.ToString(),
                 StartedTime = DateTimeOffset.Now,
-            });
+            }).ContinueWith(t => logger.LogWarning(t.Exception!.InnerException,
+                "fire-and-forget publish failed for requestId={RequestId}", request.Id),
+                TaskContinuationOptions.OnlyOnFaulted);
         }
 
         private IList<ComponentApiModel> GetOrderedNonSkippedComponents(

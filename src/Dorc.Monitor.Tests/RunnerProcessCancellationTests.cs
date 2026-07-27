@@ -15,6 +15,17 @@ namespace Dorc.Monitor.Tests
     [SupportedOSPlatform("windows")]
     public class RunnerProcessCancellationTests
     {
+        // The whole class is Win32-bound (ping.exe + kernel32.OpenProcess). The
+        // [SupportedOSPlatform] attribute is a static-analysis hint, not a runtime
+        // gate — without this skip, every method fails with DllNotFoundException
+        // on Linux/macOS CI.
+        [ClassInitialize]
+        public static void ClassInit(TestContext _)
+        {
+            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                Assert.Inconclusive("RunnerProcess cancellation tests require Windows (kernel32 OpenProcess + ping.exe).");
+        }
+
         // OpenProcess is used instead of Process.Handle to obtain an independent handle.
         // RunnerProcess.Dispose() calls CloseHandle on its handle, which would invalidate
         // Process.Handle if they shared the same underlying OS handle.
