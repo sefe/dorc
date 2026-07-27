@@ -138,8 +138,16 @@ namespace Dorc.Api.Controllers
             {
                 project = _projectsPersistentSource.GetProject(request.ProjectId);
             }
-            catch (InvalidOperationException)
+            catch (InvalidOperationException ex)
             {
+                // GetProject resolves via Single() on a fresh context, so the
+                // realistic InvalidOperationException here is "no such id".
+                // Log it so the rare non-not-found case (a Single() invariant
+                // breach) is still visible in telemetry rather than silently
+                // reported to the caller as a 404.
+                _log.LogWarning(ex,
+                    "GetProject({ProjectId}) threw; treating as project-not-found for template instantiation.",
+                    request.ProjectId);
                 project = null;
             }
             if (project is null)

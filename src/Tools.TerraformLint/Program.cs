@@ -12,12 +12,14 @@ namespace Tools.TerraformLint;
 //     producer omissions for human review.
 //
 //   secret-outputs <stock-modules-root>
-//     Walks every *.tf file under the supplied root (Terraform accepts
-//     `output` blocks in any .tf file, not just outputs.tf); for every
-//     `output "name" { ... }` block whose name matches a built-in secret
-//     pattern (token / pat / secret / password / key / connectionstring),
-//     fails the build if the body declares `sensitive = false` or omits
-//     `sensitive = true` entirely. Forces module authors to be explicit.
+//     Walks every *.tf and *.tf.json file under the supplied root (Terraform
+//     accepts `output` blocks in any .tf file, not just outputs.tf, and in
+//     JSON syntax too); for every `output "name" { ... }` whose name matches
+//     a built-in secret pattern (token / pat / secret / password / key /
+//     connectionstring), fails the build if the body declares
+//     `sensitive = false` or omits `sensitive = true` entirely. Forces
+//     module authors to be explicit. Files under `.terraform` caches are
+//     skipped as third-party code.
 //
 //   --self-test
 //     Exercises both commands against synthetic fixtures in a temp dir.
@@ -231,7 +233,84 @@ public static class SecretOutputsLint
         {
             failures += LintFile(file.FullName, errWriter);
         }
+        // Terraform equally accepts JSON-syntax configuration (*.tf.json),
+        // and its `output` objects can carry the same secret-pattern names.
+        // The HCL regex scan above cannot parse them, so JSON files get a
+        // dedicated structural check - otherwise a secret output declared in
+        // JSON would bypass the blocking gate (the same reason
+        // TerraformBackendValidator scans both syntaxes).
+        foreach (var file in root.GetFiles("*.tf.json", SearchOption.AllDirectories)
+                     .Where(f => !IsUnderDotTerraformDirectory(f))
+                     .OrderBy(f => f.FullName))
+        {
+            failures += LintJsonFile(file.FullName, errWriter);
+        }
         return failures;
+    }
+
+    // Structural check for Terraform JSON output declarations. The JSON
+    // output form is `{ "output": { "<name>": { "sensitive": <bool>, ... } } }`;
+    // Terraform also permits `"output"` to be an array of such single-key
+    // objects. A secret-pattern output must declare sensitive = true.
+    public static int LintJsonFile(string path, TextWriter errWriter)
+    {
+        if (path == null || path.Contains(".."))
+            throw new ArgumentException("path must not contain '..' segments");
+
+        System.Text.Json.JsonDocument doc;
+        try
+        {
+            doc = System.Text.Json.JsonDocument.Parse(File.ReadAllText(path));
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            // Malformed JSON is terraform's own error to surface at plan
+            // time; this gate over-blocks nothing by ignoring it.
+            return 0;
+        }
+
+        using (doc)
+        {
+            if (doc.RootElement.ValueKind != System.Text.Json.JsonValueKind.Object
+                || !doc.RootElement.TryGetProperty("output", out var outputElement))
+            {
+                return 0;
+            }
+
+            var failures = 0;
+            // Both shapes: a single object keyed by output name, or an array
+            // of single-key objects (repeated `output` blocks in JSON form).
+            var objects = outputElement.ValueKind == System.Text.Json.JsonValueKind.Array
+                ? outputElement.EnumerateArray()
+                    .Where(e => e.ValueKind == System.Text.Json.JsonValueKind.Object)
+                : new[] { outputElement }.Where(e => e.ValueKind == System.Text.Json.JsonValueKind.Object);
+
+            foreach (var obj in objects)
+            {
+                foreach (var member in obj.EnumerateObject())
+                {
+                    if (!SecretNamePattern.IsMatch(member.Name)) continue;
+                    if (member.Value.ValueKind != System.Text.Json.JsonValueKind.Object) continue;
+
+                    var sensitiveTrue = member.Value.TryGetProperty("sensitive", out var s)
+                        && s.ValueKind == System.Text.Json.JsonValueKind.True;
+                    var sensitiveFalse = member.Value.TryGetProperty("sensitive", out var s2)
+                        && s2.ValueKind == System.Text.Json.JsonValueKind.False;
+
+                    if (sensitiveFalse)
+                    {
+                        errWriter.WriteLine($"{path}: output \"{member.Name}\" must not declare sensitive = false");
+                        failures++;
+                    }
+                    else if (!sensitiveTrue)
+                    {
+                        errWriter.WriteLine($"{path}: output \"{member.Name}\" matches secret pattern; declare sensitive = true");
+                        failures++;
+                    }
+                }
+            }
+            return failures;
+        }
     }
 
     private static bool IsUnderDotTerraformDirectory(FileInfo file)
@@ -402,13 +481,28 @@ internal static class SelfTest
             File.WriteAllText(Path.Join(mod7.FullName, "outputs.tf"),
                 "output \"vendored_secret\" {\n  value = \"corge\"\n}\n");
 
+            // Module 8: secret-named output declared in JSON syntax
+            // (*.tf.json) with sensitive:false (must fail — JSON is
+            // first-class Terraform config and must not bypass the gate).
+            var mod8 = Directory.CreateDirectory(Path.Join(temp.FullName, "module-json"));
+            File.WriteAllText(Path.Join(mod8.FullName, "outputs.tf.json"),
+                "{ \"output\": { \"db_password\": { \"value\": \"grault\", \"sensitive\": false } } }");
+
+            // Module 9: clean JSON output — secret name with sensitive:true
+            // (must NOT be flagged).
+            var mod9 = Directory.CreateDirectory(Path.Join(temp.FullName, "module-json-clean"));
+            File.WriteAllText(Path.Join(mod9.FullName, "outputs.tf.json"),
+                "{ \"output\": { \"api_secret\": { \"value\": \"garply\", \"sensitive\": true } } }");
+
             using var sw = new StringWriter();
             var failures = SecretOutputsLint.LintDirectory(temp, sw);
-            AssertCount("secret-outputs: expected exactly three failures", 3, failures);
+            AssertCount("secret-outputs: expected exactly four failures", 4, failures);
             var output = sw.ToString();
-            if (!output.Contains("api_key") || !output.Contains("admin_password") || !output.Contains("storage_connectionstring"))
-                throw new InvalidOperationException($"failures should name api_key, admin_password and storage_connectionstring: {output}");
-            if (output.Contains("connection_string\"") || output.Contains("resource_id") || output.Contains("subnet_keys"))
+            if (!output.Contains("api_key") || !output.Contains("admin_password")
+                || !output.Contains("storage_connectionstring") || !output.Contains("db_password"))
+                throw new InvalidOperationException($"failures should name api_key, admin_password, storage_connectionstring and db_password: {output}");
+            if (output.Contains("connection_string\"") || output.Contains("resource_id")
+                || output.Contains("subnet_keys") || output.Contains("api_secret"))
                 throw new InvalidOperationException($"clean / non-secret modules must not be flagged: {output}");
             if (output.Contains("vendored_secret"))
                 throw new InvalidOperationException($".terraform cache directories must be skipped: {output}");

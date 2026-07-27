@@ -62,6 +62,40 @@ namespace Dorc.TerraformRunner.Tests.State
         }
 
         [TestMethod]
+        public void WriteAzureRmIfRequired_ModuleHasOnlyAliasedProviderBlock_RendersDefault()
+        {
+            // An aliased provider block (permitted by the module contract for
+            // cross-scope resources) is NOT a default provider configuration,
+            // so the default must still be rendered or terraform plan fails
+            // for resources using the default provider.
+            File.WriteAllText(Path.Join(_tempRoot, "providers.tf"),
+                "provider \"azurerm\" {\n  alias    = \"hub\"\n  features {}\n}\n");
+            File.WriteAllText(Path.Join(_tempRoot, "versions.tf"),
+                "terraform { required_providers { azurerm = { source = \"hashicorp/azurerm\" } } }");
+
+            TerraformProviderRenderer.WriteAzureRmIfRequired(_tempRoot);
+
+            Assert.IsTrue(File.Exists(ProviderFilePath),
+                "an aliased-only provider block must not suppress the default provider render");
+            StringAssert.Contains(File.ReadAllText(ProviderFilePath), "features {}");
+        }
+
+        [TestMethod]
+        public void WriteAzureRmIfRequired_ModuleHasDefaultAndAliasedBlocks_NoFileWritten()
+        {
+            // A default block plus an aliased sibling: the default is already
+            // configured, so nothing should be rendered.
+            File.WriteAllText(Path.Join(_tempRoot, "providers.tf"),
+                "provider \"azurerm\" {\n  features {}\n}\n\nprovider \"azurerm\" {\n  alias    = \"hub\"\n  features {}\n}\n");
+            File.WriteAllText(Path.Join(_tempRoot, "versions.tf"),
+                "terraform { required_providers { azurerm = { source = \"hashicorp/azurerm\" } } }");
+
+            TerraformProviderRenderer.WriteAzureRmIfRequired(_tempRoot);
+
+            Assert.IsFalse(File.Exists(ProviderFilePath));
+        }
+
+        [TestMethod]
         public void WriteAzureRmIfRequired_ModuleDoesNotUseAzureRm_NoFileWritten()
         {
             File.WriteAllText(Path.Join(_tempRoot, "versions.tf"),

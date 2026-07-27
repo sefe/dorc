@@ -142,11 +142,15 @@ export class DeployFromTemplateDialog extends LitElement {
     for (const p of template.Parameters ?? []) {
       if (p.Default != null && p.Default !== '') {
         this.paramValues = { ...this.paramValues, [p.Name]: p.Default };
-      } else if (p.Type === 'Bool') {
+      } else if (p.Type === 'Bool' && p.Required) {
         // An unchecked checkbox is a valid value ('false'), but
         // checked-changed only fires when the box is toggled, so without
         // seeding here a required Bool with no default could only be
-        // satisfied by checking and unchecking the box.
+        // satisfied by checking and unchecking the box. Only required Bools
+        // are seeded: seeding an OPTIONAL defaultless Bool would submit
+        // 'false' for an untouched box and override the Terraform module's
+        // own variable default, which must win when the user expresses no
+        // preference.
         this.paramValues = { ...this.paramValues, [p.Name]: 'false' };
       }
     }

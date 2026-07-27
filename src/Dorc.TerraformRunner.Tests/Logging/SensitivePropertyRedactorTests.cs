@@ -28,48 +28,6 @@ namespace Dorc.TerraformRunner.Tests.Logging
         }
 
         [TestMethod]
-        public void RedactProperties_ExactNameFromPayload_RedactedDespiteHeuristicMiss()
-        {
-            // A `sensitive: true` wizard parameter whose name defeats the
-            // heuristic pattern must still be redacted when its exact name is
-            // carried on the payload (ScriptGroup.SensitivePropertyNames).
-            var redactor = new SensitivePropertyRedactor(
-                SensitivePropertyRedactionOptions.DefaultWithExactNames(new[] { "launch_code" }));
-            var input = new Dictionary<string, string?>
-            {
-                ["launch_code"] = "0000",
-                ["administrator_password"] = "hunter2",
-                ["location"] = "uksouth",
-            };
-
-            var result = redactor.RedactProperties(input);
-
-            Assert.AreEqual(SensitivePropertyRedactor.RedactedMarker, result["launch_code"]);
-            Assert.AreEqual(SensitivePropertyRedactor.RedactedMarker, result["administrator_password"],
-                "the default heuristic remains active alongside exact names");
-            Assert.AreEqual("uksouth", result["location"]);
-        }
-
-        [TestMethod]
-        public void DefaultWithExactNames_NameIsRegexEscaped_NoWildcardMatching()
-        {
-            // The exact-name match must be literal: a name containing regex
-            // metacharacters must not silently widen into a pattern.
-            var redactor = new SensitivePropertyRedactor(
-                SensitivePropertyRedactionOptions.DefaultWithExactNames(new[] { "a.c" }));
-            var input = new Dictionary<string, string?>
-            {
-                ["a.c"] = "should-redact",
-                ["abc"] = "should-survive",
-            };
-
-            var result = redactor.RedactProperties(input);
-
-            Assert.AreEqual(SensitivePropertyRedactor.RedactedMarker, result["a.c"]);
-            Assert.AreEqual("should-survive", result["abc"]);
-        }
-
-        [TestMethod]
         public void RedactProperties_TokenKey_ValueRedacted()
         {
             var redactor = NewDefault();

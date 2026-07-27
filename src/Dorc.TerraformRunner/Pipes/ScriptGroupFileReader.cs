@@ -47,19 +47,10 @@ namespace Dorc.TerraformRunner.Pipes
                 var list = scriptGroup.ScriptProperties.ToList();
                 var env = scriptGroup.CommonProperties["EnvironmentName"];
 
-                // The payload names its own sensitive properties; merge them
-                // into the redaction options so explicitly flagged parameters
-                // are redacted even when their names defeat the heuristic
-                // pattern.
-                var effectiveRedactor = scriptGroup.SensitivePropertyNames?.Count > 0
-                    ? new SensitivePropertyRedactor(
-                        SensitivePropertyRedactionOptions.DefaultWithExactNames(scriptGroup.SensitivePropertyNames))
-                    : redactor;
-
                 logger.LogInformation($"Received from file: {guid}");
                 foreach (var scriptGroupScriptProperty in list)
                 {
-                    var props = effectiveRedactor.RedactJson(JsonSerializer.Serialize(scriptGroupScriptProperty.Properties));
+                    var props = redactor.RedactJson(JsonSerializer.Serialize(scriptGroupScriptProperty.Properties));
 
                     logger.LogInformation($"Asked to execute: {scriptGroupScriptProperty.ScriptPath} for env {env.Value} with properties {props}");
                 }

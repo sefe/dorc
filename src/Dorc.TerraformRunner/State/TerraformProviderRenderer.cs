@@ -15,8 +15,18 @@ namespace Dorc.TerraformRunner.State
     {
         public const string ProviderFileName = "_dorc_providers.tf";
 
+        // Matches a `provider "azurerm" { ... }` block so its body can be
+        // inspected. The module contract permits ALIASED provider blocks
+        // (`provider "azurerm" { alias = "hub" ... }`) for cross-scope
+        // resources; an aliased block is NOT a default provider
+        // configuration, so its presence must not suppress rendering - only
+        // a DEFAULT (alias-less) block does.
         private static readonly Regex AzureRmProviderBlockRegex = new(
-            @"\bprovider\s*""azurerm""",
+            @"\bprovider\s*""azurerm""\s*\{",
+            RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+        private static readonly Regex ProviderAliasRegex = new(
+            @"\balias\s*=",
             RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
         private static readonly Regex AzureRmRequirementRegex = new(
@@ -44,9 +54,9 @@ namespace Dorc.TerraformRunner.State
             foreach (var file in Directory.EnumerateFiles(workingDirectory, "*.tf", SearchOption.TopDirectoryOnly))
             {
                 var content = File.ReadAllText(file);
-                if (AzureRmProviderBlockRegex.IsMatch(content))
+                if (HasDefaultAzureRmProviderBlock(content))
                 {
-                    return; // module supplies its own configuration
+                    return; // module supplies its own default provider config
                 }
                 if (AzureRmRequirementRegex.IsMatch(content))
                 {
@@ -65,6 +75,43 @@ namespace Dorc.TerraformRunner.State
                 "provider \"azurerm\" {\n" +
                 "  features {}\n" +
                 "}\n");
+        }
+
+        // True only when the content declares a DEFAULT azurerm provider
+        // block - one with no `alias` argument in its body. An aliased-only
+        // block leaves the default provider unconfigured, so it must not
+        // suppress rendering. Uses a brace-balanced body scan (the same
+        // approach as TerraformBackendValidator) rather than a flat regex so
+        // an `alias` in a sibling block does not mask a defaultless one.
+        private static bool HasDefaultAzureRmProviderBlock(string content)
+        {
+            foreach (Match open in AzureRmProviderBlockRegex.Matches(content))
+            {
+                var bodyStart = open.Index + open.Length;
+                var bodyEnd = FindMatchingClose(content, bodyStart);
+                if (bodyEnd < 0) continue; // unbalanced; ignore this match
+                var body = content.Substring(bodyStart, bodyEnd - bodyStart);
+                if (!ProviderAliasRegex.IsMatch(body))
+                {
+                    return true; // a default (alias-less) provider block
+                }
+            }
+            return false;
+        }
+
+        private static int FindMatchingClose(string content, int afterOpenBrace)
+        {
+            var depth = 1;
+            for (var i = afterOpenBrace; i < content.Length; i++)
+            {
+                if (content[i] == '{') depth++;
+                else if (content[i] == '}')
+                {
+                    depth--;
+                    if (depth == 0) return i;
+                }
+            }
+            return -1;
         }
     }
 }

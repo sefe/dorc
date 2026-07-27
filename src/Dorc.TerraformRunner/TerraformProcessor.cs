@@ -18,6 +18,14 @@ namespace Dorc.TerraformRunner
         private readonly IScriptGroupPipeClient _scriptGroupPipeClient;
         private readonly TerraformCodeSourceProviderFactory _codeSourceFactory;
 
+        // Cleartext values of properties the request flagged sensitive, used
+        // to scrub terraform command output before it is logged. Terraform
+        // masks variables the MODULE marks `sensitive`, but a manifest can
+        // flag a parameter sensitive whose module variable is not marked, so
+        // this is the runner-side backstop for that gap. Populated per
+        // operation from the ScriptGroup; empty when nothing is flagged.
+        private IReadOnlyList<string> _sensitiveValues = Array.Empty<string>();
+
         public TerraformProcessor(
             IRunnerLogger logger,
             IScriptGroupPipeClient scriptGroupPipeClient,
@@ -26,6 +34,41 @@ namespace Dorc.TerraformRunner
             this.logger = logger;
             this._scriptGroupPipeClient = scriptGroupPipeClient;
             this._codeSourceFactory = new TerraformCodeSourceProviderFactory(logger, catalog);
+        }
+
+        // Collects the cleartext values of the flagged-sensitive properties
+        // from the ScriptGroup so terraform output can be scrubbed of them.
+        // Names come from ScriptGroup.SensitivePropertyNames (set by the
+        // Monitor dispatcher from the request's IsSensitive flags); values
+        // come from CommonProperties. Only non-empty values are kept - an
+        // empty value would otherwise redact the entire output.
+        private static IReadOnlyList<string> CollectSensitiveValues(ScriptGroup scriptGroup)
+        {
+            var names = scriptGroup.SensitivePropertyNames;
+            if (names is null || names.Count == 0) return Array.Empty<string>();
+            var props = scriptGroup.CommonProperties;
+            if (props is null) return Array.Empty<string>();
+
+            var values = new List<string>();
+            foreach (var name in names)
+            {
+                if (props.TryGetValue(name, out var vv))
+                {
+                    var v = vv?.Value?.ToString();
+                    if (!string.IsNullOrEmpty(v)) values.Add(v);
+                }
+            }
+            return values;
+        }
+
+        private string RedactSensitiveValues(string text)
+        {
+            if (string.IsNullOrEmpty(text) || _sensitiveValues.Count == 0) return text;
+            foreach (var value in _sensitiveValues)
+            {
+                text = text.Replace(value, "[REDACTED]");
+            }
+            return text;
         }
 
         public async Task<bool> PreparePlanAsync(
@@ -40,6 +83,7 @@ namespace Dorc.TerraformRunner
             ScriptGroup scriptGroupProperties = this._scriptGroupPipeClient.GetScriptGroupProperties(pipeName);
             var deployResultId = scriptGroupProperties.DeployResultId;
             var properties = scriptGroupProperties.CommonProperties;
+            _sensitiveValues = CollectSensitiveValues(scriptGroupProperties);
 
             this.logger.SetRequestId(requestId);
             this.logger.SetDeploymentResultId(deployResultId);
@@ -381,7 +425,7 @@ namespace Dorc.TerraformRunner
 
             InterpretExitCode(command, process.ExitCode, error);
 
-            logger.Information($"Terraform command {command} completed successfully. Output:{Environment.NewLine}{output}");
+            logger.Information($"Terraform command {command} completed successfully. Output:{Environment.NewLine}{RedactSensitiveValues(output)}");
             return output;
         }
 
@@ -398,14 +442,14 @@ namespace Dorc.TerraformRunner
             {
                 if (exitCode == 0 || exitCode == 2) return;
                 var planMsg = $"terraform plan failed with exit code {exitCode}";
-                logger.Error($"{planMsg}. Error: {errorOutput}");
+                logger.Error($"{planMsg}. Error: {RedactSensitiveValues(errorOutput)}");
                 throw new InvalidOperationException(planMsg);
             }
 
             if (exitCode != 0)
             {
                 var msg = $"terraform {command} failed with exit code {exitCode}";
-                logger.Error($"{msg}. Error: {errorOutput}");
+                logger.Error($"{msg}. Error: {RedactSensitiveValues(errorOutput)}");
                 throw new InvalidOperationException(msg);
             }
         }
@@ -421,6 +465,7 @@ namespace Dorc.TerraformRunner
 
             ScriptGroup scriptGroupProperties = this._scriptGroupPipeClient.GetScriptGroupProperties(pipeName);
             var deployResultId = scriptGroupProperties.DeployResultId;
+            _sensitiveValues = CollectSensitiveValues(scriptGroupProperties);
 
             this.logger.SetRequestId(requestId);
             this.logger.SetDeploymentResultId(deployResultId);
