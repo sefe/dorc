@@ -86,9 +86,10 @@ namespace Dorc.TerraformRunner.State
         // an `alias` in a sibling block does not mask a defaultless one.
         private static bool HasDefaultAzureRmProviderBlock(string content)
         {
-            foreach (var open in AzureRmProviderBlockRegex.Matches(content).Cast<Match>())
+            foreach (var bodyStart in AzureRmProviderBlockRegex.Matches(content)
+                         .Cast<Match>()
+                         .Select(m => m.Index + m.Length))
             {
-                var bodyStart = open.Index + open.Length;
                 var bodyEnd = FindMatchingClose(content, bodyStart);
                 if (bodyEnd < 0) continue; // unbalanced; ignore this match
                 var body = content.Substring(bodyStart, bodyEnd - bodyStart);
