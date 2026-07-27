@@ -306,14 +306,12 @@ namespace Dorc.Api.Tests.Controllers
                     && dto.Components.Contains(TemplateName)),
                 Arg.Any<ClaimsPrincipal>());
 
-            // The 200 body is an anonymous object { component, requestId, requestStatus }.
-            var requestIdProperty = ok.Value!.GetType().GetProperty("requestId");
-            if (requestIdProperty is null)
-            {
-                Assert.Fail("200 body carries a requestId member.");
-                return;
-            }
-            Assert.AreEqual(newRequestId, (int)requestIdProperty.GetValue(ok.Value)!);
+            // The 200 body is the instantiate response envelope carrying the
+            // submitted deploy request id.
+            Assert.IsInstanceOfType(ok.Value, typeof(TerraformTemplateInstantiateResponseApiModel),
+                "200 body is the instantiate response envelope.");
+            var envelope = (TerraformTemplateInstantiateResponseApiModel)ok.Value!;
+            Assert.AreEqual(newRequestId, envelope.RequestId);
         }
 
         [TestMethod]
@@ -329,10 +327,14 @@ namespace Dorc.Api.Tests.Controllers
 
             Assert.IsInstanceOfType(result, typeof(OkObjectResult), "Create-only mode returns 200.");
             var ok = (OkObjectResult)result;
-            Assert.IsInstanceOfType(ok.Value, typeof(ComponentApiModel), "Create-only 200 body is the created ComponentApiModel.");
-            var component = (ComponentApiModel)ok.Value!;
-            Assert.AreEqual(TemplateName, component.TerraformTemplateName);
-            Assert.AreEqual(TemplateVersion, component.TerraformTemplateVersion);
+            // Create-only mode returns the same envelope type as create-and-deploy,
+            // with the created component set and no deploy request (RequestId 0).
+            Assert.IsInstanceOfType(ok.Value, typeof(TerraformTemplateInstantiateResponseApiModel),
+                "Create-only 200 body is the instantiate response envelope.");
+            var envelope = (TerraformTemplateInstantiateResponseApiModel)ok.Value!;
+            Assert.AreEqual(TemplateName, envelope.Component.TerraformTemplateName);
+            Assert.AreEqual(TemplateVersion, envelope.Component.TerraformTemplateVersion);
+            Assert.AreEqual(0, envelope.RequestId, "Create-only mode submits no deploy request.");
             _manageProjects.Received(1).CreateComponent(
                 Arg.Is<ComponentApiModel>(c => c.ComponentId == 0),
                 ProjectId, Arg.Any<int?>(), Arg.Any<string>());
@@ -423,14 +425,10 @@ namespace Dorc.Api.Tests.Controllers
 
             // The 200 envelope carries the reused (already persisted) component.
             var ok = (OkObjectResult)result;
-            var componentProperty = ok.Value!.GetType().GetProperty("component");
-            if (componentProperty is null)
-            {
-                Assert.Fail("200 body carries a component member.");
-                return;
-            }
-            var component = (ComponentApiModel)componentProperty.GetValue(ok.Value)!;
-            Assert.AreEqual(existingComponentId, component.ComponentId,
+            Assert.IsInstanceOfType(ok.Value, typeof(TerraformTemplateInstantiateResponseApiModel),
+                "200 body is the instantiate response envelope.");
+            var envelope = (TerraformTemplateInstantiateResponseApiModel)ok.Value!;
+            Assert.AreEqual(existingComponentId, envelope.Component.ComponentId,
                 "The envelope's component is the reused existing component, not a newly created one.");
         }
 

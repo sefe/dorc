@@ -102,7 +102,7 @@ namespace Dorc.Api.Controllers
         /// pre-wired with TerraformSourceType=Catalog and the chosen
         /// (TerraformTemplateName, TerraformTemplateVersion).
         /// </summary>
-        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(ComponentApiModel))]
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(TerraformTemplateInstantiateResponseApiModel))]
         [SwaggerResponse(StatusCodes.Status400BadRequest)]
         [SwaggerResponse(StatusCodes.Status403Forbidden)]
         [SwaggerResponse(StatusCodes.Status404NotFound)]
@@ -363,7 +363,12 @@ namespace Dorc.Api.Controllers
                         return StatusCode(StatusCodes.Status500InternalServerError,
                             "Component was created, but the deploy request failed to submit. See server logs.");
                     }
-                    return Ok(new { component, requestId = status.Id, requestStatus = status.Status });
+                    return Ok(new TerraformTemplateInstantiateResponseApiModel
+                    {
+                        Component = component,
+                        RequestId = status.Id,
+                        RequestStatus = status.Status
+                    });
                 }
                 catch (Exception ex) when (ex is InvalidOperationException
                                           || ex is WrongBuildTypeException
@@ -377,7 +382,11 @@ namespace Dorc.Api.Controllers
                 }
             }
 
-            return Ok(component);
+            // create-component-only mode: no deploy request was submitted, so
+            // RequestId / RequestStatus are left at their defaults. The endpoint
+            // returns the same envelope type in both modes so its declared 200
+            // shape is honest and self-consistent.
+            return Ok(new TerraformTemplateInstantiateResponseApiModel { Component = component });
         }
 
         /// <summary>

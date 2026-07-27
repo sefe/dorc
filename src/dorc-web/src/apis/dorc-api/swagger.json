@@ -7819,6 +7819,7 @@
         "tags": [
           "Terraform"
         ],
+        "operationId": "TerraformTemplatesGet",
         "responses": {
           "200": {
             "description": "OK",
@@ -7849,6 +7850,7 @@
         "tags": [
           "Terraform"
         ],
+        "operationId": "TerraformTemplateLatestGet",
         "parameters": [
           {
             "name": "name",
@@ -7886,6 +7888,7 @@
         "tags": [
           "Terraform"
         ],
+        "operationId": "TerraformTemplateVersionGet",
         "parameters": [
           {
             "name": "name",
@@ -7931,6 +7934,8 @@
         "tags": [
           "Terraform"
         ],
+        "operationId": "TerraformTemplateInstantiatePost",
+        "x-codegen-request-body-name": "body",
         "parameters": [
           {
             "name": "name",
@@ -10756,6 +10761,17 @@
       },
       "TerraformTemplateManifest": {
         "type": "object",
+        "required": [
+          "Name",
+          "Version",
+          "Source",
+          "Parameters",
+          "Outputs",
+          "Tags",
+          "RequiredProviders",
+          "RequiredTerraformVersion",
+          "Deprecated"
+        ],
         "properties": {
           "Name": {
             "type": "string"
@@ -10817,6 +10833,11 @@
       },
       "TerraformTemplateOutput": {
         "type": "object",
+        "required": [
+          "Name",
+          "Type",
+          "Sensitive"
+        ],
         "properties": {
           "Name": {
             "type": "string"
@@ -10836,6 +10857,12 @@
       },
       "TerraformTemplateParameter": {
         "type": "object",
+        "required": [
+          "Name",
+          "Type",
+          "Required",
+          "Sensitive"
+        ],
         "properties": {
           "Name": {
             "type": "string"
@@ -10883,6 +10910,11 @@
       },
       "TerraformTemplateSource": {
         "type": "object",
+        "required": [
+          "Kind",
+          "Locator",
+          "Ref"
+        ],
         "properties": {
           "Kind": {
             "type": "string"
