@@ -98,5 +98,49 @@ namespace Dorc.Api.Controllers
                     e.InnerException != null ? e.InnerException.Message : e.Message);
             }
         }
+
+        /// <summary>
+        /// Discover all daemons on environment servers and automatically create daemon-server mappings
+        /// </summary>
+        /// <param name="envName">Environment name</param>
+        /// <returns>Discovery result with statistics</returns>
+        [HttpGet("discover/{envName}")]
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(DiscoverDaemonsResult))]
+        [SwaggerResponse(StatusCodes.Status400BadRequest, Type = typeof(string))]
+        [SwaggerResponse(StatusCodes.Status403Forbidden, Type = typeof(string))]
+        [SwaggerResponse(StatusCodes.Status404NotFound, Type = typeof(string))]
+        public async Task<IActionResult> DiscoverDaemons(string envName)
+        {
+            if (string.IsNullOrEmpty(envName))
+                return BadRequest("Environment name is required");
+
+            try
+            {
+                // Check environment exists and user has access
+                var environment = _environmentsPersistentSource.GetEnvironment(envName, User);
+                if (environment == null)
+                {
+                    return NotFound($"Environment '{envName}' not found");
+                }
+
+                // Check permissions
+                if (!_securityPrivilegesChecker.CanModifyEnvironment(User, envName))
+                {
+                    return StatusCode(StatusCodes.Status403Forbidden,
+                        "Daemon discovery can only be performed by users with Write permissions or higher!");
+                }
+
+                // Call the probe to discover and map daemons
+                var result = await Task.Run(() =>
+                    _daemonStatusProbe.DiscoverAndMapDaemons(envName, User));
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError,
+                    $"An error occurred during daemon discovery: {ex.Message}");
+            }
+        }
     }
 }
