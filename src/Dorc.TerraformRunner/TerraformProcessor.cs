@@ -49,21 +49,15 @@ namespace Dorc.TerraformRunner
             var props = scriptGroup.CommonProperties;
             if (props is null) return Array.Empty<string>();
 
-            var values = new List<string>();
-            foreach (var name in names)
-            {
-                if (props.TryGetValue(name, out var vv))
-                {
-                    var v = vv?.Value?.ToString();
-                    // IsNullOrWhiteSpace, not IsNullOrEmpty: a whitespace-only
-                    // value can never be a meaningful secret, and redacting it
-                    // would rewrite every matching run of spaces in the
-                    // terraform log. Values that merely CONTAIN spaces are
-                    // still kept and redacted.
-                    if (!string.IsNullOrWhiteSpace(v)) values.Add(v);
-                }
-            }
-            return values;
+            // IsNullOrWhiteSpace, not IsNullOrEmpty: a whitespace-only value
+            // can never be a meaningful secret, and redacting it would rewrite
+            // every matching run of spaces in the terraform log. Values that
+            // merely CONTAIN spaces are still kept and redacted.
+            return names
+                .Select(name => props.TryGetValue(name, out var vv) ? vv?.Value?.ToString() : null)
+                .Where(v => !string.IsNullOrWhiteSpace(v))
+                .Select(v => v!)
+                .ToList();
         }
 
         private string RedactSensitiveValues(string text)

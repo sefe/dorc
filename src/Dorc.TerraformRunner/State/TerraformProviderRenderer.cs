@@ -51,9 +51,10 @@ namespace Dorc.TerraformRunner.State
             if (!Directory.Exists(workingDirectory)) return;
 
             var requiresAzureRm = false;
-            foreach (var file in Directory.EnumerateFiles(workingDirectory, "*.tf", SearchOption.TopDirectoryOnly))
+            foreach (var content in Directory
+                         .EnumerateFiles(workingDirectory, "*.tf", SearchOption.TopDirectoryOnly)
+                         .Select(File.ReadAllText))
             {
-                var content = File.ReadAllText(file);
                 if (HasDefaultAzureRmProviderBlock(content))
                 {
                     return; // module supplies its own default provider config
@@ -85,7 +86,7 @@ namespace Dorc.TerraformRunner.State
         // an `alias` in a sibling block does not mask a defaultless one.
         private static bool HasDefaultAzureRmProviderBlock(string content)
         {
-            foreach (Match open in AzureRmProviderBlockRegex.Matches(content))
+            foreach (var open in AzureRmProviderBlockRegex.Matches(content).Cast<Match>())
             {
                 var bodyStart = open.Index + open.Length;
                 var bodyEnd = FindMatchingClose(content, bodyStart);

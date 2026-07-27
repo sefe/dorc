@@ -287,11 +287,10 @@ public static class SecretOutputsLint
 
             foreach (var obj in objects)
             {
-                foreach (var member in obj.EnumerateObject())
+                foreach (var member in obj.EnumerateObject()
+                             .Where(m => SecretNamePattern.IsMatch(m.Name)
+                                      && m.Value.ValueKind == System.Text.Json.JsonValueKind.Object))
                 {
-                    if (!SecretNamePattern.IsMatch(member.Name)) continue;
-                    if (member.Value.ValueKind != System.Text.Json.JsonValueKind.Object) continue;
-
                     var sensitiveTrue = member.Value.TryGetProperty("sensitive", out var s)
                         && s.ValueKind == System.Text.Json.JsonValueKind.True;
                     var sensitiveFalse = member.Value.TryGetProperty("sensitive", out var s2)
