@@ -265,10 +265,11 @@ namespace Dorc.Core
                             }
                             catch (Exception ex)
                             {
-                                _logger.LogInformation("Error retrieving daemon info for " +
-                                             daemonApiModel.Name + Environment.NewLine +
-                                             "        " + ex.Message + Environment.NewLine +
-                                             "        " + ex.InnerException);
+                                _logger.LogInformation("Error retrieving daemon info for {DaemonName}{NewLine}        {Message}{NewLine}        {InnerException}",
+                                             SanitizeForLog(daemonApiModel.Name),
+                                             Environment.NewLine,
+                                             ex.Message,
+                                             ex.InnerException);
                             }
                         }
                     }
@@ -606,4 +607,10 @@ namespace Dorc.Core
             return result;
         }
     }
+        private static string SanitizeForLog(string? input)
+        {
+            return string.IsNullOrEmpty(input)
+                ? string.Empty
+                : input.Replace("\r", string.Empty).Replace("\n", string.Empty);
+        }
 }
