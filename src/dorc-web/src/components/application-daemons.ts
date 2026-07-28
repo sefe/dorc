@@ -193,6 +193,8 @@ export class ApplicationDaemons extends LitElement {
               duration: 5000
             }
           );
+
+          this.dispatchEvent(new CustomEvent('daemons-loaded', { detail: { message: '' } }));
         }
       },
       error: (err: any) => {
