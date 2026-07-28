@@ -142,7 +142,7 @@ namespace Dorc.Core
                     logon32LogonInteractive, logon32ProviderDefault,
                     out var safeAccessTokenHandle);
 
-                if (false == returnValue)
+                if (!returnValue)
                 {
                     int ret = Marshal.GetLastWin32Error();
                     Console.WriteLine("LogonUser failed with error code : {0}", ret);
