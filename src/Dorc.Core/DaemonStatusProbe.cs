@@ -606,11 +606,11 @@ namespace Dorc.Core
 
             return result;
         }
-    }
         private static string SanitizeForLog(string? input)
         {
             return string.IsNullOrEmpty(input)
                 ? string.Empty
                 : input.Replace("\r", string.Empty).Replace("\n", string.Empty);
         }
+    }
 }
