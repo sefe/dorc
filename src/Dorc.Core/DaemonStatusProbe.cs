@@ -242,13 +242,12 @@ namespace Dorc.Core
 
             try
             {
+                var daemons = _daemonsPersistentSource.GetDaemons();
+
                 foreach (var serverApiModel in servers)
                 {
                     try
                     {
-                        // ALWAYS get ALL daemons for discovery (no check for existing mappings)
-                        var daemons = _daemonsPersistentSource.GetDaemons();
-
                         foreach (var daemonApiModel in daemons)
                         {
                             try
