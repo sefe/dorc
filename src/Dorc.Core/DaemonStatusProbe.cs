@@ -603,7 +603,7 @@ namespace Dorc.Core
             {
                 result.Success = false;
                 result.Errors.Add($"Fatal error during daemon discovery: {ex.Message}");
-                _logger.LogError(ex, "Fatal error during daemon discovery for environment {EnvName}", envName);
+                _logger.LogError(ex, "Fatal error during daemon discovery for environment {EnvName}", SanitizeForLog(envName));
             }
 
             return result;
