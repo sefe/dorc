@@ -275,8 +275,10 @@ namespace Dorc.Core
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogInformation("Error, couldn't ping: " + serverApiModel.Name +
-                                     Environment.NewLine + ex.Message);
+                        _logger.LogInformation("Error, couldn't ping: {ServerName}{NewLine}{Message}",
+                                     SanitizeForLog(serverApiModel.Name),
+                                     Environment.NewLine,
+                                     SanitizeForLog(ex.Message));
                     }
                 }
             }
