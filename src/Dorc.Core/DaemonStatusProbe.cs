@@ -161,8 +161,7 @@ namespace Dorc.Core
                 return probeResults;
             }
 
-            return daemons;
-        }
+            return ProbeDaemonStatuses(daemons);
 
         private void GetUsernameAndPassword(EnvironmentApiModel? environment, out string user, out string pwd)
         {
