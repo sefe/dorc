@@ -530,6 +530,9 @@ namespace Dorc.Core
                     .Select(g => g.First())
                     .ToList();
 
+                // Cache per-server existing mappings to avoid N+1 queries.
+                var serverDaemonIdsCache = new Dictionary<int, HashSet<int>>();
+
                 foreach (var daemon in uniqueMappings)
                 {
                     try
@@ -540,9 +543,15 @@ namespace Dorc.Core
                         var serverId = daemon.ServerId.Value;
                         var daemonId = daemon.DaemonId.Value;
 
-                        // Check if mapping already exists
-                        var existingMappings = _daemonsPersistentSource.GetDaemonsForServer(serverId);
-                        if (existingMappings.Any(d => d.Id == daemonId))
+                        if (!serverDaemonIdsCache.TryGetValue(serverId, out var mappedDaemonIds))
+                        {
+                            mappedDaemonIds = _daemonsPersistentSource.GetDaemonsForServer(serverId)
+                                .Select(d => d.Id)
+                                .ToHashSet();
+                            serverDaemonIdsCache[serverId] = mappedDaemonIds;
+                        }
+
+                        if (mappedDaemonIds.Contains(daemonId))
                             continue; // Mapping already exists, skip
 
                         // Create the mapping
