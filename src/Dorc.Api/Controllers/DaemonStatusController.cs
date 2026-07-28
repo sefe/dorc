@@ -109,7 +109,7 @@ namespace Dorc.Api.Controllers
         [SwaggerResponse(StatusCodes.Status400BadRequest, Type = typeof(string))]
         [SwaggerResponse(StatusCodes.Status403Forbidden, Type = typeof(string))]
         [SwaggerResponse(StatusCodes.Status404NotFound, Type = typeof(string))]
-        public async Task<IActionResult> DiscoverDaemons(string envName)
+        public IActionResult DiscoverDaemons(string envName)
         {
             if (string.IsNullOrEmpty(envName))
                 return BadRequest("Environment name is required");
@@ -131,9 +131,7 @@ namespace Dorc.Api.Controllers
                 }
 
                 // Call the probe to discover and map daemons
-                var result = await Task.Run(() =>
-                    _daemonStatusProbe.DiscoverAndMapDaemons(envName, User));
-
+                var result = _daemonStatusProbe.DiscoverAndMapDaemons(envName, User);
                 return Ok(result);
             }
             catch (Exception ex)
