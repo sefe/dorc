@@ -145,7 +145,7 @@ namespace Dorc.Core
                 if (!returnValue)
                 {
                     int ret = Marshal.GetLastWin32Error();
-                    Console.WriteLine("LogonUser failed with error code : {0}", ret);
+                    _logger.LogError("LogonUser failed with error code: {ErrorCode}", ret);
                     throw new System.ComponentModel.Win32Exception(ret);
                 }
 
