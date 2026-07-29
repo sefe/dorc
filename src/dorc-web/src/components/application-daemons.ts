@@ -221,8 +221,8 @@ export class ApplicationDaemons extends LitElement {
   }
 
   private getDaemonStatusesFromDiscovery(result: DiscoverDaemonsResult): DaemonStatusApiModel[] | undefined {
-    if (Array.isArray(result.DaemonStatuses)) {
-      return result.DaemonStatuses;
+    if (Array.isArray(result.DiscoveredDaemons)) {
+      return result.DiscoveredDaemons;
     }
 
     // Backward-compatible alias in case backend uses a different key temporarily.
