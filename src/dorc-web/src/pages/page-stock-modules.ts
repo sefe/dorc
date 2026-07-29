@@ -177,7 +177,12 @@ export class PageStockModules extends PageElement {
             path="Owner"
             header="Owner"
           ></vaadin-grid-sort-column>
-          <vaadin-grid-column header="" .renderer="${this.actionsRenderer.bind(this)}"></vaadin-grid-column>
+          <vaadin-grid-column
+            header=""
+            auto-width
+            flex-grow="0"
+            .renderer="${this.actionsRenderer.bind(this)}"
+          ></vaadin-grid-column>
         </vaadin-grid>
       </div>
 
@@ -209,6 +214,11 @@ export class PageStockModules extends PageElement {
 
   private actionsRenderer(root: HTMLElement, _: any, model: { item: TerraformTemplateManifest }) {
     root.innerHTML = '';
+    // Lay the actions out in a single non-wrapping row; without this the
+    // buttons overflow the auto-width cell and get clipped to an ellipsis.
+    const actions = document.createElement('div');
+    actions.style.cssText = 'display:flex; gap:4px; white-space:nowrap; align-items:center;';
+
     const btn = document.createElement('vaadin-button');
     btn.setAttribute('theme', 'tertiary small');
     btn.textContent = 'Details';
@@ -216,19 +226,21 @@ export class PageStockModules extends PageElement {
       this.detail = model.item;
       this.detailOpen = true;
     });
-    root.appendChild(btn);
+    actions.appendChild(btn);
 
     const ref = document.createElement('vaadin-button');
     ref.setAttribute('theme', 'tertiary small');
     ref.textContent = 'Copy reference';
     ref.addEventListener('click', () => this.copyReference(model.item));
-    root.appendChild(ref);
+    actions.appendChild(ref);
 
     const deploy = document.createElement('vaadin-button');
     deploy.setAttribute('theme', 'primary small');
     deploy.textContent = 'Deploy from template';
     deploy.addEventListener('click', () => this.openDeploy(model.item));
-    root.appendChild(deploy);
+    actions.appendChild(deploy);
+
+    root.appendChild(actions);
   }
 
   private openDeploy(t: TerraformTemplateManifest) {
