@@ -44,9 +44,8 @@ export class PageStockModules extends PageElement {
         color: var(--lumo-secondary-text-color);
         margin: 4px 0 16px 0;
       }
-      .grid-container {
+      vaadin-grid {
         flex: 1;
-        overflow: auto;
         min-height: 0;
       }
       .deprecated-badge {
@@ -157,8 +156,10 @@ export class PageStockModules extends PageElement {
 
       ${this.error ? html`<div style="color:var(--lumo-error-text-color);margin-bottom:8px;">${this.error}</div>` : ''}
 
-      <div class="grid-container">
-        <vaadin-grid .items="${this.templates}" all-rows-visible>
+        <vaadin-grid
+          .items="${this.templates}"
+          theme="compact row-stripes no-row-borders no-border"
+        >
           <vaadin-grid-sort-column
             path="Name"
             header="Name"
@@ -184,7 +185,6 @@ export class PageStockModules extends PageElement {
             .renderer="${this.actionsRenderer.bind(this)}"
           ></vaadin-grid-column>
         </vaadin-grid>
-      </div>
 
       <vaadin-dialog
         .opened="${this.detailOpen}"
