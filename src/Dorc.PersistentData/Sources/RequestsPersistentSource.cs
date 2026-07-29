@@ -442,18 +442,18 @@ namespace Dorc.PersistentData.Sources
         {
             using (var context = _contextFactory.GetContext())
             {
-                int updatedResultCount = 0;
+                var now = DateTimeOffset.Now;
+                var isRunning = status == DeploymentResultStatus.Running;
+                var isCompleted = status == DeploymentResultStatus.Complete ||
+                                  status == DeploymentResultStatus.Failed ||
+                                  status == DeploymentResultStatus.Cancelled;
 
-                updatedResultCount = context.DeploymentResults
+                int updatedResultCount = context.DeploymentResults
                     .Where(result => result.Id == deploymentResultModel.Id)
                     .ExecuteUpdate(setters => setters
                                             .SetProperty(b => b.Status, status.ToString())
-                                            .SetProperty(r => r.StartedTime, dr => status == DeploymentResultStatus.Running ? DateTimeOffset.Now : dr.StartedTime)
-                                            .SetProperty(r => r.CompletedTime, dr =>
-                                                status == DeploymentResultStatus.Complete ||
-                                                    status == DeploymentResultStatus.Failed ||
-                                                    status == DeploymentResultStatus.Cancelled
-                                                ? DateTimeOffset.Now : dr.CompletedTime));
+                                            .SetProperty(r => r.StartedTime, dr => isRunning ? now : dr.StartedTime)
+                                            .SetProperty(r => r.CompletedTime, dr => isCompleted ? now : dr.CompletedTime));
 
                 if (updatedResultCount == 0)
                 {
@@ -461,6 +461,15 @@ namespace Dorc.PersistentData.Sources
                 }
 
                 deploymentResultModel.Status = status.ToString();
+
+                if (isRunning)
+                {
+                    deploymentResultModel.StartedTime = now;
+                }
+                else if (isCompleted)
+                {
+                    deploymentResultModel.CompletedTime = now;
+                }
 
                 return true;
             }
