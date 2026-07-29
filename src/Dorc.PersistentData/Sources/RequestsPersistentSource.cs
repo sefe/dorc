@@ -445,6 +445,7 @@ namespace Dorc.PersistentData.Sources
                 var now = DateTimeOffset.Now;
                 var isRunning = status == DeploymentResultStatus.Running;
                 var isCompleted = status == DeploymentResultStatus.Complete ||
+                                  status == DeploymentResultStatus.Warning ||
                                   status == DeploymentResultStatus.Failed ||
                                   status == DeploymentResultStatus.Cancelled;
 
