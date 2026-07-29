@@ -190,6 +190,7 @@ export class PageStockModules extends PageElement {
         .opened="${this.detailOpen}"
         @opened-changed="${(e: CustomEvent) => (this.detailOpen = e.detail.value)}"
         header-title="${this.detail?.Name ?? ''} ${this.detail?.Version ?? ''}"
+        theme="wide"
         resizable
         draggable
         ${dialogRenderer(this.detailRenderer.bind(this), [this.detail])}
@@ -254,7 +255,7 @@ export class PageStockModules extends PageElement {
     const template = this.detail;
     if (!template) return html``;
     return html`
-      <div style="padding: 8px 16px 16px 16px; max-width: 720px;">
+      <div style="padding: 8px 16px 16px 16px;">
         <div class="description">${template.Description}</div>
 
         <div class="detail-section">

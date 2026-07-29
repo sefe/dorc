@@ -43,6 +43,16 @@ registerStyles(
     }
 
     /*
+     * Resizable dialogs switch the overlay to a flex container with
+     * overflow: visible; without min-width: 0 the content part's
+     * min-content width (e.g. a wide table) beats the overlay's fixed
+     * width and paints outside the card instead of scrolling inside it.
+     */
+    [part='content'] {
+      min-width: 0;
+    }
+
+    /*
      * log-dialog renders an Ace editor at 80vw; the 650px default would clip
      * it. Opt-in via theme="log-viewer" on the vaadin-dialog.
      */
