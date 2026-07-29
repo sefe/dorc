@@ -246,7 +246,6 @@ export class DeployFromTemplateDialog extends LitElement {
           if (!e.detail.value) this.clearEnteredValues();
         }}"
         header-title="Deploy from template${this.template ? `: ${this.template.Name}@${this.template.Version}` : ''}"
-        modeless
         ${dialogRenderer(this.bodyRenderer, [
           this.template,
           this.projects,

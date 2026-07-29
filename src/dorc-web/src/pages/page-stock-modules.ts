@@ -6,7 +6,7 @@ import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
 import '@vaadin/text-field';
 import '@vaadin/dialog';
-import { dialogRenderer } from '@vaadin/dialog/lit';
+import { dialogRenderer, dialogFooterRenderer } from '@vaadin/dialog/lit';
 import { Notification } from '@vaadin/notification';
 import { css, html } from 'lit';
 import { customElement, query, state } from 'lit/decorators.js';
@@ -187,8 +187,13 @@ export class PageStockModules extends PageElement {
         header-title="${this.detail?.Name ?? ''} ${this.detail?.Version ?? ''}"
         resizable
         draggable
-        modeless
         ${dialogRenderer(this.detailRenderer.bind(this), [this.detail])}
+        ${dialogFooterRenderer(
+          () => html`
+            <vaadin-button @click="${() => (this.detailOpen = false)}">Close</vaadin-button>
+          `,
+          [],
+        )}
       ></vaadin-dialog>
 
       <deploy-from-template-dialog></deploy-from-template-dialog>
