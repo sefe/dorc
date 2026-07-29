@@ -188,7 +188,7 @@ export class DorcNavbar extends LitElement {
 
         <vaadin-tab>
           <a href="${urlForName('stock-modules')}">
-            <vaadin-icon icon="vaadin:cubes" theme="small"></vaadin-icon>
+            <vaadin-icon icon="vaadin:package" theme="small"></vaadin-icon>
             Stock modules
           </a>
         </vaadin-tab>
