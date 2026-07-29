@@ -177,9 +177,9 @@ export class ApplicationDaemons extends LitElement {
             console.warn('Discovery errors:', result.Errors);
           }
 
-          // Use discovered daemons from the result instead of reloading
-          if (result.DiscoveredDaemons && result.DiscoveredDaemons.length > 0) {
-            this.setDaemonStatuses(result.DiscoveredDaemons);
+          const discoveredDaemons = this.getDaemonStatusesFromDiscovery(result);
+          if (discoveredDaemons && discoveredDaemons.length > 0) {
+            this.setDaemonStatuses(discoveredDaemons);
           } else {
             // Fallback to reload if no daemons returned
             this.loadDaemons();
