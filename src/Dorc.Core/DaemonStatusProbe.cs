@@ -574,7 +574,7 @@ namespace Dorc.Core
 
                             _daemonAuditPersistentSource.InsertDaemonAudit(
                                 username,
-                                PersistentData.Model.ActionType.Attach,
+                                Dorc.PersistentData.Model.ActionType.Attach,
                                 daemonId,
                                 fromValue: null,
                                 toValue: payload);
