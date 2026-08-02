@@ -1,5 +1,7 @@
-import '@polymer/paper-dialog';
-import { PaperDialogElement } from '@polymer/paper-dialog';
+import '@vaadin/dialog';
+import type { DialogOpenedChangedEvent } from '@vaadin/dialog';
+import { dialogFooterRenderer, dialogRenderer } from '@vaadin/dialog/lit';
+import { ref } from 'lit/directives/ref.js';
 import '@vaadin/button';
 import '@vaadin/checkbox';
 import { Checkbox } from '@vaadin/checkbox';
@@ -35,6 +37,8 @@ const AC_ALLOW_OWNER = 4;
 
 @customElement('add-edit-access-control')
 export class AddEditAccessControl extends LitElement {
+  @state() private dialogOpened = false;
+
   @property({ type: String }) secureName = '';
 
   @property({ type: Boolean })
@@ -71,7 +75,7 @@ export class AddEditAccessControl extends LitElement {
 
   static get styles() {
     return css`
-      paper-dialog.size-position {
+      vaadin-dialog::part(overlay) {
         overflow: auto;
         width: min(90vw, 650px);
       }
@@ -141,171 +145,50 @@ export class AddEditAccessControl extends LitElement {
 
   render() {
     return html`
-      <paper-dialog
-        class="size-position"
+      <vaadin-dialog
         id="add-access-control-dialog"
-        allow-click-through
-        modal
-      >
-        <table>
-          <tr>
-            <td>
-              ${this.UserEditable
-                ? html`
-                    <vaadin-icon
-                      icon="vaadin:unlock"
-                      role="img"
-                      aria-label="Editable"
-                      title="Editable"
-                      style="color: var(--dorc-link-color)"
-                    ></vaadin-icon>
-                  `
-                : html`
-                    <vaadin-icon
-                      icon="vaadin:lock"
-                      role="img"
-                      aria-label="Read-only"
-                      title="Read-only"
-                      style="color: var(--dorc-link-color)"
-                    ></vaadin-icon>
-                  `}
-            </td>
-            <td>
-              <h2>${this.secureName}</h2>
-              ${this.loading
-                ? html` <div class="small-loader"></div> `
-                : html``}
-            </td>
-          </tr>
-        </table>
-        <div style="padding-left: 10px;padding-right: 10px;">
-          <vaadin-details
-            opened
-            summary="Add New User"
-            style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; width: 100%"
-          >
-            <table>
-              <tr>
-                <td style="display: table-cell; vertical-align: bottom;">
-                  <vaadin-text-field
-                    id="search-criteria"
-                    label="Search Criteria"
-                    @input="${this.updateSearchCriteria}"
-                  ></vaadin-text-field>
-                </td>
-                <td style="display: table-cell; vertical-align: bottom;">
-                  <vaadin-button
-                    @click="${this.searchAD}"
-                    style="margin-bottom: 5px"
-                    >Search</vaadin-button
-                  >
-                </td>
-                <td style="display: table-cell; vertical-align: center;">
-                  ${this.searchingUsers
-                    ? html` <div class="small-loader"></div> `
-                    : html``}
-                </td>
-              </tr>
-              <tr>
-                <td style="display: table-cell; vertical-align: bottom;">
-                  <vaadin-combo-box
-                    id="searchResults"
-                    label="Search Results"
-                    item-value-path="DisplayName"
-                    item-label-path="DisplayName"
-                    .items="${this.searchResults}"
-                    .renderer="${this.searchResultsRenderer}"
-                  ></vaadin-combo-box>
-                </td>
-                <td style="display: table-cell; vertical-align: bottom;">
-                  <vaadin-button
-                    @click="${this.addUser}"
-                    style="margin-bottom: 5px"
-                    ?disabled="${!this.UserEditable}"
-                    >Add</vaadin-button
-                  >
-                </td>
-              </tr>
-            </table>
-          </vaadin-details>
-          <vaadin-grid
-            .items="${this.Privileges}"
-            theme="compact row-stripes no-row-borders no-border"
-            style="width: 100%;"
-          >
-            <vaadin-grid-sort-column
-              header="Name"
-              .renderer="${this.acNameRenderer}"
-              flex="3"
-              resizable
-              auto-width
-            ></vaadin-grid-sort-column>
-            <vaadin-grid-column
-              header="Write"
-              .renderer="${this.acCanWrite}"
-              .altThis="${this}"
-              flex="1"
-              resizable
-              auto-width
-            ></vaadin-grid-column>
-            <vaadin-grid-column
-              header="Read Secrets"
-              .renderer="${this.acCanReadSecrets}"
-              .altThis="${this}"
-              flex="1"
-              resizable
-              auto-width
-            ></vaadin-grid-column>
-            <vaadin-grid-column
-              header="Owner"
-              .renderer="${this.acCanOwner}"
-              .altThis="${this}"
-              flex="1"
-              resizable
-              auto-width
-            ></vaadin-grid-column>
-            <vaadin-grid-column
-              header="Actions"
-              .renderer="${this._boundACButtonsRenderer}"
-              .ACControl="${this}"
-              flex="1"
-              resizable
-              auto-width
-            ></vaadin-grid-column>
-          </vaadin-grid>
-
-          <div style="color: var(--dorc-error-color)">${this.ErrorMessage}</div>
-        </div>
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px;">
-          <div>
-            <vaadin-button
-              ?disabled="${!this.UserEditable}"
-              @click="${this.save}"
-              >Save</vaadin-button
-            >
-            ${this.savingAccessControls
-              ? html` <div class="small-loader"></div> `
-              : html``}
-          </div>
-          <vaadin-button dialog-confirm @click="${this.close}"
-            >Close</vaadin-button
-          >
-        </div>
-      </paper-dialog>
+        header-title="Access Control"
+        draggable
+        .opened="${this.dialogOpened}"
+        @opened-changed="${(e: DialogOpenedChangedEvent) => {
+          this.dialogOpened = e.detail.value;
+          // Escape and outside-click are close paths too; previously only the
+          // Close button reset this form.
+          if (!this.dialogOpened) this.resetDialogState();
+        }}"
+        ${dialogRenderer(this.renderAccessControlContent, [
+          this.UserEditable,
+          this.secureName,
+          this.loading,
+          this.Privileges,
+          this.ErrorMessage,
+          this.savingAccessControls,
+          this.searchResults,
+          this.searchingUsers
+        ])}
+        ${dialogFooterRenderer(this.renderAccessControlFooter, [
+          this.UserEditable,
+          this.savingAccessControls
+        ])}
+      ></vaadin-dialog>
     `;
   }
 
   protected override firstUpdated(): void {
-    const field = this.shadowRoot?.getElementById(
-      'search-criteria'
-    ) as TextField;
-    field.addEventListener('keydown', this.isCriteriaReady as EventListener);
-
+    // The search field lives inside the dialog renderer now, so it does not
+    // exist until the dialog opens. Its keydown listener is attached by
+    // `wireSearchCriteria` via `ref` when the field is created.
     this.addEventListener(
       'access-control-search-criteria-ready',
       this.searchAD as EventListener
     );
   }
+
+  private wireSearchCriteria = (el?: Element) => {
+    if (!el) return;
+    el.removeEventListener('keydown', this.isCriteriaReady as EventListener);
+    el.addEventListener('keydown', this.isCriteriaReady as EventListener);
+  };
 
   private isCriteriaReady(e: KeyboardEvent) {
     if (e.code === 'Enter') {
@@ -682,9 +565,6 @@ export class AddEditAccessControl extends LitElement {
   }
 
   open(secureName: string, secureType: number) {
-    const dialog = this.shadowRoot?.getElementById(
-      'add-access-control-dialog'
-    ) as PaperDialogElement;
     this.loading = true;
 
     if (secureName !== '') {
@@ -711,15 +591,171 @@ export class AddEditAccessControl extends LitElement {
     }
     this.secureName = secureName;
 
-    dialog.open();
+    this.dialogOpened = true;
     this.ErrorMessage = '';
   }
 
+  private renderAccessControlContent = () => html`
+
+        <table>
+          <tr>
+            <td>
+              ${this.UserEditable
+                ? html`
+                    <vaadin-icon
+                      icon="vaadin:unlock"
+                      role="img"
+                      aria-label="Editable"
+                      title="Editable"
+                      style="color: var(--dorc-link-color)"
+                    ></vaadin-icon>
+                  `
+                : html`
+                    <vaadin-icon
+                      icon="vaadin:lock"
+                      role="img"
+                      aria-label="Read-only"
+                      title="Read-only"
+                      style="color: var(--dorc-link-color)"
+                    ></vaadin-icon>
+                  `}
+            </td>
+            <td>
+              <h2>${this.secureName}</h2>
+              ${this.loading
+                ? html` <div class="small-loader"></div> `
+                : html``}
+            </td>
+          </tr>
+        </table>
+        <div style="padding-left: 10px;padding-right: 10px;">
+          <vaadin-details
+            opened
+            summary="Add New User"
+            style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; width: 100%"
+          >
+            <table>
+              <tr>
+                <td style="display: table-cell; vertical-align: bottom;">
+                  <vaadin-text-field
+                    id="search-criteria"
+                    label="Search Criteria"
+                    @input="${this.updateSearchCriteria}"
+                    ${ref(this.wireSearchCriteria)}
+                  ></vaadin-text-field>
+                </td>
+                <td style="display: table-cell; vertical-align: bottom;">
+                  <vaadin-button
+                    @click="${this.searchAD}"
+                    style="margin-bottom: 5px"
+                    >Search</vaadin-button
+                  >
+                </td>
+                <td style="display: table-cell; vertical-align: center;">
+                  ${this.searchingUsers
+                    ? html` <div class="small-loader"></div> `
+                    : html``}
+                </td>
+              </tr>
+              <tr>
+                <td style="display: table-cell; vertical-align: bottom;">
+                  <vaadin-combo-box
+                    id="searchResults"
+                    label="Search Results"
+                    item-value-path="DisplayName"
+                    item-label-path="DisplayName"
+                    .items="${this.searchResults}"
+                    .renderer="${this.searchResultsRenderer}"
+                  ></vaadin-combo-box>
+                </td>
+                <td style="display: table-cell; vertical-align: bottom;">
+                  <vaadin-button
+                    @click="${this.addUser}"
+                    style="margin-bottom: 5px"
+                    ?disabled="${!this.UserEditable}"
+                    >Add</vaadin-button
+                  >
+                </td>
+              </tr>
+            </table>
+          </vaadin-details>
+          <vaadin-grid
+            .items="${this.Privileges}"
+            theme="compact row-stripes no-row-borders no-border"
+            style="width: 100%;"
+          >
+            <vaadin-grid-sort-column
+              header="Name"
+              .renderer="${this.acNameRenderer}"
+              flex="3"
+              resizable
+              auto-width
+            ></vaadin-grid-sort-column>
+            <vaadin-grid-column
+              header="Write"
+              .renderer="${this.acCanWrite}"
+              .altThis="${this}"
+              flex="1"
+              resizable
+              auto-width
+            ></vaadin-grid-column>
+            <vaadin-grid-column
+              header="Read Secrets"
+              .renderer="${this.acCanReadSecrets}"
+              .altThis="${this}"
+              flex="1"
+              resizable
+              auto-width
+            ></vaadin-grid-column>
+            <vaadin-grid-column
+              header="Owner"
+              .renderer="${this.acCanOwner}"
+              .altThis="${this}"
+              flex="1"
+              resizable
+              auto-width
+            ></vaadin-grid-column>
+            <vaadin-grid-column
+              header="Actions"
+              .renderer="${this._boundACButtonsRenderer}"
+              .ACControl="${this}"
+              flex="1"
+              resizable
+              auto-width
+            ></vaadin-grid-column>
+          </vaadin-grid>
+
+          <div style="color: var(--dorc-error-color)">${this.ErrorMessage}</div>
+        </div>
+  `;
+
+  private renderAccessControlFooter = () => html`
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px;">
+          <div>
+            <vaadin-button
+              ?disabled="${!this.UserEditable}"
+              @click="${this.save}"
+              >Save</vaadin-button
+            >
+            ${this.savingAccessControls
+              ? html` <div class="small-loader"></div> `
+              : html``}
+          </div>
+          <vaadin-button @click="${this.close}"
+            >Close</vaadin-button
+          >
+        </div>
+  `;
+
   close() {
-    const dialog = this.shadowRoot?.getElementById(
-      'add-access-control-dialog'
-    ) as PaperDialogElement;
-    dialog.close();
+    this.dialogOpened = false;
+  }
+
+  /**
+   * Clears the form. Runs on every close path via `opened-changed`, not just
+   * the Close button, so Escape and outside-click leave the same clean state.
+   */
+  private resetDialogState() {
     this.Privileges = [];
     this.ErrorMessage = '';
     this.setTextField('search-criteria', '');

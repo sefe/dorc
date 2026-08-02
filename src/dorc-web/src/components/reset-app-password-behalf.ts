@@ -2,10 +2,11 @@ import { css, LitElement, render } from 'lit';
 import '@vaadin/checkbox';
 import '@vaadin/button';
 import '@vaadin/combo-box';
-import '@polymer/paper-dialog';
-import { customElement, property } from 'lit/decorators.js';
+import '@vaadin/dialog';
+import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
-import { PaperDialogElement } from '@polymer/paper-dialog';
+import type { DialogOpenedChangedEvent } from '@vaadin/dialog';
+import { dialogFooterRenderer, dialogRenderer } from '@vaadin/dialog/lit';
 import { ComboBox, ComboBoxItemModel } from '@vaadin/combo-box';
 import {
   ApiBoolResult,
@@ -16,6 +17,8 @@ import { SuccessNotification } from './notifications/success-notification';
 
 @customElement('reset-app-password-behalf')
 export class ResetAppPasswordBehalf extends LitElement {
+  @state() private dialogOpened = false;
+
   @property({ type: Array }) appUsers: Array<UserApiModel> = [];
 
   @property({ type: String }) private selectedUser = '';
@@ -46,11 +49,10 @@ export class ResetAppPasswordBehalf extends LitElement {
           transform: rotate(360deg);
         }
       }
-      paper-dialog.size-position {
-        position: center;
+      vaadin-dialog::part(overlay) {
         top: 16px;
         overflow: auto;
-        padding: 10px;
+        max-width: calc(100vw - 32px);
       }
       .info-section {
         background: #f7f7f7;
@@ -78,54 +80,22 @@ export class ResetAppPasswordBehalf extends LitElement {
 
   render() {
     return html`
-      <paper-dialog
-        class="size-position"
+      <vaadin-dialog
         id="reset-app-password-behalf-dialog"
-        allow-click-through
-        modal
-      >
-        <div>
-          <vaadin-combo-box
-            id="app-users"
-            label="Select User"
-            item-value-path="LanId"
-            item-label-path="DisplayName"
-            .items="${this.appUsers}"
-            .renderer="${this.appUsersRenderer}"
-            @value-changed="${this.appUserValueChanged}"
-            style="width: 100%"
-          ></vaadin-combo-box>
-
-          <div style="margin-right: 30px">
-            <vaadin-button 
-              @click="${this.resetAppPassword}" 
-              ?disabled="${this.serverName === undefined && this.databaseName === undefined}"
-              >Reset Password</vaadin-button
-            >
-            ${this.resettingAppPassword
-              ? html` <div class="small-loader"></div> `
-              : html``}
-          </div>
-
-          <div class="info-section">
-            <div class="action-description">
-              This will reset the selected user's SQL account password for the next server and database:
-            </div>
-            <br/>
-            <div class="info-row">
-              <span class="info-label">Server:</span>
-              <span class="info-value">${this.serverName}</span>
-            </div>
-            <div class="info-row">
-              <span class="info-label">Database:</span>
-              <span class="info-value">${this.databaseName}</span>
-            </div>
-          </div>
-        </div>
-        <div style="display: flex; justify-content: flex-end">
-          <vaadin-button dialog-confirm>Close</vaadin-button>
-        </div>
-      </paper-dialog>
+        header-title="Reset Application Password"
+        draggable
+        .opened="${this.dialogOpened}"
+        @opened-changed="${(e: DialogOpenedChangedEvent) => {
+          this.dialogOpened = e.detail.value;
+        }}"
+        ${dialogRenderer(this.renderResetContent, [
+          this.appUsers,
+          this.serverName,
+          this.databaseName,
+          this.resettingAppPassword
+        ])}
+        ${dialogFooterRenderer(this.renderResetFooter, [])}
+      ></vaadin-dialog>
     `;
   }
 
@@ -204,18 +174,64 @@ export class ResetAppPasswordBehalf extends LitElement {
     );
   }
 
-  public open() {
-    const dialog = this.shadowRoot?.getElementById(
-      'reset-app-password-behalf-dialog'
-    ) as PaperDialogElement;
+  /**
+   * The combo-box renderer stays a plain `.renderer` binding for now — it is a
+   * grid/combo-box renderer, which belongs to the separate F-4 migration, not
+   * this dialog conversion. It is listed in that audit.
+   */
+  private renderResetContent = () => html`
 
-    dialog.open();
+        <div>
+          <vaadin-combo-box
+            id="app-users"
+            label="Select User"
+            item-value-path="LanId"
+            item-label-path="DisplayName"
+            .items="${this.appUsers}"
+            .renderer="${this.appUsersRenderer}"
+            @value-changed="${this.appUserValueChanged}"
+            style="width: 100%"
+          ></vaadin-combo-box>
+
+          <div style="margin-right: 30px">
+            <vaadin-button 
+              @click="${this.resetAppPassword}" 
+              ?disabled="${this.serverName === undefined && this.databaseName === undefined}"
+              >Reset Password</vaadin-button
+            >
+            ${this.resettingAppPassword
+              ? html` <div class="small-loader"></div> `
+              : html``}
+          </div>
+
+          <div class="info-section">
+            <div class="action-description">
+              This will reset the selected user's SQL account password for the next server and database:
+            </div>
+            <br/>
+            <div class="info-row">
+              <span class="info-label">Server:</span>
+              <span class="info-value">${this.serverName}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Database:</span>
+              <span class="info-value">${this.databaseName}</span>
+            </div>
+          </div>
+        </div>
+  `;
+
+  private renderResetFooter = () => html`
+    <vaadin-button @click="${() => (this.dialogOpened = false)}"
+      >Close</vaadin-button
+    >
+  `;
+
+  public open() {
+    this.dialogOpened = true;
   }
 
   public close() {
-    const dialog = this.shadowRoot?.getElementById(
-      'reset-app-password-behalf-dialog'
-    ) as PaperDialogElement;
-    dialog.close();
+    this.dialogOpened = false;
   }
 }
