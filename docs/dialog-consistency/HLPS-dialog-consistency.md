@@ -2,7 +2,7 @@
 
 | Field       | Value                                                    |
 |-------------|----------------------------------------------------------|
-| **Status**  | DRAFT — awaiting review round 2                          |
+| **Status**  | DRAFT — awaiting review round 2 (IS drafted)              |
 | **Author**  | Agent                                                    |
 | **Date**    | 2026-08-02                                               |
 | **Folder**  | `docs/dialog-consistency/`                               |
@@ -220,8 +220,9 @@ in here.
 |----|---------|-----------|------------|
 | U-1 | Paper dialog dismissal semantics | ✅ Resolved | `modal` ⇒ no outside-click, no Escape, backdrop. Now **deliberately discarded** per §5. |
 | U-2 | Where dialog content lives; how to size it | ✅ Resolved | Host shadow tree; use `width`/`height` + `::part(overlay)` (R1-07) |
-| U-3 | Do `confirm-dialog.ts` / `deploy-confirm-dialog.ts` survive as wrappers, or collapse into direct `<vaadin-confirm-dialog>` usage? | **No** | Decide when converting them; collapsing is preferred and in scope |
-| U-4 | Does `<vaadin-confirm-dialog>` support everything `hegs-dialog`'s `clickAction` did? | **No** | Read the 2 confirmation usages during their step |
+| U-3 | Do `confirm-dialog.ts` / `deploy-confirm-dialog.ts` survive as wrappers, or collapse? | ✅ **RESOLVED 2026-08-02** | **Collapse**, per direction. Both are deleted; call sites use `<vaadin-confirm-dialog>` directly. |
+| U-4 | Does `<vaadin-confirm-dialog>` cover everything the wrappers did? | ✅ **RESOLVED 2026-08-02** | Yes. It exposes `header`, `message`, `confirmText`, `confirmTheme`, `cancelText`, `cancelButtonVisible`, `rejectButtonVisible`, `opened`, and fires `confirm`/`cancel`/`reject`/`closed`. Every wrapper behaviour maps. |
+| U-6 | Do the two target patterns share a content model? | ✅ **RESOLVED 2026-08-02** | **No, and it matters.** `<vaadin-dialog>` renders content on open and destroys it on close; `<vaadin-confirm-dialog>` uses **slots**, so content exists while closed. Dependency arrays and the configure-then-open inversion therefore apply to `<vaadin-dialog>` conversions **only**. See `IS-dialog-consistency.md` §1.1. |
 | U-5 | Ordering against F-4, given `add-edit-access-control` has 6 grid renderers inside its dialog | **No** | Recommend dialogs first, and convert that file's renderers in the same step to avoid touching it twice |
 
 **No blocking unknowns.**
