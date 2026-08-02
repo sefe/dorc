@@ -10,5 +10,8 @@ namespace Dorc.Monitor.Notifications.Teams
         public string TenantId { get; init; } = string.Empty;
         public string ServiceUrl { get; init; } = "https://smba.trafficmanager.net/uk/";
         public string DorcUiBaseUrl { get; init; } = string.Empty;
+
+        // Comma-separated list of DeploymentRequestStatus names that trigger a notification.
+        public string NotifyOnStatuses { get; init; } = "Completed,Failed,Errored";
     }
 }

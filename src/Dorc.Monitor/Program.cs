@@ -220,13 +220,15 @@ builder.Services.AddTransient<IConfigurationSettings, ConfigurationSettings>();
 //Notification Setup
 var teamsSection = configurationRoot.GetSection(TeamsBotOptions.SectionName);
 builder.Services.Configure<TeamsBotOptions>(teamsSection);
-builder.Services.AddTransient<DeploymentCompletionCardBuilder>();
-var teamsNotificationEnabled = teamsSection["Enabled"];
-if (teamsNotificationEnabled == "true")
+if (teamsSection.GetValue<bool>("Enabled"))
 {
+    builder.Services.AddTransient<DeploymentCompletionCardBuilder>();
+    builder.Services.AddSingleton<IActiveDirectorySearcher, AzureEntraSearcher>();
+    builder.Services.AddSingleton<ITeamsConversationClient, TeamsConversationClient>();
     builder.Services.AddTransient<IDeploymentNotificationSink, TeamsBotNotificationSink>();
 }
-else {
+else
+{
     builder.Services.AddSingleton<IDeploymentNotificationSink, NoOpDeploymentNotificationSink>();
 }
 

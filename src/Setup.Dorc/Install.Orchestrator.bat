@@ -39,6 +39,7 @@ TEAMS.BOT.APP.PASSWORD="" ^
 TEAMS.TENANT.ID="" ^
 TEAMS.SERVICE.URL="https://smba.trafficmanager.net/uk/" ^
 TEAMS.DORC.UI.BASE.URL="http://localhost:8888" ^
+TEAMS.NOTIFY.ON.STATUSES="Completed,Failed,Errored" ^
 /qb /L*v "%MYDIR%\Setup.Dorc.log"
 
 echo Returncode: %ERRORLEVEL%

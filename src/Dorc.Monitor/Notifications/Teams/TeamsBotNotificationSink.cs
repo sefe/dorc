@@ -1,13 +1,7 @@
 using Dorc.ApiModel;
-using Dorc.Core;
-using Dorc.Core.Configuration;
-using Microsoft.Bot.Connector;
-using Microsoft.Bot.Connector.Authentication;
-using Microsoft.Bot.Schema;
-using Microsoft.Bot.Schema.Teams;
+using Dorc.Core.Interfaces;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Newtonsoft.Json.Linq;
 using Polly;
 using Polly.Retry;
 using Polly.Timeout;
@@ -16,23 +10,31 @@ namespace Dorc.Monitor.Notifications.Teams
 {
     internal sealed class TeamsBotNotificationSink : IDeploymentNotificationSink
     {
+        private static readonly string[] DefaultNotifyOnStatuses = { "Completed", "Failed", "Errored" };
+
         private readonly TeamsBotOptions _options;
-        private readonly IConfigurationSettings _configurationSettings;
-        private readonly ILoggerFactory _loggerFactory;
-        private readonly ILogger<TeamsBotNotificationSink> _logger;
+        private readonly HashSet<string> _notifyOnStatuses;
+        private readonly IActiveDirectorySearcher _directorySearcher;
+        private readonly ITeamsConversationClient _conversationClient;
         private readonly DeploymentCompletionCardBuilder _cardBuilder;
+        private readonly ILogger<TeamsBotNotificationSink> _logger;
+
+        // Internal (not private) so unit tests can collapse the exponential back-off between retries.
+        internal Func<int, TimeSpan> RetryDelayProvider { get; set; } = attempt => TimeSpan.FromSeconds(Math.Pow(2, attempt));
 
         public TeamsBotNotificationSink(
             IOptions<TeamsBotOptions> options,
-            IConfigurationSettings configurationSettings,
+            IActiveDirectorySearcher directorySearcher,
+            ITeamsConversationClient conversationClient,
             DeploymentCompletionCardBuilder cardBuilder,
             ILoggerFactory loggerFactory)
         {
-            _options               = options.Value;
-            _configurationSettings = configurationSettings;
-            _cardBuilder           = cardBuilder;
-            _loggerFactory         = loggerFactory;
-            _logger                = loggerFactory.CreateLogger<TeamsBotNotificationSink>();
+            _options            = options.Value;
+            _directorySearcher  = directorySearcher;
+            _conversationClient = conversationClient;
+            _cardBuilder        = cardBuilder;
+            _logger             = loggerFactory.CreateLogger<TeamsBotNotificationSink>();
+            _notifyOnStatuses   = ParseNotifyOnStatuses(_options.NotifyOnStatuses);
         }
 
         public async Task NotifyRequestCompletedAsync(
@@ -43,6 +45,14 @@ namespace Dorc.Monitor.Notifications.Teams
         {
             if (!_options.Enabled)
                 return;
+
+            if (!_notifyOnStatuses.Contains(finalStatus))
+            {
+                _logger.LogDebug(
+                    "Skipping Teams notification for request {RequestId}: status '{Status}' is not in NotifyOnStatuses.",
+                    request.Id, finalStatus);
+                return;
+            }
 
             if (string.IsNullOrWhiteSpace(request.UserName))
             {
@@ -69,7 +79,7 @@ namespace Dorc.Monitor.Notifications.Teams
                     "Teams notification sent for request {RequestId} to user '{UserName}' (status: {Status}).",
                     request.Id, request.UserName, finalStatus);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (!FatalExceptions.Is(ex))
             {
                 _logger.LogError(ex,
                     "Failed to send Teams notification for request {RequestId} to user '{UserName}'.",
@@ -81,10 +91,7 @@ namespace Dorc.Monitor.Notifications.Teams
         {
             try
             {
-                var entraLogger = _loggerFactory.CreateLogger<AzureEntraSearcher>();
-                var searcher    = new AzureEntraSearcher(_configurationSettings, entraLogger);
-
-                var results = searcher.Search(userName);
+                var results = _directorySearcher.Search(userName);
                 var match = results.FirstOrDefault(u =>
                     !u.IsGroup &&
                     (string.Equals(u.Username,    userName, StringComparison.OrdinalIgnoreCase) ||
@@ -93,7 +100,7 @@ namespace Dorc.Monitor.Notifications.Teams
 
                 return match?.Pid;
             }
-            catch (Exception ex)
+            catch (Exception ex) when (!FatalExceptions.Is(ex))
             {
                 _logger.LogError(ex, "Error resolving AAD object ID for user '{UserName}'.", userName);
                 return null;
@@ -107,79 +114,52 @@ namespace Dorc.Monitor.Notifications.Teams
             DateTimeOffset completedTime,
             string aadObjectId)
         {
-            MicrosoftAppCredentials.TrustServiceUrl(_options.ServiceUrl);
+            var policy = BuildResiliencePolicy(request.Id);
 
-            var credentials = new MicrosoftAppCredentials(
-                _options.BotAppId,
-                _options.BotAppPassword,
-                _options.TenantId);
+            var conversationId = await policy.ExecuteAsync(() =>
+                _conversationClient.CreateConversationAsync(aadObjectId));
 
-            using var connectorClient = new ConnectorClient(new Uri(_options.ServiceUrl), credentials);
+            _logger.LogDebug("Created conversation {ConversationId} for user {User} (request {RequestId})",
+                conversationId, request.UserName, request.Id);
 
-            var conversationParameters = new ConversationParameters
-            {
-                IsGroup = false,
-                Bot     = new ChannelAccount { Id = _options.BotAppId },
-                Members = new[]
-                {
-                    new ChannelAccount
-                    {
-                        Id          = aadObjectId,
-                        AadObjectId = aadObjectId
-                    }
-                },
-                TenantId    = _options.TenantId,
-                ChannelData = new TeamsChannelData
-                {
-                    Tenant = new TenantInfo { Id = _options.TenantId }
-                }
-            };
+            var cardJson = _cardBuilder.Build(request, finalStatus, startedTime, completedTime);
 
+            await policy.ExecuteAsync(() =>
+                _conversationClient.SendCardAsync(conversationId, cardJson));
+
+            _logger.LogDebug("Adaptive card message sent to conversation {ConversationId}", conversationId);
+        }
+
+        private AsyncPolicy BuildResiliencePolicy(int requestId)
+        {
             AsyncTimeoutPolicy timeoutPolicy = Policy
                 .TimeoutAsync(TimeSpan.FromSeconds(10), TimeoutStrategy.Optimistic);
 
             AsyncRetryPolicy retryPolicy = Policy
-                .Handle<Exception>(ex => ex is not ArgumentException and not TimeoutRejectedException)
+                .Handle<Exception>(ex => ex is not ArgumentException and not TimeoutRejectedException && !FatalExceptions.Is(ex))
                 .WaitAndRetryAsync(
                     3,
-                    retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)),
+                    retryAttempt => RetryDelayProvider(retryAttempt),
                     onRetry: (ex, ts, attempt, _) =>
                     {
                         _logger.LogWarning(ex,
                             "Retry {Attempt} sending Teams notification for request {RequestId}. Waiting {Delay}.",
-                            attempt, request.Id, ts);
+                            attempt, requestId, ts);
                     });
 
-            var policy = Policy.WrapAsync(retryPolicy, timeoutPolicy);
-
-            var conversationResource = await policy.ExecuteAsync(async () =>
-                await connectorClient.Conversations.CreateConversationAsync(conversationParameters));
-
-            _logger.LogDebug("Created conversation {ConversationId} for user {User} (request {RequestId})",
-                conversationResource?.Id, request.UserName, request.Id);
-
-            var cardJson = _cardBuilder.Build(request, finalStatus, startedTime, completedTime);
-            _logger.LogDebug("Adaptive Card JSON:\n{CardJson}", cardJson);
-
-            var message = new Activity
-            {
-                Type         = ActivityTypes.Message,
-                From         = new ChannelAccount { Id = _options.BotAppId },
-                Conversation = new ConversationAccount { Id = conversationResource.Id },
-                Attachments  = new List<Attachment>
-                {
-                    new Attachment
-                    {
-                        ContentType = "application/vnd.microsoft.card.adaptive",
-                        Content     = JObject.Parse(cardJson)
-                    }
-                }
-            };
-
-            await policy.ExecuteAsync(async () =>
-                await connectorClient.Conversations.SendToConversationAsync(conversationResource.Id, message));
-
-            _logger.LogDebug("Adaptive card message sent to conversation {ConversationId}", conversationResource.Id);
+            return Policy.WrapAsync(retryPolicy, timeoutPolicy);
         }
+
+        private static HashSet<string> ParseNotifyOnStatuses(string? configuredStatuses)
+        {
+            var statuses = (configuredStatuses ?? string.Empty)
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            return statuses.Count > 0
+                ? statuses
+                : DefaultNotifyOnStatuses.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        }
+
     }
 }

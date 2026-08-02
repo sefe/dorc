@@ -316,6 +316,10 @@
     {
       "MSIParameter": "TEAMS.DORC.UI.BASE.URL",
       "DeployProperty": "TEAMS_DORC_UI_BASE_URL"
+    },
+    {
+      "MSIParameter": "TEAMS.NOTIFY.ON.STATUSES",
+      "DeployProperty": "TEAMS_NOTIFY_ON_STATUSES"
     }
   ]
 }

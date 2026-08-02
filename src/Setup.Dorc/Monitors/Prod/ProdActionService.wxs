@@ -86,6 +86,7 @@
 					<Json:JsonFile Id="TeamsTenantIdProd" ElementPath="$.TeamsNotification.TenantId" Value="[TEAMS.TENANT.ID]" File="[#ProdDeployMonitorExeConfig]" />
 					<Json:JsonFile Id="TeamsServiceUrlProd" ElementPath="$.TeamsNotification.ServiceUrl" Value="[TEAMS.SERVICE.URL]" File="[#ProdDeployMonitorExeConfig]" />
 					<Json:JsonFile Id="TeamsDorcUiBaseUrlProd" ElementPath="$.TeamsNotification.DorcUiBaseUrl" Value="[TEAMS.DORC.UI.BASE.URL]" File="[#ProdDeployMonitorExeConfig]" />
+					<Json:JsonFile Id="TeamsNotifyOnStatusesProd" ElementPath="$.TeamsNotification.NotifyOnStatuses" Value="[TEAMS.NOTIFY.ON.STATUSES]" File="[#ProdDeployMonitorExeConfig]" />
 				</Component>
 
 				<Directory Id="INSTALLLOCATIONDORCRUNNERPROD" Name="DorcRunner">
