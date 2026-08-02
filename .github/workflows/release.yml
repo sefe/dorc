@@ -44,10 +44,10 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v6
+      uses: actions/checkout@v7
 
     - name: Setup Node.js
-      uses: actions/setup-node@v6
+      uses: actions/setup-node@v7
       with:
         node-version: ${{ env.NODE_VERSION }}
         cache: 'npm'
@@ -64,7 +64,11 @@ jobs:
         # Branches that ship get all three engines; everything else gets
         # chromium, which keeps PR feedback short and avoids downloading two
         # extra browser engines on a cache miss.
-        $ref = "${{ github.ref }}"
+        #
+        # Read the ref from the environment rather than interpolating
+        # ${{ github.ref }} into the script body: ref names may contain quotes
+        # and backticks, so the interpolated form is a script-injection sink.
+        $ref = $env:GITHUB_REF
         if ($ref -eq "refs/heads/main" -or $ref -eq "refs/heads/develop" -or $ref -like "refs/heads/release/*") {
           $browsers = "chromium,firefox,webkit"
         } else {
@@ -103,7 +107,7 @@ jobs:
     - name: Cache Playwright browsers
       id: playwright-cache
       if: runner.os == 'Windows'
-      uses: actions/cache@v5
+      uses: actions/cache@v6
       with:
         path: ~\AppData\Local\ms-playwright
         key: playwright-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}-${{ steps.browsers.outputs.list }}
@@ -125,7 +129,7 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v6
+      uses: actions/checkout@v7
 
     # actions/setup-dotnet is deliberately absent: the windows-latest image
     # already ships the .NET SDK, and installing a second copy cost ~38s of
@@ -138,7 +142,7 @@ jobs:
         dotnet --list-runtimes
 
     - name: Setup Node.js
-      uses: actions/setup-node@v6
+      uses: actions/setup-node@v7
       with:
         node-version: ${{ env.NODE_VERSION }}
         cache: 'npm'
@@ -409,7 +413,9 @@ jobs:
       id: set_retention
       shell: pwsh
       run: |
-        $ref = "${{ github.ref }}"
+        # Same reasoning as 'Select browser matrix': read the ref from the
+        # environment instead of interpolating it into the script body.
+        $ref = $env:GITHUB_REF
         if ($ref -eq "refs/heads/main" -or $ref -like "refs/heads/release/*") {
           echo "RETENTION_DAYS=400" >> $env:GITHUB_ENV
         } else {
