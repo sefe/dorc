@@ -39,7 +39,13 @@ import { HubConnection, HubConnectionState } from '@microsoft/signalr';
 import { retrieveErrorMessage } from '../helpers/errorMessage-retriever.js';
 import type { PropertyValues } from 'lit';
 import { PageElement, PageLocation } from '../helpers/page-element';
-import { ResponsiveMixin } from '../helpers/responsive-mixin';
+import { NarrowListController } from '../helpers/narrow-list-controller';
+import {
+  listRowStyles,
+  renderListBar,
+  renderListRow
+} from '../components/dorc-list-row';
+import { deploymentRequestRowTemplate } from '../row-templates/deployment-request-row-template';
 
 const username = 'Username';
 const status = 'Status';
@@ -51,10 +57,19 @@ const id = 'Id';
 
 @customElement('page-monitor-requests')
 export class PageMonitorRequests
-  extends ResponsiveMixin(PageElement)
+  extends PageElement
   implements IDeploymentsEventsClient
 {
   @query('#grid') grid: Grid | undefined;
+
+  /** Narrow-mode (HLPS §3.4): container-driven; replaces ResponsiveMixin. */
+  list = new NarrowListController(this);
+
+  private rowTemplate = deploymentRequestRowTemplate(this);
+
+  private _openedNarrowItems: DeploymentRequestApiModel[] = [];
+
+  private _barRoot: HTMLElement | undefined;
 
   // since grid is being refreshed with multiple requests (pages) in non-deterministic way,
   // we need to store the max count of items before refresh to keep grid's cache size
@@ -88,7 +103,9 @@ export class PageMonitorRequests
   buildFilter: string = '';
 
   static get styles() {
-    return css`
+    return [
+      listRowStyles,
+      css`
       :host {
         display: flex;
         flex-direction: column;
@@ -138,7 +155,8 @@ export class PageMonitorRequests
         left: 50%;
         transform: translate(-50%, -50%);
       }
-    `;
+    `
+    ];
   }
 
   render() {
@@ -151,6 +169,9 @@ export class PageMonitorRequests
         multi-sort
         .size=${200}
         theme="compact row-stripes no-row-borders no-border"
+        .rowDetailsRenderer=${this.list.narrow ? this._listDetailsRenderer : undefined}
+        .detailsOpenedItems=${this._openedNarrowItems}
+        @active-item-changed=${this._onNarrowActiveItem}
         .dataProvider=${(
           params: GridDataProviderParams<DeploymentRequestApiModel>,
           callback: GridDataProviderCallback<DeploymentRequestApiModel>
@@ -257,9 +278,17 @@ export class PageMonitorRequests
         style="z-index: 1"
       >
         <vaadin-grid-column
+          id="list-column"
+          flex-grow="1"
+          ?hidden="${!this.list.narrow}"
+          .headerRenderer="${this._listBarRenderer}"
+          .renderer="${this._listRowRenderer}"
+        ></vaadin-grid-column>
+        <vaadin-grid-column
           path="Id"
           resizable
           auto-width
+          ?hidden="${this.list.narrow}"
           .headerRenderer="${this.idHeaderRenderer}"
           .renderer="${this.idRenderer}"
         ></vaadin-grid-column>
@@ -267,6 +296,7 @@ export class PageMonitorRequests
           header="Details"
           resizable
           auto-width
+          ?hidden="${this.list.narrow}"
           .headerRenderer="${this.detailsHeaderRenderer}"
           .renderer="${this.detailsRenderer}"
         >
@@ -276,7 +306,7 @@ export class PageMonitorRequests
           .renderer="${this.timingsRenderer}"
           header="Timings"
           auto-width
-          ?hidden="${this._narrowScreen}"
+          ?hidden="${this.list.narrow}"
         ></vaadin-grid-column>
         <vaadin-grid-column
           header="User"
@@ -284,7 +314,7 @@ export class PageMonitorRequests
           .renderer="${this.usernameRenderer}"
           resizable
           auto-width
-          ?hidden="${this._narrowScreen}"
+          ?hidden="${this.list.narrow}"
         >
         </vaadin-grid-column>
         <vaadin-grid-column
@@ -293,12 +323,14 @@ export class PageMonitorRequests
           .headerRenderer="${this.statusHeaderRenderer}"
           resizable
           auto-width
+          ?hidden="${this.list.narrow}"
         >
         </vaadin-grid-column>
         <vaadin-grid-column
           .renderer="${this._requestControlsRenderer}"
           resizable
           width="160px"
+          ?hidden="${this.list.narrow}"
         >
         </vaadin-grid-column>
         <vaadin-grid-column
@@ -307,7 +339,7 @@ export class PageMonitorRequests
           .renderer="${this.componentsRenderer}"
           resizable
           auto-width
-          ?hidden="${this._narrowScreen}"
+          ?hidden="${this.list.narrow}"
         >
         </vaadin-grid-column>
       </vaadin-grid>
@@ -362,6 +394,9 @@ export class PageMonitorRequests
       if (this._idHeaderRoot) {
         // Re-render header to reflect state changes
         this.idHeaderRenderer(this._idHeaderRoot);
+      }
+      if (this._barRoot) {
+        this._renderListBar(this._barRoot);
       }
     }
   }
@@ -704,6 +739,96 @@ export class PageMonitorRequests
         .canPause=${!!item.UserEditable && item.Status === 'Pending'}
         .canResume=${!!item.UserEditable && item.Status === 'Paused'}
       ></request-controls>`,
+      root
+    );
+  }
+
+  // ---- Narrow-mode list rendering (HLPS §3.4; row template imported) ----
+
+  private _listRowRenderer = (
+    root: HTMLElement,
+    _: HTMLElement,
+    model: GridItemModel<DeploymentRequestApiModel>
+  ) => {
+    render(renderListRow(this.rowTemplate, model.item), root);
+  };
+
+  private _listDetailsRenderer = (
+    root: HTMLElement,
+    _: HTMLElement,
+    model: GridItemModel<DeploymentRequestApiModel>
+  ) => {
+    render(this.rowTemplate.details!(model.item), root);
+  };
+
+  /** Row activation toggles disclosure (U-15: open-result lives on the id). */
+  private _onNarrowActiveItem = (e: CustomEvent) => {
+    if (!this.list.narrow) return;
+    const item = e.detail.value as DeploymentRequestApiModel | null;
+    if (!item) return;
+    const idx = this._openedNarrowItems.indexOf(item);
+    this._openedNarrowItems =
+      idx === -1
+        ? [...this._openedNarrowItems, item]
+        : [
+            ...this._openedNarrowItems.slice(0, idx),
+            ...this._openedNarrowItems.slice(idx + 1)
+          ];
+    const grid = e.currentTarget as Grid;
+    grid.activeItem = null;
+    this.requestUpdate();
+  };
+
+  /**
+   * The bar (DECISION-bar-mechanism.md): hosted in the list column's
+   * headerRenderer so its sorters stay connected. Carries the view-level
+   * controls that live in the Id column header at wide width, the per-field
+   * filters (same debounced searching-requests-started contract), and sort.
+   */
+  private _listBarRenderer = (root: HTMLElement) => {
+    this._barRoot = root;
+    this._renderListBar(root);
+  };
+
+  private _renderListBar(root: HTMLElement) {
+    const filterField = (placeholder: string, field: string, width = '7.5em') =>
+      html`<vaadin-text-field
+        placeholder="${placeholder}"
+        title="starts with"
+        clear-button-visible
+        theme="small"
+        style="width: ${width}"
+        @input="${(e: InputEvent) => {
+          const textField = e.target as HTMLInputElement;
+          this.dispatchEvent(
+            new CustomEvent('searching-requests-started', {
+              detail: { field, value: textField?.value },
+              bubbles: true,
+              composed: true
+            })
+          );
+        }}"
+      ></vaadin-text-field>`;
+    render(
+      renderListBar({
+        controls: html`<connection-status-indicator
+          mode="toggle"
+          .state="${this.hubConnectionState}"
+          .autoRefresh="${this.autoRefresh}"
+          @toggle-auto-refresh="${() => {
+            this.autoRefresh = !this.autoRefresh;
+            if (this.autoRefresh) this.refreshGrid();
+            this._renderListBar(root);
+          }}"
+        ></connection-status-indicator>`,
+        filters: html`${filterField('Project', project)}
+        ${filterField('Environment', environment)}
+        ${filterField('Build', buildNumber, '6em')}
+        ${filterField('Status', status, '6em')}`,
+        sort: html`<vaadin-grid-sorter path="Id" direction="desc"
+          >Id</vaadin-grid-sorter
+        >`
+      }),
       root
     );
   }

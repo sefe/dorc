@@ -28,6 +28,13 @@ export interface ListRowTemplate<T> {
  * Text wrapping is opt-in here (Vaadin default is nowrap+ellipsis).
  */
 export const listRowStyles = css`
+  /* ResizeObserver reports 0 width for inline hosts, which the controller
+     ignores — a migrated component must lay out as a block. Components with
+     their own :host display rule override this (their css follows in the
+     styles array). */
+  :host {
+    display: block;
+  }
   .dorc-list-row {
     display: flex;
     align-items: flex-start;

@@ -14,8 +14,16 @@ import {
 import { ComboBox } from '@vaadin/combo-box/src/vaadin-combo-box';
 import { TextField } from '@vaadin/text-field';
 import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
+import '@vaadin/grid/vaadin-grid-sorter';
 import { GridItemModel } from '@vaadin/grid';
 import './deploy/property-override-controls'
+import { NarrowListController } from '../helpers/narrow-list-controller';
+import {
+  listRowStyles,
+  renderListBar,
+  renderListRow
+} from './dorc-list-row';
+import { requestPropertyRowTemplate } from '../row-templates/request-property-row-template';
 import { MakeLikeProductionDialog } from './make-like-production-dialog.ts';
 
 @customElement('make-like-production')
@@ -67,8 +75,20 @@ export class MakeLikeProduction extends LitElement {
 
   private propertyValue = '';
 
+  /** Narrow-mode (HLPS §3.4): container-driven — collapses when the hosting
+   * dialog is narrow, whatever the window size. */
+  list = new NarrowListController(this);
+
+  private rowTemplate = requestPropertyRowTemplate({
+    removeOverride: p => this.RemoveOverrideProperty(p)
+  });
+
+  private _openedNarrowItems: RequestProperty[] = [];
+
   static get styles() {
-    return css`
+    return [
+      listRowStyles,
+      css`
       .block {
         display: flex;
         align-items: center;
@@ -93,7 +113,8 @@ export class MakeLikeProduction extends LitElement {
           transform: rotate(360deg);
         }
       }
-    `;
+    `
+    ];
   }
 
   render() {
@@ -148,13 +169,25 @@ export class MakeLikeProduction extends LitElement {
               multi-sort
               style="height: 200px"
               theme="compact row-stripes no-row-borders no-border"
+              .rowDetailsRenderer=${this.list.narrow
+                ? this._listDetailsRenderer
+                : undefined}
+              .detailsOpenedItems=${this._openedNarrowItems}
+              @active-item-changed=${this._onNarrowActiveItem}
             >
+              <vaadin-grid-column
+                flex-grow="1"
+                ?hidden="${!this.list.narrow}"
+                .headerRenderer="${this._listBarRenderer}"
+                .renderer="${this._listRowRenderer}"
+              ></vaadin-grid-column>
               <vaadin-grid-sort-column
                 header="Property Name"
                 path="PropertyName"
                 width="300px"
                 flex-grow="0"
                 resizable
+                ?hidden="${this.list.narrow}"
               ></vaadin-grid-sort-column>
               <vaadin-grid-sort-column
                 header="Property Value"
@@ -162,11 +195,13 @@ export class MakeLikeProduction extends LitElement {
                 flex-grow="0"
                 width="300px"
                 resizable
+                ?hidden="${this.list.narrow}"
               ></vaadin-grid-sort-column>
               <vaadin-grid-column
                 .renderer="${this._boundPropOverridesButtonsRenderer}"
                 .attachedDbsControl="${this}"
                 resizable
+                ?hidden="${this.list.narrow}"
               ></vaadin-grid-column>
             </vaadin-grid>
           </vaadin-vertical-layout>
@@ -252,6 +287,53 @@ export class MakeLikeProduction extends LitElement {
       root
     );
   }
+
+  // ---- Narrow-mode list rendering (HLPS §3.4) ----
+
+  private _listRowRenderer = (
+    root: HTMLElement,
+    _: GridColumn,
+    model: GridItemModel<RequestProperty>
+  ) => {
+    render(renderListRow(this.rowTemplate, model.item), root);
+  };
+
+  private _listDetailsRenderer = (
+    root: HTMLElement,
+    _: GridColumn,
+    model: GridItemModel<RequestProperty>
+  ) => {
+    render(this.rowTemplate.details!(model.item), root);
+  };
+
+  private _onNarrowActiveItem = (e: CustomEvent) => {
+    if (!this.list.narrow) return;
+    const item = e.detail.value as RequestProperty | null;
+    if (!item) return;
+    const idx = this._openedNarrowItems.indexOf(item);
+    this._openedNarrowItems =
+      idx === -1
+        ? [...this._openedNarrowItems, item]
+        : [
+            ...this._openedNarrowItems.slice(0, idx),
+            ...this._openedNarrowItems.slice(idx + 1)
+          ];
+    (e.currentTarget as { activeItem?: unknown }).activeItem = null;
+    this.requestUpdate();
+  };
+
+  /** Bar: sorters only — this grid has no filters (DECISION-bar-mechanism). */
+  private _listBarRenderer = (root: HTMLElement) => {
+    render(
+      renderListBar({
+        sort: html`<vaadin-grid-sorter path="PropertyName"
+            >Name</vaadin-grid-sorter
+          >
+          <vaadin-grid-sorter path="PropertyValue">Value</vaadin-grid-sorter>`
+      }),
+      root
+    );
+  };
 
   private RemoveOverrideProperty(propertyOverride: RequestProperty) {
     this.propertyOverrides = this.propertyOverrides.filter((val) => val.PropertyName != propertyOverride.PropertyName);

@@ -349,7 +349,12 @@ describe('Responsive grid column hiding (rendered)', () => {
   });
 
   // ── component-deployment-results ──
-  describe('component-deployment-results', () => {
+  // MIGRATED to the §3.4 list-row idiom (IS S-005): narrow mode is
+  // CONTAINER-driven via NarrowListController, not matchMedia, and collapses
+  // to a single list column instead of hiding a subset. Coverage
+  // re-established against the new mechanism per the test-migration
+  // obligation (HLPS §3.1).
+  describe('component-deployment-results (migrated: list-row idiom)', () => {
     const mockResults = [
       {
         ComponentName: 'comp1',
@@ -361,32 +366,79 @@ describe('Responsive grid column hiding (rendered)', () => {
       },
     ];
 
-    it('hides secondary columns on narrow screens', async () => {
-      mockMatchMedia(true);
-      const el = await fixture(html`
-        <component-deployment-results
-          .resultItems="${mockResults}"
-        ></component-deployment-results>
-      `);
+    const settle = () =>
+      new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+    it('collapses to the single list column when its CONTAINER is narrow', async () => {
+      const wrapper = (await fixture(html`
+        <div style="width: 375px">
+          <component-deployment-results
+            .resultItems="${mockResults}"
+          ></component-deployment-results>
+        </div>
+      `)) as HTMLElement;
+      const el = wrapper.querySelector(
+        'component-deployment-results'
+      ) as HTMLElement & { updateComplete: Promise<unknown> };
+      await el.updateComplete;
+      await settle();
+      await settle();
+
+      const sr = el.shadowRoot!;
+      const wideColumns = Array.from(
+        sr.querySelectorAll('vaadin-grid-column[header], vaadin-grid-column[path]')
+      ) as HTMLElement[];
+      // every wide column hidden; the (header-less, path-less) list column visible
+      wideColumns.forEach(col => {
+        expect(col.hidden).to.equal(
+          true,
+          `${col.getAttribute('header') ?? col.getAttribute('path')} should be hidden at narrow width`
+        );
+      });
+      const listColumn = sr.querySelector(
+        'vaadin-grid-column[flex-grow="1"]'
+      ) as HTMLElement;
+      expect(listColumn.hidden).to.equal(false, 'list column visible');
+
+      // list row renders primary + chip from the row template
+      const rowBody = sr.querySelector('.dorc-list-row__primary');
+      expect(rowBody, 'list row primary line rendered').to.exist;
+      expect(rowBody!.textContent).to.contain('comp1');
+      const chip = sr.querySelector('.dorc-list-row__chip');
+      expect(chip, 'status chip rendered').to.exist;
+      expect(chip!.textContent!.trim()).to.equal('Complete');
+    });
+
+    it('restores the wide columns when the container widens (SC10 crossing)', async () => {
+      const wrapper = (await fixture(html`
+        <div style="width: 375px">
+          <component-deployment-results
+            .resultItems="${mockResults}"
+          ></component-deployment-results>
+        </div>
+      `)) as HTMLElement;
+      const el = wrapper.querySelector(
+        'component-deployment-results'
+      ) as HTMLElement & { updateComplete: Promise<unknown> };
+      await el.updateComplete;
+      await settle();
+      await settle();
+
+      wrapper.style.width = '1100px';
+      await settle();
+      await settle();
       await el.updateComplete;
 
       const sr = el.shadowRoot!;
-
-      // Always visible
       expect(
-        (sr.querySelector('vaadin-grid-column[header="Component Name"]') as HTMLElement).hidden
-      ).to.equal(false, 'Component Name should be visible');
+        (sr.querySelector('vaadin-grid-column[header="Component Name"]') as HTMLElement)
+          .hidden
+      ).to.equal(false, 'Component Name restored at wide width');
       expect(
-        (sr.querySelector('vaadin-grid-column[header="Status"]') as HTMLElement).hidden
-      ).to.equal(false, 'Status should be visible');
-
-      // Hidden on narrow
-      expect(
-        (sr.querySelector('vaadin-grid-column[header="Timings"]') as HTMLElement).hidden
-      ).to.equal(true, 'Timings should be hidden');
-      expect(
-        (sr.querySelector('vaadin-grid-column[header="Log"]') as HTMLElement).hidden
-      ).to.equal(true, 'Log should be hidden');
+        (
+          sr.querySelector('vaadin-grid-column[flex-grow="1"]') as HTMLElement
+        ).hidden
+      ).to.equal(true, 'list column hidden at wide width');
     });
   });
 

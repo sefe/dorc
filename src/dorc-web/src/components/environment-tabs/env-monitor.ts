@@ -40,7 +40,13 @@ import { retrieveErrorMessage } from '../../helpers/errorMessage-retriever.js';
 import type { PropertyValues } from 'lit';
 import type { PageLocation } from '../../helpers/page-element';
 import { PageEnvBase } from './page-env-base';
-import { ResponsiveMixin } from '../../helpers/responsive-mixin';
+import { NarrowListController } from '../../helpers/narrow-list-controller';
+import {
+  listRowStyles,
+  renderListBar,
+  renderListRow
+} from '../dorc-list-row';
+import { deploymentRequestRowTemplate } from '../../row-templates/deployment-request-row-template';
 
 const username = 'Username';
 const status = 'Status';
@@ -49,7 +55,15 @@ const details = 'Details';
 const id = 'Id';
 
 @customElement('env-monitor')
-export class EnvMonitor extends ResponsiveMixin(PageEnvBase) implements IDeploymentsEventsClient{
+export class EnvMonitor extends PageEnvBase implements IDeploymentsEventsClient{
+  /** Narrow-mode (HLPS §3.4): container-driven; replaces ResponsiveMixin. */
+  list = new NarrowListController(this);
+
+  private rowTemplate = deploymentRequestRowTemplate(this);
+
+  private _openedNarrowItems: DeploymentRequestApiModel[] = [];
+
+  private _barRoot: HTMLElement | undefined;
   @query('#grid') grid: Grid | undefined;
 
   // since grid is being refreshed with multiple requests (pages) in non-deterministic way,
@@ -89,7 +103,9 @@ export class EnvMonitor extends ResponsiveMixin(PageEnvBase) implements IDeploym
   }
 
   static get styles() {
-    return css`
+    return [
+      listRowStyles,
+      css`
       :host {
         display: flex;
         flex-direction: column;
@@ -133,7 +149,8 @@ export class EnvMonitor extends ResponsiveMixin(PageEnvBase) implements IDeploym
           overflow-wrap: break-word;
         }
       }
-    `;
+    `
+    ];
   }
 
   render() {
@@ -146,7 +163,13 @@ export class EnvMonitor extends ResponsiveMixin(PageEnvBase) implements IDeploym
         multi-sort
         .size=${200}
         theme="compact row-stripes no-row-borders no-border hover-highlight"
-        @active-item-changed="${this.onRowClick}"
+        @active-item-changed="${this.list.narrow
+          ? this._onNarrowActiveItem
+          : this.onRowClick}"
+        .rowDetailsRenderer=${this.list.narrow
+          ? this._listDetailsRenderer
+          : undefined}
+        .detailsOpenedItems=${this._openedNarrowItems}
         .dataProvider=${(
           params: GridDataProviderParams<DeploymentRequestApiModel>,
           callback: GridDataProviderCallback<DeploymentRequestApiModel>
@@ -257,9 +280,16 @@ export class EnvMonitor extends ResponsiveMixin(PageEnvBase) implements IDeploym
         style="z-index: 1"
       >
         <vaadin-grid-column
+          flex-grow="1"
+          ?hidden="${!this.list.narrow}"
+          .headerRenderer="${this._listBarRenderer}"
+          .renderer="${this._listRowRenderer}"
+        ></vaadin-grid-column>
+        <vaadin-grid-column
           path="Id"
           resizable
           auto-width
+          ?hidden="${this.list.narrow}"
           .headerRenderer="${this.idHeaderRenderer}"
           .renderer="${this.idRenderer}"
         ></vaadin-grid-column>
@@ -267,6 +297,7 @@ export class EnvMonitor extends ResponsiveMixin(PageEnvBase) implements IDeploym
           header="Details"
           resizable
           auto-width
+          ?hidden="${this.list.narrow}"
           .headerRenderer="${this.detailsHeaderRenderer}"
           .renderer="${this.detailsRenderer}"
         >
@@ -276,7 +307,7 @@ export class EnvMonitor extends ResponsiveMixin(PageEnvBase) implements IDeploym
           .renderer="${this.timingsRenderer}"
           header="Timings"
           auto-width
-          ?hidden="${this._narrowScreen}"
+          ?hidden="${this.list.narrow}"
         ></vaadin-grid-column>
         <vaadin-grid-column
           header="User"
@@ -284,7 +315,7 @@ export class EnvMonitor extends ResponsiveMixin(PageEnvBase) implements IDeploym
           .renderer="${this.usernameRenderer}"
           resizable
           auto-width
-          ?hidden="${this._narrowScreen}"
+          ?hidden="${this.list.narrow}"
         >
         </vaadin-grid-column>
         <vaadin-grid-column
@@ -293,12 +324,14 @@ export class EnvMonitor extends ResponsiveMixin(PageEnvBase) implements IDeploym
           .headerRenderer="${this.statusHeaderRenderer}"
           resizable
           auto-width
+          ?hidden="${this.list.narrow}"
         >
         </vaadin-grid-column>
         <vaadin-grid-column
           .renderer="${this._requestControlsRenderer}"
           resizable
           width="100px"
+          ?hidden="${this.list.narrow}"
         >
         </vaadin-grid-column>
         <vaadin-grid-column
@@ -307,7 +340,7 @@ export class EnvMonitor extends ResponsiveMixin(PageEnvBase) implements IDeploym
           .renderer="${this.componentsRenderer}"
           resizable
           auto-width
-          ?hidden="${this._narrowScreen}"
+          ?hidden="${this.list.narrow}"
         >
         </vaadin-grid-column>
       </vaadin-grid>
@@ -354,6 +387,9 @@ export class EnvMonitor extends ResponsiveMixin(PageEnvBase) implements IDeploym
       if (this._idHeaderRoot) {
         // Re-render header to reflect state changes
         this.idHeaderRenderer(this._idHeaderRoot);
+      }
+      if (this._barRoot) {
+        this._renderListBar(this._barRoot);
       }
     }
   }
@@ -616,6 +652,92 @@ export class EnvMonitor extends ResponsiveMixin(PageEnvBase) implements IDeploym
       root
     );
   };
+
+  // ---- Narrow-mode list rendering (HLPS §3.4) ----
+
+  private _listRowRenderer = (
+    root: HTMLElement,
+    _: HTMLElement,
+    model: GridItemModel<DeploymentRequestApiModel>
+  ) => {
+    render(renderListRow(this.rowTemplate, model.item), root);
+  };
+
+  private _listDetailsRenderer = (
+    root: HTMLElement,
+    _: HTMLElement,
+    model: GridItemModel<DeploymentRequestApiModel>
+  ) => {
+    render(this.rowTemplate.details!(model.item), root);
+  };
+
+  /**
+   * U-15: at narrow width, activation toggles disclosure; the open-result
+   * action lives on the id link in the primary line. At wide width the
+   * original onRowClick (activation opens the result) still applies — the
+   * handler is selected in render() by mode.
+   */
+  private _onNarrowActiveItem = (e: CustomEvent) => {
+    if (!this.list.narrow) return;
+    const item = e.detail.value as DeploymentRequestApiModel | null;
+    if (!item) return;
+    const idx = this._openedNarrowItems.indexOf(item);
+    this._openedNarrowItems =
+      idx === -1
+        ? [...this._openedNarrowItems, item]
+        : [
+            ...this._openedNarrowItems.slice(0, idx),
+            ...this._openedNarrowItems.slice(idx + 1)
+          ];
+    (e.currentTarget as Grid).activeItem = null;
+    this.requestUpdate();
+  };
+
+  private _listBarRenderer = (root: HTMLElement) => {
+    this._barRoot = root;
+    this._renderListBar(root);
+  };
+
+  private _renderListBar(root: HTMLElement) {
+    const filterField = (placeholder: string, field: string, width = '7.5em') =>
+      html`<vaadin-text-field
+        placeholder="${placeholder}"
+        clear-button-visible
+        theme="small"
+        style="width: ${width}"
+        @input="${(e: InputEvent) => {
+          const textField = e.target as HTMLInputElement;
+          this.dispatchEvent(
+            new CustomEvent('searching-requests-started', {
+              detail: { field, value: textField?.value },
+              bubbles: true,
+              composed: true
+            })
+          );
+        }}"
+      ></vaadin-text-field>`;
+    render(
+      renderListBar({
+        controls: html`<connection-status-indicator
+          mode="toggle"
+          .state="${this.hubConnectionState}"
+          .autoRefresh="${this.autoRefresh}"
+          @toggle-auto-refresh="${() => {
+            this.autoRefresh = !this.autoRefresh;
+            if (this.autoRefresh) this.refreshGrid();
+            this._renderListBar(root);
+          }}"
+        ></connection-status-indicator>`,
+        filters: html`${filterField('Details', details)}
+        ${filterField('Status', status, '6em')}
+        ${filterField('User', username, '6em')}`,
+        sort: html`<vaadin-grid-sorter path="Id" direction="desc"
+          >Id</vaadin-grid-sorter
+        >`
+      }),
+      root
+    );
+  }
 
   private onRowClick = (e: CustomEvent) => {
     const request = e.detail.value as DeploymentRequestApiModel | null;

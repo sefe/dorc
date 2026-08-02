@@ -5,8 +5,15 @@ import { GridItemModel } from '@vaadin/grid';
 import '@vaadin/grid/vaadin-grid-column';
 import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
 import '@vaadin/grid/vaadin-grid-sort-column';
+import '@vaadin/grid/vaadin-grid-sorter';
 import { css, LitElement, render } from 'lit';
-import { ResponsiveMixin } from '../helpers/responsive-mixin';
+import { NarrowListController } from '../helpers/narrow-list-controller';
+import {
+  listRowStyles,
+  renderListBar,
+  renderListRow
+} from './dorc-list-row';
+import { deploymentResultRowTemplate } from '../row-templates/deployment-result-row-template';
 import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import './grid-button-groups/server-controls';
@@ -19,9 +26,20 @@ import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
 
 @customElement('component-deployment-results')
-export class ComponentDeploymentResults extends ResponsiveMixin(LitElement) {
+export class ComponentDeploymentResults extends LitElement {
   @property({ type: Array })
   resultItems: DeploymentResultApiModel[] | undefined;
+
+  /** Narrow-mode (HLPS §3.4): container-driven — this component is hosted
+   * inside <vaadin-details>, so its real width is the host panel's. */
+  list = new NarrowListController(this);
+
+  private rowTemplate = deploymentResultRowTemplate({
+    dispatchEvent: e => this.dispatchEvent(e),
+    openTerraformPlan: id => this.openTerraformPlan(id)
+  });
+
+  private _openedNarrowItems: DeploymentResultApiModel[] = [];
 
   @state()
   dialogOpened = false;
@@ -67,7 +85,9 @@ export class ComponentDeploymentResults extends ResponsiveMixin(LitElement) {
   }
 
   static get styles() {
-    return css`
+    return [
+      listRowStyles,
+      css`
       vaadin-grid#grid {
         overflow: auto;
         width: calc(100% - 4px);
@@ -132,7 +152,8 @@ export class ComponentDeploymentResults extends ResponsiveMixin(LitElement) {
           overflow-wrap: break-word;
         }
       }
-    `;
+    `
+    ];
   }
 
   render() {
@@ -157,31 +178,45 @@ export class ComponentDeploymentResults extends ResponsiveMixin(LitElement) {
         all-rows-visible
         theme="compact row-stripes no-row-borders no-border"
         .items="${this.resultItems}"
+        .rowDetailsRenderer=${this.list.narrow
+          ? this._listDetailsRenderer
+          : undefined}
+        .detailsOpenedItems=${this._openedNarrowItems}
+        @active-item-changed=${this._onNarrowActiveItem}
       >
+        <vaadin-grid-column
+          flex-grow="1"
+          ?hidden="${!this.list.narrow}"
+          .headerRenderer="${this._listBarRenderer}"
+          .renderer="${this._listRowRenderer}"
+        ></vaadin-grid-column>
         <vaadin-grid-column
           .renderer="${this.componentNameRenderer}"
           header="Component Name"
           resizable
           auto-width
+          ?hidden="${this.list.narrow}"
         ></vaadin-grid-column>
         <vaadin-grid-column
           resizable
           .renderer="${this.timingsRenderer}"
           header="Timings"
           auto-width
-          ?hidden="${this._narrowScreen}"
+          ?hidden="${this.list.narrow}"
         ></vaadin-grid-column>
         <vaadin-grid-column
           .renderer="${this.statusRenderer}"
           header="Status"
           resizable
           auto-width
+          ?hidden="${this.list.narrow}"
         ></vaadin-grid-column>
         <vaadin-grid-column
           .renderer="${this.actionsRenderer}"
           header="Actions"
           resizable
           auto-width
+          ?hidden="${this.list.narrow}"
         ></vaadin-grid-column>
         <vaadin-grid-column
           path="Log"
@@ -189,11 +224,57 @@ export class ComponentDeploymentResults extends ResponsiveMixin(LitElement) {
           resizable
           auto-width
           .renderer="${this._logRenderer}"
-          ?hidden="${this._narrowScreen}"
+          ?hidden="${this.list.narrow}"
         ></vaadin-grid-column>
       </vaadin-grid>
     `;
   }
+
+  // ---- Narrow-mode list rendering (HLPS §3.4) ----
+
+  private _listRowRenderer = (
+    root: HTMLElement,
+    _: GridColumn,
+    model: GridItemModel<DeploymentResultApiModel>
+  ) => {
+    render(renderListRow(this.rowTemplate, model.item), root);
+  };
+
+  private _listDetailsRenderer = (
+    root: HTMLElement,
+    _: GridColumn,
+    model: GridItemModel<DeploymentResultApiModel>
+  ) => {
+    render(this.rowTemplate.details!(model.item), root);
+  };
+
+  private _onNarrowActiveItem = (e: CustomEvent) => {
+    if (!this.list.narrow) return;
+    const item = e.detail.value as DeploymentResultApiModel | null;
+    if (!item) return;
+    const idx = this._openedNarrowItems.indexOf(item);
+    this._openedNarrowItems =
+      idx === -1
+        ? [...this._openedNarrowItems, item]
+        : [
+            ...this._openedNarrowItems.slice(0, idx),
+            ...this._openedNarrowItems.slice(idx + 1)
+          ];
+    (e.currentTarget as { activeItem?: unknown }).activeItem = null;
+    this.requestUpdate();
+  };
+
+  /** Sort-only bar; this grid has no filters. */
+  private _listBarRenderer = (root: HTMLElement) => {
+    render(
+      renderListBar({
+        sort: html`<vaadin-grid-sorter path="ComponentName"
+          >Component</vaadin-grid-sorter
+        >`
+      }),
+      root
+    );
+  };
 
   componentNameRenderer(    root: HTMLElement,
                             _column: GridColumn,

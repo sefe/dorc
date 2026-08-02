@@ -2,6 +2,7 @@ import { Grid, GridItemModel } from '@vaadin/grid';
 import '@vaadin/grid/vaadin-grid';
 import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
 import '@vaadin/grid/vaadin-grid-sort-column';
+import '@vaadin/grid/vaadin-grid-sorter';
 import '@vaadin/icons/vaadin-icons';
 import '@vaadin/text-field';
 import { TextField } from '@vaadin/text-field';
@@ -14,16 +15,29 @@ import '../components/grid-button-groups/edit-comments-controls';
 import { Configuration, EnvironmentHistoryApiModel } from '../apis/dorc-api';
 import { RefDataEnvironmentsHistoryApi } from '../apis/dorc-api/apis';
 import { PageElement, PageLocation } from '../helpers/page-element';
-import { ResponsiveMixin } from '../helpers/responsive-mixin';
+import { NarrowListController } from '../helpers/narrow-list-controller';
+import {
+  listRowStyles,
+  renderListBar,
+  renderListRow
+} from '../components/dorc-list-row';
+import { environmentHistoryRowTemplate } from '../row-templates/environment-history-row-template';
 import { router } from '../router/router';
 import { EnvironmentHistoryApiModelExtended } from '../components/model-extensions/environment-history-api-model-extended';
 
 @customElement('page-env-history')
-export class PageEnvironmentHistory extends ResponsiveMixin(PageElement) {
+export class PageEnvironmentHistory extends PageElement {
   @property({ type: Array })
   envHistory: EnvironmentHistoryApiModelExtended[] = [];
 
   @query('#grid') grid: Grid | undefined;
+
+  /** Narrow-mode (HLPS §3.4): container-driven; replaces ResponsiveMixin. */
+  list = new NarrowListController(this);
+
+  private rowTemplate = environmentHistoryRowTemplate();
+
+  private _openedNarrowItems: EnvironmentHistoryApiModelExtended[] = [];
 
   constructor() {
     super();
@@ -46,7 +60,9 @@ export class PageEnvironmentHistory extends ResponsiveMixin(PageElement) {
   }
 
   static get styles() {
-    return css`
+    return [
+      listRowStyles,
+      css`
       :host {
         display: flex;
         flex-direction: column;
@@ -71,7 +87,8 @@ export class PageEnvironmentHistory extends ResponsiveMixin(PageElement) {
         padding-bottom: 0px;
         margin: 0px;
       }
-    `;
+    `
+    ];
   }
 
   render() {
@@ -82,11 +99,23 @@ export class PageEnvironmentHistory extends ResponsiveMixin(PageElement) {
         column-reordering-allowed
         multi-sort
         theme="compact row-stripes no-row-borders no-border"
+        .rowDetailsRenderer=${this.list.narrow
+          ? this._listDetailsRenderer
+          : undefined}
+        .detailsOpenedItems=${this._openedNarrowItems}
+        @active-item-changed=${this._onNarrowActiveItem}
       >
+        <vaadin-grid-column
+          flex-grow="1"
+          ?hidden="${!this.list.narrow}"
+          .headerRenderer="${this._listBarRenderer}"
+          .renderer="${this._listRowRenderer}"
+        ></vaadin-grid-column>
         <vaadin-grid-sort-column
           resizable
           path="EnvName"
           header="Environment Name"
+          ?hidden="${this.list.narrow}"
         ></vaadin-grid-sort-column>
         <vaadin-grid-sort-column
           resizable
@@ -94,38 +123,39 @@ export class PageEnvironmentHistory extends ResponsiveMixin(PageElement) {
           .renderer="${this._dateRenderer}"
           header="Updated Date"
           width="170px"
+          ?hidden="${this.list.narrow}"
         ></vaadin-grid-sort-column>
         <vaadin-grid-sort-column
           resizable
           path="UpdatedBy"
           header="Updated By"
-          ?hidden="${this._narrowScreen}"
+          ?hidden="${this.list.narrow}"
         ></vaadin-grid-sort-column>
         <vaadin-grid-sort-column
           resizable
           path="UpdateType"
           header="Update Type"
-          ?hidden="${this._narrowScreen}"
+          ?hidden="${this.list.narrow}"
         ></vaadin-grid-sort-column>
         <vaadin-grid-sort-column
           resizable
           path="FromValue"
           header="Old Version"
           width="170px"
-          ?hidden="${this._narrowScreen}"
+          ?hidden="${this.list.narrow}"
         ></vaadin-grid-sort-column>
         <vaadin-grid-sort-column
           resizable
           path="ToValue"
           header="New Version"
           width="170px"
-          ?hidden="${this._narrowScreen}"
+          ?hidden="${this.list.narrow}"
         ></vaadin-grid-sort-column>
         <vaadin-grid-sort-column
           resizable
           path="Details"
           header="Details"
-          ?hidden="${this._narrowScreen}"
+          ?hidden="${this.list.narrow}"
         ></vaadin-grid-sort-column>
         <vaadin-grid-column
           resizable
@@ -133,14 +163,68 @@ export class PageEnvironmentHistory extends ResponsiveMixin(PageElement) {
           .renderer="${this._commentRenderer}"
           .attachedPageEnvironmentHistory="${this}"
           width="270px"
+          ?hidden="${this.list.narrow}"
         ></vaadin-grid-column>
         <vaadin-grid-column
           .renderer="${this._editButtonsRenderer}"
           width="14em"
+          ?hidden="${this.list.narrow}"
         ></vaadin-grid-column>
       </vaadin-grid>
     `;
   }
+
+  // ---- Narrow-mode list rendering (HLPS §3.4) ----
+
+  private _listRowRenderer = (
+    root: HTMLElement,
+    _: GridColumn,
+    model: GridItemModel<EnvironmentHistoryApiModelExtended>
+  ) => {
+    render(renderListRow(this.rowTemplate, model.item), root);
+  };
+
+  private _listDetailsRenderer = (
+    root: HTMLElement,
+    _: GridColumn,
+    model: GridItemModel<EnvironmentHistoryApiModelExtended>
+  ) => {
+    render(this.rowTemplate.details!(model.item), root);
+  };
+
+  private _onNarrowActiveItem = (e: CustomEvent) => {
+    if (!this.list.narrow) return;
+    const item = e.detail.value as EnvironmentHistoryApiModelExtended | null;
+    if (!item) return;
+    const idx = this._openedNarrowItems.indexOf(item);
+    this._openedNarrowItems =
+      idx === -1
+        ? [...this._openedNarrowItems, item]
+        : [
+            ...this._openedNarrowItems.slice(0, idx),
+            ...this._openedNarrowItems.slice(idx + 1)
+          ];
+    (e.currentTarget as { activeItem?: unknown }).activeItem = null;
+    this.requestUpdate();
+  };
+
+  /**
+   * Sort-only bar (the view has no filters): the declarative sort surface
+   * that lives in the hidden header row is re-exposed here, sorters staying
+   * connected per DECISION-bar-mechanism.md.
+   */
+  private _listBarRenderer = (root: HTMLElement) => {
+    render(
+      renderListBar({
+        sort: html`<vaadin-grid-sorter path="UpdatedDate" direction="desc"
+            >Date</vaadin-grid-sorter
+          >
+          <vaadin-grid-sorter path="EnvName">Environment</vaadin-grid-sorter>
+          <vaadin-grid-sorter path="UpdatedBy">User</vaadin-grid-sorter>`
+      }),
+      root
+    );
+  };
 
   setEnvHistory(envHistory: EnvironmentHistoryApiModel[]) {
     this.envHistory = envHistory as EnvironmentHistoryApiModelExtended[];
