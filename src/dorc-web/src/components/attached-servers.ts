@@ -6,9 +6,12 @@ import { GridItemModel } from '@vaadin/grid';
 import '@vaadin/grid/vaadin-grid-column';
 import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
 import '@vaadin/grid/vaadin-grid-sort-column';
+import '@vaadin/dialog';
+import type { DialogOpenedChangedEvent } from '@vaadin/dialog';
+import { dialogRenderer } from '@vaadin/dialog/lit';
 import { css, LitElement, render } from 'lit';
 import { ResponsiveMixin } from '../helpers/responsive-mixin';
-import { customElement, property, query } from 'lit/decorators.js';
+import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import './grid-button-groups/database-env-controls.ts';
 import './grid-button-groups/server-controls';
@@ -19,8 +22,6 @@ import './add-edit-server';
 import '../components/map-daemons.ts';
 import { Notification } from '@vaadin/notification';
 import { map } from 'lit/directives/map.js';
-import '../components/hegs-dialog';
-import { HegsDialog } from './hegs-dialog';
 import { ServerApiModel } from '../apis/dorc-api';
 import type { EnvironmentContentApiModel } from '../apis/dorc-api';
 import { splitTags } from '../helpers/tag-parser';
@@ -41,11 +42,34 @@ export class AttachedServers extends ResponsiveMixin(LitElement) {
   @property({ type: Object })
   selectedServer: ServerApiModel | undefined;
 
-  @query('#add-edit-server-dialog') serverDialog!: HegsDialog;
+  @state() private serverDialogOpened = false;
 
-  @query('#tags-dialog') tagsDialog!: HegsDialog;
+  @state() private tagsDialogOpened = false;
 
-  @query('#daemon-mapping-dialog') daemonMappingDialog!: HegsDialog;
+  @state() private daemonMappingDialogOpened = false;
+
+  private renderAddEditServer = () => html`
+    <add-edit-server
+      id="add-edit-server"
+      .srv="${this.selectedServer}"
+      @server-updated="${this.serverUpdated}"
+    ></add-edit-server>
+  `;
+
+  private renderServerTags = () => html`
+    <server-tags
+      id="tags"
+      .server="${this.selectedServer}"
+      @server-tags-updated="${this.serverTagsUpdated}"
+    ></server-tags>
+  `;
+
+  private renderMapDaemons = () => html`
+    <map-daemons
+      .server="${this.selectedServer}"
+      .readonly="${this.readonly}"
+    ></map-daemons>
+  `;
 
   static get styles() {
     return css`
@@ -100,34 +124,41 @@ export class AttachedServers extends ResponsiveMixin(LitElement) {
 
   render() {
     return html`
-      <hegs-dialog id="add-edit-server-dialog" title="Add/Edit Server">
-        <add-edit-server
-          id="add-edit-server"
-          .srv="${this.selectedServer}"
-          @server-updated="${this.serverUpdated}"
-        ></add-edit-server>
-      </hegs-dialog>
+      <vaadin-dialog
+        id="add-edit-server-dialog"
+        header-title="Add/Edit Server"
+        draggable
+        .opened="${this.serverDialogOpened}"
+        @opened-changed="${(e: DialogOpenedChangedEvent) => {
+          this.serverDialogOpened = e.detail.value;
+        }}"
+        ${dialogRenderer(this.renderAddEditServer, [this.selectedServer])}
+      ></vaadin-dialog>
 
-      <hegs-dialog
+      <vaadin-dialog
         id="tags-dialog"
-        title="Edit Server Tags for ${this.selectedServer?.Name}"
-      >
-        <server-tags
-          id="tags"
-          .server="${this.selectedServer}"
-          @server-tags-updated="${this.serverTagsUpdated}"
-        ></server-tags>
-      </hegs-dialog>
+        header-title="Edit Server Tags for ${this.selectedServer?.Name}"
+        draggable
+        .opened="${this.tagsDialogOpened}"
+        @opened-changed="${(e: DialogOpenedChangedEvent) => {
+          this.tagsDialogOpened = e.detail.value;
+        }}"
+        ${dialogRenderer(this.renderServerTags, [this.selectedServer])}
+      ></vaadin-dialog>
 
-      <hegs-dialog
+      <vaadin-dialog
         id="daemon-mapping-dialog"
-        title="Manage Daemon Mappings for ${this.selectedServer?.Name}"
-      >
-        <map-daemons
-          .server="${this.selectedServer}"
-          .readonly="${this.readonly}"
-        ></map-daemons>
-      </hegs-dialog>
+        header-title="Manage Daemon Mappings for ${this.selectedServer?.Name}"
+        draggable
+        .opened="${this.daemonMappingDialogOpened}"
+        @opened-changed="${(e: DialogOpenedChangedEvent) => {
+          this.daemonMappingDialogOpened = e.detail.value;
+        }}"
+        ${dialogRenderer(this.renderMapDaemons, [
+          this.selectedServer,
+          this.readonly
+        ])}
+      ></vaadin-dialog>
       
       <vaadin-grid
         id="grid"
@@ -200,7 +231,7 @@ export class AttachedServers extends ResponsiveMixin(LitElement) {
       position: 'bottom-start',
       duration: 5000
     });
-    this.serverDialog.close();
+    this.serverDialogOpened = false;
   }
 
   serverTagsUpdated() {
@@ -211,7 +242,7 @@ export class AttachedServers extends ResponsiveMixin(LitElement) {
         detail: {}
       })
     );
-    this.tagsDialog.close();
+    this.tagsDialogOpened = false;
   }
 
   _boundServersButtonsRenderer(
@@ -275,16 +306,16 @@ export class AttachedServers extends ResponsiveMixin(LitElement) {
 
   public openEditServerTags(server: ServerApiModel) {
     this.selectedServer = server;
-    this.tagsDialog.open = true;
+    this.tagsDialogOpened = true;
   }
 
   public openDaemonMapping(server: ServerApiModel) {
     this.selectedServer = server;
-    this.daemonMappingDialog.open = true;
+    this.daemonMappingDialogOpened = true;
   }
 
   private editServer(e: CustomEvent) {
     this.selectedServer = e.detail.server;
-    this.serverDialog.open = true;
+    this.serverDialogOpened = true;
   }
 }

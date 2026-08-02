@@ -9,8 +9,11 @@ import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
 import '@vaadin/text-field';
 import { Checkbox } from '@vaadin/checkbox';
+import '@vaadin/dialog';
+import type { DialogOpenedChangedEvent } from '@vaadin/dialog';
+import { dialogRenderer } from '@vaadin/dialog/lit';
 import { css, render } from 'lit';
-import { customElement, property, query } from 'lit/decorators.js';
+import { customElement, property, query, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import '../components/add-edit-environment';
 import '../components/clone-environment';
@@ -21,8 +24,6 @@ import { PageElement } from '../helpers/page-element';
 import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import { AddEditAccessControl } from '../components/add-edit-access-control';
 import '../components/add-edit-access-control';
-import '../components/hegs-dialog';
-import { HegsDialog } from '../components/hegs-dialog';
 import { AddEditEnvironment } from '../components/add-edit-environment';
 import { CloneEnvironment } from '../components/clone-environment';
 
@@ -57,7 +58,7 @@ export class PageEnvironmentsList extends ResponsiveMixin(PageElement) {
 
   @property({ type: Boolean }) private isPowerUser = false;
 
-  @query('#dialog') dialog!: HegsDialog;
+  @state() private addEnvDialogOpened = false;
 
   @query('#add-environment') addEditEnvironment!: AddEditEnvironment;
 
@@ -112,15 +113,16 @@ export class PageEnvironmentsList extends ResponsiveMixin(PageElement) {
         </vaadin-horizontal-layout>
       </div>
 
-      <hegs-dialog id="dialog" title="Create Environment">
-        <add-edit-environment
-          id="add-environment"
-          .addMode="${true}"
-          .readonly="${false}"
-          @environment-added="${this.closeAddEnv}"
-          .environment="${this.newEnvironment}"
-        ></add-edit-environment>
-      </hegs-dialog>
+      <vaadin-dialog
+        id="dialog"
+        header-title="Create Environment"
+        draggable
+        .opened="${this.addEnvDialogOpened}"
+        @opened-changed="${(e: DialogOpenedChangedEvent) => {
+          this.addEnvDialogOpened = e.detail.value;
+        }}"
+        ${dialogRenderer(this.renderAddEnvironment, [this.newEnvironment])}
+      ></vaadin-dialog>
 
       <clone-environment
         id="clone-environment"
@@ -328,6 +330,17 @@ export class PageEnvironmentsList extends ResponsiveMixin(PageElement) {
     );
   };
 
+  private renderAddEnvironment = () => html`
+
+        <add-edit-environment
+          id="add-environment"
+          .addMode="${true}"
+          .readonly="${false}"
+          @environment-added="${this.closeAddEnv}"
+          .environment="${this.newEnvironment}"
+        ></add-edit-environment>
+  `;
+
   closeAddEnv(e: CustomEvent) {
     const env = e.detail.environment as EnvironmentApiModel;
 
@@ -338,7 +351,7 @@ export class PageEnvironmentsList extends ResponsiveMixin(PageElement) {
 
     this.setEnvironments(model);
 
-    this.dialog.close();
+    this.addEnvDialogOpened = false;
   }
 
   setEnvironments(environmentDetailsApiModels: EnvironmentApiModel[]) {
@@ -373,7 +386,7 @@ export class PageEnvironmentsList extends ResponsiveMixin(PageElement) {
 
   addEnvironment() {
     this.addEditEnvironment.clearAllFields();
-    this.dialog.open = true;
+    this.addEnvDialogOpened = true;
   }
 
   private getEnvs() {

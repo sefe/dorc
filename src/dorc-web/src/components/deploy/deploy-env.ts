@@ -13,7 +13,7 @@ import '@vaadin/notification';
 import '@vaadin/text-field';
 import { TextField } from '@vaadin/text-field';
 import { css, LitElement, PropertyValues, render } from 'lit';
-import { customElement, property, query, state } from 'lit/decorators.js';
+import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { PropertiesApi, RequestApi } from '../../apis/dorc-api';
 import type { RequestPostRequest } from '../../apis/dorc-api';
@@ -25,14 +25,15 @@ import {
   RequestStatusDto
 } from '../../apis/dorc-api';
 import type { ProjectApiModel } from '../../apis/dorc-api';
-import './deploy-confirm-dialog';
+import '@vaadin/confirm-dialog';
+import '../hegs-json-viewer';
 import './property-override-controls';
 import { ErrorNotification } from '../notifications/error-notification';
 import './component-tree/hegs-tree';
 import { HegsTree } from './component-tree/hegs-tree';
 import { TreeNode } from './component-tree/TreeNode';
 import { SuccessfulDeployNotification } from './notifications/successful-deploy-notification';
-import { DeployConfirmDialog } from './deploy-confirm-dialog';
+import { HegsJsonViewer } from '../hegs-json-viewer';
 
 @customElement('deploy-env')
 export class DeployEnv extends LitElement {
@@ -83,7 +84,6 @@ export class DeployEnv extends LitElement {
 
   @property({ type: Object }) req!: RequestPostRequest;
 
-  @query('#dialog') dialog!: DeployConfirmDialog;
 
   @state()
   dialogOpened = false;
@@ -178,15 +178,6 @@ export class DeployEnv extends LitElement {
   protected firstUpdated(_changedProperties: PropertyValues) {
     super.firstUpdated(_changedProperties);
 
-    this.addEventListener(
-      'deploy-confirm-dialog-closed',
-      this.deployConfirmDialogClosed as EventListener
-    );
-    this.addEventListener(
-      'deploy-confirm-dialog-begin',
-      this.startDeployment as EventListener
-    );
-
     const api = new PropertiesApi();
     api.propertiesGet().subscribe({
       next: (data: PropertyApiModel[]) => {
@@ -199,10 +190,20 @@ export class DeployEnv extends LitElement {
 
   render() {
     return html`
-      <deploy-confirm-dialog
+      <vaadin-confirm-dialog
         id="dialog"
-        .deployJson="${this.req}"
-      ></deploy-confirm-dialog>
+        header="New deployment"
+        confirm-text="Deploy"
+        cancel-button-visible
+        .opened="${this.dialogOpened}"
+        @opened-changed="${(e: CustomEvent) => {
+          this.dialogOpened = (e.detail as { value: boolean }).value;
+        }}"
+        @confirm="${this.startDeployment}"
+      >
+        Please confirm you want to submit this deployment request?
+        <hegs-json-viewer id="jsonviewer">{}</hegs-json-viewer>
+      </vaadin-confirm-dialog>
       <div
         class="build-defs-section"
         ?hidden="${this.isFolderProject}"
@@ -663,8 +664,14 @@ export class DeployEnv extends LitElement {
       return false;
     }
 
-    this.dialog.deployJson = this.req;
-    this.dialog.Open();
+    const jsonViewer = this.shadowRoot?.getElementById(
+      'jsonviewer'
+    ) as HegsJsonViewer | null;
+    if (jsonViewer) {
+      Object.assign(jsonViewer.data, this.req.requestDto);
+      jsonViewer.expand('**');
+    }
+    this.dialogOpened = true;
     return true;
   }
 

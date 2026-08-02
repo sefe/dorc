@@ -19,8 +19,6 @@ import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import './page-project-envs';
 import '../components/add-edit-access-control';
 import { AddEditAccessControl } from '../components/add-edit-access-control';
-import '../components/confirm-dialog';
-import { ConfirmDialog } from '../components/confirm-dialog';
 import GlobalCache from '../global-cache';
 import { ErrorNotification } from '../components/notifications/error-notification';
 import { retrieveErrorMessage } from '../helpers/errorMessage-retriever';
@@ -47,7 +45,6 @@ export class PageProjectsList extends ResponsiveMixin(PageElement) {
   @query('#add-edit-project') addEditProject!: AddEditProject;
 
 
-  @query('#confirm-delete-dialog') confirmDeleteDialog!: ConfirmDialog;
 
   @property({ type: String }) secureName = '';
 
