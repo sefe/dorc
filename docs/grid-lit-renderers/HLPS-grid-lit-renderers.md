@@ -197,12 +197,12 @@ dependencies), `attach-database._boundDatabasesRenderer` (7), and
 | ID | Unknown | Blocking? | Resolution path |
 |----|---------|-----------|-----------------|
 | U-1 | Exact dependency array for each of the 46 stateful renderers | **No** — resolved per-step | Read each method during its JIT spec; the 46/91 split in §2.2 is a planning estimate only |
-| U-2 | Do any renderers rely on being invoked *rarely*, e.g. by caching a root element or attaching listeners? `env-monitor.idHeaderRenderer` stores `_idHeaderRoot` | **No** | Audit the 46 stateful renderers for side effects as IS step S-001 before any conversion |
+| U-2 | Do any renderers rely on being invoked *rarely*, e.g. by caching a root element or attaching listeners? | ✅ **RESOLVED 2026-08-02** | **Yes — 28 renderers across 15 files.** 10 write `root.innerHTML =`, 12 construct elements imperatively and `addEventListener`, 4 cache the root element for later manual re-invocation. None convert mechanically; see `IS-grid-lit-renderers.md` §1.1. Separately, the directive signature differs from the current one, so **every** renderer body needs editing, not just its binding — §1 of the IS. |
 | U-3 | Do the 7 `dataProvider` grids interact with renderer re-invocation differently from `items` grids? | **No** | Verify on the first `dataProvider` grid converted; if they differ, split the IS |
 | U-4 | Is the `attached-env-tenants` stale Detach button the only *user-visible* instance, or are there others worth fixing first? | **No** | The audit of U-2 will surface them; prioritise the IS by user impact |
 | U-5 | Should the 12 `requestContentUpdate()` removals be one final step or folded into each file's step? | **No** | Recommend folded in, per constraint 5; confirm at IS review |
 
-**No blocking unknowns.** This HLPS can proceed to an Implementation Sequence.
+**No blocking unknowns.** U-2 is resolved; see `IS-grid-lit-renderers.md`.
 
 ---
 

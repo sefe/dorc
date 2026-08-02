@@ -186,13 +186,13 @@ out of scope for that reason.
 
 | ID | Unknown | Blocking? | Resolution path |
 |----|---------|-----------|-----------------|
-| U-1 | What is the *effective* dismiss behaviour of `allow-click-through` + `modal` for each of the 12 dialogs — does clicking outside close them today? | **No** | Observe each in the running app (the Playwright driver used for the router migration is the tool); choose Vaadin modal vs `modeless` per dialog |
-| U-2 | What does the shared `size-position` CSS class do, and does `<vaadin-dialog>` need an equivalent? | **No** | Read the class definition during S-001 |
+| U-1 | What is the *effective* dismiss behaviour of `allow-click-through` + `modal` for each of the 12 dialogs? | ✅ **RESOLVED 2026-08-02** | Source + runtime probe: `modal` implies `no-cancel-on-outside-click`, `no-cancel-on-esc-key`, `with-backdrop`. Confirmed live — the dialog closes by **neither** outside click **nor** Escape, only programmatically. `allowClickThrough` affects only *stacked* overlays and is inert for a lone dialog. Vaadin's defaults are the opposite, so every conversion must set `no-close-on-esc` and `no-close-on-outside-click`. |
+| U-2 | What does the `size-position` CSS class do, and does `<vaadin-dialog>` need an equivalent? | ✅ **RESOLVED 2026-08-02** | It is **not** shared — it is redefined in 16 files, 7 of which no longer contain a dialog (dead CSS matching the dead imports). The common body is `top: 16px; overflow: auto; padding: 10px`; `page-config-values-list` and `page-daemons-list` add `width: 560px`, `add-edit-access-control` and `clone-environment` set explicit widths instead. Selector is `paper-dialog.size-position`, so all of it dies with the element. **Vaadin renders dialog content into an overlay outside the component's shadow root, so these styles cannot simply be re-pointed** — sizing must move inline onto a wrapper inside the renderer, which is what the existing 8 `<vaadin-dialog>` files already do. |
 | U-3 | Does any dialog depend on Polymer's focus or backdrop behaviour in a way users would notice? | **No** | Covered by the per-dialog keyboard check in §6 |
 | U-4 | Do the 12 Polymer packages all leave once `paper-dialog` goes, or does something else still pull `@polymer/polymer`? | **No** | `npm uninstall` and re-read the lock file; F-3a showed 8 packages left cleanly with `paper-toggle-button` |
 | U-5 | Should this land before, after, or interleaved with the F-4 renderer migration? Both touch some of the same files (`page-daemons-list`, `page-config-values-list`, `page-permissions-list`) | **No** | Recommend **F-3b first**: it is smaller, lower-risk, and shrinks the file set F-4 has to touch. Confirm at review |
 
-**No blocking unknowns.** This HLPS can proceed to an Implementation Sequence.
+**No blocking unknowns.** U-1 and U-2 are now resolved; see `IS-paper-dialog-retirement.md`.
 
 ---
 
