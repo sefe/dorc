@@ -1,7 +1,8 @@
 /**
  * Renderer inventory and classification for the Vaadin Lit-directive migration.
  *
- * Answers two questions that earlier ad-hoc greps got wrong:
+ * Inventory for migrating Vaadin renderers to the Lit directives.
+ * Answers two questions that ad-hoc greps get wrong:
  *   1. Which renderer bindings exist, on which element, bound to which member?
  *   2. For each renderer, what does its body actually read and do?
  *

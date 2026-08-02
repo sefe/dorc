@@ -9,11 +9,11 @@ import {
 } from '../_helpers';
 import '../../src/pages/page-sql-ports-list';
 
-// Reference conversion for the dialog-consistency work: page-sql-ports-list's
-// "Add SQL Port" dialog, paper-dialog -> vaadin-dialog.
+// Reference conversion for the dialog work: page-sql-ports-list's "Add SQL
+// Port" dialog, paper-dialog -> vaadin-dialog.
 //
-// These tests are the contract every later conversion copies, so they assert
-// the behaviours two review rounds found the planning documents guessing at:
+// These tests are the contract every other converted dialog follows. They
+// assert the behaviours that are easy to get wrong by reading docs alone:
 // which dismissal paths actually work, whether content survives a close, and
 // where the rendered content lives.
 
@@ -130,10 +130,10 @@ describe('page-sql-ports-list add-SQL-port dialog', () => {
   });
 
   it('reopens with its content intact', async () => {
-    // Review R2-02: <vaadin-dialog> caches its renderer root, so content
-    // persists across close/reopen rather than being rebuilt. Pinned because
-    // the planning documents claimed the opposite twice, and every later
-    // conversion needs to know which it is.
+    // <vaadin-dialog> caches its renderer root, so content persists across
+    // close/reopen rather than being rebuilt. Pinned because it is the
+    // opposite of what the Vaadin docs imply, and every converted dialog
+    // depends on knowing which it is.
     await open();
     expect(inDialog(dialog(), 'add-sql-port')).to.not.equal(null);
 

@@ -1,10 +1,15 @@
 import { expect } from '../_helpers';
 import '../../src/components/attached-env-tenants';
 
-// Reproduction probe for AUDIT finding F-4: a grid cell renderer that reads a
-// reactive property does not re-run when that property changes, because the
-// renderer function reference is stable and Grid has no way to know its
-// closure went stale. Nothing calls requestContentUpdate() in this component.
+// Reproduction of a live defect: a grid cell renderer that reads a reactive
+// property does not re-run when that property changes, because the renderer
+// function reference is stable and Grid has no way to know its closure went
+// stale. Nothing calls requestContentUpdate() in this component.
+//
+// The fix is to migrate grid renderers to the @vaadin/grid/lit directives,
+// which take a dependency array. Run `node tools/renderer-audit.mjs` for the
+// full inventory. These tests assert the CURRENT, INCORRECT behaviour so the
+// defect is visible; inverting them is the migration's completion signal.
 
 interface AttachedEnvTenants extends HTMLElement {
   readonly: boolean;
@@ -51,7 +56,7 @@ describe('F-4 repro: stale grid cell after reactive property change', () => {
     await settle();
 
     // Documents current (incorrect) behaviour. If this ever starts failing,
-    // the underlying issue has been fixed — see F-4.
+    // the underlying issue has been fixed — invert the assertion.
     expect(detachButton()?.disabled).to.equal(false);
   });
 
