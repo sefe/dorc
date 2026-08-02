@@ -280,6 +280,17 @@ namespace Dorc.Monitor.RequestProcessors
 
                         var finalCompletedTime = DateTimeOffset.Now;
 
+                        // A user cancellation races with DeploymentRequestStateProcessor.CancelRequests
+                        // over the Cancelling -> Cancelled transition. Claim it optimistically before the
+                        // unconditional completion write below, so exactly one of the two components
+                        // notifies the requester — whichever wins this switch.
+                        var wonCancelledTransition = deploymentRequestStatus == DeploymentRequestStatus.Cancelled
+                            && requestsPersistentSource.SwitchDeploymentRequestStatuses(
+                                new List<DeploymentRequestApiModel> { requestToExecute.Request },
+                                DeploymentRequestStatus.Cancelling,
+                                DeploymentRequestStatus.Cancelled,
+                                finalCompletedTime) > 0;
+
                         requestsPersistentSource.SetRequestCompletionStatus(
                             requestToExecute.Request.Id,
                             deploymentRequestStatus,
@@ -293,7 +304,10 @@ namespace Dorc.Monitor.RequestProcessors
                             "fire-and-forget publish failed for requestId={RequestId}", requestToExecute.Request.Id),
                             TaskContinuationOptions.OnlyOnFaulted);
 
-                        FireNotification(requestToExecute.Request, deploymentRequestStatus.ToString(), deploymentStartedTime, finalCompletedTime);
+                        if (deploymentRequestStatus != DeploymentRequestStatus.Cancelled || wonCancelledTransition)
+                        {
+                            FireNotification(requestToExecute.Request, deploymentRequestStatus.ToString(), deploymentStartedTime, finalCompletedTime);
+                        }
                     }
                     catch (Exception ex)
                     {
@@ -381,11 +395,6 @@ namespace Dorc.Monitor.RequestProcessors
             DateTimeOffset startedTime,
             DateTimeOffset completedTime)
         {
-            // DeploymentRequestStateProcessor owns the Cancelling -> Cancelled transition and its
-            // notification; notifying here as well would DM the requester twice per cancellation.
-            if (finalStatus == DeploymentRequestStatus.Cancelled.ToString())
-                return;
-
             DeploymentNotificationDispatch.FireAndForget(_notificationSink, logger, request, finalStatus, startedTime, completedTime);
         }
 

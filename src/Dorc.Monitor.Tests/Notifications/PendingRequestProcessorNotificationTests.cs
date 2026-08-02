@@ -182,6 +182,61 @@ namespace Dorc.Monitor.Tests.Notifications
                 Arg.Any<DateTimeOffset>());
         }
 
+        private void SetupCancelledDeployment(ComponentApiModel component, int switchResult)
+        {
+            mockComponentProcessor.DeployComponent(
+                component, Arg.Any<DeploymentResultApiModel>(),
+                Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<int>(), Arg.Any<bool>(),
+                Arg.Any<string>(), Arg.Any<string>(),
+                Arg.Any<IDictionary<string, VariableValue>>(), Arg.Any<CancellationToken>())
+                .Returns(_ => throw new OperationCanceledException());
+
+            mockRequestsPersistentSource.GetRequest(100)
+                .Returns(new DeploymentRequestApiModel { Id = 100, Status = DeploymentRequestStatus.Cancelling.ToString() });
+
+            mockRequestsPersistentSource.SwitchDeploymentRequestStatuses(
+                    Arg.Is<IList<DeploymentRequestApiModel>>(l => l.Count == 1 && l[0].Id == 100),
+                    DeploymentRequestStatus.Cancelling,
+                    DeploymentRequestStatus.Cancelled,
+                    Arg.Any<DateTimeOffset>())
+                .Returns(switchResult);
+        }
+
+        [TestMethod]
+        public void Execute_CancelledAndWinsTransition_NotifiesOnceWithCancelled()
+        {
+            var comp = new ComponentApiModel { ComponentId = 1, ComponentName = "Comp1", IsEnabled = true };
+            var components = new List<ComponentApiModel> { comp };
+            var dto = CreateRequest(components);
+            SetupOrderedComponents(components);
+            SetupCancelledDeployment(comp, switchResult: 1);
+
+            sut.Execute(dto, CancellationToken.None);
+
+            mockNotificationSink.ReceivedWithAnyArgs(1).NotifyRequestCompletedAsync(default!, default!, default, default);
+            mockNotificationSink.Received(1).NotifyRequestCompletedAsync(
+                dto.Request,
+                DeploymentRequestStatus.Cancelled.ToString(),
+                Arg.Any<DateTimeOffset>(),
+                Arg.Any<DateTimeOffset>());
+        }
+
+        [TestMethod]
+        public void Execute_CancelledButLosesTransition_DoesNotNotify()
+        {
+            // The state processor (or another monitor) already claimed Cancelling -> Cancelled
+            // and sent the DM; this processor must stay silent to avoid a duplicate.
+            var comp = new ComponentApiModel { ComponentId = 1, ComponentName = "Comp1", IsEnabled = true };
+            var components = new List<ComponentApiModel> { comp };
+            var dto = CreateRequest(components);
+            SetupOrderedComponents(components);
+            SetupCancelledDeployment(comp, switchResult: 0);
+
+            sut.Execute(dto, CancellationToken.None);
+
+            mockNotificationSink.DidNotReceiveWithAnyArgs().NotifyRequestCompletedAsync(default!, default!, default, default);
+        }
+
         [TestMethod]
         public void Execute_SinkReturnsFaultedTask_DoesNotAffectRequestCompletion()
         {

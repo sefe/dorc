@@ -240,8 +240,8 @@ namespace Dorc.Monitor
                     }
 
                     this.logger.LogWarning(
-                        "Cancelled {CancelledCount} stale Requesting request(s). IDs [{Ids}]",
-                        cancelledRequests.Count, requestingIdsString);
+                        "Cancelled {CancelledCount} of {FoundCount} stale Requesting request(s). Cancelled IDs [{Ids}]",
+                        cancelledRequests.Count, requestingRequests.Count, string.Join(',', cancelledRequests.Select(r => r.Id)));
                 }
             }
         }
