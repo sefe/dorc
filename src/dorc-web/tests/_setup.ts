@@ -4,6 +4,9 @@ import { afterEach } from 'vitest';
 import { _cleanupFixtures } from './_helpers';
 
 // Remove fixture containers between tests so DOM state doesn't leak.
+// Vaadin 25 dialog overlays live inside the <vaadin-dialog> element's own
+// shadow root rather than being appended to document.body, so removing the
+// host removes them too — no separate overlay cleanup is needed.
 afterEach(() => {
   _cleanupFixtures();
 });

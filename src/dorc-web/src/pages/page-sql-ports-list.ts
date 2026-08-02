@@ -6,10 +6,11 @@ import '@vaadin/button';
 import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
 import '../components/add-sql-port';
-import '@polymer/paper-dialog';
-import { PaperDialogElement } from '@polymer/paper-dialog';
+import '@vaadin/dialog';
+import type { DialogOpenedChangedEvent } from '@vaadin/dialog';
+import { dialogFooterRenderer, dialogRenderer } from '@vaadin/dialog/lit';
 import '@vaadin/text-field';
-import { customElement, property } from 'lit/decorators.js';
+import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { PageElement } from '../helpers/page-element';
 import { SqlPortApiModel } from '../apis/dorc-api';
@@ -31,6 +32,12 @@ export class PageSqlPortsList extends PageElement {
   public userRoles!: string[];
 
   private loading = true;
+
+  /**
+   * Dialog visibility. Reactive rather than an imperative handle, so the
+   * template is the single source of truth for whether the dialog is showing.
+   */
+  @state() addSqlPortDialogOpened = false;
 
   constructor() {
     super();
@@ -82,10 +89,13 @@ export class PageSqlPortsList extends PageElement {
         flex: 1;
         min-height: 0;
       }
-      paper-dialog.size-position {
+      /* Carries over the old paper-dialog.size-position rule. Reachable
+         because the dialog's renderer root is appended to the <vaadin-dialog>
+         element, which lives in this shadow root. */
+      vaadin-dialog::part(overlay) {
         top: 16px;
         overflow: auto;
-        padding: 10px;
+        max-width: calc(100vw - 32px);
       }
     `;
   }
@@ -114,17 +124,17 @@ export class PageSqlPortsList extends PageElement {
           >Add SQL Port...
         </vaadin-button>
       </div>
-      <paper-dialog
-        class="size-position"
+      <vaadin-dialog
         id="add-sqlport-dialog"
-        allow-click-through
-        modal
-      >
-        <add-sql-port id="add-sql-port"></add-sql-port>
-        <div style="display: flex; justify-content: flex-end">
-          <vaadin-button dialog-confirm>Close</vaadin-button>
-        </div>
-      </paper-dialog>
+        header-title="Add SQL Port"
+        draggable
+        .opened="${this.addSqlPortDialogOpened}"
+        @opened-changed="${(e: DialogOpenedChangedEvent) => {
+          this.addSqlPortDialogOpened = e.detail.value;
+        }}"
+        ${dialogRenderer(this.renderAddSqlPort, [])}
+        ${dialogFooterRenderer(this.renderAddSqlPortFooter, [])}
+      ></vaadin-dialog>
       ${this.loading
         ? html`
             <dorc-spinner></dorc-spinner>
@@ -158,13 +168,22 @@ export class PageSqlPortsList extends PageElement {
     );
   }
   
+  private renderAddSqlPort = () =>
+    html`<add-sql-port id="add-sql-port"></add-sql-port>`;
+
+  /**
+   * `dialog-confirm` was inert on `<vaadin-dialog>`, so the close path is
+   * explicit. Escape and outside-click also close, via `opened-changed`.
+   */
+  private renderAddSqlPortFooter = () => html`
+    <vaadin-button @click="${() => (this.addSqlPortDialogOpened = false)}"
+      >Close</vaadin-button
+    >
+  `;
+
   sqlPortCreated() {
     this.getSqlPortsList();
-  
-    const dialog = this.shadowRoot?.getElementById(
-      'add-sqlport-dialog'
-    ) as PaperDialogElement;
-    dialog.close();
+    this.addSqlPortDialogOpened = false;
   }
 
   updateSearch(e: CustomEvent) {
@@ -188,7 +207,6 @@ export class PageSqlPortsList extends PageElement {
   }
 
   addSqlPort() {
-    const dialog = this.shadowRoot?.getElementById('add-sqlport-dialog') as PaperDialogElement;
-    dialog.open();
+    this.addSqlPortDialogOpened = true;
   }
 }
