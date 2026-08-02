@@ -1,0 +1,199 @@
+import { expect } from '../_helpers';
+import { RouteResolver, isRedirect } from '../../src/router/route-resolution';
+import type { AppRoute, RouteResolution } from '../../src/router/route-config';
+
+// A miniature of the real route table: a layout root, flat routes, a named
+// route with a parameter, a three-level nest, an action redirect, and the
+// catch-all. Using a synthetic table keeps these tests focused on resolution
+// behaviour rather than dragging in every routed component.
+const buildRoutes = (): AppRoute[] => [
+  {
+    path: '',
+    component: 'dorc-app',
+    children: [
+      {
+        path: '/deploy',
+        name: 'deploy',
+        component: 'page-deploy',
+        metadata: { title: 'Deploy', description: 'Deploy things' }
+      },
+      {
+        path: '/about',
+        name: 'about',
+        action: () => ({ redirect: '/analytics' })
+      },
+      {
+        path: '/analytics',
+        name: 'analytics',
+        component: 'page-analytics'
+      },
+      {
+        path: '/project-envs/:id',
+        name: 'project-envs',
+        component: 'page-project-envs'
+      },
+      {
+        path: '/project-envs/:id/bundles',
+        name: 'project-bundles',
+        component: 'page-project-bundles'
+      },
+      {
+        path: '/environment/:id',
+        name: 'environment',
+        component: 'page-environment',
+        children: [
+          {
+            path: '/components',
+            component: 'page-environment-components',
+            children: [
+              {
+                path: '',
+                action: context => ({
+                  redirect: `${context.pathname.replace(/\/+$/, '')}/servers`
+                })
+              },
+              { path: '/servers', component: 'env-servers' },
+              { path: '/databases', component: 'env-databases' }
+            ]
+          }
+        ]
+      },
+      { path: '/', name: 'default', component: 'page-deploy' },
+      { path: '/*notFound', name: 'not-found', component: 'page-not-found' }
+    ]
+  }
+];
+
+const componentsOf = (resolution: RouteResolution) =>
+  resolution.chain.map(entry => entry.component);
+
+const resolveChain = async (resolver: RouteResolver, path: string) => {
+  const outcome = await resolver.resolve(path);
+  if (isRedirect(outcome)) {
+    throw new Error(`Expected a chain for "${path}", got a redirect`);
+  }
+  return outcome;
+};
+
+describe('RouteResolver', () => {
+  let resolver: RouteResolver;
+
+  beforeEach(() => {
+    resolver = new RouteResolver(buildRoutes());
+  });
+
+  it('nests a top-level route inside the layout component', async () => {
+    const resolution = await resolveChain(resolver, '/deploy');
+    expect(componentsOf(resolution)).to.deep.equal(['dorc-app', 'page-deploy']);
+  });
+
+  it('resolves the root path to the default route', async () => {
+    const resolution = await resolveChain(resolver, '/');
+    expect(componentsOf(resolution)).to.deep.equal(['dorc-app', 'page-deploy']);
+  });
+
+  it('builds the full chain for a three-level nested route', async () => {
+    const resolution = await resolveChain(
+      resolver,
+      '/environment/DEV1/components/servers'
+    );
+    expect(componentsOf(resolution)).to.deep.equal([
+      'dorc-app',
+      'page-environment',
+      'page-environment-components',
+      'env-servers'
+    ]);
+  });
+
+  it('exposes ancestor route parameters at the leaf', async () => {
+    const resolution = await resolveChain(
+      resolver,
+      '/environment/DEV1/components/servers'
+    );
+    expect(resolution.params.id).to.equal('DEV1');
+  });
+
+  it('decodes URL-encoded parameters', async () => {
+    const resolution = await resolveChain(resolver, '/project-envs/My%20Project');
+    expect(resolution.params.id).to.equal('My Project');
+  });
+
+  it('prefers the longer path when two routes share a prefix', async () => {
+    const bundles = await resolveChain(resolver, '/project-envs/Foo/bundles');
+    expect(componentsOf(bundles)).to.deep.equal([
+      'dorc-app',
+      'page-project-bundles'
+    ]);
+  });
+
+  it('returns a redirect for an action route', async () => {
+    const outcome = await resolver.resolve('/about');
+    expect(isRedirect(outcome)).to.equal(true);
+    if (isRedirect(outcome)) {
+      expect(outcome.redirect).to.equal('/analytics');
+    }
+  });
+
+  it('redirects a nested index route to its default child', async () => {
+    const outcome = await resolver.resolve('/environment/DEV1/components');
+    expect(isRedirect(outcome)).to.equal(true);
+    if (isRedirect(outcome)) {
+      expect(outcome.redirect).to.equal('/environment/DEV1/components/servers');
+    }
+  });
+
+  it('does not double the slash when the index path has a trailing slash', async () => {
+    const outcome = await resolver.resolve('/environment/DEV1/components/');
+    expect(isRedirect(outcome)).to.equal(true);
+    if (isRedirect(outcome)) {
+      expect(outcome.redirect).to.equal('/environment/DEV1/components/servers');
+    }
+  });
+
+  it('falls back to the not-found route for an unmatched path', async () => {
+    const resolution = await resolveChain(resolver, '/no/such/page');
+    expect(componentsOf(resolution)).to.deep.equal([
+      'dorc-app',
+      'page-not-found'
+    ]);
+  });
+
+  it('keeps the layout in the chain when falling back to not-found', async () => {
+    // Regression guard: the not-found chain is built from `parent` links, which
+    // universal-router only populates as it traverses. A fallback taken before
+    // anything else matched must still be nested under the layout.
+    const fresh = new RouteResolver(buildRoutes());
+    const resolution = await resolveChain(fresh, '/first/request/is/unmatched');
+    expect(componentsOf(resolution)).to.deep.equal([
+      'dorc-app',
+      'page-not-found'
+    ]);
+  });
+
+  it('carries route metadata on the leaf route', async () => {
+    const resolution = await resolveChain(resolver, '/deploy');
+    expect(resolution.chain.at(-1)?.route.metadata?.title).to.equal('Deploy');
+  });
+
+  describe('urlForName', () => {
+    it('builds a path for a parameterless route', () => {
+      expect(resolver.urlForName('deploy')).to.equal('/deploy');
+    });
+
+    it('substitutes route parameters', () => {
+      expect(resolver.urlForName('environment', { id: 'DEV1' })).to.equal(
+        '/environment/DEV1'
+      );
+    });
+
+    it('encodes parameter values', () => {
+      expect(resolver.urlForName('project-envs', { id: 'My Project' })).to.equal(
+        '/project-envs/My%20Project'
+      );
+    });
+
+    it('throws for an unknown route name', () => {
+      expect(() => resolver.urlForName('nope')).to.throw(/nope/);
+    });
+  });
+});

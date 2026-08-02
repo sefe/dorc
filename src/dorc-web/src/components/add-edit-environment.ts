@@ -18,7 +18,7 @@ import {
   AccessControlType
 } from '../apis/dorc-api';
 import type { EnvironmentApiModel } from '../apis/dorc-api';
-import { Router } from '@vaadin/router/dist/router.js';
+import { navigate } from '../router/router';
 
 @customElement('add-edit-environment')
 export class AddEditEnvironment extends LitElement {
@@ -562,7 +562,7 @@ export class AddEditEnvironment extends LitElement {
 
                   const currentTab =
                     location.pathname.split('/')[3] || 'metadata';
-                  Router.go(
+                  void navigate(
                     `/environment/${data.EnvironmentName}/${currentTab}`
                   );
 

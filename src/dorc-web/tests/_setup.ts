@@ -22,7 +22,8 @@ const SUPPRESS_PATTERNS: RegExp[] = [
   // form ("AjaxError: ajax error").
   /^ajax error\b/,
   /^AjaxError(?::|\s|$)/,
-  // Vaadin Router throws this from urlForName when no routes are registered.
+  // The router throws this from urlForName when a link renders before the
+  // route table is installed.
   /^Route "[^"]+" not found$/,
   // Tagify is loaded via a CDN <script> in index.html and isn't available in
   // the test runner; tags-input's firstUpdated calls `new window.Tagify(...)`.

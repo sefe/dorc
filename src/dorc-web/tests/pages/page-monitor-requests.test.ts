@@ -65,7 +65,7 @@ vi.mock('../../src/helpers/html-meta-manager', () => ({
   updateMetadata: vi.fn()
 }));
 vi.mock('../../src/router/routes.ts', () => ({}));
-vi.mock('@vaadin/router', () => ({}));
+vi.mock('universal-router', () => ({}));
 
 // DOrc API
 vi.mock('../../src/apis/dorc-api', () => ({

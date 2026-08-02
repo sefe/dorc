@@ -36,7 +36,7 @@ import { PageElement } from '../helpers/page-element';
 import { PropertyValueDtoExtended } from '../components/model-extensions/PropertyValueDtoExtended';
 import GlobalCache from '../global-cache';
 import '@vaadin/icons';
-import {Router} from "@vaadin/router";
+import { navigate } from '../router/router';
 
 @customElement('page-variables')
 export class PageVariables extends PageElement {
@@ -211,7 +211,7 @@ export class PageVariables extends PageElement {
         title="Value Lookup"
         style="position: fixed; right: 10px"
         @click="${() => {
-          Router.go('/variables/value-lookup');
+          void navigate('/variables/value-lookup');
         }}"
         ><vaadin-icon
           icon="vaadin:search"

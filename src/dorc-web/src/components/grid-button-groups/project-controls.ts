@@ -4,7 +4,7 @@ import '@vaadin/icon';
 import '@vaadin/icons';
 import '@vaadin/vaadin-lumo-styles/icons.js';
 import '../../icons/iron-icons.js';
-import { Router } from '@vaadin/router';
+import { navigate } from '../../router/router';
 import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { ProjectApiModel } from '../../apis/dorc-api';
@@ -445,7 +445,7 @@ export class ProjectControls extends ResponsiveMixin(LitElement) {
     this._open = false;
     if (action.eventName === 'open-project-audit-data') {
       const id = this.project?.ProjectId;
-      if (id) Router.go(`/projects/audit?projectId=${id}`);
+      if (id) void navigate(`/projects/audit?projectId=${id}`);
       return;
     }
     this.dispatchEvent(

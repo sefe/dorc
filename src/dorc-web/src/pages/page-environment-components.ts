@@ -1,7 +1,7 @@
 import { css, PropertyValueMap, TemplateResult } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
-import { Router } from '@vaadin/router';
+import { navigate } from '../router/router';
 import { Tabs } from '@vaadin/tabs';
 import { PageElement, PageLocation } from '../helpers/page-element';
 import { PageEnvBase } from '../components/environment-tabs/page-env-base';
@@ -150,7 +150,7 @@ export class PageEnvironmentComponents extends PageElement {
       return;
     }
 
-    Router.go(`/environment/${envName}/components/${tabName}`);
+    void navigate(`/environment/${envName}/components/${tabName}`);
   }
 
   private safeDecodeURI(value: string): string {

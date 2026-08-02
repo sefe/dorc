@@ -8,7 +8,7 @@ import '@vaadin/horizontal-layout';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { DialogOpenedChangedEvent } from '@vaadin/dialog';
-import { Router } from '@vaadin/router';
+import { navigate } from '../router/router';
 import { dialogFooterRenderer, dialogRenderer } from '@vaadin/dialog/lit';
 import { Notification } from '@vaadin/notification';
 import { RefDataProjectsApi } from '../apis/dorc-api/apis';
@@ -310,7 +310,7 @@ export class PageProjectEnvs extends PageElement {
     });
     if (this.addEditProject) {
       this.addEditProject.close();
-      Router.go(`project-envs/${this.addEditProject?.project?.ProjectName}`);
+      void navigate(`project-envs/${this.addEditProject?.project?.ProjectName}`);
     }
   }
 
@@ -342,7 +342,7 @@ export class PageProjectEnvs extends PageElement {
   }
 
   openBundles() {
-    Router.go(`project-envs/${this.project}/bundles`);
+    void navigate(`project-envs/${this.project}/bundles`);
   }
 
   private renderMapEnvDialog = () => html`
@@ -384,7 +384,7 @@ export class PageProjectEnvs extends PageElement {
           },
           (err: any) => {
             console.error(err);
-            Router.go('not-found');
+            void navigate('not-found');
           },
           () => {
             console.log('done loading environments');

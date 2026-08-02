@@ -9,6 +9,12 @@
 | **Scope**    | `src/dorc-web` (Lit + Vaadin web components UI) |
 | **Baseline** | Vaadin platform 25.2.6 (current `latest` on npm) |
 
+> **Update 2026-08-02** — F-2 is resolved: the app has migrated off
+> `@vaadin/router` to `universal-router`. See
+> `MIGRATION-router-universal-router.md` in this folder. The original F-2 text
+> below recommended `@lit-labs/router`; that recommendation was **wrong** and is
+> corrected in place.
+
 ---
 
 ## 1. Purpose
@@ -75,21 +81,46 @@ reading it will assume validation is opt-in. `lit-analyzer` flags all 21.
 **Recommendation:** delete the attribute. Where a field genuinely needs eager
 validation, call `.validate()` explicitly.
 
-### F-2 — `@vaadin/router` is no longer maintained (HIGH — strategic)
+### F-2 — `@vaadin/router` is no longer maintained (HIGH — strategic) — ✅ RESOLVED
 
-`@vaadin/router@2.0.1` is the app's routing layer (`src/router/`, 11 importing
+`@vaadin/router@2.0.1` was the app's routing layer (`src/router/`, 11 importing
 modules). The Vaadin 25 upgrade guide states plainly that "the Vaadin Router
 library is no longer actively maintained, as Vaadin now uses React Router as its
 primary client-side routing solution," and recommends migrating Lit views.
 
-Version 2.0.1 is the terminal release. It still works, and nothing here is
-urgent, but it is now an unmaintained dependency carrying the app's entire
-navigation and route-guard surface.
+Version 2.0.1 is the terminal release. It still worked, and nothing was urgent,
+but it was an unmaintained dependency carrying the app's entire navigation and
+route-guard surface.
 
-**Recommendation:** no immediate action, but this should be an explicit,
-recorded decision rather than drift. Realistic options are (a) accept and pin,
-(b) migrate to a maintained Lit-compatible router such as `@lit-labs/router`.
-Migrating the UI to React solely to follow Vaadin's default is disproportionate.
+**Correction to this audit's original recommendation.** The first version of
+this document proposed `@lit-labs/router` as "a maintained Lit-compatible
+router." That was wrong on the facts, and checking the registry before starting
+the migration showed why:
+
+| | `@vaadin/router` | `@lit-labs/router` |
+|---|---|---|
+| Latest version | 2.0.1 | 0.1.4 |
+| Published | 2025-11-14 | 2025-02-14 |
+| Weekly downloads | 40,650 | 28,323 |
+| Stability | 2.x, terminal release | Lit Labs, pre-1.0, "may receive breaking changes or stop being supported" |
+
+The proposed replacement was **staler than what it would replace**. Worse, its
+own API documentation states that `goto()` "does not navigate parent routes, so
+it isn't (yet) a general page navigation API" — but this app navigates
+imperatively from 13 call sites that cross top-level and nested route
+boundaries. It would also have required a `URLPattern` polyfill for
+Safari/Firefox. The migration would have delivered a hand-written navigation
+shim on top of a less-maintained dependency.
+
+**Resolution: migrated to `universal-router` v10.0.3** (published 2026-01-16,
+48,515 weekly downloads) — the route resolver `@vaadin/router` is itself built
+on, so the existing route table's nested `children`, `action` redirects and
+`:param` syntax carry over almost unchanged. It is framework-agnostic, so the
+outlet rendering, link interception and location plumbing are now ~380 lines of
+owned, tested application code rather than a dependency.
+
+See `MIGRATION-router-universal-router.md` for the design, the behavioural
+differences, and the verification performed.
 
 ### F-3 — Polymer dependency chain retained after Vaadin dropped it (HIGH)
 
@@ -159,7 +190,7 @@ directories:
 | `src/components/make-like-production.ts:14` | `@vaadin/combo-box/src/vaadin-combo-box` |
 | `src/pages/page-deploy.ts:3` | `@vaadin/combo-box/src/vaadin-combo-box` |
 | `src/pages/page-project-components.ts:8` | `@vaadin/grid/src/vaadin-grid-column` |
-| `src/components/add-edit-environment.ts:21` | `@vaadin/router/dist/router.js` |
+| ~~`src/components/add-edit-environment.ts:21`~~ | ~~`@vaadin/router/dist/router.js`~~ — removed by the F-2 migration |
 
 `src/` and `dist/` are internal layout, not API. Vaadin reorganises these
 between minors without it counting as a breaking change, so these are the
@@ -321,7 +352,7 @@ Ordered by value-to-risk, not by severity alone:
 | 9 | F-4 grid renderers → `@vaadin/grid/lit` directives | Large | Medium |
 | 10 | F-3b `paper-dialog` → `<vaadin-dialog>` | Large | Medium |
 | 11 | F-10 / F-11 verify Vite patch and overlay propagation | Small | Needs runtime check |
-| 12 | F-2 record a decision on `@vaadin/router` | — | Decision only |
+| ~~12~~ | ~~F-2 record a decision on `@vaadin/router`~~ | ✅ Done | Migrated to `universal-router` |
 
 Items 1–6 are mechanical dead-code removal and could reasonably go in as a
 single change. Items 9 and 10 each warrant their own HLPS/IS.
@@ -334,7 +365,7 @@ single change. Items 9 and 10 each warrant their own HLPS/IS.
 |----|---------|-----------|-----------------|
 | U-1 | Is the `CSS.registerProperty` Vite patch (F-10) still required on 25.2.6? | No | Disable the plugin, run the app across all four entry points |
 | U-2 | Does removing overlay theme propagation (F-11) regress dark mode? | No | Visual check of dialogs/combo-box overlays in dark mode |
-| U-3 | Preferred direction for `@vaadin/router` (F-2) — pin, or migrate to `@lit-labs/router`? | No | User/architecture decision |
+| ~~U-3~~ | ~~Preferred direction for `@vaadin/router` (F-2)~~ | — | **Resolved 2026-08-02**: migrate to `universal-router` |
 | U-4 | Should the `title` → `aria-label` + `<vaadin-tooltip>` conversion (F-8) be in scope? | No | User decision; adds `@vaadin/tooltip` dependency |
 
 ---

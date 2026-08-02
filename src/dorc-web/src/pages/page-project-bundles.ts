@@ -25,7 +25,7 @@ import { HegsJsonViewer } from '../components/hegs-json-viewer.ts';
 import '../components/grid-button-groups/bundle-request-controls';
 import '../components/bundle-editor-dialog';
 import { BundleEditorDialog } from '../components/bundle-editor-dialog';
-import { Router } from '@vaadin/router';
+import { navigate } from '../router/router';
 import { ComboBox } from '@vaadin/combo-box';
 
 @customElement('page-project-bundles')
@@ -263,7 +263,7 @@ export class PageProjectBundles extends ResponsiveMixin(PageElement) {
           },
           (err: any) => {
             console.error(err);
-            Router.go('not-found');
+            void navigate('not-found');
           }
         );
     }

@@ -12,6 +12,7 @@ import { ShortcutsStore } from './shortcuts-store.ts';
 import { appConfig } from '../app-config.ts';
 import { OAUTH_SCHEME, oauthServiceContainer } from '../services/Account/OAuthService.ts';
 import { NARROW_BREAKPOINT } from '../helpers/responsive-mixin.ts';
+import { LOCATION_CHANGED_EVENT } from '../router/router.ts';
 
 let dorcNavbar: DorcNavbar;
 
@@ -321,7 +322,7 @@ export class DorcApp extends ShortcutsStore {
     this._narrowScreen = this._narrowMq.matches;
     this._narrowMq.addEventListener('change', this._narrowMqHandler);
     window.addEventListener(
-      'vaadin-router-location-changed',
+      LOCATION_CHANGED_EVENT,
       this._routerLocationChanged
     );
     document.addEventListener('keydown', this._keydownHandler);
@@ -379,7 +380,7 @@ export class DorcApp extends ShortcutsStore {
     super.disconnectedCallback();
     this._narrowMq?.removeEventListener('change', this._narrowMqHandler);
     window.removeEventListener(
-      'vaadin-router-location-changed',
+      LOCATION_CHANGED_EVENT,
       this._routerLocationChanged
     );
     document.removeEventListener('keydown', this._keydownHandler);

@@ -2,7 +2,7 @@ import { css, PropertyValueMap, TemplateResult } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import '../components/add-edit-access-control';
-import { Router } from '@vaadin/router';
+import { navigate } from '../router/router';
 import { Tabs } from '@vaadin/tabs';
 import { PageElement } from '../helpers/page-element';
 import { EnvironmentApiModel } from '../apis/dorc-api';
@@ -210,7 +210,7 @@ export class PageEnvironment extends PageElement {
       return;
     }
 
-    Router.go(pathStart + tabName);
+    void navigate(pathStart + tabName);
     console.log(`Telling router to go to ${tabName}`);
   }
 }

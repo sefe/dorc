@@ -15,7 +15,7 @@ import '../components/edit-daemon';
 import type { GridItemModel } from '@vaadin/grid';
 import type { GridColumn } from '@vaadin/grid/vaadin-grid-column';
 import { PaperDialogElement } from '@polymer/paper-dialog';
-import { Router } from '@vaadin/router';
+import { navigate } from '../router/router';
 import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { PageElement } from '../helpers/page-element';
@@ -389,7 +389,7 @@ export class PageDaemonsList extends ResponsiveMixin(PageElement) {
   openAudit(daemon: DaemonApiModel) {
     const id = daemon.Id ?? 0;
     if (id <= 0) return;
-    Router.go(`/daemons/audit?daemonId=${id}`);
+    void navigate(`/daemons/audit?daemonId=${id}`);
   }
 
   requestDelete(daemon: DaemonApiModel) {
