@@ -159,6 +159,7 @@ export class ServerDaemonMapping extends LitElement {
       html`
         <vaadin-button
           title="Unmap daemon"
+          aria-label="Unmap daemon"
           theme="icon"
           ?disabled="${control.readonly}"
           @click="${() => control.detachDaemon(daemon)}"

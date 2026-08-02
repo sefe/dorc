@@ -39,6 +39,7 @@ export class DaemonControls extends LitElement {
         <vaadin-button
           id="start"
           title="Start"
+          aria-label="Start"
           theme="icon"
           ?disabled="${this.startDisabled}"
           @click="${this.serviceStart}"
@@ -52,6 +53,7 @@ export class DaemonControls extends LitElement {
         </vaadin-button>
         <vaadin-button
           title="Stop"
+          aria-label="Stop"
           theme="icon"
           ?disabled="${this.stopDisabled}"
           @click="${this.serviceStop}"
@@ -63,6 +65,7 @@ export class DaemonControls extends LitElement {
         </vaadin-button>
         <vaadin-button
           title="Restart"
+          aria-label="Restart"
           theme="icon"
           ?disabled="${this.restartDisabled}"
           @click="${this.serviceRestart}"

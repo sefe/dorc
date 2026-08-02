@@ -45,6 +45,7 @@ export class DatabaseControls extends LitElement {
     return html`
       <vaadin-button
         title="Edit Database Details"
+        aria-label="Edit Database Details"
         theme="icon"
         @click="${this.editDatabase}"
         ?disabled="${this.readonly}"
@@ -57,6 +58,7 @@ export class DatabaseControls extends LitElement {
 
       <vaadin-button
         title="Delete database"
+        aria-label="Delete database"
         theme="icon"
         @click="${this.deleteDatabase}"
         ?disabled="${this.readonly}"

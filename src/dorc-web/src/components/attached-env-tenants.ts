@@ -56,6 +56,7 @@ export class AttachedEnvTenants extends LitElement {
       html`
         <vaadin-button
           title="Open Environment Details for ${environment?.EnvironmentName}"
+          aria-label="Open Environment Details for ${environment?.EnvironmentName}"
           theme="icon"
           @click="${() => this.openEnvironmentDetails(environment)}"
         >
@@ -66,6 +67,7 @@ export class AttachedEnvTenants extends LitElement {
         </vaadin-button>
         <vaadin-button
           title="Detach tenant"
+          aria-label="Detach tenant"
           theme="icon"
           @click="${() => this.detachTenant(environment?.EnvironmentId)}"
           ?disabled="${this.readonly}"

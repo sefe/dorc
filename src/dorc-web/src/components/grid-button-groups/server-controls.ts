@@ -52,6 +52,7 @@ export class ServerControls extends LitElement {
     return html`
       <vaadin-button
         title="Edit Server Details"
+        aria-label="Edit Server Details"
         theme="icon"
         @click="${this.editServer}"
         ?disabled="${this.readonly}"
@@ -64,6 +65,7 @@ export class ServerControls extends LitElement {
 
       <vaadin-button
         title="Edit Application Tags"
+        aria-label="Edit Application Tags"
         theme="icon"
         @click="${this.manage}"
         ?disabled="${this.readonly}"
@@ -76,6 +78,7 @@ export class ServerControls extends LitElement {
 
       <vaadin-button
         title="Manage Daemons"
+        aria-label="Manage Daemons"
         theme="icon"
         @click="${this.manageDaemons}"
         ?disabled="${this.readonly}"
@@ -89,6 +92,7 @@ export class ServerControls extends LitElement {
       ${this.envSet
         ? html`<vaadin-button
             title="Detach server"
+            aria-label="Detach server"
             theme="icon"
             @click="${this.detachServer}"
             ?disabled="${this.readonly}"
@@ -103,6 +107,7 @@ export class ServerControls extends LitElement {
       ${!this.envSet
         ? html`<vaadin-button
         title="Delete server"
+        aria-label="Delete server"
         theme="icon"
         @click="${this.deleteServer}"
         ?disabled="${this.readonly}"

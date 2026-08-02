@@ -313,6 +313,7 @@ export class PageDaemonsList extends ResponsiveMixin(PageElement) {
       html`<div class="row-actions">
         <vaadin-button
           title="View audit history"
+          aria-label="View audit history"
           theme="icon"
           @click="${() => this.openAudit(daemon)}"
         >
@@ -323,6 +324,7 @@ export class PageDaemonsList extends ResponsiveMixin(PageElement) {
         </vaadin-button>
         <vaadin-button
           title="Edit daemon"
+          aria-label="Edit daemon"
           theme="icon"
           ?hidden="${!(this.isAdmin || this.isPowerUser)}"
           @click="${() => this.openEdit(daemon)}"
@@ -334,6 +336,7 @@ export class PageDaemonsList extends ResponsiveMixin(PageElement) {
         </vaadin-button>
         <vaadin-button
           title="Delete daemon"
+          aria-label="Delete daemon"
           theme="icon"
           ?hidden="${!this.isAdmin}"
           @click="${() => this.requestDelete(daemon)}"

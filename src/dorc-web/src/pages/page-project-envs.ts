@@ -200,6 +200,7 @@ export class PageProjectEnvs extends PageElement {
             <vaadin-horizontal-layout style="gap: 4px;">
               <vaadin-button
                 title="Attach Environment"
+                aria-label="Attach Environment"
                 theme="icon"
                 @click="${this.openAttachEnv}"
                 style="margin: 0;"
@@ -211,6 +212,7 @@ export class PageProjectEnvs extends PageElement {
               </vaadin-button>
               <vaadin-button
                 title="Bundles"
+                aria-label="Bundles"
                 theme="icon"
                 @click="${this.openBundles}"
                 style="margin: 0;"
@@ -225,6 +227,7 @@ export class PageProjectEnvs extends PageElement {
             <vaadin-horizontal-layout style="gap: 4px;">
               <vaadin-button
                 title="Reference Data"
+                aria-label="Reference Data"
                 theme="icon"
                 @click="${this.openRefData}"
                 style="margin: 0;"
@@ -236,6 +239,7 @@ export class PageProjectEnvs extends PageElement {
               </vaadin-button>
               <vaadin-button
                 title="Edit Metadata..."
+                aria-label="Edit Metadata..."
                 theme="icon"
                 @click="${this.openProjectMetadata}"
                 style="margin: 0;"

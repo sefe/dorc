@@ -52,6 +52,7 @@ export class EnvTenants extends PageEnvBase {
           Parent Environment: ${this.environment?.ParentEnvironment?.EnvironmentName}
           <vaadin-button
               title="Open Environment Details for ${this.environment?.ParentEnvironment?.EnvironmentName}"
+              aria-label="Open Environment Details for ${this.environment?.ParentEnvironment?.EnvironmentName}"
               theme="icon"
               @click="${this.openEnvironmentDetails}"
             >

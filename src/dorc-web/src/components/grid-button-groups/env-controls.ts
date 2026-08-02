@@ -70,6 +70,7 @@ export class EnvControls extends LitElement {
     return html`
       <vaadin-button
         title="Environment Access..."
+        aria-label="Environment Access..."
         theme="icon"
         @click="${this.openAccessControl}"
       >
@@ -81,6 +82,7 @@ export class EnvControls extends LitElement {
       ${this.isAdmin || this.isPowerUser || this.isOwner
         ? html`<vaadin-button
             title="Clone Environment..."
+            aria-label="Clone Environment..."
             theme="icon"
             @click="${this.cloneEnvironment}"
           >
@@ -92,6 +94,7 @@ export class EnvControls extends LitElement {
         : html``}
       <vaadin-button
         title="Environment Details"
+        aria-label="Environment Details"
         theme="icon"
         @click="${this.openEnvironmentDetails}"
       >

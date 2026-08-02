@@ -140,6 +140,7 @@ export class EnvControlCenter extends PageEnvBase {
             >Environment History</vaadin-button>
           <vaadin-button
             title="Access Control..."
+            aria-label="Access Control..."
             theme="icon"
             @click="${this.openAccessControl}"
           >

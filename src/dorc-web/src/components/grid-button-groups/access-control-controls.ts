@@ -37,6 +37,7 @@ export class AccessControlControls extends LitElement {
     return html`
       <vaadin-button
         title="Remove Access"
+        aria-label="Remove Access"
         theme="icon"
         @click="${this.removeAccess}"
         ?disabled="${this.disabled}"

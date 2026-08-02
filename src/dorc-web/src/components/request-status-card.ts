@@ -140,6 +140,7 @@ export class RequestStatusCard extends LitElement {
             <td style="vertical-align: middle">
               <vaadin-button
                 title="Refresh Page"
+                aria-label="Refresh Page"
                 theme="icon"
                 @click="${this.refresh}"
               >
@@ -159,6 +160,7 @@ export class RequestStatusCard extends LitElement {
               ? html` <td style="vertical-align: middle">
                   <vaadin-button
                     title="View Log"
+                    aria-label="View Log"
                     theme="icon"
                     @click="${this.viewLog}"
                   >
@@ -184,6 +186,8 @@ export class RequestStatusCard extends LitElement {
                 ${this.deployRequest?.EnvironmentName}
                 <vaadin-button
                   title="Open Environment Details for ${this.deployRequest
+                    ?.EnvironmentName}"
+                  aria-label="Open Environment Details for ${this.deployRequest
                     ?.EnvironmentName}"
                   theme="icon"
                   @click="${this.openEnvironmentDetails}"
@@ -290,6 +294,7 @@ export class RequestStatusCard extends LitElement {
                     ${this.deployRequest?.UncLogPath}
                     <vaadin-button
                       title="Copy Path"
+                      aria-label="Copy Path"
                       theme="icon"
                       @click="${this.copyRawLog}"
                     >

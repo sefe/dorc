@@ -74,6 +74,7 @@ export class ConfigValueControls extends LitElement {
       <vaadin-button
         id="edit"
         title="Edit"
+        aria-label="Edit"
         theme="icon"
         @click="${this._editClick}"
         ?hidden="${this.editHidden}"
@@ -99,6 +100,7 @@ export class ConfigValueControls extends LitElement {
       >
       <vaadin-button
         title="Delete Value"
+        aria-label="Delete Value"
         theme="icon"
         @click="${this.removeConfigValue}"
       >

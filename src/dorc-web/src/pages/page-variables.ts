@@ -209,6 +209,7 @@ export class PageVariables extends PageElement {
       <vaadin-button
         theme="icon"
         title="Value Lookup"
+        aria-label="Value Lookup"
         style="position: fixed; right: 10px"
         @click="${() => {
           void navigate('/variables/value-lookup');

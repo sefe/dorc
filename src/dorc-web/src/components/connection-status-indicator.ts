@@ -64,6 +64,7 @@ export class ConnectionStatusIndicator extends LitElement {
           theme="icon small tertiary-inline"
           style="padding:0;margin:0"
           .title="${this.titleText}"
+          aria-label="${this.titleText}"
           @click="${this.toggle}"
         >
           <vaadin-icon icon="${this.iconName}" style="color:${this.iconColor}"></vaadin-icon>

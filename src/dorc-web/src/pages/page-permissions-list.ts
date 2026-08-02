@@ -163,13 +163,15 @@ export class PagePermissionsList extends ResponsiveMixin(PageElement) {
                       class="edit-btn" 
                       theme="icon"
                       title="Edit Permission"
+                      aria-label="Edit Permission"
                       style="margin-right: 5px;">
                       <vaadin-icon icon="lumo:edit" style="color: var(--dorc-link-color);"></vaadin-icon>
                     </vaadin-button>
                     <vaadin-button 
                       class="delete-btn" 
                       theme="icon"
-                      title="Delete Permission">
+                      title="Delete Permission"
+                      aria-label="Delete Permission">
                       <vaadin-icon icon="icons:delete" style="color: var(--dorc-error-color);"></vaadin-icon>
                     </vaadin-button>
                   `;

@@ -82,6 +82,7 @@ export class RequestControls extends LitElement {
           <td class="table-button">
             <vaadin-button
               title="Cancel Request"
+              aria-label="Cancel Request"
               theme="icon small"
               @click="${this.cancel}"
               ?disabled="${!this.cancelable}"
@@ -95,6 +96,7 @@ export class RequestControls extends LitElement {
           <td class="table-button">
             <vaadin-button
               title="Restart Request"
+              aria-label="Restart Request"
               theme="icon small"
               @click="${this.restart}"
               ?disabled="${!this.canRestart}"
@@ -110,6 +112,7 @@ export class RequestControls extends LitElement {
           <td class="table-button">
             <vaadin-button
               title="Pause Request"
+              aria-label="Pause Request"
               theme="icon small"
               @click="${this.pause}"
               ?disabled="${!this.canPause}"
@@ -123,6 +126,7 @@ export class RequestControls extends LitElement {
           <td class="table-button">
             <vaadin-button
               title="Resume Request"
+              aria-label="Resume Request"
               theme="icon small"
               @click="${this.resume}"
               ?disabled="${!this.canResume}"

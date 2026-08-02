@@ -94,6 +94,7 @@ export class ViewDatabasePermissions extends LitElement {
                     ${userPerm.Role}
                     <vaadin-button
                       title="Manage permissions"
+                      aria-label="Manage permissions"
                       theme="icon"
                       @click="${this._remove}"
                       ?disabled="${this.readonly}"

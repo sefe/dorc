@@ -86,6 +86,7 @@ export class VariableValueControls extends LitElement {
       <vaadin-button
         id="edit"
         title="Edit"
+        aria-label="Edit"
         theme="icon small"
         @click="${this._editClick}"
         ?disabled="${!this.value.UserEditable}"
@@ -112,6 +113,7 @@ export class VariableValueControls extends LitElement {
       >
       <vaadin-button
         title="Delete Value"
+        aria-label="Delete Value"
         theme="icon small"
         @click="${this.removePropertyValue}"
         ?disabled="${!this.value.UserEditable}"

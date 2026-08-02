@@ -23,6 +23,7 @@ export class PropertyOverrideControls extends LitElement {
     return html`
       <vaadin-button
         title="Remove Property Override"
+        aria-label="Remove Property Override"
         theme="icon"
         @click="${this.detailedResults}"
       >

@@ -79,6 +79,7 @@ export class ProjectCard extends LitElement {
         <div>
           <vaadin-button
             title="Project Environments for ${this.project?.ProjectName}"
+            aria-label="Project Environments for ${this.project?.ProjectName}"
             theme="icon"
             @click="${this.openProjectEnvironments}"
           >

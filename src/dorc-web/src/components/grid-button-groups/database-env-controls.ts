@@ -45,6 +45,7 @@ export class DatabaseEnvControls extends LitElement {
     return html`
       <vaadin-button
         title="Detach database"
+        aria-label="Detach database"
         theme="icon"
         @click="${this.detailedResults}"
         ?disabled="${this.readonly}"
@@ -56,6 +57,7 @@ export class DatabaseEnvControls extends LitElement {
       </vaadin-button>
       <vaadin-button
         title="Manage permissions"
+        aria-label="Manage permissions"
         theme="icon"
         @click="${this.manage}"
         ?disabled="${this.readonly}"
@@ -67,6 +69,7 @@ export class DatabaseEnvControls extends LitElement {
       </vaadin-button>
       <vaadin-button
         title="View database permissions"
+        aria-label="View database permissions"
         theme="icon"
         @click="${this.view}"
       >

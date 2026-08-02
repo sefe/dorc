@@ -704,6 +704,7 @@ export class EnvMonitor extends ResponsiveMixin(PageEnvBase) implements IDeploym
             theme="icon small"
             style="padding:0;margin:0"
             title="Manual refresh"
+            aria-label="Manual refresh"
             @click="${() => {
               const event = new CustomEvent('refresh-requests', {
                 detail: {},

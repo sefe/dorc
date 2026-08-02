@@ -70,6 +70,7 @@ export class AttachEnvironment extends LitElement {
         <vaadin-button
           style="margin-top: 37px; margin-left: 5px"
           title="Shortlist Environment"
+          aria-label="Shortlist Environment"
           theme="icon"
           @click="${this.shortListEnv}"
         >
@@ -94,6 +95,7 @@ export class AttachEnvironment extends LitElement {
         <vaadin-button
           style="margin-left: 5px; margin-top: 0"
           title="Remove Environment"
+          aria-label="Remove Environment"
           theme="icon"
           @click="${this.removeEnv}"
         >
@@ -106,6 +108,7 @@ export class AttachEnvironment extends LitElement {
 
       <vaadin-button
         title="Attach Environment(s)"
+        aria-label="Attach Environment(s)"
         theme="icon"
         @click="${this.attachEnvironment}"
       >

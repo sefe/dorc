@@ -104,6 +104,7 @@ export class EnvironmentCard extends LitElement {
           <vaadin-horizontal-layout style="gap: 4px;">
             <vaadin-button
               title="Environment Details"
+              aria-label="Environment Details"
               theme="icon"
               @click="${this.openEnvironmentDetails}"
               style="margin: 0;"
@@ -115,6 +116,7 @@ export class EnvironmentCard extends LitElement {
             </vaadin-button>
             <vaadin-button
               title="Environment History"
+              aria-label="Environment History"
               theme="icon"
               ?disabled="${this.environment === undefined}"
               @click="${this.openEnvHistory}"
@@ -129,6 +131,7 @@ export class EnvironmentCard extends LitElement {
           <vaadin-horizontal-layout style="gap: 4px;">
             <vaadin-button
               title="Detach Environment"
+              aria-label="Detach Environment"
               theme="icon"
               @click="${this.removeMapping}"
               .env="${this.environment}"
@@ -141,6 +144,7 @@ export class EnvironmentCard extends LitElement {
             </vaadin-button>
             <vaadin-button
               title="Access Control..."
+              aria-label="Access Control..."
               theme="icon"
               @click="${this.openAccessControl}"
               style="margin: 0;"
