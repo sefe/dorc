@@ -1,4 +1,4 @@
-import { css, PropertyValues } from 'lit';
+import { css, nothing, PropertyValues } from 'lit';
 import '../components/dorc-spinner';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid';
@@ -8,12 +8,14 @@ import '@vaadin/icon';
 import '../icons/iron-icons.js';
 import '@vaadin/vaadin-lumo-styles/icons.js';
 import '../components/add-edit-server';
-import '@polymer/paper-dialog';
+import '@vaadin/dialog';
 import '@vaadin/text-field';
-import { PaperDialogElement } from '@polymer/paper-dialog';
+import type { DialogOpenedChangedEvent } from '@vaadin/dialog';
+import { dialogFooterRenderer, dialogRenderer } from '@vaadin/dialog/lit';
+import { ref } from 'lit/directives/ref.js';
 import '../components/add-permission';
 import '../components/edit-permission';
-import { customElement, property } from 'lit/decorators.js';
+import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { PageElement } from '../helpers/page-element';
 import { ResponsiveMixin } from '../helpers/responsive-mixin';
@@ -25,6 +27,12 @@ import '@vaadin/grid/vaadin-grid-column';
 
 @customElement('page-permissions-list')
 export class PagePermissionsList extends ResponsiveMixin(PageElement) {
+  @state() addPermissionDialogOpened = false;
+
+  @state() editPermissionDialogOpened = false;
+
+  @state() editingPermission: PermissionDto | null = null;
+
   @property({ type: Array }) permissions: Array<PermissionDto> = [];
 
   @property({ type: Array }) filteredPermissions: Array<PermissionDto> = [];
@@ -65,10 +73,10 @@ export class PagePermissionsList extends ResponsiveMixin(PageElement) {
         flex: 1;
         min-height: 0;
       }
-      paper-dialog.size-position {
+      vaadin-dialog::part(overlay) {
         top: 16px;
         overflow: auto;
-        padding: 10px;
+        max-width: calc(100vw - 32px);
       }
       @media (max-width: 768px) {
         vaadin-grid-cell-content {
@@ -103,28 +111,28 @@ export class PagePermissionsList extends ResponsiveMixin(PageElement) {
           >Add SQL Role...
         </vaadin-button>
       </div>
-      <paper-dialog
-        class="size-position"
+      <vaadin-dialog
         id="add-permission-dialog"
-        allow-click-through
-        modal
-      >
-        <add-permission></add-permission>
-        <div style="display: flex; justify-content: flex-end">
-          <vaadin-button dialog-confirm>Close</vaadin-button>
-        </div>
-      </paper-dialog>
-      <paper-dialog
-        class="size-position"
+        header-title="Add SQL Role"
+        draggable
+        .opened="${this.addPermissionDialogOpened}"
+        @opened-changed="${(e: DialogOpenedChangedEvent) => {
+          this.addPermissionDialogOpened = e.detail.value;
+        }}"
+        ${dialogRenderer(this.renderAddPermission, [])}
+        ${dialogFooterRenderer(this.renderAddPermissionFooter, [])}
+      ></vaadin-dialog>
+      <vaadin-dialog
         id="edit-permission-dialog"
-        allow-click-through
-        modal
-      >
-        <edit-permission></edit-permission>
-        <div style="display: flex; justify-content: flex-end">
-          <vaadin-button dialog-confirm>Close</vaadin-button>
-        </div>
-      </paper-dialog>
+        header-title="Edit SQL Role"
+        draggable
+        .opened="${this.editPermissionDialogOpened}"
+        @opened-changed="${(e: DialogOpenedChangedEvent) => {
+          this.editPermissionDialogOpened = e.detail.value;
+        }}"
+        ${dialogRenderer(this.renderEditPermission, [this.editingPermission])}
+        ${dialogFooterRenderer(this.renderEditPermissionFooter, [])}
+      ></vaadin-dialog>
       ${this.loading
         ? html`
             <dorc-spinner></dorc-spinner>
@@ -212,34 +220,52 @@ export class PagePermissionsList extends ResponsiveMixin(PageElement) {
     );
   }
 
+  private renderAddPermission = () => html`<add-permission></add-permission>`;
+
+  private renderAddPermissionFooter = () => html`
+    <vaadin-button @click="${() => (this.addPermissionDialogOpened = false)}"
+      >Close</vaadin-button
+    >
+  `;
+
+  /**
+   * The permission is pushed in through `ref`, which fires exactly when the
+   * element is created. Previously it was set by querying for `<edit-permission>`
+   * *before* opening the dialog; under a renderer the element does not exist
+   * until the dialog opens, so that ordering no longer holds.
+   */
+  private renderEditPermission = () =>
+    this.editingPermission
+      ? html`<edit-permission
+          ${ref(el => {
+            if (el && this.editingPermission) {
+              (el as unknown as {
+                setPermission(p: PermissionDto): void;
+              }).setPermission(this.editingPermission);
+            }
+          })}
+        ></edit-permission>`
+      : nothing;
+
+  private renderEditPermissionFooter = () => html`
+    <vaadin-button @click="${() => (this.editPermissionDialogOpened = false)}"
+      >Close</vaadin-button
+    >
+  `;
+
   permissionCreated() {
     this.getPermissionsList();
-
-    const dialog = this.shadowRoot?.getElementById(
-      'add-permission-dialog'
-    ) as PaperDialogElement;
-    dialog.close();
+    this.addPermissionDialogOpened = false;
   }
 
   permissionUpdated() {
     this.getPermissionsList();
-
-    const dialog = this.shadowRoot?.getElementById(
-      'edit-permission-dialog'
-    ) as PaperDialogElement;
-    dialog.close();
+    this.editPermissionDialogOpened = false;
   }
 
   editPermission(permission: PermissionDto) {
-    const editPermissionComponent = this.shadowRoot?.querySelector('edit-permission') as any;
-    if (editPermissionComponent) {
-      editPermissionComponent.setPermission(permission);
-    }
-    
-    const dialog = this.shadowRoot?.getElementById(
-      'edit-permission-dialog'
-    ) as PaperDialogElement;
-    dialog.open();
+    this.editingPermission = permission;
+    this.editPermissionDialogOpened = true;
   }
 
   deletePermission(permission: PermissionDto) {
@@ -278,9 +304,6 @@ export class PagePermissionsList extends ResponsiveMixin(PageElement) {
   }
 
   addPermission() {
-    const attachEnv = this.shadowRoot?.getElementById(
-      'add-permission-dialog'
-    ) as PaperDialogElement;
-    attachEnv.open();
+    this.addPermissionDialogOpened = true;
   }
 }

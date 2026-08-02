@@ -5,10 +5,11 @@ import '@vaadin/grid/vaadin-grid';
 import '@vaadin/button';
 import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
-import '@polymer/paper-dialog';
+import '@vaadin/dialog';
 import '@vaadin/text-field';
-import { PaperDialogElement } from '@polymer/paper-dialog';
-import { customElement, property } from 'lit/decorators.js';
+import type { DialogOpenedChangedEvent } from '@vaadin/dialog';
+import { dialogFooterRenderer, dialogRenderer } from '@vaadin/dialog/lit';
+import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { PageElement } from '../helpers/page-element';
 import { ResponsiveMixin } from '../helpers/responsive-mixin';
@@ -22,6 +23,8 @@ import { RefDataRolesApi } from '../apis/dorc-api';
 
 @customElement('page-config-values-list')
 export class PageConfigValuesList extends ResponsiveMixin(PageElement) {
+  @state() addConfigValueDialogOpened = false;
+
   @property({ type: Array }) configValues: Array<ConfigValueApiModel> = [];
 
   @property({ type: Array }) filteredConfigValues: Array<ConfigValueApiModel> = [];
@@ -117,13 +120,10 @@ export class PageConfigValuesList extends ResponsiveMixin(PageElement) {
         margin: 0px;
       }
 
-      paper-dialog.size-position {
+      vaadin-dialog::part(overlay) {
         top: 16px;
         overflow: auto;
-        padding: 10px;
-        width: 560px;
         max-width: calc(100vw - 32px);
-        box-sizing: border-box;
       }
       @media (max-width: 768px) {
         vaadin-grid-cell-content {
@@ -159,17 +159,18 @@ export class PageConfigValuesList extends ResponsiveMixin(PageElement) {
           Add Config Value...
         </vaadin-button>
       </div>
-      <paper-dialog
-        class="size-position"
+      <vaadin-dialog
         id="add-config-value-dialog"
-        allow-click-through
-        modal
-      >
-        <add-config-value></add-config-value>
-        <div style="display: flex; justify-content: flex-end">
-          <vaadin-button dialog-confirm>Close</vaadin-button>
-        </div>
-      </paper-dialog>
+        header-title="Add Config Value"
+        draggable
+        width="560px"
+        .opened="${this.addConfigValueDialogOpened}"
+        @opened-changed="${(e: DialogOpenedChangedEvent) => {
+          this.addConfigValueDialogOpened = e.detail.value;
+        }}"
+        ${dialogRenderer(this.renderAddConfigValue, [])}
+        ${dialogFooterRenderer(this.renderAddConfigValueFooter, [])}
+      ></vaadin-dialog>
       ${this.loading
         ? html`
             <dorc-spinner></dorc-spinner>
@@ -233,13 +234,18 @@ export class PageConfigValuesList extends ResponsiveMixin(PageElement) {
     );
   }
 
+  private renderAddConfigValue = () =>
+    html`<add-config-value></add-config-value>`;
+
+  private renderAddConfigValueFooter = () => html`
+    <vaadin-button @click="${() => (this.addConfigValueDialogOpened = false)}"
+      >Close</vaadin-button
+    >
+  `;
+
   configValueCreated() {
     this.getConfigValuesList();
-
-    const dialog = this.shadowRoot?.getElementById(
-      'add-config-value-dialog'
-    ) as PaperDialogElement;
-    dialog.close();
+    this.addConfigValueDialogOpened = false;
   }
 
   variableValueControlsRenderer(
@@ -313,9 +319,6 @@ export class PageConfigValuesList extends ResponsiveMixin(PageElement) {
   }
 
   addConfigValue() {
-    const paperDialogElement = this.shadowRoot?.getElementById(
-      'add-config-value-dialog'
-    ) as PaperDialogElement;
-    paperDialogElement.open();
+    this.addConfigValueDialogOpened = true;
   }
 }

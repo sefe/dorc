@@ -1,6 +1,7 @@
-import '@polymer/paper-dialog';
+import '@vaadin/dialog';
 import '../components/dorc-spinner';
-import { PaperDialogElement } from '@polymer/paper-dialog';
+import type { DialogOpenedChangedEvent } from '@vaadin/dialog';
+import { dialogFooterRenderer, dialogRenderer } from '@vaadin/dialog/lit';
 import { GridItemModel } from '@vaadin/grid';
 import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
@@ -59,10 +60,10 @@ export class PageUsersList extends PageElement {
         flex: 1;
         min-height: 0;
       }
-      paper-dialog.size-position {
+      vaadin-dialog::part(overlay) {
         top: 16px;
         overflow: auto;
-        padding: 10px;
+        max-width: calc(100vw - 32px);
       }
     `;
   }
@@ -90,23 +91,19 @@ export class PageUsersList extends PageElement {
           >Add User or Group...
         </vaadin-button>
       </div>
-      <paper-dialog
-        class="size-position"
+      <vaadin-dialog
         id="add-user-dialog"
-        allow-click-through
-        modal
-      >
-        ${this.isAddUserOrGroupDialogOpened
-          ? html`<add-user-or-group id="add-user-or-group"></add-user-or-group>`
-          : html`${nothing}`}
-        <div style="display: flex; justify-content: flex-end">
-          <vaadin-button
-            dialog-confirm
-            @click="${this.addUserOrGroupDialogClosed}"
-            >Close</vaadin-button
-          >
-        </div>
-      </paper-dialog>
+        header-title="Add User or Group"
+        draggable
+        .opened="${this.isAddUserOrGroupDialogOpened}"
+        @opened-changed="${(e: DialogOpenedChangedEvent) => {
+          this.isAddUserOrGroupDialogOpened = e.detail.value;
+        }}"
+        ${dialogRenderer(this.renderAddUser, [
+          this.isAddUserOrGroupDialogOpened
+        ])}
+        ${dialogFooterRenderer(this.renderAddUserFooter, [])}
+      ></vaadin-dialog>
       ${this.loading
         ? html`
             <dorc-spinner></dorc-spinner>
@@ -140,6 +137,12 @@ export class PageUsersList extends PageElement {
   protected firstUpdated(_changedProperties: PropertyValues) {
     super.firstUpdated(_changedProperties);
 
+    // KNOWN DEFECT (pre-existing): `add-user-or-group` dispatches
+    // `user-or-group-created` with `composed: true` but no `bubbles`, so this
+    // listener never fires and `closeAddUser` is dead code. Adding `bubbles`
+    // activates it, and `closeAddUser` then dereferences `e.detail.user`
+    // unconditionally — which fails. Fixing it needs its own change with its
+    // own tests; it is deliberately NOT bundled into the dialog conversion.
     this.addEventListener(
       'user-or-group-created',
       this.closeAddUser as EventListener
@@ -205,19 +208,29 @@ export class PageUsersList extends PageElement {
     );
   }
 
+  /**
+   * The open flag also gates the content, so `<add-user-or-group>` is torn down
+   * and rebuilt on each open — a fresh, empty form. Vaadin caches the renderer
+   * root, so without this gate (and the flag in the dependency array) the
+   * previous form state would persist across reopen.
+   */
+  private renderAddUser = () =>
+    this.isAddUserOrGroupDialogOpened
+      ? html`<add-user-or-group id="add-user-or-group"></add-user-or-group>`
+      : nothing;
+
+  private renderAddUserFooter = () => html`
+    <vaadin-button
+      @click="${() => (this.isAddUserOrGroupDialogOpened = false)}"
+      >Close</vaadin-button
+    >
+  `;
+
   addUser() {
-    const attachEnv = this.shadowRoot?.getElementById(
-      'add-user-dialog'
-    ) as PaperDialogElement;
-    attachEnv.open();
     this.isAddUserOrGroupDialogOpened = true;
   }
 
   closeAddUser(e: CustomEvent) {
-    const dialog = this.shadowRoot?.getElementById(
-      'add-user-dialog'
-    ) as PaperDialogElement;
-    dialog.close();
     this.isAddUserOrGroupDialogOpened = false;
 
     const user = e.detail.user as UserApiModel;

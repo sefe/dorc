@@ -1,4 +1,4 @@
-import { css, PropertyValues, render } from 'lit';
+import { css, nothing, PropertyValues, render } from 'lit';
 import '../components/dorc-spinner';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid';
@@ -9,13 +9,14 @@ import '@vaadin/vaadin-lumo-styles/icons.js';
 import '../icons/iron-icons.js';
 import '@vaadin/confirm-dialog';
 import '@vaadin/text-field';
-import '@polymer/paper-dialog';
+import '@vaadin/dialog';
 import '../components/add-daemon';
 import '../components/edit-daemon';
 import type { GridItemModel } from '@vaadin/grid';
 import '@vaadin/grid/vaadin-grid-column';
 import type { GridColumn } from '@vaadin/grid/vaadin-grid-column';
-import { PaperDialogElement } from '@polymer/paper-dialog';
+import type { DialogOpenedChangedEvent } from '@vaadin/dialog';
+import { dialogFooterRenderer, dialogRenderer } from '@vaadin/dialog/lit';
 import { navigate } from '../router/router';
 import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
@@ -38,6 +39,10 @@ export class PageDaemonsList extends ResponsiveMixin(PageElement) {
   @property({ type: Boolean }) isPowerUser = false;
 
   @state() private editingDaemon: DaemonApiModel | null = null;
+
+  @state() addDaemonDialogOpened = false;
+
+  @state() editDaemonDialogOpened = false;
 
   @state() private confirmDeleteOpen = false;
 
@@ -96,13 +101,10 @@ export class PageDaemonsList extends ResponsiveMixin(PageElement) {
         flex: 1;
         min-height: 0;
       }
-      paper-dialog.size-position {
+      vaadin-dialog::part(overlay) {
         top: 16px;
         overflow: auto;
-        padding: 10px;
-        width: 560px;
         max-width: calc(100vw - 32px);
-        box-sizing: border-box;
       }
       .row-actions vaadin-button {
         padding: 0;
@@ -143,34 +145,31 @@ export class PageDaemonsList extends ResponsiveMixin(PageElement) {
         </vaadin-button>
       </div>
 
-      <paper-dialog
-        class="size-position"
+      <vaadin-dialog
         id="add-daemon-dialog"
-        allow-click-through
-        modal
-      >
-        <add-daemon id="add-daemon"></add-daemon>
-        <div style="display: flex; justify-content: flex-end">
-          <vaadin-button dialog-confirm>Close</vaadin-button>
-        </div>
-      </paper-dialog>
+        header-title="Add Daemon"
+        draggable
+        width="560px"
+        .opened="${this.addDaemonDialogOpened}"
+        @opened-changed="${(e: DialogOpenedChangedEvent) => {
+          this.addDaemonDialogOpened = e.detail.value;
+        }}"
+        ${dialogRenderer(this.renderAddDaemon, [])}
+        ${dialogFooterRenderer(this.renderAddDaemonFooter, [])}
+      ></vaadin-dialog>
 
-      <paper-dialog
-        class="size-position"
+      <vaadin-dialog
         id="edit-daemon-dialog"
-        allow-click-through
-        modal
-      >
-        ${this.editingDaemon
-          ? html`<edit-daemon
-              id="edit-daemon"
-              .daemon="${this.editingDaemon}"
-            ></edit-daemon>`
-          : html``}
-        <div style="display: flex; justify-content: flex-end">
-          <vaadin-button dialog-confirm>Close</vaadin-button>
-        </div>
-      </paper-dialog>
+        header-title="Edit Daemon"
+        draggable
+        width="560px"
+        .opened="${this.editDaemonDialogOpened}"
+        @opened-changed="${(e: DialogOpenedChangedEvent) => {
+          this.editDaemonDialogOpened = e.detail.value;
+        }}"
+        ${dialogRenderer(this.renderEditDaemon, [this.editingDaemon])}
+        ${dialogFooterRenderer(this.renderEditDaemonFooter, [])}
+      ></vaadin-dialog>
 
       <vaadin-confirm-dialog
         .opened="${this.confirmDeleteOpen}"
@@ -362,29 +361,43 @@ export class PageDaemonsList extends ResponsiveMixin(PageElement) {
     );
   }
 
+  private renderAddDaemon = () => html`<add-daemon id="add-daemon"></add-daemon>`;
+
+  private renderAddDaemonFooter = () => html`
+    <vaadin-button @click="${() => (this.addDaemonDialogOpened = false)}"
+      >Close</vaadin-button
+    >
+  `;
+
+  /** Gated on `editingDaemon` so each edit gets a freshly-built form. */
+  private renderEditDaemon = () =>
+    this.editingDaemon
+      ? html`<edit-daemon
+          id="edit-daemon"
+          .daemon="${this.editingDaemon}"
+        ></edit-daemon>`
+      : nothing;
+
+  private renderEditDaemonFooter = () => html`
+    <vaadin-button @click="${() => (this.editDaemonDialogOpened = false)}"
+      >Close</vaadin-button
+    >
+  `;
+
   daemonCreated() {
     this.getDaemonsList();
-    const dialog = this.shadowRoot?.getElementById(
-      'add-daemon-dialog'
-    ) as PaperDialogElement;
-    dialog.close();
+    this.addDaemonDialogOpened = false;
   }
 
   daemonUpdated() {
     this.getDaemonsList();
-    const dialog = this.shadowRoot?.getElementById(
-      'edit-daemon-dialog'
-    ) as PaperDialogElement;
-    dialog?.close();
+    this.editDaemonDialogOpened = false;
     this.editingDaemon = null;
   }
 
   openEdit(daemon: DaemonApiModel) {
     this.editingDaemon = { ...daemon };
-    const dialog = this.shadowRoot?.getElementById(
-      'edit-daemon-dialog'
-    ) as PaperDialogElement;
-    dialog?.open();
+    this.editDaemonDialogOpened = true;
   }
 
   openAudit(daemon: DaemonApiModel) {
@@ -455,9 +468,6 @@ export class PageDaemonsList extends ResponsiveMixin(PageElement) {
   }
 
   addDaemon() {
-    const dialog = this.shadowRoot?.getElementById(
-      'add-daemon-dialog'
-    ) as PaperDialogElement;
-    dialog.open();
+    this.addDaemonDialogOpened = true;
   }
 }
