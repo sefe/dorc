@@ -95,24 +95,18 @@ export class PageDatabasesAudit extends PageElement {
           header="Database"
           .renderer="${this.databaseNameRenderer}"
           resizable
-          auto-width
-          flex-grow="0"
         ></vaadin-grid-column>
         <vaadin-grid-column
           path="Username"
           header="User"
           .headerRenderer="${this.userHeaderRenderer}"
           resizable
-          auto-width
-          flex-grow="0"
         ></vaadin-grid-column>
         <vaadin-grid-column
           path="Action"
           header="Action"
           .headerRenderer="${this.actionHeaderRenderer}"
           resizable
-          auto-width
-          flex-grow="0"
         ></vaadin-grid-column>
         <vaadin-grid-sort-column
           path="Date"
@@ -120,8 +114,6 @@ export class PageDatabasesAudit extends PageElement {
           direction="desc"
           .renderer="${this.dateRenderer}"
           resizable
-          auto-width
-          flex-grow="0"
         ></vaadin-grid-sort-column>
         <vaadin-grid-column
           path="FromValue"

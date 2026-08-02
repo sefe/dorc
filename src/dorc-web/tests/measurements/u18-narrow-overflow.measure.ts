@@ -215,7 +215,7 @@ describe('U-18 — narrow-width overflow at 375px (views as written)', () => {
     });
   }
   afterAll(() => {
-    // eslint-disable-next-line no-console
+     
     console.log(`\n===== U-18 (375px, as written) =====\n${results.join('\n')}\n`);
   });
 });
@@ -237,7 +237,7 @@ describe('U-18b — default-width regime (NOT a floor; see header comment)', () 
     });
   }
   afterAll(() => {
-    // eslint-disable-next-line no-console
+     
     console.log(`\n===== U-18b (default 100px widths) =====\n${results.join('\n')}\n`);
   });
 });
@@ -270,7 +270,7 @@ describe('U-18c — the cheap fix measured honestly (explicit narrow widths)', (
     probe.remove();
     const truncatedPct = Math.max(0, Math.round((1 - cellWidth / demand) * 100));
 
-    // eslint-disable-next-line no-console
+     
     console.log(
       `\n===== U-18c (cheap fix: explicit narrow widths) =====\n` +
         `grid: needs=${required}px available=${available}px → ${required - available > 1 ? 'OVERFLOWS' : 'fits'}\n` +

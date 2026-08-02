@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | **IN REVIEW — awaiting user approval.** IS-R1 2/2 REVISE → triage implemented → IS-R2 verification: **APPROVE WITH CHANGES**, all three edits applied. Approval covers **U-5** (pilot set) and **U-19** (rollback default). |
+| Status | **APPROVED & DELIVERED** — user approval 2026-08-02 (blanket, covering U-5 and U-19, with auto-pilot for all steps). Delivery record: `PILOT-GATE-S-008.md`. Post-pilot sequencing remains an open user decision. |
 | Date | 2026-08-02 |
 | Owner | Ben Hegarty |
 | Governing HLPS | `HLPS-responsive-record-view.md` (**APPROVED** 2026-08-02) |
@@ -373,4 +373,6 @@ the findings were scaffolding and coverage, all accepted, none rejected.
 | — | 2026-08-02 | DRAFT | — | Authored from the approved HLPS. |
 | **IS-R1** | 2026-08-02 | **REVISION** | 2 (ordering/dependencies; HLPS traceability) | **2/2 REVISE.** Order confirmed sound; scaffolding and coverage defects — S-001 split, SC10 gaps on the two views carrying the protected constructs, four HLPS drops (U-6, U-20 record, SC8, baseline capture), U-7 routing contradiction, and a third occurrence of the underived-figure defect class. Triage §5; all findings accepted. |
 | — | 2026-08-02 | REVISION | — | Full triage implemented. |
-| **IS-R2** | 2026-08-02 | **IN REVIEW** | 1 verifier | **APPROVE WITH CHANGES.** Triage verified genuinely implemented; every re-derivable figure matched (incl. 32 = 37−5 and 22 = 24−2 under the HLPS counting rule). One MEDIUM (coupling-rule scope excluded P-002's post-migration controller sweep — its own §1 interaction note contemplated it) + two LOWs; all three edits applied same day. **Awaiting user approval, covering U-5 and U-19.** |
+| **IS-R2** | 2026-08-02 | IN REVIEW | 1 verifier | **APPROVE WITH CHANGES.** Triage verified genuinely implemented; every re-derivable figure matched (incl. 32 = 37−5 and 22 = 24−2 under the HLPS counting rule). One MEDIUM (coupling-rule scope excluded P-002's post-migration controller sweep) + two LOWs; all three edits applied same day. |
+| — | 2026-08-02 | **APPROVED** | Owner | **Blanket approval**: IS approved (U-5 pilot set and U-19 one-commit-revert default confirmed), auto-pilot enabled for all steps. |
+| — | 2026-08-02 | **DELIVERED** | — | S-001a→S-008 and P-001/P-003 executed; 126/126 tests green, type-check and lint clean. Per-step ceremony compressed under auto-pilot into code + tests as gates, recorded honestly (incl. the unexecuted human halves of gates 1–2) in `PILOT-GATE-S-008.md`. **Open: post-pilot sequencing of the 32 remaining views (user decision); P-002 CSS sweep residue.** |

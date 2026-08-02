@@ -113,6 +113,21 @@ export class RequestStatusCard extends LitElement {
       .requested-titles {
         width: 100px;
       }
+
+      /* S-007 (IS): the SC9 journey passes through this card at 375px —
+         labels shrink to content and values wrap instead of overflowing. */
+      @media (max-width: 768px) {
+        .requested-titles {
+          width: auto;
+          min-width: 80px;
+        }
+        table {
+          width: 100%;
+        }
+        td {
+          overflow-wrap: anywhere;
+        }
+      }
     `;
   }
 
@@ -173,10 +188,7 @@ export class RequestStatusCard extends LitElement {
         </table>
         <table>
           <tr>
-            <td
-              class="requested-titles card-element__text"
-              style="width: 200px"
-            >
+            <td class="requested-titles card-element__text">
               Environment:
             </td>
             <td>
