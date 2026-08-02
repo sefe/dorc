@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | **REVISION** — IS-R1 panel returned 2/2 REVISE; this version implements the full triage (§5) |
+| Status | **IN REVIEW — awaiting user approval.** IS-R1 2/2 REVISE → triage implemented → IS-R2 verification: **APPROVE WITH CHANGES**, all three edits applied. Approval covers **U-5** (pilot set) and **U-19** (rollback default). |
 | Date | 2026-08-02 |
 | Owner | Ben Hegarty |
 | Governing HLPS | `HLPS-responsive-record-view.md` (**APPROVED** 2026-08-02) |
@@ -66,10 +66,11 @@ P-003   axe-core harness integration               (parallel; hard prerequisite 
   migrated** at run time; the run date is recorded against the migration
   sequence in MEASURE.
 
-**Cross-step coupling rule** *(ISR1a-F9)*: any change to the shared S-001b
-artifacts (controller, template helper, bar) made during S-003…S-006
-re-triggers the full SC suite of every previously migrated view as part of
-that step's exit criteria.
+**Cross-step coupling rule** *(ISR1a-F9; scope corrected per ISR2-F1)*: any
+change to the shared S-001b artifacts (controller, template helper, bar) made
+during **any step, S- or P-, that runs after a view has migrated — including
+P-002's controller sweep** — re-triggers the full SC suite of every previously
+migrated view as part of that step's exit criteria.
 
 ---
 
@@ -146,7 +147,8 @@ that step's exit criteria.
 - **Entry gates.** SC2 baseline checklist approved in the JIT Spec; U-3 for
   this entity.
 - **Exit criteria.** SC1/SC2/SC3/SC5/SC11-objective at dialog-constrained
-  widths; threshold verified against **container** width both directions;
+  widths (SC4 inapplicable — 0 `dataProvider` references, derived by grep);
+  threshold verified against **container** width both directions;
   **SC10 including declarative-sorter continuity — this view's two
   `<vaadin-grid-sort-column>`s are the sequence's first contact with
   declarative sort crossing the threshold** *(ISR1a-F2)*; `ResizeObserver`
@@ -182,7 +184,8 @@ that step's exit criteria.
   interact sanely.
 - **Exit criteria.** SC1 at the 375px oracle, measured at the component's real
   hosted container width (narrower than 375px — MEASURE §2), closing that
-  row's "not-established" caveat *(ISR1b-F18)*; SC2/SC3/SC5;
+  row's "not-established" caveat *(ISR1b-F18)*; SC2/SC3/SC5 (SC4
+  inapplicable — 0 `dataProvider` references, derived by grep);
   **SC10 including `auto-width` recalculation on return to wide — this view
   carries five `auto-width` columns** *(ISR1a-F2)*; SC11-objective; test
   migration (`responsive-grids.test.ts` coverage re-established).
@@ -272,7 +275,9 @@ that step's exit criteria.
 - **Exit criteria.** SC6 static review passes; regression gate green
   (`responsive-mixin.test.ts`, `grid-column-hiding.test.ts` — synthetic
   fixtures, unaffected by migrations); unmigrated views' `?hidden` behaviour
-  unchanged.
+  unchanged; **if the sweep touches the S-001b controller after any view has
+  migrated, the §1 coupling rule applies: migrated views' SC suites re-run**
+  *(ISR2-F1)*.
 
 ### P-003 — axe-core harness integration *(parallel; new step per ISR1a-F1)*
 
@@ -353,6 +358,7 @@ the findings were scaffolding and coverage, all accepted, none rejected.
 | ISR1b-F12 (underived, inconsistent view counts — third occurrence of the prohibited defect class) | **ACCEPT.** 32 = 37 − 5, derivation inline; sort-column figure re-derived (22 = 24 files − 2 pilot members, by `grep -l`). |
 | ISR1b-F14 (template-sharing clause invented) | **ACCEPT.** Restated conditionally; SC3 resolves per view. |
 | ISR1b-F15 (§6.11 type/lint unowned) | **ACCEPT.** Global exit condition at head. |
+| ISR1b-F16 (U-4/U-8b routing rows absent) | **ACCEPT.** U-4 revisit-on-pilot-evidence; U-8b an input to S-008 item 5. |
 | ISR1b-F17 (S-003 actions slot silent) | **ACCEPT.** Override button named. |
 | ISR1b-F18 (S-005 SC1 reads as substituted oracle) | **ACCEPT.** Rephrased as stricter-than, citing MEASURE §2. |
 
@@ -366,4 +372,5 @@ the findings were scaffolding and coverage, all accepted, none rejected.
 |---|---|---|---|---|
 | — | 2026-08-02 | DRAFT | — | Authored from the approved HLPS. |
 | **IS-R1** | 2026-08-02 | **REVISION** | 2 (ordering/dependencies; HLPS traceability) | **2/2 REVISE.** Order confirmed sound; scaffolding and coverage defects — S-001 split, SC10 gaps on the two views carrying the protected constructs, four HLPS drops (U-6, U-20 record, SC8, baseline capture), U-7 routing contradiction, and a third occurrence of the underived-figure defect class. Triage §5; all findings accepted. |
-| — | 2026-08-02 | REVISION | — | Full triage implemented in this version. **Next: IS-R2 verification round, then user approval (covering U-5 and U-19).** |
+| — | 2026-08-02 | REVISION | — | Full triage implemented. |
+| **IS-R2** | 2026-08-02 | **IN REVIEW** | 1 verifier | **APPROVE WITH CHANGES.** Triage verified genuinely implemented; every re-derivable figure matched (incl. 32 = 37−5 and 22 = 24−2 under the HLPS counting rule). One MEDIUM (coupling-rule scope excluded P-002's post-migration controller sweep — its own §1 interaction note contemplated it) + two LOWs; all three edits applied same day. **Awaiting user approval, covering U-5 and U-19.** |
