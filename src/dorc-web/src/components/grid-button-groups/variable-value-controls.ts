@@ -1,3 +1,4 @@
+import { confirmPrompt } from '../confirm-prompt';
 import '@vaadin/button';
 import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
@@ -131,8 +132,8 @@ export class VariableValueControls extends LitElement {
     `;
   }
 
-  removePropertyValue() {
-    const answer = confirm(
+  async removePropertyValue() {
+    const answer = await confirmPrompt(
       `Confirm removing value: ${this.value?.Value}?\nfor variable: ${
         this.value?.Property?.Name
       }\nwith scope: ${this.value?.PropertyValueFilter}`

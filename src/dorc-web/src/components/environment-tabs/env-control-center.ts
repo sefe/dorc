@@ -1,3 +1,4 @@
+import { confirmPrompt } from '../confirm-prompt';
 import { css, PropertyValues } from 'lit';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid';
@@ -237,8 +238,8 @@ export class EnvControlCenter extends PageEnvBase {
     });
   }
 
-  deleteEnvironment() {
-    const answer = confirm(
+  async deleteEnvironment() {
+    const answer = await confirmPrompt(
       'Are you sure you want to delete your environment and properties?'
     );
     if (answer) {

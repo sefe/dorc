@@ -1,3 +1,4 @@
+import { confirmPrompt } from '../confirm-prompt';
 import { css, LitElement } from 'lit';
 import '@vaadin/button';
 import '@vaadin/icons/vaadin-icons';
@@ -121,8 +122,8 @@ export class ServerControls extends LitElement {
     `;
   }
 
-  detachServer() {
-    const answer = confirm(`Detach server ${this.serverDetails?.Name}?`);
+  async detachServer() {
+    const answer = await confirmPrompt(`Detach server ${this.serverDetails?.Name}?`);
     if (answer && this.serverDetails?.ServerId) {
       const api = new RefDataEnvironmentsDetailsApi();
       api
@@ -138,8 +139,8 @@ export class ServerControls extends LitElement {
     }
   }
 
-  deleteServer() {
-    const answer = confirm(`Delete server ${this.serverDetails?.Name}?`);
+  async deleteServer() {
+    const answer = await confirmPrompt(`Delete server ${this.serverDetails?.Name}?`);
     if (answer && this.serverDetails?.ServerId) {
       const api = new RefDataServersApi();
       api

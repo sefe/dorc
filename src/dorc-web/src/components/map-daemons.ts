@@ -1,3 +1,4 @@
+import { confirmPrompt } from './confirm-prompt';
 import { css, LitElement } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
@@ -225,9 +226,9 @@ export class ServerDaemonMapping extends LitElement {
       });
   }
 
-  public detachDaemon(daemon: DaemonApiModel) {
+  public async detachDaemon(daemon: DaemonApiModel) {
     if (!this._server?.ServerId || !daemon.Id) return;
-    const answer = confirm(
+    const answer = await confirmPrompt(
       `Unmap daemon "${daemon.DisplayName ?? daemon.Name}" from server "${this._server.Name}"?`
     );
     if (!answer) return;

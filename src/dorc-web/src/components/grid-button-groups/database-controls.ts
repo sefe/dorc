@@ -1,3 +1,4 @@
+import { confirmPrompt } from '../confirm-prompt';
 import { css, LitElement } from 'lit';
 import '@vaadin/button';
 import '@vaadin/icons/vaadin-icons';
@@ -71,8 +72,8 @@ export class DatabaseControls extends LitElement {
     `;
   }
 
-  deleteDatabase() {
-    const answer = confirm(`Delete database ${this.databaseDetails?.Name}?`);
+  async deleteDatabase() {
+    const answer = await confirmPrompt(`Delete database ${this.databaseDetails?.Name}?`);
     if (answer && this.databaseDetails?.Id) {
       const api = new RefDataDatabasesApi();
       api

@@ -1,3 +1,4 @@
+import { confirmPrompt } from '../components/confirm-prompt';
 import '@vaadin/grid';
 import '../components/dorc-spinner';
 import type { GridItemModel } from '@vaadin/grid';
@@ -100,7 +101,7 @@ export class PageProjectsList extends ResponsiveMixin(PageElement) {
     );
     this.addEventListener(
       'delete-project',
-      this.deleteProject as EventListener
+      this.deleteProject as unknown as EventListener
     );
   }
 
@@ -404,14 +405,14 @@ export class PageProjectsList extends ResponsiveMixin(PageElement) {
     n.open();
   }
 
-  private deleteProject(e: CustomEvent) {
+  private async deleteProject(e: CustomEvent) {
     const project = e.detail.Project as ProjectApiModel;
     this.selectedProject = project;
 
     if (
-      !confirm(
+      !(await confirmPrompt(
         `Are you sure you want to delete project "${project.ProjectName}"? This action cannot be undone.`
-      )
+      ))
     ) {
       this.selectedProject = this.getEmptyProj();
       return;

@@ -1,3 +1,4 @@
+import { confirmPrompt } from '../components/confirm-prompt';
 import { css, nothing, PropertyValues } from 'lit';
 import '../components/dorc-spinner';
 import '@vaadin/grid/vaadin-grid-sort-column';
@@ -270,8 +271,8 @@ export class PagePermissionsList extends ResponsiveMixin(PageElement) {
     this.editPermissionDialogOpened = true;
   }
 
-  deletePermission(permission: PermissionDto) {
-    const confirmDelete = confirm(
+  async deletePermission(permission: PermissionDto) {
+    const confirmDelete = await confirmPrompt(
       `Are you sure you want to delete the role "${permission.DisplayName}"?`
     );
     

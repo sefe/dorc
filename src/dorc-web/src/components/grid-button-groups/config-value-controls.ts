@@ -1,3 +1,4 @@
+import { confirmPrompt } from '../confirm-prompt';
 import '@vaadin/button';
 import { Button } from '@vaadin/button';
 import '@vaadin/icons/vaadin-icons';
@@ -114,8 +115,8 @@ export class ConfigValueControls extends LitElement {
     `;
   }
 
-  removeConfigValue() {
-    const answer = confirm(
+  async removeConfigValue() {
+    const answer = await confirmPrompt(
       `Confirm removing value: ${this.value?.Key}?\nfor variable: ${
         this.value?.Value
       }`

@@ -1,3 +1,4 @@
+import { confirmPrompt } from '../confirm-prompt';
 import { css, LitElement } from 'lit';
 import '@vaadin/button';
 import '@vaadin/icons/vaadin-icons';
@@ -50,8 +51,8 @@ export class AccessControlControls extends LitElement {
     `;
   }
 
-  removeAccess() {
-    const answer = confirm(`Remove Access from ${this.accessControl?.Name}?`);
+  async removeAccess() {
+    const answer = await confirmPrompt(`Remove Access from ${this.accessControl?.Name}?`);
     if (answer) {
       const event = new CustomEvent('access-control-removed', {
         detail: {

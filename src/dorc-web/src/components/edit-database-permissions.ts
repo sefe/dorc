@@ -1,3 +1,4 @@
+import { confirmPrompt } from './confirm-prompt';
 import { css, LitElement } from 'lit';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid';
@@ -216,10 +217,10 @@ export class EditDatabasePermissions extends LitElement {
       this.selectedUser !== undefined && this.selectedPermission !== undefined;
   }
 
-  _remove(e: { target: { data: UserPermDto } }) {
+  async _remove(e: { target: { data: UserPermDto } }) {
     const userPerm = e.target.data as UserPermDto;
     const removeRoleId = userPerm.Id || 0;
-    const answer = confirm('Remove permission?');
+    const answer = await confirmPrompt('Remove permission?');
     if (answer && removeRoleId) {
       const api = new RefDataUserPermissionsApi();
       const perm: number = removeRoleId;

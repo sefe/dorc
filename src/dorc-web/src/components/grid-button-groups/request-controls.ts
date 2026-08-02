@@ -1,3 +1,4 @@
+import { confirmPrompt } from '../confirm-prompt';
 import { css, LitElement } from 'lit';
 import '@vaadin/button';
 import '@vaadin/icons/vaadin-icons';
@@ -144,8 +145,8 @@ export class RequestControls extends LitElement {
     `;
   }
 
-  restart() {
-    const answer = confirm(
+  async restart() {
+    const answer = await confirmPrompt(
       `Are you sure you want to restart the job with ID ${this.requestId} ?`
     );
 
@@ -165,8 +166,8 @@ export class RequestControls extends LitElement {
     }
   }
 
-  cancel() {
-    const answer = confirm(
+  async cancel() {
+    const answer = await confirmPrompt(
       `Are you sure you want to cancel the job with ID ${this.requestId} ?`
     );
 
@@ -186,8 +187,8 @@ export class RequestControls extends LitElement {
     }
   }
 
-  pause() {
-    const answer = confirm(
+  async pause() {
+    const answer = await confirmPrompt(
       `Are you sure you want to pause the job with ID ${this.requestId} ? This will block subsequent deployments to this environment.`
     );
 
@@ -219,8 +220,8 @@ export class RequestControls extends LitElement {
     }
   }
 
-  resume() {
-    const answer = confirm(
+  async resume() {
+    const answer = await confirmPrompt(
       `Are you sure you want to resume the job with ID ${this.requestId} ?`
     );
 

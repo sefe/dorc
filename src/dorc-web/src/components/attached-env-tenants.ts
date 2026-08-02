@@ -1,3 +1,4 @@
+import { confirmPrompt } from './confirm-prompt';
 import '@vaadin/button';
 import '@vaadin/grid';
 import '@vaadin/grid/vaadin-grid-column';
@@ -82,8 +83,8 @@ export class AttachedEnvTenants extends LitElement {
     );
   };
 
-  detachTenant(envId: number | undefined) {
-    const answer = confirm('Detach tenant?');
+  async detachTenant(envId: number | undefined) {
+    const answer = await confirmPrompt('Detach tenant?');
     if (answer && envId) {
       const api = new RefDataEnvironmentsDetailsApi();
       api.refDataEnvironmentsDetailsSetParentForEnvironmentPut({

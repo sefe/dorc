@@ -1,3 +1,4 @@
+import { confirmPrompt } from '../confirm-prompt';
 import { css, LitElement } from 'lit';
 import '@vaadin/button';
 import '@vaadin/icons/vaadin-icons';
@@ -81,8 +82,8 @@ export class DatabaseEnvControls extends LitElement {
     `;
   }
 
-  detailedResults() {
-    const answer = confirm('Detach database?');
+  async detailedResults() {
+    const answer = await confirmPrompt('Detach database?');
     if (answer && this.dbDetails?.Id) {
       const api = new RefDataEnvironmentsDetailsApi();
       api

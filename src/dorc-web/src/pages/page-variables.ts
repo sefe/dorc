@@ -1,3 +1,4 @@
+import { confirmPrompt } from '../components/confirm-prompt';
 import '@vaadin/button';
 import { Checkbox } from '@vaadin/checkbox';
 import '@vaadin/combo-box';
@@ -594,13 +595,13 @@ export class PageVariables extends PageElement {
     }
   }
 
-  deleteVariable() {
+  async deleteVariable() {
     const existingProps = this.shadowRoot?.querySelector(
       '#properties'
     ) as unknown as ComboBox;
     const selected = existingProps.selectedItem as PropertyApiModel;
 
-    const answer = confirm(
+    const answer = await confirmPrompt(
       `Are you sure you want to delete the variable ${selected.Name} and all of its ${this.propertyValues?.length} value(s)?`
     );
 
@@ -828,7 +829,7 @@ export class PageVariables extends PageElement {
     }
   }
 
-  updatePropertySecure(event: Event) {
+  async updatePropertySecure(event: Event) {
     const checkbox = event.target as Checkbox;
     const existingProperty = this.properties?.find(
       value => value.Name === this.propertyName
@@ -851,7 +852,7 @@ export class PageVariables extends PageElement {
         checkbox.checked = originallySecured;
       };
 
-      if (!confirm(confirmMessage)) {
+      if (!(await confirmPrompt(confirmMessage))) {
         revertCheckboxState();
         return;
       }

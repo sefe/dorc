@@ -1,3 +1,4 @@
+import { confirmPrompt } from '../components/confirm-prompt';
 import { css, PropertyValues, render } from 'lit';
 import '../components/dorc-spinner';
 import '@vaadin/grid/vaadin-grid-sort-column';
@@ -237,7 +238,7 @@ export class PageProjectBundles extends ResponsiveMixin(PageElement) {
     );
     this.addEventListener(
       'delete-bundle-request',
-      this._handleDeleteBundle as EventListener
+      this._handleDeleteBundle as unknown as EventListener
     );
 
     // Get project name from URL
@@ -296,11 +297,11 @@ export class PageProjectBundles extends ResponsiveMixin(PageElement) {
     this.bundleEditorDialog.openEdit(e.detail.value, projects, this.uniqueBundleNames);
   }
 
-  private _handleDeleteBundle(e: CustomEvent) {
+  private async _handleDeleteBundle(e: CustomEvent) {
     const bundle = e.detail.value as BundledRequestsApiModel;
 
     if (bundle.Id) {
-      const confirmDelete = confirm(
+      const confirmDelete = await confirmPrompt(
         'Are you sure you want to delete this bundle request: ' +
           bundle.BundleName +
           '-' + bundle.RequestName +

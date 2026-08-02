@@ -1,3 +1,4 @@
+import { confirmPrompt } from '../confirm-prompt';
 import { css, LitElement } from 'lit';
 import '@vaadin/button';
 import '@vaadin/icons/vaadin-icons';
@@ -32,8 +33,8 @@ export class PropertyOverrideControls extends LitElement {
     `;
   }
 
-  detailedResults() {
-    const answer = confirm('Remove Property Override?');
+  async detailedResults() {
+    const answer = await confirmPrompt('Remove Property Override?');
     if (answer) {
       const event = new CustomEvent('property-override-removed', {
         detail: {

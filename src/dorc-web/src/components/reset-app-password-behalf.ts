@@ -1,3 +1,4 @@
+import { confirmPrompt } from './confirm-prompt';
 import { css, LitElement, render } from 'lit';
 import '@vaadin/checkbox';
 import '@vaadin/button';
@@ -99,11 +100,11 @@ export class ResetAppPasswordBehalf extends LitElement {
     `;
   }
 
-  resetAppPassword() {
+  async resetAppPassword() {
     const user = this.appUsers.find(u => u.LanId === this.selectedUser);
     if (user === undefined) return;
 
-    const answer = confirm(
+    const answer = await confirmPrompt(
       `Are you sure you want to reset the SQL account password for ${
         user.DisplayName
       }?`

@@ -1,3 +1,4 @@
+import { confirmPrompt } from './confirm-prompt';
 import '@vaadin/item';
 import '@vaadin/list-box';
 import { css, LitElement } from 'lit';
@@ -122,10 +123,10 @@ export class ViewDatabasePermissions extends LitElement {
     this.dbId = dbId;
   }
 
-  _remove(e: { target: { data: UserPermDto } }) {
+  async _remove(e: { target: { data: UserPermDto } }) {
     const userPerm = e.target.data as UserPermDto;
     const removeRoleId = userPerm.Id || 0;
-    const answer = confirm('Remove permission?');
+    const answer = await confirmPrompt('Remove permission?');
     if (answer && removeRoleId) {
       const api = new RefDataUserPermissionsApi();
       const perm: number = removeRoleId;
