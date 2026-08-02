@@ -2,124 +2,131 @@
 
 | Field | Value |
 |---|---|
-| Status | **DRAFT** — not yet reviewed |
+| Status | **REVISION** — R1 adversarial panel returned 6/6 REVISE; findings triaged in §12 |
 | Date | 2026-08-02 |
 | Owner | Ben Hegarty |
 | Topic slug | `responsive-record-view` |
 | Origin | User observation: "we're about to move past the capabilities of vaadin… we need something more specific to DORC so we can render better in both large screens and small phone screens" |
 | Component | `dorc-web` (frontend only) |
+| **Blocking unknown** | **U-17 (direction) — see §7. The IS cannot be written until it is resolved.** |
+
+> **Counting method (binding for every figure in this document).** Column counts
+> are **opening tags only**: `grep -o '<vaadin-grid-column\|<vaadin-grid-sort-column'`.
+> The DRAFT of this document counted raw string occurrences, which include closing
+> tags and `import` lines, inflating every column figure by ~2.5×. Any figure
+> added later must state its derivation inline or it is inadmissible.
 
 ---
 
 ## 1. Problem Statement
 
-`dorc-web` presents almost all of its data through Vaadin Grid. As of `origin/main`
-(`9be20dd`), **61 TypeScript files import `@vaadin/grid`**, declaring **273
-`vaadin-grid-column` and 185 `vaadin-grid-sort-column`** elements — 458 column
-declarations in total, every one of them written as markup inside a `render()`
-method.
-
-The presenting complaint is that the UI renders poorly on small screens. The
-underlying condition is that **column presentation policy is expressed as markup
-and duplicated per call site**, so there is no single place to express "what does
-this record look like at 375px versus 2560px".
+`dorc-web` presents most of its data through Vaadin Grid. As of `origin/main`
+(`9be20dd`), **61 files import `@vaadin/grid`, of which 37 actually render one**
+(the other 24 import types or side effects only). Those 37 files declare **180
+columns** — 116 `<vaadin-grid-column>` and 64 `<vaadin-grid-sort-column>` — every
+one written as markup inside a `render()` method.
 
 ### 1.1 The mobile symptom
 
 The current responsive mechanism is `src/dorc-web/src/helpers/responsive-mixin.ts`
-— a mixin exposing a single reactive boolean `_narrowScreen`, driven by
-`matchMedia('(max-width: 768px)')`. **26 files** consume it, and each one
-independently decides which columns to suppress by attaching
-`?hidden="${this._narrowScreen}"` to selected columns.
+— a mixin exposing a reactive `_narrowScreen` boolean driven by
+`matchMedia('(max-width: 768px)')`. **25 classes** apply it, and each independently
+decides which columns to suppress via `?hidden="${this._narrowScreen}"`.
 
-This produces two failures.
-
-**First, the surviving column count is still far beyond a phone viewport.** A
-census of the highest-column-count views (columns declared / columns hidden when
-narrow / columns remaining at ≤768px):
+Corrected census — the views with the most columns surviving at ≤768px:
 
 | View | Columns | Hidden when narrow | Remaining on a phone |
 |---|---|---|---|
-| `pages/page-env-history.ts` | 20 | 5 | **15** |
-| `pages/page-environments-list.ts` | 19 | 6 | **13** |
-| `pages/page-projects-list.ts` | 16 | 5 | **11** |
-| `pages/page-monitor-requests.ts` | 16 | 3 | **13** |
-| `components/environment-tabs/env-monitor.ts` | 16 | 3 | **13** |
-| `pages/page-servers-audit.ts` | 14 | **0** | **14** |
-| `pages/page-databases-audit.ts` | 14 | **0** | **14** |
-| `pages/page-scripts-list.ts` | 14 | 4 | 10 |
-| `pages/page-daemons-list.ts` | 14 | 4 | 10 |
-| `pages/page-servers-list.ts` | 12 | 3 | 9 |
+| `pages/page-servers-audit.ts` | 6 | **0** | **6** |
+| `pages/page-databases-audit.ts` | 6 | **0** | **6** |
+| `components/environment-tabs/env-deployments.ts` | 5 | **0** | **5** |
+| `components/add-edit-access-control.ts` | 5 | **0** | **5** |
+| `pages/page-env-history.ts` | 9 | 5 | 4 |
+| `pages/page-monitor-requests.ts` | 7 | 3 | 4 |
+| `components/environment-tabs/env-monitor.ts` | 7 | 3 | 4 |
+| `pages/page-environments-list.ts` | 8 | 6 | **2** |
 
-Thirteen columns in a 375px viewport is a horizontally-scrolling table. The two
-audit pages carrying 14 columns and **zero** narrow-screen handling demonstrate
-the coverage problem directly: because the policy is opt-in per file, files
-added later simply do not get it.
+**What the corrected numbers do to the argument.** The DRAFT claimed 13–15
+columns surviving on a phone and concluded "that is a horizontally-scrolling
+table". That claim was false. The true worst case anywhere in the codebase is
+**6 columns**, and the views the DRAFT called "largest" (`page-env-history`,
+`page-environments-list`) turn out to be among the *best* handled at narrow width.
 
-**Second, the policy is unreviewable.** There is no artifact that answers "which
-fields matter on a phone" for any entity in DORC. That decision is distributed
-across 458 column declarations, and it drifted the moment the second developer
-touched a grid.
+The severity of the rendering symptom is therefore **unestablished**. Six
+custom-rendered columns at 375px may or may not overflow — several pilot columns
+render composite content (the `Details` column composites Project, Environment
+and BuildNumber into one cell; `component-deployment-results` renders log
+excerpts). Whether this constitutes a defect is now an open question resolved by
+measurement, not by column count — see **U-18**.
 
-A related duplication: `components/dorc-app.ts` imports `NARROW_BREAKPOINT` from
-the mixin module but reimplements the `matchMedia` subscription itself
-(`dorc-app.ts:207`, `:221`, `:320-322`, `:380`) rather than applying
-`ResponsiveMixin`. The breakpoint constant is shared; the behaviour is forked.
+**What survives the recount unchanged** is the second failure, which is
+structural rather than quantitative:
 
-### 1.2 The premise that does *not* hold: Vaadin's feature ceiling
+- **The policy is opt-in, so coverage gaps are guaranteed.** `page-servers-audit.ts`
+  and `page-databases-audit.ts` carry zero narrow-screen handling — they are the
+  two worst-rendering views precisely *because* nothing obliged their authors to
+  opt in. `env-deployments.ts` and `add-edit-access-control.ts` are the same.
+- **The policy is unreviewable.** No artifact answers "which fields matter on a
+  phone" for any DORC entity. That decision is distributed across 180 column
+  declarations and drifted the moment a second developer touched a grid.
+- **The breakpoint is forked three ways.** `components/dorc-app.ts` imports
+  `NARROW_BREAKPOINT` but reimplements the `matchMedia` subscription itself
+  (`:207`, `:221`, `:320-322`, `:380`); separately **26 files** hardcode
+  `@media (max-width: 768px)` in component CSS.
 
-The originating hypothesis was that DORC has outgrown Vaadin Grid's
-capabilities. Codebase evidence does not support this. DORC uses a
-conservative subset of the component:
+This structural argument, not the column count, is what the document now rests on.
+
+### 1.2 Scope survey: which Vaadin Grid capabilities DORC actually uses
+
+*(The DRAFT titled this section "The premise that does not hold" and used it to
+argue that Vaadin's ceiling does not bind. That inference was invalid — low usage
+of a capability is equally consistent with "we never needed it" and "we wanted it,
+found it costly, and worked around it", and this document presents no artifact
+that discriminates. The table is retained for what it legitimately establishes: a
+**bound on the feature surface** a Vaadin-delegating wide path must reproduce,
+which is what sizes SC2. The build-on-Vaadin decision now rests on the
+replacement-cost argument in §9.2, which does not depend on this census.)*
 
 | Vaadin Grid capability | Occurrences in `src/dorc-web/src` |
 |---|---|
-| Tree grid (`item-has-children`) | **0** |
-| Row selection (`selectedItems`) | **0** |
-| Frozen columns (`frozen`) | **1** |
-| Row details (`rowDetailsRenderer`) | **1** |
+| Tree grid (`item-has-children`) | 0 |
+| Row selection (`selectedItems`) | 0 |
+| Frozen columns | 1 (`page-projects-audit.ts:211`) |
+| Row details (`rowDetailsRenderer`) | 1 (`page-projects-audit.ts:201`) |
 | Lazy `dataProvider` | 13 files |
 | `resizable` | 164 |
 | `auto-width` | 75 |
 | Multi-sort | 29 |
 | Column reordering | 25 |
 
-Theme-layer friction is likewise low: all `registerStyles` overrides in the
-application total **110 lines**, confined to
-`src/dorc-web/src/router/style-registrations.ts`.
+Theme-layer note: `registerStyles` overrides are confined to one 110-line module
+(`router/style-registrations.ts`), but that module's own header records that grid
+cell styling **migrated out** to `cellPartNameGenerator` + `::part()` during the
+Vaadin 25 upgrade — **31 references across 11 files**. The descriptor model must
+therefore carry part-name generation, or migrated views lose their cell styling.
 
-Neither prior grid-related work programme was blocked by a Vaadin capability
-limit. `docs/request-grid-perf/` addressed non-SARGable SQL predicates in
-`RequestsStatusPersistentSource` — a backend query-shape defect.
-`docs/grid-menu-a11y/` addressed row-activation and menu ARIA semantics, and its
-`DECISION-U-2.md` resolved *in favour of* Vaadin's existing
-`active-item-changed` event rather than working around it.
-
-**Restatement of the problem.** DORC has not exceeded Vaadin Grid's
-capabilities. DORC has exceeded the capability of *markup-declared columns* to
-express responsive presentation policy, and no third-party grid library resolves
-that, because at phone widths the correct presentation is not a table at all.
+Neither prior grid work programme was blocked by a Vaadin capability limit:
+`docs/request-grid-perf/` addressed non-SARGable SQL predicates;
+`docs/grid-menu-a11y/` resolved *in favour of* Vaadin's `active-item-changed`.
 
 ---
 
 ## 2. Goal
 
-Introduce a DORC-owned presentation layer that treats a view's columns as
-**data** rather than markup, and renders that column set in a form appropriate to
-the available width — delegating to Vaadin Grid at desktop widths, and rendering a
-non-tabular (card/list) form at phone widths — so that responsive policy is
-declared once per entity and is reviewable in one place.
+Introduce a DORC-owned presentation layer that treats a view's columns as **data**
+rather than markup, and renders that column set in a form appropriate to the
+available width — delegating to Vaadin Grid at desktop widths, and rendering a
+non-tabular form at phone widths — so that responsive policy is declared once per
+entity and is reviewable in one place.
+
+**This goal is contingent on U-17.** The panel identified a materially cheaper
+alternative already running in this repository (§9.5) which may satisfy the same
+goal without a second rendering engine. The IS may not be written until U-17
+resolves which direction is taken.
 
 The target users are **application support and on-call engineers** (U-1), and the
 target situation is incident triage away from a desk. This is a foundation laid
-ahead of demand rather than a response to observed usage — see §3.3 for the
-journey this scopes to, and §8 for the risk that carries.
-
-Retaining Vaadin Grid as the wide-viewport renderer is a deliberate goal, not a
-compromise: it preserves virtual scrolling, the lazy `dataProvider` contract used
-by 13 files, keyboard accessibility (including the `grid-menu-a11y` outcomes),
-column resizing, reordering and multi-sort — the components most expensive to
-reimplement correctly.
+ahead of demand rather than a response to observed usage — see §8.
 
 ---
 
@@ -127,107 +134,136 @@ reimplement correctly.
 
 ### 3.1 In Scope
 
-- **A column-descriptor model.** A serialisable per-column descriptor carrying at
-  minimum: field path, header text, a presentation priority (e.g.
-  primary / secondary / detail), optional cell renderer, sort path/behaviour, and
-  width behaviour. Exact field set is specified by the IS.
-- **A responsive record-view component** consuming that model and selecting a
-  rendering strategy by available width:
-  - **Wide** — delegate to `<vaadin-grid>`, emitting columns from the descriptor
-    set. Behaviour must be indistinguishable from today's grids for the
-    capabilities listed in §1.2.
-  - **Narrow** — render a non-tabular card/list form from the same descriptor
-    set, surfacing priority-ranked fields with the remainder reachable via
-    progressive disclosure.
-- **Integration with the existing per-row action components** under
-  `src/dorc-web/src/components/grid-button-groups/` (12 components), so row
-  actions are available in both renderings.
-- **Preservation of the lazy-loading contract.** The `dataProvider` /
-  `clearCache` pattern (13 files, 23 `clearCache` call sites) must work unchanged
-  in the wide rendering and must be honoured — not silently replaced by
-  full-collection loading — in the narrow rendering.
-- **Migration of a pilot set of views**, chosen by the IS, sufficient to prove the
-  abstraction against the hardest cases (a lazy `dataProvider` view, a
-  filter-bearing view, a grid nested inside a dialog).
-- **Consolidation of breakpoint logic**, including resolving the forked
-  `matchMedia` implementation in `dorc-app.ts`.
-- **A documented per-entity field-priority decision** for each migrated view —
-  the artifact that does not exist today.
+- **A column-descriptor model.** Minimum field set — expanded from the DRAFT after
+  the panel found three load-bearing omissions:
+  - field path, header text, presentation priority, width behaviour
+  - **cell renderer** (117 `.renderer=` across 47 files)
+  - **header renderer / filter affordance** — in the pilot views *all* filtering
+    and sorting UI lives inside `headerRenderer`s (**53 across 16 files**), a
+    category the DRAFT never counted and a card rendering has nowhere to put
+  - **sort path and sort-control placement**
+  - **row-activation semantics** — the pilot views use two *incompatible*
+    mechanisms (see U-15)
+  - **cell part-name generation** (`cellPartNameGenerator`, 31 refs / 11 files)
+  - a **priority vocabulary** that can rank pathless columns: action columns
+    (`request-controls`), and composite columns (`Details` = Project +
+    Environment + BuildNumber in one cell). A scheme keyed on "field" cannot rank
+    these.
+- **A responsive record-view component** consuming that model, selecting a
+  rendering strategy by **container** width (not viewport — 13 dialog-hosted
+  grids exist, see §4):
+  - **Wide** — delegate to `<vaadin-grid>`, emitting columns from the descriptors.
+  - **Narrow** — a non-tabular rendering with priority-ranked fields, progressive
+    disclosure for the remainder, **a filter and sort surface**, and a **bounded
+    DOM strategy** (see U-11).
+- **Narrow-width filter and sort affordances** — promoted from an unstated
+  assumption to an explicit deliverable. SC9 is unachievable without them.
+- **Integration with `grid-button-groups/`** (12 components). U-7 has partly
+  resolved: only 4 reference a grid or `GridItemModel`; the pilot depends on
+  `request-controls` (which carries `vaadin-grid` and `vaadin-grid-cell-content`
+  selectors in its own styles), `server-controls` and `database-env-controls`.
+- **Preservation of the lazy-loading contract** (13 files, 23 `clearCache` sites)
+  in the wide rendering, and a **named** virtualisation strategy for the narrow
+  rendering (U-11).
+- **Test migration.** Existing suites assert the idiom this work removes —
+  `tests/components/responsive-grids.test.ts` asserts responsive CSS on
+  `ComponentDeploymentResults` and `EnvMonitor` (both pilot views);
+  `tests/pages/grid-column-hiding.test.ts` and `tests/helpers/responsive-mixin.test.ts`
+  encode `?hidden="${this._narrowScreen}"` as the contract. Coverage removed from
+  a migrated view must be re-established against the record-view component.
+- **Breakpoint consolidation**, including the `dorc-app.ts` fork and a stated
+  disposition for the 26 CSS-hardcoded breakpoints.
+- **An idiom decision record for new views.** §1.1's root cause is that policy is
+  opt-in; without a rule for view #38 the defect is preserved, not fixed.
+- **A documented per-entity field-priority decision** for each migrated view.
 
 ### 3.2 Out of Scope
 
-- **Removing `@vaadin/grid` from the project.** This HLPS explicitly retains it.
-- **Migrating all 61 grid-bearing files.** The pilot set proves the abstraction;
-  wholesale migration is sequenced by a later IS or follow-up HLPS.
-- **Replacing any other Vaadin component.** `@vaadin/button` (77),
-  `@vaadin/combo-box` (49), `@vaadin/dialog` (31), `@vaadin/router` (13) and the
-  rest are untouched.
-- **Backend or API changes.** No change to paging, filtering or sorting
-  contracts. If a narrow rendering appears to need a different server-side shape,
-  that is a finding to escalate, not to implement here.
-- **A visual redesign.** Colour, typography and iconography are unchanged; this
-  is a layout/structure change.
-- **Introducing a third-party headless table library** (TanStack Table or
-  equivalent). Recorded as a rejected alternative in §9.2; revisiting it requires
-  a new HLPS.
-- **Offline / PWA / native-app concerns.**
+- Removing `@vaadin/grid`. This HLPS retains it.
+- Migrating all 37 grid-rendering views. The pilot proves the abstraction.
+- Replacing any other Vaadin component.
+- Backend or API changes. No change to paging, filtering or sorting contracts.
+- A visual redesign (colour, typography, iconography unchanged).
+- Introducing a third-party headless table library — see §9.2.
+- Offline / PWA / native-app concerns. *(Ordinary mobile network flakiness during
+  an incident is a different matter and is registered as a risk in §8.)*
 
-### 3.3 Target journey and pilot set (following U-1)
+### 3.3 Target journey and pilot set
 
-U-1 resolved to: no current phone usage, no telemetry, and a deliberate
-foundation for **application support** and **on-call engineers**. That narrows
-the target from "DORC on a phone" to a specific journey — *a deployment has
-failed and I am not at my desk*:
+U-1 resolved to: no current phone usage, no telemetry, deliberate foundation for
+**application support** and **on-call engineers**. The target is the incident
+triage journey — *a deployment has failed and I am not at my desk*.
 
-| Step | View | Columns | Narrow today | Hard-case coverage |
+**The DRAFT's pilot set was wrong in three ways** (panel findings, all verified):
+it claimed a dialog-nested hard case it did not contain; it included a view with
+no grid; and two of its four members are near-duplicates.
+
+| Step | View | Columns | Role | Hard case |
 |---|---|---|---|---|
-| 1. Find the failing request | `pages/page-monitor-requests.ts` | 16 | 3 hidden → 13 shown | Lazy `dataProvider`; 35 filter references |
-| 2. Open it | `pages/page-monitor-result.ts` | 1 | none | Composes `request-status-card` + drill-down |
-| 3. See which component failed | `components/component-deployment-results.ts` | 13 | 2 hidden → 11 shown | **Dialog-nested** (13 dialog references) |
-| 4. Same, environment-pinned | `components/environment-tabs/env-monitor.ts` | 16 | 3 hidden → 13 shown | Lazy `dataProvider`; 28 filter references |
+| 1 | `pages/page-monitor-requests.ts` | 7 (3 hidden → 4) | **Migration target** | Lazy `dataProvider`; 5 header renderers carrying all filtering |
+| 2 | `pages/page-monitor-result.ts` | **0 — renders no grid** | **Journey step only** | Not a descriptor test; needs page/card layout work |
+| 3 | `components/component-deployment-results.ts` | 5 (2 hidden → 3) | **Migration target** | `.items` + `all-rows-visible` — *not* virtualised; 5 cell renderers |
+| 4 | `components/environment-tabs/env-monitor.ts` | 7 (3 hidden → 4) | **Migration target** | Row activation via `@active-item-changed` (the `grid-menu-a11y` outcome) |
+| **5 (added)** | `components/make-like-production.ts` | 4 grids | **Migration target** | **Genuinely dialog-hosted** via `dialogRenderer` in `make-like-production-dialog.ts:91-96` — the only member exercising §4's container-width constraint |
+| **6 (added)** | `pages/page-env-history.ts` | 9 (5 hidden → 4) | **Migration target** | **7 declarative `<vaadin-grid-sort-column>`** — the codebase's dominant idiom, which steps 1/3/4 contain **zero** of |
 
-This set satisfies SC7 in full: lazy `dataProvider` (steps 1, 4), filter-bearing
-(steps 1, 4), dialog-nested (step 3).
+Corrections applied from the panel:
 
-**A deliberate reversal worth flagging to reviewers.** The §1.1 census identified
-`page-servers-audit.ts` and `page-databases-audit.ts` — 14 columns each with
-*zero* narrow handling — as the worst offenders in the codebase, and
-`page-env-history.ts` (20 columns) and `page-environments-list.ts` (19 columns)
-as the largest. **None of them are in the pilot set.** They are administrative
-and compliance surfaces, not incident-response surfaces; an on-call engineer at
-02:00 does not read a server audit log on a phone. The worst-rendering views and
-the highest-value views are not the same views, and U-1 is what separates them.
-Reviewers should challenge this if they disagree — it is the single most
-consequential scoping judgement in this document.
+- **Step 2 is not a migration target.** It declares 0 columns; the DRAFT's
+  "Columns: 1" was an import line. It remains in the pilot as a *journey* step
+  because SC9 passes through it, and the layout work it needs is now named in §3.1.
+- **Step 5 added.** No original member was dialog-hosted;
+  `component-deployment-results` sits inside `<vaadin-details>` at
+  `page-monitor-result.ts:401` and merely *opens* dialogs. §4's container-width
+  requirement — the most technically novel thing in this document — was otherwise
+  untested by the pilot.
+- **Step 6 added.** Steps 1, 3 and 4 use custom `.renderer` for every column and
+  contain **0 of the codebase's 64** `<vaadin-grid-sort-column>` declarations. A
+  cost estimate sampled only from 100%-custom views is unrepresentative of the
+  remaining 33.
+- **Steps 1 and 4 are near-duplicates** — verified identical column headers, same
+  renderers, same entity, same API call. Step 4 is retained solely because it
+  carries `@active-item-changed` row activation, which step 1 does not (step 1
+  opens results via an in-cell `.id-btn` button). That is the only new risk it
+  retires, and it is now stated as such rather than implied.
+
+**On excluding the audit pages.** The DRAFT excluded them as "the worst offenders
+in the codebase" on persona grounds. At corrected counts that framing inverts:
+`page-servers-audit.ts` and `page-databases-audit.ts` are the *genuinely* worst
+remaining-on-phone views (6 columns, zero handling), and they are lazy
+`dataProvider` views — so excluding them is not excluding easy cases. The
+exclusion now rests on the persona argument alone, which is where it belongs, and
+reviewers should judge it on that basis.
 
 ---
 
 ## 4. Constraints
 
-- **No regression in grid accessibility.** The outcomes of
-  `docs/grid-menu-a11y/` — row activation semantics, menu ARIA, menu keyboard
-  navigation — are binding. The narrow rendering must independently satisfy
-  keyboard operability and screen-reader semantics; it does not inherit them from
-  Vaadin Grid.
-- **Cognitive complexity must not increase** (CLAUDE.md). A descriptor model that
-  is harder to read than the markup it replaces is a failed design. The IS must
-  state how this is judged, not assert it.
-- **Naming must comply with CLAUDE.md.** `Manager`, `Helper`, `Service`,
-  `Util(s)`, `Common`, `Shared` and equivalents are prohibited. Namespace pattern
-  `Dorc.[Component].[Feature]` applies to .NET; the frontend equivalent is a
-  cohesive custom-element name. The component name is **unresolved** — see U-6.
-- **Virtualisation must be preserved at desktop widths.** Views backed by a lazy
-  `dataProvider` must not degrade to loading full collections.
-- **Incremental and reversible.** Migrated and unmigrated views must coexist on
-  `main` indefinitely. No flag-day cutover.
-- **Vaadin version is fixed** at the current `^25.2.6` line. No Vaadin major
-  upgrade as part of this work.
-- **Existing test tooling.** Vitest (`npm run test`); type-checking via
-  `tsc --noEmit`, `tsconfig.test.json` and `lit-analyzer --strict`
-  (`npm run type-checking`). No new test framework.
-- **13 grid-bearing views render inside a dialog.** The component cannot assume
-  it measures the viewport; available width must be measured from its own
-  container, not from `window`.
+- **No regression in grid accessibility.** The `docs/grid-menu-a11y/` outcomes are
+  binding. The narrow rendering inherits none of them from Vaadin Grid. Note the
+  pilot cannot verify all of them: the menu half of that work lives in
+  `project-controls.ts`, which the pilot does not use.
+- **Container-width measurement, not viewport.** Step 5 is dialog-hosted; the
+  component must measure its own container. *(The DRAFT asserted "13 grid-bearing
+  views render inside a dialog". That figure is not reproducible — 34 grid files
+  mention "dialog", 9 contain dialog markup, 0 nest a grid in dialog markup since
+  Vaadin uses imperative `dialogRenderer`. The constraint stands on step 5's
+  existence; the count is withdrawn pending enumeration by name.)*
+- **Cognitive complexity must not increase** (CLAUDE.md). **Adjudication method:**
+  a side-by-side of one migrated view's descriptor set against its pre-migration
+  `render()`, judged by the adversarial panel at the pilot gate, with the panel
+  empowered to fail the pilot. *(The DRAFT deferred this to the IS, leaving a
+  constraint no reviewer could apply.)*
+- **Naming must comply with CLAUDE.md** — no `Manager`/`Helper`/`Service`/`Util`/
+  `Common`/`Shared`. Component name unresolved (U-6).
+- **Virtualisation preserved at desktop width.**
+- **Incremental and reversible.** Migrated and unmigrated views coexist on `main`
+  indefinitely. No flag-day cutover.
+- **Vaadin version fixed** at `^25.2.6`.
+- **Existing test tooling.** Vitest with **real browsers via Playwright**
+  (chromium, firefox, webkit — `vitest.config.ts:22-29`), so layout-dependent
+  assertions are feasible. Type-checking via `npm run type-checking`. **No new
+  test framework** — which collides with SC5, see U-16.
 
 ---
 
@@ -235,34 +271,40 @@ consequential scoping judgement in this document.
 
 | ID | Criterion | Measurement |
 |---|---|---|
-| **SC1** | At a 375px viewport, every migrated view presents its records without horizontal scrolling. | Manual verification at 375×667 plus an automated width-overflow assertion in the pilot views' tests. |
-| **SC2** | At desktop width, a migrated view is functionally equivalent to its pre-migration form for sorting, filtering, resizing, reordering, row actions and lazy paging. | Per-view behavioural checklist executed before/after; existing Vitest suites for migrated views pass unmodified where they assert behaviour rather than DOM shape. |
-| **SC3** | Field-presentation priority for each migrated entity is declared exactly once and is locatable without reading `render()`. | Static review: no `?hidden="${this._narrowScreen}"` remains in a migrated view. |
-| **SC4** | Lazy-loading views retain incremental fetch in both renderings. | Network-call assertion: scrolling a migrated lazy view issues incremental `dataProvider` calls; initial load does not fetch the full collection. |
-| **SC5** | Keyboard operability and screen-reader semantics hold in **both** renderings. | Keyboard-only traversal of a migrated view at both widths; ARIA assertions in tests, consistent with the `grid-menu-a11y` acceptance criteria. |
-| **SC6** | Breakpoint logic exists in exactly one module. | Static review: one `matchMedia` breakpoint subscription implementation in `src/dorc-web/src`; `dorc-app.ts` fork resolved. |
-| **SC7** | The abstraction is proven against the hard cases, not only the easy ones. | The pilot set includes ≥1 lazy `dataProvider` view, ≥1 filter-bearing view, and ≥1 grid nested in a dialog. Satisfied by the §3.3 set. |
-| **SC8** | No net increase in `@vaadin/*` dependencies, and no new runtime dependency without explicit approval. | `package.json` diff. |
-| **SC9** | The on-call triage journey is completable end-to-end on a phone. | Scripted walkthrough at 375×667: locate a named failed deployment request, open it, identify which component failed, and read its failure reason — without horizontal scrolling and without switching to a desktop. Because U-1 resolved to *anticipated* rather than observed usage, this task-completion walkthrough is the substitute for real usage evidence, and it is the primary acceptance gate for the pilot. |
+| **SC1** | At 375px, a migrated view's **page body** does not scroll horizontally. Designated inner regions (log excerpts, monospace output) may scroll internally and are exempt when declared in the view's descriptor set. | Automated overflow assertion in the Playwright browser harness at 375×667, plus manual check. |
+| **SC2** | At desktop width, a migrated view is functionally equivalent pre/post for sorting, filtering, resizing, reordering, row actions and lazy paging. | **Against a written per-view behavioural checklist authored in that view's JIT Spec and approved before migration begins.** Existing suites are pre-classified in the same spec as behaviour-asserting (must pass) or idiom-asserting (must be replaced, per §3.1 test migration). No post-hoc reclassification. |
+| **SC3** | Field-presentation priority is declared once per entity and locatable without reading `render()`. | Regex on `_narrowScreen` (quote-agnostic — 5 bindings use single quotes), plus the descriptor set existing as a named, importable artifact. |
+| **SC4** | Lazy views retain incremental fetch in both renderings. | Network-call assertion: scrolling issues incremental `dataProvider` calls; initial load does not fetch the full collection. |
+| **SC5** | Keyboard operability and screen-reader semantics hold in both renderings. | **Decomposed into per-behaviour criteria at `grid-menu-a11y` §4 granularity, authored before the renderer step**: focus order within a card, `aria-expanded` on disclosure toggles, label/value association, list-vs-table semantics and position announcement, keyboard reach of row actions, live region for incrementally fetched rows, WCAG 2.5.5 touch targets. Verification mechanism is **blocked on U-16**. |
+| **SC6** | The 768px breakpoint value appears in exactly one module, and viewport-subscription and container-measurement are separately testable mechanisms. | Static review covering `matchMedia` **and** the 26 CSS-hardcoded `max-width: 768px` occurrences. `dorc-app.ts` legitimately needs viewport width; that is not a fork to merge. |
+| **SC7** | The pilot includes ≥1 lazy `dataProvider` view, ≥1 filter-bearing view, ≥1 **dialog-hosted** view, and ≥1 predominantly-declarative `sort-column` view. | Satisfied by the §3.3 set **as revised** (steps 1/4, 1/4, 5, 6 respectively). It was **not** satisfied by the DRAFT set. |
+| **SC8** | No new runtime dependency without explicit approval. | `package.json` diff. Note U-11 may require `@vaadin/virtual-list`, which would exercise this clause. |
+| **SC9** | The on-call triage journey is completable at 375×667: locate a named failed request, open it, identify the failed component, read its failure reason. | Scripted walkthrough against a **seeded fixture** (named request, defined dataset). **This is a rendering-completeness gate, not usage validation** — see §8. Pass/fail recorded; executed by someone other than the U-3 priority author. |
+| **SC10** | Sort order, active filters and scroll position survive a container crossing the breakpoint in both directions. | Automated test driving container width across the threshold. |
 
 ---
 
-## 6. Verification Approach (high-level)
+## 6. Verification Approach
 
-1. **Baseline capture** — for each pilot view, record current behaviour at
-   desktop width against the SC2 checklist before any change.
-2. **Component-level tests** — Vitest coverage of the descriptor model and
-   renderer selection, including the container-width (not viewport-width)
-   measurement required by §4.
-3. **Per-view behavioural comparison** — SC2 checklist re-executed post-migration.
-4. **Narrow-viewport verification** — 375px manual pass plus automated overflow
-   assertion (SC1).
-5. **Accessibility pass** — keyboard-only traversal at both widths, ARIA
-   assertions (SC5).
-6. **Type and lint gates** — `npm run type-checking` (includes
-   `lit-analyzer --strict`) and `eslint` must pass.
+Each success criterion maps to a step. *(The DRAFT omitted SC3, SC6, SC7, SC8 and
+— most seriously — SC9, the criterion it named its own primary gate.)*
 
-Detailed verification per step is specified in the JIT Specs, not here.
+1. **Baseline capture** (SC2) — per-view behavioural checklist recorded pre-change;
+   affected test suites enumerated (`responsive-grids.test.ts`,
+   `grid-column-hiding.test.ts`, `responsive-mixin.test.ts`,
+   `page-monitor-requests.test.ts`).
+2. **Component-level tests** — descriptor model and renderer selection, including
+   container-width measurement (U-12: no existing pattern; current tests mock
+   `matchMedia`, which does not apply to container measurement).
+3. **Per-view behavioural comparison** (SC2) against the approved checklist.
+4. **Narrow-viewport verification** (SC1) — automated overflow assertion + manual.
+5. **Accessibility pass** (SC5) — decomposed criteria; keyboard traversal at both
+   widths; **manual screen-reader spot-check**, following `grid-menu-a11y` §5.
+6. **Breakpoint-crossing test** (SC10).
+7. **Static / diff review** (SC3, SC6, SC7, SC8).
+8. **Scripted triage walkthrough** (SC9) — seeded fixture, 375×667, executed by a
+   non-author, pass/fail recorded.
+9. **Type and lint gates** — `npm run type-checking`, `eslint`.
 
 ---
 
@@ -272,15 +314,27 @@ A blocking unknown halts entry into the Delivery Loop until resolved.
 
 | ID | Description | Owner | Blocking | Status / Resolution |
 |---|---|---|---|---|
-| **U-1** | **Is DORC actually used on phones, and by whom for what?** The entire premise rests on this. If phone usage is an on-call engineer checking deployment status, the narrow rendering needs a handful of views done well. If it is general administration, scope is far larger. Is there usage telemetry, or is this a judgement call? | User | **YES** | **RESOLVED 2026-08-02.** There is **no current phone usage and no telemetry**. The work is a deliberate foundation-laying exercise for two named personas: **application support** and **on-call engineers**. This is an anticipated-demand decision, not a measured one — recorded as such, with the consequence carried into §8 (Risks) and §5 (SC7). Scope consequence: the target is the **incident-response journey**, not administrative or compliance surfaces. See U-5. |
-| **U-2** | **Is inline cell editing or lazy-loaded tree grid on the DORC roadmap?** Neither exists today (`selectedItems` 0, `item-has-children` 0). Both are cases where the build-on-Vaadin recommendation would need re-examination, because both are where Vaadin Grid's own constraints start to bind. | User | **YES** | **RESOLVED 2026-08-02.** Lazy tree grid: **no**. Inline cell editing: **not required** beyond the editing capabilities that exist today. Neither trigger fires, so the §9.2 rejection of a headless-library migration stands on its stated reasoning, and the build-on-Vaadin direction in §2 is confirmed. |
-| **U-3** | **What is the field-priority ranking per entity?** Which 2–4 fields identify a Deployment Request, an Environment, a Server, a Script on a phone? This is a product decision, not an engineering one, and it is the substance of the work. | User | **Per-step** (blocks each view's migration step) | Open, **narrowed by U-1**. The ranking question is now scoped to the incident-response entities (deployment request, deployment result, component result, environment) rather than every entity in DORC. The framing question per entity is: *what does an on-call engineer need to see to triage, at 375px, without scrolling?* Does not block the IS; blocks each migration step's JIT Spec. |
-| **U-4** | **Is one breakpoint sufficient?** Today there is a single 768px threshold. Tablet-width behaviour (768–1200px) is currently "desktop", which may be wrong for the 16–20 column views. Does the model need a third tier? | Agent (with user confirmation) | NO | Open. Default position: design the descriptor model to admit more than two tiers, implement two initially. |
-| **U-5** | **What is the pilot set?** Must satisfy SC7. | Agent (proposes) / User (confirms) | NO | **PROPOSED 2026-08-02, pending user confirmation at the IS checkpoint.** Following U-1, the pilot set is the on-call triage journey rather than the highest-column-count views — see §3.3. Proposed: `pages/page-monitor-requests.ts`, `pages/page-monitor-result.ts`, `components/component-deployment-results.ts`, `components/environment-tabs/env-monitor.ts`. |
-| **U-6** | **Component and module naming.** CLAUDE.md prohibits grab-bag names. Candidates: `dorc-record-view`, `dorc-record-table`, `dorc-column-set` (descriptor model) paired with a renderer element. | User | NO | Open. Default candidate: `dorc-column-set` for the descriptor model, `dorc-record-view` for the rendering element. Cheap to change before Delivery, expensive after. |
-| **U-7** | **Do the 12 `grid-button-groups` components assume a grid cell context?** If they depend on `vaadin-grid-cell-content` slotting or grid-relative positioning, the narrow rendering needs an adaptation layer, which changes the size of the work. | Agent | NO | Open. Answerable by code inspection during IS drafting. |
-| **U-8** | **Is `renderer` usage compatible with a descriptor model?** ~124 `renderer` occurrences across 50 files, many rendering Lit templates into grid cells. Whether these lift cleanly into descriptors or need per-renderer rework determines migration cost per view. | Agent | NO | Open. IS must sample several before estimating. |
-| **U-9** | **What is the accepted behaviour for column resize/reorder at narrow width?** These have no meaning in a card rendering. Silently unavailable, or explicitly surfaced as desktop-only? | User | NO | Open. Default position: unavailable at narrow width, no error affordance. |
+| **U-1** | Is DORC used on phones, and by whom? | User | YES | **RESOLVED 2026-08-02.** No current usage, no telemetry. Deliberate foundation for application-support and on-call personas. Anticipated, not measured — consequence carried into §8 and SC9. |
+| **U-2** | Is inline cell editing or lazy tree grid on the roadmap? | User | YES | **RESOLVED 2026-08-02.** Tree grid: no. Inline editing: not required beyond today's capabilities. **Evidence correction:** the DRAFT cited `selectedItems = 0` as evidence about editing — that measures row *selection* and is a category error. In-cell editing does exist today (`add-edit-access-control.ts:531-543,589-599,630-640` checkbox cells with `checked-changed`; `edit-comments-controls.ts` edit/save/cancel). The resolution stands; the descriptor model must accommodate an **interactive** cell renderer, not only a display renderer. |
+| **U-17** | **DIRECTION: is the descriptor model the right response at the corrected numbers, or does the row-details alternative (§9.5) suffice?** The DRAFT justified a second rendering engine with a symptom (13 columns on a phone) that does not exist. At 4–6 columns, a materially cheaper option already running in this repo may satisfy the same goal. | **User** | **YES — blocks the IS** | **OPEN. This is the escalation from the R1 panel.** Recommended resolution path: prototype §9.5 against `page-monitor-requests.ts` and `component-deployment-results.ts`, and proceed to the descriptor model only if the prototype demonstrably fails SC1 or SC9 — recording *why*, since that failure is the justification this document currently lacks. |
+| **U-18** | **Is there a rendering defect at all at 375px?** With the census corrected, no measurement establishes that 4–6 custom-rendered columns overflow a phone viewport. | Agent | **YES — blocks the IS** | Open. Cheap to resolve: render the worst views at 375×667 in the existing Playwright harness and record the result. If they do not overflow, §1.1's symptom argument collapses to the structural argument alone, which materially affects U-17. |
+| **U-3** | Field-priority ranking per incident-response entity. | User | Per-step | Open, narrowed by U-1. Framing: *what does an on-call engineer need to triage at 375px?* Must also rank pathless action columns and composite columns (§3.1). |
+| **U-4** | Is one breakpoint sufficient, or is a tablet tier needed? | Agent / User | NO | Open. Default: model admits >2 tiers, implement two. |
+| **U-5** | Pilot set composition. | Agent / User | NO | **REVISED** per §3.3 — steps 5 and 6 added, step 2 reclassified. Pending user confirmation at the IS checkpoint. |
+| **U-6** | Component and module naming. | User | NO | Open. Default: `dorc-column-set` (descriptors), `dorc-record-view` (renderer). |
+| **U-7** | Do `grid-button-groups` components assume grid-cell context? | Agent | Per-step | **PARTLY RESOLVED.** 4 of 12 reference a grid/`GridItemModel`; 8 are grid-agnostic. But `request-controls.ts:45-58` (used by pilot steps 1 and 4) carries `vaadin-grid` and `vaadin-grid-cell-content` selectors in its own styles. Residual question scoped to `request-controls`, `server-controls`, `database-env-controls`. |
+| **U-8a** | **Do the renderers in the pilot views lift into the descriptor model?** | Agent | **YES — blocks the IS** | Open. **Reclassified from non-blocking.** The DRAFT framed this codebase-wide, where the answer can only ever be "expensive for some files" — a framing that guaranteed it could not block. At pilot scope a "no" invalidates the descriptor model itself. Must be answered before the descriptor shape is fixed. |
+| **U-8b** | Codebase-wide renderer migration cost (117 `.renderer=` / 47 files; **plus 53 `.headerRenderer=` / 16 files the DRAFT never counted**). | Agent | NO | Open. Cost estimation only. |
+| **U-9** | Accepted behaviour for column resize/reorder at narrow width. | User | NO | Open. Default: unavailable, no error affordance. |
+| **U-10** | **Where do filter and sort affordances live in the narrow rendering?** All pilot filtering lives in `headerRenderer`s; a card rendering has no header row. | User / Agent | **YES — blocks the IS** | Open. The descriptor model's shape depends on the answer, and SC9 step 1 is unachievable without it. |
+| **U-11** | **What bounds DOM growth in the narrow rendering?** Virtual scrolling is exactly what is surrendered below the breakpoint, while §3.1 requires incremental *fetch* to be honoured — appending every fetched record as a card grows without bound. | Agent | **YES — blocks the IS** | Open. Candidates: a single-column `<vaadin-grid>` with a card cell renderer (keeps Vaadin's virtualiser); `@vaadin/virtual-list` (exercises SC8); bounded "load more" paging. |
+| **U-12** | How is a dual-rendering component tested? Existing responsive tests mock `matchMedia`; §4 requires container measurement, for which no pattern exists in the suite. | Agent | NO | Open. Must be answered before the first migration step's JIT Spec. |
+| **U-13** | Browser/device support matrix for the narrow rendering. | User | NO | Open. Default: the three Playwright engines already configured. |
+| **U-14** | State continuity across a breakpoint crossing (sort, filters, scroll, disclosure state). Today's `?hidden` preserves it free because the grid is never torn down; a renderer swap tears down and rebuilds. | Agent | Per-step | Open. Now also covered by SC10. |
+| **U-15** | **Can the descriptor model express row activation?** Pilot views use incompatible mechanisms: `env-monitor.ts:149` uses `@active-item-changed` (the `grid-menu-a11y` outcome); `page-monitor-requests.ts` has **zero** occurrences and uses an in-cell `.id-btn` (`:670`). | Agent | **YES — blocks the IS** | Open. `active-item-changed` is a Vaadin Grid API with no analogue in a card list. |
+| **U-16** | **Does a runtime a11y assertion mechanism exist, and is adding one permitted?** SC5 requires "ARIA assertions in tests". The project has only `eslint-plugin-lit-a11y` (static lint); `grid-menu-a11y` §5 states there is no automated a11y harness and declined to build one; §4 forbids new test frameworks. | User | **Per-step — blocks the a11y gate** | Open. SC5 is unverifiable until resolved. |
+| **U-19** | Rollback path for a migrated view that regresses in production. The target users depend on these exact views *during incidents*; a broken triage view is the worst failure mode. | User / Agent | Per-step | Open. Candidates: feature flag, documented one-commit revert per view. |
+| **U-20** | Which idiom must a *new* grid-bearing view use after the pilot? Without a rule, §1.1's root cause is preserved for everything outside the pilot. | User | NO | Open. Default: descriptor model mandatory for new views. |
 
 ---
 
@@ -288,84 +342,163 @@ A blocking unknown halts entry into the Delivery Loop until resolved.
 
 | Risk | Severity | Mitigation |
 |---|---|---|
-| The abstraction is proven on easy views, then breaks on a hard one late — most likely on a lazy `dataProvider` view with per-field filters. | **HIGH** | SC7 forces the hard cases into the pilot set. The IS must sequence the hardest view early, not last. |
-| Column descriptors become less readable than the markup they replace, breaching the CLAUDE.md cognitive-complexity constraint. | MEDIUM | Adversarial review of the descriptor model at the pilot stage, before migrating beyond it. Explicit stop-and-reconsider gate at end of pilot. |
-| Accessibility regresses in the narrow rendering, which inherits nothing from Vaadin Grid's keyboard and ARIA implementation. | MEDIUM–HIGH | SC5 is a gate, not a nice-to-have. `docs/grid-menu-a11y/` acceptance criteria are reused directly. |
-| Partial migration becomes permanent: pilot ships, remaining ~55 views never migrate, and the codebase carries two grid idioms indefinitely. | MEDIUM | Accepted as a deliberate constraint (§4 requires coexistence). The follow-up sequencing decision is escalated to the user at pilot completion rather than assumed. |
-| **The personas are anticipated, not observed.** U-1 confirmed there is no current phone usage and no telemetry. The field-priority decisions in U-3 will therefore be made from assumptions about what on-call engineers need, and those assumptions will not be tested against real users before Delivery. Wrong priorities produce a phone UI that is responsive but not useful. | **MEDIUM–HIGH** | Accepted deliberately by the user as foundation-laying. Mitigations: (a) SC9 makes a scripted triage walkthrough the primary acceptance gate, so the design is tested against a concrete task even without users; (b) field priority lives in one descriptor per entity, so revising it after real feedback is a small edit, not a re-migration — this is a direct argument for the descriptor model over per-file `?hidden` bindings; (c) the pilot stops at four views, bounding the exposure if the priorities prove wrong. |
-| The pilot set (§3.3) is scoped to incident response, so the worst-rendering views in the codebase — the two 14-column audit pages with zero narrow handling — remain unimproved and visibly bad on a phone. | LOW–MEDIUM | Deliberate: they are not on-call surfaces. Accepted as a known gap, recorded here rather than silently omitted. They become candidates for the post-pilot sequencing decision. |
-| Descriptor indirection makes stack traces and Lit template errors harder to diagnose than inline markup. | LOW–MEDIUM | Keep the wide path a thin emitter over `<vaadin-grid>`; avoid a bespoke rendering pipeline where a Lit template would do. |
-| Container-width measurement (required for the 13 dialog-nested grids) introduces `ResizeObserver` churn or layout thrash. | LOW | Component-level test asserting bounded observer callbacks; measure in the pilot. |
+| **The justification does not survive its own correction.** The programme was scoped against a symptom (13 columns on a phone) that does not exist; at 4–6 columns a cheaper option may suffice. | **HIGH** | U-17 and U-18 both block the IS. No implementation work proceeds until the symptom is measured and the direction chosen. |
+| The personas are anticipated, not observed (U-1). Field priorities will be set from assumptions and not tested against real users before Delivery. | MEDIUM–HIGH | Accepted deliberately as foundation-laying. Honest mitigations: field priority lives in one descriptor per entity, so revising after real feedback is an edit not a re-migration; the pilot is bounded. **SC9 is no longer offered as a mitigation** — see below. |
+| **Narrow-rendering DOM growth without virtualisation.** Two pilot views are lazy over `deploy.DeploymentRequest`, a table `request-grid-perf` established is large and growing. | **MEDIUM–HIGH** | U-11 blocks the IS. A node-count bound or recycling strategy must be named before the renderer is built. |
+| Accessibility regresses in the narrow rendering, which inherits nothing from Vaadin Grid. | MEDIUM–HIGH | SC5 decomposed to `grid-menu-a11y` granularity **and authored before the renderer step**, so the criteria gate the build rather than assess it afterwards. U-16 must resolve the verification mechanism. *(The DRAFT's mitigation — "SC5 is a gate" — was circular and is withdrawn.)* |
+| The abstraction is proven on easy views and breaks on a hard one late. | MEDIUM | SC7 now genuinely forces the hard cases (the DRAFT's set did not contain the dialog-hosted case it claimed). Difficulty order for the IS: step 1 (lazy + all filtering in headers) → step 5 (dialog-hosted) → step 6 (declarative idiom) → step 3 → step 4. The descriptor model is built before the first migration. |
+| **Test-coverage regression during migration.** `responsive-grids.test.ts` asserts responsive CSS on two pilot views; those assertions fail by design once behaviour moves to a shared component, and SC2's carve-out would make deleting them compliant. | MEDIUM | §3.1 test migration is in scope; SC2 requires pre-classification in the JIT Spec with no post-hoc reclassification. |
+| Descriptors become less readable than the markup they replace. | MEDIUM | §4 now names an adjudication method and empowers the panel to fail the pilot. |
+| **SC6 consolidation touches shared infrastructure with 25 consumers during a 5-view pilot.** | MEDIUM | Sequence SC6 as its own IS step with its own verification; `responsive-mixin.test.ts` and `grid-column-hiding.test.ts` are the regression gate. |
+| Partial migration becomes permanent; two idioms coexist indefinitely. | MEDIUM | Sequencing decision escalated to the user at pilot completion; U-20 governs new views so the gap does not widen. |
+| Mobile network flakiness during an incident stalls incremental fetch. | LOW–MEDIUM | Error-state UX for failed `dataProvider` fetches in the narrow rendering. |
+| Container-width measurement introduces `ResizeObserver` churn. | LOW | Bounded-callback test; step 5 now actually exercises it. |
 
 ---
 
 ## 9. Alternatives Considered
 
-### 9.1 Continue with `?hidden="${this._narrowScreen}"` per column
+### 9.1 Status quo — per-column `?hidden` bindings
+**Rejected.** Opt-in, so new views miss it entirely — which is precisely why the
+two worst-rendering views in the codebase have zero handling. Cannot express a
+non-tabular rendering.
 
-**Rejected.** It is the status quo, and it produces 13–15 columns on a phone in
-the highest-value views. It is opt-in, so new views miss it entirely (two audit
-pages at 14 columns with zero handling). It cannot express a non-tabular
-rendering, which is what phone widths require.
+### 9.2 Replace Vaadin Grid with a headless table library
+**Rejected, on restated reasoning.** *(The DRAFT rejected it because it "would
+transfer ownership of virtual scrolling and full grid keyboard accessibility to
+DORC" — costs the chosen option also incurs for its narrow path, per §3.1 and §4.
+As written the argument did not discriminate between the alternatives.)* The
+correct argument is **blast radius**: a headless migration incurs those costs
+across all 37 grid-rendering files including every desktop path; this proposal
+incurs them for the narrow path of 5 pilot views. That is a real difference, and
+it is the only version of this argument that holds.
 
-### 9.2 Replace Vaadin Grid with a headless table library (TanStack Table or equivalent)
-
-**Rejected for now; recorded for revisit.** A headless library would supply the
-column-as-data model this HLPS needs, and would remove a dependency the team is
-ambivalent about. It would also transfer ownership of virtual scrolling and full
-grid keyboard accessibility to DORC — the latter being work the team has already
-priced once, in `docs/grid-menu-a11y/`. It requires touching all 61 files with no
-incremental path, against a codebase using a conservative grid subset (§1.2) that
-Vaadin serves adequately. Revisiting requires a new HLPS, and U-2 resolving to
-"yes" is the most likely trigger.
-
-### 9.3 Two parallel component trees (a desktop view and a separate mobile view per entity)
-
-**Rejected.** Doubles the surface for all 61 views and guarantees divergence —
-the same failure mode as §9.1, at larger scale. The single-descriptor-set
-approach exists specifically to prevent two sources of truth.
+### 9.3 Separate desktop and mobile component trees
+**Rejected, re-evaluated at pilot scope.** *(The DRAFT rejected this at 61 views
+while judging the proposal at 4 — an unfair comparison.)* At pilot scope it is 5
+hand-written card components. The codebase already uses this idiom:
+`request-status-card.ts` (468 lines), `environment-card.ts`, `project-card.ts` —
+and §3.3 step 2 already composes `request-status-card`. The "guarantees
+divergence" argument is also weakened by steps 1 and 4, which have already
+diverged without two trees. It remains rejected because it does not address
+§1.1's structural defect — priority stays undeclared and unreviewable — but it is
+the closest competitor and the comparison is now honest.
 
 ### 9.4 Status of the §9.2 revisit trigger
+U-2 resolved to no on both counts, so the trigger named in the DRAFT did not fire.
+*(The DRAFT's "no further revisit is scheduled" is withdrawn: §9.2's reasoning has
+changed, and U-11's virtualisation estimate is a new trigger — if the narrow path
+requires DORC to own a virtualiser anyway, the blast-radius argument narrows.)*
 
-§9.2 named U-2 resolving to "yes" as the most likely trigger for reopening the
-headless-library option. **U-2 resolved to no on both counts** (2026-08-02): no
-lazy tree grid, and no inline cell editing beyond today's capabilities. The
-trigger has not fired. The build-on-Vaadin direction stands on the §1.2 evidence,
-and no further revisit is scheduled.
+### 9.5 **Row-details progressive disclosure within Vaadin Grid** *(added by panel)*
+**Not yet evaluated — U-17 requires it be prototyped first.**
+
+`pages/page-projects-audit.ts:198-233` already combines `.detailsOpenedItems`,
+`.rowDetailsRenderer`, a chevron column, a lazy `.dataProvider`,
+`headerRenderer` filters, `multi-sort` and `frozen` — in one file, with one
+renderer, shipping today. Applied at narrow width (hide all but 1–2 columns, route
+the remainder to row details) it would satisfy SC1 and SC9, and satisfies SC4 and
+SC5 **by construction** because it is still `<vaadin-grid>`: no second rendering
+engine, no bespoke virtualiser (U-11 dissolves), no reimplemented row activation
+(U-15 dissolves), no lost filter surface (U-10 dissolves), and the existing
+`grid-menu-a11y` outcomes carry over.
+
+Against it: it does not by itself make field priority declarative or reviewable —
+§1.1's structural defect — and row details inside a 375px grid may be cramped. But
+it is dramatically cheaper, and at the corrected column counts the case for
+preferring a second rendering engine over it is unproven.
 
 ---
 
 ## 10. References
 
-- **Origin**: user observation, 2026-08-02, on Vaadin's fit for DORC's
-  large-screen/small-screen requirements.
-- **Code (at `origin/main`, `9be20dd`)**:
-  - `src/dorc-web/src/helpers/responsive-mixin.ts` — `ResponsiveMixin`,
-    `NARROW_BREAKPOINT = 768`; consumed by 26 files.
-  - `src/dorc-web/src/components/dorc-app.ts:207,221,320-322,380` — forked
-    `matchMedia` implementation.
-  - `src/dorc-web/src/router/style-registrations.ts` — all 110 lines of
-    `registerStyles` theme overrides.
-  - `src/dorc-web/src/components/grid-button-groups/` — 12 per-row action
-    components.
-  - Highest-column views: `pages/page-env-history.ts` (20),
-    `pages/page-environments-list.ts` (19), `pages/page-monitor-requests.ts` (16),
-    `components/environment-tabs/env-monitor.ts` (16).
-  - Zero narrow handling: `pages/page-servers-audit.ts`,
-    `pages/page-databases-audit.ts` (14 columns each).
-  - `src/dorc-web/package.json` — `@vaadin/grid` `^25.2.6`.
-- **Prior related work**:
-  - `docs/grid-menu-a11y/` — row activation and menu accessibility; `DECISION-U-2.md`
-    resolved in favour of Vaadin's `active-item-changed`.
-  - `docs/request-grid-perf/` — backend substring-scan performance; unrelated to
-    grid component capability.
+- **Code (at `origin/main`, `9be20dd`)** — all figures derived by the counting
+  method stated at the head of this document:
+  - `helpers/responsive-mixin.ts` — `NARROW_BREAKPOINT = 768`; applied by 25 classes.
+  - `components/dorc-app.ts:207,221,320-322,380` — forked `matchMedia`.
+  - `router/style-registrations.ts` — 110 lines; header records grid styling
+    migrated to `cellPartNameGenerator` (31 refs / 11 files).
+  - `pages/page-projects-audit.ts:198-233` — the §9.5 prototype already in production.
+  - `components/make-like-production-dialog.ts:91-96` — dialog-hosted grid via `dialogRenderer`.
+  - `pages/page-monitor-requests.ts:670` (`.id-btn`) vs `env-monitor.ts:149`
+    (`@active-item-changed`) — divergent row activation.
+  - `tests/components/responsive-grids.test.ts:100,171` — asserts responsive CSS
+    on two pilot views.
+  - `vitest.config.ts:22-29` — Playwright browser harness.
+- **Prior related work**: `docs/grid-menu-a11y/`, `docs/request-grid-perf/`.
 - **Conventions**: `CLAUDE.md`. HLPS pattern follows `docs/monitor-robustness/`.
 
 ---
 
-## Status / Review Trail
+## 11. Status / Review Trail
 
 | Round | Date | Status | Reviewers | Outcome |
 |---|---|---|---|---|
-| — | 2026-08-02 | DRAFT | — | Authored. Not yet submitted to the adversarial panel. **U-1 and U-2 are blocking and unanswered.** |
-| — | 2026-08-02 | DRAFT | — | **Both blocking unknowns resolved by the user.** U-1: no current phone usage or telemetry; deliberate foundation for application-support and on-call personas. U-2: no lazy tree grid, inline editing not required beyond today's capabilities. Consequent changes: §2 goal restated around the target personas; new §3.3 target journey and proposed pilot set; U-3 narrowed to incident-response entities; U-5 proposed; SC9 added (scripted triage walkthrough as the substitute for usage evidence); anticipated-persona risk added at MEDIUM–HIGH; §9.4 records that the §9.2 revisit trigger did not fire. **No blocking unknowns remain — ready for the adversarial panel.** |
+| — | 2026-08-02 | DRAFT | — | Authored. U-1, U-2 blocking and unanswered. |
+| — | 2026-08-02 | DRAFT | — | U-1 and U-2 resolved by user. §3.3 added; SC9 added; pilot set proposed. |
+| **R1** | 2026-08-02 | **REVISION** | 6 independent reviewers (4 lenses; scope and risk lenses run on two model tiers) | **6/6 REVISE.** Census error confirmed by 4 reviewers independently and verified by the author. Triage in §12. Two new blocking unknowns (U-17 direction, U-18 symptom measurement) escalated to the user. |
+
+---
+
+## 12. R1 Adversarial Review — Triage
+
+Panel: evidence/premise audit, scope & sequencing, architecture skeptic, risk &
+unknowns. Scope and risk lenses were re-run on a higher model tier at user
+request; both tiers reported independently and both are counted.
+
+### Accepted — CRITICAL / HIGH
+
+| Finding | Raised by | Disposition |
+|---|---|---|
+| Census counts string occurrences, not declarations; inflated ~2.5× | 4 reviewers independently | **ACCEPT.** Verified by author. All figures re-derived; counting method now binding at head of document. §1.1 severity argument withdrawn and replaced by U-18. |
+| Pilot set contained no dialog-hosted grid; "satisfies SC7 in full" false | 4 reviewers | **ACCEPT.** `make-like-production` added as step 5. |
+| `page-monitor-result.ts` declares 0 columns; not a migration target | 2 reviewers | **ACCEPT.** Reclassified as journey step; its layout work named in §3.1. |
+| Descriptor model has no filter / header-renderer field | 3 reviewers | **ACCEPT.** Added to §3.1; U-10 raised as IS-blocking. |
+| Row-details alternative (§9.5) never considered, already in repo | Architecture skeptic | **ACCEPT.** §9.5 added; U-17 raised as IS-blocking with prototype-first resolution path. |
+| §9.2's rejection argument is self-refuting | 2 reviewers | **ACCEPT.** Restated as blast radius. |
+| Narrow-path virtualisation unaddressed | 3 reviewers | **ACCEPT.** U-11 raised as IS-blocking; risk added at MEDIUM–HIGH. |
+| U-8 non-blocking only because framed codebase-wide | 2 reviewers | **ACCEPT.** Split into U-8a (pilot-scoped, IS-blocking) and U-8b (cost, non-blocking). |
+| SC9 named primary gate but absent from §6 | 2 reviewers | **ACCEPT.** Now §6 step 8. |
+| SC9 is self-validating; cannot discharge the persona risk | 2 reviewers | **ACCEPT** (option iii). Restated as a rendering-completeness gate; withdrawn as a mitigation in §8; execution assigned to a non-author. |
+| SC2 and SC5 unmeasurable as written | Scope reviewer | **ACCEPT.** Both given oracles; SC5 decomposed and blocked on U-16. |
+| SC5's verification mechanism does not exist in the project | Risk reviewer | **ACCEPT.** U-16 raised. |
+| §1.2 inference invalid (absence of evidence) | Evidence auditor | **ACCEPT.** Demoted to a scope survey; decision load moved to §9.2. |
+| Row activation diverges across pilot views | Risk reviewer | **ACCEPT.** U-15 raised as IS-blocking. |
+| Existing responsive tests assert the removed idiom on 2 pilot views | 2 reviewers | **ACCEPT.** Test migration in scope; SC2 requires pre-classification. |
+| 61 files ≠ 61 grid views (37 render a grid) | Evidence auditor | **ACCEPT.** Corrected throughout; §9.2 cost re-argued at 37. |
+| U-2 cited `selectedItems` as evidence about editing (category error); in-cell editing exists today | Evidence auditor | **ACCEPT.** Resolution stands; evidence corrected; descriptor must support interactive renderers. |
+| Pilot steps 1 and 4 are near-duplicates | Scope reviewer | **ACCEPT.** Verified identical headers; step 4's sole justification now stated explicitly. |
+| Pilot contains 0 of 64 declarative sort-columns | Scope reviewer | **ACCEPT.** Step 6 added; SC7 extended. |
+| No rule for which idiom view #38 uses | Scope reviewer | **ACCEPT.** U-20 raised; in scope. |
+
+### Accepted — MEDIUM
+
+`?hidden` bindings use both quote styles (SC3 regex made quote-agnostic) ·
+26 CSS-hardcoded breakpoints outside `matchMedia` (SC6 restated) ·
+`registerStyles` count misleading, styling moved to `cellPartNameGenerator`
+(§1.2 restated) · ResponsiveMixin appliers = 25, not 26 · unreproducible
+"35/28 filter references" figures withdrawn · "13 dialog-nested views" withdrawn
+pending enumeration · cognitive-complexity constraint given an adjudication
+method · state continuity (U-14, SC10) · SC6 blast radius (risk added) ·
+priority vocabulary must rank pathless and composite columns · rollback path
+(U-19) · U-7 partly closed from inspection · browser matrix (U-13) ·
+test-harness pattern for container width (U-12).
+
+### Downgraded
+
+- **Mobile network reliability** → risk row at LOW–MEDIUM rather than an unknown.
+  Real, but it is an error-state UX concern, not a question that shapes the
+  descriptor model.
+
+### Rejected
+
+- **None.** Every finding raised by the panel was accepted or downgraded. No
+  finding was assessed as incorrect.
+
+### Escalated to user
+
+- **U-17 (direction)** and **U-18 (is there a symptom at all)**. Both block the
+  IS. The panel did not overturn the proposal's direction — the architecture
+  skeptic explicitly found it "defensible" — but with the census corrected, the
+  evidence that justified preferring it over §9.5 no longer exists. That is a
+  decision for the owner, not the panel.
