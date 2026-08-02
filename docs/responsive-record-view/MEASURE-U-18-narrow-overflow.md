@@ -2,146 +2,147 @@
 
 | Field | Value |
 |---|---|
-| Status | **RESOLVED** |
+| Status | **RESOLVED — YES** (revised after R2 panel audit) |
 | Date | 2026-08-02 |
 | Governing HLPS | `docs/responsive-record-view/HLPS-responsive-record-view.md` |
-| Unknown | **U-18** — blocking the IS |
-| Harness | `src/dorc-web/tests/measurements/u18-narrow-overflow.test.ts` |
+| Unknown | **U-18** |
+| Harness | `src/dorc-web/tests/measurements/u18-narrow-overflow.measure.ts` (an instrument, deliberately excluded from the CI test glob) |
+
+> **Revision note.** The R2 panel audited the first version of this measurement
+> (R2b) and confirmed its transcriptions and its central answer, but found the
+> headline "hard ceiling of 3 columns" claim false (it measured Vaadin's
+> *default* column width, not a floor — R2b-F1), the Details cell content
+> inflated (~100px on the flagship view — R2b-F7), and the "cheapest option
+> refuted" conclusion unsupported by the data as then collected (R2b-F2). This
+> version corrects the content, re-runs everything, adds the missing experiment
+> (U-18c), and restates the conclusions on grounds the data actually supports.
 
 ---
 
 ## 1. Why this measurement exists
 
-The HLPS DRAFT asserted that 13–15 columns survive at phone width and concluded
-"that is a horizontally-scrolling table". The R1 adversarial panel found the
-census counted string occurrences rather than column declarations, inflating
-every figure ~2.5×. Corrected, the worst view shows **6** columns, and the pilot
-views show **4**.
-
-That removed the evidence for the symptom the programme was scoped against, so
-**U-18** was raised as blocking: *does a rendering defect exist at 375px at all?*
-Nothing in the document established it — the claim had only ever been inferred
-from a column count that was wrong.
+The HLPS DRAFT asserted that 13–15 columns survive at phone width. The R1 panel
+found the census inflated ~2.5×; corrected, the worst view shows 6 columns and
+the pilot views 4. That removed the evidence for the symptom, so U-18 was
+raised as blocking: *does a rendering defect exist at 375px at all?*
 
 ## 2. Method
 
-Each view's real column set was extracted from source programmatically —
-count, header text, `width`, `flex-grow`, `auto-width` and
-`?hidden="${this._narrowScreen}"` flags — and rendered in a `<vaadin-grid>` at a
-375px container width with representative DORC content (real formats: server
-names, `SEFE\` usernames, build numbers, timestamps, status values).
+Each view's real column set is transcribed from source — count, header text,
+`width`, `flex-grow` (only where source declares it), `auto-width`,
+`?hidden="${this._narrowScreen}"` — and rendered in a `<vaadin-grid>`
+(`theme="compact"`, matching all nine real grids) at a 375px container with
+representative DORC content. Measured: the grid's internal scrolling container
+(`grid.$.table` — a private API, noted) `scrollWidth` vs `clientWidth`. Vaadin
+Grid scrolls internally, so the page body never overflows; the question is
+whether the user must scroll sideways to reach a column.
 
-Measured: the grid's **internal** scrolling container
-(`grid.$.table.scrollWidth` vs `.clientWidth`). Vaadin Grid scrolls internally,
-so the page body does not overflow — the question is whether a user must scroll
-sideways to reach a column.
+**Limitations (binding on interpretation):**
+- Representative content, not live data. The Details cell uses the widest
+  *line* of the real two-line renderer (`detailsRenderer` stacks
+  "Project - Environment" over a smaller build number); the first version used
+  a 44-character single line and overstated the flagship view by ~100px.
+- Harness headers are plain text; real headers embed sorters and filter text
+  fields that participate in `auto-width`. Real demand is therefore **higher**
+  — the measured overflow is conservative.
+- One content variant per column (three identical rows); the longest real row
+  would measure wider. Also conservative.
+- Chromium only, via an on-demand config (the committed `vitest.config.ts`
+  runs three engines but never runs this file).
+- "fits" rows for views hosted inside another container are
+  **not-established**, not passes: `component-deployment-results` renders
+  inside `<vaadin-details>` and `make-like-production` inside a
+  `<vaadin-dialog>`, both at real widths below 375px.
 
-Run in the project's real-browser harness (Playwright, chromium).
+## 3. U-18 — the views as written today
 
-**Limitations, stated for the record.** Cell content is representative, not live
-API data; `auto-width` columns size to content, so content length affects the
-absolute numbers. Chromium only — this measures layout, not cross-engine
-behaviour. Column sets are transcribed from source, not the live pages booted
-with live data. The structural finding in §4 is independent of all three.
+**7 of 10 measured views require horizontal scrolling at 375px.**
 
-## 3. Result — as the views are written today
-
-**7 of 9 views require horizontal scrolling at 375px.**
-
-| View | Columns shown at ≤768px | Width required | Overflow |
+| View | Columns shown at ≤768px | Needs | Overflow |
 |---|---|---|---|
 | `page-env-history` | 4 | 764px | **+389px** |
 | `page-servers-audit` | 6 | 695px | **+320px** |
 | `page-databases-audit` | 6 | 684px | **+309px** |
 | `env-deployments` | 5 | 639px | **+264px** |
-| `page-monitor-requests` *(pilot 1)* | 4 | 610px | **+235px** |
-| `env-monitor` *(pilot 4)* | 4 | 550px | **+175px** |
+| `page-monitor-requests` *(pilot)* | 4 | 514px | **+139px** |
 | `add-edit-access-control` | 5 | 498px | **+123px** |
-| `component-deployment-results` *(pilot 3)* | 3 | 375px | fits |
+| `env-monitor` *(pilot)* | 4 | 454px | **+79px** |
+| `component-deployment-results` *(pilot)* | 3 | 375px | fits *(not-established — hosted in `<vaadin-details>`)* |
+| `make-like-production` *(pilot)* | 3 | 375px | fits *(not-established — dialog-hosted, real width < 375px)* |
 | `page-environments-list` | 2 | 375px | fits |
 
-**U-18 resolves YES — the defect is real.** Both pilot grid views that carry the
-on-call journey's "find the failing request" step overflow, by 235px and 175px
-respectively. An engineer triaging on a phone today must scroll sideways to reach
-the Status column.
+**U-18 resolves YES.** Both journey grid views overflow; an on-call engineer
+must scroll sideways to reach Status. The corrected Details content reduced
+the flagship figures from the first version (+235→+139, +175→+79) without
+changing the verdict — and since header-content fidelity biases the harness
+low, the real figures are worse than these.
 
-Note the ranking bears no relation to column count: `page-env-history` shows
-**4** columns and is the worst view measured; `add-edit-access-control` shows
-**5** and is the mildest overflow; `page-environments-list` shows **2** and fits.
+## 4. What drives it — three experiments
 
-## 4. What actually causes it
+### 4a. Width policy is a large, separable contributor
 
-The measurement was repeated with width policy relaxed — fixed `width` values
-removed, `auto-width` off, `flex-grow="0"` relaxed — **leaving column count
-unchanged**:
+`page-env-history` needs 764px as written; its three hardcoded widths
+(170px + 270px + 14em) account for **364px of the excess (94%)**. The audit
+pages' `auto-width` + `flex-grow="0"` columns size to content and refuse to
+shrink. Fixing width attributes is worthwhile cleanup on those views
+regardless of anything else.
 
-| View | Columns | Required, width policy relaxed |
-|---|---|---|
-| `page-servers-audit` / `page-databases-audit` | 6 | 600px |
-| `env-deployments` / `add-edit-access-control` | 5 | 500px |
-| `page-env-history` / `page-monitor-requests` / `env-monitor` | 4 | 400px |
-| `component-deployment-results` | 3 | **375px — fits** |
-| `page-environments-list` | 2 | **375px — fits** |
+### 4b. The default-width regime (NOT a floor — corrected per R2b-F1)
 
-The result converges to **exactly 100px per column** — Vaadin Grid's default
-minimum column width. Two findings follow, and they point in opposite directions:
+Re-measured with all width attributes removed, columns fall back to Vaadin's
+**default** `width: '100px'` (`vaadin-grid-column-mixin.js:818-821`), giving
+the arithmetically inevitable N×100: 4 columns → 400px → overflows 375px.
 
-**(a) Width policy is a real and separable contributor.** `page-env-history`
-needs 764px as written but 400px relaxed: **364px of its overflow — 94% of the
-excess — comes from three hardcoded width attributes** (`170px` + `270px` +
-`14em`), not from having four columns. The same pattern drives
-`page-servers-audit`, where four columns carry `auto-width` with
-`flex-grow="0"`, sizing to content with no ability to shrink.
+The first version called this "a hard ceiling of 3 columns at 375px". **That
+was wrong.** 100px is a default, not a minimum — cells carry no `min-width`
+and explicit smaller widths are honoured. U-18b characterises only what
+happens when no width policy is set. Whether narrower explicit widths rescue
+a 4-column view is an empirical question — answered by U-18c.
 
-**(b) But tuning width policy is not sufficient.** Even with a perfect width
-policy, the floor is 100px per column. **At 375px, Vaadin Grid fits at most 3
-columns.** Every view needing a 4th overflows regardless of how its widths are
-declared.
+### 4c. The cheap fix, measured honestly (new)
 
-## 5. Consequences for U-17
+`page-monitor-requests`' four surviving columns forced into 375px with
+deliberately narrow explicit widths — Id 60px, Status 70px, actions 160px
+(the real button group's declared width), Details flexible:
 
-This measurement was commissioned to inform the direction decision. It does
-three things to it.
+```
+grid: needs=390px available=375px → still overflows (slightly)
+Details column: allocated=100px, content demand=215px
+→ ~54% of the identity field truncated
+```
 
-**It restores the justification for doing the work at all.** The defect is real
-and it lands squarely on the on-call journey. The HLPS no longer rests on an
-inferred symptom.
+The "fit" is achieved by **truncating more than half of the Details cell** —
+the field an on-call engineer identifies a request by ("Trading-Platform -
+PROD-EU-01" becomes "Trading-Pla…"). The fixed 160px actions column alone
+consumes 43% of the viewport. Narrow explicit widths do not solve the
+problem; they convert horizontal scrolling into truncation of the
+triage-critical content.
 
-**It refutes the cheapest option.** "Just fix the width attributes" is a genuine
-third option that the corrected census made attractive, and §4(a) shows it would
-materially help several views. §4(b) refutes it as a complete answer: it cannot
-get `page-monitor-requests` below four columns, and four columns cannot fit. It
-remains worth doing as independent cleanup — it is a handful of attribute edits
-for a large gain on `page-env-history` — but it does not resolve the problem.
+## 5. Conclusions
 
-**It gives the design a hard numeric target, which no option had before:**
-
-> **A view must present at most 3 columns at 375px, or it overflows.**
-
-That target is what the direction decision should now be judged against:
-
-- **§9.5 row-details disclosure** — collapsing to 1–2 columns plus a chevron
-  lands at or under 3 by construction. It addresses the measured mechanism
-  directly, and `page-projects-audit.ts:198-233` already runs this pattern in
-  production over a lazy `dataProvider` with header filters.
-- **The descriptor model** — also reaches ≤3 columns, via priority ranking, and
-  additionally makes the priority declarative and reviewable, which §9.5 does
-  not. It is a substantially larger build for the same overflow outcome.
-
-The measurement does not choose between them: both clear the target. What it
-establishes is that the choice is now about **whether declarative, reviewable
-field priority is worth the extra build** — the §1.1 structural argument — and
-no longer about whether a rendering defect exists. It does.
+1. **The defect is real** (§3) and lands on the on-call journey. U-18 = YES.
+2. **Fixing width attributes is worthwhile but insufficient.** It removes
+   hundreds of px on the worst-authored views (§4a) — do it — but on the
+   journey views the surviving columns' *content demand* (454–514px
+   conservative) exceeds 375px, so any width regime that forces a fit pays in
+   truncation of identity content (§4c). The first version's "3-column
+   ceiling" argument is withdrawn; this truncation argument replaces it, and
+   it is measured, not asserted.
+3. **The design target, restated on measured grounds:** at 375px, the
+   record's identity content must be given the full row width — which is a
+   stacked-list presentation, not a column race. This is the §3.4 direction's
+   empirical basis: a single-column list row gives the identity line
+   375px − padding rather than the ~100px a four-column layout can spare it.
 
 ## 6. Reproducing
 
 ```
 cd src/dorc-web
-npx vitest run tests/measurements/u18-narrow-overflow.test.ts
+# on-demand config (not committed): include tests/measurements/*.measure.ts,
+# chromium instance only — see the harness header for the exact snippet
+npx vitest run --config vitest.u18.config.ts
 ```
 
-The harness prints both tables (`U-18 RESULT` and `U-18b: WIDTH POLICY RELAXED`).
-
-*Container note: this environment ships Playwright chromium build 1194 while the
-project pins 1234. The measurement was run against the shipped build; the
-project's own `vitest.config.ts` is unmodified.*
+Reported figures are **chromium-only**. In this container Playwright ships
+build 1194 while the project pins 1234; the run used the shipped build. The
+harness prints all three tables (U-18, U-18b, U-18c).
