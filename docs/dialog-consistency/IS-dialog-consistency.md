@@ -2,12 +2,23 @@
 
 | Field       | Value                                              |
 |-------------|----------------------------------------------------|
-| **Status**  | DRAFT — awaiting review round 2                    |
+| **Status**  | ❌ REVISION — failed review round 2                 |
 | **Author**  | Agent                                              |
 | **Date**    | 2026-08-02                                         |
 | **Folder**  | `docs/dialog-consistency/`                         |
 | **HLPS**    | `HLPS-dialog-consistency.md`                       |
 | **Scope**   | 31 dialogs, 4 implementations → 2 patterns, 19 steps |
+
+> ⚠️ **FAILED ADVERSARIAL REVIEW ROUND 2 — DO NOT EXECUTE.**
+> See `../vaadin-alignment/REVIEW-R2-triage.md`. Verified defects include:
+> `<vaadin-confirm-dialog>` **cannot** close on outside click, so uniform
+> dismissal across both patterns is impossible; dialog content **persists**
+> across close/reopen rather than being destroyed, so the worked example drops
+> the open-gate that yields a fresh form; `attached-servers` has 3 hegs-dialogs
+> not 2; `confirm-dialog.ts` is dead code so the live count is 30 not 31;
+> native `window.confirm()` is an uncounted fifth pattern at 23 call sites;
+> and Constraint 3's "zero of 12 have a close handler" was **my** error while
+> triaging round 1 — it is 3 of 12, as the original panel said.
 
 ---
 
