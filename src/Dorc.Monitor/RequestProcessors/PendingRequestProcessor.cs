@@ -381,17 +381,12 @@ namespace Dorc.Monitor.RequestProcessors
             DateTimeOffset startedTime,
             DateTimeOffset completedTime)
         {
-            try
-            {
-                var notifyTask = _notificationSink.NotifyRequestCompletedAsync(request, finalStatus, startedTime, completedTime);
-                _ = notifyTask.ContinueWith(
-                    t => logger.LogError(t.Exception, "Notification failed for request {RequestId}.", request.Id),
-                    TaskContinuationOptions.OnlyOnFaulted);
-            }
-            catch (Exception ex) when (!FatalExceptions.Is(ex))
-            {
-                logger.LogError(ex, "Notification failed synchronously for request {RequestId}.", request.Id);
-            }
+            // DeploymentRequestStateProcessor owns the Cancelling -> Cancelled transition and its
+            // notification; notifying here as well would DM the requester twice per cancellation.
+            if (finalStatus == DeploymentRequestStatus.Cancelled.ToString())
+                return;
+
+            DeploymentNotificationDispatch.FireAndForget(_notificationSink, logger, request, finalStatus, startedTime, completedTime);
         }
 
         private void CancelPendingDeploymentResults(int requestId, DeploymentRequestStatus requestStatus)

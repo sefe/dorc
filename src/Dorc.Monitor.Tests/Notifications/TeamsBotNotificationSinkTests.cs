@@ -33,8 +33,8 @@ namespace Dorc.Monitor.Tests.Notifications
                 new() { Username = UserName, DisplayName = "Jane Doe", Email = UserName, IsGroup = false, Pid = AadObjectId }
             });
 
-            mockConversationClient.CreateConversationAsync(AadObjectId).Returns(ConversationId);
-            mockConversationClient.SendCardAsync(Arg.Any<string>(), Arg.Any<string>()).Returns(Task.CompletedTask);
+            mockConversationClient.CreateConversationAsync(AadObjectId, Arg.Any<CancellationToken>()).Returns(ConversationId);
+            mockConversationClient.SendCardAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
         }
 
         private TeamsBotNotificationSink CreateSink(bool enabled = true, string? notifyOnStatuses = null)
@@ -76,7 +76,7 @@ namespace Dorc.Monitor.Tests.Notifications
             await sink.NotifyRequestCompletedAsync(CreateRequest(), "Completed", StartedTime, CompletedTime);
 
             mockSearcher.DidNotReceiveWithAnyArgs().Search(default!);
-            await mockConversationClient.DidNotReceiveWithAnyArgs().CreateConversationAsync(default!);
+            await mockConversationClient.DidNotReceiveWithAnyArgs().CreateConversationAsync(default!, default);
         }
 
         [TestMethod]
@@ -87,7 +87,18 @@ namespace Dorc.Monitor.Tests.Notifications
             await sink.NotifyRequestCompletedAsync(CreateRequest(), "Cancelled", StartedTime, CompletedTime);
 
             mockSearcher.DidNotReceiveWithAnyArgs().Search(default!);
-            await mockConversationClient.DidNotReceiveWithAnyArgs().CreateConversationAsync(default!);
+            await mockConversationClient.DidNotReceiveWithAnyArgs().CreateConversationAsync(default!, default);
+        }
+
+        [TestMethod]
+        public async Task Notify_WaitingConfirmationAndPending_AreNotNotifiedByDefault()
+        {
+            var sink = CreateSink();
+
+            await sink.NotifyRequestCompletedAsync(CreateRequest(), "WaitingConfirmation", StartedTime, CompletedTime);
+            await sink.NotifyRequestCompletedAsync(CreateRequest(), "Pending", StartedTime, CompletedTime);
+
+            await mockConversationClient.DidNotReceiveWithAnyArgs().CreateConversationAsync(default!, default);
         }
 
         [TestMethod]
@@ -96,10 +107,10 @@ namespace Dorc.Monitor.Tests.Notifications
             var sink = CreateSink(notifyOnStatuses: "Cancelled");
 
             await sink.NotifyRequestCompletedAsync(CreateRequest(), "Completed", StartedTime, CompletedTime);
-            await mockConversationClient.DidNotReceiveWithAnyArgs().CreateConversationAsync(default!);
+            await mockConversationClient.DidNotReceiveWithAnyArgs().CreateConversationAsync(default!, default);
 
             await sink.NotifyRequestCompletedAsync(CreateRequest(), "Cancelled", StartedTime, CompletedTime);
-            await mockConversationClient.Received(1).CreateConversationAsync(AadObjectId);
+            await mockConversationClient.Received(1).CreateConversationAsync(AadObjectId, Arg.Any<CancellationToken>());
         }
 
         [TestMethod]
@@ -109,7 +120,7 @@ namespace Dorc.Monitor.Tests.Notifications
 
             await sink.NotifyRequestCompletedAsync(CreateRequest(), "Completed", StartedTime, CompletedTime);
 
-            await mockConversationClient.Received(1).CreateConversationAsync(AadObjectId);
+            await mockConversationClient.Received(1).CreateConversationAsync(AadObjectId, Arg.Any<CancellationToken>());
         }
 
         [TestMethod]
@@ -120,7 +131,7 @@ namespace Dorc.Monitor.Tests.Notifications
             await sink.NotifyRequestCompletedAsync(CreateRequest(userName: null), "Completed", StartedTime, CompletedTime);
 
             mockSearcher.DidNotReceiveWithAnyArgs().Search(default!);
-            await mockConversationClient.DidNotReceiveWithAnyArgs().CreateConversationAsync(default!);
+            await mockConversationClient.DidNotReceiveWithAnyArgs().CreateConversationAsync(default!, default);
         }
 
         [TestMethod]
@@ -134,7 +145,7 @@ namespace Dorc.Monitor.Tests.Notifications
 
             await sink.NotifyRequestCompletedAsync(CreateRequest(), "Completed", StartedTime, CompletedTime);
 
-            await mockConversationClient.DidNotReceiveWithAnyArgs().CreateConversationAsync(default!);
+            await mockConversationClient.DidNotReceiveWithAnyArgs().CreateConversationAsync(default!, default);
         }
 
         [TestMethod]
@@ -148,7 +159,7 @@ namespace Dorc.Monitor.Tests.Notifications
 
             await sink.NotifyRequestCompletedAsync(CreateRequest(), "Completed", StartedTime, CompletedTime);
 
-            await mockConversationClient.DidNotReceiveWithAnyArgs().CreateConversationAsync(default!);
+            await mockConversationClient.DidNotReceiveWithAnyArgs().CreateConversationAsync(default!, default);
         }
 
         [TestMethod]
@@ -159,7 +170,7 @@ namespace Dorc.Monitor.Tests.Notifications
 
             await sink.NotifyRequestCompletedAsync(CreateRequest(), "Completed", StartedTime, CompletedTime);
 
-            await mockConversationClient.DidNotReceiveWithAnyArgs().CreateConversationAsync(default!);
+            await mockConversationClient.DidNotReceiveWithAnyArgs().CreateConversationAsync(default!, default);
         }
 
         [TestMethod]
@@ -169,17 +180,18 @@ namespace Dorc.Monitor.Tests.Notifications
 
             await sink.NotifyRequestCompletedAsync(CreateRequest(), "Completed", StartedTime, CompletedTime);
 
-            await mockConversationClient.Received(1).CreateConversationAsync(AadObjectId);
+            await mockConversationClient.Received(1).CreateConversationAsync(AadObjectId, Arg.Any<CancellationToken>());
             await mockConversationClient.Received(1).SendCardAsync(
                 ConversationId,
-                Arg.Is<string>(json => json.Contains("AdaptiveCard") && json.Contains("42")));
+                Arg.Is<string>(json => json.Contains("AdaptiveCard") && json.Contains("42")),
+                Arg.Any<CancellationToken>());
         }
 
         [TestMethod]
         public async Task Notify_TransientDispatchFailure_IsRetriedThenSucceeds()
         {
             var attempts = 0;
-            mockConversationClient.CreateConversationAsync(AadObjectId).Returns(_ =>
+            mockConversationClient.CreateConversationAsync(AadObjectId, Arg.Any<CancellationToken>()).Returns(_ =>
             {
                 attempts++;
                 if (attempts < 3)
@@ -193,33 +205,33 @@ namespace Dorc.Monitor.Tests.Notifications
             await sink.NotifyRequestCompletedAsync(CreateRequest(), "Completed", StartedTime, CompletedTime);
 
             Assert.AreEqual(3, attempts);
-            await mockConversationClient.Received(1).SendCardAsync(ConversationId, Arg.Any<string>());
+            await mockConversationClient.Received(1).SendCardAsync(ConversationId, Arg.Any<string>(), Arg.Any<CancellationToken>());
         }
 
         [TestMethod]
         public async Task Notify_PersistentDispatchFailure_IsSwallowedAfterRetries()
         {
-            mockConversationClient.CreateConversationAsync(AadObjectId)
+            mockConversationClient.CreateConversationAsync(AadObjectId, Arg.Any<CancellationToken>())
                 .Throws(new InvalidOperationException("permanent"));
             var sink = CreateSink();
 
             await sink.NotifyRequestCompletedAsync(CreateRequest(), "Completed", StartedTime, CompletedTime);
 
             // 1 initial attempt + 3 retries, then the failure is logged and swallowed
-            await mockConversationClient.Received(4).CreateConversationAsync(AadObjectId);
-            await mockConversationClient.DidNotReceiveWithAnyArgs().SendCardAsync(default!, default!);
+            await mockConversationClient.Received(4).CreateConversationAsync(AadObjectId, Arg.Any<CancellationToken>());
+            await mockConversationClient.DidNotReceiveWithAnyArgs().SendCardAsync(default!, default!, default);
         }
 
         [TestMethod]
         public async Task Notify_ArgumentException_IsNotRetried()
         {
-            mockConversationClient.CreateConversationAsync(AadObjectId)
+            mockConversationClient.CreateConversationAsync(AadObjectId, Arg.Any<CancellationToken>())
                 .Throws(new ArgumentException("bad input"));
             var sink = CreateSink();
 
             await sink.NotifyRequestCompletedAsync(CreateRequest(), "Completed", StartedTime, CompletedTime);
 
-            await mockConversationClient.Received(1).CreateConversationAsync(AadObjectId);
+            await mockConversationClient.Received(1).CreateConversationAsync(AadObjectId, Arg.Any<CancellationToken>());
         }
     }
 }

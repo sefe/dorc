@@ -85,17 +85,7 @@ namespace Dorc.Monitor
             DateTimeOffset startedTime,
             DateTimeOffset completedTime)
         {
-            try
-            {
-                var notifyTask = this.notificationSink.NotifyRequestCompletedAsync(request, finalStatus, startedTime, completedTime);
-                _ = notifyTask.ContinueWith(
-                    t => this.logger.LogError(t.Exception, "Notification failed for request {RequestId}.", request.Id),
-                    TaskContinuationOptions.OnlyOnFaulted);
-            }
-            catch (Exception ex) when (!FatalExceptions.Is(ex))
-            {
-                this.logger.LogError(ex, "Notification failed synchronously for request {RequestId}.", request.Id);
-            }
+            DeploymentNotificationDispatch.FireAndForget(this.notificationSink, this.logger, request, finalStatus, startedTime, completedTime);
         }
 
         // NOTE: AbandonRequests handles truly stale requests (>24 hours in Running state).
@@ -218,22 +208,25 @@ namespace Dorc.Monitor
                     "Found {Count} stale requests in 'Requesting' state from a previous instance. Cancelling IDs [{Ids}]",
                     requestingRequests.Count, requestingIdsString);
 
-                int cancelledCount = this.requestsPersistentSource.SwitchDeploymentRequestStatuses(
-                    requestingRequests,
-                    DeploymentRequestStatus.Requesting,
-                    DeploymentRequestStatus.Cancelled,
-                    DateTimeOffset.Now);
+                // Per-request transitions, as for the Running->Pending resume above (AC-7:
+                // event/notification per transition this instance won, not per attempt).
+                var cancelledTime = DateTimeOffset.Now;
+                var cancelledRequests = requestingRequests
+                    .Where(request => this.requestsPersistentSource.SwitchDeploymentRequestStatuses(
+                        new List<DeploymentRequestApiModel> { request },
+                        DeploymentRequestStatus.Requesting,
+                        DeploymentRequestStatus.Cancelled,
+                        cancelledTime) > 0)
+                    .ToList();
 
-                if (cancelledCount > 0)
+                if (cancelledRequests.Count > 0)
                 {
                     this.requestsPersistentSource.SwitchDeploymentResultsStatuses(
-                        requestingRequests,
+                        cancelledRequests,
                         DeploymentResultStatus.Pending,
                         DeploymentResultStatus.Cancelled);
 
-                    var cancelledTime = DateTimeOffset.Now;
-
-                    foreach (var request in requestingRequests)
+                    foreach (var request in cancelledRequests)
                     {
                         TerminateRunnerProcesses(request.Id);
                         PublishRequestStatusChangedSafe(new DeploymentRequestEventData(
@@ -248,7 +241,7 @@ namespace Dorc.Monitor
 
                     this.logger.LogWarning(
                         "Cancelled {CancelledCount} stale Requesting request(s). IDs [{Ids}]",
-                        cancelledCount, requestingIdsString);
+                        cancelledRequests.Count, requestingIdsString);
                 }
             }
         }
@@ -281,21 +274,30 @@ namespace Dorc.Monitor
                     TerminateRequestExecution(id, requestCancellationSources);
                 }
 
-                // Uses optimistic concurrency: only updates requests still in 'fromStatus'
-                int updatedRequestCount = this.requestsPersistentSource.SwitchDeploymentRequestStatuses(
-                    requests,
-                    fromStatus,
-                    toStatus,
-                    DateTimeOffset.Now);
-
+                // Switch per request (optimistic concurrency: only requests still in 'fromStatus'
+                // are updated) so events and notifications fire only for the transitions THIS
+                // monitor instance won — batch switching returns just a count, which cannot say
+                // which requests another monitor already processed, and notifying the whole
+                // batch would DM those users twice.
                 var switchedTime = DateTimeOffset.Now;
+                var transitionedRequests = requests
+                    .Where(request => this.requestsPersistentSource.SwitchDeploymentRequestStatuses(
+                        new List<DeploymentRequestApiModel> { request },
+                        fromStatus,
+                        toStatus,
+                        switchedTime) > 0)
+                    .ToList();
+                int updatedRequestCount = transitionedRequests.Count;
 
-                if (updatedRequestCount == requestToSwitchCount)
+                if (updatedRequestCount > 0)
                 {
-                    // All requests were successfully updated
-                    foreach (var request in requests)
+                    foreach (var id in ids)
                     {
-                        TerminateRunnerProcesses(request.Id);
+                        TerminateRunnerProcesses(id);
+                    }
+
+                    foreach (var request in transitionedRequests)
+                    {
                         PublishRequestStatusChangedSafe(new DeploymentRequestEventData(
                             RequestId: request.Id,
                             Status: toStatus.ToString(),
@@ -305,27 +307,18 @@ namespace Dorc.Monitor
                         ));
                         FireNotification(request, toStatus.ToString(), request.StartedTime ?? request.RequestedTime ?? switchedTime, switchedTime);
                     }
-                    this.logger.LogInformation($"Requests with ids [{idsString}] are {methodName}ed.");
-                }
-                else if (updatedRequestCount > 0)
-                {
-                    // Partial success: some requests were already processed by another monitor
-                    foreach (var request in requests)
+
+                    if (updatedRequestCount == requestToSwitchCount)
                     {
-                        TerminateRunnerProcesses(request.Id);
-                        PublishRequestStatusChangedSafe(new DeploymentRequestEventData(
-                            RequestId: request.Id,
-                            Status: toStatus.ToString(),
-                            StartedTime: null,
-                            CompletedTime: null,
-                            Timestamp: DateTimeOffset.UtcNow
-                        ));
-                        FireNotification(request, toStatus.ToString(), request.StartedTime ?? request.RequestedTime ?? switchedTime, switchedTime);
+                        this.logger.LogInformation($"Requests with ids [{idsString}] are {methodName}ed.");
                     }
-                    var skippedCount = requestToSwitchCount - updatedRequestCount;
-                    this.logger.LogInformation(
-                        $"{updatedRequestCount} of {requestToSwitchCount} requests {methodName}ed. " +
-                        $"{skippedCount} were likely already processed by another monitor instance. IDs [{idsString}]");
+                    else
+                    {
+                        var skippedCount = requestToSwitchCount - updatedRequestCount;
+                        this.logger.LogInformation(
+                            $"{updatedRequestCount} of {requestToSwitchCount} requests {methodName}ed. " +
+                            $"{skippedCount} were likely already processed by another monitor instance. IDs [{idsString}]");
+                    }
                 }
                 else
                 {

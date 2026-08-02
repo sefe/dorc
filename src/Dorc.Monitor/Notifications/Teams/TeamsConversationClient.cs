@@ -7,19 +7,23 @@ using Newtonsoft.Json.Linq;
 
 namespace Dorc.Monitor.Notifications.Teams
 {
-    internal sealed class TeamsConversationClient : ITeamsConversationClient
+    internal sealed class TeamsConversationClient : ITeamsConversationClient, IDisposable
     {
         private readonly TeamsBotOptions _options;
+        private readonly Lazy<ConnectorClient> _connectorClient;
 
         public TeamsConversationClient(IOptions<TeamsBotOptions> options)
         {
             _options = options.Value;
+            _connectorClient = new Lazy<ConnectorClient>(
+                () => new ConnectorClient(
+                    new Uri(_options.ServiceUrl),
+                    new MicrosoftAppCredentials(_options.BotAppId, _options.BotAppPassword, _options.TenantId)),
+                LazyThreadSafetyMode.ExecutionAndPublication);
         }
 
-        public async Task<string> CreateConversationAsync(string aadObjectId)
+        public async Task<string> CreateConversationAsync(string aadObjectId, CancellationToken cancellationToken)
         {
-            using var connectorClient = CreateConnectorClient();
-
             var conversationParameters = new ConversationParameters
             {
                 IsGroup = false,
@@ -39,7 +43,8 @@ namespace Dorc.Monitor.Notifications.Teams
                 }
             };
 
-            var conversationResource = await connectorClient.Conversations.CreateConversationAsync(conversationParameters);
+            var conversationResource = await _connectorClient.Value.Conversations
+                .CreateConversationAsync(conversationParameters, cancellationToken);
 
             if (string.IsNullOrWhiteSpace(conversationResource?.Id))
             {
@@ -50,10 +55,8 @@ namespace Dorc.Monitor.Notifications.Teams
             return conversationResource.Id;
         }
 
-        public async Task SendCardAsync(string conversationId, string cardJson)
+        public async Task SendCardAsync(string conversationId, string cardJson, CancellationToken cancellationToken)
         {
-            using var connectorClient = CreateConnectorClient();
-
             var message = new Activity
             {
                 Type         = ActivityTypes.Message,
@@ -69,17 +72,16 @@ namespace Dorc.Monitor.Notifications.Teams
                 }
             };
 
-            await connectorClient.Conversations.SendToConversationAsync(conversationId, message);
+            await _connectorClient.Value.Conversations
+                .SendToConversationAsync(conversationId, message, cancellationToken);
         }
 
-        private ConnectorClient CreateConnectorClient()
+        public void Dispose()
         {
-            var credentials = new MicrosoftAppCredentials(
-                _options.BotAppId,
-                _options.BotAppPassword,
-                _options.TenantId);
-
-            return new ConnectorClient(new Uri(_options.ServiceUrl), credentials);
+            if (_connectorClient.IsValueCreated)
+            {
+                _connectorClient.Value.Dispose();
+            }
         }
     }
 }

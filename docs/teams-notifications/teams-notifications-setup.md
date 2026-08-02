@@ -21,8 +21,10 @@ PendingRequestProcessor / DeploymentRequestStateProcessor reach a terminal statu
 
 - All failures are logged and swallowed — notifications can never affect deployment
   processing or event publishing.
-- Transient dispatch failures are retried 3 times with exponential back-off and a 10s
-  per-call timeout (Polly).
+- Transient dispatch failures are retried 3 times with exponential back-off under a 10s
+  per-attempt timeout (Polly, cooperative cancellation). Timeouts, cancellations and
+  Bot Connector 4xx responses (e.g. the user does not have the bot app installed) are
+  not retried.
 - When `TeamsNotification.Enabled` is `false`, a no-op sink is registered instead.
 
 Components live in `src/Dorc.Monitor/Notifications/` (`Dorc.Monitor.Notifications[.Teams]`).

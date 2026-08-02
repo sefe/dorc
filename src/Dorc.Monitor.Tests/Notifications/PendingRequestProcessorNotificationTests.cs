@@ -183,6 +183,26 @@ namespace Dorc.Monitor.Tests.Notifications
         }
 
         [TestMethod]
+        public void Execute_SinkReturnsFaultedTask_DoesNotAffectRequestCompletion()
+        {
+            var comp = new ComponentApiModel { ComponentId = 1, ComponentName = "Comp1", IsEnabled = true };
+            var components = new List<ComponentApiModel> { comp };
+            var dto = CreateRequest(components);
+            SetupOrderedComponents(components);
+            SetupDeployResult(comp, succeeds: true);
+
+            mockNotificationSink.NotifyRequestCompletedAsync(default!, default!, default, default)
+                .ReturnsForAnyArgs(Task.FromException(new InvalidOperationException("async sink failure")));
+
+            sut.Execute(dto, CancellationToken.None);
+
+            mockRequestsPersistentSource.Received(1).SetRequestCompletionStatus(
+                100,
+                DeploymentRequestStatus.Completed,
+                Arg.Any<DateTimeOffset>());
+        }
+
+        [TestMethod]
         public void Execute_SinkThrowsSynchronously_DoesNotAffectRequestCompletion()
         {
             var comp = new ComponentApiModel { ComponentId = 1, ComponentName = "Comp1", IsEnabled = true };

@@ -2,6 +2,7 @@ using Dorc.ApiModel;
 using Dorc.Core.Interfaces;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Rest;
 using Polly;
 using Polly.Retry;
 using Polly.Timeout;
@@ -35,6 +36,17 @@ namespace Dorc.Monitor.Notifications.Teams
             _cardBuilder        = cardBuilder;
             _logger             = loggerFactory.CreateLogger<TeamsBotNotificationSink>();
             _notifyOnStatuses   = ParseNotifyOnStatuses(_options.NotifyOnStatuses);
+
+            _logger.LogInformation(
+                "Teams notifications will be sent for statuses: {Statuses}.",
+                string.Join(", ", _notifyOnStatuses));
+
+            foreach (var status in _notifyOnStatuses.Where(s => !Enum.TryParse<DeploymentRequestStatus>(s, true, out _)))
+            {
+                _logger.LogWarning(
+                    "Configured NotifyOnStatuses entry '{Status}' is not a known deployment request status and will never match.",
+                    status);
+            }
         }
 
         public async Task NotifyRequestCompletedAsync(
@@ -116,16 +128,18 @@ namespace Dorc.Monitor.Notifications.Teams
         {
             var policy = BuildResiliencePolicy(request.Id);
 
-            var conversationId = await policy.ExecuteAsync(() =>
-                _conversationClient.CreateConversationAsync(aadObjectId));
+            var conversationId = await policy.ExecuteAsync(
+                ct => _conversationClient.CreateConversationAsync(aadObjectId, ct),
+                CancellationToken.None);
 
             _logger.LogDebug("Created conversation {ConversationId} for user {User} (request {RequestId})",
                 conversationId, request.UserName, request.Id);
 
             var cardJson = _cardBuilder.Build(request, finalStatus, startedTime, completedTime);
 
-            await policy.ExecuteAsync(() =>
-                _conversationClient.SendCardAsync(conversationId, cardJson));
+            await policy.ExecuteAsync(
+                ct => _conversationClient.SendCardAsync(conversationId, cardJson, ct),
+                CancellationToken.None);
 
             _logger.LogDebug("Adaptive card message sent to conversation {ConversationId}", conversationId);
         }
@@ -136,7 +150,7 @@ namespace Dorc.Monitor.Notifications.Teams
                 .TimeoutAsync(TimeSpan.FromSeconds(10), TimeoutStrategy.Optimistic);
 
             AsyncRetryPolicy retryPolicy = Policy
-                .Handle<Exception>(ex => ex is not ArgumentException and not TimeoutRejectedException && !FatalExceptions.Is(ex))
+                .Handle<Exception>(IsRetryable)
                 .WaitAndRetryAsync(
                     3,
                     retryAttempt => RetryDelayProvider(retryAttempt),
@@ -150,6 +164,19 @@ namespace Dorc.Monitor.Notifications.Teams
             return Policy.WrapAsync(retryPolicy, timeoutPolicy);
         }
 
+        // Timeouts, cancellations, caller errors, 4xx Bot Connector responses (e.g. the user
+        // does not have the bot app installed) and fatal CLR exceptions are not worth retrying.
+        private static bool IsRetryable(Exception ex) =>
+            ex is not ArgumentException
+               and not TimeoutRejectedException
+               and not OperationCanceledException
+            && !IsClientError(ex)
+            && !FatalExceptions.Is(ex);
+
+        private static bool IsClientError(Exception ex) =>
+            ex is HttpOperationException { Response: not null } httpEx
+            && (int)httpEx.Response.StatusCode is >= 400 and < 500;
+
         private static HashSet<string> ParseNotifyOnStatuses(string? configuredStatuses)
         {
             var statuses = (configuredStatuses ?? string.Empty)
@@ -160,6 +187,5 @@ namespace Dorc.Monitor.Notifications.Teams
                 ? statuses
                 : DefaultNotifyOnStatuses.ToHashSet(StringComparer.OrdinalIgnoreCase);
         }
-
     }
 }
