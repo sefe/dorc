@@ -26,6 +26,11 @@ export default [
   eslintConfigPrettier,
   { rules: { '@typescript-eslint/no-explicit-any': 0 } },
   {
+    // Build/analysis scripts run under Node, not the browser.
+    files: ['tools/**/*.mjs', '*.config.js', '*.config.ts'],
+    languageOptions: { globals: globals.node },
+  },
+  {
     files: ['tests/**/*.ts'],
     rules: {
       '@typescript-eslint/no-unused-expressions': 0,

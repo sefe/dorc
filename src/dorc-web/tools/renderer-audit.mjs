@@ -199,7 +199,7 @@ function findBindings(text) {
 }
 
 /** Resolves a binding expression to the member it ultimately calls. */
-function resolveTarget(expression, members) {
+function resolveTarget(expression) {
   const plain = /^this\.(\w+)$/.exec(expression);
   if (plain) return { member: plain[1], style: 'plain-ref' };
 
@@ -239,7 +239,7 @@ for (const file of files) {
   const rel = relative(ROOT, file);
 
   for (const b of findBindings(text)) {
-    const target = resolveTarget(b.expression, members);
+    const target = resolveTarget(b.expression);
     const memberName = target.member ? followBoundField(target.member, members) : null;
     bindings.push({ file: rel, ...b, ...target, resolved: memberName });
 
