@@ -1,8 +1,8 @@
-using Dorc.ApiModel;
+﻿using Dorc.ApiModel;
 using Dorc.Core;
 using Dorc.Core.Events;
 using Dorc.Core.Interfaces;
-using Dorc.Monitor.HighAvailability;
+using Dorc.Core.HighAvailability;
 using Dorc.Monitor.RequestProcessors;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.Extensions.Logging;
@@ -24,8 +24,9 @@ namespace Dorc.Monitor
         private bool disposedValue;
         private ConcurrentDictionary<string, int> environmentRequestIdRunning = new ConcurrentDictionary<string, int>();
         private readonly ConcurrentDictionary<string, DateTime> environmentLockBackoff = new ConcurrentDictionary<string, DateTime>();
-        private static readonly TimeSpan LockBackoffDuration = TimeSpan.FromSeconds(30);
-        private const int EnvironmentLockLeaseTimeMs = 300000;
+        // Internal (not private) so the unit tests can pin the backoff window.
+        internal static readonly TimeSpan LockBackoffDuration = TimeSpan.FromSeconds(30);
+        private const int EnvironmentLockAcquireTimeoutMs = 300000;
 
         // Test hook: invoked when a fire-and-forget publish task is created.
         // Null in production (zero overhead). Tests assign a callback to collect tasks
@@ -249,16 +250,10 @@ namespace Dorc.Monitor
 
                 this.logger.LogInformation($"Going to {methodName} the requests: [{idsString}]");
 
-                if (requests.Any(r => r.IsProd))
-                {
-                    this.logger.LogError($"Cannot {methodName} the request with id '{requests.First(r => r.IsProd).Id}' because request is running on production environment");
-                    return 0;
-                }
-
                 foreach (var id in ids)
                 {
                     TerminateRequestExecution(id, requestCancellationSources);
-                };
+                }
 
                 // Uses optimistic concurrency: only updates requests still in 'fromStatus'
                 int updatedRequestCount = this.requestsPersistentSource.SwitchDeploymentRequestStatuses(
@@ -496,9 +491,11 @@ namespace Dorc.Monitor
                         if (distributedLockService.IsEnabled)
                         {
                             var lockKey = $"env:{requestGroup.Key}";
-                            // Lock lease time is longer than typical request duration to handle long deployments
-                            // The lock will auto-release if the monitor crashes
-                            envLock = await distributedLockService.TryAcquireLockAsync(lockKey, EnvironmentLockLeaseTimeMs, monitorCancellationToken);
+                            // leaseTimeMs is advisory: the Kafka partition-ownership
+                            // lock has no lease concept and ignores it (acquire wait
+                            // is capped by Kafka:Locks:AcquireWaitMs); ownership
+                            // auto-releases via group rebalance if this monitor dies
+                            envLock = await distributedLockService.TryAcquireLockAsync(lockKey, EnvironmentLockAcquireTimeoutMs, monitorCancellationToken);
 
                             if (envLock == null)
                             {
@@ -571,7 +568,7 @@ namespace Dorc.Monitor
                     {
                         this.RemoveCancellationTokenSource(requestToExecute.Request.Id, requestCancellationSources);
                         environmentRequestIdRunning.TryRemove(requestGroup.Key, out _);
-                        
+
                         // Release the distributed lock
                         if (envLock != null)
                         {
@@ -631,6 +628,30 @@ namespace Dorc.Monitor
             catch (Exception exception)
             {
                 this.logger.LogError($"Execution of the request with id '{requestToExecute.Request.Id}' has failed. Exception: {exception}");
+
+                // Without this, a failure before PendingRequestProcessor.Execute installs its own catch
+                // (e.g. DI resolution of IPendingRequestProcessor itself) leaves the row stuck in
+                // Requesting until the next monitor restart triggers CancelStaleRequests.
+                try
+                {
+                    this.requestsPersistentSource.UpdateRequestStatus(
+                        requestToExecute.Request.Id,
+                        DeploymentRequestStatus.Errored,
+                        DateTimeOffset.Now,
+                        exception.ToString());
+
+                    PublishRequestStatusChangedSafe(new DeploymentRequestEventData(requestToExecute.Request)
+                    {
+                        Status = DeploymentRequestStatus.Errored.ToString(),
+                        CompletedTime = DateTimeOffset.Now,
+                    });
+                }
+                catch (Exception statusUpdateException)
+                {
+                    this.logger.LogError(statusUpdateException,
+                        "Failed to mark request {RequestId} as Errored after execution failure",
+                        requestToExecute.Request.Id);
+                }
             }
 
             this.logger.LogDebug($"---------------end execution of request {requestToExecute.Request.Id}---------------");

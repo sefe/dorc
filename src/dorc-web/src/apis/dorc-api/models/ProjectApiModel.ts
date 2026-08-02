@@ -14,6 +14,9 @@
 import type {
     DatabaseApiModel,
 } from './';
+import type {
+    SourceControlType,
+} from './SourceControlType';
 
 /**
  * @export
@@ -56,8 +59,18 @@ export interface ProjectApiModel {
      */
     TerraformGitRepoUrl?: string | null;
     /**
+     * @type {string}
+     * @memberof ProjectApiModel
+     */
+    LeanIXUrl?: string | null;
+    /**
      * @type {DatabaseApiModel}
      * @memberof ProjectApiModel
      */
     SourceDatabase?: DatabaseApiModel;
+    /**
+     * @type {SourceControlType}
+     * @memberof ProjectApiModel
+     */
+    SourceControlType?: SourceControlType;
 }

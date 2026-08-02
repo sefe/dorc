@@ -31,4 +31,9 @@ export interface AnalyticsEnvironmentUsageApiModel {
      * @memberof AnalyticsEnvironmentUsageApiModel
      */
     Failed?: number;
+    /**
+     * @type {string}
+     * @memberof AnalyticsEnvironmentUsageApiModel
+     */
+    LastSuccessfulDeployment?: string | null;
 }

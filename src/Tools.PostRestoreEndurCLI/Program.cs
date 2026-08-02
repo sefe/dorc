@@ -1,11 +1,7 @@
 ﻿using System;
 using System.IO;
-using System.Reflection;
 using Dorc.Core;
-using Dorc.Core.Lamar;
-using Dorc.PersistentData;
-using Dorc.PersistentData.Sources.Interfaces;
-using Lamar;
+using Dorc.Core.Configuration;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
@@ -13,7 +9,6 @@ namespace Tools.PostRestoreEndurCLI
 {
     internal class Program
     {
-        private static Container _container;
         private static ILogger _logger;
 
         private static void Main(string[] args)
@@ -23,16 +18,8 @@ namespace Tools.PostRestoreEndurCLI
                 .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
                 .Build();
 
-            var registry = new ServiceRegistry();
-            registry.For<IConfiguration>().Use(configuration);
-            registry.IncludeRegistry<PersistentDataRegistry>();
-            registry.IncludeRegistry<CoreRegistry>();
-            registry.IncludeRegistry<CliRegistry>();
-
-            _container = new Container(registry);
-            _logger = _container.GetInstance<ILogger>();
-            //Console.WriteLine(container.WhatDidIScan());
-            //Console.WriteLine(container.WhatDoIHave());
+            var loggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
+            _logger = loggerFactory.CreateLogger("PostRestoreEndurCLI");
 
             var bolParamsCorrect = false;
             var bolFoldDownAppServers = false;
@@ -59,23 +46,36 @@ namespace Tools.PostRestoreEndurCLI
 
             if (bolParamsCorrect)
             {
-                var sqlPortsPersistentSource = _container.GetInstance<ISqlPortsPersistentSource>();
-                var databasePersistentSource = _container.GetInstance<IDatabasesPersistentSource>();
-                var serversPersistentSource = _container.GetInstance<IServersPersistentSource>();
-                var libRefreshEndur = new RefreshEndur(_logger, sqlPortsPersistentSource, databasePersistentSource, serversPersistentSource);
-                var envHistoryPds = _container.GetInstance<IEnvironmentHistoryPersistentSource>();
+                try
+                {
+                    var apiCaller = new ApiCaller(new DorcOAuthClientConfiguration(configuration));
+                    var libRefreshEndur = new RefreshEndur(_logger, apiCaller);
 
-                Output("Updating User tables to Dummy Values for: " + strEnvironment);
-                libRefreshEndur.UpdateUserTablesToDummyValues(strEnvironment);
+                    Output("Updating User tables to Dummy Values for: " + strEnvironment);
+                    libRefreshEndur.UpdateUserTablesToDummyValues(strEnvironment);
 
-                libRefreshEndur.UpdateAppServerDetails(strEnvironment, strSVCAccount);
-                libRefreshEndur.UpdateEndurDBVars(strEnvironment);
-                libRefreshEndur.UpdateTPMConfig(strEnvironment);
-                if (bolFoldDownAppServers || bolOnlyClearSchedules)
-                    libRefreshEndur.FoldDownRunsites(strEnvironment, bolOnlyClearSchedules);
-                envHistoryPds.UpdateHistory(strEnvironment, strBackupFile, "Self service refresh", strEmailAddress,
-                    "SelfService");
-                libRefreshEndur.UpdateEndurUsers(strEnvironment);
+                    libRefreshEndur.UpdateAppServerDetails(strEnvironment, strSVCAccount);
+                    libRefreshEndur.UpdateEndurDBVars(strEnvironment);
+                    libRefreshEndur.UpdateTPMConfig(strEnvironment);
+                    if (bolFoldDownAppServers || bolOnlyClearSchedules)
+                        libRefreshEndur.FoldDownRunsites(strEnvironment, bolOnlyClearSchedules);
+                    libRefreshEndur.UpdateEnvironmentHistory(strEnvironment, strBackupFile, "Self service refresh", strEmailAddress,
+                        "SelfService");
+                    libRefreshEndur.UpdateEndurUsers(strEnvironment);
+                }
+                catch (InvalidOperationException configEx) when (configEx.Message.Contains("not configured"))
+                {
+                    Output("Configuration Error: " + configEx.Message);
+                    Output("appsettings error");
+                }
+                catch (Exception e)
+                {
+                    Output("Error: " + e.Message);
+                    if (e.InnerException != null)
+                    {
+                        Output("Inner Error: " + e.InnerException.Message);
+                    }
+                }
             }
             else
             {

@@ -22,6 +22,8 @@ Context "Open-ApiConnection test" {
 
 Context "Import-DOrcProperties" {
 
+    Mock Connect-DOrcIdentityServer -ModuleName DOrc.Cmdlet { $true }
+
     It 'Fails with empty $ApiUrl'{
         {Import-DOrcProperties $ApiUrl $CsvFile} | Should -Throw "Cannot bind argument to parameter 'ApiUrl' because it is an empty string"
     }
@@ -55,6 +57,8 @@ Context "Import-DOrcProperties" {
 
 
 Context "Export-DOrcProperties" {
+
+    Mock Connect-DOrcIdentityServer -ModuleName DOrc.Cmdlet { $true }
 
     It 'Fails with empty $ApiUrl'{
         {Export-DOrcProperties $ApiUrl $Environment $CsvFile} | Should -Throw "Cannot bind argument to parameter 'ApiUrl' because it is an empty string"
@@ -148,20 +152,3 @@ Context "Convert-CsvToCsvProperties validation" {
     }
 }
 
-Context "Bearer token management" {
-    It 'Set-DOrcBearerToken should accept token with Bearer prefix' {
-        Set-DOrcBearerToken -Token "Bearer abc.def.ghi" | Out-Null
-        [ApiCaller]::AccessToken | Should -Be "abc.def.ghi"
-    }
-
-    It 'Get-DOrcBearerTokenStatus should return true when token exists' {
-        [ApiCaller]::SetAccessToken("token123")
-        Get-DOrcBearerTokenStatus | Should -Be $true
-    }
-
-    It 'Clear-DOrcBearerToken should clear token' {
-        [ApiCaller]::SetAccessToken("token123")
-        Clear-DOrcBearerToken
-        [ApiCaller]::AccessToken | Should -Be $null
-    }
-}

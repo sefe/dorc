@@ -1,4 +1,5 @@
 import type { Grid, GridItemModel } from '@vaadin/grid';
+import '../components/dorc-spinner';
 import {
   GridDataProviderCallback,
   GridDataProviderParams,
@@ -38,6 +39,7 @@ import { HubConnection, HubConnectionState } from '@microsoft/signalr';
 import { retrieveErrorMessage } from '../helpers/errorMessage-retriever.js';
 import type { PropertyValues } from 'lit';
 import { PageElement, PageLocation } from '../helpers/page-element';
+import { ResponsiveMixin } from '../helpers/responsive-mixin';
 
 const username = 'Username';
 const status = 'Status';
@@ -49,7 +51,7 @@ const id = 'Id';
 
 @customElement('page-monitor-requests')
 export class PageMonitorRequests
-  extends PageElement
+  extends ResponsiveMixin(PageElement)
   implements IDeploymentsEventsClient
 {
   @query('#grid') grid: Grid | undefined;
@@ -87,10 +89,16 @@ export class PageMonitorRequests
 
   static get styles() {
     return css`
-      vaadin-grid {
+      :host {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
         overflow: hidden;
-        height: calc(100vh - 56px);
         --divider-color: var(--dorc-border-color);
+      }
+      vaadin-grid {
+        flex: 1;
+        min-height: 0;
       }
 
       vaadin-text-field {
@@ -104,41 +112,23 @@ export class PageMonitorRequests
         margin: 0px;
       }
 
-      .overlay {
-        width: 100%;
-        height: 100%;
-        position: fixed;
-      }
-
-      .overlay__inner {
-        width: 100%;
-        height: 100%;
-        position: absolute;
-      }
-
-      .overlay__content {
-        left: 20%;
-        position: absolute;
-        top: 20%;
-        transform: translate(-50%, -50%);
-      }
-
-      .spinner {
-        width: 75px;
-        height: 75px;
+      .id-btn {
+        font-size: 14px;
+        font-family: monospace;
+        background-color: var(--dorc-chip-bg);
+        color: var(--dorc-chip-text);
         display: inline-block;
-        border-width: 2px;
-        border-color: var(--dorc-border-color);
-        border-top-color: var(--dorc-link-color);
-        animation: spin 1s infinite linear;
-        border-radius: 100%;
-        border-style: solid;
+        padding: 3px;
+        margin: 3px;
+        text-decoration: none;
+        border-radius: 3px;
+        border: 0;
+        cursor: pointer;
       }
 
-      @keyframes spin {
-        100% {
-          transform: rotate(360deg);
-        }
+      .id-btn:hover {
+        background-color: var(--dorc-badge-bg);
+        color: var(--dorc-badge-text);
       }
 
       .cover {
@@ -153,18 +143,7 @@ export class PageMonitorRequests
 
   render() {
     return html`
-      <div
-        id="loading"
-        class="overlay"
-        style="z-index: 2"
-        ?hidden="${!this.isLoading && !this.isSearching}"
-      >
-        <div class="overlay__inner">
-          <div class="overlay__content">
-            <span class="spinner"></span>
-          </div>
-        </div>
-      </div>
+      <dorc-spinner ?hidden="${!this.isLoading && !this.isSearching}"></dorc-spinner>
 
       <vaadin-grid
         id="grid"
@@ -297,6 +276,7 @@ export class PageMonitorRequests
           .renderer="${this.timingsRenderer}"
           header="Timings"
           auto-width
+          ?hidden="${this._narrowScreen}"
         ></vaadin-grid-column>
         <vaadin-grid-column
           header="User"
@@ -304,6 +284,7 @@ export class PageMonitorRequests
           .renderer="${this.usernameRenderer}"
           resizable
           auto-width
+          ?hidden="${this._narrowScreen}"
         >
         </vaadin-grid-column>
         <vaadin-grid-column
@@ -326,6 +307,7 @@ export class PageMonitorRequests
           .renderer="${this.componentsRenderer}"
           resizable
           auto-width
+          ?hidden="${this._narrowScreen}"
         >
         </vaadin-grid-column>
       </vaadin-grid>
@@ -683,33 +665,20 @@ export class PageMonitorRequests
     const request = model.item;
     render(
       html`
-        <vaadin-horizontal-layout style="align-items: center;" theme="spacing">
-          <span
-            style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
-          >
-            ${request.Id}
-          </span>
-          <vaadin-button
-            title="View Detailed Results"
-            theme="icon small"
-            @click="${() => {
-              const event = new CustomEvent('open-monitor-result', {
-                detail: {
-                  request,
-                  message: 'Show results for Request'
-                },
+        <button
+          type="button"
+          class="id-btn"
+          @click="${(e: Event) => {
+            e.stopPropagation();
+            this.dispatchEvent(
+              new CustomEvent('open-monitor-result', {
+                detail: { request, message: 'Show results for Request' },
                 bubbles: true,
                 composed: true
-              });
-              this.dispatchEvent(event);
-            }}"
-          >
-            <vaadin-icon
-              icon="vaadin:ellipsis-dots-h"
-              style="color: var(--dorc-link-color)"
-            ></vaadin-icon>
-          </vaadin-button>
-        </vaadin-horizontal-layout>
+              })
+            );
+          }}"
+        >${request.Id}</button>
       `,
       root
     );

@@ -10,7 +10,8 @@ import { GridItemModel } from '@vaadin/grid';
 import '../icons/iron-icons';
 import { ErrorNotification } from '../components/notifications/error-notification';
 import { PageElement } from '../helpers/page-element';
-import { 
+import { ResponsiveMixin } from '../helpers/responsive-mixin';
+import {
   RefDataComponentsApi,
   ComponentApiModel,
   RefDataProjectEnvironmentMappingsApi,
@@ -39,7 +40,7 @@ interface EnvironmentDeploymentRow {
 }
 
 @customElement('page-project-components')
-export class PageProjectComponents extends PageElement {
+export class PageProjectComponents extends ResponsiveMixin(PageElement) {
     static get styles() {
         return css`
       :host {
@@ -151,6 +152,21 @@ export class PageProjectComponents extends PageElement {
         color: var(--lumo-secondary-text-color);
         font-size: var(--lumo-font-size-l);
       }
+
+      @media (max-width: 768px) {
+        vaadin-grid-cell-content {
+          white-space: normal;
+          word-wrap: break-word;
+          overflow-wrap: break-word;
+        }
+        .header {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+        .title {
+          font-size: 18px;
+        }
+      }
     `;
     }
 
@@ -234,6 +250,7 @@ export class PageProjectComponents extends PageElement {
                   path="status"
                   resizable
                   auto-width
+                  ?hidden="${this._narrowScreen}"
                   .renderer="${this.boundStatusRenderer}"
                 >
                 </vaadin-grid-sort-column>
@@ -242,6 +259,7 @@ export class PageProjectComponents extends PageElement {
                   path="updateDate"
                   resizable
                   auto-width
+                  ?hidden="${this._narrowScreen}"
                   .renderer="${this.boundDateRenderer}"
                 >
                 </vaadin-grid-sort-column>

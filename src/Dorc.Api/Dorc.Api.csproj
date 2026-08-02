@@ -38,6 +38,9 @@
   <ItemGroup>
     <ProjectReference Include="..\Dorc.Core\Dorc.Core.csproj" />
     <ProjectReference Include="..\Dorc.OpenSearchData\Dorc.OpenSearchData.csproj" />
+    <ProjectReference Include="..\Dorc.Kafka.Client\Dorc.Kafka.Client.csproj" />
+    <ProjectReference Include="..\Dorc.Kafka.Events\Dorc.Kafka.Events.csproj" />
+    <ProjectReference Include="..\Dorc.Kafka.ErrorLog\Dorc.Kafka.ErrorLog.csproj" />
   </ItemGroup>
 
   <ItemGroup>

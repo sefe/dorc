@@ -83,12 +83,12 @@ export class AddSqlPort extends LitElement {
             .renderer="${this._databasesRenderer}"
             placeholder="Select Database"
             label="Database"
-            style="width: 600px; display: flex; padding-left: 10px"
+            style="width: 100%; max-width: 600px; display: flex; padding-left: var(--lumo-space-s)"
             clear-button-visible
           ></vaadin-combo-box>
           <vaadin-number-field
             class="block"
-            style="width: 600px; display: flex; padding-left: 10px"
+            style="width: 100%; max-width: 600px; display: flex; padding-left: var(--lumo-space-s)"
             id="port-number"
             label="Port Number"
             max="${this.maxPortValue}"

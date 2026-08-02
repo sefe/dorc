@@ -1,4 +1,5 @@
 import { css, PropertyValues, render } from 'lit';
+import '../components/dorc-spinner';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/combo-box';
@@ -8,6 +9,7 @@ import '@vaadin/icons';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { PageElement } from '../helpers/page-element';
+import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import '@vaadin/details';
 import '@vaadin/horizontal-layout';
 import {
@@ -27,7 +29,7 @@ import { Router } from '@vaadin/router';
 import { ComboBox } from '@vaadin/combo-box';
 
 @customElement('page-project-bundles')
-export class PageProjectBundles extends PageElement {
+export class PageProjectBundles extends ResponsiveMixin(PageElement) {
   @property({ type: String })
   project: string | undefined;
 
@@ -50,8 +52,9 @@ export class PageProjectBundles extends PageElement {
         display: flex;
         align-items: center;
         gap: 10px;
-        margin-bottom: 20px;
-        padding: 20px 20px 0 20px;
+        margin-bottom: var(--lumo-space-m);
+        padding: var(--lumo-space-m) var(--lumo-space-m) 0 var(--lumo-space-m);
+        flex-wrap: wrap;
       }
 
 
@@ -65,40 +68,11 @@ export class PageProjectBundles extends PageElement {
         height: 100%;
       }
 
-      .overlay {
-        width: 100%;
-        height: 100%;
-        position: fixed;
-        top: 0;
-        left: 0;
-        background: rgba(255, 255, 255, 0.8);
-        z-index: 1000;
-      }
-
-      .overlay__inner {
-        width: 100%;
-        height: 100%;
-        position: absolute;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
-
-      .spinner {
-        width: 75px;
-        height: 75px;
-        display: inline-block;
-        border-width: 2px;
-        border-color: var(--dorc-border-color);
-        border-top-color: var(--dorc-link-color);
-        animation: spin 1s infinite linear;
-        border-radius: 100%;
-        border-style: solid;
-      }
-
-      @keyframes spin {
-        100% {
-          transform: rotate(360deg);
+      @media (max-width: 768px) {
+        vaadin-grid-cell-content {
+          white-space: normal;
+          word-wrap: break-word;
+          overflow-wrap: break-word;
         }
       }
     `;
@@ -171,11 +145,10 @@ export class PageProjectBundles extends PageElement {
 
   render() {
     return html`
-      <div class="overlay" ?hidden="${!this.loading}">
-        <div class="overlay__inner">
-          <span class="spinner"></span>
-        </div>
-      </div>
+      <dorc-spinner
+        style="--dorc-spinner-z-index: 1000"
+        ?hidden="${!this.loading}"
+      ></dorc-spinner>
 
       <div class="header">
         <h2>${this.project} Bundles</h2>
@@ -216,6 +189,7 @@ export class PageProjectBundles extends PageElement {
           auto-width
           flex-grow="0"
           resizable
+          ?hidden="${this._narrowScreen}"
         ></vaadin-grid-column>
         <vaadin-grid-column
           path="RequestName"
@@ -231,6 +205,7 @@ export class PageProjectBundles extends PageElement {
           flex-grow="0"
           resizable
           direction="asc"
+          ?hidden="${this._narrowScreen}"
         ></vaadin-grid-sort-column>
         <vaadin-grid-column
           .renderer="${this.bundleControlsRenderer}"
@@ -242,6 +217,7 @@ export class PageProjectBundles extends PageElement {
           header="Request"
           resizable
           .renderer="${this._jsonRenderer}"
+          ?hidden="${this._narrowScreen}"
         ></vaadin-grid-column>
       </vaadin-grid>
 

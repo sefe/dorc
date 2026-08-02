@@ -1,4 +1,5 @@
 import '@polymer/paper-dialog';
+import '../components/dorc-spinner';
 import { PaperDialogElement } from '@polymer/paper-dialog';
 import { GridItemModel } from '@vaadin/grid';
 import '@vaadin/icons/vaadin-icons';
@@ -47,42 +48,16 @@ export class PageUsersList extends PageElement {
 
   static get styles() {
     return css`
-      vaadin-grid#grid {
+      :host {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
         overflow: hidden;
-        height: calc(100vh - 110px);
         --divider-color: var(--dorc-border-color);
       }
-      .overlay {
-        width: 100%;
-        height: 100%;
-        position: fixed;
-      }
-      .overlay__inner {
-        width: 100%;
-        height: 100%;
-        position: absolute;
-      }
-      .overlay__content {
-        left: 20%;
-        position: absolute;
-        top: 20%;
-        transform: translate(-50%, -50%);
-      }
-      .spinner {
-        width: 75px;
-        height: 75px;
-        display: inline-block;
-        border-width: 2px;
-        border-color: var(--dorc-border-color);
-        border-top-color: var(--dorc-link-color);
-        animation: spin 1s infinite linear;
-        border-radius: 100%;
-        border-style: solid;
-      }
-      @keyframes spin {
-        100% {
-          transform: rotate(360deg);
-        }
+      vaadin-grid#grid {
+        flex: 1;
+        min-height: 0;
       }
       paper-dialog.size-position {
         top: 16px;
@@ -134,13 +109,7 @@ export class PageUsersList extends PageElement {
       </paper-dialog>
       ${this.loading
         ? html`
-            <div class="overlay" style="z-index: 2">
-              <div class="overlay__inner">
-                <div class="overlay__content">
-                  <span class="spinner"></span>
-                </div>
-              </div>
-            </div>
+            <dorc-spinner></dorc-spinner>
           `
         : html`
             <vaadin-grid

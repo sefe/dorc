@@ -60,6 +60,7 @@ export class BundleEditorDialog extends LitElement {
     return html`
       <vaadin-dialog
         ?opened=${this.open}
+        theme="wide"
         header-title="${this.isEdit
           ? 'Edit Bundle Request'
           : 'Create Bundle Request'}"

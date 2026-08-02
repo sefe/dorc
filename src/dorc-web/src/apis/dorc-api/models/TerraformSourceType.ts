@@ -18,5 +18,6 @@
 export enum TerraformSourceType {
     SharedFolder = 0,
     Git = 1,
-    AzureArtifact = 2
+    AzureArtifact = 2,
+    GitHubArtifact = 3
 }

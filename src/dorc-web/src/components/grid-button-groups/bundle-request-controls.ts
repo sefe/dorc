@@ -9,6 +9,12 @@ import { BundledRequestsApiModel } from '../../apis/dorc-api';
 @customElement('bundle-request-controls')
 export class BundleRequestControls extends LitElement {
   static styles = css`
+    :host {
+      display: inline-flex;
+      align-items: center;
+      flex-wrap: nowrap;
+      gap: var(--lumo-space-xs);
+    }
     vaadin-button {
       padding: 0px;
       margin: 0px;

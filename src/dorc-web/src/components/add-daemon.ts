@@ -43,7 +43,8 @@ export class AddDaemon extends LitElement {
         display: flex;
         align-items: center;
         justify-content: center;
-        width: 500px;
+        width: 100%;
+        max-width: 500px;
       }
       .small-loader {
         border: 2px solid #f3f3f3; /* Light grey */
@@ -66,7 +67,7 @@ export class AddDaemon extends LitElement {
 
   render() {
     return html`
-      <div style="width:50%;">
+      <div style="padding: var(--lumo-space-s); width: min(500px, calc(100vw - 64px)); box-sizing: border-box;">
         <vaadin-vertical-layout>
           <vaadin-text-field
             class="block"

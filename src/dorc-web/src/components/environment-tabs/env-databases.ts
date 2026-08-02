@@ -28,7 +28,10 @@ export class EnvDatabases extends PageEnvBase {
   static get styles() {
     return css`
       :host {
+        display: flex;
+        flex-direction: column;
         width: 100%;
+        height: 100%;
       }
       .span {
         font-family: var(--lumo-font-family);
@@ -43,14 +46,15 @@ export class EnvDatabases extends PageEnvBase {
         vertical-align: middle;
       }
       .buttons {
-        font-size: 10px;
+        font-size: var(--lumo-font-size-s);
         color: var(--dorc-link-color);
-        padding: 2px;
+        padding: var(--lumo-space-xs);
       }
       vaadin-details {
         overflow: auto;
         width: calc(100% - 4px);
-        height: calc(100vh - 180px);
+        flex: 1;
+        min-height: 0;
         --divider-color: var(--dorc-border-color);
       }
     `;

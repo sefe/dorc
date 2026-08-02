@@ -215,7 +215,7 @@
     <None Include="Tools\HeatTransform.xslt" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="WixJsonFileExtension" Version="6.0.0.47" />
+    <PackageReference Include="WixJsonFileExtension" Version="6.3.2" />
     <PackageReference Include="WixToolset.Heat" Version="6.0.2" />
     <PackageReference Include="WixToolset.Util.wixext" Version="6.0.2" />
     <PackageReference Include="WixToolset.Iis.wixext" Version="6.0.2" />

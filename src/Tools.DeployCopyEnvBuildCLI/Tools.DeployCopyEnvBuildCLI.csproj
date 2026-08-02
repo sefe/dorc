@@ -26,6 +26,11 @@
     </Content>
   </ItemGroup>
   <ItemGroup>
+  <None Include="loggerSettings.json">
+    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+  </None>
+  </ItemGroup>
+  <ItemGroup>
     <WCFMetadata Include="Service References\" />
   </ItemGroup>
   <ItemGroup>

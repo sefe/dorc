@@ -28,6 +28,7 @@ namespace Dorc.Monitor.RequestProcessors
         private readonly IPropertyEvaluator _propertyEvaluator;
         private readonly ILoggerFactory _loggerFactory;
         private readonly IDeploymentNotificationSink _notificationSink;
+        private readonly IGitHubArtifactDownloader _gitHubArtifactDownloader;
 
         public PendingRequestProcessor(
             ILoggerFactory loggerFactory,
@@ -40,11 +41,13 @@ namespace Dorc.Monitor.RequestProcessors
             IConfigValuesPersistentSource configValuesPersistentSource,
             IPropertyEvaluator propertyEvaluator,
             IDeploymentEventsPublisher eventPublisher,
-            IDeploymentNotificationSink notificationSink)
+            IDeploymentNotificationSink notificationSink,
+            IGitHubArtifactDownloader gitHubArtifactDownloader)
         {
             _loggerFactory = loggerFactory;
             _propertyEvaluator = propertyEvaluator;
             _configValuesPersistentSource = configValuesPersistentSource;
+            _gitHubArtifactDownloader = gitHubArtifactDownloader;
             this.logger = _loggerFactory.CreateLogger<PendingRequestProcessor>();
 
             this.componentProcessor = componentProcessor;
@@ -66,6 +69,7 @@ namespace Dorc.Monitor.RequestProcessors
 
                 _variableResolver = new VariableResolver(propertyValuesPersistentSource, _loggerFactory, _propertyEvaluator);
 
+                string? resolvedDropFolder = null;
                 try
                 {
                     var scriptRoot = _configValuesPersistentSource.GetConfigValue("ScriptRoot");
@@ -93,7 +97,7 @@ namespace Dorc.Monitor.RequestProcessors
                             logger.LogInformation($"Environment '{environmentName}' is secure; not using default property values.");
                         }
 
-                        SetUpDropFolderAsProperty(requestDetail.BuildDetail.DropLocation);
+                        resolvedDropFolder = SetUpDropFolderAsProperty(requestDetail.BuildDetail.DropLocation);
 
                         SetUpDeploymentLogDirAsProperty();
 
@@ -134,7 +138,9 @@ namespace Dorc.Monitor.RequestProcessors
                             {
                                 Status = deploymentRequestStatus.ToString(),
                                 CompletedTime = completedTime,
-                            });
+                            }).ContinueWith(t => logger.LogWarning(t.Exception!.InnerException,
+                                "fire-and-forget publish failed for requestId={RequestId}", requestToExecute.Request.Id),
+                                TaskContinuationOptions.OnlyOnFaulted);
 
                             FireNotification(requestToExecute.Request, deploymentRequestStatus.ToString(), deploymentStartedTime, completedTime);
 
@@ -186,7 +192,9 @@ namespace Dorc.Monitor.RequestProcessors
                             {
                                 Status = deploymentRequestStatus.ToString(),
                                 CompletedTime = completedTime,
-                            });
+                            }).ContinueWith(t => logger.LogWarning(t.Exception!.InnerException,
+                                "fire-and-forget publish failed for requestId={RequestId}", requestToExecute.Request.Id),
+                                TaskContinuationOptions.OnlyOnFaulted);
 
                             FireNotification(requestToExecute.Request, deploymentRequestStatus.ToString(), deploymentStartedTime, completedTime);
 
@@ -282,7 +290,9 @@ namespace Dorc.Monitor.RequestProcessors
                         {
                             Status = deploymentRequestStatus.ToString(),
                             CompletedTime = finalCompletedTime,
-                        });
+                        }).ContinueWith(t => logger.LogWarning(t.Exception!.InnerException,
+                            "fire-and-forget publish failed for requestId={RequestId}", requestToExecute.Request.Id),
+                            TaskContinuationOptions.OnlyOnFaulted);
 
                         FireNotification(requestToExecute.Request, deploymentRequestStatus.ToString(), deploymentStartedTime, finalCompletedTime);
                     }
@@ -318,7 +328,9 @@ namespace Dorc.Monitor.RequestProcessors
                         {
                             Status = DeploymentRequestStatus.Errored.ToString(),
                             CompletedTime = erroredTime,
-                        });
+                        }).ContinueWith(t => logger.LogWarning(t.Exception!.InnerException,
+                            "fire-and-forget publish failed for requestId={RequestId}", requestToExecute.Request.Id),
+                            TaskContinuationOptions.OnlyOnFaulted);
 
                         FireNotification(requestToExecute.Request, DeploymentRequestStatus.Errored.ToString(), requestToExecute.Request.StartedTime ?? erroredTime, erroredTime);
                     }
@@ -344,11 +356,22 @@ namespace Dorc.Monitor.RequestProcessors
                     {
                         Status = DeploymentRequestStatus.Errored.ToString(),
                         CompletedTime = erroredTime,
-                    });
+                    }).ContinueWith(t => logger.LogWarning(t.Exception!.InnerException,
+                        "fire-and-forget publish failed for requestId={RequestId}", requestToExecute.Request.Id),
+                        TaskContinuationOptions.OnlyOnFaulted);
 
                     FireNotification(requestToExecute.Request, DeploymentRequestStatus.Errored.ToString(), requestToExecute.Request.RequestedTime ?? erroredTime, erroredTime);
 
                     return;
+                }
+                finally
+                {
+                    // Clean up downloaded GitHub artifacts after deployment completes
+                    if (resolvedDropFolder != null &&
+                        _gitHubArtifactDownloader.IsGitHubArtifactUrl(requestToExecute.Details.BuildDetail.DropLocation))
+                    {
+                        _gitHubArtifactDownloader.Cleanup(resolvedDropFolder);
+                    }
                 }
             }
         }
@@ -395,7 +418,8 @@ namespace Dorc.Monitor.RequestProcessors
                     eventsPublisher.PublishResultStatusChangedAsync(new DeploymentResultEventData(pendingResult)
                     {
                         Status = DeploymentResultStatus.Cancelled.ToString()
-                    });
+                    }).ContinueWith(t => logger.LogWarning(t.Exception!.InnerException,
+                        "fire-and-forget publish failed for result"), TaskContinuationOptions.OnlyOnFaulted);
                 }
 
                 logger.LogInformation(
@@ -422,7 +446,9 @@ namespace Dorc.Monitor.RequestProcessors
             {
                 Status = DeploymentRequestStatus.Running.ToString(),
                 StartedTime = DateTimeOffset.Now,
-            });
+            }).ContinueWith(t => logger.LogWarning(t.Exception!.InnerException,
+                "fire-and-forget publish failed for requestId={RequestId}", request.Id),
+                TaskContinuationOptions.OnlyOnFaulted);
         }
 
         private IList<ComponentApiModel> GetOrderedNonSkippedComponents(
@@ -536,13 +562,23 @@ namespace Dorc.Monitor.RequestProcessors
             _variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.ScriptRoot, scriptRoot);
         }
 
-        private void SetUpDropFolderAsProperty(string dropFolder)
+        private string SetUpDropFolderAsProperty(string dropFolder)
         {
             if (dropFolder.StartsWith("file"))
             {
                 dropFolder = new Uri(dropFolder).LocalPath;
             }
+            else if (_gitHubArtifactDownloader.IsGitHubArtifactUrl(dropFolder))
+            {
+                // GitHub Actions artifact URLs are HTTPS endpoints that must be
+                // downloaded and extracted to a local path before PowerShell scripts
+                // can use Join-Path on them.
+                var localPath = _gitHubArtifactDownloader.DownloadAndExtract(dropFolder);
+                logger.LogInformation("Resolved GitHub artifact to local path: {Path}", localPath);
+                dropFolder = localPath;
+            }
             _variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.DropFolder, dropFolder);
+            return dropFolder;
         }
 
         private void SetUpEnvironmentNameAsProperty(string environmentName)

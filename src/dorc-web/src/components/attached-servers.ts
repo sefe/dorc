@@ -7,6 +7,7 @@ import '@vaadin/grid/vaadin-grid-column';
 import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import { css, LitElement, render } from 'lit';
+import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import { customElement, property, query } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import './grid-button-groups/database-env-controls.ts';
@@ -25,7 +26,7 @@ import type { EnvironmentContentApiModel } from '../apis/dorc-api';
 import { splitTags } from '../helpers/tag-parser';
 
 @customElement('attached-servers')
-export class AttachedServers extends LitElement {
+export class AttachedServers extends ResponsiveMixin(LitElement) {
   @property({ type: Object })
   envContent!: EnvironmentContentApiModel;
 
@@ -62,8 +63,16 @@ export class AttachedServers extends LitElement {
         overflow: auto;
         padding: 10px;
       }
+      :host {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        min-height: 0;
+        height: 100%;
+      }
       vaadin-grid#grid {
-        overflow: auto;
+        flex: 1;
+        min-height: 0;
         width: calc(100% - 4px);
         --divider-color: var(--dorc-border-color);
       }
@@ -72,7 +81,7 @@ export class AttachedServers extends LitElement {
         margin: 0px;
       }
       .tag {
-        font-size: 14px;
+        font-size: var(--lumo-font-size-s);
         font-family: monospace;
         background-color: var(--dorc-chip-bg);
         color: var(--dorc-chip-text);
@@ -82,15 +91,15 @@ export class AttachedServers extends LitElement {
         text-decoration: none;
         border-radius: 3px;
       }
-      vaadin-grid-cell-content {
-      white-space: normal;
-      word-wrap: break-word;
-      overflow-wrap: break-word;
-    }
     .column-content {
       display: block;
       width: 100%;
     }
+      vaadin-grid-cell-content {
+        white-space: normal;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+      }
     `;
   }
 
@@ -130,7 +139,6 @@ export class AttachedServers extends LitElement {
         .items=${this.servers}
         theme="compact row-stripes no-row-borders no-border"
         multi-sort
-        all-rows-visible
       >
         <vaadin-grid-column
           path="Name"
@@ -145,11 +153,13 @@ export class AttachedServers extends LitElement {
           resizable
           auto-width
           flex-grow="0"
+          ?hidden="${this._narrowScreen}"
         ></vaadin-grid-column>
         <vaadin-grid-column
           .renderer="${this.applicationTagsRenderer}"
           header="Application Tags"
           resizable
+          ?hidden="${this._narrowScreen}"
         ></vaadin-grid-column>
         <vaadin-grid-column
           width="200px"

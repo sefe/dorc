@@ -10,6 +10,7 @@
   <ItemGroup>
     <PackageReference Include="CommandLineParser" Version="2.9.1" />
     <PackageReference Include="LibGit2Sharp" Version="0.31.0" />
+    <PackageReference Include="Microsoft.Extensions.Http" Version="9.0.10" />
     <PackageReference Include="System.Management" Version="8.0.0" />
     <PackageReference Include="System.Text.Encoding" Version="4.3.0" />
     <PackageReference Include="System.Text.Encoding.CodePages" Version="8.0.0" />
@@ -20,6 +21,10 @@
     <ProjectReference Include="..\Dorc.ApiModel\Dorc.ApiModel.csproj" />
     <ProjectReference Include="..\Dorc.Runner.Logger\Dorc.Runner.Logger.csproj" />
     <ProjectReference Include="..\Dorc.AzureDevOps\src\Org.OpenAPITools\Org.OpenAPITools.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Dorc.Core.Tests" />
   </ItemGroup>
 
   <ItemGroup>

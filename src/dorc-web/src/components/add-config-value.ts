@@ -39,7 +39,8 @@ export class AddConfigValue extends LitElement {
         display: flex;
         align-items: center;
         justify-content: center;
-        width: 500px;
+        width: 100%;
+        max-width: 500px;
       }
 
       .small-loader {
@@ -64,7 +65,7 @@ export class AddConfigValue extends LitElement {
 
   render() {
     return html`
-      <div style="width:50%;">
+      <div style="padding: var(--lumo-space-s); width: min(500px, calc(100vw - 64px)); box-sizing: border-box;">
         <vaadin-vertical-layout>
           <vaadin-text-field
             class="block"

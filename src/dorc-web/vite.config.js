@@ -88,8 +88,32 @@ function copyDirRecursive(src, dest) {
   }
 }
 
+// Vaadin 25's style-props.js and theme-detector.js call CSS.registerProperty()
+// at module load time without guarding against duplicate registration, which
+// throws an uncaught DOMException and can block page rendering. This plugin
+// wraps those calls in try-catch so duplicates are silently ignored.
+function vaadinCssRegisterPropertyPatch() {
+  return {
+    name: 'vaadin-css-register-property-patch',
+    enforce: 'pre',
+    transform(code, id) {
+      if (!id.includes('@vaadin')) return null;
+      if (!code.includes('CSS.registerProperty')) return null;
+
+      const patched = code.replace(
+        /CSS\.registerProperty\(\{([^}]*)\}\)/g,
+        'try { CSS.registerProperty({$1}) } catch(_e) {}'
+      );
+
+      if (patched === code) return null;
+      return { code: patched, map: null };
+    }
+  };
+}
+
 export default defineConfig({
   plugins: [
+    vaadinCssRegisterPropertyPatch(),
     vaadinLumoPlugin()
   ],
   build: {

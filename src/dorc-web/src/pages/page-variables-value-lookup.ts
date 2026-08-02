@@ -1,4 +1,5 @@
 import '@polymer/paper-dialog';
+import '../components/dorc-spinner';
 import '@vaadin/button';
 import {
   GridDataProviderCallback,
@@ -26,11 +27,12 @@ import {
 } from '../apis/dorc-api';
 import { PagedDataFilter, PropertyValueAuditApiModel } from '../apis/dorc-api';
 import { PageElement } from '../helpers/page-element';
+import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import '../components/grid-button-groups/variable-value-controls';
 import { PropertyValueDto } from '../apis/dorc-api';
 
 @customElement('page-variables-value-lookup')
-export class PageVariablesValueLookup extends PageElement {
+export class PageVariablesValueLookup extends ResponsiveMixin(PageElement) {
   @property({ type: Array })
   variableValues: Array<FlatPropertyValueApiModel> = [];
 
@@ -50,42 +52,16 @@ export class PageVariablesValueLookup extends PageElement {
 
   static get styles() {
     return css`
-      vaadin-grid#grid {
+      :host {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
         overflow: hidden;
-        height: calc(100vh - 56px);
         --divider-color: var(--dorc-border-color);
       }
-      .overlay {
-        width: 100%;
-        height: 100%;
-        position: fixed;
-      }
-      .overlay__inner {
-        width: 100%;
-        height: 100%;
-        position: absolute;
-      }
-      .overlay__content {
-        left: 20%;
-        position: absolute;
-        top: 20%;
-        transform: translate(-50%, -50%);
-      }
-      .spinner {
-        width: 75px;
-        height: 75px;
-        display: inline-block;
-        border-width: 2px;
-        border-color: var(--dorc-border-color);
-        border-top-color: var(--dorc-link-color);
-        animation: spin 1s infinite linear;
-        border-radius: 100%;
-        border-style: solid;
-      }
-      @keyframes spin {
-        100% {
-          transform: rotate(360deg);
-        }
+      vaadin-grid#grid {
+        flex: 1;
+        min-height: 0;
       }
       paper-dialog.size-position {
         top: 16px;
@@ -107,22 +83,19 @@ export class PageVariablesValueLookup extends PageElement {
         padding-bottom: 0px;
         margin: 0px;
       }
+      @media (max-width: 768px) {
+        vaadin-grid-cell-content {
+          white-space: normal;
+          word-wrap: break-word;
+          overflow-wrap: break-word;
+        }
+      }
     `;
   }
 
   render() {
     return html`
-      <div
-        class="overlay"
-        style="z-index: 1000"
-        ?hidden="${!(this.loading || this.searching)}"
-      >
-        <div class="overlay__inner">
-          <div class="overlay__content">
-            <span class="spinner"></span>
-          </div>
-        </div>
-      </div>
+      <dorc-spinner style="--dorc-spinner-z-index: 1000" ?hidden="${!(this.loading || this.searching)}"></dorc-spinner>
       <vaadin-grid
         id="grid"
         column-reordering-allowed
@@ -143,6 +116,7 @@ export class PageVariablesValueLookup extends PageElement {
           .headerRenderer="${this.scopeHeaderRenderer}"
           resizable
           auto-width
+          ?hidden="${this._narrowScreen}"
         ></vaadin-grid-column>
         <vaadin-grid-column
           header="Value"
