@@ -11,14 +11,18 @@ The workflow runs on:
   - `main`
   - `develop`
   - `release/**`
-  - `feature/**`
-  - `fix/**`
-  - `hotfix/**`
-  - `migration/**`
-  - `copilot/**`
 - **Pull Requests** to:
   - `main`
   - `develop`
+
+Topic branches (`feature/**`, `fix/**`, `hotfix/**`, `migration/**`, `copilot/**`,
+`claude/**`) are covered by the pull request trigger — open a PR to get a build.
+They are deliberately not listed under **Push**: while they were, a push to a
+branch with an open PR started two full builds of the same commit.
+
+Runs are grouped per PR (or per branch for direct pushes) and an in-flight run is
+cancelled when a newer commit arrives. Runs on `main` and `release/**` are exempt
+from cancellation because they publish the artifacts consumed downstream.
 
 ### Build Environment
 
@@ -123,11 +127,10 @@ npm run build
 cd ../..
 
 # Restore packages
-nuget restore src/Dorc.sln -ConfigFile pipelines/NuGet.config
 dotnet restore src/Dorc.sln --configfile pipelines/NuGet.config
 
-# Build solution
-msbuild src/Dorc.sln /p:Configuration=Release /p:Platform="Any CPU" /p:RunWixToolsOutOfProc=true /p:Version=24.10.08.1
+# Build solution (/m builds independent projects in parallel)
+msbuild src/Dorc.sln /p:Configuration=Release /p:Platform="Any CPU" /p:RunWixToolsOutOfProc=true /p:Version=24.10.08.1 /m
 ```
 
 ### Troubleshooting

@@ -1,21 +1,27 @@
 name: DOrc Build
 
 on:
+  # Topic branches (feature/**, fix/**, copilot/**, claude/** …) are covered by
+  # the pull_request trigger below. Listing them here as well fired the entire
+  # pipeline twice for every push to a branch with an open PR — two ~12 minute
+  # Windows runs for a single change. Long-lived branches keep a push trigger
+  # because their runs publish the artifacts consumed downstream.
   push:
     branches:
       - main
       - develop
       - 'release/**'
-      - 'feature/**'
-      - 'fix/**'
-      - 'hotfix/**'
-      - 'migration/**'
-      - 'copilot/**'
-      - 'claude/**'
   pull_request:
     branches:
       - main
       - develop
+
+# Supersede in-flight runs for the same PR or branch — only the newest commit
+# needs a green build. main and release/** are exempt from cancellation so a
+# run that publishes artifacts is never killed part-way through.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' && !startsWith(github.ref, 'refs/heads/release/') }}
 
 env:
   BUILD_PLATFORM: 'Any CPU'
@@ -170,13 +176,23 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-nuget-
       
+    # Every project in the solution is SDK-style (csproj / wixproj / sqlproj)
+    # and there is no packages.config anywhere in the tree, so the `nuget
+    # restore` pass that used to run first was pure duplication of the work
+    # `dotnet restore` does on the same solution.
     - name: Restore packages
-      run: |
-        nuget restore ${{ env.SOLUTION_PATH }} -ConfigFile pipelines/NuGet.config
-        dotnet restore ${{ env.SOLUTION_PATH }} --configfile pipelines/NuGet.config
-      
+      run: dotnet restore ${{ env.SOLUTION_PATH }} --configfile pipelines/NuGet.config
+
+    # /m builds independent projects across every core on the runner and keeps
+    # the Roslyn compiler server alive between them. The previous
+    # `/m:1 /p:BuildInParallel=false /p:UseSharedCompilation=false` combination
+    # pushed all 37 projects through a single node with a cold csc.exe start
+    # each time, and accounted for over half the pipeline's wall-clock.
+    # Setup.Dorc and Setup.Acceptance declare their ProjectReferences
+    # explicitly, so the dependency graph still orders the MSI harvest after
+    # the projects it packages.
     - name: Build solution
-      run: msbuild ${{ env.SOLUTION_PATH }} /p:Configuration=${{ env.BUILD_CONFIGURATION }} /p:Platform="${{ env.BUILD_PLATFORM }}" /p:RunWixToolsOutOfProc=true /p:Version=${{ steps.version.outputs.VERSION }} /p:UseSharedCompilation=false /p:BuildInParallel=false /m:1 /clp:ErrorsOnly /nologo
+      run: msbuild ${{ env.SOLUTION_PATH }} /p:Configuration=${{ env.BUILD_CONFIGURATION }} /p:Platform="${{ env.BUILD_PLATFORM }}" /p:RunWixToolsOutOfProc=true /p:Version=${{ steps.version.outputs.VERSION }} /m /clp:ErrorsOnly /nologo
       
     - name: Run tests
       shell: pwsh
