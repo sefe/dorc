@@ -4,7 +4,6 @@ import '@vaadin/grid/vaadin-grid';
 import '@vaadin/combo-box';
 import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
 import { GridItemModel } from '@vaadin/grid';
-import '@polymer/paper-dialog';
 import { ComboBox } from '@vaadin/combo-box';
 import '@vaadin/text-field';
 import { customElement, property } from 'lit/decorators.js';

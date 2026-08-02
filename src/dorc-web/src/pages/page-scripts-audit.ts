@@ -1,4 +1,3 @@
-import '@polymer/paper-dialog';
 import '../components/dorc-spinner';
 import '@vaadin/button';
 import {

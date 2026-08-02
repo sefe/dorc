@@ -65,8 +65,9 @@ export class LogDialog extends LitElement {
     return html`
       <vaadin-dialog
         theme="log-viewer"
+        header-title="Deployment Log"
         .opened="${this.isOpened}"
-        draggable="true"
+        draggable
         @opened-changed="${(event: DialogOpenedChangedEvent) => {
           this.isOpened = event.detail.value;
           if (!this.isOpened) {

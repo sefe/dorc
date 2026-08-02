@@ -3,7 +3,6 @@ import '@vaadin/combo-box';
 import '@vaadin/confirm-dialog';
 import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
 import { GridItemModel } from '@vaadin/grid';
-import '@polymer/paper-dialog';
 import { ComboBox } from '@vaadin/combo-box';
 import '@vaadin/button';
 import { customElement, property } from 'lit/decorators.js';

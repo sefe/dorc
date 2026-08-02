@@ -1,4 +1,3 @@
-import '@polymer/paper-dialog';
 import '../components/dorc-spinner';
 import '@vaadin/button';
 import {
@@ -81,11 +80,6 @@ export class PageVariablesAudit extends ResponsiveMixin(PageElement) {
       }
       vaadin-grid#grid::part(delete-type) {
         background-color: var(--audit-row-remove-bg);
-      }
-      paper-dialog.size-position {
-        top: 16px;
-        overflow: auto;
-        padding: 10px;
       }
 
       .highlight {

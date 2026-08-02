@@ -1,4 +1,3 @@
-import '@polymer/paper-dialog';
 import '@vaadin/button';
 import '@vaadin/grid';
 import { GridItemModel } from '@vaadin/grid';

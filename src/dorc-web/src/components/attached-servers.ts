@@ -58,11 +58,6 @@ export class AttachedServers extends ResponsiveMixin(LitElement) {
         display: inline-block;
         vertical-align: middle;
       }
-      paper-dialog.size-position {
-        top: 16px;
-        overflow: auto;
-        padding: 10px;
-      }
       :host {
         display: flex;
         flex-direction: column;

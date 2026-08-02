@@ -7,7 +7,6 @@ import '@vaadin/checkbox';
 import '@vaadin/button';
 import '@vaadin/icons/vaadin-icons';
 import '../components/add-daemon';
-import '@polymer/paper-dialog';
 import '@vaadin/text-field';
 import {
   Grid,
@@ -110,11 +109,6 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
         text-decoration: none;
       }
 
-      paper-dialog.size-position {
-        top: 16px;
-        overflow: auto;
-        padding: 10px;
-      }
       @media (max-width: 768px) {
         vaadin-grid-cell-content {
           white-space: normal;

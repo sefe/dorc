@@ -2,7 +2,6 @@ import { css, LitElement } from 'lit';
 import { ComboBoxItemModel } from '@vaadin/combo-box';
 import '@vaadin/button';
 import '@vaadin/combo-box';
-import '@polymer/paper-dialog';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import {

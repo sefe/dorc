@@ -1,4 +1,3 @@
-import '@polymer/paper-dialog';
 import '../components/dorc-spinner';
 import '@vaadin/button';
 import {
@@ -62,11 +61,6 @@ export class PageVariablesValueLookup extends ResponsiveMixin(PageElement) {
       vaadin-grid#grid {
         flex: 1;
         min-height: 0;
-      }
-      paper-dialog.size-position {
-        top: 16px;
-        overflow: auto;
-        padding: 10px;
       }
       .highlight {
         background-color: var(--dorc-chip-bg);

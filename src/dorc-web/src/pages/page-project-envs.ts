@@ -259,6 +259,7 @@ export class PageProjectEnvs extends PageElement {
       </div>
       <vaadin-dialog
         header-title="Map Environment to Project"
+        draggable
         .opened="${this.mapEnvDialogOpened}"
         @opened-changed="${(event: DialogOpenedChangedEvent) => {
           this.mapEnvDialogOpened = event.detail.value;

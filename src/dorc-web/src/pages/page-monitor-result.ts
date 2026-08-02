@@ -95,11 +95,6 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
         }
       }
 
-      paper-dialog.size-position {
-        top: 16px;
-        overflow: auto;
-        padding: 10px;
-      }
 
       .card-element {
         padding: 10px;

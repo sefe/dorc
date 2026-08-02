@@ -15,7 +15,6 @@ import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
 import '@vaadin/details';
 import '../make-like-production-dialog';
-import '@polymer/paper-dialog';
 import '../add-edit-environment';
 import { PageEnvBase } from './page-env-base';
 import { AddEditAccessControl } from '../add-edit-access-control';
@@ -79,10 +78,6 @@ export class EnvControlCenter extends PageEnvBase {
         display: none;
       }
 
-      paper-dialog.size-position {
-        top: 8px;
-        padding: 10px;
-      }
 
       a {
         color: inherit; /* blue colors for links too */

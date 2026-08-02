@@ -149,7 +149,7 @@ export class PageServersList extends ResponsiveMixin(PageElement) {
     return html`
         <vaadin-dialog
         id="daemon-mapping-dialog"
-        title="Manage Daemon Mappings for ${this.selectedServer?.Name}"
+        header-title="Manage Daemon Mappings for ${this.selectedServer?.Name}"
         .opened="${this.manageDaemonMappingsDialogOpened}"
         draggable
         @opened-changed="${(event: DialogOpenedChangedEvent) => {

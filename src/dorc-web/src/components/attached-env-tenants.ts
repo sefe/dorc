@@ -5,7 +5,6 @@ import '@vaadin/grid/vaadin-grid-sort-column';
 import { css, LitElement, render } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
-import '@polymer/paper-dialog';
 import { Notification } from '@vaadin/notification';
 import { ApiBoolResult, EnvironmentApiModel, RefDataEnvironmentsDetailsApi } from '../apis/dorc-api';
 import { styleMap } from 'lit/directives/style-map.js';
