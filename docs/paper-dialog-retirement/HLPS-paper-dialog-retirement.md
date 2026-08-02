@@ -2,12 +2,24 @@
 
 | Field       | Value                                              |
 |-------------|----------------------------------------------------|
-| **Status**  | DRAFT — awaiting review                            |
+| **Status**  | ❌ REVISION — failed review round 1                 |
 | **Author**  | Agent                                              |
 | **Date**    | 2026-08-02                                         |
 | **Folder**  | `docs/paper-dialog-retirement/`                    |
 | **Resolves**| `docs/vaadin-alignment/AUDIT-vaadin-25-alignment.md`, finding F-3b |
 | **Scope**   | `src/dorc-web` — 12 `<paper-dialog>` elements in 9 files, 10 dead imports, 59 dead attributes, 12 npm packages |
+
+> ⚠️ **FAILED ADVERSARIAL REVIEW ROUND 1 — DO NOT EXECUTE.**
+> See `../vaadin-alignment/REVIEW-R1-triage.md`. Verified defects in this
+> document: **zero** of the 12 `dialog-confirm` buttons have an `@click`
+> handler, so the mapping as written produces 12 dialogs with no dismissal path
+> at all; dialog content **is** reachable from host styles
+> (`vaadin-dialog-overlay-mixin.js:71` appends the renderer root to the dialog
+> element), so the mandated inline-wrapper sizing is wrong and `width`/`height`
+> properties plus `::part(overlay)` are the correct mapping; configure-then-open
+> call sites will null-dereference because content does not exist while closed;
+> the `focus-target` cleanup is **retracted** (it is live Grid API); and it is
+> 13 packages, not 12 (`@webcomponents/shadycss`).
 
 ---
 

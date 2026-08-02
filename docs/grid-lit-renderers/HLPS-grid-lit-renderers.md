@@ -2,12 +2,23 @@
 
 | Field       | Value                                              |
 |-------------|----------------------------------------------------|
-| **Status**  | DRAFT — awaiting review                            |
+| **Status**  | ❌ REVISION — failed review round 1                 |
 | **Author**  | Agent                                              |
 | **Date**    | 2026-08-02                                         |
 | **Folder**  | `docs/grid-lit-renderers/`                         |
 | **Resolves**| `docs/vaadin-alignment/AUDIT-vaadin-25-alignment.md`, finding F-4 |
 | **Scope**   | `src/dorc-web` — 167 renderer bindings across 47 files |
+
+> ⚠️ **FAILED ADVERSARIAL REVIEW ROUND 1 — DO NOT EXECUTE.**
+> See `../vaadin-alignment/REVIEW-R1-triage.md`. Verified defects in this
+> document: the inventory misses 4 `<vaadin-notification>` renderers (the count
+> is 171+, not 167); the 91/46 stateful split used a decorator scan and is
+> unreliable because this codebase holds filter state in undecorated fields;
+> S-002 is graded backwards (40 of 43 header renderers are stateful);
+> dependency arrays on undecorated fields never fire, which silently breaks
+> 6 of the 12 `requestContentUpdate()` removals; inline `.bind(this)` bindings
+> currently self-refresh and must never get an empty dependency array; and
+> `focus-target` must be **preserved** through these rewrites, not removed.
 
 ---
 

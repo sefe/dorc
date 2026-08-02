@@ -27,8 +27,13 @@
 > resolution notes below.
 >
 > Still open and unplanned: **F-10**/**F-11** (runtime checks), the `title`-only
-> half of F-8, `stylelint` having no configuration, and the newly separated
-> **59 dead `focus-target` attributes**.
+> half of F-8, and `stylelint` having no configuration.
+>
+> ⚠️ **Both plans failed adversarial review round 1** — see
+> `REVIEW-R1-triage.md`. Five load-bearing premises were wrong, three of which
+> would have caused user-visible damage. No implementation step executes until
+> round 2 passes. Note in particular the retraction of this audit's
+> `focus-target` claim under F-3.
 >
 > `lit-analyzer --strict` has gone from 504 problems in 89 files to **436 in 85**
 > — every `auto-validate`, `filter-property` and missing-import finding is gone.
@@ -195,12 +200,32 @@ Two corrections this audit got wrong, both established during planning:
   pattern found in F-3a. All 12 real usages are structurally identical, which
   makes this one transformation applied twelve times rather than twelve
   problems.
-- **`focus-target` ×58 does not belong to this finding.** Scoped analysis puts
-  **zero** of the 59 occurrences inside any dialog, paper or Vaadin; they are all
-  on ordinary `<vaadin-text-field>`, `<vaadin-password-field>` and
-  `<vaadin-button>` elements. It is a `paper-dialog-behavior` attribute that is
-  inert on Vaadin components — a standalone dead-attribute cleanup like F-1,
-  removable independently and now tracked as such.
+- **`focus-target` ×58 does not belong to this finding** — correct, but for the
+  opposite reason to the one first given here.
+
+  > ⚠️ **RETRACTED 2026-08-02.** This document previously claimed `focus-target`
+  > was "a `paper-dialog-behavior` attribute that is inert on Vaadin components —
+  > a standalone dead-attribute cleanup, removable independently". **That was
+  > wrong, and acting on it would have caused an accessibility regression.**
+  >
+  > `focus-target` is **live Vaadin Grid API**:
+  > `@vaadin/grid/src/vaadin-grid-keyboard-navigation-mixin.js:622` queries
+  > `cell._content.querySelector('[focus-target]')` to decide what to focus when
+  > a user presses Enter or F2 to interact with a cell, falling back to the first
+  > focusable descendant only when the attribute is absent. Vaadin's own filter
+  > column sets it (`vaadin-grid-filter-column-mixin.js:47`). It appears nowhere
+  > in `@polymer/paper-dialog-behavior`.
+  >
+  > All 59 occurrences are inside grid header and cell renderers — precisely
+  > where the attribute is load-bearing. **They must be preserved**, and
+  > preserved specifically through the F-4 renderer rewrites, which touch exactly
+  > these renderers.
+  >
+  > `lit-analyzer`'s `no-unknown-attribute` on `focus-target` is a **false
+  > positive** — it does not model Grid's runtime contract. The 58 occurrences it
+  > reports should be suppressed or ignored, not fixed.
+  >
+  > Caught by adversarial review; see `REVIEW-R1-triage.md`, R1-01.
 
 ### F-4 — Grid renderers bypass the documented Lit directives (MEDIUM) — 📋 PLANNED
 
