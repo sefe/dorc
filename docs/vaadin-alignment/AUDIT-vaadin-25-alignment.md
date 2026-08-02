@@ -16,9 +16,13 @@
 > below recommended `@lit-labs/router`; that recommendation was **wrong** and is
 > corrected in place.
 >
-> Still open: **F-3** (Polymer chain), **F-4** (grid renderers), **F-7** (unused
-> ESLint plugins), **F-10**/**F-11** (runtime checks), and the `title`-only half
-> of F-8.
+> Also resolved: **F-7** (ESLint plugins now wired at `error` severity, with the
+> 9 resulting violations fixed) and **F-3a** (`paper-toggle-button` removed,
+> dropping 8 of the 20 Polymer packages).
+>
+> Still open: **F-3b** (`paper-dialog`, 19 files), **F-4** (grid renderers),
+> **F-10**/**F-11** (runtime checks), the `title`-only half of F-8, and
+> `stylelint` having no configuration.
 >
 > `lit-analyzer --strict` has gone from 504 problems in 89 files to **436 in 85**
 > — every `auto-validate`, `filter-property` and missing-import finding is gone.
@@ -134,7 +138,7 @@ owned, tested application code rather than a dependency.
 See `MIGRATION-router-universal-router.md` for the design, the behavioural
 differences, and the verification performed.
 
-### F-3 — Polymer dependency chain retained after Vaadin dropped it (HIGH)
+### F-3 — Polymer dependency chain retained after Vaadin dropped it (HIGH) — ◑ PARTIALLY RESOLVED (F-3a done)
 
 Vaadin 25 removed Polymer from the web components entirely — they are Lit-based
 now. The app nonetheless pulls **20 Polymer packages** (`@polymer/polymer@3.5.2`
@@ -157,6 +161,25 @@ used, with the Lit renderer directives, in 8 files) and `@vaadin/checkbox`.
 files, low risk) and `paper-dialog` with `<vaadin-dialog>` (19 files, moderate —
 each needs its `focus-target`/`dialog-confirm` wiring re-expressed). Removing
 both drops 20 packages and the dark-mode override block.
+
+**F-3a resolved 2026-08-02.** `paper-toggle-button` is gone; **8 of the 20
+Polymer packages dropped out of the tree** with it.
+
+Correction to the estimate above: this audit said "6 files", counting imports.
+Only **one** was a real element usage — the ATTACH toggle in
+`env-tenants.ts`. The other five files imported the module and never used it,
+so they were simply dead imports.
+
+The real usage became `<vaadin-checkbox label="ATTACH">`. The handler changed
+from a `@click` that blind-flipped `addTenant` to a `@change` that reads the
+control's own `checked` — the old form could drift out of sync with the
+element's state. Seven tests in `tests/components/env-tenants-attach-toggle.test.ts`
+pin the observable behaviour: the toggle reveals and hides the inline
+`<add-env-tenant>` form, tracks the control rather than blind-toggling, and
+stays disabled for read-only and child environments.
+
+**F-3b (`paper-dialog`, 19 files) is still open**, and holds the remaining 12
+Polymer packages plus the `index.html` dark-mode override block.
 
 ### F-4 — Grid renderers bypass the documented Lit directives (MEDIUM)
 
@@ -235,7 +258,7 @@ is `filteredItems` plus the `filter-changed` event.
 **Resolved 2026-08-02** — all five removed after confirming each duplicated its
 element's own `item-label-path`, so filtering behaviour is unchanged.
 
-### F-7 — `eslint-plugin-lit`, `eslint-plugin-lit-a11y` and `eslint-plugin-wc` are installed but never run (MEDIUM)
+### F-7 — `eslint-plugin-lit`, `eslint-plugin-lit-a11y` and `eslint-plugin-wc` are installed but never run (MEDIUM) — ✅ RESOLVED
 
 `package.json` declares all three as devDependencies. `eslint.config.js`
 registers none of them — the flat config loads only `@eslint/js`,
@@ -249,6 +272,33 @@ no configuration file and no npm script.
 **Recommendation:** wire the three plugins into `eslint.config.js` (expect an
 initial backlog of findings — introduce them as warnings first, then promote).
 Either configure `stylelint` or drop it.
+
+**Resolved 2026-08-02** — all three wired in, at full `error` severity. The
+staged warnings-first approach proved unnecessary: the initial backlog was only
+**9 errors across 5 files**, so they were fixed outright rather than parked.
+
+`eslint-plugin-lit-a11y` ships an eslintrc-style config only, so its recommended
+rule set is applied through an explicit flat-config block; the other two expose
+`flat/recommended`.
+
+What the 9 were, and how each was fixed:
+
+- `lit-a11y/tabindex-no-positive` ×5 (`add-config-value.ts`) — `tabindex="1"`
+  through `"4"` that merely restated DOM order. Positive tabindex hijacks the
+  tab sequence for the whole page, so they were removed; natural order is
+  identical. A stray unopened `</vaadin-text-field>` in the same block was
+  removed at the same time.
+- `lit/attribute-value-entities` ×3 — bare `&` inside `pattern` and
+  `allowed-char-pattern` attributes, now `&amp;`. Lit parses templates as HTML,
+  so the parser decodes this back to `&` and the regexes are unchanged.
+- `lit-a11y/click-events-have-key-events` ×1 (`hegs-json-viewer.ts`) — the
+  expand/collapse key was a `<span>` with `@click` and no keyboard path. It now
+  carries `role="button"`, `tabindex="0"` and `aria-expanded`, with a `@keydown`
+  handler for Enter and Space. Attributes are applied only to collapsable keys,
+  via `nothing`, so primitive values stay non-interactive.
+
+**Still open:** `stylelint` remains a devDependency with no config and no
+script.
 
 ### F-8 — Icon-only buttons rely on `title` for their accessible name (LOW–MEDIUM) — ◑ PARTIALLY RESOLVED
 
@@ -392,8 +442,8 @@ Ordered by value-to-risk, not by severity alone:
 | ~~4~~ | ~~F-9 drop `lit-vaadin-helpers`~~ | ✅ Done | |
 | ~~5~~ | ~~F-8 label the 4 unlabelled icon buttons~~ | ✅ Done | |
 | ~~6~~ | ~~F-12 add missing component imports~~ | ✅ Done | |
-| 7 | F-7 wire up lit / lit-a11y / wc ESLint plugins | Small | Low (surfaces backlog) |
-| 8 | F-3a `paper-toggle-button` → `<vaadin-checkbox>` | Small | Low |
+| ~~7~~ | ~~F-7 wire up lit / lit-a11y / wc ESLint plugins~~ | ✅ Done | |
+| ~~8~~ | ~~F-3a `paper-toggle-button` → `<vaadin-checkbox>`~~ | ✅ Done | |
 | 9 | F-4 grid renderers → `@vaadin/grid/lit` directives | Large | Medium |
 | 10 | F-3b `paper-dialog` → `<vaadin-dialog>` | Large | Medium |
 | 11 | F-10 / F-11 verify Vite patch and overlay propagation | Small | Needs runtime check |

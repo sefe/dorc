@@ -1,4 +1,4 @@
-import '@polymer/paper-toggle-button';
+import '@vaadin/checkbox';
 import '@vaadin/details';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/grid/vaadin-grid-sort-column';
@@ -41,8 +41,8 @@ export class EnvTenants extends PageEnvBase {
     this.addEventListener('request-environment-update', this.forceLoadEnvironmentInfo);
   }
 
-  _addTenant() {
-    this.addTenant = !this.addTenant;
+  _addTenant(e: Event) {
+    this.addTenant = (e.target as HTMLInputElement).checked;
   }
 
   render() {
@@ -68,14 +68,14 @@ export class EnvTenants extends PageEnvBase {
         style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; margin: 0px;"
       >
         <div class="inline">
-          <paper-toggle-button
+          <vaadin-checkbox
             class="buttons"
             id="addTenant"
+            label="ATTACH"
             .checked="${this.addTenant}"
-            @click="${this._addTenant}"
+            @change="${this._addTenant}"
             .disabled="${this.envReadOnly || !!this.environment?.ParentEnvironment}"
-            >ATTACH
-          </paper-toggle-button>
+          ></vaadin-checkbox>
         </div>
         ${this.addTenant && !this.environment?.ParentEnvironment ? html`
           <add-env-tenant .parentEnvironment="${this.environment}"></add-env-tenant>

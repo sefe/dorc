@@ -3,6 +3,7 @@ import {
   css,
   html,
   LitElement,
+  nothing,
   TemplateResult
 } from 'lit';
 import { property, state } from 'lit/decorators.js';
@@ -410,6 +411,19 @@ export class HegsJsonViewer extends LitElement {
     this.setState(toggleNode(path));
   };
 
+  /**
+   * Keyboard equivalent of {@link handlePropertyClick}. Collapsable keys are
+   * exposed as buttons, so Enter and Space must toggle them too.
+   */
+  handlePropertyKeydown = (path: string) => (e: KeyboardEvent) => {
+    if (e.key !== 'Enter' && e.key !== ' ') {
+      return;
+    }
+    e.preventDefault();
+
+    this.setState(toggleNode(path));
+  };
+
   expand(glob: string | RegExp) {
     this.setState(expand(glob, true));
   }
@@ -484,8 +498,16 @@ export class HegsJsonViewer extends LitElement {
                   collapsable: !isPrimitive,
                   collapsableCollapsed: !this.state.expanded[nodePath]
                 })}"
+                role="${!isPrimitive ? 'button' : nothing}"
+                tabindex="${!isPrimitive ? '0' : nothing}"
+                aria-expanded="${!isPrimitive
+                  ? String(Boolean(this.state.expanded[nodePath]))
+                  : nothing}"
                 @click="${!isPrimitive
                   ? this.handlePropertyClick(nodePath)
+                  : null}"
+                @keydown="${!isPrimitive
+                  ? this.handlePropertyKeydown(nodePath)
                   : null}"
               >
                 ${key}:

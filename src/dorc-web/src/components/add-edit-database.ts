@@ -150,7 +150,7 @@ export class AddEditDatabase extends LitElement {
             label="Application Tag"
             maxlength="${this.maxFieldLength}"
             title="Maximum length: ${this.maxFieldLength} symbols"
-            pattern="^[a-zA-Z0-9&.\\- ]+$"
+            pattern="^[a-zA-Z0-9&amp;.\\- ]+$"
             required
             @input="${this._dbTypeValueChanged}"
             .value="${this.DatabaseType}"

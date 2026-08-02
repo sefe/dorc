@@ -75,7 +75,6 @@ export class AddConfigValue extends LitElement {
             required
             @input="${this._configKeyValueChanged}"
             .value="${this.key}"
-            tabindex="1"
           ></vaadin-text-field>
           <vaadin-text-field
             class="block"
@@ -84,7 +83,6 @@ export class AddConfigValue extends LitElement {
             required
             @input="${this._configValueValueChanged}"
             .value="${this.value}"
-            tabindex="2"
           ></vaadin-text-field>
           <vaadin-checkbox
             id="secure"
@@ -92,7 +90,6 @@ export class AddConfigValue extends LitElement {
             @change="${(e: Event) => {
               this.isSecure = (e.target as HTMLInputElement).checked;
             }}"
-            tabindex="3"
           ></vaadin-checkbox>
           <vaadin-checkbox
             id="for-prod"
@@ -100,13 +97,11 @@ export class AddConfigValue extends LitElement {
             @change="${(e: Event) => {
               this.isForProd = (e.target as HTMLInputElement).checked;
             }}"
-            tabindex="3"
           ></vaadin-checkbox>
-          </vaadin-text-field>
         </vaadin-vertical-layout>
         <div>
           <vaadin-button @click="${this.reset}">Clear</vaadin-button>
-          <vaadin-button .disabled="${!this.valid}" @click="${this._submit}" tabindex="4"
+          <vaadin-button .disabled="${!this.valid}" @click="${this._submit}"
           >Save
           </vaadin-button
           >

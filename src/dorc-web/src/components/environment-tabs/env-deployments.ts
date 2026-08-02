@@ -1,4 +1,3 @@
-import '@polymer/paper-toggle-button';
 import '../dorc-spinner';
 import '@vaadin/details';
 import '@vaadin/grid/vaadin-grid';

@@ -25,7 +25,7 @@ export function addEndurUserOrGroupTemplate(this: AddEndurUserOrGroup) {
               label="System Account Identifier Filter"
               @keypress="${this.filterKeypressed}"
               value="${this.winIdFilter}"
-              allowed-char-pattern="[a-zA-Z0-9-_.' ()&]"
+              allowed-char-pattern="[a-zA-Z0-9-_.' ()&amp;]"
             >
             </vaadin-text-field>
           </td>

@@ -25,7 +25,7 @@ export function addWindowsUserOrGroupTemplate(this: AddWindowsUserOrGroup) {
               label="Windows ID Filter"
               @keypress="${this.filterKeypressed}"
               required
-              allowed-char-pattern="[a-zA-Z0-9-_.' ()&]"
+              allowed-char-pattern="[a-zA-Z0-9-_.' ()&amp;]"
             ></vaadin-text-field>
           </td>
           <td class="acc-filter__btn-td">

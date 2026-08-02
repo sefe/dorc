@@ -1,4 +1,3 @@
-import '@polymer/paper-toggle-button';
 import { ComboBox } from '@vaadin/combo-box';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/grid/vaadin-grid-sort-column';

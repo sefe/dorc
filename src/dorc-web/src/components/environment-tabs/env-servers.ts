@@ -1,4 +1,3 @@
-import '@polymer/paper-toggle-button';
 import '@vaadin/details';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/grid/vaadin-grid-sort-column';
