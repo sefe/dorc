@@ -21,6 +21,7 @@ import { PermissionDto } from '../apis/dorc-api';
 import { RefDataPermissionApi } from '../apis/dorc-api';
 import { Notification } from '@vaadin/notification';
 import { retrieveErrorMessage } from '../helpers/errorMessage-retriever.js';
+import '@vaadin/grid/vaadin-grid-column';
 
 @customElement('page-permissions-list')
 export class PagePermissionsList extends ResponsiveMixin(PageElement) {

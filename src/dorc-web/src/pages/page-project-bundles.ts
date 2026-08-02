@@ -27,6 +27,7 @@ import '../components/bundle-editor-dialog';
 import { BundleEditorDialog } from '../components/bundle-editor-dialog';
 import { navigate } from '../router/router';
 import { ComboBox } from '@vaadin/combo-box';
+import '@vaadin/grid/vaadin-grid-sorter';
 
 @customElement('page-project-bundles')
 export class PageProjectBundles extends ResponsiveMixin(PageElement) {

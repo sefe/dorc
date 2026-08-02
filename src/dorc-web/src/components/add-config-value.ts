@@ -11,6 +11,7 @@ import {
   RefDataConfigApi
 } from '../apis/dorc-api';
 import { retrieveErrorMessage } from '../helpers/errorMessage-retriever';
+import '@vaadin/vertical-layout';
 
 @customElement('add-config-value')
 export class AddConfigValue extends LitElement {

@@ -13,6 +13,7 @@ import '@polymer/paper-dialog';
 import '../components/add-daemon';
 import '../components/edit-daemon';
 import type { GridItemModel } from '@vaadin/grid';
+import '@vaadin/grid/vaadin-grid-column';
 import type { GridColumn } from '@vaadin/grid/vaadin-grid-column';
 import { PaperDialogElement } from '@polymer/paper-dialog';
 import { navigate } from '../router/router';

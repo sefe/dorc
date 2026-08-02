@@ -1,6 +1,6 @@
 import '@vaadin/combo-box';
 import { ComboBoxItemModel } from '@vaadin/combo-box';
-import { ComboBox } from '@vaadin/combo-box/src/vaadin-combo-box';
+import { ComboBox } from '@vaadin/combo-box';
 import { css } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';

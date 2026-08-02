@@ -8,6 +8,7 @@ import { PageElement } from '../helpers/page-element';
 import { EnvironmentApiModel } from '../apis/dorc-api';
 import { PageEnvBase } from '../components/environment-tabs/page-env-base';
 import { SuccessNotification } from '../components/notifications/success-notification';
+import '@vaadin/tabs/vaadin-tab';
 
 export enum EnvPageTabNames {
   Metadata = 'metadata',

@@ -5,6 +5,7 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import type { DaemonApiModel } from '../apis/dorc-api';
 import { RefDataDaemonsApi } from '../apis/dorc-api';
+import '@vaadin/vertical-layout';
 
 @customElement('edit-daemon')
 export class EditDaemon extends LitElement {

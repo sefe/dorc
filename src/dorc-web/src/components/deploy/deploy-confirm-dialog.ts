@@ -7,6 +7,7 @@ import { HegsDialog } from '../hegs-dialog';
 import '../hegs-dialog';
 import '../hegs-json-viewer';
 import { HegsJsonViewer } from '../hegs-json-viewer';
+import '@vaadin/button';
 
 @customElement('deploy-confirm-dialog')
 export class DeployConfirmDialog extends LitElement {

@@ -11,12 +11,15 @@ import {
   PropertyApiModel,
   RequestProperty
 } from '../apis/dorc-api';
-import { ComboBox } from '@vaadin/combo-box/src/vaadin-combo-box';
+import { ComboBox } from '@vaadin/combo-box';
 import { TextField } from '@vaadin/text-field';
 import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
 import { GridItemModel } from '@vaadin/grid';
 import './deploy/property-override-controls'
 import { MakeLikeProductionDialog } from './make-like-production-dialog.ts';
+import '@vaadin/details';
+import '@vaadin/grid/vaadin-grid-sort-column';
+import '@vaadin/vertical-layout';
 
 @customElement('make-like-production')
 export class MakeLikeProduction extends LitElement {

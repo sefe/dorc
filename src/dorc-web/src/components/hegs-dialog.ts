@@ -2,6 +2,7 @@ import { css, LitElement, PropertyValues } from 'lit';
 import { html } from 'lit/html.js';
 import { customElement, property } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
+import '@vaadin/icon';
 
 @customElement('hegs-dialog')
 export class HegsDialog extends LitElement {

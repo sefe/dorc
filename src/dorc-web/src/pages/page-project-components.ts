@@ -5,7 +5,8 @@ import '@vaadin/combo-box';
 import {  ComboBoxSelectedItemChangedEvent } from '@vaadin/combo-box';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid';
-import { GridColumn } from '@vaadin/grid/src/vaadin-grid-column';
+import '@vaadin/grid/vaadin-grid-column';
+import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
 import { GridItemModel } from '@vaadin/grid';
 import '../icons/iron-icons';
 import { ErrorNotification } from '../components/notifications/error-notification';
@@ -21,6 +22,7 @@ import {
   RefDataProjectsApi
 } from '../apis/dorc-api';
 import { retrieveErrorMessage } from '../helpers/errorMessage-retriever';
+import '@vaadin/grid/vaadin-grid-column';
 
 interface ComponentDeploymentInfo extends ComponentApiModel {
   Children?: ComponentDeploymentInfo[];

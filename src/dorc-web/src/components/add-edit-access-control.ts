@@ -152,20 +152,22 @@ export class AddEditAccessControl extends LitElement {
             <td>
               ${this.UserEditable
                 ? html`
-                    <vaadin-button theme="icon">
-                      <vaadin-icon
-                        icon="vaadin:unlock"
-                        style="color: var(--dorc-link-color)"
-                      ></vaadin-icon>
-                    </vaadin-button>
+                    <vaadin-icon
+                      icon="vaadin:unlock"
+                      role="img"
+                      aria-label="Editable"
+                      title="Editable"
+                      style="color: var(--dorc-link-color)"
+                    ></vaadin-icon>
                   `
                 : html`
-                    <vaadin-button theme="icon">
-                      <vaadin-icon
-                        icon="vaadin:lock"
-                        style="color: var(--dorc-link-color)"
-                      ></vaadin-icon>
-                    </vaadin-button>
+                    <vaadin-icon
+                      icon="vaadin:lock"
+                      role="img"
+                      aria-label="Read-only"
+                      title="Read-only"
+                      style="color: var(--dorc-link-color)"
+                    ></vaadin-icon>
                   `}
             </td>
             <td>

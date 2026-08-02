@@ -16,6 +16,8 @@ import {
 } from '../../apis/dorc-api';
 import { EnvironmentContentBuildsApiModelExtended } from '../model-extensions/EnvironmentContentBuildsApiModelExtended';
 import '@vaadin/date-time-picker';
+import '@vaadin/grid/vaadin-grid-filter';
+import '@vaadin/grid/vaadin-grid-sorter';
 
 @customElement('env-deployments')
 export class EnvDeployments extends PageEnvBase {

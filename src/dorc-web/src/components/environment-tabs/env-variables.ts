@@ -39,6 +39,7 @@ import { PageEnvBase } from './page-env-base';
 import { ResponsiveMixin } from '../../helpers/responsive-mixin';
 import { ErrorNotification } from '../notifications/error-notification';
 import { Notification } from '@vaadin/notification';
+import '@vaadin/grid/vaadin-grid-sorter';
 
 const variableValue = 'PropertyValue';
 const variableName = 'Property';

@@ -12,6 +12,8 @@ import './log-dialog';
 import { DeploymentRequestAttemptApiModel, DeploymentResultAttemptApiModel, RequestApi, ResultStatusesApi } from '../apis/dorc-api';
 import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
+import '@vaadin/horizontal-layout';
+import '@vaadin/vertical-layout';
 
 @customElement('component-previous-attempts')
 export class ComponentPreviousAttempts extends LitElement {

@@ -13,6 +13,7 @@ import {
   ApiBoolResult,
   ServerApiModel
 } from '../apis/dorc-api';
+import '@vaadin/horizontal-layout';
 
 @customElement('attach-server')
 export class AttachServer extends LitElement {
@@ -62,7 +63,6 @@ export class AttachServer extends LitElement {
             item-label-path="Name"
             @value-changed="${this.setSelectedServer}"
             .items="${this.servers}"
-            filter-property="Name"
             .renderer="${this._boundServersRenderer}"
             placeholder="Select Server"
             style="width: 300px"

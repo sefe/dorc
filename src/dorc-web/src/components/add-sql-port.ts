@@ -1,6 +1,6 @@
 import { css, LitElement } from 'lit';
 import { ComboBoxItemModel } from '@vaadin/combo-box';
-import { ComboBox } from '@vaadin/combo-box/src/vaadin-combo-box';
+import { ComboBox } from '@vaadin/combo-box';
 import '@vaadin/number-field';
 import '@vaadin/text-field';
 import { NumberField } from '@vaadin/number-field';
@@ -10,6 +10,7 @@ import { html } from 'lit/html.js';
 import { Notification } from '@vaadin/notification';
 import type { SqlPortApiModel } from '../apis/dorc-api';
 import { RefDataDatabasesApi, RefDataSqlPortsApi } from '../apis/dorc-api';
+import '@vaadin/vertical-layout';
 
 @customElement('add-sql-port')
 export class AddSqlPort extends LitElement {
@@ -94,7 +95,6 @@ export class AddSqlPort extends LitElement {
             max="${this.maxPortValue}"
             title="Maximum: ${this.maxPortLength} symbols"
             value=""
-            auto-validate
             error-message="Port must be 1-${this.maxPortLength} symbols"
             @input="${this._portNumberValueChanged}"
             .value="${this.portNumber}"

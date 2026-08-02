@@ -19,6 +19,7 @@ import {
 } from '../apis/dorc-api';
 import type { EnvironmentApiModel } from '../apis/dorc-api';
 import { navigate } from '../router/router';
+import '@vaadin/horizontal-layout';
 
 @customElement('add-edit-environment')
 export class AddEditEnvironment extends LitElement {
@@ -259,7 +260,6 @@ export class AddEditEnvironment extends LitElement {
             maxlength="${this.maxEnvironmentNameLength}"
             title="Maximum length: ${this.maxEnvironmentNameLength} symbols"
             required
-            auto-validate
             .value=${this.environment?.EnvironmentName ?? ''}
             @value-changed=${(e: CustomEvent<{ value: string }>) =>
         this.handleFieldChange(this._envNameValueChanged, e)}
@@ -313,7 +313,6 @@ export class AddEditEnvironment extends LitElement {
             class="block"
             label="Description"
             required
-            auto-validate
             .value=${this.environment?.Details?.Description ?? ''}
             @value-changed=${(e: CustomEvent<{ value: string }>) =>
         this.handleFieldChange(this._descriptionValueChanged, e)}
@@ -328,7 +327,6 @@ export class AddEditEnvironment extends LitElement {
           <vaadin-text-field
             id="opt-backup"
             label="Backup Created From"
-            auto-validate
             .value=${this.environment?.Details?.RestoredFromSourceDb ?? ''}
             @value-changed=${(e: CustomEvent<{ value: string }>) =>
         this.handleFieldChange(this._backupValueChanged, e)}
@@ -337,7 +335,6 @@ export class AddEditEnvironment extends LitElement {
           <vaadin-text-field
             id="opt-file-share"
             label="File Share"
-            auto-validate
             .value=${this.environment?.Details?.FileShare ?? ''}
             @value-changed=${(e: CustomEvent<{ value: string }>) =>
         this.handleFieldChange(this._fileShareValueChanged, e)}
@@ -348,7 +345,6 @@ export class AddEditEnvironment extends LitElement {
             label="Thin Client Server"
             maxlength="${this.maxThinClientFieldLength}"
             title="Maximum length: ${this.maxThinClientFieldLength} symbols"
-            auto-validate
             .value=${this.environment?.Details?.ThinClient ?? ''}
             @value-changed=${(e: CustomEvent<{ value: string }>) =>
         this.handleFieldChange(this._thinClientValueChanged, e)}
@@ -357,7 +353,6 @@ export class AddEditEnvironment extends LitElement {
           <vaadin-text-field
             id="opt-notes"
             label="Notes"
-            auto-validate
             .value=${this.environment?.Details?.Notes ?? ''}
             @value-changed=${(e: CustomEvent<{ value: string }>) =>
         this.handleFieldChange(this._notesValueChanged, e)}

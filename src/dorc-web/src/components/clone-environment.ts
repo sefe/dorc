@@ -119,7 +119,6 @@ export class CloneEnvironment extends LitElement {
             id="new-env-name"
             label="New Environment Name"
             required
-            auto-validate
             .value=${this.newEnvironmentName}
             @value-changed=${this._nameValueChanged}
             placeholder="Enter name for the cloned environment"

@@ -8,6 +8,7 @@ import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
 import '../icons/iron-icons.js';
 import { ProjectApiModel } from '../apis/dorc-api';
+import '@vaadin/button';
 
 @customElement('project-card')
 export class ProjectCard extends LitElement {

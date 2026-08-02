@@ -8,6 +8,7 @@ import { nothing } from 'lit';
 import { AddWindowsUserOrGroup } from './add-windows-user-or-group';
 
 import { renderSearchResults } from './utilities/addUserOrGroupTemplateHelper';
+import '@vaadin/vertical-layout';
 
 export function addWindowsUserOrGroupTemplate(this: AddWindowsUserOrGroup) {
 

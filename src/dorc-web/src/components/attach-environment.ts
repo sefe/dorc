@@ -62,7 +62,6 @@ export class AttachEnvironment extends LitElement {
           item-label-path="EnvironmentName"
           @value-changed="${this.setSelectedEnvironment}"
           .items="${this.environments}"
-          filter-property="EnvironmentName"
           placeholder="Select Environment"
           helper-text="Shortlist all environments before attaching"
           style="width: 300px; text-align: left"

@@ -12,6 +12,7 @@ import {
 } from '../apis/dorc-api';
 import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
+import '@vaadin/button';
 
 @customElement('view-database-permissions')
 export class ViewDatabasePermissions extends LitElement {

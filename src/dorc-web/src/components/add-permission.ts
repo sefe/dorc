@@ -7,6 +7,7 @@ import { html } from 'lit/html.js';
 import type { PermissionDto } from '../apis/dorc-api';
 import { Notification } from '@vaadin/notification';
 import { RefDataPermissionApi } from '../apis/dorc-api';
+import '@vaadin/vertical-layout';
 
 @customElement('add-permission')
 export class AddPermission extends LitElement {
@@ -68,7 +69,6 @@ export class AddPermission extends LitElement {
             maxlength="${this.maxFieldLength}"
             title="Maximum length: ${this.maxFieldLength} symbols"
             required
-            auto-validate
             @input="${this._displayNameValueChanged}"
             .value="${this.displayName}"
           ></vaadin-text-field>
@@ -79,7 +79,6 @@ export class AddPermission extends LitElement {
             maxlength="${this.maxFieldLength}"
             title="Maximum length: ${this.maxFieldLength} symbols"
             required
-            auto-validate
             @input="${this._daemonNameValueChanged}"
             .value="${this.permissionName}"
           ></vaadin-text-field>

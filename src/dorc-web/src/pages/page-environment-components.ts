@@ -5,6 +5,7 @@ import { navigate } from '../router/router';
 import { Tabs } from '@vaadin/tabs';
 import { PageElement, PageLocation } from '../helpers/page-element';
 import { PageEnvBase } from '../components/environment-tabs/page-env-base';
+import '@vaadin/tabs/vaadin-tab';
 
 export enum EnvComponentTabNames {
   Servers = 'servers',

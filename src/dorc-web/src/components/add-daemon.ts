@@ -6,6 +6,7 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import type { DaemonApiModel } from '../apis/dorc-api';
 import { RefDataDaemonsApi } from '../apis/dorc-api';
+import '@vaadin/vertical-layout';
 
 @customElement('add-daemon')
 export class AddDaemon extends LitElement {
@@ -76,7 +77,6 @@ export class AddDaemon extends LitElement {
             maxlength="${this.maxFieldLength}"
             title="Maximum length: ${this.maxFieldLength} symbols"
             required
-            auto-validate
             @input="${this._daemonNameValueChanged}"
             .value="${this.daemonName}"
           ></vaadin-text-field>
@@ -87,7 +87,6 @@ export class AddDaemon extends LitElement {
             maxlength="${this.maxFieldLength}"
             title="Maximum length: ${this.maxFieldLength} symbols"
             required
-            auto-validate
             @input="${this._displayNameValueChanged}"
             .value="${this.displayName}"
           ></vaadin-text-field>
@@ -98,7 +97,6 @@ export class AddDaemon extends LitElement {
             maxlength="${this.maxFieldLength}"
             title="Maximum length: ${this.maxFieldLength} symbols"
             required
-            auto-validate
             @input="${this._accountNameValueChanged}"
             .value="${this.accountName ?? ''}"
           ></vaadin-text-field>
@@ -109,7 +107,6 @@ export class AddDaemon extends LitElement {
             title="Maximum length: ${this.maxFieldLength} symbols"
             label="Type"
             required
-            auto-validate
             @input="${this._serviceTypeValueChanged}"
             .value="${this.serviceType ?? ''}"
           >

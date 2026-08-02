@@ -10,6 +10,8 @@ import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
 import '../icons/iron-icons.js';
 import { AccessControlType } from '../apis/dorc-api';
+import '@vaadin/button';
+import '@vaadin/horizontal-layout';
 
 @customElement('environment-card')
 export class EnvironmentCard extends LitElement {

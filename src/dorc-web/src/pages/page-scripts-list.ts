@@ -36,6 +36,7 @@ import GlobalCache from '../global-cache';
 import '../components/hegs-json-viewer';
 import { HegsJsonViewer } from '../components/hegs-json-viewer';
 import { ComboBox } from '@vaadin/combo-box';
+import '@vaadin/grid/vaadin-grid-sorter';
 
 const variableName = 'Name';
 const variablePath = 'Path';

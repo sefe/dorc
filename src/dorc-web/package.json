@@ -61,7 +61,6 @@
     "ace-builds": "^1.44.0",
     "echarts": "^6.1.0",
     "lit": "^3.3.3",
-    "lit-vaadin-helpers": "^0.3.1",
     "oidc-client-ts": "^3.5.0",
     "pwa-helper-components": "~0.2.10",
     "rxjs": "^7.8.2",

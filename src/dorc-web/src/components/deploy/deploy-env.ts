@@ -1,7 +1,7 @@
 import '@vaadin/button';
 import '@vaadin/combo-box';
 import { ComboBoxItemModel } from '@vaadin/combo-box';
-import { ComboBox } from '@vaadin/combo-box/src/vaadin-combo-box';
+import { ComboBox } from '@vaadin/combo-box';
 import '@vaadin/details';
 import '@vaadin/dialog';
 import { GridItemModel } from '@vaadin/grid';

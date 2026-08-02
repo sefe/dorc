@@ -8,6 +8,7 @@ import { nothing } from 'lit';
 import { AddEndurUserOrGroup } from './add-endur-user-or-group';
 
 import { renderSearchResults } from './utilities/addUserOrGroupTemplateHelper';
+import '@vaadin/vertical-layout';
 
 export function addEndurUserOrGroupTemplate(this: AddEndurUserOrGroup) {
 

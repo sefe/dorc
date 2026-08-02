@@ -9,11 +9,20 @@
 | **Scope**    | `src/dorc-web` (Lit + Vaadin web components UI) |
 | **Baseline** | Vaadin platform 25.2.6 (current `latest` on npm) |
 
-> **Update 2026-08-02** — F-2 is resolved: the app has migrated off
-> `@vaadin/router` to `universal-router`. See
+> **Update 2026-08-02** — findings **F-1, F-2, F-5, F-6, F-9 and F-12 are
+> resolved**, and **F-8 is partially resolved**; each carries a resolution note
+> in §4. F-2 was the `@vaadin/router` migration — see
 > `MIGRATION-router-universal-router.md` in this folder. The original F-2 text
 > below recommended `@lit-labs/router`; that recommendation was **wrong** and is
 > corrected in place.
+>
+> Still open: **F-3** (Polymer chain), **F-4** (grid renderers), **F-7** (unused
+> ESLint plugins), **F-10**/**F-11** (runtime checks), and the `title`-only half
+> of F-8.
+>
+> `lit-analyzer --strict` has gone from 504 problems in 89 files to **436 in 85**
+> — every `auto-validate`, `filter-property` and missing-import finding is gone.
+> The 94 remaining unknown attributes are all Polymer-isms belonging to F-3.
 
 ---
 
@@ -63,7 +72,7 @@ into the optional `type-checking` script.
 
 ## 4. Findings
 
-### F-1 — `auto-validate` no longer exists on Vaadin fields (HIGH)
+### F-1 — `auto-validate` no longer exists on Vaadin fields (HIGH) — ✅ RESOLVED
 
 21 occurrences across 11 components set `auto-validate` on `<vaadin-text-field>`
 and friends, e.g. `src/components/add-permission.ts:71`,
@@ -80,6 +89,9 @@ reading it will assume validation is opt-in. `lit-analyzer` flags all 21.
 
 **Recommendation:** delete the attribute. Where a field genuinely needs eager
 validation, call `.validate()` explicitly.
+
+**Resolved 2026-08-02** — all 21 removed. No behaviour change: the attribute was
+inert, and Vaadin's built-in blur validation is unaffected.
 
 ### F-2 — `@vaadin/router` is no longer maintained (HIGH — strategic) — ✅ RESOLVED
 
@@ -177,7 +189,7 @@ removing the manual `requestContentUpdate()` calls as each is superseded. This
 is the single highest-value correctness item in the audit. It is also the
 largest, so it should be sequenced file-by-file rather than as one change.
 
-### F-5 — Imports reaching into Vaadin private module paths (MEDIUM)
+### F-5 — Imports reaching into Vaadin private module paths (MEDIUM) — ✅ RESOLVED
 
 Seven imports bypass the package's public entry points and reach into internal
 directories:
@@ -201,7 +213,12 @@ available from the package root (`@vaadin/combo-box`, `@vaadin/grid`,
 **Recommendation:** rewrite all seven to the public entry point. Trivial, and it
 removes a class of upgrade breakage.
 
-### F-6 — `filter-property` is not a Vaadin combo-box API (LOW)
+**Resolved 2026-08-02** — the `@vaadin/router/dist` import went with the F-2
+migration; the remaining six now use public entry points. Note that `GridColumn`
+resolves from `@vaadin/grid/vaadin-grid-column`, **not** from the `@vaadin/grid`
+root, which does not re-export it — `tsc` catches this if it is got wrong.
+
+### F-6 — `filter-property` is not a Vaadin combo-box API (LOW) — ✅ RESOLVED
 
 Five `<vaadin-combo-box>` elements set `filter-property`
 (`attach-server.ts:65`, `edit-database-permissions.ts:90` and `:104`,
@@ -214,6 +231,9 @@ It appears to be a survival from a pre-Vaadin combo-box API.
 
 **Recommendation:** delete. For genuinely custom filtering, the documented route
 is `filteredItems` plus the `filter-changed` event.
+
+**Resolved 2026-08-02** — all five removed after confirming each duplicated its
+element's own `item-label-path`, so filtering behaviour is unchanged.
 
 ### F-7 — `eslint-plugin-lit`, `eslint-plugin-lit-a11y` and `eslint-plugin-wc` are installed but never run (MEDIUM)
 
@@ -230,7 +250,7 @@ no configuration file and no npm script.
 initial backlog of findings — introduce them as warnings first, then promote).
 Either configure `stylelint` or drop it.
 
-### F-8 — Icon-only buttons rely on `title` for their accessible name (LOW–MEDIUM)
+### F-8 — Icon-only buttons rely on `title` for their accessible name (LOW–MEDIUM) — ◑ PARTIALLY RESOLVED
 
 Of 66 icon-only `<vaadin-button theme="icon">` elements, 5 have `aria-label`, 60
 have `title`, and 4 have neither: `add-edit-access-control.ts:155` and `:163`,
@@ -246,7 +266,22 @@ dependency.
 `title` → `aria-label` + `<vaadin-tooltip>` conversion as a separate, optional
 piece of work.
 
-### F-9 — `lit-vaadin-helpers` is an unused dependency pulling in Lit 2 (LOW)
+**Partially resolved 2026-08-02** — no icon-only button now lacks an accessible
+name (64 buttons: 7 `aria-label`, 60 `title`, 0 neither).
+
+Two of the four turned out not to be buttons at all: the lock/unlock indicators
+in `add-edit-access-control.ts` had no `@click` handler, so they were focusable
+no-op controls. Labelling them "Unlock" would have advertised an action that does
+not exist, so they became `<vaadin-icon role="img" aria-label="Editable|Read-only">`
+— matching how status icons are done elsewhere in this codebase (e.g.
+`page-environment.ts`). The other two, in `bundle-request-controls.ts`, are real
+actions and got `aria-label="Edit"` / `"Delete"`.
+
+**Still open:** the 60 buttons relying on `title` alone. Converting those to
+`aria-label` + `<vaadin-tooltip>` remains optional work and would add the
+`@vaadin/tooltip` dependency.
+
+### F-9 — `lit-vaadin-helpers` is an unused dependency pulling in Lit 2 (LOW) — ✅ RESOLVED
 
 `lit-vaadin-helpers@0.3.1` is declared in `dependencies` and imported nowhere in
 `src/` or `tests/`. It carries its own nested copy of `lit@2.8.0`,
@@ -257,6 +292,10 @@ app has already adopted for dialogs. A second Lit version in the tree is a real
 hazard if anything ever imports it.
 
 **Recommendation:** remove from `package.json`.
+
+**Resolved 2026-08-02** — removed, taking its nested `lit@2.8.0`,
+`lit-html@2.8.0` and `lit-element@3.3.3` with it. The tree now contains exactly
+one copy of Lit.
 
 ### F-10 — `CSS.registerProperty` monkey-patch in `vite.config.js` (LOW — investigate)
 
@@ -289,7 +328,7 @@ machinery looks like a carry-over from the Vaadin 24 theming model.
 **Recommendation:** verify against the running app before removing — this is a
 visual-regression risk, not a code-reading one.
 
-### F-12 — 42 components used without being imported (LOW)
+### F-12 — 42 components used without being imported (LOW) — ✅ RESOLVED
 
 `lit-analyzer` reports 42 `no-missing-import` findings: `<vaadin-vertical-layout>`
 ×14, `<vaadin-button>` ×11, `<vaadin-horizontal-layout>` ×5,
@@ -302,6 +341,12 @@ The dependency is invisible and breaks the moment the unrelated importer is
 deleted or the module is loaded in isolation (tests, code-splitting).
 
 **Recommendation:** add the missing side-effect imports.
+
+**Resolved 2026-08-02** — all 42 added across 34 files; `lit-analyzer` now
+reports zero `no-missing-import`. One subtlety worth recording: in
+`page-daemons-list.ts` the module was already imported, but as `import type`,
+which is erased at build time and therefore does **not** register the custom
+element. A side-effect import was needed alongside it.
 
 ---
 
@@ -341,12 +386,12 @@ Ordered by value-to-risk, not by severity alone:
 
 | # | Finding | Effort | Risk |
 |---|---------|--------|------|
-| 1 | F-5 private imports → public entry points | Trivial | Very low |
-| 2 | F-1 remove dead `auto-validate` | Trivial | Very low |
-| 3 | F-6 remove dead `filter-property` | Trivial | Very low |
-| 4 | F-9 drop `lit-vaadin-helpers` | Trivial | Very low |
-| 5 | F-8 label the 4 unlabelled icon buttons | Trivial | Very low |
-| 6 | F-12 add missing component imports | Small | Very low |
+| ~~1~~ | ~~F-5 private imports → public entry points~~ | ✅ Done | |
+| ~~2~~ | ~~F-1 remove dead `auto-validate`~~ | ✅ Done | |
+| ~~3~~ | ~~F-6 remove dead `filter-property`~~ | ✅ Done | |
+| ~~4~~ | ~~F-9 drop `lit-vaadin-helpers`~~ | ✅ Done | |
+| ~~5~~ | ~~F-8 label the 4 unlabelled icon buttons~~ | ✅ Done | |
+| ~~6~~ | ~~F-12 add missing component imports~~ | ✅ Done | |
 | 7 | F-7 wire up lit / lit-a11y / wc ESLint plugins | Small | Low (surfaces backlog) |
 | 8 | F-3a `paper-toggle-button` → `<vaadin-checkbox>` | Small | Low |
 | 9 | F-4 grid renderers → `@vaadin/grid/lit` directives | Large | Medium |

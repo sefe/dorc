@@ -19,6 +19,8 @@ import {
   DatabaseApiModel,
   GroupApiModel
 } from '../apis/dorc-api';
+import '@vaadin/button';
+import '@vaadin/vertical-layout';
 
 @customElement('add-edit-database')
 export class AddEditDatabase extends LitElement {
@@ -140,7 +142,6 @@ export class AddEditDatabase extends LitElement {
             title="Maximum length: ${this.maxFieldLength} symbols"
             pattern="^[a-zA-Z0-9_]{1,128}?$"
             required
-            auto-validate
             @input="${this._dbNameValueChanged}"
             .value="${this.DatabaseName}"
           ></vaadin-text-field>
@@ -151,7 +152,6 @@ export class AddEditDatabase extends LitElement {
             title="Maximum length: ${this.maxFieldLength} symbols"
             pattern="^[a-zA-Z0-9&.\\- ]+$"
             required
-            auto-validate
             @input="${this._dbTypeValueChanged}"
             .value="${this.DatabaseType}"
           ></vaadin-text-field>
@@ -162,7 +162,6 @@ export class AddEditDatabase extends LitElement {
             maxlength="${this.maxFieldLength}"
             title="Maximum length: ${this.maxFieldLength} symbols"
             required
-            auto-validate
             @input="${this._sqlServerValueChanged}"
             .value="${this.DbServerName}"
           ></vaadin-text-field>
@@ -172,7 +171,6 @@ export class AddEditDatabase extends LitElement {
             maxlength="${this.maxFieldLength}"
             title="Maximum length: ${this.maxFieldLength} symbols"
             @input="${this._dbaArrayNameValueChanged}"
-            auto-validate
             .value="${this.ArrayName}"
           ></vaadin-text-field>
           <vaadin-combo-box
@@ -183,7 +181,6 @@ export class AddEditDatabase extends LitElement {
             item-label-path="GroupName"
             @value-changed="${this.setSelectedADGroup}"
             .items="${this.groups}"
-            filter-property="GroupName"
             .renderer="${this._boundADGroupsRenderer}"
             placeholder="Select Permission"
             style="width: 300px"
