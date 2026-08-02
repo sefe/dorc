@@ -5,6 +5,7 @@ using Dorc.Core.Security;
 using Dorc.Core.VariableResolution;
 using Dorc.Core.HighAvailability;
 using Dorc.Monitor.IntegrationTests.Init;
+using Dorc.Monitor.Notifications;
 using Dorc.Monitor.Pipes;
 using Dorc.Monitor.Registry;
 using Dorc.Monitor.RequestProcessors;
@@ -52,6 +53,7 @@ namespace Dorc.Monitor.Tests.Init
 
             PersistentSourcesRegistry.Register(collection);
 
+            collection.AddSingleton<IDeploymentNotificationSink, NoOpDeploymentNotificationSink>();
             collection.AddTransient<IDeploymentRequestStateProcessor, DeploymentRequestStateProcessor>();
             collection.AddTransient<IPendingRequestProcessor, PendingRequestProcessor>();
             collection.AddTransient<IVariableScopeOptionsResolver, VariableScopeOptionsResolver>();

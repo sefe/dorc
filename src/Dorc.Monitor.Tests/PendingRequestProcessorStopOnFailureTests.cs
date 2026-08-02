@@ -4,6 +4,7 @@ using Dorc.Core;
 using Dorc.Core.Events;
 using Dorc.Core.Interfaces;
 using Dorc.Core.VariableResolution;
+using Dorc.Monitor.Notifications;
 using Dorc.Monitor.RequestProcessors;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.Extensions.Logging;
@@ -25,6 +26,7 @@ namespace Dorc.Monitor.Tests
         private IPropertyEvaluator mockPropertyEvaluator = null!;
         private IDeploymentEventsPublisher mockEventsPublisher = null!;
         private IGitHubArtifactDownloader mockGitHubArtifactDownloader = null!;
+        private IDeploymentNotificationSink mockNotificationSink = null!;
 
         private PendingRequestProcessor sut = null!;
 
@@ -44,6 +46,7 @@ namespace Dorc.Monitor.Tests
             mockPropertyEvaluator = Substitute.For<IPropertyEvaluator>();
             mockEventsPublisher = Substitute.For<IDeploymentEventsPublisher>();
             mockGitHubArtifactDownloader = Substitute.For<IGitHubArtifactDownloader>();
+            mockNotificationSink = Substitute.For<IDeploymentNotificationSink>();
             mockGitHubArtifactDownloader.IsGitHubArtifactUrl(Arg.Any<string>()).Returns(false);
 
             // Common mock setup
@@ -84,6 +87,7 @@ namespace Dorc.Monitor.Tests
                 mockConfigValuesPersistentSource,
                 mockPropertyEvaluator,
                 mockEventsPublisher,
+                mockNotificationSink,
                 mockGitHubArtifactDownloader);
         }
 
