@@ -3,6 +3,7 @@ using Dorc.Core;
 using Dorc.Core.Events;
 using Dorc.Core.Interfaces;
 using Dorc.Core.HighAvailability;
+using Dorc.Monitor.Notifications;
 using Dorc.Monitor.RequestProcessors;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.Extensions.Logging;
@@ -18,6 +19,7 @@ namespace Dorc.Monitor
         private readonly IRequestsPersistentSource requestsPersistentSource;
         private readonly IDeploymentEventsPublisher eventPublisher;
         private readonly IDistributedLockService distributedLockService;
+        private readonly IDeploymentNotificationSink notificationSink;
 
         private DeploymentRequestDetailSerializer serializer = new DeploymentRequestDetailSerializer();
 
@@ -45,7 +47,8 @@ namespace Dorc.Monitor
             IDeploymentRequestProcessesPersistentSource processesPersistentSource,
             IRequestsPersistentSource requestsPersistentSource,
             IDeploymentEventsPublisher eventPublisher,
-            IDistributedLockService distributedLockService)
+            IDistributedLockService distributedLockService,
+            IDeploymentNotificationSink notificationSink)
         {
             this.logger = logger;
             this.serviceProvider = serviceProvider;
@@ -53,6 +56,7 @@ namespace Dorc.Monitor
             this.requestsPersistentSource = requestsPersistentSource;
             this.eventPublisher = eventPublisher;
             this.distributedLockService = distributedLockService;
+            this.notificationSink = notificationSink;
         }
 
         /// <summary>
@@ -73,6 +77,25 @@ namespace Dorc.Monitor
                 }
             });
             OnPublishTaskCreated?.Invoke(task);
+        }
+
+        private void FireNotification(
+            DeploymentRequestApiModel request,
+            string finalStatus,
+            DateTimeOffset startedTime,
+            DateTimeOffset completedTime)
+        {
+            try
+            {
+                var notifyTask = this.notificationSink.NotifyRequestCompletedAsync(request, finalStatus, startedTime, completedTime);
+                _ = notifyTask.ContinueWith(
+                    t => this.logger.LogError(t.Exception, "Notification failed for request {RequestId}.", request.Id),
+                    TaskContinuationOptions.OnlyOnFaulted);
+            }
+            catch (Exception ex) when (!FatalExceptions.Is(ex))
+            {
+                this.logger.LogError(ex, "Notification failed synchronously for request {RequestId}.", request.Id);
+            }
         }
 
         // NOTE: AbandonRequests handles truly stale requests (>24 hours in Running state).
@@ -208,16 +231,19 @@ namespace Dorc.Monitor
                         DeploymentResultStatus.Pending,
                         DeploymentResultStatus.Cancelled);
 
-                    foreach (var id in requestingIds)
+                    var cancelledTime = DateTimeOffset.Now;
+
+                    foreach (var request in requestingRequests)
                     {
-                        TerminateRunnerProcesses(id);
+                        TerminateRunnerProcesses(request.Id);
                         PublishRequestStatusChangedSafe(new DeploymentRequestEventData(
-                            RequestId: id,
+                            RequestId: request.Id,
                             Status: DeploymentRequestStatus.Cancelled.ToString(),
                             StartedTime: null,
                             CompletedTime: null,
                             Timestamp: DateTimeOffset.UtcNow
                         ));
+                        FireNotification(request, DeploymentRequestStatus.Cancelled.ToString(), request.StartedTime ?? request.RequestedTime ?? cancelledTime, cancelledTime);
                     }
 
                     this.logger.LogWarning(
@@ -262,35 +288,39 @@ namespace Dorc.Monitor
                     toStatus,
                     DateTimeOffset.Now);
 
+                var switchedTime = DateTimeOffset.Now;
+
                 if (updatedRequestCount == requestToSwitchCount)
                 {
                     // All requests were successfully updated
-                    foreach (var id in ids)
+                    foreach (var request in requests)
                     {
-                        TerminateRunnerProcesses(id);
+                        TerminateRunnerProcesses(request.Id);
                         PublishRequestStatusChangedSafe(new DeploymentRequestEventData(
-                            RequestId: id,
+                            RequestId: request.Id,
                             Status: toStatus.ToString(),
                             StartedTime: null,
                             CompletedTime: null,
                             Timestamp: DateTimeOffset.UtcNow
                         ));
+                        FireNotification(request, toStatus.ToString(), request.StartedTime ?? request.RequestedTime ?? switchedTime, switchedTime);
                     }
                     this.logger.LogInformation($"Requests with ids [{idsString}] are {methodName}ed.");
                 }
                 else if (updatedRequestCount > 0)
                 {
                     // Partial success: some requests were already processed by another monitor
-                    foreach (var id in ids)
+                    foreach (var request in requests)
                     {
-                        TerminateRunnerProcesses(id);
+                        TerminateRunnerProcesses(request.Id);
                         PublishRequestStatusChangedSafe(new DeploymentRequestEventData(
-                            RequestId: id,
+                            RequestId: request.Id,
                             Status: toStatus.ToString(),
                             StartedTime: null,
                             CompletedTime: null,
                             Timestamp: DateTimeOffset.UtcNow
                         ));
+                        FireNotification(request, toStatus.ToString(), request.StartedTime ?? request.RequestedTime ?? switchedTime, switchedTime);
                     }
                     var skippedCount = requestToSwitchCount - updatedRequestCount;
                     this.logger.LogInformation(
@@ -634,17 +664,22 @@ namespace Dorc.Monitor
                 // Requesting until the next monitor restart triggers CancelStaleRequests.
                 try
                 {
+                    var erroredTime = DateTimeOffset.Now;
+
                     this.requestsPersistentSource.UpdateRequestStatus(
                         requestToExecute.Request.Id,
                         DeploymentRequestStatus.Errored,
-                        DateTimeOffset.Now,
+                        erroredTime,
                         exception.ToString());
 
                     PublishRequestStatusChangedSafe(new DeploymentRequestEventData(requestToExecute.Request)
                     {
                         Status = DeploymentRequestStatus.Errored.ToString(),
-                        CompletedTime = DateTimeOffset.Now,
+                        CompletedTime = erroredTime,
                     });
+
+                    FireNotification(requestToExecute.Request, DeploymentRequestStatus.Errored.ToString(),
+                        requestToExecute.Request.StartedTime ?? requestToExecute.Request.RequestedTime ?? erroredTime, erroredTime);
                 }
                 catch (Exception statusUpdateException)
                 {

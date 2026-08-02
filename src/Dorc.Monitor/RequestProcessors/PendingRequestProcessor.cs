@@ -5,7 +5,6 @@ using Dorc.Core.Events;
 using Dorc.Core.Interfaces;
 using Dorc.Core.VariableResolution;
 using Dorc.Monitor.Notifications;
-using Dorc.Monitor.Notifications.Teams;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
@@ -389,7 +388,7 @@ namespace Dorc.Monitor.RequestProcessors
                     t => logger.LogError(t.Exception, "Notification failed for request {RequestId}.", request.Id),
                     TaskContinuationOptions.OnlyOnFaulted);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (!FatalExceptions.Is(ex))
             {
                 logger.LogError(ex, "Notification failed synchronously for request {RequestId}.", request.Id);
             }
