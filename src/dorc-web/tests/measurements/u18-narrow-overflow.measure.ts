@@ -36,9 +36,9 @@
  *  - Chromium only, via an on-demand config; the committed vitest.config.ts
  *    (three engines) does not run this file.
  *  - "fits" results for views that render inside another container
- *    (component-deployment-results sits in <vaadin-details>) are
- *    not-established rather than passes: their real available width is below
- *    375px.
+ *    (component-deployment-results sits in <vaadin-details>;
+ *    make-like-production sits in a <vaadin-dialog>) are not-established
+ *    rather than passes: their real available width is below 375px.
  */
 import { expect, fixture, html } from '../_helpers';
 import { LitElement } from 'lit';
@@ -145,10 +145,12 @@ const VIEWS: Record<string, ColSpec[]> = {
   ],
   // Pilot step 5 (R2b-F15): dialog-hosted; measured here at 375px although its
   // real available width inside the dialog is smaller still — conservative.
+  // Transcribed from make-like-production.ts:152-170 (corrected per R3-F2:
+  // the first transcription fabricated auto-width/flex specs not in source).
   'make-like-production': [
-    { header: 'Property Name', autoWidth: true, content: 'DeploymentTargetDatabase' },
-    { header: 'Value', flexGrow: '1', content: 'GMPR-SQL01.sefe.local' },
-    { header: '', autoWidth: true, content: 'Override' },
+    { header: 'Property Name', width: '300px', flexGrow: '0', content: 'DeploymentTargetDatabase' },
+    { header: 'Property Value', width: '300px', flexGrow: '0', content: 'GMPR-SQL01.sefe.local' },
+    { header: '', content: 'Override' },
   ],
 };
 

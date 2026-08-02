@@ -31,8 +31,10 @@ raised as blocking: *does a rendering defect exist at 375px at all?*
 Each view's real column set is transcribed from source — count, header text,
 `width`, `flex-grow` (only where source declares it), `auto-width`,
 `?hidden="${this._narrowScreen}"` — and rendered in a `<vaadin-grid>`
-(`theme="compact"`, matching all nine real grids) at a 375px container with
-representative DORC content. Measured: the grid's internal scrolling container
+(`theme="compact"`, matching all ten real grids) at a 375px container with
+representative DORC content. *(The step-5 transcription was corrected after the
+R3 audit (R3-F2): the first version fabricated `auto-width` specs not present in
+source, inverting that view's result.)* Measured: the grid's internal scrolling container
 (`grid.$.table` — a private API, noted) `scrollWidth` vs `clientWidth`. Vaadin
 Grid scrolls internally, so the page body never overflows; the question is
 whether the user must scroll sideways to reach a column.
@@ -56,11 +58,12 @@ whether the user must scroll sideways to reach a column.
 
 ## 3. U-18 — the views as written today
 
-**7 of 10 measured views require horizontal scrolling at 375px.**
+**8 of 10 measured views require horizontal scrolling at 375px.**
 
 | View | Columns shown at ≤768px | Needs | Overflow |
 |---|---|---|---|
 | `page-env-history` | 4 | 764px | **+389px** |
+| `make-like-production` *(pilot)* | 3 | 700px | **+325px** *(worse still in reality — dialog gives it < 375px)* |
 | `page-servers-audit` | 6 | 695px | **+320px** |
 | `page-databases-audit` | 6 | 684px | **+309px** |
 | `env-deployments` | 5 | 639px | **+264px** |
@@ -68,14 +71,15 @@ whether the user must scroll sideways to reach a column.
 | `add-edit-access-control` | 5 | 498px | **+123px** |
 | `env-monitor` *(pilot)* | 4 | 454px | **+79px** |
 | `component-deployment-results` *(pilot)* | 3 | 375px | fits *(not-established — hosted in `<vaadin-details>`)* |
-| `make-like-production` *(pilot)* | 3 | 375px | fits *(not-established — dialog-hosted, real width < 375px)* |
 | `page-environments-list` | 2 | 375px | fits |
 
 **U-18 resolves YES.** Both journey grid views overflow; an on-call engineer
 must scroll sideways to reach Status. The corrected Details content reduced
 the flagship figures from the first version (+235→+139, +175→+79) without
 changing the verdict — and since header-content fidelity biases the harness
-low, the real figures are worse than these.
+low, the real figures are worse than these. `make-like-production` (two
+hardcoded 300px columns) shows column *count* is no protection: 3 columns,
+third-worst overflow measured.
 
 ## 4. What drives it — three experiments
 
@@ -136,11 +140,24 @@ triage-critical content.
 
 ## 6. Reproducing
 
+Create an on-demand config (not committed) and run it:
+
+```ts
+// vitest.u18.config.ts
+import { defineConfig } from 'vitest/config';
+import { playwright } from '@vitest/browser-playwright';
+export default defineConfig({
+  oxc: { decorator: { legacy: true }, assumptions: { setPublicClassFields: true },
+         typescript: { removeClassFieldsWithoutInitializer: true } },
+  test: { include: ['tests/measurements/*.measure.ts'], globals: true,
+          setupFiles: ['./tests/_setup.ts'],
+          browser: { enabled: true, provider: playwright(), headless: true,
+                     instances: [{ browser: 'chromium' }] } },
+});
 ```
-cd src/dorc-web
-# on-demand config (not committed): include tests/measurements/*.measure.ts,
-# chromium instance only — see the harness header for the exact snippet
-npx vitest run --config vitest.u18.config.ts
+
+```
+cd src/dorc-web && npx vitest run --config vitest.u18.config.ts
 ```
 
 Reported figures are **chromium-only**. In this container Playwright ships

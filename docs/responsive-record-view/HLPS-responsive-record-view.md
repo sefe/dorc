@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | **REVISION** — R2 panel returned 3/3 REVISE; this version implements the R2 triage (§13) as a single coherent rewrite |
+| Status | **IN REVIEW — awaiting user approval.** Panel rounds exhausted (R1 6/6 REVISE → R2 3/3 REVISE → R3 REVISE with fixes applied, triages §12–§14). Open decision attached: **U-16**. |
 | Date | 2026-08-02 |
 | Owner | Ben Hegarty |
 | Topic slug | `responsive-record-view` |
@@ -33,13 +33,14 @@ independently decides which columns to suppress via
 `?hidden="${this._narrowScreen}"`.
 
 **The symptom is established by measurement, not inference**
-(`MEASURE-U-18-narrow-overflow.md`): **7 of 10 measured views require horizontal
+(`MEASURE-U-18-narrow-overflow.md`): **8 of 10 measured views require horizontal
 scrolling at 375px**, including both grid views on the on-call triage journey —
 `page-monitor-requests` overflows by 139px and `env-monitor` by 79px
 (conservative figures; harness header fidelity biases them low). The worst view,
 `page-env-history`, overflows by 389px with only 4 columns showing. Overflow
-does not track column count: a 4-column view is the worst measured, a 5-column
-view the mildest, and the 2-column view fits.
+does not track column count: the worst and the mildest measured overflows are
+both 4-column views, a 3-column view (`make-like-production`, two hardcoded
+300px columns) is third-worst at +325px, and the 2-column view fits.
 
 The measurement also establishes **why** (MEASURE §4): partly authored width
 policy (three hardcoded widths cause 94% of `page-env-history`'s excess — fixable
@@ -52,9 +53,9 @@ needs the full row, which no multi-column layout can give it.
 The second failure is structural and independent of the numbers:
 
 - **The policy is opt-in, so coverage gaps are guaranteed.** `page-servers-audit.ts`
-  and `page-databases-audit.ts` carry zero narrow-screen handling — the two
-  worst-rendering views in the codebase, precisely *because* nothing obliged
-  their authors to opt in. `env-deployments.ts` and `add-edit-access-control.ts`
+  and `page-databases-audit.ts` carry zero narrow-screen handling — among the
+  worst-rendering unmigrated views, precisely *because* nothing obliged their
+  authors to opt in. `env-deployments.ts` and `add-edit-access-control.ts`
   are the same.
 - **The policy is unreviewable.** No artifact answers "which fields matter on a
   phone" for any DORC entity; the decision is distributed across 180 column
@@ -179,12 +180,14 @@ has failed and I am not at my desk.*
 | 2 | `pages/page-monitor-result.ts` | 0 — renders no grid | **Journey step only** | Page/card layout at 375px (owned by §3.1's `page-monitor-result` bullet) |
 | 3 | `components/component-deployment-results.ts` | 5 (2 hidden → 3) | Migration target | `.items` + `all-rows-visible` (non-virtualised); hosted in `<vaadin-details>`; log/plan action buttons |
 | 4 | `components/environment-tabs/env-monitor.ts` | 7 (3 hidden → 4) | Migration target | `@active-item-changed` row activation **that opens the result page** (`env-monitor.ts:620-636`) — the direct collision with §3.4's activation-opens-disclosure default (U-15) |
-| 5 | `components/make-like-production.ts` | 3 (0 hidden → 3), **one grid** | Migration target | **Genuinely dialog-hosted** via `dialogRenderer` (`make-like-production-dialog.ts:91-96,126`) — container-width measurement; applies no `ResponsiveMixin` today |
+| 5 | `components/make-like-production.ts` | 3 (0 hidden → 3), **one grid** | Migration target | **Genuinely dialog-hosted** via `dialogRenderer` (`make-like-production-dialog.ts:91-96,126`) — container-width measurement; applies no `ResponsiveMixin` today; **overflows +325px** (two hardcoded 300px columns — MEASURE §3, corrected per R3-F2) |
 | 6 | `pages/page-env-history.ts` | 9 (5 hidden → 4) | Migration target | **7 declarative `<vaadin-grid-sort-column>`** — the dominant codebase idiom, zero present in steps 1/3/4; `edit-comments-controls` row actions; worst measured overflow (+389px) |
 
 Notes carried from the panel rounds:
 
-- Steps 1 and 4 are near-duplicates (verified identical columns/renderers).
+- Steps 1 and 4 are near-duplicates (identical column set and renderers apart
+  from the actions-column width, 160px vs 100px — exactly the 60px gap between
+  their measured demands).
   Step 4 is retained because it carries the **activation-semantics risk that is
   still live under §3.4** (its row activation opens a page, not a disclosure —
   U-15), not merely because it uses a different API.
@@ -226,7 +229,7 @@ Naming per CLAUDE.md pending U-6; defaults there.
 | **metadata** | no | Muted secondary fields inline | timings/user (1/4); timings (3); value (5); updated-by/type (6) |
 | **chip** | no | Status as a visible chip. **New work driven by the item model** (e.g. `item.Status`), *not* `cellPartNameGenerator` — no pilot view uses part-name generation, and `::part()` cannot style slotted cell content *(R2b-F6)*. Part-name generation remains a separate wide-path obligation. | Status (1/3/4); none (5/6 — slot unused) |
 | **actions** | yes where the view has them | Per-row actions as a **trailing overflow menu reusing the `grid-menu-a11y`-hardened menu pattern**; a view's template may promote at most one action inline *(R2c-F1)* | `request-controls` (1/4); log/plan buttons (3); override button (5); `edit-comments-controls` incl. its edit/save/cancel cycle (6) |
-| **disclosure** | yes | Row activation opens row details carrying the remaining fields | all |
+| **disclosure** | yes | Row activation opens row details carrying the remaining fields. **The template owns the expanded-state announcement**: Vaadin sets `aria-expanded` only on the tree-grid path (`vaadin-grid-a11y-mixin.js:104-116`, gated on `item-has-children-path` — which DORC never uses, §1.2); the row-details mixin sets none *(corrected per R3-F1)* | all |
 
 **The bar** *(R2b-F4, R2c-F2, R2c-F7)*. At narrow width, filtering, sorting and
 view-level controls live in a bar. **Default mechanism: the bar is hosted in
@@ -259,12 +262,15 @@ Vaadin's default is `nowrap` + ellipsis, so the template opts in explicitly
 `auto-width` columns do not recalculate automatically; the controller triggers
 recalculation *(R2b-F11, SC10)*.
 
-**Accessibility posture** *(R2b-F12)*. The narrow rendering **retains Vaadin's
-grid/table ARIA semantics** — it is announced as a one-column table with row
-count and position, which preserves the announcements SC5 needs; the row
-template's *internal* semantics (chip labelling, disclosure `aria-expanded` —
-free from Vaadin's row-details implementation, `vaadin-grid-a11y-mixin.js:104-116`
-— actions menu ARIA) are the new obligations, decomposed in SC5.
+**Accessibility posture** *(R2b-F12; corrected per R3-F1)*. The narrow
+rendering **retains Vaadin's grid/table ARIA semantics** — announced as a
+one-column table with row count and position
+(`vaadin-grid-a11y-mixin.js:48-81`), which is the part that genuinely comes
+free. The row template's *internal* semantics are all new obligations,
+decomposed in SC5: chip labelling, actions menu ARIA, and **disclosure
+expanded-state announcement** — Vaadin's row-details implementation exposes no
+`aria-expanded` (that attribute is tree-grid-only, and DORC has zero tree
+grids), so the template must set it on the activation affordance itself.
 
 **Design-quality gate.** "Polished" is adjudicated at the pilot review:
 side-by-side against GitHub's mobile issue/PR list, owner + panel, with
@@ -310,7 +316,7 @@ exposes.
 | **SC2** | At desktop width, a migrated view is functionally equivalent pre/post for sorting, filtering, resizing, reordering, row actions, lazy paging and cell styling (incl. `cellPartNameGenerator` parts where used). | Written per-view checklist authored in the JIT Spec and approved before migration; existing suites pre-classified there as behaviour-asserting (must pass) or idiom-asserting (replaced per §3.1 test migration). No post-hoc reclassification. |
 | **SC3** | Field-presentation priority is declared once per entity, reviewable without reading `render()`. | The view's **row-template module** exists as a named, importable artifact; quote-agnostic regex confirms no `_narrowScreen` binding remains in the migrated view *(rekeyed per R2a-F8/R2c-F5)*. |
 | **SC4** | Lazy views retain incremental fetch at both widths. | Network assertion: scrolling issues incremental `dataProvider` calls; initial load does not fetch the full collection. |
-| **SC5** | Keyboard and screen-reader semantics hold at both widths. | Decomposed criteria authored **before** the renderer step: table-semantics announcements retained (row count/position — explicit acceptance of one-column-table ARIA per §3.4); focus order within a list row; `aria-expanded` on disclosure (from Vaadin row-details); actions menu per `grid-menu-a11y` §4; label/value association within row content; live region for incrementally fetched rows; **WCAG 2.5.8 (AA, 24px)** target size *(corrected from 2.5.5/AAA per R2b-F10)*. Verification mechanism blocked on U-16. Manual screen-reader spot-check per `grid-menu-a11y` §5. |
+| **SC5** | Keyboard and screen-reader semantics hold at both widths. | Decomposed criteria authored **before** the renderer step: table-semantics announcements retained (row count/position — explicit acceptance of one-column-table ARIA per §3.4); focus order within a list row; **`aria-expanded` on the disclosure affordance, set by the row template** (Vaadin row-details exposes none — R3-F1); actions menu per `grid-menu-a11y` §4; label/value association within row content; live region for incrementally fetched rows; **WCAG 2.5.8 (AA, 24px)** target size *(corrected from 2.5.5/AAA per R2b-F10)*. Verification mechanism blocked on U-16. Manual screen-reader spot-check per `grid-menu-a11y` §5. |
 | **SC6** | The 768px breakpoint value appears in exactly one module; viewport subscription (`dorc-app.ts` shell) and container measurement (controller) are separately testable mechanisms. | Static review covering `matchMedia` and the **26 files / 28 occurrences** of CSS-hardcoded `max-width: 768px`. |
 | **SC7** | The pilot includes ≥1 lazy `dataProvider` view, ≥1 filter-bearing view, ≥1 dialog-hosted view, ≥1 predominantly-declarative sort-column view, and ≥1 view with row actions. | §3.3: steps 1/4; 1/4; 5; 6; all. |
 | **SC8** | No new runtime dependency without explicit approval. | `package.json` diff. |
@@ -357,7 +363,7 @@ unknowns carry explicit routing *(format per R2c-F12)*.
 | **U-4** | Is one threshold sufficient? | Agent/User | NO | **Default adopted in §3.4**: single 768px discontinuity, derived from worst measured demand (764px); no tablet tier. Revisit only on pilot evidence. |
 | **U-5** | Pilot set composition. | Agent/User | NO | §3.3 (six entries, roles stated). Pending user confirmation at the IS checkpoint. |
 | **U-6** | Naming (CLAUDE.md-compliant). | User | NO | Open. Defaults restated for the §3.4 artifacts *(R2c-F15)*: template helper `dorc-list-row`, per-view modules `<view>-row-template.ts`, controller `NarrowListController`. |
-| **U-7** | Grid-cell coupling of the pilot's action components. | Agent | **Per-step: blocks the JIT Specs of steps 1/4 (`request-controls`) and 6 (`edit-comments-controls`)** | **PARTLY RESOLVED, rescoped per R2a-F10**: 4 of 12 components reference a grid (`edit-comments`, `env-controls`, `project-controls`, `request-controls`); `server-controls`/`database-env-controls` are grid-agnostic (0 refs). `request-controls.ts:45-58` carries `vaadin-grid` / `vaadin-grid-cell-content` selectors. Residual: whether those two need an adaptation layer inside the actions menu. |
+| **U-7** | Grid-cell coupling of the pilot's action components. | Agent | **Per-step: blocks the JIT Specs of steps 1/4 (`request-controls`) and 6 (`edit-comments-controls`)** | **PARTLY RESOLVED, rescoped per R2a-F10/R3-F3**: **3 of 12** components reference a grid (`edit-comments-controls`, `env-controls`, `request-controls` — derived by `grep -l 'vaadin-grid' components/grid-button-groups/*.ts`); the other nine including `server-controls`/`database-env-controls` are grid-agnostic. `request-controls.ts:45-58` carries `vaadin-grid` / `vaadin-grid-cell-content` selectors. Residual: whether the two pilot components need an adaptation layer inside the actions menu. |
 | **U-8a** | Do the pilot views' renderers re-express as row templates? | Agent | ~~YES~~ | **RESOLVED 2026-08-02 by R2 panel inspection (R2b/R2c) — "no" under the original 4-slot contract** (no home for actions, sorters, header controls, chip mechanism mis-cited), **"yes" under the §3.4 contract as now specified**: full mapping in the §3.4 slot table. This resolution is what forced the contract expansion. |
 | **U-8b** | Codebase-wide renderer migration cost (117 `.renderer=` / 47 files; 53 `.headerRenderer=` / 16 files). | Agent | NO | Open; cost estimation for post-pilot sequencing. |
 | **U-9** | Column resize/reorder at narrow width. | User | NO | Default: unavailable at narrow width, no error affordance (they are meaningless in a one-column list). |
@@ -369,7 +375,7 @@ unknowns carry explicit routing *(format per R2c-F12)*.
 | **U-15** | Row-activation semantics vs the disclosure default. | Agent | **Per-step: blocks the JIT Specs of steps 1 AND 4** *(extended per R2c-F10)* | Open. **Both** journey views open the result page on activation — step 1 via in-cell `.id-btn` (`:670`), step 4 via `@active-item-changed` dispatching `open-monitor-result` (`env-monitor.ts:620-636`) — while §3.4 assigns activation to disclosure. Default: primary line carries the open-result link; activation toggles disclosure. Each view's template must state it. |
 | **U-16** | Runtime a11y assertion mechanism: none exists (`eslint-plugin-lit-a11y` is static; `grid-menu-a11y` declined to add a harness) and §4 forbids new test frameworks. | **User** | **Blocks §6 step 6 (the a11y gate)** | Open — **a permission question, not a discovery** *(R2c-F12)*: approve a runtime assertion library (e.g. axe-core in the existing Vitest browser harness) or accept manual-only verification of SC5. Decision requested at this document's approval checkpoint. |
 | **U-17** | Direction. | User | ~~YES~~ | **RESOLVED 2026-08-02**: §3.4. GitHub-style list rows inside Vaadin Grid; quality bar part of the resolution. |
-| **U-18** | Is there a rendering defect at 375px? | Agent | ~~YES~~ | **RESOLVED 2026-08-02 — YES, twice-measured.** 7 of 10 views overflow (both journey views); revised after R2b audit corrected the content fidelity and withdrew the "3-column ceiling" claim; the cheap width fix measured honestly truncates ~54% of the identity field (U-18c). `MEASURE-U-18-narrow-overflow.md`. |
+| **U-18** | Is there a rendering defect at 375px? | Agent | ~~YES~~ | **RESOLVED 2026-08-02 — YES, thrice-audited.** **8 of 10** views overflow (both journey views; step 5 corrected to +325px after R3-F2 caught a fabricated transcription); R2b withdrew the "3-column ceiling" claim; the cheap width fix measured honestly truncates ~54% of the identity field (U-18c). `MEASURE-U-18-narrow-overflow.md`. |
 | **U-19** | Rollback for a migrated view regressing in production. | User/Agent | **Constraint on every migration step** *(routed per R2c-F12)* | Open. Candidates: per-view revert commit discipline; the row-template module makes a one-commit revert per view realistic. |
 | **U-20** | Idiom rule for new grid-bearing views post-pilot. | User | NO | Default restated *(R2c-F15)*: new views must ship a row-template module and the controller; `?hidden` bindings are not accepted in review. |
 
@@ -382,7 +388,7 @@ unknowns carry explicit routing *(format per R2c-F12)*.
 | The personas are anticipated, not observed (U-1); field priorities are set from assumptions. | MEDIUM–HIGH | Accepted as foundation-laying. Real mitigations: priority lives in one row-template module per view (revision is an edit, not a re-migration); pilot bounded to six views; SC9 is a rendering-completeness gate and is **not** claimed as usage validation. Follow-up commitment: a lightweight session with a real on-call engineer after the pilot ships, tracked at the post-pilot checkpoint. |
 | Sort silently drops from queries at narrow width (verified Vaadin behaviour when columns hide). | **HIGH** | §3.4's header-hosted bar keeps sorters connected; SC10 asserts `sortOrders` continuity; fallback mechanism named. The infrastructure step spikes this **first** — it is the highest technical risk in the design. |
 | The bar (one surface) and wide headers (another) desync filter state. | MEDIUM | U-14(b); SC10 assertion; single debounced filter-state owner already exists in the views. |
-| Accessibility of the row template's internal semantics (chip, disclosure, actions menu, bar). | MEDIUM–HIGH | SC5 decomposed and authored before the renderer step; Vaadin's table semantics and row-details `aria-expanded` retained by construction; U-16 decides the assertion mechanism. |
+| Accessibility of the row template's internal semantics (chip, disclosure expanded-state, actions menu, bar). | MEDIUM–HIGH | SC5 decomposed and authored before the renderer step; Vaadin's table semantics (row count/position) retained by construction, but **disclosure `aria-expanded` is NOT** — it is template-owned new work (R3-F1); U-16 decides the assertion mechanism. |
 | The design bar is subjective; "polished" drifts. | MEDIUM | SC11's objective contract + named-reference side-by-side with authority to fail the pilot. |
 | Test-coverage regression during migration. | MEDIUM | §3.1 test migration in scope; SC2 pre-classification; coverage re-established against controller/template. |
 | Row-template modules less readable than the markup they replace. | MEDIUM | §4 adjudication at the pilot gate with authority to fail. |
@@ -475,7 +481,8 @@ direction won.
 | **R1** | 2026-08-02 | REVISION | 6 reviewers, 4 lenses | **6/6 REVISE** — census error (~2.5× inflation) + 20 further findings; triage §12. |
 | — | 2026-08-02 | REVISION | — | U-18 resolved by measurement; U-17 resolved by user (GitHub-style list direction). |
 | **R2** | 2026-08-02 | REVISION | 3 reviewers (triage-implementation audit; new-content/measurement audit; IS-readiness) | **3/3 REVISE** — R1 triage verified genuinely implemented (20+ figures independently re-derived, all matched), but: multi-pass edit debt (14 consistency defects), measurement's "3-column ceiling" claim false (default ≠ floor), §3.4 contract missing actions/sort/header-controls/chip answers, sort-loss-at-narrow-width defect found in the design. Triage §13. |
-| — | 2026-08-02 | REVISION | — | **This version**: single-pass rewrite implementing the full R2 triage. Measurement corrected and extended (U-18c); §3.4 expanded to the normative contract; U-8a resolved; all stale text swept. **Next: R3 verification round (final permitted round), then user approval.** |
+| — | 2026-08-02 | REVISION | — | Single-pass rewrite implementing the full R2 triage. Measurement corrected and extended (U-18c); §3.4 expanded to the normative contract; U-8a resolved; all stale text swept. |
+| **R3** | 2026-08-02 | **IN REVIEW** | 1 verifier (final permitted round) | **REVISE → fixes applied same day** (triage §14): two HIGH — `aria-expanded` is tree-grid-only, not free from row-details (design obligation moved to the template); step-5 transcription fabricated, real result +325px overflow (headline now **8 of 10**). All census figures, citations and mechanisms otherwise verified clean. **Rounds exhausted; escalated to user approval with U-16 attached.** |
 
 ---
 
@@ -533,8 +540,31 @@ R2c (IS-readiness). 3/3 REVISE.
 ### Verified-sound by the panel (for the record)
 
 R2a: all 20+ re-derived figures matched; R1 triage genuinely implemented.
-R2b: transcriptions faithful; U-18=YES survives correction; header-hiding
-mechanism confirmed feasible via public API; U-11 dissolution correct;
-row-details `aria-expanded` free. R2c: pilot composition sound; SC2/SC5 oracles
-"stronger than anything in either reference IS"; filter relocation tractable on
-the existing debounced event contract.
+R2b: transcriptions faithful (with the two exceptions R3 later caught);
+U-18=YES survives correction; header-hiding mechanism confirmed feasible via
+public API; U-11 dissolution correct. ~~Row-details `aria-expanded` free~~ —
+**this R2b blessing was wrong and was reversed by R3-F1** (tree-grid-only).
+R2c: pilot composition sound; SC2/SC5 oracles "stronger than anything in
+either reference IS"; filter relocation tractable on the existing debounced
+event contract.
+
+## 14. R3 Final Verification — Triage
+
+Single verifier (final permitted round). Verdict: REVISE on two HIGH findings;
+all other checks passed — every census figure, every file:line citation, every
+Vaadin source citation, the sort-connectivity mechanism, the U-18c probe
+method, the §6 eleven-SC map, and the strike-through/vocabulary conventions.
+
+| Finding | Disposition |
+|---|---|
+| **R3-F1 (HIGH)** — `aria-expanded` claimed free from Vaadin row-details in four places; it is tree-grid-only (`__a11yUpdateRowExpanded` gated on `item-has-children-path`, which DORC never uses; the row-details mixin sets no ARIA). An R2b blessing that propagated. | **ACCEPT — verified against Vaadin source before acting.** Restated in §3.4 (slot table + accessibility posture), SC5, §8, and §13; expanded-state announcement is now template-owned new work. |
+| **R3-F2 (HIGH)** — step-5 measurement row fabricated (`auto-width` specs not in source), inverting the result: the view overflows +325px, not "fits". Headline is 8 of 10, not 7 of 10. | **ACCEPT — the exact defect class this document's counting rule prohibits, committed by its author twice.** Transcription corrected to the real `300px/300px/default` attributes, harness re-run, both documents updated; §3.3 step 5 and MEASURE §3 now carry the corrected figure. §3.4's 768px derivation survives (700 < 764). |
+| R3-F3 (MEDIUM) — U-7 "4 of 12" was a string-count artefact (`project-controls` matches only the word "grids" in a comment); true figure 3 of 12. | **ACCEPT.** Corrected with derivation stated. |
+| R3-F4 (MEDIUM) — two §1.1 prose claims contradicted the MEASURE table. | **ACCEPT.** Both restated (the corrected version is stronger: worst *and* mildest overflows are 4-column views). |
+| R3-F5/F6/F7/F8 (LOW) — stale "nine grids"; dangling config pointer; harness header caveat missing step 5; "verified identical" overstated. | **ACCEPT — all fixed** (config inlined in MEASURE §6; caveat added; near-duplicate note qualified with the 60px actions-width difference). |
+
+**Rounds exhausted (3 of 3).** Per CLAUDE.md, remaining items escalate to the
+user: this document proceeds to the user-approval checkpoint carrying one open
+decision (**U-16** — permit a runtime a11y assertion library, or accept
+manual-only SC5 verification) and one confirmation (**U-5** — pilot set, at the
+IS checkpoint).
