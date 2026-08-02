@@ -20,9 +20,15 @@
 > 9 resulting violations fixed) and **F-3a** (`paper-toggle-button` removed,
 > dropping 8 of the 20 Polymer packages).
 >
-> Still open: **F-3b** (`paper-dialog`, 19 files), **F-4** (grid renderers),
-> **F-10**/**F-11** (runtime checks), the `title`-only half of F-8, and
-> `stylelint` having no configuration.
+> **Planned, awaiting approval:** **F-4** →
+> `docs/grid-lit-renderers/HLPS-grid-lit-renderers.md`; **F-3b** →
+> `docs/paper-dialog-retirement/HLPS-paper-dialog-retirement.md`. Both HLPS
+> documents correct figures stated in this audit — see their §2 and the
+> resolution notes below.
+>
+> Still open and unplanned: **F-10**/**F-11** (runtime checks), the `title`-only
+> half of F-8, `stylelint` having no configuration, and the newly separated
+> **59 dead `focus-target` attributes**.
 >
 > `lit-analyzer --strict` has gone from 504 problems in 89 files to **436 in 85**
 > — every `auto-validate`, `filter-property` and missing-import finding is gone.
@@ -178,10 +184,25 @@ pin the observable behaviour: the toggle reveals and hides the inline
 `<add-env-tenant>` form, tracks the control rather than blind-toggling, and
 stays disabled for read-only and child environments.
 
-**F-3b (`paper-dialog`, 19 files) is still open**, and holds the remaining 12
-Polymer packages plus the `index.html` dark-mode override block.
+**F-3b (`paper-dialog`) is planned** — see
+`docs/paper-dialog-retirement/HLPS-paper-dialog-retirement.md`. It holds the
+remaining 12 Polymer packages plus the `index.html` dark-mode override block.
 
-### F-4 — Grid renderers bypass the documented Lit directives (MEDIUM)
+Two corrections this audit got wrong, both established during planning:
+
+- **12 elements in 9 files, not "19 files, 9 element usages".** Ten of the
+  nineteen importing files never use the element — dead imports, the same
+  pattern found in F-3a. All 12 real usages are structurally identical, which
+  makes this one transformation applied twelve times rather than twelve
+  problems.
+- **`focus-target` ×58 does not belong to this finding.** Scoped analysis puts
+  **zero** of the 59 occurrences inside any dialog, paper or Vaadin; they are all
+  on ordinary `<vaadin-text-field>`, `<vaadin-password-field>` and
+  `<vaadin-button>` elements. It is a `paper-dialog-behavior` attribute that is
+  inert on Vaadin components — a standalone dead-attribute cleanup like F-1,
+  removable independently and now tracked as such.
+
+### F-4 — Grid renderers bypass the documented Lit directives (MEDIUM) — 📋 PLANNED
 
 117 raw `.renderer=` / `.headerRenderer=` property bindings across 47 files,
 e.g. `src/pages/page-variables.ts:373`,
@@ -211,6 +232,25 @@ cannot be inferred through a plain property binding.
 removing the manual `requestContentUpdate()` calls as each is superseded. This
 is the single highest-value correctness item in the audit. It is also the
 largest, so it should be sequenced file-by-file rather than as one change.
+
+**Planned 2026-08-02** — see `docs/grid-lit-renderers/HLPS-grid-lit-renderers.md`.
+
+Two corrections this audit got wrong, both established during planning:
+
+- **The count is 167, not 117.** This finding counted only `.renderer=` and
+  missed `.headerRenderer=` (53) — and 17 of the total are `<vaadin-combo-box>`
+  renderers needing `comboBoxRenderer` from a different module. The work is
+  roughly 40% larger than stated here.
+- **The defect is confirmed, not theoretical.**
+  `tests/components/grid-renderer-staleness.test.ts` reproduces it against real
+  code: `attached-env-tenants` renders a Detach button whose `?disabled` comes
+  from the reactive `readonly` property, never calls `requestContentUpdate()`,
+  and receives `readonly` only after the environment API resolves. The button
+  therefore **stays enabled on a read-only environment**. The test also proves
+  a manual `requestContentUpdate()` fixes it, confirming a re-render rather than
+  a binding fault. Permission is enforced server-side, so this is a misleading
+  affordance rather than an escalation — but it is exactly the failure this
+  pattern produces silently.
 
 ### F-5 — Imports reaching into Vaadin private module paths (MEDIUM) — ✅ RESOLVED
 
