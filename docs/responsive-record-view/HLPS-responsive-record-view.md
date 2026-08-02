@@ -110,6 +110,11 @@ the available width — delegating to Vaadin Grid at desktop widths, and renderi
 non-tabular (card/list) form at phone widths — so that responsive policy is
 declared once per entity and is reviewable in one place.
 
+The target users are **application support and on-call engineers** (U-1), and the
+target situation is incident triage away from a desk. This is a foundation laid
+ahead of demand rather than a response to observed usage — see §3.3 for the
+journey this scopes to, and §8 for the risk that carries.
+
 Retaining Vaadin Grid as the wide-viewport renderer is a deliberate goal, not a
 compromise: it preserves virtual scrolling, the lazy `dataProvider` contract used
 by 13 files, keyboard accessibility (including the `grid-menu-a11y` outcomes),
@@ -167,6 +172,34 @@ reimplement correctly.
   a new HLPS.
 - **Offline / PWA / native-app concerns.**
 
+### 3.3 Target journey and pilot set (following U-1)
+
+U-1 resolved to: no current phone usage, no telemetry, and a deliberate
+foundation for **application support** and **on-call engineers**. That narrows
+the target from "DORC on a phone" to a specific journey — *a deployment has
+failed and I am not at my desk*:
+
+| Step | View | Columns | Narrow today | Hard-case coverage |
+|---|---|---|---|---|
+| 1. Find the failing request | `pages/page-monitor-requests.ts` | 16 | 3 hidden → 13 shown | Lazy `dataProvider`; 35 filter references |
+| 2. Open it | `pages/page-monitor-result.ts` | 1 | none | Composes `request-status-card` + drill-down |
+| 3. See which component failed | `components/component-deployment-results.ts` | 13 | 2 hidden → 11 shown | **Dialog-nested** (13 dialog references) |
+| 4. Same, environment-pinned | `components/environment-tabs/env-monitor.ts` | 16 | 3 hidden → 13 shown | Lazy `dataProvider`; 28 filter references |
+
+This set satisfies SC7 in full: lazy `dataProvider` (steps 1, 4), filter-bearing
+(steps 1, 4), dialog-nested (step 3).
+
+**A deliberate reversal worth flagging to reviewers.** The §1.1 census identified
+`page-servers-audit.ts` and `page-databases-audit.ts` — 14 columns each with
+*zero* narrow handling — as the worst offenders in the codebase, and
+`page-env-history.ts` (20 columns) and `page-environments-list.ts` (19 columns)
+as the largest. **None of them are in the pilot set.** They are administrative
+and compliance surfaces, not incident-response surfaces; an on-call engineer at
+02:00 does not read a server audit log on a phone. The worst-rendering views and
+the highest-value views are not the same views, and U-1 is what separates them.
+Reviewers should challenge this if they disagree — it is the single most
+consequential scoping judgement in this document.
+
 ---
 
 ## 4. Constraints
@@ -208,8 +241,9 @@ reimplement correctly.
 | **SC4** | Lazy-loading views retain incremental fetch in both renderings. | Network-call assertion: scrolling a migrated lazy view issues incremental `dataProvider` calls; initial load does not fetch the full collection. |
 | **SC5** | Keyboard operability and screen-reader semantics hold in **both** renderings. | Keyboard-only traversal of a migrated view at both widths; ARIA assertions in tests, consistent with the `grid-menu-a11y` acceptance criteria. |
 | **SC6** | Breakpoint logic exists in exactly one module. | Static review: one `matchMedia` breakpoint subscription implementation in `src/dorc-web/src`; `dorc-app.ts` fork resolved. |
-| **SC7** | The abstraction is proven against the hard cases, not only the easy ones. | The pilot set includes ≥1 lazy `dataProvider` view, ≥1 filter-bearing view, and ≥1 grid nested in a dialog. |
+| **SC7** | The abstraction is proven against the hard cases, not only the easy ones. | The pilot set includes ≥1 lazy `dataProvider` view, ≥1 filter-bearing view, and ≥1 grid nested in a dialog. Satisfied by the §3.3 set. |
 | **SC8** | No net increase in `@vaadin/*` dependencies, and no new runtime dependency without explicit approval. | `package.json` diff. |
+| **SC9** | The on-call triage journey is completable end-to-end on a phone. | Scripted walkthrough at 375×667: locate a named failed deployment request, open it, identify which component failed, and read its failure reason — without horizontal scrolling and without switching to a desktop. Because U-1 resolved to *anticipated* rather than observed usage, this task-completion walkthrough is the substitute for real usage evidence, and it is the primary acceptance gate for the pilot. |
 
 ---
 
@@ -238,11 +272,11 @@ A blocking unknown halts entry into the Delivery Loop until resolved.
 
 | ID | Description | Owner | Blocking | Status / Resolution |
 |---|---|---|---|---|
-| **U-1** | **Is DORC actually used on phones, and by whom for what?** The entire premise rests on this. If phone usage is an on-call engineer checking deployment status, the narrow rendering needs a handful of views done well. If it is general administration, scope is far larger. Is there usage telemetry, or is this a judgement call? | User | **YES** | Open. Cannot size scope or choose the pilot set without it. |
-| **U-2** | **Is inline cell editing or lazy-loaded tree grid on the DORC roadmap?** Neither exists today (`selectedItems` 0, `item-has-children` 0). Both are cases where the build-on-Vaadin recommendation would need re-examination, because both are where Vaadin Grid's own constraints start to bind. | User | **YES** | Open. A "yes" materially changes the recommended approach and must be answered before the IS is written. |
-| **U-3** | **What is the field-priority ranking per entity?** Which 2–4 fields identify a Deployment Request, an Environment, a Server, a Script on a phone? This is a product decision, not an engineering one, and it is the substance of the work. | User | **Per-step** (blocks each view's migration step) | Open. Does not block the IS; blocks each migration step's JIT Spec. |
+| **U-1** | **Is DORC actually used on phones, and by whom for what?** The entire premise rests on this. If phone usage is an on-call engineer checking deployment status, the narrow rendering needs a handful of views done well. If it is general administration, scope is far larger. Is there usage telemetry, or is this a judgement call? | User | **YES** | **RESOLVED 2026-08-02.** There is **no current phone usage and no telemetry**. The work is a deliberate foundation-laying exercise for two named personas: **application support** and **on-call engineers**. This is an anticipated-demand decision, not a measured one — recorded as such, with the consequence carried into §8 (Risks) and §5 (SC7). Scope consequence: the target is the **incident-response journey**, not administrative or compliance surfaces. See U-5. |
+| **U-2** | **Is inline cell editing or lazy-loaded tree grid on the DORC roadmap?** Neither exists today (`selectedItems` 0, `item-has-children` 0). Both are cases where the build-on-Vaadin recommendation would need re-examination, because both are where Vaadin Grid's own constraints start to bind. | User | **YES** | **RESOLVED 2026-08-02.** Lazy tree grid: **no**. Inline cell editing: **not required** beyond the editing capabilities that exist today. Neither trigger fires, so the §9.2 rejection of a headless-library migration stands on its stated reasoning, and the build-on-Vaadin direction in §2 is confirmed. |
+| **U-3** | **What is the field-priority ranking per entity?** Which 2–4 fields identify a Deployment Request, an Environment, a Server, a Script on a phone? This is a product decision, not an engineering one, and it is the substance of the work. | User | **Per-step** (blocks each view's migration step) | Open, **narrowed by U-1**. The ranking question is now scoped to the incident-response entities (deployment request, deployment result, component result, environment) rather than every entity in DORC. The framing question per entity is: *what does an on-call engineer need to see to triage, at 375px, without scrolling?* Does not block the IS; blocks each migration step's JIT Spec. |
 | **U-4** | **Is one breakpoint sufficient?** Today there is a single 768px threshold. Tablet-width behaviour (768–1200px) is currently "desktop", which may be wrong for the 16–20 column views. Does the model need a third tier? | Agent (with user confirmation) | NO | Open. Default position: design the descriptor model to admit more than two tiers, implement two initially. |
-| **U-5** | **What is the pilot set?** Must satisfy SC7. Candidates: `page-monitor-requests.ts` (16 cols, lazy `dataProvider`, per-field filters, highest traffic), `page-environments-list.ts` (19 cols), `page-servers-audit.ts` (14 cols, zero narrow handling today), and one of the 13 dialog-nested grids. | Agent (proposes) / User (confirms) | NO | Open. IS proposes; user confirms at the IS checkpoint. |
+| **U-5** | **What is the pilot set?** Must satisfy SC7. | Agent (proposes) / User (confirms) | NO | **PROPOSED 2026-08-02, pending user confirmation at the IS checkpoint.** Following U-1, the pilot set is the on-call triage journey rather than the highest-column-count views — see §3.3. Proposed: `pages/page-monitor-requests.ts`, `pages/page-monitor-result.ts`, `components/component-deployment-results.ts`, `components/environment-tabs/env-monitor.ts`. |
 | **U-6** | **Component and module naming.** CLAUDE.md prohibits grab-bag names. Candidates: `dorc-record-view`, `dorc-record-table`, `dorc-column-set` (descriptor model) paired with a renderer element. | User | NO | Open. Default candidate: `dorc-column-set` for the descriptor model, `dorc-record-view` for the rendering element. Cheap to change before Delivery, expensive after. |
 | **U-7** | **Do the 12 `grid-button-groups` components assume a grid cell context?** If they depend on `vaadin-grid-cell-content` slotting or grid-relative positioning, the narrow rendering needs an adaptation layer, which changes the size of the work. | Agent | NO | Open. Answerable by code inspection during IS drafting. |
 | **U-8** | **Is `renderer` usage compatible with a descriptor model?** ~124 `renderer` occurrences across 50 files, many rendering Lit templates into grid cells. Whether these lift cleanly into descriptors or need per-renderer rework determines migration cost per view. | Agent | NO | Open. IS must sample several before estimating. |
@@ -258,8 +292,8 @@ A blocking unknown halts entry into the Delivery Loop until resolved.
 | Column descriptors become less readable than the markup they replace, breaching the CLAUDE.md cognitive-complexity constraint. | MEDIUM | Adversarial review of the descriptor model at the pilot stage, before migrating beyond it. Explicit stop-and-reconsider gate at end of pilot. |
 | Accessibility regresses in the narrow rendering, which inherits nothing from Vaadin Grid's keyboard and ARIA implementation. | MEDIUM–HIGH | SC5 is a gate, not a nice-to-have. `docs/grid-menu-a11y/` acceptance criteria are reused directly. |
 | Partial migration becomes permanent: pilot ships, remaining ~55 views never migrate, and the codebase carries two grid idioms indefinitely. | MEDIUM | Accepted as a deliberate constraint (§4 requires coexistence). The follow-up sequencing decision is escalated to the user at pilot completion rather than assumed. |
-| U-1 resolves to "phone usage is negligible", making the work low-value. | MEDIUM | U-1 is blocking precisely so this is discovered before the IS, not after Delivery. |
-| U-2 resolves to "inline editing is coming", invalidating the build-on-Vaadin recommendation after work has started. | MEDIUM | U-2 is blocking for the same reason. |
+| **The personas are anticipated, not observed.** U-1 confirmed there is no current phone usage and no telemetry. The field-priority decisions in U-3 will therefore be made from assumptions about what on-call engineers need, and those assumptions will not be tested against real users before Delivery. Wrong priorities produce a phone UI that is responsive but not useful. | **MEDIUM–HIGH** | Accepted deliberately by the user as foundation-laying. Mitigations: (a) SC9 makes a scripted triage walkthrough the primary acceptance gate, so the design is tested against a concrete task even without users; (b) field priority lives in one descriptor per entity, so revising it after real feedback is a small edit, not a re-migration — this is a direct argument for the descriptor model over per-file `?hidden` bindings; (c) the pilot stops at four views, bounding the exposure if the priorities prove wrong. |
+| The pilot set (§3.3) is scoped to incident response, so the worst-rendering views in the codebase — the two 14-column audit pages with zero narrow handling — remain unimproved and visibly bad on a phone. | LOW–MEDIUM | Deliberate: they are not on-call surfaces. Accepted as a known gap, recorded here rather than silently omitted. They become candidates for the post-pilot sequencing decision. |
 | Descriptor indirection makes stack traces and Lit template errors harder to diagnose than inline markup. | LOW–MEDIUM | Keep the wide path a thin emitter over `<vaadin-grid>`; avoid a bespoke rendering pipeline where a Lit template would do. |
 | Container-width measurement (required for the 13 dialog-nested grids) introduces `ResizeObserver` churn or layout thrash. | LOW | Component-level test asserting bounded observer callbacks; measure in the pilot. |
 
@@ -290,6 +324,14 @@ Vaadin serves adequately. Revisiting requires a new HLPS, and U-2 resolving to
 **Rejected.** Doubles the surface for all 61 views and guarantees divergence —
 the same failure mode as §9.1, at larger scale. The single-descriptor-set
 approach exists specifically to prevent two sources of truth.
+
+### 9.4 Status of the §9.2 revisit trigger
+
+§9.2 named U-2 resolving to "yes" as the most likely trigger for reopening the
+headless-library option. **U-2 resolved to no on both counts** (2026-08-02): no
+lazy tree grid, and no inline cell editing beyond today's capabilities. The
+trigger has not fired. The build-on-Vaadin direction stands on the §1.2 evidence,
+and no further revisit is scheduled.
 
 ---
 
@@ -326,3 +368,4 @@ approach exists specifically to prevent two sources of truth.
 | Round | Date | Status | Reviewers | Outcome |
 |---|---|---|---|---|
 | — | 2026-08-02 | DRAFT | — | Authored. Not yet submitted to the adversarial panel. **U-1 and U-2 are blocking and unanswered.** |
+| — | 2026-08-02 | DRAFT | — | **Both blocking unknowns resolved by the user.** U-1: no current phone usage or telemetry; deliberate foundation for application-support and on-call personas. U-2: no lazy tree grid, inline editing not required beyond today's capabilities. Consequent changes: §2 goal restated around the target personas; new §3.3 target journey and proposed pilot set; U-3 narrowed to incident-response entities; U-5 proposed; SC9 added (scripted triage walkthrough as the substitute for usage evidence); anticipated-persona risk added at MEDIUM–HIGH; §9.4 records that the §9.2 revisit trigger did not fire. **No blocking unknowns remain — ready for the adversarial panel.** |
