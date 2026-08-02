@@ -24,9 +24,20 @@ import { DatabaseAuditApiModel } from '../apis/dorc-api/models/DatabaseAuditApiM
 import { GetDatabaseAuditListResponseDto } from '../apis/dorc-api/models/GetDatabaseAuditListResponseDto';
 import { PageElement } from '../helpers/page-element';
 import { getShortLogonName } from '../helpers/user-extensions';
+import { NarrowListController } from '../helpers/narrow-list-controller';
+import { listRowStyles, narrowListRenderers } from '../components/dorc-list-row';
+import { databasesAuditNarrow } from '../row-templates/batch-row-templates';
 
 @customElement('page-databases-audit')
 export class PageDatabasesAudit extends PageElement {
+  /** Narrow-mode (HLPS §3.4): container-driven list rendering. */
+  narrowList = new NarrowListController(this as unknown as HTMLElement & import('lit').ReactiveControllerHost);
+
+  private _nl = narrowListRenderers(
+    () => databasesAuditNarrow(this).template,
+    () => databasesAuditNarrow(this).bar ?? {}
+  );
+
   @property({ type: Boolean }) loading = true;
 
   @property({ type: Boolean }) searching = false;
@@ -36,7 +47,9 @@ export class PageDatabasesAudit extends PageElement {
   private actionFilter = '';
 
   static get styles() {
-    return css`
+    return [
+      listRowStyles,
+      css`
       :host {
         display: flex;
         flex-direction: column;
@@ -74,7 +87,8 @@ export class PageDatabasesAudit extends PageElement {
         margin: 0;
         font-size: 11px;
       }
-    `;
+    `
+    ];
   }
 
   render() {
@@ -91,38 +105,44 @@ export class PageDatabasesAudit extends PageElement {
         ?hidden="${this.loading}"
       >
         <vaadin-grid-column
+          flex-grow="1"
+          ?hidden="${!this.narrowList.narrow}"
+          .headerRenderer="${this._nl.bar}"
+          .renderer="${this._nl.row}"
+        ></vaadin-grid-column>
+        <vaadin-grid-column ?hidden="${this.narrowList.narrow}"
           path="DatabaseName"
           header="Database"
           .renderer="${this.databaseNameRenderer}"
           resizable
         ></vaadin-grid-column>
-        <vaadin-grid-column
+        <vaadin-grid-column ?hidden="${this.narrowList.narrow}"
           path="Username"
           header="User"
           .headerRenderer="${this.userHeaderRenderer}"
           resizable
         ></vaadin-grid-column>
-        <vaadin-grid-column
+        <vaadin-grid-column ?hidden="${this.narrowList.narrow}"
           path="Action"
           header="Action"
           .headerRenderer="${this.actionHeaderRenderer}"
           resizable
         ></vaadin-grid-column>
-        <vaadin-grid-sort-column
+        <vaadin-grid-sort-column ?hidden="${this.narrowList.narrow}"
           path="Date"
           header="Date"
           direction="desc"
           .renderer="${this.dateRenderer}"
           resizable
         ></vaadin-grid-sort-column>
-        <vaadin-grid-column
+        <vaadin-grid-column ?hidden="${this.narrowList.narrow}"
           path="FromValue"
           header="From"
           .renderer="${this.valueRenderer('FromValue')}"
           resizable
           flex-grow="1"
         ></vaadin-grid-column>
-        <vaadin-grid-column
+        <vaadin-grid-column ?hidden="${this.narrowList.narrow}"
           path="ToValue"
           header="To"
           .renderer="${this.valueRenderer('ToValue')}"

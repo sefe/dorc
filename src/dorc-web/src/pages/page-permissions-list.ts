@@ -16,14 +16,24 @@ import '../components/edit-permission';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { PageElement } from '../helpers/page-element';
-import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import { PermissionDto } from '../apis/dorc-api';
 import { RefDataPermissionApi } from '../apis/dorc-api';
 import { Notification } from '@vaadin/notification';
 import { retrieveErrorMessage } from '../helpers/errorMessage-retriever.js';
+import { NarrowListController } from '../helpers/narrow-list-controller';
+import { listRowStyles, narrowListRenderers } from '../components/dorc-list-row';
+import { permissionsListNarrow } from '../row-templates/batch-row-templates';
 
 @customElement('page-permissions-list')
-export class PagePermissionsList extends ResponsiveMixin(PageElement) {
+export class PagePermissionsList extends PageElement {
+  /** Narrow-mode (HLPS §3.4): container-driven list rendering. */
+  narrowList = new NarrowListController(this as unknown as HTMLElement & import('lit').ReactiveControllerHost);
+
+  private _nl = narrowListRenderers(
+    () => permissionsListNarrow(this).template,
+    () => permissionsListNarrow(this).bar ?? {}
+  );
+
   @property({ type: Array }) permissions: Array<PermissionDto> = [];
 
   @property({ type: Array }) filteredPermissions: Array<PermissionDto> = [];
@@ -52,7 +62,9 @@ export class PagePermissionsList extends ResponsiveMixin(PageElement) {
   }
 
   static get styles() {
-    return css`
+    return [
+      listRowStyles,
+      css`
       :host {
         display: flex;
         flex-direction: column;
@@ -76,8 +88,40 @@ export class PagePermissionsList extends ResponsiveMixin(PageElement) {
           overflow-wrap: break-word;
         }
       }
-    `;
+    `
+    ];
   }
+
+
+  _permissionActionsRenderer = (root: HTMLElement, _column: any, model: any) => {
+    const permission = model.item as PermissionDto;
+    root.innerHTML = `
+      <vaadin-button 
+        class="edit-btn" 
+        theme="icon"
+        title="Edit Permission"
+        style="margin-right: 5px;">
+        <vaadin-icon icon="lumo:edit" style="color: var(--dorc-link-color);"></vaadin-icon>
+      </vaadin-button>
+      <vaadin-button 
+        class="delete-btn" 
+        theme="icon"
+        title="Delete Permission">
+        <vaadin-icon icon="icons:delete" style="color: var(--dorc-error-color);"></vaadin-icon>
+      </vaadin-button>
+    `;
+    
+    const editBtn = root.querySelector('.edit-btn') as HTMLElement;
+    const deleteBtn = root.querySelector('.delete-btn') as HTMLElement;
+    
+    if (editBtn) {
+      editBtn.onclick = () => this.editPermission(permission);
+    }
+    
+    if (deleteBtn) {
+      deleteBtn.onclick = () => this.deletePermission(permission);
+    }
+  };
 
   render() {
     return html`<div style="display: inline">
@@ -136,46 +180,24 @@ export class PagePermissionsList extends ResponsiveMixin(PageElement) {
               multi-sort
               theme="compact row-stripes no-row-borders no-border"
             >
-              <vaadin-grid-sort-column
+              <vaadin-grid-column
+          flex-grow="1"
+          ?hidden="${!this.narrowList.narrow}"
+          .headerRenderer="${this._nl.bar}"
+          .renderer="${this._nl.row}"
+        ></vaadin-grid-column>
+        <vaadin-grid-sort-column ?hidden="${this.narrowList.narrow}"
                 path="DisplayName"
                 header="Display Name"
               ></vaadin-grid-sort-column>
               <vaadin-grid-sort-column
                 path="PermissionName"
                 header="Permission Name"
-                ?hidden="${this._narrowScreen}"
+                ?hidden="${this.narrowList.narrow}"
               ></vaadin-grid-sort-column>
-              <vaadin-grid-column
+              <vaadin-grid-column ?hidden="${this.narrowList.narrow}"
                 header="Actions"
-                .renderer=${(root: HTMLElement, _column: any, model: any) => {
-                  const permission = model.item as PermissionDto;
-                  root.innerHTML = `
-                    <vaadin-button 
-                      class="edit-btn" 
-                      theme="icon"
-                      title="Edit Permission"
-                      style="margin-right: 5px;">
-                      <vaadin-icon icon="lumo:edit" style="color: var(--dorc-link-color);"></vaadin-icon>
-                    </vaadin-button>
-                    <vaadin-button 
-                      class="delete-btn" 
-                      theme="icon"
-                      title="Delete Permission">
-                      <vaadin-icon icon="icons:delete" style="color: var(--dorc-error-color);"></vaadin-icon>
-                    </vaadin-button>
-                  `;
-                  
-                  const editBtn = root.querySelector('.edit-btn') as HTMLElement;
-                  const deleteBtn = root.querySelector('.delete-btn') as HTMLElement;
-                  
-                  if (editBtn) {
-                    editBtn.onclick = () => this.editPermission(permission);
-                  }
-                  
-                  if (deleteBtn) {
-                    deleteBtn.onclick = () => this.deletePermission(permission);
-                  }
-                }}
+                .renderer=${this._permissionActionsRenderer}
               ></vaadin-grid-column>
             </vaadin-grid>
           `} `;

@@ -14,9 +14,20 @@ import { Notification } from '@vaadin/notification';
 import type { DaemonApiModel, ServerApiModel } from '../apis/dorc-api';
 import { RefDataDaemonsApi } from '../apis/dorc-api';
 import { ServerDaemonsApi } from '../apis/dorc-api/apis/ServerDaemonsApi';
+import { NarrowListController } from '../helpers/narrow-list-controller';
+import { listRowStyles, narrowListRenderers } from './dorc-list-row';
+import { mapDaemonsNarrow } from '../row-templates/batch-row-templates';
 
 @customElement('map-daemons')
 export class ServerDaemonMapping extends LitElement {
+  /** Narrow-mode (HLPS §3.4): container-driven list rendering. */
+  narrowList = new NarrowListController(this as unknown as HTMLElement & import('lit').ReactiveControllerHost);
+
+  private _nl = narrowListRenderers(
+    () => mapDaemonsNarrow(this).template,
+    () => mapDaemonsNarrow(this).bar ?? {}
+  );
+
   @property({ type: Object })
   get server(): ServerApiModel | undefined {
     return this._server;
@@ -46,7 +57,9 @@ export class ServerDaemonMapping extends LitElement {
   readonly = false;
 
   static get styles() {
-    return css`
+    return [
+      listRowStyles,
+      css`
       :host {
         display: block;
         padding: 10px;
@@ -74,7 +87,8 @@ export class ServerDaemonMapping extends LitElement {
           overflow-wrap: break-word;
         }
       }
-    `;
+    `
+    ];
   }
 
   constructor() {
@@ -118,25 +132,31 @@ export class ServerDaemonMapping extends LitElement {
         all-rows-visible
       >
         <vaadin-grid-column
+          flex-grow="1"
+          ?hidden="${!this.narrowList.narrow}"
+          .headerRenderer="${this._nl.bar}"
+          .renderer="${this._nl.row}"
+        ></vaadin-grid-column>
+        <vaadin-grid-column ?hidden="${this.narrowList.narrow}"
           path="Name"
           header="Daemon Name"
           resizable
           auto-width
         ></vaadin-grid-column>
-        <vaadin-grid-column
+        <vaadin-grid-column ?hidden="${this.narrowList.narrow}"
           path="DisplayName"
           header="Display Name"
           resizable
           auto-width
         ></vaadin-grid-column>
-        <vaadin-grid-column
+        <vaadin-grid-column ?hidden="${this.narrowList.narrow}"
           path="ServiceType"
           header="Type"
           resizable
           auto-width
           flex-grow="0"
         ></vaadin-grid-column>
-        <vaadin-grid-column
+        <vaadin-grid-column ?hidden="${this.narrowList.narrow}"
           width="100px"
           flex-grow="0"
           .renderer="${this._detachRenderer}"

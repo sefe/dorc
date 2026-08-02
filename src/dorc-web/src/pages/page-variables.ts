@@ -37,9 +37,20 @@ import { PropertyValueDtoExtended } from '../components/model-extensions/Propert
 import GlobalCache from '../global-cache';
 import '@vaadin/icons';
 import {Router} from "@vaadin/router";
+import { NarrowListController } from '../helpers/narrow-list-controller';
+import { listRowStyles, narrowListRenderers } from '../components/dorc-list-row';
+import { variablesNarrow } from '../row-templates/batch-row-templates';
 
 @customElement('page-variables')
 export class PageVariables extends PageElement {
+  /** Narrow-mode (HLPS §3.4): container-driven list rendering. */
+  narrowList = new NarrowListController(this as unknown as HTMLElement & import('lit').ReactiveControllerHost);
+
+  private _nl = narrowListRenderers(
+    () => variablesNarrow(this).template,
+    () => variablesNarrow(this).bar ?? {}
+  );
+
   newVariableName = '';
 
   @property({ type: Boolean }) creatingVariable = false;
@@ -97,7 +108,9 @@ export class PageVariables extends PageElement {
   public userRoles!: string[];
 
   static get styles() {
-    return css`
+    return [
+      listRowStyles,
+      css`
       :host {
         display: flex;
         flex-direction: column;
@@ -183,7 +196,8 @@ export class PageVariables extends PageElement {
           margin-left: 0;
         }
       }
-    `;
+    `
+    ];
   }
 
   render() {
@@ -366,6 +380,12 @@ export class PageVariables extends PageElement {
                   .cellPartNameGenerator="${this.cellPartNameGenerator}"
                 >
                   <vaadin-grid-column
+          flex-grow="1"
+          ?hidden="${!this.narrowList.narrow}"
+          .headerRenderer="${this._nl.bar}"
+          .renderer="${this._nl.row}"
+        ></vaadin-grid-column>
+        <vaadin-grid-column ?hidden="${this.narrowList.narrow}"
                     header="Scope"
                     path="PropertyValueFilter"
                     width="200px"
@@ -374,7 +394,7 @@ export class PageVariables extends PageElement {
                     .headerRenderer="${this.scopeHeaderRenderer}"
                     .renderer="${this.scopeValueRenderer}"
                   ></vaadin-grid-column>
-                  <vaadin-grid-column
+                  <vaadin-grid-column ?hidden="${this.narrowList.narrow}"
                     header="Value"
                     resizable
                     flex-grow="1"

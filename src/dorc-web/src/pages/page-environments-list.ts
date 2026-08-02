@@ -18,16 +18,26 @@ import '../components/grid-button-groups/env-controls';
 import { EnvironmentApiModel, RefDataRolesApi } from '../apis/dorc-api';
 import { RefDataEnvironmentsApi } from '../apis/dorc-api';
 import { PageElement } from '../helpers/page-element';
-import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import { AddEditAccessControl } from '../components/add-edit-access-control';
 import '../components/add-edit-access-control';
 import '../components/hegs-dialog';
 import { HegsDialog } from '../components/hegs-dialog';
 import { AddEditEnvironment } from '../components/add-edit-environment';
 import { CloneEnvironment } from '../components/clone-environment';
+import { NarrowListController } from '../helpers/narrow-list-controller';
+import { listRowStyles, narrowListRenderers } from '../components/dorc-list-row';
+import { environmentsListNarrow } from '../row-templates/batch-row-templates';
 
 @customElement('page-environments-list')
-export class PageEnvironmentsList extends ResponsiveMixin(PageElement) {
+export class PageEnvironmentsList extends PageElement {
+  /** Narrow-mode (HLPS §3.4): container-driven list rendering. */
+  narrowList = new NarrowListController(this as unknown as HTMLElement & import('lit').ReactiveControllerHost);
+
+  private _nl = narrowListRenderers(
+    () => environmentsListNarrow(this).template,
+    () => environmentsListNarrow(this).bar ?? {}
+  );
+
   @property({ type: Array }) environments: EnvironmentApiModel[] = [];
 
   @property({ type: Array })
@@ -64,7 +74,9 @@ export class PageEnvironmentsList extends ResponsiveMixin(PageElement) {
   @query('#clone-environment') cloneEnvironmentComponent!: CloneEnvironment;
 
   static get styles() {
-    return css`
+    return [
+      listRowStyles,
+      css`
       :host {
         display: flex;
         flex-direction: column;
@@ -82,7 +94,8 @@ export class PageEnvironmentsList extends ResponsiveMixin(PageElement) {
         background-color: var(--dorc-warning-bg);
         color: var(--dorc-warning-text);
       }
-      `;
+      `
+    ];
   }
 
   render() {
@@ -144,7 +157,13 @@ export class PageEnvironmentsList extends ResponsiveMixin(PageElement) {
                 theme="compact row-stripes no-row-borders no-border"
                 .cellPartNameGenerator="${this._cellPartNameGenerator}"
               >
-                <vaadin-grid-sort-column
+                <vaadin-grid-column
+          flex-grow="1"
+          ?hidden="${!this.narrowList.narrow}"
+          .headerRenderer="${this._nl.bar}"
+          .renderer="${this._nl.row}"
+        ></vaadin-grid-column>
+        <vaadin-grid-sort-column ?hidden="${this.narrowList.narrow}"
                   resizable
                   path="EnvironmentName"
                   header="Name"
@@ -154,41 +173,41 @@ export class PageEnvironmentsList extends ResponsiveMixin(PageElement) {
                   resizable
                   path="Details.EnvironmentOwner"
                   header="Owner"
-                  ?hidden="${this._narrowScreen}"
+                  ?hidden="${this.narrowList.narrow}"
                 ></vaadin-grid-sort-column>
                 <vaadin-grid-sort-column
                   resizable
                   path="Details.Description"
                   header="Description"
-                  ?hidden="${this._narrowScreen}"
+                  ?hidden="${this.narrowList.narrow}"
                 ></vaadin-grid-sort-column>
                 <vaadin-grid-sort-column
                   resizable
                   path="EnvironmentSecure"
                   header="Secure"
                   .renderer="${this._envSecureRenderer}"
-                  ?hidden="${this._narrowScreen}"
+                  ?hidden="${this.narrowList.narrow}"
                 ></vaadin-grid-sort-column>
                 <vaadin-grid-sort-column
                   resizable
                   path="EnvironmentIsProd"
                   header="Prod"
                   .renderer="${this._envIsProdRenderer}"
-                  ?hidden="${this._narrowScreen}"
+                  ?hidden="${this.narrowList.narrow}"
                 ></vaadin-grid-sort-column>
                 <vaadin-grid-sort-column
                   resizable
                   path="Details.FileShare"
                   header="File Share"
-                  ?hidden="${this._narrowScreen}"
+                  ?hidden="${this.narrowList.narrow}"
                 ></vaadin-grid-sort-column>
                 <vaadin-grid-sort-column
                   resizable
                   path="Details.Notes"
                   header="Notes"
-                  ?hidden="${this._narrowScreen}"
+                  ?hidden="${this.narrowList.narrow}"
                 ></vaadin-grid-sort-column>
-                <vaadin-grid-column
+                <vaadin-grid-column ?hidden="${this.narrowList.narrow}"
                   .renderer="${this._envDetailsButtonsRenderer}"
                 ></vaadin-grid-column>
               </vaadin-grid>

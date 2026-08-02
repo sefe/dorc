@@ -10,9 +10,20 @@ import { Notification } from '@vaadin/notification';
 import { ApiBoolResult, EnvironmentApiModel, RefDataEnvironmentsDetailsApi } from '../apis/dorc-api';
 import { styleMap } from 'lit/directives/style-map.js';
 import { EnvPageTabNames } from '../pages/page-environment';
+import { NarrowListController } from '../helpers/narrow-list-controller';
+import { listRowStyles, narrowListRenderers } from './dorc-list-row';
+import { attachedEnvTenantsNarrow } from '../row-templates/batch-row-templates';
 
 @customElement('attached-env-tenants')
 export class AttachedEnvTenants extends LitElement {
+  /** Narrow-mode (HLPS §3.4): container-driven list rendering. */
+  narrowList = new NarrowListController(this as unknown as HTMLElement & import('lit').ReactiveControllerHost);
+
+  private _nl = narrowListRenderers(
+    () => attachedEnvTenantsNarrow(this).template,
+    () => attachedEnvTenantsNarrow(this).bar ?? {}
+  );
+
   @property({ type: Array })
   childEnvironments: Array<EnvironmentApiModel> | null | undefined = [];
 
@@ -20,12 +31,15 @@ export class AttachedEnvTenants extends LitElement {
   readonly: boolean = false;
 
   static get styles() {
-    return css`
+    return [
+      listRowStyles,
+      css`
       vaadin-grid {
         width: 100%;
         height: auto;
       }
-    `;
+    `
+    ];
   }
 
   render() {
@@ -36,10 +50,16 @@ export class AttachedEnvTenants extends LitElement {
         all-rows-visible
       >
         <vaadin-grid-column
+          flex-grow="1"
+          ?hidden="${!this.narrowList.narrow}"
+          .headerRenderer="${this._nl.bar}"
+          .renderer="${this._nl.row}"
+        ></vaadin-grid-column>
+        <vaadin-grid-column ?hidden="${this.narrowList.narrow}"
           path="EnvironmentName"
           header="Tenant Environment Name"
         ></vaadin-grid-column>
-        <vaadin-grid-column
+        <vaadin-grid-column ?hidden="${this.narrowList.narrow}"
           header="Actions"
           .renderer="${this.environmentActionsRenderer}"
         ></vaadin-grid-column>

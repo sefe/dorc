@@ -36,11 +36,13 @@ import {
 } from '../apis/dorc-api';
 import { RefDataDatabasesApi } from '../apis/dorc-api';
 import { PageElement } from '../helpers/page-element';
-import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import { AttachedDatabases } from '../components/attached-databases';
 import '../components/grid-button-groups/database-controls';
 import '@vaadin/grid/vaadin-grid-sorter';
 import { ErrorNotification } from '../components/notifications/error-notification';
+import { NarrowListController } from '../helpers/narrow-list-controller';
+import { listRowStyles, narrowListRenderers } from '../components/dorc-list-row';
+import { databasesListNarrow } from '../row-templates/batch-row-templates';
 
 
 const name = 'Name';
@@ -49,7 +51,15 @@ const serverName = 'ServerName';
 const environmentNames = 'EnvironmentNames';
 
 @customElement('page-databases-list')
-export class PageDatabasesList extends ResponsiveMixin(PageElement) {
+export class PageDatabasesList extends PageElement {
+  /** Narrow-mode (HLPS §3.4): container-driven list rendering. */
+  narrowList = new NarrowListController(this as unknown as HTMLElement & import('lit').ReactiveControllerHost);
+
+  private _nl = narrowListRenderers(
+    () => databasesListNarrow(this).template,
+    () => databasesListNarrow(this).bar ?? {}
+  );
+
   @property({ type: Boolean }) loading = true;
   @property({ type: Boolean }) searching = false;
   @property({ type: Boolean }) noResults = false;
@@ -68,7 +78,9 @@ export class PageDatabasesList extends ResponsiveMixin(PageElement) {
   serverNameFilter: string = '';
 
   static get styles() {
-    return css`
+    return [
+      listRowStyles,
+      css`
       :host {
         display: flex;
         flex-direction: column;
@@ -134,7 +146,8 @@ export class PageDatabasesList extends ResponsiveMixin(PageElement) {
         left: 50%;
         transform: translate(-50%, -50%);
       }
-    `;
+    `
+    ];
   }
 
   render() {
@@ -164,6 +177,12 @@ export class PageDatabasesList extends ResponsiveMixin(PageElement) {
         theme='compact row-stripes no-row-borders no-border'
       >
         <vaadin-grid-column
+          flex-grow="1"
+          ?hidden="${!this.narrowList.narrow}"
+          .headerRenderer="${this._nl.bar}"
+          .renderer="${this._nl.row}"
+        ></vaadin-grid-column>
+        <vaadin-grid-column ?hidden="${this.narrowList.narrow}"
           path='ServerName'
           resizable
           .headerRenderer='${this.instanceHeaderRenderer}'
@@ -171,7 +190,7 @@ export class PageDatabasesList extends ResponsiveMixin(PageElement) {
           auto-width
           flex-grow='0'
         ></vaadin-grid-column>
-        <vaadin-grid-column
+        <vaadin-grid-column ?hidden="${this.narrowList.narrow}"
           path='Name'
           resizable
           .headerRenderer='${this.dbNameHeaderRenderer}'
@@ -182,7 +201,7 @@ export class PageDatabasesList extends ResponsiveMixin(PageElement) {
           .renderer='${this.applicationTagsRenderer}'
           resizable
           .headerRenderer='${this.appTagsHeaderRenderer}'
-          ?hidden='${this._narrowScreen}'
+          ?hidden='${this.narrowList.narrow}'
         ></vaadin-grid-column>
         <vaadin-grid-column
           width='300px'
@@ -191,9 +210,9 @@ export class PageDatabasesList extends ResponsiveMixin(PageElement) {
           .headerRenderer='${this.environmentNamesHeaderRenderer}'
           resizable
           header='Mapped Environments'
-          ?hidden='${this._narrowScreen}'
+          ?hidden='${this.narrowList.narrow}'
         ></vaadin-grid-column>
-        <vaadin-grid-column
+        <vaadin-grid-column ?hidden="${this.narrowList.narrow}"
           width='200px'
           flex-grow='0'
           resizable

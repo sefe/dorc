@@ -15,7 +15,6 @@ import type { ProjectApiModel } from '../apis/dorc-api';
 import { AccessControlType } from '../apis/dorc-api';
 import { RefDataProjectsApi } from '../apis/dorc-api/apis';
 import { PageElement } from '../helpers/page-element';
-import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import './page-project-envs';
 import '../components/add-edit-access-control';
 import { AddEditAccessControl } from '../components/add-edit-access-control';
@@ -25,9 +24,20 @@ import GlobalCache from '../global-cache';
 import { ErrorNotification } from '../components/notifications/error-notification';
 import { retrieveErrorMessage } from '../helpers/errorMessage-retriever';
 import { SuccessNotification } from '../components/notifications/success-notification';
+import { NarrowListController } from '../helpers/narrow-list-controller';
+import { listRowStyles, narrowListRenderers } from '../components/dorc-list-row';
+import { projectsListNarrow } from '../row-templates/batch-row-templates';
 
 @customElement('page-projects-list')
-export class PageProjectsList extends ResponsiveMixin(PageElement) {
+export class PageProjectsList extends PageElement {
+  /** Narrow-mode (HLPS §3.4): container-driven list rendering. */
+  narrowList = new NarrowListController(this as unknown as HTMLElement & import('lit').ReactiveControllerHost);
+
+  private _nl = narrowListRenderers(
+    () => projectsListNarrow(this).template,
+    () => projectsListNarrow(this).bar ?? {}
+  );
+
   @property({ type: Array }) projects: ProjectApiModel[] = [];
 
   @property({ type: Object }) selectedProject: ProjectApiModel = {};
@@ -120,7 +130,9 @@ export class PageProjectsList extends ResponsiveMixin(PageElement) {
   }
 
   static get styles() {
-    return css`
+    return [
+      listRowStyles,
+      css`
       :host {
         display: flex;
         flex-direction: column;
@@ -137,7 +149,8 @@ export class PageProjectsList extends ResponsiveMixin(PageElement) {
         overflow: auto;
         padding: 10px;
       }
-    `;
+    `
+    ];
   }
 
   render() {
@@ -188,12 +201,18 @@ export class PageProjectsList extends ResponsiveMixin(PageElement) {
               theme="compact row-stripes no-row-borders no-border"
             >
               <vaadin-grid-column
+          flex-grow="1"
+          ?hidden="${!this.narrowList.narrow}"
+          .headerRenderer="${this._nl.bar}"
+          .renderer="${this._nl.row}"
+        ></vaadin-grid-column>
+        <vaadin-grid-column ?hidden="${this.narrowList.narrow}"
                 width="50px"
                 flex-grow="0"
                 header=""
                 .renderer="${this._sourceControlTypeRenderer}"
               ></vaadin-grid-column>
-              <vaadin-grid-sort-column
+              <vaadin-grid-sort-column ?hidden="${this.narrowList.narrow}"
                 path="ProjectName"
                 header="Name"
                 resizable
@@ -203,33 +222,33 @@ export class PageProjectsList extends ResponsiveMixin(PageElement) {
                 path="ProjectDescription"
                 header="Project Description"
                 resizable
-                ?hidden="${this._narrowScreen}"
+                ?hidden="${this.narrowList.narrow}"
               ></vaadin-grid-sort-column>
               <vaadin-grid-sort-column
                 path="ArtefactsUrl"
                 header="Artefacts URL"
                 resizable
-                ?hidden="${this._narrowScreen}"
+                ?hidden="${this.narrowList.narrow}"
               ></vaadin-grid-sort-column>
               <vaadin-grid-sort-column
                 path="ArtefactsSubPaths"
                 header="Artefacts Sub-Paths"
                 resizable
-                ?hidden="${this._narrowScreen}"
+                ?hidden="${this.narrowList.narrow}"
               ></vaadin-grid-sort-column>
               <vaadin-grid-sort-column
                 path="ArtefactsBuildRegex"
                 header="Build Definition Regex"
                 resizable
-                ?hidden="${this._narrowScreen}"
+                ?hidden="${this.narrowList.narrow}"
               ></vaadin-grid-sort-column>
               <vaadin-grid-sort-column
                 path="LeanIXUrl"
                 header="LeanIX URL"
                 resizable
-                ?hidden="${this._narrowScreen}"
+                ?hidden="${this.narrowList.narrow}"
               ></vaadin-grid-sort-column>
-              <vaadin-grid-column
+              <vaadin-grid-column ?hidden="${this.narrowList.narrow}"
                 width="180px"
                 .attachedPPLControl="${this}"
                 .renderer="${this._projectEnvsButtonsRenderer}"

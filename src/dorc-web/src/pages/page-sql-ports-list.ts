@@ -15,9 +15,20 @@ import { PageElement } from '../helpers/page-element';
 import { SqlPortApiModel } from '../apis/dorc-api';
 import { RefDataSqlPortsApi } from '../apis/dorc-api';
 import GlobalCache from '../global-cache';
+import { NarrowListController } from '../helpers/narrow-list-controller';
+import { listRowStyles, narrowListRenderers } from '../components/dorc-list-row';
+import { sqlPortsNarrow } from '../row-templates/batch-row-templates';
 
 @customElement('page-sql-ports-list')
 export class PageSqlPortsList extends PageElement {
+  /** Narrow-mode (HLPS §3.4): container-driven list rendering. */
+  narrowList = new NarrowListController(this as unknown as HTMLElement & import('lit').ReactiveControllerHost);
+
+  private _nl = narrowListRenderers(
+    () => sqlPortsNarrow(this).template,
+    () => sqlPortsNarrow(this).bar ?? {}
+  );
+
   @property({ type: Array }) sqlPorts: Array<SqlPortApiModel> = [];
 
   @property({ type: Array }) filteredSqlPorts: Array<SqlPortApiModel> = [];
@@ -70,7 +81,9 @@ export class PageSqlPortsList extends PageElement {
   }
 
   static get styles() {
-    return css`
+    return [
+      listRowStyles,
+      css`
       :host {
         display: flex;
         flex-direction: column;
@@ -87,7 +100,8 @@ export class PageSqlPortsList extends PageElement {
         overflow: auto;
         padding: 10px;
       }
-    `;
+    `
+    ];
   }
 
   render() {
@@ -137,11 +151,17 @@ export class PageSqlPortsList extends PageElement {
               multi-sort
               theme="compact row-stripes no-row-borders no-border"
             >
-              <vaadin-grid-sort-column
+              <vaadin-grid-column
+          flex-grow="1"
+          ?hidden="${!this.narrowList.narrow}"
+          .headerRenderer="${this._nl.bar}"
+          .renderer="${this._nl.row}"
+        ></vaadin-grid-column>
+        <vaadin-grid-sort-column ?hidden="${this.narrowList.narrow}"
                 path="InstanceName"
                 header="Instance Name"
               ></vaadin-grid-sort-column>
-              <vaadin-grid-sort-column
+              <vaadin-grid-sort-column ?hidden="${this.narrowList.narrow}"
                 path="SqlPort"
                 header="Port"
               ></vaadin-grid-sort-column>

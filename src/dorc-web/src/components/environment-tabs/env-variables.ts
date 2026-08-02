@@ -36,9 +36,11 @@ import {
   RefDataScopedPropertyValuesApi
 } from '../../apis/dorc-api';
 import { PageEnvBase } from './page-env-base';
-import { ResponsiveMixin } from '../../helpers/responsive-mixin';
 import { ErrorNotification } from '../notifications/error-notification';
 import { Notification } from '@vaadin/notification';
+import { NarrowListController } from '../../helpers/narrow-list-controller';
+import { listRowStyles, narrowListRenderers } from '../dorc-list-row';
+import { envVariablesNarrow } from '../../row-templates/batch-row-templates';
 
 const variableValue = 'PropertyValue';
 const variableName = 'Property';
@@ -47,7 +49,15 @@ const variableIsShowDefaultProps = 'ShowDefaults';
 
 let _environment: EnvironmentApiModel | undefined;
 @customElement('env-variables')
-export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
+export class EnvVariables extends PageEnvBase {
+  /** Narrow-mode (HLPS §3.4): container-driven list rendering. */
+  narrowList = new NarrowListController(this as unknown as HTMLElement & import('lit').ReactiveControllerHost);
+
+  private _nl = narrowListRenderers(
+    () => envVariablesNarrow(this).template,
+    () => envVariablesNarrow(this).bar ?? {}
+  );
+
   private secureMessage =
     'This environment is not secure which includes default variables during deployments';
 
@@ -78,7 +88,9 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
   private _editingValueId: number | undefined;
 
   static get styles() {
-    return css`
+    return [
+      listRowStyles,
+      css`
       :host {
         display: flex;
         width: 100%;
@@ -143,7 +155,8 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
           overflow-wrap: break-word;
         }
       }
-    `;
+    `
+    ];
   }
 
   render() {
@@ -337,6 +350,12 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
                 style="z-index: 100;"
               >
                 <vaadin-grid-column
+          flex-grow="1"
+          ?hidden="${!this.narrowList.narrow}"
+          .headerRenderer="${this._nl.bar}"
+          .renderer="${this._nl.row}"
+        ></vaadin-grid-column>
+        <vaadin-grid-column ?hidden="${this.narrowList.narrow}"
                   path="Property"
                   header="Variable Name"
                   resizable
@@ -352,7 +371,7 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
                   resizable
                   auto-width
                   flex-grow="0"
-                  ?hidden="${this._narrowScreen}"
+                  ?hidden="${this.narrowList.narrow}"
                 ></vaadin-grid-column>
                 <vaadin-grid-column
                   path="Secure"
@@ -362,10 +381,10 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
                   .renderer="${this.secureRenderer}"
                   .headerRenderer="${this.secureHeaderRenderer}"
                   flex-grow="0"
-                  ?hidden="${this._narrowScreen}"
+                  ?hidden="${this.narrowList.narrow}"
                 >
                 </vaadin-grid-column>
-                <vaadin-grid-column
+                <vaadin-grid-column ?hidden="${this.narrowList.narrow}"
                   header="Variable Value"
                   .headerRenderer="${this.valueHeaderRenderer}"
                   .renderer="${this.variableValueControlsRenderer}"

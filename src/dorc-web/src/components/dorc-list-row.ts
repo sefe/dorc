@@ -1,4 +1,4 @@
-import { css, html, nothing, TemplateResult } from 'lit';
+import { css, html, nothing, render as litRender, TemplateResult } from 'lit';
 
 /**
  * The row-template contract (HLPS §3.4): each migrated view declares, in one
@@ -175,4 +175,90 @@ export function renderListBar(sections: {
       ${sections.sort ?? nothing}
     </div>
   `;
+}
+
+// ---- Batch-migration helpers (post-pilot wave over the remaining views) ----
+
+/** Read a possibly-nested path ("Details.Owner") off an item. */
+export function pathText(item: unknown, path: string): string {
+  let v: unknown = item;
+  for (const key of path.split('.')) {
+    if (v == null) return '';
+    v = (v as Record<string, unknown>)[key];
+  }
+  return v == null ? '' : String(v);
+}
+
+/**
+ * Reuse a view's existing imperative cell renderer inside a list-row slot:
+ * the renderer is invoked against a detached span with a minimal
+ * GridItemModel-shaped `{ item }` (the pilot established the pattern —
+ * edit-comments-controls et al. read only `model.item`; views whose renderer
+ * reads column properties pass a colStub).
+ */
+export function hostCell<T>(
+  host: Record<string, unknown> & HTMLElement,
+  rendererName: string,
+  colStub: object = {}
+): (item: T) => TemplateResult {
+  return item => {
+    const root = document.createElement('span');
+    const renderer = host[rendererName] as (
+      root: HTMLElement,
+      column: object,
+      model: { item: T }
+    ) => void;
+    renderer.call(host, root, colStub, { item });
+    return html`${root}`;
+  };
+}
+
+/** Chip from a status-ish path with success/failure value sets. */
+export function chipFromPath<T>(
+  path: string,
+  success: string[] = ['Complete', 'Running', 'Enabled', 'true', 'True'],
+  failure: string[] = ['Failed', 'Errored', 'Cancelled', 'Stopped']
+): (item: T) => { label: string; kind: 'success' | 'failure' | 'neutral' } | null {
+  return item => {
+    const label = pathText(item, path);
+    if (!label) return null;
+    const kind = success.includes(label)
+      ? ('success' as const)
+      : failure.includes(label)
+        ? ('failure' as const)
+        : ('neutral' as const);
+    return { label, kind };
+  };
+}
+
+/** Details panel from labelled paths. */
+export function pathDetails<T>(
+  fields: Array<{ label: string; path: string }>
+): (item: T) => TemplateResult {
+  return item =>
+    renderListDetails(
+      fields.map(f => ({ label: f.label, value: pathText(item, f.path) || '—' }))
+    );
+}
+
+/**
+ * One-call wiring for a migrated view: returns the list column's renderers.
+ * Templates/bars are provided lazily so class-field initialisation order in
+ * the host does not matter.
+ */
+export function narrowListRenderers<T>(
+  getTemplate: () => ListRowTemplate<T>,
+  getBar?: () => Parameters<typeof renderListBar>[0]
+): {
+  row: (root: HTMLElement, column: object, model: { item: T }) => void;
+  bar: (root: HTMLElement) => void;
+} {
+  return {
+    row: (root, _column, model) => {
+      litRender(renderListRow(getTemplate(), model.item), root);
+    },
+    bar: root => {
+      litRender(renderListBar(getBar?.() ?? {}), root);
+    }
+  };
 }

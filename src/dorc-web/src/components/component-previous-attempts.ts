@@ -12,9 +12,20 @@ import './log-dialog';
 import { DeploymentRequestAttemptApiModel, DeploymentResultAttemptApiModel, RequestApi, ResultStatusesApi } from '../apis/dorc-api';
 import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
+import { NarrowListController } from '../helpers/narrow-list-controller';
+import { listRowStyles, narrowListRenderers } from './dorc-list-row';
+import { previousAttemptsNarrow } from '../row-templates/batch-row-templates';
 
 @customElement('component-previous-attempts')
 export class ComponentPreviousAttempts extends LitElement {
+  /** Narrow-mode (HLPS §3.4): container-driven list rendering. */
+  narrowList = new NarrowListController(this as unknown as HTMLElement & import('lit').ReactiveControllerHost);
+
+  private _nl = narrowListRenderers(
+    () => previousAttemptsNarrow(this).template,
+    () => previousAttemptsNarrow(this).bar ?? {}
+  );
+
   @property({ type: Array })
   attemptItems: DeploymentRequestAttemptApiModel[] | undefined;
 
@@ -40,7 +51,9 @@ export class ComponentPreviousAttempts extends LitElement {
   }
 
   static get styles() {
-    return css`
+    return [
+      listRowStyles,
+      css`
       vaadin-grid#grid {
         overflow: auto;
         width: calc(100% - 4px);
@@ -105,7 +118,8 @@ export class ComponentPreviousAttempts extends LitElement {
         background-color: var(--lumo-success-color-10pct);
         color: var(--lumo-success-text-color);
       }
-    `;
+    `
+    ];
   }
 
   render() {
@@ -170,24 +184,30 @@ export class ComponentPreviousAttempts extends LitElement {
                     all-rows-visible
                   >
                     <vaadin-grid-column
+          flex-grow="1"
+          ?hidden="${!this.narrowList.narrow}"
+          .headerRenderer="${this._nl.bar}"
+          .renderer="${this._nl.row}"
+        ></vaadin-grid-column>
+        <vaadin-grid-column ?hidden="${this.narrowList.narrow}"
                       .renderer="${this.componentNameRenderer}"
                       header="Component Name"
                       resizable
                       auto-width
                     ></vaadin-grid-column>
-                    <vaadin-grid-column
+                    <vaadin-grid-column ?hidden="${this.narrowList.narrow}"
                       .renderer="${this.componentTimingsRenderer}"
                       header="Timings"
                       resizable
                       auto-width
                     ></vaadin-grid-column>
-                    <vaadin-grid-column
+                    <vaadin-grid-column ?hidden="${this.narrowList.narrow}"
                       .renderer="${this.componentStatusRenderer}"
                       header="Status"
                       resizable
                       auto-width
                     ></vaadin-grid-column>
-                    <vaadin-grid-column
+                    <vaadin-grid-column ?hidden="${this.narrowList.narrow}"
                       .renderer="${this.componentLogRenderer}"
                       header="Log"
                       resizable

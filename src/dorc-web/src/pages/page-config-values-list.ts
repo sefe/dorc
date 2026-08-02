@@ -11,7 +11,6 @@ import { PaperDialogElement } from '@polymer/paper-dialog';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { PageElement } from '../helpers/page-element';
-import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import { ConfigValueApiModel, RefDataConfigApi } from "../apis/dorc-api";
 import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
 import { GridItemModel } from '@vaadin/grid';
@@ -19,9 +18,20 @@ import { Checkbox } from '@vaadin/checkbox';
 import '../components/grid-button-groups/config-value-controls';
 import '../components/add-config-value';
 import { RefDataRolesApi } from '../apis/dorc-api';
+import { NarrowListController } from '../helpers/narrow-list-controller';
+import { listRowStyles, narrowListRenderers } from '../components/dorc-list-row';
+import { configValuesNarrow } from '../row-templates/batch-row-templates';
 
 @customElement('page-config-values-list')
-export class PageConfigValuesList extends ResponsiveMixin(PageElement) {
+export class PageConfigValuesList extends PageElement {
+  /** Narrow-mode (HLPS §3.4): container-driven list rendering. */
+  narrowList = new NarrowListController(this as unknown as HTMLElement & import('lit').ReactiveControllerHost);
+
+  private _nl = narrowListRenderers(
+    () => configValuesNarrow(this).template,
+    () => configValuesNarrow(this).bar ?? {}
+  );
+
   @property({ type: Array }) configValues: Array<ConfigValueApiModel> = [];
 
   @property({ type: Array }) filteredConfigValues: Array<ConfigValueApiModel> = [];
@@ -92,7 +102,9 @@ export class PageConfigValuesList extends ResponsiveMixin(PageElement) {
   }
 
   static get styles() {
-    return css`
+    return [
+      listRowStyles,
+      css`
       :host {
         display: flex;
         flex-direction: column;
@@ -132,7 +144,8 @@ export class PageConfigValuesList extends ResponsiveMixin(PageElement) {
           overflow-wrap: break-word;
         }
       }
-    `;
+    `
+    ];
   }
 
   render() {
@@ -182,7 +195,13 @@ export class PageConfigValuesList extends ResponsiveMixin(PageElement) {
               multi-sort
               theme="compact row-stripes no-row-borders no-border"
             >
-              <vaadin-grid-sort-column
+              <vaadin-grid-column
+          flex-grow="1"
+          ?hidden="${!this.narrowList.narrow}"
+          .headerRenderer="${this._nl.bar}"
+          .renderer="${this._nl.row}"
+        ></vaadin-grid-column>
+        <vaadin-grid-sort-column ?hidden="${this.narrowList.narrow}"
                 path="Key"
                 header="Config Name"
                 resizable
@@ -196,7 +215,7 @@ export class PageConfigValuesList extends ResponsiveMixin(PageElement) {
                 width="100px"
                 flex-grow="0"
                 .renderer=${this.isSecuredRenderer}
-                ?hidden="${this._narrowScreen}"
+                ?hidden="${this.narrowList.narrow}"
               ></vaadin-grid-sort-column>
               <vaadin-grid-sort-column
                 path="IsForProd"
@@ -205,9 +224,9 @@ export class PageConfigValuesList extends ResponsiveMixin(PageElement) {
                 width="100px"
                 flex-grow="0"
                 .renderer=${this.isForProdRenderer}
-                ?hidden="${this._narrowScreen}"
+                ?hidden="${this.narrowList.narrow}"
               ></vaadin-grid-sort-column>
-              <vaadin-grid-column
+              <vaadin-grid-column ?hidden="${this.narrowList.narrow}"
                 header="Config Value"
                 .renderer=${this.variableValueControlsRenderer}
                 resizable

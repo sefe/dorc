@@ -19,13 +19,23 @@ import { Router } from '@vaadin/router';
 import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { PageElement } from '../helpers/page-element';
-import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import { DaemonApiModel, RefDataDaemonsApi, ServerDaemonsApi } from '../apis/dorc-api';
 import type { ServerApiModel } from '../apis/dorc-api';
 import GlobalCache from '../global-cache';
+import { NarrowListController } from '../helpers/narrow-list-controller';
+import { listRowStyles, narrowListRenderers } from '../components/dorc-list-row';
+import { daemonsListNarrow } from '../row-templates/batch-row-templates';
 
 @customElement('page-daemons-list')
-export class PageDaemonsList extends ResponsiveMixin(PageElement) {
+export class PageDaemonsList extends PageElement {
+  /** Narrow-mode (HLPS §3.4): container-driven list rendering. */
+  narrowList = new NarrowListController(this as unknown as HTMLElement & import('lit').ReactiveControllerHost);
+
+  private _nl = narrowListRenderers(
+    () => daemonsListNarrow(this).template,
+    () => daemonsListNarrow(this).bar ?? {}
+  );
+
   @property({ type: Array }) daemons: Array<DaemonApiModel> = [];
 
   @property({ type: Array }) filteredDaemons: Array<DaemonApiModel> = [];
@@ -83,7 +93,9 @@ export class PageDaemonsList extends ResponsiveMixin(PageElement) {
   }
 
   static get styles() {
-    return css`
+    return [
+      listRowStyles,
+      css`
       :host {
         display: flex;
         flex-direction: column;
@@ -114,7 +126,8 @@ export class PageDaemonsList extends ResponsiveMixin(PageElement) {
           overflow-wrap: break-word;
         }
       }
-    `;
+    `
+    ];
   }
 
   render() {
@@ -211,7 +224,13 @@ export class PageDaemonsList extends ResponsiveMixin(PageElement) {
               multi-sort
               theme="compact row-stripes no-row-borders no-border"
             >
-              <vaadin-grid-sort-column
+              <vaadin-grid-column
+          flex-grow="1"
+          ?hidden="${!this.narrowList.narrow}"
+          .headerRenderer="${this._nl.bar}"
+          .renderer="${this._nl.row}"
+        ></vaadin-grid-column>
+        <vaadin-grid-sort-column ?hidden="${this.narrowList.narrow}"
                 path="Name"
                 header="Daemon Name"
                 resizable
@@ -220,29 +239,29 @@ export class PageDaemonsList extends ResponsiveMixin(PageElement) {
                 path="DisplayName"
                 header="Display Name"
                 resizable
-                ?hidden="${this._narrowScreen}"
+                ?hidden="${this.narrowList.narrow}"
               ></vaadin-grid-sort-column>
               <vaadin-grid-sort-column
                 path="AccountName"
                 header="Account Name"
                 resizable
-                ?hidden="${this._narrowScreen}"
+                ?hidden="${this.narrowList.narrow}"
               ></vaadin-grid-sort-column>
               <vaadin-grid-sort-column
                 path="ServiceType"
                 header="Type"
                 resizable
-                ?hidden="${this._narrowScreen}"
+                ?hidden="${this.narrowList.narrow}"
               ></vaadin-grid-sort-column>
               <vaadin-grid-sort-column
                 path="LastSeenDate"
                 header="Last Seen"
                 resizable
                 direction="desc"
-                ?hidden="${this._narrowScreen}"
+                ?hidden="${this.narrowList.narrow}"
                 .renderer="${this._lastSeenRenderer}"
               ></vaadin-grid-sort-column>
-              <vaadin-grid-column
+              <vaadin-grid-column ?hidden="${this.narrowList.narrow}"
                 header="Actions"
                 width="180px"
                 flex-grow="0"

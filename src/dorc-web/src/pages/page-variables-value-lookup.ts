@@ -27,12 +27,22 @@ import {
 } from '../apis/dorc-api';
 import { PagedDataFilter, PropertyValueAuditApiModel } from '../apis/dorc-api';
 import { PageElement } from '../helpers/page-element';
-import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import '../components/grid-button-groups/variable-value-controls';
 import { PropertyValueDto } from '../apis/dorc-api';
+import { NarrowListController } from '../helpers/narrow-list-controller';
+import { listRowStyles, narrowListRenderers } from '../components/dorc-list-row';
+import { variablesValueLookupNarrow } from '../row-templates/batch-row-templates';
 
 @customElement('page-variables-value-lookup')
-export class PageVariablesValueLookup extends ResponsiveMixin(PageElement) {
+export class PageVariablesValueLookup extends PageElement {
+  /** Narrow-mode (HLPS §3.4): container-driven list rendering. */
+  narrowList = new NarrowListController(this as unknown as HTMLElement & import('lit').ReactiveControllerHost);
+
+  private _nl = narrowListRenderers(
+    () => variablesValueLookupNarrow(this).template,
+    () => variablesValueLookupNarrow(this).bar ?? {}
+  );
+
   @property({ type: Array })
   variableValues: Array<FlatPropertyValueApiModel> = [];
 
@@ -51,7 +61,9 @@ export class PageVariablesValueLookup extends ResponsiveMixin(PageElement) {
   @property({ type: Boolean }) searching = false;
 
   static get styles() {
-    return css`
+    return [
+      listRowStyles,
+      css`
       :host {
         display: flex;
         flex-direction: column;
@@ -90,7 +102,8 @@ export class PageVariablesValueLookup extends ResponsiveMixin(PageElement) {
           overflow-wrap: break-word;
         }
       }
-    `;
+    `
+    ];
   }
 
   render() {
@@ -105,6 +118,12 @@ export class PageVariablesValueLookup extends ResponsiveMixin(PageElement) {
         style="width: 100%;"
       >
         <vaadin-grid-column
+          flex-grow="1"
+          ?hidden="${!this.narrowList.narrow}"
+          .headerRenderer="${this._nl.bar}"
+          .renderer="${this._nl.row}"
+        ></vaadin-grid-column>
+        <vaadin-grid-column ?hidden="${this.narrowList.narrow}"
           path="Property"
           .headerRenderer="${this.nameHeaderRenderer}"
           resizable
@@ -116,9 +135,9 @@ export class PageVariablesValueLookup extends ResponsiveMixin(PageElement) {
           .headerRenderer="${this.scopeHeaderRenderer}"
           resizable
           auto-width
-          ?hidden="${this._narrowScreen}"
+          ?hidden="${this.narrowList.narrow}"
         ></vaadin-grid-column>
-        <vaadin-grid-column
+        <vaadin-grid-column ?hidden="${this.narrowList.narrow}"
           header="Value"
           .renderer="${this.valueRenderer}"
           .headerRenderer="${this.valueHeaderRenderer}"

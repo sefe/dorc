@@ -9,9 +9,20 @@ import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { DaemonStatusApi } from '../apis/dorc-api';
 import { DaemonStatusApiModel } from '../apis/dorc-api';
+import { NarrowListController } from '../helpers/narrow-list-controller';
+import { listRowStyles, narrowListRenderers } from './dorc-list-row';
+import { applicationDaemonsNarrow } from '../row-templates/batch-row-templates';
 
 @customElement('application-daemons')
 export class ApplicationDaemons extends LitElement {
+  /** Narrow-mode (HLPS §3.4): container-driven list rendering. */
+  narrowList = new NarrowListController(this as unknown as HTMLElement & import('lit').ReactiveControllerHost);
+
+  private _nl = narrowListRenderers(
+    () => applicationDaemonsNarrow(this).template,
+    () => applicationDaemonsNarrow(this).bar ?? {}
+  );
+
   @property({ type: String })
   _envName = '';
 
@@ -31,7 +42,9 @@ export class ApplicationDaemons extends LitElement {
   }
 
   static get styles() {
-    return css`
+    return [
+      listRowStyles,
+      css`
         :host {
             height: 100%;
             display: flex;
@@ -44,7 +57,8 @@ export class ApplicationDaemons extends LitElement {
         padding: 0px;
         margin: 0px;
       }
-    `;
+    `
+    ];
   }
 
   render() {
@@ -55,7 +69,13 @@ export class ApplicationDaemons extends LitElement {
         theme="compact row-stripes no-row-borders no-border"
         multi-sort
       >
-        <vaadin-grid-sort-column
+        <vaadin-grid-column
+          flex-grow="1"
+          ?hidden="${!this.narrowList.narrow}"
+          .headerRenderer="${this._nl.bar}"
+          .renderer="${this._nl.row}"
+        ></vaadin-grid-column>
+        <vaadin-grid-sort-column ?hidden="${this.narrowList.narrow}"
           path="ServerName"
           header="Server Name"
           resizable
@@ -63,7 +83,7 @@ export class ApplicationDaemons extends LitElement {
           flex-grow="0"
         >
         </vaadin-grid-sort-column>
-        <vaadin-grid-sort-column
+        <vaadin-grid-sort-column ?hidden="${this.narrowList.narrow}"
           path="DaemonName"
           header="Daemon Name"
           resizable
@@ -71,7 +91,7 @@ export class ApplicationDaemons extends LitElement {
           flex-grow="0"
         >
         </vaadin-grid-sort-column>
-        <vaadin-grid-sort-column
+        <vaadin-grid-sort-column ?hidden="${this.narrowList.narrow}"
           path="Status"
           header="Status"
           resizable
@@ -80,7 +100,7 @@ export class ApplicationDaemons extends LitElement {
           .renderer="${this._daemonStatusRenderer}"
         >
         </vaadin-grid-sort-column>
-        <vaadin-grid-column
+        <vaadin-grid-column ?hidden="${this.narrowList.narrow}"
           .renderer="${this._boundDaemonsButtonsRenderer}"
           .attachedAppDaemonControl="${this}"
         >

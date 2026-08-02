@@ -1,17 +1,29 @@
 import { css, LitElement } from 'lit';
-import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { UserApiModel } from '../apis/dorc-api';
+import { NarrowListController } from '../helpers/narrow-list-controller';
+import { listRowStyles, narrowListRenderers } from './dorc-list-row';
+import { attachedAppUsersNarrow } from '../row-templates/batch-row-templates';
 
 @customElement('attached-app-users')
-export class AttachedUsers extends ResponsiveMixin(LitElement) {
+export class AttachedUsers extends LitElement {
+  /** Narrow-mode (HLPS §3.4): container-driven list rendering. */
+  narrowList = new NarrowListController(this as unknown as HTMLElement & import('lit').ReactiveControllerHost);
+
+  private _nl = narrowListRenderers(
+    () => attachedAppUsersNarrow(this).template,
+    () => attachedAppUsersNarrow(this).bar ?? {}
+  );
+
   @property({ type: Array }) users: UserApiModel[] = [];
 
   static get styles() {
-    return css`
+    return [
+      listRowStyles,
+      css`
       @media (max-width: 768px) {
         vaadin-grid-cell-content {
           white-space: normal;
@@ -19,7 +31,8 @@ export class AttachedUsers extends ResponsiveMixin(LitElement) {
           overflow-wrap: break-word;
         }
       }
-    `;
+    `
+    ];
   }
 
   render() {
@@ -30,24 +43,30 @@ export class AttachedUsers extends ResponsiveMixin(LitElement) {
         theme="compact row-stripes no-row-borders no-border"
         style="height: 100%"
       >
-        <vaadin-grid-sort-column header="Name" path="DisplayName" resizable>
+        <vaadin-grid-column
+          flex-grow="1"
+          ?hidden="${!this.narrowList.narrow}"
+          .headerRenderer="${this._nl.bar}"
+          .renderer="${this._nl.row}"
+        ></vaadin-grid-column>
+        <vaadin-grid-sort-column ?hidden="${this.narrowList.narrow}" header="Name" path="DisplayName" resizable>
         </vaadin-grid-sort-column>
-        <vaadin-grid-sort-column header="Login ID" path="LoginId" resizable>
+        <vaadin-grid-sort-column ?hidden="${this.narrowList.narrow}" header="Login ID" path="LoginId" resizable>
         </vaadin-grid-sort-column>
         <vaadin-grid-sort-column header="Login Type" path="LoginType" resizable
-          ?hidden="${this._narrowScreen}">
+          ?hidden="${this.narrowList.narrow}">
         </vaadin-grid-sort-column>
-        <vaadin-grid-sort-column header="LAN ID" path="LanId" resizable>
+        <vaadin-grid-sort-column ?hidden="${this.narrowList.narrow}" header="LAN ID" path="LanId" resizable>
         </vaadin-grid-sort-column>
         <vaadin-grid-sort-column
           header="LAN ID Type"
           path="LanIdType"
           resizable
-          ?hidden="${this._narrowScreen}"
+          ?hidden="${this.narrowList.narrow}"
         >
         </vaadin-grid-sort-column>
         <vaadin-grid-sort-column header="Team" path="Team" resizable
-          ?hidden="${this._narrowScreen}">
+          ?hidden="${this.narrowList.narrow}">
         </vaadin-grid-sort-column>
       </vaadin-grid>
     `;

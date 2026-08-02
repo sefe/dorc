@@ -7,7 +7,6 @@ import '@vaadin/grid/vaadin-grid-column';
 import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import { css, LitElement, render } from 'lit';
-import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import { customElement, property, query } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import './grid-button-groups/database-env-controls.ts';
@@ -24,9 +23,20 @@ import { HegsDialog } from './hegs-dialog';
 import { ServerApiModel } from '../apis/dorc-api';
 import type { EnvironmentContentApiModel } from '../apis/dorc-api';
 import { splitTags } from '../helpers/tag-parser';
+import { NarrowListController } from '../helpers/narrow-list-controller';
+import { listRowStyles, narrowListRenderers } from './dorc-list-row';
+import { attachedServersNarrow } from '../row-templates/batch-row-templates';
 
 @customElement('attached-servers')
-export class AttachedServers extends ResponsiveMixin(LitElement) {
+export class AttachedServers extends LitElement {
+  /** Narrow-mode (HLPS §3.4): container-driven list rendering. */
+  narrowList = new NarrowListController(this as unknown as HTMLElement & import('lit').ReactiveControllerHost);
+
+  private _nl = narrowListRenderers(
+    () => attachedServersNarrow(this).template,
+    () => attachedServersNarrow(this).bar ?? {}
+  );
+
   @property({ type: Object })
   envContent!: EnvironmentContentApiModel;
 
@@ -48,7 +58,9 @@ export class AttachedServers extends ResponsiveMixin(LitElement) {
   @query('#daemon-mapping-dialog') daemonMappingDialog!: HegsDialog;
 
   static get styles() {
-    return css`
+    return [
+      listRowStyles,
+      css`
       .center {
         margin: 10px 20px 10px;
         width: 50%;
@@ -100,7 +112,8 @@ export class AttachedServers extends ResponsiveMixin(LitElement) {
         word-wrap: break-word;
         overflow-wrap: break-word;
       }
-    `;
+    `
+    ];
   }
 
   render() {
@@ -141,6 +154,12 @@ export class AttachedServers extends ResponsiveMixin(LitElement) {
         multi-sort
       >
         <vaadin-grid-column
+          flex-grow="1"
+          ?hidden="${!this.narrowList.narrow}"
+          .headerRenderer="${this._nl.bar}"
+          .renderer="${this._nl.row}"
+        ></vaadin-grid-column>
+        <vaadin-grid-column ?hidden="${this.narrowList.narrow}"
           path="Name"
           header="Server Name"
           resizable
@@ -153,15 +172,15 @@ export class AttachedServers extends ResponsiveMixin(LitElement) {
           resizable
           auto-width
           flex-grow="0"
-          ?hidden="${this._narrowScreen}"
+          ?hidden="${this.narrowList.narrow}"
         ></vaadin-grid-column>
         <vaadin-grid-column
           .renderer="${this.applicationTagsRenderer}"
           header="Application Tags"
           resizable
-          ?hidden="${this._narrowScreen}"
+          ?hidden="${this.narrowList.narrow}"
         ></vaadin-grid-column>
-        <vaadin-grid-column
+        <vaadin-grid-column ?hidden="${this.narrowList.narrow}"
           width="200px"
           flex-grow="0"
           .renderer="${this._boundServersButtonsRenderer}"

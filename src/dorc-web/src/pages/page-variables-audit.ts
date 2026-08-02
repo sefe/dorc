@@ -28,11 +28,21 @@ import {
   PropertyValueAuditApiModel
 } from '../apis/dorc-api/models';
 import { PageElement } from '../helpers/page-element';
-import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import { getShortLogonName } from '../helpers/user-extensions';
+import { NarrowListController } from '../helpers/narrow-list-controller';
+import { listRowStyles, narrowListRenderers } from '../components/dorc-list-row';
+import { variablesAuditNarrow } from '../row-templates/batch-row-templates';
 
 @customElement('page-variables-audit')
-export class PageVariablesAudit extends ResponsiveMixin(PageElement) {
+export class PageVariablesAudit extends PageElement {
+  /** Narrow-mode (HLPS §3.4): container-driven list rendering. */
+  narrowList = new NarrowListController(this as unknown as HTMLElement & import('lit').ReactiveControllerHost);
+
+  private _nl = narrowListRenderers(
+    () => variablesAuditNarrow(this).template,
+    () => variablesAuditNarrow(this).bar ?? {}
+  );
+
   @property({ type: Array }) scripts: Array<PropertyValueAuditApiModel> = [];
 
   @property({ type: Array }) appConfig = [];
@@ -54,7 +64,9 @@ export class PageVariablesAudit extends ResponsiveMixin(PageElement) {
   @property({ type: Boolean }) useAndFilter = true;
 
   static get styles() {
-    return css`
+    return [
+      listRowStyles,
+      css`
       :host {
         display: flex;
         flex-direction: column;
@@ -102,7 +114,8 @@ export class PageVariablesAudit extends ResponsiveMixin(PageElement) {
           overflow-wrap: break-word;
         }
       }
-    `;
+    `
+    ];
   }
 
   render() {
@@ -119,6 +132,12 @@ export class PageVariablesAudit extends ResponsiveMixin(PageElement) {
         ?hidden="${this.loading}"
       >
         <vaadin-grid-column
+          flex-grow="1"
+          ?hidden="${!this.narrowList.narrow}"
+          .headerRenderer="${this._nl.bar}"
+          .renderer="${this._nl.row}"
+        ></vaadin-grid-column>
+        <vaadin-grid-column ?hidden="${this.narrowList.narrow}"
           path="PropertyName"
           header="Property Name"
           resizable
@@ -126,7 +145,7 @@ export class PageVariablesAudit extends ResponsiveMixin(PageElement) {
           auto-width
         >
         </vaadin-grid-column>
-        <vaadin-grid-column
+        <vaadin-grid-column ?hidden="${this.narrowList.narrow}"
           path="EnvironmentName"
           header="Environment"
           .headerRenderer="${this.environmentHeaderRenderer}"
@@ -139,7 +158,7 @@ export class PageVariablesAudit extends ResponsiveMixin(PageElement) {
           .headerRenderer="${this.userHeaderRenderer}"
           resizable
           auto-width
-          ?hidden="${this._narrowScreen}"
+          ?hidden="${this.narrowList.narrow}"
         ></vaadin-grid-column>
         <vaadin-grid-sort-column
           path="UpdatedDate"
@@ -148,9 +167,9 @@ export class PageVariablesAudit extends ResponsiveMixin(PageElement) {
           .renderer="${this.UpdatedRenderer}"
           resizable
           auto-width
-          ?hidden="${this._narrowScreen}"
+          ?hidden="${this.narrowList.narrow}"
         ></vaadin-grid-sort-column>
-        <vaadin-grid-column
+        <vaadin-grid-column ?hidden="${this.narrowList.narrow}"
           header="Value"
           .renderer="${this.valueRenderer}"
           .headerRenderer="${this.valueHeaderRenderer}"

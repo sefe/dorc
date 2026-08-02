@@ -33,9 +33,20 @@ import { HegsTree } from './component-tree/hegs-tree';
 import { TreeNode } from './component-tree/TreeNode';
 import { SuccessfulDeployNotification } from './notifications/successful-deploy-notification';
 import { DeployConfirmDialog } from './deploy-confirm-dialog';
+import { NarrowListController } from '../../helpers/narrow-list-controller';
+import { listRowStyles, narrowListRenderers } from '../dorc-list-row';
+import { deployEnvPropsNarrow } from '../../row-templates/batch-row-templates';
 
 @customElement('deploy-env')
 export class DeployEnv extends LitElement {
+  /** Narrow-mode (HLPS §3.4): container-driven list rendering. */
+  narrowList = new NarrowListController(this as unknown as HTMLElement & import('lit').ReactiveControllerHost);
+
+  private _nl = narrowListRenderers(
+    () => deployEnvPropsNarrow(this).template,
+    () => deployEnvPropsNarrow(this).bar ?? {}
+  );
+
   private _project!: ProjectApiModel;
 
   @property({ type: Object })
@@ -91,7 +102,9 @@ export class DeployEnv extends LitElement {
   @state() private requestedDeployment: RequestStatusDto | undefined;
 
   static get styles() {
-    return css`
+    return [
+      listRowStyles,
+      css`
         :host{
             overflow-y: scroll;
         }
@@ -152,7 +165,8 @@ export class DeployEnv extends LitElement {
           transform: rotate(360deg);
         }
 
-    `;
+    `
+    ];
   }
 
   private buildDef = '';
@@ -303,21 +317,27 @@ export class DeployEnv extends LitElement {
             multi-sort
             theme="compact row-stripes no-row-borders no-border"
           >
-            <vaadin-grid-sort-column
+            <vaadin-grid-column
+          flex-grow="1"
+          ?hidden="${!this.narrowList.narrow}"
+          .headerRenderer="${this._nl.bar}"
+          .renderer="${this._nl.row}"
+        ></vaadin-grid-column>
+        <vaadin-grid-sort-column ?hidden="${this.narrowList.narrow}"
               header="Property Name"
               path="PropertyName"
               width="300px"
               flex-grow="0"
               resizable
             ></vaadin-grid-sort-column>
-            <vaadin-grid-sort-column
+            <vaadin-grid-sort-column ?hidden="${this.narrowList.narrow}"
               header="Property Value"
               path="PropertyValue"
               flex-grow="0"
               width="300px"
               resizable
             ></vaadin-grid-sort-column>
-            <vaadin-grid-column
+            <vaadin-grid-column ?hidden="${this.narrowList.narrow}"
               .renderer="${this._boundPropOverridesButtonsRenderer}"
               .attachedDbsControl="${this}"
               resizable

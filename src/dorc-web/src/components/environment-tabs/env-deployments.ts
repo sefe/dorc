@@ -16,9 +16,20 @@ import {
 } from '../../apis/dorc-api';
 import { EnvironmentContentBuildsApiModelExtended } from '../model-extensions/EnvironmentContentBuildsApiModelExtended';
 import '@vaadin/date-time-picker';
+import { NarrowListController } from '../../helpers/narrow-list-controller';
+import { listRowStyles, narrowListRenderers } from '../dorc-list-row';
+import { envDeploymentsTabNarrow } from '../../row-templates/batch-row-templates';
 
 @customElement('env-deployments')
 export class EnvDeployments extends PageEnvBase {
+  /** Narrow-mode (HLPS §3.4): container-driven list rendering. */
+  narrowList = new NarrowListController(this as unknown as HTMLElement & import('lit').ReactiveControllerHost);
+
+  private _nl = narrowListRenderers(
+    () => envDeploymentsTabNarrow(this).template,
+    () => envDeploymentsTabNarrow(this).bar ?? {}
+  );
+
   @property({ type: Boolean }) loading = true;
 
   @property({ type: Boolean }) applyingNewFilter = false;
@@ -28,7 +39,9 @@ export class EnvDeployments extends PageEnvBase {
     | undefined;
 
   static get styles() {
-    return css`
+    return [
+      listRowStyles,
+      css`
       :host {
         display: flex;
         width: 100%;
@@ -64,7 +77,8 @@ export class EnvDeployments extends PageEnvBase {
         background-color: var(--dorc-failure-bg);
         color: var(--dorc-text-primary);
       }
-    `;
+    `
+    ];
   }
 
   render() {
@@ -100,6 +114,12 @@ export class EnvDeployments extends PageEnvBase {
               style="height: 100%; width: 100%; flex-grow: 1"
             >
               <vaadin-grid-column
+          flex-grow="1"
+          ?hidden="${!this.narrowList.narrow}"
+          .headerRenderer="${this._nl.bar}"
+          .renderer="${this._nl.row}"
+        ></vaadin-grid-column>
+        <vaadin-grid-column ?hidden="${this.narrowList.narrow}"
                 header="Request Id"
                 .renderer="${this._idRenderer.bind(this)}"
                 resizable
@@ -107,28 +127,28 @@ export class EnvDeployments extends PageEnvBase {
                 .headerRenderer="${this.idHeaderRenderer}"
               >
               </vaadin-grid-column>
-              <vaadin-grid-column
+              <vaadin-grid-column ?hidden="${this.narrowList.narrow}"
                 path="ComponentName"
                 resizable
                 auto-width
                 .headerRenderer="${this.componentNameHeaderRenderer.bind(this)}"
               >
               </vaadin-grid-column>
-              <vaadin-grid-column
+              <vaadin-grid-column ?hidden="${this.narrowList.narrow}"
                 path="RequestBuildNum"
                 resizable
                 auto-width
                 .headerRenderer="${this.requestNumberHeaderRenderer.bind(this)}"
               >
               </vaadin-grid-column>
-              <vaadin-grid-column
+              <vaadin-grid-column ?hidden="${this.narrowList.narrow}"
                 header="Requested"
                 .renderer="${this._dateRenderer}"
                 .headerRenderer="${this.dateHeaderRenderer}"
                 resizable
                 auto-width
               ></vaadin-grid-column>
-              <vaadin-grid-sort-column header="Status" path="State" resizable>
+              <vaadin-grid-sort-column ?hidden="${this.narrowList.narrow}" header="Status" path="State" resizable>
               </vaadin-grid-sort-column>
             </vaadin-grid>
           `}

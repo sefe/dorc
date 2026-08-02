@@ -9,7 +9,6 @@ import '@vaadin/icons';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { PageElement } from '../helpers/page-element';
-import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import '@vaadin/details';
 import '@vaadin/horizontal-layout';
 import {
@@ -27,9 +26,20 @@ import '../components/bundle-editor-dialog';
 import { BundleEditorDialog } from '../components/bundle-editor-dialog';
 import { Router } from '@vaadin/router';
 import { ComboBox } from '@vaadin/combo-box';
+import { NarrowListController } from '../helpers/narrow-list-controller';
+import { listRowStyles, narrowListRenderers } from '../components/dorc-list-row';
+import { projectBundlesNarrow } from '../row-templates/batch-row-templates';
 
 @customElement('page-project-bundles')
-export class PageProjectBundles extends ResponsiveMixin(PageElement) {
+export class PageProjectBundles extends PageElement {
+  /** Narrow-mode (HLPS §3.4): container-driven list rendering. */
+  narrowList = new NarrowListController(this as unknown as HTMLElement & import('lit').ReactiveControllerHost);
+
+  private _nl = narrowListRenderers(
+    () => projectBundlesNarrow(this).template,
+    () => projectBundlesNarrow(this).bar ?? {}
+  );
+
   @property({ type: String })
   project: string | undefined;
 
@@ -40,7 +50,9 @@ export class PageProjectBundles extends ResponsiveMixin(PageElement) {
   private bundleNameFilter = '';
 
   static get styles() {
-    return css`
+    return [
+      listRowStyles,
+      css`
       :host {
         display: flex;
         width: 100%;
@@ -75,7 +87,8 @@ export class PageProjectBundles extends ResponsiveMixin(PageElement) {
           overflow-wrap: break-word;
         }
       }
-    `;
+    `
+    ];
   }
 
   private bundledRequests: Array<BundledRequestsApiModel> = [];
@@ -176,6 +189,12 @@ export class PageProjectBundles extends ResponsiveMixin(PageElement) {
         multi-sort-priority="append"
       >
         <vaadin-grid-column
+          flex-grow="1"
+          ?hidden="${!this.narrowList.narrow}"
+          .headerRenderer="${this._nl.bar}"
+          .renderer="${this._nl.row}"
+        ></vaadin-grid-column>
+        <vaadin-grid-column ?hidden="${this.narrowList.narrow}"
           path="BundleName"
           header="Bundle Name"
           auto-width
@@ -189,9 +208,9 @@ export class PageProjectBundles extends ResponsiveMixin(PageElement) {
           auto-width
           flex-grow="0"
           resizable
-          ?hidden="${this._narrowScreen}"
+          ?hidden="${this.narrowList.narrow}"
         ></vaadin-grid-column>
-        <vaadin-grid-column
+        <vaadin-grid-column ?hidden="${this.narrowList.narrow}"
           path="RequestName"
           header="Request Name"
           auto-width
@@ -205,9 +224,9 @@ export class PageProjectBundles extends ResponsiveMixin(PageElement) {
           flex-grow="0"
           resizable
           direction="asc"
-          ?hidden="${this._narrowScreen}"
+          ?hidden="${this.narrowList.narrow}"
         ></vaadin-grid-sort-column>
-        <vaadin-grid-column
+        <vaadin-grid-column ?hidden="${this.narrowList.narrow}"
           .renderer="${this.bundleControlsRenderer}"
           resizable
           flex-grow="0"
@@ -217,7 +236,7 @@ export class PageProjectBundles extends ResponsiveMixin(PageElement) {
           header="Request"
           resizable
           .renderer="${this._jsonRenderer}"
-          ?hidden="${this._narrowScreen}"
+          ?hidden="${this.narrowList.narrow}"
         ></vaadin-grid-column>
       </vaadin-grid>
 

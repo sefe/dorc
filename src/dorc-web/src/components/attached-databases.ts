@@ -7,7 +7,6 @@ import '@vaadin/grid/vaadin-grid-column';
 import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import { css, LitElement, render } from 'lit';
-import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import '../components/edit-database-permissions';
@@ -19,9 +18,20 @@ import {
 import { EditDatabasePermissions } from './edit-database-permissions';
 import { ViewDatabasePermissions } from './view-database-permissions';
 import { map } from 'lit/directives/map.js';
+import { NarrowListController } from '../helpers/narrow-list-controller';
+import { listRowStyles, narrowListRenderers } from './dorc-list-row';
+import { attachedDatabasesNarrow } from '../row-templates/batch-row-templates';
 
 @customElement('attached-databases')
-export class AttachedDatabases extends ResponsiveMixin(LitElement) {
+export class AttachedDatabases extends LitElement {
+  /** Narrow-mode (HLPS §3.4): container-driven list rendering. */
+  narrowList = new NarrowListController(this as unknown as HTMLElement & import('lit').ReactiveControllerHost);
+
+  private _nl = narrowListRenderers(
+    () => attachedDatabasesNarrow(this).template,
+    () => attachedDatabasesNarrow(this).bar ?? {}
+  );
+
   @property({ type: Number })
   envId = 0;
 
@@ -31,7 +41,9 @@ export class AttachedDatabases extends ResponsiveMixin(LitElement) {
   public databases: Array<DatabaseApiModel> | undefined = [];
 
   static get styles() {
-    return css`
+    return [
+      listRowStyles,
+      css`
       .center {
         margin: 10px 20px 10px;
         width: 50%;
@@ -80,7 +92,8 @@ export class AttachedDatabases extends ResponsiveMixin(LitElement) {
           overflow-wrap: break-word;
         }
       }
-    `;
+    `
+    ];
   }
 
   render() {
@@ -92,11 +105,17 @@ export class AttachedDatabases extends ResponsiveMixin(LitElement) {
         all-rows-visible
       >
         <vaadin-grid-column
+          flex-grow="1"
+          ?hidden="${!this.narrowList.narrow}"
+          .headerRenderer="${this._nl.bar}"
+          .renderer="${this._nl.row}"
+        ></vaadin-grid-column>
+        <vaadin-grid-column ?hidden="${this.narrowList.narrow}"
           path="ServerName"
           header="Instance"
           resizable
         ></vaadin-grid-column>
-        <vaadin-grid-column
+        <vaadin-grid-column ?hidden="${this.narrowList.narrow}"
           path="Name"
           header="Database"
           resizable
@@ -105,15 +124,15 @@ export class AttachedDatabases extends ResponsiveMixin(LitElement) {
           .renderer="${this.applicationTagsRenderer}"
           resizable
           header="Application Tag"
-          ?hidden="${this._narrowScreen}"
+          ?hidden="${this.narrowList.narrow}"
         ></vaadin-grid-column>
         <vaadin-grid-column
           path="ArrayName"
           header="Array Name"
           resizable
-          ?hidden="${this._narrowScreen}"
+          ?hidden="${this.narrowList.narrow}"
         ></vaadin-grid-column>
-        <vaadin-grid-column
+        <vaadin-grid-column ?hidden="${this.narrowList.narrow}"
           .renderer="${this._boundDatabasesButtonsRenderer}"
           resizable
         >

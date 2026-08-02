@@ -28,6 +28,9 @@ import { ErrorNotification } from './notifications/error-notification';
 import { Notification } from '@vaadin/notification';
 import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
+import { NarrowListController } from '../helpers/narrow-list-controller';
+import { listRowStyles, narrowListRenderers } from './dorc-list-row';
+import { accessControlNarrow } from '../row-templates/batch-row-templates';
 
 const AC_ALLOW_WRITE = 1;
 const AC_ALLOW_READ_SECRETS = 2;
@@ -35,6 +38,14 @@ const AC_ALLOW_OWNER = 4;
 
 @customElement('add-edit-access-control')
 export class AddEditAccessControl extends LitElement {
+  /** Narrow-mode (HLPS §3.4): container-driven list rendering. */
+  narrowList = new NarrowListController(this as unknown as HTMLElement & import('lit').ReactiveControllerHost);
+
+  private _nl = narrowListRenderers(
+    () => accessControlNarrow(this).template,
+    () => accessControlNarrow(this).bar ?? {}
+  );
+
   @property({ type: String }) secureName = '';
 
   @property({ type: Boolean })
@@ -70,7 +81,9 @@ export class AddEditAccessControl extends LitElement {
   private _ownerLimitNotified = false;
 
   static get styles() {
-    return css`
+    return [
+      listRowStyles,
+      css`
       paper-dialog.size-position {
         overflow: auto;
         width: min(90vw, 650px);
@@ -124,7 +137,8 @@ export class AddEditAccessControl extends LitElement {
           transform: rotate(360deg);
         }
       }
-    `;
+    `
+    ];
   }
 
   private acStyles = {
@@ -231,14 +245,20 @@ export class AddEditAccessControl extends LitElement {
             theme="compact row-stripes no-row-borders no-border"
             style="width: 100%;"
           >
-            <vaadin-grid-sort-column
+            <vaadin-grid-column
+          flex-grow="1"
+          ?hidden="${!this.narrowList.narrow}"
+          .headerRenderer="${this._nl.bar}"
+          .renderer="${this._nl.row}"
+        ></vaadin-grid-column>
+        <vaadin-grid-sort-column ?hidden="${this.narrowList.narrow}"
               header="Name"
               .renderer="${this.acNameRenderer}"
               flex="3"
               resizable
               auto-width
             ></vaadin-grid-sort-column>
-            <vaadin-grid-column
+            <vaadin-grid-column ?hidden="${this.narrowList.narrow}"
               header="Write"
               .renderer="${this.acCanWrite}"
               .altThis="${this}"
@@ -246,7 +266,7 @@ export class AddEditAccessControl extends LitElement {
               resizable
               auto-width
             ></vaadin-grid-column>
-            <vaadin-grid-column
+            <vaadin-grid-column ?hidden="${this.narrowList.narrow}"
               header="Read Secrets"
               .renderer="${this.acCanReadSecrets}"
               .altThis="${this}"
@@ -254,7 +274,7 @@ export class AddEditAccessControl extends LitElement {
               resizable
               auto-width
             ></vaadin-grid-column>
-            <vaadin-grid-column
+            <vaadin-grid-column ?hidden="${this.narrowList.narrow}"
               header="Owner"
               .renderer="${this.acCanOwner}"
               .altThis="${this}"
@@ -262,7 +282,7 @@ export class AddEditAccessControl extends LitElement {
               resizable
               auto-width
             ></vaadin-grid-column>
-            <vaadin-grid-column
+            <vaadin-grid-column ?hidden="${this.narrowList.narrow}"
               header="Actions"
               .renderer="${this._boundACButtonsRenderer}"
               .ACControl="${this}"

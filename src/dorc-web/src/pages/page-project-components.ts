@@ -10,7 +10,6 @@ import { GridItemModel } from '@vaadin/grid';
 import '../icons/iron-icons';
 import { ErrorNotification } from '../components/notifications/error-notification';
 import { PageElement } from '../helpers/page-element';
-import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import {
   RefDataComponentsApi,
   ComponentApiModel,
@@ -21,6 +20,9 @@ import {
   RefDataProjectsApi
 } from '../apis/dorc-api';
 import { retrieveErrorMessage } from '../helpers/errorMessage-retriever';
+import { NarrowListController } from '../helpers/narrow-list-controller';
+import { listRowStyles, narrowListRenderers } from '../components/dorc-list-row';
+import { projectComponentsNarrow } from '../row-templates/batch-row-templates';
 
 interface ComponentDeploymentInfo extends ComponentApiModel {
   Children?: ComponentDeploymentInfo[];
@@ -40,9 +42,19 @@ interface EnvironmentDeploymentRow {
 }
 
 @customElement('page-project-components')
-export class PageProjectComponents extends ResponsiveMixin(PageElement) {
+export class PageProjectComponents extends PageElement {
+  /** Narrow-mode (HLPS §3.4): container-driven list rendering. */
+  narrowList = new NarrowListController(this as unknown as HTMLElement & import('lit').ReactiveControllerHost);
+
+  private _nl = narrowListRenderers(
+    () => projectComponentsNarrow(this).template,
+    () => projectComponentsNarrow(this).bar ?? {}
+  );
+
     static get styles() {
-        return css`
+        return [
+      listRowStyles,
+      css`
       :host {
         display: flex;
         flex-direction: column;
@@ -167,7 +179,8 @@ export class PageProjectComponents extends ResponsiveMixin(PageElement) {
           font-size: 18px;
         }
       }
-    `;
+    `
+    ];
     }
 
     private projectId: number | undefined;
@@ -230,14 +243,20 @@ export class PageProjectComponents extends ResponsiveMixin(PageElement) {
                 .items="${this.deploymentRows}"
                 theme="compact row-stripes no-row-borders"
               >
-                <vaadin-grid-sort-column
+                <vaadin-grid-column
+          flex-grow="1"
+          ?hidden="${!this.narrowList.narrow}"
+          .headerRenderer="${this._nl.bar}"
+          .renderer="${this._nl.row}"
+        ></vaadin-grid-column>
+        <vaadin-grid-sort-column ?hidden="${this.narrowList.narrow}"
                   header="Environment"
                   path="environmentName"
                   resizable
                   auto-width
                 >
                 </vaadin-grid-sort-column>
-                <vaadin-grid-column
+                <vaadin-grid-column ?hidden="${this.narrowList.narrow}"
                   header="Build Number"
                   path="buildNumber"
                   resizable
@@ -250,7 +269,7 @@ export class PageProjectComponents extends ResponsiveMixin(PageElement) {
                   path="status"
                   resizable
                   auto-width
-                  ?hidden="${this._narrowScreen}"
+                  ?hidden="${this.narrowList.narrow}"
                   .renderer="${this.boundStatusRenderer}"
                 >
                 </vaadin-grid-sort-column>
@@ -259,7 +278,7 @@ export class PageProjectComponents extends ResponsiveMixin(PageElement) {
                   path="updateDate"
                   resizable
                   auto-width
-                  ?hidden="${this._narrowScreen}"
+                  ?hidden="${this.narrowList.narrow}"
                   .renderer="${this.boundDateRenderer}"
                 >
                 </vaadin-grid-sort-column>

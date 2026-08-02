@@ -17,9 +17,20 @@ import { Configuration, UserApiModel } from '../apis/dorc-api';
 import { RefDataUsersApi } from '../apis/dorc-api';
 import { PageElement } from '../helpers/page-element';
 import '../icons/hardware-icons.js';
+import { NarrowListController } from '../helpers/narrow-list-controller';
+import { listRowStyles, narrowListRenderers } from '../components/dorc-list-row';
+import { usersListNarrow } from '../row-templates/batch-row-templates';
 
 @customElement('page-users-list')
 export class PageUsersList extends PageElement {
+  /** Narrow-mode (HLPS §3.4): container-driven list rendering. */
+  narrowList = new NarrowListController(this as unknown as HTMLElement & import('lit').ReactiveControllerHost);
+
+  private _nl = narrowListRenderers(
+    () => usersListNarrow(this).template,
+    () => usersListNarrow(this).bar ?? {}
+  );
+
   @property({ type: Array }) users: Array<UserApiModel> = [];
   @property({ type: Array }) filteredUsers: Array<UserApiModel> = [];
   @property({ type: Array }) appConfig = [];
@@ -47,7 +58,9 @@ export class PageUsersList extends PageElement {
   }
 
   static get styles() {
-    return css`
+    return [
+      listRowStyles,
+      css`
       :host {
         display: flex;
         flex-direction: column;
@@ -64,7 +77,8 @@ export class PageUsersList extends PageElement {
         overflow: auto;
         padding: 10px;
       }
-    `;
+    `
+    ];
   }
 
   render() {
@@ -120,16 +134,22 @@ export class PageUsersList extends PageElement {
               theme="compact row-stripes no-row-borders no-border"
             >
               <vaadin-grid-column
+          flex-grow="1"
+          ?hidden="${!this.narrowList.narrow}"
+          .headerRenderer="${this._nl.bar}"
+          .renderer="${this._nl.row}"
+        ></vaadin-grid-column>
+        <vaadin-grid-column ?hidden="${this.narrowList.narrow}"
                 .renderer="${this.renderLoginType}"
                 width="50px"
                 flex-grow="0"
               ></vaadin-grid-column>
-              <vaadin-grid-sort-column
+              <vaadin-grid-sort-column ?hidden="${this.narrowList.narrow}"
                 path="DisplayName"
                 header="Display Name"
                 style="color:lightgray"
               ></vaadin-grid-sort-column>
-              <vaadin-grid-sort-column
+              <vaadin-grid-sort-column ?hidden="${this.narrowList.narrow}"
                 path="LanId"
                 header="System Id"
               ></vaadin-grid-sort-column>

@@ -28,11 +28,21 @@ import { ScriptAuditApiModel } from '../apis/dorc-api/models/ScriptAuditApiModel
 import { GetScriptsAuditListResponseDto } from '../apis/dorc-api/models/GetScriptsAuditListResponseDto';
 import { ScriptsAuditApi } from '../apis/dorc-api/apis/ScriptsAuditApi';
 import { PageElement } from '../helpers/page-element';
-import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import { getShortLogonName } from '../helpers/user-extensions';
+import { NarrowListController } from '../helpers/narrow-list-controller';
+import { listRowStyles, narrowListRenderers } from '../components/dorc-list-row';
+import { scriptsAuditNarrow } from '../row-templates/batch-row-templates';
 
 @customElement('page-scripts-audit')
-export class PageScriptsAudit extends ResponsiveMixin(PageElement) {
+export class PageScriptsAudit extends PageElement {
+  /** Narrow-mode (HLPS §3.4): container-driven list rendering. */
+  narrowList = new NarrowListController(this as unknown as HTMLElement & import('lit').ReactiveControllerHost);
+
+  private _nl = narrowListRenderers(
+    () => scriptsAuditNarrow(this).template,
+    () => scriptsAuditNarrow(this).bar ?? {}
+  );
+
   @property({ type: Boolean }) loading = true;
 
   @property({ type: Boolean }) searching = false;
@@ -48,7 +58,9 @@ export class PageScriptsAudit extends ResponsiveMixin(PageElement) {
   private projectNamesFilterValue = '';
 
     static get styles() {
-        return css`
+        return [
+      listRowStyles,
+      css`
       :host {
         display: flex;
         flex-direction: column;
@@ -87,7 +99,8 @@ export class PageScriptsAudit extends ResponsiveMixin(PageElement) {
           overflow-wrap: break-word;
         }
       }
-    `;
+    `
+    ];
     }
 
   render() {
@@ -104,27 +117,33 @@ export class PageScriptsAudit extends ResponsiveMixin(PageElement) {
         ?hidden="${this.loading}"
       >
         <vaadin-grid-column
+          flex-grow="1"
+          ?hidden="${!this.narrowList.narrow}"
+          .headerRenderer="${this._nl.bar}"
+          .renderer="${this._nl.row}"
+        ></vaadin-grid-column>
+        <vaadin-grid-column ?hidden="${this.narrowList.narrow}"
           path="ScriptName"
           header="Script Name"
           resizable
           .headerRenderer="${this.nameHeaderRenderer}"
           auto-width
         ></vaadin-grid-column>
-        <vaadin-grid-column
+        <vaadin-grid-column ?hidden="${this.narrowList.narrow}"
           path="ProjectNames"
           header="Projects"
           resizable
           .headerRenderer="${this.projectNamesHeaderRenderer}"
           auto-width
         ></vaadin-grid-column>
-        <vaadin-grid-column
+        <vaadin-grid-column ?hidden="${this.narrowList.narrow}"
           path="UpdatedBy"
           header="User"
           .headerRenderer="${this.userHeaderRenderer}"
           resizable
           auto-width
         ></vaadin-grid-column>
-        <vaadin-grid-sort-column
+        <vaadin-grid-sort-column ?hidden="${this.narrowList.narrow}"
           path="UpdatedDate"
           header="Updated"
           direction="desc"
@@ -139,7 +158,7 @@ export class PageScriptsAudit extends ResponsiveMixin(PageElement) {
           resizable
           auto-width
           flex-grow="0"
-          ?hidden="${this._narrowScreen}"
+          ?hidden="${this.narrowList.narrow}"
         ></vaadin-grid-column>
       </vaadin-grid>
     `;

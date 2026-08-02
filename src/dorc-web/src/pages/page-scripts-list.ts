@@ -22,7 +22,6 @@ import { customElement, property, query } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { Checkbox } from '@vaadin/checkbox';
 import { PageElement } from '../helpers/page-element';
-import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import {
   PagedDataSorting,
   PowerShellVersionDto,
@@ -36,13 +35,24 @@ import GlobalCache from '../global-cache';
 import '../components/hegs-json-viewer';
 import { HegsJsonViewer } from '../components/hegs-json-viewer';
 import { ComboBox } from '@vaadin/combo-box';
+import { NarrowListController } from '../helpers/narrow-list-controller';
+import { listRowStyles, narrowListRenderers } from '../components/dorc-list-row';
+import { scriptsListNarrow } from '../row-templates/batch-row-templates';
 
 const variableName = 'Name';
 const variablePath = 'Path';
 const variableProjectNames = 'ProjectNames';
 
 @customElement('page-scripts-list')
-export class PageScriptsList extends ResponsiveMixin(PageElement) {
+export class PageScriptsList extends PageElement {
+  /** Narrow-mode (HLPS §3.4): container-driven list rendering. */
+  narrowList = new NarrowListController(this as unknown as HTMLElement & import('lit').ReactiveControllerHost);
+
+  private _nl = narrowListRenderers(
+    () => scriptsListNarrow(this).template,
+    () => scriptsListNarrow(this).bar ?? {}
+  );
+
   @property({ type: Array }) scripts: Array<ScriptApiModel> = [];
 
   @property({ type: Array }) appConfig = [];
@@ -73,7 +83,9 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
     new URLSearchParams(location.search).get('search-project') ?? '';
 
   static get styles() {
-    return css`
+    return [
+      listRowStyles,
+      css`
       :host {
         display: flex;
         width: 100%;
@@ -121,7 +133,8 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
           overflow-wrap: break-word;
         }
       }
-    `;
+    `
+    ];
   }
 
   render() {
@@ -210,6 +223,12 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
             style="z-index: 100;"
           >
             <vaadin-grid-column
+          flex-grow="1"
+          ?hidden="${!this.narrowList.narrow}"
+          .headerRenderer="${this._nl.bar}"
+          .renderer="${this._nl.row}"
+        ></vaadin-grid-column>
+        <vaadin-grid-column ?hidden="${this.narrowList.narrow}"
               header="Enabled"
               resizable
               width="80px"
@@ -217,7 +236,7 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
               .renderer="${this.enabledRenderer.bind(this)}"
             >
             </vaadin-grid-column>
-            <vaadin-grid-column
+            <vaadin-grid-column ?hidden="${this.narrowList.narrow}"
               path="Name"
               header="Script Name"
               resizable
@@ -234,7 +253,7 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
               flex-grow="0"
               .renderer="${this.projectNamesRenderer.bind(this)}"
               .headerRenderer="${this.projectNamesHeaderRenderer.bind(this)}"
-              ?hidden="${this._narrowScreen}"
+              ?hidden="${this.narrowList.narrow}"
             >
             </vaadin-grid-column>
             <vaadin-grid-sort-column
@@ -244,7 +263,7 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
               width="150px"
               flex-grow="0"
               .renderer="${this.nonProdRenderer}"
-              ?hidden="${this._narrowScreen}"
+              ?hidden="${this.narrowList.narrow}"
             ></vaadin-grid-sort-column>
             <vaadin-grid-column
               path="Path"
@@ -252,14 +271,14 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
               resizable
               .renderer="${this._jsonRenderer}"
               .headerRenderer="${this.pathHeaderRenderer}"
-              ?hidden="${this._narrowScreen}"
+              ?hidden="${this.narrowList.narrow}"
             ></vaadin-grid-column>
             <vaadin-grid-column
               path="PowerShellVersionNumber"
               header="PS Version"
               resizable
               .renderer="${this.psVersionRenderer.bind(this)}"
-              ?hidden="${this._narrowScreen}"
+              ?hidden="${this.narrowList.narrow}"
             ></vaadin-grid-column>
           </vaadin-grid>`}
     `;

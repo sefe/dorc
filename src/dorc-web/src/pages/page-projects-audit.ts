@@ -22,11 +22,21 @@ import { PagedDataSorting, RefDataProjectAuditApi } from '../apis/dorc-api';
 import { PagedDataFilter, RefDataAuditApiModel } from '../apis/dorc-api/models';
 import { GetRefDataAuditListResponseDto } from '../apis/dorc-api/models/GetRefDataAuditListResponseDto';
 import { PageElement } from '../helpers/page-element';
-import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import { getShortLogonName } from '../helpers/user-extensions';
+import { NarrowListController } from '../helpers/narrow-list-controller';
+import { listRowStyles, narrowListRenderers } from '../components/dorc-list-row';
+import { projectsAuditNarrow } from '../row-templates/batch-row-templates';
 
 @customElement('page-projects-audit')
-export class PageProjectsAudit extends ResponsiveMixin(PageElement) {
+export class PageProjectsAudit extends PageElement {
+  /** Narrow-mode (HLPS §3.4): container-driven list rendering. */
+  narrowList = new NarrowListController(this as unknown as HTMLElement & import('lit').ReactiveControllerHost);
+
+  private _nl = narrowListRenderers(
+    () => projectsAuditNarrow(this).template,
+    () => projectsAuditNarrow(this).bar ?? {}
+  );
+
   @property({ type: Boolean }) loading = true;
 
   @property({ type: Boolean }) searching = false;
@@ -47,7 +57,9 @@ export class PageProjectsAudit extends ResponsiveMixin(PageElement) {
   @state() private openedItems: RefDataAuditApiModel[] = [];
 
   static get styles() {
-    return css`
+    return [
+      listRowStyles,
+      css`
       :host {
         display: flex;
         flex-direction: column;
@@ -184,7 +196,8 @@ export class PageProjectsAudit extends ResponsiveMixin(PageElement) {
           overflow-wrap: break-word;
         }
       }
-    `;
+    `
+    ];
   }
 
   render() {
@@ -204,14 +217,20 @@ export class PageProjectsAudit extends ResponsiveMixin(PageElement) {
         ?hidden="${this.loading}"
       >
         <vaadin-grid-column
+          flex-grow="1"
+          ?hidden="${!this.narrowList.narrow}"
+          .headerRenderer="${this._nl.bar}"
+          .renderer="${this._nl.row}"
+        ></vaadin-grid-column>
+        <vaadin-grid-column
           header=""
           .renderer="${this.chevronRenderer}"
           width="40px"
           flex-grow="0"
           frozen
-          ?hidden="${this._narrowScreen}"
+          ?hidden="${this.narrowList.narrow}"
         ></vaadin-grid-column>
-        <vaadin-grid-column
+        <vaadin-grid-column ?hidden="${this.narrowList.narrow}"
           path="Project.ProjectName"
           header="Project"
           .renderer="${this.projectNameRenderer}"
@@ -219,7 +238,7 @@ export class PageProjectsAudit extends ResponsiveMixin(PageElement) {
           auto-width
           flex-grow="0"
         ></vaadin-grid-column>
-        <vaadin-grid-column
+        <vaadin-grid-column ?hidden="${this.narrowList.narrow}"
           path="Username"
           header="User"
           .headerRenderer="${this.userHeaderRenderer}"
@@ -227,7 +246,7 @@ export class PageProjectsAudit extends ResponsiveMixin(PageElement) {
           auto-width
           flex-grow="0"
         ></vaadin-grid-column>
-        <vaadin-grid-column
+        <vaadin-grid-column ?hidden="${this.narrowList.narrow}"
           path="Action"
           header="Action"
           .headerRenderer="${this.actionHeaderRenderer}"
@@ -235,7 +254,7 @@ export class PageProjectsAudit extends ResponsiveMixin(PageElement) {
           auto-width
           flex-grow="0"
         ></vaadin-grid-column>
-        <vaadin-grid-sort-column
+        <vaadin-grid-sort-column ?hidden="${this.narrowList.narrow}"
           path="Date"
           header="Date"
           direction="desc"
@@ -249,7 +268,7 @@ export class PageProjectsAudit extends ResponsiveMixin(PageElement) {
           .renderer="${this.valueRenderer}"
           resizable
           flex-grow="1"
-          ?hidden="${this._narrowScreen}"
+          ?hidden="${this.narrowList.narrow}"
         ></vaadin-grid-column>
       </vaadin-grid>
     `;
