@@ -59,3 +59,33 @@
    post-migration runs are meaningful for unmigrated rows only (IS §1 note).
 5. Playwright firefox/webkit unavailable in this container — CI must confirm
    the three-engine run.
+
+---
+
+## Addendum — post-pilot batch (2026-08-02, user-approved sequencing)
+
+The remaining **32 grid-rendering views** are migrated; **every grid view in
+dorc-web** now renders the §3.4 list at narrow container width, and
+`ResponsiveMixin` has zero grid-view consumers (sole remaining user:
+`project-controls`' menu positioning — not a grid view).
+
+Mechanism: compact per-view row templates (`batch-row-templates.ts`, named
+export per view per U-20) over four new shared helpers — `pathText`,
+`hostCell` (reuses each view's existing imperative renderers inside list
+slots, with a stub carrying the host under every `_column.*` property name
+found by grep), `chipFromPath`, `pathDetails` — plus a codemod for the
+uniform mechanical edits. The five single-quoted `?hidden` bindings from
+HLPS R1-F8 are gone with the rest.
+
+Suite: 125/125 green; tsc, test typecheck and eslint clean.
+
+**Batch debt (added to the register):**
+6. Narrow filter affordances for batch DP views deferred — their wide-width
+   `headerRenderer` filters remain; the narrow bar carries sorters only.
+   The pilot's journey views (full filter bars) are unaffected.
+7. Batch row templates were authored from column specs, not per-entity
+   product review — U-3's per-entity confirmation for these 32 views is
+   folded into the U-1 follow-up session.
+8. `hostCell` renders reused cells into detached spans — behaviour-
+   preserving, but the long-term clean form is extracting those renderers
+   into the templates (as done for `page-permissions-list`).
