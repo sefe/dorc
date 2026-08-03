@@ -59,6 +59,28 @@ for (const file of walk(SRC)) {
   for (const name of inheritedReactiveFields(source, file)) reactive.add(name);
 
   for (const call of directiveCalls(source)) {
+    if (call.member === null) {
+      // Not `this.<member>`. A module-level function — declared here or
+      // imported — cannot read component state at all, so an empty dependency
+      // array is correct for it and nothing further needs checking. Anything
+      // else (a closure declared inside render(), say) is a renderer whose
+      // reads this tool cannot see, and it fails rather than passing silently:
+      // the directive dirty-checks the dependency array, never the renderer
+      // identity, so a fresh closure with `[]` is pinned at its first render.
+      const line =
+        source.getLineAndCharacterOfPosition(call.node.getStart(source)).line + 1;
+      if (isModuleLevelFunction(source, file, call.source)) {
+        checked += 1;
+        continue;
+      }
+      stale += 1;
+      console.log(
+        `${relative(ROOT, file)}:${line}  ${call.directive}(${call.source}) ` +
+          `is not a class member or module-level function — its reads cannot be checked`
+      );
+      continue;
+    }
+
     const member = members.get(call.member);
     if (!member) continue;
     checked += 1;
@@ -71,7 +93,7 @@ for (const file of walk(SRC)) {
     const line =
       source.getLineAndCharacterOfPosition(call.node.getStart(source)).line + 1;
     console.log(
-      `${relative(ROOT, file)}:${line}  ${call.directive}(this.${call.member}) ` +
+      `${relative(ROOT, file)}:${line}  ${call.directive}(${call.display}) ` +
         `reads ${missing.join(', ')} but does not depend on ${missing.length > 1 ? 'them' : 'it'}`
     );
   }
@@ -221,6 +243,61 @@ function resolveModule(fromFile, specifier) {
   return null;
 }
 
+/**
+ * True when `name` resolves to a function declared at module scope — here or in
+ * an imported module. Such a function has no component to read state from, so
+ * an empty dependency array is right for it by construction.
+ */
+function isModuleLevelFunction(source, file, name, seen = new Set()) {
+  if (!name || !/^[A-Za-z_$][\w$]*$/.test(name)) return false;
+  if (seen.has(`${file}#${name}`)) return false;
+  seen.add(`${file}#${name}`);
+
+  for (const statement of source.statements) {
+    if (
+      ts.isFunctionDeclaration(statement) &&
+      statement.name?.text === name
+    ) {
+      return true;
+    }
+    if (ts.isVariableStatement(statement)) {
+      for (const decl of statement.declarationList.declarations) {
+        if (
+          ts.isIdentifier(decl.name) &&
+          decl.name.text === name &&
+          decl.initializer &&
+          (ts.isArrowFunction(decl.initializer) ||
+            ts.isFunctionExpression(decl.initializer))
+        ) {
+          return true;
+        }
+      }
+    }
+    if (
+      ts.isImportDeclaration(statement) &&
+      ts.isStringLiteral(statement.moduleSpecifier) &&
+      statement.importClause?.namedBindings &&
+      ts.isNamedImports(statement.importClause.namedBindings)
+    ) {
+      const imported = statement.importClause.namedBindings.elements.find(
+        e => e.name.text === name
+      );
+      if (!imported) continue;
+      const target = resolveModule(file, statement.moduleSpecifier.text);
+      if (!target) return false;
+      const original = (imported.propertyName ?? imported.name).text;
+      const targetSource = ts.createSourceFile(
+        target,
+        readFileSync(target, 'utf8'),
+        ts.ScriptTarget.Latest,
+        true
+      );
+      return isModuleLevelFunction(targetSource, target, original, seen);
+    }
+  }
+  return false;
+}
+
 /** `${fooRenderer(this.bar, [this.baz])}` occurrences. */
 function directiveCalls(source) {
   const out = [];
@@ -229,10 +306,38 @@ function directiveCalls(source) {
       ts.isCallExpression(node) &&
       ts.isIdentifier(node.expression) &&
       DIRECTIVES.includes(node.expression.text) &&
-      node.arguments[0] &&
-      ts.isPropertyAccessExpression(node.arguments[0]) &&
-      node.arguments[0].expression.kind === ts.SyntaxKind.ThisKeyword
+      node.arguments[0]
     ) {
+      const target = node.arguments[0];
+      // Anything that is not `this.<member>` cannot be resolved to a class
+      // member, so its reads cannot be checked. Report it rather than dropping
+      // it: silently skipping is how a binding ends up outside the "0 with a
+      // missing dependency" claim while looking covered by it.
+      // `this.valueRenderer('FromValue')` — a factory method. The renderer is
+      // whatever it returns, and that closure's reads are the ones that matter,
+      // so resolve the factory and check its body.
+      const factory =
+        ts.isCallExpression(target) &&
+        ts.isPropertyAccessExpression(target.expression) &&
+        target.expression.expression.kind === ts.SyntaxKind.ThisKeyword
+          ? target.expression.name.text
+          : null;
+
+      if (
+        factory === null &&
+        (!ts.isPropertyAccessExpression(target) ||
+          target.expression.kind !== ts.SyntaxKind.ThisKeyword)
+      ) {
+        out.push({
+          node,
+          directive: node.expression.text,
+          member: null,
+          source: ts.isIdentifier(target) ? target.text : target.getText(source),
+          deps: []
+        });
+        ts.forEachChild(node, visit);
+        return;
+      }
       const depsArg = node.arguments[1];
       const deps =
         depsArg && ts.isArrayLiteralExpression(depsArg)
@@ -247,7 +352,8 @@ function directiveCalls(source) {
       out.push({
         node,
         directive: node.expression.text,
-        member: node.arguments[0].name.text,
+        member: factory ?? target.name.text,
+        display: factory ? `this.${factory}(…)` : `this.${target.name.text}`,
         deps
       });
     }
@@ -327,9 +433,13 @@ function stateReads(member, reactive, members) {
       // template substitutions (`@click="${() => ...}"`); callbacks that do run
       // during the render are call arguments (`items.map(x => ...)`), so those
       // are still followed.
+      // A returned function is the exception: `valueRenderer(field)` is a
+      // factory whose returned arrow *is* the renderer, so its reads are
+      // render-time reads.
       if (
         (ts.isArrowFunction(n) || ts.isFunctionExpression(n)) &&
-        !(ts.isCallExpression(n.parent) && n.parent.arguments.includes(n))
+        !(ts.isCallExpression(n.parent) && n.parent.arguments.includes(n)) &&
+        !ts.isReturnStatement(n.parent)
       ) {
         return;
       }

@@ -35,8 +35,12 @@ export class BundleEditorDialog extends LitElement {
   @property({ type: Boolean })
   isEdit = false;
 
-  render() {
-    const renderDialog = () => html`
+  // A class field, not a closure declared inside render(): a fresh closure each
+  // render is invisible to the directive, which dirty-checks the dependency
+  // array rather than the renderer identity. With `[]` it short-circuits after
+  // the first render and never re-runs, so `updateBundleRequest()` — called by
+  // the form while the dialog is open — could not repaint the content.
+  private renderDialog = () => html`
       <bundle-editor-form
         id="bundle-form"
         .bundleRequest="${this.bundleRequest}"
@@ -57,6 +61,7 @@ export class BundleEditorDialog extends LitElement {
       ></bundle-editor-form>
     `;
 
+  render() {
     return html`
       <vaadin-dialog
         .opened="${this.open}"
@@ -76,7 +81,12 @@ export class BundleEditorDialog extends LitElement {
             );
           }
         }}"
-        ${dialogRenderer(renderDialog, [])}
+        ${dialogRenderer(this.renderDialog, [
+          this.bundleRequest,
+          this.projects,
+          this.existingBundleNames,
+          this.isEdit
+        ])}
       ></vaadin-dialog>
     `;
   }
