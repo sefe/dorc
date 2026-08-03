@@ -17,15 +17,18 @@
 		<Feature Id="Deployment.Orchestrator" Title="Deployment Orchestrator" Level="1">
 			<Feature Id="Web.Components" Title="Web Components">
 				<ComponentRef Id="RemoveFolders" />
+				<ComponentRef Id="RemoveWebFolder" />
 				<ComponentRef Id="RegistryEntries" />
 
 				<ComponentRef Id="RequestApiComponent" />
 				<ComponentRef Id="RequestApiComponentProd" />
+				<ComponentRef Id="RemoveRequestApiFolder" />
 				<ComponentGroupRef Id="DOrcAPIComGroup" />
 
 				<ComponentGroupRef Id="DOrcWebComGroup" />
 				<ComponentRef Id="DOrcWebIISComponent" />
 				<ComponentRef Id="DOrcWebIISComponentProd" />
+				<ComponentRef Id="RemoveDorcWebFolder" />
 
 			</Feature>
 			<Feature Id="Monitors" Title="Monitors">
@@ -54,9 +57,11 @@
 				<ComponentGroupRef Id="ProdTerraformRunnerComGroup" />
 				
 				<ComponentRef Id="LogsShare" />
+				<ComponentRef Id="RemoveServicesFolder" />
 			</Feature>
 			<Feature Id="Tools" Title="Tools" Level="1">
 				<ComponentRef Id="ToolsShare"/>
+				<ComponentRef Id="RemoveToolsFolder"/>
 
 				<ComponentRef Id="ToolsRequestConfigSetup"/>
 				<ComponentGroupRef Id="ToolsRequestComGroup"/>
@@ -78,9 +83,23 @@
 		<StandardDirectory Id="ProgramFiles64Folder">
 				<Directory Id="DOrcFolder" Name="DOrc">
 					<Directory Id="INSTALLLOCATION" Name="Deploy">
+						<!--
+							The shared root. Every package will install under it and none
+							will own it, so nothing here may delete recursively: a
+							RemoveFolderEx rooted at INSTALLLOCATION belongs to whichever
+							package inherits it and takes the other three with it.
+
+							Plain RemoveFolder removes a directory only when it is already
+							empty, so it is safe for every package to declare it — whichever
+							package is uninstalled last is the one that succeeds. The
+							loose-file sweep stays: no package puts files in the root, so it
+							has nothing of another package's to remove.
+
+							Recursive cleanup now lives with each subtree, on the component
+							that will move into the package owning it.
+						-->
 						<Component Id="RemoveFolders" Guid="{FCDB53AB-31DF-4248-A077-5556E46799CA}">
 							<CreateFolder />
-							<util:RemoveFolderEx Id="RemoveFolder" Property="INSTALLLOCATION" On="both" />
 							<RemoveFile Id="Remove.Files" Directory="INSTALLLOCATION" Name="*.*" On="both" />
 							<RemoveFolder Id="Remove.Folder" On="both" />
 						</Component>
@@ -89,14 +108,45 @@
 								<RegistryValue Type="integer" Name="DisableLoopbackCheck" Value="1" KeyPath="yes" />
 							</RegistryKey>
 						</Component>
+						<!-- Shared between the UI and the API, so empty-only removal, as above. -->
 						<Directory Id="WebFolder" Name="Web">
+							<Component Id="RemoveWebFolder" Guid="{036BE0ED-0C48-4682-9B6F-C3B76E150D29}">
+								<CreateFolder />
+								<RemoveFolder Id="Remove.WebFolder" On="both" />
+							</Component>
+							<!-- UI-owned outright: recursive cleanup is safe here. -->
 							<Directory Id="DorcWebFolder" Name="Orchestrator">
+								<Component Id="RemoveDorcWebFolder" Guid="{6B1CCD59-C0FE-4CC5-9343-AFD2F0E5885B}">
+									<CreateFolder />
+									<util:RemoveFolderEx Id="Remove.DorcWebFolderEx" Property="DorcWebFolder" On="both" />
+									<RemoveFolder Id="Remove.DorcWebFolder" On="both" />
+								</Component>
 								<Directory Id="DorcWebHealthFolder" Name="health" />
 							</Directory>
-							<Directory Id="RequestApi" Name="Api" />
+							<!-- API-owned outright. -->
+							<Directory Id="RequestApi" Name="Api">
+								<Component Id="RemoveRequestApiFolder" Guid="{419215C7-1C5D-43A4-AF94-D33E382D6415}">
+									<CreateFolder />
+									<util:RemoveFolderEx Id="Remove.RequestApiEx" Property="RequestApi" On="both" />
+									<RemoveFolder Id="Remove.RequestApi" On="both" />
+								</Component>
+							</Directory>
 						</Directory>
-						<Directory Id="ServicesFolder" Name="Services" />
+						<!-- Monitors own everything under Services: both ActionService trees hang off it. -->
+						<Directory Id="ServicesFolder" Name="Services">
+							<Component Id="RemoveServicesFolder" Guid="{2BC14E1D-F915-453B-8BA9-74E368B2E1D6}">
+								<CreateFolder />
+								<util:RemoveFolderEx Id="Remove.ServicesFolderEx" Property="ServicesFolder" On="both" />
+								<RemoveFolder Id="Remove.ServicesFolder" On="both" />
+							</Component>
+						</Directory>
+						<!-- CLIs own everything under Tools, including the share below. -->
 						<Directory Id="ToolsFolder" Name="Tools">
+							<Component Id="RemoveToolsFolder" Guid="{BB22A06E-8C8D-46E6-BE8B-10B267CA5F7E}">
+								<CreateFolder />
+								<util:RemoveFolderEx Id="Remove.ToolsFolderEx" Property="ToolsFolder" On="both" />
+								<RemoveFolder Id="Remove.ToolsFolder" On="both" />
+							</Component>
 							<Component Id="ToolsShare" Guid="{3EF3C439-2F64-4F75-8CAC-2627EEE9ECA3}" Bitness="always64">
 								<CreateFolder />
 								<util:User Id="Everyone" Name="Everyone" CreateUser="no" FailIfExists="no" RemoveOnUninstall="no" />
