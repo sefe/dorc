@@ -397,3 +397,9 @@ ca.pem
 **/.secrets/
 **/.env
 **/.env.local
+
+# --- Agent scratch ---
+# Subagent worktrees. Ephemeral copies of this repo; committing one sweeps a
+# reviewer's deliberate mutation onto the branch, which is how three commits
+# on this branch were corrupted.
+.claude/worktrees/
