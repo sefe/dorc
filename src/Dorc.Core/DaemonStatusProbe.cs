@@ -149,17 +149,19 @@ namespace Dorc.Core
                     throw new System.ComponentModel.Win32Exception(ret);
                 }
 
-                List<DaemonStatus> probeResults = [];
-                WindowsIdentity.RunImpersonated(
-                    safeAccessTokenHandle,
-                    () =>
-                    {
-                        probeResults = ProbeDaemonStatuses(daemons);
-                    }
-                );
+                using (safeAccessTokenHandle)
+                {
+                    List<DaemonStatus> probeResults = [];
+                    WindowsIdentity.RunImpersonated(
+                        safeAccessTokenHandle,
+                        () =>
+                        {
+                            probeResults = ProbeDaemonStatuses(daemons);
+                        }
+                    );
 
-                return probeResults;
-            }
+                    return probeResults;
+                }
 
             return ProbeDaemonStatuses(daemons);
         }
