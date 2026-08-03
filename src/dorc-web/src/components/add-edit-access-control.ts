@@ -154,7 +154,12 @@ export class AddEditAccessControl extends LitElement {
           if (!this.dialogOpened) this.resetDialogState();
         }}"
         ${dialogRenderer(this.renderAccessControlContent, [
+          // All three permission flags belong here, not just UserEditable: the
+          // grid's column directives are nested inside this template, and they
+          // only re-run when Lit re-renders it.
           this.UserEditable,
+          this.UserIsOwner,
+          this.UserCanReadSecrets,
           this.secureName,
           this.loading,
           this.Privileges,
@@ -612,40 +617,30 @@ export class AddEditAccessControl extends LitElement {
             ></vaadin-grid-sort-column>
             <vaadin-grid-column
               header="Write"
-              ${columnBodyRenderer(this.acCanWrite, [
-                this.UserEditable,
-                this.UserIsOwner,
-                this.UserCanReadSecrets
-              ])}
+              ${columnBodyRenderer(this.acCanWrite, [this.UserEditable])}
               flex="1"
               resizable
               auto-width
             ></vaadin-grid-column>
             <vaadin-grid-column
               header="Read Secrets"
-              ${columnBodyRenderer(this.acCanReadSecrets, [
-                this.UserEditable,
-                this.UserIsOwner,
-                this.UserCanReadSecrets
-              ])}
+              ${columnBodyRenderer(this.acCanReadSecrets, [this.UserEditable, this.UserCanReadSecrets])}
               flex="1"
               resizable
               auto-width
             ></vaadin-grid-column>
             <vaadin-grid-column
               header="Owner"
-              ${columnBodyRenderer(this.acCanOwner, [
-                this.UserEditable,
-                this.UserIsOwner,
-                this.UserCanReadSecrets
-              ])}
+              ${columnBodyRenderer(this.acCanOwner, [this.UserIsOwner])}
               flex="1"
               resizable
               auto-width
             ></vaadin-grid-column>
             <vaadin-grid-column
               header="Actions"
-              ${columnBodyRenderer(this._boundACButtonsRenderer, [])}
+              ${columnBodyRenderer(this._boundACButtonsRenderer, [
+                this.UserEditable
+              ])}
               flex="1"
               resizable
               auto-width
