@@ -512,8 +512,7 @@ namespace Dorc.Core
                 result.ServersProcessed = servers.Count;
 
                 // Discover ALL daemons on all servers (ignoring existing mappings)
-                var daemonStatuses = DiscoverAllDaemonsForEnvironment(envName, principal);
-
+                var daemonStatuses = DiscoverAllDaemonsForEnvironmentInternal(environment);
                 // Filter to only successfully discovered daemons
                 var discoveredDaemons = daemonStatuses
                     .Where(ds => ds.ServerId.HasValue &&
