@@ -48,6 +48,19 @@ const mount = async (privileges: AccessControl[]) => {
  */
 const COLUMN = { write: 1, readSecrets: 2, owner: 3 };
 
+/**
+ * Clicks a checkbox the way a user would.
+ *
+ * The handlers listen for `change`, which is gesture-only — assigning
+ * `.checked` from a test fires nothing, by design: that is what stops a
+ * recycled grid cell writing to the row it used to hold.
+ */
+const clickCheckbox = (
+  checkbox: HTMLElement & { checked: boolean; disabled: boolean }
+) => {
+  (checkbox.querySelector('input') as HTMLInputElement).click();
+};
+
 const checkboxAt = (el: Host, row: number, column: number) => {
   const grid = dialogIn(el)?.querySelector('vaadin-grid');
   const rows = grid?.shadowRoot?.querySelectorAll('#items > tr') ?? [];
@@ -86,7 +99,7 @@ describe('add-edit-access-control permission checkboxes', () => {
     const privilege: AccessControl = { Name: 'someone', Allow: 0 };
     const el = await mount([privilege]);
 
-    checkboxAt(el, 0, COLUMN.write).checked = true;
+    clickCheckbox(checkboxAt(el, 0, COLUMN.write));
     await settle();
 
     expect(privilege.Allow! & AC_ALLOW_WRITE).to.equal(AC_ALLOW_WRITE);
@@ -99,7 +112,7 @@ describe('add-edit-access-control permission checkboxes', () => {
     };
     const el = await mount([privilege]);
 
-    checkboxAt(el, 0, COLUMN.readSecrets).checked = false;
+    clickCheckbox(checkboxAt(el, 0, COLUMN.readSecrets));
     await settle();
 
     expect(privilege.Allow! & AC_ALLOW_READ_SECRETS).to.equal(0);
@@ -117,7 +130,7 @@ describe('add-edit-access-control permission checkboxes', () => {
     ]);
 
     const owner = checkboxAt(el, 2, COLUMN.owner);
-    owner.checked = true;
+    clickCheckbox(owner);
     await settle();
 
     expect(third.Allow! & AC_ALLOW_OWNER, 'bit not set').to.equal(0);

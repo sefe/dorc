@@ -1,3 +1,5 @@
+import type { Checkbox } from '@vaadin/checkbox';
+import type { ComboBox } from '@vaadin/combo-box';
 import { live } from 'lit/directives/live.js';
 import { ref } from 'lit/directives/ref.js';
 import { columnBodyRenderer, columnHeaderRenderer } from '@vaadin/grid/lit';
@@ -372,14 +374,19 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
     ></vaadin-checkbox>`;
   }
 
+  // `change` rather than `checked-changed`: the latter is a notify event that
+  // also fires when Lit commits the property. Grid cells are recycled, so
+  // committing the next row's value fires it into the previous row's listener,
+  // which is still attached at that point — and this handler persists what it
+  // is given. `change` only fires on a user gesture.
   enabledRenderer(script: ScriptApiModel) {
     return html`<vaadin-checkbox
       ?disabled="${!this.canEditScripts()}"
       .checked="${live(script.IsEnabled as boolean)}"
-      @checked-changed="${(e: CustomEvent) => {
-        // Don't fire when the value is unchanged.
-        if (script.IsEnabled === e.detail.value) return;
-        script.IsEnabled = e.detail.value;
+      @change="${(e: Event) => {
+        const checked = (e.currentTarget as Checkbox).checked;
+        if (script.IsEnabled === checked) return;
+        script.IsEnabled = checked;
         this.saveScript(script, `IsEnabled set to ${script.IsEnabled}`);
       }}"
     ></vaadin-checkbox>`;
@@ -390,8 +397,8 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
       .items="${this.powerShellVersions}"
       .value="${live(script.PowerShellVersionNumber ?? '')}"
       ?disabled="${!this.canEditScripts()}"
-      @value-changed="${(e: CustomEvent) => {
-        const value = e.detail.value;
+      @change="${(e: Event) => {
+        const value = (e.currentTarget as ComboBox).value;
         if (!value || script.PowerShellVersionNumber === value) return;
         script.PowerShellVersionNumber = value;
         this.saveScript(script, `PowerShellVersionNumber set to ${value}`);

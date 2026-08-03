@@ -256,7 +256,7 @@ export class PageConfigValuesList extends ResponsiveMixin(PageElement) {
       @change="${(e: Event) =>
         this.updateConfigItem({
           ...configValue,
-          Secure: (e.target as Checkbox).checked
+          Secure: (e.currentTarget as Checkbox).checked
         })}"
     ></vaadin-checkbox>`;
   }
@@ -268,7 +268,7 @@ export class PageConfigValuesList extends ResponsiveMixin(PageElement) {
       @change="${(e: Event) =>
         this.updateConfigItem({
           ...configValue,
-          IsForProd: (e.target as Checkbox).checked
+          IsForProd: (e.currentTarget as Checkbox).checked
         })}"
     ></vaadin-checkbox>`;
   }

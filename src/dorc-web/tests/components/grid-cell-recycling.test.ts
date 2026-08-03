@@ -78,4 +78,67 @@ describe('recycled grid cells', () => {
     ).to.equal(viewer);
     expect(viewer.data, 'shows the new row').to.deep.equal({ b: 2 });
   });
+
+  it('does not write to the previous row when the cell is recycled', async () => {
+    // `checked-changed` is a notify event: Vaadin fires it when the property
+    // is set, not only when a user acts. Lit commits the property part before
+    // the event part, so committing the next row's value fires it into the
+    // previous row's listener — which is still attached — and any handler that
+    // persists what it receives writes to the wrong record. `change` is
+    // gesture-only, which is why the editable cell renderers use it.
+    const saved: string[] = [];
+    const rowA = { id: 'A', enabled: true };
+    const rowB = { id: 'B', enabled: false };
+
+    const tpl = (row: { id: string; enabled: boolean }) => html`
+      <vaadin-checkbox
+        .checked="${live(row.enabled)}"
+        @change="${(e: Event) => {
+          const checked = (e.currentTarget as HTMLElement & {
+            checked: boolean;
+          }).checked;
+          if (row.enabled === checked) return;
+          row.enabled = checked;
+          saved.push(`${row.id}=${row.enabled}`);
+        }}"
+      ></vaadin-checkbox>
+    `;
+
+    render(tpl(rowA), host);
+    await settle();
+
+    render(tpl(rowB), host);
+    await settle();
+
+    expect(saved, 'no row was written').to.deep.equal([]);
+    expect(rowA.enabled, 'row A untouched').to.equal(true);
+  });
+
+  it('still records a real user click on the current row', async () => {
+    const saved: string[] = [];
+    const row = { id: 'A', enabled: false };
+
+    render(
+      html`<vaadin-checkbox
+        .checked="${live(row.enabled)}"
+        @change="${(e: Event) => {
+          row.enabled = (e.currentTarget as HTMLElement & {
+            checked: boolean;
+          }).checked;
+          saved.push(`${row.id}=${row.enabled}`);
+        }}"
+      ></vaadin-checkbox>`,
+      host
+    );
+    await settle();
+
+    (
+      host.querySelector('vaadin-checkbox')?.querySelector('input') as
+        | HTMLInputElement
+        | undefined
+    )?.click();
+    await settle();
+
+    expect(saved).to.deep.equal(['A=true']);
+  });
 });

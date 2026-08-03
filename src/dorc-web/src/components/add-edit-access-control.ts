@@ -389,12 +389,20 @@ export class AddEditAccessControl extends LitElement {
     );
   }
 
+  // `change` rather than `checked-changed`, which is a notify event that also
+  // fires when Lit commits the property. Cells are recycled, so committing the
+  // next row's value fires it into the previous row's listener — and these
+  // handlers mutate the privilege the dialog saves. `change` is gesture-only.
   acCanReadSecrets(item: AccessControlApiModel) {
     return html`<vaadin-checkbox
       ?disabled="${!this.UserEditable || !this.UserCanReadSecrets}"
       .checked="${live(((item.Allow ?? 0) & AC_ALLOW_READ_SECRETS) > 0)}"
-      @checked-changed="${(e: CustomEvent) =>
-        this.togglePrivilege(item, AC_ALLOW_READ_SECRETS, e.detail.value)}"
+      @change="${(e: Event) =>
+        this.togglePrivilege(
+          item,
+          AC_ALLOW_READ_SECRETS,
+          (e.currentTarget as Checkbox).checked
+        )}"
     ></vaadin-checkbox>`;
   }
 
@@ -433,8 +441,12 @@ export class AddEditAccessControl extends LitElement {
     return html`<vaadin-checkbox
       ?disabled="${!this.UserEditable}"
       .checked="${live(((item.Allow ?? 0) & AC_ALLOW_WRITE) > 0)}"
-      @checked-changed="${(e: CustomEvent) =>
-        this.togglePrivilege(item, AC_ALLOW_WRITE, e.detail.value)}"
+      @change="${(e: Event) =>
+        this.togglePrivilege(
+          item,
+          AC_ALLOW_WRITE,
+          (e.currentTarget as Checkbox).checked
+        )}"
     ></vaadin-checkbox>`;
   }
 
@@ -442,8 +454,12 @@ export class AddEditAccessControl extends LitElement {
     return html`<vaadin-checkbox
       ?disabled="${!this.UserIsOwner}"
       .checked="${live(((item.Allow ?? 0) & AC_ALLOW_OWNER) > 0)}"
-      @checked-changed="${(e: CustomEvent) =>
-        this.toggleOwner(e.target as Checkbox, item, e.detail.value)}"
+      @change="${(e: Event) =>
+        this.toggleOwner(
+          e.currentTarget as Checkbox,
+          item,
+          (e.currentTarget as Checkbox).checked
+        )}"
     ></vaadin-checkbox>`;
   }
 
