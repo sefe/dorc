@@ -200,13 +200,15 @@ export class ApplicationDaemons extends LitElement {
       error: (err: any) => {
         console.error('Daemon discovery failed:', err);
         Notification.show(
-          `Discovery failed: ${err.message || 'Unknown error'}`,
+          `Discovery failed: ${err?.message || 'Unknown error'}`,
           {
             theme: 'error',
             position: 'bottom-start',
             duration: 5000
           }
         );
+
+        this.dispatchEvent(new CustomEvent('daemons-loaded', { detail: { message: '' } }));
       },
       complete: () => {
         console.log('done discovering daemons');
