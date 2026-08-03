@@ -1,3 +1,4 @@
+import { comboBoxRenderer } from '@vaadin/combo-box/lit';
 import '@vaadin/button';
 import '@vaadin/combo-box';
 import '@vaadin/text-field';
@@ -52,7 +53,7 @@ export function addWindowsUserOrGroupTemplate(this: AddWindowsUserOrGroup) {
         .invalid="${this.isSelectedUserOrGroupValid === false}"
         error-message="${this.selectedUserOrGroupErrorMessage}"
         .disabled="${!this.isUserOrGroupListEnabled}"
-        .renderer="${renderSearchResults}"
+        ${comboBoxRenderer(renderSearchResults, [])}
         .items="${this.searchResults}"
         @change="${this.filteredUserOrGroupSelected}"
       ></vaadin-combo-box>

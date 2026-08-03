@@ -1,3 +1,4 @@
+import { comboBoxRenderer } from '@vaadin/combo-box/lit';
 import '@vaadin/button';
 import '@vaadin/combo-box';
 import '@vaadin/text-field';
@@ -51,7 +52,7 @@ export function addEndurUserOrGroupTemplate(this: AddEndurUserOrGroup) {
         item-value-path="FullLogonName"
         item-label-path="DisplayName"
         .disabled="${!this.isUserOrGroupListEnabled}"
-        .renderer="${renderSearchResults}"
+        ${comboBoxRenderer(renderSearchResults, [])}
         .items="${this.searchResults}"
         @change="${this.filteredUserOrGroupSelected}"
       >

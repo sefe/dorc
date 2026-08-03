@@ -1,4 +1,5 @@
-import { css, PropertyValues, render } from 'lit';
+import { columnBodyRenderer } from '@vaadin/grid/lit';
+import { css, PropertyValues } from 'lit';
 import '../components/dorc-spinner';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid';
@@ -14,8 +15,6 @@ import { html } from 'lit/html.js';
 import { PageElement } from '../helpers/page-element';
 import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import { ConfigValueApiModel, RefDataConfigApi } from "../apis/dorc-api";
-import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
-import { GridItemModel } from '@vaadin/grid';
 import { Checkbox } from '@vaadin/checkbox';
 import '../components/grid-button-groups/config-value-controls';
 import '../components/add-config-value';
@@ -40,8 +39,6 @@ export class PageConfigValuesList extends ResponsiveMixin(PageElement) {
   constructor() {
     super();
     this.getConfigValuesList();
-    this.isSecuredRenderer = this.isSecuredRenderer.bind(this);
-    this.isForProdRenderer = this.isForProdRenderer.bind(this);
   }
 
   private getConfigValuesList() {
@@ -55,21 +52,18 @@ export class PageConfigValuesList extends ResponsiveMixin(PageElement) {
     });
   }
 
+  // `isAdmin` gates the two checkbox columns and is in their dependency
+  // arrays, so setting it is enough — the manual grid.requestContentUpdate()
+  // this used to need is what the directive does.
   private loadRoles(): void {
     const api = new RefDataRolesApi();
     api.refDataRolesGet().subscribe({
       next: (roles: string[]) => {
         this.isAdmin = roles.find(p => p === 'Admin') !== undefined;
-        const grid = this.shadowRoot?.getElementById('grid') as any;
-        grid?.requestContentUpdate?.();
-        this.requestUpdate();
       },
       error: err => {
         console.error('Failed to load roles', err);
         this.isAdmin = false;
-        const grid = this.shadowRoot?.getElementById('grid') as any;
-        grid?.requestContentUpdate?.();
-        this.requestUpdate();
       }
     });
   }
@@ -196,7 +190,7 @@ export class PageConfigValuesList extends ResponsiveMixin(PageElement) {
                 resizable
                 width="100px"
                 flex-grow="0"
-                .renderer=${this.isSecuredRenderer}
+                ${columnBodyRenderer(this.isSecuredRenderer, [this.isAdmin])}
                 ?hidden="${this._narrowScreen}"
               ></vaadin-grid-sort-column>
               <vaadin-grid-sort-column
@@ -205,12 +199,12 @@ export class PageConfigValuesList extends ResponsiveMixin(PageElement) {
                 resizable
                 width="100px"
                 flex-grow="0"
-                .renderer=${this.isForProdRenderer}
+                ${columnBodyRenderer(this.isForProdRenderer, [this.isAdmin])}
                 ?hidden="${this._narrowScreen}"
               ></vaadin-grid-sort-column>
               <vaadin-grid-column
                 header="Config Value"
-                .renderer=${this.variableValueControlsRenderer}
+                ${columnBodyRenderer(this.variableValueControlsRenderer, [this.isAdmin])}
                 resizable
                 flex-grow="1"
               ></vaadin-grid-column>
@@ -248,56 +242,34 @@ export class PageConfigValuesList extends ResponsiveMixin(PageElement) {
     this.addConfigValueDialogOpened = false;
   }
 
-  variableValueControlsRenderer(
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<ConfigValueApiModel>
-  ) {
-    render(
-      html` <config-value-controls .value="${model.item}">
-      </config-value-controls>`,
-      root
-    );
+  variableValueControlsRenderer(configValue: ConfigValueApiModel) {
+    return html`<config-value-controls
+      .value="${configValue}"
+    ></config-value-controls>`;
   }
 
-  isSecuredRenderer(
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<ConfigValueApiModel>
-  ) {
-    const configValueApiModel = model.item as ConfigValueApiModel;
-
-    const checkbox = new Checkbox();
-
-    checkbox.checked = configValueApiModel.Secure as boolean;
-    checkbox.disabled = !this.isAdmin;
-
-    checkbox.addEventListener('change', async () => {
-      await this.updateConfigItem({...configValueApiModel, Secure: checkbox.checked
-      });
-    });
-
-    render(checkbox, root);
+  isSecuredRenderer(configValue: ConfigValueApiModel) {
+    return html`<vaadin-checkbox
+      ?disabled="${!this.isAdmin}"
+      .checked="${configValue.Secure as boolean}"
+      @change="${(e: Event) =>
+        this.updateConfigItem({
+          ...configValue,
+          Secure: (e.target as Checkbox).checked
+        })}"
+    ></vaadin-checkbox>`;
   }
 
-  isForProdRenderer(
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<ConfigValueApiModel>
-  ) {
-    const configValueApiModel = model.item as ConfigValueApiModel;
-
-    const checkbox = new Checkbox();
-
-    checkbox.checked = configValueApiModel.IsForProd as boolean;
-    checkbox.disabled = !this.isAdmin;
-
-    checkbox.addEventListener('change', async () => {
-      await this.updateConfigItem({...configValueApiModel, IsForProd: checkbox.checked
-      });
-    });
-
-    render(checkbox, root);
+  isForProdRenderer(configValue: ConfigValueApiModel) {
+    return html`<vaadin-checkbox
+      ?disabled="${!this.isAdmin}"
+      .checked="${configValue.IsForProd as boolean}"
+      @change="${(e: Event) =>
+        this.updateConfigItem({
+          ...configValue,
+          IsForProd: (e.target as Checkbox).checked
+        })}"
+    ></vaadin-checkbox>`;
   }
 
   updateSearch(e: CustomEvent) {

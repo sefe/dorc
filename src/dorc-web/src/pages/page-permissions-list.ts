@@ -1,3 +1,4 @@
+import { columnBodyRenderer } from '@vaadin/grid/lit';
 import { confirmPrompt } from '../components/confirm-prompt';
 import { css, nothing, PropertyValues } from 'lit';
 import '../components/dorc-spinner';
@@ -157,41 +158,37 @@ export class PagePermissionsList extends ResponsiveMixin(PageElement) {
               ></vaadin-grid-sort-column>
               <vaadin-grid-column
                 header="Actions"
-                .renderer=${(root: HTMLElement, _column: any, model: any) => {
-                  const permission = model.item as PermissionDto;
-                  root.innerHTML = `
-                    <vaadin-button 
-                      class="edit-btn" 
-                      theme="icon"
-                      title="Edit Permission"
-                      aria-label="Edit Permission"
-                      style="margin-right: 5px;">
-                      <vaadin-icon icon="lumo:edit" style="color: var(--dorc-link-color);"></vaadin-icon>
-                    </vaadin-button>
-                    <vaadin-button 
-                      class="delete-btn" 
-                      theme="icon"
-                      title="Delete Permission"
-                      aria-label="Delete Permission">
-                      <vaadin-icon icon="icons:delete" style="color: var(--dorc-error-color);"></vaadin-icon>
-                    </vaadin-button>
-                  `;
-                  
-                  const editBtn = root.querySelector('.edit-btn') as HTMLElement;
-                  const deleteBtn = root.querySelector('.delete-btn') as HTMLElement;
-                  
-                  if (editBtn) {
-                    editBtn.onclick = () => this.editPermission(permission);
-                  }
-                  
-                  if (deleteBtn) {
-                    deleteBtn.onclick = () => this.deletePermission(permission);
-                  }
-                }}
+                ${columnBodyRenderer(this.permissionActionsRenderer, [])}
               ></vaadin-grid-column>
             </vaadin-grid>
           `} `;
   }
+
+  private permissionActionsRenderer = (permission: PermissionDto) => html`
+    <vaadin-button
+      theme="icon"
+      title="Edit Permission"
+      aria-label="Edit Permission"
+      style="margin-right: 5px;"
+      @click="${() => this.editPermission(permission)}"
+    >
+      <vaadin-icon
+        icon="lumo:edit"
+        style="color: var(--dorc-link-color);"
+      ></vaadin-icon>
+    </vaadin-button>
+    <vaadin-button
+      theme="icon"
+      title="Delete Permission"
+      aria-label="Delete Permission"
+      @click="${() => this.deletePermission(permission)}"
+    >
+      <vaadin-icon
+        icon="icons:delete"
+        style="color: var(--dorc-error-color);"
+      ></vaadin-icon>
+    </vaadin-button>
+  `;
 
   updateSearch(e: CustomEvent) {
     const value = (e.detail.value as string) || '';

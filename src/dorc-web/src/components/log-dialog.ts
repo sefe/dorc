@@ -3,11 +3,12 @@ import '@vaadin/dialog';
 import '@vaadin/icon';
 import '@vaadin/text-area';
 import * as ace from 'ace-builds';
-import { css, LitElement, PropertyValues, render } from 'lit';
+import { css, LitElement, PropertyValues } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import { guard } from 'lit/directives/guard.js';
+import { ref } from 'lit/directives/ref.js';
 import { html } from 'lit/html.js';
 import { DialogOpenedChangedEvent } from '@vaadin/dialog';
+import { dialogRenderer } from '@vaadin/dialog/lit';
 
 @customElement('log-dialog')
 export class LogDialog extends LitElement {
@@ -80,144 +81,94 @@ export class LogDialog extends LitElement {
           }
         }}"
         resizable
-        .renderer = "${guard([this.isLoading, this.selectedLog], () => (root: HTMLElement) => {
-
-        render(
-          html`<vaadin-button
-              @click="${() =>
-                this.dispatchEvent(
-                  new CustomEvent('close-log-dialog', {
-                    bubbles: true,
-                    composed: true
-                  })
-                )}"
-            >
-              <vaadin-icon
-                style="color: var(--dorc-link-color);"
-                icon="vaadin:close-small"
-              ></vaadin-icon>
-            </vaadin-button>`,
-          root
-        );
-
-        if (this.isLoading) {
-          let loadingDiv = root.querySelector('.loading-container') as HTMLElement;
-          if (!loadingDiv) {
-            loadingDiv = document.createElement('div');
-            loadingDiv.style.cssText = `display: flex; justify-content: center; align-items: center; width: 100%; height: ${this.viewerHeight}; flex-direction: column;`;
-            
-            const spinnerDiv = document.createElement('div');
-            spinnerDiv.style.cssText = `
-              width: 40px;
-              height: 40px;
-              display: inline-block;
-              border-width: 3px;
-              border-color: var(--dorc-border-color);
-              border-top-color: var(--dorc-link-color);
-              animation: spin 1s infinite linear;
-              border-radius: 100%;
-              border-style: solid;
-              margin: 20px;
-            `;
-            
-            const textDiv = document.createElement('div');
-            textDiv.style.cssText = 'margin-top: 20px; color: #666; font-size: var(--lumo-font-size-s, 14px);';
-            textDiv.textContent = 'Loading log...';
-            
-            // Add keyframe animation
-            const style = document.createElement('style');
-            style.textContent = `
-              @keyframes spin {
-                100% { transform: rotate(360deg); }
-              }
-            `;
-            
-            loadingDiv.appendChild(style);
-            loadingDiv.appendChild(spinnerDiv);
-            loadingDiv.appendChild(textDiv);
-            loadingDiv.className = 'loading-container';
-            
-            // Hide any existing editor
-            const existingEditor = root.querySelector('#logViewer') as HTMLElement;
-            if (existingEditor) {
-              existingEditor.style.display = 'none';
-            }
-            
-            root.appendChild(loadingDiv);
-          }
-          return;
-        }
-
-        // Hide loading div if it exists
-        const loadingDiv = root.querySelector('.loading-container') as HTMLElement;
-        if (loadingDiv) {
-          loadingDiv.remove();
-        }
-
-        let editorDiv = root.querySelector('#logViewer') as HTMLElement;
-        if (!editorDiv){
-          editorDiv = document.createElement('div');
-          editorDiv.setAttribute('id', 'logViewer');
-          editorDiv.setAttribute('style', `width: 100%; height: ${this.viewerHeight};`);
-  
-          root.appendChild(editorDiv);
-          
-          // Initialize the editor only when creating the div
-          this.editor = ace.edit(editorDiv);
-          this.editor.renderer.attachToShadowRoot();
-      
-          this.editor.setTheme('ace/theme/monokai');
-          this.editor.session.setMode('ace/mode/less');
-          this.editor.getSession().setUseWorker(false);
-          this.editor.setReadOnly(true);
-          this.editor.setHighlightActiveLine(true);
-      
-          this.editor.setOptions({
-            autoScrollEditorIntoView: true,
-            enableBasicAutocompletion: false,
-            enableLiveAutocompletion: false,
-            placeholder: '',
-            enableSnippets: false
-          });
-        } else {
-          editorDiv.style.display = 'block';
-        }
-
-        this.editor = ace.edit(editorDiv);
-        this.editor.renderer.attachToShadowRoot();
-    
-        this.editor.setTheme('ace/theme/monokai');
-        this.editor.session.setMode('ace/mode/less');
-        this.editor.getSession().setUseWorker(false);
-        this.editor.setReadOnly(true);
-        this.editor.setHighlightActiveLine(true);
-    
-        this.editor.setOptions({
-          autoScrollEditorIntoView: true,
-          enableBasicAutocompletion: false,
-          enableLiveAutocompletion: false,
-          placeholder: '',
-          enableSnippets: false
-        });
-        this.editor?.setValue(this.selectedLog ?? '');
-        this.highlightWarningsLogs();
-        this.editor?.gotoLine(1, 0, false);
-        this.editor?.clearSelection();
-        // Update the editor content
-        if (this.editor) {
-          this.editor.setValue(this.selectedLog ?? '');
-          this.highlightWarningsLogs();
-          this.editor.clearSelection();
-        }
-        })}"
+        ${dialogRenderer(this.renderLog, [this.isLoading, this.selectedLog])}
       ></vaadin-dialog>
     `;
+  }
+
+  private renderLog = () => html`
+    <vaadin-button
+      @click="${() =>
+        this.dispatchEvent(
+          new CustomEvent('close-log-dialog', {
+            bubbles: true,
+            composed: true
+          })
+        )}"
+    >
+      <vaadin-icon
+        style="color: var(--dorc-link-color);"
+        icon="vaadin:close-small"
+      ></vaadin-icon>
+    </vaadin-button>
+    ${this.isLoading
+      ? html`
+          <div class="loading-container">
+            <div class="spinner"></div>
+            <div class="loading-text">Loading log...</div>
+          </div>
+        `
+      : html`
+          <div
+            id="logViewer"
+            style="width: 100%; height: ${this.viewerHeight};"
+            ${ref(this.attachEditor)}
+          ></div>
+        `}
+  `;
+
+  /**
+   * Creates the ace editor on the div Lit just made, and tears it down when
+   * the div goes away.
+   *
+   * `ref` fires only when the element itself is created or removed, which is
+   * exactly the editor's lifetime — a new log for the same open dialog reuses
+   * the div, and `updated()` pushes the text in.
+   */
+  private attachEditor = (element?: Element) => {
+    if (!element) {
+      this.editor?.destroy();
+      this.editor = undefined;
+      return;
+    }
+
+    this.editor = ace.edit(element as HTMLElement);
+    this.editor.renderer.attachToShadowRoot();
+    this.editor.setTheme('ace/theme/monokai');
+    this.editor.session.setMode('ace/mode/less');
+    this.editor.getSession().setUseWorker(false);
+    this.editor.setReadOnly(true);
+    this.editor.setHighlightActiveLine(true);
+    this.editor.setOptions({
+      autoScrollEditorIntoView: true,
+      enableBasicAutocompletion: false,
+      enableLiveAutocompletion: false,
+      placeholder: '',
+      enableSnippets: false
+    });
+
+    this.showLog();
+  };
+
+  private showLog() {
+    if (!this.editor) return;
+    this.editor.setValue(this.selectedLog ?? '');
+    this.highlightWarningsLogs();
+    this.editor.gotoLine(1, 0, false);
+    this.editor.clearSelection();
   }
 
   protected firstUpdated(_changedProperties: PropertyValues) {
     super.firstUpdated(_changedProperties);
 
     this.addEventListener('close-log-dialog', this.close as EventListener);
+  }
+
+  protected updated(changed: PropertyValues) {
+    super.updated(changed);
+    // A new log for an already-open dialog reuses the same div, so `ref` does
+    // not fire; the text has to be pushed in from here.
+    if (changed.has('selectedLog')) this.showLog();
   }
 
   private highlightWarningsLogs() {
