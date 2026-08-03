@@ -98,12 +98,28 @@ steps:
     xmlTransformationRules: ''
     jsonTargetFiles: 'appsettings.test.json'
 
-# maximumCpuCount passes /m — the VSBuild task defaults it to false, which
-# meant this solution was being built through a single MSBuild node.
-# 'clean' was forcing a full rebuild on every run of what is a persistent
-# self-hosted agent, discarding all incremental build state. Setup.Dorc and
-# Setup.Acceptance declare their ProjectReferences explicitly, so the
-# dependency graph orders the MSI harvest correctly under parallel build.
+# DO NOT set maximumCpuCount here without first fixing the installer projects.
+#
+# #797 enabled it on the reasoning that Setup.Dorc and Setup.Acceptance declare
+# their ProjectReferences, so the dependency graph would order the MSI harvest
+# correctly. That was wrong. Both wixprojs have a PublishProjects target
+# (AfterTargets="BeforeResolveReferences") that shells out to independent
+# 'dotnet publish' / 'MSBuild.exe' processes — 11 in Setup.Dorc, 1 in
+# Setup.Acceptance. ProjectReference ordering does not constrain a process
+# launched by Exec, so under parallel build those chains run concurrently with
+# the outer build and race for the same obj output:
+#
+#   CSC : error CS2012: Cannot open
+#   'Dorc.NetFramework.PowerShell\obj\Release\Dorc.NetFramework.PowerShell.dll'
+#   for writing -- being used by another process
+#
+# Reproduced on the GitHub pipeline (run 30812109885); the same race applies
+# here. Left at the task default (single node) until those Exec chains are
+# removed.
+#
+# 'clean' stays off: it was forcing a full rebuild on every run of a persistent
+# self-hosted agent, discarding all incremental build state. That is unrelated
+# to the parallelism problem above.
 - task: VSBuild@1
   displayName: 'Build solution **\*.sln'
   inputs:
@@ -111,7 +127,6 @@ steps:
       msbuildArgs: '/p:RunWixToolsOutOfProc=true,Version=$(version)'
       platform: '$(BuildPlatform)'
       configuration: '$(BuildConfiguration)'
-      maximumCpuCount: true
 
 # runInParallel / codeCoverageEnabled / diagnosticsEnabled used to sit inside
 # the testAssemblyVer2 block scalar, so they were parsed as test-assembly glob
