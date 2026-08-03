@@ -104,7 +104,7 @@ export class EnvServers extends PageEnvBase {
             @opened-changed='${(event: DialogOpenedChangedEvent) => {
               this.attachServerDialogOpened = event.detail.value;
             }}'
-            ${dialogRenderer(this.renderAttachServerDialog, [])}
+            ${dialogRenderer(this.renderAttachServerDialog, [this.environmentId])}
             ${dialogFooterRenderer(this.renderAttachServerFooter, [])}
           ></vaadin-dialog>
           </div>

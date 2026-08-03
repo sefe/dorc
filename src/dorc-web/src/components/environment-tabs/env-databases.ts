@@ -83,7 +83,7 @@ export class EnvDatabases extends PageEnvBase {
                 @opened-changed='${(event: DialogOpenedChangedEvent) => {
                   this.attachDatabaseDialogOpened = event.detail.value;
                 }}'
-                ${dialogRenderer(this.renderAttachDatabaseDialog, [this.databases])}
+                ${dialogRenderer(this.renderAttachDatabaseDialog, [this.databases, this.environmentId])}
                 ${dialogFooterRenderer(this.renderAttachDatabaseFooter, [])}
               ></vaadin-dialog>
             </div>

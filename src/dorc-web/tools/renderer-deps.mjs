@@ -52,6 +52,11 @@ for (const file of walk(SRC)) {
 
   const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true);
   const { reactive, members } = collectClass(source);
+  // A component's reactive fields are not all declared in its own file:
+  // page-env-base declares `environmentId` and every environment tab inherits
+  // it. Without walking up, a renderer reading an inherited property passes
+  // the gate with an empty dependency array.
+  for (const name of inheritedReactiveFields(source, file)) reactive.add(name);
 
   for (const call of directiveCalls(source)) {
     const member = members.get(call.member);
@@ -115,6 +120,90 @@ function collectClass(source) {
   };
   visit(source);
   return { reactive, members };
+}
+
+/**
+ * Reactive field names declared by base classes, followed through relative
+ * imports. Handles `extends Base` and `extends SomeMixin(Base)`; a base that
+ * cannot be resolved to a file in `src` is simply skipped, so the gate stays
+ * conservative rather than wrong.
+ */
+function inheritedReactiveFields(source, file, seen = new Set()) {
+  const names = new Set();
+
+  const baseNames = [];
+  const findHeritage = node => {
+    if (ts.isClassDeclaration(node) && node.heritageClauses) {
+      for (const clause of node.heritageClauses) {
+        for (const type of clause.types) {
+          const expr = type.expression;
+          if (ts.isIdentifier(expr)) baseNames.push(expr.text);
+          // `ResponsiveMixin(PageElement)` — the base is the argument.
+          else if (ts.isCallExpression(expr)) {
+            for (const arg of expr.arguments) {
+              if (ts.isIdentifier(arg)) baseNames.push(arg.text);
+            }
+          }
+        }
+      }
+    }
+    ts.forEachChild(node, findHeritage);
+  };
+  findHeritage(source);
+  if (!baseNames.length) return names;
+
+  // Map each imported name to the module it came from.
+  const importedFrom = new Map();
+  const findImports = node => {
+    if (
+      ts.isImportDeclaration(node) &&
+      node.importClause?.namedBindings &&
+      ts.isNamedImports(node.importClause.namedBindings) &&
+      ts.isStringLiteral(node.moduleSpecifier)
+    ) {
+      for (const element of node.importClause.namedBindings.elements) {
+        importedFrom.set(element.name.text, node.moduleSpecifier.text);
+      }
+    }
+    ts.forEachChild(node, findImports);
+  };
+  findImports(source);
+
+  for (const base of baseNames) {
+    const specifier = importedFrom.get(base);
+    if (!specifier || !specifier.startsWith('.')) continue;
+
+    const resolved = resolveModule(file, specifier);
+    if (!resolved || seen.has(resolved)) continue;
+    seen.add(resolved);
+
+    const baseText = readFileSync(resolved, 'utf8');
+    const baseSource = ts.createSourceFile(
+      resolved,
+      baseText,
+      ts.ScriptTarget.Latest,
+      true
+    );
+    for (const name of collectClass(baseSource).reactive) names.add(name);
+    for (const name of inheritedReactiveFields(baseSource, resolved, seen)) {
+      names.add(name);
+    }
+  }
+
+  return names;
+}
+
+/** Resolves a relative import to a `.ts` file on disk, or null. */
+function resolveModule(fromFile, specifier) {
+  const base = join(fromFile, '..', specifier.replace(/\.js$/, ''));
+  for (const candidate of [`${base}.ts`, join(base, 'index.ts'), base]) {
+    try {
+      if (statSync(candidate).isFile()) return candidate;
+    } catch {
+      // Not this one.
+    }
+  }
+  return null;
 }
 
 /** `${fooRenderer(this.bar, [this.baz])}` occurrences. */
