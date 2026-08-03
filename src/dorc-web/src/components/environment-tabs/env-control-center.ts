@@ -239,19 +239,22 @@ export class EnvControlCenter extends PageEnvBase {
   }
 
   async deleteEnvironment() {
+    // Snapshot before awaiting, so the environment deleted and the one named in
+    // the success notification are the one the user was asked about.
+    const environment = this.environment;
     const answer = await confirmPrompt(
       'Are you sure you want to delete your environment and properties?'
     );
     if (answer) {
-      if (this.environment !== undefined) {
+      if (environment !== undefined) {
         const api = new RefDataEnvironmentsApi();
         api
-          .refDataEnvironmentsDelete({ environmentApiModel: this.environment })
+          .refDataEnvironmentsDelete({ environmentApiModel: environment })
           .subscribe(
             (data: boolean) => {
               if (data) {
                 const message = `The Environment ${
-                  this.environment?.EnvironmentName
+                  environment?.EnvironmentName
                 } has been deleted from DOrc`;
 
                 const notification = new SuccessNotification();
@@ -261,7 +264,7 @@ export class EnvControlCenter extends PageEnvBase {
 
                 const event = new CustomEvent('environment-deleted', {
                   detail: {
-                    Environment: this.environment
+                    Environment: environment
                   },
                   bubbles: true,
                   composed: true

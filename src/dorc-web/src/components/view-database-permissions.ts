@@ -126,17 +126,21 @@ export class ViewDatabasePermissions extends LitElement {
   async _remove(e: { target: { data: UserPermDto } }) {
     const userPerm = e.target.data as UserPermDto;
     const removeRoleId = userPerm.Id || 0;
+    // Everything the delete targets is snapshotted before the await: these are
+    // component inputs the host can reassign while the confirmation is open.
+    const user: number = this?.selectedUser?.Id || 0;
+    const dbId = this.dbId;
+    const envId = this.envId;
     const answer = await confirmPrompt('Remove permission?');
     if (answer && removeRoleId) {
       const api = new RefDataUserPermissionsApi();
       const perm: number = removeRoleId;
-      const user: number = this?.selectedUser?.Id || 0;
       api
         .refDataUserPermissionsDelete({
-          dbId: this.dbId,
+          dbId,
           permissionId: perm,
           userId: user,
-          envId: this.envId
+          envId
         })
         .subscribe(
           () => {

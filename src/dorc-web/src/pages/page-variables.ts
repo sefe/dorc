@@ -801,20 +801,25 @@ export class PageVariables extends PageElement {
     // inside vaadin-checkbox, so `event.target` is that input and writing
     // `.checked` to it leaves the host — and the visible tick — unchanged.
     const checkbox = event.currentTarget as Checkbox;
+    // Snapshot the property name: it is reassigned by the selector combo, and
+    // the PUT below runs after the confirmation. Reading it again would key the
+    // request by whatever is selected then, not by the property the user was
+    // asked about.
+    const propertyName = this.propertyName;
     const existingProperty = this.properties?.find(
-      value => value.Name === this.propertyName
+      value => value.Name === propertyName
     );
 
-    if (existingProperty && this.propertyName) {
+    if (existingProperty && propertyName) {
       // Store the original state for proper reverting
       const originallySecured = existingProperty.Secure ?? false;
       
       let confirmMessage = '';
       
       if (!originallySecured) {
-        confirmMessage = `Are you sure you want to mark property "${this.propertyName}" as secure?\n\nThis will automatically encrypt all existing property values for this property. This action cannot be undone.`;
+        confirmMessage = `Are you sure you want to mark property "${propertyName}" as secure?\n\nThis will automatically encrypt all existing property values for this property. This action cannot be undone.`;
       } else if (originallySecured) {
-        confirmMessage = `Are you sure you want to mark property "${this.propertyName}" as non-secure?\n\nThis will not decrypt existing values, but new values will be stored in plaintext.`;
+        confirmMessage = `Are you sure you want to mark property "${propertyName}" as non-secure?\n\nThis will not decrypt existing values, but new values will be stored in plaintext.`;
       }
       
       // preventDefault() is dropped: the dialog is awaited, so by the time this
@@ -834,7 +839,7 @@ export class PageVariables extends PageElement {
       };
 
       const api = new PropertiesApi();
-      const requestBody = { [this.propertyName]: updatedProperty };
+      const requestBody = { [propertyName]: updatedProperty };
       
       api.propertiesPut({ requestBody }).subscribe({
         next: (data: Response[]) => {
@@ -844,9 +849,9 @@ export class PageVariables extends PageElement {
             
             let message: string;
             if (!originallySecured) {
-              message = `Property "${this.propertyName}" secured successfully. Existing property values have been automatically encrypted.`;
+              message = `Property "${propertyName}" secured successfully. Existing property values have been automatically encrypted.`;
             } else {
-              message = `Property "${this.propertyName}" unsecured successfully.`;
+              message = `Property "${propertyName}" unsecured successfully.`;
             }
             
             Notification.show(message, { 

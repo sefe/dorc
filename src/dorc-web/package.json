@@ -23,7 +23,7 @@
     "typecheck:tests": "tsc -p tsconfig.test.json",
     "type-checking": "tsc --noEmit && npm run typecheck:tests && npm run lit:type-checking",
     "prepare": "husky",
-    "audit:renderers": "node tools/renderer-audit.mjs --check && node tools/renderer-deps.mjs"
+    "audit:renderers": "node tools/renderer-audit.mjs --check && node tools/renderer-deps.mjs && node tools/confirm-prompt-snapshot.mjs"
   },
   "dependencies": {
     "@microsoft/signalr": "^10.0.0",

@@ -115,7 +115,7 @@ export class DatabaseControls extends LitElement {
             notification.open();
           },
           complete: () =>
-            console.log(`Deleted Database ${this.databaseDetails?.Name}`)
+            console.log(`Deleted Database ${database?.Name}`)
         });
     }
   }

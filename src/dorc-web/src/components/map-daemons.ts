@@ -218,16 +218,21 @@ export class ServerDaemonMapping extends LitElement {
   }
 
   public async detachDaemon(daemon: DaemonApiModel) {
-    if (!this._server?.ServerId || !daemon.Id) return;
+    // Snapshot the server before awaiting. `server` is a settable property that
+    // reloads the mapping when it changes, so reading it again after the
+    // confirmation would unmap this daemon from whichever server had since been
+    // assigned — while the prompt named the old one.
+    const server = this._server;
+    if (!server?.ServerId || !daemon.Id) return;
     const answer = await confirmPrompt(
-      `Unmap daemon "${daemon.DisplayName ?? daemon.Name}" from server "${this._server.Name}"?`
+      `Unmap daemon "${daemon.DisplayName ?? daemon.Name}" from server "${server.Name}"?`
     );
     if (!answer) return;
 
     const api = new ServerDaemonsApi();
     api
       .serverDaemonsDelete({
-        serverId: this._server.ServerId,
+        serverId: server.ServerId,
         daemonId: daemon.Id
       })
       .subscribe({

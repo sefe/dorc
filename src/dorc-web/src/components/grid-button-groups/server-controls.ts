@@ -179,7 +179,7 @@ export class ServerControls extends LitElement {
           },
           error: err => console.error(err),
           complete: () =>
-            console.log(`Deleted Server ${this.serverDetails?.Name}`)
+            console.log(`Deleted Server ${server?.Name}`)
         });
     }
   }

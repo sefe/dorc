@@ -103,6 +103,11 @@ export class ResetAppPasswordBehalf extends LitElement {
     const user = this.appUsers.find(u => u.LanId === this.selectedUser);
     if (user === undefined) return;
 
+    // Snapshot the environment inputs alongside the user: all three name the
+    // account being reset, and the host can reassign them while the
+    // confirmation is open.
+    const envFilter = this.envFilter ?? '';
+    const environmentName = this.environmentName ?? '';
     const answer = await confirmPrompt(
       `Are you sure you want to reset the SQL account password for ${
         user.DisplayName
@@ -113,14 +118,14 @@ export class ResetAppPasswordBehalf extends LitElement {
       const api = new ResetAppPasswordApi();
       api
         .resetAppPasswordForUserPut({
-          envFilter: this.envFilter ?? '',
-          envName: this.environmentName ?? '',
+          envFilter,
+          envName: environmentName,
           username: user.LanId ?? ''
         })
         .subscribe({
           next: (result: ApiBoolResult) => {
             if (result.Result) {
-              const appName = this.envFilter ?? '';
+              const appName = envFilter;
               const message = `Password successfully reset, it is now set as the same as your ${
                 appName
               } login name, you will need to login without encryption the first time.`;
