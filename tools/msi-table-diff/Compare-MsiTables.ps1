@@ -124,6 +124,7 @@ function Get-MsiTable {
         # Unary comma: returning the collection bare would let PowerShell
         # enumerate it on the way out, and each row is itself an array, so the
         # rows would arrive flattened into a stream of strings.
+        Write-Host ("    read {0,-14} {1,5} row(s)" -f $TableName, $rows.Count)
         return , $rows.ToArray()
     }
     finally {
@@ -132,34 +133,45 @@ function Get-MsiTable {
 }
 
 # Resolve each Directory row to a full target path by walking Directory_Parent.
-# Rows are [Directory, Directory_Parent, DefaultDir], in the order selected.
-function Get-DirectoryPaths([object[]] $Directories) {
-    $byId = @{}
-    foreach ($d in $Directories) { $byId[$d[0]] = $d }
-
-    $resolved = @{}
-    function Resolve-One([string] $Id) {
-        if ($resolved.ContainsKey($Id)) { return $resolved[$Id] }
-        if (-not $byId.ContainsKey($Id)) { return $Id }
-
-        $row  = $byId[$Id]
-        $name = Get-LongName $row[2]
+# Rows arrive as [Directory, Directory_Parent, DefaultDir], in the order the
+# query selected them.
+#
+# Deliberately flat: the first version nested a recursive function inside this
+# one and kept whole rows in a hashtable, which made a null row impossible to
+# attribute when one appeared. Parent and name are pulled out into their own
+# lookups first, so everything after that is plain string work.
+function Get-DirectoryPaths($Directories) {
+    $parentOf = @{}
+    $nameOf   = @{}
+    foreach ($d in $Directories) {
+        if ($null -eq $d -or $d.Count -lt 3) { continue }
+        $id = [string] $d[0]
+        if ([string]::IsNullOrEmpty($id)) { continue }
+        $parentOf[$id] = [string] $d[1]
+        $name = Get-LongName ([string] $d[2])
         # '.' means "same as parent" and contributes no path segment.
-        if ($name -eq '.') { $name = '' }
-
-        $parentId = $row[1]
-        if ([string]::IsNullOrEmpty($parentId) -or $parentId -eq $Id) {
-            $path = $name
-        }
-        else {
-            $parent = Resolve-One $parentId
-            $path = if ($name) { "$parent/$name".TrimStart('/') } else { $parent }
-        }
-        $resolved[$Id] = $path
-        return $path
+        $nameOf[$id] = $(if ($name -eq '.') { '' } else { $name })
     }
 
-    foreach ($d in $Directories) { Resolve-One $d[0] | Out-Null }
+    $resolved = @{}
+    foreach ($id in $parentOf.Keys) {
+        # Walk up to the root, then build the path back down. An iterative walk
+        # with a seen-set cannot recurse forever if the table is cyclic.
+        $chain = New-Object System.Collections.Generic.List[string]
+        $seen  = New-Object 'System.Collections.Generic.HashSet[string]'
+        $cur   = $id
+        while ($cur -and $parentOf.ContainsKey($cur) -and $seen.Add($cur)) {
+            $chain.Add($cur)
+            $cur = $parentOf[$cur]
+        }
+
+        $path = ''
+        for ([int] $i = $chain.Count - 1; $i -ge 0; $i--) {
+            $segment = $nameOf[$chain[$i]]
+            if ($segment) { $path = if ($path) { "$path/$segment" } else { $segment } }
+        }
+        $resolved[$id] = $path
+    }
     return $resolved
 }
 
@@ -173,11 +185,15 @@ function Get-FileSet([string] $Path) {
     # Component rows are [Component, Directory_]; File rows are
     # [Component_, FileName, Version].
     $componentDir = @{}
-    foreach ($c in $components) { $componentDir[$c[0]] = $c[1] }
+    foreach ($c in $components) {
+        if ($null -eq $c -or $c.Count -lt 2) { continue }
+        $componentDir[$c[0]] = $c[1]
+    }
     $dirPaths = Get-DirectoryPaths $dirs
 
     $set = @{}
     foreach ($f in $files) {
+        if ($null -eq $f -or $f.Count -lt 3) { continue }
         $dirId = $componentDir[$f[0]]
         $dir   = if ($dirId -and $dirPaths.ContainsKey($dirId)) { $dirPaths[$dirId] } else { '<unresolved>' }
         $key   = '{0}/{1}|{2}' -f $dir, (Get-LongName $f[1]), $f[2]
@@ -191,6 +207,7 @@ function Get-FileSet([string] $Path) {
 function Get-RegistrySet([string] $Path) {
     $set = @{}
     foreach ($r in Get-MsiTable -Path $Path -TableName 'Registry' -Columns 'Root', 'Key', 'Name', 'Value') {
+        if ($null -eq $r -or $r.Count -lt 4) { continue }
         $set[('{0}\{1}\{2}={3}' -f $r[0], $r[1], $r[2], $r[3])] = $true
     }
     return $set
@@ -201,6 +218,7 @@ function Get-RegistrySet([string] $Path) {
 function Get-CertificateSet([string] $Path) {
     $set = @{}
     foreach ($c in Get-MsiTable -Path $Path -TableName 'Certificate' -Columns 'Name', 'StoreLocation', 'StoreName') {
+        if ($null -eq $c -or $c.Count -lt 3) { continue }
         $set[('{0}|{1}|{2}' -f $c[0], $c[1], $c[2])] = $true
     }
     return $set
