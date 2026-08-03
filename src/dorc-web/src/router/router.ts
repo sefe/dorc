@@ -53,7 +53,13 @@ export class AppRouter {
   async setRoutes(routeTable: AppRoute[]): Promise<void> {
     this.resolver = new RouteResolver(routeTable);
 
-    if (this.outletElement) {
+    // Reuse the outlet across calls. A fresh RouteOutlet starts with an empty
+    // `rendered` list, so it would append a second chain alongside the first
+    // rather than replacing it — Vaadin Router's setRoutes() replaced the
+    // outlet's content. Reusing it lets the normal divergence check do that:
+    // a new route table shares no route identities, so the whole chain
+    // diverges and the old root is detached.
+    if (this.outletElement && !this.outlet) {
       this.outlet = new RouteOutlet(this.outletElement);
     }
 
