@@ -1,68 +1,51 @@
 # HLPS: Installer Decomposition — Splitting Setup.Dorc into Deployable Units
 
-| Field       | Value                            |
-|-------------|----------------------------------|
-| **Status**  | IN REVIEW — U-1/U-2/U-3 resolved by user 2026-08-03 |
-| **Author**  | Agent                            |
-| **Date**    | 2026-08-03                       |
-| **Folder**  | docs/msi-decomposition/          |
+| Field       | Value                                    |
+|-------------|------------------------------------------|
+| **Status**  | REVISION — rewritten after adversarial round 1 |
+| **Author**  | Agent                                    |
+| **Date**    | 2026-08-03                               |
+| **Folder**  | docs/msi-decomposition/                  |
+
+> **Revision note.** Round 1 of the adversarial panel rejected the substance of the first draft. Its §2 was derived from the *shipped MSI's* flattened `FeatureComponents` table, which hides every hand-authored component; that error concealed a destructive shared-root cleanup (C-7), an unlinkable `ProductVersion` (C-9), and 21 unassigned components carrying all the IIS, service and share authoring. Its build-time evidence did not support its headline claim. This revision re-derives everything from the `.wxs` sources. Version and configuration visibility has been split into a separate HLPS — see `HLPS-component-version-visibility.md`.
 
 ---
 
 ## 1. Problem Statement
 
-`Setup.Dorc.msi` packages every DOrc component into a single installable unit: the web UI, the API, the monitors and their runners, and five command-line tools. This creates two distinct problems.
+`Setup.Dorc.msi` packages every DOrc component into one installable unit: the web UI, the API, the monitors and their runners, and five command-line tools. They run on different machines and change at different rates, but can only be installed, upgraded and rolled back together.
 
-**Deployment.** The components do not run on the same machines and do not change at the same rate, but they can only be installed, upgraded and rolled back together. A fix to the API cannot be shipped without redeploying the monitors and runners — for a tool whose job is orchestrating other people's deployments, being unable to patch itself without disturbing in-flight work is a real operational constraint. The deployment mechanism already selects target servers per installer via the `ServerType` in each `.msi.json` sidecar (see C-2); the constraint is purely that one MSI carries all four components.
+For a tool whose job is orchestrating other people's deployments, being unable to patch itself without disturbing in-flight work is a real operational constraint. **Independent deployability is the objective** (U-2).
 
-**Build time.** Measured from an MSBuild binary log of `main` at `80fadbb` (run `30844659253`), the installers dominate the build:
+**Build time is a secondary benefit, and smaller than the first draft claimed.** That draft asserted MSI construction costs more than all C# compilation. It does not, and the measurement it relied on cannot support the claim:
 
-| Item | Time | Share of 459s build |
-|------|-----:|--------------------:|
-| `Setup.Dorc` project | 266.3s | 58% |
-| `Setup.Acceptance` project | 52.4s | 11% |
-| `WixBuild` task (2 calls) | 152.7s | — |
-| `Csc` task (31 calls) | 121.0s | — |
-| `HeatDirectory` task (16 calls) | 6.3s | 1.4% |
+- The baseline binlog (`80fadbb`, run `30844659253`) is the commit that *disabled* parallel building, so any statement about behaviour "under `/m`" was describing a configuration never measured.
+- At that commit the wixprojs still ran their `PublishProjects` `<Exec>` chains, so `Setup.Dorc`'s 266.3s is **packaging plus payload publishing**, and the child processes' compilation is invisible to the parent binlog. Comparing it against a parent-only `Csc` of 121.0s compares unlike things.
 
-MSI construction costs more than all C# compilation. With only two installer projects — one of which is five times the size of the other — the packaging step is effectively serial even under `/m`, because parallelism is bounded by the largest single installer.
+What the binlog does support: `WixBuild` is **152.7s for both installers combined**. Correctly bounded, a four-way split is worth roughly 60s — see G-3. Worth having, not worth justifying the change on.
 
 ---
 
 ## 2. Current Structure
 
-The MSI already carries a feature tree whose boundaries align closely with the proposed split. Component counts are from the `FeatureComponents` table of the shipped `Setup.Dorc.msi` (`26.8.3.2679`):
+Derived from `src/Setup.Dorc/Product.wxs`, **not** from the shipped MSI. The three features reference **36 items: 15 `ComponentGroupRef`s (heat-harvested files) and 21 bare `ComponentRef`s (hand-authored)**. The hand-authored ones carry every IIS site, application pool, certificate, Windows service registration, file share and configuration edit — that is, the entire hard part of the split. They are invisible in the compiled `FeatureComponents` table, which is why the first draft missed them.
 
-```
-Deployment.Orchestrator  (root, 0 components)
-├── Web.Components        701 components
-│     ├── DOrcAPIComGroup      ← the API
-│     └── DOrcWebComGroup      ← the web UI
-├── Monitors             1939 components
-│     ├── NonProd{DeployMonitor,DorcRunner,DeployRunner,TerraformRunner}ComGroup
-│     └── Prod{DeployMonitor,DorcRunner,DeployRunner,TerraformRunner}ComGroup
-└── Tools                2282 components
-      ├── ToolsRequestComGroup
-      ├── ToolsDeployCopyEnvBuildComGroup
-      ├── ToolsPostRestoreEndurComGroup
-      ├── ToolsPropertyValueCreationComGroup
-      └── ToolsEncryptionMigrationComGroup
-```
+All three features are unconditional `Level="1"`; there are no feature conditions. What *is* conditioned, at component level, is `ENVIRONMENTISPRODUCTION`, selecting prod against non-prod variants.
 
-Total 4,922 components across 4,903 files.
+| Feature | Hand-authored `ComponentRef` | Harvested `ComponentGroupRef` | Proposed owner |
+|---|---|---|---|
+| `Web.Components` | `RemoveFolders` | — | **unassigned — see C-7** |
+| | `RegistryEntries` | — | **shared — see C-8** |
+| | `DOrcWebIISComponent`, `…Prod` | `DOrcWebComGroup` | UI |
+| | `RequestApiComponent`, `…Prod` | `DOrcAPIComGroup` | API |
+| `Monitors` | 8 × `DeployMonitorService*.exe` (carry both `ServiceInstall` rows) | 8 × `{NonProd,Prod}{DeployMonitor,DorcRunner,DeployRunner,TerraformRunner}ComGroup` | Monitors |
+| | `LogsShare` | — | Monitors |
+| `Tools` | `ToolsShare` | — | CLIs |
+| | 5 × `*ConfigSetup` | 5 × `Tools*ComGroup` | CLIs |
 
-Supporting tables, and where they appear to belong:
+**The UI/API cut is below a feature boundary,** not along one — both live inside `Web.Components`. The Monitors and Tools cuts do follow feature boundaries. The first draft's "split along the existing feature boundaries" framing was accurate for two of the four packages only.
 
-| Table | Rows | Apparent owner |
-|-------|-----:|----------------|
-| `ServiceInstall` | 2 | Monitors (`DeploymentActionServiceNonProd`, `DeploymentActionServiceProd`) |
-| `Wix4IIsWebSite` / `WebApplication` / `WebVirtualDir` / `AppPool` / `MimeMap` / `WebAddress` / `WebSiteCertificates` | — | UI and API |
-| `CustomAction` | 42 | 39 are supplied by WiX extensions (Util, IIs, JsonFile, Certificates, Smb, ServiceConfig). Only three are hand-authored: `SetCDrive`, `ReconfigureLoadUserProfileOrchestrator`, `ReconfigureLoadUserProfileRequestApi` |
-| `Wix4User`, `Wix4FileShare`, `Wix4FileSharePermissions` | — | **Unassigned** — see U-4 |
-
-That the extension-supplied custom actions dominate is favourable: they arrive automatically with whichever extensions each new installer references, rather than needing manual partitioning.
-
-Identity today is a single `ProductCode {F7894A5D-…}` under a single `UpgradeCode {72EDEA4C-…}`.
+Identity today: a single `ProductCode {F7894A5D-…}` under `UpgradeCode {72EDEA4C-…}`, with `ProductVersion` bound to an API file (C-9).
 
 ---
 
@@ -70,24 +53,24 @@ Identity today is a single `ProductCode {F7894A5D-…}` under a single `UpgradeC
 
 **In scope**
 
-- Splitting `Setup.Dorc.msi` into four installers along the existing feature boundaries:
-  1. **UI** — `DOrcWebComGroup`
-  2. **API** — `DOrcAPIComGroup`
-  3. **Monitors & Runners** — the eight `Monitors` component groups
-  4. **CLIs** — the five `Tools` component groups
-- Assigning upgrade identity (`ProductCode`, `UpgradeCode`) to each new installer.
-- A migration path for existing installations from the single product to four.
-- Updating `DeploySettings.template.json` and `CopyDeploymentArtefactsBeforePublish.ps1` for the new artefact set.
-- Updating both pipelines to build and publish four installers.
+1. Four wixprojs, with **every one of the 36 refs assigned an owner** — not just the 15 groups.
+2. A shared-resource ownership policy (C-8): for each machine-scoped resource, either a sole owning package, or shared with the component GUID copied verbatim.
+3. Re-scoping the shared-root cleanup so no package deletes another's files (C-7).
+4. A `ProductVersion` source for each package (C-9).
+5. Four `.msi.json` sidecars — `ProductNames`, `ServerType`, and the per-installer `Parameters` map.
+6. Registering four `MsiFileNames` entries in `DeploySettings`, with ordering (C-10).
+7. **`RunDeployment.ps1`: making the service stop/log-off prelude conditional on the selected installers, and adding an explicit start step.** Without this the deployment stops all monitors on every run regardless of which installers are selected, and G-2 is unreachable however well the MSIs are split.
+8. Both pipelines, which currently hardcode `src\Setup.Dorc\bin\x64\$(Configuration)` as a wildcard copy source.
 
 **Out of scope**
 
-- `Setup.Acceptance.msi` — already a separate installer for a separate concern; unchanged.
-- `Dorc.Database.dacpac` — remains a single schema artefact.
-- Migrating off `heat` to `<Files>`. Measured at 6.3s (1.4%), it is a deprecation matter, not a performance one, and mixing it in would confound verification of this change.
-- Any change to what the components *do*.
+- `Setup.Acceptance.msi` — separate installer, separate concern.
+- `Dorc.Database.dacpac` — remains one schema artefact.
+- `heat` → `<Files>`: 6.3s, 1.4% of the build. A deprecation matter; mixing it in would confound G-3.
+- **Version and configuration visibility** — moved to `HLPS-component-version-visibility.md`. C-6 remains here as a constraint; its solution is that document's problem.
+- `CopyDeploymentArtefactsBeforePublish.ps1` — data-driven from `MsiFileNames`, needs no change.
 
-**Dependency:** this work must land after PR #807. That PR removes the `<Exec>` chains from the wixprojs. Splitting first would multiply the CS2012 race from two concurrent `Exec` chains to four.
+**Dependency status:** PR #807 has **already merged** (`40f106a`). Note it did not remove the `<Exec>` publish chains — it gated them behind `DorcPayloadPrepublished` and retained them as a local-build fallback. CI is unaffected, but a four-way split multiplies the local-build race from two chains to four, so each new wixproj must either omit the fallback or be covered by C-11.
 
 ---
 
@@ -95,71 +78,54 @@ Identity today is a single `ProductCode {F7894A5D-…}` under a single `UpgradeC
 
 | ID | Goal | Measured by |
 |----|------|-------------|
-| G-1 | No change to what gets installed | Union of the four new MSIs' `File` tables equals the current `Setup.Dorc.msi` `File` table, allowing for shared assemblies deliberately duplicated per installer. Verified with the `msitools` table diff already used on #807. |
-| G-2 | Components become independently deployable | Each installer installs, upgrades and uninstalls without the other three present. |
-| G-3 | Packaging step wall-clock reduced | `WixBuild` total wall-clock under `/m`, compared against the `80fadbb` binlog baseline. |
-| G-4 | Existing installations upgrade cleanly | An environment running `26.8.3.x` of the single product reaches the four-installer layout with no orphaned files, services or IIS entries. A maintenance window is acceptable (U-3). |
-| G-5 | Component versions **and applied configuration** are visible in the UI | The UI shows, per component per environment: the installed version, and a digest of the configuration actually applied to it. Follows from U-1 (version skew permitted, so it must be observable) and C-6 (configuration skew is the likelier and less visible failure). A digest is required, not just a version — two components on the same version can hold divergent configuration. |
+| G-1 | No change to what gets installed | **Exact set equality** over (target directory, file name, version) between the union of the four packages and the current `Setup.Dorc.msi`. Expected diff: zero. Any non-empty diff is a failure requiring written justification. File *Ids* will legitimately churn on re-harvest, so they are excluded from the comparison; the first draft's "allowing for duplication" escape clause is removed as unfalsifiable. |
+| G-2 | Components are independently **deployable**, not merely independently installable | Deploying one installer to a live environment leaves the other three components **running and serving**. Measured in an environment, not on a clean box. |
+| G-3 | Packaging wall-clock reduced | `WixBuild` wall-clock on a post-#807 `/m` binlog, against a like-for-like re-baseline. Threshold: ≥30% reduction in `WixBuild` for `Setup.Dorc`'s successors. |
+| G-4 | Existing installations transition cleanly | An environment on `26.8.3.x` of the single product reaches the four-installer layout with no orphaned files, services, shares or IIS entries. Maintenance window acceptable (U-3). |
 
-**Expected size of G-3, stated up front to avoid over-claiming.** Parallel packaging is bounded by the largest resulting installer. `Tools` alone is 2,282 of 4,922 components (46%), so four installers built concurrently should approach roughly half the current packaging time, not a quarter. If `WixBuild` scales with component count, the 266s `Setup.Dorc` becomes ~120–140s wall-clock. A further split of `Tools` into its five CLIs would rebalance, but topology is the better organising principle than build-time balance, and that trade should be made deliberately rather than by accident.
+**G-3's expected size, corrected.** The first draft applied the 46% `Tools` share to `Setup.Dorc`'s 266.3s *project* time and predicted ~120–140s wall-clock. That was the wrong base: at most 152.7s of it is `WixBuild`, across both installers. If Acceptance is ~40s, Setup.Dorc's packaging is ~113s, and a split bounded at 46% yields ~52s — a **~60s saving, ~13% of a 459s build**, roughly half what was claimed.
+
+Component count is also a poor proxy: `Media Id="1"` is a single embedded cabinet, so compression is one serial pass over the payload and tracks **bytes**, not components. `Tools`' 2,282 components are five CLI publish folders sharing much of one dependency set. G-3's measurement should report payload bytes per package alongside component counts.
 
 ---
 
 ## 5. Constraints
 
-- **C-1 — Shared database schema, with skew permitted.** All four components share one schema via `Dorc.Database.dacpac`, and four independently deployable installers make version skew possible: API `v1` running against Monitor `v2`. Per U-1 this is **accepted, not prevented** — no start-up gate or refusal. The obligation it creates is observability (G-5): if skew is allowed, an operator must be able to see it. Note this shifts the risk rather than removing it — a mismatch will surface as behaviour, not as a clear error.
-- **C-2 — Per-MSI targeting already exists.** *(Corrected 2026-08-03 after reading `sefe/dorc-ps-deploy-module`; an earlier revision of this document claimed a schema change was required. It is not.)* Each installer ships a `.msi.json` sidecar declaring `ServerType`, and `DeployMSI` filters the environment's target servers by it — `Setup.Dorc.msi.json` currently declares `"ServerType": "WebServer"`. Independent deployment topology is therefore a matter of each new installer declaring its own `ServerType`, not of extending `DeploySettings`. What *is* required is deciding which server type each of the four components targets.
-- **C-6 — Configuration skew, not just version skew.** The installers do not merely place files; they *write each component's configuration* at install time. `Json:JsonFile` elements set specific `ElementPath`s in the component's deployed `appsettings.json` from MSI properties — for example `$.ConnectionStrings.DOrcConnectionString` from `[DEPLOYMENT.DBSERVER]`/`[DEPLOYMENT.DB]`, `$.AppSettings.RefDataApiUrl` from `[DEPLOYAPI.ENDPOINT]`, and the Kafka SASL and OpenSearch credentials.
-
-  With one installer, changing a shared property in `DeploySettings.json` propagates to every component in a single operation. With four, it propagates only to the installers actually run. The concrete failure: rotate `KAFKA_SASL_PASSWORD` and deploy the API alone — the Monitors retain the stale credential and stop consuming, **while every component still reports the same version**. Version visibility is structurally incapable of exposing this.
-
-  Per the user decision of 2026-08-03, the mitigation is to surface a digest of the applied configuration per component (G-5), rather than to forbid partial deployment.
-
-- **C-3 — Shared assemblies duplicate.** `Dorc.Core`, `Dorc.PersistentData` and `Dorc.ApiModel` sit beneath most components and will be carried by several installers. Acceptable on disk; it makes C-1 sharper, because the duplicated copies can drift.
-- **C-4 — Installed-state continuity.** Existing environments have the single product installed. Four new `ProductCode`s under new `UpgradeCode`s will not automatically supersede it.
-- **C-5 — One property bag.** `DeploySettings` passes roughly 60 `MsiProperties` to the MSI. Whether each installer needs the full set or a subset is unresolved (U-5).
+- **C-1 — Shared schema, skew permitted.** Per U-1, concurrent component versions are accepted, not prevented. The obligation this creates is observability, addressed in the separate visibility HLPS.
+- **C-2 — Per-MSI targeting already exists.** Each installer's `.msi.json` declares a `ServerType`; `DeployMSI` resolves it against `ServerNames_<ServerType>` properties. No `DeploySettings` schema change. Each new `ServerType` needs a matching `ServerNames_*` property.
+- **C-3 — Shared assemblies are already duplicated.** `Dorc.Core`, `Dorc.PersistentData` and `Dorc.ApiModel` already exist as separate components at separate target paths, with path-derived GUIDs. Splitting adds no disk duplication and no component-rule risk. The new exposure is version drift between copies.
+- **C-4 — Installed-state continuity.** Existing environments run the single product. Removal must be ordered against installation (C-7).
+- **C-5 — Per-installer properties.** Already the sidecar's job: `Setup.Acceptance.msi.json` declares 13 parameters, `Setup.Dorc.msi.json` 72.
+- **C-6 — Configuration skew.** The installers write each component's configuration at install time via `Json:JsonFile` — the DB connection string, `$.AppSettings.RefDataApiUrl` from `[DEPLOYAPI.ENDPOINT]`, Kafka SASL and OpenSearch credentials. With four installers a shared-property change reaches only the packages actually run. Rotating `KAFKA_SASL_PASSWORD` and deploying the API alone leaves the Monitors on a stale credential and silently not consuming. **Solution is out of scope here** — see the visibility HLPS.
+- **C-7 — The shared install root is deleted recursively.** `RemoveFolders` (`Product.wxs:81`) runs `util:RemoveFolderEx Property="INSTALLLOCATION" On="both"` and `RemoveFile Directory="INSTALLLOCATION" Name="*.*" On="both"`. `INSTALLLOCATION` is `ProgramFiles64\…\Deploy`, the parent of `Web\`, `Services\` and `Tools\`. Harmless in one transaction; post-split, whichever package owns it wipes the other three — and `On="both"` means on install as well as uninstall. The legacy product carries this component, so unordered legacy removal can delete packages already installed. **This is the largest single risk in the change.**
+- **C-8 — Machine-scoped resources are not all refcountable.** Two distinct failure modes. `RegistryEntries` (`HKLM\…\DisableLoopbackCheck`, `Permanent="yes"`) is refcounted **only if the GUID is copied verbatim**; regenerating it per package is a component-rules violation. The certificates are worse: `DOrcWeb.wxs` and `RequestApi.wxs` both install `deploymentportal.pfx` into `localMachine\root` via `iis:Certificate`, which is a custom action and **not refcounted at all** — uninstalling either package removes the certificate the other's HTTPS binding depends on. Identical GUIDs do not help. The same question applies to the `util:User` `LogonAsService` grants on `[SERVICE.IDENTITY]` declared in both IIS components.
+- **C-9 — `ProductVersion` binds to an API-only file.** `Dependencies.wxi` defines `ProductVersion="!(bind.FileVersion.DeployApiDll)"`, and `DeployApiDll` is minted by the API harvest transform. Three of the four packages have nothing to bind to and will not link. Today every component reports the API's version.
+- **C-10 — Installs serialise per server, and order matters.** `_MSIExecute` is a machine-wide mutex: the four packages cannot install concurrently on one server. Independent does not mean simultaneous. Order is also load-bearing — Monitor configuration embeds `DEPLOYAPI.ENDPOINT` and the Monitor calls the API at runtime, so Monitors-before-API brings monitors up against a torn-down API.
+- **C-11 — Local builds still run the `<Exec>` publish chains.** #807 gated them, not removed them. Four wixprojs carrying the fallback means four racing chains on a local `/m` build.
+- **C-12 — IIS partitions cleanly.** Recorded as a constraint that *holds*: `Dorc Web`/pool `DOrcWeb` on 80/443 and `DOrcApi`/pool `DeployApi` on 8080/8443 are separate sites, separate pools, non-overlapping bindings, both `ConfigureIfExists="yes"`. Each package takes its `iis:` authoring wholesale. Only the certificates are shared (C-8).
+- **C-13 — Component-versus-schema skew.** The dacpac and the single MSI ship in one window today. Four independently deployable installers newly permit "API upgraded, dacpac not" and the reverse. Distinct from C-1.
 
 ---
 
 ## 6. Proposed Solution Directions
 
-### SD-1 — One wixproj per deployable unit, along existing feature lines
+### SD-1 — Four wixprojs, with every component assigned
+Author four packages from the §2 table, assigning all 36 refs. The harvested groups move unchanged. The hand-authored components need individual decisions, and the two shared ones (`RemoveFolders`, `RegistryEntries`) need C-7 and C-8 resolved first. Addresses G-1, G-3.
 
-Create four wixprojs, each referencing the component groups already defined. Because the groups are disjoint and named by concern, the authoring largely moves rather than being rewritten. Each installer references only the WiX extensions it needs — IIs for UI and API, Util/ServiceConfig for Monitors, and so on — which partitions the extension-supplied custom actions automatically.
+### SD-2 — Ordered legacy removal, ahead of all four installs
+Removing the monolith must be an explicitly ordered first step, not a `MajorUpgrade` safety net declared by an arbitrary package — because the monolith carries `RemoveFolders` (C-7). Note the repo has never used `MajorUpgrade`/`FindRelatedProducts`; upgrade today is uninstall-then-install by product *name*. Addresses G-4, C-4, C-7.
 
-Addresses G-1, G-3.
+### SD-3 — A `.msi.json` sidecar per installer
+Each declares its `ServerType`, `ProductNames` and `Parameters`. New sidecars UTF-8 (`Setup.Acceptance.msi.json` is UTF-16). Addresses G-2, C-2, C-5.
 
-### SD-2 — Rely on the existing uninstall-before-install deployment
+### SD-4 — Shared-resource ownership policy
+For each machine-scoped resource: sole owner, or shared with GUID copied verbatim and never regenerated. Certificates need a sole owner or a small shared prerequisites package, since they cannot be refcounted. Addresses C-8.
 
-Per U-3, `RunDeployment.ps1` already uninstalls before installing, driven by the `ProductNames` on each `MsiFileNames` entry, and a maintenance window is acceptable. So no `Upgrade`-element coexistence dance is needed: the four installers are registered as four `MsiFileNames` entries with four `ProductNames`, and the existing mechanism removes the old product and installs the new set.
+### SD-5 — Per-package `ProductVersion`
+Either a per-package bind target, or the `/p:Version` the pipelines already pass and the MSI currently ignores. The latter is simpler and makes the four versions independently meaningful. Addresses C-9.
 
-Two caveats. First, `DeployMSI` is **not defined in this repository** — it comes from the external `DOrcDeployModule` that `RunDeployment.ps1` installs, so its behaviour across four products needs confirming from whoever owns that module (U-9). Second, the legacy `UpgradeCode {72EDEA4C-…}` should still be declared for removal by one of the new installers as a safety net for any environment the scripted path misses.
-
-Addresses G-4, C-4.
-
-### SD-3 — Declare `ServerType` per installer in its `.msi.json` sidecar
-
-No schema change is needed. Each of the four installers ships its own sidecar declaring the `ServerType` it targets, and the existing `DeployMSI` filtering does the rest. The sidecar also carries the `Parameters` map, so each installer declares only the MSI parameters it actually consumes — `Setup.Acceptance.msi.json` already demonstrates this with 12 entries against `Setup.Dorc.msi.json`'s ~70.
-
-The work is therefore authoring four sidecars and deciding the target server type for each component, not extending the deployment configuration format.
-
-One authoring detail: `Setup.Acceptance.msi.json` is UTF-16 encoded while `Setup.Dorc.msi.json` is UTF-8. New sidecars should be UTF-8.
-
-Addresses G-2, C-2, C-5.
-
-### SD-4 — Per-component version reporting, surfaced in the UI
-
-Per U-1 skew is permitted, so the requirement is visibility rather than enforcement.
-
-Today the only version surface is `MetadataController`, which returns a single unstructured string — `"{env} - {assembly version}"` — describing the **API alone**. There is no channel by which Monitors, Runners or CLIs report a version: the schema has no heartbeat or instance table, Runners execute on target servers, and CLIs run ad hoc.
-
-So this is a genuine feature, not a display tweak. It needs:
-
-1. A structured replacement for the metadata endpoint, returning a version per component rather than one string.
-2. A reporting channel for the components that do not currently have one (U-8).
-3. UI presentation of the set, with skew made visually obvious rather than merely listed.
-
-Addresses G-5, C-1, C-3.
+### SD-6 — Conditional quiesce in `RunDeployment.ps1`
+Make the stop/log-off prelude act only on the components being deployed, and add an explicit start-and-verify step. Nothing currently restarts the services — `ServiceInstall` is `Start="demand"` with a `ServiceControl` carrying no `Start` attribute. Without this, G-2 fails regardless of the MSI work. Addresses G-2.
 
 ---
 
@@ -167,24 +133,27 @@ Addresses G-5, C-1, C-3.
 
 | ID  | Description | Owner | Blocking | Resolution |
 |-----|-------------|-------|---------|------------|
-| U-1 | What version-skew policy applies once components deploy independently against one shared schema? Refuse to start on mismatch, warn, or tolerate? | User | **Blocking** for SD-4 | **RESOLVED** (2026-08-03). Multiple concurrent versions are acceptable — no gate, no refusal to start. The condition attached is that the UI must show all component versions, which becomes G-5 and reshapes SD-4 from enforcement to observability. Raises U-8. |
-| U-2 | Is independent deployability actually wanted, or is the build-time win the real objective? | User | **Blocking** for scope | **RESOLVED** (2026-08-03). Independent deployability is the objective. SD-3 and SD-4 are therefore in scope, and the build-time gain (G-3) is a secondary benefit rather than the justification. |
-| U-3 | How do existing installations migrate? Is a maintenance window acceptable, or must the transition be seamless? | User | **Blocking** for SD-2 | **RESOLVED** (2026-08-03). `RunDeployment.ps1` performs a full uninstall before installing, and a maintenance window is acceptable. SD-2 collapses to registering four `MsiFileNames`/`ProductNames` entries. Raises U-9. |
-| U-4 | Which installer owns `Wix4User`, `Wix4FileShare` and `Wix4FileSharePermissions`? These are shared infrastructure with no obvious single owner. | Agent | **Blocking** for SD-1 | **Unresolved** — resolvable by reading the authoring; not yet done. |
-| U-5 | Can the ~60 `MsiProperties` be partitioned per installer, or must each receive the full set? | Agent | Non-blocking | **RESOLVED** (2026-08-03). Already the existing design: the `Parameters` array in each `.msi.json` sidecar maps MSI parameters to deploy properties per installer. `Setup.Acceptance.msi.json` declares 12; `Setup.Dorc.msi.json` declares ~70. Each new installer declares only what it consumes. |
-| U-6 | Does `WixBuild` time scale with component count, as G-3's estimate assumes? | Agent | Non-blocking | **Unresolved.** Testable once the first split installer exists; the estimate should be revised then rather than defended. |
-| U-10 | What exactly is hashed for the G-5 configuration digest, and how is the digest prevented from becoming an oracle on secrets? | Agent | Non-blocking, but must be settled in the JIT spec | **Unresolved.** The applied configuration file contains the DB connection string, `DORC.API.CLIENTSECRET`, Kafka SASL credentials and OpenSearch credentials. A plain digest of the file is derived from secret material and published to the UI. Candidates: HMAC with a key held server-side; digest only the element paths plus non-secret values; or digest the whole file and accept that the high-entropy secrets in the set make brute-forcing impractical. Hashing the file *as deployed* (rather than the properties the installer intended) is preferred, because it also catches manual edits. |
-| U-7 | Are the three hand-authored custom actions (`SetCDrive`, `ReconfigureLoadUserProfileOrchestrator`, `ReconfigureLoadUserProfileRequestApi`) cleanly attributable to single installers? | Agent | Non-blocking | Two are named for Orchestrator and RequestApi respectively, suggesting UI and API. `SetCDrive` is unclear. |
-| U-8 | How do Monitors, Runners and CLIs report their version for G-5? No channel exists today — the schema has no heartbeat or instance table, `MetadataController` reports only the API's own assembly version, Runners execute on target servers and CLIs run ad hoc. | User + Agent | **Blocking** for G-5 | **Unresolved.** Raised by the resolution of U-1. Options include a heartbeat row written by each component, reading installed `ProductVersion` from the target servers' registry at query time, or scoping G-5 to only those components that can already be reached. These differ substantially in cost. |
-| U-9 | Does `DeployMSI` handle four products correctly, including uninstall ordering? It is defined in the external `DOrcDeployModule`, not this repository. | User | **Blocking** for SD-2 | **RESOLVED** (2026-08-03) by reading `sefe/dorc-ps-deploy-module`. `DeployMSI` takes `[System.String[]]$ProductNames` and iterates it, uninstalling each before installing — `Setup.Dorc.msi.json` already exercises this with two names (`Deployment Orchestrator`, `DevOps Orchestrator`), a precedent from an earlier rename. Deployment runs one `Start-Job` per target server, so per-server work is already parallel. No module change is required for four installers. |
+| U-1 | Version-skew policy | User | — | **RESOLVED.** Concurrent versions acceptable; visibility required. Moved to the visibility HLPS. |
+| U-2 | Deployability or build time? | User | — | **RESOLVED.** Independent deployability is the objective. |
+| U-3 | Migration for existing installs | User | — | **RESOLVED.** Uninstall-before-install; maintenance window acceptable. |
+| U-4 | Owner of `Wix4User` / `Wix4FileShare` / `Wix4FileSharePermissions` | Agent | — | **RESOLVED** from `Product.wxs`. `ToolsShare` (`CLITools` share, `util:User Everyone`) → CLIs. `LogsShare` (`Log` share, `Everyone1`) → Monitors. The remaining `util:User` rows are the `[SERVICE.IDENTITY]` grants inside the two IIS components → UI and API (but see C-8). |
+| U-5 | Property partitioning | Agent | — | **RESOLVED.** The sidecar `Parameters` map already does this. |
+| U-7 | Attribution of hand-authored custom actions | Agent | — | **RESOLVED.** `SetCDrive` is not hand-authored — it is emitted by `<SetDirectory Id="CDrive" Value="C:\"/>` and its only consumer is `LogsShare` → Monitors. Only `ReconfigureLoadUserProfileOrchestrator` (UI) and `…RequestApi` (API) are hand-authored. |
+| U-9 | `DeployMSI` across four products | User | — | **RESOLVED.** Takes `[String[]]$ProductNames` and iterates; already passes two names. One `Start-Job` per server. No module change needed. |
+| U-11 | Do the four product names collide under the module's uninstall matching? If matching is `-like`/prefix-based, four names sharing a prefix could uninstall each other — including packages installed earlier in the same run. | User | **Blocking** for SD-2 | **Unresolved.** Depends on the matching semantics in `dorc-ps-deploy-module`. |
+| U-12 | Who owns the certificates, given they cannot be refcounted (C-8)? Sole owner, duplicated-and-accept-breakage, or a shared prerequisites package? | User + Agent | **Blocking** for SD-1 | **Unresolved.** Affects package count — a prerequisites package would make it five, not four. |
+| U-13 | Fixed or auto (`*`) `ProductCode`s for the four packages, and is `MajorUpgrade` introduced (a mechanism this product has never used)? | User | **Blocking** for SD-2 | **Unresolved.** |
+| U-6 | Does `WixBuild` scale with component count or payload bytes? | Agent | Non-blocking | **Partially resolved.** Bytes, most likely — one embedded cabinet, one serial compression pass. G-3 should measure both. |
+| U-14 | Do the four new wixprojs carry the `<Exec>` local fallback (C-11)? | Agent | Non-blocking | **Unresolved.** Omitting it means a local build produces no MSI without running the payload stage first. |
 
-**Remaining blocker: U-8 only.** U-1, U-2 and U-3 were resolved by the user; U-5 and U-9 were then resolved by reading `sefe/dorc-ps-deploy-module`, which also corrected C-2 and shrank SD-3 substantially. U-8 (no version-reporting channel for Monitors, Runners and CLIs) still gates G-5. SD-1, SD-2 and SD-3 are unblocked and can form the early IS steps while U-8 is settled.
+**Blocking: U-11, U-12, U-13.** All three are consequences of taking the installer authoring seriously rather than reasoning from the compiled MSI. Per `CLAUDE.md` the IS is not written until they close.
 
 ---
 
 ## 8. Out-of-Scope Risks
 
-- **Rollback complexity grows.** Four installers mean four rollback operations, with the possibility of a partially rolled-back environment. Today rollback is atomic by construction.
-- **More upgrade identity to manage.** Four `UpgradeCode`s must remain stable forever; regenerating one silently breaks upgrades for that component.
-- **Artefact count in the drop.** `CopyDeploymentArtefactsBeforePublish.ps1` and the drop-share consumers see four MSIs plus `.msi.json` sidecars where they saw one.
-- **The build-time win is bounded by `Tools`.** If build time is the dominant motivation, the natural next step is splitting `Tools` further — which is not a deployment-topology boundary and would pull the design away from the deployability goal.
+- **Rollback is no longer atomic.** Four operations can individually fail. `RunDeployment.ps1` iterates `MsiFileNames` with no `try/catch` and no per-MSI outcome capture, so a mid-run failure can leave a component **absent** (uninstall succeeded, install did not) while the run reports success. This deserves promotion into scope in the IS.
+- **The real `DeploySettings.json` lives outside this repository.** A settings file still listing only `Setup.Dorc.msi` deploys nothing new, and does so **silently**.
+- **Four `UpgradeCode`s to keep stable forever.** Regenerating one silently breaks upgrades for that component.
+- **Further build gains require splitting `Tools`**, which is not a topology boundary and would pull the design away from the deployability goal.
+- **`SuppressValidation=True`** is set in both configurations, and `Setup.Acceptance` already needs `SuppressIces=ICE03`. Each new package needs a deliberate decision, and ICE validation is exactly what would catch C-8-class component-rule errors.
