@@ -17,11 +17,11 @@
     <Platforms>x64</Platforms>
 </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x64' ">
-    <DefineConstants>Debug;DorcWebUIDir=$(DorcWebUIDir);DorcRefDataApiDir=$(DorcRefDataApiDir);DorcApiDir=$(DorcApiDir);DorcMonitorDir=$(DorcMonitorDir);DorcRunnerDir=$(DorcRunnerDir);DorcNetFrameworkRunnerDir=$(DorcNetFrameworkRunnerDir);DorcTerraformRunnerDir=$(DorcTerraformRunnerDir);ToolsDCEBDir=$(ToolsDCEBDir);ToolsPREDir=$(ToolsPREDir);ToolsPVCDir=$(ToolsPVCDir);ToolsReqDir=$(ToolsReqDir);ToolsEMDir=$(ToolsEMDir)</DefineConstants>
+    <DefineConstants>Debug;DorcWebUIDir=$(DorcWebUIDir);DorcApiDir=$(DorcApiDir);DorcMonitorDir=$(DorcMonitorDir);DorcRunnerDir=$(DorcRunnerDir);DorcNetFrameworkRunnerDir=$(DorcNetFrameworkRunnerDir);DorcTerraformRunnerDir=$(DorcTerraformRunnerDir);ToolsDCEBDir=$(ToolsDCEBDir);ToolsPREDir=$(ToolsPREDir);ToolsPVCDir=$(ToolsPVCDir);ToolsReqDir=$(ToolsReqDir);ToolsEMDir=$(ToolsEMDir)</DefineConstants>
     <SuppressValidation>True</SuppressValidation>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|x64' ">
-    <DefineConstants>DorcWebUIDir=$(DorcWebUIDir);DorcRefDataApiDir=$(DorcRefDataApiDir);DorcApiDir=$(DorcApiDir);DorcMonitorDir=$(DorcMonitorDir);DorcRunnerDir=$(DorcRunnerDir);DorcNetFrameworkRunnerDir=$(DorcNetFrameworkRunnerDir);DorcTerraformRunnerDir=$(DorcTerraformRunnerDir);ToolsDCEBDir=$(ToolsDCEBDir);ToolsPREDir=$(ToolsPREDir);ToolsPVCDir=$(ToolsPVCDir);ToolsReqDir=$(ToolsReqDir);ToolsEMDir=$(ToolsEMDir)</DefineConstants>
+    <DefineConstants>DorcWebUIDir=$(DorcWebUIDir);DorcApiDir=$(DorcApiDir);DorcMonitorDir=$(DorcMonitorDir);DorcRunnerDir=$(DorcRunnerDir);DorcNetFrameworkRunnerDir=$(DorcNetFrameworkRunnerDir);DorcTerraformRunnerDir=$(DorcTerraformRunnerDir);ToolsDCEBDir=$(ToolsDCEBDir);ToolsPREDir=$(ToolsPREDir);ToolsPVCDir=$(ToolsPVCDir);ToolsReqDir=$(ToolsReqDir);ToolsEMDir=$(ToolsEMDir)</DefineConstants>
     <SuppressValidation>True</SuppressValidation>
   </PropertyGroup>
   <ItemGroup>

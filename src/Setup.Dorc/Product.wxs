@@ -93,7 +93,6 @@
 							<Directory Id="DorcWebFolder" Name="Orchestrator">
 								<Directory Id="DorcWebHealthFolder" Name="health" />
 							</Directory>
-							<Directory Id="ReferenceDataApi" Name="ReferenceDataApi" />
 							<Directory Id="RequestApi" Name="Api" />
 						</Directory>
 						<Directory Id="ServicesFolder" Name="Services" />

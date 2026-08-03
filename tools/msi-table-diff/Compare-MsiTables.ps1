@@ -1,0 +1,209 @@
+<#
+.SYNOPSIS
+    Compares the installer tables of one or more MSIs against a baseline.
+
+.DESCRIPTION
+    Acceptance gate for the installer decomposition (docs/msi-decomposition/).
+
+    G-1 requires that the union of the split packages installs exactly what the
+    single Setup.Dorc.msi installed. This compares on (target directory, file
+    name, version) and deliberately ignores File Ids, because re-harvesting
+    into new wixproj files legitimately regenerates them — a naive Id
+    comparison reports near-total churn and tells you nothing.
+
+    -Package accepts several MSIs so the union can be compared against the
+    baseline. During the extraction steps (S-005..S-008) that union is the
+    extracted packages PLUS the residual monolith, which lets the invariant be
+    checked at every step rather than only at the end.
+
+    Reads via the WindowsInstaller COM API, so it runs on the build agent with
+    no additional tooling.
+
+.PARAMETER Baseline
+    The reference MSI, typically the last single-package build.
+
+.PARAMETER Package
+    One or more MSIs whose union is compared against the baseline.
+
+.PARAMETER Table
+    Additional tables to compare by row count and key set. Structural drift in
+    these is reported but, unlike the file set, does not by itself fail the
+    run — a split legitimately redistributes components between packages.
+
+.EXAMPLE
+    .\Compare-MsiTables.ps1 -Baseline .\baseline\Setup.Dorc.msi `
+                            -Package .\out\Setup.Dorc.Api.msi, .\out\Setup.Dorc.msi
+
+.NOTES
+    Exit 0 = no drift in the file set. Exit 1 = drift, or a package could not
+    be read. A comparison that cannot fail is not a test: verify this reports
+    zero against itself AND non-zero against an unrelated MSI before trusting
+    it (S-001 verification intent).
+#>
+[CmdletBinding()]
+param(
+    [Parameter(Mandatory)][string]   $Baseline,
+    [Parameter(Mandatory)][string[]] $Package,
+    [string[]] $Table = @('Component', 'Directory', 'Feature', 'FeatureComponents',
+                          'Registry', 'ServiceInstall', 'CustomAction')
+)
+
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+
+# MSI stores short and long names as "SHORT|Long". The long name is the one
+# that lands on disk, and the one a human recognises.
+function Get-LongName([string] $Value) {
+    if ([string]::IsNullOrEmpty($Value)) { return $Value }
+    $parts = $Value -split '\|', 2
+    return $parts[-1]
+}
+
+function Get-MsiTable {
+    param([string] $Path, [string] $TableName)
+
+    $installer = New-Object -ComObject WindowsInstaller.Installer
+    try {
+        # 0 = read-only
+        $database = $installer.GetType().InvokeMember(
+            'OpenDatabase', 'InvokeMethod', $null, $installer, @($Path, 0))
+
+        # Absent tables are normal (not every package has ServiceInstall).
+        $names = $database.GetType().InvokeMember('OpenView', 'InvokeMethod', $null, $database,
+                    @("SELECT Name FROM _Tables WHERE Name = '$TableName'"))
+        $names.GetType().InvokeMember('Execute', 'InvokeMethod', $null, $names, $null)
+        $exists = $names.GetType().InvokeMember('Fetch', 'InvokeMethod', $null, $names, $null)
+        if ($null -eq $exists) { return @() }
+
+        $view = $database.GetType().InvokeMember('OpenView', 'InvokeMethod', $null, $database,
+                    @("SELECT * FROM ``$TableName``"))
+        $view.GetType().InvokeMember('Execute', 'InvokeMethod', $null, $view, $null)
+
+        $columns = $view.GetType().InvokeMember('ColumnInfo', 'GetProperty', $null, $view, @(0))
+        $columnCount = $columns.GetType().InvokeMember('FieldCount', 'GetProperty', $null, $columns, $null)
+        $headers = 1..$columnCount | ForEach-Object {
+            $columns.GetType().InvokeMember('StringData', 'GetProperty', $null, $columns, @($_))
+        }
+
+        $rows = New-Object System.Collections.Generic.List[object]
+        while ($true) {
+            $record = $view.GetType().InvokeMember('Fetch', 'InvokeMethod', $null, $view, $null)
+            if ($null -eq $record) { break }
+            $row = [ordered]@{}
+            for ($i = 1; $i -le $columnCount; $i++) {
+                $row[$headers[$i - 1]] =
+                    $record.GetType().InvokeMember('StringData', 'GetProperty', $null, $record, @($i))
+            }
+            $rows.Add([pscustomobject]$row)
+        }
+        return $rows
+    }
+    finally {
+        [System.Runtime.InteropServices.Marshal]::FinalReleaseComObject($installer) | Out-Null
+    }
+}
+
+# Resolve each Directory row to a full target path by walking Directory_Parent.
+function Get-DirectoryPaths([object[]] $Directories) {
+    $byId = @{}
+    foreach ($d in $Directories) { $byId[$d.Directory] = $d }
+
+    $resolved = @{}
+    function Resolve-One([string] $Id) {
+        if ($resolved.ContainsKey($Id)) { return $resolved[$Id] }
+        if (-not $byId.ContainsKey($Id)) { return $Id }
+
+        $row  = $byId[$Id]
+        $name = Get-LongName $row.DefaultDir
+        # '.' means "same as parent" and contributes no path segment.
+        if ($name -eq '.') { $name = '' }
+
+        $parentId = $row.Directory_
+        if ([string]::IsNullOrEmpty($parentId) -or $parentId -eq $Id) {
+            $path = $name
+        }
+        else {
+            $parent = Resolve-One $parentId
+            $path = if ($name) { "$parent/$name".TrimStart('/') } else { $parent }
+        }
+        $resolved[$Id] = $path
+        return $path
+    }
+
+    foreach ($d in $Directories) { Resolve-One $d.Directory | Out-Null }
+    return $resolved
+}
+
+# The comparable identity of a package's payload: where each file lands, what
+# it is called, and which version it is.
+function Get-FileSet([string] $Path) {
+    $files      = Get-MsiTable -Path $Path -TableName 'File'
+    $components = Get-MsiTable -Path $Path -TableName 'Component'
+    $dirs       = Get-MsiTable -Path $Path -TableName 'Directory'
+
+    $componentDir = @{}
+    foreach ($c in $components) { $componentDir[$c.Component] = $c.Directory_ }
+    $dirPaths = Get-DirectoryPaths $dirs
+
+    $set = @{}
+    foreach ($f in $files) {
+        $dirId = $componentDir[$f.Component_]
+        $dir   = if ($dirId -and $dirPaths.ContainsKey($dirId)) { $dirPaths[$dirId] } else { '<unresolved>' }
+        $key   = '{0}/{1}|{2}' -f $dir, (Get-LongName $f.FileName), $f.Version
+        $set[$key] = $true
+    }
+    return $set
+}
+
+# --- compare -----------------------------------------------------------------
+
+Write-Host "Baseline : $Baseline"
+$baselineSet = Get-FileSet -Path $Baseline
+Write-Host ("           {0} files" -f $baselineSet.Count)
+
+$unionSet = @{}
+$duplicates = New-Object System.Collections.Generic.List[string]
+foreach ($p in $Package) {
+    $set = Get-FileSet -Path $p
+    Write-Host ("Package  : {0} ({1} files)" -f $p, $set.Count)
+    foreach ($k in $set.Keys) {
+        # A file at the same target path in two packages is not automatically
+        # wrong — but it is never accidental, so surface it.
+        if ($unionSet.ContainsKey($k)) { $duplicates.Add($k) }
+        $unionSet[$k] = $true
+    }
+}
+Write-Host ("Union    : {0} files" -f $unionSet.Count)
+Write-Host ''
+
+$missing = @($baselineSet.Keys | Where-Object { -not $unionSet.ContainsKey($_) } | Sort-Object)
+$extra   = @($unionSet.Keys    | Where-Object { -not $baselineSet.ContainsKey($_) } | Sort-Object)
+
+if ($duplicates.Count -gt 0) {
+    Write-Host ("NOTE: {0} file(s) appear at the same target path in more than one package:" -f $duplicates.Count)
+    $duplicates | Sort-Object -Unique | Select-Object -First 20 | ForEach-Object { Write-Host "   = $_" }
+    Write-Host ''
+}
+
+foreach ($t in $Table) {
+    $b = @(Get-MsiTable -Path $Baseline -TableName $t).Count
+    $u = 0
+    foreach ($p in $Package) { $u += @(Get-MsiTable -Path $p -TableName $t).Count }
+    $flag = if ($b -eq $u) { 'match' } else { 'differs' }
+    Write-Host ("  [{0,-7}] {1,-18} baseline={2,-6} union={3}" -f $flag, $t, $b, $u)
+}
+Write-Host ''
+
+if ($missing.Count -eq 0 -and $extra.Count -eq 0) {
+    Write-Host 'RESULT: no drift in the file set.'
+    exit 0
+}
+
+Write-Host ("MISSING from the packages ({0}) — these would stop being installed:" -f $missing.Count)
+$missing | Select-Object -First 40 | ForEach-Object { Write-Host "   - $_" }
+Write-Host ''
+Write-Host ("EXTRA in the packages ({0}) — these were not in the baseline:" -f $extra.Count)
+$extra | Select-Object -First 40 | ForEach-Object { Write-Host "   + $_" }
+Write-Host ''
+Write-Host 'RESULT: DRIFT DETECTED.'
+exit 1
