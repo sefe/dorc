@@ -122,12 +122,36 @@ export const attachedServersNarrow = (host: Host): Wiring<any> => ({
 });
 
 export const previousAttemptsNarrow = (host: Host): Wiring<any> => ({
+  // The wide log renderer (button + excerpt table) must NOT be the actions
+  // slot — it crushes the primary column (found in the worst-case screenshot
+  // pass). Compact button in actions; excerpt via disclosure-style details.
   template: {
     primary: hostCell(host, 'componentNameRenderer'),
-    metadata: item =>
-      html`${hostCell(host, 'componentTimingsRenderer')(item)}
-      ${hostCell(host, 'componentStatusRenderer')(item)}`,
-    actions: hostCell(host, 'componentLogRenderer')
+    metadata: hostCell(host, 'componentTimingsRenderer'),
+    chip: chipFromPath('Status'),
+    actions: item => html`
+      <vaadin-button
+        theme="small"
+        title="View log"
+        style="min-width: 36px; padding: 0"
+        @click="${(e: Event) => {
+          e.stopPropagation();
+          (host as { viewComponentLog: (r: unknown) => void }).viewComponentLog(item);
+        }}"
+      >
+        <vaadin-icon
+          icon="vaadin:file-text-o"
+          style="color: var(--dorc-link-color)"
+        ></vaadin-icon>
+      </vaadin-button>
+    `,
+    details: item =>
+      html`<div
+        class="dorc-list-details"
+        style="font-family: monospace; font-size: var(--lumo-font-size-xs);"
+      >
+        ${pathText(item, 'Log').substring(0, 200)}
+      </div>`
   }
 });
 

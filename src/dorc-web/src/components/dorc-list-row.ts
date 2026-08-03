@@ -79,6 +79,22 @@ export const listRowStyles = css`
     background: var(--lumo-error-color-10pct);
     color: var(--lumo-error-text-color);
   }
+  .dorc-list-row__disclose {
+    flex: none;
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-size: var(--lumo-font-size-l);
+    color: var(--lumo-secondary-text-color);
+    min-width: 24px;
+    min-height: 24px; /* WCAG 2.5.8 */
+    transform: rotate(0deg);
+    transition: transform 0.1s;
+    padding: 0 var(--lumo-space-xs);
+  }
+  .dorc-list-row__disclose--open {
+    transform: rotate(90deg);
+  }
   .dorc-list-row__actions {
     flex: none;
     display: flex;
@@ -116,12 +132,30 @@ export const listRowStyles = css`
   }
 `;
 
-/** Render one list row from a template. */
+/**
+ * Render one list row from a template. When the template declares details,
+ * the row carries its own disclosure affordance (chevron button toggling an
+ * inline details block, aria-expanded template-owned per HLPS R3-F1) —
+ * self-contained, so views need no grid-level rowDetails wiring. Expansion
+ * state lives in the cell DOM; a virtualised grid recycling the cell resets
+ * it, which is acceptable for the collapse-by-default default.
+ */
 export function renderListRow<T>(
   template: ListRowTemplate<T>,
   item: T
 ): TemplateResult {
   const chip = template.chip?.(item) ?? null;
+  const toggle = (e: Event) => {
+    e.stopPropagation();
+    const btn = e.currentTarget as HTMLElement;
+    const row = btn.closest('.dorc-list-row') as HTMLElement;
+    const panel = row.querySelector('.dorc-list-row__details') as HTMLElement;
+    const open = panel.hasAttribute('hidden');
+    if (open) panel.removeAttribute('hidden');
+    else panel.setAttribute('hidden', '');
+    btn.setAttribute('aria-expanded', String(open));
+    btn.classList.toggle('dorc-list-row__disclose--open', open);
+  };
   return html`
     <div class="dorc-list-row">
       <div class="dorc-list-row__body">
@@ -138,7 +172,23 @@ export function renderListRow<T>(
               ${template.metadata(item)}
             </div>`
           : nothing}
+        ${template.details
+          ? html`<div class="dorc-list-row__details" hidden>
+              ${template.details(item)}
+            </div>`
+          : nothing}
       </div>
+      ${template.details
+        ? html`<button
+            type="button"
+            class="dorc-list-row__disclose"
+            aria-expanded="false"
+            aria-label="Show details"
+            @click="${toggle}"
+          >
+            ›
+          </button>`
+        : nothing}
       ${template.actions
         ? html`<div class="dorc-list-row__actions">${template.actions(item)}</div>`
         : nothing}
