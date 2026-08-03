@@ -64,7 +64,11 @@ $ErrorActionPreference = 'Stop'
 # appear in an MSI string field.
 $script:FieldSeparator = [string][char]1
 
-function Split-Row([string] $Row) { return $Row.Split([char]1) }
+# Always an array, even for one field. Returning the split bare lets a
+# single-element result arrive as a bare string, and .Count on that is an
+# error under StrictMode — which is how this failed. The unary comma stops the
+# enumeration; callers wrap in @() as well so the guarantee is local to them.
+function Split-Row([string] $Row) { return , $Row.Split([char]1) }
 
 # MSI stores short and long names as "SHORT|Long". The long name is the one
 # that lands on disk, and the one a human recognises.
@@ -151,7 +155,7 @@ function Get-DirectoryPaths($Directories) {
     $parentOf = @{}
     $nameOf   = @{}
     foreach ($rowText in $Directories) {
-        $d = Split-Row $rowText
+        $d = @(Split-Row $rowText)
         if ($d.Count -lt 3) { continue }
         $id = $d[0]
         if ([string]::IsNullOrEmpty($id)) { continue }
@@ -194,7 +198,7 @@ function Get-FileSet([string] $Path) {
     # [Component_, FileName, Version].
     $componentDir = @{}
     foreach ($rowText in $components) {
-        $c = Split-Row $rowText
+        $c = @(Split-Row $rowText)
         if ($c.Count -lt 2) { continue }
         $componentDir[$c[0]] = $c[1]
     }
@@ -202,7 +206,7 @@ function Get-FileSet([string] $Path) {
 
     $set = @{}
     foreach ($rowText in $files) {
-        $f = Split-Row $rowText
+        $f = @(Split-Row $rowText)
         if ($f.Count -lt 3) { continue }
         $dirId = $componentDir[$f[0]]
         $dir   = if ($dirId -and $dirPaths.ContainsKey($dirId)) { $dirPaths[$dirId] } else { '<unresolved>' }
@@ -217,7 +221,7 @@ function Get-FileSet([string] $Path) {
 function Get-RegistrySet([string] $Path) {
     $set = @{}
     foreach ($rowText in Get-MsiTable -Path $Path -TableName 'Registry' -Columns 'Root', 'Key', 'Name', 'Value') {
-        $r = Split-Row $rowText
+        $r = @(Split-Row $rowText)
         if ($r.Count -lt 4) { continue }
         $set[('{0}\{1}\{2}={3}' -f $r[0], $r[1], $r[2], $r[3])] = $true
     }
@@ -229,7 +233,7 @@ function Get-RegistrySet([string] $Path) {
 function Get-CertificateSet([string] $Path) {
     $set = @{}
     foreach ($rowText in Get-MsiTable -Path $Path -TableName 'Certificate' -Columns 'Name', 'StoreLocation', 'StoreName') {
-        $c = Split-Row $rowText
+        $c = @(Split-Row $rowText)
         if ($c.Count -lt 3) { continue }
         $set[('{0}|{1}|{2}' -f $c[0], $c[1], $c[2])] = $true
     }
