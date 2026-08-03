@@ -12,7 +12,8 @@ No [ENV] host has been available for any step so far. Every entry below that car
 | S-004 | `4894061` | pending run | n/a | partially verified |
 | S-005 | —         | —    | —     | **blocked**: needs a Windows host with IIS |
 | S-006 | `e0b39d0` | pending run | not run | partially verified |
-| S-007…S-013 | — | — | — | not started |
+| S-007 | `d2fe1fd` | pending run | not run | partially verified |
+| S-008…S-013 | — | — | — | not started; S-008 and S-009 blocked behind S-005 |
 
 ---
 
@@ -60,3 +61,25 @@ Its five parameters are a strict subset of the monolith's, so no environment nee
 **Outstanding [ENV]:** standalone install and uninstall, the `CLITools` share, and — the first live test of S-003 — that uninstalling the CLIs leaves the residual's files alone.
 
 **Outstanding [CI]:** the G-1 union comparison, which cannot run until the baseline is pinned. Until then the file set is unverified against the monolith, and the claim that this is a pure move rests on reading rather than measurement.
+
+## S-007 — Monitors package
+
+`Setup.Dorc.Monitors.msi` carries the eight service and runner components, both `ServiceInstall` rows, the eight harvested groups and the `C:\Log` share, with component GUIDs unchanged. `Services\` is monitors-owned outright, so its recursive cleanup moved with it. Sidecar, registration and artifact collection landed in the same commit.
+
+Its 45 parameters were derived from the properties the authoring actually references and checked against the monolith's 72, so they are a strict subset.
+
+The Kafka drift guard was checking all three `.wxs` files against one sidecar. It now pairs each with the sidecar of the package that ships it — the same assertion, correctly targeted now that there is more than one package.
+
+**Outstanding [ENV]:** that installing registers both services under the names `ServiceInstall` declares and uninstalling removes them; and that the Monitors package installs standalone on a machine with no other DOrc package, since the runners must not have acquired a hidden dependency on API files.
+
+**Outstanding [CI]:** the G-1 union comparison, for the same reason as S-006 — the baseline is not pinned.
+
+---
+
+## What is needed from someone with an environment
+
+Three things unblock the rest of this work, and none of them can be done from the repository:
+
+1. **Pin the baseline.** Set `MSI_BASELINE_RUN_ID` to the last single-package build. Until then the union comparison — the invariant the whole sequence is built around — has never actually run against a real baseline.
+2. **Provide a Windows host with IIS.** Everything marked [ENV] above is waiting on it, and S-005 cannot start without it.
+3. **Run S-005.** S-008 (API) and S-009 (UI) are both authored against its outcome, so the decomposition stops here until the certificate question is settled.
