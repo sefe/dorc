@@ -430,6 +430,13 @@ jobs:
           Write-Host "Copied DOrc MSI installer"
         }
         
+        $source = "${{ github.workspace }}\src\Setup.Dorc.Api\bin\x64\${{ env.BUILD_CONFIGURATION }}"
+        if (Test-Path $source) {
+          Copy-Item -Path "$source\*.msi" -Destination $target -Force -ErrorAction SilentlyContinue
+          Copy-Item -Path "$source\*.json" -Destination $target -Force -ErrorAction SilentlyContinue
+          Write-Host "Copied DOrc API MSI installer"
+        }
+
         $source = "${{ github.workspace }}\src\Setup.Dorc.Monitors\bin\x64\${{ env.BUILD_CONFIGURATION }}"
         if (Test-Path $source) {
           Copy-Item -Path "$source\*.msi" -Destination $target -Force -ErrorAction SilentlyContinue

@@ -184,6 +184,13 @@ steps:
     include: '*.msi,*.json'
 
 - task: richardfennellbm.BM-VSTS-FileCopier-Tasks.FileCopyTask.FileCopy@4
+  displayName: 'Copy DOrc API MSI Installer'
+  inputs:
+    sourceFolder: '$(Build.SourcesDirectory)\src\Setup.Dorc.Api\bin\x64\$(BuildConfiguration)'
+    targetFolder: '$(Build.ArtifactStagingDirectory)\Server'
+    include: '*.msi,*.json'
+
+- task: richardfennellbm.BM-VSTS-FileCopier-Tasks.FileCopyTask.FileCopy@4
   displayName: 'Copy DOrc Monitors MSI Installer'
   inputs:
     sourceFolder: '$(Build.SourcesDirectory)\src\Setup.Dorc.Monitors\bin\x64\$(BuildConfiguration)'

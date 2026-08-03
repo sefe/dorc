@@ -1,0 +1,225 @@
+{
+  "ProductNames": [
+    "DOrc API"
+  ],
+  "ServerType": "WebServer",
+  "Services": [],
+  "Parameters": [
+    {
+      "MSIParameter": "ENVIRONMENT",
+      "DeployProperty": "ENVIRONMENT"
+    },
+    {
+      "MSIParameter": "SERVICE.PASSWORD",
+      "DeployProperty": "SERVICE_PASSWORD"
+    },
+    {
+      "MSIParameter": "SERVICE.IDENTITY",
+      "DeployProperty": "SERVICE_IDENTITY"
+    },
+    {
+      "MSIParameter": "DEPLOYMENT.DBSERVER",
+      "DeployProperty": "DEPLOYMENT_DBSERVER"
+    },
+    {
+      "MSIParameter": "DEPLOYMENT.DB",
+      "DeployProperty": "DEPLOYMENT_DB"
+    },
+    {
+      "MSIParameter": "DEPLOYAPI.ENDPOINT",
+      "DeployProperty": "DEPLOYAPI_ENDPOINT"
+    },
+    {
+      "MSIParameter": "DEPLOYMENTORCHESTRATOR.CORS",
+      "DeployProperty": "DEPLOYMENTORCHESTRATOR_CORS"
+    },
+    {
+      "MSIParameter": "AD.ROLEPROVIDER.GROUP.POWERUSER",
+      "DeployProperty": "AD_ROLEPROVIDER_GROUP_POWERUSER"
+    },
+    {
+      "MSIParameter": "AD.ROLEPROVIDER.GROUP.ADMIN",
+      "DeployProperty": "AD_ROLEPROVIDER_GROUP_ADMIN"
+    },
+    {
+      "MSIParameter": "AADADOSORGURL",
+      "DeployProperty": "AADADOSORGURL"
+    },
+    {
+      "MSIParameter": "AADCLIENTID",
+      "DeployProperty": "AADCLIENTID"
+    },
+    {
+      "MSIParameter": "AADSECRET",
+      "DeployProperty": "AADSECRET"
+    },
+    {
+      "MSIParameter": "AADTENANT",
+      "DeployProperty": "AADTENANT"
+    },
+    {
+      "MSIParameter": "DOMAINNAME",
+      "DeployProperty": "DOMAINNAME"
+    },
+    {
+      "MSIParameter": "DOMAINNAMEINTRA",
+      "DeployProperty": "DOMAINNAMEINTRA"
+    },
+    {
+      "MSIParameter": "CERTIFICATE.PASSWORD",
+      "DeployProperty": "CERTIFICATE_PASSWORD"
+    },
+    {
+      "MSIParameter": "DORC.AUTHENTICATION.SCHEME",
+      "DeployProperty": "DORC_AUTHENTICATION_SCHEME"
+    },
+    {
+      "MSIParameter": "DORC.OAUTH.AUTHORITY",
+      "DeployProperty": "DORC_OAUTH_AUTHORITY"
+    },
+    {
+      "MSIParameter": "DORC.OAUTH.UI.CLIENT.ID",
+      "DeployProperty": "DORC_OAUTH_UI_CLIENT_ID"
+    },
+    {
+      "MSIParameter": "DORC.OAUTH.UI.REQUESTED.SCOPES",
+      "DeployProperty": "DORC_OAUTH_UI_REQUESTED_SCOPES"
+    },
+    {
+      "MSIParameter": "DORC.OAUTH.API.RESOURCE.NAME",
+      "DeployProperty": "DORC_OAUTH_API_RESOURCE_NAME"
+    },
+    {
+      "MSIParameter": "DORC.OAUTH.API.GLOBAL.SCOPE",
+      "DeployProperty": "DORC_OAUTH_API_GLOBAL_SCOPE"
+    },
+    {
+      "MSIParameter": "ONE.PASSWORD.BASE.URL",
+      "DeployProperty": "ONE_PASSWORD_BASE_URL"
+    },
+    {
+      "MSIParameter": "ONE.PASSWORD.APIKEY",
+      "DeployProperty": "ONE_PASSWORD_APIKEY"
+    },
+    {
+      "MSIParameter": "ONE.PASSWORD.VAULT.ID",
+      "DeployProperty": "ONE_PASSWORD_VAULT_ID"
+    },
+    {
+      "MSIParameter": "ONE.PASSWORD.ITEM.ID",
+      "DeployProperty": "ONE_PASSWORD_ITEM_ID"
+    },
+    {
+      "MSIParameter": "OPENSEARCH.URI",
+      "DeployProperty": "OPENSEARCH_URI"
+    },
+    {
+      "MSIParameter": "OPENSEARCH.USERNAME",
+      "DeployProperty": "OPENSEARCH_USERNAME"
+    },
+    {
+      "MSIParameter": "OPENSEARCH.PASSWORD",
+      "DeployProperty": "OPENSEARCH_PASSWORD"
+    },
+    {
+      "MSIParameter": "OPENSEARCH.DEPLOYMENTRESULTINDEX",
+      "DeployProperty": "OPENSEARCH_DEPLOYMENTRESULTINDEX"
+    },
+    {
+      "MSIParameter": "IDENTITYSERVER.CLIENTID",
+      "DeployProperty": "IDENTITYSERVER_CLIENTID"
+    },
+    {
+      "MSIParameter": "ONE.PASSWORD.IDENTITYSERVER.APISECRET.ITEMID",
+      "DeployProperty": "ONE_PASSWORD_IDENTITYSERVER_APISECRET_ITEMID"
+    },
+    {
+      "MSIParameter": "AZURE.SIGNALR.USE",
+      "DeployProperty": "AZURE_SIGNALR_USE"
+    },
+    {
+      "MSIParameter": "AZURE.SIGNALR.CONNECTIONSTRING",
+      "DeployProperty": "AZURE_SIGNALR_CONNECTIONSTRING"
+    },
+    {
+      "MSIParameter": "AZURESTORAGEACCOUNT.TENANTID",
+      "DeployProperty": "AZURESTORAGEACCOUNT_TENANTID"
+    },
+    {
+      "MSIParameter": "AZURESTORAGEACCOUNT.CLIENTID",
+      "DeployProperty": "AZURESTORAGEACCOUNT_CLIENTID"
+    },
+    {
+      "MSIParameter": "AZURESTORAGEACCOUNT.CLIENTSECRET",
+      "DeployProperty": "AZURESTORAGEACCOUNT_CLIENTSECRET"
+    },
+    {
+      "MSIParameter": "AZURESTORAGEACCOUNT.URI",
+      "DeployProperty": "AZURESTORAGEACCOUNT_URI"
+    },
+    {
+      "MSIParameter": "AZURESTORAGEACCOUNT.TERRAFORMBLOBSCONTAINERNAME",
+      "DeployProperty": "AZURESTORAGEACCOUNT_TERRAFORMBLOBSCONTAINERNAME"
+    },
+    {
+      "MSIParameter": "OTEL.COLLECTOR.URL",
+      "DeployProperty": "OTEL_COLLECTOR_URL"
+    },
+    {
+      "MSIParameter": "KAFKA.ENABLED",
+      "DeployProperty": "KAFKA_ENABLED"
+    },
+    {
+      "MSIParameter": "KAFKA.BOOTSTRAPSERVERS",
+      "DeployProperty": "KAFKA_BOOTSTRAPSERVERS"
+    },
+    {
+      "MSIParameter": "KAFKA.SASL.USERNAME",
+      "DeployProperty": "KAFKA_SASL_USERNAME"
+    },
+    {
+      "MSIParameter": "KAFKA.SASL.PASSWORD",
+      "DeployProperty": "KAFKA_SASL_PASSWORD"
+    },
+    {
+      "MSIParameter": "KAFKA.SSLCA.LOCATION",
+      "DeployProperty": "KAFKA_SSLCA_LOCATION"
+    },
+    {
+      "MSIParameter": "KAFKA.SCHEMAREGISTRY.URL",
+      "DeployProperty": "KAFKA_SCHEMAREGISTRY_URL"
+    },
+    {
+      "MSIParameter": "KAFKA.SCHEMAREGISTRY.BASICAUTH.USERNAME",
+      "DeployProperty": "KAFKA_SCHEMAREGISTRY_BASICAUTH_USERNAME"
+    },
+    {
+      "MSIParameter": "KAFKA.SCHEMAREGISTRY.BASICAUTH.PASSWORD",
+      "DeployProperty": "KAFKA_SCHEMAREGISTRY_BASICAUTH_PASSWORD"
+    },
+    {
+      "MSIParameter": "KAFKA.TOPICS.LOCKS",
+      "DeployProperty": "KAFKA_TOPICS_LOCKS"
+    },
+    {
+      "MSIParameter": "KAFKA.TOPICS.REQUESTSNEW",
+      "DeployProperty": "KAFKA_TOPICS_REQUESTSNEW"
+    },
+    {
+      "MSIParameter": "KAFKA.TOPICS.REQUESTSSTATUS",
+      "DeployProperty": "KAFKA_TOPICS_REQUESTSSTATUS"
+    },
+    {
+      "MSIParameter": "KAFKA.TOPICS.RESULTSSTATUS",
+      "DeployProperty": "KAFKA_TOPICS_RESULTSSTATUS"
+    },
+    {
+      "MSIParameter": "KAFKA.TOPICS.REQUESTSNEWDLQ",
+      "DeployProperty": "KAFKA_TOPICS_REQUESTSNEWDLQ"
+    },
+    {
+      "MSIParameter": "PAUSE.DEPLOYMENT.ENABLED",
+      "DeployProperty": "PAUSE_DEPLOYMENT_ENABLED"
+    }
+  ]
+}

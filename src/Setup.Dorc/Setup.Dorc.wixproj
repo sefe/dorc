@@ -4,7 +4,8 @@
     <Platform Condition=" '$(Platform)' == '' ">x64</Platform>
     <Name>Setup.Dorc</Name>
     <DorcWebUIDir>$(SolutionDir)dorc-web\dist</DorcWebUIDir>
-    <DorcApiDir>$(SolutionDir)Dorc.Api\bin\$(Configuration)\net8.0\publish</DorcApiDir>
+    <!-- See Setup.Dorc.Api.wixproj: the certificates are named, not inherited from a project reference. -->
+    <DorcCertDir>$(SolutionDir)Dorc.Api</DorcCertDir>
     <Platforms>x64</Platforms>
     <!--
       Both pipelines pass /p:Version as yy.MM.dd.<run>, e.g. 26.08.03.2689.
@@ -18,16 +19,15 @@
     <DorcProductVersion Condition="'$(DorcProductVersion)' == ''">0.0.1</DorcProductVersion>
 </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x64' ">
-    <DefineConstants>Debug;DorcWebUIDir=$(DorcWebUIDir);DorcApiDir=$(DorcApiDir);BuildVersion=$(DorcProductVersion)</DefineConstants>
+    <DefineConstants>Debug;DorcWebUIDir=$(DorcWebUIDir);DorcCertDir=$(DorcCertDir);BuildVersion=$(DorcProductVersion)</DefineConstants>
     <SuppressValidation>True</SuppressValidation>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|x64' ">
-    <DefineConstants>DorcWebUIDir=$(DorcWebUIDir);DorcApiDir=$(DorcApiDir);BuildVersion=$(DorcProductVersion)</DefineConstants>
+    <DefineConstants>DorcWebUIDir=$(DorcWebUIDir);DorcCertDir=$(DorcCertDir);BuildVersion=$(DorcProductVersion)</DefineConstants>
     <SuppressValidation>True</SuppressValidation>
   </PropertyGroup>
   <ItemGroup>
     <Folder Include="Web" />
-    <Folder Include="Web\RequestApi" />
     <Folder Include="Web\Orchestrator" />
   </ItemGroup>
   <ItemGroup>
@@ -39,17 +39,6 @@
     <Content Include="Install.Orchestrator.bat">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="Web\RequestApi\HeatTransform.xslt" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\Dorc.Api\Dorc.Api.csproj">
-      <Name>Dorc.Api</Name>
-      <Project>{e4958e0f-ec3c-4943-adfb-deb744f5ab57}</Project>
-      <Private>True</Private>
-      <DoNotHarvest>True</DoNotHarvest>
-      <RefProjectOutputGroups>Binaries;Content;Satellites</RefProjectOutputGroups>
-      <RefTargetDir>INSTALLFOLDER</RefTargetDir>
-    </ProjectReference>
   </ItemGroup>
   <!--
     The placeholder above is for the inner loop only. A CI build that produced
@@ -61,28 +50,6 @@
     <Error Text="No Version property was supplied, so the package would be versioned $(DorcProductVersion). Pass /p:Version=&lt;build number&gt;." />
   </Target>
 
-  <!--
-    Local-build fallback only. CI runs src\InstallerPayload.proj as an explicit
-    stage first and then passes DorcPayloadPrepublished=true, which skips this
-    target entirely.
-
-    These <Exec> calls spawn child processes the parent MSBuild cannot see,
-    schedule or deduplicate. Under a parallel solution build this wixproj and
-    Setup.Acceptance run their chains concurrently and race the outer build for
-    the same intermediate outputs (CS2012 on
-    Dorc.NetFramework.PowerShell\obj\Release\*.dll). That is why the solution
-    build was pinned to a single node.
-
-    Kept for the inner loop so that building the solution in Visual Studio still
-    produces a working MSI without a separate step. It carries the same race
-    risk it always has; if you hit CS2012 locally, run
-    `msbuild src\InstallerPayload.proj` first and then build with
-    /p:DorcPayloadPrepublished=true.
-  -->
-  <Target Name="PublishProjects" AfterTargets="BeforeResolveReferences"
-          Condition="'$(DorcPayloadPrepublished)' != 'true'">
-    <Exec Command="dotnet publish &quot;$(SolutionDir)Dorc.Api\Dorc.Api.csproj&quot; -c $(Configuration)" />
-  </Target>
   <ItemGroup>
     <HarvestDirectory Include="$(DorcWebUIDir)">
       <DirectoryRefId>DorcWebFolder</DirectoryRefId>
@@ -90,14 +57,6 @@
       <Transforms>$(MSBuildProjectDirectory)/Web/Orchestrator/HeatTransform.xslt</Transforms>
       <PreprocessorVariable>var.DorcWebUIDir</PreprocessorVariable>
       <SuppressRootDirectory>true</SuppressRootDirectory>
-    </HarvestDirectory>
-    <HarvestDirectory Include="$(DorcApiDir)">
-      <DirectoryRefId>RequestApi</DirectoryRefId>
-      <ComponentGroupName>DOrcAPIComGroup</ComponentGroupName>
-      <Transforms>$(MSBuildProjectDirectory)/Web/RequestApi/HeatTransform.xslt</Transforms>
-      <PreprocessorVariable>var.DorcApiDir</PreprocessorVariable>
-      <SuppressRootDirectory>true</SuppressRootDirectory>
-      <SuppressRegistry>true</SuppressRegistry>
     </HarvestDirectory>
   </ItemGroup>
   <ItemGroup>

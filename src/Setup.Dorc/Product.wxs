@@ -9,7 +9,6 @@
 
 		<InstallExecuteSequence>
 			<Custom Action="ReconfigureLoadUserProfileOrchestrator" Before="InstallFinalize" Condition="NOT Installed" />
-			<Custom Action="ReconfigureLoadUserProfileRequestApi" Before="InstallFinalize" Condition="NOT Installed" />
 		</InstallExecuteSequence>
 
 
@@ -17,12 +16,7 @@
 			<Feature Id="Web.Components" Title="Web Components">
 				<ComponentRef Id="RemoveFolders" />
 				<ComponentRef Id="RemoveWebFolder" />
-				<ComponentRef Id="RegistryEntries" />
 
-				<ComponentRef Id="RequestApiComponent" />
-				<ComponentRef Id="RequestApiComponentProd" />
-				<ComponentRef Id="RemoveRequestApiFolder" />
-				<ComponentGroupRef Id="DOrcAPIComGroup" />
 
 				<ComponentGroupRef Id="DOrcWebComGroup" />
 				<ComponentRef Id="DOrcWebIISComponent" />
@@ -55,12 +49,7 @@
 							<RemoveFile Id="Remove.Files" Directory="INSTALLLOCATION" Name="*.*" On="both" />
 							<RemoveFolder Id="Remove.Folder" On="both" />
 						</Component>
-						<Component Id="RegistryEntries" Guid="{78F39129-DF84-4BF7-B0CA-B23CA9E06D55}" Permanent="yes">
-							<RegistryKey Root="HKLM" Key="SYSTEM\CurrentControlSet\Control\Lsa">
-								<RegistryValue Type="integer" Name="DisableLoopbackCheck" Value="1" KeyPath="yes" />
-							</RegistryKey>
-						</Component>
-						<!-- Shared between the UI and the API, so empty-only removal, as above. -->
+						<!-- Shared with the API package, so empty-only removal, as above. -->
 						<Directory Id="WebFolder" Name="Web">
 							<Component Id="RemoveWebFolder" Guid="{036BE0ED-0C48-4682-9B6F-C3B76E150D29}">
 								<CreateFolder />
@@ -74,14 +63,6 @@
 									<RemoveFolder Id="Remove.DorcWebFolder" On="both" />
 								</Component>
 								<Directory Id="DorcWebHealthFolder" Name="health" />
-							</Directory>
-							<!-- API-owned outright. -->
-							<Directory Id="RequestApi" Name="Api">
-								<Component Id="RemoveRequestApiFolder" Guid="{419215C7-1C5D-43A4-AF94-D33E382D6415}">
-									<CreateFolder />
-									<util:RemoveFolderEx Id="Remove.RequestApiEx" Property="RequestApi" On="both" />
-									<RemoveFolder Id="Remove.RequestApi" On="both" />
-								</Component>
 							</Directory>
 						</Directory>
 						<!-- Tools moved to Setup.Dorc.Cli (S-006). -->

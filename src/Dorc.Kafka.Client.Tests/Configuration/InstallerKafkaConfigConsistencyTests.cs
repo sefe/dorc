@@ -12,7 +12,7 @@ namespace Dorc.Kafka.Client.Tests.Configuration;
 /// <item><description>MSI property defaults in <c>Install.Orchestrator.bat</c>;</description></item>
 /// <item><description>MSIParameter → DeployProperty mappings in
 /// the sidecar of the package that ships each .wxs
-/// (<c>Setup.Dorc.msi.json</c>, <c>Setup.Dorc.Monitors.msi.json</c>);</description></item>
+/// (<c>Setup.Dorc.Api.msi.json</c>, <c>Setup.Dorc.Monitors.msi.json</c>);</description></item>
 /// <item><description>DeployProperty seeds in
 /// <c>install-scripts/DeploySettings.template.json</c>.</description></item>
 /// </list>
@@ -45,10 +45,10 @@ public class InstallerKafkaConfigConsistencyTests
 
     private static string ProdWxs => ReadRepoFile("src", "Setup.Dorc.Monitors", "Prod", "ProdActionService.wxs");
     private static string NonProdWxs => ReadRepoFile("src", "Setup.Dorc.Monitors", "NonProd", "NonProdActionService.wxs");
-    private static string RequestApiWxs => ReadRepoFile("src", "Setup.Dorc", "Web", "RequestApi", "RequestApi.wxs");
+    private static string RequestApiWxs => ReadRepoFile("src", "Setup.Dorc.Api", "RequestApi.wxs");
     private static string OrchestratorBat => ReadRepoFile("src", "Setup.Dorc", "Install.Orchestrator.bat");
+    private static string ApiMsiJson => ReadRepoFile("src", "Setup.Dorc.Api", "Setup.Dorc.Api.msi.json");
     private static string MonitorsMsiJson => ReadRepoFile("src", "Setup.Dorc.Monitors", "Setup.Dorc.Monitors.msi.json");
-    private static string MsiJson => ReadRepoFile("src", "Setup.Dorc", "Setup.Dorc.msi.json");
     private static string DeploySettingsTemplate => ReadRepoFile("src", "install-scripts", "DeploySettings.template.json");
 
     /// <summary>
@@ -61,14 +61,14 @@ public class InstallerKafkaConfigConsistencyTests
     {
         yield return ("ProdActionService.wxs", ProdWxs, "Setup.Dorc.Monitors.msi.json", MonitorsMsiJson);
         yield return ("NonProdActionService.wxs", NonProdWxs, "Setup.Dorc.Monitors.msi.json", MonitorsMsiJson);
-        yield return ("RequestApi.wxs", RequestApiWxs, "Setup.Dorc.msi.json", MsiJson);
+        yield return ("RequestApi.wxs", RequestApiWxs, "Setup.Dorc.Api.msi.json", ApiMsiJson);
     }
 
     /// <summary>Every sidecar that maps Kafka properties.</summary>
     private static IEnumerable<(string Name, string Json)> Sidecars()
     {
         yield return ("Setup.Dorc.Monitors.msi.json", MonitorsMsiJson);
-        yield return ("Setup.Dorc.msi.json", MsiJson);
+        yield return ("Setup.Dorc.Api.msi.json", ApiMsiJson);
     }
 
     /// <summary>All <c>$.Kafka.*</c> JsonFile ElementPaths in a .wxs file.</summary>
@@ -154,7 +154,7 @@ public class InstallerKafkaConfigConsistencyTests
     }
 
     [TestMethod]
-    public void EveryKafkaDeployPropertyInMsiJson_IsSeededInDeploySettingsTemplate()
+    public void EveryKafkaDeployPropertyInASidecar_IsSeededInDeploySettingsTemplate()
     {
         var seeded = TemplateDeployProperties();
         Assert.IsTrue(seeded.Count > 0, "No KAFKA_* properties found in DeploySettings.template.json — the extraction regex or the file layout changed.");

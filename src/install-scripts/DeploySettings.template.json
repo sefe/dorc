@@ -5,6 +5,10 @@
   "DACPACBlackList": "create user",
   "MsiFileNames": [
     {
+      "Name": "Setup.Dorc.Api.msi",
+      "ProductNames": "DOrc API"
+    },
+    {
       "Name": "Setup.Dorc.msi",
       "ProductNames": "Deployment Orchestrator"
     },
