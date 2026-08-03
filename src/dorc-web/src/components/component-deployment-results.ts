@@ -3,7 +3,7 @@ import '@vaadin/button';
 import '@vaadin/grid';
 import '@vaadin/grid/vaadin-grid-column';
 import '@vaadin/grid/vaadin-grid-sort-column';
-import { LitElement, css, nothing } from 'lit';
+import { LitElement, css } from 'lit';
 import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
@@ -373,7 +373,6 @@ export class ComponentDeploymentResults extends ResponsiveMixin(LitElement) {
 
     if (!isTerraformStatus) {
       return html`<span>-</span>`;
-      return nothing;
     }
 
     return html`

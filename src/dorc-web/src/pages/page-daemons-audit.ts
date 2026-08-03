@@ -198,7 +198,6 @@ export class PageDaemonsAudit extends ResponsiveMixin(PageElement) {
     const name = item.DaemonName;
     if (!name) {
       return html`<span class="muted">(deleted)</span>`;
-      return nothing;
     }
     return html`<span>${name}</span>`;
   };

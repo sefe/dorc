@@ -554,7 +554,11 @@ export class PageProjectComponents extends ResponsiveMixin(PageElement) {
                 class="request-link build-number"
                 data-request-id="${row.requestId}"
                 @click="${() =>
-                    window.open(`/monitor-result/${row.requestId}`, '_blank')}"
+                    window.open(
+                        `/monitor-result/${row.requestId}`,
+                        '_blank',
+                        'noopener,noreferrer'
+                    )}"
                 >${row.buildNumber}</button
             >`;
         }

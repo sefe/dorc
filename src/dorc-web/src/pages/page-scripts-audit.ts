@@ -10,7 +10,7 @@ import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
 import '@vaadin/text-field';
 import '@vaadin/checkbox';
-import { PropertyValues, css, nothing } from 'lit';
+import { PropertyValues, css } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { PagedDataSorting } from '../apis/dorc-api';
@@ -211,17 +211,14 @@ export class PageScriptsAudit extends ResponsiveMixin(PageElement) {
 
     if (item.Type === 'Insert' || (item.Type === 'Update' && oldStr === '')) {
       return html`<div class="value-line"><span class="highlight">${newStr}</span></div>`;
-      return nothing;
     }
 
     if (item.Type === 'Delete' || (item.Type === 'Update' && newStr === '')) {
       return html`<div class="value-line"><span class="highlight-removed">${oldStr}</span></div>`;
-      return nothing;
     }
 
     if (oldStr === newStr) {
       return html`<div class="value-line">${newStr}</div>`;
-      return nothing;
     }
 
     const ops = this.computeDiff(oldStr, newStr);

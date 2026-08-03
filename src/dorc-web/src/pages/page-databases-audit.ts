@@ -171,7 +171,6 @@ export class PageDatabasesAudit extends PageElement {
     const name = item.DatabaseName;
     if (!name) {
       return html`<span class="muted">(deleted)</span>`;
-      return nothing;
     }
     return html`<span>${name}</span>`;
   };

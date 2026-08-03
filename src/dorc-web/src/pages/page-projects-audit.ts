@@ -9,7 +9,7 @@ import '@vaadin/horizontal-layout';
 import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
 import '@vaadin/text-field';
-import { PropertyValues, css, nothing } from 'lit';
+import { PropertyValues, css } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { PagedDataSorting, RefDataProjectAuditApi } from '../apis/dorc-api';
@@ -295,7 +295,6 @@ export class PageProjectsAudit extends ResponsiveMixin(PageElement) {
     const name = item.Project?.ProjectName;
     if (!name) {
       return html`<span class="muted">(deleted)</span>`;
-      return nothing;
     }
     return html`<span>${name}</span>`;
   };
@@ -306,7 +305,6 @@ export class PageProjectsAudit extends ResponsiveMixin(PageElement) {
     const raw = item?.Date;
     if (!raw) {
       return html``;
-      return nothing;
     }
     const dt = new Date(raw);
     const formatted = `${dt.toLocaleDateString('en-GB')} ${dt.toLocaleTimeString('en-GB')}`;
@@ -322,13 +320,11 @@ export class PageProjectsAudit extends ResponsiveMixin(PageElement) {
     const raw = item?.Json;
     if (!raw) {
       return html`<span class="muted">—</span>`;
-      return nothing;
     }
 
     const priorRaw = item.PriorJson;
     if (!priorRaw) {
       return html`<span class="muted">first audit · no prior version</span>`;
-      return nothing;
     }
 
     const curr = this.prettyJson(raw);
@@ -336,7 +332,6 @@ export class PageProjectsAudit extends ResponsiveMixin(PageElement) {
 
     if (prev === curr) {
       return html`<span class="muted">no changes</span>`;
-      return nothing;
     }
 
     const ops = this.computeLineDiff(prev, curr);
@@ -475,18 +470,15 @@ export class PageProjectsAudit extends ResponsiveMixin(PageElement) {
     const raw = item?.Json;
     if (!raw) {
       return html`<div class="details-pane muted">—</div>`;
-      return nothing;
     }
     const priorRaw = item.PriorJson;
     const curr = this.prettyJson(raw);
     if (!priorRaw) {
       return html`<div class="details-pane"><pre class="value">${curr}</pre></div>`;
-      return nothing;
     }
     const prev = this.prettyJson(priorRaw);
     if (prev === curr) {
       return html`<div class="details-pane"><pre class="value">${curr}</pre></div>`;
-      return nothing;
     }
     const ops = this.computeLineDiff(prev, curr);
     const rows = this.buildSideBySide(ops);

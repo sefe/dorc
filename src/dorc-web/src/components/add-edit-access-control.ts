@@ -15,7 +15,7 @@ import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/text-field';
 import { TextField } from '@vaadin/text-field';
 import '@vaadin/vertical-layout';
-import { LitElement, css, nothing } from 'lit';
+import { LitElement, css } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import '../components/grid-button-groups/access-control-controls';
@@ -329,7 +329,6 @@ export class AddEditAccessControl extends LitElement {
   ) => {
     if (!item) {
       return html``;
-      return nothing;
     }
 
     const { DisplayName, Username } = item;

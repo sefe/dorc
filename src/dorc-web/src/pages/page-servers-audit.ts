@@ -171,7 +171,6 @@ export class PageServersAudit extends PageElement {
     const name = item.ServerName;
     if (!name) {
       return html`<span class="muted">(deleted)</span>`;
-      return nothing;
     }
     return html`<span>${name}</span>`;
   };

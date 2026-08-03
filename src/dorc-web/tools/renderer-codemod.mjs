@@ -309,12 +309,32 @@ function rewriteRenderer(member, text, takesItem) {
     if (ts.isIdentifier(n) && n.text === modelParam) usesModel = true;
     // A bare `return;` used to mean "rendered nothing"; as a renderer result
     // `undefined` is not a valid template, so it has to become `nothing`.
-    if (ts.isReturnStatement(n) && !n.expression) {
+    //
+    // Unless it is the early-exit after a `render()` in the same block —
+    // `render(X, root); return;` becomes `return X;`, which already exits, so
+    // converting the `return;` too would leave `return X; return nothing;`.
+    if (
+      ts.isReturnStatement(n) &&
+      !n.expression &&
+      !followsRenderCall(n, renderCalls)
+    ) {
       needsNothing = true;
       edits.push({
         start: n.getStart(source) - offset,
         end: n.getEnd() - offset,
         replacement: 'return nothing;'
+      });
+    } else if (
+      ts.isReturnStatement(n) &&
+      !n.expression &&
+      followsRenderCall(n, renderCalls)
+    ) {
+      // getFullStart() so the preceding newline and indentation go with it,
+      // rather than leaving a blank line behind.
+      edits.push({
+        start: n.getFullStart() - offset,
+        end: n.getEnd() - offset,
+        replacement: ''
       });
     }
     ts.forEachChild(n, rewriteRefs);
@@ -380,13 +400,26 @@ function rewriteRenderer(member, text, takesItem) {
     .map(p => (ts.isIdentifier(p.name) ? p.name.text : null))
     .filter(name => name && !paramList.some(p => p === name || p.startsWith(`${name}:`)));
   const dangling = dropped.find(name =>
-    new RegExp(`\\b${name}\\b`).test(body)
+    new RegExp(`\\b${escapeRegExp(name)}\\b`).test(body)
   );
   if (dangling) {
     return { ok: false, reason: `still references the dropped \`${dangling}\` parameter` };
   }
 
   return { ok: true, text: body, readsThis, needsNothing };
+}
+
+/**
+ * True when this bare `return;` is the statement directly after a `render()`
+ * call in the same block — the early-exit idiom the rewrite makes redundant.
+ */
+function followsRenderCall(returnStatement, renderCalls) {
+  const block = returnStatement.parent;
+  if (!ts.isBlock(block)) return false;
+  const index = block.statements.indexOf(returnStatement);
+  if (index < 1) return false;
+  const previous = block.statements[index - 1];
+  return renderCalls.some(call => call.parent === previous);
 }
 
 /** `GridItemModel<Foo>` / `ComboBoxItemModel<Foo>` -> `Foo`. */
@@ -408,14 +441,24 @@ function ensureLitImport(text, name) {
   );
 }
 
+/** Escapes every regex metacharacter, backslash included. */
+function escapeRegExp(literal) {
+  return literal.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 function addImport(text, module, names) {
   const existing = new RegExp(
-    `import \\{([^}]*)\\} from '${module.replace(/[/-]/g, '\\$&')}';`
+    `import \\{([^}]*)\\} from '${escapeRegExp(module)}';`
   ).exec(text);
   if (existing) {
     const have = existing[1].split(',').map(s => s.trim()).filter(Boolean);
     const merged = [...new Set([...have, ...names])].sort();
-    return text.replace(existing[0], `import { ${merged.join(', ')} } from '${module}';`);
+    // Function replacement, so a `$` in a module name is not read as a
+    // replacement pattern.
+    return text.replace(
+      existing[0],
+      () => `import { ${merged.join(', ')} } from '${module}';`
+    );
   }
   return `import { ${names.sort().join(', ')} } from '${module}';\n` + text;
 }
@@ -439,7 +482,7 @@ function pruneImports(text) {
           const bare = name.replace(/^type /, '');
           if (!ORPHANABLE.includes(bare)) return true;
           // `render() {` is Lit's own lifecycle method, not a call.
-          const uses = new RegExp(`\\b${bare}\\b`, 'g');
+          const uses = new RegExp(`\\b${escapeRegExp(bare)}\\b`, 'g');
           const body = text.slice(text.indexOf(whole) + whole.length);
           return uses.test(body.replace(/^\s*render\(\)\s*\{/gm, ''));
         });
