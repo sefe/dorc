@@ -27,6 +27,10 @@
 				<ComponentRef Id="RemoveWebFolder" />
 
 
+				<!-- See RequestApi.wxs: the certificates sit in Permanent components of their own. -->
+				<ComponentRef Id="UiCertificate" />
+				<ComponentRef Id="UiCertificateProd" />
+
 				<ComponentGroupRef Id="DOrcWebComGroup" />
 				<ComponentRef Id="DOrcWebIISComponent" />
 				<ComponentRef Id="DOrcWebIISComponentProd" />
