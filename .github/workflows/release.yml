@@ -228,38 +228,24 @@ jobs:
     - name: Restore packages
       run: dotnet restore ${{ env.SOLUTION_PATH }} --configfile pipelines/NuGet.config
 
-    # DO NOT re-enable /m here without first fixing the installer projects.
+    # Materialise the directories the installers harvest, before anything else
+    # builds. SDK-style projects are not directly packageable — the deployable
+    # layout only exists after Publish has run, and for Dorc.Api that includes
+    # web.config, which IIS needs and which does not exist in source.
     #
-    # #797 replaced `/m:1 /p:BuildInParallel=false /p:UseSharedCompilation=false`
-    # with /m, on the reasoning that Setup.Dorc and Setup.Acceptance declare
-    # their ProjectReferences so the graph would still order the MSI harvest
-    # correctly. That reasoning was wrong, and the flags were load-bearing.
-    #
-    # Both wixprojs contain a target that shells out to independent build
-    # processes, entirely outside the MSBuild graph:
-    #
-    #   <Target Name="PublishProjects" AfterTargets="BeforeResolveReferences">
-    #     <Exec Command="dotnet publish ... Dorc.Api.csproj" />
-    #     <Exec Command="MSBuild.exe ... Dorc.NetFramework.Runner.csproj" />
-    #     ... 11 of these in Setup.Dorc, 1 in Setup.Acceptance
-    #
-    # ProjectReference ordering has no authority over a process launched by
-    # Exec. Under /m the two wixprojs build concurrently (they are independent
-    # leaves), each firing its own chain, and those children rebuild projects
-    # the outer build is compiling at the same moment. Two writers on one
-    # output:
-    #
-    #   CSC : error CS2012: Cannot open
-    #   'Dorc.NetFramework.PowerShell\obj\Release\Dorc.NetFramework.PowerShell.dll'
-    #   for writing -- being used by another process
-    #   [Dorc.NetFramework.PowerShell.csproj] [Setup.Dorc\Setup.Dorc.wixproj]
-    #   Setup.Dorc.wixproj(85,5): error MSB3073: MSBuild.exe ... exited with 1
-    #
-    # It is a race, so it is intermittent — 249663e and 9e1a5e2 went green and
-    # run 30812109885 went red on the same configuration. Because the target is
-    # AfterTargets="BeforeResolveReferences" it runs on every build of the
-    # wixproj, up-to-date or not, so no ordering change inside the graph avoids
-    # it. Parallelism here needs those Exec chains removed first.
+    # This used to happen inside the wixprojs via <Exec>, spawning child
+    # processes the parent MSBuild could not see or deduplicate; under /m the
+    # two wixprojs ran their chains concurrently and raced the outer build for
+    # the same intermediate outputs (CS2012). Running it here, as one MSBuild
+    # invocation over the whole payload list, means a single engine owns the
+    # graph and the shared dependencies are built exactly once.
+    - name: Publish installer payload
+      run: msbuild src/InstallerPayload.proj /p:Configuration=${{ env.BUILD_CONFIGURATION }} /m /clp:ErrorsOnly /nologo
+
+    # /m is safe here only because the payload above is already on disk and
+    # DorcPayloadPrepublished=true switches off the wixprojs' in-build Exec
+    # chains. Removing either of those brings back the CS2012 race that took
+    # main red on run 30812109885 — do not enable /m without both.
     #
     # /bl is opt-in via workflow_dispatch rather than always-on: a binary log
     # is the tool for asking which targets dominate the remaining build time,
@@ -268,7 +254,7 @@ jobs:
     # nothing there.
     - name: Build solution
       id: build
-      run: msbuild ${{ env.SOLUTION_PATH }} /p:Configuration=${{ env.BUILD_CONFIGURATION }} /p:Platform="${{ env.BUILD_PLATFORM }}" /p:RunWixToolsOutOfProc=true /p:Version=${{ steps.version.outputs.VERSION }} /m:1 /p:BuildInParallel=false /p:UseSharedCompilation=false ${{ inputs.capture_binlog && '/bl:build.binlog' || '' }} /clp:ErrorsOnly /nologo
+      run: msbuild ${{ env.SOLUTION_PATH }} /p:Configuration=${{ env.BUILD_CONFIGURATION }} /p:Platform="${{ env.BUILD_PLATFORM }}" /p:RunWixToolsOutOfProc=true /p:Version=${{ steps.version.outputs.VERSION }} /p:DorcPayloadPrepublished=true /m ${{ inputs.capture_binlog && '/bl:build.binlog' || '' }} /clp:ErrorsOnly /nologo
 
     - name: Upload MSBuild binary log
       if: ${{ inputs.capture_binlog }}
