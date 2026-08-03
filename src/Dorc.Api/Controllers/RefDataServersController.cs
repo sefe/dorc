@@ -273,7 +273,8 @@ namespace Dorc.Api.Controllers
                 return new ApiBoolResult
                 {
                     Result = false,
-                    Message = $"Warning: the server has {linkedDaemons.Count} linked daemon(s): {daemonNames}. " +
+                    RequiresConfirmation = true,
+                    Message = $"The server has {linkedDaemons.Count} linked daemon(s): {daemonNames}. " +
                               "Confirm deletion to remove the links and delete the server."
                 };
             }

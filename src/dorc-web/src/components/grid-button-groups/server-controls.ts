@@ -163,7 +163,7 @@ export class ServerControls extends LitElement {
           }
 
           const isDaemonWarning =
-            !confirmed && (result.Message ?? '').startsWith('Warning:');
+            !confirmed && result.RequiresConfirmation === true;
 
           if (isDaemonWarning) {
             const confirmDetach = confirm(
