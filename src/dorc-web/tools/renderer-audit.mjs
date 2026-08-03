@@ -327,6 +327,22 @@ if (process.argv.includes('--json')) {
   process.exit(0);
 }
 
+// Gate mode, for the build. The migration left zero imperative `.renderer=`
+// bindings; anything this finds is a new one, which reintroduces the two
+// defects the directives removed — `this` bound to the grid column rather than
+// the component, and a stale cell that only repaints on requestContentUpdate().
+if (process.argv.includes('--check')) {
+  if (bindings.length === 0) {
+    console.log('Renderer audit: 0 imperative renderer bindings.');
+    process.exit(0);
+  }
+  console.error(
+    `Renderer audit: ${bindings.length} imperative renderer binding(s) found — use the @vaadin/*/lit renderer directives instead.`
+  );
+  for (const b of bindings) console.error(`  ${b.file}  ${b.member ?? b.style}`);
+  process.exit(1);
+}
+
 const line = (s = '') => console.log(s);
 line('# Renderer audit');
 line();

@@ -20,6 +20,7 @@ import { Checkbox } from '@vaadin/checkbox';
 import '../components/grid-button-groups/config-value-controls';
 import '../components/add-config-value';
 import { RefDataRolesApi } from '../apis/dorc-api';
+import '@vaadin/checkbox';
 
 @customElement('page-config-values-list')
 export class PageConfigValuesList extends ResponsiveMixin(PageElement) {

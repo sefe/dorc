@@ -12,6 +12,7 @@ import {
 import { dialogFooterRenderer, dialogRenderer } from '@vaadin/dialog/lit';
 import { DialogOpenedChangedEvent } from '@vaadin/dialog';
 import './make-like-production';
+import '@vaadin/dialog';
 
 @customElement('make-like-production-dialog')
 export class MakeLikeProductionDialog extends LitElement {

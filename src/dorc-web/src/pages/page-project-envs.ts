@@ -23,6 +23,7 @@ import GlobalCache from '../global-cache';
 import '@vaadin/vaadin-lumo-styles/icons.js';
 import { AddEditProject } from '../components/add-edit-project';
 import '../components/add-edit-project';
+import '@vaadin/dialog';
 import {
   EnvironmentApiModelTemplateApiModel,
   RefDataProjectEnvironmentMappingsApi

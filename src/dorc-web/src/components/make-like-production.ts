@@ -13,6 +13,7 @@ import { MakeLikeProductionDialog } from './make-like-production-dialog.ts';
 import '@vaadin/details';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/vertical-layout';
+import '@vaadin/text-field';
 
 @customElement('make-like-production')
 export class MakeLikeProduction extends LitElement {
@@ -233,8 +234,8 @@ export class MakeLikeProduction extends LitElement {
 
     return html` <property-override-controls
         .propertyOverride="${propertyOverride}"
-        @property-override-removed="${() => {
-          this.RemoveOverrideProperty(propertyOverride);
+        @property-override-removed="${(e: CustomEvent) => {
+          this.RemoveOverrideProperty(e.detail.propertyOverride);
         }}"
       ></property-override-controls>`;
   }

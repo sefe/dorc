@@ -216,8 +216,11 @@ export class AddEditAccessControl extends LitElement {
     return html`<access-control-controls
         .accessControl="${accessControl}"
         .disabled="${!this.UserEditable || item.Allow === AC_ALLOW_OWNER}"
-        @access-control-removed="${() => {
-          this.removeAccessControl(accessControl);
+        @access-control-removed="${(e: CustomEvent) => {
+          // The row comes from the event, not from this closure: the closure is
+          // replaced whenever the cell re-renders, which can happen while the
+          // confirmation dialog is open.
+          this.removeAccessControl(e.detail.accessControl);
         }}"
       ></access-control-controls>`;
   }

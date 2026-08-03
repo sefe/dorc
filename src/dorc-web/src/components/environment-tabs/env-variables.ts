@@ -22,6 +22,8 @@ import { ResponsiveMixin } from '../../helpers/responsive-mixin';
 import { ErrorNotification } from '../notifications/error-notification';
 import { Notification } from '@vaadin/notification';
 import '@vaadin/grid/vaadin-grid-sorter';
+import '@vaadin/combo-box';
+import '@vaadin/text-field';
 
 const variableValue = 'PropertyValue';
 const variableName = 'Property';

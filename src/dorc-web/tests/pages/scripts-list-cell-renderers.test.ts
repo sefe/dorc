@@ -154,4 +154,29 @@ describe('page-scripts-list editable cell renderers', () => {
       false
     );
   });
+
+  it('re-applies a combo value the user diverged from the model', async () => {
+    // Same `live()` mechanism on a `.value` binding. Without it the version the
+    // user picked stays visible on whichever script is recycled into the cell.
+    const script: Script = { Id: 1, PowerShellVersionNumber: '5.1' };
+    render(page.psVersionRenderer(script) as never, host);
+    await settle();
+
+    const combo = host.querySelector('vaadin-combo-box') as HTMLElement & {
+      value: string;
+    };
+    combo.value = '7.4';
+    await settle();
+
+    render(
+      page.psVersionRenderer({ Id: 2, PowerShellVersionNumber: '5.1' }) as never,
+      host
+    );
+    await settle();
+
+    expect(host.querySelector('vaadin-combo-box'), 'element reused').to.equal(
+      combo
+    );
+    expect(combo.value, 'shows the new row, not the old pick').to.equal('5.1');
+  });
 });

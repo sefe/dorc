@@ -10,7 +10,7 @@
     "npm": ">=7.0.0"
   },
   "scripts": {
-    "build": "eslint && tsc && npm run typecheck:tests && vite build",
+    "build": "npm run audit:renderers && eslint && tsc && npm run typecheck:tests && vite build",
     "buildLocal": "set NODE_OPTIONS=--openssl-legacy-provider && rimraf server/dist/ && rollup --config",
     "dorc-api-gen": "openapi-generator-cli generate -g typescript-rxjs -i .\\src\\apis\\dorc-api\\swagger.json -o .\\src\\apis\\dorc-api\\ --additional-properties=supportsES6=true,npmVersion=9.4.0,typescriptThreePlus=true --skip-validate-spec",
     "format": "prettier \"**/*.ts\" --write --ignore-path .gitignore",
@@ -22,7 +22,8 @@
     "test:watch": "vitest",
     "typecheck:tests": "tsc -p tsconfig.test.json",
     "type-checking": "tsc --noEmit && npm run typecheck:tests && npm run lit:type-checking",
-    "prepare": "husky"
+    "prepare": "husky",
+    "audit:renderers": "node tools/renderer-audit.mjs --check && node tools/renderer-deps.mjs"
   },
   "dependencies": {
     "@microsoft/signalr": "^10.0.0",

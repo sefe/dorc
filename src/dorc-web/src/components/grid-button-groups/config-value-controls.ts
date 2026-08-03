@@ -12,6 +12,7 @@ import { html } from 'lit/html.js';
 import { ConfigValueApiModel, RefDataConfigApi } from '../../apis/dorc-api';
 import '../../icons/editor-icons.js';
 import '../../icons/iron-icons.js';
+import '@vaadin/text-field';
 
 @customElement('config-value-controls')
 export class ConfigValueControls extends LitElement {

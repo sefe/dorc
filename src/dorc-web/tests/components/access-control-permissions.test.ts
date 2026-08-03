@@ -196,3 +196,71 @@ describe('add-edit-access-control permission checkboxes', () => {
     expect(privilege.Allow, 'owner bit not set').to.equal(0);
   });
 });
+
+// The `live()` half of the same three bindings. Without it Lit dirty-checks
+// against its last committed value: a user's click never went through Lit, so
+// committing the same model value again is skipped and the row recycled into
+// the cell inherits the previous row's tick — silently granting a permission
+// the model does not carry, which Save then writes.
+//
+// These call the renderer methods directly, so each binding is covered on its
+// own. Removing `live()` from any one of them fails exactly one test here.
+describe('permission checkboxes re-apply the row value', () => {
+  let host: HTMLElement;
+  let page: HTMLElement & {
+    UserEditable: boolean;
+    UserIsOwner: boolean;
+    UserCanReadSecrets: boolean;
+    acCanWrite(item: AccessControl): unknown;
+    acCanReadSecrets(item: AccessControl): unknown;
+    acCanOwner(item: AccessControl): unknown;
+  };
+
+  beforeEach(async () => {
+    host = document.createElement('div');
+    document.body.appendChild(host);
+    // Not attached: connectedCallback is not needed for the renderers, and the
+    // component's own flags are what gate them.
+    page = document.createElement('add-edit-access-control') as typeof page;
+    page.UserEditable = true;
+    page.UserIsOwner = true;
+    page.UserCanReadSecrets = true;
+    await settle();
+  });
+
+  afterEach(() => host.remove());
+
+  const recycles = async (renderer: (item: AccessControl) => unknown) => {
+    const { render } = await import('lit');
+    render(renderer({ Name: 'first', Allow: 0 }) as never, host);
+    await settle();
+
+    const checkbox = host.querySelector('vaadin-checkbox') as HTMLElement & {
+      checked: boolean;
+    };
+    // The user ticks it. This does not go through Lit.
+    checkbox.checked = true;
+    await settle();
+
+    // The cell is recycled onto a row that does not carry the bit.
+    render(renderer({ Name: 'second', Allow: 0 }) as never, host);
+    await settle();
+
+    expect(host.querySelector('vaadin-checkbox'), 'element reused').to.equal(
+      checkbox
+    );
+    return checkbox.checked;
+  };
+
+  it('write column shows the new row, not the old tick', async () => {
+    expect(await recycles(item => page.acCanWrite(item))).to.equal(false);
+  });
+
+  it('read-secrets column shows the new row, not the old tick', async () => {
+    expect(await recycles(item => page.acCanReadSecrets(item))).to.equal(false);
+  });
+
+  it('owner column shows the new row, not the old tick', async () => {
+    expect(await recycles(item => page.acCanOwner(item))).to.equal(false);
+  });
+});

@@ -336,8 +336,8 @@ export class DeployEnv extends LitElement {
 
     return html`<property-override-controls
         .propertyOverride="${propertyOverride}"
-        @property-override-removed="${() => {
-          this.removePropertyOverride(propertyOverride);
+        @property-override-removed="${(e: CustomEvent) => {
+          this.removePropertyOverride(e.detail.propertyOverride);
         }}"
       ></property-override-controls>`;
   }

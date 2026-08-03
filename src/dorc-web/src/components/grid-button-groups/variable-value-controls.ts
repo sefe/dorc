@@ -15,6 +15,7 @@ import { Response } from '../../apis/dorc-api';
 import '../../icons/editor-icons.js';
 import '../../icons/iron-icons.js';
 import { Notification } from '@vaadin/notification';
+import '@vaadin/text-field';
 
 @customElement('variable-value-controls')
 export class VariableValueControls extends LitElement {

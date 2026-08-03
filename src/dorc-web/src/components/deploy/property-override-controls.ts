@@ -34,10 +34,16 @@ export class PropertyOverrideControls extends LitElement {
   }
 
   async detailedResults() {
+    // Snapshot before awaiting, and report the row in the detail: this control
+    // sits in a recycled grid cell, and the listener the parent bound into that
+    // cell is rebound on every re-render, so neither `this.propertyOverride`
+    // nor the parent's closure can be trusted once the await returns.
+    const propertyOverride = this.propertyOverride;
     const answer = await confirmPrompt('Remove Property Override?');
     if (answer) {
       const event = new CustomEvent('property-override-removed', {
         detail: {
+          propertyOverride,
           message: 'Property Override Removed!'
         }
       });

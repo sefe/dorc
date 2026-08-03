@@ -57,8 +57,13 @@ export class AccessControlControls extends LitElement {
     const accessControl = this.accessControl;
     const answer = await confirmPrompt(`Remove Access from ${accessControl?.Name}?`);
     if (answer) {
+      // The row travels in the detail. The listener the parent bound into this
+      // cell is rebound whenever the cell re-renders — a save response landing
+      // while the dialog is open repoints it at another row — so the parent
+      // cannot be left to identify the row from its own closure.
       const event = new CustomEvent('access-control-removed', {
         detail: {
+          accessControl,
           message: 'Access Control Removed!'
         }
       });

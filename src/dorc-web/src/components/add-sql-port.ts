@@ -11,6 +11,7 @@ import { Notification } from '@vaadin/notification';
 import type { SqlPortApiModel } from '../apis/dorc-api';
 import { RefDataDatabasesApi, RefDataSqlPortsApi } from '../apis/dorc-api';
 import '@vaadin/vertical-layout';
+import '@vaadin/combo-box';
 
 @customElement('add-sql-port')
 export class AddSqlPort extends LitElement {
