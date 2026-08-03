@@ -88,7 +88,6 @@ export class PageEnvironmentsList extends PageElement {
         flex: 1;
         min-height: 0;
         --divider-color: var(--dorc-border-color);
-        margin-top: 60px;
       }
       vaadin-grid#grid::part(prod-not-secure) {
         background-color: var(--dorc-warning-bg);
@@ -100,29 +99,22 @@ export class PageEnvironmentsList extends PageElement {
 
   render() {
     return html`
-      <div style="position: fixed; height: 60px; width: 100%; display: inline">
-        <vaadin-horizontal-layout>
-          <vaadin-text-field
-            style="padding-left: 5px; min-width: 50%; padding-right: 5px"
-            placeholder="Search"
-            @value-changed="${this.updateSearch}"
-            clear-button-visible
-            helper-text="Use | for multiple search terms"
-          >
-            <vaadin-icon slot="prefix" icon="vaadin:search"></vaadin-icon>
-          </vaadin-text-field>
-          <vaadin-button
-            title="Add Environment"
-            style="width: 250px; padding-left: 10px"
-            @click="${this.addEnvironment}"
-          >
-            <vaadin-icon
-              icon="vaadin:cube"
-              style="color: var(--dorc-link-color)"
-            ></vaadin-icon>
-            Add Environment...
-          </vaadin-button>
-        </vaadin-horizontal-layout>
+      <div class="dorc-toolbar">
+        <vaadin-text-field
+          placeholder="Search"
+          @value-changed="${this.updateSearch}"
+          clear-button-visible
+          helper-text="Use | for multiple search terms"
+        >
+          <vaadin-icon slot="prefix" icon="vaadin:search"></vaadin-icon>
+        </vaadin-text-field>
+        <vaadin-button title="Add Environment" @click="${this.addEnvironment}">
+          <vaadin-icon
+            icon="vaadin:cube"
+            style="color: var(--dorc-link-color)"
+          ></vaadin-icon>
+          Add Environment...
+        </vaadin-button>
       </div>
 
       <hegs-dialog id="dialog" title="Create Environment">

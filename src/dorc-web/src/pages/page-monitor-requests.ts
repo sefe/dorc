@@ -791,13 +791,12 @@ export class PageMonitorRequests
   };
 
   private _renderListBar(root: HTMLElement) {
-    const filterField = (placeholder: string, field: string, width = '7.5em') =>
+    const filterField = (placeholder: string, field: string) =>
       html`<vaadin-text-field
         placeholder="${placeholder}"
         title="starts with"
         clear-button-visible
         theme="small"
-        style="width: ${width}"
         @input="${(e: InputEvent) => {
           const textField = e.target as HTMLInputElement;
           this.dispatchEvent(
@@ -823,8 +822,8 @@ export class PageMonitorRequests
         ></connection-status-indicator>`,
         filters: html`${filterField('Project', project)}
         ${filterField('Environment', environment)}
-        ${filterField('Build', buildNumber, '6em')}
-        ${filterField('Status', status, '6em')}`,
+        ${filterField('Build', buildNumber)}
+        ${filterField('Status', status)}`,
         sort: html`<vaadin-grid-sorter path="Id" direction="desc"
           >Id</vaadin-grid-sorter
         >`

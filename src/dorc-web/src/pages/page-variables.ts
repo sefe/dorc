@@ -161,40 +161,26 @@ export class PageVariables extends PageElement {
         padding: 0px;
       }
 
-      .variable-selector-table {
-        width: fit-content;
-        max-width: 100%;
+      /* One sizing rule for every form row on this page: fields flex to
+         fill and wrap into tidy full-width rows when narrow, instead of the
+         old tables' ragged fixed widths. */
+      .variable-form-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: var(--lumo-space-s);
+        width: 100%;
       }
-
-      .variable-selector-cell {
+      .variable-form-row vaadin-combo-box,
+      .variable-form-row vaadin-text-field {
+        flex: 1 1 16rem;
+        min-width: 0;
         width: auto;
       }
-
-      .variable-selector-combo {
-        width: clamp(30rem, 46vw, 52rem);
-        min-width: 30rem;
-        max-width: none;
-        margin-left: var(--lumo-space-xs);
-      }
-
-      .variable-selector-actions {
-        white-space: nowrap;
-      }
-
-      @media (max-width: 768px) {
-        .variable-selector-table {
-          width: 100%;
-        }
-
-        .variable-selector-cell {
-          width: 100%;
-        }
-
-        .variable-selector-combo {
-          width: 100%;
-          min-width: 0;
-          margin-left: 0;
-        }
+      .variable-form-row vaadin-button,
+      .variable-form-row vaadin-checkbox,
+      .variable-form-row .small-loader {
+        flex: none;
       }
     `
     ];
@@ -239,19 +225,11 @@ export class PageVariables extends PageElement {
               summary="Select Variable Name"
               style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; padding-left: 10px"
             >
-              <table class="variable-selector-table">
-                <tr>
-                  <td style="vertical-align: center; min-width: 20px">
-                    ${this.loadingProperties
-                      ? html`<div
-                          style="vertical-align: center"
-                          class="small-loader"
-                        ></div> `
-                      : html``}
-                  </td>
-                  <td class="variable-selector-cell" style="vertical-align: center;">
-                    <vaadin-combo-box
-                      class="variable-selector-combo"
+              <div class="variable-form-row">
+                ${this.loadingProperties
+                  ? html`<div class="small-loader"></div>`
+                  : html``}
+                <vaadin-combo-box
                       id="properties"
                       @value-changed="${this._propNameValueChanged}"
                       .items="${this.properties}"
@@ -266,102 +244,66 @@ export class PageVariables extends PageElement {
                         : 'Select Variable for info'}"
                       ?disabled="${this.deletingVariable}"
                     ></vaadin-combo-box>
-                  </td>
-                  <td class="variable-selector-actions" style="vertical-align: center;">
-                    <vaadin-button
-                      style="--lumo-primary-text-color: var(--dorc-error-color);"
-                      ?disabled="${!this.isAdmin ||
-                      this.deletingVariable ||
-                      !this.existingPropertySelected}"
-                      @click="${this.deleteVariable}"
-                      >Delete Variable</vaadin-button
-                    >
-                  </td>
-                  <td style="vertical-align: center; min-width: 20px">
-                    ${this.deletingVariable
-                      ? html`<div
-                          style="vertical-align: center"
-                          class="small-loader"
-                        ></div> `
-                      : html``}
-                  </td>
-                  <td class="variable-selector-actions" style="vertical-align: center;">
-                    <vaadin-checkbox
-                      id="is-variable-secure"
-                      label="Secure"
-                      ?disabled="${!((this.isPowerUser || this.isAdmin) && this.existingPropertySelected)}"
-                      @click="${this.updatePropertySecure}"
-                    ></vaadin-checkbox>
-                  </td>
-                </tr>
-              </table>
+                <vaadin-button
+                  style="--lumo-primary-text-color: var(--dorc-error-color);"
+                  ?disabled="${!this.isAdmin ||
+                  this.deletingVariable ||
+                  !this.existingPropertySelected}"
+                  @click="${this.deleteVariable}"
+                  >Delete Variable</vaadin-button
+                >
+                ${this.deletingVariable
+                  ? html`<div class="small-loader"></div>`
+                  : html``}
+                <vaadin-checkbox
+                  id="is-variable-secure"
+                  label="Secure"
+                  ?disabled="${!((this.isPowerUser || this.isAdmin) && this.existingPropertySelected)}"
+                  @click="${this.updatePropertySecure}"
+                ></vaadin-checkbox>
+              </div>
             </vaadin-details>
             <vaadin-details
               opened
               summary="Add Variable Value"
               style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; padding-left: 10px"
             >
-              <table style="width: 100%">
-                <tr>
-                  <td style="vertical-align: center; min-width: 20px">
-                    ${this.loadingScopes
-                      ? html`<div
-                          style="vertical-align: center"
-                          class="small-loader"
-                        ></div> `
-                      : html``}
-                  </td>
-                  <td style="vertical-align: center;">
-                    <vaadin-combo-box
-                      id="envScope"
-                      @value-changed="${this._newVariableValueScopeChanged}"
-                      .items="${this.filteredEnvironments}"
-                      ?disabled="${!this.existingPropertySelected}"
-                      label="Scope"
-                      placeholder="Select Variable Scope"
-                      style="min-width: 400px; margin-left: 5px"
-                      helper-text="Select the environment scope or leave blank for default"
-                    ></vaadin-combo-box>
-                  </td>
-                  <td style="vertical-align: center; min-width: 20px">
-                    ${this.loadingScopeOptions
-                      ? html`<div
-                          style="vertical-align: center"
-                          class="small-loader"
-                        ></div> `
-                      : html``}
-                  </td>
-                  <td style="vertical-align: center; width: 100%;">
-                    <vaadin-combo-box
-                      allow-custom-value
-                      .items="${this.propertyValueScopeOptions}"
-                      item-label-path="ValueOption"
-                      item-value-path="ValueOption"
-                      .renderer="${this.comboboxRenderer}"
-                      id="newVariableValue"
-                      ?disabled="${!this.existingPropertySelected}"
-                      label="Value"
-                      style="min-width: 400px; width: 100%"
-                      helper-text="Include a resolver eg. $AnotherVariable$ or specify value directly"
-                    ></vaadin-combo-box>
-                  </td>
-                  <td style="vertical-align: center;">
-                    <vaadin-button
-                      ?disabled="${!this.existingPropertySelected}"
-                      @click="${this._addVariableValueClick}"
-                      >Add Variable Value</vaadin-button
-                    >
-                  </td>
-                  <td style="vertical-align: center; min-width: 20px">
-                    ${this.addingVariableValue
-                      ? html`<div
-                          style="vertical-align: center"
-                          class="small-loader"
-                        ></div> `
-                      : html``}
-                  </td>
-                </tr>
-              </table>
+              <div class="variable-form-row">
+                ${this.loadingScopes
+                  ? html`<div class="small-loader"></div>`
+                  : html``}
+                <vaadin-combo-box
+                  id="envScope"
+                  @value-changed="${this._newVariableValueScopeChanged}"
+                  .items="${this.filteredEnvironments}"
+                  ?disabled="${!this.existingPropertySelected}"
+                  label="Scope"
+                  placeholder="Select Variable Scope"
+                  helper-text="Select the environment scope or leave blank for default"
+                ></vaadin-combo-box>
+                ${this.loadingScopeOptions
+                  ? html`<div class="small-loader"></div>`
+                  : html``}
+                <vaadin-combo-box
+                  allow-custom-value
+                  .items="${this.propertyValueScopeOptions}"
+                  item-label-path="ValueOption"
+                  item-value-path="ValueOption"
+                  .renderer="${this.comboboxRenderer}"
+                  id="newVariableValue"
+                  ?disabled="${!this.existingPropertySelected}"
+                  label="Value"
+                  helper-text="Include a resolver eg. $AnotherVariable$ or specify value directly"
+                ></vaadin-combo-box>
+                <vaadin-button
+                  ?disabled="${!this.existingPropertySelected}"
+                  @click="${this._addVariableValueClick}"
+                  >Add Variable Value</vaadin-button
+                >
+                ${this.addingVariableValue
+                  ? html`<div class="small-loader"></div>`
+                  : html``}
+              </div>
             </vaadin-details>
             ${this.loadingPropertyValues
               ? html`<div
@@ -410,47 +352,33 @@ export class PageVariables extends PageElement {
               summary="Add Variable"
               style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; padding-left: 10px"
             >
-              <table>
-                <tr>
-                  <td style="vertical-align: bottom;">
-                    <vaadin-text-field
-                      id="newVariable"
-                      label="New Variable Name"
-                      style="min-width: 400px"
-                      ?disabled="${!(this.isPowerUser || this.isAdmin)}"
-                      @value-changed="${this.newVariableChanged}"
-                    ></vaadin-text-field>
-                  </td>
-                  <td style="vertical-align: bottom;">
-                    <vaadin-checkbox
-                      id="variable-secure"
-                      label="Secure"
-                      ?disabled="${!(this.isPowerUser || this.isAdmin)}"
-                    ></vaadin-checkbox>
-                    <vaadin-checkbox
-                      id="variable-array"
-                      label="is Array"
-                      ?disabled="${!(this.isPowerUser || this.isAdmin)}"
-                    ></vaadin-checkbox>
-                  </td>
-                  <td style="vertical-align: bottom;">
-                    <vaadin-button
-                      style="margin: 0px"
-                      ?disabled="${this.newVariableButtonDisabled}"
-                      @click="${this.createVariable}"
-                      >Add Variable</vaadin-button
-                    >
-                  </td>
-                  <td style="vertical-align: center;">
-                    ${this.creatingVariable
-                      ? html`<div
-                          style="vertical-align: bottom"
-                          class="small-loader"
-                        ></div>`
-                      : html``}
-                  </td>
-                </tr>
-              </table>
+              <div class="variable-form-row">
+                <vaadin-text-field
+                  id="newVariable"
+                  label="New Variable Name"
+                  ?disabled="${!(this.isPowerUser || this.isAdmin)}"
+                  @value-changed="${this.newVariableChanged}"
+                ></vaadin-text-field>
+                <vaadin-checkbox
+                  id="variable-secure"
+                  label="Secure"
+                  ?disabled="${!(this.isPowerUser || this.isAdmin)}"
+                ></vaadin-checkbox>
+                <vaadin-checkbox
+                  id="variable-array"
+                  label="is Array"
+                  ?disabled="${!(this.isPowerUser || this.isAdmin)}"
+                ></vaadin-checkbox>
+                <vaadin-button
+                  style="margin: 0px"
+                  ?disabled="${this.newVariableButtonDisabled}"
+                  @click="${this.createVariable}"
+                  >Add Variable</vaadin-button
+                >
+                ${this.creatingVariable
+                  ? html`<div class="small-loader"></div>`
+                  : html``}
+              </div>
             </vaadin-details>
           `}
     `;

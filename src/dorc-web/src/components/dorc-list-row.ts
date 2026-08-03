@@ -37,6 +37,7 @@ export const listRowStyles = css`
   }
   .dorc-list-row {
     display: flex;
+    flex-wrap: wrap;
     align-items: flex-start;
     gap: var(--lumo-space-s);
     padding: var(--lumo-space-xs) 0;
@@ -45,7 +46,9 @@ export const listRowStyles = css`
     width: 100%;
   }
   .dorc-list-row__body {
-    flex: 1;
+    /* keep readable room for the identity text; wider action groups wrap
+       onto their own line below instead of crushing it */
+    flex: 1 1 12rem;
     min-width: 0;
   }
   .dorc-list-row__primary {
@@ -98,8 +101,11 @@ export const listRowStyles = css`
   .dorc-list-row__actions {
     flex: none;
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: var(--lumo-space-xs);
+    max-width: 100%;
+    margin-left: auto;
     /* WCAG 2.5.8: min 24px targets; lumo buttons exceed this */
   }
   .dorc-list-bar {
@@ -113,6 +119,40 @@ export const listRowStyles = css`
   }
   .dorc-list-bar > * {
     min-width: 0;
+  }
+  /* Form controls in the bar share one sizing rule so stacked rows align:
+     every field flexes to fill, wrapping into tidy equal rows instead of a
+     ragged mix of fixed widths. */
+  .dorc-list-bar vaadin-text-field,
+  .dorc-list-bar vaadin-combo-box {
+    flex: 1 1 8rem;
+    min-width: 6rem;
+    width: auto;
+  }
+  .dorc-list-bar vaadin-grid-sorter {
+    flex: none;
+  }
+  /* Page-level toolbar above a grid (search field + action buttons). One
+     shared sizing rule so every view's toolbar lines up the same way: the
+     search field flexes to fill, buttons keep their natural width, and the
+     row wraps cleanly instead of overflowing at narrow widths. */
+  .dorc-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--lumo-space-s);
+    padding: 0 var(--lumo-space-s);
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .dorc-toolbar vaadin-text-field,
+  .dorc-toolbar vaadin-combo-box {
+    flex: 1 1 12rem;
+    min-width: 8rem;
+    width: auto;
+  }
+  .dorc-toolbar vaadin-button {
+    flex: none;
   }
   .dorc-list-details {
     display: grid;

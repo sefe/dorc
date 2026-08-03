@@ -131,11 +131,24 @@ export class EnvVariables extends PageEnvBase {
         padding: 0px;
       }
 
-      .env-variable-selector-combo {
-        width: clamp(24rem, 34vw, 36rem);
-        min-width: 24rem;
-        max-width: none;
-        margin-left: var(--lumo-space-xs);
+      /* One sizing rule for the form row: fields flex to fill and wrap into
+         tidy full-width rows when narrow, instead of nested tables with
+         fixed minimum widths. */
+      .variable-form-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: var(--lumo-space-s);
+        width: 100%;
+      }
+      .variable-form-row vaadin-combo-box {
+        flex: 1 1 16rem;
+        min-width: 0;
+        width: auto;
+      }
+      .variable-form-row vaadin-button,
+      .variable-form-row .small-loader {
+        flex: none;
       }
       @keyframes spin {
         100% {
@@ -143,12 +156,6 @@ export class EnvVariables extends PageEnvBase {
         }
       }
       @media (max-width: 768px) {
-        .env-variable-selector-combo {
-          width: 100%;
-          min-width: 0;
-          margin-left: 0;
-        }
-
         vaadin-grid-cell-content {
           white-space: normal;
           word-wrap: break-word;
@@ -171,74 +178,41 @@ export class EnvVariables extends PageEnvBase {
                 summary="Add Scoped Variable Value"
                 style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; width: 100%; margin: 0px;"
               >
-                <div
-                  style="display: flex; flex-wrap: wrap; flex-direction: row; width: 100%"
-                >
-                  <table>
-                    <tr>
-                      <td style="vertical-align: center; min-width: 20px">
-                        ${this.loadingProperties
-                          ? html`<div
-                              style="vertical-align: center"
-                              class="small-loader"
-                            ></div> `
-                          : html``}
-                      </td>
-                      <td style="vertical-align: top;">
-                        <vaadin-combo-box
-                          class="env-variable-selector-combo"
-                          id="properties"
-                          @value-changed="${this._propNameValueChanged}"
-                          .items="${this.properties}"
-                          label="Existing Variable Name"
-                          placeholder="Select Variable Name"
-                          clear-button-visible
-                          item-label-path="Name"
-                          item-value-path="Name"
-                        ></vaadin-combo-box>
-                      </td>
-                    </tr>
-                  </table>
-                  <table style="flex: 1; min-width: 400px">
-                    <tr>
-                      <td style="vertical-align: center; min-width: 20px">
-                        ${this.loadingScopeOptions
-                          ? html`<div
-                              style="vertical-align: center"
-                              class="small-loader"
-                            ></div> `
-                          : html``}
-                      </td>
-                      <td style="vertical-align: top; width: 100%;">
-                        <vaadin-combo-box
-                          allow-custom-value
-                          .items="${this.propertyValueScopeOptions}"
-                          item-label-path="ValueOption"
-                          item-value-path="ValueOption"
-                          .renderer="${this.comboboxRenderer}"
-                          id="newVariableValue"
-                          label="Value"
-                          style="min-width: 400px; width: 100%"
-                          helper-text="Include a resolver eg. $AnotherVariable$ or specify value directly"
-                        ></vaadin-combo-box>
-                      </td>
-                      <td style="vertical-align: middle;">
-                        <vaadin-button
-                          @click="${this._addVariableValueClick}"
-                          ?disabled="${!this.environment?.UserEditable}"
-                          >Add Variable Value</vaadin-button
-                        >
-                      </td>
-                      <td style="vertical-align: middle; min-width: 20px">
-                        ${this.addingVariableValue
-                          ? html`<div
-                              style="vertical-align: middle"
-                              class="small-loader"
-                            ></div> `
-                          : html``}
-                      </td>
-                    </tr>
-                  </table>
+                <div class="variable-form-row">
+                  ${this.loadingProperties
+                    ? html`<div class="small-loader"></div>`
+                    : html``}
+                  <vaadin-combo-box
+                    id="properties"
+                    @value-changed="${this._propNameValueChanged}"
+                    .items="${this.properties}"
+                    label="Existing Variable Name"
+                    placeholder="Select Variable Name"
+                    clear-button-visible
+                    item-label-path="Name"
+                    item-value-path="Name"
+                  ></vaadin-combo-box>
+                  ${this.loadingScopeOptions
+                    ? html`<div class="small-loader"></div>`
+                    : html``}
+                  <vaadin-combo-box
+                    allow-custom-value
+                    .items="${this.propertyValueScopeOptions}"
+                    item-label-path="ValueOption"
+                    item-value-path="ValueOption"
+                    .renderer="${this.comboboxRenderer}"
+                    id="newVariableValue"
+                    label="Value"
+                    helper-text="Include a resolver eg. $AnotherVariable$ or specify value directly"
+                  ></vaadin-combo-box>
+                  <vaadin-button
+                    @click="${this._addVariableValueClick}"
+                    ?disabled="${!this.environment?.UserEditable}"
+                    >Add Variable Value</vaadin-button
+                  >
+                  ${this.addingVariableValue
+                    ? html`<div class="small-loader"></div>`
+                    : html``}
                 </div>
               </vaadin-details>
 

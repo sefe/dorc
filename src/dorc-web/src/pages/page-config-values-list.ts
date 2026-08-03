@@ -150,9 +150,8 @@ export class PageConfigValuesList extends PageElement {
 
   render() {
     return html`
-      <div style="display: inline">
+      <div class="dorc-toolbar">
         <vaadin-text-field
-          style="padding-left: 5px; width: 50%;"
           placeholder="Search"
           @value-changed="${this.updateSearch}"
           clear-button-visible
@@ -162,7 +161,6 @@ export class PageConfigValuesList extends PageElement {
         </vaadin-text-field>
         <vaadin-button
           title="Add Config Value"
-          style="width: 250px"
           @click="${this.addConfigValue}"
         >
           <vaadin-icon

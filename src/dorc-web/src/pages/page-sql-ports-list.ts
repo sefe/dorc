@@ -105,9 +105,8 @@ export class PageSqlPortsList extends PageElement {
   }
 
   render() {
-    return html`<div style="display: inline">
+    return html`<div class="dorc-toolbar">
         <vaadin-text-field
-          style="padding-left: 5px; width: 50%;"
           placeholder="Search"
           @value-changed="${this.updateSearch}"
           clear-button-visible
@@ -117,7 +116,6 @@ export class PageSqlPortsList extends PageElement {
         </vaadin-text-field>
         <vaadin-button
           title="Add SQL Port"
-          style="width: 250px"
           .disabled="${!this.isAdmin}"
           @click="${this.addSqlPort}"
         >

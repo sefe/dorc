@@ -89,6 +89,26 @@ export class AddEditAccessControl extends LitElement {
         width: min(84vw, 620px);
         max-height: calc(100vh - 140px);
       }
+      /* One alignment system for form rows: field flexes to fill, button
+         sits on the field's baseline, identical at every width — replacing
+         the table cells whose fixed-width children misaligned when stacked
+         on phones. */
+      .ac-form-row {
+        display: flex;
+        align-items: flex-end;
+        gap: var(--lumo-space-s);
+        width: 100%;
+      }
+      .ac-form-row > vaadin-text-field,
+      .ac-form-row > vaadin-combo-box {
+        flex: 1;
+        width: auto;
+        min-width: 0;
+      }
+      .ac-form-row > vaadin-button {
+        flex: none;
+        margin-bottom: 5px;
+      }
       vaadin-text-field {
         display: flex;
         align-items: center;
@@ -212,49 +232,32 @@ export class AddEditAccessControl extends LitElement {
             summary="Add New User"
             style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; width: 100%"
           >
-            <table>
-              <tr>
-                <td style="display: table-cell; vertical-align: bottom;">
-                  <vaadin-text-field
-                    id="search-criteria"
-                    label="Search Criteria"
-                    @input="${this.updateSearchCriteria}"
-                  ></vaadin-text-field>
-                </td>
-                <td style="display: table-cell; vertical-align: bottom;">
-                  <vaadin-button
-                    @click="${this.searchAD}"
-                    style="margin-bottom: 5px"
-                    >Search</vaadin-button
-                  >
-                </td>
-                <td style="display: table-cell; vertical-align: center;">
-                  ${this.searchingUsers
-                    ? html` <div class="small-loader"></div> `
-                    : html``}
-                </td>
-              </tr>
-              <tr>
-                <td style="display: table-cell; vertical-align: bottom;">
-                  <vaadin-combo-box
-                    id="searchResults"
-                    label="Search Results"
-                    item-value-path="DisplayName"
-                    item-label-path="DisplayName"
-                    .items="${this.searchResults}"
-                    .renderer="${this.searchResultsRenderer}"
-                  ></vaadin-combo-box>
-                </td>
-                <td style="display: table-cell; vertical-align: bottom;">
-                  <vaadin-button
-                    @click="${this.addUser}"
-                    style="margin-bottom: 5px"
-                    ?disabled="${!this.UserEditable}"
-                    >Add</vaadin-button
-                  >
-                </td>
-              </tr>
-            </table>
+            <div class="ac-form-row">
+              <vaadin-text-field
+                id="search-criteria"
+                label="Search Criteria"
+                @input="${this.updateSearchCriteria}"
+              ></vaadin-text-field>
+              <vaadin-button @click="${this.searchAD}">Search</vaadin-button>
+              ${this.searchingUsers
+                ? html`<div class="small-loader"></div>`
+                : html``}
+            </div>
+            <div class="ac-form-row">
+              <vaadin-combo-box
+                id="searchResults"
+                label="Search Results"
+                item-value-path="DisplayName"
+                item-label-path="DisplayName"
+                .items="${this.searchResults}"
+                .renderer="${this.searchResultsRenderer}"
+              ></vaadin-combo-box>
+              <vaadin-button
+                @click="${this.addUser}"
+                ?disabled="${!this.UserEditable}"
+                >Add</vaadin-button
+              >
+            </div>
           </vaadin-details>
           <vaadin-grid
             .items="${this.Privileges}"

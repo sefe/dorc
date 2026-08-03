@@ -699,12 +699,11 @@ export class EnvMonitor extends PageEnvBase implements IDeploymentsEventsClient{
   };
 
   private _renderListBar(root: HTMLElement) {
-    const filterField = (placeholder: string, field: string, width = '7.5em') =>
+    const filterField = (placeholder: string, field: string) =>
       html`<vaadin-text-field
         placeholder="${placeholder}"
         clear-button-visible
         theme="small"
-        style="width: ${width}"
         @input="${(e: InputEvent) => {
           const textField = e.target as HTMLInputElement;
           this.dispatchEvent(
@@ -729,8 +728,8 @@ export class EnvMonitor extends PageEnvBase implements IDeploymentsEventsClient{
           }}"
         ></connection-status-indicator>`,
         filters: html`${filterField('Details', details)}
-        ${filterField('Status', status, '6em')}
-        ${filterField('User', username, '6em')}`,
+        ${filterField('Status', status)}
+        ${filterField('User', username)}`,
         sort: html`<vaadin-grid-sorter path="Id" direction="desc"
           >Id</vaadin-grid-sorter
         >`

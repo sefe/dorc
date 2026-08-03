@@ -82,9 +82,8 @@ export class PageUsersList extends PageElement {
   }
 
   render() {
-    return html`<div style="display: inline">
+    return html`<div class="dorc-toolbar">
         <vaadin-text-field
-          style="padding-left: 5px; width: 50%;"
           placeholder="Search"
           @value-changed="${this.updateSearch}"
           clear-button-visible
@@ -94,7 +93,6 @@ export class PageUsersList extends PageElement {
         </vaadin-text-field>
         <vaadin-button
           title="Add User or Group"
-          style="width: 250px"
           @click="${this.addUser}"
         >
           <vaadin-icon

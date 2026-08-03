@@ -133,6 +133,20 @@ type ViewSpec = {
   height?: string;
 };
 
+/**
+ * List pages fetch on connect and overwrite properties assigned in setup
+ * with the shim's (empty) response — so the rows silently vanish from the
+ * capture. Re-run the injection after the view settles.
+ */
+const reinject = (spec: ViewSpec): ViewSpec => ({
+  ...spec,
+  post: async el => {
+    el.loading = false;
+    spec.setup?.(el);
+    el.requestUpdate?.();
+  }
+});
+
 const VIEWS: ViewSpec[] = [
   { tag: 'page-monitor-requests', height: '360px' },
   { tag: 'env-monitor', height: '360px' },
@@ -158,22 +172,23 @@ const VIEWS: ViewSpec[] = [
       el.requestUpdate();
     }
   },
-  {
+  reinject({
     tag: 'page-environments-list',
     height: '300px',
     setup: el => {
+      el.userRolesLoaded = true;
       el.filteredEnvironments = [
         { EnvironmentName: 'PROD-EU-01', EnvironmentSecure: true, EnvironmentIsProd: true, Details: { EnvironmentOwner: 'SEFE\\ben.hegarty', Description: 'Primary production', FileShare: '\\\\gmpr-fs01\\dorc', Notes: 'Managed' }, Id: 1 }
       ];
     }
-  },
-  { tag: 'page-permissions-list', height: '260px', setup: el => { el.filteredPermissions = [{ DisplayName: 'Deploy to Production', PermissionName: 'DeployProd', Id: 1 }]; } },
-  { tag: 'page-sql-ports-list', height: '260px', setup: el => { el.filteredSqlPorts = [{ InstanceName: 'GMPR-SQL01\\TRADING', SqlPort: '1433', Id: 1 }]; } },
-  { tag: 'page-users-list', height: '260px', setup: el => { el.filteredUsers = [{ DisplayName: 'Ben Hegarty', LanId: 'SEFE\\ben.hegarty', LoginType: 'AD', Id: 1 }]; } },
-  { tag: 'page-daemons-list', height: '280px', setup: el => { el.filteredDaemons = [{ Name: 'Dorc.Monitor', DisplayName: 'DORC Monitor', AccountName: 'svc-dorc', ServiceType: 'Windows Service', LastSeenDate: '02/08/2026', Id: 1 }]; } },
-  { tag: 'page-config-values-list', height: '260px', setup: el => { el.filteredConfigValues = [{ Key: 'RabbitMq.Host', Secure: 'false', IsForProd: 'true', Value: 'gmpr-mq01', Id: 1 }]; } },
-  { tag: 'page-project-bundles', height: '280px', setup: el => { el.filteredBundledRequests = [{ BundleName: 'Trading-Full', RequestName: 'Deploy DB', Sequence: 1, Type: 'Deploy', Request: '{"a":1}', Id: 1 }]; } },
-  { tag: 'page-project-components', height: '280px', setup: el => { el.deploymentRows = [{ environmentName: 'PROD-EU-01', buildNumber: '2026.08.02.3', status: 'Complete', updateDate: '02/08/2026', componentId: 1 }]; } },
+  }),
+  reinject({ tag: 'page-permissions-list', height: '260px', setup: el => { el.filteredPermissions = [{ DisplayName: 'Deploy to Production', PermissionName: 'DeployProd', Id: 1 }]; } }),
+  reinject({ tag: 'page-sql-ports-list', height: '260px', setup: el => { el.filteredSqlPorts = [{ InstanceName: 'GMPR-SQL01\\TRADING', SqlPort: '1433', Id: 1 }]; } }),
+  reinject({ tag: 'page-users-list', height: '260px', setup: el => { el.filteredUsers = [{ DisplayName: 'Ben Hegarty', LanId: 'SEFE\\ben.hegarty', LoginType: 'AD', Id: 1 }]; } }),
+  reinject({ tag: 'page-daemons-list', height: '280px', setup: el => { el.filteredDaemons = [{ Name: 'Dorc.Monitor', DisplayName: 'DORC Monitor', AccountName: 'svc-dorc', ServiceType: 'Windows Service', LastSeenDate: '02/08/2026', Id: 1 }]; } }),
+  reinject({ tag: 'page-config-values-list', height: '260px', setup: el => { el.filteredConfigValues = [{ Key: 'RabbitMq.Host', Secure: 'false', IsForProd: 'true', Value: 'gmpr-mq01', Id: 1 }]; } }),
+  reinject({ tag: 'page-project-bundles', height: '280px', setup: el => { el.filteredBundledRequests = [{ BundleName: 'Trading-Full', RequestName: 'Deploy DB', Sequence: 1, Type: 'Deploy', Request: '{"a":1}', Id: 1 }]; } }),
+  reinject({ tag: 'page-project-components', height: '280px', setup: el => { el.deploymentRows = [{ environmentName: 'PROD-EU-01', buildNumber: '2026.08.02.3', status: 'Complete', updateDate: '02/08/2026', componentId: 1 }]; } }),
   {
     tag: 'page-servers-list',
     height: '280px',
@@ -242,7 +257,29 @@ const VIEWS: ViewSpec[] = [
   { tag: 'attached-env-tenants', height: '260px', setup: el => { el.childEnvironments = [{ EnvironmentName: 'PROD-EU-01-TENANT-A', Id: 1 }]; } },
   { tag: 'application-daemons', height: '260px', setup: el => { el.daemonsAndStatuses = [{ ServerName: 'GMPR-DORAPP02', DaemonName: 'Dorc.Monitor', Status: 'Running', Id: 1 }]; } },
   { tag: 'env-deployments', height: '280px', post: el => { el.loading = false; el.requestUpdate(); }, setup: el => { el.deployments = [{ RequestId: 284713, ComponentName: 'Dorc.Api', RequestBuildNum: '2026.08.02.3', UpdatedDate: '2026-08-02T14:32:07', State: 'Complete' }]; } },
-  { tag: 'env-variables', height: '280px' },
+  {
+    tag: 'env-variables',
+    height: '380px',
+    // the envLoaded gate needs a routed environment; force the loaded state
+    // and feed the grid directly (same pattern as page-servers-list)
+    post: async el => {
+      el.envLoaded = true;
+      el.loading = false;
+      el.searching = false;
+      el.loadingProperties = false;
+      el.loadingScopeOptions = false;
+      el.properties = [{ Name: 'Trading.Api.Url', Secure: false, IsArray: false, Id: 1 }];
+      el.propertyValueScopeOptions = [];
+      el.requestUpdate();
+      await el.updateComplete;
+      const g = el.shadowRoot!.querySelector('vaadin-grid') as any;
+      if (g) {
+        g.dataProvider = undefined;
+        g.items = [{ Property: 'Trading.Api.Url', PropertyValue: 'https://gmpr-dorapp02/api', PropertyValueScope: 'PROD-EU-01', Id: 1 }];
+        g.requestContentUpdate();
+      }
+    }
+  },
   { tag: 'map-daemons', height: '280px', setup: el => { el.mappedDaemons = [{ Name: 'Dorc.Monitor', DisplayName: 'DORC Monitor', ServiceType: 'Windows Service', Id: 1 }]; } },
   {
     tag: 'make-like-production',
