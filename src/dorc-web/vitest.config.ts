@@ -1,11 +1,10 @@
 import { defineConfig } from 'vitest/config';
 import { playwright } from '@vitest/browser-playwright';
 
-// Which engines the suite runs against. All three by default, so a bare
-// `npm test` locally keeps the behaviour it has always had. CI narrows this to
-// chromium on PRs and topic branches — three engines plus their Playwright
-// download is a poor trade for the feedback loop there — and restores the full
-// matrix on develop, main and release/**, which are the branches that ship.
+// Which engines the suite runs against. All three by default — CI does not set
+// VITEST_BROWSERS, so every build on every branch runs the full matrix. The
+// override exists for local iteration (`VITEST_BROWSERS=chromium npm test`)
+// when you do not want to wait on firefox and webkit.
 const BROWSERS = (process.env.VITEST_BROWSERS ?? 'chromium,firefox,webkit')
   .split(',')
   .map(name => name.trim())

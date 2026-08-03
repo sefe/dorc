@@ -97,31 +97,47 @@ critical path.
 
 ### Web Tests (`web-tests` job)
 
-The suite runs under Playwright. Which engines it runs against depends on the
-branch, via the `VITEST_BROWSERS` environment variable read by
-`src/dorc-web/vitest.config.ts`:
+The suite runs under Playwright against **chromium, firefox and webkit, on every
+build, on every branch**. The job runs in parallel with `build`, which takes
+roughly five times as long, so the full matrix costs nothing in wall-clock.
 
-| Ref | Engines |
+This was briefly narrowed to chromium on PRs and topic branches. Don't do that
+again without a specific reason: it meant pull requests exercised a different
+configuration from `main`, and the first bug that hit — an `actions/cache` key
+containing a comma, which only the three-engine list produced — passed every PR
+check and broke `main` on merge. A CI configuration that varies by branch cannot
+tell you whether merging is safe.
+
+`src/dorc-web/vitest.config.ts` still honours a `VITEST_BROWSERS` environment
+variable, for local iteration when you don't want to wait on all three:
+
+```bash
+VITEST_BROWSERS=chromium npm test
+```
+
+CI does not set it. Setting it empty fails loudly rather than silently running
+no tests.
+
+### NuGet packages are cached
+
+`~/.nuget/packages` is cached via `actions/cache`. This was removed in #797 on
+the grounds that it cost more than it saved — 1m04s to restore plus 10s to save,
+against a 27s warm restore — and restored immediately afterwards, because the
+measurement that mattered had not been taken: how long an *uncached* restore
+takes on this solution.
+
+| Restore | Wall-clock |
 | --- | --- |
-| `main`, `develop`, `release/**` | chromium, firefox, webkit |
-| Pull requests and everything else | chromium |
+| Cached (27s restore + 1m04s cache restore + 10s save) | ~1m41s |
+| Uncached (run `30751703601`) | 2m04s |
+| Uncached (run `30794820988`) | 2m41s |
 
-Running all three engines on every PR meant three browser downloads on any cache
-miss for little extra signal. Locally, `npm test` with `VITEST_BROWSERS` unset
-still runs all three; set it to reproduce a CI run — `VITEST_BROWSERS=chromium
-npm test`.
+Caching a Windows NuGet folder is genuinely slow, but a cold restore of 124
+packages is slower. Keep the cache.
 
-The Playwright browser cache is keyed on both the Playwright version and the
-engine list, so a chromium-only cache entry is never reused for a run that needs
-all three.
-
-### NuGet packages are not cached
-
-There is intentionally no `actions/cache` step for `~/.nuget/packages`. Caching it
-on Windows means moving tens of thousands of small files: measured over run
-`30527995114` it cost 1m04s to restore and 10s to save, in order to speed up a
-restore that takes 27s warm. The key also hashed `**/*.csproj`, so any project
-file edit paid the full cost for no hit.
+If this is revisited, the durable improvement is lock files
+(`RestorePackagesWithLockFile`) so the key stops hashing `**/*.csproj` and
+surviving a project-file edit.
 
 ### Profiling the build
 
