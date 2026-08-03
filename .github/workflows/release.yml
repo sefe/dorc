@@ -228,14 +228,38 @@ jobs:
     - name: Restore packages
       run: dotnet restore ${{ env.SOLUTION_PATH }} --configfile pipelines/NuGet.config
 
-    # /m builds independent projects across every core on the runner and keeps
-    # the Roslyn compiler server alive between them. The previous
-    # `/m:1 /p:BuildInParallel=false /p:UseSharedCompilation=false` combination
-    # pushed all 37 projects through a single node with a cold csc.exe start
-    # each time, and accounted for over half the pipeline's wall-clock.
-    # Setup.Dorc and Setup.Acceptance declare their ProjectReferences
-    # explicitly, so the dependency graph still orders the MSI harvest after
-    # the projects it packages.
+    # DO NOT re-enable /m here without first fixing the installer projects.
+    #
+    # #797 replaced `/m:1 /p:BuildInParallel=false /p:UseSharedCompilation=false`
+    # with /m, on the reasoning that Setup.Dorc and Setup.Acceptance declare
+    # their ProjectReferences so the graph would still order the MSI harvest
+    # correctly. That reasoning was wrong, and the flags were load-bearing.
+    #
+    # Both wixprojs contain a target that shells out to independent build
+    # processes, entirely outside the MSBuild graph:
+    #
+    #   <Target Name="PublishProjects" AfterTargets="BeforeResolveReferences">
+    #     <Exec Command="dotnet publish ... Dorc.Api.csproj" />
+    #     <Exec Command="MSBuild.exe ... Dorc.NetFramework.Runner.csproj" />
+    #     ... 11 of these in Setup.Dorc, 1 in Setup.Acceptance
+    #
+    # ProjectReference ordering has no authority over a process launched by
+    # Exec. Under /m the two wixprojs build concurrently (they are independent
+    # leaves), each firing its own chain, and those children rebuild projects
+    # the outer build is compiling at the same moment. Two writers on one
+    # output:
+    #
+    #   CSC : error CS2012: Cannot open
+    #   'Dorc.NetFramework.PowerShell\obj\Release\Dorc.NetFramework.PowerShell.dll'
+    #   for writing -- being used by another process
+    #   [Dorc.NetFramework.PowerShell.csproj] [Setup.Dorc\Setup.Dorc.wixproj]
+    #   Setup.Dorc.wixproj(85,5): error MSB3073: MSBuild.exe ... exited with 1
+    #
+    # It is a race, so it is intermittent — 249663e and 9e1a5e2 went green and
+    # run 30812109885 went red on the same configuration. Because the target is
+    # AfterTargets="BeforeResolveReferences" it runs on every build of the
+    # wixproj, up-to-date or not, so no ordering change inside the graph avoids
+    # it. Parallelism here needs those Exec chains removed first.
     #
     # /bl is opt-in via workflow_dispatch rather than always-on: a binary log
     # is the tool for asking which targets dominate the remaining build time,
@@ -243,7 +267,8 @@ jobs:
     # run. `inputs` is empty for push/pull_request, so the flag expands to
     # nothing there.
     - name: Build solution
-      run: msbuild ${{ env.SOLUTION_PATH }} /p:Configuration=${{ env.BUILD_CONFIGURATION }} /p:Platform="${{ env.BUILD_PLATFORM }}" /p:RunWixToolsOutOfProc=true /p:Version=${{ steps.version.outputs.VERSION }} /m ${{ inputs.capture_binlog && '/bl:build.binlog' || '' }} /clp:ErrorsOnly /nologo
+      id: build
+      run: msbuild ${{ env.SOLUTION_PATH }} /p:Configuration=${{ env.BUILD_CONFIGURATION }} /p:Platform="${{ env.BUILD_PLATFORM }}" /p:RunWixToolsOutOfProc=true /p:Version=${{ steps.version.outputs.VERSION }} /m:1 /p:BuildInParallel=false /p:UseSharedCompilation=false ${{ inputs.capture_binlog && '/bl:build.binlog' || '' }} /clp:ErrorsOnly /nologo
 
     - name: Upload MSBuild binary log
       if: ${{ inputs.capture_binlog }}
@@ -297,8 +322,13 @@ jobs:
         }
       continue-on-error: true
       
-    - name: Fail workflow if tests failed (main/release branches)
-      if: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/') }}
+    # Runs on every branch. Restricting this to main/release meant a pull
+    # request with failing .NET tests was green, and the failure was only
+    # discovered once it had already been merged — the wrong end of the process
+    # to find out. Gated on the build having succeeded so a compile failure is
+    # not also reported as a test failure.
+    - name: Fail workflow if tests failed
+      if: always() && steps.build.outcome == 'success'
       shell: pwsh
       run: |
         $resultsDir = "${{ github.workspace }}\TestResults"
@@ -344,9 +374,15 @@ jobs:
         } else {
           Write-Host "No test failures detected."
         }
+    # Only meaningful when the solution built. With `if: always()` this ran
+    # after a failed build too, found no .trx (there were no test assemblies to
+    # produce them), and emitted
+    # "##[warning]Could not find any files for TestResults/**/*.trx" — which
+    # then became the most prominent line in the log of a job whose actual
+    # failure was a compile error. See run 30812109885.
     - name: Publish test results
       uses: EnricoMi/publish-unit-test-result-action/windows@v2
-      if: always()
+      if: always() && steps.build.outcome == 'success'
       with:
         files: |
           TestResults/**/*.trx
