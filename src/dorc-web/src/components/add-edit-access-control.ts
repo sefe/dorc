@@ -87,18 +87,34 @@ export class AddEditAccessControl extends LitElement {
       paper-dialog.size-position {
         overflow: auto;
         width: min(90vw, 650px);
+        max-height: calc(100vh - 32px);
       }
       vaadin-text-field {
         display: flex;
         align-items: center;
         justify-content: center;
-        width: 400px;
+        width: min(400px, 100%);
         padding: 5px;
       }
       vaadin-combo-box {
         --lumo-space-m: 0px;
-        width: 400px;
+        width: min(400px, 100%);
         padding: 5px;
+      }
+      /* Phone: the dialog fills the viewport and its fixed-width children
+         yield — the 400px fields inside a ~340px dialog were the overflow. */
+      @media (max-width: 768px) {
+        paper-dialog.size-position {
+          width: calc(100vw - 16px);
+          margin: 8px;
+        }
+        vaadin-text-field,
+        vaadin-combo-box {
+          width: 100%;
+        }
+        .tooltip .tooltiptext {
+          width: min(300px, 80vw);
+        }
       }
       .tooltip {
         position: relative;
