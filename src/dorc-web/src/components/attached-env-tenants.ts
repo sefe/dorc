@@ -3,7 +3,8 @@ import '@vaadin/button';
 import '@vaadin/grid';
 import '@vaadin/grid/vaadin-grid-column';
 import '@vaadin/grid/vaadin-grid-sort-column';
-import { css, LitElement, render } from 'lit';
+import { columnBodyRenderer } from '@vaadin/grid/lit';
+import { css, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { Notification } from '@vaadin/notification';
@@ -41,20 +42,26 @@ export class AttachedEnvTenants extends LitElement {
         ></vaadin-grid-column>
         <vaadin-grid-column
           header="Actions"
-          .renderer="${this.environmentActionsRenderer}"
+          ${columnBodyRenderer(this.environmentActionsRenderer, [this.readonly])}
         ></vaadin-grid-column>
       </vaadin-grid>
     `;
   }
 
-  private environmentActionsRenderer = (root: HTMLElement, _: HTMLElement, model: { item: EnvironmentApiModel }) => {
+  /**
+   * Reads `readonly`, so it is declared as a dependency. Under the old plain
+   * `.renderer` binding the function reference never changed, so Grid had no
+   * way to know the closure had gone stale and the Detach button stayed
+   * enabled after the environment resolved as read-only.
+   */
+  private environmentActionsRenderer = (environment: EnvironmentApiModel) => {
     const unlinkStyles = {
-      color: this.readonly ? 'var(--dorc-text-secondary)' : 'var(--dorc-error-color)'
+      color: this.readonly
+        ? 'var(--dorc-text-secondary)'
+        : 'var(--dorc-error-color)'
     };
-    const environment = model.item;
 
-    render(
-      html`
+    return html`
         <vaadin-button
           title="Open Environment Details for ${environment?.EnvironmentName}"
           aria-label="Open Environment Details for ${environment?.EnvironmentName}"
@@ -78,9 +85,7 @@ export class AttachedEnvTenants extends LitElement {
             style=${styleMap(unlinkStyles)}
           ></vaadin-icon>
         </vaadin-button>
-      `,
-      root
-    );
+    `;
   };
 
   async detachTenant(envId: number | undefined) {

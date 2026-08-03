@@ -1,15 +1,15 @@
 import { expect } from '../_helpers';
 import '../../src/components/attached-env-tenants';
 
-// Reproduction of a live defect: a grid cell renderer that reads a reactive
-// property does not re-run when that property changes, because the renderer
-// function reference is stable and Grid has no way to know its closure went
-// stale. Nothing calls requestContentUpdate() in this component.
+// Regression guard for a defect that used to be live here: a grid cell
+// renderer reading a reactive property did not re-run when that property
+// changed, because a plain `.renderer` binding is a stable function reference
+// and Grid cannot tell that its closure went stale.
 //
-// The fix is to migrate grid renderers to the @vaadin/grid/lit directives,
-// which take a dependency array. Run `node tools/renderer-audit.mjs` for the
-// full inventory. These tests assert the CURRENT, INCORRECT behaviour so the
-// defect is visible; inverting them is the migration's completion signal.
+// `attached-env-tenants` now uses columnBodyRenderer with [this.readonly] as
+// its dependency, so the cell re-renders on its own. These tests assert the
+// CORRECT behaviour — if one fails, a renderer has regressed to a plain
+// binding or lost a dependency.
 
 interface AttachedEnvTenants extends HTMLElement {
   readonly: boolean;
@@ -19,7 +19,7 @@ interface AttachedEnvTenants extends HTMLElement {
 
 const settle = () => new Promise(r => setTimeout(r, 200));
 
-describe('F-4 repro: stale grid cell after reactive property change', () => {
+describe('grid cell re-renders when its dependency changes', () => {
   let el: AttachedEnvTenants;
 
   beforeEach(async () => {
@@ -50,27 +50,23 @@ describe('F-4 repro: stale grid cell after reactive property change', () => {
     expect(detachButton()?.disabled).to.equal(false);
   });
 
-  it('DOES NOT disable the detach button when readonly flips to true', async () => {
+  it('disables the detach button when readonly flips to true', async () => {
     el.readonly = true;
     await el.updateComplete;
     await settle();
 
-    // Documents current (incorrect) behaviour. If this ever starts failing,
-    // the underlying issue has been fixed — invert the assertion.
-    expect(detachButton()?.disabled).to.equal(false);
+    // The dependency array drives this; no requestContentUpdate() call needed.
+    expect(detachButton()?.disabled).to.equal(true);
   });
 
-  it('does disable it once the grid is told to re-render its content', async () => {
+  it('re-enables it when readonly flips back to false', async () => {
     el.readonly = true;
     await el.updateComplete;
-    (
-      el.shadowRoot?.querySelector('vaadin-grid') as unknown as {
-        requestContentUpdate?: () => void;
-      }
-    )?.requestContentUpdate?.();
+    await settle();
+    el.readonly = false;
+    await el.updateComplete;
     await settle();
 
-    // Proves the stale cell is a re-render problem, not a binding problem.
-    expect(detachButton()?.disabled).to.equal(true);
+    expect(detachButton()?.disabled).to.equal(false);
   });
 });
