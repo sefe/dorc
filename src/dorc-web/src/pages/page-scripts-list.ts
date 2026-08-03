@@ -13,7 +13,7 @@ import '@vaadin/icons/vaadin-icons';
 import '../components/add-daemon';
 import '@vaadin/text-field';
 import { Grid, GridDataProviderCallback, GridDataProviderParams, GridFilterDefinition, GridSorterDefinition } from '@vaadin/grid';
-import { customElement, property, query } from 'lit/decorators.js';
+import { customElement, property, query, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { PageElement } from '../helpers/page-element';
 import { ResponsiveMixin } from '../helpers/responsive-mixin';
@@ -71,7 +71,10 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
 
   @property({ type: Boolean }) isPowerUser = false;
 
-  public userRoles!: string[];
+  // Reactive so the dependency arrays that name it are real: the two editable
+  // columns gate on it through canEditScripts(), and an undecorated field
+  // cannot drive the update they need.
+  @state() public userRoles: string[] = [];
 
   @property({ type: Boolean }) private loading = true;
 
