@@ -158,7 +158,9 @@ export class ServerControls extends LitElement {
         .subscribe({
           next: (result: ApiBoolResult) => {
             if (result.Result === true) {
-              const server = this.serverDetails;
+              // The snapshot, not a fresh read: the cell can be recycled
+              // during the network round trip, and the delete itself
+              // refreshes the grid.
               const event = new CustomEvent('server-deleted', {
                 composed: true,
                 bubbles: true,

@@ -86,7 +86,9 @@ export class DatabaseControls extends LitElement {
         .subscribe({
           next: (result: ApiBoolResult) => {
             if (result.Result === true) {
-              const database = this.databaseDetails;
+              // The snapshot, not a fresh read: the cell can be recycled
+              // during the network round trip, and the delete itself
+              // refreshes the grid.
               const event = new CustomEvent('database-deleted', {
                 composed: true,
                 bubbles: true,
