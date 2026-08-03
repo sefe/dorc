@@ -177,9 +177,9 @@ steps:
     include: '*.dacpac,*.sql'
 
 - task: richardfennellbm.BM-VSTS-FileCopier-Tasks.FileCopyTask.FileCopy@4
-  displayName: 'Copy DOrc MSI Installer'
+  displayName: 'Copy DOrc Web MSI Installer'
   inputs:
-    sourceFolder: '$(Build.SourcesDirectory)\src\Setup.Dorc\bin\x64\$(BuildConfiguration)'
+    sourceFolder: '$(Build.SourcesDirectory)\src\Setup.Dorc.Web\bin\x64\$(BuildConfiguration)'
     targetFolder: '$(Build.ArtifactStagingDirectory)\Server'
     include: '*.msi,*.json'
 

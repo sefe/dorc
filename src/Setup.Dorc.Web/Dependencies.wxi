@@ -5,7 +5,7 @@
     package's identity to Dorc.Api.dll, which only one of the split packages
     will contain; the remaining packages had no version source at all, and any
     package that did carry the API would be forced to change version whenever
-    the API did. Setup.Dorc.wixproj defines BuildVersion from the Version
+    the API did. Setup.Dorc.Api.wixproj defines BuildVersion from the Version
     property both pipelines already pass.
   -->
   <?define ProductVersion="$(var.BuildVersion)" ?>

@@ -5,7 +5,7 @@ namespace Dorc.Kafka.Events.Configuration;
 /// produces to / consumes from. Defaults preserve the historical
 /// hard-coded values so a fresh dev clone runs against a local broker without
 /// any per-environment override; per-environment topic names are surfaced via
-/// MSI properties + WiX writes in `Setup.Dorc.msi.json` / `RequestApi.wxs`
+/// MSI properties + WiX writes in `Setup.Dorc.Api.msi.json` / `RequestApi.wxs`
 /// the Monitor `.wxs` files.
 ///
 /// Validator (<see cref="KafkaTopicsOptionsValidator"/>) enforces non-empty

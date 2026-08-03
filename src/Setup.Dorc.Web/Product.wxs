@@ -1,6 +1,15 @@
 ﻿<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
 	<?include Dependencies.wxi?>
-	<Package Name="Deployment Orchestrator" Language="1033" Version="$(var.ProductVersion)" Manufacturer="SEFE" UpgradeCode="{72EDEA4C-7975-401B-B5CF-D31D27CBEC01}" ProductCode="{F7894A5D-3344-4C7F-91C5-1A016B965032}">
+	<!--
+		A new identity, not a rename. The residual has been emptied of everything
+		but the UI, so keeping the old UpgradeCode would mean a product whose
+		payload had silently changed out from under every installed environment.
+		The legacy names move to the API package's sidecar instead, which is
+		sequenced first, so the monolith is uninstalled before any new package
+		installs — it still carries the pre-S-003 RemoveFolders, and removing it
+		after a new package would take that package's files with it.
+	-->
+	<Package Name="DOrc Web" Language="1033" Version="$(var.ProductVersion)" Manufacturer="SEFE" UpgradeCode="{75FD9925-8D34-439F-90D8-90215B1E053D}" ProductCode="{EBCEBD71-6999-46CA-9578-6E6E95B4B0BD}">
 		<Property Id="WEB.SITENAME" Value="Default Web Site" />
 		<Property Id="WEB.PORT" Value="80" />
 		<Property Id="DOTNET.VERSION" Value="4.0.30319" />
@@ -12,7 +21,7 @@
 		</InstallExecuteSequence>
 
 
-		<Feature Id="Deployment.Orchestrator" Title="Deployment Orchestrator" Level="1">
+		<Feature Id="DOrcWeb" Title="DOrc Web" Level="1">
 			<Feature Id="Web.Components" Title="Web Components">
 				<ComponentRef Id="RemoveFolders" />
 				<ComponentRef Id="RemoveWebFolder" />

@@ -31,7 +31,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Dorc.PersistentData", "Dorc
 EndProject
 Project("{00D1A9C2-B5F0-4AF3-8072-F6C62B433612}") = "Dorc.Database", "Dorc.Database\Dorc.Database.sqlproj", "{81A46968-2261-4685-9A68-F0816FDAB051}"
 EndProject
-Project("{B7DD6F7E-DEF8-4E67-B5B7-07EF123DB6F0}") = "Setup.Dorc", "Setup.Dorc\Setup.Dorc.wixproj", "{AFC36860-C179-451E-8664-02D91E58D2B9}"
+Project("{B7DD6F7E-DEF8-4E67-B5B7-07EF123DB6F0}") = "Setup.Dorc.Web", "Setup.Dorc.Web\Setup.Dorc.Web.wixproj", "{AFC36860-C179-451E-8664-02D91E58D2B9}"
 EndProject
 Project("{B7DD6F7E-DEF8-4E67-B5B7-07EF123DB6F0}") = "Setup.Dorc.Cli", "Setup.Dorc.Cli\Setup.Dorc.Cli.wixproj", "{7E4B9C21-5A6D-4F38-9C0E-3D5B71A2E486}"
 EndProject

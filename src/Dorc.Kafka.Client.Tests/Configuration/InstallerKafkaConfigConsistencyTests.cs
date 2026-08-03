@@ -27,12 +27,12 @@ public class InstallerKafkaConfigConsistencyTests
     {
         // Same walk-up pattern as AppSettingsTemplateShapeTests' linked
         // templates, but anchored on the repo layout itself: ascend from the
-        // test bin directory until the directory containing src/Setup.Dorc
+        // test bin directory until the directory containing src/Setup.Dorc.Api
         // exists.
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir is not null && !Directory.Exists(Path.Join(dir.FullName, "src", "Setup.Dorc")))
+        while (dir is not null && !Directory.Exists(Path.Join(dir.FullName, "src", "Setup.Dorc.Api")))
             dir = dir.Parent!;
-        Assert.IsNotNull(dir, "Could not locate the repo root (a directory containing src/Setup.Dorc) above " + AppContext.BaseDirectory);
+        Assert.IsNotNull(dir, "Could not locate the repo root (a directory containing src/Setup.Dorc.Api) above " + AppContext.BaseDirectory);
         return dir!.FullName;
     }
 
@@ -46,7 +46,7 @@ public class InstallerKafkaConfigConsistencyTests
     private static string ProdWxs => ReadRepoFile("src", "Setup.Dorc.Monitors", "Prod", "ProdActionService.wxs");
     private static string NonProdWxs => ReadRepoFile("src", "Setup.Dorc.Monitors", "NonProd", "NonProdActionService.wxs");
     private static string RequestApiWxs => ReadRepoFile("src", "Setup.Dorc.Api", "RequestApi.wxs");
-    private static string OrchestratorBat => ReadRepoFile("src", "Setup.Dorc", "Install.Orchestrator.bat");
+    private static string OrchestratorBat => ReadRepoFile("src", "Setup.Dorc.Web", "Install.Orchestrator.bat");
     private static string ApiMsiJson => ReadRepoFile("src", "Setup.Dorc.Api", "Setup.Dorc.Api.msi.json");
     private static string MonitorsMsiJson => ReadRepoFile("src", "Setup.Dorc.Monitors", "Setup.Dorc.Monitors.msi.json");
     private static string DeploySettingsTemplate => ReadRepoFile("src", "install-scripts", "DeploySettings.template.json");

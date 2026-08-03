@@ -2,7 +2,7 @@
   <Import Project="Sdk.props" Sdk="WixToolset.Sdk" Version="6.0.1" />
   <PropertyGroup>
     <Platform Condition=" '$(Platform)' == '' ">x64</Platform>
-    <Name>Setup.Dorc</Name>
+    <Name>Setup.Dorc.Web</Name>
     <DorcWebUIDir>$(SolutionDir)dorc-web\dist</DorcWebUIDir>
     <!-- See Setup.Dorc.Api.wixproj: the certificates are named, not inherited from a project reference. -->
     <DorcCertDir>$(SolutionDir)Dorc.Api</DorcCertDir>
@@ -32,7 +32,7 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="Dependencies.wxi" />
-    <Content Include="Setup.Dorc.msi.json">
+    <Content Include="Setup.Dorc.Web.msi.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="Web\Orchestrator\HeatTransform.xslt" />

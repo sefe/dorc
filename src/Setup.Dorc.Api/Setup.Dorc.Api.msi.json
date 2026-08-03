@@ -1,6 +1,8 @@
 {
   "ProductNames": [
-    "DOrc API"
+    "DOrc API",
+    "Deployment Orchestrator",
+    "DevOps Orchestrator"
   ],
   "ServerType": "WebServer",
   "Services": [],

@@ -9,7 +9,7 @@
     <ToolsReqDir>$(SolutionDir)Tools.RequestCLI\bin\$(Configuration)\net8.0\publish</ToolsReqDir>
     <ToolsEMDir>$(SolutionDir)Tools.EncryptionMigrationCLI\bin\$(Configuration)\net8.0\publish</ToolsEMDir>
     <Platforms>x64</Platforms>
-    <!-- See the equivalent property in Setup.Dorc.wixproj for the reasoning. -->
+    <!-- See the equivalent property in Setup.Dorc.Api.wixproj for the reasoning. -->
     <DorcProductVersion Condition="'$(Version)' != ''">$([System.Version]::Parse('$(Version)').ToString())</DorcProductVersion>
     <DorcProductVersion Condition="'$(DorcProductVersion)' == ''">0.0.1</DorcProductVersion>
   </PropertyGroup>
@@ -36,7 +36,7 @@
     <ProjectReference Include="..\Tools.EncryptionMigrationCLI\Tools.EncryptionMigrationCLI.csproj" />
   </ItemGroup>
   <!--
-    Local-build fallback only — see the equivalent target in Setup.Dorc.wixproj
+    Local-build fallback only — see the equivalent target in Setup.Dorc.Api.wixproj
     for the full reasoning. CI runs src\InstallerPayload.proj first and passes
     DorcPayloadPrepublished=true, which skips this.
   -->
@@ -49,7 +49,7 @@
     <Exec Command="dotnet publish &quot;$(SolutionDir)Tools.EncryptionMigrationCLI\Tools.EncryptionMigrationCLI.csproj&quot; -c $(Configuration)" />
   </Target>
   <!--
-    See Setup.Dorc.wixproj: a CI build with no Version would ship a package no
+    See Setup.Dorc.Api.wixproj: a CI build with no Version would ship a package no
     environment could upgrade to, and would do it silently.
   -->
   <Target Name="EnsureBuildVersion" BeforeTargets="Build"

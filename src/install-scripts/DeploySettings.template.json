@@ -9,8 +9,8 @@
       "ProductNames": "DOrc API"
     },
     {
-      "Name": "Setup.Dorc.msi",
-      "ProductNames": "Deployment Orchestrator"
+      "Name": "Setup.Dorc.Web.msi",
+      "ProductNames": "DOrc Web"
     },
     {
       "Name": "Setup.Dorc.Monitors.msi",

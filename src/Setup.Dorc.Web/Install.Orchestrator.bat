@@ -5,7 +5,11 @@ popd
 set MYDIR=%CD%
 echo Directory of this batch fil: %MYDIR%
 
-call msiexec /i "%MYDIR%\Setup.Dorc.msi" ^
+rem One property block for all four packages: MSI ignores properties a
+rem package does not declare, so the manual helper stays a single list
+rem rather than four that drift apart. Order matches MsiFileNames in
+rem DeploySettings.template.json.
+for %%P in (Setup.Dorc.Api.msi Setup.Dorc.Web.msi Setup.Dorc.Monitors.msi Setup.Dorc.Cli.msi) do call msiexec /i "%MYDIR%\%%P" ^
 SERVICE.IDENTITY="" ^
 SERVICE.PASSWORD="" ^
 DEPLOYMENT.DBSERVER=. ^
@@ -33,7 +37,7 @@ KAFKA.TOPICS.RESULTSSTATUS="dorc.results.status" ^
 KAFKA.TOPICS.REQUESTSNEWDLQ="dorc.requests.new.dlq" ^
 KAFKA.LOCKS.CONSUMERGROUPID.PROD="dorc.monitor.locks.prod" ^
 KAFKA.LOCKS.CONSUMERGROUPID.NONPROD="dorc.monitor.locks.nonprod" ^
-/qb /L*v "%MYDIR%\Setup.Dorc.log"
+/qb /L*v "%MYDIR%\%%~nP.log"
 
 echo Returncode: %ERRORLEVEL%
 pause
