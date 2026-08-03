@@ -1,3 +1,4 @@
+import { ref } from 'lit/directives/ref.js';
 import { columnBodyRenderer, columnHeaderRenderer } from '@vaadin/grid/lit';
 import { css, PropertyValues, render } from 'lit';
 import '../components/dorc-spinner';
@@ -28,6 +29,16 @@ import '@vaadin/grid/vaadin-grid-sorter';
 const variableName = 'Name';
 const variablePath = 'Path';
 const variableProjectNames = 'ProjectNames';
+
+/**
+ * Fully expands a `hegs-json-viewer` once Lit has created it.
+ *
+ * The viewer only exposes expansion as a method, so this rides the `ref`
+ * directive rather than querying the element back out of the grid cell.
+ */
+const expandJsonViewer = (element?: Element) => {
+  (element as unknown as HegsJsonViewer | undefined)?.expand('**');
+};
 
 @customElement('page-scripts-list')
 export class PageScriptsList extends ResponsiveMixin(PageElement) {
@@ -233,7 +244,7 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
               path="Path"
               header="Path"
               resizable
-              .renderer="${this._jsonRenderer}"
+              ${columnBodyRenderer(this._jsonRenderer, [])}
               ${columnHeaderRenderer(this.pathHeaderRenderer, [])}
               ?hidden="${this._narrowScreen}"
             ></vaadin-grid-column>
@@ -416,24 +427,17 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
     render(checkbox, root);
   }
 
-  _jsonRenderer(
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<ScriptApiModel>
-  ) {
-    const script = model.item as ScriptApiModel;
-
-    if (script.IsPathJSON) {
-      root.innerHTML = `<hegs-json-viewer style="font-size: small ">${
-        script.Path
-      }</hegs-json-viewer>`;
-      const viewer = root.querySelector(
-        'hegs-json-viewer'
-      ) as unknown as HegsJsonViewer;
-      viewer.expand('**');
-    } else {
-      root.innerHTML = `<div>${script.Path}</div>`;
+  _jsonRenderer(script: ScriptApiModel) {
+    if (!script.IsPathJSON) {
+      return html`<div>${script.Path}</div>`;
     }
+    // The viewer is configured through a method, so `ref` fires exactly when
+    // the element exists rather than querying it back out of the cell.
+    return html`<hegs-json-viewer
+      style="font-size: small"
+      ${ref(expandJsonViewer)}
+      >${script.Path}</hegs-json-viewer
+    >`;
   }
 
   private searchingScriptsStarted(event: CustomEvent) {

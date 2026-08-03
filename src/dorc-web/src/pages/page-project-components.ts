@@ -1,3 +1,4 @@
+import { columnBodyRenderer } from '@vaadin/grid/lit';
 import { css, PropertyValues } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
@@ -6,8 +7,6 @@ import {  ComboBoxSelectedItemChangedEvent } from '@vaadin/combo-box';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/grid/vaadin-grid-column';
-import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
-import { GridItemModel } from '@vaadin/grid';
 import '../icons/iron-icons';
 import { ErrorNotification } from '../components/notifications/error-notification';
 import { PageElement } from '../helpers/page-element';
@@ -241,7 +240,7 @@ export class PageProjectComponents extends ResponsiveMixin(PageElement) {
                   path="buildNumber"
                   resizable
                   auto-width
-                  .renderer="${this.buildNumberRenderer}"
+                  ${columnBodyRenderer(this.buildNumberRenderer, [])}
                 >
                 </vaadin-grid-column>
                 <vaadin-grid-sort-column
@@ -250,7 +249,7 @@ export class PageProjectComponents extends ResponsiveMixin(PageElement) {
                   resizable
                   auto-width
                   ?hidden="${this._narrowScreen}"
-                  .renderer="${this.statusRenderer}"
+                  ${columnBodyRenderer(this.statusRenderer, [])}
                 >
                 </vaadin-grid-sort-column>
                 <vaadin-grid-sort-column
@@ -259,7 +258,7 @@ export class PageProjectComponents extends ResponsiveMixin(PageElement) {
                   resizable
                   auto-width
                   ?hidden="${this._narrowScreen}"
-                  .renderer="${this.dateRenderer}"
+                  ${columnBodyRenderer(this.dateRenderer, [])}
                 >
                 </vaadin-grid-sort-column>
               </vaadin-grid>
@@ -541,50 +540,30 @@ export class PageProjectComponents extends ResponsiveMixin(PageElement) {
         return result;
     }
 
-    private buildNumberRenderer(
-        root: HTMLElement,
-        _column: GridColumn,
-        model: GridItemModel<EnvironmentDeploymentRow>
-    ) {
-        const row = model.item;
-        
+    private buildNumberRenderer(row: EnvironmentDeploymentRow) {
         if (row.build && row.requestId) {
-            root.innerHTML = `
-                <span class="request-link build-number" data-request-id="${row.requestId}">
-                    ${row.buildNumber}
-                </span>
-            `;
-            
-            const link = root.querySelector('.request-link');
-            if (link) {
-                link.addEventListener('click', () => {
-                    window.open(`/monitor-result/${row.requestId}`, '_blank');
-                });
-            }
-        } else if (row.buildNumber === 'Not deployed') {
-            root.innerHTML = `<span class="no-deployment">${row.buildNumber}</span>`;
-        } else {
-            root.innerHTML = `<span class="build-number">${row.buildNumber}</span>`;
+            return html`<span
+                class="request-link build-number"
+                data-request-id="${row.requestId}"
+                @click="${() =>
+                    window.open(`/monitor-result/${row.requestId}`, '_blank')}"
+                >${row.buildNumber}</span
+            >`;
         }
+        if (row.buildNumber === 'Not deployed') {
+            return html`<span class="no-deployment">${row.buildNumber}</span>`;
+        }
+        return html`<span class="build-number">${row.buildNumber}</span>`;
     }
 
-    private dateRenderer(
-        root: HTMLElement,
-        _column: GridColumn,
-        model: GridItemModel<EnvironmentDeploymentRow>
-    ) {
-        const row = model.item;
-        root.textContent = row.updateDate;
+    private dateRenderer(row: EnvironmentDeploymentRow) {
+        return html`${row.updateDate}`;
     }
 
-    private statusRenderer(
-        root: HTMLElement,
-        _column: GridColumn,
-        model: GridItemModel<EnvironmentDeploymentRow>
-    ) {
-        const row = model.item;
-        const statusClass = this.getStatusClass(row.status);
-        root.innerHTML = `<span class="${statusClass}">${row.status}</span>`;
+    private statusRenderer(row: EnvironmentDeploymentRow) {
+        return html`<span class="${this.getStatusClass(row.status)}"
+            >${row.status}</span
+        >`;
     }
 
     private getStatusClass(status: string | null | undefined): string {

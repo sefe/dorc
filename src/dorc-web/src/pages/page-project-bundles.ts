@@ -1,3 +1,4 @@
+import { ref } from 'lit/directives/ref.js';
 import { columnBodyRenderer, columnHeaderRenderer } from '@vaadin/grid/lit';
 import { confirmPrompt } from '../components/confirm-prompt';
 import { css, PropertyValues } from 'lit';
@@ -16,8 +17,7 @@ import '@vaadin/details';
 import '@vaadin/horizontal-layout';
 import { BundledRequestsApi, BundledRequestsApiModel, RefDataProjectEnvironmentMappingsApi, EnvironmentApiModelTemplateApiModel } from '../apis/dorc-api';
 import { ErrorNotification } from '../components/notifications/error-notification.ts';
-import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
-import { Grid, GridItemModel } from '@vaadin/grid';
+import { Grid } from '@vaadin/grid';
 import { HegsJsonViewer } from '../components/hegs-json-viewer.ts';
 import '../components/grid-button-groups/bundle-request-controls';
 import '../components/bundle-editor-dialog';
@@ -25,6 +25,16 @@ import { BundleEditorDialog } from '../components/bundle-editor-dialog';
 import { navigate } from '../router/router';
 import { ComboBox } from '@vaadin/combo-box';
 import '@vaadin/grid/vaadin-grid-sorter';
+
+/**
+ * Fully expands a `hegs-json-viewer` once Lit has created it.
+ *
+ * The viewer only exposes expansion as a method, so this rides the `ref`
+ * directive rather than querying the element back out of the grid cell.
+ */
+const expandJsonViewer = (element?: Element) => {
+  (element as unknown as HegsJsonViewer | undefined)?.expand('**');
+};
 
 @customElement('page-project-bundles')
 export class PageProjectBundles extends ResponsiveMixin(PageElement) {
@@ -178,7 +188,7 @@ export class PageProjectBundles extends ResponsiveMixin(PageElement) {
           ${columnHeaderRenderer(this.bundleNameHeaderRenderer, [])}
         ></vaadin-grid-column>
         <vaadin-grid-column
-          .renderer="${this._typeRenderer}"
+          ${columnBodyRenderer(this._typeRenderer, [])}
           header="Type"
           auto-width
           flex-grow="0"
@@ -210,7 +220,7 @@ export class PageProjectBundles extends ResponsiveMixin(PageElement) {
           path="Request"
           header="Request"
           resizable
-          .renderer="${this._jsonRenderer}"
+          ${columnBodyRenderer(this._jsonRenderer, [])}
           ?hidden="${this._narrowScreen}"
         ></vaadin-grid-column>
       </vaadin-grid>
@@ -310,33 +320,19 @@ export class PageProjectBundles extends ResponsiveMixin(PageElement) {
     }
   }
 
-  _jsonRenderer(
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<BundledRequestsApiModel>
-  ) {
-    const bundle = model.item as BundledRequestsApiModel;
-
-    root.innerHTML = `<hegs-json-viewer style="font-size: small ">${
-      bundle.Request
-    }</hegs-json-viewer>`;
-    const viewer = root.querySelector(
-      'hegs-json-viewer'
-    ) as unknown as HegsJsonViewer;
-    viewer.expand('**');
+  _jsonRenderer(bundle: BundledRequestsApiModel) {
+    // The viewer is configured through a method, so `ref` fires exactly when
+    // the element exists rather than querying it back out of the cell.
+    return html`<hegs-json-viewer
+      style="font-size: small"
+      ${ref(expandJsonViewer)}
+      >${bundle.Request}</hegs-json-viewer
+    >`;
   }
 
-  _typeRenderer(
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<BundledRequestsApiModel>
-  ) {
-    const bundle = model.item as BundledRequestsApiModel;
-
+  _typeRenderer(bundle: BundledRequestsApiModel) {
     // API returns Type as string name ("JobRequest", "CopyEnvBuild") not number
-    const typeString = (bundle.Type as unknown as string) || 'Unknown';
-
-    root.innerHTML = `<span>${typeString}</span>`;
+    return html`<span>${(bundle.Type as unknown as string) || 'Unknown'}</span>`;
   }
 
   private fetchBundledRequests() {
