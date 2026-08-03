@@ -1,14 +1,8 @@
+import { columnBodyRenderer, columnHeaderRenderer } from '@vaadin/grid/lit';
 import '../components/dorc-spinner';
 import '@vaadin/button';
-import {
-  GridCellPartNameGenerator,
-  GridDataProviderCallback,
-  GridDataProviderParams,
-  GridItemModel,
-  GridSorterDefinition
-} from '@vaadin/grid';
+import { GridCellPartNameGenerator, GridDataProviderCallback, GridDataProviderParams, GridSorterDefinition } from '@vaadin/grid';
 import '@vaadin/grid';
-import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid-sorter';
 import '@vaadin/horizontal-layout';
@@ -16,13 +10,11 @@ import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
 import '@vaadin/text-field';
 import '@vaadin/checkbox';
-import { css, PropertyValues, render } from 'lit';
+import { PropertyValues, css, nothing, render } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { PagedDataSorting } from '../apis/dorc-api';
-import {
-  PagedDataFilter,
-} from '../apis/dorc-api/models';
+import { PagedDataFilter } from '../apis/dorc-api/models';
 import { ScriptAuditApiModel } from '../apis/dorc-api/models/ScriptAuditApiModel';
 import { GetScriptsAuditListResponseDto } from '../apis/dorc-api/models/GetScriptsAuditListResponseDto';
 import { ScriptsAuditApi } from '../apis/dorc-api/apis/ScriptsAuditApi';
@@ -106,20 +98,20 @@ export class PageScriptsAudit extends ResponsiveMixin(PageElement) {
           path="ScriptName"
           header="Script Name"
           resizable
-          .headerRenderer="${this.nameHeaderRenderer}"
+          ${columnHeaderRenderer(this.nameHeaderRenderer, [])}
           auto-width
         ></vaadin-grid-column>
         <vaadin-grid-column
           path="ProjectNames"
           header="Projects"
           resizable
-          .headerRenderer="${this.projectNamesHeaderRenderer}"
+          ${columnHeaderRenderer(this.projectNamesHeaderRenderer, [])}
           auto-width
         ></vaadin-grid-column>
         <vaadin-grid-column
           path="UpdatedBy"
           header="User"
-          .headerRenderer="${this.userHeaderRenderer}"
+          ${columnHeaderRenderer(this.userHeaderRenderer, [])}
           resizable
           auto-width
         ></vaadin-grid-column>
@@ -127,13 +119,13 @@ export class PageScriptsAudit extends ResponsiveMixin(PageElement) {
           path="UpdatedDate"
           header="Updated"
           direction="desc"
-          .renderer="${this.updatedRenderer}"
+          ${columnBodyRenderer(this.updatedRenderer, [])}
           resizable
           auto-width
         ></vaadin-grid-sort-column>
         <vaadin-grid-column
           header="Value"
-          .renderer="${this.valueRenderer}"
+          ${columnBodyRenderer(this.valueRenderer, [])}
           .headerRenderer="${this.valueHeaderRenderer}"
           resizable
           auto-width
@@ -174,15 +166,13 @@ export class PageScriptsAudit extends ResponsiveMixin(PageElement) {
   }
 
   updatedRenderer = (
-    root: HTMLElement,
-    _: HTMLElement,
-    model: GridItemModel<ScriptAuditApiModel>
+    item: ScriptAuditApiModel
   ) => {
     let sTime = '';
     let sDate = '';
 
-    if (model.item.UpdatedDate !== undefined) {
-      const dt = new Date(model.item.UpdatedDate);
+    if (item.UpdatedDate !== undefined) {
+      const dt = new Date(item.UpdatedDate);
       sTime = dt.toLocaleTimeString('en-GB');
       sDate = dt.toLocaleDateString('en-GB', {
         day: '2-digit',
@@ -191,7 +181,7 @@ export class PageScriptsAudit extends ResponsiveMixin(PageElement) {
       });
     }
 
-    render(html` <span>${`${sDate} ${sTime}`}</span> `, root);
+    return html` <span>${`${sDate} ${sTime}`}</span> `;
   }
 
   private cellPartNameGenerator: GridCellPartNameGenerator<ScriptAuditApiModel> = (
@@ -212,35 +202,24 @@ export class PageScriptsAudit extends ResponsiveMixin(PageElement) {
   };
 
   valueRenderer = (
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<ScriptAuditApiModel>
+    item: ScriptAuditApiModel
   ) => {
-    const oldStr = model.item.FromValue ?? '';
-    const newStr = model.item.ToValue ?? '';
+    const oldStr = item.FromValue ?? '';
+    const newStr = item.ToValue ?? '';
 
-    if (model.item.Type === 'Insert' || (model.item.Type === 'Update' && oldStr === '')) {
-      render(
-        html`<div class="value-line"><span class="highlight">${newStr}</span></div>`,
-        root
-      );
-      return;
+    if (item.Type === 'Insert' || (item.Type === 'Update' && oldStr === '')) {
+      return html`<div class="value-line"><span class="highlight">${newStr}</span></div>`;
+      return nothing;
     }
 
-    if (model.item.Type === 'Delete' || (model.item.Type === 'Update' && newStr === '')) {
-      render(
-        html`<div class="value-line"><span class="highlight-removed">${oldStr}</span></div>`,
-        root
-      );
-      return;
+    if (item.Type === 'Delete' || (item.Type === 'Update' && newStr === '')) {
+      return html`<div class="value-line"><span class="highlight-removed">${oldStr}</span></div>`;
+      return nothing;
     }
 
     if (oldStr === newStr) {
-      render(
-        html`<div class="value-line">${newStr}</div>`,
-        root
-      );
-      return;
+      return html`<div class="value-line">${newStr}</div>`;
+      return nothing;
     }
 
     const ops = this.computeDiff(oldStr, newStr);
@@ -257,13 +236,10 @@ export class PageScriptsAudit extends ResponsiveMixin(PageElement) {
       return html``;
     });
 
-    render(
-      html`
+    return html`
         <div class="value-line">${oldParts}</div>
         <div class="value-line">${newParts}</div>
-      `,
-      root
-    );
+      `;
   }
 
   private computeDiff(oldStr: string, newStr: string): { type: 'keep' | 'insert' | 'delete'; value: string }[] {
@@ -314,9 +290,8 @@ export class PageScriptsAudit extends ResponsiveMixin(PageElement) {
     return merged;
   }
 
-  nameHeaderRenderer = (root: HTMLElement) => {
-    render(
-      html`
+  nameHeaderRenderer = () => {
+    return html`
         <vaadin-horizontal-layout style="align-items: center;" theme="spacing-xs">
           <vaadin-grid-sorter path="ScriptName"></vaadin-grid-sorter>
           <vaadin-text-field
@@ -332,14 +307,11 @@ export class PageScriptsAudit extends ResponsiveMixin(PageElement) {
             }}"
           ></vaadin-text-field>
         </vaadin-horizontal-layout>
-      `,
-      root
-    );
+      `;
   }
 
-  projectNamesHeaderRenderer = (root: HTMLElement) => {
-    render(
-      html`
+  projectNamesHeaderRenderer = () => {
+    return html`
         <vaadin-horizontal-layout style="align-items: center;" theme="spacing-xs">
           <vaadin-grid-sorter path="ProjectNames"></vaadin-grid-sorter>
           <vaadin-text-field
@@ -355,14 +327,11 @@ export class PageScriptsAudit extends ResponsiveMixin(PageElement) {
             }}"
           ></vaadin-text-field>
         </vaadin-horizontal-layout>
-      `,
-      root
-    );
+      `;
   }
 
-  userHeaderRenderer = (root: HTMLElement) => {
-    render(
-      html`
+  userHeaderRenderer = () => {
+    return html`
         <vaadin-horizontal-layout style="align-items: center;" theme="spacing-xs">
           <vaadin-grid-sorter path="UpdatedBy"></vaadin-grid-sorter>
           <vaadin-text-field
@@ -378,9 +347,7 @@ export class PageScriptsAudit extends ResponsiveMixin(PageElement) {
             }}"
           ></vaadin-text-field>
         </vaadin-horizontal-layout>
-      `,
-      root
-    );
+      `;
   }
 
   valueHeaderRenderer = (root: HTMLElement) => {

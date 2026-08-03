@@ -1,3 +1,5 @@
+import { columnBodyRenderer } from '@vaadin/grid/lit';
+import { comboBoxRenderer } from '@vaadin/combo-box/lit';
 import '@vaadin/dialog';
 import type { DialogOpenedChangedEvent } from '@vaadin/dialog';
 import { dialogFooterRenderer, dialogRenderer } from '@vaadin/dialog/lit';
@@ -6,23 +8,18 @@ import '@vaadin/button';
 import '@vaadin/checkbox';
 import { Checkbox } from '@vaadin/checkbox';
 import '@vaadin/combo-box';
-import { ComboBox, ComboBoxItemModel } from '@vaadin/combo-box';
+import { ComboBox } from '@vaadin/combo-box';
 import '@vaadin/details';
 import '@vaadin/grid/vaadin-grid';
-import { GridItemModel } from '@vaadin/grid';
-import { GridColumn } from '@vaadin/grid/vaadin-grid-column.js';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/text-field';
 import { TextField } from '@vaadin/text-field';
 import '@vaadin/vertical-layout';
-import { css, LitElement, render } from 'lit';
+import { LitElement, css, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import '../components/grid-button-groups/access-control-controls';
-import {
-  AccessSecureApiModel,
-  UserElementApiModel
-} from '../apis/dorc-api';
+import { AccessSecureApiModel, UserElementApiModel } from '../apis/dorc-api';
 import { AccessControlApi } from '../apis/dorc-api';
 import { AccessControlApiModel } from '../apis/dorc-api';
 import '@vaadin/notification';
@@ -205,26 +202,17 @@ export class AddEditAccessControl extends LitElement {
   }
 
   _boundACButtonsRenderer(
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<AccessControlApiModel>
+    item: AccessControlApiModel
   ) {
-    const accessControl = model.item as AccessControlApiModel;
+    const accessControl = item as AccessControlApiModel;
 
-    // The below line has a horrible hack
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore
-    const altThis = _column.ACControl as AddEditAccessControl;
-    render(
-      html`<access-control-controls
+    return html`<access-control-controls
         .accessControl="${accessControl}"
-        .disabled="${!altThis.UserEditable || model.item.Allow === AC_ALLOW_OWNER}"
+        .disabled="${!this.UserEditable || item.Allow === AC_ALLOW_OWNER}"
         @access-control-removed="${() => {
-          altThis.removeAccessControl(accessControl);
+          this.removeAccessControl(accessControl);
         }}"
-      ></access-control-controls>`,
-      root
-    );
+      ></access-control-controls>`;
   }
 
   removeItem<T>(arr: Array<T>, value: T): Array<T> {
@@ -331,21 +319,18 @@ export class AddEditAccessControl extends LitElement {
   }
 
   searchResultsRenderer = (
-    root: HTMLElement,
-    _comboBox: ComboBox,
-    model: ComboBoxItemModel<UserElementApiModel>
+    item: UserElementApiModel
   ) => {
-    if (!model.item) {
-      render(html``, root);
-      return;
+    if (!item) {
+      return html``;
+      return nothing;
     }
 
-    const { DisplayName, Username } = model.item;
+    const { DisplayName, Username } = item;
     const displayName = DisplayName ?? '';
     const username = Username ?? '';
 
-    render(
-      html`
+    return html`
         <vaadin-vertical-layout style="padding: 4px 0; gap: 0;">
           <div style="${this.acStyles.displayName}">
             ${displayName}
@@ -353,11 +338,9 @@ export class AddEditAccessControl extends LitElement {
           <div style="${this.acStyles.username}">
             ${username}
           </div>
-          ${this.renderUserId(model.item)}
+          ${this.renderUserId(item)}
         </vaadin-vertical-layout>
-      `,
-      root
-    );
+      `;
   }
 
   renderUserId(item: UserElementApiModel): unknown {
@@ -400,162 +383,98 @@ export class AddEditAccessControl extends LitElement {
     );
   }
 
-  acCanReadSecrets(
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<AccessControlApiModel>
+  acCanReadSecrets(item: AccessControlApiModel) {
+    return html`<vaadin-checkbox
+      ?disabled="${!this.UserEditable || !this.UserCanReadSecrets}"
+      .checked="${((item.Allow ?? 0) & AC_ALLOW_READ_SECRETS) > 0}"
+      @checked-changed="${(e: CustomEvent) =>
+        this.togglePrivilege(item, AC_ALLOW_READ_SECRETS, e.detail.value)}"
+    ></vaadin-checkbox>`;
+  }
+
+  /**
+   * Flips one permission bit on the row's model in place.
+   *
+   * The grid's items are edited directly and read back on save, so this
+   * deliberately mutates rather than replacing the item — the same thing the
+   * imperative renderers did through their `checked-changed` listeners.
+   */
+  private togglePrivilege(
+    item: AccessControlApiModel,
+    bit: number,
+    checked: boolean
   ) {
-    // The below line has a horrible hack
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore
-    const addEditAccessControl = _column.altThis as AddEditAccessControl;
-
-    const canReadSecrets =
-      ((model.item.Allow ?? 0) & AC_ALLOW_READ_SECRETS) > 0;
-
-    render(
-      html`<vaadin-checkbox
-        ?disabled="${!addEditAccessControl.UserEditable || !addEditAccessControl.UserCanReadSecrets}"
-        .checked="${canReadSecrets}"
-      ></vaadin-checkbox>`,
-      root
-    );
-
-    const checkbox: Checkbox = root.querySelector(
-      'vaadin-checkbox'
-    ) as Checkbox;
-
-    checkbox.addEventListener('checked-changed', (e: CustomEvent) => {
-      const canReadSecretsLocal =
-        ((model.item.Allow ?? 0) & AC_ALLOW_READ_SECRETS) > 0;
-
-      const checked = e.detail.value as boolean;
-      if (checked && !canReadSecretsLocal) {
-        if (model.item.Allow !== undefined) {
-          model.item.Allow |= AC_ALLOW_READ_SECRETS;
-        }
-      }
-      if (!checked && canReadSecretsLocal) {
-        if (model.item.Allow !== undefined) {
-          model.item.Allow ^= AC_ALLOW_READ_SECRETS;
-        }
-      }
-      console.log(`for ${model.item.Name} setting to ${model.item.Allow}`);
-    });
+    if (item.Allow === undefined) return;
+    const isSet = (item.Allow & bit) > 0;
+    if (checked && !isSet) item.Allow |= bit;
+    if (!checked && isSet) item.Allow ^= bit;
   }
 
   acNameRenderer = (
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<AccessControlApiModel>
+    item: AccessControlApiModel
   ) => {
-    const name = model.item.Name ?? '';
+    const name = item.Name ?? '';
 
-    render(html`
+    return html`
       <div style="padding: 4px 0;">
         <div style="${this.acStyles.displayName}">${name}</div>
-        ${this.renderUserId(model.item)}
+        ${this.renderUserId(item)}
       </div>
-    `, root);
+    `;
   };
 
-  acCanWrite(
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<AccessControlApiModel>
-  ) {
-    // The below line has a horrible hack
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore
-    const addEditAccessControl = _column.altThis as AddEditAccessControl;
-
-    const canWriteRender = ((model.item.Allow ?? 0) & AC_ALLOW_WRITE) > 0;
-
-    render(
-      html`<vaadin-checkbox
-        ?disabled="${!addEditAccessControl.UserEditable}"
-        ?checked="${canWriteRender}"
-      ></vaadin-checkbox>`,
-      root
-    );
-
-    const checkbox: Checkbox = root.querySelector(
-      'vaadin-checkbox'
-    ) as Checkbox;
-
-    checkbox.addEventListener('checked-changed', (e: any) => {
-      const canWrite = ((model.item.Allow ?? 0) & AC_ALLOW_WRITE) > 0;
-
-      const checked = e.detail.value as boolean;
-      if (checked && !canWrite) {
-        if (model.item.Allow !== undefined) {
-          model.item.Allow |= AC_ALLOW_WRITE;
-        }
-      }
-      if (!checked && canWrite) {
-        if (model.item.Allow !== undefined) {
-          model.item.Allow ^= AC_ALLOW_WRITE;
-        }
-      }
-      console.log(`for ${model.item.Name} setting to ${model.item.Allow}`);
-    });
+  acCanWrite(item: AccessControlApiModel) {
+    return html`<vaadin-checkbox
+      ?disabled="${!this.UserEditable}"
+      .checked="${((item.Allow ?? 0) & AC_ALLOW_WRITE) > 0}"
+      @checked-changed="${(e: CustomEvent) =>
+        this.togglePrivilege(item, AC_ALLOW_WRITE, e.detail.value)}"
+    ></vaadin-checkbox>`;
   }
 
-  acCanOwner(
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<AccessControlApiModel>
+  acCanOwner(item: AccessControlApiModel) {
+    return html`<vaadin-checkbox
+      ?disabled="${!this.UserIsOwner}"
+      .checked="${((item.Allow ?? 0) & AC_ALLOW_OWNER) > 0}"
+      @checked-changed="${(e: CustomEvent) =>
+        this.toggleOwner(e.target as Checkbox, item, e.detail.value)}"
+    ></vaadin-checkbox>`;
+  }
+
+  /** Owner is capped at two per environment, so it cannot use togglePrivilege. */
+  private toggleOwner(
+    checkbox: Checkbox,
+    item: AccessControlApiModel,
+    checked: boolean
   ) {
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore
-    const addEditAccessControl = _column.altThis as AddEditAccessControl;
+    if (item.Allow === undefined) return;
+    const isOwner = (item.Allow & AC_ALLOW_OWNER) > 0;
 
-    const canOwnerRender = ((model.item.Allow ?? 0) & AC_ALLOW_OWNER) > 0;
-
-    render(
-      html`<vaadin-checkbox
-        ?disabled="${!addEditAccessControl.UserIsOwner}"
-        ?checked="${canOwnerRender}"
-      ></vaadin-checkbox>`,
-      root
-    );
-
-    const checkbox: Checkbox = root.querySelector(
-      'vaadin-checkbox'
-    ) as Checkbox;
-
-    checkbox.addEventListener('checked-changed', (e: CustomEvent) => {
-      const canOwner =
-        ((model.item.Allow ?? 0) & AC_ALLOW_OWNER) > 0;
-
-      const checked = e.detail.value as boolean;
-      if (checked && !canOwner) {
-        const ownerCount = addEditAccessControl.Privileges?.filter(
-          p => ((p.Allow ?? 0) & AC_ALLOW_OWNER) > 0
-        ).length ?? 0;
-        if (ownerCount >= 2) {
-          checkbox.checked = false;
-          if (!addEditAccessControl._ownerLimitNotified) {
-            addEditAccessControl._ownerLimitNotified = true;
-            Promise.resolve().then(() => { addEditAccessControl._ownerLimitNotified = false; });
-            Notification.show(`Maximum of 2 owners allowed per environment`, {
-              theme: 'warning',
-              position: 'bottom-start',
-              duration: 3000
-            });
-          }
-          return;
+    if (checked && !isOwner) {
+      const ownerCount =
+        this.Privileges?.filter(p => ((p.Allow ?? 0) & AC_ALLOW_OWNER) > 0)
+          .length ?? 0;
+      if (ownerCount >= 2) {
+        checkbox.checked = false;
+        if (!this._ownerLimitNotified) {
+          this._ownerLimitNotified = true;
+          Promise.resolve().then(() => {
+            this._ownerLimitNotified = false;
+          });
+          Notification.show('Maximum of 2 owners allowed per environment', {
+            theme: 'warning',
+            position: 'bottom-start',
+            duration: 3000
+          });
         }
-        if (model.item.Allow !== undefined) {
-          model.item.Allow |= AC_ALLOW_OWNER;
-        }
+        return;
       }
-      if (!checked && canOwner) {
-        if (model.item.Allow !== undefined) {
-          model.item.Allow ^= AC_ALLOW_OWNER;
-        }
-      }
-    });
+      item.Allow |= AC_ALLOW_OWNER;
+    }
+
+    if (!checked && isOwner) {
+      item.Allow ^= AC_ALLOW_OWNER;
+    }
   }
 
 
@@ -665,7 +584,7 @@ export class AddEditAccessControl extends LitElement {
                     item-value-path="DisplayName"
                     item-label-path="DisplayName"
                     .items="${this.searchResults}"
-                    .renderer="${this.searchResultsRenderer}"
+                    ${comboBoxRenderer(this.searchResultsRenderer, [])}
                   ></vaadin-combo-box>
                 </td>
                 <td style="display: table-cell; vertical-align: bottom;">
@@ -686,39 +605,47 @@ export class AddEditAccessControl extends LitElement {
           >
             <vaadin-grid-sort-column
               header="Name"
-              .renderer="${this.acNameRenderer}"
+              ${columnBodyRenderer(this.acNameRenderer, [])}
               flex="3"
               resizable
               auto-width
             ></vaadin-grid-sort-column>
             <vaadin-grid-column
               header="Write"
-              .renderer="${this.acCanWrite}"
-              .altThis="${this}"
+              ${columnBodyRenderer(this.acCanWrite, [
+                this.UserEditable,
+                this.UserIsOwner,
+                this.UserCanReadSecrets
+              ])}
               flex="1"
               resizable
               auto-width
             ></vaadin-grid-column>
             <vaadin-grid-column
               header="Read Secrets"
-              .renderer="${this.acCanReadSecrets}"
-              .altThis="${this}"
+              ${columnBodyRenderer(this.acCanReadSecrets, [
+                this.UserEditable,
+                this.UserIsOwner,
+                this.UserCanReadSecrets
+              ])}
               flex="1"
               resizable
               auto-width
             ></vaadin-grid-column>
             <vaadin-grid-column
               header="Owner"
-              .renderer="${this.acCanOwner}"
-              .altThis="${this}"
+              ${columnBodyRenderer(this.acCanOwner, [
+                this.UserEditable,
+                this.UserIsOwner,
+                this.UserCanReadSecrets
+              ])}
               flex="1"
               resizable
               auto-width
             ></vaadin-grid-column>
             <vaadin-grid-column
               header="Actions"
-              .renderer="${this._boundACButtonsRenderer}"
-              .ACControl="${this}"
+              ${columnBodyRenderer(this._boundACButtonsRenderer, [])}
               flex="1"
               resizable
               auto-width

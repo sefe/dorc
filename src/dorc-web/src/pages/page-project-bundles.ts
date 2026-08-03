@@ -1,3 +1,4 @@
+import { columnBodyRenderer } from '@vaadin/grid/lit';
 import { confirmPrompt } from '../components/confirm-prompt';
 import { css, PropertyValues, render } from 'lit';
 import '../components/dorc-spinner';
@@ -13,12 +14,7 @@ import { PageElement } from '../helpers/page-element';
 import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import '@vaadin/details';
 import '@vaadin/horizontal-layout';
-import {
-  BundledRequestsApi,
-  BundledRequestsApiModel,
-  RefDataProjectEnvironmentMappingsApi,
-  EnvironmentApiModelTemplateApiModel
-} from '../apis/dorc-api';
+import { BundledRequestsApi, BundledRequestsApiModel, RefDataProjectEnvironmentMappingsApi, EnvironmentApiModelTemplateApiModel } from '../apis/dorc-api';
 import { ErrorNotification } from '../components/notifications/error-notification.ts';
 import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
 import { Grid, GridItemModel } from '@vaadin/grid';
@@ -210,7 +206,7 @@ export class PageProjectBundles extends ResponsiveMixin(PageElement) {
           ?hidden="${this._narrowScreen}"
         ></vaadin-grid-sort-column>
         <vaadin-grid-column
-          .renderer="${this.bundleControlsRenderer}"
+          ${columnBodyRenderer(this.bundleControlsRenderer, [])}
           resizable
           flex-grow="0"
         ></vaadin-grid-column>
@@ -281,15 +277,10 @@ export class PageProjectBundles extends ResponsiveMixin(PageElement) {
   }
 
   bundleControlsRenderer(
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<BundledRequestsApiModel>
+    item: BundledRequestsApiModel
   ) {
-    render(
-      html` <bundle-request-controls .value="${model.item}">
-      </bundle-request-controls>`,
-      root
-    );
+    return html` <bundle-request-controls .value="${item}">
+      </bundle-request-controls>`;
   }
 
   private _handleEditBundle(e: CustomEvent) {

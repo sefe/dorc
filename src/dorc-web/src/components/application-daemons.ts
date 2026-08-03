@@ -1,3 +1,4 @@
+import { columnBodyRenderer } from '@vaadin/grid/lit';
 import { css, LitElement, PropertyValues, render } from 'lit';
 import '@vaadin/grid/vaadin-grid-column';
 import '@vaadin/grid/vaadin-grid-sort-column';
@@ -81,8 +82,7 @@ export class ApplicationDaemons extends LitElement {
         >
         </vaadin-grid-sort-column>
         <vaadin-grid-column
-          .renderer="${this._boundDaemonsButtonsRenderer}"
-          .attachedAppDaemonControl="${this}"
+          ${columnBodyRenderer(this._boundDaemonsButtonsRenderer, [])}
         >
         </vaadin-grid-column>
       </vaadin-grid>
@@ -120,19 +120,10 @@ export class ApplicationDaemons extends LitElement {
   }
 
   _boundDaemonsButtonsRenderer(
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<DaemonStatusApiModel>
+    item: DaemonStatusApiModel
   ) {
-    // The below line has a horrible hack
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore
-    const applicationDaemons = _column.attachedAppDaemonControl as ApplicationDaemons;
-    const daemon = model.item as DaemonStatusApiModel;
-    render(
-      html`<daemon-controls .daemonDetails="${daemon}" .userEditable="${applicationDaemons.userEditable}"></daemon-controls>`,
-      root
-    );
+    const daemon = item as DaemonStatusApiModel;
+    return html`<daemon-controls .daemonDetails="${daemon}" .userEditable="${this.userEditable}"></daemon-controls>`;
   }
 
   public loadDaemons() {

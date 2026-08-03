@@ -1,3 +1,4 @@
+import { columnBodyRenderer, columnHeaderRenderer } from '@vaadin/grid/lit';
 import { confirmPrompt } from '../components/confirm-prompt';
 import '@vaadin/button';
 import { Checkbox } from '@vaadin/checkbox';
@@ -6,8 +7,7 @@ import '@vaadin/checkbox';
 import { ComboBox, ComboBoxRenderer } from '@vaadin/combo-box';
 import '@vaadin/details';
 import '@vaadin/grid';
-import { GridCellPartNameGenerator, GridItemModel } from '@vaadin/grid';
-import { GridColumn } from '@vaadin/grid/vaadin-grid-column.js';
+import { GridCellPartNameGenerator } from '@vaadin/grid';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid-sorter';
 import '@vaadin/horizontal-layout';
@@ -24,14 +24,7 @@ import { html } from 'lit/html.js';
 import '../components/grid-button-groups/variable-value-controls';
 import { ErrorNotification } from '../components/notifications/error-notification';
 import { WarningNotification } from '../components/notifications/warning-notification';
-import {
-  PropertiesApi,
-  PropertyApiModel,
-  PropertyValueDto,
-  PropertyValuesApi,
-  PropertyValueScopeOptionApiModel,
-  Response
-} from '../apis/dorc-api';
+import { PropertiesApi, PropertyApiModel, PropertyValueDto, PropertyValuesApi, PropertyValueScopeOptionApiModel, Response } from '../apis/dorc-api';
 import { RefDataEnvironmentsApi } from '../apis/dorc-api';
 import { PageElement } from '../helpers/page-element';
 import { PropertyValueDtoExtended } from '../components/model-extensions/PropertyValueDtoExtended';
@@ -373,16 +366,16 @@ export class PageVariables extends PageElement {
                     width="200px"
                     flex-grow="0"
                     resizable
-                    .headerRenderer="${this.scopeHeaderRenderer}"
-                    .renderer="${this.scopeValueRenderer}"
+                    ${columnHeaderRenderer(this.scopeHeaderRenderer, [])}
+                    ${columnBodyRenderer(this.scopeValueRenderer, [])}
                   ></vaadin-grid-column>
                   <vaadin-grid-column
                     header="Value"
                     resizable
                     flex-grow="1"
                     width="20rem"
-                    .renderer="${this.variableValueControlsRenderer}"
-                    .headerRenderer="${this.valueHeaderRenderer}"
+                    ${columnBodyRenderer(this.variableValueControlsRenderer, [])}
+                    ${columnHeaderRenderer(this.valueHeaderRenderer, [])}
                   ></vaadin-grid-column>
                 </vaadin-grid>`}
           `
@@ -477,23 +470,17 @@ export class PageVariables extends PageElement {
   };
 
   scopeValueRenderer(
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<PropertyValueDtoExtended>
+    item: PropertyValueDtoExtended
   ) {
-    const scope = model.item.PropertyValueFilter;
+    const scope = item.PropertyValueFilter;
     const isDefault = !scope;
-    render(
-      html`<span style="${isDefault ? 'font-style: italic; color: var(--lumo-secondary-text-color);' : ''}">
+    return html`<span style="${isDefault ? 'font-style: italic; color: var(--lumo-secondary-text-color);' : ''}">
         ${isDefault ? '(default)' : scope}
-      </span>`,
-      root
-    );
+      </span>`;
   }
 
-  scopeHeaderRenderer = (root: HTMLElement) => {
-    render(
-      html`
+  scopeHeaderRenderer = () => {
+    return html`
         <vaadin-horizontal-layout style="align-items: center;" theme="spacing-xs">
           <vaadin-grid-sorter path="PropertyValueFilter"></vaadin-grid-sorter>
           <vaadin-text-field
@@ -509,14 +496,11 @@ export class PageVariables extends PageElement {
             }}"
           ></vaadin-text-field>
         </vaadin-horizontal-layout>
-      `,
-      root
-    );
+      `;
   }
 
-  valueHeaderRenderer = (root: HTMLElement) => {
-    render(
-      html`
+  valueHeaderRenderer = () => {
+    return html`
         <vaadin-horizontal-layout style="align-items: center;" theme="spacing-xs">
           <vaadin-grid-sorter path="Value"></vaadin-grid-sorter>
           <vaadin-text-field
@@ -532,9 +516,7 @@ export class PageVariables extends PageElement {
             }}"
           ></vaadin-text-field>
         </vaadin-horizontal-layout>
-      `,
-      root
-    );
+      `;
   }
 
   private comboboxRenderer: ComboBoxRenderer<PropertyValueScopeOptionApiModel> =
@@ -1040,24 +1022,19 @@ export class PageVariables extends PageElement {
   }
 
   variableValueControlsRenderer = (
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<PropertyValueDtoExtended>
+    item: PropertyValueDtoExtended
   ) => {
     let dup = '';
-    if (model.item.IsDuplicate) {
+    if (item.IsDuplicate) {
       dup = 'WARNING: duplicate value located!';
     }
 
-    render(
-      html`<variable-value-controls
-        .value="${model.item}"
-        .editing="${model.item.Id === this._editingValueId}"
+    return html`<variable-value-controls
+        .value="${item}"
+        .editing="${item.Id === this._editingValueId}"
         .additionalInformation="${dup}"
       >
-      </variable-value-controls>`,
-      root
-    );
+      </variable-value-controls>`;
   };
 
   errorAlert(errs: Response[]) {

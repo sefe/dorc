@@ -1,29 +1,22 @@
+import { columnBodyRenderer } from '@vaadin/grid/lit';
+import { comboBoxRenderer } from '@vaadin/combo-box/lit';
 import '@vaadin/button';
 import '@vaadin/combo-box';
-import { ComboBoxItemModel } from '@vaadin/combo-box';
 import { ComboBox } from '@vaadin/combo-box';
 import '@vaadin/details';
 import '@vaadin/dialog';
-import { GridItemModel } from '@vaadin/grid';
 import '@vaadin/grid/vaadin-grid';
-import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/horizontal-layout';
 import '@vaadin/notification';
 import '@vaadin/text-field';
 import { TextField } from '@vaadin/text-field';
-import { css, LitElement, PropertyValues, render } from 'lit';
+import { css, LitElement, PropertyValues } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { PropertiesApi, RequestApi } from '../../apis/dorc-api';
 import type { RequestPostRequest } from '../../apis/dorc-api';
-import {
-  DeployArtefactDto,
-  DeployComponentDto,
-  PropertyApiModel,
-  RequestProperty,
-  RequestStatusDto
-} from '../../apis/dorc-api';
+import { DeployArtefactDto, DeployComponentDto, PropertyApiModel, RequestProperty, RequestStatusDto } from '../../apis/dorc-api';
 import type { ProjectApiModel } from '../../apis/dorc-api';
 import '@vaadin/confirm-dialog';
 import '../hegs-json-viewer';
@@ -214,7 +207,7 @@ export class DeployEnv extends LitElement {
               style="flex: 1;"
               @value-changed="${this._buildDefValueChanged}"
               .items="${this.buildDefinitions}"
-              .renderer="${this._buildRenderer}"
+              ${comboBoxRenderer(this._buildRenderer, [])}
               placeholder="${this.isGitHubProject ? 'Select Workflow' : 'Select Build Definition'}"
               label="${this.isGitHubProject ? 'Workflow' : 'Build Definition'}"
               clear-button-visible
@@ -231,7 +224,7 @@ export class DeployEnv extends LitElement {
               style="flex: 1;"
               @value-changed="${this._buildValueChanged}"
               .items="${this.builds}"
-              .renderer="${this._buildRenderer}"
+              ${comboBoxRenderer(this._buildRenderer, [])}
               placeholder="${this.isGitHubProject ? 'Select Workflow Run' : 'Select Build Number'}"
               label="${this.isGitHubProject ? 'Workflow Run' : 'Build Number'}"
               clear-button-visible
@@ -252,7 +245,7 @@ export class DeployEnv extends LitElement {
               style="flex: 1;"
               @value-changed="${this._buildValueChanged}"
               .items="${this.builds}"
-              .renderer="${this._buildRenderer}"
+              ${comboBoxRenderer(this._buildRenderer, [])}
               placeholder="Select Folder"
               label="Folder Artifacts"
               clear-button-visible
@@ -319,8 +312,7 @@ export class DeployEnv extends LitElement {
               resizable
             ></vaadin-grid-sort-column>
             <vaadin-grid-column
-              .renderer="${this._boundPropOverridesButtonsRenderer}"
-              .attachedDbsControl="${this}"
+              ${columnBodyRenderer(this._boundPropOverridesButtonsRenderer, [])}
               resizable
             ></vaadin-grid-column>
           </vaadin-grid>
@@ -338,45 +330,31 @@ export class DeployEnv extends LitElement {
   }
 
   _boundPropOverridesButtonsRenderer(
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<RequestProperty>
+    item: RequestProperty
   ) {
-    const propertyOverride = model.item as RequestProperty;
+    const propertyOverride = item as RequestProperty;
 
-    // The below line has a horrible hack
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore
-    const altThis = _column.attachedDbsControl as DeployEnv;
-    render(
-      html`<property-override-controls
+    return html`<property-override-controls
         .propertyOverride="${propertyOverride}"
         @property-override-removed="${() => {
-          altThis.removePropertyOverride(propertyOverride);
+          this.removePropertyOverride(propertyOverride);
         }}"
-      ></property-override-controls>`,
-      root
-    );
+      ></property-override-controls>`;
   }
 
   _buildRenderer(
-    root: HTMLElement,
-    _comboBox: ComboBox,
-    model: ComboBoxItemModel<DeployArtefactDto>
+    item: DeployArtefactDto
   ) {
-    const template = model.item as DeployArtefactDto;
+    const template = item as DeployArtefactDto;
 
-    render(
-      html`
+    return html`
         <vaadin-horizontal-layout>
           ${template.Name?.replace('[PINNED]', '')}
           ${template.Name?.includes('[PINNED]')
             ? html`<vaadin-icon icon="vaadin:pin"></vaadin-icon>`
             : html``}
         </vaadin-horizontal-layout>
-      `,
-      root
-    );
+      `;
   }
 
   setBuildDefinitions(projects: DeployArtefactDto[]) {

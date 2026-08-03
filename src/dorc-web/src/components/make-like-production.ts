@@ -1,20 +1,13 @@
-import { css, LitElement, PropertyValues, render } from 'lit';
+import { columnBodyRenderer } from '@vaadin/grid/lit';
+import { css, LitElement, PropertyValues } from 'lit';
 import '@vaadin/checkbox';
 import '@vaadin/button';
 import '@vaadin/combo-box';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
-import {
-  BundledRequestsApi,
-  BundledRequestsApiModel,
-  MakeLikeProdApi, PropertiesApi,
-  PropertyApiModel,
-  RequestProperty
-} from '../apis/dorc-api';
+import { BundledRequestsApi, BundledRequestsApiModel, MakeLikeProdApi, PropertiesApi, PropertyApiModel, RequestProperty } from '../apis/dorc-api';
 import { ComboBox } from '@vaadin/combo-box';
 import { TextField } from '@vaadin/text-field';
-import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
-import { GridItemModel } from '@vaadin/grid';
 import './deploy/property-override-controls'
 import { MakeLikeProductionDialog } from './make-like-production-dialog.ts';
 import '@vaadin/details';
@@ -167,8 +160,7 @@ export class MakeLikeProduction extends LitElement {
                 resizable
               ></vaadin-grid-sort-column>
               <vaadin-grid-column
-                .renderer="${this._boundPropOverridesButtonsRenderer}"
-                .attachedDbsControl="${this}"
+                ${columnBodyRenderer(this._boundPropOverridesButtonsRenderer, [])}
                 resizable
               ></vaadin-grid-column>
             </vaadin-grid>
@@ -235,25 +227,16 @@ export class MakeLikeProduction extends LitElement {
   }
 
   _boundPropOverridesButtonsRenderer(
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<RequestProperty>
+    item: RequestProperty
   ) {
-    // The below line has a horrible hack
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore
-    const altThis = _column.attachedDbsControl as MakeLikeProduction;
-    const propertyOverride = model.item as RequestProperty;
+    const propertyOverride = item as RequestProperty;
 
-    render(
-      html` <property-override-controls
+    return html` <property-override-controls
         .propertyOverride="${propertyOverride}"
         @property-override-removed="${() => {
-          altThis.RemoveOverrideProperty(propertyOverride);
+          this.RemoveOverrideProperty(propertyOverride);
         }}"
-      ></property-override-controls>`,
-      root
-    );
+      ></property-override-controls>`;
   }
 
   private RemoveOverrideProperty(propertyOverride: RequestProperty) {

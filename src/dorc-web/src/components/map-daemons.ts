@@ -1,3 +1,4 @@
+import { columnBodyRenderer } from '@vaadin/grid/lit';
 import { confirmPrompt } from './confirm-prompt';
 import { css, LitElement } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
@@ -8,9 +9,6 @@ import '@vaadin/button';
 import '@vaadin/combo-box';
 import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
-import { GridItemModel } from '@vaadin/grid';
-import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
-import { render } from 'lit';
 import { Notification } from '@vaadin/notification';
 import type { DaemonApiModel, ServerApiModel } from '../apis/dorc-api';
 import { RefDataDaemonsApi } from '../apis/dorc-api';
@@ -140,39 +138,32 @@ export class ServerDaemonMapping extends LitElement {
         <vaadin-grid-column
           width="100px"
           flex-grow="0"
-          .renderer="${this._detachRenderer}"
-          .mappingControl="${this}"
+          ${columnBodyRenderer(this._detachRenderer, [])}
         ></vaadin-grid-column>
       </vaadin-grid>
     `;
   }
 
   private _detachRenderer(
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<DaemonApiModel>
+    item: DaemonApiModel
   ) {
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore
-    const control = _column.mappingControl as ServerDaemonMapping;
-    const daemon = model.item as DaemonApiModel;
-    render(
-      html`
+    const daemon = item as DaemonApiModel;
+    return html`
         <vaadin-button
           title="Unmap daemon"
           aria-label="Unmap daemon"
           theme="icon"
-          ?disabled="${control.readonly}"
-          @click="${() => control.detachDaemon(daemon)}"
+          ?disabled="${this.readonly}"
+          @click="${() => this.detachDaemon(daemon)}"
         >
           <vaadin-icon
             icon="vaadin:unlink"
-            style="color: ${control.readonly ? 'grey' : '#FF3131'}"
+            style="color: ${this.readonly ? 'grey' : '#FF3131'}"
           ></vaadin-icon>
         </vaadin-button>
-      `,
-      root
-    );
+      `;
   }
 
   private onDaemonSelected(e: CustomEvent) {

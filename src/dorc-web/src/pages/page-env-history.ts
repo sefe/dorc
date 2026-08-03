@@ -1,12 +1,12 @@
+import { columnBodyRenderer } from '@vaadin/grid/lit';
 import { Grid, GridItemModel } from '@vaadin/grid';
 import '@vaadin/grid/vaadin-grid';
-import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/icons/vaadin-icons';
 import '@vaadin/text-field';
 import { TextField } from '@vaadin/text-field';
 import '@vaadin/vaadin-lumo-styles/icons.js';
-import { css, PropertyValues, render } from 'lit';
+import { css, PropertyValues } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import AppConfig from '../app-config';
@@ -91,7 +91,7 @@ export class PageEnvironmentHistory extends ResponsiveMixin(PageElement) {
         <vaadin-grid-sort-column
           resizable
           path="UpdatedDate"
-          .renderer="${this._dateRenderer}"
+          ${columnBodyRenderer(this._dateRenderer, [])}
           header="Updated Date"
           width="170px"
         ></vaadin-grid-sort-column>
@@ -130,12 +130,12 @@ export class PageEnvironmentHistory extends ResponsiveMixin(PageElement) {
         <vaadin-grid-column
           resizable
           header="Comment"
-          .renderer="${this._commentRenderer}"
+          ${columnBodyRenderer(this._commentRenderer, [])}
           .attachedPageEnvironmentHistory="${this}"
           width="270px"
         ></vaadin-grid-column>
         <vaadin-grid-column
-          .renderer="${this._editButtonsRenderer}"
+          ${columnBodyRenderer(this._editButtonsRenderer, [])}
           width="14em"
         ></vaadin-grid-column>
       </vaadin-grid>
@@ -174,28 +174,23 @@ export class PageEnvironmentHistory extends ResponsiveMixin(PageElement) {
   }
 
   _dateRenderer(
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<EnvironmentHistoryApiModelExtended>
+    item: EnvironmentHistoryApiModelExtended
   ) {
-    const history = model.item as EnvironmentHistoryApiModelExtended;
+    const history = item as EnvironmentHistoryApiModelExtended;
     const time = history.UpdatedDate?.toLocaleTimeString('en-GB');
     const date = history.UpdatedDate?.toLocaleDateString('en-GB', {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric'
     });
-    render(html`<div>${`${date} ${time}`}</div>`, root);
+    return html`<div>${`${date} ${time}`}</div>`;
   }
 
   _commentRenderer(
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<EnvironmentHistoryApiModel>
+    item: EnvironmentHistoryApiModel, model: GridItemModel<EnvironmentHistoryApiModel>
   ) {
-    const history = model.item as EnvironmentHistoryApiModel;
-    render(
-      html`<vaadin-text-field
+    const history = item as EnvironmentHistoryApiModel;
+    return html`<vaadin-text-field
         style="width: 270px"
         id="${`comments${model.index}`}"
         readonly
@@ -207,22 +202,16 @@ export class PageEnvironmentHistory extends ResponsiveMixin(PageElement) {
           history.Comment = textField.value;
         }}"
       >
-      </vaadin-text-field>`,
-      root
-    );
+      </vaadin-text-field>`;
   }
 
   _editButtonsRenderer(
-    root: HTMLElement,
-    _column: GridColumn,
+    _item: EnvironmentHistoryApiModelExtended,
     model: GridItemModel<EnvironmentHistoryApiModelExtended>
   ) {
-    render(
-      html`
-        <edit-comments-controls .model="${model}"> </edit-comments-controls>
-      `,
-      root
-    );
+    return html`
+      <edit-comments-controls .model="${model}"></edit-comments-controls>
+    `;
   }
 
   _editClick(e: CustomEvent) {

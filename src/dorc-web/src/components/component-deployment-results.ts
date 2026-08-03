@@ -1,10 +1,9 @@
+import { columnBodyRenderer } from '@vaadin/grid/lit';
 import '@vaadin/button';
 import '@vaadin/grid';
-import { GridItemModel } from '@vaadin/grid';
 import '@vaadin/grid/vaadin-grid-column';
-import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
 import '@vaadin/grid/vaadin-grid-sort-column';
-import { css, LitElement, render } from 'lit';
+import { LitElement, css, nothing } from 'lit';
 import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
@@ -158,26 +157,26 @@ export class ComponentDeploymentResults extends ResponsiveMixin(LitElement) {
         .items="${this.resultItems}"
       >
         <vaadin-grid-column
-          .renderer="${this.componentNameRenderer}"
+          ${columnBodyRenderer(this.componentNameRenderer, [])}
           header="Component Name"
           resizable
           auto-width
         ></vaadin-grid-column>
         <vaadin-grid-column
           resizable
-          .renderer="${this.timingsRenderer}"
+          ${columnBodyRenderer(this.timingsRenderer, [])}
           header="Timings"
           auto-width
           ?hidden="${this._narrowScreen}"
         ></vaadin-grid-column>
         <vaadin-grid-column
-          .renderer="${this.statusRenderer}"
+          ${columnBodyRenderer(this.statusRenderer, [])}
           header="Status"
           resizable
           auto-width
         ></vaadin-grid-column>
         <vaadin-grid-column
-          .renderer="${this.actionsRenderer}"
+          ${columnBodyRenderer(this.actionsRenderer, [])}
           header="Actions"
           resizable
           auto-width
@@ -187,32 +186,27 @@ export class ComponentDeploymentResults extends ResponsiveMixin(LitElement) {
           header="Log"
           resizable
           auto-width
-          .renderer="${this._logRenderer}"
+          ${columnBodyRenderer(this._logRenderer, [])}
           ?hidden="${this._narrowScreen}"
         ></vaadin-grid-column>
       </vaadin-grid>
     `;
   }
 
-  componentNameRenderer(    root: HTMLElement,
-                            _column: GridColumn,
-                            model: GridItemModel<DeploymentResultApiModel>){
+  componentNameRenderer(    item: DeploymentResultApiModel){
 
-    const result = model.item as DeploymentResultApiModel;
-    render(html` <a href="scripts?search-name=${result.ComponentName}" target="_blank">${result.ComponentName}</a> `, root);
+    const result = item as DeploymentResultApiModel;
+    return html` <a href="scripts?search-name=${result.ComponentName}" target="_blank">${result.ComponentName}</a> `;
   }
 
   _logRenderer(
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<DeploymentResultApiModel>
+    item: DeploymentResultApiModel
   ) {
-    const result = model.item as DeploymentResultApiModel;
+    const result = item as DeploymentResultApiModel;
     const first100chars = result.Log?.substring(0, 100);
 
     const lines = first100chars?.split(/\r?\n/);
-    render(
-      html` <table>
+    return html` <table>
         <tr>
           <td>
             <vaadin-button
@@ -248,9 +242,7 @@ export class ComponentDeploymentResults extends ResponsiveMixin(LitElement) {
             </div>
           </td>
         </tr>
-      </table>`,
-      root
-    );
+      </table>`;
   }
 
   private async viewLog(e: Event) {
@@ -298,11 +290,9 @@ export class ComponentDeploymentResults extends ResponsiveMixin(LitElement) {
   }
 
   private timingsRenderer = (
-    root: HTMLElement,
-    _: HTMLElement,
-    model: GridItemModel<DeploymentResultApiModel>
+    item: DeploymentResultApiModel
   ) => {
-    const request = model.item as DeploymentResultApiModel;
+    const request = item as DeploymentResultApiModel;
     let sTime = '';
     let sDate = '';
     let cTime = '';
@@ -330,8 +320,7 @@ export class ComponentDeploymentResults extends ResponsiveMixin(LitElement) {
       );
     }
 
-    render(
-      html`
+    return html`
         <vaadin-horizontal-layout style="align-items: center;" theme="spacing">
           <vaadin-vertical-layout
             style="line-height: var(--lumo-line-height-s);"
@@ -348,17 +337,13 @@ export class ComponentDeploymentResults extends ResponsiveMixin(LitElement) {
             </div>
           </vaadin-vertical-layout>
         </vaadin-horizontal-layout>
-      `,
-      root
-    );
+      `;
   };
 
   statusRenderer = (
-    root: HTMLElement,
-    _: HTMLElement,
-    model: GridItemModel<DeploymentResultApiModel>
+    item: DeploymentResultApiModel
   ) => {
-    const result = model.item as DeploymentResultApiModel;
+    const result = item as DeploymentResultApiModel;
     const status = result.Status || '';
     
     let statusClass = '';
@@ -372,32 +357,26 @@ export class ComponentDeploymentResults extends ResponsiveMixin(LitElement) {
       statusClass = 'status-failed';
     }
 
-    render(
-      html`
+    return html`
         <span class="status-badge ${statusClass}">
           ${status}
         </span>
-      `,
-      root
-    );
+      `;
   };
 
   actionsRenderer = (
-    root: HTMLElement,
-    _: HTMLElement,
-    model: GridItemModel<DeploymentResultApiModel>
+    item: DeploymentResultApiModel
   ) => {
-    const result = model.item as DeploymentResultApiModel;
+    const result = item as DeploymentResultApiModel;
     const status = result.Status || '';
     const isTerraformStatus = status === 'WaitingConfirmation' || status === 'Confirmed';
 
     if (!isTerraformStatus) {
-      render(html`<span>-</span>`, root);
-      return;
+      return html`<span>-</span>`;
+      return nothing;
     }
 
-    render(
-      html`
+    return html`
         <div class="terraform-actions">
           <vaadin-button
             class="terraform-button"
@@ -409,9 +388,7 @@ export class ComponentDeploymentResults extends ResponsiveMixin(LitElement) {
             ></vaadin-icon>
           </vaadin-button>
         </div>
-      `,
-      root
-    );
+      `;
   };
 
   private viewTerraformPlan(e: CustomEvent) {

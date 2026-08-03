@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render } from 'lit';
 
 // --- Hoisted mock values (available before vi.mock factories run) ---
 // Cast to `any` so test code can index `.mock.calls[i][j]` without strict-mode
@@ -368,8 +369,10 @@ describe('PageMonitorRequests', () => {
     let root: HTMLElement;
 
     beforeEach(() => {
+      // These are Lit renderer directives now: they return a template rather
+      // than writing into a root, so the test does the rendering.
       root = document.createElement('div');
-      el.detailsHeaderRenderer(root);
+      render(el.detailsHeaderRenderer(), root);
     });
 
     it('renders three filter text inputs', () => {
@@ -417,15 +420,13 @@ describe('PageMonitorRequests', () => {
   describe('details cell renderer', () => {
     it('renders project, environment, and build in a single cell', () => {
       const root = document.createElement('div');
-      const model = {
-        item: {
-          Project: 'TestProject',
-          EnvironmentName: 'production',
-          BuildNumber: '3.1.4'
-        }
+      const item = {
+        Project: 'TestProject',
+        EnvironmentName: 'production',
+        BuildNumber: '3.1.4'
       };
 
-      (el as any).detailsRenderer(root, document.createElement('div'), model);
+      render((el as any).detailsRenderer(item), root);
 
       const text = root.textContent ?? '';
       expect(text).toContain('TestProject');

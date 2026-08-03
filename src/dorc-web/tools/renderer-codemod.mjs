@@ -75,31 +75,6 @@ const TAKES_ITEM = new Set([
   'selectRenderer'
 ]);
 
-const report = { converted: [], rebound: [], skipped: [] };
-
-for (const file of walk(SRC)) {
-  const original = readFileSync(file, 'utf8');
-  if (!/\.(header|footer|rowDetails)?[rR]enderer=/.test(original)) continue;
-
-  const rel = relative(ROOT, file);
-  const result = convertFile(original, rel);
-  if (result.text !== original && WRITE) writeFileSync(file, result.text);
-}
-
-console.log(`Converted ${report.converted.length} renderer(s).`);
-for (const line of report.converted) console.log('  ' + line);
-if (report.rebound.length) {
-  console.log(
-    `\n\`this\` rebound to the host in ${report.rebound.length} method renderer(s) — review each:`
-  );
-  for (const line of report.rebound) console.log('  ' + line);
-}
-if (report.skipped.length) {
-  console.log(`\nLeft alone (${report.skipped.length}):`);
-  for (const line of report.skipped) console.log('  ' + line);
-}
-if (!WRITE) console.log('\nDry run — pass --write to apply.');
-
 function convertFile(text, rel) {
   const source = ts.createSourceFile(rel, text, ts.ScriptTarget.Latest, true);
 
@@ -111,7 +86,7 @@ function convertFile(text, rel) {
   /** Text edits as {start, end, replacement}, applied back-to-front. */
   const edits = [];
   const neededImports = new Map();
-  let usedRender = false;
+  let needsNothing = false;
 
   for (const binding of bindings) {
     const table = DIRECTIVES[binding.prop];
@@ -146,7 +121,7 @@ function convertFile(text, rel) {
     }
 
     member.converted = true;
-    usedRender = true;
+    if (rewrite.needsNothing) needsNothing = true;
     edits.push({ start: member.node.getStart(source), end: member.node.getEnd(), replacement: rewrite.text });
     edits.push(bindingEdit(binding, directive));
     neededImports.set(module, (neededImports.get(module) ?? new Set()).add(directive));
@@ -163,7 +138,8 @@ function convertFile(text, rel) {
   for (const [module, names] of neededImports) {
     out = addImport(out, module, [...names]);
   }
-  if (usedRender) out = dropUnusedRenderImport(out);
+  if (needsNothing) out = ensureLitImport(out, 'nothing');
+  out = pruneImports(out);
 
   return { text: out };
 }
@@ -257,7 +233,11 @@ function rewriteRenderer(member, text, takesItem) {
       n.arguments[1].text === rootName
     ) {
       renderCalls.push(n);
-      return; // don't descend: the root reference here is expected
+      // Descend into the template only. The second argument is the expected
+      // `root` reference; the template may still smuggle one into an event
+      // handler, and that has to disqualify the renderer.
+      ts.forEachChild(n.arguments[0], visit);
+      return;
     }
     if (ts.isIdentifier(n) && n.text === rootName && n.parent !== rootParam) {
       rootMisuse ??= n;
@@ -283,51 +263,142 @@ function rewriteRenderer(member, text, takesItem) {
 
   const source = node.getSourceFile();
   const offset = node.getStart(source);
+  const params = arrow.parameters;
+  const modelParam =
+    params[2] && ts.isIdentifier(params[2].name) ? params[2].name.text : null;
+  const columnParam =
+    params[1] && ts.isIdentifier(params[1].name) ? params[1].name.text : null;
+
+  // The item type comes from the old `GridItemModel<T>` / `ComboBoxItemModel<T>`
+  // annotation. Without it the rewritten parameter would be implicitly `any`.
+  const itemType = params[2] && modelTypeArgument(params[2].type);
+  if (takesItem && !itemType) {
+    return { ok: false, reason: 'cannot infer the item type from the model parameter' };
+  }
+
   let body = text.slice(offset, node.getEnd());
 
-  // `render(X, root);` -> `return X;`, innermost-last so offsets stay valid.
-  const statementEdits = [];
+  /** Text edits within `body`, applied back-to-front. */
+  const edits = [];
+
+  // `model.item` -> `item`, so `model` itself usually falls out of use.
+  let usesModel = false;
+  let needsNothing = false;
+  const rewriteRefs = n => {
+    if (
+      takesItem &&
+      ts.isPropertyAccessExpression(n) &&
+      ts.isIdentifier(n.expression) &&
+      n.expression.text === modelParam &&
+      n.name.text === 'item'
+    ) {
+      edits.push({
+        start: n.getStart(source) - offset,
+        end: n.getEnd() - offset,
+        replacement: 'item'
+      });
+      return;
+    }
+    if (ts.isIdentifier(n) && n.text === modelParam) usesModel = true;
+    // A bare `return;` used to mean "rendered nothing"; as a renderer result
+    // `undefined` is not a valid template, so it has to become `nothing`.
+    if (ts.isReturnStatement(n) && !n.expression) {
+      needsNothing = true;
+      edits.push({
+        start: n.getStart(source) - offset,
+        end: n.getEnd() - offset,
+        replacement: 'return nothing;'
+      });
+    }
+    ts.forEachChild(n, rewriteRefs);
+  };
+  ts.forEachChild(arrow.body, rewriteRefs);
+
+  // `render(X, root);` -> `return X;`. This range encloses the `model.item`
+  // edits above, so those are folded into the replacement text and removed
+  // from the outer list — overlapping edits would corrupt each other's offsets.
   for (const call of renderCalls) {
     const statement = call.parent;
-    const isBareStatement =
-      ts.isExpressionStatement(statement) && statement.expression === call;
-    if (!isBareStatement) {
+    if (!ts.isExpressionStatement(statement) || statement.expression !== call) {
       return { ok: false, reason: 'render() result is used as a value' };
     }
-    statementEdits.push({
+    const from = call.arguments[0].getStart(source) - offset;
+    const to = call.arguments[0].getEnd() - offset;
+
+    let template = body.slice(from, to);
+    const inner = edits.filter(e => e.start >= from && e.end <= to);
+    for (const edit of inner.sort((a, b) => b.start - a.start)) {
+      template =
+        template.slice(0, edit.start - from) +
+        edit.replacement +
+        template.slice(edit.end - from);
+      edits.splice(edits.indexOf(edit), 1);
+    }
+
+    edits.push({
       start: statement.getStart(source) - offset,
       end: statement.getEnd() - offset,
-      replacement: `return ${text.slice(call.arguments[0].getStart(source), call.arguments[0].getEnd())};`
+      replacement: `return ${template};`
     });
   }
-  for (const edit of statementEdits.sort((a, b) => b.start - a.start)) {
+
+  // Rewrite the parameter list. Body renderers get `(item, model, column)`,
+  // header and footer renderers get `(column)`. Anything the body no longer
+  // mentions is dropped rather than underscore-prefixed.
+  const paramList = [];
+  if (takesItem) {
+    paramList.push(`item: ${itemType}`);
+    if (usesModel) {
+      paramList.push(text.slice(params[2].getStart(source), params[2].getEnd()));
+    }
+  } else if (columnParam && !columnParam.startsWith('_')) {
+    paramList.push(text.slice(params[1].getStart(source), params[1].getEnd()));
+  }
+
+  edits.push({
+    start: params[0].getStart(source) - offset,
+    end: params[params.length - 1].getEnd() - offset,
+    replacement: paramList.join(', ')
+  });
+
+  for (const edit of edits.sort((a, b) => b.start - a.start)) {
     body = body.slice(0, edit.start) + edit.replacement + body.slice(edit.end);
   }
 
-  // Rewrite the parameter list. Directive body renderers get
-  // `(item, model, column)`; header and footer renderers get `(column)`.
-  const params = arrow.parameters;
-  const modelParam = params[2] && ts.isIdentifier(params[2].name) ? params[2].name.text : null;
-  const columnParam = params[1] && ts.isIdentifier(params[1].name) ? params[1].name.text : null;
-
-  const paramList = [];
-  if (takesItem) {
-    paramList.push('item');
-    if (modelParam && !modelParam.startsWith('_')) paramList.push(modelParam);
-    else if (columnParam && !columnParam.startsWith('_')) paramList.push('_model', columnParam);
-  } else if (columnParam && !columnParam.startsWith('_')) {
-    paramList.push(columnParam);
+  // Nothing the new signature drops may survive in the rewritten body. Several
+  // renderers read `_column.someControl` to recover the host component — a
+  // workaround for the `this` a bare renderer loses, which the directive makes
+  // unnecessary but which has to be unwound by hand rather than left dangling.
+  const dropped = params
+    .map(p => (ts.isIdentifier(p.name) ? p.name.text : null))
+    .filter(name => name && !paramList.some(p => p === name || p.startsWith(`${name}:`)));
+  const dangling = dropped.find(name =>
+    new RegExp(`\\b${name}\\b`).test(body)
+  );
+  if (dangling) {
+    return { ok: false, reason: `still references the dropped \`${dangling}\` parameter` };
   }
 
-  const paramsStart = params.length
-    ? params[0].getStart(source) - offset
-    : body.indexOf('(') + 1;
-  const paramsEnd = params.length
-    ? params[params.length - 1].getEnd() - offset
-    : paramsStart;
-  body = body.slice(0, paramsStart) + paramList.join(', ') + body.slice(paramsEnd);
+  return { ok: true, text: body, readsThis, needsNothing };
+}
 
-  return { ok: true, text: body, readsThis };
+/** `GridItemModel<Foo>` / `ComboBoxItemModel<Foo>` -> `Foo`. */
+function modelTypeArgument(typeNode) {
+  if (!typeNode || !ts.isTypeReferenceNode(typeNode)) return null;
+  const arg = typeNode.typeArguments?.[0];
+  return arg ? arg.getText() : null;
+}
+
+/** Adds a named export to the existing `from 'lit'` import if it is missing. */
+function ensureLitImport(text, name) {
+  const existing = /import \{([^}]*)\} from 'lit';/.exec(text);
+  if (!existing) return `import { ${name} } from 'lit';\n` + text;
+  const have = existing[1].split(',').map(s => s.trim()).filter(Boolean);
+  if (have.includes(name)) return text;
+  return text.replace(
+    existing[0],
+    `import { ${[...have, name].sort().join(', ')} } from 'lit';`
+  );
 }
 
 function addImport(text, module, names) {
@@ -342,17 +413,56 @@ function addImport(text, module, names) {
   return `import { ${names.sort().join(', ')} } from '${module}';\n` + text;
 }
 
-/** Drops `render` from the lit import when nothing calls it any more. */
-function dropUnusedRenderImport(text) {
-  if (/\brender\s*\(/.test(text.replace(/^\s*render\(\)\s*\{/gm, ''))) return text;
+/**
+ * Drops the imports the rewrite orphans — the imperative renderer signature's
+ * types and lit's `render` itself. Only these names are considered, so an
+ * unrelated unused import is left for the linter to report as before.
+ */
+const ORPHANABLE = ['GridItemModel', 'GridColumn', 'ComboBoxItemModel', 'ComboBox', 'render'];
+
+function pruneImports(text) {
   return text.replace(
-    /import \{([^}]*)\} from 'lit';/,
-    (whole, names) => {
+    /import (type )?\{([^}]*)\} from '([^']+)';\n/g,
+    (whole, typeOnly, names, module) => {
       const kept = names
         .split(',')
         .map(s => s.trim())
-        .filter(s => s && s !== 'render');
-      return kept.length ? `import { ${kept.join(', ')} } from 'lit';` : '';
+        .filter(name => {
+          if (!name) return false;
+          const bare = name.replace(/^type /, '');
+          if (!ORPHANABLE.includes(bare)) return true;
+          // `render() {` is Lit's own lifecycle method, not a call.
+          const uses = new RegExp(`\\b${bare}\\b`, 'g');
+          const body = text.slice(text.indexOf(whole) + whole.length);
+          return uses.test(body.replace(/^\s*render\(\)\s*\{/gm, ''));
+        });
+      if (!kept.length) return '';
+      return `import ${typeOnly ?? ''}{ ${kept.join(', ')} } from '${module}';\n`;
     }
   );
 }
+
+const report = { converted: [], rebound: [], skipped: [] };
+
+for (const file of walk(SRC)) {
+  const original = readFileSync(file, 'utf8');
+  if (!/\.(header|footer|rowDetails)?[rR]enderer=/.test(original)) continue;
+
+  const rel = relative(ROOT, file);
+  const result = convertFile(original, rel);
+  if (result.text !== original && WRITE) writeFileSync(file, result.text);
+}
+
+console.log(`Converted ${report.converted.length} renderer(s).`);
+for (const line of report.converted) console.log('  ' + line);
+if (report.rebound.length) {
+  console.log(
+    `\n\`this\` rebound to the host in ${report.rebound.length} method renderer(s) — review each:`
+  );
+  for (const line of report.rebound) console.log('  ' + line);
+}
+if (report.skipped.length) {
+  console.log(`\nLeft alone (${report.skipped.length}):`);
+  for (const line of report.skipped) console.log('  ' + line);
+}
+if (!WRITE) console.log('\nDry run — pass --write to apply.');

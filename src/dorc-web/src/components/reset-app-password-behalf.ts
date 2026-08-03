@@ -1,5 +1,6 @@
+import { comboBoxRenderer } from '@vaadin/combo-box/lit';
 import { confirmPrompt } from './confirm-prompt';
-import { css, LitElement, render } from 'lit';
+import { css, LitElement } from 'lit';
 import '@vaadin/checkbox';
 import '@vaadin/button';
 import '@vaadin/combo-box';
@@ -8,12 +9,7 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import type { DialogOpenedChangedEvent } from '@vaadin/dialog';
 import { dialogFooterRenderer, dialogRenderer } from '@vaadin/dialog/lit';
-import { ComboBox, ComboBoxItemModel } from '@vaadin/combo-box';
-import {
-  ApiBoolResult,
-  ResetAppPasswordApi,
-  UserApiModel
-} from '../apis/dorc-api';
+import { ApiBoolResult, ResetAppPasswordApi, UserApiModel } from '../apis/dorc-api';
 import { SuccessNotification } from './notifications/success-notification';
 
 @customElement('reset-app-password-behalf')
@@ -156,23 +152,18 @@ export class ResetAppPasswordBehalf extends LitElement {
   }
 
   appUsersRenderer(
-    root: HTMLElement,
-    _comboBox: ComboBox,
-    model: ComboBoxItemModel<UserApiModel>
+    item: UserApiModel
   ) {
-    render(
-      html`<vaadin-vertical-layout>
+    return html`<vaadin-vertical-layout>
         <div style="line-height: var(--lumo-line-height-m);">
-          ${model.item.DisplayName ?? ''}
+          ${item.DisplayName ?? ''}
         </div>
         <div
           style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
         >
-          ${model.item.LanId ?? ''}
+          ${item.LanId ?? ''}
         </div>
-      </vaadin-vertical-layout>`,
-      root
-    );
+      </vaadin-vertical-layout>`;
   }
 
   /**
@@ -189,7 +180,7 @@ export class ResetAppPasswordBehalf extends LitElement {
             item-value-path="LanId"
             item-label-path="DisplayName"
             .items="${this.appUsers}"
-            .renderer="${this.appUsersRenderer}"
+            ${comboBoxRenderer(this.appUsersRenderer, [])}
             @value-changed="${this.appUserValueChanged}"
             style="width: 100%"
           ></vaadin-combo-box>

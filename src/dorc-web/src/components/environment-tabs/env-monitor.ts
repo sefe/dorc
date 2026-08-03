@@ -1,11 +1,7 @@
-import type { Grid, GridItemModel } from '@vaadin/grid';
+import { columnBodyRenderer, columnHeaderRenderer } from '@vaadin/grid/lit';
+import type { Grid } from '@vaadin/grid';
 import '../dorc-spinner';
-import {
-  GridDataProviderCallback,
-  GridDataProviderParams,
-  GridFilterDefinition,
-  GridSorterDefinition
-} from '@vaadin/grid';
+import { GridDataProviderCallback, GridDataProviderParams, GridFilterDefinition, GridSorterDefinition } from '@vaadin/grid';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/grid/vaadin-grid-column';
 import '@vaadin/grid/vaadin-grid-filter';
@@ -18,23 +14,13 @@ import { customElement, property, query, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import '../../components/grid-button-groups/request-controls';
 import { Notification } from '@vaadin/notification';
-import {
-  DeploymentRequestApiModel,
-  GetRequestStatusesListResponseDto,
-  PagedDataFilter,
-  PagedDataSorting,
-  RequestStatusesApi
-} from '../../apis/dorc-api';
+import { DeploymentRequestApiModel, GetRequestStatusesListResponseDto, PagedDataFilter, PagedDataSorting, RequestStatusesApi } from '../../apis/dorc-api';
 import '../../icons/iron-icons.js';
 import '../../icons/custom-icons.js';
 import { ErrorNotification } from '../../components/notifications/error-notification';
 import { getShortLogonName } from '../../helpers/user-extensions.js';
 import '../../components/connection-status-indicator';
-import {
-  DeploymentHub,
-  getReceiverRegister,
-  IDeploymentsEventsClient,
-} from '../../services/ServerEvents';
+import { DeploymentHub, getReceiverRegister, IDeploymentsEventsClient } from '../../services/ServerEvents';
 import { HubConnection, HubConnectionState } from '@microsoft/signalr';
 import { retrieveErrorMessage } from '../../helpers/errorMessage-retriever.js';
 import type { PropertyValues } from 'lit';
@@ -261,27 +247,27 @@ export class EnvMonitor extends ResponsiveMixin(PageEnvBase) implements IDeploym
           resizable
           auto-width
           .headerRenderer="${this.idHeaderRenderer}"
-          .renderer="${this.idRenderer}"
+          ${columnBodyRenderer(this.idRenderer, [])}
         ></vaadin-grid-column>
         <vaadin-grid-column
           header="Details"
           resizable
           auto-width
-          .headerRenderer="${this.detailsHeaderRenderer}"
-          .renderer="${this.detailsRenderer}"
+          ${columnHeaderRenderer(this.detailsHeaderRenderer, [])}
+          ${columnBodyRenderer(this.detailsRenderer, [])}
         >
         </vaadin-grid-column>
         <vaadin-grid-column
           resizable
-          .renderer="${this.timingsRenderer}"
+          ${columnBodyRenderer(this.timingsRenderer, [])}
           header="Timings"
           auto-width
           ?hidden="${this._narrowScreen}"
         ></vaadin-grid-column>
         <vaadin-grid-column
           header="User"
-          .headerRenderer="${this.usersHeaderRenderer}"
-          .renderer="${this.usernameRenderer}"
+          ${columnHeaderRenderer(this.usersHeaderRenderer, [])}
+          ${columnBodyRenderer(this.usernameRenderer, [])}
           resizable
           auto-width
           ?hidden="${this._narrowScreen}"
@@ -290,21 +276,21 @@ export class EnvMonitor extends ResponsiveMixin(PageEnvBase) implements IDeploym
         <vaadin-grid-column
           path="Status"
           header="Status"
-          .headerRenderer="${this.statusHeaderRenderer}"
+          ${columnHeaderRenderer(this.statusHeaderRenderer, [])}
           resizable
           auto-width
         >
         </vaadin-grid-column>
         <vaadin-grid-column
-          .renderer="${this._requestControlsRenderer}"
+          ${columnBodyRenderer(this._requestControlsRenderer, [])}
           resizable
           width="100px"
         >
         </vaadin-grid-column>
         <vaadin-grid-column
           header="Components"
-          .headerRenderer="${this.componentsHeaderRenderer}"
-          .renderer="${this.componentsRenderer}"
+          ${columnHeaderRenderer(this.componentsHeaderRenderer, [])}
+          ${columnBodyRenderer(this.componentsRenderer, [])}
           resizable
           auto-width
           ?hidden="${this._narrowScreen}"
@@ -506,40 +492,33 @@ export class EnvMonitor extends ResponsiveMixin(PageEnvBase) implements IDeploym
     });
   }
 
-  private componentsRenderer(root: HTMLElement,
-    _: HTMLElement,
-    model: GridItemModel<DeploymentRequestApiModel>) {
+  private componentsRenderer(item: DeploymentRequestApiModel) {
 
-    const request = model.item as DeploymentRequestApiModel;
+    const request = item as DeploymentRequestApiModel;
     const elements = request.Components?.split('|');
 
-    render(html`
+    return html`
       <vaadin-vertical-layout>
         ${elements?.map(
       element => html`<div style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);">${element}</div>`
     )}
       </vaadin-vertical-layout>
-    `, root);
+    `;
 
   }
 
-  private usernameRenderer(root: HTMLElement,
-    _: HTMLElement,
-    model: GridItemModel<DeploymentRequestApiModel>) {
-    const request = model.item as DeploymentRequestApiModel;
-    render(html`
-      <div style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);">${request.UserName}</div>`, root);
+  private usernameRenderer(item: DeploymentRequestApiModel) {
+    const request = item as DeploymentRequestApiModel;
+    return html`
+      <div style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);">${request.UserName}</div>`;
 
   }
 
   private detailsRenderer = (
-    root: HTMLElement,
-    _: HTMLElement,
-    model: GridItemModel<DeploymentRequestApiModel>
+    item: DeploymentRequestApiModel
   ) => {
-    const request = model.item;
-    render(
-      html`
+    const request = item;
+    return html`
         <vaadin-horizontal-layout style="align-items: center;" theme="spacing">
           <vaadin-vertical-layout>
             <div>${request.Project} - ${request.EnvironmentName}</div>
@@ -550,17 +529,13 @@ export class EnvMonitor extends ResponsiveMixin(PageEnvBase) implements IDeploym
             </div>
           </vaadin-vertical-layout>
         </vaadin-horizontal-layout>
-      `,
-      root
-    );
+      `;
   };
 
   private timingsRenderer = (
-    root: HTMLElement,
-    _: HTMLElement,
-    model: GridItemModel<DeploymentRequestApiModel>
+    item: DeploymentRequestApiModel
   ) => {
-    const request = model.item as DeploymentRequestApiModel;
+    const request = item as DeploymentRequestApiModel;
     let sTime = '';
     let sDate = '';
     let cTime = '';
@@ -588,8 +563,7 @@ export class EnvMonitor extends ResponsiveMixin(PageEnvBase) implements IDeploym
       );
     }
 
-    render(
-      html`
+    return html`
         <vaadin-horizontal-layout style="align-items: center;" theme="spacing">
           <vaadin-vertical-layout
             style="line-height: var(--lumo-line-height-s);"
@@ -598,23 +572,16 @@ export class EnvMonitor extends ResponsiveMixin(PageEnvBase) implements IDeploym
             <div style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);">${`${cDate} ${cTime}`}</div>
           </vaadin-vertical-layout>
         </vaadin-horizontal-layout>
-      `,
-      root
-    );
+      `;
   };
 
   private idRenderer = (
-    root: HTMLElement,
-    _: HTMLElement,
-    model: GridItemModel<DeploymentRequestApiModel>
+    item: DeploymentRequestApiModel
   ) => {
-    const request = model.item;
-    render(
-      html`
+    const request = item;
+    return html`
         <span style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"> ${request.Id} </span>
-      `,
-      root
-    );
+      `;
   };
 
   private onRowClick = (e: CustomEvent) => {
@@ -661,12 +628,9 @@ export class EnvMonitor extends ResponsiveMixin(PageEnvBase) implements IDeploym
   };
 
   _requestControlsRenderer(
-    root: HTMLElement,
-    _: HTMLElement,
-    { item }: GridItemModel<DeploymentRequestApiModel>
+    item: DeploymentRequestApiModel
   ) {
-    render(
-      html` <request-controls
+    return html` <request-controls
         .requestId=${item.Id ?? 0}
         .cancelable=${!!item.UserEditable &&
         (item.Status === 'Running' ||
@@ -674,9 +638,7 @@ export class EnvMonitor extends ResponsiveMixin(PageEnvBase) implements IDeploym
           item.Status === 'Pending' ||
           item.Status === 'Restarting')}
         .canRestart=${!!item.UserEditable && item.Status !== 'Pending'}
-      ></request-controls>`,
-      root
-    );
+      ></request-controls>`;
   }
 
   idHeaderRenderer = (root: HTMLElement) => {
@@ -754,9 +716,8 @@ export class EnvMonitor extends ResponsiveMixin(PageEnvBase) implements IDeploym
     );
   }
 
-  detailsHeaderRenderer = (root: HTMLElement) => {
-    render(
-      html`
+  detailsHeaderRenderer = () => {
+    return html`
         <vaadin-text-field
           placeholder="Project / Build"
           title="Project starts with the entered text, or Build contains it"
@@ -778,14 +739,11 @@ export class EnvMonitor extends ResponsiveMixin(PageEnvBase) implements IDeploym
           );
         }}"
         ></vaadin-text-field>
-      `,
-      root
-    );
+      `;
   }
 
-  usersHeaderRenderer = (root: HTMLElement) => {
-    render(
-      html`
+  usersHeaderRenderer = () => {
+    return html`
         <vaadin-text-field
           placeholder="Username"
           clear-button-visible
@@ -807,14 +765,11 @@ export class EnvMonitor extends ResponsiveMixin(PageEnvBase) implements IDeploym
           );
         }}"
         ></vaadin-text-field>
-      `,
-      root
-    );
+      `;
   }
 
-  statusHeaderRenderer = (root: HTMLElement) => {
-    render(
-      html`
+  statusHeaderRenderer = () => {
+    return html`
         <vaadin-text-field
           placeholder="Status"
           clear-button-visible
@@ -836,14 +791,11 @@ export class EnvMonitor extends ResponsiveMixin(PageEnvBase) implements IDeploym
           );
         }}"
         ></vaadin-text-field>
-      `,
-      root
-    );
+      `;
   }
 
-  componentsHeaderRenderer = (root: HTMLElement) => {
-    render(
-      html`
+  componentsHeaderRenderer = () => {
+    return html`
         <vaadin-text-field
           placeholder="Components"
           clear-button-visible
@@ -864,8 +816,6 @@ export class EnvMonitor extends ResponsiveMixin(PageEnvBase) implements IDeploym
           );
         }}"
         ></vaadin-text-field>
-      `,
-      root
-    );
+      `;
   }
 }

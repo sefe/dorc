@@ -1,15 +1,14 @@
+import { columnBodyRenderer } from '@vaadin/grid/lit';
 import '@vaadin/dialog';
 import '../components/dorc-spinner';
 import type { DialogOpenedChangedEvent } from '@vaadin/dialog';
 import { dialogFooterRenderer, dialogRenderer } from '@vaadin/dialog/lit';
-import { GridItemModel } from '@vaadin/grid';
 import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
 import '@vaadin/grid/vaadin-grid';
-import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/text-field';
-import { css, PropertyValues, render, nothing } from 'lit';
+import { css, PropertyValues, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import AppConfig from '../app-config';
@@ -117,7 +116,7 @@ export class PageUsersList extends PageElement {
               theme="compact row-stripes no-row-borders no-border"
             >
               <vaadin-grid-column
-                .renderer="${this.renderLoginType}"
+                ${columnBodyRenderer(this.renderLoginType, [])}
                 width="50px"
                 flex-grow="0"
               ></vaadin-grid-column>
@@ -155,39 +154,28 @@ export class PageUsersList extends PageElement {
     this.loading = false;
   }
 
-  renderLoginType(
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<UserApiModel>
-  ) {
-    const user = model.item as UserApiModel;
+  renderLoginType(user: UserApiModel) {
     if (user.LoginType?.toLowerCase() === 'windows') {
-      render(
-        html`<vaadin-icon
+      return html`<vaadin-icon
           icon="hardware:desktop-windows"
           style="color: var(--dorc-link-color)"
-        ></vaadin-icon>`,
-        root
-      );
+        ></vaadin-icon>`;
     }
     if (user.LoginType?.toLowerCase() === 'endur') {
-      render(
-        html`<vaadin-icon
+      return html`<vaadin-icon
           icon="vaadin:chart-grid"
           style="color: var(--dorc-link-color)"
-        ></vaadin-icon>`,
-        root
-      );
+        ></vaadin-icon>`;
     }
     if (user.LoginType?.toLowerCase() === 'sql') {
-      render(
-        html`<vaadin-icon
+      return html`<vaadin-icon
           icon="vaadin:database"
           style="color: var(--dorc-link-color)"
-        ></vaadin-icon>`,
-        root
-      );
+        ></vaadin-icon>`;
     }
+    // Any other login type shows nothing, as it did when the imperative
+    // renderer fell through without calling render().
+    return nothing;
   }
 
   updateSearch(e: CustomEvent) {

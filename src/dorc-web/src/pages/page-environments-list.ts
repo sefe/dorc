@@ -1,3 +1,4 @@
+import { columnBodyRenderer } from '@vaadin/grid/lit';
 import '@vaadin/button';
 import '../components/dorc-spinner';
 import { Grid, GridItemModel } from '@vaadin/grid';
@@ -8,11 +9,10 @@ import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
 import '@vaadin/text-field';
-import { Checkbox } from '@vaadin/checkbox';
 import '@vaadin/dialog';
 import type { DialogOpenedChangedEvent } from '@vaadin/dialog';
 import { dialogRenderer } from '@vaadin/dialog/lit';
-import { css, render } from 'lit';
+import { css } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import '../components/add-edit-environment';
@@ -168,14 +168,14 @@ export class PageEnvironmentsList extends ResponsiveMixin(PageElement) {
                   resizable
                   path="EnvironmentSecure"
                   header="Secure"
-                  .renderer="${this._envSecureRenderer}"
+                  ${columnBodyRenderer(this._envSecureRenderer, [])}
                   ?hidden="${this._narrowScreen}"
                 ></vaadin-grid-sort-column>
                 <vaadin-grid-sort-column
                   resizable
                   path="EnvironmentIsProd"
                   header="Prod"
-                  .renderer="${this._envIsProdRenderer}"
+                  ${columnBodyRenderer(this._envIsProdRenderer, [])}
                   ?hidden="${this._narrowScreen}"
                 ></vaadin-grid-sort-column>
                 <vaadin-grid-sort-column
@@ -191,7 +191,7 @@ export class PageEnvironmentsList extends ResponsiveMixin(PageElement) {
                   ?hidden="${this._narrowScreen}"
                 ></vaadin-grid-sort-column>
                 <vaadin-grid-column
-                  .renderer="${this._envDetailsButtonsRenderer}"
+                  ${columnBodyRenderer(this._envDetailsButtonsRenderer, [])}
                 ></vaadin-grid-column>
               </vaadin-grid>
             `}
@@ -272,62 +272,41 @@ export class PageEnvironmentsList extends ResponsiveMixin(PageElement) {
     return '';
   };
 
-  _envSecureRenderer(
-    root: HTMLElement,
-    _column: GridColumn,
-    { item }: GridItemModel<EnvironmentApiModel>
-  ) {
-    const envDetails = item as EnvironmentApiModel;
-    const checkbox = new Checkbox();
-
-    checkbox.checked = envDetails.EnvironmentSecure ?? false;
-    checkbox.disabled = true;
+  _envSecureRenderer(envDetails: EnvironmentApiModel) {
+    const checkbox = html`<vaadin-checkbox
+      disabled
+      .checked="${envDetails.EnvironmentSecure ?? false}"
+    ></vaadin-checkbox>`;
 
     if (envDetails.EnvironmentIsProd && !envDetails.EnvironmentSecure) {
-      render(
-        html`<div style="display:flex;align-items:center;gap:4px">
-          ${checkbox}
-          <vaadin-icon
-            icon="vaadin:warning"
-            title="Production environment without Secure flag"
-            style="color:var(--dorc-warning-text);width:var(--lumo-icon-size-s);height:var(--lumo-icon-size-s)"
-          ></vaadin-icon>
-        </div>`,
-        root
-      );
-    } else {
-      render(checkbox, root);
+      return html`<div style="display:flex;align-items:center;gap:4px">
+        ${checkbox}
+        <vaadin-icon
+          icon="vaadin:warning"
+          title="Production environment without Secure flag"
+          style="color:var(--dorc-warning-text);width:var(--lumo-icon-size-s);height:var(--lumo-icon-size-s)"
+        ></vaadin-icon>
+      </div>`;
     }
+    return checkbox;
   }
 
-  _envIsProdRenderer(
-    root: HTMLElement,
-    _column: GridColumn,
-    { item }: GridItemModel<EnvironmentApiModel>
-  ) {
-    const envDetails = item as EnvironmentApiModel;
-    const checkbox = new Checkbox();
-
-    checkbox.checked = envDetails.EnvironmentIsProd ?? false;
-    checkbox.disabled = true;
-
-    render(checkbox, root);
+  _envIsProdRenderer(envDetails: EnvironmentApiModel) {
+    return html`<vaadin-checkbox
+      disabled
+      .checked="${envDetails.EnvironmentIsProd ?? false}"
+    ></vaadin-checkbox>`;
   }
 
   _envDetailsButtonsRenderer = (
-    root: HTMLElement,
-    _column: GridColumn,
-    { item }: GridItemModel<EnvironmentApiModel>
+    item: EnvironmentApiModel
   ) => {
     const envDetails = item as EnvironmentApiModel;
-    render(
-      html` <env-controls
+    return html` <env-controls
         .envDetails="${envDetails}"
         .isAdmin="${this.isAdmin}"
         .isPowerUser="${this.isPowerUser}"
-      ></env-controls>`,
-      root
-    );
+      ></env-controls>`;
   };
 
   private renderAddEnvironment = () => html`

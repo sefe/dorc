@@ -1,40 +1,20 @@
+import { columnBodyRenderer, columnHeaderRenderer } from '@vaadin/grid/lit';
 import { css, PropertyValues, render } from 'lit';
 import '../dorc-spinner';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid';
 import { customElement, property, query } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
-import {
-  GridDataProviderCallback,
-  GridDataProviderParams,
-  GridFilterDefinition,
-  GridSorterDefinition
-} from '@vaadin/grid/vaadin-grid';
+import { GridDataProviderCallback, GridDataProviderParams, GridFilterDefinition, GridSorterDefinition } from '@vaadin/grid/vaadin-grid';
 import '@vaadin/grid';
 import '@vaadin/grid/vaadin-grid-filter';
-import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
-import { Grid, GridItemModel } from '@vaadin/grid';
+import { Grid } from '@vaadin/grid';
 import '../grid-button-groups/variable-value-controls';
 import '../dismissible-item';
 import { ComboBox, ComboBoxRenderer } from '@vaadin/combo-box';
 import { TextField } from '@vaadin/text-field';
-import { Checkbox } from '@vaadin/checkbox';
-import {
-  PropertiesApi,
-  PropertyApiModel,
-  PropertyValueDto,
-  PropertyValuesApi,
-  PropertyValueScopeOptionApiModel,
-  Response
-} from '../../apis/dorc-api';
-import {
-  EnvironmentApiModel,
-  FlatPropertyValueApiModel,
-  GetScopedPropertyValuesResponseDto,
-  PagedDataFilter,
-  PagedDataSorting,
-  RefDataScopedPropertyValuesApi
-} from '../../apis/dorc-api';
+import { PropertiesApi, PropertyApiModel, PropertyValueDto, PropertyValuesApi, PropertyValueScopeOptionApiModel, Response } from '../../apis/dorc-api';
+import { EnvironmentApiModel, FlatPropertyValueApiModel, GetScopedPropertyValuesResponseDto, PagedDataFilter, PagedDataSorting, RefDataScopedPropertyValuesApi } from '../../apis/dorc-api';
 import { PageEnvBase } from './page-env-base';
 import { ResponsiveMixin } from '../../helpers/responsive-mixin';
 import { ErrorNotification } from '../notifications/error-notification';
@@ -343,13 +323,13 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
                   resizable
                   flex-grow="0"
                   width="20rem"
-                  .headerRenderer="${this.nameHeaderRenderer}"
+                  ${columnHeaderRenderer(this.nameHeaderRenderer, [])}
                 >
                 </vaadin-grid-column>
                 <vaadin-grid-column
                   path="PropertyValueScope"
                   header="Variable Scope"
-                  .headerRenderer="${this.scopeHeaderRenderer}"
+                  ${columnHeaderRenderer(this.scopeHeaderRenderer, [])}
                   resizable
                   auto-width
                   flex-grow="0"
@@ -360,16 +340,16 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
                   resizable
                   auto-width
                   text-align="center"
-                  .renderer="${this.secureRenderer}"
-                  .headerRenderer="${this.secureHeaderRenderer}"
+                  ${columnBodyRenderer(this.secureRenderer, [])}
+                  ${columnHeaderRenderer(this.secureHeaderRenderer, [])}
                   flex-grow="0"
                   ?hidden="${this._narrowScreen}"
                 >
                 </vaadin-grid-column>
                 <vaadin-grid-column
                   header="Variable Value"
-                  .headerRenderer="${this.valueHeaderRenderer}"
-                  .renderer="${this.variableValueControlsRenderer}"
+                  ${columnHeaderRenderer(this.valueHeaderRenderer, [])}
+                  ${columnBodyRenderer(this.variableValueControlsRenderer, [])}
                   resizable
                   flex-grow="1"
                   width="20rem"
@@ -621,43 +601,33 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
   }
 
   variableValueControlsRenderer = (
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<FlatPropertyValueApiModel>
+    item: FlatPropertyValueApiModel
   ) => {
     const converted: PropertyValueDto = {
-      Id: model.item.PropertyValueId,
-      Value: model.item.PropertyValue,
-      PropertyValueFilter: model.item.PropertyValueScope,
-      PropertyValueFilterId: model.item.PropertyValueScopeId,
-      UserEditable: model.item.UserEditable,
+      Id: item.PropertyValueId,
+      Value: item.PropertyValue,
+      PropertyValueFilter: item.PropertyValueScope,
+      PropertyValueFilterId: item.PropertyValueScopeId,
+      UserEditable: item.UserEditable,
       Property: {
-        Id: model.item.PropertyId,
-        Name: model.item.Property,
-        Secure: model.item.Secure
+        Id: item.PropertyId,
+        Name: item.Property,
+        Secure: item.Secure
       }
     };
 
-    render(
-      html`<variable-value-controls
+    return html`<variable-value-controls
         .value="${converted}"
         .editing="${converted.Id === this._editingValueId}"
       >
-      </variable-value-controls>`,
-      root
-    );
+      </variable-value-controls>`;
   };
 
-  secureRenderer(
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<FlatPropertyValueApiModel>
-  ) {
-    const checkbox = new Checkbox();
-
-    checkbox.checked = model.item.Secure ?? false;
-    checkbox.disabled = true;
-    render(checkbox, root);
+  secureRenderer(item: FlatPropertyValueApiModel) {
+    return html`<vaadin-checkbox
+      disabled
+      .checked="${item.Secure ?? false}"
+    ></vaadin-checkbox>`;
   }
 
   constructor() {
@@ -669,9 +639,8 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
     _environment = this.environment;
   }
 
-  nameHeaderRenderer(root: HTMLElement) {
-    render(
-      html`
+  nameHeaderRenderer() {
+    return html`
         <vaadin-grid-sorter
           path="Property"
           direction="asc"
@@ -698,14 +667,11 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
             );
           }}"
         ></vaadin-text-field>
-      `,
-      root
-    );
+      `;
   }
 
-  valueHeaderRenderer(root: HTMLElement) {
-    render(
-      html`
+  valueHeaderRenderer() {
+    return html`
         <vaadin-text-field
           placeholder="Value"
           clear-button-visible
@@ -727,14 +693,11 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
             );
           }}"
         ></vaadin-text-field>
-      `,
-      root
-    );
+      `;
   }
 
-  secureHeaderRenderer(root: HTMLElement) {
-    render(
-      html`
+  secureHeaderRenderer() {
+    return html`
         <table>
           <tr>
             <td>
@@ -750,14 +713,11 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
             </td>
           </tr>
         </table>
-      `,
-      root
-    );
+      `;
   }
 
-  scopeHeaderRenderer(root: HTMLElement) {
-    render(
-      html`
+  scopeHeaderRenderer() {
+    return html`
         <table>
           <tr>
             <td>
@@ -816,9 +776,7 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
             </td>
           </tr>
         </table>
-      `,
-      root
-    );
+      `;
   }
 
   private showSuccessMessage(text: string) {

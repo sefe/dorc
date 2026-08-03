@@ -1,3 +1,4 @@
+import { columnBodyRenderer, columnHeaderRenderer } from '@vaadin/grid/lit';
 import { css, PropertyValues, render } from 'lit';
 import '../components/dorc-spinner';
 import '@vaadin/grid/vaadin-grid-sort-column';
@@ -8,27 +9,14 @@ import '@vaadin/button';
 import '@vaadin/icons/vaadin-icons';
 import '../components/add-daemon';
 import '@vaadin/text-field';
-import {
-  Grid,
-  GridDataProviderCallback,
-  GridDataProviderParams,
-  GridFilterDefinition,
-  GridItemModel,
-  GridSorterDefinition
-} from '@vaadin/grid';
+import { Grid, GridDataProviderCallback, GridDataProviderParams, GridFilterDefinition, GridItemModel, GridSorterDefinition } from '@vaadin/grid';
 import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
 import { customElement, property, query } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { Checkbox } from '@vaadin/checkbox';
 import { PageElement } from '../helpers/page-element';
 import { ResponsiveMixin } from '../helpers/responsive-mixin';
-import {
-  PagedDataSorting,
-  PowerShellVersionDto,
-  PowerShellVersionsApi,
-  RefDataScriptsApi,
-  ScriptApiModel
-} from '../apis/dorc-api';
+import { PagedDataSorting, PowerShellVersionDto, PowerShellVersionsApi, RefDataScriptsApi, ScriptApiModel } from '../apis/dorc-api';
 import { map } from 'lit/directives/map.js';
 import { GetScriptsListResponseDto, PagedDataFilter } from '../apis/dorc-api';
 import GlobalCache from '../global-cache';
@@ -238,7 +226,7 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
               resizable
               width="150px"
               flex-grow="0"
-              .renderer="${this.nonProdRenderer}"
+              ${columnBodyRenderer(this.nonProdRenderer, [])}
               ?hidden="${this._narrowScreen}"
             ></vaadin-grid-sort-column>
             <vaadin-grid-column
@@ -246,7 +234,7 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
               header="Path"
               resizable
               .renderer="${this._jsonRenderer}"
-              .headerRenderer="${this.pathHeaderRenderer}"
+              ${columnHeaderRenderer(this.pathHeaderRenderer, [])}
               ?hidden="${this._narrowScreen}"
             ></vaadin-grid-column>
             <vaadin-grid-column
@@ -370,19 +358,11 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
       );
     };
 
-  nonProdRenderer(
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<ScriptApiModel>
-  ) {
-    const script = model.item as ScriptApiModel;
-
-    const checkbox = new Checkbox();
-
-    checkbox.checked = script.NonProdOnly as boolean;
-    checkbox.disabled = true;
-
-    render(checkbox, root);
+  nonProdRenderer(script: ScriptApiModel) {
+    return html`<vaadin-checkbox
+      disabled
+      .checked="${script.NonProdOnly as boolean}"
+    ></vaadin-checkbox>`;
   }
 
   enabledRenderer(
@@ -529,9 +509,8 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
     );
   }
 
-  pathHeaderRenderer(root: HTMLElement) {
-    render(
-      html`
+  pathHeaderRenderer() {
+    return html`
         <vaadin-grid-sorter
           path="Path"
           style="align-items: normal"
@@ -558,9 +537,7 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
             );
           }}"
         ></vaadin-text-field>
-      `,
-      root
-    );
+      `;
   }
 
   projectNamesHeaderRenderer(root: HTMLElement) {

@@ -1,15 +1,14 @@
+import { columnBodyRenderer } from '@vaadin/grid/lit';
 import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
 import '@vaadin/button';
 import '@vaadin/grid';
-import { GridItemModel } from '@vaadin/grid';
 import '@vaadin/grid/vaadin-grid-column';
-import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/dialog';
 import type { DialogOpenedChangedEvent } from '@vaadin/dialog';
 import { dialogRenderer } from '@vaadin/dialog/lit';
-import { css, LitElement, render } from 'lit';
+import { css, LitElement } from 'lit';
 import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
@@ -182,7 +181,7 @@ export class AttachedServers extends ResponsiveMixin(LitElement) {
           ?hidden="${this._narrowScreen}"
         ></vaadin-grid-column>
         <vaadin-grid-column
-          .renderer="${this.applicationTagsRenderer}"
+          ${columnBodyRenderer(this.applicationTagsRenderer, [])}
           header="Application Tags"
           resizable
           ?hidden="${this._narrowScreen}"
@@ -190,8 +189,7 @@ export class AttachedServers extends ResponsiveMixin(LitElement) {
         <vaadin-grid-column
           width="200px"
           flex-grow="0"
-          .renderer="${this._boundServersButtonsRenderer}"
-          .attachedServersControl="${this}"
+          ${columnBodyRenderer(this._boundServersButtonsRenderer, [])}
         >
         </vaadin-grid-column>
       </vaadin-grid>
@@ -199,23 +197,18 @@ export class AttachedServers extends ResponsiveMixin(LitElement) {
   }
 
   private applicationTagsRenderer = (
-    root: HTMLElement,
-    _: HTMLElement,
-    model: GridItemModel<ServerApiModel>
+    item: ServerApiModel
   ) => {
-    const server = model.item;
+    const server = item;
     const appTags = splitTags(server.ApplicationTags);
 
-    render(
-      html`
+    return html`
         ${map(
           appTags,
           value =>
             html`<button style="border: 0px" class="tag">${value}</button>`
         )}
-      `,
-      root
-    );
+      `;
   };
 
   serverUpdated(e: CustomEvent) {
@@ -246,21 +239,14 @@ export class AttachedServers extends ResponsiveMixin(LitElement) {
   }
 
   _boundServersButtonsRenderer(
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<AttachedServers>
+    item: AttachedServers
   ) {
-    // The below line has a horrible hack
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore
-    const altThis = _column.attachedServersControl as AttachedServers;
-    const server = model.item as ServerApiModel;
-    render(
-      html` <server-controls
-        .envId="${altThis.envId}"
+    const server = item as ServerApiModel;
+    return html` <server-controls
+        .envId="${this.envId}"
         .envSet="${true}"
         .serverDetails="${server}"
-        .readonly="${altThis.readonly}"
+        .readonly="${this.readonly}"
         @server-detached="${() => {
           Notification.show('Server detached', {
             theme: 'success',
@@ -290,18 +276,16 @@ export class AttachedServers extends ResponsiveMixin(LitElement) {
           );
         }}"
         @manage-server-tags="${() => {
-          altThis.openEditServerTags(server);
+          this.openEditServerTags(server);
         }}"
         @edit-server="${(e: CustomEvent) => {
-          altThis.editServer(e);
+          this.editServer(e);
         }}"
         @map-daemons="${() => {
-          altThis.openDaemonMapping(server);
+          this.openDaemonMapping(server);
         }}"
       >
-      </server-controls>`,
-      root
-    );
+      </server-controls>`;
   }
 
   public openEditServerTags(server: ServerApiModel) {

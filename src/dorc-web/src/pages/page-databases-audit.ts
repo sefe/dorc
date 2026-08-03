@@ -1,12 +1,7 @@
+import { columnBodyRenderer, columnHeaderRenderer } from '@vaadin/grid/lit';
 import '@vaadin/button';
 import '../components/dorc-spinner';
-import {
-  GridCellPartNameGenerator,
-  GridDataProviderCallback,
-  GridDataProviderParams,
-  GridItemModel,
-  GridSorterDefinition
-} from '@vaadin/grid';
+import { GridCellPartNameGenerator, GridDataProviderCallback, GridDataProviderParams, GridItemModel, GridSorterDefinition } from '@vaadin/grid';
 import '@vaadin/grid';
 import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
 import '@vaadin/grid/vaadin-grid-sort-column';
@@ -15,7 +10,7 @@ import '@vaadin/horizontal-layout';
 import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
 import '@vaadin/text-field';
-import { css, PropertyValues, render } from 'lit';
+import { PropertyValues, css, nothing, render } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { DatabaseAuditApi, PagedDataSorting } from '../apis/dorc-api';
@@ -93,7 +88,7 @@ export class PageDatabasesAudit extends PageElement {
         <vaadin-grid-column
           path="DatabaseName"
           header="Database"
-          .renderer="${this.databaseNameRenderer}"
+          ${columnBodyRenderer(this.databaseNameRenderer, [])}
           resizable
           auto-width
           flex-grow="0"
@@ -101,7 +96,7 @@ export class PageDatabasesAudit extends PageElement {
         <vaadin-grid-column
           path="Username"
           header="User"
-          .headerRenderer="${this.userHeaderRenderer}"
+          ${columnHeaderRenderer(this.userHeaderRenderer, [])}
           resizable
           auto-width
           flex-grow="0"
@@ -109,7 +104,7 @@ export class PageDatabasesAudit extends PageElement {
         <vaadin-grid-column
           path="Action"
           header="Action"
-          .headerRenderer="${this.actionHeaderRenderer}"
+          ${columnHeaderRenderer(this.actionHeaderRenderer, [])}
           resizable
           auto-width
           flex-grow="0"
@@ -172,16 +167,14 @@ export class PageDatabasesAudit extends PageElement {
   };
 
   private databaseNameRenderer = (
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<DatabaseAuditApiModel>
+    item: DatabaseAuditApiModel
   ) => {
-    const name = model.item.DatabaseName;
+    const name = item.DatabaseName;
     if (!name) {
-      render(html`<span class="muted">(deleted)</span>`, root);
-      return;
+      return html`<span class="muted">(deleted)</span>`;
+      return nothing;
     }
-    render(html`<span>${name}</span>`, root);
+    return html`<span>${name}</span>`;
   };
 
   private dateRenderer = (
@@ -302,9 +295,8 @@ export class PageDatabasesAudit extends PageElement {
     return merged;
   }
 
-  userHeaderRenderer = (root: HTMLElement) => {
-    render(
-      html`
+  userHeaderRenderer = () => {
+    return html`
         <vaadin-horizontal-layout style="align-items: center;" theme="spacing-xs">
           <vaadin-grid-sorter path="Username">User</vaadin-grid-sorter>
           <vaadin-text-field
@@ -320,14 +312,11 @@ export class PageDatabasesAudit extends PageElement {
             }}"
           ></vaadin-text-field>
         </vaadin-horizontal-layout>
-      `,
-      root
-    );
+      `;
   };
 
-  actionHeaderRenderer = (root: HTMLElement) => {
-    render(
-      html`
+  actionHeaderRenderer = () => {
+    return html`
         <vaadin-horizontal-layout style="align-items: center;" theme="spacing-xs">
           <vaadin-grid-sorter path="Action">Action</vaadin-grid-sorter>
           <vaadin-text-field
@@ -343,9 +332,7 @@ export class PageDatabasesAudit extends PageElement {
             }}"
           ></vaadin-text-field>
         </vaadin-horizontal-layout>
-      `,
-      root
-    );
+      `;
   };
 
   private refreshGrid() {

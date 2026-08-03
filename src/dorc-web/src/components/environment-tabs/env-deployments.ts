@@ -1,3 +1,4 @@
+import { columnBodyRenderer, columnHeaderRenderer } from '@vaadin/grid/lit';
 import '../dorc-spinner';
 import '@vaadin/details';
 import '@vaadin/grid/vaadin-grid';
@@ -9,10 +10,7 @@ import { GridCellPartNameGenerator, GridItemModel } from '@vaadin/grid';
 import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
 import { DateTimePicker } from '@vaadin/date-time-picker';
 import { PageEnvBase } from './page-env-base';
-import {
-  EnvironmentContentBuildsApiModel,
-  RefDataEnvironmentsDetailsApi
-} from '../../apis/dorc-api';
+import { EnvironmentContentBuildsApiModel, RefDataEnvironmentsDetailsApi } from '../../apis/dorc-api';
 import { EnvironmentContentBuildsApiModelExtended } from '../model-extensions/EnvironmentContentBuildsApiModelExtended';
 import '@vaadin/date-time-picker';
 import '@vaadin/grid/vaadin-grid-filter';
@@ -105,7 +103,7 @@ export class EnvDeployments extends PageEnvBase {
                 .renderer="${this._idRenderer.bind(this)}"
                 resizable
                 width="110px"
-                .headerRenderer="${this.idHeaderRenderer}"
+                ${columnHeaderRenderer(this.idHeaderRenderer, [])}
               >
               </vaadin-grid-column>
               <vaadin-grid-column
@@ -124,8 +122,8 @@ export class EnvDeployments extends PageEnvBase {
               </vaadin-grid-column>
               <vaadin-grid-column
                 header="Requested"
-                .renderer="${this._dateRenderer}"
-                .headerRenderer="${this.dateHeaderRenderer}"
+                ${columnBodyRenderer(this._dateRenderer, [])}
+                ${columnHeaderRenderer(this.dateHeaderRenderer, [])}
                 resizable
                 auto-width
               ></vaadin-grid-column>
@@ -187,22 +185,16 @@ export class EnvDeployments extends PageEnvBase {
       });
   }
 
-  idHeaderRenderer(root: HTMLElement) {
-    render(
-      html`
+  idHeaderRenderer() {
+    return html`
         <vaadin-grid-sorter path="RequestId">Request Id</vaadin-grid-sorter>
-      `,
-      root
-    );
+      `;
   }
 
-  dateHeaderRenderer(root: HTMLElement) {
-    render(
-      html`
+  dateHeaderRenderer() {
+    return html`
         <vaadin-grid-sorter path="UpdatedDate">Updated Date</vaadin-grid-sorter>
-      `,
-      root
-    );
+      `;
   }
 
   componentNameHeaderRenderer(root: HTMLElement) {
@@ -271,18 +263,16 @@ export class EnvDeployments extends PageEnvBase {
   }
 
   _dateRenderer(
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<EnvironmentContentBuildsApiModelExtended>
+    item: EnvironmentContentBuildsApiModelExtended
   ) {
-    const history = model.item as EnvironmentContentBuildsApiModelExtended;
+    const history = item as EnvironmentContentBuildsApiModelExtended;
     const time = history.UpdatedDate?.toLocaleTimeString('en-GB');
     const date = history.UpdatedDate?.toLocaleDateString('en-GB', {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric'
     });
-    render(html` <div>${`${date} ${time}`}</div>`, root);
+    return html` <div>${`${date} ${time}`}</div>`;
   }
 
   notifyEnvironmentContentReady() {
