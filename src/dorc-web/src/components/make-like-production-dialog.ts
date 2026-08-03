@@ -123,7 +123,7 @@ export class MakeLikeProductionDialog extends LitElement {
         @opened-changed="${(event: DialogOpenedChangedEvent) => {
           this.bundleRequestDialogOpened = event.detail.value;
         }}"
-        ${dialogRenderer(this.renderDialog, [])}
+        ${dialogRenderer(this.renderDialog, [this.mappedProjects])}
         ${dialogFooterRenderer(this.renderFooter, [
           this.loading,
           this.canSubmit,

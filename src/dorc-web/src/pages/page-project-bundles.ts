@@ -27,14 +27,34 @@ import { ComboBox } from '@vaadin/combo-box';
 import '@vaadin/grid/vaadin-grid-sorter';
 
 /**
- * Fully expands a `hegs-json-viewer` once Lit has created it.
+ * Puts a row's JSON into a `hegs-json-viewer` and expands it.
  *
- * The viewer only exposes expansion as a method, so this rides the `ref`
- * directive rather than querying the element back out of the grid cell.
+ * The viewer seeds `.data` from its own text exactly once, in
+ * connectedCallback. Grid cells are recycled — Vaadin only clears a cell when
+ * the renderer function itself changes — so the element survives into the next
+ * row and would keep showing the first row's JSON even though its text had
+ * been updated. Binding `.data` per render fixes that; returning a fresh
+ * callback each time is what makes `ref` re-run, since expansion is only
+ * exposed as a method.
  */
-const expandJsonViewer = (element?: Element) => {
-  (element as unknown as HegsJsonViewer | undefined)?.expand('**');
-};
+const showJson =
+  (raw: string | null | undefined) =>
+  (element?: Element) => {
+    if (!element) return;
+    const viewer = element as unknown as HegsJsonViewer & { data?: unknown };
+    viewer.data = parseJson(raw);
+    viewer.expand('**');
+  };
+
+/** Malformed JSON renders as the raw string rather than blowing up the grid. */
+function parseJson(raw: string | null | undefined): unknown {
+  if (!raw) return {};
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return raw;
+  }
+}
 
 @customElement('page-project-bundles')
 export class PageProjectBundles extends ResponsiveMixin(PageElement) {
@@ -328,9 +348,8 @@ export class PageProjectBundles extends ResponsiveMixin(PageElement) {
     // the element exists rather than querying it back out of the cell.
     return html`<hegs-json-viewer
       style="font-size: small"
-      ${ref(expandJsonViewer)}
-      >${bundle.Request}</hegs-json-viewer
-    >`;
+      ${ref(showJson(bundle.Request))}
+    ></hegs-json-viewer>`;
   }
 
   _typeRenderer(bundle: BundledRequestsApiModel) {

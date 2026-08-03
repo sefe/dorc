@@ -1,3 +1,4 @@
+import { live } from 'lit/directives/live.js';
 import { ref } from 'lit/directives/ref.js';
 import { columnBodyRenderer, columnHeaderRenderer } from '@vaadin/grid/lit';
 import { css, PropertyValues } from 'lit';
@@ -29,14 +30,34 @@ const variablePath = 'Path';
 const variableProjectNames = 'ProjectNames';
 
 /**
- * Fully expands a `hegs-json-viewer` once Lit has created it.
+ * Puts a row's JSON into a `hegs-json-viewer` and expands it.
  *
- * The viewer only exposes expansion as a method, so this rides the `ref`
- * directive rather than querying the element back out of the grid cell.
+ * The viewer seeds `.data` from its own text exactly once, in
+ * connectedCallback. Grid cells are recycled — Vaadin only clears a cell when
+ * the renderer function itself changes — so the element survives into the next
+ * row and would keep showing the first row's JSON even though its text had
+ * been updated. Binding `.data` per render fixes that; returning a fresh
+ * callback each time is what makes `ref` re-run, since expansion is only
+ * exposed as a method.
  */
-const expandJsonViewer = (element?: Element) => {
-  (element as unknown as HegsJsonViewer | undefined)?.expand('**');
-};
+const showJson =
+  (raw: string | null | undefined) =>
+  (element?: Element) => {
+    if (!element) return;
+    const viewer = element as unknown as HegsJsonViewer & { data?: unknown };
+    viewer.data = parseJson(raw);
+    viewer.expand('**');
+  };
+
+/** Malformed JSON renders as the raw string rather than blowing up the grid. */
+function parseJson(raw: string | null | undefined): unknown {
+  if (!raw) return {};
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return raw;
+  }
+}
 
 @customElement('page-scripts-list')
 export class PageScriptsList extends ResponsiveMixin(PageElement) {
@@ -351,7 +372,7 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
   enabledRenderer(script: ScriptApiModel) {
     return html`<vaadin-checkbox
       ?disabled="${!this.canEditScripts()}"
-      .checked="${script.IsEnabled as boolean}"
+      .checked="${live(script.IsEnabled as boolean)}"
       @checked-changed="${(e: CustomEvent) => {
         // Don't fire when the value is unchanged.
         if (script.IsEnabled === e.detail.value) return;
@@ -364,7 +385,7 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
   private psVersionRenderer(script: ScriptApiModel) {
     return html`<vaadin-combo-box
       .items="${this.powerShellVersions}"
-      .value="${script.PowerShellVersionNumber ?? ''}"
+      .value="${live(script.PowerShellVersionNumber ?? '')}"
       ?disabled="${!this.canEditScripts()}"
       @value-changed="${(e: CustomEvent) => {
         const value = e.detail.value;
@@ -399,9 +420,8 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
     // the element exists rather than querying it back out of the cell.
     return html`<hegs-json-viewer
       style="font-size: small"
-      ${ref(expandJsonViewer)}
-      >${script.Path}</hegs-json-viewer
-    >`;
+      ${ref(showJson(script.Path))}
+    ></hegs-json-viewer>`;
   }
 
   private searchingScriptsStarted(event: CustomEvent) {

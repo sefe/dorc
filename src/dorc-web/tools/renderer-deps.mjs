@@ -83,8 +83,14 @@ function collectClass(source) {
   const members = new Map();
 
   const visit = node => {
+    // A reactive accessor may carry its decorator on either half of the
+    // get/set pair — Lit only needs one — so both have to be inspected, or a
+    // setter-decorated property reads as non-reactive and its renderers slip
+    // through the check entirely.
     if (
-      (ts.isPropertyDeclaration(node) || ts.isGetAccessor(node)) &&
+      (ts.isPropertyDeclaration(node) ||
+        ts.isGetAccessor(node) ||
+        ts.isSetAccessor(node)) &&
       ts.isIdentifier(node.name)
     ) {
       const decorators = ts.getDecorators?.(node) ?? [];
@@ -98,7 +104,10 @@ function collectClass(source) {
         );
       });
       if (isReactive) reactive.add(node.name.text);
-      members.set(node.name.text, node);
+      // Keep the first body seen; a setter body is not where reads live.
+      if (!members.has(node.name.text) || !ts.isSetAccessor(node)) {
+        members.set(node.name.text, node);
+      }
     } else if (ts.isMethodDeclaration(node) && ts.isIdentifier(node.name)) {
       members.set(node.name.text, node);
     }

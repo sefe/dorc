@@ -1,3 +1,4 @@
+import { live } from 'lit/directives/live.js';
 import { columnBodyRenderer } from '@vaadin/grid/lit';
 import { comboBoxRenderer } from '@vaadin/combo-box/lit';
 import '@vaadin/dialog';
@@ -391,7 +392,7 @@ export class AddEditAccessControl extends LitElement {
   acCanReadSecrets(item: AccessControlApiModel) {
     return html`<vaadin-checkbox
       ?disabled="${!this.UserEditable || !this.UserCanReadSecrets}"
-      .checked="${((item.Allow ?? 0) & AC_ALLOW_READ_SECRETS) > 0}"
+      .checked="${live(((item.Allow ?? 0) & AC_ALLOW_READ_SECRETS) > 0)}"
       @checked-changed="${(e: CustomEvent) =>
         this.togglePrivilege(item, AC_ALLOW_READ_SECRETS, e.detail.value)}"
     ></vaadin-checkbox>`;
@@ -431,7 +432,7 @@ export class AddEditAccessControl extends LitElement {
   acCanWrite(item: AccessControlApiModel) {
     return html`<vaadin-checkbox
       ?disabled="${!this.UserEditable}"
-      .checked="${((item.Allow ?? 0) & AC_ALLOW_WRITE) > 0}"
+      .checked="${live(((item.Allow ?? 0) & AC_ALLOW_WRITE) > 0)}"
       @checked-changed="${(e: CustomEvent) =>
         this.togglePrivilege(item, AC_ALLOW_WRITE, e.detail.value)}"
     ></vaadin-checkbox>`;
@@ -440,7 +441,7 @@ export class AddEditAccessControl extends LitElement {
   acCanOwner(item: AccessControlApiModel) {
     return html`<vaadin-checkbox
       ?disabled="${!this.UserIsOwner}"
-      .checked="${((item.Allow ?? 0) & AC_ALLOW_OWNER) > 0}"
+      .checked="${live(((item.Allow ?? 0) & AC_ALLOW_OWNER) > 0)}"
       @checked-changed="${(e: CustomEvent) =>
         this.toggleOwner(e.target as Checkbox, item, e.detail.value)}"
     ></vaadin-checkbox>`;

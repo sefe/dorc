@@ -1,3 +1,4 @@
+import { live } from 'lit/directives/live.js';
 import { columnBodyRenderer } from '@vaadin/grid/lit';
 import { css, PropertyValues } from 'lit';
 import '../components/dorc-spinner';
@@ -251,7 +252,7 @@ export class PageConfigValuesList extends ResponsiveMixin(PageElement) {
   isSecuredRenderer(configValue: ConfigValueApiModel) {
     return html`<vaadin-checkbox
       ?disabled="${!this.isAdmin}"
-      .checked="${configValue.Secure as boolean}"
+      .checked="${live(configValue.Secure as boolean)}"
       @change="${(e: Event) =>
         this.updateConfigItem({
           ...configValue,
@@ -263,7 +264,7 @@ export class PageConfigValuesList extends ResponsiveMixin(PageElement) {
   isForProdRenderer(configValue: ConfigValueApiModel) {
     return html`<vaadin-checkbox
       ?disabled="${!this.isAdmin}"
-      .checked="${configValue.IsForProd as boolean}"
+      .checked="${live(configValue.IsForProd as boolean)}"
       @change="${(e: Event) =>
         this.updateConfigItem({
           ...configValue,

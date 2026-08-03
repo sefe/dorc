@@ -76,10 +76,21 @@ export class AppRouter {
     const url = new URL(path, window.location.origin);
     const target = url.pathname + url.search + url.hash;
 
-    if (options?.replace) {
-      window.history.replaceState(null, '', target);
-    } else {
-      window.history.pushState(null, '', target);
+    // Only touch history when the URL actually changes, matching Vaadin Router
+    // (`if (window.location.pathname !== pathname || ...)`). Without this,
+    // clicking the already-selected nav item stacks an identical entry and Back
+    // appears to do nothing until they are all popped.
+    const unchanged =
+      window.location.pathname === url.pathname &&
+      window.location.search === url.search &&
+      window.location.hash === url.hash;
+
+    if (!unchanged) {
+      if (options?.replace) {
+        window.history.replaceState(null, '', target);
+      } else {
+        window.history.pushState(null, '', target);
+      }
     }
 
     await this.renderCurrentUrl();
