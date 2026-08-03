@@ -229,11 +229,20 @@ jobs:
           Write-Host "UpdateVersion.ps1 not found, skipping cmdlet versioning"
         }
       
-    # There is deliberately no actions/cache step for ~/.nuget/packages here.
-    # Caching it on Windows means shuffling tens of thousands of small files:
-    # measured over run 30527995114 it cost 1m04s to restore plus 10s to save,
-    # to speed up a restore that takes 27s warm. The key also hashed **/*.csproj,
-    # so any project-file edit paid that cost for nothing.
+    # #797 removed this cache on the argument that it cost more than it saved:
+    # 1m04s to restore plus 10s to save, against a 27s warm restore. The
+    # measurement that mattered was the one not taken — how long an uncached
+    # restore takes. It is 2m04s (run 30751703601) to 2m41s (run 30794820988),
+    # so removing the cache cost 25-100s per build rather than saving 40s.
+    # Restored on that evidence.
+    - name: Cache NuGet packages
+      uses: actions/cache@v6
+      with:
+        path: ~/.nuget/packages
+        key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json', '**/*.csproj') }}
+        restore-keys: |
+          ${{ runner.os }}-nuget-
+
     # Every project in the solution is SDK-style (csproj / wixproj / sqlproj)
     # and there is no packages.config anywhere in the tree, so the `nuget
     # restore` pass that used to run first was pure duplication of the work

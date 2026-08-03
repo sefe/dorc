@@ -115,13 +115,26 @@ The Playwright browser cache is keyed on both the Playwright version and the
 engine list, so a chromium-only cache entry is never reused for a run that needs
 all three.
 
-### NuGet packages are not cached
+### NuGet packages are cached
 
-There is intentionally no `actions/cache` step for `~/.nuget/packages`. Caching it
-on Windows means moving tens of thousands of small files: measured over run
-`30527995114` it cost 1m04s to restore and 10s to save, in order to speed up a
-restore that takes 27s warm. The key also hashed `**/*.csproj`, so any project
-file edit paid the full cost for no hit.
+`~/.nuget/packages` is cached via `actions/cache`. This was removed in #797 on
+the grounds that it cost more than it saved — 1m04s to restore plus 10s to save,
+against a 27s warm restore — and restored immediately afterwards, because the
+measurement that mattered had not been taken: how long an *uncached* restore
+takes on this solution.
+
+| Restore | Wall-clock |
+| --- | --- |
+| Cached (27s restore + 1m04s cache restore + 10s save) | ~1m41s |
+| Uncached (run `30751703601`) | 2m04s |
+| Uncached (run `30794820988`) | 2m41s |
+
+Caching a Windows NuGet folder is genuinely slow, but a cold restore of 124
+packages is slower. Keep the cache.
+
+If this is revisited, the durable improvement is lock files
+(`RestorePackagesWithLockFile`) so the key stops hashing `**/*.csproj` and
+surviving a project-file edit.
 
 ### Profiling the build
 
