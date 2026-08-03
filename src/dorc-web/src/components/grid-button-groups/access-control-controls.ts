@@ -52,7 +52,10 @@ export class AccessControlControls extends LitElement {
   }
 
   async removeAccess() {
-    const answer = await confirmPrompt(`Remove Access from ${this.accessControl?.Name}?`);
+    // Snapshot before awaiting: this control sits in a recycled grid cell, so
+    // `this.accessControl` can belong to a different row by the time the user answers.
+    const accessControl = this.accessControl;
+    const answer = await confirmPrompt(`Remove Access from ${accessControl?.Name}?`);
     if (answer) {
       const event = new CustomEvent('access-control-removed', {
         detail: {

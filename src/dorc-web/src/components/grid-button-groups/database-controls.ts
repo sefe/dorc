@@ -73,12 +73,15 @@ export class DatabaseControls extends LitElement {
   }
 
   async deleteDatabase() {
-    const answer = await confirmPrompt(`Delete database ${this.databaseDetails?.Name}?`);
-    if (answer && this.databaseDetails?.Id) {
+    // Snapshot before awaiting: this control sits in a recycled grid cell, so
+    // `this.databaseDetails` can belong to a different row by the time the user answers.
+    const database = this.databaseDetails;
+    const answer = await confirmPrompt(`Delete database ${database?.Name}?`);
+    if (answer && database?.Id) {
       const api = new RefDataDatabasesApi();
       api
         .refDataDatabasesDelete({
-          databaseId: this.databaseDetails.Id
+          databaseId: database.Id
         })
         .subscribe({
           next: (result: ApiBoolResult) => {

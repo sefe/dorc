@@ -797,7 +797,10 @@ export class PageVariables extends PageElement {
   }
 
   async updatePropertySecure(event: Event) {
-    const checkbox = event.target as Checkbox;
+    // currentTarget, not target: the click originates on the light-DOM <input>
+    // inside vaadin-checkbox, so `event.target` is that input and writing
+    // `.checked` to it leaves the host — and the visible tick — unchanged.
+    const checkbox = event.currentTarget as Checkbox;
     const existingProperty = this.properties?.find(
       value => value.Name === this.propertyName
     );
@@ -814,8 +817,9 @@ export class PageVariables extends PageElement {
         confirmMessage = `Are you sure you want to mark property "${this.propertyName}" as non-secure?\n\nThis will not decrypt existing values, but new values will be stored in plaintext.`;
       }
       
+      // preventDefault() is dropped: the dialog is awaited, so by the time this
+      // runs the click has long since been dispatched and it does nothing.
       const revertCheckboxState = () => {
-        event.preventDefault();
         checkbox.checked = originallySecured;
       };
 

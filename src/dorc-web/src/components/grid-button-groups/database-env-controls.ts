@@ -83,15 +83,19 @@ export class DatabaseEnvControls extends LitElement {
   }
 
   async detailedResults() {
+    // Snapshot before awaiting: this control sits in a recycled grid cell, so
+    // `this.dbDetails` can belong to a different row by the time the user answers.
+    const database = this.dbDetails;
+    const envId = this.envId;
     const answer = await confirmPrompt('Detach database?');
-    if (answer && this.dbDetails?.Id) {
+    if (answer && database?.Id) {
       const api = new RefDataEnvironmentsDetailsApi();
       api
         .refDataEnvironmentsDetailsPut({
-          componentId: this.dbDetails.Id,
+          componentId: database.Id,
           component: 'database',
           action: 'detach',
-          envId: this.envId
+          envId
         })
         .subscribe(() => {
           this.fireDbDetachedEvent();

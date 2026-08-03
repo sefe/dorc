@@ -123,15 +123,20 @@ export class ServerControls extends LitElement {
   }
 
   async detachServer() {
-    const answer = await confirmPrompt(`Detach server ${this.serverDetails?.Name}?`);
-    if (answer && this.serverDetails?.ServerId) {
+    // Snapshot before awaiting: this control sits in a recycled grid cell, so
+    // `this.serverDetails` can belong to a different row by the time the user
+    // answers.
+    const server = this.serverDetails;
+    const envId = this.envId;
+    const answer = await confirmPrompt(`Detach server ${server?.Name}?`);
+    if (answer && server?.ServerId) {
       const api = new RefDataEnvironmentsDetailsApi();
       api
         .refDataEnvironmentsDetailsPut({
-          componentId: this.serverDetails?.ServerId,
+          componentId: server.ServerId,
           component: 'server',
           action: 'detach',
-          envId: this.envId
+          envId
         })
         .subscribe(() => {
           this.fireServerDetachedEvent();
@@ -140,12 +145,15 @@ export class ServerControls extends LitElement {
   }
 
   async deleteServer() {
-    const answer = await confirmPrompt(`Delete server ${this.serverDetails?.Name}?`);
-    if (answer && this.serverDetails?.ServerId) {
+    // Snapshot before awaiting: this control sits in a recycled grid cell, so
+    // `this.serverDetails` can belong to a different row by the time the user answers.
+    const server = this.serverDetails;
+    const answer = await confirmPrompt(`Delete server ${server?.Name}?`);
+    if (answer && server?.ServerId) {
       const api = new RefDataServersApi();
       api
         .refDataServersDelete({
-          serverId: this.serverDetails.ServerId
+          serverId: server.ServerId
         })
         .subscribe({
           next: (result: ApiBoolResult) => {

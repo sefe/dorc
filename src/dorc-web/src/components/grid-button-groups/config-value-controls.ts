@@ -116,16 +116,19 @@ export class ConfigValueControls extends LitElement {
   }
 
   async removeConfigValue() {
+    // Snapshot before awaiting: this control sits in a recycled grid cell, so
+    // `this.value` can belong to a different row by the time the user answers.
+    const configValue = this.value;
     const answer = await confirmPrompt(
-      `Confirm removing value: ${this.value?.Key}?\nfor variable: ${
-        this.value?.Value
+      `Confirm removing value: ${configValue?.Key}?\nfor variable: ${
+        configValue?.Value
       }`
     );
-    if (answer && this.value?.Id) {
+    if (answer && configValue?.Id) {
       const api = new RefDataConfigApi();
       api
         .refDataConfigDelete({
-          id: this.value.Id
+          id: configValue.Id
         })
         .subscribe({
           next: (value: boolean) => {

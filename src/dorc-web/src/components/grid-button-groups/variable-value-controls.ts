@@ -133,20 +133,23 @@ export class VariableValueControls extends LitElement {
   }
 
   async removePropertyValue() {
+    // Snapshot before awaiting: this control sits in a recycled grid cell, so
+    // `this.value` can belong to a different row by the time the user answers.
+    const propertyValue = this.value;
     const answer = await confirmPrompt(
-      `Confirm removing value: ${this.value?.Value}?\nfor variable: ${
-        this.value?.Property?.Name
-      }\nwith scope: ${this.value?.PropertyValueFilter}`
+      `Confirm removing value: ${propertyValue?.Value}?\nfor variable: ${
+        propertyValue?.Property?.Name
+      }\nwith scope: ${propertyValue?.PropertyValueFilter}`
     );
-    if (answer && this.value?.Id) {
-      if (this.value.PropertyValueFilter === '') {
-        this.value.PropertyValueFilter = undefined;
-        this.value.DefaultValue = true;
+    if (answer && propertyValue?.Id) {
+      if (propertyValue.PropertyValueFilter === '') {
+        propertyValue.PropertyValueFilter = undefined;
+        propertyValue.DefaultValue = true;
       }
       const api = new PropertyValuesApi();
       api
         .propertyValuesDelete({
-          propertyValueDto: [this.value]
+          propertyValueDto: [propertyValue]
         })
         .subscribe({
           next: (value: Response[]) => {

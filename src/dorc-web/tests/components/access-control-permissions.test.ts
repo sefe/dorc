@@ -158,4 +158,29 @@ describe('add-edit-access-control permission checkboxes', () => {
 
     expect(checkboxAt(el, 0, COLUMN.owner).disabled).to.equal(true);
   });
+
+  // Clicking the input fires `change` AND `checked-changed`, so a click test
+  // cannot tell the two bindings apart. Setting the property fires only
+  // `checked-changed` — which is exactly what a recycled cell does when Lit
+  // commits the next row's value. If these renderers ever go back to listening
+  // for it, this is the row that gets corrupted.
+  it('ignores a programmatic checked change, as a recycled cell produces', async () => {
+    const privilege: AccessControl = { Name: 'someone', Allow: 0 };
+    const el = await mount([privilege]);
+
+    checkboxAt(el, 0, COLUMN.write).checked = true;
+    await settle();
+
+    expect(privilege.Allow, 'no write from a non-gesture change').to.equal(0);
+  });
+
+  it('ignores a programmatic owner change', async () => {
+    const privilege: AccessControl = { Name: 'someone', Allow: 0 };
+    const el = await mount([privilege]);
+
+    checkboxAt(el, 0, COLUMN.owner).checked = true;
+    await settle();
+
+    expect(privilege.Allow, 'owner bit not set').to.equal(0);
+  });
 });

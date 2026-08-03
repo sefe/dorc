@@ -215,16 +215,22 @@ describe('RouteResolver', () => {
     it('stay stable on an ancestor when only the child route changes', async () => {
       const resolver = new RouteResolver(buildRoutes());
 
+      // Paths the fixture table actually matches — `/environment/:id` only has
+      // a `/components` child, so `/metadata` fell through to not-found and
+      // both assertions compared undefined with undefined.
       const metadata = (await resolver.resolve(
-        '/environment/DEV1/metadata'
+        '/environment/DEV1/components/servers'
       )) as RouteResolution;
       const servers = (await resolver.resolve(
-        '/environment/DEV1/servers'
+        '/environment/DEV1/components/databases'
       )) as RouteResolution;
 
       const parentOf = (r: RouteResolution) =>
         r.chain.find(e => e.component === 'page-environment')?.path;
 
+      expect(parentOf(metadata), 'ancestor actually resolved').to.equal(
+        '/environment/DEV1'
+      );
       expect(parentOf(metadata), 'parent matched path').to.equal(
         parentOf(servers)
       );

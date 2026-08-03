@@ -146,16 +146,20 @@ export class RequestControls extends LitElement {
   }
 
   async restart() {
+    // Snapshot before awaiting. This control lives in a recycled grid cell
+    // and the monitor grids auto-refresh, so `this.requestId` can be the
+    // next row's by the time the user answers.
+    const requestId = this.requestId;
     const answer = await confirmPrompt(
-      `Are you sure you want to restart the job with ID ${this.requestId} ?`
+      `Are you sure you want to restart the job with ID ${requestId} ?`
     );
 
     if (answer) {
       const api = new RequestApi();
-      api.requestRestartPost({ requestId: this.requestId }).subscribe(() => {
+      api.requestRestartPost({ requestId }).subscribe(() => {
         const event = new CustomEvent('request-restarted', {
           detail: {
-            requestId: this.requestId,
+            requestId,
             message: 'Requested deploy has been restarted'
           },
           bubbles: true,
@@ -167,16 +171,20 @@ export class RequestControls extends LitElement {
   }
 
   async cancel() {
+    // Snapshot before awaiting. This control lives in a recycled grid cell
+    // and the monitor grids auto-refresh, so `this.requestId` can be the
+    // next row's by the time the user answers.
+    const requestId = this.requestId;
     const answer = await confirmPrompt(
-      `Are you sure you want to cancel the job with ID ${this.requestId} ?`
+      `Are you sure you want to cancel the job with ID ${requestId} ?`
     );
 
     if (answer) {
       const api = new RequestApi();
-      api.requestCancelPut({ requestId: this.requestId }).subscribe(() => {
+      api.requestCancelPut({ requestId }).subscribe(() => {
         const event = new CustomEvent('request-cancelled', {
           detail: {
-            requestId: this.requestId,
+            requestId,
             message: 'Requested deploy has been canceled'
           },
           bubbles: true,
@@ -188,8 +196,12 @@ export class RequestControls extends LitElement {
   }
 
   async pause() {
+    // Snapshot before awaiting. This control lives in a recycled grid cell
+    // and the monitor grids auto-refresh, so `this.requestId` can be the
+    // next row's by the time the user answers.
+    const requestId = this.requestId;
     const answer = await confirmPrompt(
-      `Are you sure you want to pause the job with ID ${this.requestId} ? This will block subsequent deployments to this environment.`
+      `Are you sure you want to pause the job with ID ${requestId} ? This will block subsequent deployments to this environment.`
     );
 
     if (answer) {
@@ -202,14 +214,14 @@ export class RequestControls extends LitElement {
       }
 
       ajax({
-        url: `${appConfig.dorcApi}/Request/pause?requestId=${this.requestId}`,
+        url: `${appConfig.dorcApi}/Request/pause?requestId=${requestId}`,
         method: 'PUT',
         headers,
         withCredentials: true
       }).subscribe(() => {
         const event = new CustomEvent('request-paused', {
           detail: {
-            requestId: this.requestId,
+            requestId,
             message: 'Requested deploy has been paused'
           },
           bubbles: true,
@@ -221,8 +233,12 @@ export class RequestControls extends LitElement {
   }
 
   async resume() {
+    // Snapshot before awaiting. This control lives in a recycled grid cell
+    // and the monitor grids auto-refresh, so `this.requestId` can be the
+    // next row's by the time the user answers.
+    const requestId = this.requestId;
     const answer = await confirmPrompt(
-      `Are you sure you want to resume the job with ID ${this.requestId} ?`
+      `Are you sure you want to resume the job with ID ${requestId} ?`
     );
 
     if (answer) {
@@ -235,14 +251,14 @@ export class RequestControls extends LitElement {
       }
 
       ajax({
-        url: `${appConfig.dorcApi}/Request/resume?requestId=${this.requestId}`,
+        url: `${appConfig.dorcApi}/Request/resume?requestId=${requestId}`,
         method: 'PUT',
         headers,
         withCredentials: true
       }).subscribe(() => {
         const event = new CustomEvent('request-resumed', {
           detail: {
-            requestId: this.requestId,
+            requestId,
             message: 'Requested deploy has been resumed'
           },
           bubbles: true,
