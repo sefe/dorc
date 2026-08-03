@@ -41,7 +41,11 @@ const routeA = route('stub-a');
 const routeB = route('stub-b');
 
 const chainOf = (...routes: AppRoute[]): RouteChainEntry[] =>
-  routes.map(r => ({ route: r, component: r.component as string }));
+  routes.map(r => ({
+    route: r,
+    component: r.component as string,
+    path: r.path
+  }));
 
 describe('RouteOutlet', () => {
   let host: HTMLElement;
@@ -50,6 +54,23 @@ describe('RouteOutlet', () => {
   const render = (routes: AppRoute[], pathname = '/') =>
     outlet.render({
       chain: chainOf(...routes),
+      params: {},
+      pathname,
+      search: '',
+      hash: ''
+    });
+
+  /** Renders a chain whose entries carry explicit matched paths. */
+  const renderMatched = (
+    entries: Array<[AppRoute, string]>,
+    pathname: string
+  ) =>
+    outlet.render({
+      chain: entries.map(([route, path]) => ({
+        route,
+        component: route.component as string,
+        path
+      })),
       params: {},
       pathname,
       search: '',
@@ -173,5 +194,83 @@ describe('RouteOutlet', () => {
     expect(parentBefore?.firstElementChild?.tagName.toLowerCase()).to.equal(
       'stub-a'
     );
+  });
+
+  // Two URLs that differ only in a route parameter resolve to the same route
+  // objects, so identity alone cannot tell them apart. Routed pages load their
+  // data in connectedCallback / firstUpdated / onAfterEnter — none of which run
+  // again for an element that was never detached — so reusing the element here
+  // leaves the previous entity's data on screen under the new URL.
+  describe('when only a route parameter changes', () => {
+    it('rebuilds the element whose matched path changed', () => {
+      renderMatched(
+        [
+          [parentRoute, '/project-envs/A'],
+          [routeA, '/project-envs/A']
+        ],
+        '/project-envs/A'
+      );
+      const first = host.firstElementChild;
+
+      renderMatched(
+        [
+          [parentRoute, '/project-envs/B'],
+          [routeA, '/project-envs/B']
+        ],
+        '/project-envs/B'
+      );
+
+      expect(host.firstElementChild).to.not.equal(first);
+    });
+
+    it('fires onAfterEnter for the rebuilt elements', () => {
+      renderMatched(
+        [
+          [parentRoute, '/project-envs/A'],
+          [routeA, '/project-envs/A']
+        ],
+        '/project-envs/A'
+      );
+      entered.length = 0;
+
+      renderMatched(
+        [
+          [parentRoute, '/project-envs/B'],
+          [routeA, '/project-envs/B']
+        ],
+        '/project-envs/B'
+      );
+
+      expect(entered).to.deep.equal([
+        'stub-parent:/project-envs/B',
+        'stub-a:/project-envs/B'
+      ]);
+    });
+
+    it('keeps an ancestor whose own matched path is unchanged', () => {
+      renderMatched(
+        [
+          [parentRoute, '/environment/DEV1'],
+          [routeA, '/environment/DEV1/metadata']
+        ],
+        '/environment/DEV1/metadata'
+      );
+      const parent = host.firstElementChild;
+      const firstTab = parent?.firstElementChild;
+
+      renderMatched(
+        [
+          [parentRoute, '/environment/DEV1'],
+          [routeB, '/environment/DEV1/servers']
+        ],
+        '/environment/DEV1/servers'
+      );
+
+      expect(host.firstElementChild, 'parent reused').to.equal(parent);
+      expect(
+        host.firstElementChild?.firstElementChild,
+        'tab replaced'
+      ).to.not.equal(firstTab);
+    });
   });
 });

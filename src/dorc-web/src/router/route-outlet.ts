@@ -76,11 +76,11 @@ export class RouteOutlet {
     const added: RenderedEntry[] = [];
 
     for (let i = divergedAt; i < request.chain.length; i++) {
-      const { route, component } = request.chain[i];
+      const { route, component, path } = request.chain[i];
       const element = document.createElement(component) as RoutedElement;
       element.location = locationFor(route);
       parent.appendChild(element);
-      added.push({ route, component, element });
+      added.push({ route, component, path, element });
       parent = element;
     }
 
@@ -94,16 +94,30 @@ export class RouteOutlet {
   }
 
   /**
-   * Index of the first chain position whose route differs from what is
-   * rendered. Compares route identity rather than tag name, matching Vaadin
-   * Router: two routes that render the same component are still distinct
-   * views, and reusing the element across them would carry state over.
+   * Index of the first chain position that differs from what is rendered.
+   *
+   * Compares route identity *and* the URL the route matched, matching Vaadin
+   * Router (`dist/router.js`: `previousChain[i].route !== newChain[i].route ||
+   * previousChain[i].path !== newChain[i].path && ...`, where the right-hand
+   * side always holds because every resolution builds fresh elements).
+   *
+   * Both halves are load-bearing. Identity catches two routes that render the
+   * same component but are different views. Matched path catches the same
+   * route reached with different parameters — `/project-envs/A` versus
+   * `/project-envs/B` — where reusing the element would leave the previous
+   * project's data on screen under the new URL, because routed pages load in
+   * `connectedCallback` / `firstUpdated` / `onAfterEnter`, none of which run
+   * again for an element that was never detached.
    */
   private divergenceIndex(chain: RouteChainEntry[]): number {
     const shared = Math.min(this.rendered.length, chain.length);
     for (let i = 0; i < shared; i++) {
       const current = this.rendered[i];
-      if (current.route !== chain[i].route || !current.element.isConnected) {
+      if (
+        current.route !== chain[i].route ||
+        current.path !== chain[i].path ||
+        !current.element.isConnected
+      ) {
         return i;
       }
     }

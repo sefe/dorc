@@ -70,6 +70,15 @@ export interface RouterLocation {
 export interface RouteChainEntry {
   route: AppRoute;
   component: string;
+  /**
+   * The URL this route matched, including everything its ancestors matched —
+   * e.g. `/environment/DEV1` for the environment route.
+   *
+   * Route identity alone cannot decide element reuse: `/environment/DEV1` and
+   * `/environment/DEV2` are the same route object with different parameters,
+   * and an element carried across them keeps the first environment's data.
+   */
+  path: string;
 }
 
 export interface RouteResolution {

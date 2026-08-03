@@ -1,3 +1,4 @@
+import { keyed } from 'lit/directives/keyed.js';
 import '@vaadin/checkbox';
 import { columnBodyRenderer } from '@vaadin/grid/lit';
 import '@vaadin/button';
@@ -25,7 +26,6 @@ import { PageElement } from '../helpers/page-element';
 import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import { AddEditAccessControl } from '../components/add-edit-access-control';
 import '../components/add-edit-access-control';
-import { AddEditEnvironment } from '../components/add-edit-environment';
 import { CloneEnvironment } from '../components/clone-environment';
 
 @customElement('page-environments-list')
@@ -61,7 +61,9 @@ export class PageEnvironmentsList extends ResponsiveMixin(PageElement) {
 
   @state() private addEnvDialogOpened = false;
 
-  @query('#add-environment') addEditEnvironment!: AddEditEnvironment;
+  /** Bumped per open so each one gets a freshly built form. */
+  @state() private addEnvSeq = 0;
+
 
   @query('#clone-environment') cloneEnvironmentComponent!: CloneEnvironment;
 
@@ -124,7 +126,8 @@ export class PageEnvironmentsList extends ResponsiveMixin(PageElement) {
         }}"
         ${dialogRenderer(this.renderAddEnvironment, [
           this.newEnvironment,
-          this.environments
+          this.environments,
+          this.addEnvSeq
         ])}
       ></vaadin-dialog>
 
@@ -315,7 +318,9 @@ export class PageEnvironmentsList extends ResponsiveMixin(PageElement) {
   };
 
   private renderAddEnvironment = () => html`
-
+    ${keyed(
+      this.addEnvSeq,
+      html`
         <add-edit-environment
           id="add-environment"
           .addMode="${true}"
@@ -323,6 +328,8 @@ export class PageEnvironmentsList extends ResponsiveMixin(PageElement) {
           @environment-added="${this.closeAddEnv}"
           .environment="${this.newEnvironment}"
         ></add-edit-environment>
+      `
+    )}
   `;
 
   closeAddEnv(e: CustomEvent) {
@@ -369,7 +376,12 @@ export class PageEnvironmentsList extends ResponsiveMixin(PageElement) {
   }
 
   addEnvironment() {
-    this.addEditEnvironment.clearAllFields();
+    // The form lives inside the dialog renderer, so it does not exist until
+    // the dialog has opened at least once. Reaching for it through @query and
+    // calling clearAllFields() threw, which ran *before* the line that opens
+    // the dialog — so the button did nothing at all. Bumping the key rebuilds
+    // the element instead, and its own connectedCallback resets it in addMode.
+    this.addEnvSeq += 1;
     this.addEnvDialogOpened = true;
   }
 

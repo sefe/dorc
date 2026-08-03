@@ -196,4 +196,42 @@ describe('RouteResolver', () => {
       expect(() => resolver.urlForName('nope')).to.throw(/nope/);
     });
   });
+
+  // The outlet decides element reuse on the matched path as well as route
+  // identity, so resolution has to report what each route actually matched.
+  // Without it, `/project-envs/A` and `/project-envs/B` are indistinguishable
+  // and the page keeps showing project A.
+  describe('matched paths', () => {
+    it('differ when only a route parameter differs', async () => {
+      const resolver = new RouteResolver(buildRoutes());
+
+      const a = (await resolver.resolve('/project-envs/A')) as RouteResolution;
+      const b = (await resolver.resolve('/project-envs/B')) as RouteResolution;
+
+      expect(a.chain.at(-1)?.path).to.equal('/project-envs/A');
+      expect(b.chain.at(-1)?.path).to.equal('/project-envs/B');
+    });
+
+    it('stay stable on an ancestor when only the child route changes', async () => {
+      const resolver = new RouteResolver(buildRoutes());
+
+      const metadata = (await resolver.resolve(
+        '/environment/DEV1/metadata'
+      )) as RouteResolution;
+      const servers = (await resolver.resolve(
+        '/environment/DEV1/servers'
+      )) as RouteResolution;
+
+      const parentOf = (r: RouteResolution) =>
+        r.chain.find(e => e.component === 'page-environment')?.path;
+
+      expect(parentOf(metadata), 'parent matched path').to.equal(
+        parentOf(servers)
+      );
+      expect(
+        metadata.chain.at(-1)?.path,
+        'leaf matched path differs'
+      ).to.not.equal(servers.chain.at(-1)?.path);
+    });
+  });
 });
