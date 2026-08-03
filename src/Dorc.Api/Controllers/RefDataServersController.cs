@@ -280,9 +280,9 @@ namespace Dorc.Api.Controllers
 
             // Capture before-state for the audit row before deleting
             var beforeServer = _serversPersistentSource.GetServer(serverId, User);
-            var beforeJson = beforeServer != null
-                ? JsonSerializer.Serialize(beforeServer, new JsonSerializerOptions { WriteIndented = true })
-                : null;
+            if (beforeServer == null)
+                return new ApiBoolResult { Result = false, Message = $"Server {serverId} not found." };
+            var beforeJson = JsonSerializer.Serialize(beforeServer, new JsonSerializerOptions { WriteIndented = true });
 
             var username = _claimsPrincipalReader.GetUserFullDomainName(User);
 
