@@ -65,12 +65,24 @@ jobs:
           DORC_KAFKA_HA_TESTS: '1'
         run: dotnet test src/Dorc.Kafka.Lock.HATests/Dorc.Kafka.Lock.HATests.csproj --logger "trx;LogFileName=lock-ha.trx" --results-directory TestResults
 
+      # Same reporter as release.yml, so both pipelines report identically and
+      # there is one action to keep current rather than two. dotnet-trx consumes
+      # the .trx files the steps above already produce.
+      #
+      # fail-on-error is off because the `dotnet test` steps above already fail
+      # the job on a test failure; this step only reports, and should not be
+      # able to turn a reporting hiccup into a red build.
+      #
+      # Pinned to a commit hash rather than the moving 'v2' tag, matching the
+      # convention this file already used.
       - name: Publish test results
         if: always()
-        uses: EnricoMi/publish-unit-test-result-action@c950f6fb443cb5af20a377fd0dfaa78838901040 # v2.23.0
+        uses: dorny/test-reporter@df6247429542221bc30d46a036ee47af1102c451 # v2.7.0
         with:
-          check_name: Kafka Integration Test Results
-          files: TestResults/**/*.trx
+          name: Kafka Integration Test Results
+          path: 'TestResults/**/*.trx'
+          reporter: dotnet-trx
+          fail-on-error: false
 
       - name: Stack logs on failure
         if: failure()
