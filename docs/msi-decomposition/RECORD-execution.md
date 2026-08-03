@@ -15,7 +15,10 @@ No [ENV] host has been available for any step so far. Every entry below that car
 | S-007 | `d2fe1fd` | pending run | not run | partially verified |
 | S-008 | `07f8121` | pending run | not run | partially verified; certificate handling **assumed** |
 | S-009 | `1f3a678` | pending run | not run | partially verified |
-| S-010…S-013 | — | — | — | not started |
+| S-010 | — | — | — | not started: needs the real per-environment DeploySettings files, which are not in this repo |
+| S-011 | `pending` | pending run | not run | partially verified |
+| S-012 | folded into S-006…S-009 | pending run | not run | artifact collection and the manual helper landed with each package; nothing left standing alone |
+| S-013 | — | — | — | not started: needs the baseline pinned and an [ENV] host |
 
 ---
 
@@ -110,3 +113,20 @@ A side effect worth knowing: the certificates used to resolve through a bind pat
 Final order: **API → Web → Monitors → CLIs.**
 
 **Outstanding [ENV], and this is the one that matters most:** the first deployment against an environment running the monolith. It exercises the legacy-name handover, the install order, and the S-003 cleanup scoping all at once, and none of the three has been observed.
+
+
+## S-011 — Conditional quiesce, start step, outcome capture
+
+`RunDeployment.ps1` stopped both monitors on every target server before any installer was chosen, and nothing started them again. Services now come from the sidecars of the packages the run will actually install, and an explicit start-and-verify step follows, failing the run if a service it stopped is not running at the end.
+
+The MSI loop was a bare `foreach`. Outcomes are recorded per package, the run stops at the first failure rather than installing on top of a broken state, and the summary names what is installed, what failed and what was never attempted.
+
+**Compatibility:** a sidecar with no `Services` array falls back to the environment-wide list, so a drop produced before the sidecars carried one still quiesces as it used to. All five sidecars now declare it, `Setup.Acceptance` included.
+
+**Outstanding [ENV], and it is the whole point of the step:** that deploying the API alone leaves the monitors running and processing. Nothing about this is observable from a build — the script is not executed anywhere in CI.
+
+## S-012 — Pipelines and the manual helper
+
+Not a separate step in the end. Each extraction carried its own artifact collection into both pipelines, and `Install.Orchestrator.bat` now installs all four packages in order from a single property block, since MSI ignores properties a package does not declare and four divergent lists would drift.
+
+What the IS wanted from S-012 that has **not** happened: the per-package `WixBuild` timings on a `/m` binlog. G-3's threshold cannot be judged without them, and U-17 — whether the four packages actually build in parallel — is still unresolved.
