@@ -1,42 +1,146 @@
 name: DOrc Build
 
 on:
+  # Topic branches (feature/**, fix/**, copilot/**, claude/** …) are covered by
+  # the pull_request trigger below. Listing them here as well fired the entire
+  # pipeline twice for every push to a branch with an open PR — two ~12 minute
+  # Windows runs for a single change. Long-lived branches keep a push trigger
+  # because their runs publish the artifacts consumed downstream.
   push:
     branches:
       - main
       - develop
       - 'release/**'
-      - 'feature/**'
-      - 'fix/**'
-      - 'hotfix/**'
-      - 'migration/**'
-      - 'copilot/**'
-      - 'claude/**'
   pull_request:
     branches:
       - main
       - develop
+  workflow_dispatch:
+    inputs:
+      capture_binlog:
+        description: 'Capture an MSBuild binary log as an artifact (for build-time analysis)'
+        type: boolean
+        default: false
+
+# Supersede in-flight runs for the same PR or branch — only the newest commit
+# needs a green build. main and release/** are exempt from cancellation so a
+# run that publishes artifacts is never killed part-way through.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' && !startsWith(github.ref, 'refs/heads/release/') }}
 
 env:
   BUILD_PLATFORM: 'Any CPU'
   BUILD_CONFIGURATION: 'Release'
   SOLUTION_PATH: 'src/Dorc.sln'
-  DOTNET_VERSION: '8.0.x'
   NODE_VERSION: '20.x'
 
 jobs:
-  build:
+  # The web suite gates nothing downstream — the MSI harvests dorc-web\dist,
+  # which the build job produces itself — so running it alongside the .NET
+  # build takes it off the critical path entirely.
+  web-tests:
     runs-on: windows-latest
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v7
-      
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v6
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v7
       with:
-        dotnet-version: ${{ env.DOTNET_VERSION }}
-        
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: src/dorc-web/package-lock.json
+
+    - name: Install web dependencies
+      working-directory: src/dorc-web
+      run: npm ci --loglevel=error
+
+    - name: Select browser matrix
+      id: browsers
+      shell: pwsh
+      run: |
+        # Branches that ship get all three engines; everything else gets
+        # chromium, which keeps PR feedback short and avoids downloading two
+        # extra browser engines on a cache miss.
+        #
+        # Read the ref from the environment rather than interpolating
+        # ${{ github.ref }} into the script body: ref names may contain quotes
+        # and backticks, so the interpolated form is a script-injection sink.
+        $ref = $env:GITHUB_REF
+        if ($ref -eq "refs/heads/main" -or $ref -eq "refs/heads/develop" -or $ref -like "refs/heads/release/*") {
+          $browsers = "chromium,firefox,webkit"
+        } else {
+          $browsers = "chromium"
+        }
+        Write-Host "Browser matrix: $browsers"
+        echo "list=$browsers" >> $env:GITHUB_OUTPUT
+        echo "install=$($browsers -replace ',',' ')" >> $env:GITHUB_OUTPUT
+
+    # The next three steps assume Windows (pwsh + the Windows cache path).
+    # The whole job is windows-latest today; the `if: runner.os == 'Windows'`
+    # guards align them so adding a Linux/macOS matrix entry later is a
+    # localised change here rather than a silent CI mis-fire.
+    - name: Get installed Playwright version
+      id: playwright-version
+      if: runner.os == 'Windows'
+      working-directory: src/dorc-web
+      shell: pwsh
+      run: |
+        $version = (npm ls @playwright/test --json 2>$null `
+          | ConvertFrom-Json).dependencies.'@playwright/test'.version
+        if (-not $version) {
+          $version = (npm ls playwright --json 2>$null `
+            | ConvertFrom-Json).dependencies.playwright.version
+        }
+        if (-not $version) {
+          # Refuse to write an empty cache key — would produce
+          # `playwright-Windows-` and silently match every run forever.
+          Write-Error "Could not determine installed Playwright version"
+          exit 1
+        }
+        echo "version=$version" >> $env:GITHUB_OUTPUT
+
+    # The browser list is part of the key: a cache populated by a chromium-only
+    # run must not satisfy a run that needs all three engines.
+    - name: Cache Playwright browsers
+      id: playwright-cache
+      if: runner.os == 'Windows'
+      uses: actions/cache@v6
+      with:
+        path: ~\AppData\Local\ms-playwright
+        key: playwright-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}-${{ steps.browsers.outputs.list }}
+
+    - name: Install Playwright browsers
+      if: runner.os == 'Windows' && steps.playwright-cache.outputs.cache-hit != 'true'
+      working-directory: src/dorc-web
+      run: npx playwright install ${{ steps.browsers.outputs.install }}
+
+    - name: Run web tests
+      if: runner.os == 'Windows'
+      working-directory: src/dorc-web
+      env:
+        VITEST_BROWSERS: ${{ steps.browsers.outputs.list }}
+      run: npm test
+
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v7
+
+    # actions/setup-dotnet is deliberately absent: the windows-latest image
+    # already ships the .NET SDK, and installing a second copy cost ~38s of
+    # every run. This step is near-free and makes a toolchain regression on the
+    # runner image obvious in the log rather than a confusing build failure.
+    - name: Report .NET toolchain
+      shell: pwsh
+      run: |
+        dotnet --list-sdks
+        dotnet --list-runtimes
+
     - name: Setup Node.js
       uses: actions/setup-node@v7
       with:
@@ -69,48 +173,6 @@ jobs:
     - name: Build web site
       working-directory: src/dorc-web
       run: npm run build
-
-    # The next three steps assume Windows (pwsh + the Windows cache path).
-    # The whole job is windows-latest today; the `if: runner.os == 'Windows'`
-    # guards align them so adding a Linux/macOS matrix entry later is a
-    # localised change here rather than a silent CI mis-fire.
-    - name: Get installed Playwright version
-      id: playwright-version
-      if: runner.os == 'Windows'
-      working-directory: src/dorc-web
-      shell: pwsh
-      run: |
-        $version = (npm ls @playwright/test --json 2>$null `
-          | ConvertFrom-Json).dependencies.'@playwright/test'.version
-        if (-not $version) {
-          $version = (npm ls playwright --json 2>$null `
-            | ConvertFrom-Json).dependencies.playwright.version
-        }
-        if (-not $version) {
-          # Refuse to write an empty cache key — would produce
-          # `playwright-Windows-` and silently match every run forever.
-          Write-Error "Could not determine installed Playwright version"
-          exit 1
-        }
-        echo "version=$version" >> $env:GITHUB_OUTPUT
-
-    - name: Cache Playwright browsers
-      id: playwright-cache
-      if: runner.os == 'Windows'
-      uses: actions/cache@v6
-      with:
-        path: ~\AppData\Local\ms-playwright
-        key: playwright-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
-
-    - name: Install Playwright browsers
-      if: runner.os == 'Windows' && steps.playwright-cache.outputs.cache-hit != 'true'
-      working-directory: src/dorc-web
-      run: npx playwright install chromium firefox webkit
-
-    - name: Run web tests
-      if: runner.os == 'Windows'
-      working-directory: src/dorc-web
-      run: npm test
 
     - name: Version AssemblyInfo files
       shell: pwsh
@@ -162,22 +224,43 @@ jobs:
           Write-Host "UpdateVersion.ps1 not found, skipping cmdlet versioning"
         }
       
-    - name: Cache NuGet packages
-      uses: actions/cache@v6
-      with:
-        path: ~/.nuget/packages
-        key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json', '**/*.csproj') }}
-        restore-keys: |
-          ${{ runner.os }}-nuget-
-      
+    # There is deliberately no actions/cache step for ~/.nuget/packages here.
+    # Caching it on Windows means shuffling tens of thousands of small files:
+    # measured over run 30527995114 it cost 1m04s to restore plus 10s to save,
+    # to speed up a restore that takes 27s warm. The key also hashed **/*.csproj,
+    # so any project-file edit paid that cost for nothing.
+    # Every project in the solution is SDK-style (csproj / wixproj / sqlproj)
+    # and there is no packages.config anywhere in the tree, so the `nuget
+    # restore` pass that used to run first was pure duplication of the work
+    # `dotnet restore` does on the same solution.
     - name: Restore packages
-      run: |
-        nuget restore ${{ env.SOLUTION_PATH }} -ConfigFile pipelines/NuGet.config
-        dotnet restore ${{ env.SOLUTION_PATH }} --configfile pipelines/NuGet.config
-      
+      run: dotnet restore ${{ env.SOLUTION_PATH }} --configfile pipelines/NuGet.config
+
+    # /m builds independent projects across every core on the runner and keeps
+    # the Roslyn compiler server alive between them. The previous
+    # `/m:1 /p:BuildInParallel=false /p:UseSharedCompilation=false` combination
+    # pushed all 37 projects through a single node with a cold csc.exe start
+    # each time, and accounted for over half the pipeline's wall-clock.
+    # Setup.Dorc and Setup.Acceptance declare their ProjectReferences
+    # explicitly, so the dependency graph still orders the MSI harvest after
+    # the projects it packages.
+    #
+    # /bl is opt-in via workflow_dispatch rather than always-on: a binary log
+    # is the tool for asking which targets dominate the remaining build time,
+    # but it is not free to write and there is no reason to pay for it on every
+    # run. `inputs` is empty for push/pull_request, so the flag expands to
+    # nothing there.
     - name: Build solution
-      run: msbuild ${{ env.SOLUTION_PATH }} /p:Configuration=${{ env.BUILD_CONFIGURATION }} /p:Platform="${{ env.BUILD_PLATFORM }}" /p:RunWixToolsOutOfProc=true /p:Version=${{ steps.version.outputs.VERSION }} /p:UseSharedCompilation=false /p:BuildInParallel=false /m:1 /clp:ErrorsOnly /nologo
-      
+      run: msbuild ${{ env.SOLUTION_PATH }} /p:Configuration=${{ env.BUILD_CONFIGURATION }} /p:Platform="${{ env.BUILD_PLATFORM }}" /p:RunWixToolsOutOfProc=true /p:Version=${{ steps.version.outputs.VERSION }} /m ${{ inputs.capture_binlog && '/bl:build.binlog' || '' }} /clp:ErrorsOnly /nologo
+
+    - name: Upload MSBuild binary log
+      if: ${{ inputs.capture_binlog }}
+      uses: actions/upload-artifact@v7
+      with:
+        name: build-binlog-${{ steps.version.outputs.VERSION }}
+        path: build.binlog
+        retention-days: 7
+
     - name: Run tests
       shell: pwsh
       run: |
@@ -330,7 +413,9 @@ jobs:
       id: set_retention
       shell: pwsh
       run: |
-        $ref = "${{ github.ref }}"
+        # Same reasoning as 'Select browser matrix': read the ref from the
+        # environment instead of interpolating it into the script body.
+        $ref = $env:GITHUB_REF
         if ($ref -eq "refs/heads/main" -or $ref -like "refs/heads/release/*") {
           echo "RETENTION_DAYS=400" >> $env:GITHUB_ENV
         } else {
