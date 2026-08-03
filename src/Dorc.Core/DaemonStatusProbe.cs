@@ -162,6 +162,7 @@ namespace Dorc.Core
 
                     return probeResults;
                 }
+            }
 
             return ProbeDaemonStatuses(daemons);
         }
