@@ -98,24 +98,28 @@ steps:
     xmlTransformationRules: ''
     jsonTargetFiles: 'appsettings.test.json'
 
-# DO NOT set maximumCpuCount here without first fixing the installer projects.
+# Materialise the directories the installers harvest, before anything else
+# builds. SDK-style projects are not directly packageable — the deployable
+# layout only exists after Publish has run, and for Dorc.Api that includes
+# web.config, which IIS needs and which does not exist in source.
 #
-# #797 enabled it on the reasoning that Setup.Dorc and Setup.Acceptance declare
-# their ProjectReferences, so the dependency graph would order the MSI harvest
-# correctly. That was wrong. Both wixprojs have a PublishProjects target
-# (AfterTargets="BeforeResolveReferences") that shells out to independent
-# 'dotnet publish' / 'MSBuild.exe' processes — 11 in Setup.Dorc, 1 in
-# Setup.Acceptance. ProjectReference ordering does not constrain a process
-# launched by Exec, so under parallel build those chains run concurrently with
-# the outer build and race for the same obj output:
-#
-#   CSC : error CS2012: Cannot open
-#   'Dorc.NetFramework.PowerShell\obj\Release\Dorc.NetFramework.PowerShell.dll'
-#   for writing -- being used by another process
-#
-# Reproduced on the GitHub pipeline (run 30812109885); the same race applies
-# here. Left at the task default (single node) until those Exec chains are
-# removed.
+# This used to happen inside the wixprojs via <Exec>, spawning child processes
+# the parent MSBuild could not see or deduplicate; under a parallel build the
+# two wixprojs ran their chains concurrently and raced the outer build for the
+# same intermediate outputs (CS2012). Running it here, as one MSBuild
+# invocation over the whole payload list, means a single engine owns the graph
+# and the shared dependencies are built exactly once.
+- task: MSBuild@1
+  displayName: 'Publish Installer Payload'
+  inputs:
+    solution: 'src/InstallerPayload.proj'
+    configuration: '$(BuildConfiguration)'
+    maximumCpuCount: true
+
+# maximumCpuCount is safe here only because the payload above is already on
+# disk and DorcPayloadPrepublished=true switches off the wixprojs' in-build
+# Exec chains. Removing either of those brings back the CS2012 race that took
+# main red on GitHub run 30812109885 — do not enable it without both.
 #
 # 'clean' stays off: it was forcing a full rebuild on every run of a persistent
 # self-hosted agent, discarding all incremental build state. That is unrelated
@@ -124,9 +128,10 @@ steps:
   displayName: 'Build solution **\*.sln'
   inputs:
       solution: $(solution)
-      msbuildArgs: '/p:RunWixToolsOutOfProc=true,Version=$(version)'
+      msbuildArgs: '/p:RunWixToolsOutOfProc=true,Version=$(version) /p:DorcPayloadPrepublished=true'
       platform: '$(BuildPlatform)'
       configuration: '$(BuildConfiguration)'
+      maximumCpuCount: true
 
 # runInParallel / codeCoverageEnabled / diagnosticsEnabled used to sit inside
 # the testAssemblyVer2 block scalar, so they were parsed as test-assembly glob
