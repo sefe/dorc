@@ -25,6 +25,7 @@ type Page = HTMLElement & {
   powerShellVersions: string[];
   enabledRenderer(script: Script): unknown;
   psVersionRenderer(script: Script): unknown;
+  _jsonRenderer(script: Script & { Path?: string; IsPathJSON?: boolean }): unknown;
 };
 
 // Deliberately not attached: connectedCallback would fire the page's data
@@ -104,5 +105,53 @@ describe('page-scripts-list editable cell renderers', () => {
       script.PowerShellVersionNumber,
       'model untouched by a non-gesture change'
     ).to.equal('5.1');
+  });
+
+  // grid-cell-recycling.test.ts defines its own copy of the showJson helper, so
+  // it demonstrates the mechanism without touching the shipped renderer.
+  // Reverting `.data` binding here to the seed-once behaviour left that test —
+  // and the whole suite — green.
+  it('re-seeds the JSON viewer when the cell is recycled', async () => {
+    const first = { Id: 1, IsPathJSON: true, Path: '{"a":1}' };
+    const second = { Id: 2, IsPathJSON: true, Path: '{"b":2}' };
+
+    render(page._jsonRenderer(first) as never, host);
+    await settle();
+    const viewer = host.querySelector('hegs-json-viewer') as HTMLElement & {
+      data?: unknown;
+    };
+    expect(viewer.data).to.deep.equal({ a: 1 });
+
+    render(page._jsonRenderer(second) as never, host);
+    await settle();
+
+    expect(
+      host.querySelector('hegs-json-viewer'),
+      'element reused'
+    ).to.equal(viewer);
+    expect(viewer.data, 'shows the new row').to.deep.equal({ b: 2 });
+  });
+
+  it('re-applies a checkbox value the user diverged from the model', async () => {
+    // The `live()` half. Without it Lit dirty-checks against its last committed
+    // value: the user's click never went through Lit, so committing the same
+    // model value again is skipped and the next row inherits the tick.
+    const script: Script = { Id: 1, IsEnabled: false };
+    render(page.enabledRenderer(script) as never, host);
+    await settle();
+
+    const checkbox = host.querySelector('vaadin-checkbox') as HTMLElement & {
+      checked: boolean;
+    };
+    checkbox.checked = true;
+    await settle();
+
+    // Cell recycled onto a row whose model value is still false.
+    render(page.enabledRenderer({ Id: 2, IsEnabled: false }) as never, host);
+    await settle();
+
+    expect(checkbox.checked, 'shows the new row, not the old tick').to.equal(
+      false
+    );
   });
 });

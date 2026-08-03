@@ -48,7 +48,17 @@ export function confirmPrompt(
     dialog.confirmText = confirmText;
     dialog.confirmTheme = confirmTheme;
     dialog.cancelButtonVisible = true;
-    dialog.textContent = message;
+
+    // `white-space: pre-line` so the message keeps its line breaks. Several
+    // call sites separate a question from its consequence with a blank line —
+    // "mark this property as secure?\n\nThis will encrypt all existing
+    // values. This action cannot be undone." — and window.confirm() honoured
+    // that. Slotted into the overlay under the default `normal`, every break
+    // collapses to a space and the warning runs on from the question.
+    const text = document.createElement('div');
+    text.style.whiteSpace = 'pre-line';
+    text.textContent = message;
+    dialog.appendChild(text);
 
     let settled = false;
     const finish = (result: boolean) => {

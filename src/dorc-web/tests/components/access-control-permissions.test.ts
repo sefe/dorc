@@ -141,8 +141,10 @@ describe('add-edit-access-control permission checkboxes', () => {
     const el = await mount([{ Name: 'someone', Allow: 0 }]);
     expect(checkboxAt(el, 0, COLUMN.write).disabled).to.equal(false);
 
-    // No requestContentUpdate() anywhere in the component — the dependency
-    // array on columnBodyRenderer is what repaints the cell.
+    // No requestContentUpdate() anywhere in the component; the repaint comes
+    // from the directive. Note this does not isolate one column's dependency
+    // array — LitRendererDirective.runRenderer() calls the grid's own
+    // requestContentUpdate(), so any column re-running repaints them all.
     el.UserEditable = false;
     await settle();
 

@@ -273,4 +273,23 @@ describe('RouteOutlet', () => {
       ).to.not.equal(firstTab);
     });
   });
+
+  it('rebuilds an element that was detached from outside', () => {
+    // The `isConnected` half of the divergence check. Something else removing
+    // a routed element — a stray innerHTML reset on the outlet, say — must not
+    // leave the outlet believing it is still rendered, or the next navigation
+    // reuses a detached node and the page silently goes blank.
+    render([layoutRoute, routeA]);
+    const layout = host.firstElementChild as RoutedStub;
+    layout.remove();
+
+    render([layoutRoute, routeA]);
+
+    expect(host.firstElementChild, 'rebuilt after external detach').to.not.equal(
+      null
+    );
+    expect(
+      host.firstElementChild?.firstElementChild?.tagName.toLowerCase()
+    ).to.equal('stub-a');
+  });
 });

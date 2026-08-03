@@ -107,4 +107,31 @@ describe('confirmPrompt', () => {
 
     expect(await answer).to.equal(true);
   });
+
+  it('keeps line breaks in the message', async () => {
+    // window.confirm() honoured \n, and several call sites use a blank line to
+    // separate the question from its consequence — notably the Secure prompt's
+    // "this cannot be undone". Slotted text defaults to `white-space: normal`,
+    // which collapses every break, so the warning would run on from the
+    // question as one paragraph. Compared against the space-joined equivalent
+    // because a plain "does it wrap" check cannot tell the two apart.
+    const measure = async (message: string) => {
+      void confirmPrompt(message);
+      await settle();
+      const dialog = openDialog() as unknown as HTMLElement;
+      const range = document.createRange();
+      range.selectNodeContents(dialog);
+      const height = [...range.getClientRects()]
+        .map(box => box.height)
+        .reduce((a, b) => a + b, 0);
+      dialog.remove();
+      await settle();
+      return height;
+    };
+
+    const withBreaks = await measure('Line one?\n\nLine two warning here.');
+    const withSpaces = await measure('Line one? Line two warning here.');
+
+    expect(withBreaks).to.be.greaterThan(withSpaces);
+  });
 });
