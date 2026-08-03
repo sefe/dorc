@@ -1,0 +1,100 @@
+<Project DefaultTargets="PublishInstallerPayload">
+
+  <!--
+    Materialises the payload directories that Setup.Dorc and Setup.Acceptance
+    harvest, as an explicit build stage that runs BEFORE the solution build.
+
+    Why this exists
+    ===============
+    SDK-style .NET projects are not directly packageable: the deployable layout
+    only exists once the Publish target has run. For Dorc.Api (Microsoft.NET.Sdk.Web)
+    this is not a nicety — publish generates web.config, which is what tells IIS
+    to load the ASP.NET Core module, and it is not present in source or in
+    bin\. Measured on Dorc.Api: publish emits 454 files, of which 13 exist only
+    after Publish runs (web.config, the wwwroot/swagger-* static web assets, and
+    assorted .pdb/.config/.xml from project references). No ProjectReference
+    output group can substitute for it — PublishItemsOutputGroup returns 441 of
+    those 454 and silently omits web.config.
+
+    So publish has to happen. The question is only where.
+
+    It used to happen inside the wixprojs, in a PublishProjects target that
+    shelled out with <Exec> to `dotnet publish` and `MSBuild.exe`. Those child
+    processes are invisible to the parent MSBuild, so it could neither schedule
+    nor deduplicate them. Under a parallel solution build the two wixprojs —
+    independent leaves in the graph — ran their chains concurrently and raced
+    the outer build for the same intermediate outputs:
+
+      CSC : error CS2012: Cannot open
+      'Dorc.NetFramework.PowerShell\obj\Release\Dorc.NetFramework.PowerShell.dll'
+      for writing (the file is in use by another process)
+
+    Hoisting the work here fixes that by construction rather than by timing:
+    by the time any wixproj builds, the payload directories already exist and
+    the installers are pure packaging steps with no side channels.
+
+    Everything below runs in ONE MSBuild invocation on purpose. A single engine
+    identifies projects by (path + global properties) and will not build the
+    same one twice concurrently, so the shared dependencies underneath these
+    projects — Dorc.Core, Dorc.PersistentData, Dorc.ApiModel — are built once.
+    Ten separate `dotnet publish` processes would not have that guarantee, which
+    is precisely the bug this replaces. Do not split this into per-project CLI
+    calls.
+  -->
+
+  <PropertyGroup>
+    <Configuration Condition="'$(Configuration)' == ''">Release</Configuration>
+    <SrcDir>$(MSBuildThisFileDirectory)</SrcDir>
+  </PropertyGroup>
+
+  <!--
+    Harvested from bin\$(Configuration)\net8.0\publish — these need Publish.
+  -->
+  <ItemGroup>
+    <PayloadPublishProject Include="$(SrcDir)Dorc.Api\Dorc.Api.csproj" />
+    <PayloadPublishProject Include="$(SrcDir)Dorc.Monitor\Dorc.Monitor.csproj" />
+    <PayloadPublishProject Include="$(SrcDir)Dorc.Runner\Dorc.Runner.csproj" />
+    <PayloadPublishProject Include="$(SrcDir)Tools.DeployCopyEnvBuildCLI\Tools.DeployCopyEnvBuildCLI.csproj" />
+    <PayloadPublishProject Include="$(SrcDir)Tools.PostRestoreEndurCLI\Tools.PostRestoreEndurCLI.csproj" />
+    <PayloadPublishProject Include="$(SrcDir)Tools.PropertyValueCreationCLI\Tools.PropertyValueCreationCLI.csproj" />
+    <PayloadPublishProject Include="$(SrcDir)Tools.RequestCLI\Tools.RequestCLI.csproj" />
+    <PayloadPublishProject Include="$(SrcDir)Tools.EncryptionMigrationCLI\Tools.EncryptionMigrationCLI.csproj" />
+    <PayloadPublishProject Include="$(SrcDir)Tests.Acceptance\Tests.Acceptance.csproj" />
+  </ItemGroup>
+
+  <!--
+    Harvested from build output rather than a publish folder, so these want
+    Build. Dorc.NetFramework.Runner is a legacy non-SDK project — .NET Framework
+    output is already the deployable layout and has no Publish step in this
+    sense. Dorc.TerraformRunner is SDK-style but the wixproj points at
+    bin\$(Configuration)\net8.0, not \publish; kept as-is deliberately so this
+    change does not alter what lands in the MSI.
+  -->
+  <ItemGroup>
+    <PayloadBuildProject Include="$(SrcDir)Dorc.NetFramework.Runner\Dorc.NetFramework.Runner.csproj" />
+    <PayloadBuildProject Include="$(SrcDir)Dorc.TerraformRunner\Dorc.TerraformRunner.csproj" />
+  </ItemGroup>
+
+  <Target Name="PublishInstallerPayload">
+
+    <Message Importance="high" Text="Publishing installer payload ($(Configuration))" />
+
+    <!--
+      _IsPublishing=true matches what the `dotnet publish` CLI sets. Parts of
+      the SDK branch on it, and the Exec calls this replaces went through the
+      CLI, so setting it keeps the produced layout identical rather than
+      subtly different.
+    -->
+    <MSBuild Projects="@(PayloadPublishProject)"
+             Targets="Publish"
+             Properties="Configuration=$(Configuration);_IsPublishing=true"
+             BuildInParallel="true" />
+
+    <MSBuild Projects="@(PayloadBuildProject)"
+             Targets="Build"
+             Properties="Configuration=$(Configuration)"
+             BuildInParallel="true" />
+
+  </Target>
+
+</Project>
