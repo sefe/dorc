@@ -174,6 +174,16 @@ describe('add-edit-access-control permission checkboxes', () => {
     expect(privilege.Allow, 'no write from a non-gesture change').to.equal(0);
   });
 
+  it('ignores a programmatic read-secrets change', async () => {
+    const privilege: AccessControl = { Name: 'someone', Allow: 0 };
+    const el = await mount([privilege]);
+
+    checkboxAt(el, 0, COLUMN.readSecrets).checked = true;
+    await settle();
+
+    expect(privilege.Allow, 'read-secrets bit not set').to.equal(0);
+  });
+
   it('ignores a programmatic owner change', async () => {
     const privilege: AccessControl = { Name: 'someone', Allow: 0 };
     const el = await mount([privilege]);

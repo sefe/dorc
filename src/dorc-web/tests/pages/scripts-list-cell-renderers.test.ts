@@ -33,6 +33,12 @@ type Page = HTMLElement & {
 const mountPage = async () => {
   const el = document.createElement('page-scripts-list') as Page;
   el.userRoles = ['Admin'];
+  await settle();
+  // After settle, not before: the constructor kicks off loadPowerShellVersions,
+  // whose error path assigns its own fallback list and would overwrite these.
+  // With the wrong list the combo cannot hold '7.4', clears itself, and the
+  // handler's `if (!value) return` guard exits before the binding matters —
+  // which made the combo test below pass against a reverted fix.
   el.powerShellVersions = ['5.1', '7.4'];
   await settle();
   return el;
