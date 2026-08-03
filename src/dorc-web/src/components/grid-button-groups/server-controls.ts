@@ -181,9 +181,7 @@ export class ServerControls extends LitElement {
           notification.open();
           console.error(result.Message);
         },
-        error: err => console.error(err),
-        complete: () =>
-          console.log(`Deleted Server ${this.serverDetails?.Name}`)
+        error: err => console.error(err)
       });
   }
 
