@@ -69,7 +69,7 @@ function Get-LongName([string] $Value) {
 }
 
 function Get-MsiTable {
-    param([string] $Path, [string] $TableName)
+    param([string] $Path, [string] $TableName, [string[]] $Columns)
 
     $installer = New-Object -ComObject WindowsInstaller.Installer
     try {
@@ -84,24 +84,33 @@ function Get-MsiTable {
         $exists = $names.GetType().InvokeMember('Fetch', 'InvokeMethod', $null, $names, $null)
         if ($null -eq $exists) { return @() }
 
+        # The query names its columns, so the caller already knows the shape and
+        # nothing has to ask the view for it. Deriving the names from
+        # View.ColumnInfo is what the first version did, and it failed on the
+        # runner with DISP_E_TYPEMISMATCH: the field index widened to Int64 and
+        # Record.StringData takes a VT_I4. Naming the columns removes the call
+        # rather than fixing its arguments. Indexes are still cast explicitly,
+        # because StringData is reached either way.
+        $select = if ($Columns) { ($Columns | ForEach-Object { "``$_``" }) -join ', ' } else { '*' }
         $view = $database.GetType().InvokeMember('OpenView', 'InvokeMethod', $null, $database,
-                    @("SELECT * FROM ``$TableName``"))
+                    @("SELECT $select FROM ``$TableName``"))
         $view.GetType().InvokeMember('Execute', 'InvokeMethod', $null, $view, $null)
-
-        $columns = $view.GetType().InvokeMember('ColumnInfo', 'GetProperty', $null, $view, @(0))
-        $columnCount = $columns.GetType().InvokeMember('FieldCount', 'GetProperty', $null, $columns, $null)
-        $headers = 1..$columnCount | ForEach-Object {
-            $columns.GetType().InvokeMember('StringData', 'GetProperty', $null, $columns, @($_))
-        }
 
         $rows = New-Object System.Collections.Generic.List[object]
         while ($true) {
             $record = $view.GetType().InvokeMember('Fetch', 'InvokeMethod', $null, $view, $null)
             if ($null -eq $record) { break }
+
+            if (-not $Columns) {
+                # Counted, not read — the caller only wants the row count.
+                $rows.Add($null)
+                continue
+            }
+
             $row = [ordered]@{}
-            for ($i = 1; $i -le $columnCount; $i++) {
-                $row[$headers[$i - 1]] =
-                    $record.GetType().InvokeMember('StringData', 'GetProperty', $null, $record, @($i))
+            for ([int] $i = 1; $i -le $Columns.Count; $i++) {
+                $row[$Columns[$i - 1]] =
+                    $record.GetType().InvokeMember('StringData', 'GetProperty', $null, $record, @([int] $i))
             }
             $rows.Add([pscustomobject]$row)
         }
@@ -127,7 +136,7 @@ function Get-DirectoryPaths([object[]] $Directories) {
         # '.' means "same as parent" and contributes no path segment.
         if ($name -eq '.') { $name = '' }
 
-        $parentId = $row.Directory_
+        $parentId = $row.Directory_Parent
         if ([string]::IsNullOrEmpty($parentId) -or $parentId -eq $Id) {
             $path = $name
         }
@@ -146,9 +155,9 @@ function Get-DirectoryPaths([object[]] $Directories) {
 # The comparable identity of a package's payload: where each file lands, what
 # it is called, and which version it is.
 function Get-FileSet([string] $Path) {
-    $files      = Get-MsiTable -Path $Path -TableName 'File'
-    $components = Get-MsiTable -Path $Path -TableName 'Component'
-    $dirs       = Get-MsiTable -Path $Path -TableName 'Directory'
+    $files      = Get-MsiTable -Path $Path -TableName 'File'      -Columns 'Component_', 'FileName', 'Version'
+    $components = Get-MsiTable -Path $Path -TableName 'Component' -Columns 'Component', 'Directory_'
+    $dirs       = Get-MsiTable -Path $Path -TableName 'Directory' -Columns 'Directory', 'Directory_Parent', 'DefaultDir'
 
     $componentDir = @{}
     foreach ($c in $components) { $componentDir[$c.Component] = $c.Directory_ }
@@ -168,7 +177,7 @@ function Get-FileSet([string] $Path) {
 # the Registry row Id, for the same reason File Ids are ignored above.
 function Get-RegistrySet([string] $Path) {
     $set = @{}
-    foreach ($r in Get-MsiTable -Path $Path -TableName 'Registry') {
+    foreach ($r in Get-MsiTable -Path $Path -TableName 'Registry' -Columns 'Root', 'Key', 'Name', 'Value') {
         $set[('{0}\{1}\{2}={3}' -f $r.Root, $r.Key, $r.Name, $r.Value)] = $true
     }
     return $set
@@ -178,7 +187,7 @@ function Get-RegistrySet([string] $Path) {
 # is absent in packages that install none, which Get-MsiTable already handles.
 function Get-CertificateSet([string] $Path) {
     $set = @{}
-    foreach ($c in Get-MsiTable -Path $Path -TableName 'Certificate') {
+    foreach ($c in Get-MsiTable -Path $Path -TableName 'Certificate' -Columns 'Name', 'StoreLocation', 'StoreName') {
         $set[('{0}|{1}|{2}' -f $c.Name, $c.StoreLocation, $c.StoreName)] = $true
     }
     return $set
