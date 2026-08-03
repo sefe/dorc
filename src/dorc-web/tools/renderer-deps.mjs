@@ -138,8 +138,15 @@ function inheritedReactiveFields(source, file, seen = new Set()) {
         for (const type of clause.types) {
           const expr = type.expression;
           if (ts.isIdentifier(expr)) baseNames.push(expr.text);
-          // `ResponsiveMixin(PageElement)` — the base is the argument.
+          // `ResponsiveMixin(PageElement)` — both halves declare fields. The
+          // argument is the base class; the callee is a function returning a
+          // class of its own, and that class's reactive properties are just as
+          // inherited. collectClass walks nested classes, so resolving the
+          // mixin's module is enough to pick them up.
           else if (ts.isCallExpression(expr)) {
+            if (ts.isIdentifier(expr.expression)) {
+              baseNames.push(expr.expression.text);
+            }
             for (const arg of expr.arguments) {
               if (ts.isIdentifier(arg)) baseNames.push(arg.text);
             }
