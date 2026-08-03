@@ -581,7 +581,7 @@ namespace Dorc.Core
 
                             _serversAuditPersistentSource.InsertServerAudit(
                                 username,
-                                PersistentData.Model.ActionType.Attach,
+                                Dorc.PersistentData.Model.ActionType.Attach,
                                 serverId,
                                 fromValue: null,
                                 toValue: payload);
