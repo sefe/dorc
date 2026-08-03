@@ -154,9 +154,9 @@ namespace Dorc.Monitor
                 foreach (var request in runningRequests)
                 {
                     int transitioned = this.requestsPersistentSource.SwitchDeploymentRequestStatuses(
+                        new List<DeploymentRequestApiModel> { request },
                         DeploymentRequestStatus.Running,
-                        DeploymentRequestStatus.Pending,
-                        request);
+                        DeploymentRequestStatus.Pending);
 
                     if (transitioned == 0) continue;
 
@@ -196,10 +196,10 @@ namespace Dorc.Monitor
                     requestingRequests.Count, requestingIdsString);
 
                 int cancelledCount = this.requestsPersistentSource.SwitchDeploymentRequestStatuses(
+                    requestingRequests,
                     DeploymentRequestStatus.Requesting,
                     DeploymentRequestStatus.Cancelled,
-                    DateTimeOffset.Now,
-                    requestingRequests.ToArray());
+                    DateTimeOffset.Now);
 
                 if (cancelledCount > 0)
                 {
@@ -260,10 +260,10 @@ namespace Dorc.Monitor
 
                     // Uses optimistic concurrency: only updates requests still in 'fromStatus'
                     int switched = this.requestsPersistentSource.SwitchDeploymentRequestStatuses(
+                        new List<DeploymentRequestApiModel> { request },
                         fromStatus,
                         toStatus,
-                        DateTimeOffset.Now,
-                        request);
+                        DateTimeOffset.Now);
 
                     if (switched > 0)
                     {
@@ -355,9 +355,9 @@ namespace Dorc.Monitor
                     // Bulk restart switching only returned a count, which let a losing monitor still
                     // clear results / kill processes / publish events for requests another monitor won.
                     var switched = this.requestsPersistentSource.SwitchDeploymentRequestStatuses(
+                        new List<DeploymentRequestApiModel> { requestToRestart },
                         DeploymentRequestStatus.Restarting,
-                        DeploymentRequestStatus.Pending,
-                        requestToRestart);
+                        DeploymentRequestStatus.Pending);
 
                     if (switched > 0)
                     {

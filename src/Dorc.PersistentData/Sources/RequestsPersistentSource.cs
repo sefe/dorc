@@ -322,7 +322,7 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        public int SwitchDeploymentRequestStatuses(DeploymentRequestStatus fromStatus, DeploymentRequestStatus toStatus, params DeploymentRequestApiModel[] deploymentRequests)
+        public int SwitchDeploymentRequestStatuses(IList<DeploymentRequestApiModel> deploymentRequests, DeploymentRequestStatus fromStatus, DeploymentRequestStatus toStatus)
         {
             var ids = deploymentRequests.Select(r => r.Id).ToList();
             using (var context = _contextFactory.GetContext())
@@ -345,7 +345,7 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        public int SwitchDeploymentRequestStatuses(DeploymentRequestStatus fromStatus, DeploymentRequestStatus toStatus, DateTimeOffset requestedTime, params DeploymentRequestApiModel[] deploymentRequests)
+        public int SwitchDeploymentRequestStatuses(IList<DeploymentRequestApiModel> deploymentRequests, DeploymentRequestStatus fromStatus, DeploymentRequestStatus toStatus, DateTimeOffset requestedTime)
         {
             var ids = deploymentRequests.Select(r => r.Id).ToList();
             using (var context = _contextFactory.GetContext())
