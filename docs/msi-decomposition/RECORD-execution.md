@@ -10,10 +10,12 @@ No [ENV] host has been available for any step so far. Every entry below that car
 | S-002 | `2a567da` | pending run | not run | partially verified |
 | S-003 | `b6c19ee` | pending run | not run | partially verified |
 | S-004 | `4894061` | pending run | n/a | partially verified |
-| S-005 | —         | —    | —     | **blocked**: needs a Windows host with IIS |
+| S-005 | —         | —    | —     | **not run**: needs a Windows host with IIS. S-008/S-009 authored on its likely answer instead, at the user's direction |
 | S-006 | `e0b39d0` | pending run | not run | partially verified |
 | S-007 | `d2fe1fd` | pending run | not run | partially verified |
-| S-008…S-013 | — | — | — | not started; S-008 and S-009 blocked behind S-005 |
+| S-008 | `07f8121` | pending run | not run | partially verified; certificate handling **assumed** |
+| S-009 | `1f3a678` | pending run | not run | partially verified |
+| S-010…S-013 | — | — | — | not started |
 
 ---
 
@@ -48,7 +50,9 @@ Recursive cleanup moved from `INSTALLLOCATION` onto each subtree, with its futur
 
 ## S-005 — Certificate coexistence spike
 
-**Blocked.** Needs a Windows host with IIS to install two packages declaring the same certificate and observe what uninstalling one does to the other. Nothing about it can be settled from the build, and S-008 and S-009 are both authored against its outcome.
+**Not run.** S-008 and S-009 were authored against its likely answer instead, on the user's instruction, so the split could reach four packages while an environment is arranged. What that means concretely is in the S-008 entry below: it is an assumption carrying real risk, not a settled question.
+
+**Still needs** Needs a Windows host with IIS to install two packages declaring the same certificate and observe what uninstalling one does to the other. Nothing about it can be settled from the build, and S-008 and S-009 are both authored against its outcome.
 
 The reading that motivates it: the UI and the API each already declare their own `iis:Certificate` over the same two PFX files, with their own `Binary` elements. `iis:CertificateRef` resolves within a package, so the earlier plan of "the API owns both certificates and the UI references them" was never implementable.
 
@@ -83,3 +87,25 @@ Three things unblock the rest of this work, and none of them can be done from th
 1. **Pin the baseline.** Set `MSI_BASELINE_RUN_ID` to the last single-package build. Until then the union comparison — the invariant the whole sequence is built around — has never actually run against a real baseline.
 2. **Provide a Windows host with IIS.** Everything marked [ENV] above is waiting on it, and S-005 cannot start without it.
 3. **Run S-005.** S-008 (API) and S-009 (UI) are both authored against its outcome, so the decomposition stops here until the certificate question is settled.
+
+
+## S-008 — API package
+
+`Setup.Dorc.Api.msi` carries `DOrcAPIComGroup`, both `RequestApi` components, the API's custom action and `RegistryEntries` — the last with its GUID unchanged, so the machine-scoped registry value keeps its identity.
+
+**The certificate handling is assumed, not verified.** Each web package keeps its own `iis:Certificate`, now hosted in its own component marked `Permanent="yes"` so the removal custom action never runs. The reasoning: `iis:Certificate` compiles to a custom action rather than a refcounted resource, so without this, uninstalling either web package would strip a certificate the other is still bound to.
+
+Two things follow that someone should check before this reaches production:
+
+1. **The certificates now outlive the last package.** After all four are removed, `DorcNonProdSSLCert.pfx` and `deploymentportal.pfx` remain in `localMachine\root`. That is the price of the mechanism, and it is a deliberate trade rather than an oversight.
+2. **`Shared="yes"` with matching GUIDs is the alternative** — real refcounting, so the certificate goes when the last package does, at the cost of coupling the two packages' component identity. S-005 is what chooses between them, and it has not been run.
+
+A side effect worth knowing: the certificates used to resolve through a bind path the `Dorc.Api` project reference happened to contribute. The UI package no longer has that reference, so both packages now name the directory (`$(var.DorcCertDir)`) explicitly. A build failure here would be loud, not silent.
+
+## S-009 — UI package; monolith retired
+
+`Setup.Dorc` is now `Setup.Dorc.Web`, with a new `UpgradeCode` and `ProductCode`. The legacy `Deployment Orchestrator` and `DevOps Orchestrator` names moved to the API sidecar, which installs first — the installed monolith still carries the pre-S-003 `RemoveFolders`, so removing it after a new package had installed would delete that package's files.
+
+Final order: **API → Web → Monitors → CLIs.**
+
+**Outstanding [ENV], and this is the one that matters most:** the first deployment against an environment running the monolith. It exercises the legacy-name handover, the install order, and the S-003 cleanup scoping all at once, and none of the three has been observed.
