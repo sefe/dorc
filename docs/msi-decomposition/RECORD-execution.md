@@ -52,7 +52,7 @@ Recursive cleanup moved from `INSTALLLOCATION` onto each subtree, with its futur
 
 **Not run.** S-008 and S-009 were authored against its likely answer instead, on the user's instruction, so the split could reach four packages while an environment is arranged. What that means concretely is in the S-008 entry below: it is an assumption carrying real risk, not a settled question.
 
-**Still needs** Needs a Windows host with IIS to install two packages declaring the same certificate and observe what uninstalling one does to the other. Nothing about it can be settled from the build, and S-008 and S-009 are both authored against its outcome.
+**Still needs** a Windows host with IIS to install two packages declaring the same certificate and observe what uninstalling one does to the other. Nothing about it can be settled from the build, and S-008 and S-009 are both authored against its outcome.
 
 The reading that motivates it: the UI and the API each already declare their own `iis:Certificate` over the same two PFX files, with their own `Binary` elements. `iis:CertificateRef` resolves within a package, so the earlier plan of "the API owns both certificates and the UI references them" was never implementable.
 
@@ -86,7 +86,8 @@ Three things unblock the rest of this work, and none of them can be done from th
 
 1. **Pin the baseline.** Set `MSI_BASELINE_RUN_ID` to the last single-package build. Until then the union comparison — the invariant the whole sequence is built around — has never actually run against a real baseline.
 2. **Provide a Windows host with IIS.** Everything marked [ENV] above is waiting on it, and S-005 cannot start without it.
-3. **Run S-005.** S-008 (API) and S-009 (UI) are both authored against its outcome, so the decomposition stops here until the certificate question is settled.
+3. **Run S-005.** S-008 and S-009 are authored against its assumed outcome, so it is now a confirmation rather than a gate — but an unconfirmed assumption about HTTPS is not something to carry into production.
+4. **Then S-010–S-013**: the per-environment `DeploySettings` rollout, the conditional quiesce in `RunDeployment.ps1`, and the goal verification pass.
 
 
 ## S-008 — API package
