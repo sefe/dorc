@@ -1,6 +1,6 @@
-import { columnBodyRenderer } from '@vaadin/grid/lit';
+import { columnBodyRenderer, columnHeaderRenderer } from '@vaadin/grid/lit';
 import { confirmPrompt } from '../components/confirm-prompt';
-import { css, PropertyValues, render } from 'lit';
+import { css, PropertyValues } from 'lit';
 import '../components/dorc-spinner';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid';
@@ -89,7 +89,6 @@ export class PageProjectBundles extends ResponsiveMixin(PageElement) {
   @query('#grid') grid: Grid | undefined;
 
   // Bound header renderer to avoid creating new function references on each render
-  private _boundBundleNameHeaderRenderer = this.bundleNameHeaderRenderer.bind(this);
   private _boundHandleBundleNameFilterChange = this.handleBundleNameFilterChange.bind(this);
 
   private updateUniqueBundleNames() {
@@ -118,9 +117,8 @@ export class PageProjectBundles extends ResponsiveMixin(PageElement) {
     this.applyBundleNameFilter();
   }
 
-  bundleNameHeaderRenderer(root: HTMLElement) {
-    render(
-      html`
+  bundleNameHeaderRenderer() {
+    return html`
         <vaadin-grid-sorter
           path="BundleName"
           direction="asc"
@@ -136,9 +134,7 @@ export class PageProjectBundles extends ResponsiveMixin(PageElement) {
           .value="${this.bundleNameFilter}"
           @value-changed="${this._boundHandleBundleNameFilterChange}"
         ></vaadin-combo-box>
-      `,
-      root
-    );
+      `;
   }
 
   render() {
@@ -179,7 +175,7 @@ export class PageProjectBundles extends ResponsiveMixin(PageElement) {
           auto-width
           flex-grow="0"
           resizable
-          .headerRenderer="${this._boundBundleNameHeaderRenderer}"
+          ${columnHeaderRenderer(this.bundleNameHeaderRenderer, [])}
         ></vaadin-grid-column>
         <vaadin-grid-column
           .renderer="${this._typeRenderer}"

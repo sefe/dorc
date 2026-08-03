@@ -1,5 +1,6 @@
+import { comboBoxRenderer } from '@vaadin/combo-box/lit';
 import { columnBodyRenderer, columnHeaderRenderer } from '@vaadin/grid/lit';
-import { css, PropertyValues, render } from 'lit';
+import { css, PropertyValues } from 'lit';
 import '../dorc-spinner';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid';
@@ -11,7 +12,7 @@ import '@vaadin/grid/vaadin-grid-filter';
 import { Grid } from '@vaadin/grid';
 import '../grid-button-groups/variable-value-controls';
 import '../dismissible-item';
-import { ComboBox, ComboBoxRenderer } from '@vaadin/combo-box';
+import { ComboBox } from '@vaadin/combo-box';
 import { TextField } from '@vaadin/text-field';
 import { PropertiesApi, PropertyApiModel, PropertyValueDto, PropertyValuesApi, PropertyValueScopeOptionApiModel, Response } from '../../apis/dorc-api';
 import { EnvironmentApiModel, FlatPropertyValueApiModel, GetScopedPropertyValuesResponseDto, PagedDataFilter, PagedDataSorting, RefDataScopedPropertyValuesApi } from '../../apis/dorc-api';
@@ -183,7 +184,7 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
                           .items="${this.propertyValueScopeOptions}"
                           item-label-path="ValueOption"
                           item-value-path="ValueOption"
-                          .renderer="${this.comboboxRenderer}"
+                          ${comboBoxRenderer(this.comboboxRenderer, [])}
                           id="newVariableValue"
                           label="Value"
                           style="min-width: 400px; width: 100%"
@@ -490,26 +491,20 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
     return -1;
   }
 
-  private comboboxRenderer: ComboBoxRenderer<PropertyValueScopeOptionApiModel> =
-    (root, _, { item: scopeOption }) => {
-      const exampleOption = JSON.stringify(scopeOption.SampleResolvedValue);
-
-      render(
-        html`
-          <div style="display: flex;">
-            <div>
-              ${scopeOption.ValueOption}
-              <div
-                style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
-              >
-                ${exampleOption}
-              </div>
-            </div>
-          </div>
-        `,
-        root
-      );
-    };
+  private comboboxRenderer = (
+    scopeOption: PropertyValueScopeOptionApiModel
+  ) => html`
+    <div style="display: flex;">
+      <div>
+        ${scopeOption.ValueOption}
+        <div
+          style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
+        >
+          ${JSON.stringify(scopeOption.SampleResolvedValue)}
+        </div>
+      </div>
+    </div>
+  `;
 
   _propNameValueChanged(data: CustomEvent) {
     if (data) {

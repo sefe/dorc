@@ -1,10 +1,11 @@
+import { comboBoxRenderer } from '@vaadin/combo-box/lit';
 import { columnBodyRenderer, columnHeaderRenderer } from '@vaadin/grid/lit';
 import { confirmPrompt } from '../components/confirm-prompt';
 import '@vaadin/button';
 import { Checkbox } from '@vaadin/checkbox';
 import '@vaadin/combo-box';
 import '@vaadin/checkbox';
-import { ComboBox, ComboBoxRenderer } from '@vaadin/combo-box';
+import { ComboBox } from '@vaadin/combo-box';
 import '@vaadin/details';
 import '@vaadin/grid';
 import { GridCellPartNameGenerator } from '@vaadin/grid';
@@ -18,7 +19,7 @@ import '@vaadin/radio-group';
 import '@vaadin/text-area';
 import '@vaadin/text-field';
 import { TextField } from '@vaadin/text-field';
-import { css, PropertyValueMap, render } from 'lit';
+import { css, PropertyValueMap } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import '../components/grid-button-groups/variable-value-controls';
@@ -236,7 +237,7 @@ export class PageVariables extends PageElement {
                       id="properties"
                       @value-changed="${this._propNameValueChanged}"
                       .items="${this.properties}"
-                      .renderer="${this.propertyNameRenderer}"
+                      ${comboBoxRenderer(this.propertyNameRenderer, [])}
                       label="Existing Variable Name"
                       placeholder="Select Variable Name"
                       clear-button-visible
@@ -318,7 +319,7 @@ export class PageVariables extends PageElement {
                       .items="${this.propertyValueScopeOptions}"
                       item-label-path="ValueOption"
                       item-value-path="ValueOption"
-                      .renderer="${this.comboboxRenderer}"
+                      ${comboBoxRenderer(this.comboboxRenderer, [])}
                       id="newVariableValue"
                       ?disabled="${!this.existingPropertySelected}"
                       label="Value"
@@ -519,37 +520,23 @@ export class PageVariables extends PageElement {
       `;
   }
 
-  private comboboxRenderer: ComboBoxRenderer<PropertyValueScopeOptionApiModel> =
-    (root, _, { item: scopeOption }) => {
-      const exampleOption = JSON.stringify(scopeOption.SampleResolvedValue);
+  private comboboxRenderer = (
+    scopeOption: PropertyValueScopeOptionApiModel
+  ) => html`
+    <div style="display: flex;">
+      <div>
+        ${scopeOption.ValueOption}
+        <div
+          style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
+        >
+          ${JSON.stringify(scopeOption.SampleResolvedValue)}
+        </div>
+      </div>
+    </div>
+  `;
 
-      render(
-        html`
-          <div style="display: flex;">
-            <div>
-              ${scopeOption.ValueOption}
-              <div
-                style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
-              >
-                ${exampleOption}
-              </div>
-            </div>
-          </div>
-        `,
-        root
-      );
-    };
-
-  private propertyNameRenderer: ComboBoxRenderer<PropertyApiModel> = (
-    root,
-    _,
-    { item: property }
-  ) => {
-    render(
-      html`<div title="${property.Name}">${property.Name}</div>`,
-      root
-    );
-  };
+  private propertyNameRenderer = (property: PropertyApiModel) =>
+    html`<div title="${property.Name}">${property.Name}</div>`;
 
   validateNewVariable() {
     const textField = this.shadowRoot?.querySelector(

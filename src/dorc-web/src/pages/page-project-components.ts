@@ -199,9 +199,6 @@ export class PageProjectComponents extends ResponsiveMixin(PageElement) {
     @property({ type: Boolean })
     private environmentsLoading = false;
 
-    private boundBuildNumberRenderer = this.buildNumberRenderer.bind(this);
-    private boundStatusRenderer = this.statusRenderer.bind(this);
-    private boundDateRenderer = this.dateRenderer.bind(this);
 
     render() {
         return html`
@@ -244,7 +241,7 @@ export class PageProjectComponents extends ResponsiveMixin(PageElement) {
                   path="buildNumber"
                   resizable
                   auto-width
-                  .renderer="${this.boundBuildNumberRenderer}"
+                  .renderer="${this.buildNumberRenderer}"
                 >
                 </vaadin-grid-column>
                 <vaadin-grid-sort-column
@@ -253,7 +250,7 @@ export class PageProjectComponents extends ResponsiveMixin(PageElement) {
                   resizable
                   auto-width
                   ?hidden="${this._narrowScreen}"
-                  .renderer="${this.boundStatusRenderer}"
+                  .renderer="${this.statusRenderer}"
                 >
                 </vaadin-grid-sort-column>
                 <vaadin-grid-sort-column
@@ -262,7 +259,7 @@ export class PageProjectComponents extends ResponsiveMixin(PageElement) {
                   resizable
                   auto-width
                   ?hidden="${this._narrowScreen}"
-                  .renderer="${this.boundDateRenderer}"
+                  .renderer="${this.dateRenderer}"
                 >
                 </vaadin-grid-sort-column>
               </vaadin-grid>
