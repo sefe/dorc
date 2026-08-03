@@ -366,12 +366,31 @@ jobs:
     # "##[warning]Could not find any files for TestResults/**/*.trx" — which
     # then became the most prominent line in the log of a job whose actual
     # failure was a compile error. See run 30812109885.
+    #
+    # Previously EnricoMi/publish-unit-test-result-action/windows@v2, which is
+    # Python-based and spent most of its runtime building an environment rather
+    # than reporting. Measured on run 30812109885:
+    #
+    #   create virtualenv   26s   <- not cached, and it first tries virtualenv,
+    #                                fails, then falls back to python -m venv
+    #   pip install          6s   <- packages are cached, the venv is not
+    #   publish results      9s   <- the actual work
+    #
+    # dorny/test-reporter is JavaScript, so it runs on the node already present
+    # on the runner with no environment to construct. reporter: dotnet-trx
+    # consumes the same .trx files unchanged.
+    #
+    # fail-on-error stays off deliberately: the 'Fail workflow if tests failed'
+    # step above is the gate, and it reads the .trx directly. This step only
+    # reports.
     - name: Publish test results
-      uses: EnricoMi/publish-unit-test-result-action/windows@v2
+      uses: dorny/test-reporter@v2
       if: always() && steps.build.outcome == 'success'
       with:
-        files: |
-          TestResults/**/*.trx
+        name: Test Results
+        path: 'TestResults/**/*.trx'
+        reporter: dotnet-trx
+        fail-on-error: false
       continue-on-error: true
       
     - name: Collect build artifacts
