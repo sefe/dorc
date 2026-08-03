@@ -82,7 +82,9 @@ function Get-MsiTable {
                     @("SELECT Name FROM _Tables WHERE Name = '$TableName'"))
         $names.GetType().InvokeMember('Execute', 'InvokeMethod', $null, $names, $null)
         $exists = $names.GetType().InvokeMember('Fetch', 'InvokeMethod', $null, $names, $null)
-        if ($null -eq $exists) { return @() }
+        # Same unary comma as below, so an absent table returns an empty array
+        # rather than nothing at all.
+        if ($null -eq $exists) { return , @() }
 
         # The query names its columns, so the caller already knows the shape and
         # nothing has to ask the view for it. Deriving the names from
@@ -107,14 +109,22 @@ function Get-MsiTable {
                 continue
             }
 
-            $row = [ordered]@{}
+            # Positional, not named. Rows come back as a plain array in the
+            # order the caller asked for, so nothing downstream depends on a
+            # property name matching an MSI column name — which is what broke
+            # twice here already, once on a genuinely wrong name and once on a
+            # correct one that still would not resolve.
+            $row = New-Object 'string[]' $Columns.Count
             for ([int] $i = 1; $i -le $Columns.Count; $i++) {
-                $row[$Columns[$i - 1]] =
-                    $record.GetType().InvokeMember('StringData', 'GetProperty', $null, $record, @([int] $i))
+                $row[$i - 1] = [string] $record.GetType().InvokeMember(
+                    'StringData', 'GetProperty', $null, $record, @([int] $i))
             }
-            $rows.Add([pscustomobject]$row)
+            $rows.Add($row)
         }
-        return $rows
+        # Unary comma: returning the collection bare would let PowerShell
+        # enumerate it on the way out, and each row is itself an array, so the
+        # rows would arrive flattened into a stream of strings.
+        return , $rows.ToArray()
     }
     finally {
         [System.Runtime.InteropServices.Marshal]::FinalReleaseComObject($installer) | Out-Null
@@ -122,9 +132,10 @@ function Get-MsiTable {
 }
 
 # Resolve each Directory row to a full target path by walking Directory_Parent.
+# Rows are [Directory, Directory_Parent, DefaultDir], in the order selected.
 function Get-DirectoryPaths([object[]] $Directories) {
     $byId = @{}
-    foreach ($d in $Directories) { $byId[$d.Directory] = $d }
+    foreach ($d in $Directories) { $byId[$d[0]] = $d }
 
     $resolved = @{}
     function Resolve-One([string] $Id) {
@@ -132,11 +143,11 @@ function Get-DirectoryPaths([object[]] $Directories) {
         if (-not $byId.ContainsKey($Id)) { return $Id }
 
         $row  = $byId[$Id]
-        $name = Get-LongName $row.DefaultDir
+        $name = Get-LongName $row[2]
         # '.' means "same as parent" and contributes no path segment.
         if ($name -eq '.') { $name = '' }
 
-        $parentId = $row.Directory_Parent
+        $parentId = $row[1]
         if ([string]::IsNullOrEmpty($parentId) -or $parentId -eq $Id) {
             $path = $name
         }
@@ -148,7 +159,7 @@ function Get-DirectoryPaths([object[]] $Directories) {
         return $path
     }
 
-    foreach ($d in $Directories) { Resolve-One $d.Directory | Out-Null }
+    foreach ($d in $Directories) { Resolve-One $d[0] | Out-Null }
     return $resolved
 }
 
@@ -159,15 +170,17 @@ function Get-FileSet([string] $Path) {
     $components = Get-MsiTable -Path $Path -TableName 'Component' -Columns 'Component', 'Directory_'
     $dirs       = Get-MsiTable -Path $Path -TableName 'Directory' -Columns 'Directory', 'Directory_Parent', 'DefaultDir'
 
+    # Component rows are [Component, Directory_]; File rows are
+    # [Component_, FileName, Version].
     $componentDir = @{}
-    foreach ($c in $components) { $componentDir[$c.Component] = $c.Directory_ }
+    foreach ($c in $components) { $componentDir[$c[0]] = $c[1] }
     $dirPaths = Get-DirectoryPaths $dirs
 
     $set = @{}
     foreach ($f in $files) {
-        $dirId = $componentDir[$f.Component_]
+        $dirId = $componentDir[$f[0]]
         $dir   = if ($dirId -and $dirPaths.ContainsKey($dirId)) { $dirPaths[$dirId] } else { '<unresolved>' }
-        $key   = '{0}/{1}|{2}' -f $dir, (Get-LongName $f.FileName), $f.Version
+        $key   = '{0}/{1}|{2}' -f $dir, (Get-LongName $f[1]), $f[2]
         $set[$key] = $true
     }
     return $set
@@ -178,7 +191,7 @@ function Get-FileSet([string] $Path) {
 function Get-RegistrySet([string] $Path) {
     $set = @{}
     foreach ($r in Get-MsiTable -Path $Path -TableName 'Registry' -Columns 'Root', 'Key', 'Name', 'Value') {
-        $set[('{0}\{1}\{2}={3}' -f $r.Root, $r.Key, $r.Name, $r.Value)] = $true
+        $set[('{0}\{1}\{2}={3}' -f $r[0], $r[1], $r[2], $r[3])] = $true
     }
     return $set
 }
@@ -188,7 +201,7 @@ function Get-RegistrySet([string] $Path) {
 function Get-CertificateSet([string] $Path) {
     $set = @{}
     foreach ($c in Get-MsiTable -Path $Path -TableName 'Certificate' -Columns 'Name', 'StoreLocation', 'StoreName') {
-        $set[('{0}|{1}|{2}' -f $c.Name, $c.StoreLocation, $c.StoreName)] = $true
+        $set[('{0}|{1}|{2}' -f $c[0], $c[1], $c[2])] = $true
     }
     return $set
 }
