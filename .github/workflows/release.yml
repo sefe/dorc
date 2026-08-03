@@ -77,6 +77,11 @@ jobs:
         Write-Host "Browser matrix: $browsers"
         echo "list=$browsers" >> $env:GITHUB_OUTPUT
         echo "install=$($browsers -replace ',',' ')" >> $env:GITHUB_OUTPUT
+        # actions/cache rejects a key containing a comma, so the cache key gets
+        # its own dash-separated form. Using $browsers directly worked on PRs
+        # (single 'chromium', no comma) and failed the moment main built the
+        # full 'chromium,firefox,webkit' matrix.
+        echo "cachekey=$($browsers -replace ',','-')" >> $env:GITHUB_OUTPUT
 
     # The next three steps assume Windows (pwsh + the Windows cache path).
     # The whole job is windows-latest today; the `if: runner.os == 'Windows'`
@@ -110,7 +115,7 @@ jobs:
       uses: actions/cache@v6
       with:
         path: ~\AppData\Local\ms-playwright
-        key: playwright-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}-${{ steps.browsers.outputs.list }}
+        key: playwright-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}-${{ steps.browsers.outputs.cachekey }}
 
     - name: Install Playwright browsers
       if: runner.os == 'Windows' && steps.playwright-cache.outputs.cache-hit != 'true'
