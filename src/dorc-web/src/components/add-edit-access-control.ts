@@ -397,11 +397,11 @@ export class AddEditAccessControl extends LitElement {
     return html`<vaadin-checkbox
       ?disabled="${!this.UserEditable || !this.UserCanReadSecrets}"
       .checked="${live(((item.Allow ?? 0) & AC_ALLOW_READ_SECRETS) > 0)}"
-      @change="${(e: Event) =>
+      @checked-changed="${(e: Event) =>
         this.togglePrivilege(
           item,
           AC_ALLOW_READ_SECRETS,
-          (e.currentTarget as Checkbox).checked
+          (e.target as Checkbox).checked
         )}"
     ></vaadin-checkbox>`;
   }
@@ -441,11 +441,11 @@ export class AddEditAccessControl extends LitElement {
     return html`<vaadin-checkbox
       ?disabled="${!this.UserEditable}"
       .checked="${live(((item.Allow ?? 0) & AC_ALLOW_WRITE) > 0)}"
-      @change="${(e: Event) =>
+      @checked-changed="${(e: Event) =>
         this.togglePrivilege(
           item,
           AC_ALLOW_WRITE,
-          (e.currentTarget as Checkbox).checked
+          (e.target as Checkbox).checked
         )}"
     ></vaadin-checkbox>`;
   }
@@ -454,11 +454,11 @@ export class AddEditAccessControl extends LitElement {
     return html`<vaadin-checkbox
       ?disabled="${!this.UserIsOwner}"
       .checked="${live(((item.Allow ?? 0) & AC_ALLOW_OWNER) > 0)}"
-      @change="${(e: Event) =>
+      @checked-changed="${(e: Event) =>
         this.toggleOwner(
-          e.currentTarget as Checkbox,
+          e.target as Checkbox,
           item,
-          (e.currentTarget as Checkbox).checked
+          (e.target as Checkbox).checked
         )}"
     ></vaadin-checkbox>`;
   }

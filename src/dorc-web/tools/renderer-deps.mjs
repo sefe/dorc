@@ -200,9 +200,17 @@ function inheritedReactiveFields(source, file, seen = new Set()) {
   return names;
 }
 
-/** Resolves a relative import to a `.ts` file on disk, or null. */
+/**
+ * Resolves a relative import to a `.ts` file on disk, or null.
+ *
+ * The result is constrained to `src/`. Nothing here takes external input — the
+ * specifier comes from an import statement in the repo's own source — but a
+ * `../..` chain would otherwise let the walk read outside the tree it is meant
+ * to analyse, and there is no reason for it ever to do that.
+ */
 function resolveModule(fromFile, specifier) {
   const base = join(fromFile, '..', specifier.replace(/\.js$/, ''));
+  if (!base.startsWith(SRC + '/')) return null;
   for (const candidate of [`${base}.ts`, join(base, 'index.ts'), base]) {
     try {
       if (statSync(candidate).isFile()) return candidate;
