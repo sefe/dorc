@@ -6,10 +6,19 @@
     Acceptance gate for the installer decomposition (docs/msi-decomposition/).
 
     G-1 requires that the union of the split packages installs exactly what the
-    single Setup.Dorc.msi installed. This compares on (target directory, file
-    name, version) and deliberately ignores File Ids, because re-harvesting
-    into new wixproj files legitimately regenerates them — a naive Id
-    comparison reports near-total churn and tells you nothing.
+    single Setup.Dorc.msi installed. Three things are compared, and drift in
+    any of them fails the run:
+
+      files        (target directory, file name, version) — File Ids are
+                   deliberately ignored, because re-harvesting into new wixproj
+                   files legitimately regenerates them, and a naive Id
+                   comparison reports near-total churn and tells you nothing.
+      registry     (root, key, name, value) — RegistryEntries carries no file,
+                   so the file comparison cannot see it at all.
+      certificates (name, store location, store name) — iis:Certificate is a
+                   custom action rather than a refcounted resource, which makes
+                   it the resource least likely to survive the split intact and
+                   the one nothing else here would notice losing.
 
     -Package accepts several MSIs so the union can be compared against the
     baseline. During the extraction steps (S-005..S-008) that union is the
@@ -26,8 +35,8 @@
     One or more MSIs whose union is compared against the baseline.
 
 .PARAMETER Table
-    Additional tables to compare by row count and key set. Structural drift in
-    these is reported but, unlike the file set, does not by itself fail the
+    Additional tables to compare by row count. Structural drift in these is
+    reported but, unlike the three sets above, does not by itself fail the
     run — a split legitimately redistributes components between packages.
 
 .EXAMPLE
@@ -35,10 +44,10 @@
                             -Package .\out\Setup.Dorc.Api.msi, .\out\Setup.Dorc.msi
 
 .NOTES
-    Exit 0 = no drift in the file set. Exit 1 = drift, or a package could not
-    be read. A comparison that cannot fail is not a test: verify this reports
-    zero against itself AND non-zero against an unrelated MSI before trusting
-    it (S-001 verification intent).
+    Exit 0 = no drift. Exit 1 = drift in files, registry or certificates, or a
+    package could not be read. A comparison that cannot fail is not a test:
+    verify this reports zero against itself AND non-zero against an unrelated
+    MSI before trusting it (S-001 verification intent).
 #>
 [CmdletBinding()]
 param(
@@ -155,36 +164,93 @@ function Get-FileSet([string] $Path) {
     return $set
 }
 
+# Machine-scoped registry writes. Keyed on what lands in the registry, not on
+# the Registry row Id, for the same reason File Ids are ignored above.
+function Get-RegistrySet([string] $Path) {
+    $set = @{}
+    foreach ($r in Get-MsiTable -Path $Path -TableName 'Registry') {
+        $set[('{0}\{1}\{2}={3}' -f $r.Root, $r.Key, $r.Name, $r.Value)] = $true
+    }
+    return $set
+}
+
+# Certificates installed into a machine store by the IIS extension. The table
+# is absent in packages that install none, which Get-MsiTable already handles.
+function Get-CertificateSet([string] $Path) {
+    $set = @{}
+    foreach ($c in Get-MsiTable -Path $Path -TableName 'Certificate') {
+        $set[('{0}|{1}|{2}' -f $c.Name, $c.StoreLocation, $c.StoreName)] = $true
+    }
+    return $set
+}
+
 # --- compare -----------------------------------------------------------------
 
-Write-Host "Baseline : $Baseline"
-$baselineSet = Get-FileSet -Path $Baseline
-Write-Host ("           {0} files" -f $baselineSet.Count)
+# Returns the number of differences, having reported them.
+function Compare-Set {
+    param(
+        [string]    $Label,
+        [hashtable] $BaselineSet,
+        [hashtable] $UnionSet,
+        [string[]]  $Duplicates
+    )
 
-$unionSet = @{}
-$duplicates = New-Object System.Collections.Generic.List[string]
-foreach ($p in $Package) {
-    $set = Get-FileSet -Path $p
-    Write-Host ("Package  : {0} ({1} files)" -f $p, $set.Count)
-    foreach ($k in $set.Keys) {
-        # A file at the same target path in two packages is not automatically
-        # wrong — but it is never accidental, so surface it.
-        if ($unionSet.ContainsKey($k)) { $duplicates.Add($k) }
-        $unionSet[$k] = $true
+    $missing = @($BaselineSet.Keys | Where-Object { -not $UnionSet.ContainsKey($_) } | Sort-Object)
+    $extra   = @($UnionSet.Keys    | Where-Object { -not $BaselineSet.ContainsKey($_) } | Sort-Object)
+
+    Write-Host ("{0}: baseline={1} union={2}" -f $Label, $BaselineSet.Count, $UnionSet.Count)
+
+    if ($Duplicates.Count -gt 0) {
+        # The same entry in two packages is not automatically wrong — but it is
+        # never accidental, so surface it.
+        Write-Host ("  NOTE: {0} entr(ies) appear in more than one package:" -f $Duplicates.Count)
+        $Duplicates | Sort-Object -Unique | Select-Object -First 20 | ForEach-Object { Write-Host "     = $_" }
     }
+
+    if ($missing.Count -eq 0 -and $extra.Count -eq 0) {
+        Write-Host '  no drift.'
+        return 0
+    }
+
+    if ($missing.Count -gt 0) {
+        Write-Host ("  MISSING ({0}) — these would stop being installed:" -f $missing.Count)
+        $missing | Select-Object -First 40 | ForEach-Object { Write-Host "     - $_" }
+    }
+    if ($extra.Count -gt 0) {
+        Write-Host ("  EXTRA ({0}) — these were not in the baseline:" -f $extra.Count)
+        $extra | Select-Object -First 40 | ForEach-Object { Write-Host "     + $_" }
+    }
+    return ($missing.Count + $extra.Count)
 }
-Write-Host ("Union    : {0} files" -f $unionSet.Count)
+
+$comparisons = @(
+    @{ Label = 'Files';        Reader = ${function:Get-FileSet} }
+    @{ Label = 'Registry';     Reader = ${function:Get-RegistrySet} }
+    @{ Label = 'Certificates'; Reader = ${function:Get-CertificateSet} }
+)
+
+Write-Host "Baseline : $Baseline"
+foreach ($p in $Package) { Write-Host "Package  : $p" }
 Write-Host ''
 
-$missing = @($baselineSet.Keys | Where-Object { -not $unionSet.ContainsKey($_) } | Sort-Object)
-$extra   = @($unionSet.Keys    | Where-Object { -not $baselineSet.ContainsKey($_) } | Sort-Object)
+$drift = 0
+foreach ($c in $comparisons) {
+    $baselineSet = & $c.Reader $Baseline
 
-if ($duplicates.Count -gt 0) {
-    Write-Host ("NOTE: {0} file(s) appear at the same target path in more than one package:" -f $duplicates.Count)
-    $duplicates | Sort-Object -Unique | Select-Object -First 20 | ForEach-Object { Write-Host "   = $_" }
+    $unionSet   = @{}
+    $duplicates = New-Object System.Collections.Generic.List[string]
+    foreach ($p in $Package) {
+        foreach ($k in (& $c.Reader $p).Keys) {
+            if ($unionSet.ContainsKey($k)) { $duplicates.Add($k) }
+            $unionSet[$k] = $true
+        }
+    }
+
+    $drift += Compare-Set -Label $c.Label -BaselineSet $baselineSet -UnionSet $unionSet -Duplicates $duplicates.ToArray()
     Write-Host ''
 }
 
+Write-Host 'Reported only (a split legitimately redistributes these):'
 foreach ($t in $Table) {
     $b = @(Get-MsiTable -Path $Baseline -TableName $t).Count
     $u = 0
@@ -194,16 +260,10 @@ foreach ($t in $Table) {
 }
 Write-Host ''
 
-if ($missing.Count -eq 0 -and $extra.Count -eq 0) {
-    Write-Host 'RESULT: no drift in the file set.'
+if ($drift -eq 0) {
+    Write-Host 'RESULT: no drift in files, registry or certificates.'
     exit 0
 }
 
-Write-Host ("MISSING from the packages ({0}) — these would stop being installed:" -f $missing.Count)
-$missing | Select-Object -First 40 | ForEach-Object { Write-Host "   - $_" }
-Write-Host ''
-Write-Host ("EXTRA in the packages ({0}) — these were not in the baseline:" -f $extra.Count)
-$extra | Select-Object -First 40 | ForEach-Object { Write-Host "   + $_" }
-Write-Host ''
-Write-Host 'RESULT: DRIFT DETECTED.'
+Write-Host ("RESULT: DRIFT DETECTED ({0} difference(s))." -f $drift)
 exit 1
