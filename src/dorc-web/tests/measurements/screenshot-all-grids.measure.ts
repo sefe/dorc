@@ -46,8 +46,24 @@ class ShimXHR {
   abort() {}
   send() {
     setTimeout(() => {
+      const auditRow = (f: Record<string, unknown>) => ({
+        Username: 'SEFE\\ben.hegarty', Action: 'Update', Date: '02/08/2026 14:32:07',
+        FromValue: 'v2026.07.28.1', ToValue: 'v2026.08.02.3', ...f
+      });
+      const paged = (rows: unknown[]) => ({ Items: rows, TotalItems: rows.length });
       let body: unknown = [];
-      if (/RequestStatuses/i.test(this.url)) {
+      if (/ServerAudit/i.test(this.url)) body = paged([auditRow({ ServerName: 'GMPR-DORAPP02' })]);
+      else if (/DatabaseAudit/i.test(this.url)) body = paged([auditRow({ DatabaseName: 'DORC_PROD_01' })]);
+      else if (/DaemonAudit/i.test(this.url)) body = paged([auditRow({ DaemonName: 'Dorc.Monitor' })]);
+      else if (/ProjectAudit/i.test(this.url)) body = paged([auditRow({ Project: { ProjectName: 'Trading-Platform' } })]);
+      else if (/ScriptsAudit/i.test(this.url)) body = paged([auditRow({ ScriptName: 'Deploy-Db.ps1', ProjectNames: 'Trading', UpdatedBy: 'SEFE\\bh', UpdatedDate: '02/08/2026' })]);
+      else if (/PropertyValuesAudit/i.test(this.url)) body = paged([auditRow({ PropertyName: 'ConnectionString', EnvironmentName: 'PROD-EU-01', UpdatedBy: 'SEFE\\bh', UpdatedDate: '02/08/2026' })]);
+      else if (/SearchPropertyValues/i.test(this.url)) body = paged([{ Property: 'ConnectionString', PropertyValueScope: 'PROD-EU-01', Value: 'Server=GMPR-SQL01;Database=DORC', Id: 1 }]);
+      else if (/ScopedPropertyValues/i.test(this.url)) body = paged([{ Property: 'ConnectionString', PropertyValueScope: 'PROD-EU-01', Secure: false, Value: 'Server=GMPR-SQL01', Id: 1 }]);
+      else if (/RefDataServers|Servers\?/i.test(this.url) && !/Audit/i.test(this.url)) body = paged([{ Name: 'GMPR-DORAPP02', OsName: 'Windows Server 2022', ApplicationTags: 'dorc', EnvironmentNames: ['PROD-EU-01'], Id: 1 }]);
+      else if (/RefDataDatabases|Databases\?/i.test(this.url) && !/Audit/i.test(this.url)) body = paged([{ ServerName: 'GMPR-SQL01', Name: 'DORC_PROD_01', ArrayName: 'arr1', ApplicationTags: 'dorc', EnvironmentNames: ['PROD-EU-01'], Id: 1 }]);
+      else if (/RefDataScripts|Scripts\?/i.test(this.url) && !/Audit/i.test(this.url)) body = paged([{ Name: 'Deploy-Db.ps1', ProjectNames: 'Trading', NonProdOnly: false, Path: 'scripts/deploy', PowerShellVersionNumber: '7.4', IsEnabled: true, Id: 1 }]);
+      else if (/RequestStatuses/i.test(this.url)) {
         body = {
           Items: [
             { Id: 284713, Project: 'Trading-Platform', EnvironmentName: 'PROD-EU-01', BuildNumber: '2026.08.02.3', Status: 'Failed', UserName: 'SEFE\\ben.hegarty', StartedTime: '2026-08-02T14:32:07', CompletedTime: '2026-08-02T14:39:51', RequestedTime: '2026-08-02T14:31:00', Components: 'Dorc.Api, Dorc.Web', UserEditable: true },
@@ -97,7 +113,6 @@ import '../../src/components/attached-databases';
 import '../../src/components/attached-servers';
 import '../../src/components/attached-env-tenants';
 import '../../src/components/application-daemons';
-import '../../src/components/env-deployments';
 import '../../src/components/environment-tabs/env-deployments';
 import '../../src/components/environment-tabs/env-variables';
 import '../../src/components/environment-tabs/env-monitor';
@@ -159,8 +174,36 @@ const VIEWS: ViewSpec[] = [
   { tag: 'page-config-values-list', height: '260px', setup: el => { el.filteredConfigValues = [{ Key: 'RabbitMq.Host', Secure: 'false', IsForProd: 'true', Value: 'gmpr-mq01', Id: 1 }]; } },
   { tag: 'page-project-bundles', height: '280px', setup: el => { el.filteredBundledRequests = [{ BundleName: 'Trading-Full', RequestName: 'Deploy DB', Sequence: 1, Type: 'Deploy', Request: '{"a":1}', Id: 1 }]; } },
   { tag: 'page-project-components', height: '280px', setup: el => { el.deploymentRows = [{ environmentName: 'PROD-EU-01', buildNumber: '2026.08.02.3', status: 'Complete', updateDate: '02/08/2026', componentId: 1 }]; } },
-  { tag: 'page-servers-list', height: '280px' },
-  { tag: 'page-databases-list', height: '280px' },
+  {
+    tag: 'page-servers-list',
+    height: '280px',
+    // debounced DP + loading gate race the harness; feed the grid directly —
+    // the row template (the thing under visual check) renders either way
+    post: async el => {
+      el.loading = false;
+      el.requestUpdate();
+      await el.updateComplete;
+      // inject AFTER the re-render so the template's dataProvider binding
+      // doesn't overwrite the injected items
+      const g = el.shadowRoot!.querySelector('vaadin-grid') as any;
+      g.dataProvider = undefined;
+      g.items = [{ Name: 'GMPR-DORAPP02', OsName: 'Windows Server 2022', ApplicationTags: 'dorc', EnvironmentNames: ['PROD-EU-01'], Id: 1 }];
+      g.requestContentUpdate();
+    }
+  },
+  {
+    tag: 'page-databases-list',
+    height: '280px',
+    post: async el => {
+      el.loading = false;
+      el.requestUpdate();
+      await el.updateComplete;
+      const g = el.shadowRoot!.querySelector('vaadin-grid') as any;
+      g.dataProvider = undefined;
+      g.items = [{ ServerName: 'GMPR-SQL01', Name: 'DORC_PROD_01', ArrayName: 'arr1', ApplicationTags: 'dorc', EnvironmentNames: ['PROD-EU-01'], Id: 1 }];
+      g.requestContentUpdate();
+    }
+  },
   { tag: 'page-servers-audit', height: '280px' },
   { tag: 'page-databases-audit', height: '280px' },
   { tag: 'page-daemons-audit', height: '280px' },
@@ -169,7 +212,18 @@ const VIEWS: ViewSpec[] = [
   { tag: 'page-scripts-list', height: '280px' },
   { tag: 'page-variables-audit', height: '280px' },
   { tag: 'page-variables-value-lookup', height: '280px' },
-  { tag: 'page-variables', height: '300px' },
+  {
+    tag: 'page-variables',
+    height: '560px',
+    post: el => {
+      el.loadingPropertyValues = false;
+      el.propertyValues = [
+        { PropertyValueFilter: 'PROD-EU-01', Value: 'Server=GMPR-SQL01;Database=DORC', Id: 1 },
+        { PropertyValueFilter: 'Global', Value: 'Server=GMPR-SQL02', Id: 2 }
+      ];
+      el.requestUpdate();
+    }
+  },
   { tag: 'component-deployment-results', height: '280px', setup: el => { el.resultItems = [{ ComponentName: 'Dorc.Api.Deploy', Status: 'Failed', Log: 'boom', StartedTime: '2026-08-02T14:32:07', CompletedTime: '2026-08-02T14:39:51', Id: 1 }]; } },
   {
     tag: 'component-previous-attempts',
@@ -187,7 +241,6 @@ const VIEWS: ViewSpec[] = [
   { tag: 'attached-servers', height: '260px', setup: el => { el.servers = [{ Name: 'GMPR-DORAPP02', OsName: 'Windows Server 2022', ApplicationTags: 'dorc', Id: 1 }]; } },
   { tag: 'attached-env-tenants', height: '260px', setup: el => { el.childEnvironments = [{ EnvironmentName: 'PROD-EU-01-TENANT-A', Id: 1 }]; } },
   { tag: 'application-daemons', height: '260px', setup: el => { el.daemonsAndStatuses = [{ ServerName: 'GMPR-DORAPP02', DaemonName: 'Dorc.Monitor', Status: 'Running', Id: 1 }]; } },
-  { tag: 'env-deployments-card', height: '260px', setup: el => { el.builds = [{ ComponentName: 'Dorc.Api', RequestDetails: 'Trading 2026.08.02.3', UpdateDate: '02/08/2026', State: 'Complete' }]; } },
   { tag: 'env-deployments', height: '280px', post: el => { el.loading = false; el.requestUpdate(); }, setup: el => { el.deployments = [{ RequestId: 284713, ComponentName: 'Dorc.Api', RequestBuildNum: '2026.08.02.3', UpdatedDate: '2026-08-02T14:32:07', State: 'Complete' }]; } },
   { tag: 'env-variables', height: '280px' },
   { tag: 'map-daemons', height: '280px', setup: el => { el.mappedDaemons = [{ Name: 'Dorc.Monitor', DisplayName: 'DORC Monitor', ServiceType: 'Windows Service', Id: 1 }]; } },

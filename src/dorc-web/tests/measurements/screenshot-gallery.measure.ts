@@ -18,7 +18,6 @@ document.documentElement.style.color = 'var(--lumo-body-text-color)';
 import '../../src/components/component-deployment-results';
 import '../../src/components/attached-app-users';
 import '../../src/components/attached-servers';
-import '../../src/components/env-deployments';
 
 const settle = async (n = 3) => {
   for (let i = 0; i < n; i++)
@@ -60,11 +59,6 @@ const users = [
 const servers = [
   { Name: 'GMPR-DORAPP02', OsName: 'Windows Server 2022', ApplicationTags: 'dorc;prod', Id: 1 },
   { Name: 'GMPR-DORAPP03', OsName: 'Windows Server 2019', ApplicationTags: 'dorc', Id: 2 }
-];
-
-const builds = [
-  { ComponentName: 'Dorc.Api.Deploy', RequestDetails: 'Trading-Platform 2026.08.02.3', UpdateDate: '02/08/2026 14:32', State: 'Complete' },
-  { ComponentName: 'Dorc.Web', RequestDetails: 'Trading-Platform 2026.08.02.3', UpdateDate: '02/08/2026 14:31', State: 'Failed' }
 ];
 
 async function shoot(
@@ -112,8 +106,6 @@ describe('screenshot gallery', () => {
     await shoot('app-users-375-phone', 375, 'attached-app-users', 'users', users);
     await shoot('app-users-1100-desktop', 1100, 'attached-app-users', 'users', users);
     await shoot('attached-servers-375-phone', 375, 'attached-servers', 'servers', servers);
-    await shoot('env-deployments-375-phone', 375, 'env-deployments-card', 'builds', builds);
-    await shoot('env-deployments-900-desktop', 900, 'env-deployments-card', 'builds', builds);
     expect(true).to.equal(true);
   });
 });

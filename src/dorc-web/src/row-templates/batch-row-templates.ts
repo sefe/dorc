@@ -59,12 +59,14 @@ const meta = (paths: string[]) => (item: any) =>
     .join(' · ')}`;
 
 export const accessControlNarrow = (host: Host): Wiring<any> => ({
+  // The checkbox renderers read _column.altThis/_column.ACControl — every
+  // hostCell here needs the stub (found by the data-bearing sweep).
   template: {
-    primary: hostCell(host, 'acNameRenderer'),
+    primary: hostCell(host, 'acNameRenderer', stub(host)),
     metadata: item =>
-      html`Write ${hostCell(host, 'acCanWrite')(item)} · Read secrets
-      ${hostCell(host, 'acCanReadSecrets')(item)} · Owner
-      ${hostCell(host, 'acCanOwner')(item)}`,
+      html`Write ${hostCell(host, 'acCanWrite', stub(host))(item)} · Read secrets
+      ${hostCell(host, 'acCanReadSecrets', stub(host))(item)} · Owner
+      ${hostCell(host, 'acCanOwner', stub(host))(item)}`,
     actions: hostCell(host, '_boundACButtonsRenderer', stub(host))
   }
 });
@@ -162,18 +164,6 @@ export const deployEnvPropsNarrow = (host: Host): Wiring<any> => ({
     actions: hostCell(host, '_boundPropOverridesButtonsRenderer', stub(host))
   },
   bar: sorters([['PropertyName', 'Name']])
-});
-
-export const envDeploymentsCardNarrow = (_host?: Host): Wiring<any> => ({
-  template: {
-    primary: item => html`${pathText(item, 'ComponentName')}`,
-    metadata: meta(['RequestDetails', 'UpdateDate']),
-    chip: chipFromPath('State')
-  },
-  bar: sorters([
-    ['ComponentName', 'Component'],
-    ['UpdateDate', 'Date']
-  ])
 });
 
 export const envDeploymentsTabNarrow = (host: Host): Wiring<any> => ({

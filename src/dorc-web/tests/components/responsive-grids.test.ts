@@ -79,11 +79,6 @@ describe('Responsive grid CSS (structural)', () => {
     assertResponsiveCss(mod.ComponentDeploymentResults, 'component-deployment-results');
   });
 
-  it('env-deployments-card CSS contains responsive cell wrapping', async () => {
-    const mod = await import('../../src/components/env-deployments.js');
-    assertResponsiveCss(mod.EnvDeploymentsCard, 'env-deployments-card');
-  });
-
   it('env-variables CSS contains responsive cell wrapping', async () => {
     const mod = await import('../../src/components/environment-tabs/env-variables.js');
     assertResponsiveCss(mod.EnvVariables, 'env-variables');
@@ -197,14 +192,6 @@ describe('Responsive grid column hiding (rendered)', () => {
       prop: 'servers',
       items: [{ Name: 'srv1', OsName: 'Windows', ApplicationTags: 'tag1;tag2', Id: 1 }],
       primaryText: 'srv1',
-    },
-    {
-      tag: 'env-deployments-card',
-      prop: 'builds',
-      items: [
-        { ComponentName: 'comp1', RequestDetails: 'req1', UpdateDate: '2024-01-01', State: 'Complete' },
-      ],
-      primaryText: 'comp1',
     },
   ];
 
