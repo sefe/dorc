@@ -9,11 +9,6 @@
     <DorcRunnerDir>$(SolutionDir)Dorc.Runner\bin\$(Configuration)\net8.0\publish</DorcRunnerDir>
     <DorcNetFrameworkRunnerDir>$(SolutionDir)Dorc.NetFramework.Runner\bin\$(Configuration)</DorcNetFrameworkRunnerDir>
 	<DorcTerraformRunnerDir>$(SolutionDir)Dorc.TerraformRunner\bin\$(Configuration)\net8.0</DorcTerraformRunnerDir>
-    <ToolsDCEBDir>$(SolutionDir)Tools.DeployCopyEnvBuildCLI\bin\$(Configuration)\net8.0\publish</ToolsDCEBDir>
-    <ToolsPREDir>$(SolutionDir)Tools.PostRestoreEndurCLI\bin\$(Configuration)\net8.0\publish</ToolsPREDir>
-    <ToolsPVCDir>$(SolutionDir)Tools.PropertyValueCreationCLI\bin\$(Configuration)\net8.0\publish</ToolsPVCDir>
-    <ToolsReqDir>$(SolutionDir)Tools.RequestCLI\bin\$(Configuration)\net8.0\publish</ToolsReqDir>
-    <ToolsEMDir>$(SolutionDir)Tools.EncryptionMigrationCLI\bin\$(Configuration)\net8.0\publish</ToolsEMDir>
     <Platforms>x64</Platforms>
     <!--
       Both pipelines pass /p:Version as yy.MM.dd.<run>, e.g. 26.08.03.2689.
@@ -27,11 +22,11 @@
     <DorcProductVersion Condition="'$(DorcProductVersion)' == ''">0.0.1</DorcProductVersion>
 </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x64' ">
-    <DefineConstants>Debug;DorcWebUIDir=$(DorcWebUIDir);DorcApiDir=$(DorcApiDir);DorcMonitorDir=$(DorcMonitorDir);DorcRunnerDir=$(DorcRunnerDir);DorcNetFrameworkRunnerDir=$(DorcNetFrameworkRunnerDir);DorcTerraformRunnerDir=$(DorcTerraformRunnerDir);ToolsDCEBDir=$(ToolsDCEBDir);ToolsPREDir=$(ToolsPREDir);ToolsPVCDir=$(ToolsPVCDir);ToolsReqDir=$(ToolsReqDir);ToolsEMDir=$(ToolsEMDir);BuildVersion=$(DorcProductVersion)</DefineConstants>
+    <DefineConstants>Debug;DorcWebUIDir=$(DorcWebUIDir);DorcApiDir=$(DorcApiDir);DorcMonitorDir=$(DorcMonitorDir);DorcRunnerDir=$(DorcRunnerDir);DorcNetFrameworkRunnerDir=$(DorcNetFrameworkRunnerDir);DorcTerraformRunnerDir=$(DorcTerraformRunnerDir);BuildVersion=$(DorcProductVersion)</DefineConstants>
     <SuppressValidation>True</SuppressValidation>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|x64' ">
-    <DefineConstants>DorcWebUIDir=$(DorcWebUIDir);DorcApiDir=$(DorcApiDir);DorcMonitorDir=$(DorcMonitorDir);DorcRunnerDir=$(DorcRunnerDir);DorcNetFrameworkRunnerDir=$(DorcNetFrameworkRunnerDir);DorcTerraformRunnerDir=$(DorcTerraformRunnerDir);ToolsDCEBDir=$(ToolsDCEBDir);ToolsPREDir=$(ToolsPREDir);ToolsPVCDir=$(ToolsPVCDir);ToolsReqDir=$(ToolsReqDir);ToolsEMDir=$(ToolsEMDir);BuildVersion=$(DorcProductVersion)</DefineConstants>
+    <DefineConstants>DorcWebUIDir=$(DorcWebUIDir);DorcApiDir=$(DorcApiDir);DorcMonitorDir=$(DorcMonitorDir);DorcRunnerDir=$(DorcRunnerDir);DorcNetFrameworkRunnerDir=$(DorcNetFrameworkRunnerDir);DorcTerraformRunnerDir=$(DorcTerraformRunnerDir);BuildVersion=$(DorcProductVersion)</DefineConstants>
     <SuppressValidation>True</SuppressValidation>
   </PropertyGroup>
   <ItemGroup>
@@ -82,11 +77,6 @@
       <RefTargetDir>INSTALLFOLDER</RefTargetDir>
     </ProjectReference>
 	<ProjectReference Include="..\Dorc.TerraformRunner\Dorc.TerraformRunner.csproj" />
-    <ProjectReference Include="..\Tools.DeployCopyEnvBuildCLI\Tools.DeployCopyEnvBuildCLI.csproj" />
-    <ProjectReference Include="..\Tools.PostRestoreEndurCLI\Tools.PostRestoreEndurCLI.csproj" />
-    <ProjectReference Include="..\Tools.PropertyValueCreationCLI\Tools.PropertyValueCreationCLI.csproj" />
-    <ProjectReference Include="..\Tools.RequestCLI\Tools.RequestCLI.csproj" />
-    <ProjectReference Include="..\Tools.EncryptionMigrationCLI\Tools.EncryptionMigrationCLI.csproj" />
   </ItemGroup>
   <!--
     The placeholder above is for the inner loop only. A CI build that produced
@@ -123,11 +113,6 @@
     <Exec Command="dotnet publish &quot;$(SolutionDir)Dorc.Runner\Dorc.Runner.csproj&quot; -c $(Configuration)" />
     <Exec Command="&quot;$(MSBuildBinPath)\MSBuild.exe&quot; &quot;$(SolutionDir)Dorc.NetFramework.Runner\Dorc.NetFramework.Runner.csproj&quot; -p:Configuration=$(Configuration)" />
 	<Exec Command="&quot;$(MSBuildBinPath)\MSBuild.exe&quot; &quot;$(SolutionDir)Dorc.TerraformRunner\Dorc.TerraformRunner.csproj&quot; -p:Configuration=$(Configuration)" />
-    <Exec Command="dotnet publish &quot;$(SolutionDir)Tools.DeployCopyEnvBuildCLI\Tools.DeployCopyEnvBuildCLI.csproj&quot; -c $(Configuration)" />
-    <Exec Command="dotnet publish &quot;$(SolutionDir)Tools.PostRestoreEndurCLI\Tools.PostRestoreEndurCLI.csproj&quot; -c $(Configuration)" />
-    <Exec Command="dotnet publish &quot;$(SolutionDir)Tools.PropertyValueCreationCLI\Tools.PropertyValueCreationCLI.csproj&quot; -c $(Configuration)" />
-    <Exec Command="dotnet publish &quot;$(SolutionDir)Tools.RequestCLI\Tools.RequestCLI.csproj&quot; -c $(Configuration)" />
-    <Exec Command="dotnet publish &quot;$(SolutionDir)Tools.EncryptionMigrationCLI\Tools.EncryptionMigrationCLI.csproj&quot; -c $(Configuration)" />
   </Target>
   <ItemGroup>
     <HarvestDirectory Include="$(DorcWebUIDir)">
@@ -209,49 +194,6 @@
 	  <SuppressRootDirectory>true</SuppressRootDirectory>
 	  <SuppressRegistry>true</SuppressRegistry>
 	</HarvestDirectory>
-    <HarvestDirectory Include="$(ToolsDCEBDir)">
-      <DirectoryRefId>DeployCopyEnvBuildDir</DirectoryRefId>
-      <ComponentGroupName>ToolsDeployCopyEnvBuildComGroup</ComponentGroupName>
-      <Transforms>$(MSBuildProjectDirectory)/Tools/HeatTransform.xslt</Transforms>
-      <PreprocessorVariable>var.ToolsDCEBDir</PreprocessorVariable>
-      <SuppressRootDirectory>true</SuppressRootDirectory>
-      <SuppressRegistry>true</SuppressRegistry>
-    </HarvestDirectory>
-    <HarvestDirectory Include="$(ToolsPREDir)">
-      <DirectoryRefId>PostRestoreEndurDir</DirectoryRefId>
-      <ComponentGroupName>ToolsPostRestoreEndurComGroup</ComponentGroupName>
-      <Transforms>$(MSBuildProjectDirectory)/Tools/HeatTransform.xslt</Transforms>
-      <PreprocessorVariable>var.ToolsPREDir</PreprocessorVariable>
-      <SuppressRootDirectory>true</SuppressRootDirectory>
-      <SuppressRegistry>true</SuppressRegistry>
-    </HarvestDirectory>
-    <HarvestDirectory Include="$(ToolsPVCDir)">
-      <DirectoryRefId>PropertyValueCreationDir</DirectoryRefId>
-      <ComponentGroupName>ToolsPropertyValueCreationComGroup</ComponentGroupName>
-      <Transforms>$(MSBuildProjectDirectory)/Tools/HeatTransform.xslt</Transforms>
-      <PreprocessorVariable>var.ToolsPVCDir</PreprocessorVariable>
-      <SuppressRootDirectory>true</SuppressRootDirectory>
-      <SuppressRegistry>true</SuppressRegistry>
-    </HarvestDirectory>
-    <HarvestDirectory Include="$(ToolsReqDir)">
-      <DirectoryRefId>RequestDir</DirectoryRefId>
-      <ComponentGroupName>ToolsRequestComGroup</ComponentGroupName>
-      <Transforms>$(MSBuildProjectDirectory)/Tools/HeatTransform.xslt</Transforms>
-      <PreprocessorVariable>var.ToolsReqDir</PreprocessorVariable>
-      <SuppressRootDirectory>true</SuppressRootDirectory>
-      <SuppressRegistry>true</SuppressRegistry>
-    </HarvestDirectory>
-    <HarvestDirectory Include="$(ToolsEMDir)">
-      <DirectoryRefId>EncryptionMigrationDir</DirectoryRefId>
-      <ComponentGroupName>ToolsEncryptionMigrationComGroup</ComponentGroupName>
-      <Transforms>$(MSBuildProjectDirectory)/Tools/HeatTransform.xslt</Transforms>
-      <PreprocessorVariable>var.ToolsEMDir</PreprocessorVariable>
-      <SuppressRootDirectory>true</SuppressRootDirectory>
-      <SuppressRegistry>true</SuppressRegistry>
-    </HarvestDirectory>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="Tools\HeatTransform.xslt" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="WixJsonFileExtension" Version="6.3.2" />

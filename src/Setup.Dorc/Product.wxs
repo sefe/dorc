@@ -59,25 +59,6 @@
 				<ComponentRef Id="LogsShare" />
 				<ComponentRef Id="RemoveServicesFolder" />
 			</Feature>
-			<Feature Id="Tools" Title="Tools" Level="1">
-				<ComponentRef Id="ToolsShare"/>
-				<ComponentRef Id="RemoveToolsFolder"/>
-
-				<ComponentRef Id="ToolsRequestConfigSetup"/>
-				<ComponentGroupRef Id="ToolsRequestComGroup"/>
-
-				<ComponentRef Id="DeployCopyEnvBuildConfigSetup"/>
-				<ComponentGroupRef Id="ToolsDeployCopyEnvBuildComGroup"/>
-
-				<ComponentRef Id="PostRestoreEndurConfigSetup"/>
-				<ComponentGroupRef Id="ToolsPostRestoreEndurComGroup"/>
-
-				<ComponentRef Id="PropertyValueCreationConfigSetup"/>
-				<ComponentGroupRef Id="ToolsPropertyValueCreationComGroup"/>
-
-				<ComponentRef Id="EncryptionMigrationConfigSetup"/>
-				<ComponentGroupRef Id="ToolsEncryptionMigrationComGroup"/>
-			</Feature>
 		</Feature>
 
 		<StandardDirectory Id="ProgramFiles64Folder">
@@ -140,27 +121,7 @@
 								<RemoveFolder Id="Remove.ServicesFolder" On="both" />
 							</Component>
 						</Directory>
-						<!-- CLIs own everything under Tools, including the share below. -->
-						<Directory Id="ToolsFolder" Name="Tools">
-							<Component Id="RemoveToolsFolder" Guid="{BB22A06E-8C8D-46E6-BE8B-10B267CA5F7E}">
-								<CreateFolder />
-								<util:RemoveFolderEx Id="Remove.ToolsFolderEx" Property="ToolsFolder" On="both" />
-								<RemoveFolder Id="Remove.ToolsFolder" On="both" />
-							</Component>
-							<Component Id="ToolsShare" Guid="{3EF3C439-2F64-4F75-8CAC-2627EEE9ECA3}" Bitness="always64">
-								<CreateFolder />
-								<util:User Id="Everyone" Name="Everyone" CreateUser="no" FailIfExists="no" RemoveOnUninstall="no" />
-								<util:FileShare Id="CLITools" Description="DOrc CLI Tools" Name="CLITools">
-									<util:FileSharePermission User="Everyone" GenericRead="yes" GenericExecute="yes" GenericWrite="no" />
-								</util:FileShare>
-							</Component>
-							<Directory Id="RequestDir" Name="Request" />
-							<Directory Id="DeployCopyEnvBuildDir" Name="DeployCopyEnvBuild" />
-							<Directory Id="EndurConfigDir" Name="EndurConfig" />
-							<Directory Id="PostRestoreEndurDir" Name="PostRestoreEndur" />
-							<Directory Id="PropertyValueCreationDir" Name="PropertyValueCreation" />
-							<Directory Id="EncryptionMigrationDir" Name="EncryptionMigration" />
-						</Directory>
+						<!-- Tools moved to Setup.Dorc.Cli (S-006). -->
 					</Directory>
 				</Directory>
 		</StandardDirectory>

@@ -9,6 +9,10 @@
       "ProductNames": "Deployment Orchestrator"
     },
     {
+      "Name": "Setup.Dorc.Cli.msi",
+      "ProductNames": "DOrc Command Line Tools"
+    },
+    {
       "Name": "Setup.Acceptance.msi",
       "ProductNames": "DOrc Acceptance Testing"
     }
