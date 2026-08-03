@@ -31,8 +31,8 @@ namespace Dorc.PersistentData.Sources.Interfaces
             DeploymentRequestApiModel deploymentRequest,
             DeploymentRequestStatus newStatus,
             DateTimeOffset requestedTime);
-        int SwitchDeploymentRequestStatuses(IList<DeploymentRequestApiModel> deploymentRequests, DeploymentRequestStatus fromStatus, DeploymentRequestStatus toStatus);
-        int SwitchDeploymentRequestStatuses(IList<DeploymentRequestApiModel> deploymentRequests, DeploymentRequestStatus fromStatus, DeploymentRequestStatus toStatus, DateTimeOffset requestedTime);
+        int SwitchDeploymentRequestStatuses(DeploymentRequestStatus fromStatus, DeploymentRequestStatus toStatus, params DeploymentRequestApiModel[] deploymentRequests);
+        int SwitchDeploymentRequestStatuses(DeploymentRequestStatus fromStatus, DeploymentRequestStatus toStatus, DateTimeOffset requestedTime, params DeploymentRequestApiModel[] deploymentRequests);
         int SwitchDeploymentResultsStatuses(IList<DeploymentRequestApiModel> deploymentRequests, DeploymentResultStatus fromStatus, DeploymentResultStatus toStatus);
 
         DeploymentResultApiModel GetDeploymentResults(int resultId);

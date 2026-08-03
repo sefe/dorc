@@ -322,7 +322,7 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        public int SwitchDeploymentRequestStatuses(IList<DeploymentRequestApiModel> deploymentRequests, DeploymentRequestStatus fromStatus, DeploymentRequestStatus toStatus)
+        public int SwitchDeploymentRequestStatuses(DeploymentRequestStatus fromStatus, DeploymentRequestStatus toStatus, params DeploymentRequestApiModel[] deploymentRequests)
         {
             var ids = deploymentRequests.Select(r => r.Id).ToList();
             using (var context = _contextFactory.GetContext())
@@ -335,14 +335,17 @@ namespace Dorc.PersistentData.Sources
 
                 if (rowsAffected > 0)
                 {
-                    deploymentRequests.ForEach(dr => dr.Status = toStatus.ToString());
+                    foreach (var dr in deploymentRequests)
+                    {
+                        dr.Status = toStatus.ToString();
+                    }
                 }
 
                 return rowsAffected;
             }
         }
 
-        public int SwitchDeploymentRequestStatuses(IList<DeploymentRequestApiModel> deploymentRequests, DeploymentRequestStatus fromStatus, DeploymentRequestStatus toStatus, DateTimeOffset requestedTime)
+        public int SwitchDeploymentRequestStatuses(DeploymentRequestStatus fromStatus, DeploymentRequestStatus toStatus, DateTimeOffset requestedTime, params DeploymentRequestApiModel[] deploymentRequests)
         {
             var ids = deploymentRequests.Select(r => r.Id).ToList();
             using (var context = _contextFactory.GetContext())
@@ -360,7 +363,7 @@ namespace Dorc.PersistentData.Sources
                     { 
                         dr.Status = toStatus.ToString(); 
                         dr.RequestedTime = requestedTime; 
-                    };
+                    }
                 }
 
                 return rowsAffected;
