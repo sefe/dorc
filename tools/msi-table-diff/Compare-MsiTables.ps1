@@ -60,6 +60,12 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+# Field separator for the row strings Get-MsiTable returns. U+0001 cannot
+# appear in an MSI string field.
+$script:FieldSeparator = [string][char]1
+
+function Split-Row([string] $Row) { return $Row.Split([char]1) }
+
 # MSI stores short and long names as "SHORT|Long". The long name is the one
 # that lands on disk, and the one a human recognises.
 function Get-LongName([string] $Value) {
@@ -82,9 +88,7 @@ function Get-MsiTable {
                     @("SELECT Name FROM _Tables WHERE Name = '$TableName'"))
         $names.GetType().InvokeMember('Execute', 'InvokeMethod', $null, $names, $null)
         $exists = $names.GetType().InvokeMember('Fetch', 'InvokeMethod', $null, $names, $null)
-        # Same unary comma as below, so an absent table returns an empty array
-        # rather than nothing at all.
-        if ($null -eq $exists) { return , @() }
+        if ($null -eq $exists) { return @() }
 
         # The query names its columns, so the caller already knows the shape and
         # nothing has to ask the view for it. Deriving the names from
@@ -105,27 +109,30 @@ function Get-MsiTable {
 
             if (-not $Columns) {
                 # Counted, not read — the caller only wants the row count.
-                $rows.Add($null)
+                $rows.Add('')
                 continue
             }
 
-            # Positional, not named. Rows come back as a plain array in the
-            # order the caller asked for, so nothing downstream depends on a
-            # property name matching an MSI column name — which is what broke
-            # twice here already, once on a genuinely wrong name and once on a
-            # correct one that still would not resolve.
-            $row = New-Object 'string[]' $Columns.Count
+            # One delimited string per row, not an array of fields.
+            #
+            # Rows were arrays before this, and PowerShell kept reshaping them:
+            # a collection returned from a function is enumerated on the way
+            # out, .Add() binds differently again, and the result was fields
+            # rendering as 'System.String[]' with every row collapsing to the
+            # same key. A flat string cannot be unrolled, re-wrapped or
+            # partially flattened by anything between here and the caller.
+            $fields = New-Object System.Collections.Generic.List[string]
             for ([int] $i = 1; $i -le $Columns.Count; $i++) {
-                $row[$i - 1] = [string] $record.GetType().InvokeMember(
-                    'StringData', 'GetProperty', $null, $record, @([int] $i))
+                $fields.Add([string] $record.GetType().InvokeMember(
+                    'StringData', 'GetProperty', $null, $record, @([int] $i)))
             }
-            $rows.Add($row)
+            $rows.Add(($fields -join $script:FieldSeparator))
         }
         # Unary comma: returning the collection bare would let PowerShell
         # enumerate it on the way out, and each row is itself an array, so the
         # rows would arrive flattened into a stream of strings.
         Write-Host ("    read {0,-14} {1,5} row(s)" -f $TableName, $rows.Count)
-        return , $rows.ToArray()
+        return $rows.ToArray()
     }
     finally {
         [System.Runtime.InteropServices.Marshal]::FinalReleaseComObject($installer) | Out-Null
@@ -143,12 +150,13 @@ function Get-MsiTable {
 function Get-DirectoryPaths($Directories) {
     $parentOf = @{}
     $nameOf   = @{}
-    foreach ($d in $Directories) {
-        if ($null -eq $d -or $d.Count -lt 3) { continue }
-        $id = [string] $d[0]
+    foreach ($rowText in $Directories) {
+        $d = Split-Row $rowText
+        if ($d.Count -lt 3) { continue }
+        $id = $d[0]
         if ([string]::IsNullOrEmpty($id)) { continue }
-        $parentOf[$id] = [string] $d[1]
-        $name = Get-LongName ([string] $d[2])
+        $parentOf[$id] = $d[1]
+        $name = Get-LongName $d[2]
         # '.' means "same as parent" and contributes no path segment.
         $nameOf[$id] = $(if ($name -eq '.') { '' } else { $name })
     }
@@ -185,15 +193,17 @@ function Get-FileSet([string] $Path) {
     # Component rows are [Component, Directory_]; File rows are
     # [Component_, FileName, Version].
     $componentDir = @{}
-    foreach ($c in $components) {
-        if ($null -eq $c -or $c.Count -lt 2) { continue }
+    foreach ($rowText in $components) {
+        $c = Split-Row $rowText
+        if ($c.Count -lt 2) { continue }
         $componentDir[$c[0]] = $c[1]
     }
     $dirPaths = Get-DirectoryPaths $dirs
 
     $set = @{}
-    foreach ($f in $files) {
-        if ($null -eq $f -or $f.Count -lt 3) { continue }
+    foreach ($rowText in $files) {
+        $f = Split-Row $rowText
+        if ($f.Count -lt 3) { continue }
         $dirId = $componentDir[$f[0]]
         $dir   = if ($dirId -and $dirPaths.ContainsKey($dirId)) { $dirPaths[$dirId] } else { '<unresolved>' }
         $key   = '{0}/{1}|{2}' -f $dir, (Get-LongName $f[1]), $f[2]
@@ -206,8 +216,9 @@ function Get-FileSet([string] $Path) {
 # the Registry row Id, for the same reason File Ids are ignored above.
 function Get-RegistrySet([string] $Path) {
     $set = @{}
-    foreach ($r in Get-MsiTable -Path $Path -TableName 'Registry' -Columns 'Root', 'Key', 'Name', 'Value') {
-        if ($null -eq $r -or $r.Count -lt 4) { continue }
+    foreach ($rowText in Get-MsiTable -Path $Path -TableName 'Registry' -Columns 'Root', 'Key', 'Name', 'Value') {
+        $r = Split-Row $rowText
+        if ($r.Count -lt 4) { continue }
         $set[('{0}\{1}\{2}={3}' -f $r[0], $r[1], $r[2], $r[3])] = $true
     }
     return $set
@@ -217,8 +228,9 @@ function Get-RegistrySet([string] $Path) {
 # is absent in packages that install none, which Get-MsiTable already handles.
 function Get-CertificateSet([string] $Path) {
     $set = @{}
-    foreach ($c in Get-MsiTable -Path $Path -TableName 'Certificate' -Columns 'Name', 'StoreLocation', 'StoreName') {
-        if ($null -eq $c -or $c.Count -lt 3) { continue }
+    foreach ($rowText in Get-MsiTable -Path $Path -TableName 'Certificate' -Columns 'Name', 'StoreLocation', 'StoreName') {
+        $c = Split-Row $rowText
+        if ($c.Count -lt 3) { continue }
         $set[('{0}|{1}|{2}' -f $c[0], $c[1], $c[2])] = $true
     }
     return $set
