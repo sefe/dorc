@@ -9,7 +9,7 @@ import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid-sorter';
 import '@vaadin/icons/vaadin-icons';
 import '@vaadin/text-field';
-import { css, PropertyValueMap, render } from 'lit';
+import { css, PropertyValueMap } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import '../../components/grid-button-groups/request-controls';
@@ -60,8 +60,6 @@ export class EnvMonitor extends ResponsiveMixin(PageEnvBase) implements IDeploym
   // properties (e.g. hubConnectionState, autoRefresh) change. Vaadin's
   // headerRenderer is only invoked when the cell is first created, so Lit's
   // normal re-render cycle does not update the header automatically.
-  private _idHeaderRoot?: HTMLElement;
-
   userFilter: string = '';
   statusFilter: string = '';
   componentsFilter: string = '';
@@ -246,7 +244,10 @@ export class EnvMonitor extends ResponsiveMixin(PageEnvBase) implements IDeploym
           path="Id"
           resizable
           auto-width
-          .headerRenderer="${this.idHeaderRenderer}"
+          ${columnHeaderRenderer(this.idHeaderRenderer, [
+            this.hubConnectionState,
+            this.autoRefresh
+          ])}
           ${columnBodyRenderer(this.idRenderer, [])}
         ></vaadin-grid-column>
         <vaadin-grid-column
@@ -336,12 +337,6 @@ export class EnvMonitor extends ResponsiveMixin(PageEnvBase) implements IDeploym
 
   updated(changed: PropertyValueMap<any>) {
     super.updated(changed);
-    if (changed.has('hubConnectionState') || changed.has('autoRefresh')) {
-      if (this._idHeaderRoot) {
-        // Re-render header to reflect state changes
-        this.idHeaderRenderer(this._idHeaderRoot);
-      }
-    }
   }
 
    // Router lifecycle: feed location to PageElement -> html-meta-manager updates title/description
@@ -641,11 +636,7 @@ export class EnvMonitor extends ResponsiveMixin(PageEnvBase) implements IDeploym
       ></request-controls>`;
   }
 
-  idHeaderRenderer = (root: HTMLElement) => {
-  // Store root for future manual re-renders
-  this._idHeaderRoot = root;
-    render(
-      html`
+  idHeaderRenderer = () => html`
       <vaadin-horizontal-layout style="align-items:center; gap:2px;" theme="spacing-xs">
         <connection-status-indicator
           mode="toggle"
@@ -656,7 +647,6 @@ export class EnvMonitor extends ResponsiveMixin(PageEnvBase) implements IDeploym
             if (this.autoRefresh) {
               this.refreshGrid();
             }
-            this.idHeaderRenderer(root);
           }}"
         ></connection-status-indicator>
 
@@ -710,11 +700,8 @@ export class EnvMonitor extends ResponsiveMixin(PageEnvBase) implements IDeploym
           );
         }}"
         ></vaadin-text-field>
-      </vaadin-horizontal-layout>
-      `,
-      root
-    );
-  }
+    </vaadin-horizontal-layout>
+  `;
 
   detailsHeaderRenderer = () => {
     return html`

@@ -139,6 +139,10 @@ export class PageProjectComponents extends ResponsiveMixin(PageElement) {
         cursor: pointer;
         color: var(--lumo-primary-text-color);
         text-decoration: underline;
+        background: none;
+        border: none;
+        padding: 0;
+        font: inherit;
       }
 
       .request-link:hover {
@@ -542,12 +546,16 @@ export class PageProjectComponents extends ResponsiveMixin(PageElement) {
 
     private buildNumberRenderer(row: EnvironmentDeploymentRow) {
         if (row.build && row.requestId) {
-            return html`<span
+            // A real button rather than a clickable span: the click handler
+            // used to live on innerHTML-produced markup, so it was reachable
+            // by mouse only.
+            return html`<button
+                type="button"
                 class="request-link build-number"
                 data-request-id="${row.requestId}"
                 @click="${() =>
                     window.open(`/monitor-result/${row.requestId}`, '_blank')}"
-                >${row.buildNumber}</span
+                >${row.buildNumber}</button
             >`;
         }
         if (row.buildNumber === 'Not deployed') {

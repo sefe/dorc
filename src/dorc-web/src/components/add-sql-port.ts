@@ -1,5 +1,5 @@
+import { comboBoxRenderer } from '@vaadin/combo-box/lit';
 import { css, LitElement } from 'lit';
-import { ComboBoxItemModel } from '@vaadin/combo-box';
 import { ComboBox } from '@vaadin/combo-box';
 import '@vaadin/number-field';
 import '@vaadin/text-field';
@@ -81,7 +81,7 @@ export class AddSqlPort extends LitElement {
             id="databases-combobox"
             @value-changed="${this._databaseValueChanged}"
             .items="${this.databases}"
-            .renderer="${this._databasesRenderer}"
+            ${comboBoxRenderer(this._databasesRenderer, [])}
             placeholder="Select Database"
             label="Database"
             style="width: 100%; max-width: 600px; display: flex; padding-left: var(--lumo-space-s)"
@@ -116,13 +116,8 @@ export class AddSqlPort extends LitElement {
     `;
   }
 
-  _databasesRenderer(
-    root: HTMLElement,
-    _comboBox: ComboBox,
-    model: ComboBoxItemModel<string>
-  ) {
-    const template = model.item as string;
-    root.innerHTML = `<div>${template}</div>`;
+  _databasesRenderer(database: string) {
+    return html`<div>${database}</div>`;
   }
 
   _databaseValueChanged(data: any) {

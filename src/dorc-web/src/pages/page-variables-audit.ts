@@ -10,7 +10,7 @@ import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
 import '@vaadin/text-field';
 import '@vaadin/checkbox';
-import { css, PropertyValues, render } from 'lit';
+import { css, PropertyValues } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import '../components/add-daemon';
@@ -137,7 +137,9 @@ export class PageVariablesAudit extends ResponsiveMixin(PageElement) {
         <vaadin-grid-column
           header="Value"
           ${columnBodyRenderer(this.valueRenderer, [])}
-          .headerRenderer="${this.valueHeaderRenderer}"
+          ${columnHeaderRenderer(this.valueHeaderRenderer, [
+            this.useAndFilter
+          ])}
           resizable
           width="60em"
         ></vaadin-grid-column>
@@ -322,44 +324,38 @@ export class PageVariablesAudit extends ResponsiveMixin(PageElement) {
       `;
   }
 
-  valueHeaderRenderer = (root: HTMLElement) => {
-    const labelText = this.useAndFilter ? 'Search Filter: AND' : 'Search Filter: OR';
-
-    render(
-      html`
-        <vaadin-horizontal-layout style="align-items: center;" theme="spacing-xs">
-          <vaadin-text-field
-            placeholder="Value"
-            clear-button-visible
-            focus-target
-            style="width: 100px"
-            theme="small"
-            @input="${(e: InputEvent) => {
-              const textField = e.target as HTMLInputElement;
-              this.valueFilterValue = textField?.value ?? '';
-              this.refreshGrid();
-            }}"
-          ></vaadin-text-field>
-          <vaadin-checkbox
-            id="filter-checkbox"
-            .checked="${!this.useAndFilter}"
-            .label="${labelText}"
-            title="Toggle between AND/OR filter logic"
-            style="--vaadin-checkbox-size: 14px;"
-            @change="${(e: Event) => {
-              this.useAndFilter = !(e.target as HTMLInputElement).checked;
-              const checkbox = root.querySelector('#filter-checkbox') as any;
-              if (checkbox) {
-                checkbox.label = this.useAndFilter ? 'Search Filter: AND' : 'Search Filter: OR';
-              }
-              this.refreshGrid();
-            }}"
-          ></vaadin-checkbox>
-        </vaadin-horizontal-layout>
-      `,
-      root
-    );
-  }
+  // The checkbox label used to be patched back onto the element by hand,
+  // because the imperative renderer never re-ran. `useAndFilter` is in the
+  // directive's dependency array now, so the binding keeps it current.
+  valueHeaderRenderer = () => html`
+    <vaadin-horizontal-layout style="align-items: center;" theme="spacing-xs">
+      <vaadin-text-field
+        placeholder="Value"
+        clear-button-visible
+        focus-target
+        style="width: 100px"
+        theme="small"
+        @input="${(e: InputEvent) => {
+          const textField = e.target as HTMLInputElement;
+          this.valueFilterValue = textField?.value ?? '';
+          this.refreshGrid();
+        }}"
+      ></vaadin-text-field>
+      <vaadin-checkbox
+        id="filter-checkbox"
+        .checked="${!this.useAndFilter}"
+        .label="${this.useAndFilter
+          ? 'Search Filter: AND'
+          : 'Search Filter: OR'}"
+        title="Toggle between AND/OR filter logic"
+        style="--vaadin-checkbox-size: 14px;"
+        @change="${(e: Event) => {
+          this.useAndFilter = !(e.target as HTMLInputElement).checked;
+          this.refreshGrid();
+        }}"
+      ></vaadin-checkbox>
+    </vaadin-horizontal-layout>
+  `;
 
   private refreshGrid() {
     this.dispatchEvent(

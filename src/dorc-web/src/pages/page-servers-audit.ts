@@ -1,9 +1,10 @@
+import type { GridItemModel } from '@vaadin/grid';
+import type { GridColumn } from '@vaadin/grid/vaadin-grid-column';
 import { columnBodyRenderer, columnHeaderRenderer } from '@vaadin/grid/lit';
 import '@vaadin/button';
 import '../components/dorc-spinner';
-import { GridCellPartNameGenerator, GridDataProviderCallback, GridDataProviderParams, GridItemModel, GridSorterDefinition } from '@vaadin/grid';
+import { GridCellPartNameGenerator, GridDataProviderCallback, GridDataProviderParams, GridSorterDefinition } from '@vaadin/grid';
 import '@vaadin/grid';
-import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid-sorter';
 import '@vaadin/horizontal-layout';
@@ -113,7 +114,7 @@ export class PageServersAudit extends PageElement {
           path="Date"
           header="Date"
           direction="desc"
-          .renderer="${this.dateRenderer}"
+          ${columnBodyRenderer(this.dateRenderer, [])}
           resizable
           auto-width
           flex-grow="0"
@@ -177,21 +178,13 @@ export class PageServersAudit extends PageElement {
     return html`<span>${name}</span>`;
   };
 
-  private dateRenderer = (
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<ServerAuditApiModel>
-  ) => {
-    const raw = model.item?.Date;
-    if (!raw) {
-      // Clear via DOM rather than render(html``, root) — the empty-template
-      // form trips Aikido's tainted-render rule (false positive, lit-html).
-      root.replaceChildren();
-      return;
-    }
+  private dateRenderer = (item: ServerAuditApiModel) => {
+    const raw = item?.Date;
+    if (!raw) return nothing;
     const dt = new Date(raw);
-    const formatted = `${dt.toLocaleDateString('en-GB')} ${dt.toLocaleTimeString('en-GB')}`;
-    render(html`<span>${formatted}</span>`, root);
+    return html`<span
+      >${dt.toLocaleDateString('en-GB')} ${dt.toLocaleTimeString('en-GB')}</span
+    >`;
   };
 
   private valueRenderer(fieldName: 'FromValue' | 'ToValue') {

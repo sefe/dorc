@@ -1,5 +1,5 @@
+import { comboBoxRenderer } from '@vaadin/combo-box/lit';
 import { css, LitElement } from 'lit';
-import { ComboBoxItemModel } from '@vaadin/combo-box';
 import '@vaadin/button';
 import '@vaadin/combo-box';
 import { customElement, property } from 'lit/decorators.js';
@@ -62,7 +62,7 @@ export class AttachServer extends LitElement {
             item-label-path="Name"
             @value-changed="${this.setSelectedServer}"
             .items="${this.servers}"
-            .renderer="${this._boundServersRenderer}"
+            ${comboBoxRenderer(this._boundServersRenderer, [])}
             placeholder="Select Server"
             style="width: 300px"
             clear-button-visible
@@ -96,14 +96,8 @@ export class AttachServer extends LitElement {
     `;
   }
 
-  _boundServersRenderer(
-    root: HTMLElement,
-    _: HTMLElement,
-    { item }: ComboBoxItemModel<ServerApiModel>
-  ) {
-    // only render the checkbox once, to avoid re-creating during subsequent calls
-    const serverApiModel = item as ServerApiModel;
-    root.innerHTML = `<div>${serverApiModel.Name}</div>`;
+  _boundServersRenderer(server: ServerApiModel) {
+    return html`<div>${server.Name}</div>`;
   }
 
   setSelectedServer(data: CustomEvent) {

@@ -1,5 +1,5 @@
+import { comboBoxRenderer } from '@vaadin/combo-box/lit';
 import '@vaadin/combo-box';
-import { ComboBoxItemModel } from '@vaadin/combo-box';
 import { ComboBox } from '@vaadin/combo-box';
 import { css } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
@@ -110,7 +110,7 @@ export class PageDeploy extends PageElement {
                 style="flex: 1;"
                 @value-changed="${this._projectValueChanged}"
                 .items="${this.projects}"
-                .renderer="${this._projectsRenderer}"
+                ${comboBoxRenderer(this._projectsRenderer, [])}
                 placeholder="Select Project"
                 label="Project"
                 item-label-path="ProjectName"
@@ -148,13 +148,8 @@ export class PageDeploy extends PageElement {
     `;
   }
 
-  _projectsRenderer(
-    root: HTMLElement,
-    _comboBox: ComboBox,
-    model: ComboBoxItemModel<ProjectApiModel>
-  ) {
-    const template = model.item as ProjectApiModel;
-    root.innerHTML = `<div>${template.ProjectName}</div>`;
+  _projectsRenderer(project: ProjectApiModel) {
+    return html`<div>${project.ProjectName}</div>`;
   }
 
   _projectValueChanged(data: any) {

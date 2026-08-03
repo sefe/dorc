@@ -1,10 +1,8 @@
 import { columnBodyRenderer } from '@vaadin/grid/lit';
-import { css, LitElement, PropertyValues, render } from 'lit';
+import { css, LitElement, PropertyValues } from 'lit';
 import '@vaadin/grid/vaadin-grid-column';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid';
-import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
-import { GridItemModel } from '@vaadin/grid';
 import './grid-button-groups/daemon-controls';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
@@ -78,7 +76,7 @@ export class ApplicationDaemons extends LitElement {
           resizable
           width="100px"
           flex-grow="0"
-          .renderer="${this._daemonStatusRenderer}"
+          ${columnBodyRenderer(this._daemonStatusRenderer, [])}
         >
         </vaadin-grid-sort-column>
         <vaadin-grid-column
@@ -89,34 +87,23 @@ export class ApplicationDaemons extends LitElement {
     `;
   }
 
-  _daemonStatusRenderer(
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<DaemonStatusApiModel>
-  ) {
-    const daemon = model.item as DaemonStatusApiModel;
-    const status = daemon?.Status?.toLowerCase();
+  // The colour was set on the cell root; it lives on the span now, which is
+  // the only thing a returned template can style.
+  _daemonStatusRenderer(daemon: DaemonStatusApiModel) {
     const errorMessage = daemon?.ErrorMessage;
-    if (errorMessage) {
-      root.style.color = 'var(--dorc-error-color)';
-    } else if (status === 'running') {
-      root.style.color = 'var(--dorc-success-text)';
-    } else if (status === 'stopped') {
-      root.style.color = 'var(--dorc-text-primary)';
-    } else {
-      root.style.color = 'var(--dorc-error-color)';
-    }
-    if (errorMessage) {
-      render(
-        html`<span title="${errorMessage}">⚠ ${daemon?.Status ?? 'unreachable'}</span>`,
-        root
-      );
-    } else {
-      render(
-        html`<span>${daemon?.Status}</span>`,
-        root
-      );
-    }
+    const status = daemon?.Status?.toLowerCase();
+    const colour =
+      !errorMessage && status === 'running'
+        ? 'var(--dorc-success-text)'
+        : !errorMessage && status === 'stopped'
+          ? 'var(--dorc-text-primary)'
+          : 'var(--dorc-error-color)';
+
+    return errorMessage
+      ? html`<span style="color: ${colour}" title="${errorMessage}"
+          >⚠ ${daemon?.Status ?? 'unreachable'}</span
+        >`
+      : html`<span style="color: ${colour}">${daemon?.Status}</span>`;
   }
 
   _boundDaemonsButtonsRenderer(

@@ -1,9 +1,8 @@
+import { comboBoxRenderer } from '@vaadin/combo-box/lit';
 import { css, LitElement } from 'lit';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/combo-box';
-import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
-import { GridItemModel } from '@vaadin/grid';
 import { ComboBox } from '@vaadin/combo-box';
 import '@vaadin/text-field';
 import { customElement, property } from 'lit/decorators.js';
@@ -180,7 +179,7 @@ export class AddEditDatabase extends LitElement {
             item-label-path="GroupName"
             @value-changed="${this.setSelectedADGroup}"
             .items="${this.groups}"
-            .renderer="${this._boundADGroupsRenderer}"
+            ${comboBoxRenderer(this._boundADGroupsRenderer, [])}
             placeholder="Select Permission"
             style="width: 300px"
             helper-text="(Advanced: Use 'OTHER' if not applicable/unknown)"
@@ -207,14 +206,10 @@ export class AddEditDatabase extends LitElement {
     }
   }
 
-  _boundADGroupsRenderer(
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<GroupApiModel>
-  ) {
-    // only render the checkbox once, to avoid re-creating during subsequent calls
-    const groupApiModel = model.item as GroupApiModel;
-    root.innerHTML = `<paper-item>${groupApiModel.GroupName}</paper-item>`;
+  // Was a <paper-item>, which no longer resolves to anything since Polymer
+  // was removed; the combo-box styles its own items.
+  _boundADGroupsRenderer(group: GroupApiModel) {
+    return html`<div>${group.GroupName}</div>`;
   }
 
   _reset() {

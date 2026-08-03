@@ -1,3 +1,4 @@
+import { comboBoxRenderer } from '@vaadin/combo-box/lit';
 import { confirmPrompt } from './confirm-prompt';
 import { css, LitElement } from 'lit';
 import '@vaadin/grid/vaadin-grid-sort-column';
@@ -6,7 +7,7 @@ import '@vaadin/combo-box';
 import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
 import '@vaadin/button';
-import { ComboBox, ComboBoxItemModel } from '@vaadin/combo-box';
+import { ComboBox } from '@vaadin/combo-box';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import {
@@ -88,7 +89,7 @@ export class EditDatabasePermissions extends LitElement {
             item-label-path="DisplayName"
             @value-changed="${this.setSelectedUser}"
             .items="${this.users}"
-            .renderer="${this._boundUsersRenderer}"
+            ${comboBoxRenderer(this._boundUsersRenderer, [])}
             placeholder="Select User"
             style="width: 300px"
             clear-button-visible
@@ -101,7 +102,7 @@ export class EditDatabasePermissions extends LitElement {
             item-label-path="DisplayName"
             @value-changed="${this.setSelectedPermission}"
             .items="${this.permissions}"
-            .renderer="${this._boundPermissionsRenderer}"
+            ${comboBoxRenderer(this._boundPermissionsRenderer, [])}
             placeholder="Select Permission"
             style="width: 300px"
             clear-button-visible
@@ -192,24 +193,12 @@ export class EditDatabasePermissions extends LitElement {
     }
   }
 
-  _boundUsersRenderer(
-    root: HTMLElement,
-    _: HTMLElement,
-    { item }: ComboBoxItemModel<UserApiModel>
-  ) {
-    // only render the checkbox once, to avoid re-creating during subsequent calls
-    const user = item as UserApiModel;
-    root.innerHTML = `<div>${user.DisplayName} - ${user.LoginType}</div>`;
+  _boundUsersRenderer(user: UserApiModel) {
+    return html`<div>${user.DisplayName} - ${user.LoginType}</div>`;
   }
 
-  _boundPermissionsRenderer(
-    root: HTMLElement,
-    _: HTMLElement,
-    { item }: ComboBoxItemModel<PermissionDto>
-  ) {
-    // only render the checkbox once, to avoid re-creating during subsequent calls
-    const permissionDto = item as PermissionDto;
-    root.innerHTML = `<div>${permissionDto.DisplayName}</div>`;
+  _boundPermissionsRenderer(permission: PermissionDto) {
+    return html`<div>${permission.DisplayName}</div>`;
   }
 
   _canSubmit() {

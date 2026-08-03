@@ -1,8 +1,7 @@
+import { comboBoxRenderer } from '@vaadin/combo-box/lit';
 import { css, LitElement } from 'lit';
 import '@vaadin/combo-box';
 import '@vaadin/confirm-dialog';
-import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
-import { GridItemModel } from '@vaadin/grid';
 import { ComboBox } from '@vaadin/combo-box';
 import '@vaadin/button';
 import { customElement, property } from 'lit/decorators.js';
@@ -85,7 +84,7 @@ export class AttachDatabase extends LitElement {
             @value-changed="${this.setSelectedDatabase}"
             .items="${this.filteredDatabases ?? this.databases}"
             @filter-changed="${(this.filterDatabases)}"
-            .renderer="${this._boundDatabasesRenderer}"
+            ${comboBoxRenderer(this._boundDatabasesRenderer, [])}
             placeholder="Select Database"
             style="width: 300px"
             clear-button-visible
@@ -190,15 +189,12 @@ export class AttachDatabase extends LitElement {
       });
   }
 
-  _boundDatabasesRenderer(
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<DatabaseApiModel>
-  ) {
-    const groupApiModel = model.item as DatabaseApiModel;
-    root.innerHTML = `<paper-item><span>${groupApiModel.Name} - ${
-      groupApiModel.ServerName
-    }</span></paper-item>`;
+  // Was a <paper-item>, which no longer resolves to anything since Polymer
+  // was removed; the combo-box styles its own items.
+  _boundDatabasesRenderer(database: DatabaseApiModel) {
+    return html`<div>
+      <span>${database.Name} - ${database.ServerName}</span>
+    </div>`;
   }
 
   _submit() {
