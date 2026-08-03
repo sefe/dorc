@@ -13,7 +13,7 @@
 
 `Setup.Dorc.msi` packages every DOrc component into a single installable unit: the web UI, the API, the monitors and their runners, and five command-line tools. This creates two distinct problems.
 
-**Deployment.** The components do not run on the same machines and do not change at the same rate, but they can only be installed, upgraded and rolled back together. A fix to the API cannot be shipped without redeploying the monitors and runners — for a tool whose job is orchestrating other people's deployments, being unable to patch itself without disturbing in-flight work is a real operational constraint. `DeploySettings` currently installs every MSI to every `TargetServer` in an environment, with feature conditions inside the MSI deciding what actually lands.
+**Deployment.** The components do not run on the same machines and do not change at the same rate, but they can only be installed, upgraded and rolled back together. A fix to the API cannot be shipped without redeploying the monitors and runners — for a tool whose job is orchestrating other people's deployments, being unable to patch itself without disturbing in-flight work is a real operational constraint. The deployment mechanism already selects target servers per installer via the `ServerType` in each `.msi.json` sidecar (see C-2); the constraint is purely that one MSI carries all four components.
 
 **Build time.** Measured from an MSBuild binary log of `main` at `80fadbb` (run `30844659253`), the installers dominate the build:
 
@@ -108,7 +108,7 @@ Identity today is a single `ProductCode {F7894A5D-…}` under a single `UpgradeC
 ## 5. Constraints
 
 - **C-1 — Shared database schema, with skew permitted.** All four components share one schema via `Dorc.Database.dacpac`, and four independently deployable installers make version skew possible: API `v1` running against Monitor `v2`. Per U-1 this is **accepted, not prevented** — no start-up gate or refusal. The obligation it creates is observability (G-5): if skew is allowed, an operator must be able to see it. Note this shifts the risk rather than removing it — a mismatch will surface as behaviour, not as a clear error.
-- **C-2 — `DeploySettings` targeting.** `MsiFileNames` is already a list, so adding entries is configuration rather than rework. But `TargetServers` is defined per *environment*, not per MSI, so every installer is currently delivered to every target server. Realising G-2 requires extending that schema.
+- **C-2 — Per-MSI targeting already exists.** *(Corrected 2026-08-03 after reading `sefe/dorc-ps-deploy-module`; an earlier revision of this document claimed a schema change was required. It is not.)* Each installer ships a `.msi.json` sidecar declaring `ServerType`, and `DeployMSI` filters the environment's target servers by it — `Setup.Dorc.msi.json` currently declares `"ServerType": "WebServer"`. Independent deployment topology is therefore a matter of each new installer declaring its own `ServerType`, not of extending `DeploySettings`. What *is* required is deciding which server type each of the four components targets.
 - **C-3 — Shared assemblies duplicate.** `Dorc.Core`, `Dorc.PersistentData` and `Dorc.ApiModel` sit beneath most components and will be carried by several installers. Acceptable on disk; it makes C-1 sharper, because the duplicated copies can drift.
 - **C-4 — Installed-state continuity.** Existing environments have the single product installed. Four new `ProductCode`s under new `UpgradeCode`s will not automatically supersede it.
 - **C-5 — One property bag.** `DeploySettings` passes roughly 60 `MsiProperties` to the MSI. Whether each installer needs the full set or a subset is unresolved (U-5).
@@ -131,11 +131,15 @@ Two caveats. First, `DeployMSI` is **not defined in this repository** — it com
 
 Addresses G-4, C-4.
 
-### SD-3 — Per-installer target servers in `DeploySettings`
+### SD-3 — Declare `ServerType` per installer in its `.msi.json` sidecar
 
-Extend the `MsiFileNames` entries with an optional server selector, defaulting to the current behaviour (all target servers) so existing settings files keep working. Without this, the four installers all still go everywhere and G-2 is unrealised — the split would deliver the build-time benefit only.
+No schema change is needed. Each of the four installers ships its own sidecar declaring the `ServerType` it targets, and the existing `DeployMSI` filtering does the rest. The sidecar also carries the `Parameters` map, so each installer declares only the MSI parameters it actually consumes — `Setup.Acceptance.msi.json` already demonstrates this with 12 entries against `Setup.Dorc.msi.json`'s ~70.
 
-Addresses G-2, C-2.
+The work is therefore authoring four sidecars and deciding the target server type for each component, not extending the deployment configuration format.
+
+One authoring detail: `Setup.Acceptance.msi.json` is UTF-16 encoded while `Setup.Dorc.msi.json` is UTF-8. New sidecars should be UTF-8.
+
+Addresses G-2, C-2, C-5.
 
 ### SD-4 — Per-component version reporting, surfaced in the UI
 
@@ -161,13 +165,13 @@ Addresses G-5, C-1, C-3.
 | U-2 | Is independent deployability actually wanted, or is the build-time win the real objective? | User | **Blocking** for scope | **RESOLVED** (2026-08-03). Independent deployability is the objective. SD-3 and SD-4 are therefore in scope, and the build-time gain (G-3) is a secondary benefit rather than the justification. |
 | U-3 | How do existing installations migrate? Is a maintenance window acceptable, or must the transition be seamless? | User | **Blocking** for SD-2 | **RESOLVED** (2026-08-03). `RunDeployment.ps1` performs a full uninstall before installing, and a maintenance window is acceptable. SD-2 collapses to registering four `MsiFileNames`/`ProductNames` entries. Raises U-9. |
 | U-4 | Which installer owns `Wix4User`, `Wix4FileShare` and `Wix4FileSharePermissions`? These are shared infrastructure with no obvious single owner. | Agent | **Blocking** for SD-1 | **Unresolved** — resolvable by reading the authoring; not yet done. |
-| U-5 | Can the ~60 `MsiProperties` be partitioned per installer, or must each receive the full set? | Agent | Non-blocking | **Unresolved.** Passing all properties to all installers works (MSI ignores unknown properties) but is untidy. |
+| U-5 | Can the ~60 `MsiProperties` be partitioned per installer, or must each receive the full set? | Agent | Non-blocking | **RESOLVED** (2026-08-03). Already the existing design: the `Parameters` array in each `.msi.json` sidecar maps MSI parameters to deploy properties per installer. `Setup.Acceptance.msi.json` declares 12; `Setup.Dorc.msi.json` declares ~70. Each new installer declares only what it consumes. |
 | U-6 | Does `WixBuild` time scale with component count, as G-3's estimate assumes? | Agent | Non-blocking | **Unresolved.** Testable once the first split installer exists; the estimate should be revised then rather than defended. |
 | U-7 | Are the three hand-authored custom actions (`SetCDrive`, `ReconfigureLoadUserProfileOrchestrator`, `ReconfigureLoadUserProfileRequestApi`) cleanly attributable to single installers? | Agent | Non-blocking | Two are named for Orchestrator and RequestApi respectively, suggesting UI and API. `SetCDrive` is unclear. |
 | U-8 | How do Monitors, Runners and CLIs report their version for G-5? No channel exists today — the schema has no heartbeat or instance table, `MetadataController` reports only the API's own assembly version, Runners execute on target servers and CLIs run ad hoc. | User + Agent | **Blocking** for G-5 | **Unresolved.** Raised by the resolution of U-1. Options include a heartbeat row written by each component, reading installed `ProductVersion` from the target servers' registry at query time, or scoping G-5 to only those components that can already be reached. These differ substantially in cost. |
-| U-9 | Does `DeployMSI` handle four products correctly, including uninstall ordering? It is defined in the external `DOrcDeployModule`, not this repository. | User | **Blocking** for SD-2 | **Unresolved.** Raised by the resolution of U-3. `RunDeployment.ps1` iterates `MsiFileNames` and calls `DeployMSI -ProductNames`, so the shape is right, but the module's behaviour across four products is unverifiable from this repo. |
+| U-9 | Does `DeployMSI` handle four products correctly, including uninstall ordering? It is defined in the external `DOrcDeployModule`, not this repository. | User | **Blocking** for SD-2 | **RESOLVED** (2026-08-03) by reading `sefe/dorc-ps-deploy-module`. `DeployMSI` takes `[System.String[]]$ProductNames` and iterates it, uninstalling each before installing — `Setup.Dorc.msi.json` already exercises this with two names (`Deployment Orchestrator`, `DevOps Orchestrator`), a precedent from an earlier rename. Deployment runs one `Start-Job` per target server, so per-server work is already parallel. No module change is required for four installers. |
 
-**U-1, U-2 and U-3 are resolved.** Their resolutions raised **U-8 and U-9**, which are blocking in turn: U-8 gates G-5, and U-9 gates SD-2. Per `CLAUDE.md` the IS should not be finalised until both are closed — though the installer split itself (SD-1) is unblocked and could proceed as an early IS step while they are settled.
+**Remaining blocker: U-8 only.** U-1, U-2 and U-3 were resolved by the user; U-5 and U-9 were then resolved by reading `sefe/dorc-ps-deploy-module`, which also corrected C-2 and shrank SD-3 substantially. U-8 (no version-reporting channel for Monitors, Runners and CLIs) still gates G-5. SD-1, SD-2 and SD-3 are unblocked and can form the early IS steps while U-8 is settled.
 
 ---
 
