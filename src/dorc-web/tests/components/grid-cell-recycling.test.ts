@@ -3,6 +3,7 @@ import { render, html } from 'lit';
 import { live } from 'lit/directives/live.js';
 import { ref } from 'lit/directives/ref.js';
 import '@vaadin/checkbox';
+import '@vaadin/text-field';
 import '../../src/components/hegs-json-viewer';
 import { HegsJsonViewer } from '../../src/components/hegs-json-viewer';
 
@@ -140,5 +141,33 @@ describe('recycled grid cells', () => {
     await settle();
 
     expect(saved).to.deep.equal(['A=true']);
+  });
+
+  it('does not write a text field value into the previous row', async () => {
+    // Same notify-event mechanism as the checkbox, and the one that persists:
+    // the environment-history comment field writes into the row model that
+    // edit-comments-controls later PUTs.
+    const rowA = { Comment: 'A comment' };
+    const rowB = { Comment: 'B comment' };
+
+    const tpl = (history: { Comment: string }) => html`
+      <vaadin-text-field
+        readonly
+        .value="${history.Comment ?? ''}"
+        @change="${(e: Event) => {
+          history.Comment = (e.currentTarget as HTMLElement & {
+            value: string;
+          }).value;
+        }}"
+      ></vaadin-text-field>
+    `;
+
+    render(tpl(rowA), host);
+    await settle();
+    render(tpl(rowB), host);
+    await settle();
+
+    expect(rowA.Comment, 'row A untouched').to.equal('A comment');
+    expect(rowB.Comment, 'row B untouched').to.equal('B comment');
   });
 });

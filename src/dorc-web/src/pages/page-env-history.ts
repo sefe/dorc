@@ -186,6 +186,11 @@ export class PageEnvironmentHistory extends ResponsiveMixin(PageElement) {
     return html`<div>${`${date} ${time}`}</div>`;
   }
 
+  // `change`, not `value-changed`: the latter is a notify event that fires
+  // when Lit commits `.value` too. Grid cells are recycled, so committing the
+  // next row's comment fires it into the previous row's listener, which writes
+  // it into that row's model — and edit-comments-controls saves that same
+  // object. `change` only fires when the user commits an edit.
   _commentRenderer(
     item: EnvironmentHistoryApiModel, model: GridItemModel<EnvironmentHistoryApiModel>
   ) {
@@ -197,9 +202,8 @@ export class PageEnvironmentHistory extends ResponsiveMixin(PageElement) {
         focus-target
         .value="${history.Comment ?? ''}"
         .history="${history}"
-        @value-changed="${(e: CustomEvent) => {
-          const textField = e.detail as TextField;
-          history.Comment = textField.value;
+        @change="${(e: Event) => {
+          history.Comment = (e.currentTarget as TextField).value;
         }}"
       >
       </vaadin-text-field>`;
