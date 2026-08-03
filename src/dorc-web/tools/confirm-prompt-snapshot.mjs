@@ -17,10 +17,13 @@
  */
 
 import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { join, relative } from 'node:path';
 import ts from 'typescript';
 
-const ROOT = new URL('..', import.meta.url).pathname.replace(/\/$/, '');
+// fileURLToPath, not `.pathname`: on Windows the latter yields `/D:/a/...`,
+// which join() turns into `D:\D:\a\...`. This runs in CI on windows-latest.
+const ROOT = join(fileURLToPath(new URL('.', import.meta.url)), '..');
 const SRC = join(ROOT, 'src');
 
 /**

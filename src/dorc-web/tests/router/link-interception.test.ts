@@ -9,11 +9,17 @@ import type { AppRoute } from '../../src/router/route-config';
 // second would client-side-route the `target="_blank"` script links in the
 // deployment-results views, so "open in new tab" would silently stop working.
 //
-// The signal is whether the router navigated. A synthetic MouseEvent is not
-// trusted, so the browser never follows the link itself — the URL changes only
-// if the router chose to route it. (`defaultPrevented` cannot be used: an
+// The signal is whether the router navigated — i.e. whether the URL changed
+// through the router's own `navigate()`. (`defaultPrevented` cannot be used: an
 // anchor that handles its own click sets it before the document listener runs,
 // so it reads the same for "the app handled it" and "the router handled it".)
+//
+// A dispatched click still runs the browser's default action for an anchor in
+// Firefox, which really does navigate — that tore the test iframe out from
+// under the runner in CI while passing locally on chromium. So a listener
+// registered after the router's suppresses the default action for every click
+// here. It cannot mask the behaviour under test: the router navigates by
+// calling history.pushState itself, not by letting the click through.
 
 const routes: AppRoute[] = [
   {
@@ -33,6 +39,8 @@ describe('link interception', () => {
   let router: AppRouter;
   let startPath: string;
 
+  const suppressDefault = (event: Event) => event.preventDefault();
+
   beforeEach(async () => {
     startPath = window.location.pathname;
     outlet = document.createElement('div');
@@ -40,10 +48,14 @@ describe('link interception', () => {
     document.body.append(outlet, host);
     router = new AppRouter(outlet);
     await router.setRoutes(routes);
+    // Registered after the router's own listener, so it runs second and only
+    // stops the browser from following the link for real.
+    document.addEventListener('click', suppressDefault);
     await router.navigate('/first');
   });
 
   afterEach(() => {
+    document.removeEventListener('click', suppressDefault);
     window.history.replaceState(null, '', startPath);
     outlet.remove();
     host.remove();

@@ -14,10 +14,13 @@
  */
 
 import { readFileSync, readdirSync, statSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { join, relative, sep } from 'node:path';
 import ts from 'typescript';
 
-const ROOT = new URL('..', import.meta.url).pathname.replace(/\/$/, '');
+// fileURLToPath, not `.pathname`: on Windows the latter yields `/D:/a/...`,
+// which join() turns into `D:\D:\a\...`. This runs in CI on windows-latest.
+const ROOT = join(fileURLToPath(new URL('.', import.meta.url)), '..');
 const SRC = join(ROOT, 'src');
 
 const DIRECTIVES = [
@@ -232,7 +235,10 @@ function inheritedReactiveFields(source, file, seen = new Set()) {
  */
 function resolveModule(fromFile, specifier) {
   const base = join(fromFile, '..', specifier.replace(/\.js$/, ''));
-  if (!base.startsWith(SRC + '/')) return null;
+  // `sep`, not '/': join() emits backslashes on Windows, so a '/' test would
+  // never match there and every base class would silently fail to resolve —
+  // the gate would keep passing while checking less.
+  if (!base.startsWith(SRC + sep)) return null;
   for (const candidate of [`${base}.ts`, join(base, 'index.ts'), base]) {
     try {
       if (statSync(candidate).isFile()) return candidate;
