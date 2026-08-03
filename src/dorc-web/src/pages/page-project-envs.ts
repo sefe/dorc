@@ -268,7 +268,7 @@ export class PageProjectEnvs extends PageElement {
         @opened-changed="${(event: DialogOpenedChangedEvent) => {
           this.mapEnvDialogOpened = event.detail.value;
         }}"
-        ${dialogRenderer(this.renderMapEnvDialog, [])}
+        ${dialogRenderer(this.renderMapEnvDialog, [this.project])}
         ${dialogFooterRenderer(this.renderMapEnvFooter, [])}
       ></vaadin-dialog>
     `;

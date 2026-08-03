@@ -138,7 +138,7 @@ export class ServerDaemonMapping extends LitElement {
         <vaadin-grid-column
           width="100px"
           flex-grow="0"
-          ${columnBodyRenderer(this._detachRenderer, [])}
+          ${columnBodyRenderer(this._detachRenderer, [this.readonly])}
         ></vaadin-grid-column>
       </vaadin-grid>
     `;

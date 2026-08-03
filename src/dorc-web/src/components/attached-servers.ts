@@ -189,7 +189,10 @@ export class AttachedServers extends ResponsiveMixin(LitElement) {
         <vaadin-grid-column
           width="200px"
           flex-grow="0"
-          ${columnBodyRenderer(this._boundServersButtonsRenderer, [])}
+          ${columnBodyRenderer(this._boundServersButtonsRenderer, [
+            this.envId,
+            this.readonly
+          ])}
         >
         </vaadin-grid-column>
       </vaadin-grid>

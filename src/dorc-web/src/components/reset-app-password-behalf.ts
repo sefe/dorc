@@ -89,7 +89,10 @@ export class ResetAppPasswordBehalf extends LitElement {
           this.appUsers,
           this.serverName,
           this.databaseName,
-          this.resettingAppPassword
+          this.resettingAppPassword,
+          this.selectedUser,
+          this.envFilter,
+          this.environmentName
         ])}
         ${dialogFooterRenderer(this.renderResetFooter, [])}
       ></vaadin-dialog>

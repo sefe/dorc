@@ -170,7 +170,8 @@ export class AddEditAccessControl extends LitElement {
         ])}
         ${dialogFooterRenderer(this.renderAccessControlFooter, [
           this.UserEditable,
-          this.savingAccessControls
+          this.savingAccessControls,
+          this.Privileges
         ])}
       ></vaadin-dialog>
     `;

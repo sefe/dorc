@@ -185,7 +185,10 @@ export class PageProjectBundles extends ResponsiveMixin(PageElement) {
           auto-width
           flex-grow="0"
           resizable
-          ${columnHeaderRenderer(this.bundleNameHeaderRenderer, [])}
+          ${columnHeaderRenderer(this.bundleNameHeaderRenderer, [
+            this.uniqueBundleNames,
+            this.bundleNameFilter
+          ])}
         ></vaadin-grid-column>
         <vaadin-grid-column
           ${columnBodyRenderer(this._typeRenderer, [])}
@@ -358,10 +361,7 @@ export class PageProjectBundles extends ResponsiveMixin(PageElement) {
         this.updateUniqueBundleNames();
         this.applyBundleNameFilter();
 
-        if (this.grid) {
-          this.grid.clearCache();
-          this.grid.requestContentUpdate();
-        }
+        this.grid?.clearCache();
 
         this.loading = false;
       },

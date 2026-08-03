@@ -108,11 +108,24 @@ export class CloneEnvironment extends LitElement {
           this.sourceEnvironment,
           this.errorMessage,
           this.isCloning,
-          this.canClone
+          this.canClone,
+          this.newEnvironmentName,
+          this.copyPropertyValues,
+          this.copyServerMappings,
+          this.copyDatabaseMappings,
+          this.copyProjectMappings,
+          this.copyAccessControls
         ])}
         ${dialogFooterRenderer(this.renderCloneFooter, [
           this.canClone,
-          this.isCloning
+          this.isCloning,
+          this.sourceEnvironment,
+          this.newEnvironmentName,
+          this.copyPropertyValues,
+          this.copyServerMappings,
+          this.copyDatabaseMappings,
+          this.copyProjectMappings,
+          this.copyAccessControls
         ])}
       ></vaadin-dialog>
     `;

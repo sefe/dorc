@@ -224,7 +224,9 @@ export class PageProjectsList extends ResponsiveMixin(PageElement) {
               ></vaadin-grid-sort-column>
               <vaadin-grid-column
                 width="180px"
-                ${columnBodyRenderer(this._projectEnvsButtonsRenderer, [])}
+                ${columnBodyRenderer(this._projectEnvsButtonsRenderer, [
+                  this.isAdmin
+                ])}
               ></vaadin-grid-column>
             </vaadin-grid>
           `} `;

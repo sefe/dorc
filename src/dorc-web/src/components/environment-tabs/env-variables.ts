@@ -5,7 +5,7 @@ import { css, PropertyValues } from 'lit';
 import '../dorc-spinner';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid';
-import { customElement, property, query } from 'lit/decorators.js';
+import { customElement, property, query, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { GridDataProviderCallback, GridDataProviderParams, GridFilterDefinition, GridSorterDefinition } from '@vaadin/grid/vaadin-grid';
 import '@vaadin/grid';
@@ -58,7 +58,7 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
   filterVariableScope: string = '';
   isShowDefaultProps: boolean = false;
 
-  private _editingValueId: number | undefined;
+  @state() private _editingValueId: number | undefined;
 
   static get styles() {
     return css`
@@ -351,7 +351,9 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
                 <vaadin-grid-column
                   header="Variable Value"
                   ${columnHeaderRenderer(this.valueHeaderRenderer, [])}
-                  ${columnBodyRenderer(this.variableValueControlsRenderer, [])}
+                  ${columnBodyRenderer(this.variableValueControlsRenderer, [
+                    this._editingValueId
+                  ])}
                   resizable
                   flex-grow="1"
                   width="20rem"
@@ -384,11 +386,9 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
     );
     this.addEventListener('editing-started', ((e: CustomEvent) => {
       this._editingValueId = e.detail.id;
-      this.grid?.requestContentUpdate?.();
     }) as EventListener);
     this.addEventListener('editing-cancelled', (() => {
       this._editingValueId = undefined;
-      this.grid?.requestContentUpdate?.();
     }) as EventListener);
 
     this.getAllVariableNames();

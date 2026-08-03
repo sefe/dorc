@@ -10,7 +10,7 @@ import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
 import '@vaadin/text-field';
 import { css, PropertyValues } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
+import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import '../components/add-daemon';
 import { FlatPropertyValueApiModel, GetScopedPropertyValuesResponseDto, PagedDataSorting, RefDataSearchPropertyValuesApi } from '../apis/dorc-api';
@@ -33,7 +33,7 @@ export class PageVariablesValueLookup extends ResponsiveMixin(PageElement) {
   private scopeFilterValue = '';
   private valueFilterValue = '';
 
-  private _editingValueId: number | undefined;
+  @state() private _editingValueId: number | undefined;
 
   @property({ type: Boolean }) loading = true;
 
@@ -104,7 +104,9 @@ export class PageVariablesValueLookup extends ResponsiveMixin(PageElement) {
         ></vaadin-grid-column>
         <vaadin-grid-column
           header="Value"
-          ${columnBodyRenderer(this.valueRenderer, [])}
+          ${columnBodyRenderer(this.valueRenderer, [
+                    this._editingValueId
+                  ])}
           ${columnHeaderRenderer(this.valueHeaderRenderer, [])}
           resizable
           width="60em"
@@ -129,11 +131,9 @@ export class PageVariablesValueLookup extends ResponsiveMixin(PageElement) {
     this.addEventListener('values-loaded', this.valuesLoaded as EventListener);
     this.addEventListener('editing-started', ((e: CustomEvent) => {
       this._editingValueId = e.detail.id;
-      (this.shadowRoot?.querySelector('vaadin-grid') as any)?.requestContentUpdate?.();
     }) as EventListener);
     this.addEventListener('editing-cancelled', (() => {
       this._editingValueId = undefined;
-      (this.shadowRoot?.querySelector('vaadin-grid') as any)?.requestContentUpdate?.();
     }) as EventListener);
   }
 

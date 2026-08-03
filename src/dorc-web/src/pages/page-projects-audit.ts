@@ -199,7 +199,7 @@ export class PageProjectsAudit extends ResponsiveMixin(PageElement) {
       >
         <vaadin-grid-column
           header=""
-          ${columnBodyRenderer(this.chevronRenderer, [])}
+          ${columnBodyRenderer(this.chevronRenderer, [this.openedItems])}
           width="40px"
           flex-grow="0"
           frozen
@@ -595,12 +595,9 @@ export class PageProjectsAudit extends ResponsiveMixin(PageElement) {
         ...this.openedItems.slice(idx + 1)
       ];
     }
-    const grid = e.currentTarget as { activeItem?: unknown; requestContentUpdate?: () => void } | null;
-    if (grid) {
-      grid.activeItem = null;
-      // Re-render the chevron column so the icon flips.
-      grid.requestContentUpdate?.();
-    }
+    const grid = e.currentTarget as { activeItem?: unknown } | null;
+    // The chevron column depends on openedItems, so it flips on its own.
+    if (grid) grid.activeItem = null;
   };
 
   private prettyJson(raw: string): string {

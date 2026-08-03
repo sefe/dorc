@@ -80,7 +80,9 @@ export class ApplicationDaemons extends LitElement {
         >
         </vaadin-grid-sort-column>
         <vaadin-grid-column
-          ${columnBodyRenderer(this._boundDaemonsButtonsRenderer, [])}
+          ${columnBodyRenderer(this._boundDaemonsButtonsRenderer, [
+            this.userEditable
+          ])}
         >
         </vaadin-grid-column>
       </vaadin-grid>

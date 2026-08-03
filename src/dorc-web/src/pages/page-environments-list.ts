@@ -2,7 +2,7 @@ import '@vaadin/checkbox';
 import { columnBodyRenderer } from '@vaadin/grid/lit';
 import '@vaadin/button';
 import '../components/dorc-spinner';
-import { Grid, GridItemModel } from '@vaadin/grid';
+import { GridItemModel } from '@vaadin/grid';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/grid/vaadin-grid-column';
 import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
@@ -122,7 +122,10 @@ export class PageEnvironmentsList extends ResponsiveMixin(PageElement) {
         @opened-changed="${(e: DialogOpenedChangedEvent) => {
           this.addEnvDialogOpened = e.detail.value;
         }}"
-        ${dialogRenderer(this.renderAddEnvironment, [this.newEnvironment])}
+        ${dialogRenderer(this.renderAddEnvironment, [
+          this.newEnvironment,
+          this.environments
+        ])}
       ></vaadin-dialog>
 
       <clone-environment
@@ -192,7 +195,10 @@ export class PageEnvironmentsList extends ResponsiveMixin(PageElement) {
                   ?hidden="${this._narrowScreen}"
                 ></vaadin-grid-sort-column>
                 <vaadin-grid-column
-                  ${columnBodyRenderer(this._envDetailsButtonsRenderer, [])}
+                  ${columnBodyRenderer(this._envDetailsButtonsRenderer, [
+                    this.isAdmin,
+                    this.isPowerUser
+                  ])}
                 ></vaadin-grid-column>
               </vaadin-grid>
             `}
@@ -224,8 +230,6 @@ export class PageEnvironmentsList extends ResponsiveMixin(PageElement) {
         this.isAdmin = this.userRoles.find(p => p === 'Admin') !== undefined;
         this.isPowerUser =
           this.userRoles.find(p => p === 'PowerUser') !== undefined;
-        const grid = this.shadowRoot?.getElementById('grid') as Grid;
-        grid?.requestContentUpdate();
       },
       error: (err: string) => console.error(err),
       complete: () => {

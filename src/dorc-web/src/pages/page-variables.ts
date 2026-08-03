@@ -20,7 +20,7 @@ import '@vaadin/text-area';
 import '@vaadin/text-field';
 import { TextField } from '@vaadin/text-field';
 import { css, PropertyValueMap } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
+import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import '../components/grid-button-groups/variable-value-controls';
 import { ErrorNotification } from '../components/notifications/error-notification';
@@ -66,7 +66,7 @@ export class PageVariables extends PageElement {
 
   private allPropertyValues: PropertyValueDtoExtended[] | undefined;
 
-  private _editingValueId: number | undefined;
+  @state() private _editingValueId: number | undefined;
 
   private scopeFilterValue = '';
 
@@ -375,7 +375,9 @@ export class PageVariables extends PageElement {
                     resizable
                     flex-grow="1"
                     width="20rem"
-                    ${columnBodyRenderer(this.variableValueControlsRenderer, [])}
+                    ${columnBodyRenderer(this.variableValueControlsRenderer, [
+                    this._editingValueId
+                  ])}
                     ${columnHeaderRenderer(this.valueHeaderRenderer, [])}
                   ></vaadin-grid-column>
                 </vaadin-grid>`}
@@ -662,13 +664,9 @@ export class PageVariables extends PageElement {
     );
     this.addEventListener('editing-started', ((e: CustomEvent) => {
       this._editingValueId = e.detail.id;
-      const grid = this.shadowRoot?.getElementById('grid') as any;
-      grid?.requestContentUpdate?.();
     }) as EventListener);
     this.addEventListener('editing-cancelled', (() => {
       this._editingValueId = undefined;
-      const grid = this.shadowRoot?.getElementById('grid') as any;
-      grid?.requestContentUpdate?.();
     }) as EventListener);
     this.getAllVariableNames();
     this.getEnvironments();

@@ -126,7 +126,9 @@ export class MakeLikeProductionDialog extends LitElement {
         ${dialogRenderer(this.renderDialog, [])}
         ${dialogFooterRenderer(this.renderFooter, [
           this.loading,
-          this.canSubmit
+          this.canSubmit,
+          this.targetEnv,
+          this.propertyOverrides
         ])}
       ></vaadin-dialog>
     `;
