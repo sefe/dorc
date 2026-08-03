@@ -1,3 +1,4 @@
+import '@vaadin/checkbox';
 import { columnBodyRenderer } from '@vaadin/grid/lit';
 import '@vaadin/button';
 import '../components/dorc-spinner';

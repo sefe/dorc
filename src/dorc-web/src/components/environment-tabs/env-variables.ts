@@ -1,3 +1,4 @@
+import '@vaadin/checkbox';
 import { comboBoxRenderer } from '@vaadin/combo-box/lit';
 import { columnBodyRenderer, columnHeaderRenderer } from '@vaadin/grid/lit';
 import { css, PropertyValues } from 'lit';

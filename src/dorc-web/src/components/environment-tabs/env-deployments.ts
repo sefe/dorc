@@ -3,11 +3,10 @@ import '../dorc-spinner';
 import '@vaadin/details';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/grid/vaadin-grid-sort-column';
-import { css, render } from 'lit';
+import { css } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
-import { GridCellPartNameGenerator, GridItemModel } from '@vaadin/grid';
-import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
+import { GridCellPartNameGenerator } from '@vaadin/grid';
 import { DateTimePicker } from '@vaadin/date-time-picker';
 import { PageEnvBase } from './page-env-base';
 import { EnvironmentContentBuildsApiModel, RefDataEnvironmentsDetailsApi } from '../../apis/dorc-api';
@@ -100,7 +99,7 @@ export class EnvDeployments extends PageEnvBase {
             >
               <vaadin-grid-column
                 header="Request Id"
-                .renderer="${this._idRenderer.bind(this)}"
+                ${columnBodyRenderer(this._idRenderer, [])}
                 resizable
                 width="110px"
                 ${columnHeaderRenderer(this.idHeaderRenderer, [])}
@@ -110,14 +109,14 @@ export class EnvDeployments extends PageEnvBase {
                 path="ComponentName"
                 resizable
                 auto-width
-                .headerRenderer="${this.componentNameHeaderRenderer.bind(this)}"
+                ${columnHeaderRenderer(this.componentNameHeaderRenderer, [])}
               >
               </vaadin-grid-column>
               <vaadin-grid-column
                 path="RequestBuildNum"
                 resizable
                 auto-width
-                .headerRenderer="${this.requestNumberHeaderRenderer.bind(this)}"
+                ${columnHeaderRenderer(this.requestNumberHeaderRenderer, [])}
               >
               </vaadin-grid-column>
               <vaadin-grid-column
@@ -197,9 +196,8 @@ export class EnvDeployments extends PageEnvBase {
       `;
   }
 
-  componentNameHeaderRenderer(root: HTMLElement) {
-    render(
-      html`<vaadin-grid-sorter path="ComponentName">Component Name</vaadin-grid-sorter>
+  componentNameHeaderRenderer() {
+    return html`<vaadin-grid-sorter path="ComponentName">Component Name</vaadin-grid-sorter>
         <vaadin-grid-filter path="ComponentName">
           <vaadin-text-field
             clear-button-visible
@@ -208,14 +206,11 @@ export class EnvDeployments extends PageEnvBase {
             style="width: 100%"
             theme="small"
           ></vaadin-text-field>
-        </vaadin-grid-filter>`,
-      root
-    );
+        </vaadin-grid-filter>`;
   }
 
-  requestNumberHeaderRenderer(root: HTMLElement) {
-    render(
-      html`<vaadin-grid-sorter path="RequestBuildNum">Request Build Number</vaadin-grid-sorter>
+  requestNumberHeaderRenderer() {
+    return html`<vaadin-grid-sorter path="RequestBuildNum">Request Build Number</vaadin-grid-sorter>
         <vaadin-grid-filter path="RequestBuildNum">
           <vaadin-text-field
             clear-button-visible
@@ -224,20 +219,15 @@ export class EnvDeployments extends PageEnvBase {
             style="width: 100%"
             theme="small"
           ></vaadin-text-field>
-        </vaadin-grid-filter>`,
-      root
-    );
+        </vaadin-grid-filter>`;
   }
 
   _idRenderer(
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<EnvironmentContentBuildsApiModelExtended>
+    item: EnvironmentContentBuildsApiModelExtended
   ) {
-    const content = model.item as EnvironmentContentBuildsApiModelExtended;
+    const content = item as EnvironmentContentBuildsApiModelExtended;
 
-    render(
-      html`
+    return html`
         <vaadin-button
           class="underlined-button"
           theme="tertiary-inline"
@@ -257,9 +247,7 @@ export class EnvDeployments extends PageEnvBase {
           }}"
           >${content.RequestId}</vaadin-button
         >
-      `,
-      root
-    );
+      `;
   }
 
   _dateRenderer(

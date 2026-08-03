@@ -1,3 +1,4 @@
+import { columnBodyRenderer, columnHeaderRenderer } from '@vaadin/grid/lit';
 import '@vaadin/button';
 import '../components/dorc-spinner';
 import '@vaadin/grid/vaadin-grid';
@@ -7,7 +8,7 @@ import '@vaadin/icons/vaadin-icons';
 import '@vaadin/grid/vaadin-grid-filter';
 import '@vaadin/icon';
 import '@vaadin/text-field';
-import { css, PropertyValues, render } from 'lit';
+import { css, PropertyValues } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import '../components/add-edit-database';
@@ -17,23 +18,8 @@ import { dialogFooterRenderer, dialogRenderer } from '@vaadin/dialog/lit';
 import { map } from 'lit/directives/map.js';
 import { Notification } from '@vaadin/notification';
 import { TextField } from '@vaadin/text-field';
-import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
-import {
-  Grid,
-  GridDataProviderCallback,
-  GridDataProviderParams,
-  GridFilterDefinition,
-  GridItemModel,
-  GridSorterDefinition
-} from '@vaadin/grid';
-import {
-  EnvironmentApiModel,
-  PagedDataFilter,
-  PagedDataSorting,
-  RefDataEnvironmentsApi,
-  DatabaseApiModel,
-  type GetDatabaseApiModelListResponseDto
-} from '../apis/dorc-api';
+import { Grid, GridDataProviderCallback, GridDataProviderParams, GridFilterDefinition, GridSorterDefinition } from '@vaadin/grid';
+import { EnvironmentApiModel, PagedDataFilter, PagedDataSorting, RefDataEnvironmentsApi, DatabaseApiModel, type GetDatabaseApiModelListResponseDto } from '../apis/dorc-api';
 import { RefDataDatabasesApi } from '../apis/dorc-api';
 import { PageElement } from '../helpers/page-element';
 import { ResponsiveMixin } from '../helpers/responsive-mixin';
@@ -166,7 +152,7 @@ export class PageDatabasesList extends ResponsiveMixin(PageElement) {
         <vaadin-grid-column
           path='ServerName'
           resizable
-          .headerRenderer='${this.instanceHeaderRenderer}'
+          ${columnHeaderRenderer(this.instanceHeaderRenderer, [])}
           style='color:var(--dorc-text-secondary)'
           auto-width
           flex-grow='0'
@@ -174,21 +160,21 @@ export class PageDatabasesList extends ResponsiveMixin(PageElement) {
         <vaadin-grid-column
           path='Name'
           resizable
-          .headerRenderer='${this.dbNameHeaderRenderer}'
+          ${columnHeaderRenderer(this.dbNameHeaderRenderer, [])}
           auto-width
           flex-grow='0'
         ></vaadin-grid-column>
         <vaadin-grid-column
-          .renderer='${this.applicationTagsRenderer}'
+          ${columnBodyRenderer(this.applicationTagsRenderer, [])}
           resizable
-          .headerRenderer='${this.appTagsHeaderRenderer}'
+          ${columnHeaderRenderer(this.appTagsHeaderRenderer, [])}
           ?hidden='${this._narrowScreen}'
         ></vaadin-grid-column>
         <vaadin-grid-column
           width='300px'
           flex-grow='0'
-          .renderer='${this.environmentNamesRenderer}'
-          .headerRenderer='${this.environmentNamesHeaderRenderer}'
+          ${columnBodyRenderer(this.environmentNamesRenderer, [])}
+          ${columnHeaderRenderer(this.environmentNamesHeaderRenderer, [])}
           resizable
           header='Mapped Environments'
           ?hidden='${this._narrowScreen}'
@@ -197,8 +183,8 @@ export class PageDatabasesList extends ResponsiveMixin(PageElement) {
           width='200px'
           flex-grow='0'
           resizable
-          .renderer='${this._boundDatabasesButtonsRenderer}'
-          .headerRenderer='${this.buttonsHeaderRenderer}'
+          ${columnBodyRenderer(this._boundDatabasesButtonsRenderer, [])}
+          ${columnHeaderRenderer(this.buttonsHeaderRenderer, [])}
         >
       </vaadin-grid>
       <img
@@ -357,9 +343,8 @@ export class PageDatabasesList extends ResponsiveMixin(PageElement) {
     }
   }
 
-  buttonsHeaderRenderer(root: HTMLElement) {
-    render(
-      html`
+  buttonsHeaderRenderer() {
+    return html`
         <vaadin-button
           title="Add Database"
           theme="small"
@@ -378,14 +363,11 @@ export class PageDatabasesList extends ResponsiveMixin(PageElement) {
           ></vaadin-icon>
           Add Database...
         </vaadin-button>
-      `,
-      root
-    );
+      `;
   }
 
-  environmentNamesHeaderRenderer(root: HTMLElement) {
-    render(
-      html`
+  environmentNamesHeaderRenderer() {
+    return html`
         <vaadin-text-field
           placeholder="Environments"
           clear-button-visible
@@ -406,14 +388,11 @@ export class PageDatabasesList extends ResponsiveMixin(PageElement) {
             );
           }}"
         ></vaadin-text-field>
-      `,
-      root
-    );
+      `;
   }
 
-  instanceHeaderRenderer(root: HTMLElement) {
-    render(
-      html`<vaadin-grid-sorter
+  instanceHeaderRenderer() {
+    return html`<vaadin-grid-sorter
           direction="asc"
           path="ServerName"
           style="align-items: normal"
@@ -437,14 +416,11 @@ export class PageDatabasesList extends ResponsiveMixin(PageElement) {
               })
             );
           }}"
-        ></vaadin-text-field> `,
-      root
-    );
+        ></vaadin-text-field> `;
   }
 
-  dbNameHeaderRenderer(root: HTMLElement) {
-    render(
-      html`<vaadin-grid-sorter
+  dbNameHeaderRenderer() {
+    return html`<vaadin-grid-sorter
               path="Name"
               style="align-items: normal"
       ></vaadin-grid-sorter>
@@ -467,14 +443,11 @@ export class PageDatabasesList extends ResponsiveMixin(PageElement) {
                           })
                   );
               }}"
-      ></vaadin-text-field> `,
-      root
-    );
+      ></vaadin-text-field> `;
   }
 
-  appTagsHeaderRenderer(root: HTMLElement) {
-    render(
-      html`<vaadin-grid-sorter
+  appTagsHeaderRenderer() {
+    return html`<vaadin-grid-sorter
               path="Type"
               style="align-items: normal"
       ></vaadin-grid-sorter>
@@ -498,21 +471,16 @@ export class PageDatabasesList extends ResponsiveMixin(PageElement) {
                           })
                   );
               }}"
-      ></vaadin-text-field> `,
-      root
-    );
+      ></vaadin-text-field> `;
   }
 
   private environmentNamesRenderer = (
-    root: HTMLElement,
-    _column: HTMLElement,
-    model: GridItemModel<DatabaseApiModel>
+    item: DatabaseApiModel
   ) => {
-    const database = model.item;
+    const database = item;
     const envNames = database.EnvironmentNames?.sort();
 
-    render(
-      html`
+    return html`
         <vaadin-horizontal-layout style="align-items: center;" theme="spacing">
           <vaadin-vertical-layout
             style="line-height: var(--lumo-line-height-s);"
@@ -540,9 +508,7 @@ export class PageDatabasesList extends ResponsiveMixin(PageElement) {
             )}
           </vaadin-vertical-layout>
         </vaadin-horizontal-layout>
-      `,
-      root
-    );
+      `;
   };
 
   openEnvironmentDetails(event: CustomEvent) {
@@ -582,28 +548,21 @@ export class PageDatabasesList extends ResponsiveMixin(PageElement) {
   }
 
   _boundDatabasesButtonsRenderer(
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<AttachedDatabases>
+    item: AttachedDatabases
   ) {
-    const database = model.item as DatabaseApiModel;
-    render(
-      html` <database-controls
+    const database = item as DatabaseApiModel;
+    return html` <database-controls
         .envId="${0}"
         .readonly="${!database.UserEditable}"
         .databaseDetails="${database}"
       >
-      </database-controls>`,
-      root
-    );
+      </database-controls>`;
   }
 
   private applicationTagsRenderer = (
-    root: HTMLElement,
-    _: HTMLElement,
-    model: GridItemModel<DatabaseApiModel>
+    item: DatabaseApiModel
   ) => {
-    const database = model.item;
+    const database = item;
     const appTags =
       database.Type !== undefined &&
       database.Type !== null &&
@@ -611,8 +570,7 @@ export class PageDatabasesList extends ResponsiveMixin(PageElement) {
         ? database.Type?.split(';')
         : [];
 
-    render(
-      html`
+    return html`
         ${map(
           appTags,
           value =>
@@ -633,9 +591,7 @@ export class PageDatabasesList extends ResponsiveMixin(PageElement) {
               ${value}
             </button>`
         )}
-      `,
-      root
-    );
+      `;
   };
 
   protected firstUpdated(_changedProperties: PropertyValues) {

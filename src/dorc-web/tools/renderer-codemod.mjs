@@ -152,18 +152,25 @@ function bindingEdit(binding, directive) {
   };
 }
 
-/** Finds `.renderer="${this.x}"` style bindings and the element they sit on. */
+/**
+ * Finds `.renderer="${this.x}"` bindings and the element they sit on.
+ *
+ * Accepts either quote character, and a trailing `.bind(this)` — the binding
+ * is redundant once the directive supplies the host as `this`, so it is
+ * dropped rather than carried over.
+ */
 function findBindings(text) {
   const out = [];
-  const re = /\.(renderer|headerRenderer|footerRenderer|rowDetailsRenderer)="\$\{(this\.[A-Za-z_$][\w$]*)\}"/g;
+  const re =
+    /\.(renderer|headerRenderer|footerRenderer|rowDetailsRenderer)=(["'])\$\{(this\.[A-Za-z_$][\w$]*)(\.bind\(this\))?\}\2/g;
   let match;
   while ((match = re.exec(text))) {
     const element = elementFor(text, match.index);
     if (!element) continue;
     out.push({
       prop: match[1],
-      expression: match[2],
-      member: match[2].slice('this.'.length),
+      expression: match[3],
+      member: match[3].slice('this.'.length),
       element,
       start: match.index,
       end: match.index + match[0].length

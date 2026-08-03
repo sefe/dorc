@@ -1,20 +1,19 @@
 import { ref } from 'lit/directives/ref.js';
 import { columnBodyRenderer, columnHeaderRenderer } from '@vaadin/grid/lit';
-import { css, PropertyValues, render } from 'lit';
+import { css, PropertyValues } from 'lit';
 import '../components/dorc-spinner';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid-filter';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/checkbox';
+import '@vaadin/combo-box';
 import '@vaadin/button';
 import '@vaadin/icons/vaadin-icons';
 import '../components/add-daemon';
 import '@vaadin/text-field';
-import { Grid, GridDataProviderCallback, GridDataProviderParams, GridFilterDefinition, GridItemModel, GridSorterDefinition } from '@vaadin/grid';
-import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
+import { Grid, GridDataProviderCallback, GridDataProviderParams, GridFilterDefinition, GridSorterDefinition } from '@vaadin/grid';
 import { customElement, property, query } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
-import { Checkbox } from '@vaadin/checkbox';
 import { PageElement } from '../helpers/page-element';
 import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import { PagedDataSorting, PowerShellVersionDto, PowerShellVersionsApi, RefDataScriptsApi, ScriptApiModel } from '../apis/dorc-api';
@@ -23,7 +22,6 @@ import { GetScriptsListResponseDto, PagedDataFilter } from '../apis/dorc-api';
 import GlobalCache from '../global-cache';
 import '../components/hegs-json-viewer';
 import { HegsJsonViewer } from '../components/hegs-json-viewer';
-import { ComboBox } from '@vaadin/combo-box';
 import '@vaadin/grid/vaadin-grid-sorter';
 
 const variableName = 'Name';
@@ -208,14 +206,14 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
               resizable
               width="80px"
               flex-grow="0"
-              .renderer="${this.enabledRenderer.bind(this)}"
+              ${columnBodyRenderer(this.enabledRenderer, [this.userRoles])}
             >
             </vaadin-grid-column>
             <vaadin-grid-column
               path="Name"
               header="Script Name"
               resizable
-              .headerRenderer="${this.nameHeaderRenderer.bind(this)}"
+              ${columnHeaderRenderer(this.nameHeaderRenderer, [])}
               width="500px"
               flex-grow="0"
             >
@@ -226,8 +224,8 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
               resizable
               width="200px"
               flex-grow="0"
-              .renderer="${this.projectNamesRenderer.bind(this)}"
-              .headerRenderer="${this.projectNamesHeaderRenderer.bind(this)}"
+              ${columnBodyRenderer(this.projectNamesRenderer, [])}
+              ${columnHeaderRenderer(this.projectNamesHeaderRenderer, [])}
               ?hidden="${this._narrowScreen}"
             >
             </vaadin-grid-column>
@@ -252,7 +250,10 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
               path="PowerShellVersionNumber"
               header="PS Version"
               resizable
-              .renderer="${this.psVersionRenderer.bind(this)}"
+              ${columnBodyRenderer(this.psVersionRenderer, [
+                this.powerShellVersions,
+                this.userRoles
+              ])}
               ?hidden="${this._narrowScreen}"
             ></vaadin-grid-column>
           </vaadin-grid>`}
@@ -308,41 +309,14 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
     this.searching = false;
   }
 
-  private psVersionRenderer(root: HTMLElement, _: any, rowData: any) {
-    const script = rowData.item as ScriptApiModel;
-    const select = new ComboBox();
-    select.items = this.powerShellVersions;
-    select.value = script.PowerShellVersionNumber ?? "";
-
-    select.disabled = !this.isAdmin && !this.isPowerUser;
-
-    select.addEventListener('value-changed', (event: any) => {
-      if (script.PowerShellVersionNumber != event.detail.value && !!event.detail.value){
-        script.PowerShellVersionNumber = event.detail.value;
-        const api = new RefDataScriptsApi();
-        api.refDataScriptsEditPut({ scriptApiModel: script }).subscribe({
-          next: (data: boolean) =>
-            console.log(
-              `script with id ${script.Id} PowerShellVersionNumber set to ${
-                event.detail.value
-              } result ${data}`
-            )
-        });
-      }
-    });
-    render(select, root);
-  }
   
   private projectNamesRenderer = (
-      root: HTMLElement,
-      _: HTMLElement,
-      model: GridItemModel<ScriptApiModel>
+      item: ScriptApiModel
     ) => {
-      const script = model.item;
+      const script = item;
       const projectNames = script.ProjectNames ?? [];
 
-      render(
-        html`
+      return html`
           ${map(
             projectNames,
             value =>
@@ -364,9 +338,7 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
                 ${value}
               </button>`
           )}
-        `,
-        root
-      );
+        `;
     };
 
   nonProdRenderer(script: ScriptApiModel) {
@@ -376,55 +348,47 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
     ></vaadin-checkbox>`;
   }
 
-  enabledRenderer(
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<ScriptApiModel>
-  ) {
-    const script = model.item as ScriptApiModel;
-
-    let isAdmin: boolean;
-    if (
-      this.userRoles &&
-      this.userRoles.find((p: string) => p === 'Admin') !== undefined
-    ) {
-      isAdmin = true;
-    } else {
-      isAdmin = false;
-    }
-
-    let isPowerUser: boolean;
-    if (
-      this.userRoles &&
-      this.userRoles.find((p: string) => p === 'PowerUser') !== undefined
-    ) {
-      isPowerUser = true;
-    } else {
-      isPowerUser = false;
-    }
-
-    const checkbox = new Checkbox();
-
-    checkbox.checked = script.IsEnabled as boolean;
-    checkbox.disabled = !(isAdmin || isPowerUser);
-
-    checkbox.addEventListener('checked-changed', (e: CustomEvent) => {
-      if (script.IsEnabled !== e.detail.value) {
-        // don't fire when value is same
+  enabledRenderer(script: ScriptApiModel) {
+    return html`<vaadin-checkbox
+      ?disabled="${!this.canEditScripts()}"
+      .checked="${script.IsEnabled as boolean}"
+      @checked-changed="${(e: CustomEvent) => {
+        // Don't fire when the value is unchanged.
+        if (script.IsEnabled === e.detail.value) return;
         script.IsEnabled = e.detail.value;
-        const api = new RefDataScriptsApi();
-        api.refDataScriptsEditPut({ scriptApiModel: script }).subscribe({
-          next: (data: boolean) =>
-            console.log(
-              `script with id ${script.Id} IsEnabled set to ${
-                script.IsEnabled
-              } result ${data}`
-            )
-        });
-      }
-    });
+        this.saveScript(script, `IsEnabled set to ${script.IsEnabled}`);
+      }}"
+    ></vaadin-checkbox>`;
+  }
 
-    render(checkbox, root);
+  private psVersionRenderer(script: ScriptApiModel) {
+    return html`<vaadin-combo-box
+      .items="${this.powerShellVersions}"
+      .value="${script.PowerShellVersionNumber ?? ''}"
+      ?disabled="${!this.canEditScripts()}"
+      @value-changed="${(e: CustomEvent) => {
+        const value = e.detail.value;
+        if (!value || script.PowerShellVersionNumber === value) return;
+        script.PowerShellVersionNumber = value;
+        this.saveScript(script, `PowerShellVersionNumber set to ${value}`);
+      }}"
+    ></vaadin-combo-box>`;
+  }
+
+  /** Admins and power users may edit scripts; everyone else reads them. */
+  private canEditScripts() {
+    return Boolean(
+      this.userRoles?.some(role => role === 'Admin' || role === 'PowerUser')
+    );
+  }
+
+  private saveScript(script: ScriptApiModel, what: string) {
+    new RefDataScriptsApi()
+      .refDataScriptsEditPut({ scriptApiModel: script })
+      .subscribe({
+        next: (data: boolean) =>
+          console.log(`script with id ${script.Id} ${what} result ${data}`)
+      });
   }
 
   _jsonRenderer(script: ScriptApiModel) {
@@ -479,9 +443,8 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
     400 // debounce wait time
   );
 
-  nameHeaderRenderer(root: HTMLElement) {
-    render(
-      html`
+  nameHeaderRenderer() {
+    return html`
         <vaadin-grid-sorter
           path="Name"
           style="align-items: normal"
@@ -508,9 +471,7 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
             );
           }}"
         ></vaadin-text-field>
-      `,
-      root
-    );
+      `;
   }
 
   pathHeaderRenderer() {
@@ -544,9 +505,8 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
       `;
   }
 
-  projectNamesHeaderRenderer(root: HTMLElement) {
-    render(
-      html`
+  projectNamesHeaderRenderer() {
+    return html`
         <div style="display: flex; flex-direction: column;">
           <vaadin-text-field
             placeholder="Project"
@@ -571,9 +531,7 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
             }}"
           ></vaadin-text-field>
         </div>
-      `,
-      root
-    );
+      `;
   }
 
   private scriptsLoaded() {

@@ -1,3 +1,4 @@
+import { columnBodyRenderer, columnHeaderRenderer } from '@vaadin/grid/lit';
 import '@vaadin/button';
 import '../components/dorc-spinner';
 import '@vaadin/grid/vaadin-grid';
@@ -7,7 +8,7 @@ import '@vaadin/icons/vaadin-icons';
 import '@vaadin/grid/vaadin-grid-filter';
 import '@vaadin/icon';
 import '@vaadin/text-field';
-import { css, PropertyValues, render } from 'lit';
+import { css, PropertyValues } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import '../components/add-edit-server';
@@ -18,23 +19,8 @@ import { dialogFooterRenderer, dialogRenderer } from '@vaadin/dialog/lit';
 import { map } from 'lit/directives/map.js';
 import { Notification } from '@vaadin/notification';
 import { TextField } from '@vaadin/text-field';
-import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
-import {
-  Grid,
-  GridDataProviderCallback,
-  GridDataProviderParams,
-  GridFilterDefinition,
-  GridItemModel,
-  GridSorterDefinition
-} from '@vaadin/grid';
-import {
-  EnvironmentApiModel,
-  GetServerApiModelListResponseDto,
-  PagedDataFilter,
-  PagedDataSorting,
-  RefDataEnvironmentsApi,
-  ServerApiModel
-} from '../apis/dorc-api';
+import { Grid, GridDataProviderCallback, GridDataProviderParams, GridFilterDefinition, GridSorterDefinition } from '@vaadin/grid';
+import { EnvironmentApiModel, GetServerApiModelListResponseDto, PagedDataFilter, PagedDataSorting, RefDataEnvironmentsApi, ServerApiModel } from '../apis/dorc-api';
 import { RefDataServersApi } from '../apis/dorc-api';
 import { PageElement } from '../helpers/page-element';
 import { ResponsiveMixin } from '../helpers/responsive-mixin';
@@ -199,7 +185,7 @@ export class PageServersList extends ResponsiveMixin(PageElement) {
         <vaadin-grid-column
           path='Name'
           resizable
-          .headerRenderer='${this.nameHeaderRenderer}'
+          ${columnHeaderRenderer(this.nameHeaderRenderer, [])}
           style='color:var(--dorc-text-secondary)'
           auto-width
           flex-grow='0'
@@ -207,22 +193,22 @@ export class PageServersList extends ResponsiveMixin(PageElement) {
         <vaadin-grid-column
           path='OsName'
           resizable
-          .headerRenderer='${this.osHeaderRenderer}'
+          ${columnHeaderRenderer(this.osHeaderRenderer, [])}
           auto-width
           flex-grow='0'
           ?hidden='${this._narrowScreen}'
         ></vaadin-grid-column>
         <vaadin-grid-column
-          .renderer='${this.applicationTagsRenderer}'
+          ${columnBodyRenderer(this.applicationTagsRenderer, [])}
           resizable
-          .headerRenderer='${this.appTagsHeaderRenderer}'
+          ${columnHeaderRenderer(this.appTagsHeaderRenderer, [])}
           ?hidden='${this._narrowScreen}'
         ></vaadin-grid-column>
         <vaadin-grid-column
           width='300px'
           flex-grow='0'
-          .renderer='${this.environmentNamesRenderer}'
-          .headerRenderer='${this.environmentNamesHeaderRenderer}'
+          ${columnBodyRenderer(this.environmentNamesRenderer, [])}
+          ${columnHeaderRenderer(this.environmentNamesHeaderRenderer, [])}
           resizable
           header='Mapped Environments'
           ?hidden='${this._narrowScreen}'
@@ -231,8 +217,8 @@ export class PageServersList extends ResponsiveMixin(PageElement) {
           width='200px'
           flex-grow='0'
           resizable
-          .renderer='${this._boundServersButtonsRenderer}'
-          .headerRenderer='${this.buttonsHeaderRenderer}'
+          ${columnBodyRenderer(this._boundServersButtonsRenderer, [])}
+          ${columnHeaderRenderer(this.buttonsHeaderRenderer, [])}
         >
       </vaadin-grid>
       <img
@@ -439,9 +425,8 @@ export class PageServersList extends ResponsiveMixin(PageElement) {
     }
   }
 
-  buttonsHeaderRenderer(root: HTMLElement) {
-    render(
-      html`
+  buttonsHeaderRenderer() {
+    return html`
         <vaadin-button
           title="Add Server"
           theme="small"
@@ -460,14 +445,11 @@ export class PageServersList extends ResponsiveMixin(PageElement) {
           ></vaadin-icon>
           Add Server...
         </vaadin-button>
-      `,
-      root
-    );
+      `;
   }
 
-  environmentNamesHeaderRenderer(root: HTMLElement) {
-    render(
-      html`
+  environmentNamesHeaderRenderer() {
+    return html`
         <vaadin-text-field
           placeholder="Environments"
           clear-button-visible
@@ -488,14 +470,11 @@ export class PageServersList extends ResponsiveMixin(PageElement) {
             );
           }}"
         ></vaadin-text-field>
-      `,
-      root
-    );
+      `;
   }
 
-  nameHeaderRenderer(root: HTMLElement) {
-    render(
-      html`<vaadin-grid-sorter
+  nameHeaderRenderer() {
+    return html`<vaadin-grid-sorter
           direction="asc"
           path="Name"
           style="align-items: normal"
@@ -519,14 +498,11 @@ export class PageServersList extends ResponsiveMixin(PageElement) {
               })
             );
           }}"
-        ></vaadin-text-field> `,
-      root
-    );
+        ></vaadin-text-field> `;
   }
 
-  osHeaderRenderer(root: HTMLElement) {
-    render(
-      html`<vaadin-grid-sorter
+  osHeaderRenderer() {
+    return html`<vaadin-grid-sorter
           path="OsName"
           style="align-items: normal"
         ></vaadin-grid-sorter>
@@ -549,14 +525,11 @@ export class PageServersList extends ResponsiveMixin(PageElement) {
               })
             );
           }}"
-        ></vaadin-text-field> `,
-      root
-    );
+        ></vaadin-text-field> `;
   }
 
-  appTagsHeaderRenderer(root: HTMLElement) {
-    render(
-      html`<vaadin-grid-sorter
+  appTagsHeaderRenderer() {
+    return html`<vaadin-grid-sorter
           path="ApplicationTags"
           style="align-items: normal"
         ></vaadin-grid-sorter>
@@ -580,21 +553,16 @@ export class PageServersList extends ResponsiveMixin(PageElement) {
               })
             );
           }}"
-        ></vaadin-text-field> `,
-      root
-    );
+        ></vaadin-text-field> `;
   }
 
   private environmentNamesRenderer = (
-    root: HTMLElement,
-    _column: HTMLElement,
-    model: GridItemModel<ServerApiModel>
+    item: ServerApiModel
   ) => {
-    const server = model.item;
+    const server = item;
     const envNames = server.EnvironmentNames?.sort();
 
-    render(
-      html`
+    return html`
         <vaadin-horizontal-layout style="align-items: center;" theme="spacing">
           <vaadin-vertical-layout
             style="line-height: var(--lumo-line-height-s);"
@@ -622,9 +590,7 @@ export class PageServersList extends ResponsiveMixin(PageElement) {
             )}
           </vaadin-vertical-layout>
         </vaadin-horizontal-layout>
-      `,
-      root
-    );
+      `;
   };
 
   openEnvironmentDetails(event: CustomEvent) {
@@ -664,32 +630,24 @@ export class PageServersList extends ResponsiveMixin(PageElement) {
   }
 
   _boundServersButtonsRenderer(
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<AttachedServers>
+    item: AttachedServers
   ) {
-    const server = model.item as ServerApiModel;
-    render(
-      html` <server-controls
+    const server = item as ServerApiModel;
+    return html` <server-controls
         .envId="${0}"
         .readonly="${!server.UserEditable}"
         .serverDetails="${server}"
       >
-      </server-controls>`,
-      root
-    );
+      </server-controls>`;
   }
 
   private applicationTagsRenderer = (
-    root: HTMLElement,
-    _: HTMLElement,
-    model: GridItemModel<ServerApiModel>
+    item: ServerApiModel
   ) => {
-    const server = model.item;
+    const server = item;
     const appTags = splitTags(server.ApplicationTags);
 
-    render(
-      html`
+    return html`
         ${map(
           appTags,
           value =>
@@ -710,9 +668,7 @@ export class PageServersList extends ResponsiveMixin(PageElement) {
               ${value}
             </button>`
         )}
-      `,
-      root
-    );
+      `;
   };
 
   protected firstUpdated(_changedProperties: PropertyValues) {
