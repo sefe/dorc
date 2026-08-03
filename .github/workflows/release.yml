@@ -57,27 +57,6 @@ jobs:
       working-directory: src/dorc-web
       run: npm ci --loglevel=error
 
-    - name: Select browser matrix
-      id: browsers
-      shell: pwsh
-      run: |
-        # Branches that ship get all three engines; everything else gets
-        # chromium, which keeps PR feedback short and avoids downloading two
-        # extra browser engines on a cache miss.
-        #
-        # Read the ref from the environment rather than interpolating
-        # ${{ github.ref }} into the script body: ref names may contain quotes
-        # and backticks, so the interpolated form is a script-injection sink.
-        $ref = $env:GITHUB_REF
-        if ($ref -eq "refs/heads/main" -or $ref -eq "refs/heads/develop" -or $ref -like "refs/heads/release/*") {
-          $browsers = "chromium,firefox,webkit"
-        } else {
-          $browsers = "chromium"
-        }
-        Write-Host "Browser matrix: $browsers"
-        echo "list=$browsers" >> $env:GITHUB_OUTPUT
-        echo "install=$($browsers -replace ',',' ')" >> $env:GITHUB_OUTPUT
-
     # The next three steps assume Windows (pwsh + the Windows cache path).
     # The whole job is windows-latest today; the `if: runner.os == 'Windows'`
     # guards align them so adding a Linux/macOS matrix entry later is a
@@ -102,26 +81,30 @@ jobs:
         }
         echo "version=$version" >> $env:GITHUB_OUTPUT
 
-    # The browser list is part of the key: a cache populated by a chromium-only
-    # run must not satisfy a run that needs all three engines.
+    # Every engine is installed on every run, so the Playwright version alone
+    # identifies the cache contents. Do not reintroduce a per-branch browser
+    # subset without putting that subset back into the key — a chromium-only
+    # cache entry must never satisfy a run that needs all three.
     - name: Cache Playwright browsers
       id: playwright-cache
       if: runner.os == 'Windows'
       uses: actions/cache@v6
       with:
         path: ~\AppData\Local\ms-playwright
-        key: playwright-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}-${{ steps.browsers.outputs.list }}
+        key: playwright-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
 
     - name: Install Playwright browsers
       if: runner.os == 'Windows' && steps.playwright-cache.outputs.cache-hit != 'true'
       working-directory: src/dorc-web
-      run: npx playwright install ${{ steps.browsers.outputs.install }}
+      run: npx playwright install chromium firefox webkit
 
+    # VITEST_BROWSERS is deliberately not set: the suite runs its full default
+    # matrix on every build, on every branch. Varying it per branch meant PRs
+    # exercised a different configuration from main, which is precisely how the
+    # comma-in-cache-key bug reached main green.
     - name: Run web tests
       if: runner.os == 'Windows'
       working-directory: src/dorc-web
-      env:
-        VITEST_BROWSERS: ${{ steps.browsers.outputs.list }}
       run: npm test
 
   build:
@@ -224,11 +207,20 @@ jobs:
           Write-Host "UpdateVersion.ps1 not found, skipping cmdlet versioning"
         }
       
-    # There is deliberately no actions/cache step for ~/.nuget/packages here.
-    # Caching it on Windows means shuffling tens of thousands of small files:
-    # measured over run 30527995114 it cost 1m04s to restore plus 10s to save,
-    # to speed up a restore that takes 27s warm. The key also hashed **/*.csproj,
-    # so any project-file edit paid that cost for nothing.
+    # #797 removed this cache on the argument that it cost more than it saved:
+    # 1m04s to restore plus 10s to save, against a 27s warm restore. The
+    # measurement that mattered was the one not taken — how long an uncached
+    # restore takes. It is 2m04s (run 30751703601) to 2m41s (run 30794820988),
+    # so removing the cache cost 25-100s per build rather than saving 40s.
+    # Restored on that evidence.
+    - name: Cache NuGet packages
+      uses: actions/cache@v6
+      with:
+        path: ~/.nuget/packages
+        key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json', '**/*.csproj') }}
+        restore-keys: |
+          ${{ runner.os }}-nuget-
+
     # Every project in the solution is SDK-style (csproj / wixproj / sqlproj)
     # and there is no packages.config anywhere in the tree, so the `nuget
     # restore` pass that used to run first was pure duplication of the work
@@ -236,14 +228,38 @@ jobs:
     - name: Restore packages
       run: dotnet restore ${{ env.SOLUTION_PATH }} --configfile pipelines/NuGet.config
 
-    # /m builds independent projects across every core on the runner and keeps
-    # the Roslyn compiler server alive between them. The previous
-    # `/m:1 /p:BuildInParallel=false /p:UseSharedCompilation=false` combination
-    # pushed all 37 projects through a single node with a cold csc.exe start
-    # each time, and accounted for over half the pipeline's wall-clock.
-    # Setup.Dorc and Setup.Acceptance declare their ProjectReferences
-    # explicitly, so the dependency graph still orders the MSI harvest after
-    # the projects it packages.
+    # DO NOT re-enable /m here without first fixing the installer projects.
+    #
+    # #797 replaced `/m:1 /p:BuildInParallel=false /p:UseSharedCompilation=false`
+    # with /m, on the reasoning that Setup.Dorc and Setup.Acceptance declare
+    # their ProjectReferences so the graph would still order the MSI harvest
+    # correctly. That reasoning was wrong, and the flags were load-bearing.
+    #
+    # Both wixprojs contain a target that shells out to independent build
+    # processes, entirely outside the MSBuild graph:
+    #
+    #   <Target Name="PublishProjects" AfterTargets="BeforeResolveReferences">
+    #     <Exec Command="dotnet publish ... Dorc.Api.csproj" />
+    #     <Exec Command="MSBuild.exe ... Dorc.NetFramework.Runner.csproj" />
+    #     ... 11 of these in Setup.Dorc, 1 in Setup.Acceptance
+    #
+    # ProjectReference ordering has no authority over a process launched by
+    # Exec. Under /m the two wixprojs build concurrently (they are independent
+    # leaves), each firing its own chain, and those children rebuild projects
+    # the outer build is compiling at the same moment. Two writers on one
+    # output:
+    #
+    #   CSC : error CS2012: Cannot open
+    #   'Dorc.NetFramework.PowerShell\obj\Release\Dorc.NetFramework.PowerShell.dll'
+    #   for writing -- being used by another process
+    #   [Dorc.NetFramework.PowerShell.csproj] [Setup.Dorc\Setup.Dorc.wixproj]
+    #   Setup.Dorc.wixproj(85,5): error MSB3073: MSBuild.exe ... exited with 1
+    #
+    # It is a race, so it is intermittent — 249663e and 9e1a5e2 went green and
+    # run 30812109885 went red on the same configuration. Because the target is
+    # AfterTargets="BeforeResolveReferences" it runs on every build of the
+    # wixproj, up-to-date or not, so no ordering change inside the graph avoids
+    # it. Parallelism here needs those Exec chains removed first.
     #
     # /bl is opt-in via workflow_dispatch rather than always-on: a binary log
     # is the tool for asking which targets dominate the remaining build time,
@@ -251,7 +267,8 @@ jobs:
     # run. `inputs` is empty for push/pull_request, so the flag expands to
     # nothing there.
     - name: Build solution
-      run: msbuild ${{ env.SOLUTION_PATH }} /p:Configuration=${{ env.BUILD_CONFIGURATION }} /p:Platform="${{ env.BUILD_PLATFORM }}" /p:RunWixToolsOutOfProc=true /p:Version=${{ steps.version.outputs.VERSION }} /m ${{ inputs.capture_binlog && '/bl:build.binlog' || '' }} /clp:ErrorsOnly /nologo
+      id: build
+      run: msbuild ${{ env.SOLUTION_PATH }} /p:Configuration=${{ env.BUILD_CONFIGURATION }} /p:Platform="${{ env.BUILD_PLATFORM }}" /p:RunWixToolsOutOfProc=true /p:Version=${{ steps.version.outputs.VERSION }} /m:1 /p:BuildInParallel=false /p:UseSharedCompilation=false ${{ inputs.capture_binlog && '/bl:build.binlog' || '' }} /clp:ErrorsOnly /nologo
 
     - name: Upload MSBuild binary log
       if: ${{ inputs.capture_binlog }}
@@ -305,8 +322,13 @@ jobs:
         }
       continue-on-error: true
       
-    - name: Fail workflow if tests failed (main/release branches)
-      if: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/') }}
+    # Runs on every branch. Restricting this to main/release meant a pull
+    # request with failing .NET tests was green, and the failure was only
+    # discovered once it had already been merged — the wrong end of the process
+    # to find out. Gated on the build having succeeded so a compile failure is
+    # not also reported as a test failure.
+    - name: Fail workflow if tests failed
+      if: always() && steps.build.outcome == 'success'
       shell: pwsh
       run: |
         $resultsDir = "${{ github.workspace }}\TestResults"
@@ -352,9 +374,15 @@ jobs:
         } else {
           Write-Host "No test failures detected."
         }
+    # Only meaningful when the solution built. With `if: always()` this ran
+    # after a failed build too, found no .trx (there were no test assemblies to
+    # produce them), and emitted
+    # "##[warning]Could not find any files for TestResults/**/*.trx" — which
+    # then became the most prominent line in the log of a job whose actual
+    # failure was a compile error. See run 30812109885.
     - name: Publish test results
       uses: EnricoMi/publish-unit-test-result-action/windows@v2
-      if: always()
+      if: always() && steps.build.outcome == 'success'
       with:
         files: |
           TestResults/**/*.trx
