@@ -2,7 +2,7 @@
 
 | Field       | Value                            |
 |-------------|----------------------------------|
-| **Status**  | DRAFT — pending adversarial review |
+| **Status**  | IN REVIEW — U-1/U-2/U-3 resolved by user 2026-08-03 |
 | **Author**  | Agent                            |
 | **Date**    | 2026-08-03                       |
 | **Folder**  | docs/msi-decomposition/          |
@@ -98,7 +98,8 @@ Identity today is a single `ProductCode {F7894A5D-…}` under a single `UpgradeC
 | G-1 | No change to what gets installed | Union of the four new MSIs' `File` tables equals the current `Setup.Dorc.msi` `File` table, allowing for shared assemblies deliberately duplicated per installer. Verified with the `msitools` table diff already used on #807. |
 | G-2 | Components become independently deployable | Each installer installs, upgrades and uninstalls without the other three present. |
 | G-3 | Packaging step wall-clock reduced | `WixBuild` total wall-clock under `/m`, compared against the `80fadbb` binlog baseline. |
-| G-4 | Existing installations upgrade cleanly | An environment running `26.8.3.x` of the single product reaches the four-installer layout with no manual intervention and no orphaned files, services or IIS entries. |
+| G-4 | Existing installations upgrade cleanly | An environment running `26.8.3.x` of the single product reaches the four-installer layout with no orphaned files, services or IIS entries. A maintenance window is acceptable (U-3). |
+| G-5 | Component versions are visible in the UI | The UI shows the installed version of each of the four components for an environment, not a single aggregate. Follows directly from U-1: skew is permitted, so it must be observable. |
 
 **Expected size of G-3, stated up front to avoid over-claiming.** Parallel packaging is bounded by the largest resulting installer. `Tools` alone is 2,282 of 4,922 components (46%), so four installers built concurrently should approach roughly half the current packaging time, not a quarter. If `WixBuild` scales with component count, the 266s `Setup.Dorc` becomes ~120–140s wall-clock. A further split of `Tools` into its five CLIs would rebalance, but topology is the better organising principle than build-time balance, and that trade should be made deliberately rather than by accident.
 
@@ -106,7 +107,7 @@ Identity today is a single `ProductCode {F7894A5D-…}` under a single `UpgradeC
 
 ## 5. Constraints
 
-- **C-1 — Shared database schema.** All four components share one schema via `Dorc.Database.dacpac`. Today one MSI means one consistent set of binaries. Four independently deployable installers make version skew possible: API `v1` running against Monitor `v2` against a single schema.
+- **C-1 — Shared database schema, with skew permitted.** All four components share one schema via `Dorc.Database.dacpac`, and four independently deployable installers make version skew possible: API `v1` running against Monitor `v2`. Per U-1 this is **accepted, not prevented** — no start-up gate or refusal. The obligation it creates is observability (G-5): if skew is allowed, an operator must be able to see it. Note this shifts the risk rather than removing it — a mismatch will surface as behaviour, not as a clear error.
 - **C-2 — `DeploySettings` targeting.** `MsiFileNames` is already a list, so adding entries is configuration rather than rework. But `TargetServers` is defined per *environment*, not per MSI, so every installer is currently delivered to every target server. Realising G-2 requires extending that schema.
 - **C-3 — Shared assemblies duplicate.** `Dorc.Core`, `Dorc.PersistentData` and `Dorc.ApiModel` sit beneath most components and will be carried by several installers. Acceptable on disk; it makes C-1 sharper, because the duplicated copies can drift.
 - **C-4 — Installed-state continuity.** Existing environments have the single product installed. Four new `ProductCode`s under new `UpgradeCode`s will not automatically supersede it.
@@ -122,9 +123,11 @@ Create four wixprojs, each referencing the component groups already defined. Bec
 
 Addresses G-1, G-3.
 
-### SD-2 — Major upgrade from the existing product
+### SD-2 — Rely on the existing uninstall-before-install deployment
 
-Each new installer declares an `Upgrade` element detecting the legacy `UpgradeCode {72EDEA4C-…}` and removing it. The first of the four to install removes the monolith; the rest then install alongside. Ordering and partial-failure behaviour need care — an environment part-way through has the old product removed and only some of the new ones present.
+Per U-3, `RunDeployment.ps1` already uninstalls before installing, driven by the `ProductNames` on each `MsiFileNames` entry, and a maintenance window is acceptable. So no `Upgrade`-element coexistence dance is needed: the four installers are registered as four `MsiFileNames` entries with four `ProductNames`, and the existing mechanism removes the old product and installs the new set.
+
+Two caveats. First, `DeployMSI` is **not defined in this repository** — it comes from the external `DOrcDeployModule` that `RunDeployment.ps1` installs, so its behaviour across four products needs confirming from whoever owns that module (U-9). Second, the legacy `UpgradeCode {72EDEA4C-…}` should still be declared for removal by one of the new installers as a safety net for any environment the scripted path misses.
 
 Addresses G-4, C-4.
 
@@ -134,11 +137,19 @@ Extend the `MsiFileNames` entries with an optional server selector, defaulting t
 
 Addresses G-2, C-2.
 
-### SD-4 — Version compatibility gate
+### SD-4 — Per-component version reporting, surfaced in the UI
 
-Give each component a way to refuse to run against an unexpected peer or schema version, rather than failing obscurely. The cheapest form is a schema-version check at startup; the strictest is a handshake between API and Monitor. Needs a decision (U-1) before implementation, not after.
+Per U-1 skew is permitted, so the requirement is visibility rather than enforcement.
 
-Addresses C-1, C-3.
+Today the only version surface is `MetadataController`, which returns a single unstructured string — `"{env} - {assembly version}"` — describing the **API alone**. There is no channel by which Monitors, Runners or CLIs report a version: the schema has no heartbeat or instance table, Runners execute on target servers, and CLIs run ad hoc.
+
+So this is a genuine feature, not a display tweak. It needs:
+
+1. A structured replacement for the metadata endpoint, returning a version per component rather than one string.
+2. A reporting channel for the components that do not currently have one (U-8).
+3. UI presentation of the set, with skew made visually obvious rather than merely listed.
+
+Addresses G-5, C-1, C-3.
 
 ---
 
@@ -146,15 +157,17 @@ Addresses C-1, C-3.
 
 | ID  | Description | Owner | Blocking | Resolution |
 |-----|-------------|-------|---------|------------|
-| U-1 | What version-skew policy applies once components deploy independently against one shared schema? Refuse to start on mismatch, warn, or tolerate? | User | **Blocking** for SD-4, and for G-2 being safe | **Unresolved.** This is a design decision, not a discovery. Splitting without it converts a currently-impossible failure mode into a possible one. |
-| U-2 | Is independent deployability actually wanted, or is the build-time win the real objective? | User | **Blocking** for scope | **Unresolved.** If only build time matters, SD-3 and SD-4 drop out and this becomes a much smaller change. The two goals justify very different amounts of work. |
-| U-3 | How do existing installations migrate? Is a maintenance window acceptable, or must the transition be seamless? | User | **Blocking** for SD-2 | **Unresolved.** Determines whether a single-shot major upgrade is acceptable or a staged coexistence is required. |
+| U-1 | What version-skew policy applies once components deploy independently against one shared schema? Refuse to start on mismatch, warn, or tolerate? | User | **Blocking** for SD-4 | **RESOLVED** (2026-08-03). Multiple concurrent versions are acceptable — no gate, no refusal to start. The condition attached is that the UI must show all component versions, which becomes G-5 and reshapes SD-4 from enforcement to observability. Raises U-8. |
+| U-2 | Is independent deployability actually wanted, or is the build-time win the real objective? | User | **Blocking** for scope | **RESOLVED** (2026-08-03). Independent deployability is the objective. SD-3 and SD-4 are therefore in scope, and the build-time gain (G-3) is a secondary benefit rather than the justification. |
+| U-3 | How do existing installations migrate? Is a maintenance window acceptable, or must the transition be seamless? | User | **Blocking** for SD-2 | **RESOLVED** (2026-08-03). `RunDeployment.ps1` performs a full uninstall before installing, and a maintenance window is acceptable. SD-2 collapses to registering four `MsiFileNames`/`ProductNames` entries. Raises U-9. |
 | U-4 | Which installer owns `Wix4User`, `Wix4FileShare` and `Wix4FileSharePermissions`? These are shared infrastructure with no obvious single owner. | Agent | **Blocking** for SD-1 | **Unresolved** — resolvable by reading the authoring; not yet done. |
 | U-5 | Can the ~60 `MsiProperties` be partitioned per installer, or must each receive the full set? | Agent | Non-blocking | **Unresolved.** Passing all properties to all installers works (MSI ignores unknown properties) but is untidy. |
 | U-6 | Does `WixBuild` time scale with component count, as G-3's estimate assumes? | Agent | Non-blocking | **Unresolved.** Testable once the first split installer exists; the estimate should be revised then rather than defended. |
 | U-7 | Are the three hand-authored custom actions (`SetCDrive`, `ReconfigureLoadUserProfileOrchestrator`, `ReconfigureLoadUserProfileRequestApi`) cleanly attributable to single installers? | Agent | Non-blocking | Two are named for Orchestrator and RequestApi respectively, suggesting UI and API. `SetCDrive` is unclear. |
+| U-8 | How do Monitors, Runners and CLIs report their version for G-5? No channel exists today — the schema has no heartbeat or instance table, `MetadataController` reports only the API's own assembly version, Runners execute on target servers and CLIs run ad hoc. | User + Agent | **Blocking** for G-5 | **Unresolved.** Raised by the resolution of U-1. Options include a heartbeat row written by each component, reading installed `ProductVersion` from the target servers' registry at query time, or scoping G-5 to only those components that can already be reached. These differ substantially in cost. |
+| U-9 | Does `DeployMSI` handle four products correctly, including uninstall ordering? It is defined in the external `DOrcDeployModule`, not this repository. | User | **Blocking** for SD-2 | **Unresolved.** Raised by the resolution of U-3. `RunDeployment.ps1` iterates `MsiFileNames` and calls `DeployMSI -ProductNames`, so the shape is right, but the module's behaviour across four products is unverifiable from this repo. |
 
-**U-1, U-2 and U-3 are blocking and are all user decisions.** Per the process in `CLAUDE.md`, blocking unknowns halt progress: the IS should not be written until they are resolved.
+**U-1, U-2 and U-3 are resolved.** Their resolutions raised **U-8 and U-9**, which are blocking in turn: U-8 gates G-5, and U-9 gates SD-2. Per `CLAUDE.md` the IS should not be finalised until both are closed — though the installer split itself (SD-1) is unblocked and could proceed as an early IS step while they are settled.
 
 ---
 
