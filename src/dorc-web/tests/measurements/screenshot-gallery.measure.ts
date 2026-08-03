@@ -112,8 +112,8 @@ describe('screenshot gallery', () => {
     await shoot('app-users-375-phone', 375, 'attached-app-users', 'users', users);
     await shoot('app-users-1100-desktop', 1100, 'attached-app-users', 'users', users);
     await shoot('attached-servers-375-phone', 375, 'attached-servers', 'servers', servers);
-    await shoot('env-deployments-375-phone', 375, 'env-deployments', 'builds', builds);
-    await shoot('env-deployments-900-desktop', 900, 'env-deployments', 'builds', builds);
+    await shoot('env-deployments-375-phone', 375, 'env-deployments-card', 'builds', builds);
+    await shoot('env-deployments-900-desktop', 900, 'env-deployments-card', 'builds', builds);
     expect(true).to.equal(true);
   });
 });

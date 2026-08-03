@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+ 
 /**
  * ALL-GRIDS sweep — renders every migrated grid view at 375px and captures a
  * screenshot, so each one gets eyes-on. Property-driven views get mock rows;
@@ -98,6 +98,7 @@ import '../../src/components/attached-servers';
 import '../../src/components/attached-env-tenants';
 import '../../src/components/application-daemons';
 import '../../src/components/env-deployments';
+import '../../src/components/environment-tabs/env-deployments';
 import '../../src/components/environment-tabs/env-variables';
 import '../../src/components/environment-tabs/env-monitor';
 import '../../src/components/map-daemons';
@@ -109,10 +110,6 @@ const settle = async (n = 6) => {
   for (let i = 0; i < n; i++)
     await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
 };
-
-const audit = (name: string) => [
-  { [name]: 'GMPR-DORAPP02', Username: 'SEFE\\ben.hegarty', Action: 'Update', Date: '02/08/2026 14:32:07', FromValue: 'v1', ToValue: 'v2' }
-];
 
 type ViewSpec = {
   tag: string;
@@ -190,7 +187,8 @@ const VIEWS: ViewSpec[] = [
   { tag: 'attached-servers', height: '260px', setup: el => { el.servers = [{ Name: 'GMPR-DORAPP02', OsName: 'Windows Server 2022', ApplicationTags: 'dorc', Id: 1 }]; } },
   { tag: 'attached-env-tenants', height: '260px', setup: el => { el.childEnvironments = [{ EnvironmentName: 'PROD-EU-01-TENANT-A', Id: 1 }]; } },
   { tag: 'application-daemons', height: '260px', setup: el => { el.daemonsAndStatuses = [{ ServerName: 'GMPR-DORAPP02', DaemonName: 'Dorc.Monitor', Status: 'Running', Id: 1 }]; } },
-  { tag: 'env-deployments', height: '260px', setup: el => { el.builds = [{ ComponentName: 'Dorc.Api', RequestDetails: 'Trading 2026.08.02.3', UpdateDate: '02/08/2026', State: 'Complete' }]; } },
+  { tag: 'env-deployments-card', height: '260px', setup: el => { el.builds = [{ ComponentName: 'Dorc.Api', RequestDetails: 'Trading 2026.08.02.3', UpdateDate: '02/08/2026', State: 'Complete' }]; } },
+  { tag: 'env-deployments', height: '280px', post: el => { el.loading = false; el.requestUpdate(); }, setup: el => { el.deployments = [{ RequestId: 284713, ComponentName: 'Dorc.Api', RequestBuildNum: '2026.08.02.3', UpdatedDate: '2026-08-02T14:32:07', State: 'Complete' }]; } },
   { tag: 'env-variables', height: '280px' },
   { tag: 'map-daemons', height: '280px', setup: el => { el.mappedDaemons = [{ Name: 'Dorc.Monitor', DisplayName: 'DORC Monitor', ServiceType: 'Windows Service', Id: 1 }]; } },
   {
@@ -215,26 +213,28 @@ const VIEWS: ViewSpec[] = [
       el.UserEditable = true;
     },
     post: async el => {
-      const dlg = el.shadowRoot!.querySelector('paper-dialog') as any;
-      dlg.style.position = 'static';
-      dlg.style.margin = '0';
-      dlg.style.maxHeight = 'none';
-      dlg.style.height = '960px';
-      dlg.open();
-      await new Promise(r => setTimeout(r, 300));
-      const acGrid = el.shadowRoot!.querySelector('vaadin-grid') as any;
-      acGrid?.requestContentUpdate?.();
-      acGrid?.recalculateColumnWidths?.();
+      const dlg = el.shadowRoot!.querySelector('hegs-dialog') as any;
+      dlg.open = true;
       await new Promise(r => setTimeout(r, 200));
-      console.log('AC-PROBE h=' + (acGrid?.offsetHeight ?? -1) + ' items=' + (acGrid?.items?.length ?? -1) + ' cells=' + (acGrid?.querySelectorAll('vaadin-grid-cell-content').length ?? -1) + ' txt=' + JSON.stringify((acGrid?.textContent ?? '').replace(/\s+/g, ' ').slice(0, 80)));
+      // pin the overlay dialog into flow for the capture
+      const box = dlg.shadowRoot!.querySelector('.dialog') as HTMLElement;
+      box.style.position = 'static';
+      const overlay = dlg.shadowRoot!.querySelector('.overlay') as HTMLElement;
+      overlay.style.display = 'none';
+      // the grid initialised while the dialog wrapper was display:none —
+      // force it to re-measure now it is visible
+      const acGrid = el.shadowRoot!.querySelector('vaadin-grid') as any;
+      if (acGrid) acGrid.allRowsVisible = true;
+      acGrid?.requestContentUpdate?.();
+      window.dispatchEvent(new Event('resize'));
+      await new Promise(r => setTimeout(r, 300));
     }
   }
 ];
 
-// PRE-EXISTING LATENT DEFECT found by this sweep: components/env-deployments.ts
-// and environment-tabs/env-deployments.ts BOTH register <env-deployments> —
-// importing both throws CustomElementRegistry 'name already used'. They can
-// never be co-loaded; only the card variant is swept here.
+// (The duplicate <env-deployments> registration this sweep found is fixed:
+// the orphaned card variant is now <env-deployments-card>, so both import
+// and render together.)
 const TAG_ALIASES: Record<string, string> = {};
 
 describe('all-grids sweep @375px', () => {

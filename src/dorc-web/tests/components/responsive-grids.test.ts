@@ -79,9 +79,9 @@ describe('Responsive grid CSS (structural)', () => {
     assertResponsiveCss(mod.ComponentDeploymentResults, 'component-deployment-results');
   });
 
-  it('env-deployments CSS contains responsive cell wrapping', async () => {
+  it('env-deployments-card CSS contains responsive cell wrapping', async () => {
     const mod = await import('../../src/components/env-deployments.js');
-    assertResponsiveCss(mod.EnvDeployments, 'env-deployments');
+    assertResponsiveCss(mod.EnvDeploymentsCard, 'env-deployments-card');
   });
 
   it('env-variables CSS contains responsive cell wrapping', async () => {
@@ -199,7 +199,7 @@ describe('Responsive grid column hiding (rendered)', () => {
       primaryText: 'srv1',
     },
     {
-      tag: 'env-deployments',
+      tag: 'env-deployments-card',
       prop: 'builds',
       items: [
         { ComponentName: 'comp1', RequestDetails: 'req1', UpdateDate: '2024-01-01', State: 'Complete' },

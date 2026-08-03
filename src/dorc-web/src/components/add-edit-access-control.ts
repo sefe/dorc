@@ -1,5 +1,5 @@
-import '@polymer/paper-dialog';
-import { PaperDialogElement } from '@polymer/paper-dialog';
+import './hegs-dialog';
+import { HegsDialog } from './hegs-dialog';
 import '@vaadin/button';
 import '@vaadin/checkbox';
 import { Checkbox } from '@vaadin/checkbox';
@@ -84,10 +84,10 @@ export class AddEditAccessControl extends LitElement {
     return [
       listRowStyles,
       css`
-      paper-dialog.size-position {
+      .ac-dialog-body {
         overflow: auto;
-        width: min(90vw, 650px);
-        max-height: calc(100vh - 32px);
+        width: min(84vw, 620px);
+        max-height: calc(100vh - 140px);
       }
       vaadin-text-field {
         display: flex;
@@ -101,12 +101,12 @@ export class AddEditAccessControl extends LitElement {
         width: min(400px, 100%);
         padding: 5px;
       }
-      /* Phone: the dialog fills the viewport and its fixed-width children
-         yield — the 400px fields inside a ~340px dialog were the overflow. */
+      /* Phone: the dialog body fills the viewport and its fixed-width
+         children yield — the 400px fields inside a ~340px dialog were the
+         original overflow. */
       @media (max-width: 768px) {
-        paper-dialog.size-position {
-          width: calc(100vw - 16px);
-          margin: 8px;
+        .ac-dialog-body {
+          width: calc(100vw - 64px);
         }
         vaadin-text-field,
         vaadin-combo-box {
@@ -171,12 +171,12 @@ export class AddEditAccessControl extends LitElement {
 
   render() {
     return html`
-      <paper-dialog
-        class="size-position"
+      <hegs-dialog
         id="add-access-control-dialog"
-        allow-click-through
-        modal
+        title="Access Control"
+        @hegs-dialog-closed="${() => this.close()}"
       >
+        <div class="ac-dialog-body">
         <table>
           <tr>
             <td>
@@ -325,7 +325,8 @@ export class AddEditAccessControl extends LitElement {
             >Close</vaadin-button
           >
         </div>
-      </paper-dialog>
+        </div>
+      </hegs-dialog>
     `;
   }
 
@@ -718,7 +719,7 @@ export class AddEditAccessControl extends LitElement {
   open(secureName: string, secureType: number) {
     const dialog = this.shadowRoot?.getElementById(
       'add-access-control-dialog'
-    ) as PaperDialogElement;
+    ) as HegsDialog;
     this.loading = true;
 
     if (secureName !== '') {
@@ -745,15 +746,15 @@ export class AddEditAccessControl extends LitElement {
     }
     this.secureName = secureName;
 
-    dialog.open();
+    dialog.open = true;
     this.ErrorMessage = '';
   }
 
   close() {
     const dialog = this.shadowRoot?.getElementById(
       'add-access-control-dialog'
-    ) as PaperDialogElement;
-    dialog.close();
+    ) as HegsDialog;
+    dialog.open = false;
     this.Privileges = [];
     this.ErrorMessage = '';
     this.setTextField('search-criteria', '');

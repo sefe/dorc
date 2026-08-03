@@ -9,8 +9,8 @@ import { NarrowListController } from '../helpers/narrow-list-controller';
 import { listRowStyles, narrowListRenderers } from './dorc-list-row';
 import { envDeploymentsCardNarrow } from '../row-templates/batch-row-templates';
 
-@customElement('env-deployments')
-export class EnvDeployments extends LitElement {
+@customElement('env-deployments-card')
+export class EnvDeploymentsCard extends LitElement {
   /** Narrow-mode (HLPS §3.4): container-driven list rendering. */
   narrowList = new NarrowListController(this as unknown as HTMLElement & import('lit').ReactiveControllerHost);
 
