@@ -233,5 +233,27 @@ describe('RouteResolver', () => {
         'leaf matched path differs'
       ).to.not.equal(servers.chain.at(-1)?.path);
     });
+
+    // The matched paths are collected during traversal. Holding them on the
+    // resolver instead of per resolve meant two overlapping resolutions wrote
+    // into the same map and read each other's results — a popstate landing
+    // while a click-driven navigation is still in flight is enough to do it.
+    it('does not cross-contaminate between overlapping resolves', async () => {
+      const resolver = new RouteResolver(buildRoutes());
+
+      // A nested path, so the traversal has enough await points for the two
+      // resolutions to interleave — a flat route finishes in one tick and
+      // would pass even with the resolver-level map.
+      const [first, second] = (await Promise.all([
+        resolver.resolve('/environment/AAA/components/servers'),
+        resolver.resolve('/environment/BBB/components/servers')
+      ])) as RouteResolution[];
+
+      const environmentPath = (r: RouteResolution) =>
+        r.chain.find(e => e.component === 'page-environment')?.path;
+
+      expect(environmentPath(first)).to.equal('/environment/AAA');
+      expect(environmentPath(second)).to.equal('/environment/BBB');
+    });
   });
 });

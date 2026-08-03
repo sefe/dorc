@@ -54,12 +54,6 @@ export class RouteResolver {
 
   private readonly notFound: AppRoute | undefined;
 
-  /**
-   * URL matched per route for the resolve in flight, filled in as
-   * universal-router visits each one. `resolve()` awaits a single traversal
-   * before reading it, so only one resolve ever writes here at a time.
-   */
-  private readonly matchedPaths = new Map<AppRoute, string>();
 
   constructor(routes: AppRoute[]) {
     // universal-router sets `parent` lazily as it traverses, so a route that
@@ -74,16 +68,21 @@ export class RouteResolver {
       resolveRoute: (context, params) => {
         const route = context.route as unknown as AppRoute;
 
-        // `baseUrl` is everything the ancestors matched and `path` this route's
-        // own segment; together they are the URL this route matched.
+        // `baseUrl` is everything the ancestors matched and `path` this
+        // route's own segment; together they are the URL this route matched.
+        //
+        // The map is handed in per resolve rather than kept on the resolver:
+        // universal-router spreads its context into every resolveRoute call,
+        // and two overlapping resolves sharing one map read each other's paths
+        // — a popstate landing mid-navigation is enough to cause it.
         const matched = context as unknown as {
           baseUrl?: string;
           path?: string;
+          matchedPaths?: Map<AppRoute, string>;
         };
-        this.matchedPaths.set(
-          route,
-          `${matched.baseUrl ?? ''}${matched.path ?? ''}`
-        );
+        const matchedPaths =
+          matched.matchedPaths ?? new Map<AppRoute, string>();
+        matchedPaths.set(route, `${matched.baseUrl ?? ''}${matched.path ?? ''}`);
 
         if (typeof route.action === 'function') {
           const result = route.action({
@@ -102,7 +101,7 @@ export class RouteResolver {
         // still matched. `chainFor` picks it up via the `parent` links.
         if (route.component && !route.children?.length) {
           return {
-            chain: chainFor(route, this.matchedPaths),
+            chain: chainFor(route, matchedPaths),
             params: params as RouteParams,
             pathname: context.pathname
           };
@@ -125,16 +124,19 @@ export class RouteResolver {
    * so callers always have something to render.
    */
   async resolve(pathname: string): Promise<RouteOutcome> {
-    this.matchedPaths.clear();
+    const matchedPaths = new Map<AppRoute, string>();
     try {
-      const outcome = await this.router.resolve(pathname);
+      const outcome = await this.router.resolve({
+        pathname,
+        matchedPaths
+      } as never);
       if (outcome) {
         return outcome;
       }
     } catch {
       // Fall through to the not-found chain below.
     }
-    return this.notFoundOutcome(pathname);
+    return this.notFoundOutcome(pathname, matchedPaths);
   }
 
   /** Builds the path for a named route, e.g. `urlForName('environment', {id})`. */
@@ -142,9 +144,12 @@ export class RouteResolver {
     return this.urlBuilder(name, params);
   }
 
-  private notFoundOutcome(pathname: string): RouteResolution {
+  private notFoundOutcome(
+    pathname: string,
+    matchedPaths: Map<AppRoute, string>
+  ): RouteResolution {
     return {
-      chain: this.notFound ? chainFor(this.notFound, this.matchedPaths) : [],
+      chain: this.notFound ? chainFor(this.notFound, matchedPaths) : [],
       params: {},
       pathname
     };
