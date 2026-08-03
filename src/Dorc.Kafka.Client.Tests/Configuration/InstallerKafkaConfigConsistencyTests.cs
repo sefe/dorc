@@ -11,7 +11,8 @@ namespace Dorc.Kafka.Client.Tests.Configuration;
 /// Prod / NonProd Monitor .wxs files and the API .wxs;</description></item>
 /// <item><description>MSI property defaults in <c>Install.Orchestrator.bat</c>;</description></item>
 /// <item><description>MSIParameter → DeployProperty mappings in
-/// <c>Setup.Dorc.msi.json</c>;</description></item>
+/// the sidecar of the package that ships each .wxs
+/// (<c>Setup.Dorc.msi.json</c>, <c>Setup.Dorc.Monitors.msi.json</c>);</description></item>
 /// <item><description>DeployProperty seeds in
 /// <c>install-scripts/DeploySettings.template.json</c>.</description></item>
 /// </list>
@@ -42,12 +43,33 @@ public class InstallerKafkaConfigConsistencyTests
         return File.ReadAllText(path);
     }
 
-    private static string ProdWxs => ReadRepoFile("src", "Setup.Dorc", "Monitors", "Prod", "ProdActionService.wxs");
-    private static string NonProdWxs => ReadRepoFile("src", "Setup.Dorc", "Monitors", "NonProd", "NonProdActionService.wxs");
+    private static string ProdWxs => ReadRepoFile("src", "Setup.Dorc.Monitors", "Prod", "ProdActionService.wxs");
+    private static string NonProdWxs => ReadRepoFile("src", "Setup.Dorc.Monitors", "NonProd", "NonProdActionService.wxs");
     private static string RequestApiWxs => ReadRepoFile("src", "Setup.Dorc", "Web", "RequestApi", "RequestApi.wxs");
     private static string OrchestratorBat => ReadRepoFile("src", "Setup.Dorc", "Install.Orchestrator.bat");
+    private static string MonitorsMsiJson => ReadRepoFile("src", "Setup.Dorc.Monitors", "Setup.Dorc.Monitors.msi.json");
     private static string MsiJson => ReadRepoFile("src", "Setup.Dorc", "Setup.Dorc.msi.json");
     private static string DeploySettingsTemplate => ReadRepoFile("src", "install-scripts", "DeploySettings.template.json");
+
+    /// <summary>
+    /// Each .wxs is checked against the sidecar of the package that now ships
+    /// it, not against one shared file: the monitors moved to
+    /// Setup.Dorc.Monitors in IS S-007, and a property mapped in the wrong
+    /// package's sidecar is never passed through.
+    /// </summary>
+    private static IEnumerable<(string Wxs, string Content, string Sidecar, string SidecarJson)> WxsWithOwningSidecar()
+    {
+        yield return ("ProdActionService.wxs", ProdWxs, "Setup.Dorc.Monitors.msi.json", MonitorsMsiJson);
+        yield return ("NonProdActionService.wxs", NonProdWxs, "Setup.Dorc.Monitors.msi.json", MonitorsMsiJson);
+        yield return ("RequestApi.wxs", RequestApiWxs, "Setup.Dorc.msi.json", MsiJson);
+    }
+
+    /// <summary>Every sidecar that maps Kafka properties.</summary>
+    private static IEnumerable<(string Name, string Json)> Sidecars()
+    {
+        yield return ("Setup.Dorc.Monitors.msi.json", MonitorsMsiJson);
+        yield return ("Setup.Dorc.msi.json", MsiJson);
+    }
 
     /// <summary>All <c>$.Kafka.*</c> JsonFile ElementPaths in a .wxs file.</summary>
     private static ISet<string> KafkaElementPaths(string wxs)
@@ -67,9 +89,9 @@ public class InstallerKafkaConfigConsistencyTests
             .Select(m => m.Groups[1].Value)
             .ToHashSet(StringComparer.Ordinal);
 
-    /// <summary>KAFKA.* → KAFKA_* mappings in Setup.Dorc.msi.json.</summary>
-    private static IDictionary<string, string> MsiParameterMappings()
-        => Regex.Matches(MsiJson,
+    /// <summary>KAFKA.* → KAFKA_* mappings in one package's sidecar.</summary>
+    private static IDictionary<string, string> MsiParameterMappings(string sidecarJson)
+        => Regex.Matches(sidecarJson,
                 @"""MSIParameter"":\s*""(KAFKA\.[A-Z0-9.]+)"",\s*""DeployProperty"":\s*""(KAFKA_[A-Z0-9_]+)""")
             .ToDictionary(m => m.Groups[1].Value, m => m.Groups[2].Value, StringComparer.Ordinal);
 
@@ -116,16 +138,16 @@ public class InstallerKafkaConfigConsistencyTests
     }
 
     [TestMethod]
-    public void EveryKafkaMsiPropertyReferencedInWxs_HasAMappingInMsiJson()
+    public void EveryKafkaMsiPropertyReferencedInWxs_HasAMappingInItsPackageSidecar()
     {
-        var mappings = MsiParameterMappings();
-        Assert.IsTrue(mappings.Count > 0, "No KAFKA.* MSIParameter mappings found in Setup.Dorc.msi.json — the extraction regex or the file layout changed.");
-
-        foreach (var (file, wxs) in WxsFiles())
+        foreach (var (file, wxs, sidecar, sidecarJson) in WxsWithOwningSidecar())
         {
+            var mappings = MsiParameterMappings(sidecarJson);
+            Assert.IsTrue(mappings.Count > 0, $"No KAFKA.* MSIParameter mappings found in {sidecar} — the extraction regex or the file layout changed.");
+
             var missing = KafkaMsiProperties(wxs).Except(mappings.Keys).OrderBy(p => p).ToList();
             Assert.AreEqual(0, missing.Count,
-                $"MSI propert{(missing.Count == 1 ? "y" : "ies")} referenced in {file} but missing from Setup.Dorc.msi.json: "
+                $"MSI propert{(missing.Count == 1 ? "y" : "ies")} referenced in {file} but missing from {sidecar}: "
                 + string.Join(", ", missing)
                 + " — DOrc-driven installs would never pass the value through.");
         }
@@ -134,23 +156,21 @@ public class InstallerKafkaConfigConsistencyTests
     [TestMethod]
     public void EveryKafkaDeployPropertyInMsiJson_IsSeededInDeploySettingsTemplate()
     {
-        var mappings = MsiParameterMappings();
         var seeded = TemplateDeployProperties();
         Assert.IsTrue(seeded.Count > 0, "No KAFKA_* properties found in DeploySettings.template.json — the extraction regex or the file layout changed.");
 
-        var missing = mappings.Values.Except(seeded).OrderBy(p => p).ToList();
-        Assert.AreEqual(0, missing.Count,
-            "KAFKA_* DeployProperty(ies) mapped in Setup.Dorc.msi.json but missing from src/install-scripts/DeploySettings.template.json: "
-            + string.Join(", ", missing)
-            + " — new environments seeded from the template would install without them.");
+        foreach (var (name, json) in Sidecars())
+        {
+            var missing = MsiParameterMappings(json).Values.Except(seeded).OrderBy(p => p).ToList();
+            Assert.AreEqual(0, missing.Count,
+                $"KAFKA_* DeployProperty(ies) mapped in {name} but missing from src/install-scripts/DeploySettings.template.json: "
+                + string.Join(", ", missing)
+                + " — new environments seeded from the template would install without them.");
+        }
     }
 
     private static IEnumerable<(string File, string Content)> WxsFiles()
-    {
-        yield return ("ProdActionService.wxs", ProdWxs);
-        yield return ("NonProdActionService.wxs", NonProdWxs);
-        yield return ("RequestApi.wxs", RequestApiWxs);
-    }
+        => WxsWithOwningSidecar().Select(f => (f.Wxs, f.Content));
 
     /// <summary>
     /// Kafka appsettings keys deliberately NOT written by the installer:

@@ -5,10 +5,6 @@
     <Name>Setup.Dorc</Name>
     <DorcWebUIDir>$(SolutionDir)dorc-web\dist</DorcWebUIDir>
     <DorcApiDir>$(SolutionDir)Dorc.Api\bin\$(Configuration)\net8.0\publish</DorcApiDir>
-    <DorcMonitorDir>$(SolutionDir)Dorc.Monitor\bin\$(Configuration)\net8.0\publish</DorcMonitorDir>
-    <DorcRunnerDir>$(SolutionDir)Dorc.Runner\bin\$(Configuration)\net8.0\publish</DorcRunnerDir>
-    <DorcNetFrameworkRunnerDir>$(SolutionDir)Dorc.NetFramework.Runner\bin\$(Configuration)</DorcNetFrameworkRunnerDir>
-	<DorcTerraformRunnerDir>$(SolutionDir)Dorc.TerraformRunner\bin\$(Configuration)\net8.0</DorcTerraformRunnerDir>
     <Platforms>x64</Platforms>
     <!--
       Both pipelines pass /p:Version as yy.MM.dd.<run>, e.g. 26.08.03.2689.
@@ -22,25 +18,20 @@
     <DorcProductVersion Condition="'$(DorcProductVersion)' == ''">0.0.1</DorcProductVersion>
 </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x64' ">
-    <DefineConstants>Debug;DorcWebUIDir=$(DorcWebUIDir);DorcApiDir=$(DorcApiDir);DorcMonitorDir=$(DorcMonitorDir);DorcRunnerDir=$(DorcRunnerDir);DorcNetFrameworkRunnerDir=$(DorcNetFrameworkRunnerDir);DorcTerraformRunnerDir=$(DorcTerraformRunnerDir);BuildVersion=$(DorcProductVersion)</DefineConstants>
+    <DefineConstants>Debug;DorcWebUIDir=$(DorcWebUIDir);DorcApiDir=$(DorcApiDir);BuildVersion=$(DorcProductVersion)</DefineConstants>
     <SuppressValidation>True</SuppressValidation>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|x64' ">
-    <DefineConstants>DorcWebUIDir=$(DorcWebUIDir);DorcApiDir=$(DorcApiDir);DorcMonitorDir=$(DorcMonitorDir);DorcRunnerDir=$(DorcRunnerDir);DorcNetFrameworkRunnerDir=$(DorcNetFrameworkRunnerDir);DorcTerraformRunnerDir=$(DorcTerraformRunnerDir);BuildVersion=$(DorcProductVersion)</DefineConstants>
+    <DefineConstants>DorcWebUIDir=$(DorcWebUIDir);DorcApiDir=$(DorcApiDir);BuildVersion=$(DorcProductVersion)</DefineConstants>
     <SuppressValidation>True</SuppressValidation>
   </PropertyGroup>
   <ItemGroup>
-    <Folder Include="Monitors\" />
-    <Folder Include="Monitors\NonProd\" />
-    <Folder Include="Monitors\Prod\" />
     <Folder Include="Web" />
     <Folder Include="Web\RequestApi" />
     <Folder Include="Web\Orchestrator" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="Dependencies.wxi" />
-    <Content Include="Monitors\NonProd\HeatTransform.xslt" />
-    <Content Include="Monitors\Prod\HeatTransform.xslt" />
     <Content Include="Setup.Dorc.msi.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
@@ -59,24 +50,6 @@
       <RefProjectOutputGroups>Binaries;Content;Satellites</RefProjectOutputGroups>
       <RefTargetDir>INSTALLFOLDER</RefTargetDir>
     </ProjectReference>
-    <ProjectReference Include="..\Dorc.Monitor\Dorc.Monitor.csproj">
-      <Name>Dorc.Monitor</Name>
-      <Project>{f70bc1de-6ef1-4631-a9d3-6be4ecdce31c}</Project>
-      <Private>True</Private>
-      <DoNotHarvest>True</DoNotHarvest>
-      <RefProjectOutputGroups>Binaries;Content;Satellites</RefProjectOutputGroups>
-      <RefTargetDir>INSTALLFOLDER</RefTargetDir>
-    </ProjectReference>
-    <ProjectReference Include="..\Dorc.NetFramework.Runner\Dorc.NetFramework.Runner.csproj" />
-    <ProjectReference Include="..\Dorc.Runner\Dorc.Runner.csproj">
-      <Name>Dorc.Runner</Name>
-      <Project>{22984457-be1c-4f31-a648-85639c3d5134}</Project>
-      <Private>True</Private>
-      <DoNotHarvest>True</DoNotHarvest>
-      <RefProjectOutputGroups>Binaries;Content;Satellites</RefProjectOutputGroups>
-      <RefTargetDir>INSTALLFOLDER</RefTargetDir>
-    </ProjectReference>
-	<ProjectReference Include="..\Dorc.TerraformRunner\Dorc.TerraformRunner.csproj" />
   </ItemGroup>
   <!--
     The placeholder above is for the inner loop only. A CI build that produced
@@ -109,10 +82,6 @@
   <Target Name="PublishProjects" AfterTargets="BeforeResolveReferences"
           Condition="'$(DorcPayloadPrepublished)' != 'true'">
     <Exec Command="dotnet publish &quot;$(SolutionDir)Dorc.Api\Dorc.Api.csproj&quot; -c $(Configuration)" />
-    <Exec Command="dotnet publish &quot;$(SolutionDir)Dorc.Monitor\Dorc.Monitor.csproj&quot; -c $(Configuration)" />
-    <Exec Command="dotnet publish &quot;$(SolutionDir)Dorc.Runner\Dorc.Runner.csproj&quot; -c $(Configuration)" />
-    <Exec Command="&quot;$(MSBuildBinPath)\MSBuild.exe&quot; &quot;$(SolutionDir)Dorc.NetFramework.Runner\Dorc.NetFramework.Runner.csproj&quot; -p:Configuration=$(Configuration)" />
-	<Exec Command="&quot;$(MSBuildBinPath)\MSBuild.exe&quot; &quot;$(SolutionDir)Dorc.TerraformRunner\Dorc.TerraformRunner.csproj&quot; -p:Configuration=$(Configuration)" />
   </Target>
   <ItemGroup>
     <HarvestDirectory Include="$(DorcWebUIDir)">
@@ -130,70 +99,6 @@
       <SuppressRootDirectory>true</SuppressRootDirectory>
       <SuppressRegistry>true</SuppressRegistry>
     </HarvestDirectory>
-    <HarvestDirectory Include="$(DorcMonitorDir)">
-      <DirectoryRefId>INSTALLLOCATIONNONPROD</DirectoryRefId>
-      <ComponentGroupName>NonProdDeployMonitorComGroup</ComponentGroupName>
-      <Transforms>$(MSBuildProjectDirectory)/Monitors/NonProd/HeatTransform.xslt</Transforms>
-      <PreprocessorVariable>var.DorcMonitorDir</PreprocessorVariable>
-      <SuppressRootDirectory>true</SuppressRootDirectory>
-      <SuppressRegistry>true</SuppressRegistry>
-    </HarvestDirectory>
-	<HarvestDirectory Include="$(DorcRunnerDir)">
-	   <DirectoryRefId>INSTALLLOCATIONDORCRUNNERNONPROD</DirectoryRefId>
-	   <ComponentGroupName>NonProdDorcRunnerComGroup</ComponentGroupName>
-	   <Transforms>$(MSBuildProjectDirectory)/Monitors/NonProd/HeatTransform.xslt</Transforms>
-	   <PreprocessorVariable>var.DorcRunnerDir</PreprocessorVariable>
-	   <SuppressRootDirectory>true</SuppressRootDirectory>
-	   <SuppressRegistry>true</SuppressRegistry>
-	</HarvestDirectory>
-	<HarvestDirectory Include="$(DorcNetFrameworkRunnerDir)">
-	   <DirectoryRefId>INSTALLLOCATIONDEPLOYRUNNERNONPROD</DirectoryRefId>
-	   <ComponentGroupName>NonProdDeployRunnerComGroup</ComponentGroupName>
-	   <Transforms>$(MSBuildProjectDirectory)/Monitors/NonProd/HeatTransform.xslt</Transforms>
-	   <PreprocessorVariable>var.DorcNetFrameworkRunnerDir</PreprocessorVariable>
-	   <SuppressRootDirectory>true</SuppressRootDirectory>
-	   <SuppressRegistry>true</SuppressRegistry>
-	</HarvestDirectory>
-	<HarvestDirectory Include="$(DorcTerraformRunnerDir)">
-	   <DirectoryRefId>INSTALLLOCATIONTERRAFROMRUNNERNONPROD</DirectoryRefId>
-	   <ComponentGroupName>NonProdTerraformRunnerComGroup</ComponentGroupName>
-	   <Transforms>$(MSBuildProjectDirectory)/Monitors/NonProd/HeatTransform.xslt</Transforms>
-	   <PreprocessorVariable>var.DorcTerraformRunnerDir</PreprocessorVariable>
-	   <SuppressRootDirectory>true</SuppressRootDirectory>
-	   <SuppressRegistry>true</SuppressRegistry>
-	</HarvestDirectory>
-    <HarvestDirectory Include="$(DorcMonitorDir)">
-      <DirectoryRefId>INSTALLLOCATIONPROD</DirectoryRefId>
-      <ComponentGroupName>ProdDeployMonitorComGroup</ComponentGroupName>
-      <Transforms>$(MSBuildProjectDirectory)/Monitors/Prod/HeatTransform.xslt</Transforms>
-      <PreprocessorVariable>var.DorcMonitorDir</PreprocessorVariable>
-      <SuppressRootDirectory>true</SuppressRootDirectory>
-      <SuppressRegistry>true</SuppressRegistry>
-    </HarvestDirectory>
-    <HarvestDirectory Include="$(DorcRunnerDir)">
-      <DirectoryRefId>INSTALLLOCATIONDORCRUNNERPROD</DirectoryRefId>
-      <ComponentGroupName>ProdDorcRunnerComGroup</ComponentGroupName>
-      <Transforms>$(MSBuildProjectDirectory)/Monitors/Prod/HeatTransform.xslt</Transforms>
-      <PreprocessorVariable>var.DorcRunnerDir</PreprocessorVariable>
-      <SuppressRootDirectory>true</SuppressRootDirectory>
-      <SuppressRegistry>true</SuppressRegistry>
-    </HarvestDirectory>
-    <HarvestDirectory Include="$(DorcNetFrameworkRunnerDir)">
-      <DirectoryRefId>INSTALLLOCATIONDEPLOYRUNNERPROD</DirectoryRefId>
-      <ComponentGroupName>ProdDeployRunnerComGroup</ComponentGroupName>
-      <Transforms>$(MSBuildProjectDirectory)/Monitors/Prod/HeatTransform.xslt</Transforms>
-      <PreprocessorVariable>var.DorcNetFrameworkRunnerDir</PreprocessorVariable>
-      <SuppressRootDirectory>true</SuppressRootDirectory>
-      <SuppressRegistry>true</SuppressRegistry>
-    </HarvestDirectory>
-	<HarvestDirectory Include="$(DorcTerraformRunnerDir)">
-	  <DirectoryRefId>INSTALLLOCATIONTERRAFORMRUNNERPROD</DirectoryRefId>
-	  <ComponentGroupName>ProdTerraformRunnerComGroup</ComponentGroupName>
-	  <Transforms>$(MSBuildProjectDirectory)/Monitors/Prod/HeatTransform.xslt</Transforms>
-	  <PreprocessorVariable>var.DorcTerraformRunnerDir</PreprocessorVariable>
-	  <SuppressRootDirectory>true</SuppressRootDirectory>
-	  <SuppressRegistry>true</SuppressRegistry>
-	</HarvestDirectory>
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="WixJsonFileExtension" Version="6.3.2" />

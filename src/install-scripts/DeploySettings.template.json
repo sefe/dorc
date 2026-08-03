@@ -9,6 +9,10 @@
       "ProductNames": "Deployment Orchestrator"
     },
     {
+      "Name": "Setup.Dorc.Monitors.msi",
+      "ProductNames": "DOrc Monitors"
+    },
+    {
       "Name": "Setup.Dorc.Cli.msi",
       "ProductNames": "DOrc Command Line Tools"
     },

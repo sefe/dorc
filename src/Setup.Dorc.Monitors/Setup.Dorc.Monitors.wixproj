@@ -1,0 +1,154 @@
+<Project>
+  <Import Project="Sdk.props" Sdk="WixToolset.Sdk" Version="6.0.1" />
+  <PropertyGroup>
+    <Platform Condition=" '$(Platform)' == '' ">x64</Platform>
+    <Name>Setup.Dorc.Monitors</Name>
+    <DorcMonitorDir>$(SolutionDir)Dorc.Monitor\bin\$(Configuration)\net8.0\publish</DorcMonitorDir>
+    <DorcRunnerDir>$(SolutionDir)Dorc.Runner\bin\$(Configuration)\net8.0\publish</DorcRunnerDir>
+    <DorcNetFrameworkRunnerDir>$(SolutionDir)Dorc.NetFramework.Runner\bin\$(Configuration)</DorcNetFrameworkRunnerDir>
+    <DorcTerraformRunnerDir>$(SolutionDir)Dorc.TerraformRunner\bin\$(Configuration)\net8.0</DorcTerraformRunnerDir>
+    <Platforms>x64</Platforms>
+    <!-- See the equivalent property in Setup.Dorc.wixproj for the reasoning. -->
+    <DorcProductVersion Condition="'$(Version)' != ''">$([System.Version]::Parse('$(Version)').ToString())</DorcProductVersion>
+    <DorcProductVersion Condition="'$(DorcProductVersion)' == ''">0.0.1</DorcProductVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x64' ">
+    <DefineConstants>Debug;DorcMonitorDir=$(DorcMonitorDir);DorcRunnerDir=$(DorcRunnerDir);DorcNetFrameworkRunnerDir=$(DorcNetFrameworkRunnerDir);DorcTerraformRunnerDir=$(DorcTerraformRunnerDir);BuildVersion=$(DorcProductVersion)</DefineConstants>
+    <SuppressValidation>True</SuppressValidation>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|x64' ">
+    <DefineConstants>DorcMonitorDir=$(DorcMonitorDir);DorcRunnerDir=$(DorcRunnerDir);DorcNetFrameworkRunnerDir=$(DorcNetFrameworkRunnerDir);DorcTerraformRunnerDir=$(DorcTerraformRunnerDir);BuildVersion=$(DorcProductVersion)</DefineConstants>
+    <SuppressValidation>True</SuppressValidation>
+  </PropertyGroup>
+  <ItemGroup>
+    <Folder Include="Prod\" />
+    <Folder Include="NonProd\" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="Dependencies.wxi" />
+    <Content Include="Prod\HeatTransform.xslt" />
+    <Content Include="NonProd\HeatTransform.xslt" />
+    <Content Include="Setup.Dorc.Monitors.msi.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+  <ItemGroup>
+    <!--
+      Dorc.Monitor keeps its full metadata because the authoring binds
+      $(var.Dorc.Monitor.TargetDir) to it; the others are harvested by path.
+    -->
+    <ProjectReference Include="..\Dorc.Monitor\Dorc.Monitor.csproj">
+      <Name>Dorc.Monitor</Name>
+      <Project>{f70bc1de-6ef1-4631-a9d3-6be4ecdce31c}</Project>
+      <Private>True</Private>
+      <DoNotHarvest>True</DoNotHarvest>
+      <RefProjectOutputGroups>Binaries;Content;Satellites</RefProjectOutputGroups>
+      <RefTargetDir>INSTALLFOLDER</RefTargetDir>
+    </ProjectReference>
+    <ProjectReference Include="..\Dorc.Runner\Dorc.Runner.csproj">
+      <Name>Dorc.Runner</Name>
+      <Project>{22984457-be1c-4f31-a648-85639c3d5134}</Project>
+      <Private>True</Private>
+      <DoNotHarvest>True</DoNotHarvest>
+      <RefProjectOutputGroups>Binaries;Content;Satellites</RefProjectOutputGroups>
+      <RefTargetDir>INSTALLFOLDER</RefTargetDir>
+    </ProjectReference>
+    <ProjectReference Include="..\Dorc.NetFramework.Runner\Dorc.NetFramework.Runner.csproj" />
+    <ProjectReference Include="..\Dorc.TerraformRunner\Dorc.TerraformRunner.csproj" />
+  </ItemGroup>
+  <!--
+    Local-build fallback only — see the equivalent target in Setup.Dorc.wixproj
+    for the full reasoning. CI runs src\InstallerPayload.proj first and passes
+    DorcPayloadPrepublished=true, which skips this.
+  -->
+  <Target Name="PublishProjects" AfterTargets="BeforeResolveReferences"
+          Condition="'$(DorcPayloadPrepublished)' != 'true'">
+    <Exec Command="dotnet publish &quot;$(SolutionDir)Dorc.Monitor\Dorc.Monitor.csproj&quot; -c $(Configuration)" />
+    <Exec Command="dotnet publish &quot;$(SolutionDir)Dorc.Runner\Dorc.Runner.csproj&quot; -c $(Configuration)" />
+    <Exec Command="&quot;$(MSBuildBinPath)\MSBuild.exe&quot; &quot;$(SolutionDir)Dorc.NetFramework.Runner\Dorc.NetFramework.Runner.csproj&quot; -p:Configuration=$(Configuration)" />
+    <Exec Command="&quot;$(MSBuildBinPath)\MSBuild.exe&quot; &quot;$(SolutionDir)Dorc.TerraformRunner\Dorc.TerraformRunner.csproj&quot; -p:Configuration=$(Configuration)" />
+  </Target>
+  <!--
+    See Setup.Dorc.wixproj: a CI build with no Version would ship a package no
+    environment could upgrade to, and would do it silently.
+  -->
+  <Target Name="EnsureBuildVersion" BeforeTargets="Build"
+          Condition="'$(Version)' == '' and ('$(TF_BUILD)' != '' or '$(GITHUB_ACTIONS)' != '')">
+    <Error Text="No Version property was supplied, so the package would be versioned $(DorcProductVersion). Pass /p:Version=&lt;build number&gt;." />
+  </Target>
+  <ItemGroup>
+    <HarvestDirectory Include="$(DorcMonitorDir)">
+      <DirectoryRefId>INSTALLLOCATIONNONPROD</DirectoryRefId>
+      <ComponentGroupName>NonProdDeployMonitorComGroup</ComponentGroupName>
+      <Transforms>$(MSBuildProjectDirectory)/NonProd/HeatTransform.xslt</Transforms>
+      <PreprocessorVariable>var.DorcMonitorDir</PreprocessorVariable>
+      <SuppressRootDirectory>true</SuppressRootDirectory>
+      <SuppressRegistry>true</SuppressRegistry>
+    </HarvestDirectory>
+    <HarvestDirectory Include="$(DorcRunnerDir)">
+      <DirectoryRefId>INSTALLLOCATIONDORCRUNNERNONPROD</DirectoryRefId>
+      <ComponentGroupName>NonProdDorcRunnerComGroup</ComponentGroupName>
+      <Transforms>$(MSBuildProjectDirectory)/NonProd/HeatTransform.xslt</Transforms>
+      <PreprocessorVariable>var.DorcRunnerDir</PreprocessorVariable>
+      <SuppressRootDirectory>true</SuppressRootDirectory>
+      <SuppressRegistry>true</SuppressRegistry>
+    </HarvestDirectory>
+    <HarvestDirectory Include="$(DorcNetFrameworkRunnerDir)">
+      <DirectoryRefId>INSTALLLOCATIONDEPLOYRUNNERNONPROD</DirectoryRefId>
+      <ComponentGroupName>NonProdDeployRunnerComGroup</ComponentGroupName>
+      <Transforms>$(MSBuildProjectDirectory)/NonProd/HeatTransform.xslt</Transforms>
+      <PreprocessorVariable>var.DorcNetFrameworkRunnerDir</PreprocessorVariable>
+      <SuppressRootDirectory>true</SuppressRootDirectory>
+      <SuppressRegistry>true</SuppressRegistry>
+    </HarvestDirectory>
+    <HarvestDirectory Include="$(DorcTerraformRunnerDir)">
+      <DirectoryRefId>INSTALLLOCATIONTERRAFROMRUNNERNONPROD</DirectoryRefId>
+      <ComponentGroupName>NonProdTerraformRunnerComGroup</ComponentGroupName>
+      <Transforms>$(MSBuildProjectDirectory)/NonProd/HeatTransform.xslt</Transforms>
+      <PreprocessorVariable>var.DorcTerraformRunnerDir</PreprocessorVariable>
+      <SuppressRootDirectory>true</SuppressRootDirectory>
+      <SuppressRegistry>true</SuppressRegistry>
+    </HarvestDirectory>
+    <HarvestDirectory Include="$(DorcMonitorDir)">
+      <DirectoryRefId>INSTALLLOCATIONPROD</DirectoryRefId>
+      <ComponentGroupName>ProdDeployMonitorComGroup</ComponentGroupName>
+      <Transforms>$(MSBuildProjectDirectory)/Prod/HeatTransform.xslt</Transforms>
+      <PreprocessorVariable>var.DorcMonitorDir</PreprocessorVariable>
+      <SuppressRootDirectory>true</SuppressRootDirectory>
+      <SuppressRegistry>true</SuppressRegistry>
+    </HarvestDirectory>
+    <HarvestDirectory Include="$(DorcRunnerDir)">
+      <DirectoryRefId>INSTALLLOCATIONDORCRUNNERPROD</DirectoryRefId>
+      <ComponentGroupName>ProdDorcRunnerComGroup</ComponentGroupName>
+      <Transforms>$(MSBuildProjectDirectory)/Prod/HeatTransform.xslt</Transforms>
+      <PreprocessorVariable>var.DorcRunnerDir</PreprocessorVariable>
+      <SuppressRootDirectory>true</SuppressRootDirectory>
+      <SuppressRegistry>true</SuppressRegistry>
+    </HarvestDirectory>
+    <HarvestDirectory Include="$(DorcNetFrameworkRunnerDir)">
+      <DirectoryRefId>INSTALLLOCATIONDEPLOYRUNNERPROD</DirectoryRefId>
+      <ComponentGroupName>ProdDeployRunnerComGroup</ComponentGroupName>
+      <Transforms>$(MSBuildProjectDirectory)/Prod/HeatTransform.xslt</Transforms>
+      <PreprocessorVariable>var.DorcNetFrameworkRunnerDir</PreprocessorVariable>
+      <SuppressRootDirectory>true</SuppressRootDirectory>
+      <SuppressRegistry>true</SuppressRegistry>
+    </HarvestDirectory>
+    <HarvestDirectory Include="$(DorcTerraformRunnerDir)">
+      <DirectoryRefId>INSTALLLOCATIONTERRAFORMRUNNERPROD</DirectoryRefId>
+      <ComponentGroupName>ProdTerraformRunnerComGroup</ComponentGroupName>
+      <Transforms>$(MSBuildProjectDirectory)/Prod/HeatTransform.xslt</Transforms>
+      <PreprocessorVariable>var.DorcTerraformRunnerDir</PreprocessorVariable>
+      <SuppressRootDirectory>true</SuppressRootDirectory>
+      <SuppressRegistry>true</SuppressRegistry>
+    </HarvestDirectory>
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="WixJsonFileExtension" Version="6.3.2" />
+    <PackageReference Include="WixToolset.Heat" Version="6.0.2" />
+    <PackageReference Include="WixToolset.Util.wixext" Version="6.0.2" />
+  </ItemGroup>
+  <Import Project="Sdk.targets" Sdk="WixToolset.Sdk" Version="6.0.1" />
+  <PropertyGroup>
+    <PostBuildEvent>copy $(ProjectDir)%2a.msi.json $(TargetDir)\.</PostBuildEvent>
+  </PropertyGroup>
+</Project>

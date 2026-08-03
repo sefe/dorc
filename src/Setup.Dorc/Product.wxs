@@ -12,7 +12,6 @@
 			<Custom Action="ReconfigureLoadUserProfileRequestApi" Before="InstallFinalize" Condition="NOT Installed" />
 		</InstallExecuteSequence>
 
-		<SetDirectory Id="CDrive" Value="C:\" />
 
 		<Feature Id="Deployment.Orchestrator" Title="Deployment Orchestrator" Level="1">
 			<Feature Id="Web.Components" Title="Web Components">
@@ -30,34 +29,6 @@
 				<ComponentRef Id="DOrcWebIISComponentProd" />
 				<ComponentRef Id="RemoveDorcWebFolder" />
 
-			</Feature>
-			<Feature Id="Monitors" Title="Monitors">
-				<ComponentRef Id="DeployMonitorServiceNonProd.exe" />
-				<ComponentGroupRef Id="NonProdDeployMonitorComGroup" />
-
-				<ComponentRef Id="DeployMonitorServiceDorcRunnerNonProd.exe" />
-				<ComponentGroupRef Id="NonProdDorcRunnerComGroup" />
-
-				<ComponentRef Id="DeployMonitorServiceDeployRunnerNonProd.exe" />
-				<ComponentGroupRef Id="NonProdDeployRunnerComGroup" />
-
-				<ComponentRef Id="DeployMonitorServiceTerrafromRunnerNonProd.exe" />
-				<ComponentGroupRef Id="NonProdTerraformRunnerComGroup" />				
-
-				<ComponentRef Id="DeployMonitorServiceProd.exe" />
-				<ComponentGroupRef Id="ProdDeployMonitorComGroup" />
-
-				<ComponentRef Id="DeployMonitorServiceDorcRunnerProd.exe" />
-				<ComponentGroupRef Id="ProdDorcRunnerComGroup" />
-
-				<ComponentRef Id="DeployMonitorServiceDeployRunnerProd.exe" />
-				<ComponentGroupRef Id="ProdDeployRunnerComGroup" />
-				
-				<ComponentRef Id="DeployMonitorServiceTerraformRunnerProd.exe" />
-				<ComponentGroupRef Id="ProdTerraformRunnerComGroup" />
-				
-				<ComponentRef Id="LogsShare" />
-				<ComponentRef Id="RemoveServicesFolder" />
 			</Feature>
 		</Feature>
 
@@ -113,28 +84,9 @@
 								</Component>
 							</Directory>
 						</Directory>
-						<!-- Monitors own everything under Services: both ActionService trees hang off it. -->
-						<Directory Id="ServicesFolder" Name="Services">
-							<Component Id="RemoveServicesFolder" Guid="{2BC14E1D-F915-453B-8BA9-74E368B2E1D6}">
-								<CreateFolder />
-								<util:RemoveFolderEx Id="Remove.ServicesFolderEx" Property="ServicesFolder" On="both" />
-								<RemoveFolder Id="Remove.ServicesFolder" On="both" />
-							</Component>
-						</Directory>
 						<!-- Tools moved to Setup.Dorc.Cli (S-006). -->
 					</Directory>
 				</Directory>
 		</StandardDirectory>
-		<Directory Id="CDrive" Name="CDrive">
-			<Directory Id="LogDir" Name="Log">
-				<Component Id="LogsShare" Guid="{E5D33911-A506-4E57-B2D8-839FBDA79160}" Bitness="always64">
-					<CreateFolder />
-					<util:User Id="Everyone1" Name="Everyone" CreateUser="no" FailIfExists="no" RemoveOnUninstall="no" />
-					<util:FileShare Id="Logs" Description="DOrc Logs" Name="Log">
-						<util:FileSharePermission User="Everyone1" GenericRead="yes" GenericExecute="yes" GenericWrite="no" />
-					</util:FileShare>
-				</Component>
-			</Directory>
-		</Directory>
 	</Package>
 </Wix>
