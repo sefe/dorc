@@ -10,13 +10,11 @@ import '@vaadin/text-area';
 import '@vaadin/text-field';
 import '@vaadin/vertical-layout';
 import '@vaadin/horizontal-layout';
-import { css, LitElement, render } from 'lit';
+import { css, LitElement } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
-import {
-  NotificationOpenedChangedEvent,
-  NotificationRenderer
-} from '@vaadin/notification';
+import { NotificationOpenedChangedEvent } from '@vaadin/notification';
+import { notificationRenderer } from '@vaadin/notification/lit';
 
 @customElement('success-notification')
 export class SuccessNotification extends LitElement {
@@ -41,28 +39,23 @@ export class SuccessNotification extends LitElement {
         @opened-changed="${(e: NotificationOpenedChangedEvent) => {
           this.notificationOpened = e.detail.value;
         }}"
-        .renderer="${this.successNotificationRenderer}"
+        ${notificationRenderer(this.successNotificationRenderer, [this.successMessage])}
       ></vaadin-notification>
     `;
   }
 
-  successNotificationRenderer: NotificationRenderer = root => {
-    render(
-      html`
-        <vaadin-horizontal-layout theme="spacing" style="align-items: start;">
-          <div>${this.successMessage}</div>
-          <vaadin-button
-            theme="tertiary-inline"
-            @click="${() => (this.notificationOpened = false)}"
-            aria-label="Close"
-          >
-            <vaadin-icon icon="lumo:cross"></vaadin-icon>
-          </vaadin-button>
-        </vaadin-horizontal-layout>
-      `,
-      root
-    );
-  };
+  private readonly successNotificationRenderer = () => html`
+    <vaadin-horizontal-layout theme="spacing" style="align-items: start;">
+      <div>${this.successMessage}</div>
+      <vaadin-button
+        theme="tertiary-inline"
+        @click="${() => (this.notificationOpened = false)}"
+        aria-label="Close"
+      >
+        <vaadin-icon icon="lumo:cross"></vaadin-icon>
+      </vaadin-button>
+    </vaadin-horizontal-layout>
+  `;
 
   public open() {
     this.notificationOpened = true;

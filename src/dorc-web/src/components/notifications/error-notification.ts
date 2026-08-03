@@ -10,13 +10,11 @@ import '@vaadin/text-area';
 import '@vaadin/text-field';
 import '@vaadin/vertical-layout';
 import '@vaadin/horizontal-layout';
-import { css, LitElement, render } from 'lit';
+import { css, LitElement } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
-import {
-  NotificationOpenedChangedEvent,
-  NotificationRenderer
-} from '@vaadin/notification';
+import { NotificationOpenedChangedEvent } from '@vaadin/notification';
+import { notificationRenderer } from '@vaadin/notification/lit';
 
 @customElement('error-notification')
 export class ErrorNotification extends LitElement {
@@ -41,28 +39,23 @@ export class ErrorNotification extends LitElement {
         @opened-changed="${(e: NotificationOpenedChangedEvent) => {
           this.notificationOpened = e.detail.value;
         }}"
-        .renderer="${this.errorNotificationRenderer}"
+        ${notificationRenderer(this.errorNotificationRenderer, [this.errorMessage])}
       ></vaadin-notification>
     `;
   }
 
-  errorNotificationRenderer: NotificationRenderer = root => {
-    render(
-      html`
-        <vaadin-horizontal-layout theme="spacing" style="align-items: start;">
-          <div>${this.errorMessage}</div>
-          <vaadin-button
-            theme="tertiary-inline"
-            @click="${() => (this.notificationOpened = false)}"
-            aria-label="Close"
-          >
-            <vaadin-icon icon="lumo:cross"></vaadin-icon>
-          </vaadin-button>
-        </vaadin-horizontal-layout>
-      `,
-      root
-    );
-  };
+  private readonly errorNotificationRenderer = () => html`
+    <vaadin-horizontal-layout theme="spacing" style="align-items: start;">
+      <div>${this.errorMessage}</div>
+      <vaadin-button
+        theme="tertiary-inline"
+        @click="${() => (this.notificationOpened = false)}"
+        aria-label="Close"
+      >
+        <vaadin-icon icon="lumo:cross"></vaadin-icon>
+      </vaadin-button>
+    </vaadin-horizontal-layout>
+  `;
 
   public open() {
     this.notificationOpened = true;

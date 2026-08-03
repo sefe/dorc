@@ -1,4 +1,4 @@
-import { css, nothing, PropertyValues, render } from 'lit';
+import { css, nothing, PropertyValues } from 'lit';
 import '../components/dorc-spinner';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid';
@@ -12,9 +12,8 @@ import '@vaadin/text-field';
 import '@vaadin/dialog';
 import '../components/add-daemon';
 import '../components/edit-daemon';
-import type { GridItemModel } from '@vaadin/grid';
 import '@vaadin/grid/vaadin-grid-column';
-import type { GridColumn } from '@vaadin/grid/vaadin-grid-column';
+import { columnBodyRenderer } from '@vaadin/grid/lit';
 import type { DialogOpenedChangedEvent } from '@vaadin/dialog';
 import { dialogFooterRenderer, dialogRenderer } from '@vaadin/dialog/lit';
 import { navigate } from '../router/router';
@@ -240,31 +239,27 @@ export class PageDaemonsList extends ResponsiveMixin(PageElement) {
                 resizable
                 direction="desc"
                 ?hidden="${this._narrowScreen}"
-                .renderer="${this._lastSeenRenderer}"
+                ${columnBodyRenderer(this._lastSeenRenderer, [])}
               ></vaadin-grid-sort-column>
               <vaadin-grid-column
                 header="Actions"
                 width="180px"
                 flex-grow="0"
-                .renderer="${this._rowActionsRenderer}"
+                ${columnBodyRenderer(this._rowActionsRenderer, [
+                  this.isAdmin,
+                  this.isPowerUser
+                ])}
               ></vaadin-grid-column>
             </vaadin-grid>
           `} `;
   }
 
-  private _lastSeenRenderer = (
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<DaemonApiModel>
-  ) => {
-    const daemon = model.item;
+  private _lastSeenRenderer = (daemon: DaemonApiModel) => {
     const raw = daemon.LastSeenDate;
     if (!raw) {
-      render(
-        html`<span style="color: var(--dorc-text-secondary, #888)">Never</span>`,
-        root
-      );
-      return;
+      return html`<span style="color: var(--dorc-text-secondary, #888)"
+        >Never</span
+      >`;
     }
 
     const dt = new Date(raw);
@@ -280,10 +275,9 @@ export class PageDaemonsList extends ResponsiveMixin(PageElement) {
         ? 'var(--dorc-error-color, inherit)'
         : 'inherit';
 
-    render(
-      html`<span title="${tooltip}" style="color: ${color}">${relative}</span>`,
-      root
-    );
+    return html`<span title="${tooltip}" style="color: ${color}"
+      >${relative}</span
+    >`;
   };
 
   private _formatRelativeTime(date: Date): string {
@@ -303,53 +297,44 @@ export class PageDaemonsList extends ResponsiveMixin(PageElement) {
     return `${diffYear} yr${diffYear === 1 ? '' : 's'} ago`;
   }
 
-  private _rowActionsRenderer = (
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<DaemonApiModel>
-  ) => {
-    const daemon = model.item;
-    render(
-      html`<div class="row-actions">
-        <vaadin-button
-          title="View audit history"
-          aria-label="View audit history"
-          theme="icon"
-          @click="${() => this.openAudit(daemon)}"
-        >
-          <vaadin-icon
-            icon="vaadin:calendar-user"
-            style="color: var(--dorc-link-color)"
-          ></vaadin-icon>
-        </vaadin-button>
-        <vaadin-button
-          title="Edit daemon"
-          aria-label="Edit daemon"
-          theme="icon"
-          ?hidden="${!(this.isAdmin || this.isPowerUser)}"
-          @click="${() => this.openEdit(daemon)}"
-        >
-          <vaadin-icon
-            icon="lumo:edit"
-            style="color: var(--dorc-link-color)"
-          ></vaadin-icon>
-        </vaadin-button>
-        <vaadin-button
-          title="Delete daemon"
-          aria-label="Delete daemon"
-          theme="icon"
-          ?hidden="${!this.isAdmin}"
-          @click="${() => this.requestDelete(daemon)}"
-        >
-          <vaadin-icon
-            icon="icons:delete"
-            style="color: var(--dorc-error-color)"
-          ></vaadin-icon>
-        </vaadin-button>
-      </div>`,
-      root
-    );
-  };
+  private _rowActionsRenderer = (daemon: DaemonApiModel) =>
+    html`<div class="row-actions">
+      <vaadin-button
+        title="View audit history"
+        aria-label="View audit history"
+        theme="icon"
+        @click="${() => this.openAudit(daemon)}"
+      >
+        <vaadin-icon
+          icon="vaadin:calendar-user"
+          style="color: var(--dorc-link-color)"
+        ></vaadin-icon>
+      </vaadin-button>
+      <vaadin-button
+        title="Edit daemon"
+        aria-label="Edit daemon"
+        theme="icon"
+        ?hidden="${!(this.isAdmin || this.isPowerUser)}"
+        @click="${() => this.openEdit(daemon)}"
+      >
+        <vaadin-icon
+          icon="lumo:edit"
+          style="color: var(--dorc-link-color)"
+        ></vaadin-icon>
+      </vaadin-button>
+      <vaadin-button
+        title="Delete daemon"
+        aria-label="Delete daemon"
+        theme="icon"
+        ?hidden="${!this.isAdmin}"
+        @click="${() => this.requestDelete(daemon)}"
+      >
+        <vaadin-icon
+          icon="icons:delete"
+          style="color: var(--dorc-error-color)"
+        ></vaadin-icon>
+      </vaadin-button>
+    </div>`;
 
   firstUpdated(_changedProperties: PropertyValues) {
     super.firstUpdated(_changedProperties);

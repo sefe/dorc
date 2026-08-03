@@ -4,11 +4,10 @@ import { dialogFooterRenderer, dialogRenderer } from '@vaadin/dialog/lit';
 import { ref } from 'lit/directives/ref.js';
 import '@vaadin/button';
 import '@vaadin/grid';
-import { GridItemModel } from '@vaadin/grid';
+import { columnBodyRenderer } from '@vaadin/grid/lit';
 import '@vaadin/grid/vaadin-grid-column';
-import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
 import '@vaadin/grid/vaadin-grid-sort-column';
-import { css, LitElement, nothing, render } from 'lit';
+import { css, LitElement, nothing } from 'lit';
 import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
@@ -112,7 +111,7 @@ export class AttachedDatabases extends ResponsiveMixin(LitElement) {
           resizable
         ></vaadin-grid-column>
         <vaadin-grid-column
-          .renderer="${this.applicationTagsRenderer}"
+          ${columnBodyRenderer(this.applicationTagsRenderer, [])}
           resizable
           header="Application Tag"
           ?hidden="${this._narrowScreen}"
@@ -124,7 +123,10 @@ export class AttachedDatabases extends ResponsiveMixin(LitElement) {
           ?hidden="${this._narrowScreen}"
         ></vaadin-grid-column>
         <vaadin-grid-column
-          .renderer="${this._boundDatabasesButtonsRenderer}"
+          ${columnBodyRenderer(this.databaseControlsRenderer, [
+            this.envId,
+            this.readonly
+          ])}
           resizable
         >
         </vaadin-grid-column>
@@ -160,12 +162,7 @@ export class AttachedDatabases extends ResponsiveMixin(LitElement) {
     `;
   }
 
-  private applicationTagsRenderer = (
-    root: HTMLElement,
-    _: HTMLElement,
-    model: GridItemModel<DatabaseApiModel>
-  ) => {
-    const database = model.item;
+  private applicationTagsRenderer = (database: DatabaseApiModel) => {
     const appTags =
       database.Type !== undefined &&
       database.Type !== null &&
@@ -173,62 +170,49 @@ export class AttachedDatabases extends ResponsiveMixin(LitElement) {
         ? database.Type?.split(';')
         : [];
 
-    render(
-      html`
-        ${map(
-          appTags,
-          value =>
-            html` <button
-              style="border: 0px"
-              class="tag"
-              @click="${() =>
-                this.dispatchEvent(
-                  new CustomEvent('filter-tags-database-list', {
-                    detail: {
-                      value
-                    },
-                    bubbles: true,
-                    composed: true
-                  })
-                )}"
-            >
-              ${value}
-            </button>`
-        )}
-      `,
-      root
-    );
+    return html`
+      ${map(
+        appTags,
+        value =>
+          html` <button
+            style="border: 0px"
+            class="tag"
+            @click="${() =>
+              this.dispatchEvent(
+                new CustomEvent('filter-tags-database-list', {
+                  detail: {
+                    value
+                  },
+                  bubbles: true,
+                  composed: true
+                })
+              )}"
+          >
+            ${value}
+          </button>`
+      )}
+    `;
   };
 
-  _boundDatabasesButtonsRenderer = (
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<DatabaseApiModel>
-  ) => {
-    const db = model.item as DatabaseApiModel;
-
-    render(
-      html` <database-env-controls
-        .dbDetails="${db}"
-        .envId="${this.envId}"
-        .readonly="${this.readonly}"
-        @database-detached="${() =>
-          this.dispatchEvent(
-            new CustomEvent('database-detached', { detail: { db } })
-          )
-        }"
-        @manage-database-perms="${() => {
-          this.editDbId = db.Id || 0;
-          this.permissionsDialogOpened = true;
-        }}"
-        @view-database-perms="${() => {
-          this.viewDbId = db.Id || 0;
-          this.viewPermissionsDialogOpened = true;
-        }}"
-      ></database-env-controls>`,
-      root
-    );
-  }
+  private databaseControlsRenderer = (db: DatabaseApiModel) => html`
+    <database-env-controls
+      .dbDetails="${db}"
+      .envId="${this.envId}"
+      .readonly="${this.readonly}"
+      @database-detached="${() =>
+        this.dispatchEvent(
+          new CustomEvent('database-detached', { detail: { db } })
+        )}"
+      @manage-database-perms="${() => {
+        this.editDbId = db.Id || 0;
+        this.permissionsDialogOpened = true;
+      }}"
+      @view-database-perms="${() => {
+        this.viewDbId = db.Id || 0;
+        this.viewPermissionsDialogOpened = true;
+      }}"
+    ></database-env-controls>
+  `;
 
   /**
    * These two components are configured through imperative methods, and the
