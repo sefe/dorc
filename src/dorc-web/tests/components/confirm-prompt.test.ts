@@ -2,8 +2,10 @@ import { expect, settle } from '../_helpers';
 import { confirmPrompt } from '../../src/components/confirm-prompt';
 
 // confirmPrompt replaces window.confirm(). These tests pin the contract every
-// call site relies on: it resolves true only on confirm, false on every other
-// dismissal path, and leaves no dialog behind.
+// call site relies on: it resolves true only on confirm, false on the cancel
+// and Escape dismissals, and leaves no dialog behind. Outside-click is not
+// covered because it cannot happen — the mixin's `_onOverlayOutsideClick`
+// calls preventDefault, so the dialog stays open.
 
 const openDialog = () =>
   document.body.querySelector('vaadin-confirm-dialog') as
@@ -98,14 +100,34 @@ describe('confirmPrompt', () => {
     expect(document.body.querySelector('vaadin-confirm-dialog')).to.equal(null);
   });
 
-  it('resolves exactly once even though close fires after confirm', async () => {
-    // `confirm` and `closed` both fire on the confirm path; the promise must
-    // keep the true result rather than being overwritten by the close.
-    const answer = confirmPrompt('Proceed?', { confirmText: 'Yes' });
+  it('resolves false when the dialog is dismissed with Escape', async () => {
+    // The path the header claimed to cover and did not. It arrives as `cancel`:
+    // the mixin's `_onOverlayEscapePress` calls `__cancel()`, which dispatches
+    // `cancel` before setting `opened = false`.
+    //
+    // What this pins is that Escape settles the promise at all — deleting both
+    // dismissal listeners hangs it until the 30s timeout. It does not isolate
+    // the `cancel` listener, because the `closed` backstop catches Escape too;
+    // that redundancy is deliberate, so nothing can leave a caller awaiting a
+    // dialog the user has already dismissed.
+    const answer = confirmPrompt('Proceed?');
     await settle();
-    clickButton('Yes');
 
-    expect(await answer).to.equal(true);
+    const overlay = openDialog()?.shadowRoot?.querySelector('vaadin-confirm-dialog-overlay');
+    overlay?.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'Escape',
+        bubbles: true,
+        composed: true
+      })
+    );
+
+    expect(await answer).to.equal(false);
+    await settle();
+    expect(
+      document.body.querySelector('vaadin-confirm-dialog'),
+      'and cleans up after itself'
+    ).to.equal(null);
   });
 
   it('keeps line breaks in the message', async () => {

@@ -196,6 +196,40 @@ function findBindings(text) {
       line
     });
   }
+  return [...out, ...findImperativeAssignments(text)];
+}
+
+/**
+ * Finds plain assignments — `column.renderer = fn` — outside a template.
+ *
+ * The template form above is how the migrated code binds renderers, but it is
+ * not the only way to set one. A direct assignment reintroduces exactly the two
+ * defects the directives removed (`this` bound to the column, and a cell that
+ * only repaints on requestContentUpdate()), and the gate has to see it or it
+ * only enforces a style, not the property it claims to.
+ */
+function findImperativeAssignments(text) {
+  const out = [];
+  // `<identifier>.renderer = ` where the left side is not a template binding
+  // (those are preceded by whitespace or a quote inside a tag, and always have
+  // a `${` on the right).
+  const assignRe = new RegExp(
+    `\\b([A-Za-z_$][\\w$]*(?:\\.[A-Za-z_$][\\w$]*)*)\\.(${RENDERER_PROPS.join('|')})\\s*=\\s*([^=])`,
+    'g'
+  );
+  let m;
+  while ((m = assignRe.exec(text)) !== null) {
+    // `.renderer=${...}` inside a template is the declarative form, already
+    // collected above.
+    if (m[3] === '$') continue;
+    const before = text.slice(0, m.index);
+    out.push({
+      prop: m[2],
+      element: `${m[1]} (assignment)`,
+      expression: text.slice(m.index + m[0].length - 1, m.index + m[0].length + 60).split('\n')[0].trim(),
+      line: before.split('\n').length
+    });
+  }
   return out;
 }
 

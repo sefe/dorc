@@ -71,8 +71,15 @@ export function confirmPrompt(
     };
 
     dialog.addEventListener('confirm', () => finish(true));
+    // Escape arrives here, not on `closed`: the mixin's `_onOverlayEscapePress`
+    // calls `__cancel()`, which dispatches `cancel` and only then sets
+    // `opened = false`. Outside-click never closes it at all —
+    // `_onOverlayOutsideClick` calls preventDefault.
     dialog.addEventListener('cancel', () => finish(false));
-    // Escape resolves as a cancel, matching window.confirm()'s behaviour.
+    // Backstop for any close path that fires neither, so the promise cannot be
+    // left pending. Redundant for the two paths above, which is why `settled`
+    // matters more for intent than for behaviour: a promise settles once
+    // regardless, and the dialog is already removed by then.
     dialog.addEventListener('closed', () => finish(false));
 
     document.body.appendChild(dialog);

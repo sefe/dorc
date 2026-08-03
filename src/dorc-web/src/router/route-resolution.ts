@@ -96,18 +96,41 @@ export class RouteResolver {
           }
         }
 
-        // A route with children is a layout: it contributes its component to
-        // the chain but must not terminate resolution, so that descendants are
-        // still matched. `chainFor` picks it up via the `parent` links.
-        if (route.component && !route.children?.length) {
-          return {
-            chain: chainFor(route, matchedPaths),
-            params: params as RouteParams,
-            pathname: context.pathname
-          };
+        const leaf = (): RouteOutcome => ({
+          chain: chainFor(route, matchedPaths),
+          params: params as RouteParams,
+          pathname: context.pathname
+        });
+
+        if (!route.component) {
+          return undefined;
         }
 
-        return undefined;
+        if (!route.children?.length) {
+          return leaf();
+        }
+
+        // A route with children is a layout: descendants must get first refusal,
+        // or `/environment/:id` would swallow `/environment/:id/metadata`.
+        //
+        // But it still terminates when the URL stops at it. `/environment/:id`
+        // carries both a component and tabs, and the sidebar's per-environment
+        // tab links to the bare form — resolving that to not-found is what
+        // Vaadin Router did not do (`dist/router.js`: `if (isString(
+        // route.component)) return commands.component(...)`, reached for
+        // parents too).
+        //
+        // The guard is that this route consumed the whole pathname. Without it,
+        // `/environment/:id/nosuchtab` would fall back to the layout instead of
+        // not-found, which Vaadin Router also did not do.
+        const consumed = `${matched.baseUrl ?? ''}${matched.path ?? ''}`;
+        const next = (
+          context as unknown as { next: () => Promise<RouteOutcome | null> }
+        ).next;
+
+        return next().then(
+          result => result ?? (consumed === context.pathname ? leaf() : undefined)
+        );
       }
     });
 
