@@ -57,27 +57,6 @@ jobs:
       working-directory: src/dorc-web
       run: npm ci --loglevel=error
 
-    - name: Select browser matrix
-      id: browsers
-      shell: pwsh
-      run: |
-        # Branches that ship get all three engines; everything else gets
-        # chromium, which keeps PR feedback short and avoids downloading two
-        # extra browser engines on a cache miss.
-        #
-        # Read the ref from the environment rather than interpolating
-        # ${{ github.ref }} into the script body: ref names may contain quotes
-        # and backticks, so the interpolated form is a script-injection sink.
-        $ref = $env:GITHUB_REF
-        if ($ref -eq "refs/heads/main" -or $ref -eq "refs/heads/develop" -or $ref -like "refs/heads/release/*") {
-          $browsers = "chromium,firefox,webkit"
-        } else {
-          $browsers = "chromium"
-        }
-        Write-Host "Browser matrix: $browsers"
-        echo "list=$browsers" >> $env:GITHUB_OUTPUT
-        echo "install=$($browsers -replace ',',' ')" >> $env:GITHUB_OUTPUT
-
     # The next three steps assume Windows (pwsh + the Windows cache path).
     # The whole job is windows-latest today; the `if: runner.os == 'Windows'`
     # guards align them so adding a Linux/macOS matrix entry later is a
@@ -102,26 +81,30 @@ jobs:
         }
         echo "version=$version" >> $env:GITHUB_OUTPUT
 
-    # The browser list is part of the key: a cache populated by a chromium-only
-    # run must not satisfy a run that needs all three engines.
+    # Every engine is installed on every run, so the Playwright version alone
+    # identifies the cache contents. Do not reintroduce a per-branch browser
+    # subset without putting that subset back into the key — a chromium-only
+    # cache entry must never satisfy a run that needs all three.
     - name: Cache Playwright browsers
       id: playwright-cache
       if: runner.os == 'Windows'
       uses: actions/cache@v6
       with:
         path: ~\AppData\Local\ms-playwright
-        key: playwright-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}-${{ steps.browsers.outputs.list }}
+        key: playwright-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
 
     - name: Install Playwright browsers
       if: runner.os == 'Windows' && steps.playwright-cache.outputs.cache-hit != 'true'
       working-directory: src/dorc-web
-      run: npx playwright install ${{ steps.browsers.outputs.install }}
+      run: npx playwright install chromium firefox webkit
 
+    # VITEST_BROWSERS is deliberately not set: the suite runs its full default
+    # matrix on every build, on every branch. Varying it per branch meant PRs
+    # exercised a different configuration from main, which is precisely how the
+    # comma-in-cache-key bug reached main green.
     - name: Run web tests
       if: runner.os == 'Windows'
       working-directory: src/dorc-web
-      env:
-        VITEST_BROWSERS: ${{ steps.browsers.outputs.list }}
       run: npm test
 
   build:
@@ -224,11 +207,20 @@ jobs:
           Write-Host "UpdateVersion.ps1 not found, skipping cmdlet versioning"
         }
       
-    # There is deliberately no actions/cache step for ~/.nuget/packages here.
-    # Caching it on Windows means shuffling tens of thousands of small files:
-    # measured over run 30527995114 it cost 1m04s to restore plus 10s to save,
-    # to speed up a restore that takes 27s warm. The key also hashed **/*.csproj,
-    # so any project-file edit paid that cost for nothing.
+    # #797 removed this cache on the argument that it cost more than it saved:
+    # 1m04s to restore plus 10s to save, against a 27s warm restore. The
+    # measurement that mattered was the one not taken — how long an uncached
+    # restore takes. It is 2m04s (run 30751703601) to 2m41s (run 30794820988),
+    # so removing the cache cost 25-100s per build rather than saving 40s.
+    # Restored on that evidence.
+    - name: Cache NuGet packages
+      uses: actions/cache@v6
+      with:
+        path: ~/.nuget/packages
+        key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json', '**/*.csproj') }}
+        restore-keys: |
+          ${{ runner.os }}-nuget-
+
     # Every project in the solution is SDK-style (csproj / wixproj / sqlproj)
     # and there is no packages.config anywhere in the tree, so the `nuget
     # restore` pass that used to run first was pure duplication of the work
