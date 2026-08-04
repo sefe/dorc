@@ -33,9 +33,12 @@
 		<StandardDirectory Id="ProgramFiles64Folder">
 			<Directory Id="DOrcFolder" Name="DOrc">
 				<!--
-					Shared install root, owned by no package: empty-only removal, kept
-					identical to the equivalent component in the other packages. See
-					S-003 in docs/msi-decomposition/IS-msi-decomposition.md.
+					The install root is shared with the other DOrc packages and owned by
+					none of them, so nothing here may delete recursively. Plain
+					RemoveFolder removes a directory only when it is already empty, so
+					every package can declare it and whichever is uninstalled last is the
+					one that succeeds. Kept identical to the equivalent component in the
+					other packages, deliberately.
 				-->
 				<Directory Id="INSTALLLOCATION" Name="Deploy">
 					<Component Id="RemoveInstallRoot" Guid="{38C48ECF-C6A2-4C8E-96DE-81C9354CB072}">

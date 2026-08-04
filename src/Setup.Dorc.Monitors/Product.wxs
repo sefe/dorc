@@ -2,13 +2,18 @@
 	<?include Dependencies.wxi?>
 	<Package Name="DOrc Monitors" Language="1033" Version="$(var.ProductVersion)" Manufacturer="SEFE" UpgradeCode="{2BB79A99-CEA6-40DC-94AB-1C9B9610F8D6}" ProductCode="{DD4E19DF-A851-481B-9B7E-08663DC3E65C}">
 		<!--
-			One cabinet, deliberately. Splitting this package across several
-			media so they could be compressed in parallel was tried in run
-			30909238019 and doubled the package, 83 MB to 166 MB, for 7 seconds
-			off the build. Every payload file ships twice here, into the Prod
-			tree and into NonProd; within a single cabinet the second copy is
-			nearly free, and separate cabinets make it cost full price. See
-			docs/msi-decomposition/RECORD-build-time.md.
+			One cabinet, deliberately. This package is the longest pole in the
+			build - 116.7s of it spent compressing - and a cabinet is compressed
+			by a single thread, so splitting it across several media to get that
+			work in parallel is the obvious move. It was tried, in run
+			30909238019, and it doubled the package: 83 MB to 166 MB, for 7
+			seconds off the build.
+
+			Every payload file ships twice here, into the Prod tree and into
+			NonProd, because both are installed side by side. WiX stores a source
+			file once per cabinet and points both File rows at that entry, so
+			within one cabinet the second copy is nearly free - and separate
+			cabinets make it pay full price. Do not split this.
 		-->
 		<Media Id="1" Cabinet="media1.cab" EmbedCab="yes" />
 
@@ -48,9 +53,12 @@
 		<StandardDirectory Id="ProgramFiles64Folder">
 			<Directory Id="DOrcFolder" Name="DOrc">
 				<!--
-					Shared install root, owned by no package: empty-only removal, kept
-					identical to the equivalent component in the other packages. See
-					S-003 in docs/msi-decomposition/IS-msi-decomposition.md.
+					The install root is shared with the other DOrc packages and owned by
+					none of them, so nothing here may delete recursively. Plain
+					RemoveFolder removes a directory only when it is already empty, so
+					every package can declare it and whichever is uninstalled last is the
+					one that succeeds. Kept identical to the equivalent component in the
+					other packages, deliberately.
 				-->
 				<Directory Id="INSTALLLOCATION" Name="Deploy">
 					<Component Id="RemoveInstallRoot" Guid="{9B04D998-58CC-4FAE-A545-1C464409D564}">

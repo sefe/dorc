@@ -32,8 +32,7 @@
 					RemoveFolder removes a directory only when it is already empty, so
 					every package can declare it and whichever is uninstalled last is the
 					one that succeeds. Kept identical to the equivalent component in the
-					other packages, deliberately — see S-003 in
-					docs/msi-decomposition/IS-msi-decomposition.md.
+					other packages, deliberately.
 				-->
 				<Directory Id="INSTALLLOCATION" Name="Deploy">
 					<Component Id="RemoveInstallRoot" Guid="{C991E435-A800-4198-BA16-E0800CD1170B}">

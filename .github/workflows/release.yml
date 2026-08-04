@@ -307,9 +307,9 @@ jobs:
         path: build.binlog
         retention-days: 7
 
-    # G-1 for the installer decomposition (docs/msi-decomposition/) is asserted
-    # by Dorc.Installer.Tests in the test step above, not here. This only puts
-    # the baseline where those tests can find it.
+    # That the four packages install what the single Setup.Dorc.msi installed
+    # is asserted by Dorc.Installer.Tests in the test step above, not here.
+    # This only puts the baseline where those tests can find it.
     #
     # It used to be a PowerShell comparison run from this step. That version
     # failed eight times in a row on the same thing — collections silently

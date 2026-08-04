@@ -3,9 +3,8 @@ using System.Runtime.Versioning;
 namespace Dorc.Installer.Tests;
 
 /// <summary>
-/// G-1 for the installer decomposition (docs/msi-decomposition/): the four
-/// packages together must install exactly what the single Setup.Dorc.msi
-/// installed.
+/// The gate on the installer decomposition: the four packages together must
+/// install exactly what the single Setup.Dorc.msi installed.
 ///
 /// The two self-tests come first and exist because of how this failed before.
 /// An earlier version compared empty sets — every table read, every row
