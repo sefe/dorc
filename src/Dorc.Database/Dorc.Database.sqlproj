@@ -18,7 +18,7 @@
     <CompatibilityMode>100</CompatibilityMode>
     <TreatTSqlWarningsAsErrors>False</TreatTSqlWarningsAsErrors>
     <ValidateCasingOnIdentifiers>False</ValidateCasingOnIdentifiers>
-    <!-- Pipeline (pipelines/dorc-build.yml) reads dacpac from src\Dorc.Database\sql\$(Configuration). -->
+    <!-- .github/workflows/release.yml reads the dacpac from src\Dorc.Database\sql\$(Configuration). -->
     <BaseOutputPath>sql\</BaseOutputPath>
     <OutputPath>sql\$(Configuration)\</OutputPath>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>

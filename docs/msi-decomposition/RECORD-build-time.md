@@ -163,15 +163,18 @@ would take the package from 83 MB to roughly 572 MB.
 With parallel cabbing ruled out, `Build solution` is close to its floor for
 this shape of build. What remains is elsewhere in the job:
 
-- **The NuGet cache is net-negative.** Its key is
-  `hashFiles('**/packages.lock.json', '**/*.csproj')`, so any csproj edit mints
-  a new key: the run restores an older entry through `restore-keys` and then
-  re-saves the whole cache in the post-job step. Measured across three runs,
-  restore costs 1m 28s-1m 38s and the save 1m 38s-5m 11s, to make
-  `dotnet restore` take ~16s instead of ~2m 04s. Excluding `.nupkg` archives cut
-  the save from 5m 11s to about 1m 38s, which helped but did not turn it
-  positive. Restore-only on pull requests, saving on `main` alone, would take
-  1m 38s-3m 06s off every PR run.
+- **The NuGet cache save has been dropped from pull requests.** The key is
+  `hashFiles('**/packages.lock.json', '**/*.csproj')`, so any csproj edit minted
+  a new key: the run restored an older entry through `restore-keys` — which
+  counts as a miss — and then re-saved the whole cache in the post-job step.
+  Measured across three runs, restore costs 1m 28s-1m 38s and the save
+  1m 38s-5m 11s, to make `dotnet restore` take ~16s instead of ~2m 04s.
+  Excluding `.nupkg` archives cut the save from 5m 11s to about 1m 38s, which
+  helped but did not turn it positive. The restore half does pay for itself, so
+  only the save is gone, and only where it could never help: a cache written by
+  a pull request is scoped to that pull request and no other branch can read it.
+  Saves now happen on `main` and `develop`, whose caches everything else can
+  read. Expected to remove 1m 38s-3m 06s from every pull-request run.
 - **A larger runner.** Cabbing is CPU-bound and `windows-latest` is 4 vCPUs.
 - **Skipping MSI authoring on pull requests is not available** — the packages
   are used to test pull requests before merge.

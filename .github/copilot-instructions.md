@@ -94,7 +94,7 @@ The API (`Dorc.Api`) requires several configurations to run:
 ### Important Files  
 - **`src/Dorc.sln`** - Main solution file
 - **`src/dorc-web/package.json`** - Web UI dependencies and scripts
-- **`pipelines/dorc-build.yml`** - Azure DevOps build pipeline
+- **`.github/workflows/release.yml`** - Build pipeline (GitHub-hosted runners)
 - **`src/dorc-web/src/apis/`** - Generated API clients (TypeScript)
 
 ## Common Tasks

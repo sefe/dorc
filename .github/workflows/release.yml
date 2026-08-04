@@ -220,14 +220,27 @@ jobs:
           Write-Host "UpdateVersion.ps1 not found, skipping cmdlet versioning"
         }
       
-    # #797 removed this cache on the argument that it cost more than it saved:
-    # 1m04s to restore plus 10s to save, against a 27s warm restore. The
-    # measurement that mattered was the one not taken — how long an uncached
-    # restore takes. It is 2m04s (run 30751703601) to 2m41s (run 30794820988),
-    # so removing the cache cost 25-100s per build rather than saving 40s.
-    # Restored on that evidence.
-    - name: Cache NuGet packages
-      uses: actions/cache@v6
+    # Restore and save are split because saving is the expensive half and
+    # almost every run was paying it for nothing.
+    #
+    # The key includes every csproj, so any project-file edit mints a new key.
+    # The run then restores an older entry through restore-keys — which counts
+    # as a miss — and re-saves the whole cache in the post-job step. Measured:
+    # restore 1m28s-1m38s and save 1m38s-5m11s, to make `dotnet restore` take
+    # ~16s instead of ~2m04s (runs 30889337127, 30905477688, 30909238019).
+    # Saving 1m48s of restore for up to 6m49s of cache handling is a loss, and
+    # #797 removed the cache entirely on a version of that observation. That
+    # went too far: an uncached restore is 2m04s (run 30751703601) to 2m41s
+    # (run 30794820988), so the restore half does pay for itself.
+    #
+    # Only the save is dropped, and only where it cannot help anyone. A cache
+    # written by a pull request is scoped to that pull request; no other branch
+    # can read it, so it is written once and never used. Caches on main and
+    # develop are readable by everything based on them, which is what makes the
+    # restore above hit at all.
+    - name: Restore NuGet cache
+      id: nuget-cache
+      uses: actions/cache/restore@v6
       with:
         path: |
           ~/.nuget/packages
@@ -242,6 +255,21 @@ jobs:
     # `dotnet restore` does on the same solution.
     - name: Restore packages
       run: dotnet restore ${{ env.SOLUTION_PATH }} --configfile pipelines/NuGet.config
+
+    # Runs here rather than as a post-job step, so the packages are on disk and
+    # a failure later in the build does not discard the cache. Skipped when the
+    # primary key already matched, since there would be nothing new to write.
+    - name: Save NuGet cache
+      if: >-
+        github.event_name == 'push'
+        && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+        && steps.nuget-cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v6
+      with:
+        path: |
+          ~/.nuget/packages
+          !~/.nuget/packages/**/*.nupkg
+        key: ${{ steps.nuget-cache.outputs.cache-primary-key }}
 
     # Materialise the directories the installers harvest, before anything else
     # builds. SDK-style projects are not directly packageable — the deployable

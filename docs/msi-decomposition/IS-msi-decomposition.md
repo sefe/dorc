@@ -51,7 +51,7 @@ The HLPS's C-8 and C-16 need the same correction; it is recorded here so no step
 Roughly half of the checks below cannot run in CI, and saying so is the difference between a gate and an aspiration. Every verification intent is tagged:
 
 - **[CI]** — runs unattended on the Windows build agent. Structural: MSI table comparison, package metadata, build success, recorded timings. `Compare-MsiTables.ps1` reads through the `WindowsInstaller` COM API without installing anything, so it qualifies. S-001 wires it into both pipelines as an enforced gate; until then it is a script someone has to remember to run.
-- **[ENV]** — requires a provisioned Windows host with IIS, service control and an existing DOrc installation. Neither `.github/workflows/release.yml` nor `pipelines/dorc-build.yml` installs anything today, and neither is asked to. These run on a DOrc non-production environment, by hand, against the checklist S-001 produces.
+- **[ENV]** — requires a provisioned Windows host with IIS, service control and an existing DOrc installation. `.github/workflows/release.yml` does not install anything today, and is not asked to. These run on a DOrc non-production environment, by hand, against the checklist S-001 produces.
 
 **A step is not complete until both surfaces pass.** [CI] going green on a step whose [ENV] checks have not been run is a step in progress, not a step done. Where no [ENV] host is available, the step is blocked and recorded as blocked — not passed on [CI] alone.
 
