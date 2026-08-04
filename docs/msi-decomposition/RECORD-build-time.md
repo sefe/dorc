@@ -85,16 +85,58 @@ two thousand file rows per package. Replacing it with
 `WixToolset.Dtf.WindowsInstaller` — the WiX toolset's own managed wrapper over
 msi.dll — moves a whole table across the boundary in one call.
 
-## Next lever, not yet taken
+## Setup.Dorc.Monitors — what is actually in it
 
-`Setup.Dorc.Monitors`'s 116.7s of cabbing is the largest single item left in
-the build, and it is on the critical path by definition. Each package declares
-one `<Media Id="1" Cabinet="media1.cab" EmbedCab="yes"/>`, which is a single
-cabinet built by a single thread. `<MediaTemplate>` splits the payload across
-several cabinets that WiX can build concurrently, and `CompressionLevel`
-trades MSI size for time directly.
+Measured from the shipped package of run 30905477688 with `msiinfo`:
 
-Neither is free: more cabinets and lower compression both enlarge the
-artifact, which is copied to a network share on every build. That trade is a
-judgement call about the release artifact, not a build-script change, so it is
-recorded here rather than made.
+| Package | File rows | Uncompressed | On disk |
+| --- | --- | --- | --- |
+| Setup.Dorc.Monitors | 1932 | 572.1 MB | 83.0 MB |
+| Setup.Dorc.Cli | 2276 | 631.0 MB | 36.0 MB |
+| Setup.Dorc.Api | 445 | 185.3 MB | 54.4 MB |
+| Setup.Acceptance | — | — | 25.8 MB |
+| Setup.Dorc.Web | 250 | 7.9 MB | 5.0 MB |
+
+Every row lands at a distinct target path, but only ~470 distinct file names
+are involved: each of the four payload directories (`Dorc.Monitor`,
+`Dorc.Runner`, `Dorc.NetFramework.Runner`, `Dorc.TerraformRunner`) is
+harvested twice, once into the Prod tree and once into NonProd.
+
+**That duplication is the design, not waste.** `Product.wxs` has a single
+`Feature` at `Level="1"` holding both the `Prod*` and `NonProd*` component
+groups, and separate `DeployMonitorServiceProd.exe` /
+`DeployMonitorServiceNonProd.exe` service components. Both trees are installed
+on every server, side by side. Removing a copy would remove a service.
+
+So the 572 MB is real payload, and the only lever is how it is compressed.
+
+## What was changed
+
+`<Media Id="1">` is a single cabinet, and a cabinet is compressed by one
+thread. That is why the tail of `Build solution` is one core working while the
+other four idle: the other packages finish around 97s and Monitors runs on
+alone to 139.6s.
+
+`Setup.Dorc.Monitors` now declares `<MediaTemplate MaximumUncompressedMediaSize="64">`
+and `CabinetCreationThreadCount=4`, so the payload splits across roughly nine
+cabinets compressed concurrently.
+
+The obvious worry is that splitting the media costs compression ratio, since
+the duplicate Prod/NonProd copies would no longer be in the same cabinet. It
+should not: MSZIP resets its dictionary every 32 KB, so a copy hundreds of
+megabytes away in the stream was never compressing against the first one. The
+6.9:1 ratio is within-file compression of .NET assemblies. **This is a
+prediction, and the run that lands this change is the test of it** — if
+`Setup.Dorc.Monitors.msi` grows materially past 83 MB, the change is not worth
+its size and should be reverted.
+
+Lowering `CompressionLevel` was considered and rejected. WiX already defaults
+to MSZIP, which is the fast setting; the only faster value is `none`, which
+would take the package from 83 MB to roughly 572 MB and the build artifact
+from 207 MB to about 1 GB, copied to a network share on every build.
+
+Not yet applied to `Setup.Dorc.Api`, `Setup.Dorc.Cli` or `Setup.Acceptance`.
+The same one-line change fits all three, and doing all of them is what would
+actually move `Build solution` — the arithmetic says roughly 330 CPU-seconds
+of compression over 4 vCPUs, so a floor near 110s against today's 141.5s. They
+are held back only so this run measures one variable.

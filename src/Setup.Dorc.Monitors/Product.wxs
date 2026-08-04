@@ -1,7 +1,21 @@
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
 	<?include Dependencies.wxi?>
 	<Package Name="DOrc Monitors" Language="1033" Version="$(var.ProductVersion)" Manufacturer="SEFE" UpgradeCode="{2BB79A99-CEA6-40DC-94AB-1C9B9610F8D6}" ProductCode="{DD4E19DF-A851-481B-9B7E-08663DC3E65C}">
-		<Media Id="1" Cabinet="media1.cab" EmbedCab="yes" />
+		<!--
+			Several cabinets rather than one, because a cabinet is compressed by
+			a single thread and this package is the longest pole in the build:
+			572 MB of payload, 116.7s of it spent cabbing, while the rest of the
+			solution has already finished (binlog of run 30905477688, recorded in
+			docs/msi-decomposition/RECORD-build-time.md).
+
+			The payload is large because every file ships twice, once into the
+			Prod tree and once into NonProd, and both are installed - that is the
+			design, not waste. Splitting the media is what makes the compression
+			concurrent, and it costs almost nothing in size: MSZIP resets its
+			dictionary every 32 KB, so the duplicate copies were never
+			compressing against each other to begin with.
+		-->
+		<MediaTemplate EmbedCab="yes" MaximumUncompressedMediaSize="64" />
 
 		<SetDirectory Id="CDrive" Value="C:\" />
 

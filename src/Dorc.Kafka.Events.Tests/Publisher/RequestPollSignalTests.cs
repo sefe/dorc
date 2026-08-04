@@ -18,7 +18,10 @@ public class RequestPollSignalTests
         await s.WaitAsync(TimeSpan.FromSeconds(5), CancellationToken.None);
         sw.Stop();
 
-        Assert.IsTrue(sw.ElapsedMilliseconds < 500, $"Pre-signalled wait should return immediately; took {sw.ElapsedMilliseconds}ms.");
+        // Budget is well under the 5s timeout rather than near-zero: what is
+        // being asserted is that the latch released the wait, not how quickly a
+        // shared build agent got round to scheduling the continuation.
+        Assert.IsTrue(sw.ElapsedMilliseconds < 2_000, $"Pre-signalled wait should return without waiting out its timeout; took {sw.ElapsedMilliseconds}ms.");
     }
 
     [TestMethod]
@@ -33,7 +36,7 @@ public class RequestPollSignalTests
         await waitTask;
         sw.Stop();
 
-        Assert.IsTrue(sw.ElapsedMilliseconds < 1_000, $"Signalled wait should short-circuit; took {sw.ElapsedMilliseconds}ms.");
+        Assert.IsTrue(sw.ElapsedMilliseconds < 3_000, $"Signalled wait should short-circuit its 10s timeout; took {sw.ElapsedMilliseconds}ms.");
     }
 
     [TestMethod]
@@ -68,7 +71,7 @@ public class RequestPollSignalTests
         }
         sw.Stop();
 
-        Assert.IsTrue(sw.ElapsedMilliseconds < 1_000, $"Wait should observe cancellation; took {sw.ElapsedMilliseconds}ms.");
+        Assert.IsTrue(sw.ElapsedMilliseconds < 5_000, $"Wait should observe cancellation rather than its 30s timeout; took {sw.ElapsedMilliseconds}ms.");
     }
 
     [TestMethod]

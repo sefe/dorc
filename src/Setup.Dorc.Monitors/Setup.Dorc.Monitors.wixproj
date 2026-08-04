@@ -8,6 +8,15 @@
     <DorcNetFrameworkRunnerDir>$(SolutionDir)Dorc.NetFramework.Runner\bin\$(Configuration)</DorcNetFrameworkRunnerDir>
     <DorcTerraformRunnerDir>$(SolutionDir)Dorc.TerraformRunner\bin\$(Configuration)\net8.0</DorcTerraformRunnerDir>
     <Platforms>x64</Platforms>
+    <!--
+      One thread per cabinet, so the media split declared in Product.wxs
+      actually compresses in parallel. Four is deliberate rather than
+      Environment.ProcessorCount: the solution already builds five wixprojs
+      concurrently, and the point is to reclaim the cores that sit idle once
+      the other four have finished - not to oversubscribe while they are still
+      running.
+    -->
+    <CabinetCreationThreadCount>4</CabinetCreationThreadCount>
     <!-- See the equivalent property in Setup.Dorc.Api.wixproj for the reasoning. -->
     <DorcProductVersion Condition="'$(Version)' != ''">$([System.Version]::Parse('$(Version)').ToString())</DorcProductVersion>
     <DorcProductVersion Condition="'$(DorcProductVersion)' == ''">0.0.1</DorcProductVersion>
