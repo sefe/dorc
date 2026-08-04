@@ -15,9 +15,14 @@ as signal.
 
 | Run | Commit | Cache | Build solution | Run tests | Job |
 | --- | --- | --- | --- | --- | --- |
-| 30847083209 (pre-split) | — | warm | 2m 31s | 35s | ~8m 03s |
-| 30889337127 (post-split) | `4462786` | warm | 2m 20s | 1m 58s | ~9m 10s |
+| 30847083209 (pre-split) | — | warm | 2m 31s | 35s | — |
+| 30889337127 (post-split) | `4462786` | warm | 2m 20s | 1m 58s | **14m 27s** |
 | 30905477688 | `f7fb35b` | **cold** | 2m 22s | 1m 49s | 10m 51s |
+| 30909238019 | `21def91` | warm | 2m 14s | **44s** | 10m 13s |
+
+Run 30889337127 was reported as ~9m 10s at the time. That was wrong: 9m 10s is
+the elapsed time to the last visible build step, and the job then spent a
+further 5m 11s in the post-job NuGet cache save. The job took 14m 27s.
 
 Run 30905477688 is not comparable on total time. Both cache steps missed:
 
@@ -110,33 +115,63 @@ on every server, side by side. Removing a copy would remove a service.
 
 So the 572 MB is real payload, and the only lever is how it is compressed.
 
-## What was changed
+## Parallel cabbing was tried and reverted
 
 `<Media Id="1">` is a single cabinet, and a cabinet is compressed by one
 thread. That is why the tail of `Build solution` is one core working while the
 other four idle: the other packages finish around 97s and Monitors runs on
-alone to 139.6s.
-
-`Setup.Dorc.Monitors` now declares `<MediaTemplate MaximumUncompressedMediaSize="64">`
-and `CabinetCreationThreadCount=4`, so the payload splits across roughly nine
+alone to 139.6s. So `Setup.Dorc.Monitors` was changed to
+`<MediaTemplate MaximumUncompressedMediaSize="64">` with
+`CabinetCreationThreadCount=4`, splitting the payload across roughly nine
 cabinets compressed concurrently.
 
-The obvious worry is that splitting the media costs compression ratio, since
-the duplicate Prod/NonProd copies would no longer be in the same cabinet. It
-should not: MSZIP resets its dictionary every 32 KB, so a copy hundreds of
-megabytes away in the stream was never compressing against the first one. The
-6.9:1 ratio is within-file compression of .NET assemblies. **This is a
-prediction, and the run that lands this change is the test of it** — if
-`Setup.Dorc.Monitors.msi` grows materially past 83 MB, the change is not worth
-its size and should be reverted.
+The prediction on record was that this would cost little in size, because
+MSZIP resets its dictionary every 32 KB and the duplicate Prod/NonProd copies
+are hundreds of megabytes apart in the stream, so they were never compressing
+against each other.
+
+**That was wrong.** Run 30909238019:
+
+| | One cabinet | Nine cabinets |
+| --- | --- | --- |
+| Setup.Dorc.Monitors.msi | 83.0 MB | **166.0 MB** |
+| Whole build artifact | 198.1 MB | 280.8 MB |
+| Build solution | 141.5s | 134s |
+
+Exactly double, which is exactly the Prod/NonProd duplication factor. WiX
+stores a given source file once per cabinet and points both `File` rows at
+that one entry; the second copy was nearly free, and splitting the media
+forced it into a different cabinet where it paid full price. 83 MB of artifact
+for 7 seconds of build is not a trade worth making, so this is reverted.
+
+Two things follow. Applying the same change to `Setup.Dorc.Cli` would be worse
+still — 2276 file rows over 378 distinct names is a higher duplication factor
+than Monitors. And the 572 MB figure below overstates the compression work:
+WiX is deduplicating within the cabinet, so the real input is closer to the
+distinct content.
+
+**Parallel cabbing is a dead end for this solution.** The packages that are
+slow to cab are slow precisely because they carry many copies of the same
+files, and that is the property a single cabinet exploits.
+
+## What is left
 
 Lowering `CompressionLevel` was considered and rejected. WiX already defaults
 to MSZIP, which is the fast setting; the only faster value is `none`, which
-would take the package from 83 MB to roughly 572 MB and the build artifact
-from 207 MB to about 1 GB, copied to a network share on every build.
+would take the package from 83 MB to roughly 572 MB.
 
-Not yet applied to `Setup.Dorc.Api`, `Setup.Dorc.Cli` or `Setup.Acceptance`.
-The same one-line change fits all three, and doing all of them is what would
-actually move `Build solution` — the arithmetic says roughly 330 CPU-seconds
-of compression over 4 vCPUs, so a floor near 110s against today's 141.5s. They
-are held back only so this run measures one variable.
+With parallel cabbing ruled out, `Build solution` is close to its floor for
+this shape of build. What remains is elsewhere in the job:
+
+- **The NuGet cache is net-negative.** Its key is
+  `hashFiles('**/packages.lock.json', '**/*.csproj')`, so any csproj edit mints
+  a new key: the run restores an older entry through `restore-keys` and then
+  re-saves the whole cache in the post-job step. Measured across three runs,
+  restore costs 1m 28s-1m 38s and the save 1m 38s-5m 11s, to make
+  `dotnet restore` take ~16s instead of ~2m 04s. Excluding `.nupkg` archives cut
+  the save from 5m 11s to about 1m 38s, which helped but did not turn it
+  positive. Restore-only on pull requests, saving on `main` alone, would take
+  1m 38s-3m 06s off every PR run.
+- **A larger runner.** Cabbing is CPU-bound and `windows-latest` is 4 vCPUs.
+- **Skipping MSI authoring on pull requests is not available** — the packages
+  are used to test pull requests before merge.
