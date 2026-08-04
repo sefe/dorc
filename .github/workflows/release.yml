@@ -264,6 +264,29 @@ jobs:
         path: build.binlog
         retention-days: 7
 
+    # G-1 for the installer decomposition (docs/msi-decomposition/) is asserted
+    # by Dorc.Installer.Tests in the test step above, not here. This only puts
+    # the baseline where those tests can find it.
+    #
+    # It used to be a PowerShell comparison run from this step. That version
+    # failed eight times in a row on the same thing — collections silently
+    # changing shape across function and pipeline boundaries — and at one point
+    # reported two unrelated packages as identical. The comparison is the same;
+    # the language is one where those failures cannot happen quietly.
+    - name: Fetch installer baseline
+      if: ${{ vars.MSI_BASELINE_RUN_ID != '' }}
+      shell: pwsh
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        $dir = "${{ github.workspace }}\msi-baseline"
+        gh run download ${{ vars.MSI_BASELINE_RUN_ID }} --dir $dir --repo ${{ github.repository }}
+        if ($LASTEXITCODE -ne 0) {
+          Write-Error "Could not download the baseline from run ${{ vars.MSI_BASELINE_RUN_ID }}."
+          exit 1
+        }
+        echo "MSI_BASELINE_PATH=$dir" >> $env:GITHUB_ENV
+
     - name: Run tests
       shell: pwsh
       run: |
@@ -467,42 +490,6 @@ jobs:
         Copy-Item -Path "$source\*.psd1" -Destination $target -Force -ErrorAction SilentlyContinue
         Write-Host "Copied PowerShell Cmdlet"
         
-    # G-1 gate for the installer decomposition (docs/msi-decomposition/). Two
-    # things run here, and they are not the same thing:
-    #
-    #   1. A self-test of the harness, on every build. Comparing the MSI
-    #      against itself must report zero, and comparing it against
-    #      Setup.Acceptance.msi must report drift. A comparison that cannot
-    #      fail is not a test, and a harness that only runs when someone
-    #      remembers to run it is not a gate.
-    #   2. The real invariant, when the MSI_BASELINE_RUN_ID repository variable
-    #      names the run that produced the single-package baseline. Setting
-    #      that variable is what arms the gate; until it is set the step says
-    #      so rather than passing quietly.
-    #
-    # Once the packages are split, -Package takes all of them plus the residual
-    # so the union is checked at every step rather than only at the end.
-    - name: Verify installer tables
-      shell: pwsh
-      env:
-        GH_TOKEN: ${{ github.token }}
-        MSI_BASELINE_RUN_ID: ${{ vars.MSI_BASELINE_RUN_ID }}
-      run: |
-        $baselineDir = ''
-        if ($env:MSI_BASELINE_RUN_ID) {
-          $baselineDir = "${{ github.workspace }}\msi-baseline"
-          gh run download $env:MSI_BASELINE_RUN_ID --dir $baselineDir --repo ${{ github.repository }}
-          if ($LASTEXITCODE -ne 0) {
-            Write-Error "Could not download the baseline from run $env:MSI_BASELINE_RUN_ID."
-            exit 1
-          }
-        }
-
-        & "${{ github.workspace }}\tools\msi-table-diff\Verify-InstallerTables.ps1" `
-            -PackageFolder "${{ github.workspace }}\artifacts\Server" `
-            -BaselinePath $baselineDir
-        exit $LASTEXITCODE
-
     - name: Set artifact retention period
       id: set_retention
       shell: pwsh

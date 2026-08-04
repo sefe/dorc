@@ -36,11 +36,10 @@ variables:
   value: $[counter(variables['version.Date'], 0)]
 - name: version
   value: '$(version.Date).$(version.Patch)'
-# Path to the drop containing the single-package baseline MSI. Empty here so
-# the macro always expands; setting it in the pipeline's variables arms the G-1
-# comparison in 'Verify Installer Tables'. The harness self-test runs either
-# way.
-- name: MsiBaselinePath
+# Folder holding the pre-split Setup.Dorc.msi. Read by Dorc.Installer.Tests,
+# which compares the four packages against it; empty here so the macro always
+# expands, and setting it in the pipeline's variables arms that comparison.
+- name: MSI_BASELINE_PATH
   value: ''
 - group: 'BuildTimeTests'
 
@@ -217,18 +216,6 @@ steps:
     sourceFolder: '$(Build.SourcesDirectory)\src\Tools.DOrc.Cmdlet'
     targetFolder: '$(Build.ArtifactStagingDirectory)\DOrc.Cmdlet'
     include: '*.ps1,*.psm1,*.psd1'
-
-# G-1 gate for the installer decomposition (docs/msi-decomposition/). Mirrors
-# the GitHub Actions step: the harness self-test runs on every build, and the
-# baseline comparison runs when MsiBaselinePath points at the drop folder of
-# the single-package baseline build. Setting that variable is what arms it.
-- task: PowerShell@2
-  displayName: 'Verify Installer Tables'
-  inputs:
-    targetType: filePath
-    filePath: '$(Build.SourcesDirectory)\tools\msi-table-diff\Verify-InstallerTables.ps1'
-    arguments: '-PackageFolder "$(Build.ArtifactStagingDirectory)\Server" -BaselinePath "$(MsiBaselinePath)"'
-    failOnStderr: false
 
 - task: PublishBuildArtifacts@1
   displayName: 'Publish Artifact: drop'
