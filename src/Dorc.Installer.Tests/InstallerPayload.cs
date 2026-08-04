@@ -29,7 +29,25 @@ internal sealed record InstallerPayload(
     IReadOnlySet<string> RegistryValues,
     IReadOnlySet<string> Certificates)
 {
+    /// <summary>
+    /// Reading a package costs a COM round-trip per row, and the three tests
+    /// between them ask for the same five files eleven times. The contents
+    /// cannot change mid-run, so read each one once.
+    /// </summary>
+    private static readonly Dictionary<string, InstallerPayload> Cache = new(StringComparer.OrdinalIgnoreCase);
+
     public static InstallerPayload Read(string packagePath)
+    {
+        lock (Cache)
+        {
+            if (Cache.TryGetValue(packagePath, out var cached)) return cached;
+            var payload = ReadUncached(packagePath);
+            Cache[packagePath] = payload;
+            return payload;
+        }
+    }
+
+    private static InstallerPayload ReadUncached(string packagePath)
     {
         using var db = new InstallerDatabase(packagePath);
 

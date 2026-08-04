@@ -134,9 +134,22 @@ jobs:
     - name: Setup MSBuild
       uses: microsoft/setup-msbuild@v3
       
+    # The tool is a fixed version, so it only needs downloading when the cache
+    # misses. Kept as a global install rather than a manifest: the WiX SDK
+    # resolves `wix` from PATH under RunWixToolsOutOfProc, and a local manifest
+    # would not be on it.
+    - name: Cache WiX Toolset
+      id: wix-cache
+      uses: actions/cache@v6
+      with:
+        path: ~/.dotnet/tools
+        key: ${{ runner.os }}-wix-6.0.1
+
     - name: Install WiX Toolset
       run: |
-        dotnet tool install --global wix --version 6.0.1
+        if (-not (Get-Command wix -ErrorAction SilentlyContinue)) {
+          dotnet tool install --global wix --version 6.0.1
+        }
         wix --version
         
     - name: Generate version number
@@ -216,7 +229,9 @@ jobs:
     - name: Cache NuGet packages
       uses: actions/cache@v6
       with:
-        path: ~/.nuget/packages
+        path: |
+          ~/.nuget/packages
+          !~/.nuget/packages/**/*.nupkg
         key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json', '**/*.csproj') }}
         restore-keys: |
           ${{ runner.os }}-nuget-
