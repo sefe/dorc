@@ -60,10 +60,8 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-# Field separator for the row strings Get-MsiTable returns. U+0001 cannot
-# appear in an MSI string field.
-$script:FieldSeparator = [string][char]1
-
+# Rows are returned as their fields joined by U+0001, which cannot appear in
+# an MSI string field.
 # Always an array, even for one field. Returning the split bare lets a
 # single-element result arrive as a bare string, and .Count on that is an
 # error under StrictMode — which is how this failed. The unary comma stops the
@@ -130,7 +128,21 @@ function Get-MsiTable {
                 $fields.Add([string] $record.GetType().InvokeMember(
                     'StringData', 'GetProperty', $null, $record, @([int] $i)))
             }
-            $rows.Add(($fields -join $script:FieldSeparator))
+            $rowText = $fields -join ([string][char]1)
+
+            # Check the first row of each table actually round-trips. Rows that
+            # split into the wrong number of fields are silently dropped by the
+            # consumers, every set comes out empty, and an empty set compares
+            # equal to anything — which is how two unrelated packages came back
+            # identical. Fail here, where the cause is visible.
+            if ($rows.Count -eq 0) {
+                $parts = @($rowText.Split([char]1))
+                if ($parts.Count -ne $Columns.Count) {
+                    throw ("Reading $TableName produced {0} field(s) from a {1}-column query. First row: '{2}'" -f
+                           $parts.Count, $Columns.Count, $rowText)
+                }
+            }
+            $rows.Add($rowText)
         }
         # Unary comma: returning the collection bare would let PowerShell
         # enumerate it on the way out, and each row is itself an array, so the
@@ -292,6 +304,13 @@ Write-Host ''
 $drift = 0
 foreach ($c in $comparisons) {
     $baselineSet = & $c.Reader $Baseline
+
+    # Every MSI here installs files. A comparison over an empty set passes
+    # against anything, so treat it as a broken harness rather than a result.
+    if ($c.Label -eq 'Files' -and $baselineSet.Count -eq 0) {
+        Write-Host "The baseline yielded no files at all. That is a fault in this comparison, not a clean result."
+        exit 1
+    }
 
     $unionSet   = @{}
     $duplicates = New-Object System.Collections.Generic.List[string]
