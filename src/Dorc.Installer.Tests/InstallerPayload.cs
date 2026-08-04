@@ -69,9 +69,8 @@ internal sealed record InstallerPayload(
     {
         var parentOf = new Dictionary<string, string>(StringComparer.Ordinal);
         var nameOf = new Dictionary<string, string>(StringComparer.Ordinal);
-        foreach (var directory in directories)
+        foreach (var directory in directories.Where(d => d[0].Length > 0))
         {
-            if (directory[0].Length == 0) continue;
             parentOf[directory[0]] = directory[1];
             var name = LongName(directory[2]);
             // '.' means "same as parent" and contributes no path segment.
@@ -83,10 +82,11 @@ internal sealed record InstallerPayload(
         {
             var chain = new List<string>();
             var seen = new HashSet<string>(StringComparer.Ordinal);
-            for (var current = id; current.Length > 0 && parentOf.ContainsKey(current) && seen.Add(current);)
+            var current = id;
+            while (current.Length > 0 && parentOf.TryGetValue(current, out var parent) && seen.Add(current))
             {
                 chain.Add(current);
-                current = parentOf[current];
+                current = parent;
             }
 
             var segments = Enumerable.Reverse(chain)

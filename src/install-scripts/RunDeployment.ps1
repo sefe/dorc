@@ -222,7 +222,14 @@ if ($MsiInstalls)
             Start-Services $servicesInScope $serverName
         }
 
+        # A service that is absent is not a failure: TargetServers is the whole
+        # environment, and only the servers the Monitors package installed on
+        # host these services at all. Failing on absence would fail every
+        # deployment to an environment with a server that does not run them.
+        # A service that exists and is not running is a failure — that is the
+        # state this step exists to catch.
         $notRunning = @()
+        $absent = @()
         foreach ($serverName in $envSettings.TargetServers)
         {
             foreach ($service in $servicesInScope)
@@ -230,13 +237,26 @@ if ($MsiInstalls)
                 $state = Invoke-Command -ComputerName $serverName -ScriptBlock {
                     param($svc) (Get-Service $svc -ErrorAction SilentlyContinue).Status
                 } -ArgumentList $service
-                Write-Host "  $service on $serverName is $(if ($state) { $state } else { 'not installed' })"
-                if ($state -ne "Running") { $notRunning += "$service on $serverName" }
+
+                if (-not $state)
+                {
+                    Write-Host "  $service is not installed on $serverName"
+                    $absent += "$service on $serverName"
+                }
+                else
+                {
+                    Write-Host "  $service on $serverName is $state"
+                    if ($state -ne "Running") { $notRunning += "$service on $serverName" }
+                }
             }
+        }
+        if ($absent.Count -gt 0)
+        {
+            Write-Host "Not installed, so not started: $($absent -join '; ')"
         }
         if ($notRunning.Count -gt 0)
         {
-            throw "Deployment installed successfully but these services are not running: $($notRunning -join '; ')"
+            throw "Deployment installed successfully but these services are installed and not running: $($notRunning -join '; ')"
         }
     }
 }

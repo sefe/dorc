@@ -54,9 +54,7 @@ internal sealed class InstallerDatabase : IDisposable
         var select = string.Join(", ", columns.Select(c => $"`{c}`"));
         var rows = new List<string[]>();
 
-        dynamic view = _database.OpenView($"SELECT {select} FROM `{table}`");
-        view.Execute(null);
-        for (dynamic? record = view.Fetch(); record is not null; record = view.Fetch())
+        foreach (dynamic record in Fetch($"SELECT {select} FROM `{table}`"))
         {
             var row = new string[columns.Length];
             for (var i = 0; i < columns.Length; i++)
@@ -74,18 +72,37 @@ internal sealed class InstallerDatabase : IDisposable
     {
         if (!TableExists(table)) return 0;
 
-        var count = 0;
-        dynamic view = _database.OpenView($"SELECT * FROM `{table}`");
-        view.Execute(null);
-        for (dynamic? record = view.Fetch(); record is not null; record = view.Fetch()) count++;
-        return count;
+        return Fetch($"SELECT * FROM `{table}`").Count();
     }
 
     private bool TableExists(string table)
+        => Fetch($"SELECT `Name` FROM `_Tables` WHERE `Name` = '{table}'").Any();
+
+    /// <summary>
+    /// Rows of a query, with the view and every record released as soon as it
+    /// has been read. The RCWs hold the package file open otherwise, and the
+    /// same file is read several times in a run — once per test, and twice in
+    /// the self-test — so leaving them to finalisation risks a file lock that
+    /// would show up as an unrelated flake.
+    /// </summary>
+    private IEnumerable<object> Fetch(string sql)
     {
-        dynamic view = _database.OpenView($"SELECT `Name` FROM `_Tables` WHERE `Name` = '{table}'");
-        view.Execute(null);
-        return view.Fetch() is not null;
+        dynamic view = _database.OpenView(sql);
+        try
+        {
+            view.Execute(null);
+            while (true)
+            {
+                dynamic? record = view.Fetch();
+                if (record is null) yield break;
+                try { yield return record; }
+                finally { System.Runtime.InteropServices.Marshal.FinalReleaseComObject(record); }
+            }
+        }
+        finally
+        {
+            System.Runtime.InteropServices.Marshal.FinalReleaseComObject(view);
+        }
     }
 
     public void Dispose()
