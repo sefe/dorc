@@ -205,10 +205,20 @@ Function Get-EnvSettings {
         Add-Member -InputObject $envSettings -MemberType ScriptMethod -Name SetPropertyValue -Value $SetPropertyValue
 
         $getSecurePropertyValues = {
+            $kafkaEnabled = [string]::Equals(
+                $this.GetPropertyValue("KAFKA_ENABLED"),
+                "true",
+                [System.StringComparison]::OrdinalIgnoreCase)
+
             foreach ($prop in $this.MsiProperties)
             {
                 if ($prop.IsSecure)
                 {
+                    if ($prop.Name -like "KAFKA_*" -and -not $kafkaEnabled)
+                    {
+                        continue
+                    }
+
                     # Check if this is a service account password or a general secret
                     if (-not [string]::IsNullOrEmpty($prop.AccountNameProperty))
                     {
@@ -303,5 +313,4 @@ Function Get-EnvSettings {
     }
 }
 #endregion Function Get-EnvSettings
-
 

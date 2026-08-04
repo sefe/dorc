@@ -18,8 +18,10 @@ Uninstall-Module DOrcDeployModule -AllVersions -ErrorAction Silent
 Uninstall-Module Internal-DOrcDeployModule -AllVersions -ErrorAction Silent
 
 # Install the public DOrcDeployModule from PowerShell Gallery
-Install-Module -Name "DOrcDeployModule" -Repository "PSGallery" -AllowClobber -Force
-Import-Module -Name DOrcDeployModule
+$DOrcDeployModuleVersion = "26.8.4.2"
+Install-Module -Name "DOrcDeployModule" -RequiredVersion $DOrcDeployModuleVersion -Repository "PSGallery" -AllowClobber -Force
+Import-Module -Name "DOrcDeployModule" -RequiredVersion $DOrcDeployModuleVersion
+Write-Host "Using DOrcDeployModule version $DOrcDeployModuleVersion"
 
 # Install SqlServer module from PowerShell Gallery
 Uninstall-Module SqlServer -AllVersions -ErrorAction Silent
