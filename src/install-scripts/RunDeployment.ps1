@@ -196,7 +196,7 @@ if ($MsiInstalls)
         catch
         {
             $failed = $msiObject.Name
-            Write-Host "FAILED: $($msiObject.Name) — $($_.Exception.Message)"
+            Write-Host "FAILED: $($msiObject.Name) - $($_.Exception.Message)"
             break
         }
     }
@@ -226,7 +226,7 @@ if ($MsiInstalls)
         # environment, and only the servers the Monitors package installed on
         # host these services at all. Failing on absence would fail every
         # deployment to an environment with a server that does not run them.
-        # A service that exists and is not running is a failure — that is the
+        # A service that exists and is not running is a failure - that is the
         # state this step exists to catch.
         $notRunning = @()
         $absent = @()
