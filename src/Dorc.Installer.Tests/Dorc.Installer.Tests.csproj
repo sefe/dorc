@@ -1,8 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <!-- Windows-only: the installer database is read through the
-         WindowsInstaller COM API, which has no cross-platform equivalent. -->
+    <!-- Windows-only: the installer database is read through msi.dll, which
+         has no cross-platform equivalent. -->
     <TargetFramework>net8.0-windows</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
@@ -18,6 +18,8 @@
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.0.0" />
     <PackageReference Include="MSTest.TestAdapter" Version="4.0.1" />
     <PackageReference Include="MSTest.TestFramework" Version="4.0.1" />
+    <!-- Version-matched to the WixToolset.Sdk the installers build with. -->
+    <PackageReference Include="WixToolset.Dtf.WindowsInstaller" Version="6.0.1" />
   </ItemGroup>
 
   <ItemGroup>

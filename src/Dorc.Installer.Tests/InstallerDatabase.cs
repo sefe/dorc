@@ -1,115 +1,55 @@
 using System.Runtime.Versioning;
+using WixToolset.Dtf.WindowsInstaller;
 
 namespace Dorc.Installer.Tests;
 
 /// <summary>
-/// Reads the tables of an installer package through the WindowsInstaller COM
-/// API.
+/// Reads the tables of an installer package.
 ///
-/// This replaced a PowerShell implementation of the same comparison. Every
-/// failure that one had — fields arriving as <c>System.String[]</c>, rows
-/// collapsing to a single key, a one-element result becoming a bare string,
-/// whole tables silently reading as empty — came from the same property of the
-/// language: collections change shape as they cross function and pipeline
-/// boundaries, and the failures are silent. None of them are expressible here.
+/// This is the WiX toolset's own managed wrapper over msi.dll. Reading the
+/// same five packages through the WindowsInstaller COM API took 65 seconds of
+/// every build: <c>dynamic</c> binds late, so fetching a row cost an IDispatch
+/// round-trip per cell, and the baseline package alone has around two thousand
+/// file rows. Here a whole table crosses the boundary in one call.
 /// </summary>
 [SupportedOSPlatform("windows")]
 internal sealed class InstallerDatabase : IDisposable
 {
-    private const int ReadOnly = 0;
-
-    private readonly dynamic _installer;
-    private readonly dynamic _database;
+    private readonly Database _database;
 
     public InstallerDatabase(string path)
     {
         if (!File.Exists(path)) throw new FileNotFoundException("Installer package not found", path);
 
-        var type = Type.GetTypeFromProgID("WindowsInstaller.Installer")
-                   ?? throw new InvalidOperationException("WindowsInstaller.Installer is not registered on this machine.");
-        _installer = Activator.CreateInstance(type)
-                     ?? throw new InvalidOperationException("Could not create WindowsInstaller.Installer.");
-        _database = _installer.OpenDatabase(path, ReadOnly);
-        Path = path;
+        _database = new Database(path, DatabaseOpenMode.ReadOnly);
     }
-
-    public string Path { get; }
 
     /// <summary>
     /// Rows of the named table, each row holding exactly the columns asked
     /// for, in the order asked for. Absent tables yield an empty sequence —
     /// not every package installs services or certificates.
     /// </summary>
-    /// <remarks>
-    /// The columns are named in the query rather than discovered from the
-    /// view. Asking the view for its column names is what the first version
-    /// did, and it failed on the build agent with a type mismatch on the field
-    /// index; naming them removes the call rather than working around it.
-    /// </remarks>
     public IReadOnlyList<string[]> Read(string table, params string[] columns)
     {
         if (columns.Length == 0) throw new ArgumentException("Name the columns to read.", nameof(columns));
-        if (!TableExists(table)) return Array.Empty<string[]>();
+        if (!_database.Tables.Contains(table)) return Array.Empty<string[]>();
 
         var select = string.Join(", ", columns.Select(c => $"`{c}`"));
-        var rows = new List<string[]>();
 
-        foreach (dynamic record in Fetch($"SELECT {select} FROM `{table}`"))
+        // One call per table, returning every field row-major. The row width is
+        // the number of columns named above, so the flat list re-splits exactly.
+        var fields = _database.ExecuteStringQuery($"SELECT {select} FROM `{table}`");
+
+        var rows = new List<string[]>(fields.Count / columns.Length);
+        for (var offset = 0; offset + columns.Length <= fields.Count; offset += columns.Length)
         {
             var row = new string[columns.Length];
-            for (var i = 0; i < columns.Length; i++)
-            {
-                // StringData is 1-based, and returns null for a NULL column.
-                row[i] = (string?)record.StringData[i + 1] ?? string.Empty;
-            }
+            for (var column = 0; column < columns.Length; column++)
+                row[column] = fields[offset + column] ?? string.Empty;
             rows.Add(row);
         }
         return rows;
     }
 
-    /// <summary>Row count only, for tables reported rather than compared.</summary>
-    public int CountRows(string table)
-    {
-        if (!TableExists(table)) return 0;
-
-        return Fetch($"SELECT * FROM `{table}`").Count();
-    }
-
-    private bool TableExists(string table)
-        => Fetch($"SELECT `Name` FROM `_Tables` WHERE `Name` = '{table}'").Any();
-
-    /// <summary>
-    /// Rows of a query, with the view and every record released as soon as it
-    /// has been read. The RCWs hold the package file open otherwise, and the
-    /// same file is read several times in a run — once per test, and twice in
-    /// the self-test — so leaving them to finalisation risks a file lock that
-    /// would show up as an unrelated flake.
-    /// </summary>
-    private IEnumerable<object> Fetch(string sql)
-    {
-        dynamic view = _database.OpenView(sql);
-        try
-        {
-            view.Execute(null);
-            while (true)
-            {
-                dynamic? record = view.Fetch();
-                if (record is null) yield break;
-                try { yield return record; }
-                finally { System.Runtime.InteropServices.Marshal.FinalReleaseComObject(record); }
-            }
-        }
-        finally
-        {
-            System.Runtime.InteropServices.Marshal.FinalReleaseComObject(view);
-        }
-    }
-
-    public void Dispose()
-    {
-        // The RCWs keep the package file open, which matters because the same
-        // file is read more than once in a run.
-        System.Runtime.InteropServices.Marshal.FinalReleaseComObject(_database);
-        System.Runtime.InteropServices.Marshal.FinalReleaseComObject(_installer);
-    }
+    public void Dispose() => _database.Dispose();
 }

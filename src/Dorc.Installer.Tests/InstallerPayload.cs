@@ -30,9 +30,8 @@ internal sealed record InstallerPayload(
     IReadOnlySet<string> Certificates)
 {
     /// <summary>
-    /// Reading a package costs a COM round-trip per row, and the three tests
-    /// between them ask for the same five files eleven times. The contents
-    /// cannot change mid-run, so read each one once.
+    /// The three tests between them ask for the same five packages eleven
+    /// times, and a package cannot change mid-run. Read each one once.
     /// </summary>
     private static readonly Dictionary<string, InstallerPayload> Cache = new(StringComparer.OrdinalIgnoreCase);
 
