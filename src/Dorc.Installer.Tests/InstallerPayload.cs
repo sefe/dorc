@@ -7,10 +7,15 @@ namespace Dorc.Installer.Tests;
 /// on. Three sets, because the file table alone cannot see two of the
 /// resources the decomposition is most likely to lose:
 /// <list type="bullet">
-/// <item><description><b>Files</b> — target directory, file name and version.
-/// File Ids are deliberately excluded: re-harvesting into new wixproj files
-/// regenerates them, so comparing Ids reports near-total churn and says
-/// nothing.</description></item>
+/// <item><description><b>Files</b> — target directory and file name. Two
+/// things are deliberately excluded. File Ids, because re-harvesting into new
+/// wixproj files regenerates them, so comparing them reports near-total churn
+/// and says nothing. And file versions, because the baseline is a different
+/// build: every DOrc-built assembly carries that build's number, so including
+/// the version made each of them differ every time and would bury any real
+/// drift underneath. The question this answers is whether the same
+/// files land in the same places, not whether they came from the same
+/// build.</description></item>
 /// <item><description><b>Registry</b> — <c>RegistryEntries</c> carries no
 /// file, so nothing in the file comparison would notice it disappearing.</description></item>
 /// <item><description><b>Certificates</b> — <c>iis:Certificate</c> compiles to
@@ -28,7 +33,7 @@ internal sealed record InstallerPayload(
     {
         using var db = new InstallerDatabase(packagePath);
 
-        var files = db.Read("File", "Component_", "FileName", "Version");
+        var files = db.Read("File", "Component_", "FileName");
         var components = db.Read("Component", "Component", "Directory_");
         var directories = db.Read("Directory", "Directory", "Directory_Parent", "DefaultDir");
 
@@ -42,7 +47,7 @@ internal sealed record InstallerPayload(
                             && directoryPaths.TryGetValue(directoryId, out var path)
                 ? path
                 : "<unresolved>";
-            fileSet.Add($"{directory}/{LongName(file[1])}|{file[2]}");
+            fileSet.Add($"{directory}/{LongName(file[1])}");
         }
 
         var registry = db.Read("Registry", "Root", "Key", "Name", "Value")

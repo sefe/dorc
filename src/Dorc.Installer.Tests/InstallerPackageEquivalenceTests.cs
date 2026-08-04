@@ -90,9 +90,12 @@ public class InstallerPackageEquivalenceTests
             "The build did not produce all four packages, so their union cannot be compared to the baseline.");
 
         var drift = Drift(InstallerPayload.Read(baselinePath!), packages.Select(InstallerPayload.Read).ToArray());
+        var missing = drift.Where(d => d.StartsWith("MISSING", StringComparison.Ordinal)).ToList();
+        var extra = drift.Where(d => d.StartsWith("EXTRA", StringComparison.Ordinal)).ToList();
         Assert.AreEqual(0, drift.Count,
-            "The packages no longer install what the baseline installed:" + Environment.NewLine
-            + string.Join(Environment.NewLine, drift.Take(40)));
+            $"The packages no longer install what the baseline installed: {missing.Count} missing, "
+            + $"{extra.Count} extra." + Environment.NewLine
+            + string.Join(Environment.NewLine, missing.Take(30).Concat(extra.Take(30))));
     }
 
     /// <summary>
