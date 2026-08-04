@@ -235,7 +235,9 @@ if ($MsiInstalls)
             foreach ($service in $servicesInScope)
             {
                 $state = Invoke-Command -ComputerName $serverName -ScriptBlock {
-                    param($svc) (Get-Service $svc -ErrorAction SilentlyContinue).Status
+                    param($svc)
+                    $service = Get-Service $svc -ErrorAction SilentlyContinue
+                    if ($service) { $service.Status.ToString() }
                 } -ArgumentList $service
 
                 if (-not $state)
