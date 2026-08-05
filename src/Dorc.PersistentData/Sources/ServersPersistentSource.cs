@@ -48,6 +48,7 @@ namespace Dorc.PersistentData.Sources
             {
                 var server = context.Servers
                     .Include(s => s.Environments)
+                    .Include(s => s.Daemons)
                     .FirstOrDefault(s => s.Id == serverId);
 
                 if (server != null)
