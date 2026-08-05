@@ -335,7 +335,10 @@ namespace Dorc.PersistentData.Sources
 
                 if (rowsAffected > 0)
                 {
-                    deploymentRequests.ForEach(dr => dr.Status = toStatus.ToString());
+                    foreach (var dr in deploymentRequests)
+                    {
+                        dr.Status = toStatus.ToString();
+                    }
                 }
 
                 return rowsAffected;
@@ -360,7 +363,7 @@ namespace Dorc.PersistentData.Sources
                     { 
                         dr.Status = toStatus.ToString(); 
                         dr.RequestedTime = requestedTime; 
-                    };
+                    }
                 }
 
                 return rowsAffected;

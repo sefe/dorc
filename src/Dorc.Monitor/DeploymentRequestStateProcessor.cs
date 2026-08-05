@@ -244,58 +244,56 @@ namespace Dorc.Monitor
             var methodName = method.ToString();
             if (requestToSwitchCount > 0)
             {
-                monitorCancellationToken.ThrowIfCancellationRequested();
                 var ids = requests.Select(r => r.Id).ToArray();
                 var idsString = string.Join(',', ids);
 
                 this.logger.LogInformation($"Going to {methodName} the requests: [{idsString}]");
 
-                foreach (var id in ids)
-                {
-                    TerminateRequestExecution(id, requestCancellationSources);
-                }
+                var updatedRequestCount = 0;
+                var updatedIds = new List<int>();
 
-                // Uses optimistic concurrency: only updates requests still in 'fromStatus'
-                int updatedRequestCount = this.requestsPersistentSource.SwitchDeploymentRequestStatuses(
-                    requests,
-                    fromStatus,
-                    toStatus,
-                    DateTimeOffset.Now);
-
-                if (updatedRequestCount == requestToSwitchCount)
+                foreach (var request in requests)
                 {
-                    // All requests were successfully updated
-                    foreach (var id in ids)
+                    monitorCancellationToken.ThrowIfCancellationRequested();
+
+                    TerminateRequestExecution(request.Id, requestCancellationSources);
+
+                    // Uses optimistic concurrency: only updates requests still in 'fromStatus'
+                    int switched = this.requestsPersistentSource.SwitchDeploymentRequestStatuses(
+                        new List<DeploymentRequestApiModel> { request },
+                        fromStatus,
+                        toStatus,
+                        DateTimeOffset.Now);
+
+                    if (switched > 0)
                     {
-                        TerminateRunnerProcesses(id);
+                        updatedRequestCount++;
+                        updatedIds.Add(request.Id);
+                        TerminateRunnerProcesses(request.Id);
                         PublishRequestStatusChangedSafe(new DeploymentRequestEventData(
-                            RequestId: id,
+                            RequestId: request.Id,
                             Status: toStatus.ToString(),
                             StartedTime: null,
                             CompletedTime: null,
                             Timestamp: DateTimeOffset.UtcNow
                         ));
                     }
+                }
+
+                if (updatedRequestCount == requestToSwitchCount)
+                {
+                    // All requests were successfully updated
                     this.logger.LogInformation($"Requests with ids [{idsString}] are {methodName}ed.");
                 }
                 else if (updatedRequestCount > 0)
                 {
                     // Partial success: some requests were already processed by another monitor
-                    foreach (var id in ids)
-                    {
-                        TerminateRunnerProcesses(id);
-                        PublishRequestStatusChangedSafe(new DeploymentRequestEventData(
-                            RequestId: id,
-                            Status: toStatus.ToString(),
-                            StartedTime: null,
-                            CompletedTime: null,
-                            Timestamp: DateTimeOffset.UtcNow
-                        ));
-                    }
+                    var updatedIdsString = string.Join(',', updatedIds);
                     var skippedCount = requestToSwitchCount - updatedRequestCount;
                     this.logger.LogInformation(
                         $"{updatedRequestCount} of {requestToSwitchCount} requests {methodName}ed. " +
-                        $"{skippedCount} were likely already processed by another monitor instance. IDs [{idsString}]");
+                        $"{skippedCount} were likely already processed by another monitor instance. " +
+                        $"Updated IDs [{updatedIdsString}], All IDs [{idsString}]");
                 }
                 else
                 {
