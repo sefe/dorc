@@ -54,12 +54,16 @@ namespace Dorc.PersistentData.Sources
                 {
                     foreach (var environmentDetail in server.Environments.ToList())
                     {
-                        server.Environments.Remove(environmentDetail);   
+                        server.Environments.Remove(environmentDetail);
                     }
                     foreach (var daemon in server.Daemons.ToList())
                     {
                         server.Daemons.Remove(daemon);
                     }
+
+                    var daemonObservations = context.DaemonObservations
+                        .Where(d => d.ServerId == serverId);
+                    context.DaemonObservations.RemoveRange(daemonObservations);
                 }
 
                 context.Servers.Remove(server);
