@@ -55,6 +55,9 @@ export class EnvControlCenter extends PageEnvBase {
   @state()
   private isAdmin = false;
 
+  @state()
+  private isDeletingEnvironment = false;
+
   private appDbServer: DatabaseApiModel | undefined;
 
   static get styles() {
@@ -132,41 +135,53 @@ export class EnvControlCenter extends PageEnvBase {
           <vaadin-button
             title="Delete Environment &amp; Properties"
             @click="${this.deleteEnvironment}"
-            ?disabled="${!(this.isAdmin || this.isEnvOwner)}"
+            ?disabled="${
+              !(this.isAdmin || this.isEnvOwner) || this.isDeletingEnvironment
+            }"
           >
-            <vaadin-icon icon="icons:delete" slot="prefix"></vaadin-icon
-            >Delete Environment...</vaadin-button>
+            <vaadin-icon icon="icons:delete" slot="prefix"></vaadin-icon>${
+              this.isDeletingEnvironment
+                ? 'Deleting Environment...'
+                : 'Delete Environment...'
+            }</vaadin-button
+          >
           <vaadin-button
             title="Environment History"
             ?disabled="${this.environment === undefined}"
             @click="${this.openEnvHistory}"
           >
             <vaadin-icon slot="prefix" icon="icons:history"></vaadin-icon
-            >Environment History</vaadin-button>
+            >Environment History</vaadin-button
+          >
           <vaadin-button
             title="Access Control..."
             theme="icon"
             @click="${this.openAccessControl}"
           >
-            <vaadin-icon icon="vaadin:lock"></vaadin-icon
-            >Environment Access...</vaadin-button>
+            <vaadin-icon icon="vaadin:lock"></vaadin-icon>Environment
+            Access...</vaadin-button
+          >
           <vaadin-button
             id="mlp"
             title="Configure with predefined suite of requests"
             @click="${this.makeLikeProd}"
           >
             <vaadin-icon icon="vaadin:compile" slot="prefix"></vaadin-icon
-            >Bundle Request...</vaadin-button>
+            >Bundle Request...</vaadin-button
+          >
           <vaadin-button
             id="reset-others-password"
             title="Reset SQL Account Password for another user for Database with '${this.environment?.Details?.ThinClient}' tag"
             @click="${this.resetAppPasswordBehalf}"
             ?hidden="${!this.isEndur}"
-            .disabled="${this.environment?.EnvironmentIsProd ||
-            !(this.isEnvOwner || this.isAdmin)}"
+            .disabled="${
+              this.environment?.EnvironmentIsProd ||
+              !(this.isEnvOwner || this.isAdmin)
+            }"
           >
-            <vaadin-icon icon="vaadin:safe" slot="prefix"></vaadin-icon
-            >Reset SQL Account Password for...</vaadin-button>
+            <vaadin-icon icon="vaadin:safe" slot="prefix"></vaadin-icon>Reset
+            SQL Account Password for...</vaadin-button
+          >
         </div>
       </vaadin-details>
     `;
@@ -242,16 +257,21 @@ export class EnvControlCenter extends PageEnvBase {
   }
 
   deleteEnvironment() {
+    if (this.isDeletingEnvironment) {
+      return;
+    }
+
     const answer = confirm(
       'Are you sure you want to delete your environment and properties?'
     );
     if (answer) {
       if (this.environment !== undefined) {
         const api = new RefDataEnvironmentsApi();
+        this.isDeletingEnvironment = true;
         api
           .refDataEnvironmentsDelete({ environmentApiModel: this.environment })
-          .subscribe(
-            (data: boolean) => {
+          .subscribe({
+            next: (data: boolean) => {
               if (data) {
                 const message = `The Environment ${
                   this.environment?.EnvironmentName
@@ -274,10 +294,14 @@ export class EnvControlCenter extends PageEnvBase {
                 alert('Failed to delete your environment');
               }
             },
-            () => {
+            error: () => {
               alert('Failed to delete your environment');
+              this.isDeletingEnvironment = false;
+            },
+            complete: () => {
+              this.isDeletingEnvironment = false;
             }
-          );
+          });
       }
     }
   }
@@ -316,6 +340,8 @@ export class EnvControlCenter extends PageEnvBase {
     );
 
     // since ThinClient is a DB tag and DB type and environment filter, we can use it to find the app database server
-    this.appDbServer = this.envContent?.DbServers?.find(s => s.Type === this.environment?.Details?.ThinClient);
+    this.appDbServer = this.envContent?.DbServers?.find(
+      s => s.Type === this.environment?.Details?.ThinClient
+    );
   }
 }

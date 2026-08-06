@@ -597,12 +597,6 @@ namespace Dorc.PersistentData.Sources
                         try
                         {
                             var environment = context.Environments
-                                .Include(e => e.AccessControls)
-                                .Include(e => e.Databases)
-                                .Include(e => e.ComponentStatus)
-                                .Include(e => e.Histories)
-                                .Include(e => e.Projects)
-                                .Include(e => e.Servers)
                                 .SingleOrDefault(e =>
                                     EF.Functions.Collate(e.Name, DeploymentContext.CaseInsensitiveCollation)
                                     == EF.Functions.Collate(env.EnvironmentName, DeploymentContext.CaseInsensitiveCollation));
@@ -618,32 +612,38 @@ namespace Dorc.PersistentData.Sources
                             EnvironmentHistoryPersistentSource.AddDeletionHistory(environmentDetails, username, "DELETION", context);
 
                             var propertyValueIds = context.PropertyValueFilters
-                                .Where(pvf => pvf.Value.Equals(environment.Name))
+                                .Where(pvf =>
+                                    EF.Functions.Collate(pvf.Value, DeploymentContext.CaseInsensitiveCollation)
+                                    == EF.Functions.Collate(environment.Name, DeploymentContext.CaseInsensitiveCollation))
                                 .Select(pvf => pvf.PropertyValue.Id)
                                 .ToList();
 
                             context.PropertyValueFilters
-                                .Where(pvf => pvf.Value.Equals(environment.Name))
+                                .Where(pvf =>
+                                    EF.Functions.Collate(pvf.Value, DeploymentContext.CaseInsensitiveCollation)
+                                    == EF.Functions.Collate(environment.Name, DeploymentContext.CaseInsensitiveCollation))
                                 .ExecuteDelete();
 
                             context.PropertyValues
                                 .Where(pv => propertyValueIds.Contains(pv.Id))
                                 .ExecuteDelete();
 
-                            environment.AccessControls.Clear();
-                            environment.Databases.Clear();
-                            environment.Servers.Clear();
-                            environment.Projects.Clear();
+                            context.AccessControls
+                                .Where(ac => ac.ObjectId == environment.ObjectId)
+                                .ExecuteDelete();
 
-                            // Environment histories will be preserved automatically by the database foreign key constraint
-                            // The EnvId will be set to NULL when the environment is deleted, preserving audit trail
-                            environment.Histories.Clear();
+                            context.Database.ExecuteSqlInterpolated(
+                                $"DELETE FROM [deploy].[EnvironmentDatabase] WHERE [EnvId] = {environment.Id}");
 
-                            foreach (var ecs in environment.ComponentStatus.ToList())
-                            {
-                                context.EnvironmentComponentStatuses.Remove(ecs);
-                            }
-                            environment.ComponentStatus.Clear();
+                            context.Database.ExecuteSqlInterpolated(
+                                $"DELETE FROM [deploy].[EnvironmentServer] WHERE [EnvId] = {environment.Id}");
+
+                            context.Database.ExecuteSqlInterpolated(
+                                $"DELETE FROM [deploy].[ProjectEnvironment] WHERE [EnvironmentId] = {environment.Id}");
+
+                            context.EnvironmentComponentStatuses
+                                .Where(ecs => EF.Property<int>(ecs, "EnvironmentId") == environment.Id)
+                                .ExecuteDelete();
 
                             context.Environments.Remove(environment);
 
