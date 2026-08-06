@@ -586,7 +586,7 @@ namespace Dorc.Monitor.RequestProcessors
         {
             try
             {
-                var currentDbStatus = requestsPersistentSource.GetRequest(requestId)?.Status;
+                var currentDbStatus = requestsPersistentSource.GetRequestStatus(requestId).Status;
 
                 return currentDbStatus == DeploymentRequestStatus.Cancelled.ToString()
                     || currentDbStatus == DeploymentRequestStatus.Cancelling.ToString();
