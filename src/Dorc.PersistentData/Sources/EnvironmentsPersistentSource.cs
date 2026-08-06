@@ -3,6 +3,7 @@ using Dorc.PersistentData.Contexts;
 using Dorc.PersistentData.Extensions;
 using Dorc.PersistentData.Model;
 using Dorc.PersistentData.Sources.Interfaces;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System;
@@ -17,6 +18,31 @@ namespace Dorc.PersistentData.Sources
 {
     public class EnvironmentsPersistentSource : IEnvironmentsPersistentSource
     {
+        /// <summary>
+        /// Deleting an environment touches every table that references it, and the property value
+        /// cleanup has to scan PropertyValueFilter because its Value column is NVARCHAR(MAX) and so
+        /// cannot be indexed. On a large installation that legitimately takes longer than the 60
+        /// second default configured on <see cref="DeploymentContext"/>, and aborting half way round
+        /// leaves the environment undeleted.
+        /// </summary>
+        private const int DeleteEnvironmentCommandTimeoutSeconds = 120;
+
+        /// <summary>
+        /// Removes the environment scoped property values in a single pass over PropertyValueFilter:
+        /// the ids of the property values to remove are captured by the same statement that deletes
+        /// the filters, rather than scanning once to read them, scanning again to delete the filters
+        /// and then sending the ids back to the server as parameters.
+        /// </summary>
+        private static readonly string DeleteEnvironmentPropertyValuesSql = @"
+DECLARE @DeletedPropertyValues TABLE ([Id] BIGINT NOT NULL);
+
+DELETE FROM [deploy].[PropertyValueFilter]
+OUTPUT deleted.[PropertyValueId] INTO @DeletedPropertyValues ([Id])
+WHERE [Value] COLLATE " + DeploymentContext.CaseInsensitiveCollation + @" = @environmentName;
+
+DELETE FROM [deploy].[PropertyValue]
+WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
+
         private readonly IDeploymentContextFactory contextFactory;
         private readonly ISecurityObjectFilter objectFilter;
         private readonly IRolePrivilegesChecker _rolePrivilegesChecker;
@@ -587,22 +613,24 @@ namespace Dorc.PersistentData.Sources
         {
             using (var context = contextFactory.GetContext())
             {
+                context.Database.SetCommandTimeout(DeleteEnvironmentCommandTimeoutSeconds);
+
                 // Use the execution strategy to wrap the transaction
                 var strategy = context.Database.CreateExecutionStrategy();
 
                 return strategy.Execute(() =>
                 {
+                    // The execution strategy replays this delegate after a transient failure. The
+                    // previous attempt was rolled back in the database but its entities are still
+                    // tracked, so start from a clean slate to avoid replaying them - a retained
+                    // deletion history entry would otherwise be written once per attempt.
+                    context.ChangeTracker.Clear();
+
                     using (var transaction = context.Database.BeginTransaction())
                     {
                         try
                         {
                             var environment = context.Environments
-                                .Include(e => e.AccessControls)
-                                .Include(e => e.Databases)
-                                .Include(e => e.ComponentStatus)
-                                .Include(e => e.Histories)
-                                .Include(e => e.Projects)
-                                .Include(e => e.Servers)
                                 .SingleOrDefault(e =>
                                     EF.Functions.Collate(e.Name, DeploymentContext.CaseInsensitiveCollation)
                                     == EF.Functions.Collate(env.EnvironmentName, DeploymentContext.CaseInsensitiveCollation));
@@ -617,33 +645,27 @@ namespace Dorc.PersistentData.Sources
                             var environmentDetails = $"Environment ID: {environment.Id}, Name: {environment.Name}, Secure: {environment.Secure}, IsProd: {environment.IsProd}";
                             EnvironmentHistoryPersistentSource.AddDeletionHistory(environmentDetails, username, "DELETION", context);
 
-                            var propertyValueIds = context.PropertyValueFilters
-                                .Where(pvf => pvf.Value.Equals(environment.Name))
-                                .Select(pvf => pvf.PropertyValue.Id)
-                                .ToList();
+                            context.Database.ExecuteSqlRaw(DeleteEnvironmentPropertyValuesSql,
+                                new SqlParameter("environmentName", environment.Name));
 
-                            context.PropertyValueFilters
-                                .Where(pvf => pvf.Value.Equals(environment.Name))
+                            context.AccessControls
+                                .Where(ac => ac.ObjectId == environment.ObjectId)
                                 .ExecuteDelete();
 
-                            context.PropertyValues
-                                .Where(pv => propertyValueIds.Contains(pv.Id))
+                            context.Database.ExecuteSqlInterpolated(
+                                $"DELETE FROM [deploy].[EnvironmentDatabase] WHERE [EnvId] = {environment.Id}");
+
+                            context.Database.ExecuteSqlInterpolated(
+                                $"DELETE FROM [deploy].[EnvironmentServer] WHERE [EnvId] = {environment.Id}");
+
+                            context.Database.ExecuteSqlInterpolated(
+                                $"DELETE FROM [deploy].[ProjectEnvironment] WHERE [EnvironmentId] = {environment.Id}");
+
+                            context.EnvironmentComponentStatuses
+                                .Where(ecs => EF.Property<int>(ecs, "EnvironmentId") == environment.Id)
                                 .ExecuteDelete();
 
-                            environment.AccessControls.Clear();
-                            environment.Databases.Clear();
-                            environment.Servers.Clear();
-                            environment.Projects.Clear();
-
-                            // Environment histories will be preserved automatically by the database foreign key constraint
-                            // The EnvId will be set to NULL when the environment is deleted, preserving audit trail
-                            environment.Histories.Clear();
-
-                            foreach (var ecs in environment.ComponentStatus.ToList())
-                            {
-                                context.EnvironmentComponentStatuses.Remove(ecs);
-                            }
-                            environment.ComponentStatus.Clear();
+                            DetachChildEnvironments(environment, username, context);
 
                             context.Environments.Remove(environment);
 
@@ -667,6 +689,40 @@ namespace Dorc.PersistentData.Sources
                     }
                 });
             }
+        }
+
+        /// <summary>
+        /// Releases the environments grouped under the one being deleted. They are children of it,
+        /// not owned by it, so they survive the delete as environments in their own right - and
+        /// until they are released the Environment.ParentId self reference refuses the delete
+        /// outright, so a parent environment could not be deleted at all.
+        /// </summary>
+        private void DetachChildEnvironments(Environment environment, string username, IDeploymentContext context)
+        {
+            var childEnvironmentIds = context.Environments
+                .Where(e => e.ParentId == environment.Id)
+                .Select(e => e.Id)
+                .ToList();
+
+            if (!childEnvironmentIds.Any())
+                return;
+
+            foreach (var childEnvironmentId in childEnvironmentIds)
+            {
+                EnvironmentHistoryPersistentSource.AddHistoryAction(childEnvironmentId, environment.Name, string.Empty,
+                    username, "Detach Child Environment",
+                    $"Child environment detached because its parent environment {environment.Name} was deleted.",
+                    context);
+            }
+
+            DateTime? detachedAt = DateTime.Now;
+            context.Environments
+                .Where(e => childEnvironmentIds.Contains(e.Id))
+                .ExecuteUpdate(setters => setters
+                    .SetProperty(e => e.ParentId, (int?)null)
+                    .SetProperty(e => e.LastUpdate, detachedAt));
+
+            logger.LogInformation($"Detached {childEnvironmentIds.Count} child environment(s) from '{environment.Name}' before deleting it");
         }
 
         public bool EnvironmentIsProd(string envName)

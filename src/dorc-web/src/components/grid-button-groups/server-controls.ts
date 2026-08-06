@@ -146,42 +146,60 @@ export class ServerControls extends LitElement {
 
   async deleteServer() {
     // Snapshot before awaiting: this control sits in a recycled grid cell, so
-    // `this.serverDetails` can belong to a different row by the time the user answers.
+    // `this.serverDetails` can belong to a different row by the time the user
+    // answers — and with the daemon-detach path there are now two prompts and a
+    // network round trip between the question and the delete.
     const server = this.serverDetails;
     const answer = await confirmPrompt(`Delete server ${server?.Name}?`);
     if (answer && server?.ServerId) {
-      const api = new RefDataServersApi();
-      api
-        .refDataServersDelete({
-          serverId: server.ServerId
-        })
-        .subscribe({
-          next: (result: ApiBoolResult) => {
-            if (result.Result === true) {
-              // The snapshot, not a fresh read: the cell can be recycled
-              // during the network round trip, and the delete itself
-              // refreshes the grid.
-              const event = new CustomEvent('server-deleted', {
-                composed: true,
-                bubbles: true,
-                detail: {
-                  server
-                }
-              });
-              this.dispatchEvent(event);
-            } else {
-              const notification = new ErrorNotification();
-              notification.setAttribute('errorMessage', result.Message ?? '');
-              this.shadowRoot?.appendChild(notification);
-              notification.open();
-              console.error(result.Message);
-            }
-          },
-          error: err => console.error(err),
-          complete: () =>
-            console.log(`Deleted Server ${server?.Name}`)
-        });
+      this.performDeleteServer(server, false);
     }
+  }
+
+  private performDeleteServer(server: ServerApiModel, confirmed: boolean) {
+    const api = new RefDataServersApi();
+    api
+      .refDataServersDelete({
+        serverId: server.ServerId as number,
+        confirmed
+      })
+      .subscribe({
+        next: async (result: ApiBoolResult) => {
+          if (result.Result === true) {
+            // The snapshot, not a fresh read: the cell can be recycled during
+            // the network round trip, and the delete itself refreshes the grid.
+            const event = new CustomEvent('server-deleted', {
+              composed: true,
+              bubbles: true,
+              detail: {
+                server
+              }
+            });
+            this.dispatchEvent(event);
+            return;
+          }
+
+          const isDaemonWarning =
+            !confirmed && result.RequiresConfirmation === true;
+
+          if (isDaemonWarning) {
+            const confirmDetach = await confirmPrompt(
+              `${result.Message}\n\nDo you want to detach the daemon(s) and delete the server anyway?`
+            );
+            if (confirmDetach) {
+              this.performDeleteServer(server, true);
+            }
+            return;
+          }
+
+          const notification = new ErrorNotification();
+          notification.setAttribute('errorMessage', result.Message ?? '');
+          this.shadowRoot?.appendChild(notification);
+          notification.open();
+          console.error(result.Message);
+        },
+        error: err => console.error(err)
+      });
   }
 
   manage() {

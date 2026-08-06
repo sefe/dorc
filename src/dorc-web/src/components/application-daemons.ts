@@ -8,6 +8,8 @@ import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { DaemonStatusApi } from '../apis/dorc-api';
 import { DaemonStatusApiModel } from '../apis/dorc-api';
+import type { DiscoverDaemonsResult } from '../apis/dorc-api';
+import { Notification } from '@vaadin/notification';
 
 @customElement('application-daemons')
 export class ApplicationDaemons extends LitElement {
@@ -124,6 +126,97 @@ export class ApplicationDaemons extends LitElement {
       error: (err: any) => console.error(err),
       complete: () => console.log('done loading daemon statuses')}
     );
+  }
+
+  public discoverDaemons() {
+    if (!this.envName) {
+      Notification.show('No environment selected', {
+        theme: 'error',
+        position: 'bottom-start',
+        duration: 3000
+      });
+      return;
+    }
+
+    const api = new DaemonStatusApi();
+    api.daemonStatusDiscoverEnvNameGet({ envName: this.envName }).subscribe({
+      next: (result) => {
+        if (result.Success) {
+          let message = `Discovery complete: ${result.MappingsCreated} new mapping(s) created`;
+          if (result.DaemonsDiscovered && result.DaemonsDiscovered > 0) {
+            message += ` (${result.DaemonsDiscovered} daemon(s) discovered)`;
+          }
+
+          Notification.show(message, {
+            theme: 'success',
+            position: 'bottom-start',
+            duration: 5000
+          });
+
+          if (result.Errors && result.Errors.length > 0) {
+            console.warn('Discovery errors:', result.Errors);
+          }
+
+          const discoveredDaemons = this.getDaemonStatusesFromDiscovery(result);
+          if (discoveredDaemons && discoveredDaemons.length > 0) {
+            this.setDaemonStatuses(discoveredDaemons);
+          } else {
+            // Fallback to reload if no daemons returned
+            this.loadDaemons();
+          }
+        } else {
+          Notification.show(
+            `Discovery failed: ${result.Errors?.join(', ') || 'Unknown error'}`,
+            {
+              theme: 'error',
+              position: 'bottom-start',
+              duration: 5000
+            }
+          );
+
+          this.dispatchEvent(new CustomEvent('daemons-loaded', { detail: { message: '' } }));
+        }
+      },
+      error: (err: any) => {
+        console.error('Daemon discovery failed:', err);
+        Notification.show(
+          `Discovery failed: ${err?.message || 'Unknown error'}`,
+          {
+            theme: 'error',
+            position: 'bottom-start',
+            duration: 5000
+          }
+        );
+
+        this.dispatchEvent(new CustomEvent('daemons-loaded', { detail: { message: '' } }));
+      },
+      complete: () => {
+        console.log('done discovering daemons');
+        const event = new CustomEvent('daemons-loaded', {
+          detail: {
+            message: ''
+          }
+        });
+        this.dispatchEvent(event);
+      }
+    });
+  }
+
+  private getDaemonStatusesFromDiscovery(result: DiscoverDaemonsResult): DaemonStatusApiModel[] | undefined {
+    if (Array.isArray(result.DiscoveredDaemons)) {
+      return result.DiscoveredDaemons;
+    }
+
+    // Backward-compatible alias in case backend uses a different key temporarily.
+    const resultWithAlias = result as DiscoverDaemonsResult & {
+      Daemons?: DaemonStatusApiModel[];
+    };
+
+    if (Array.isArray(resultWithAlias.Daemons)) {
+      return resultWithAlias.Daemons;
+    }
+
+    return undefined;
   }
 
   protected firstUpdated(_changedProperties: PropertyValues): void {
