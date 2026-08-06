@@ -1,4 +1,4 @@
-import { css, PropertyValues } from 'lit';
+import { css, nothing, PropertyValues } from 'lit';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/vaadin-lumo-styles/icons.js';
@@ -23,7 +23,10 @@ import GlobalCache from '../../global-cache';
 import { ResetAppPasswordBehalf } from '../reset-app-password-behalf';
 import '../reset-app-password-behalf';
 import '../../icons/iron-icons.js';
+import '../dorc-spinner';
 import { SuccessNotification } from '../notifications/success-notification';
+import { ErrorNotification } from '../notifications/error-notification';
+import { retrieveErrorMessage } from '../../helpers/errorMessage-retriever';
 import { MakeLikeProductionDialog } from '../make-like-production-dialog.ts';
 
 @customElement('env-control-center')
@@ -96,11 +99,20 @@ export class EnvControlCenter extends PageEnvBase {
         text-decoration: underline;
         color: var(--dorc-link-color);
       }
+
+      .delete-progress {
+        padding: 8px 0 4px 0;
+        color: var(--dorc-text-secondary);
+      }
     `;
   }
 
   render() {
     return html`
+      <dorc-spinner
+        style="--dorc-spinner-z-index: 1000"
+        ?hidden="${!this.isDeletingEnvironment}"
+      ></dorc-spinner>
       <reset-app-password-behalf
         id="reset-app-password-behalf"
         .appUsers="${this.envContent?.EndurUsers ?? []}"
@@ -182,6 +194,15 @@ export class EnvControlCenter extends PageEnvBase {
             <vaadin-icon icon="vaadin:safe" slot="prefix"></vaadin-icon>Reset
             SQL Account Password for...</vaadin-button
           >
+          ${this.isDeletingEnvironment
+            ? html`
+                <div class="delete-progress" role="status" aria-live="polite">
+                  Deleting '${this.environment?.EnvironmentName}' and its
+                  properties. This can take a minute or two for an environment
+                  with a lot of history - please leave this page open.
+                </div>
+              `
+            : nothing}
         </div>
       </vaadin-details>
     `;
@@ -291,11 +312,13 @@ export class EnvControlCenter extends PageEnvBase {
                 });
                 this.dispatchEvent(event);
               } else {
-                alert('Failed to delete your environment');
+                this.showDeleteError(
+                  'The server reported that the environment was not deleted.'
+                );
               }
             },
-            error: () => {
-              alert('Failed to delete your environment');
+            error: (err: any) => {
+              this.showDeleteError(err);
               this.isDeletingEnvironment = false;
             },
             complete: () => {
@@ -304,6 +327,21 @@ export class EnvControlCenter extends PageEnvBase {
           });
       }
     }
+  }
+
+  private showDeleteError(err: any) {
+    // The reason lives in the response the API sends back - a timeout, a privilege problem and an
+    // environment that has already gone all need different things from the user, and the previous
+    // 'Failed to delete your environment' alert told them apart from none of them.
+    const message = `Failed to delete environment '${
+      this.environment?.EnvironmentName
+    }'. ${retrieveErrorMessage(err)}`;
+
+    const notification = new ErrorNotification();
+    notification.setAttribute('errorMessage', message);
+    this.shadowRoot?.appendChild(notification);
+    notification.open();
+    console.error(err);
   }
 
   resetAppPasswordBehalf() {
