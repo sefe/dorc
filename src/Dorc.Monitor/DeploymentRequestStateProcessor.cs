@@ -263,41 +263,34 @@ namespace Dorc.Monitor
             var methodName = method.ToString();
             if (requestToSwitchCount > 0)
             {
-                monitorCancellationToken.ThrowIfCancellationRequested();
                 var ids = requests.Select(r => r.Id).ToArray();
                 var idsString = string.Join(',', ids);
 
                 this.logger.LogInformation($"Going to {methodName} the requests: [{idsString}]");
 
-                foreach (var id in ids)
-                {
-                    TerminateRequestExecution(id, requestCancellationSources);
-                }
+                var updatedRequestCount = 0;
+                var updatedIds = new List<int>();
 
-                // Switch per request (optimistic concurrency: only requests still in 'fromStatus'
-                // are updated) so events and notifications fire only for the transitions THIS
-                // monitor instance won — batch switching returns just a count, which cannot say
-                // which requests another monitor already processed, and notifying the whole
-                // batch would DM those users twice.
                 var switchedTime = DateTimeOffset.Now;
-                var transitionedRequests = requests
-                    .Where(request => this.requestsPersistentSource.SwitchDeploymentRequestStatuses(
+
+                foreach (var request in requests)
+                {
+                    monitorCancellationToken.ThrowIfCancellationRequested();
+
+                    TerminateRequestExecution(request.Id, requestCancellationSources);
+
+                    // Uses optimistic concurrency: only updates requests still in 'fromStatus'
+                    int switched = this.requestsPersistentSource.SwitchDeploymentRequestStatuses(
                         new List<DeploymentRequestApiModel> { request },
                         fromStatus,
                         toStatus,
-                        switchedTime) > 0)
-                    .ToList();
-                int updatedRequestCount = transitionedRequests.Count;
+                        switchedTime);
 
-                if (updatedRequestCount > 0)
-                {
-                    foreach (var id in ids)
+                    if (switched > 0)
                     {
-                        TerminateRunnerProcesses(id);
-                    }
-
-                    foreach (var request in transitionedRequests)
-                    {
+                        updatedRequestCount++;
+                        updatedIds.Add(request.Id);
+                        TerminateRunnerProcesses(request.Id);
                         PublishRequestStatusChangedSafe(new DeploymentRequestEventData(
                             RequestId: request.Id,
                             Status: toStatus.ToString(),
@@ -305,20 +298,26 @@ namespace Dorc.Monitor
                             CompletedTime: null,
                             Timestamp: DateTimeOffset.UtcNow
                         ));
+                        // Notify only for the transition this monitor instance won, so a
+                        // concurrent monitor cannot DM the same requester twice.
                         FireNotification(request, toStatus.ToString(), request.StartedTime ?? request.RequestedTime ?? switchedTime, switchedTime);
                     }
+                }
 
-                    if (updatedRequestCount == requestToSwitchCount)
-                    {
-                        this.logger.LogInformation($"Requests with ids [{idsString}] are {methodName}ed.");
-                    }
-                    else
-                    {
-                        var skippedCount = requestToSwitchCount - updatedRequestCount;
-                        this.logger.LogInformation(
-                            $"{updatedRequestCount} of {requestToSwitchCount} requests {methodName}ed. " +
-                            $"{skippedCount} were likely already processed by another monitor instance. IDs [{idsString}]");
-                    }
+                if (updatedRequestCount == requestToSwitchCount)
+                {
+                    // All requests were successfully updated
+                    this.logger.LogInformation($"Requests with ids [{idsString}] are {methodName}ed.");
+                }
+                else if (updatedRequestCount > 0)
+                {
+                    // Partial success: some requests were already processed by another monitor
+                    var updatedIdsString = string.Join(',', updatedIds);
+                    var skippedCount = requestToSwitchCount - updatedRequestCount;
+                    this.logger.LogInformation(
+                        $"{updatedRequestCount} of {requestToSwitchCount} requests {methodName}ed. " +
+                        $"{skippedCount} were likely already processed by another monitor instance. " +
+                        $"Updated IDs [{updatedIdsString}], All IDs [{idsString}]");
                 }
                 else
                 {
