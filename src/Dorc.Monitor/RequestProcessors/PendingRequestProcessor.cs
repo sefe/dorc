@@ -6,8 +6,8 @@ using Dorc.Core.Interfaces;
 using Dorc.Core.VariableResolution;
 using Dorc.Monitor.Notifications;
 using Dorc.PersistentData.Sources.Interfaces;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using System.Text;
 
 namespace Dorc.Monitor.RequestProcessors
@@ -208,6 +208,16 @@ namespace Dorc.Monitor.RequestProcessors
                             try
                             {
                                 cancellationToken.ThrowIfCancellationRequested();
+
+                                if (IsRequestCancelledByAnotherNode(requestToExecute.Request.Id))
+                                {
+                                    deploymentRequestStatus = DeploymentRequestStatus.Cancelled;
+
+                                    logger.LogInformation(
+                                        "Request {RequestId} was cancelled by another node; aborting deployment of remaining components.",
+                                        requestToExecute.Request.Id);
+                                    break;
+                                }
 
                                 var componentId = enabledNonSkippedComponent.ComponentId!.Value;
                                 var deploymentResult = deploymentResults[componentId];
@@ -616,6 +626,25 @@ namespace Dorc.Monitor.RequestProcessors
             {
                 logger.LogWarning("EnvironmentOwnerEmails is not set on request {RequestId}, EnvOwnerEmails property will not be available.",
                     request.Id);
+            }
+        }
+
+        private bool IsRequestCancelledByAnotherNode(int requestId)
+        {
+            try
+            {
+                var currentDbStatus = requestsPersistentSource.GetRequestStatus(requestId).Status;
+
+                return currentDbStatus == DeploymentRequestStatus.Cancelled.ToString()
+                    || currentDbStatus == DeploymentRequestStatus.Cancelling.ToString();
+            }
+            catch (Exception ex)
+            {
+                // If we can't verify the status, err on the side of continuing so that
+                // a transient DB error doesn't unnecessarily abort an in-progress deployment.
+                logger.LogWarning(ex,
+                    "Failed to verify cancellation status for request {RequestId} from another node.", requestId);
+                return false;
             }
         }
     }

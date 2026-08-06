@@ -17,7 +17,12 @@ import { BaseAPI, throwIfNullOrUndefined, encodeURI } from '../runtime';
 import type { OperationOpts, HttpHeaders, HttpQuery } from '../runtime';
 import type {
     DaemonStatusApiModel,
+    DiscoverDaemonsResult,
 } from '../models';
+
+export interface DaemonStatusDiscoverEnvNameGetRequest {
+    envName: string;
+}
 
 export interface DaemonStatusEnvNameGetRequest {
     envName: string;
@@ -37,6 +42,21 @@ export interface DaemonStatusPutRequest {
 export class DaemonStatusApi extends BaseAPI {
 
     /**
+     * Discover all daemons on environment servers and automatically create daemon-server mappings
+     */
+    daemonStatusDiscoverEnvNameGet({ envName }: DaemonStatusDiscoverEnvNameGetRequest): Observable<DiscoverDaemonsResult>
+    daemonStatusDiscoverEnvNameGet({ envName }: DaemonStatusDiscoverEnvNameGetRequest, opts?: OperationOpts): Observable<AjaxResponse<DiscoverDaemonsResult>>
+    daemonStatusDiscoverEnvNameGet({ envName }: DaemonStatusDiscoverEnvNameGetRequest, opts?: OperationOpts): Observable<DiscoverDaemonsResult | AjaxResponse<DiscoverDaemonsResult>> {
+        throwIfNullOrUndefined(envName, 'envName', 'daemonStatusDiscoverEnvNameGet');
+
+        return this.request<DiscoverDaemonsResult>({
+            url: '/DaemonStatus/discover/{envName}'.replace('{envName}', encodeURI(envName)),
+            method: 'GET',
+        }, opts?.responseOpts);
+    };
+
+    /**
+     * Get app servers daemon statuses for specified environment
      */
     daemonStatusEnvNameGet({ envName }: DaemonStatusEnvNameGetRequest): Observable<Array<DaemonStatusApiModel>>
     daemonStatusEnvNameGet({ envName }: DaemonStatusEnvNameGetRequest, opts?: OperationOpts): Observable<AjaxResponse<Array<DaemonStatusApiModel>>>
@@ -50,6 +70,7 @@ export class DaemonStatusApi extends BaseAPI {
     };
 
     /**
+     * Get app servers daemon statuses
      */
     daemonStatusGet({ id }: DaemonStatusGetRequest): Observable<Array<DaemonStatusApiModel>>
     daemonStatusGet({ id }: DaemonStatusGetRequest, opts?: OperationOpts): Observable<AjaxResponse<Array<DaemonStatusApiModel>>>
@@ -67,6 +88,7 @@ export class DaemonStatusApi extends BaseAPI {
     };
 
     /**
+     * Change daemon state. Returns new daemon status.
      */
     daemonStatusPut({ daemonStatusApiModel }: DaemonStatusPutRequest): Observable<DaemonStatusApiModel>
     daemonStatusPut({ daemonStatusApiModel }: DaemonStatusPutRequest, opts?: OperationOpts): Observable<AjaxResponse<DaemonStatusApiModel>>
