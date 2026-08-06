@@ -611,18 +611,16 @@ namespace Dorc.PersistentData.Sources
                             var environmentDetails = $"Environment ID: {environment.Id}, Name: {environment.Name}, Secure: {environment.Secure}, IsProd: {environment.IsProd}";
                             EnvironmentHistoryPersistentSource.AddDeletionHistory(environmentDetails, username, "DELETION", context);
 
-                            var propertyValueIds = context.PropertyValueFilters
+                            var propertyValueFiltersForEnvironment = context.PropertyValueFilters
                                 .Where(pvf =>
                                     EF.Functions.Collate(pvf.Value, DeploymentContext.CaseInsensitiveCollation)
-                                    == EF.Functions.Collate(environment.Name, DeploymentContext.CaseInsensitiveCollation))
+                                    == EF.Functions.Collate(environment.Name, DeploymentContext.CaseInsensitiveCollation));
+
+                            var propertyValueIds = propertyValueFiltersForEnvironment
                                 .Select(pvf => pvf.PropertyValue.Id)
                                 .ToList();
 
-                            context.PropertyValueFilters
-                                .Where(pvf =>
-                                    EF.Functions.Collate(pvf.Value, DeploymentContext.CaseInsensitiveCollation)
-                                    == EF.Functions.Collate(environment.Name, DeploymentContext.CaseInsensitiveCollation))
-                                .ExecuteDelete();
+                            propertyValueFiltersForEnvironment.ExecuteDelete();
 
                             context.PropertyValues
                                 .Where(pv => propertyValueIds.Contains(pv.Id))
