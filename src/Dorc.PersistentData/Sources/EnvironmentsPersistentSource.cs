@@ -3,6 +3,7 @@ using Dorc.PersistentData.Contexts;
 using Dorc.PersistentData.Extensions;
 using Dorc.PersistentData.Model;
 using Dorc.PersistentData.Sources.Interfaces;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System;
@@ -17,6 +18,31 @@ namespace Dorc.PersistentData.Sources
 {
     public class EnvironmentsPersistentSource : IEnvironmentsPersistentSource
     {
+        /// <summary>
+        /// Deleting an environment touches every table that references it, and the property value
+        /// cleanup has to scan PropertyValueFilter because its Value column is NVARCHAR(MAX) and so
+        /// cannot be indexed. On a large installation that legitimately takes longer than the 60
+        /// second default configured on <see cref="DeploymentContext"/>, and aborting half way round
+        /// leaves the environment undeleted.
+        /// </summary>
+        private const int DeleteEnvironmentCommandTimeoutSeconds = 120;
+
+        /// <summary>
+        /// Removes the environment scoped property values in a single pass over PropertyValueFilter:
+        /// the ids of the property values to remove are captured by the same statement that deletes
+        /// the filters, rather than scanning once to read them, scanning again to delete the filters
+        /// and then sending the ids back to the server as parameters.
+        /// </summary>
+        private static readonly string DeleteEnvironmentPropertyValuesSql = @"
+DECLARE @DeletedPropertyValues TABLE ([Id] BIGINT NOT NULL);
+
+DELETE FROM [deploy].[PropertyValueFilter]
+OUTPUT deleted.[PropertyValueId] INTO @DeletedPropertyValues ([Id])
+WHERE [Value] COLLATE " + DeploymentContext.CaseInsensitiveCollation + @" = @environmentName;
+
+DELETE FROM [deploy].[PropertyValue]
+WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
+
         private readonly IDeploymentContextFactory contextFactory;
         private readonly ISecurityObjectFilter objectFilter;
         private readonly IRolePrivilegesChecker _rolePrivilegesChecker;
@@ -587,11 +613,19 @@ namespace Dorc.PersistentData.Sources
         {
             using (var context = contextFactory.GetContext())
             {
+                context.Database.SetCommandTimeout(DeleteEnvironmentCommandTimeoutSeconds);
+
                 // Use the execution strategy to wrap the transaction
                 var strategy = context.Database.CreateExecutionStrategy();
 
                 return strategy.Execute(() =>
                 {
+                    // The execution strategy replays this delegate after a transient failure. The
+                    // previous attempt was rolled back in the database but its entities are still
+                    // tracked, so start from a clean slate to avoid replaying them - a retained
+                    // deletion history entry would otherwise be written once per attempt.
+                    context.ChangeTracker.Clear();
+
                     using (var transaction = context.Database.BeginTransaction())
                     {
                         try
@@ -611,20 +645,8 @@ namespace Dorc.PersistentData.Sources
                             var environmentDetails = $"Environment ID: {environment.Id}, Name: {environment.Name}, Secure: {environment.Secure}, IsProd: {environment.IsProd}";
                             EnvironmentHistoryPersistentSource.AddDeletionHistory(environmentDetails, username, "DELETION", context);
 
-                            var propertyValueFiltersForEnvironment = context.PropertyValueFilters
-                                .Where(pvf =>
-                                    EF.Functions.Collate(pvf.Value, DeploymentContext.CaseInsensitiveCollation)
-                                    == EF.Functions.Collate(environment.Name, DeploymentContext.CaseInsensitiveCollation));
-
-                            var propertyValueIds = propertyValueFiltersForEnvironment
-                                .Select(pvf => pvf.PropertyValue.Id)
-                                .ToList();
-
-                            propertyValueFiltersForEnvironment.ExecuteDelete();
-
-                            context.PropertyValues
-                                .Where(pv => propertyValueIds.Contains(pv.Id))
-                                .ExecuteDelete();
+                            context.Database.ExecuteSqlRaw(DeleteEnvironmentPropertyValuesSql,
+                                new SqlParameter("environmentName", environment.Name));
 
                             context.AccessControls
                                 .Where(ac => ac.ObjectId == environment.ObjectId)
