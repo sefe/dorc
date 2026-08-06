@@ -20,6 +20,8 @@ namespace Dorc.Api.Services
 
         public async ValueTask<bool> TryHandleAsync(HttpContext httpContext, Exception exception, CancellationToken cancellationToken)
         {
+            ArgumentNullException.ThrowIfNull(httpContext);
+
             var result = new
             {
                 Type = exception.GetType().Name,
@@ -30,12 +32,12 @@ namespace Dorc.Api.Services
             httpContext.Response.StatusCode = StatusCodeFor(exception);
 
             var logMessage = result.ExceptionMessage;
-            var user = httpContext?.User;
+            var user = httpContext.User;
             if (user != null)
             {
                 logMessage += Environment.NewLine + $"User: {user.Identity?.Name}";
             }
-            var request = httpContext?.Request;
+            var request = httpContext.Request;
             if (request != null)
             {
                 logMessage += Environment.NewLine + $"{GetRequestInfo(request)}";

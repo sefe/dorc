@@ -665,6 +665,8 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
                                 .Where(ecs => EF.Property<int>(ecs, "EnvironmentId") == environment.Id)
                                 .ExecuteDelete();
 
+                            DetachChildEnvironments(environment, username, context);
+
                             context.Environments.Remove(environment);
 
                             context.SaveChanges();
@@ -687,6 +689,40 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
                     }
                 });
             }
+        }
+
+        /// <summary>
+        /// Releases the environments grouped under the one being deleted. They are children of it,
+        /// not owned by it, so they survive the delete as environments in their own right - and
+        /// until they are released the Environment.ParentId self reference refuses the delete
+        /// outright, so a parent environment could not be deleted at all.
+        /// </summary>
+        private void DetachChildEnvironments(Environment environment, string username, IDeploymentContext context)
+        {
+            var childEnvironmentIds = context.Environments
+                .Where(e => e.ParentId == environment.Id)
+                .Select(e => e.Id)
+                .ToList();
+
+            if (!childEnvironmentIds.Any())
+                return;
+
+            foreach (var childEnvironmentId in childEnvironmentIds)
+            {
+                EnvironmentHistoryPersistentSource.AddHistoryAction(childEnvironmentId, environment.Name, string.Empty,
+                    username, "Detach Child Environment",
+                    $"Child environment detached because its parent environment {environment.Name} was deleted.",
+                    context);
+            }
+
+            DateTime? detachedAt = DateTime.Now;
+            context.Environments
+                .Where(e => childEnvironmentIds.Contains(e.Id))
+                .ExecuteUpdate(setters => setters
+                    .SetProperty(e => e.ParentId, (int?)null)
+                    .SetProperty(e => e.LastUpdate, detachedAt));
+
+            logger.LogInformation($"Detached {childEnvironmentIds.Count} child environment(s) from '{environment.Name}' before deleting it");
         }
 
         public bool EnvironmentIsProd(string envName)

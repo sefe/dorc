@@ -136,6 +136,7 @@ namespace Dorc.Api.Tests.Controllers
             var result = _controller.Delete(model) as ObjectResult;
 
             // Assert
+            Assert.IsNotNull(result);
             Assert.AreEqual(StatusCodes.Status403Forbidden, result.StatusCode);
             var message = result.Value as string;
             Assert.IsNotNull(message);
@@ -155,6 +156,7 @@ namespace Dorc.Api.Tests.Controllers
             var result = _controller.Delete(model) as ObjectResult;
 
             // Assert
+            Assert.IsNotNull(result);
             Assert.AreEqual(StatusCodes.Status404NotFound, result.StatusCode);
             var message = result.Value as string;
             Assert.IsNotNull(message);
@@ -173,6 +175,7 @@ namespace Dorc.Api.Tests.Controllers
             var result = _controller.Delete(model) as ObjectResult;
 
             // Assert
+            Assert.IsNotNull(result);
             Assert.AreEqual(StatusCodes.Status200OK, result.StatusCode);
             Assert.AreEqual(true, result.Value);
         }
