@@ -37,6 +37,8 @@ Ranked by what an attacker must already have, not by subsystem. Identifiers are 
 | 3= | W-11 | Hold **Modify on any one project** | Arbitrary code as the deployment account via Terraform repo URL, plus PAT and bearer-token exfiltration |
 | 3= | W-16 | Hold **Modify on any one project** | Entra token *or the API service account's Windows credentials* offered to an attacker-chosen host via `ArtefactsUrl` |
 | 4 | W-17 | Hold any token for the API audience | In `OAuth+WinAuth` mode the global API scope policy is never applied |
+| 5 | W-20 | `Modify` on the environment (post S-001) | Terraform plan artefacts embed cleartext secrets at rest, in storage and in transit |
+| — | W-19 | n/a — privilege-model defect | `CanReadSecrets` is held implicitly by every environment owner and answers two different questions; it widens whatever it gates |
 | 5 | W-2 | Any local account on a Monitor host | Full control of a Runner process; read its decrypted memory or inject |
 | 6 | W-3 | Any local account on a Monitor host | Receive the cleartext bundle, or feed the Runner an attacker-authored one |
 | 7 | W-12 | Any local account on a Monitor host — **no race to win** | Read the whole resolved property bag from `terraform.tfvars` under `%ProgramData%\dorc` |
@@ -309,6 +311,29 @@ Found by the estate scan rather than by code review, in the deployment scripts t
 The deployment service account's password is formatted into host output on every drive mapping. That output is captured by the runner's PowerShell host, written to the runner log, and the log path is published on the deployment request (W-7) — so it reaches a share, and the request record points at it.
 
 This is outside DOrc's code and so outside this HLPS's remit to fix, but it is squarely inside its remit to *report*: SD-6 removes DOrc's own logging of resolved values, and a conforming implementation of SC-06 would still leave this line writing the same class of secret to the same log. Whoever owns that script should be told, and the wider question — how many deployment scripts do this — is worth an estate scan of its own.
+
+### W-19 — `CanReadSecrets` has drifted from a machine-access privilege into a general one
+
+**Capability required: none directly. This is a privilege-model defect that widens the population of several other weaknesses.**
+
+`CanReadSecrets` was designed for machine access to secrets. Two mechanisms have widened it:
+
+- **Implicit grant.** It resolves to `AccessLevel.ReadSecrets | AccessLevel.Owner`, so **every environment owner holds it without it ever being granted**. Any endpoint gated on it inherits that population automatically, and an audit of who holds `ReadSecrets` will not show them.
+- **Overloaded meaning.** It gates secret decryption in `PropertyValuesService` and, separately, ACL visibility in `AccessControlController` — two different questions answered by one predicate.
+
+The consequence for this HLPS is direct: it is not a safe gate to reach for. SPEC-S-001 initially proposed using it for Terraform plan content and reversed that decision on exactly this ground, because binding a human-facing read path to it would have entrenched the drift while appearing to tighten security.
+
+**Recorded here rather than fixed here.** Reclaiming the privilege means auditing its holders, separating the two meanings, and deciding whether owner-implies-read-secrets is intended — all of which is privilege-model work belonging to the deferred sibling HLPS. What this document owes it is the warning: *do not gate anything new on `CanReadSecrets` until it has been reclaimed.*
+
+### W-20 — Terraform plan content embeds cleartext secrets at rest
+
+**Capability required: as W-10 (before S-001) or `Modify` on the environment (after). Rank alongside W-12.**
+
+Plan output renders resolved variable values, and the property set feeding a Terraform deployment includes decrypted secure configuration values (W-4) and secure property values. The plan blob is uploaded to storage and served by the API.
+
+Gating the *view* — which S-001 does — reduces who can read it. It does not stop the artefact containing secrets, and so does not help with the blob's own retention, its storage-side access control, or anyone reaching it outside the API.
+
+**The fix is redaction at source:** identify secret-valued variables and withhold or mask them when the plan is rendered or before the blob is stored. Once done, an ordinary environment-read permission suffices for viewing and the artefact stops being a secret-handling problem. This is the reason S-001 accepts a residual rather than reaching for a stricter gate: the stricter gate would have treated the symptom and made W-19 worse.
 
 ### W-9 — Deployment actions are not attributable below DOrc
 
