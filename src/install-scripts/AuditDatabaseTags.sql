@@ -18,7 +18,10 @@
 
  Report 1 — multi-tag rows: values containing ';' start matching per-tag (today
              they match nothing). Review each: intended tags, or accidental data?
- Report 2 — padded rows: values with leading/trailing/entry-adjacent whitespace
+ Report 2 — padded rows: values with leading/trailing/entry-adjacent whitespace.
+             The whole-value test compares DATALENGTH, not the values: '='/'<>'
+             pad the shorter operand, so a trailing space would compare equal and
+             the row would go unreported.
              stop matching the EF pattern until the one-time NormalizeDatabaseTags
              post-deploy script (shipped in the same dacpac) has run. Run this
              BEFORE deploying; afterwards it reports nothing by construction.
@@ -71,7 +74,7 @@ SELECT d.' + @id + N' AS DatabaseId, d.' + @name + N' AS DatabaseName,
        d.' + @server + N' AS ServerName, d.' + @tags + N' AS Tags
 FROM ' + @table + N' d
 WHERE d.' + @tags + N' IS NOT NULL
-  AND (d.' + @tags + N' <> LTRIM(RTRIM(d.' + @tags + N'))
+  AND (DATALENGTH(d.' + @tags + N') <> DATALENGTH(LTRIM(RTRIM(d.' + @tags + N')))
        OR d.' + @tags + N' LIKE ''% ;%''
        OR d.' + @tags + N' LIKE ''%; %'')
 ORDER BY d.' + @name + N';';

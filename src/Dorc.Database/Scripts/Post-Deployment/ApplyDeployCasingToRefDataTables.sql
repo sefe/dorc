@@ -20,12 +20,23 @@
  server considers identical.
 
  Interruption safety. The two hops are not one operation, so each block runs in
- a transaction under SET XACT_ABORT ON, and each has a second branch that
- completes a half-finished rename. Without that branch an interruption between
- the hops would strand the object under its staging name: the first guard tests
- for the ORIGINAL name, so it would never fire again, and the next publish would
- see the modelled table missing from the target and — with DropObjectsNotInSource
- off — create a new empty one beside the stranded data.
+ a transaction inside TRY/CATCH: any failure rolls back and re-raises, leaving
+ the object under its ORIGINAL name where the first guard will find it again on
+ the next publish.
+
+ TRY/CATCH rather than SET XACT_ABORT ON, for two reasons. sp_rename reports
+ failures with RAISERROR, and XACT_ABORT explicitly does not act on
+ RAISERROR-raised errors — so a failed second hop would fall through to COMMIT
+ and persist a half-rename while printing success. And XACT_ABORT is a
+ connection-level setting that would leak into every post-deployment script
+ after this one, none of which were written under it.
+
+ The second branch of each block completes a rename that is already stranded
+ under its staging name. It cannot fire during a normal publish — DacFx would
+ have generated a CREATE TABLE for the missing modelled table in the main body,
+ which runs first and fails on the staging table's constraint names. It is there
+ so that an operator can run this script standalone to repair such an estate,
+ which is the supported recovery path if one ever arises.
 
  Each guard compares under Latin1_General_BIN2 so it matches on exact casing
  only: once an object is correctly cased both guards are false and the script is
@@ -33,19 +44,24 @@
 */
 
 -- ---------- deploy.DATABASE -> deploy.Database ----------
-SET XACT_ABORT ON;
-
 IF EXISTS (SELECT 1
            FROM sys.tables t
            JOIN sys.schemas s ON s.schema_id = t.schema_id
            WHERE s.name = 'deploy'
              AND t.name COLLATE Latin1_General_BIN2 = N'DATABASE' COLLATE Latin1_General_BIN2)
 BEGIN
-    BEGIN TRANSACTION;
-    EXEC sp_rename N'[deploy].[DATABASE]', N'DatabaseCasingStage';
-    EXEC sp_rename N'[deploy].[DatabaseCasingStage]', N'Database';
-    COMMIT TRANSACTION;
-    PRINT 'Renamed deploy.DATABASE -> deploy.Database';
+    BEGIN TRY
+        BEGIN TRANSACTION;
+        EXEC sp_rename N'[deploy].[DATABASE]', N'DatabaseCasingStage';
+        EXEC sp_rename N'[deploy].[DatabaseCasingStage]', N'Database';
+        COMMIT TRANSACTION;
+        PRINT 'Renamed deploy.DATABASE -> deploy.Database';
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
+        DECLARE @dbErr NVARCHAR(2048) = ERROR_MESSAGE();
+        RAISERROR('Failed to rename deploy.DATABASE -> deploy.Database: %s', 16, 1, @dbErr);
+    END CATCH
 END
 ELSE IF EXISTS (SELECT 1
                 FROM sys.tables t
@@ -54,24 +70,29 @@ ELSE IF EXISTS (SELECT 1
                   AND t.name COLLATE Latin1_General_BIN2 = N'DatabaseCasingStage' COLLATE Latin1_General_BIN2)
 BEGIN
     EXEC sp_rename N'[deploy].[DatabaseCasingStage]', N'Database';
-    PRINT 'Completed an interrupted rename: deploy.DatabaseCasingStage -> deploy.Database';
+    PRINT 'Completed a stranded rename: deploy.DatabaseCasingStage -> deploy.Database';
 END
 GO
 
 -- ---------- deploy.SERVER -> deploy.Server ----------
-SET XACT_ABORT ON;
-
 IF EXISTS (SELECT 1
            FROM sys.tables t
            JOIN sys.schemas s ON s.schema_id = t.schema_id
            WHERE s.name = 'deploy'
              AND t.name COLLATE Latin1_General_BIN2 = N'SERVER' COLLATE Latin1_General_BIN2)
 BEGIN
-    BEGIN TRANSACTION;
-    EXEC sp_rename N'[deploy].[SERVER]', N'ServerCasingStage';
-    EXEC sp_rename N'[deploy].[ServerCasingStage]', N'Server';
-    COMMIT TRANSACTION;
-    PRINT 'Renamed deploy.SERVER -> deploy.Server';
+    BEGIN TRY
+        BEGIN TRANSACTION;
+        EXEC sp_rename N'[deploy].[SERVER]', N'ServerCasingStage';
+        EXEC sp_rename N'[deploy].[ServerCasingStage]', N'Server';
+        COMMIT TRANSACTION;
+        PRINT 'Renamed deploy.SERVER -> deploy.Server';
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
+        DECLARE @svErr NVARCHAR(2048) = ERROR_MESSAGE();
+        RAISERROR('Failed to rename deploy.SERVER -> deploy.Server: %s', 16, 1, @svErr);
+    END CATCH
 END
 ELSE IF EXISTS (SELECT 1
                 FROM sys.tables t
@@ -80,24 +101,29 @@ ELSE IF EXISTS (SELECT 1
                   AND t.name COLLATE Latin1_General_BIN2 = N'ServerCasingStage' COLLATE Latin1_General_BIN2)
 BEGIN
     EXEC sp_rename N'[deploy].[ServerCasingStage]', N'Server';
-    PRINT 'Completed an interrupted rename: deploy.ServerCasingStage -> deploy.Server';
+    PRINT 'Completed a stranded rename: deploy.ServerCasingStage -> deploy.Server';
 END
 GO
 
 -- ---------- PK_DATABASE -> PK_Database ----------
-SET XACT_ABORT ON;
-
 IF EXISTS (SELECT 1
            FROM sys.key_constraints k
            JOIN sys.schemas s ON s.schema_id = k.schema_id
            WHERE s.name = 'deploy'
              AND k.name COLLATE Latin1_General_BIN2 = N'PK_DATABASE' COLLATE Latin1_General_BIN2)
 BEGIN
-    BEGIN TRANSACTION;
-    EXEC sp_rename N'[deploy].[PK_DATABASE]', N'PK_DatabaseCasingStage', N'OBJECT';
-    EXEC sp_rename N'[deploy].[PK_DatabaseCasingStage]', N'PK_Database', N'OBJECT';
-    COMMIT TRANSACTION;
-    PRINT 'Renamed deploy.PK_DATABASE -> PK_Database';
+    BEGIN TRY
+        BEGIN TRANSACTION;
+        EXEC sp_rename N'[deploy].[PK_DATABASE]', N'PK_DatabaseCasingStage', N'OBJECT';
+        EXEC sp_rename N'[deploy].[PK_DatabaseCasingStage]', N'PK_Database', N'OBJECT';
+        COMMIT TRANSACTION;
+        PRINT 'Renamed deploy.PK_DATABASE -> PK_Database';
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
+        DECLARE @pkDbErr NVARCHAR(2048) = ERROR_MESSAGE();
+        RAISERROR('Failed to rename deploy.PK_DATABASE -> PK_Database: %s', 16, 1, @pkDbErr);
+    END CATCH
 END
 ELSE IF EXISTS (SELECT 1
                 FROM sys.key_constraints k
@@ -106,24 +132,29 @@ ELSE IF EXISTS (SELECT 1
                   AND k.name COLLATE Latin1_General_BIN2 = N'PK_DatabaseCasingStage' COLLATE Latin1_General_BIN2)
 BEGIN
     EXEC sp_rename N'[deploy].[PK_DatabaseCasingStage]', N'PK_Database', N'OBJECT';
-    PRINT 'Completed an interrupted rename: PK_DatabaseCasingStage -> PK_Database';
+    PRINT 'Completed a stranded rename: PK_DatabaseCasingStage -> PK_Database';
 END
 GO
 
 -- ---------- PK_SERVER -> PK_Server ----------
-SET XACT_ABORT ON;
-
 IF EXISTS (SELECT 1
            FROM sys.key_constraints k
            JOIN sys.schemas s ON s.schema_id = k.schema_id
            WHERE s.name = 'deploy'
              AND k.name COLLATE Latin1_General_BIN2 = N'PK_SERVER' COLLATE Latin1_General_BIN2)
 BEGIN
-    BEGIN TRANSACTION;
-    EXEC sp_rename N'[deploy].[PK_SERVER]', N'PK_ServerCasingStage', N'OBJECT';
-    EXEC sp_rename N'[deploy].[PK_ServerCasingStage]', N'PK_Server', N'OBJECT';
-    COMMIT TRANSACTION;
-    PRINT 'Renamed deploy.PK_SERVER -> PK_Server';
+    BEGIN TRY
+        BEGIN TRANSACTION;
+        EXEC sp_rename N'[deploy].[PK_SERVER]', N'PK_ServerCasingStage', N'OBJECT';
+        EXEC sp_rename N'[deploy].[PK_ServerCasingStage]', N'PK_Server', N'OBJECT';
+        COMMIT TRANSACTION;
+        PRINT 'Renamed deploy.PK_SERVER -> PK_Server';
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
+        DECLARE @pkSvErr NVARCHAR(2048) = ERROR_MESSAGE();
+        RAISERROR('Failed to rename deploy.PK_SERVER -> PK_Server: %s', 16, 1, @pkSvErr);
+    END CATCH
 END
 ELSE IF EXISTS (SELECT 1
                 FROM sys.key_constraints k
@@ -132,6 +163,6 @@ ELSE IF EXISTS (SELECT 1
                   AND k.name COLLATE Latin1_General_BIN2 = N'PK_ServerCasingStage' COLLATE Latin1_General_BIN2)
 BEGIN
     EXEC sp_rename N'[deploy].[PK_ServerCasingStage]', N'PK_Server', N'OBJECT';
-    PRINT 'Completed an interrupted rename: PK_ServerCasingStage -> PK_Server';
+    PRINT 'Completed a stranded rename: PK_ServerCasingStage -> PK_Server';
 END
 GO

@@ -1,6 +1,7 @@
 using System.Reflection;
 using Dorc.Core;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Routing;
 
 namespace Dorc.Api.Tests.Controllers
 {
@@ -12,8 +13,15 @@ namespace Dorc.Api.Tests.Controllers
     /// still passes — which is exactly what happened when RefDataDatabases/ByType
     /// became ByTag.
     ///
-    /// These assertions close that gap: every mapped path must resolve to a real
-    /// controller, and any sub-path must resolve to a real action route on it.
+    /// These assertions close that gap: every mapped path must match a route a
+    /// controller actually serves, prefix and all.
+    ///
+    /// Routes are read from the attributes rather than inferred from class names. A
+    /// controller's own [Route] template is what decides its prefix — a controller
+    /// routed at "api/[controller]" does not answer on "Properties" however it is
+    /// named — and action routes come from any IRouteTemplateProvider, so
+    /// [HttpGet("ByTag")] counts the same as [HttpGet] + [Route("ByTag")]. Both
+    /// styles are in use in this codebase.
     ///
     /// Path-only. The other half of the same coupling — the query-key names callers
     /// build their dictionaries from, e.g. RefreshEndur's { "tag", "Endur" } against
@@ -28,54 +36,67 @@ namespace Dorc.Api.Tests.Controllers
         private static Dictionary<Endpoints, string> EndpointPaths()
         {
             var field = typeof(ApiCaller).GetField("EndpointPaths",
-                BindingFlags.NonPublic | BindingFlags.Static)!;
+                BindingFlags.NonPublic | BindingFlags.Static);
+
+            Assert.IsNotNull(field,
+                "ApiCaller.EndpointPaths was renamed or removed - this test reads it by reflection.");
+
             return (Dictionary<Endpoints, string>)field.GetValue(null)!;
         }
 
-        private static Type? ControllerNamed(string name)
+        /// <summary>
+        /// Every route a controller in Dorc.Api actually serves, as a full path with
+        /// the controller prefix applied. A controller with no [Route] is not
+        /// reachable by a fixed path and contributes nothing.
+        /// </summary>
+        private static HashSet<string> ServedRoutes()
         {
-            return typeof(Dorc.Api.Controllers.RefDataDatabasesController).Assembly
+            var routes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            var controllers = typeof(Dorc.Api.Controllers.RefDataDatabasesController).Assembly
                 .GetTypes()
-                .FirstOrDefault(t => typeof(ControllerBase).IsAssignableFrom(t)
-                                     && !t.IsAbstract
-                                     && t.Name.Equals(name + "Controller", StringComparison.Ordinal));
-        }
+                .Where(t => typeof(ControllerBase).IsAssignableFrom(t) && !t.IsAbstract);
 
-        private static IEnumerable<string> ActionRoutesOn(Type controller)
-        {
-            return controller
-                .GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
-                .SelectMany(m => m.GetCustomAttributes<RouteAttribute>())
-                .Select(r => r.Template)
-                .Where(t => !string.IsNullOrEmpty(t))!;
-        }
-
-        [TestMethod]
-        public void EveryMappedEndpointPath_ResolvesToAController()
-        {
-            foreach (var (endpoint, path) in EndpointPaths())
+            foreach (var controller in controllers)
             {
-                var controllerName = path.Split('/')[0];
+                var name = controller.Name.EndsWith("Controller", StringComparison.Ordinal)
+                    ? controller.Name[..^"Controller".Length]
+                    : controller.Name;
 
-                Assert.IsNotNull(ControllerNamed(controllerName),
-                    $"ApiCaller maps {endpoint} to '{path}', but no {controllerName}Controller exists.");
-            }
-        }
+                var prefixes = controller.GetCustomAttributes<RouteAttribute>()
+                    .Select(r => r.Template.Replace("[controller]", name, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
 
-        [TestMethod]
-        public void EveryMappedSubPath_ResolvesToAnActionRoute()
-        {
-            foreach (var (endpoint, path) in EndpointPaths())
-            {
-                var segments = path.Split('/');
-                if (segments.Length == 1)
+                if (prefixes.Count == 0)
                     continue;
 
-                var controller = ControllerNamed(segments[0])!;
-                var subPath = string.Join('/', segments.Skip(1));
+                var actionTemplates = controller
+                    .GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
+                    .SelectMany(m => m.GetCustomAttributes().OfType<IRouteTemplateProvider>())
+                    .Select(r => r.Template)
+                    .Where(t => !string.IsNullOrEmpty(t))
+                    .Distinct();
 
-                CollectionAssert.Contains(ActionRoutesOn(controller).ToList(), subPath,
-                    $"ApiCaller maps {endpoint} to '{path}', but {controller.Name} has no action routed at '{subPath}'.");
+                foreach (var prefix in prefixes)
+                {
+                    routes.Add(prefix.Trim('/'));
+                    foreach (var template in actionTemplates)
+                        routes.Add($"{prefix.Trim('/')}/{template!.Trim('/')}");
+                }
+            }
+
+            return routes;
+        }
+
+        [TestMethod]
+        public void EveryMappedEndpointPath_IsServedByAController()
+        {
+            var served = ServedRoutes();
+
+            foreach (var (endpoint, path) in EndpointPaths())
+            {
+                Assert.IsTrue(served.Contains(path.Trim('/')),
+                    $"ApiCaller maps {endpoint} to '{path}', which no controller in Dorc.Api serves.");
             }
         }
     }

@@ -105,8 +105,8 @@ namespace Dorc.Core.Tests
 
             // ArrayName is the storage array the source database sits on — NOT a tag
             // field, as confirmed by domain review — and
-            // stays at its original width. Name and ServerName sit under the unique
-            // filtered index IX_Database_ServerName_Name.
+            // stays at its original width. Name and ServerName are the two columns of
+            // IX_Database_ServerName_Name.
             Assert.AreEqual(50, entity.FindProperty(nameof(Database.ArrayName))!.GetMaxLength());
             Assert.AreEqual(50, entity.FindProperty(nameof(Database.Name))!.GetMaxLength());
             Assert.AreEqual(50, entity.FindProperty(nameof(Database.ServerName))!.GetMaxLength());

@@ -1,5 +1,5 @@
 /**
- * Utility functions for handling application tags
+ * Utility functions for handling tags
  */
 
 /**

@@ -25,11 +25,18 @@ DECLARE @Pos INT;
 DECLARE TagRows CURSOR LOCAL FAST_FORWARD FOR
     SELECT [Id], [Tags]
     FROM [deploy].[Database]
-    -- Only rows that could possibly need work. A value with no whitespace and no
-    -- delimiter already normalizes to itself, so skipping it here costs nothing and
-    -- keeps this cursor from re-walking the whole table on every future publish.
+    -- Only rows that could possibly need work, so this does not re-walk the whole
+    -- table on every future publish.
+    --
+    -- The whitespace test compares DATALENGTH, NOT the values. Under a non-binary
+    -- collation SQL Server pads the shorter operand for '='/'<>', so
+    -- 'Endur ' <> LTRIM(RTRIM('Endur ')) is FALSE and a trailing-space row would be
+    -- filtered out — the exact row this script exists to repair, and the exact
+    -- padding the header describes. DATALENGTH is unambiguous whatever the
+    -- collation does. It also catches an all-blank value, which normalizes to NULL.
     WHERE [Tags] IS NOT NULL
-      AND ([Tags] LIKE '%;%' OR [Tags] <> LTRIM(RTRIM([Tags])));
+      AND ([Tags] LIKE '%;%'
+           OR DATALENGTH([Tags]) <> DATALENGTH(LTRIM(RTRIM([Tags]))));
 
 OPEN TagRows;
 FETCH NEXT FROM TagRows INTO @DbId, @Raw;
@@ -66,8 +73,13 @@ BEGIN
         END
     END
 
+    -- Same padding trap as the cursor's filter: the binary collation should make
+    -- trailing spaces significant, but the DATALENGTH disjunct means the write-back
+    -- does not depend on that being true. It can only ever add an update that is
+    -- genuinely needed — differing lengths mean differing values.
     IF @Normalized IS NULL
        OR @Normalized COLLATE Latin1_General_BIN2 <> @Raw COLLATE Latin1_General_BIN2
+       OR DATALENGTH(@Normalized) <> DATALENGTH(@Raw)
     BEGIN
         UPDATE [deploy].[Database] SET [Tags] = @Normalized WHERE [Id] = @DbId;
     END

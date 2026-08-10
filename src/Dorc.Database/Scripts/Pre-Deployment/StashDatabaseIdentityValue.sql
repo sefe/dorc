@@ -18,17 +18,33 @@
  RestoreDatabaseIdentityValue.sql after it.
 
  Guarded on the source table still being in dbo — i.e. only on the publish that
- performs the move. Guarded on the stash not already existing so that re-running
- an interrupted publish keeps the ORIGINAL value rather than overwriting it with
- the post-rebuild one.
+ performs the move. Once the move has happened IDENT_CURRENT('dbo.[DATABASE]')
+ cannot be read at all, so there is no way for a later run to overwrite the stash
+ with a post-rebuild value.
+
+ An existing stash is refreshed to the HIGHER of the two values rather than left
+ alone. A publish that stashed and then failed before the transfer leaves the
+ stash behind; if the estate then runs on for weeks before the migration is
+ retried, that stale value is below the real counter and reapplying it would
+ reissue every Id in between.
 */
 IF OBJECT_ID(N'dbo.[DATABASE]', N'U') IS NOT NULL
-   AND OBJECT_ID(N'dbo.DatabaseIdentityStash', N'U') IS NULL
 BEGIN
-    SELECT CAST(IDENT_CURRENT(N'dbo.[DATABASE]') AS BIGINT) AS LastIdentityValue
-    INTO [dbo].[DatabaseIdentityStash];
+    DECLARE @current BIGINT = CAST(IDENT_CURRENT(N'dbo.[DATABASE]') AS BIGINT);
 
-    PRINT 'Stashed dbo.DATABASE identity value '
-        + ISNULL(CAST((SELECT MAX(LastIdentityValue) FROM [dbo].[DatabaseIdentityStash]) AS VARCHAR(20)), 'NULL');
+    IF OBJECT_ID(N'dbo.DatabaseIdentityStash', N'U') IS NULL
+    BEGIN
+        SELECT @current AS LastIdentityValue INTO [dbo].[DatabaseIdentityStash];
+        PRINT 'Stashed dbo.DATABASE identity value ' + ISNULL(CAST(@current AS VARCHAR(20)), 'NULL');
+    END
+    ELSE
+    BEGIN
+        UPDATE [dbo].[DatabaseIdentityStash]
+        SET LastIdentityValue = @current
+        WHERE @current > LastIdentityValue;
+
+        PRINT 'Refreshed existing dbo.DatabaseIdentityStash to '
+            + ISNULL(CAST((SELECT MAX(LastIdentityValue) FROM [dbo].[DatabaseIdentityStash]) AS VARCHAR(20)), 'NULL');
+    END
 END
 GO

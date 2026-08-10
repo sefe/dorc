@@ -37,7 +37,7 @@
   </Operation>
   <!--
     Reference-data tables move from the legacy dbo schema to the deploy schema and
-    take the deploy column convention (docs/tag-schema-standardisation).
+    take the deploy column convention.
 
     These operations are what make the move data-preserving: SqlPackage reads them
     when it generates the deployment script and emits ALTER SCHEMA TRANSFER /
