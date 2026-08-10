@@ -64,11 +64,19 @@ Gate `GetTerraformPlan` on **`CanModifyEnvironment(user, environmentName)`** —
 
 Gate `ConfirmTerraformPlan` on **`CanModifyEnvironment(user, environmentName)`** as the minimum.
 
-**Decision required — segregation of duties.** Whether to additionally refuse when the confirming user is the request's own `UserName`. Arguments: confirm is the only human gate between a generated plan and a production apply, and a gate that the requester can pass themselves is a record of intent rather than a control. Against: it adds friction for small teams and single-operator environments, and may block legitimate work out of hours.
+**Segregation of duties — ADOPTED.** Confirm additionally refuses when the confirming user is the request's own submitter. Configurable, **defaulting on for production-tier environments and off elsewhere**.
 
-**Recommendation: adopt it, and make it configurable rather than absolute** — a setting that requires a distinct approver, defaulting to on for production-tier environments and off elsewhere. The requester's identity is available on the request; the comparison is against the same normalised form used elsewhere in the codebase for user comparisons.
+Rationale: confirm is the only human gate between a generated plan and a production apply. A gate the requester can pass themselves records intent; it does not control anything.
 
-This is flagged as a decision because it changes who can complete an existing workflow, and that is not the implementer's call to make silently.
+Implementation requirements:
+
+- **Tier determination** comes from the request's production flag, which is derived server-side from the environment rather than supplied by the caller. It must not be taken from anything the requester controls, or the check is bypassable by mis-declaring the target.
+- **Identity comparison** uses the same normalised form the codebase already uses for user comparison — the full domain name from the claims reader — compared against the request's stored submitter. The two must be normalised identically before comparison; a mismatch in form fails *open* if written carelessly, which is the failure direction that matters. Write the comparison so an unparseable or absent submitter refuses rather than permits.
+- **Machine-to-machine callers** are named by client id rather than user name in this codebase. A request submitted by one service principal and confirmed by the same one must be treated as self-approval; the comparison therefore operates on whatever the claims reader returns as the caller's canonical name, not on a user-only field.
+- **No administrator override.** An override that lets an admin approve their own request reintroduces exactly what the control removes, and the population that most often submits production changes is the population holding admin. If an emergency path is genuinely required it should be a deliberate, logged, separately-named capability — not a quiet exemption inside this predicate. Recorded as out of scope here.
+- **The refusal must be distinguishable.** A user refused for self-approval should not receive the same message as a user refused for lacking environment rights; the first is a workflow instruction ("someone else must approve this"), the second is an access problem. Same status code, different message.
+
+**Configuration default.** On for production-tier, off otherwise. The setting exists so that a single-operator non-production environment is not blocked, not so that production can be opted out casually — the IS should note that turning it off for a production-tier environment is a decision worth recording wherever such decisions are recorded.
 
 ### R4 — Decline permission
 
@@ -137,7 +145,7 @@ Not required for this step. The logic is controller-level and the collaborators 
 
 | # | Decision | Recommendation |
 |---|----------|----------------|
-| 1 | Does confirm require a distinct approver from the requester? | Yes, configurable, defaulting on for production-tier environments (R3). |
+| 1 | ~~Does confirm require a distinct approver from the requester?~~ **RESOLVED — adopted.** | Yes, configurable, defaulting on for production-tier environments and off elsewhere. Specified in R3. No administrator override. |
 | 2 | ~~Is `CanReadSecrets` the right gate for plan content?~~ **Resolved — no.** | Use `CanModifyEnvironment` (R2). `CanReadSecrets` is a machine-access privilege whose scope has already drifted, partly because it resolves to `ReadSecrets \| Owner` and so is held implicitly by every environment owner. Do not widen it further. The residual — modify-holders seeing secret values in plan output — is fixed by redacting plan content at source, not by a stricter view gate. |
 
 Both are user decisions, not implementer decisions. Neither blocks drafting; both block merge.
