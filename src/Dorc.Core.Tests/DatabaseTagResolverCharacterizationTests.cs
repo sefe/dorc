@@ -134,17 +134,44 @@ namespace Dorc.Core.Tests
         }
 
         [TestMethod]
-        public void CaseDifferingTags_SurviveOrdinalDedup_AndEmitSeparately()
+        public void CaseDifferingTags_AreOneTag_AndEmitOnce()
         {
-            // Tokenization is Ordinal — "Endur" and "endur" are distinct tags,
-            // matching today's behaviour for two whole-Type strings differing by case.
+            // Tag identity is case-insensitive, because the storage key is:
+            // PK_DatabaseTag is (DatabaseId, Tag) under the database's CI collation,
+            // so 'Warehouse' and 'warehouse' cannot both exist for one database.
+            //
+            // This DOES differ from the delimited column, where the whole value was
+            // compared ordinally and the two grouped separately. Grouping them
+            // separately here would emit two variables whose names differ only in
+            // casing, for a distinction the database cannot represent — and would
+            // violate the primary key on the way in.
             var (resolver, variableResolver, calls, _) = CreateResolver(
                 new DatabaseApiModel { Id = 1, Name = "D1", Tags = new[] { "Warehouse", "warehouse" }, ServerName = "s1" });
 
             resolver.SetPropertyValues(variableResolver, Environment42());
 
             CollectionAssert.Contains(calls, "DbServer_Warehouse");
-            CollectionAssert.Contains(calls, "DbServer_warehouse");
+            CollectionAssert.DoesNotContain(calls, "DbServer_warehouse");
+        }
+
+        [TestMethod]
+        public void CaseDifferingTagsAcrossDatabases_ResolveAsTheSameTag()
+        {
+            // Two databases whose tags differ only in casing are two rows in
+            // deploy.DatabaseTag, but one tag as far as any lookup is concerned —
+            // DatabaseTagMatch.HasTag matches them both under the CI collation. The
+            // resolver has to agree, or a deployment variable would name one of them
+            // and silently exclude the other.
+            var (resolver, variableResolver, calls, values) = CreateResolver(
+                new DatabaseApiModel { Id = 1, Name = "W1", Tags = new[] { "Warehouse" }, ServerName = "s1" },
+                new DatabaseApiModel { Id = 2, Name = "W2", Tags = new[] { "warehouse" }, ServerName = "s2" });
+
+            resolver.SetPropertyValues(variableResolver, Environment42());
+
+            CollectionAssert.Contains(calls, "DbServer_Warehouse");
+            CollectionAssert.DoesNotContain(calls, "DbServer_warehouse");
+            CollectionAssert.AreEquivalent(
+                new[] { "s1", "s2" }, (string[])values["DbServer_Warehouse"]!.Value);
         }
 
         [TestMethod]

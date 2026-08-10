@@ -11,17 +11,18 @@
      after the move    deploy.[Database]  Id    / Name    / ServerName  / Tags
 
  Pinning either spelling would make the script unrunnable on the other half of
- the estate — and pinning the post-move spelling would defeat the script's stated
- purpose, since Report 2 could then only run after NormalizeDatabaseTags.sql had
- already rewritten the very rows it looks for. So the object and column names are
- resolved at run time and the reports issued through sp_executesql.
+ the estate, so the object and column names are resolved at run time and the
+ reports issued through sp_executesql.
 
  Report 1 — multi-tag rows: values containing ';' start matching per-tag (today
              they match nothing). Review each: intended tags, or accidental data?
- Report 2 — padded rows: values with leading/trailing/entry-adjacent whitespace
-             stop matching the EF pattern until the one-time NormalizeDatabaseTags
-             post-deploy script (shipped in the same dacpac) has run. Run this
-             BEFORE deploying; afterwards it reports nothing by construction.
+ Report 2 — padded rows: values with leading/trailing/entry-adjacent whitespace.
+             Migration trims them — deploy.SplitTagString drops the padding on the
+             way into the tag rows — so each one listed here changes the tag it
+             resolves under, and with it the name of any deployment variable
+             derived from that tag. Run this BEFORE deploying and check the
+             reported tags against your deploy scripts; afterwards it reports
+             nothing by construction.
              The whole-value test compares DATALENGTH rather than the values
              themselves: '=' and '<>' pad the shorter operand, so a trailing
              space would compare equal and the row would go unreported.

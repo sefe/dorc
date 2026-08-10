@@ -112,6 +112,14 @@ namespace Dorc.PersistentData.Sources
                                 filterLambdas.Add(server =>
                                     server.Environments.Any(ed => ed.Name.Contains(pagedDataFilter.FilterValue)));
                             }
+                            else if (pagedDataFilter.Path == "Tags")
+                            {
+                                // See DatabasesPersistentSource: matched against the tag
+                                // rows so the grid filters the store deployments read
+                                // from, and keeps working when the deprecated column goes.
+                                filterLambdas.Add(server =>
+                                    server.TagLinks.Any(t => t.Tag.Contains(pagedDataFilter.FilterValue)));
+                            }
                             else
                             {
                                 filterLambdas.Add(reqStatusesQueryable.ContainsExpression(pagedDataFilter.Path,
@@ -138,6 +146,14 @@ namespace Dorc.PersistentData.Sources
                         if (operators.SortOrders[i].Path == "EnvironmentNames")
                         {
                             operators.SortOrders[i].Path = "Environments";
+                        }
+
+                        if (operators.SortOrders[i].Path == "Tags")
+                        {
+                            Expression<Func<Server, string>> firstTag =
+                                s => s.TagLinks.Select(t => t.Tag).OrderBy(t => t).FirstOrDefault();
+                            orderedQuery = OrderScripts(operators, i, orderedQuery, reqStatusesQueryable, firstTag);
+                            continue;
                         }
 
                         var param = Expression.Parameter(typeof(Server), "Server");
@@ -378,13 +394,13 @@ namespace Dorc.PersistentData.Sources
             var wanted = TagString.Normalize(tags);
 
             var toRemove = entity.TagLinks
-                .Where(link => !wanted.Contains(link.Tag, StringComparer.Ordinal))
+                .Where(link => !wanted.Contains(link.Tag, TagString.Comparer))
                 .ToList();
             foreach (var link in toRemove)
                 entity.TagLinks.Remove(link);
 
             var existing = entity.TagLinks.Select(link => link.Tag).ToArray();
-            foreach (var tag in wanted.Where(t => !existing.Contains(t, StringComparer.Ordinal)))
+            foreach (var tag in wanted.Where(t => !existing.Contains(t, TagString.Comparer)))
                 entity.TagLinks.Add(new ServerTag { ServerId = entity.Id, Tag = tag });
 
             entity.Tags = TagString.Join(wanted);

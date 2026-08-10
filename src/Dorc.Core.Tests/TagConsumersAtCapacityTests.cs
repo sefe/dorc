@@ -67,13 +67,30 @@ namespace Dorc.Core.Tests
         }
 
         [TestMethod]
-        public void ContainsBasedFiltering_StillMatchesSubstringsWithinATag()
+        public void HasTagContaining_MatchesAFragmentInsideALongerTag()
         {
-            // Documented behaviour of the app-server filter: "appserv" matches whether
-            // standalone or embedded in a longer tag. Accepted, not a defect.
+            // The app-server filter and the Endur post-restore refresh both mean
+            // SUBSTRING, not set membership: "appserv" has to match the tag
+            // "appserver-node". This is the semantic that silently inverted when tags
+            // became an array — tags.Contains(x) went from string.Contains to exact
+            // equality with no compiler error — so it is pinned here against the named
+            // production rule rather than against a local expression.
             var tags = ManyTags().Append("appserver-node").ToArray();
 
-            Assert.IsTrue(tags.Any(t => t.Contains("appserv")));
+            Assert.IsTrue(TagString.HasTagContaining(tags, "appserv"));
+            Assert.IsTrue(TagString.HasTagContaining(new[] { "endurappsvc_prod_1" }, "endurappsvc_prod"));
+        }
+
+        [TestMethod]
+        public void HasTag_RequiresTheWholeTag_UnlikeHasTagContaining()
+        {
+            // The distinction the two methods exist to make explicit: exact membership
+            // does NOT match a fragment, so a caller that picks the wrong one changes
+            // which servers a deployment resolves to.
+            var tags = new[] { "appserver-node" };
+
+            Assert.IsFalse(TagString.HasTag(tags, "appserv"));
+            Assert.IsTrue(TagString.HasTagContaining(tags, "appserv"));
         }
     }
 }

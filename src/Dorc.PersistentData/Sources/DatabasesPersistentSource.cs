@@ -33,7 +33,9 @@ namespace Dorc.PersistentData.Sources
         {
             using (var context = _contextFactory.GetContext())
             {
-                return MapToDatabaseApiModel(context.Databases.SingleOrDefault(x => x.Id == id));
+                return MapToDatabaseApiModel(context.Databases
+                    .Include(x => x.TagLinks)
+                    .SingleOrDefault(x => x.Id == id));
             }
         }
 
@@ -114,10 +116,16 @@ namespace Dorc.PersistentData.Sources
         {
             using (var context = _contextFactory.GetContext())
             {
-                var dbDetails = context.Environments
-                    .Include(env => env.Databases).ThenInclude(d => d.TagLinks)
-                    .Single(e => e.Name == envName)
-                    .Databases.SingleOrDefault(x => x.TagLinks.Any(t => t.Tag == tag));
+                // Matched in the query rather than over the materialised graph so the
+                // comparison keeps the database's case-insensitive collation. Doing it
+                // in memory would compare Ordinal, and this overload would then
+                // disagree with the DatabaseTagMatch-based one on whether 'endur'
+                // finds a database tagged 'Endur'.
+                var dbDetails = context.Databases
+                    .Include(d => d.TagLinks)
+                    .Where(d => d.Environments.Any(e => e.Name == envName))
+                    .Where(DatabaseTagMatch.HasTag(tag))
+                    .SingleOrDefault();
                 return dbDetails != null ? MapToDatabaseApiModel(dbDetails) : null;
             }
         }
@@ -128,18 +136,18 @@ namespace Dorc.PersistentData.Sources
         /// Rows are added and removed rather than cleared and rebuilt, so unchanged
         /// tags keep their identity and the write is a no-op when nothing moved.
         /// </summary>
-        private static void SyncTagLinks(IDeploymentContext context, Database entity, IEnumerable<string> tags)
+        private static void SyncTagLinks(Database entity, IEnumerable<string> tags)
         {
             var wanted = TagString.Normalize(tags);
 
             var toRemove = entity.TagLinks
-                .Where(link => !wanted.Contains(link.Tag, StringComparer.Ordinal))
+                .Where(link => !wanted.Contains(link.Tag, TagString.Comparer))
                 .ToList();
             foreach (var link in toRemove)
                 entity.TagLinks.Remove(link);
 
             var existing = entity.TagLinks.Select(link => link.Tag).ToArray();
-            foreach (var tag in wanted.Where(t => !existing.Contains(t, StringComparer.Ordinal)))
+            foreach (var tag in wanted.Where(t => !existing.Contains(t, TagString.Comparer)))
                 entity.TagLinks.Add(new DatabaseTag { DatabaseId = entity.Id, Tag = tag });
 
             entity.Tags = TagString.Join(wanted);
@@ -149,7 +157,9 @@ namespace Dorc.PersistentData.Sources
         {
             var database =
                 MapToDatabaseApiModel(
-                context.Databases.SingleOrDefault(d => d.Name.Equals(db.Name)
+                context.Databases
+                    .Include(d => d.TagLinks)
+                    .SingleOrDefault(d => d.Name.Equals(db.Name)
                                                        &&
                                                        d.ServerName.Equals(db.ServerName)));
 
@@ -204,6 +214,7 @@ namespace Dorc.PersistentData.Sources
             {
                 var result = context.Databases
                     .Include(d => d.Group)
+                    .Include(d => d.TagLinks)
                     .Where(database => database.Environments
                         .Any(env => env.Name == environmentName))
                     .OrderBy(database => database.Name).ToList();
@@ -242,6 +253,17 @@ namespace Dorc.PersistentData.Sources
                                 filterLambdas.Add(server =>
                                     server.Environments.Any(ed => ed.Name.Contains(pagedDataFilter.FilterValue)));
                             }
+                            else if (pagedDataFilter.Path == "Tags")
+                            {
+                                // Matched against the tag rows, not the deprecated
+                                // delimited column. Letting ContainsExpression resolve
+                                // "Tags" by name would bind to that column, so the grid
+                                // would filter a store deployments no longer read from —
+                                // and would throw outright once the follow-up release
+                                // drops it.
+                                filterLambdas.Add(database =>
+                                    database.TagLinks.Any(t => t.Tag.Contains(pagedDataFilter.FilterValue)));
+                            }
                             else
                             {
                                 filterLambdas.Add(reqStatusesQueryable.ContainsExpression(pagedDataFilter.Path,
@@ -268,6 +290,18 @@ namespace Dorc.PersistentData.Sources
                         if (operators.SortOrders[i].Path == "EnvironmentNames")
                         {
                             operators.SortOrders[i].Path = "Environments";
+                        }
+
+                        if (operators.SortOrders[i].Path == "Tags")
+                        {
+                            // Ordered on the tag rows by their alphabetically first tag.
+                            // Name-resolving "Tags" would order on the deprecated column,
+                            // which sorts by whatever order the tags happen to be joined
+                            // in and stops existing when that column is dropped.
+                            Expression<Func<Database, string>> firstTag =
+                                d => d.TagLinks.Select(t => t.Tag).OrderBy(t => t).FirstOrDefault();
+                            orderedQuery = OrderScripts(operators, i, orderedQuery, reqStatusesQueryable, firstTag);
+                            continue;
                         }
 
                         var param = Expression.Parameter(typeof(Database), "Database");
@@ -362,7 +396,9 @@ namespace Dorc.PersistentData.Sources
 
                 var dbIds = environmentDetails.Databases.Select(d => d.Id).ToList();
 
-                var database = context.EnvironmentUsers.Include(eu => eu.Database).Include(eu => eu.User)
+                var database = context.EnvironmentUsers
+                    .Include(eu => eu.Database).ThenInclude(d => d.TagLinks)
+                    .Include(eu => eu.User)
                     .Where(eu =>
                         dbIds.Contains(eu.Database.Id) && eu.User.LoginId.Equals(username) &&
                         eu.User.LoginType.Equals(envFilter)).Select(eu => eu.Database).FirstOrDefault();
@@ -375,7 +411,13 @@ namespace Dorc.PersistentData.Sources
         {
             using (var context = _contextFactory.GetContext())
             {
-                var existingDatabase = context.Databases.Find(database.Id);
+                // Include the tag rows: SyncTagLinks reconciles against what is
+                // already there, and Find does not populate navigations. Without
+                // this it sees an empty set, re-inserts every tag the database
+                // already carries (PK violation) and never issues the deletes.
+                var existingDatabase = context.Databases
+                    .Include(d => d.TagLinks)
+                    .FirstOrDefault(d => d.Id == database.Id);
 
                 if (existingDatabase == null)
                     return null;
@@ -394,7 +436,7 @@ namespace Dorc.PersistentData.Sources
                 existingDatabase.Name = database.Name;
                 existingDatabase.ServerName = database.ServerName;
                 existingDatabase.ArrayName = database.ArrayName;
-                SyncTagLinks(context, existingDatabase, database.Tags);
+                SyncTagLinks(existingDatabase, database.Tags);
 
                 var adGroup = context.AdGroups
                     .FirstOrDefault(g => g.Name == database.AdGroup);

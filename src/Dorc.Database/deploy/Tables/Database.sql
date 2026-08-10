@@ -3,9 +3,19 @@ CREATE TABLE [deploy].[Database] (
     [Name]       NVARCHAR (250)  NULL,
     -- DEPRECATED, removed in the follow-up release. deploy.DatabaseTag is the
     -- source of truth; this is dual-written so the column stays accurate for
-    -- anything still reading it directly. It cannot be dropped in the same
-    -- release: SqlPackage's data-loss guard aborts the publish on any
-    -- non-empty table when a column is dropped.
+    -- anything still reading it directly.
+    --
+    -- The reason for the overlap release is the external readers, not the
+    -- deployment mechanics: operational tooling and direct-SQL consumers need a
+    -- release in which both stores are correct so they can be moved across.
+    --
+    -- Note that deferring the drop does NOT make it easier. SqlPackage's
+    -- data-loss guard fires on the table being non-empty when a column is
+    -- dropped, and deploy.Database is never empty — so the follow-up release
+    -- meets exactly the same guard this one would have. Dropping the column will
+    -- need either BlockOnPossibleDataLoss=False or a pre-deployment ALTER TABLE
+    -- ... DROP COLUMN, which removes it from the target before the model diff
+    -- runs. Plan for that; it is not a free consequence of waiting.
     [Tags]       NVARCHAR (4000) NULL,
     [ServerName] NVARCHAR (250)  NULL,
     [ArrayName]  NVARCHAR (250)  NULL,

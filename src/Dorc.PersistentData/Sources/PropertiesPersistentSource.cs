@@ -203,7 +203,13 @@ namespace Dorc.PersistentData.Sources
                     .FirstOrDefault(e => e.Id == environment.EnvironmentId);
                 if (env != null)
                 {
-                    var database = env.Databases.SingleOrDefault(d => d.TagLinks.Any(t => t.Tag == "Endur"));
+                    // Matched with the shared tag comparer rather than '==': this runs
+                    // over the materialised graph, so '==' would be Ordinal here while
+                    // every server-side lookup is case-insensitive. Three different
+                    // answers to "does this database carry the Endur tag?" is one too
+                    // many for something that picks a config file.
+                    var database = env.Databases.SingleOrDefault(
+                        d => d.TagLinks.Any(t => TagString.Comparer.Equals(t.Tag, "Endur")));
                     if (database == null) return null;
 
                     var shortName = GetEnvironmentShortNameFromDatabaseName(database.Name);

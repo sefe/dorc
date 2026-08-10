@@ -37,6 +37,17 @@ namespace Dorc.ApiModel
                 return new ValidationResult(
                     $"A tag must not contain '{TagString.Delimiter}'.", members);
 
+            // The deprecated delimited column is still dual-written, so the joined
+            // form has to fit it too. Without this a set of individually-valid tags
+            // whose join exceeds the column surfaces as a truncation error from
+            // SaveChanges — a 500 with nothing pointing at the field. This check
+            // goes when the column does.
+            var joined = TagString.Join(tags);
+            if (joined != null && joined.Length > TagLimits.MaxTagStringLength)
+                return new ValidationResult(
+                    $"The tags together must be at most {TagLimits.MaxTagStringLength} characters " +
+                    $"once joined with '{TagString.Delimiter}'.", members);
+
             return ValidationResult.Success;
         }
     }

@@ -15,19 +15,32 @@
  trailing-space rows that the old delimited matching kept getting wrong — because
  '=' pads the shorter operand — cannot survive the split.
 
- An entry too long for the Tag column ABORTS the publish. It is not skipped and it
- is not truncated: either would quietly change which databases a deployment
- resolves to, and a tag that goes missing is not something anyone notices until a
- deployment has gone somewhere it should not. The column is sized so this should be
- unreachable (see deploy.DatabaseTag.Tag), so if it fires the estate holds
- something that needs a decision before the release ships.
+ An entry too long for the Tag column stops the insert rather than truncating or
+ skipping it: either would quietly change which databases a deployment resolves to,
+ and a tag that goes missing is not something anyone notices until a deployment has
+ gone somewhere it should not.
+
+ This is the BACKSTOP, not the gate. GuardTagLengthsBeforeMigration.sql makes the
+ same check in pre-deployment, and that is the one that matters: by the time this
+ script runs the schema transfer, the table rebuild and the identity reseed have
+ already happened, so aborting here would leave the estate migrated with empty tag
+ tables and no way to recover by re-publishing. If this ever fires, the pre-deploy
+ guard has been bypassed or the data changed underneath the publish.
 
  Splitting is deploy.SplitTagString, shared with the usp_Insert_*_Detail
  procedures so there is one implementation of the delimiter rules.
 
  Idempotent — the inserts are anti-joined against what is already present, so a
- re-publish adds only what is missing and a tag deleted through the application is
- not resurrected from a stale column.
+ re-publish adds only what is missing.
+
+ What stops a tag deleted through the application coming back on the next publish
+ is NOT the anti-join — a deleted tag is by definition missing, which is exactly
+ what the anti-join re-inserts. It is the dual-write: SyncTagLinks rewrites the
+ delimited column at the same time it removes the row, so there is nothing left in
+ the column for this script to find. Any path that changes the rows WITHOUT
+ rewriting the column — a DBA deleting from deploy.DatabaseTag by hand, or a
+ fixture that writes only the column — will see its tags resurrected here with no
+ warning. That exposure ends when the column does.
 */
 
 -- ---------- databases ----------

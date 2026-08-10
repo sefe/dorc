@@ -39,9 +39,22 @@ namespace Dorc.Core
             {
                 servers.Add(server.Name);
                 // Pre-existing shape: a variable named after the whole joined tag
-                // string. Joined here so the emitted name is byte-identical to
-                // what it was before tags became rows.
-                variableResolver.SetPropertyValue(TagString.Join(server.Tags), server.Name);
+                // string. Rejoined here so the name keeps that shape now tags are rows.
+                //
+                // It is NOT guaranteed byte-identical to the old column. Tags come back
+                // in PK order (Tag ASC) rather than the order someone typed them, and
+                // they are trimmed. A server whose column read 'web;appserv' now emits
+                // 'appserv;web', and one reading 'appserv ' now emits 'appserv'. Deploy
+                // scripts referencing those old names resolve nothing — the estate audit
+                // is what says whether any such name is in use.
+                //
+                // Coalesced because Join renders an empty set as null — right for the
+                // column, fatal here. The name becomes a key in a ConcurrentDictionary,
+                // which throws on a null key, so one untagged server would abort
+                // variable resolution for the whole environment. Untagged servers held
+                // '' in the column before tags became rows, so '' is also the shape
+                // that matches.
+                variableResolver.SetPropertyValue(TagString.Join(server.Tags) ?? string.Empty, server.Name);
             }
 
             var environmentServers =
@@ -105,7 +118,7 @@ namespace Dorc.Core
             // here).
             var dbTags = databaseApiModels
                 .SelectMany(d => d.Tags ?? System.Array.Empty<string>())
-                .Distinct(StringComparer.Ordinal);
+                .Distinct(TagString.Comparer);
 
             foreach (var dbTag in dbTags)
             {
@@ -171,7 +184,10 @@ namespace Dorc.Core
 
         private static void AddPropertiesForServerNamesByTag(IVariableResolver variableResolver, IEnumerable<ServerApiModel> serverApiModels)
         {
-            var serverNamesByTag = new Dictionary<string, List<string>>();
+            // Keyed with the tag comparer so 'Endur' and 'ENDUR' group together, as
+            // they do in storage, rather than emitting two variables that differ only
+            // in the casing of their name.
+            var serverNamesByTag = new Dictionary<string, List<string>>(TagString.Comparer);
             foreach (var server in serverApiModels)
             {
                 foreach (var serverTag in server.Tags ?? Array.Empty<string>())

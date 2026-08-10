@@ -9,5 +9,6 @@
                SELECT * FROM [$(TableName)]
 --------------------------------------------------------------------------------------
 */
+:r ./GuardTagLengthsBeforeMigration.sql
 :r ./StashDatabaseIdentityValue.sql
 :r ./StageServicesForMigration.sql

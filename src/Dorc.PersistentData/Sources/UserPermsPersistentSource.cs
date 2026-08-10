@@ -52,7 +52,14 @@ namespace Dorc.PersistentData.Sources
                               join dbusermap in context.EnvironmentUsers on usr.Id equals dbusermap.UserId
                               join db in context.Databases on dbusermap.DbId equals db.Id
                               join perm in context.Permissions on dbusermap.PermissionId equals perm.Id
+                              // The tag predicate stays inside the query so it keeps the
+                              // database's case-insensitive collation, as it had when it
+                              // matched the delimited column. Filtering the materialised
+                              // array instead would compare Ordinal, and '?tag=endur'
+                              // would silently return nothing for a database tagged
+                              // 'Endur'.
                               where db.ServerName == serverName && db.Name == dbName
+                                    && (tag == null || tag == "" || db.TagLinks.Any(t => t.Tag == tag))
                               select new UserDbPermissionApiModel
                               {
                                   UserId = usr.Id,
@@ -65,20 +72,7 @@ namespace Dorc.PersistentData.Sources
                                   Tags = db.TagLinks.Select(t => t.Tag).ToArray(),
                               });
 
-                var permissions = result.ToList();
-
-                if (!string.IsNullOrEmpty(tag))
-                {
-                    // Filtered after materialisation because the projection has
-                    // already flattened the tag rows into an array. The query above
-                    // is the indexed one; this is a set membership test over a page
-                    // of results, not a scan.
-                    permissions = permissions
-                        .Where(r => TagString.HasTag(r.Tags, tag))
-                        .ToList();
-                }
-
-                return permissions;
+                return result.ToList();
             }
         }
 
