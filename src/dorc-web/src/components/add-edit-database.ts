@@ -486,7 +486,7 @@ export class AddEditDatabase extends LitElement {
   checkDatabaseComplete(db: DatabaseApiModel){
     let nameValid = false;
     let instanceValid = false;
-    let typeValid = false;
+    let tagsValid = false;
 
     if (
     db.Name &&
@@ -506,10 +506,10 @@ export class AddEditDatabase extends LitElement {
       db.Tags &&
       db.Tags?.length > 0)
     {
-      typeValid = true;
+      tagsValid = true;
     }
 
-    return nameValid && instanceValid && typeValid;
+    return nameValid && instanceValid && tagsValid;
   }
 
   getEmptyDatabase(): DatabaseApiModel {

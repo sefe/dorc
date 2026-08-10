@@ -24,9 +24,9 @@ namespace Tools.PostRestoreEndurCLI
         private DatabaseApiModel GetEndurDatabase(string envName)
         {
             var result = _apiCaller.Call<DatabaseApiModel>(
-                Endpoints.RefDataDatabasesByType,
+                Endpoints.RefDataDatabasesByTag,
                 Method.Get,
-                new Dictionary<string, string> { { "envName", envName }, { "type", "Endur" } },
+                new Dictionary<string, string> { { "envName", envName }, { "tag", "Endur" } },
                 null);
 
             if (!result.IsModelValid || result.Value == null)

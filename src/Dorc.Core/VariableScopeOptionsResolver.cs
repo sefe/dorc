@@ -140,7 +140,7 @@ namespace Dorc.Core
                 }
             }
 
-            AddPropertiesForServerNamesByType(variableResolver, forEnvId);
+            AddPropertiesForServerNamesByTag(variableResolver, forEnvId);
 
             variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.DatabasePermissions,
                 new VariableValue { Value = databasePermissions, Type = databasePermissions.GetType() });
@@ -166,33 +166,33 @@ namespace Dorc.Core
             };
         }
 
-        private static void AddPropertiesForServerNamesByType(IVariableResolver variableResolver, IEnumerable<ServerApiModel> serverApiModels)
+        private static void AddPropertiesForServerNamesByTag(IVariableResolver variableResolver, IEnumerable<ServerApiModel> serverApiModels)
         {
-            var serverTypeWithServerNames = new Dictionary<string, List<string>>();
+            var serverNamesByTag = new Dictionary<string, List<string>>();
             foreach (var server in serverApiModels)
             {
-                var semicolonSeparatedServerTypes = server.Tags;
-                var serverTypes =
-                    semicolonSeparatedServerTypes.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries);
-                foreach (var serverType in serverTypes)
-                    if (serverTypeWithServerNames.ContainsKey(serverType))
-                        serverTypeWithServerNames[serverType].Add(server.Name);
+                var joinedTags = server.Tags;
+                var serverTags =
+                    joinedTags.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries);
+                foreach (var serverTag in serverTags)
+                    if (serverNamesByTag.ContainsKey(serverTag))
+                        serverNamesByTag[serverTag].Add(server.Name);
                     else
-                        serverTypeWithServerNames.Add(serverType, new List<string> { server.Name });
+                        serverNamesByTag.Add(serverTag, new List<string> { server.Name });
             }
 
-            foreach (var serverType in serverTypeWithServerNames)
+            foreach (var serverTag in serverNamesByTag)
             {
-                var sType = serverType.Key.Replace(" ", "_");
-                if (serverType.Value.Count > 1)
+                var tagKey = serverTag.Key.Replace(" ", "_");
+                if (serverTag.Value.Count > 1)
                 {
-                    var serverNames = serverType.Value.ToArray();
-                    variableResolver.SetPropertyValue($"{PropertyValueScopeOptionsFixed.ServerNames}{sType}",
+                    var serverNames = serverTag.Value.ToArray();
+                    variableResolver.SetPropertyValue($"{PropertyValueScopeOptionsFixed.ServerNames}{tagKey}",
                         new VariableValue { Value = serverNames, Type = serverNames.GetType() });
 
                 }
                 else
-                    variableResolver.SetPropertyValue($"{PropertyValueScopeOptionsFixed.ServerNames}{sType}", serverType.Value.Single());
+                    variableResolver.SetPropertyValue($"{PropertyValueScopeOptionsFixed.ServerNames}{tagKey}", serverTag.Value.Single());
             }
         }
 
