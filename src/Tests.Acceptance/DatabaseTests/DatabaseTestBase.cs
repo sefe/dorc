@@ -4,6 +4,7 @@ using Microsoft.SqlServer.Dac;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
 using System.IO;
+using System.Linq;
 
 namespace Tests.Acceptance.DatabaseTests
 {
@@ -26,14 +27,30 @@ namespace Tests.Acceptance.DatabaseTests
         [TestInitialize]
         public void BaseInitialize()
         {
+            // Environment variables last so CI can supply the connection string
+            // (ConnectionStrings__DOrcConnectionString) without committing one or
+            // rewriting the JSON on the runner.
             var configurationRoot = new ConfigurationBuilder()
                 .AddJsonFile("appsettings.test.json")
+                .AddEnvironmentVariables()
                 .Build();
 
             var configuredConnection = configurationRoot.GetConnectionString("DOrcConnectionString");
 
             if (string.IsNullOrWhiteSpace(configuredConnection))
             {
+                // Locally, no SQL Server means skip. In CI that would be worse than
+                // useless — the suite would report green while testing nothing — so
+                // the workflow sets DORC_DB_TESTS_REQUIRED and a missing connection
+                // string becomes a failure instead.
+                if (Environment.GetEnvironmentVariable("DORC_DB_TESTS_REQUIRED") == "1")
+                {
+                    Assert.Fail(
+                        "DORC_DB_TESTS_REQUIRED=1 but no DOrcConnectionString was supplied. " +
+                        "These tests are the only coverage that executes a dacpac publish; " +
+                        "they must not be allowed to skip in CI.");
+                }
+
                 _skipped = true;
                 Assert.Inconclusive(
                     "DOrcConnectionString is not configured in appsettings.test.json. " +
@@ -165,19 +182,24 @@ namespace Tests.Acceptance.DatabaseTests
             if (dir == null)
                 throw new DirectoryNotFoundException($"Could not locate 'src' directory from {baseDir}");
 
-            foreach (var config in new[] { "debug", "release" })
+            // The build emits sql/Debug (capitalised by $(Configuration)). Enumerate
+            // rather than guessing the casing: probing for a hard-coded "debug"
+            // silently found nothing on a case-sensitive filesystem, so these tests
+            // could never have run on a Linux runner.
+            var sqlDir = new DirectoryInfo(Path.Join(dir.FullName, "Dorc.Database", "sql"));
+            if (sqlDir.Exists)
             {
-                // Path.Join preserves intent when concatenating path segments; all segments here
-                // are known-relative, so it's equivalent to Path.Combine for this input but
-                // avoids the "drop earlier arguments" behaviour if a segment ever becomes rooted.
-                var candidate = Path.Join(dir.FullName, "Dorc.Database", "sql", config, "Dorc.Database.dacpac");
-                if (File.Exists(candidate))
-                    return candidate;
+                var candidate = sqlDir.EnumerateFiles("Dorc.Database.dacpac", SearchOption.AllDirectories)
+                    .OrderByDescending(f => f.LastWriteTimeUtc)
+                    .FirstOrDefault();
+
+                if (candidate != null)
+                    return candidate.FullName;
             }
 
             throw new FileNotFoundException(
-                $"Dorc.Database.dacpac not found under {dir.FullName}/Dorc.Database/sql/{{debug,release}}. " +
-                "Build the Dorc.Database project with MSBuild before running database tests.");
+                $"Dorc.Database.dacpac not found under {sqlDir.FullName}. " +
+                "Build the Dorc.Database project before running database tests.");
         }
     }
 }
