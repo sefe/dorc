@@ -1,4 +1,4 @@
-import { css, PropertyValues } from 'lit';
+import { css, nothing, PropertyValues } from 'lit';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/vaadin-lumo-styles/icons.js';
@@ -24,7 +24,10 @@ import GlobalCache from '../../global-cache';
 import { ResetAppPasswordBehalf } from '../reset-app-password-behalf';
 import '../reset-app-password-behalf';
 import '../../icons/iron-icons.js';
+import '../dorc-spinner';
 import { SuccessNotification } from '../notifications/success-notification';
+import { ErrorNotification } from '../notifications/error-notification';
+import { retrieveErrorMessage } from '../../helpers/errorMessage-retriever';
 import { MakeLikeProductionDialog } from '../make-like-production-dialog.ts';
 
 @customElement('env-control-center')
@@ -55,6 +58,9 @@ export class EnvControlCenter extends PageEnvBase {
 
   @state()
   private isAdmin = false;
+
+  @state()
+  private isDeletingEnvironment = false;
 
   private appDbServer: DatabaseApiModel | undefined;
 
@@ -94,11 +100,20 @@ export class EnvControlCenter extends PageEnvBase {
         text-decoration: underline;
         color: var(--dorc-link-color);
       }
+
+      .delete-progress {
+        padding: 8px 0 4px 0;
+        color: var(--dorc-text-secondary);
+      }
     `;
   }
 
   render() {
     return html`
+      <dorc-spinner
+        style="--dorc-spinner-z-index: 1000"
+        ?hidden="${!this.isDeletingEnvironment}"
+      ></dorc-spinner>
       <reset-app-password-behalf
         id="reset-app-password-behalf"
         .appUsers="${this.envContent?.EndurUsers ?? []}"
@@ -133,41 +148,62 @@ export class EnvControlCenter extends PageEnvBase {
           <vaadin-button
             title="Delete Environment &amp; Properties"
             @click="${this.deleteEnvironment}"
-            ?disabled="${!(this.isAdmin || this.isEnvOwner)}"
+            ?disabled="${
+              !(this.isAdmin || this.isEnvOwner) || this.isDeletingEnvironment
+            }"
           >
-            <vaadin-icon icon="icons:delete" slot="prefix"></vaadin-icon
-            >Delete Environment...</vaadin-button>
+            <vaadin-icon icon="icons:delete" slot="prefix"></vaadin-icon>${
+              this.isDeletingEnvironment
+                ? 'Deleting Environment...'
+                : 'Delete Environment...'
+            }</vaadin-button
+          >
           <vaadin-button
             title="Environment History"
             ?disabled="${this.environment === undefined}"
             @click="${this.openEnvHistory}"
           >
             <vaadin-icon slot="prefix" icon="icons:history"></vaadin-icon
-            >Environment History</vaadin-button>
+            >Environment History</vaadin-button
+          >
           <vaadin-button
             title="Access Control..."
             theme="icon"
             @click="${this.openAccessControl}"
           >
-            <vaadin-icon icon="vaadin:lock"></vaadin-icon
-            >Environment Access...</vaadin-button>
+            <vaadin-icon icon="vaadin:lock"></vaadin-icon>Environment
+            Access...</vaadin-button
+          >
           <vaadin-button
             id="mlp"
             title="Configure with predefined suite of requests"
             @click="${this.makeLikeProd}"
           >
             <vaadin-icon icon="vaadin:compile" slot="prefix"></vaadin-icon
-            >Bundle Request...</vaadin-button>
+            >Bundle Request...</vaadin-button
+          >
           <vaadin-button
             id="reset-others-password"
             title="Reset SQL Account Password for another user for Database with '${this.environment?.Details?.ThinClient}' tag"
             @click="${this.resetAppPasswordBehalf}"
             ?hidden="${!this.isEndur}"
-            .disabled="${this.environment?.EnvironmentIsProd ||
-            !(this.isEnvOwner || this.isAdmin)}"
+            .disabled="${
+              this.environment?.EnvironmentIsProd ||
+              !(this.isEnvOwner || this.isAdmin)
+            }"
           >
-            <vaadin-icon icon="vaadin:safe" slot="prefix"></vaadin-icon
-            >Reset SQL Account Password for...</vaadin-button>
+            <vaadin-icon icon="vaadin:safe" slot="prefix"></vaadin-icon>Reset
+            SQL Account Password for...</vaadin-button
+          >
+          ${this.isDeletingEnvironment
+            ? html`
+                <div class="delete-progress" role="status" aria-live="polite">
+                  Deleting '${this.environment?.EnvironmentName}' and its
+                  properties. This can take a minute or two for an environment
+                  with a lot of history - please leave this page open.
+                </div>
+              `
+            : nothing}
         </div>
       </vaadin-details>
     `;
@@ -243,16 +279,21 @@ export class EnvControlCenter extends PageEnvBase {
   }
 
   deleteEnvironment() {
+    if (this.isDeletingEnvironment) {
+      return;
+    }
+
     const answer = confirm(
       'Are you sure you want to delete your environment and properties?'
     );
     if (answer) {
       if (this.environment !== undefined) {
         const api = new RefDataEnvironmentsApi();
+        this.isDeletingEnvironment = true;
         api
           .refDataEnvironmentsDelete({ environmentApiModel: this.environment })
-          .subscribe(
-            (data: boolean) => {
+          .subscribe({
+            next: (data: boolean) => {
               if (data) {
                 const message = `The Environment ${
                   this.environment?.EnvironmentName
@@ -272,15 +313,36 @@ export class EnvControlCenter extends PageEnvBase {
                 });
                 this.dispatchEvent(event);
               } else {
-                alert('Failed to delete your environment');
+                this.showDeleteError(
+                  'The server reported that the environment was not deleted.'
+                );
               }
             },
-            () => {
-              alert('Failed to delete your environment');
+            error: (err: any) => {
+              this.showDeleteError(err);
+              this.isDeletingEnvironment = false;
+            },
+            complete: () => {
+              this.isDeletingEnvironment = false;
             }
-          );
+          });
       }
     }
+  }
+
+  private showDeleteError(err: any) {
+    // The reason lives in the response the API sends back - a timeout, a privilege problem and an
+    // environment that has already gone all need different things from the user, and the previous
+    // 'Failed to delete your environment' alert told them apart from none of them.
+    const message = `Failed to delete environment '${
+      this.environment?.EnvironmentName
+    }'. ${retrieveErrorMessage(err)}`;
+
+    const notification = new ErrorNotification();
+    notification.setAttribute('errorMessage', message);
+    this.shadowRoot?.appendChild(notification);
+    notification.open();
+    console.error(err);
   }
 
   resetAppPasswordBehalf() {

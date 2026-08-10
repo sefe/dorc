@@ -105,6 +105,26 @@ namespace Dorc.PersistentData.Sources
             environment.LastUpdate = newHistory.UpdateDate;
         }
 
+        /// <summary>
+        /// Records an action against an environment identified by id, for callers that never loaded
+        /// the environment itself - typically because they changed it with a set-based update.
+        /// </summary>
+        internal static void AddHistoryAction(int envId, string oldValue, string newValue, string updatedBy, string updateType, string summary,
+             IDeploymentContext context)
+        {
+            var newHistory = new EnvironmentHistory
+            {
+                EnvId = envId,
+                UpdateDate = DateTime.Now,
+                UpdateType = updateType,
+                UpdatedBy = updatedBy,
+                FromValue = oldValue,
+                ToValue = newValue,
+                Details = summary
+            };
+            context.EnvironmentHistories.Add(newHistory);
+        }
+
         internal static void AddDeletionHistory(string newVersion, string updatedBy, string updateType,
             IDeploymentContext context)
         {

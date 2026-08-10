@@ -97,3 +97,4 @@ export * from './AnalyticsComponentUsageApiModel';
 export * from './AnalyticsDurationApiModel';
 export * from './DeploymentRequestAttemptApiModel';
 export * from './DeploymentResultAttemptApiModel';
+export * from './DiscoverDaemonsResult';
