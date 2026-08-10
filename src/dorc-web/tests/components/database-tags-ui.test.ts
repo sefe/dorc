@@ -30,7 +30,7 @@ import { MAX_TAG_LENGTH } from '../../src/helpers/tag-limits';
 describe('add-edit-database tag editing', () => {
   it('round-trips chips from a semicolon-separated Tags value', async () => {
     const el = await fixture<AddEditDatabase>(html`<add-edit-database></add-edit-database>`);
-    el.database = { Id: 5, Name: 'D1', ServerName: 'S1', Tags: 'b;a', ArrayName: '' };
+    el.database = { Id: 5, Name: 'D1', ServerName: 'S1', Tags: ['b', 'a'], ArrayName: '' };
     await el.updateComplete;
 
     const tagsInput = el.shadowRoot?.getElementById('db-tags') as any;
@@ -46,7 +46,7 @@ describe('add-edit-database tag editing', () => {
     // sibling field tears down and rebuilds the chips (and real Tagify fires
     // add events on programmatic addTags).
     const el = await fixture<AddEditDatabase>(html`<add-edit-database></add-edit-database>`);
-    el.database = { Id: 5, Name: 'D1', ServerName: 'S1', Tags: 'a;b', ArrayName: '' };
+    el.database = { Id: 5, Name: 'D1', ServerName: 'S1', Tags: ['a', 'b'], ArrayName: '' };
     await el.updateComplete;
 
     const tagsInput = el.shadowRoot?.getElementById('db-tags') as any;
@@ -64,7 +64,7 @@ describe('add-edit-database tag editing', () => {
     expect(rebuilds).to.equal(0);
 
     // A genuine tag change still rebuilds.
-    el.database = { Id: 5, Name: 'D1', ServerName: 'S1', Tags: 'a;b;c', ArrayName: '' };
+    el.database = { Id: 5, Name: 'D1', ServerName: 'S1', Tags: ['a', 'b', 'c'], ArrayName: '' };
     await el.updateComplete;
     expect(rebuilds).to.be.greaterThan(0);
     expect(tagsInput.tags).to.deep.equal(['a', 'b', 'c']);
