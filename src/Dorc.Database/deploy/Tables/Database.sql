@@ -23,9 +23,14 @@ CREATE TABLE [deploy].[Database] (
     CONSTRAINT [PK_Database] PRIMARY KEY CLUSTERED ([Id] ASC) WITH (DATA_COMPRESSION = PAGE),
     CONSTRAINT [FK_Database_AdGroup] FOREIGN KEY ([GroupId]) REFERENCES [dbo].[AD_GROUP] ([Group_ID]),
     INDEX [IX_Database_ServerName_Name] NONCLUSTERED ([ServerName], [Name]),
-    -- Modelled explicitly because the move rebuilds this table: the rebuild creates
-    -- the replacement from the model alone and drops the original, so an index that
-    -- exists only in the estate (this one was hand-created, and is declared by
-    -- DatabaseEntityTypeConfiguration) would be silently lost.
+    -- This one is NEW, not carried over. DatabaseEntityTypeConfiguration declares it
+    -- on the EF side, but sys.indexes on the estate holds only PK_DATABASE and
+    -- IX_DATABASE_Server_Name_DB_Name, so no such index was ever created there. The
+    -- publish creates it.
+    --
+    -- IX_Database_ServerName_Name above is the opposite case and is why the
+    -- distinction matters: that one does exist in the estate, under its old name, and
+    -- has to be renamed through the refactorlog rather than merely redeclared here —
+    -- otherwise plan verification blocks the column renames it depends on (SQL72031).
     INDEX [IX_Database_GroupId] NONCLUSTERED ([GroupId])
 );

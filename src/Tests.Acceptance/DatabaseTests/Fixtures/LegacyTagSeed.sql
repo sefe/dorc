@@ -155,3 +155,49 @@ BEGIN
 END;
 
 INSERT INTO [deploy].[EnvironmentServer] ([EnvId], [ServerId]) VALUES (7, 100), (7, 200);
+
+-- The estate holds THREE foreign keys into dbo.DATABASE, not one. Confirmed by
+-- sys.foreign_keys against the live database:
+--
+--   EnvironmentDatabase_DATABASE_DB_ID_fk      -> FK_EnvironmentDatabase_Database
+--   ENVIRONMENT_USER_MAP_DATABASE_DB_ID_fk     -> FK_EnvironmentUserMap_Database
+--   FK_Project_ToDatabase                      -> FK_Project_ToDatabase (same name,
+--                                                 retargeted at the new table)
+--
+-- All three are populated there, and each is a separate drop/rebuild/re-add for
+-- the publish. The third is the awkward one: the constraint keeps its name while
+-- its referenced table and column both change, so it is the case most likely to be
+-- mishandled and the one nothing would otherwise exercise.
+IF OBJECT_ID('dbo.[ENVIRONMENT_USER_MAP]', 'U') IS NULL
+BEGIN
+    CREATE TABLE [dbo].[ENVIRONMENT_USER_MAP] (
+        [DB_ID]         INT NULL,
+        [User_ID]       INT NULL,
+        [Permission_ID] INT NULL,
+        CONSTRAINT [ENVIRONMENT_USER_MAP_DATABASE_DB_ID_fk] FOREIGN KEY ([DB_ID]) REFERENCES [dbo].[DATABASE] ([DB_ID])
+    )
+    WITH (DATA_COMPRESSION = PAGE);
+END;
+
+INSERT INTO [dbo].[ENVIRONMENT_USER_MAP] ([DB_ID]) VALUES (10), (20);
+
+IF OBJECT_ID('deploy.[Project]', 'U') IS NULL
+BEGIN
+    CREATE TABLE [deploy].[Project] (
+        [Id]                  INT IDENTITY (1, 1) NOT NULL,
+        [ObjectId]            UNIQUEIDENTIFIER NOT NULL,
+        [Name]                NVARCHAR (64)    NOT NULL,
+        [Description]         NVARCHAR (MAX)   NULL,
+        [ArtefactsUrl]        NVARCHAR (512)   NULL,
+        [ArtefactsSubPaths]   NVARCHAR (512)   NULL,
+        [ArtefactsBuildRegex] NVARCHAR (MAX)   NULL,
+        [SourceDatabaseId]    INT NULL,
+        [TerraformGitRepoUrl] NVARCHAR (512)   NULL,
+        [SourceControlType]   INT              NOT NULL DEFAULT 0,
+        [LeanIXUrl]           NVARCHAR (512)   NULL,
+        CONSTRAINT [FK_Project_ToDatabase] FOREIGN KEY ([SourceDatabaseId]) REFERENCES [dbo].[DATABASE] ([DB_ID])
+    );
+END;
+
+INSERT INTO [deploy].[Project] ([ObjectId], [Name], [SourceDatabaseId])
+VALUES (NEWID(), N'Endur', 10);
