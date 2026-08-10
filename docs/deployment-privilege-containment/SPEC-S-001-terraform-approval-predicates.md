@@ -45,7 +45,13 @@ Each endpoint already fetches the deployment result. The request lookup is the n
 
 **Change the predicate signatures to accept what they actually need** — the resolved environment name, and for confirm/decline the requesting user — rather than a model that cannot supply it. Resolve once per endpoint and pass the result in; do not have three predicates each perform their own lookup.
 
-A missing request for a valid result is a data-integrity failure, not an authorization outcome. It must not fall through to a permissive default: treat it as a refusal and log it.
+**Fail closed, explicitly, on three conditions — the chosen predicate does not do it for you.** `CanModifyEnvironment` returns `IsAdmin(user)` when the environment security object cannot be found, so a request whose `EnvironmentName` is null, blank, or names a renamed environment resolves to **allow for every administrator** rather than to a refusal. The endpoint must therefore refuse independently of the checker when:
+
+1. the request cannot be resolved from the result;
+2. `EnvironmentName` is null or whitespace;
+3. resolution throws.
+
+Condition 3 needs care: the controller's blanket `catch` returns **500**, which is not a refusal and is indistinguishable from a genuine fault. Resolution failures must be caught and converted to 403 before that handler sees them.
 
 ### R2 — View permission
 
@@ -54,10 +60,11 @@ Gate `GetTerraformPlan` on **`CanModifyEnvironment(user, environmentName)`** —
 **Explicitly do not use `CanReadSecrets`.** An earlier draft of this spec recommended it, on the reasoning that plan content embeds resolved variable values (W-12) and there is an existing privilege meaning "may see secrets for this environment". That reasoning was wrong in context, and the correction is worth recording so a later reviewer does not helpfully re-tighten it:
 
 - `CanReadSecrets` was designed for **machine access to secrets**, not as a human read-level permission. Binding a human-facing view endpoint to it would widen a privilege whose scope has already drifted, and make it harder to reclaim.
-- The drift has a concrete mechanism in code, not merely in practice: the predicate resolves to `AccessLevel.ReadSecrets | AccessLevel.Owner`, so **every environment owner holds it implicitly**, without it ever being granted. Any endpoint gated on it inherits that population automatically.
 - It is already doing double duty — gating secret decryption in `PropertyValuesService` and gating ACL visibility in `AccessControlController`. A third, differently-shaped use would entrench the ambiguity about what the privilege means.
 
 `CanModifyEnvironment` is the right gate for this step because the objective is to close a login-level hole, and it does that by an enormous margin: from "any authenticated user" to "users with write authority over this specific environment". It is also the gate confirm uses, so view and approve stay coherent.
+
+*Note for reviewers, so this is not re-litigated:* the chosen gate resolves to `Write ∪ Owner` with an administrator fallback, so environment owners hold it implicitly too. Implicit-owner reach is therefore **not** what distinguishes the two predicates — the distinguishing reason is the one above: `CanReadSecrets` is reserved for machine principals and must not be widened.
 
 **Residual, stated rather than hidden.** A user with modify rights on an environment can see plan output that may contain secret values they could not obtain through `PropertyValuesService`. That gap is real and this step does not close it.
 
@@ -71,21 +78,36 @@ Gate `ConfirmTerraformPlan` on **`CanModifyEnvironment(user, environmentName)`**
 
 Rationale: confirm is the only human gate between a generated plan and a production apply. A gate the requester can pass themselves records intent; it does not control anything.
 
-Implementation requirements:
+**Why this requirement carries the whole step for production.** Request submission is gated on `CanModifyEnvironment` — the same predicate as confirm — as are restart, cancel, pause and resume. Anyone who can confirm could have submitted the identical deployment themselves, so the confirm gate constrains *which deployer* approves but adds no authority boundary over the environment. R2's gate closes the login-level hole; **R3 is the only part of this step that adds a control between a plan and a production apply.** That is why it is not optional for production-tier.
 
-- **Tier determination** comes from the request's production flag, which is derived server-side from the environment rather than supplied by the caller. It must not be taken from anything the requester controls, or the check is bypassable by mis-declaring the target.
-- **Identity comparison** uses the same normalised form the codebase already uses for user comparison — the full domain name from the claims reader — compared against the request's stored submitter. The two must be normalised identically before comparison; a mismatch in form fails *open* if written carelessly, which is the failure direction that matters. Write the comparison so an unparseable or absent submitter refuses rather than permits.
-- **Machine-to-machine callers** are named by client id rather than user name in this codebase. A request submitted by one service principal and confirmed by the same one must be treated as self-approval; the comparison therefore operates on whatever the claims reader returns as the caller's canonical name, not on a user-only field.
-- **No administrator override.** An override that lets an admin approve their own request reintroduces exactly what the control removes, and the population that most often submits production changes is the population holding admin. If an emergency path is genuinely required it should be a deliberate, logged, separately-named capability — not a quiet exemption inside this predicate. Recorded as out of scope here.
-- **The refusal must be distinguishable.** A user refused for self-approval should not receive the same message as a user refused for lacking environment rights; the first is a workflow instruction ("someone else must approve this"), the second is an access problem. Same status code, different message.
+Implementation requirements, each of which is a way to get this wrong:
 
-**Configuration default.** On for production-tier, off otherwise. The setting exists so that a single-operator non-production environment is not blocked, not so that production can be opted out casually — the IS should note that turning it off for a production-tier environment is a decision worth recording wherever such decisions are recorded.
+- **Tier determination** comes from the request's production flag, derived server-side from the environment row at submission. It is not caller-supplied, so it cannot be bypassed by mis-declaring the target. *(Verified.)*
+
+- **Compare against an immutable submitter, not the request's mutable user column.** That column is **overwritten** by the restart endpoint with the restarter's name, and restart is gated on the same `CanModifyEnvironment` and drives the request back through plan generation to `WaitingConfirmation`. As specified the control would be both defeatable and invertible: an author whose request is restarted by anyone else becomes a non-submitter and may then approve their own change, while a user who restarts someone else's request is locked out of approving it and the actual author is not. Compare instead against the earliest attempt's recorded user, or a new column that is never overwritten. **Restart must not launder submitter identity** — an audit defect independent of this control.
+
+- **Define the canonical identity comparison; do not assume one exists.** An earlier draft claimed the codebase has a normalised form used for user comparison. It does not — every existing call site of the full-domain-name accessor writes an audit field, none compares. The stored value is also scheme-dependent: Windows authentication yields `DOMAIN\\user`, OAuth yields a fallback chain of email, then SAM account name, then identity name. Both schemes are registered and selected per request, so the same human submitting under Windows and confirming under OAuth produces two different strings, they compare unequal, and **self-approval is permitted** — the failure direction that matters. Requirements: a single canonicalisation exposed on the claims-reader interface; `OrdinalIgnoreCase` comparison, since AD and email identifiers are case-insensitive; and a **refusal when the stored submitter cannot be canonicalised into the same space as the caller**. That is a wider condition than "absent or unparseable" — the common case is a value that parses fine and is simply shaped differently.
+
+- **Machine-to-machine callers already work.** The full-domain-name accessor returns the client id for m2m callers, and that is exactly what is stored at submission, so a service principal confirming its own request compares equal without special handling. Stated so no parallel m2m path is invented.
+
+- **No administrator override.** An override that lets an admin approve their own request reintroduces exactly what the control removes, for precisely the population that most often submits production changes. If an emergency path is genuinely required it should be a deliberate, logged, separately-named capability — not a quiet exemption inside this predicate.
+
+- **The refusal must be distinguishable.** Self-approval refusal is a workflow instruction ("someone else must approve this"); a rights refusal is an access problem. Same status code, different message.
+
+**Configuration — name it, and beware the house default.** The setting must be named explicitly in the implementation, and `TerraformController` does not inject configuration today. The codebase's dominant pattern for boolean settings evaluates to **false when the key is absent**, which would ship this control silently *off* — the exact inversion of the intent. Requirement: **an absent or unparseable value means enabled whenever the request is production-tier**, disabled otherwise. Turning it off for a production-tier environment must be a deliberate act, and one worth recording wherever such decisions are recorded.
 
 ### R4 — Decline permission
 
-Gate `DeclineTerraformPlan` on the same predicate as confirm. Declining is a safe direction — it stops a deployment rather than starting one — but a user who cannot approve should not be able to veto either, and asymmetry here would be surprising.
+Gate `DeclineTerraformPlan` on the **environment-authority check only**. A user who cannot approve should not be able to veto either, so the authority requirement is the same as confirm.
 
-The current implementation delegates decline to the confirm predicate. That delegation is correct and should be retained, made explicit rather than left as a "for now" comment.
+**The segregation-of-duties rule must NOT apply to decline.** The current implementation delegates decline to the confirm predicate wholesale. Retaining that delegation once R3 lands would mean the person who submitted a request cannot cancel their own pending plan — a workflow deadlock, and one that protects nothing: declining stops a deployment rather than starting one, so there is no self-approval to prevent.
+
+Therefore split the decision into two parts:
+
+- an **environment-authority check**, shared by view, confirm and decline;
+- an **SoD check**, applied to confirm alone.
+
+Confirm requires both. View and decline require only the first. Do not express this by having decline call the confirm predicate.
 
 ### R5 — Fix the refusal path
 
@@ -95,7 +117,17 @@ Each refusal calls `Forbid("You do not have permission…")`. `ControllerBase.Fo
 
 This has never fired because the predicates always return true, so all three branches are dead. Every one becomes live in this step.
 
+Two details worth knowing when writing the test: the throw happens at **result-execution** time, outside the action's own `try/catch`, so the controller's blanket handler does not swallow it; it surfaces through the application's exception handler as a **500 with an empty body**. A test asserting "not 403" would pass on a 500 — assert the status is *exactly* 403.
+
 Replace all three with the codebase's dominant pattern: return a 403 status result carrying the message. These are the only three uses of `Forbid(string)` in the solution; other controllers use either that status-code pattern or a bare `Forbid()`.
+
+### R8 — Pin the row between the decision and the transition
+
+The confirm endpoint validates the result's status from a model read earlier, then writes the new status filtered on identity alone with no from-status predicate. Two consequences: concurrent confirms both succeed, and a confirm racing the Monitor can push a result that has already moved to `Running` back to `Confirmed`, producing a **second apply dispatch**.
+
+Make the confirm write conditional on the result still being in `WaitingConfirmation`, and treat zero rows affected as a conflict rather than a success. The codebase already has this pattern — the request status switch guards on a from-status — so this is applying an existing idiom, not inventing one.
+
+This is in scope despite R7 because R7 forbids *unintended* behavioural change; leaving a known double-dispatch in place while adding the authorization around it would be shipping a step that looks complete and is not. If it is deferred instead, it must be recorded as an explicit accepted risk with a follow-on step, not left silent.
 
 ### R6 — Guard against recurrence
 
@@ -120,8 +152,13 @@ Status validation, state transitions, plan loading, event publication and error 
 | AC-5 | Decline enforces the same predicate as confirm, verified independently rather than assumed from the delegation. |
 | AC-6 | All three refusals return **403**, not 500. This fails against the current `Forbid(string)` implementation and is the regression test for R5. |
 | AC-7 | If R3's segregation-of-duties option is adopted: a user who submitted the request cannot confirm it where the setting applies, and can where it does not. |
-| AC-8 | A deployment result whose request cannot be resolved produces a refusal, not an allow. |
-| AC-9 | No predicate is a constant expression — asserted by exercising the refuse path of each endpoint, not by inspection. |
+| AC-8 | Each of the three fail-closed conditions in R1 produces **exactly 403**, not 500 and not an allow: an unresolvable request, a null or whitespace environment name, and a resolution that throws. The null-environment case must be verified with an administrator principal, since that is the case where the checker's fallback would otherwise permit. |
+| AC-9 | No predicate is a constant expression, and each consults the **right** environment. Asserted by exercising the refuse path of each endpoint *and* by verifying the checker was invoked exactly once with the environment name resolved from the request — a suite that merely stubs the checker to false for all arguments would pass against a predicate reading the wrong environment. Refused paths must additionally leave plan storage un-read and the result status un-written. |
+| AC-11 | A request that has been restarted by another user cannot then be confirmed by its original author, and can be confirmed by the restarter only if they are not the original author. This is the regression test for the mutable-submitter defect in R3. |
+| AC-12 | The submitter of a request **can** decline it. This is the regression test for the R3/R4 collision. |
+| AC-13 | The same human submitting under Windows authentication and confirming under OAuth is refused as self-approval. This is the regression test for the identity-normalisation defect; without it the control passes its other tests and fails in production. |
+| AC-14 | Two concurrent confirms of the same result produce one state transition and one apply dispatch; a confirm arriving after the result has left `WaitingConfirmation` is rejected as a conflict. (R8.) |
+| AC-15 | With the segregation-of-duties setting absent from configuration entirely, the control is **enabled** for a production-tier request. This is the regression test for the house-default inversion in R3. |
 | AC-10 | R7 holds: status validation, state transitions, plan loading, event publication and error handling are unchanged. Verified by the existing Terraform workflow regression suite passing without modification, other than mechanical updates for the changed predicate signatures. |
 
 ---
