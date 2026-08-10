@@ -1,4 +1,4 @@
-﻿using Dorc.Api.Interfaces;
+using Dorc.Api.Interfaces;
 using Dorc.Api.Model;
 using Dorc.Api.Services;
 using Dorc.ApiModel;
@@ -8,117 +8,147 @@ using NSubstitute;
 
 namespace Dorc.Api.Tests
 {
+    /// <summary>
+    /// The drop location is not merely data. It is published to deployment scripts as
+    /// $DropFolder$, and DOrc's own RunDeployment.ps1 dot-sources DeploymentCommon.ps1 from
+    /// it - so an unconfined drop location is arbitrary code execution as the deployment
+    /// account, available to anyone who can submit a request.
+    ///
+    /// Validation previously checked only that the URL was well formed, named a file share
+    /// and pointed at a directory that existed. It now also requires the location to lie
+    /// beneath one of the project's configured artefact roots, matching the confinement the
+    /// Azure DevOps build path already gets from validating against the project's own
+    /// build definitions.
+    /// </summary>
     [TestClass]
     public class FileShareBuildTests
     {
-        //build exist and has correct type
-        [TestMethod]
-        public void FileShareBuildTest1()
-        {
-            RequestDto request = new RequestDto
-            {
-                BuildUrl = "file://some_path",
-                BuildText = "buildText",
-                BuildNum = "buildNUm",
-            };
-            var mockedReqPs = Substitute.For<IRequestsPersistentSource>();
+        private const string ProjectName = "TestProject";
+        private const string ArtefactRoot = @"\\buildserver\drops\TestProject";
 
-            var mockedHelper = Substitute.For<IFileSystemHelper>();
-            mockedHelper.DirectoryExists(Arg.Any<string>())
-                .Returns(true);
-            var buildDetails = new BuildDetails(request.BuildUrl);
-            var mockedDeployLibrary = Substitute.For<IDeployLibrary>();
-            var fsBuild = new FileShareDeployableBuild(mockedHelper, mockedDeployLibrary, mockedReqPs);
-            var result = fsBuild.IsValid(buildDetails);
-            Assert.IsTrue(result);
+        private IFileSystemHelper _fileSystemHelper = null!;
+        private IDeployLibrary _deployLibrary = null!;
+        private IRequestsPersistentSource _requestsPersistentSource = null!;
+        private IProjectsPersistentSource _projectsPersistentSource = null!;
+
+        [TestInitialize]
+        public void Setup()
+        {
+            _fileSystemHelper = Substitute.For<IFileSystemHelper>();
+            _fileSystemHelper.DirectoryExists(Arg.Any<string>()).Returns(true);
+
+            _deployLibrary = Substitute.For<IDeployLibrary>();
+            _requestsPersistentSource = Substitute.For<IRequestsPersistentSource>();
+            _projectsPersistentSource = Substitute.For<IProjectsPersistentSource>();
+
+            _projectsPersistentSource.GetProject(ProjectName).Returns(new ProjectApiModel
+            {
+                ProjectName = ProjectName,
+                ArtefactsUrl = ArtefactRoot
+            });
         }
 
-        // build exists but wrong type
-        [TestMethod]
-        public void FileShareBuildTest2()
-        {
-            RequestDto request = new RequestDto
-            {
-                BuildUrl = "ftp://some_path",
-                BuildText = "buildText",
-                BuildNum = "buildNUm",
-            };
-            var mockedReqPs = Substitute.For<IRequestsPersistentSource>();
+        private FileShareDeployableBuild NewBuild() =>
+            new(_fileSystemHelper, _deployLibrary, _requestsPersistentSource, _projectsPersistentSource);
 
-            var mockedHelper = Substitute.For<IFileSystemHelper>();
-            mockedHelper.DirectoryExists(Arg.Any<string>())
-                .Returns(true);
-            var buildDetails = new BuildDetails(request.BuildUrl);
-            var mockedDeployLibrary = Substitute.For<IDeployLibrary>();
-            var fsBuild = new FileShareDeployableBuild(mockedHelper, mockedDeployLibrary, mockedReqPs);
-            var result = fsBuild.IsValid(buildDetails);
-            Assert.IsFalse(result);
+        private static BuildDetails BuildAt(string url) =>
+            new(new RequestDto
+            {
+                BuildUrl = url,
+                BuildText = "buildText",
+                BuildNum = "buildNum",
+                Project = ProjectName
+            }, SourceControlType.FileShare);
+
+        [TestMethod]
+        public void AcceptsABuildBeneathTheProjectsArtefactRoot()
+        {
+            Assert.IsTrue(NewBuild().IsValid(BuildAt(ArtefactRoot + @"\1.2.3")));
         }
 
-        // build doesnt exists and correct type
         [TestMethod]
-        public void FileShareBuildTest3()
+        public void AcceptsTheArtefactRootItself()
         {
-            RequestDto request = new RequestDto
-            {
-                BuildUrl = "file://some_path",
-                BuildText = "buildText",
-                BuildNum = "buildNUm",
-            };
-            var mockedReqPs = Substitute.For<IRequestsPersistentSource>();
-
-            var mockedHelper = Substitute.For<IFileSystemHelper>();
-            mockedHelper.DirectoryExists(Arg.Any<string>())
-                .Returns(false);
-            var buildDetails = new BuildDetails(request.BuildUrl);
-            var mockedDeployLibrary = Substitute.For<IDeployLibrary>();
-            var fsBuild = new FileShareDeployableBuild(mockedHelper, mockedDeployLibrary, mockedReqPs);
-            var result = fsBuild.IsValid(buildDetails);
-            Assert.IsFalse(result);
+            Assert.IsTrue(NewBuild().IsValid(BuildAt(ArtefactRoot)));
         }
 
-        // build doesnt exists and wrong type
+        /// <summary>
+        /// The weakness this step closes: any reachable share was previously accepted.
+        /// </summary>
         [TestMethod]
-        public void FileShareBuildTest4()
+        public void RejectsABuildOnAnUnrelatedShare()
         {
-            RequestDto request = new RequestDto
-            {
-                BuildUrl = "http://some_path",
-                BuildText = "buildText",
-                BuildNum = "buildNUm",
-            };
-            var mockedReqPs = Substitute.For<IRequestsPersistentSource>();
+            var build = NewBuild();
 
-            var mockedHelper = Substitute.For<IFileSystemHelper>();
-            mockedHelper.DirectoryExists(Arg.Any<string>())
-                .Returns(false);
-            var buildDetails = new BuildDetails(request.BuildUrl);
-            var mockedDeployLibrary = Substitute.For<IDeployLibrary>();
-            var fsBuild = new FileShareDeployableBuild(mockedHelper, mockedDeployLibrary, mockedReqPs);
-            var result = fsBuild.IsValid(buildDetails);
-            Assert.IsFalse(result);
+            Assert.IsFalse(build.IsValid(BuildAt(@"\\attacker\share\payload")));
+            StringAssert.Contains(build.ValidationResult, "outside the artefacts location");
         }
 
-        // build ArtefactsUrl not properly formed
         [TestMethod]
-        public void FileShareBuildTest5()
+        public void RejectsTraversalOutOfTheArtefactRoot()
         {
-            RequestDto request = new RequestDto
-            {
-                BuildUrl = "file:\\some_path",
-                BuildText = "buildText",
-                BuildNum = "buildNUm",
-            };
-            var mockedReqPs = Substitute.For<IRequestsPersistentSource>();
+            Assert.IsFalse(NewBuild().IsValid(BuildAt(ArtefactRoot + @"\..\..\OtherProject\drop")));
+        }
 
-            var mockedHelper = Substitute.For<IFileSystemHelper>();
-            mockedHelper.DirectoryExists(Arg.Any<string>())
-                .Returns(false);
-            var buildDetails = new BuildDetails(request.BuildUrl);
-            var mockedDeployLibrary = Substitute.For<IDeployLibrary>();
-            var fsBuild = new FileShareDeployableBuild(mockedHelper, mockedDeployLibrary, mockedReqPs);
-            var result = fsBuild.IsValid(buildDetails);
-            Assert.IsFalse(result);
+        [TestMethod]
+        public void AcceptsAnyOfSeveralConfiguredArtefactRoots()
+        {
+            _projectsPersistentSource.GetProject(ProjectName).Returns(new ProjectApiModel
+            {
+                ProjectName = ProjectName,
+                ArtefactsUrl = $@"\\buildserver\drops\Other;{ArtefactRoot}"
+            });
+
+            Assert.IsTrue(NewBuild().IsValid(BuildAt(ArtefactRoot + @"\1.2.3")));
+        }
+
+        /// <summary>
+        /// An absent allow-list confines nothing. Admitting everything on that basis would
+        /// make the check vacuous for exactly the projects least configured.
+        /// </summary>
+        [TestMethod]
+        public void RejectsWhenTheProjectHasNoArtefactRootConfigured()
+        {
+            _projectsPersistentSource.GetProject(ProjectName).Returns(new ProjectApiModel
+            {
+                ProjectName = ProjectName,
+                ArtefactsUrl = string.Empty
+            });
+
+            var build = NewBuild();
+
+            Assert.IsFalse(build.IsValid(BuildAt(ArtefactRoot + @"\1.2.3")));
+            StringAssert.Contains(build.ValidationResult, "no artefacts location configured");
+        }
+
+        [TestMethod]
+        public void RejectsWhenTheProjectCannotBeResolved()
+        {
+            _projectsPersistentSource.GetProject(ProjectName).Returns((ProjectApiModel)null!);
+
+            Assert.IsFalse(NewBuild().IsValid(BuildAt(ArtefactRoot + @"\1.2.3")));
+        }
+
+        // --- pre-existing behaviour, retained -----------------------------------------
+
+        [TestMethod]
+        public void RejectsAWrongBuildType()
+        {
+            Assert.IsFalse(NewBuild().IsValid(BuildAt("ftp://some_path")));
+        }
+
+        [TestMethod]
+        public void RejectsADirectoryThatDoesNotExist()
+        {
+            _fileSystemHelper.DirectoryExists(Arg.Any<string>()).Returns(false);
+
+            Assert.IsFalse(NewBuild().IsValid(BuildAt(ArtefactRoot + @"\1.2.3")));
+        }
+
+        [TestMethod]
+        public void RejectsAMalformedUrl()
+        {
+            Assert.IsFalse(NewBuild().IsValid(BuildAt("|not a url|")));
         }
     }
 }
