@@ -107,6 +107,20 @@
     <Property Name="ParentElementType" Value="SqlTable" />
     <Property Name="NewName" Value="GroupId" />
   </Operation>
+  <!--
+    The index rename must be recorded too: an unmatched target index over columns
+    the operations above rename is treated by the deployment-plan verifier as a
+    blocking dependency (SQL72031) on the very publish that would rebuild it.
+    Unlike the table's case-only rename, these names differ by more than case, so
+    the operation survives the CI model collation.
+  -->
+  <Operation Name="Rename Refactor" Key="1c7a9f64-2e83-4b5d-9a10-8f3d62c4e7ab" ChangeDateTime="08/10/2026 09:00:07">
+    <Property Name="ElementName" Value="[deploy].[Database].[IX_DATABASE_Server_Name_DB_Name]" />
+    <Property Name="ElementType" Value="SqlIndex" />
+    <Property Name="ParentElementName" Value="[deploy].[Database]" />
+    <Property Name="ParentElementType" Value="SqlTable" />
+    <Property Name="NewName" Value="IX_Database_ServerName_Name" />
+  </Operation>
   <Operation Name="Move Schema" Key="9a617221-bc09-4a6f-98cc-738757526400" ChangeDateTime="08/10/2026 09:00:08">
     <Property Name="ElementName" Value="[dbo].[SERVER]" />
     <Property Name="ElementType" Value="SqlTable" />
