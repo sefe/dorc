@@ -27,7 +27,7 @@ Four rules determine the order below. They are stated up front because several a
 
 | ID | Title | Addresses | Depends On |
 |----|-------|-----------|------------|
-| ⚙ S-000 | Interim exposure containment via `IsForProd` | SD-0, W-4 | **CLEARED — U-12 and U-13 both closed; no consumers. Apply.** |
+| ⚙ S-000 | Interim exposure containment via `IsForProd` | SD-0, W-4 | **APPLIED in production 2026-08-10** (Ids 9, 13, 16). Verification outstanding; ST not yet changed. |
 | S-001 | Implement the Terraform approval predicates | SD-10, W-10, SC-05a | — |
 | S-002 | Authorize the daemon status endpoint | W-15, SC-05a | — |
 | S-003 | Enforce the API scope policy in combined auth mode | W-17 | — |
