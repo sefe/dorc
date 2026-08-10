@@ -9,6 +9,8 @@
 | **IS**      | IS-deployment-privilege-containment.md (DRAFT)               |
 | **HLPS**    | HLPS-deployment-privilege-containment.md (APPROVED)          |
 | **Addresses** | SD-0, W-4                                                  |
+| **Folder**  | docs/deployment-privilege-containment/                       |
+| **Governing constraints** | C-02 (incremental and reversible, no flag day), C-03 (no schema change) |
 
 ---
 
@@ -69,6 +71,7 @@ This step does **not** substitute for rotation, and must not be reported as havi
 | AC-3 | The three values are absent from the resolved variable scope of a non-production deployment, verified by inspecting a deployment's resolved properties rather than by inference from the config table. |
 | AC-4 | A deployment to a **production** environment completes successfully and still receives the values. |
 | AC-5 | `DORC_NonProdDeployPassword` and all three username keys are unchanged. |
+| AC-5a | The three script-facing secure keys — `DeploymentServiceAccountPassword`, `DorcCliSecret`, `ProgetAccountPassword` — are unchanged, retaining their existing `0`/`1` pairs. R2 forbids touching them and they are the rows most easily caught by a careless widening of the predicate. |
 | AC-6 | Prior values are recorded and a tested rollback statement exists for each row. |
 
 ---
