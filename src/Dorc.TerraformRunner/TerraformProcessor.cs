@@ -258,7 +258,12 @@ namespace Dorc.TerraformRunner
                 throw new InvalidOperationException(errorMessage);
             }
 
-            logger.Information($"Terraform command {tfCommand} completed successfully. Output:{Environment.NewLine}{output}");
+            // Command stdout is not logged. "terraform show" renders variable values, which
+            // include the resolved deployment property set, so echoing output here wrote
+            // secrets into the runner log - whose path is published on the deployment
+            // request. The command and its outcome are enough for diagnosis; the plan itself
+            // remains available through the API to callers authorised for the environment.
+            logger.Information($"Terraform command {tfCommand} completed successfully ({output?.Length ?? 0} characters of output, not logged).");
             return output;
         }
 
