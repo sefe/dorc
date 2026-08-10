@@ -23,7 +23,19 @@ This HLPS therefore addresses a broader statement of the same underlying defect:
 
 ## 2. Weaknesses, Ranked by Attacker Capability Required
 
-Ranked by what an attacker must already have, not by subsystem. The lowest bar is first.
+Ranked by what an attacker must already have, not by subsystem. Identifiers are stable labels, not ordering — the rank column is the order that matters.
+
+| Rank | ID | Capability required | Outcome |
+|------|----|--------------------|---------|
+| 1 | W-1 | Submit a deployment request | Arbitrary code in the Monitor process, which holds both credential pairs |
+| 2 | W-5 | Hold **Modify on any one project** | Arbitrary code as the deployment account, bypassing the gated script share entirely |
+| 3 | W-2 | Any local account on a Monitor host | Full control of a Runner process; read its decrypted memory or inject |
+| 4 | W-3 | Any local account on a Monitor host | Receive the cleartext bundle, or feed the Runner an attacker-authored one |
+| 5 | W-4 | Land any script or component in any deployment | Harvest every decrypted secure config value, including deployment credentials |
+| 6 | W-7 | Read the Runner log share | Same values as W-4, through a second channel |
+| 7 | W-8 | Read the Monitor host filesystem | Historic bundles, indefinitely retained |
+| 8 | W-6 | Already hold the shared account | Blast radius across the whole estate — a property, not an entry point |
+| 9 | W-9 | None | Absence of attribution, not a vulnerability |
 
 ### W-1 — A user who can submit a deployment request can execute arbitrary code inside the Monitor process
 
@@ -97,9 +109,16 @@ This is the one weakness where the codebase has already reasoned correctly elsew
 
 ### W-5 — Script bytes are neither confined, verified, nor signature-checked, and enforcement is actively disabled
 
-**Capability required: write to the `Scripts` table, or to the script share.**
+**Capability required: `Modify` on any single project — a per-project permission, not PowerUser or Admin. Rank 2, immediately below W-1.**
 
-- **`ScriptRoot` does not confine anything.** `ExtractPath` uses `Path.Combine(scriptsLocation, scriptApiModel.Path)` in both branches (`ScriptDispatcher.cs:310,322`). .NET `Path.Combine` discards the first argument when the second is rooted, so a `Script.Path` of `C:\...` or `\\attacker\share\x.ps1` executes from outside `ScriptRoot` entirely; `..\` traversal likewise. `Script` (`Dorc.PersistentData/Model/Script.cs`) carries no validation and no hash. Write access to the `Scripts` table is therefore an entry point equivalent to write access to the share — and unlike the share, it *is* audited (`AuditScript`).
+- **`ScriptRoot` does not confine anything.** `ExtractPath` uses `Path.Combine(scriptsLocation, scriptApiModel.Path)` in both branches (`ScriptDispatcher.cs:310,322`). .NET `Path.Combine` discards the first argument when the second is rooted, so a `Script.Path` of `C:\...` or `\\attacker\share\x.ps1` executes from outside `ScriptRoot` entirely; `..\` traversal likewise. `Script` (`Dorc.PersistentData/Model/Script.cs`) carries no validation and no hash.
+- **The script path is user-settable at a lower privilege than the scripts screen implies.** `ComponentApiModel.ScriptPath` is copied verbatim into `Script.Path` on both create and update (`ManageProjectsPersistentSource.cs:384-386`, `:481-496`). `ValidateComponents` (`:321-337`) checks component names, IDs, project ownership, duplicates and name lengths — **it does not validate `ScriptPath` at all**. The reaching endpoint is `RefDataController.Put` (`:65-68`), gated only by `_securityPrivilegesChecker.CanModifyProject(User, projectId)`.
+
+  **This is the operative finding.** Promotion onto the script share is gated by pipeline or admin (U-8, confirmed), but that control does not cover the gap: a user with `Modify` on one project can point a component at a path outside the share entirely and have it executed as the deployment account. The gated pipeline protects the share; nothing protects the *path*.
+
+  Note also the inconsistency — `RefDataScriptsController.Put("edit")` (`:47-52`) requires PowerUser or Admin to change a script, while the component route above achieves the same effect with per-project `Modify`. Two routes to one outcome at two different privilege levels is a direct symptom of the deferred API-enforcement problem (§8), showing up inside this HLPS's scope.
+
+- Unlike changes to the share, changes through this route *are* audited (`AuditScript`, `InsertRefDataAudit` at `RefDataController.cs:73`) — detection exists where prevention does not.
 - **Signature enforcement is actively removed, not merely absent.** `PowerShellScriptRunner.cs:32` (and `Dorc.NetFramework.PowerShell/PowerShellScriptRunner.cs:44`) *replaces* the default `PSAuthorizationManager` — which enforces execution policy and Authenticode — with the base `System.Management.Automation.AuthorizationManager`, whose `ShouldRun` permits unconditionally. FullLanguage is the implicit default of `InitialSessionState.CreateDefault()` (`:30`); there is no `LanguageMode` anywhere in `src/`.
 - **`AddScript(File.ReadAllText(scriptName))`** (`:46`) runs the file as an in-memory scriptblock, which would not be subject to file signature checks even if enforcement were restored.
 
@@ -249,7 +268,9 @@ On provisioning granularity: an account per environment is unbounded operational
 
 ### SD-5 — Confine and verify script loading (addresses W-5)
 
-- **Path confinement:** reject any `Script.Path` that resolves outside the configured `ScriptRoot` after full canonicalisation. `Path.Combine` cannot express this; the check must be explicit.
+- **Path confinement, enforced twice.** Reject any `Script.Path` that resolves outside the configured `ScriptRoot` after full canonicalisation. `Path.Combine` cannot express this; the check must be explicit. It must be applied **at write time** — in `ValidateComponents`, which is where an unvalidated path enters the system through per-project `Modify` — *and* at dispatch, because existing `Scripts` rows predate any validation and the write path is not the only way rows arrive. Validating only at write leaves stored rows unchecked; validating only at dispatch leaves the API accepting values it will later refuse, which is a worse operator experience and a weaker audit story.
+
+  Given U-8 — the share is gated by pipeline or admin — path confinement is the single highest-value control in this direction. It converts "any project-Modify user can execute arbitrary code as the deployment account" back into "the gated pipeline is the only route", which is what the operator already believes to be true.
 - **Content verification at the point of read.** Verifying at dispatch is defeated by a TOCTOU the design would itself create: dispatch happens in the Monitor, but the executed bytes are read later, in another process, at `PowerShellScriptRunner.cs:46`. Anyone with share write access — exactly the W-5 threat — swaps the file in the window. The expected hash must travel in `ScriptGroup` (additively, per C-01) and be verified inside the Runner immediately before execution.
 - Restoring `PSAuthorizationManager` is worth evaluating but does not substitute: `AddScript(ReadAllText(...))` executes an in-memory scriptblock not subject to file signature checks. Signature enforcement is a defence-in-depth addition, not the control.
 
@@ -280,7 +301,7 @@ Per-environment identity yields environment-granularity attribution in target-se
 | U-5 | Is `DORC_*DeployUsername` a local Administrator on Monitor hosts? The file transport's ACL (`ScriptGroupFileWriter.cs:91-99`) excludes the deployment account, yet the Runner reads that file — so either the accounts coincide, the deploy account is a local admin, or the Debug path is broken. Each answer is materially different: the middle one is a privilege finding in its own right and strengthens W-6. | User | Non-blocking — SD-7 corrects the ACL either way | Unresolved. |
 | U-6 | Can a gMSA be used with `LogonUser` + `CreateProcessAsUser`? | Agent | Non-blocking | **RESOLVED — no.** `CreateProcessAsUser` requires a token, and the supported way to obtain a gMSA token is to *run as* the account (a service configured with that identity), not to `LogonUser` with a password; gMSA passwords are not retrievable for password-based logon. Adopting gMSA would require per-environment Runner services instead of Monitor-side impersonation — a restructure beyond this scope. Recommendation: retain username/password, take the value from not storing them in the DOrc database (SD-4, Connect-backed) plus rotation. |
 | U-7 | Effective DACL on the named pipe as currently constructed. | Agent | Non-blocking | **RESOLVED in effect.** `CreateNamedPipe` with no security attributes receives the documented Win32 default DACL, which grants read to Everyone and to anonymous; the pipe is `PipeDirection.Out`, so read is precisely the access needed to receive the bundle. Confirm on a Monitor host before the IS cites it as exploited rather than exploitable; SD-2's fix is unchanged either way. |
-| U-8 | Are scripts on the share Authenticode-signed, and is there change control on it? | User | **No longer gating.** SD-5 verifies content hashes at point of read, which works regardless; and `AddScript(ReadAllText(...))` means signature checks would not apply to this execution path even for signed scripts. Retained for information only. | Resolved as non-blocking. |
+| U-8 | Are scripts on the share Authenticode-signed, and is there change control on it? | User | Non-blocking, but the answer **raised** W-5 rather than lowering it | **RESOLVED.** Promotion onto the share is gated — via a controlled pipeline or an administrator. That is a real control, and it means the share itself is not the soft entry point. It does not close W-5: `Script.Path` is set from `ComponentApiModel.ScriptPath` with no validation, through an endpoint gated only by per-project `Modify`, and `Path.Combine` honours a rooted path by discarding `ScriptRoot`. The gated pipeline is therefore bypassable without touching the share. W-5's capability requirement is revised **down** from "write to the share" to "`Modify` on one project", moving it to rank 2. Signature enforcement remains moot regardless: `AddScript(ReadAllText(...))` executes an in-memory scriptblock not subject to file signature checks. |
 | U-9 | Do existing scripts depend on running specifically as the shared account — e.g. target-server ACLs naming it? Principal migration cost driver for SD-4. | User | Non-blocking for design; material for sequencing | Unresolved. |
 
 **One unknown now blocks, and only one direction: U-1 gates the choice among SD-1's three variants. U-2, U-3 and U-8 were downgraded by changing the design rather than by obtaining answers** — inverting SD-3b's default, adding SD-4's provider abstraction, and moving verification to point-of-read respectively. U-4 gates the *value* of SD-4, not the code.
@@ -293,7 +314,8 @@ Superseded from the previous draft: the original U-1 (`IsForProd`/`Secure` value
 
 - **API authorization enforcement remains ad hoc.** Deferring the controller refactor leaves authorization a per-endpoint convention with no chokepoint below it. This work reduces what an escalation *yields*; it does not reduce the likelihood of one. Given W-1 — where the entry point is submitting a request, i.e. the privilege the API grants most freely — the sibling HLPS is more urgent than the original draft implied.
 - **Target-server privilege is unchanged.** Binding an environment to its own identity does not restrict what that identity can do once on a target server. This is the residual half of SC-07 and requires domain-side privilege reduction outside DOrc.
-- **`ScriptRoot` and `Scripts`-table write access remain code execution.** SD-5 detects change and confines paths; it does not control who may write.
+- **Share write access remains code execution — but is gated.** Per U-8, promotion onto the share runs through a controlled pipeline or an administrator, so this residual risk is owned and accepted. SD-5 confines paths and verifies content; it does not, and need not, control who may write to a share that already has change control.
+- **Inconsistent authorization for one outcome is in scope's blast radius but not in its remit.** Setting a script path requires PowerUser/Admin through `RefDataScriptsController` and per-project `Modify` through `RefDataController`. SD-5 closes the *consequence* by confining paths, but the underlying inconsistency is exactly the class of defect the deferred sibling HLPS exists to address, and it demonstrates that the deferral has a real cost.
 - **Migration is where the risk concentrates.** Every direction is designed to be a no-op until adopted (C-02), but the adoption steps — reclassifying config values, rotating credentials, binding environments — are exactly the steps that can break live deployments. The IS must treat each adoption step as separately reversible, not merely each code step.
 - **`#if DEBUG` transport divergence.** The production pipe path is exercised only in Release builds and the file path only in Debug. SD-2, SD-6 and SD-7 touch both; coverage must reach both, or a change validated in development will not have been validated where it ships.
 - **Credential rotation is assumed but not owned here.** SD-3 makes rotation a precondition; executing it is an operator activity this HLPS does not sequence.
