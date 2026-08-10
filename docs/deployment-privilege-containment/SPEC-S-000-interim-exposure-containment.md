@@ -2,7 +2,7 @@
 
 | Field       | Value                                                        |
 |-------------|--------------------------------------------------------------|
-| **Status**  | DRAFT                                                        |
+| **Status**  | APPLIED IN PRODUCTION 2026-08-10 — verification outstanding  |
 | **Step**    | S-000 (operational — data change, no code)                   |
 | **Author**  | Agent                                                        |
 | **Date**    | 2026-08-10                                                   |
@@ -11,6 +11,28 @@
 | **Addresses** | SD-0, W-4                                                  |
 | **Folder**  | docs/deployment-privilege-containment/                       |
 | **Governing constraints** | C-02 (incremental and reversible, no flag day), C-03 (no schema change) |
+
+---
+
+## 0. Applied — record
+
+Applied to the **production** instance (`DeploymentOrchestrator`) on 2026-08-10 via the admin UI rather than `S-000-apply.sql`. Verified: three rows, three distinct keys, all `IsForProd = 1`, no duplicates.
+
+| Id | Key | Prior | Now |
+|----|-----|-------|-----|
+| 9  | `DORC_ProdDeployPassword` | NULL | 1 |
+| 13 | `DORC_WebDeployPassword` | NULL | 1 |
+| 16 | `DorcApiAccessPassword` | NULL | 1 |
+
+**These Ids are what `S-000-rollback.sql` requires.**
+
+The UI's edit path was the safe one — it updates `IsForProd` on the existing row. The *add* path would not have been: it only rejects a duplicate when the normalised flags match, so `NULL` versus `1` does not collide and a second row would have been created. That remains the standing hazard in the header warning.
+
+**Outstanding, because the UI route bypassed them:**
+
+- **The token-consumer check (R1 precondition, `S-000-apply.sql` STEP 1c) was not run.** It is now detection rather than prevention: a property or config value containing `$KeyName$` resolves to the literal string and the failure is swallowed, so the deployment succeeds having written garbage where a password belonged. AC-2 cannot detect this class. Run it.
+- **Functional verification (AC-2, AC-3) not yet performed.**
+- **System Test not yet changed.** R1 calls for both instances.
 
 ---
 
