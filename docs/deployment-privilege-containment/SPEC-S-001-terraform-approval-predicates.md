@@ -1,0 +1,149 @@
+# SPEC-S-001: Implement the Terraform Approval Predicates
+
+| Field       | Value                                                        |
+|-------------|--------------------------------------------------------------|
+| **Status**  | DRAFT                                                        |
+| **Step**    | S-001                                                        |
+| **Author**  | Agent                                                        |
+| **Date**    | 2026-08-10                                                   |
+| **IS**      | IS-deployment-privilege-containment.md (DRAFT)               |
+| **HLPS**    | HLPS-deployment-privilege-containment.md (APPROVED)          |
+| **Addresses** | SD-10, W-10 (rank 1), SC-05a                               |
+
+---
+
+## 1. Context
+
+`TerraformController` carries `[Authorize]` and nothing else. Its three authorization predicates — view, confirm, decline — have bodies that return `true` unconditionally. They *are* called, at the top of each of the three endpoints, so the checks are wired and always pass.
+
+The controller injects both `ISecurityPrivilegesChecker` and `IClaimsPrincipalReader` and uses neither for these decisions. The intent was present; the implementation never landed.
+
+Consequences, both reachable from a plain DOrc login:
+
+- **Confirm** transitions the deployment result to `Confirmed`, which the Monitor's state processor picks up and maps to `ApplyPlan`, dispatched under the production deployment credential. Any authenticated user can approve a production `terraform apply`.
+- **View** returns plan content, which embeds resolved variable values, for any deployment.
+
+This is the highest-ranked weakness in the HLPS and among the cheapest to close. It is also the one step that depends on nothing else in the sequence.
+
+---
+
+## 2. Requirements
+
+### R1 — Resolve the environment before deciding
+
+The predicates cannot decide from their current argument. `DeploymentResultApiModel` carries `Id`, `ComponentId`, `RequestId`, status and timings — **no environment**. The resolution chain is:
+
+```
+deploymentResultId → GetDeploymentResults(id) → RequestId
+                   → GetRequest(RequestId)    → EnvironmentName, UserName
+```
+
+Each endpoint already fetches the deployment result. The request lookup is the new work.
+
+**Change the predicate signatures to accept what they actually need** — the resolved environment name, and for confirm/decline the requesting user — rather than a model that cannot supply it. Resolve once per endpoint and pass the result in; do not have three predicates each perform their own lookup.
+
+A missing request for a valid result is a data-integrity failure, not an authorization outcome. It must not fall through to a permissive default: treat it as a refusal and log it.
+
+### R2 — View permission
+
+Plan content embeds resolved variable values, which per W-12 include the full deployment property set. Gate `GetTerraformPlan` on **`CanReadSecrets(user, environmentName)`**.
+
+The interface exposes no general "read environment" predicate, so the choice is between `CanReadSecrets` and `CanModifyEnvironment`. `CanReadSecrets` is the correct one on substance: this endpoint discloses secrets, and there is an existing privilege that means precisely "may see secrets for this environment". Using the modify privilege instead would grant plan visibility to a broader population than the estate's own secret-handling rules allow.
+
+### R3 — Confirm permission
+
+Gate `ConfirmTerraformPlan` on **`CanModifyEnvironment(user, environmentName)`** as the minimum.
+
+**Decision required — segregation of duties.** Whether to additionally refuse when the confirming user is the request's own `UserName`. Arguments: confirm is the only human gate between a generated plan and a production apply, and a gate that the requester can pass themselves is a record of intent rather than a control. Against: it adds friction for small teams and single-operator environments, and may block legitimate work out of hours.
+
+**Recommendation: adopt it, and make it configurable rather than absolute** — a setting that requires a distinct approver, defaulting to on for production-tier environments and off elsewhere. The requester's identity is available on the request; the comparison is against the same normalised form used elsewhere in the codebase for user comparisons.
+
+This is flagged as a decision because it changes who can complete an existing workflow, and that is not the implementer's call to make silently.
+
+### R4 — Decline permission
+
+Gate `DeclineTerraformPlan` on the same predicate as confirm. Declining is a safe direction — it stops a deployment rather than starting one — but a user who cannot approve should not be able to veto either, and asymmetry here would be surprising.
+
+The current implementation delegates decline to the confirm predicate. That delegation is correct and should be retained, made explicit rather than left as a "for now" comment.
+
+### R5 — Fix the refusal path
+
+**The three refusal branches are currently broken, and implementing the predicates is what activates them.**
+
+Each refusal calls `Forbid("You do not have permission…")`. `ControllerBase.Forbid` takes **authentication scheme names**, not a message. Passing a message causes the framework to attempt resolution of an authentication scheme by that name, which fails at runtime — the caller receives a 500, not a 403.
+
+This has never fired because the predicates always return true, so all three branches are dead. Every one becomes live in this step.
+
+Replace all three with the codebase's dominant pattern: return a 403 status result carrying the message. These are the only three uses of `Forbid(string)` in the solution; other controllers use either that status-code pattern or a bare `Forbid()`.
+
+### R6 — Guard against recurrence
+
+The defect was not a missing check — it was a check that existed, was called, and always passed. A test that only exercises the allow path would have passed throughout. Coverage must include the **refuse** path for all three endpoints, which is what makes a constant-true predicate fail.
+
+This is the concrete form of SC-05a.
+
+### R7 — No behavioural change beyond authorization
+
+Status validation, state transitions, plan loading, event publication and error handling are unchanged. This step adds authorization and fixes the refusal mechanism; it does not touch the Terraform workflow.
+
+---
+
+## 3. Acceptance Criteria
+
+| ID | Criterion |
+|----|-----------|
+| AC-1 | A user without `CanReadSecrets` on the deployment's environment receives 403 from the plan-content endpoint, and no plan content is loaded from storage. |
+| AC-2 | A user with `CanReadSecrets` receives the plan as before. |
+| AC-3 | A user without `CanModifyEnvironment` receives 403 from confirm, and the deployment result's status is unchanged. |
+| AC-4 | A user with `CanModifyEnvironment` can confirm, and the status transition and downstream dispatch behave exactly as today. |
+| AC-5 | Decline enforces the same predicate as confirm, verified independently rather than assumed from the delegation. |
+| AC-6 | All three refusals return **403**, not 500. This fails against the current `Forbid(string)` implementation and is the regression test for R5. |
+| AC-7 | If R3's segregation-of-duties option is adopted: a user who submitted the request cannot confirm it where the setting applies, and can where it does not. |
+| AC-8 | A deployment result whose request cannot be resolved produces a refusal, not an allow. |
+| AC-9 | No predicate is a constant expression — asserted by exercising the refuse path of each endpoint, not by inspection. |
+
+---
+
+## 4. Test Approach
+
+### Unit tests
+
+Controller-level tests with a mocked privileges checker, requests source and claims reader:
+
+- Allow and refuse paths for each of the three endpoints — six cases minimum. **The refuse cases are the point**; the allow cases alone would have passed against the stubs.
+- Refusal returns 403 with a message body (AC-6). Worth writing this test first and watching it fail against the current code, to confirm it actually catches the `Forbid` defect.
+- Refused view does not reach storage — assert the storage worker is not invoked, rather than only asserting the response, so a future reordering that loads content before checking permission is caught.
+- Refused confirm does not update status — same reasoning.
+- Unresolvable request refuses (AC-8).
+- Self-approval refused where configured, permitted where not (AC-7), if R3 is adopted.
+
+### Integration
+
+Not required for this step. The logic is controller-level and the collaborators are already interfaces. The downstream apply path is unchanged by R7 and is covered by existing tests.
+
+---
+
+## 5. Decisions Required Before Implementation
+
+| # | Decision | Recommendation |
+|---|----------|----------------|
+| 1 | Does confirm require a distinct approver from the requester? | Yes, configurable, defaulting on for production-tier environments (R3). |
+| 2 | Is `CanReadSecrets` the right gate for plan content, or is it too strict? | `CanReadSecrets` (R2). If it proves too strict operationally, the correct response is a new read-level privilege, not weakening this one. |
+
+Both are user decisions, not implementer decisions. Neither blocks drafting; both block merge.
+
+---
+
+## 6. Accepted Risks
+
+- **Users who currently rely on unrestricted access will lose it.** That is the intent, but it will surface as support requests from people who were legitimately using a workflow that happened to be ungated. Worth an announcement ahead of release rather than after.
+- **`CanReadSecrets` may be held by fewer people than currently view plans.** See decision 2. The conservative gate is the right default for content that embeds secrets; loosening it later is easier to justify than tightening it after a disclosure.
+
+---
+
+## 7. Out of Scope
+
+- The API-process credential resolution behind `DaemonStatusProbe` — S-002 addresses the endpoint, S-021 the underlying duplication.
+- Any change to the Terraform dispatch path, source acquisition, or the plan blob's own retention — SD-9, S-007.
+- The broader inconsistency in how the API's controllers express authorization — the deferred sibling HLPS.
+- Plan blob storage permissions. This step controls the API's disclosure of plan content; the blob's own access control is a separate concern noted in W-12.
