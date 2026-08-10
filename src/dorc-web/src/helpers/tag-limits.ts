@@ -8,7 +8,7 @@
  * Longest a SINGLE tag may be — the width of deploy.DatabaseTag.Tag and
  * deploy.ServerTag.Tag, and what the API's [TagSet] validation enforces.
  */
-export const MAX_TAG_LENGTH = 200;
+export const MAX_TAG_LENGTH = 400;
 
 /**
  * Longest the DEPRECATED joined form may be. Applies only where a delimited

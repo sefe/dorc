@@ -15,6 +15,6 @@ namespace Dorc.ApiModel
         /// SINGLE tag now that tags are stored as rows. MaxTagStringLength above is
         /// the deprecated delimited column's width and goes with it.
         /// </summary>
-        public const int MaxTagLength = 200;
+        public const int MaxTagLength = 400;
     }
 }
