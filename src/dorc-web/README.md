@@ -89,6 +89,37 @@ dorc-web/
 - **`npm run type-checking`** - Run TypeScript type checking
 - **`npm run dorc-api-gen`** - Regenerate DOrc API client from swagger.json
 
+### TypeScript 6 and 7 side by side
+
+Type checking runs on **TypeScript 7** (the native compiler), but the `typescript`
+entry in `package.json` deliberately points at TypeScript 6:
+
+```json
+"@typescript/native": "npm:typescript@^7.0.2",
+"typescript": "npm:@typescript/typescript6@^6.0.2"
+```
+
+This is the layout Microsoft documents for running the two versions together, and
+both halves are load-bearing:
+
+- TypeScript 7 dropped the classic JavaScript compiler API — importing `typescript`
+  now yields only `{ version, versionMajorMinor }`. Every tool here that reads the
+  compiler API (`typescript-eslint`, `lit-analyzer`, `@rollup/plugin-typescript`)
+  resolves the bare `typescript` specifier, so that name has to keep resolving to a
+  package that still exposes the old API. `typescript-eslint` in particular hard-errors
+  on TypeScript 7 and will not support it before TypeScript 7.1
+  ([typescript-eslint#10940](https://github.com/typescript-eslint/typescript-eslint/issues/10940)).
+- The type checking itself goes through `npm run tsc:native`, which invokes the
+  TypeScript 7 binary by path rather than as a bare `tsc`. Both packages put a `tsc`
+  on `PATH` (TypeScript 6 via its transitive `@typescript/old`), and which one wins
+  `node_modules/.bin/tsc` depends on install order — so a bare `tsc` can silently
+  type-check with the wrong compiler. Invoking it by path removes that ambiguity.
+
+`npx tsc6` runs the TypeScript 6 compiler if you need it directly.
+
+When `typescript-eslint` gains TypeScript 7 support, both aliases can collapse back to
+a plain `"typescript"` dependency and `tsc:native` can go away.
+
 ### Build for Production
 
 This command uses Vite to build an optimized version of the application for production:

@@ -10,7 +10,7 @@
     "npm": ">=7.0.0"
   },
   "scripts": {
-    "build": "eslint && tsc && npm run typecheck:tests && vite build",
+    "build": "eslint && npm run tsc:native && npm run typecheck:tests && vite build",
     "buildLocal": "set NODE_OPTIONS=--openssl-legacy-provider && rimraf server/dist/ && rollup --config",
     "dorc-api-gen": "openapi-generator-cli generate -g typescript-rxjs -i .\\src\\apis\\dorc-api\\swagger.json -o .\\src\\apis\\dorc-api\\ --additional-properties=supportsES6=true,npmVersion=9.4.0,typescriptThreePlus=true --skip-validate-spec",
     "format": "prettier \"**/*.ts\" --write --ignore-path .gitignore",
@@ -20,8 +20,9 @@
     "start": "npm run serve",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck:tests": "tsc -p tsconfig.test.json",
-    "type-checking": "tsc --noEmit && npm run typecheck:tests && npm run lit:type-checking",
+    "tsc:native": "node node_modules/@typescript/native/bin/tsc",
+    "typecheck:tests": "npm run tsc:native -- -p tsconfig.test.json",
+    "type-checking": "npm run tsc:native -- --noEmit && npm run typecheck:tests && npm run lit:type-checking",
     "prepare": "husky"
   },
   "dependencies": {
@@ -75,6 +76,7 @@
     "@types/node": "^26.2.0",
     "@typescript-eslint/eslint-plugin": "^8.65.0",
     "@typescript-eslint/parser": "^8.65.0",
+    "@typescript/native": "npm:typescript@^7.0.2",
     "@vitest/browser": "^4.1.10",
     "@vitest/browser-playwright": "^4.1.5",
     "chai": "^6.2.2",
@@ -94,7 +96,7 @@
     "rollup": "^4.62.4",
     "rollup-plugin-copy": "^3.5.0",
     "stylelint": "^17.14.1",
-    "typescript": "^6.0.3",
+    "typescript": "npm:@typescript/typescript6@^6.0.2",
     "typescript-eslint": "^8.65.0",
     "vite": "^8.2.0",
     "vitest": "^4.1.8"
