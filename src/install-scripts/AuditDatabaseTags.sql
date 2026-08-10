@@ -18,13 +18,13 @@
 
  Report 1 — multi-tag rows: values containing ';' start matching per-tag (today
              they match nothing). Review each: intended tags, or accidental data?
- Report 2 — padded rows: values with leading/trailing/entry-adjacent whitespace.
-             The whole-value test compares DATALENGTH, not the values: '='/'<>'
-             pad the shorter operand, so a trailing space would compare equal and
-             the row would go unreported.
+ Report 2 — padded rows: values with leading/trailing/entry-adjacent whitespace
              stop matching the EF pattern until the one-time NormalizeDatabaseTags
              post-deploy script (shipped in the same dacpac) has run. Run this
              BEFORE deploying; afterwards it reports nothing by construction.
+             The whole-value test compares DATALENGTH rather than the values
+             themselves: '=' and '<>' pad the shorter operand, so a trailing
+             space would compare equal and the row would go unreported.
  Report 3 — per-environment tag collisions: two databases in one environment
              sharing a tag make GetDatabaseByTag-style resolution throw (kept
              behaviour) — fix the data or accept the throw before deploy.
