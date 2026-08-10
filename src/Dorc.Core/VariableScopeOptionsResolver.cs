@@ -97,7 +97,7 @@ namespace Dorc.Core
             var databasePermissions = databaseApiModels
                 .Select(GetDbPermission).ToArray();
 
-            // Per-tag grouping over the semicolon-separated Type list: a database
+            // Per-tag grouping over the semicolon-separated Tags list: a database
             // carrying several tags contributes to each tag's variables; a null/empty
             // Type contributes nothing (it used to throw here).
             var dbTags = databaseApiModels

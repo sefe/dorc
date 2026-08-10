@@ -157,7 +157,7 @@ export class AttachedServers extends ResponsiveMixin(LitElement) {
         ></vaadin-grid-column>
         <vaadin-grid-column
           .renderer="${this.tagsRenderer}"
-          header="Application Tags"
+          header="Tags"
           resizable
           ?hidden="${this._narrowScreen}"
         ></vaadin-grid-column>

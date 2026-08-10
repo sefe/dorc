@@ -79,7 +79,7 @@ export class AttachServer extends LitElement {
               <span style="color: var(--dorc-link-color)">${this.selectedServer?.OsName}</span>
             </h3>
             <h3 style="color: black">
-              Server Applications:
+              Server Tags:
               <span style="color: var(--dorc-link-color)"
                 >${this.selectedServer?.Tags}</span
               >

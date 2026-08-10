@@ -562,7 +562,7 @@ export class PageServersList extends ResponsiveMixin(PageElement) {
         ></vaadin-grid-sorter>
         <vaadin-text-field
           id="tags-search"
-          placeholder="Application Tags"
+          placeholder="Tags"
           clear-button-visible
           focus-target
           style="width: 200px"

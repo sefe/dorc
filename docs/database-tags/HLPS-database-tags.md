@@ -1,5 +1,11 @@
 # HLPS: Database Tags via the DB_Type Column
 
+> **Superseded in part by `docs/tag-schema-standardisation/`.** The tables and
+> columns quoted below (`dbo.DATABASE`, `DB_Type`, `dbo.SERVER`,
+> `Application_Server_Name`, `Array_Name`) were renamed when the reference-data
+> tables moved into the `deploy` schema. This document is kept as the decision
+> record it was; read it for the reasoning, not for current schema names.
+
 | Field       | Value                                    |
 |-------------|------------------------------------------|
 | **Status**  | **DELIVERED** 2026-07-17 (IS executed S-001..S-006; evidence in VERIFICATION-S-006.md; final gate in REVIEW-STEPS.md). Checkpoint resolutions: U-2 script shipped; U-4 relabelled; U-6 same PR #774; U-7 audit shipped |

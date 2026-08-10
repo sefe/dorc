@@ -19,73 +19,119 @@
  single sp_rename call is ever asked to distinguish two names a case-insensitive
  server considers identical.
 
+ Interruption safety. The two hops are not one operation, so each block runs in
+ a transaction under SET XACT_ABORT ON, and each has a second branch that
+ completes a half-finished rename. Without that branch an interruption between
+ the hops would strand the object under its staging name: the first guard tests
+ for the ORIGINAL name, so it would never fire again, and the next publish would
+ see the modelled table missing from the target and — with DropObjectsNotInSource
+ off — create a new empty one beside the stranded data.
+
  Each guard compares under Latin1_General_BIN2 so it matches on exact casing
- only: once an object is correctly cased the guard is false and the script is a
- no-op, which is what makes re-running it safe.
+ only: once an object is correctly cased both guards are false and the script is
+ a no-op, which is what makes re-running it safe.
 */
 
 -- ---------- deploy.DATABASE -> deploy.Database ----------
+SET XACT_ABORT ON;
+
 IF EXISTS (SELECT 1
            FROM sys.tables t
            JOIN sys.schemas s ON s.schema_id = t.schema_id
            WHERE s.name = 'deploy'
              AND t.name COLLATE Latin1_General_BIN2 = N'DATABASE' COLLATE Latin1_General_BIN2)
 BEGIN
+    BEGIN TRANSACTION;
     EXEC sp_rename N'[deploy].[DATABASE]', N'DatabaseCasingStage';
     EXEC sp_rename N'[deploy].[DatabaseCasingStage]', N'Database';
+    COMMIT TRANSACTION;
     PRINT 'Renamed deploy.DATABASE -> deploy.Database';
+END
+ELSE IF EXISTS (SELECT 1
+                FROM sys.tables t
+                JOIN sys.schemas s ON s.schema_id = t.schema_id
+                WHERE s.name = 'deploy'
+                  AND t.name COLLATE Latin1_General_BIN2 = N'DatabaseCasingStage' COLLATE Latin1_General_BIN2)
+BEGIN
+    EXEC sp_rename N'[deploy].[DatabaseCasingStage]', N'Database';
+    PRINT 'Completed an interrupted rename: deploy.DatabaseCasingStage -> deploy.Database';
 END
 GO
 
 -- ---------- deploy.SERVER -> deploy.Server ----------
+SET XACT_ABORT ON;
+
 IF EXISTS (SELECT 1
            FROM sys.tables t
            JOIN sys.schemas s ON s.schema_id = t.schema_id
            WHERE s.name = 'deploy'
              AND t.name COLLATE Latin1_General_BIN2 = N'SERVER' COLLATE Latin1_General_BIN2)
 BEGIN
+    BEGIN TRANSACTION;
     EXEC sp_rename N'[deploy].[SERVER]', N'ServerCasingStage';
     EXEC sp_rename N'[deploy].[ServerCasingStage]', N'Server';
+    COMMIT TRANSACTION;
     PRINT 'Renamed deploy.SERVER -> deploy.Server';
+END
+ELSE IF EXISTS (SELECT 1
+                FROM sys.tables t
+                JOIN sys.schemas s ON s.schema_id = t.schema_id
+                WHERE s.name = 'deploy'
+                  AND t.name COLLATE Latin1_General_BIN2 = N'ServerCasingStage' COLLATE Latin1_General_BIN2)
+BEGIN
+    EXEC sp_rename N'[deploy].[ServerCasingStage]', N'Server';
+    PRINT 'Completed an interrupted rename: deploy.ServerCasingStage -> deploy.Server';
 END
 GO
 
 -- ---------- PK_DATABASE -> PK_Database ----------
+SET XACT_ABORT ON;
+
 IF EXISTS (SELECT 1
            FROM sys.key_constraints k
            JOIN sys.schemas s ON s.schema_id = k.schema_id
            WHERE s.name = 'deploy'
              AND k.name COLLATE Latin1_General_BIN2 = N'PK_DATABASE' COLLATE Latin1_General_BIN2)
 BEGIN
+    BEGIN TRANSACTION;
     EXEC sp_rename N'[deploy].[PK_DATABASE]', N'PK_DatabaseCasingStage', N'OBJECT';
     EXEC sp_rename N'[deploy].[PK_DatabaseCasingStage]', N'PK_Database', N'OBJECT';
+    COMMIT TRANSACTION;
     PRINT 'Renamed deploy.PK_DATABASE -> PK_Database';
+END
+ELSE IF EXISTS (SELECT 1
+                FROM sys.key_constraints k
+                JOIN sys.schemas s ON s.schema_id = k.schema_id
+                WHERE s.name = 'deploy'
+                  AND k.name COLLATE Latin1_General_BIN2 = N'PK_DatabaseCasingStage' COLLATE Latin1_General_BIN2)
+BEGIN
+    EXEC sp_rename N'[deploy].[PK_DatabaseCasingStage]', N'PK_Database', N'OBJECT';
+    PRINT 'Completed an interrupted rename: PK_DatabaseCasingStage -> PK_Database';
 END
 GO
 
 -- ---------- PK_SERVER -> PK_Server ----------
+SET XACT_ABORT ON;
+
 IF EXISTS (SELECT 1
            FROM sys.key_constraints k
            JOIN sys.schemas s ON s.schema_id = k.schema_id
            WHERE s.name = 'deploy'
              AND k.name COLLATE Latin1_General_BIN2 = N'PK_SERVER' COLLATE Latin1_General_BIN2)
 BEGIN
+    BEGIN TRANSACTION;
     EXEC sp_rename N'[deploy].[PK_SERVER]', N'PK_ServerCasingStage', N'OBJECT';
     EXEC sp_rename N'[deploy].[PK_ServerCasingStage]', N'PK_Server', N'OBJECT';
+    COMMIT TRANSACTION;
     PRINT 'Renamed deploy.PK_SERVER -> PK_Server';
 END
-GO
-
--- ---------- Legacy IX_DATABASE_Group_ID -> IX_Database_GroupId ----------
--- Never part of the SSDT model (it exists only where it was created by hand), so
--- the diff will not touch it. Renamed here when present so the estate matches
--- what DatabaseEntityTypeConfiguration declares.
-IF EXISTS (SELECT 1
-           FROM sys.indexes i
-           WHERE i.object_id = OBJECT_ID(N'[deploy].[Database]')
-             AND i.name COLLATE Latin1_General_BIN2 = N'IX_DATABASE_Group_ID' COLLATE Latin1_General_BIN2)
+ELSE IF EXISTS (SELECT 1
+                FROM sys.key_constraints k
+                JOIN sys.schemas s ON s.schema_id = k.schema_id
+                WHERE s.name = 'deploy'
+                  AND k.name COLLATE Latin1_General_BIN2 = N'PK_ServerCasingStage' COLLATE Latin1_General_BIN2)
 BEGIN
-    EXEC sp_rename N'[deploy].[Database].[IX_DATABASE_Group_ID]', N'IX_Database_GroupId', N'INDEX';
-    PRINT 'Renamed index IX_DATABASE_Group_ID -> IX_Database_GroupId';
+    EXEC sp_rename N'[deploy].[PK_ServerCasingStage]', N'PK_Server', N'OBJECT';
+    PRINT 'Completed an interrupted rename: PK_ServerCasingStage -> PK_Server';
 END
 GO

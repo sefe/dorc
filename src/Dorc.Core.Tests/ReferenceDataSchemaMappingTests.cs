@@ -8,21 +8,27 @@ using Microsoft.EntityFrameworkCore.Metadata;
 namespace Dorc.Core.Tests
 {
     /// <summary>
-    /// Pins how the two reference-data entities map to the database: the deploy
-    /// schema and the standard column names they moved to
-    /// (docs/tag-schema-standardisation), and the tag-column widths
-    /// (docs/tag-capacity-expansion, IS S-002). Everything else in the Database
-    /// configuration must stay at its current width.
+    /// Pins where the two reference-data entities live and what their columns are
+    /// called (docs/tag-schema-standardisation), plus the tag-column widths
+    /// (docs/tag-capacity-expansion, IS S-002).
     ///
     /// EF and the SSDT project are two independent descriptions of the same tables,
-    /// so a disagreement between them only ever surfaces at runtime against a real
-    /// database. These assertions turn that into a build-time failure.
+    /// so a disagreement between them only surfaces at runtime against a real
+    /// database. These assertions turn one class of disagreement — schema, table and
+    /// column NAMES, plus the two tag widths — into a build-time failure.
+    ///
+    /// Deliberately NOT asserted, because EF and SSDT already disagree and
+    /// reconciling them is separate work: the non-tag max lengths (EF says 50/32
+    /// where the columns are NVARCHAR(250)) and the uniqueness and filter on
+    /// IX_Database_ServerName_Name (EF declares both, the table declares neither).
+    /// The project uses SSDT rather than EF migrations, so the SSDT side is
+    /// authoritative and these divergences are latent rather than active.
     ///
     /// Builds the model offline — the constructor's EnsureCreated call is skipped by
     /// pre-setting its private static once-flag, so no database is touched.
     /// </summary>
     [TestClass]
-    public class DeploymentContextTagMappingTests
+    public class ReferenceDataSchemaMappingTests
     {
         private static DeploymentContext CreateContextWithoutEnsureCreated()
         {

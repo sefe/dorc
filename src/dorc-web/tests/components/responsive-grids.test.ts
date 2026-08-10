@@ -305,8 +305,8 @@ describe('Responsive grid column hiding (rendered)', () => {
         (sr.querySelector('vaadin-grid-column[path="OsName"]') as HTMLElement).hidden
       ).to.equal(true, 'OsName should be hidden');
       expect(
-        (sr.querySelector('vaadin-grid-column[header="Application Tags"]') as HTMLElement).hidden
-      ).to.equal(true, 'Application Tags should be hidden');
+        (sr.querySelector('vaadin-grid-column[header="Tags"]') as HTMLElement).hidden
+      ).to.equal(true, 'Tags should be hidden');
     });
   });
 

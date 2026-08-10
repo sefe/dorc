@@ -52,7 +52,7 @@ namespace Dorc.Api.Tests.Controllers
             var result = controller.GetByTag("Endur DV 10", tag);
 
             Assert.IsInstanceOfType(result, typeof(BadRequestObjectResult));
-            StringAssert.Contains((string)((BadRequestObjectResult)result).Value!, "tag");
+            StringAssert.Contains((string)((BadRequestObjectResult)result).Value!, "'tag'");
             source.DidNotReceiveWithAnyArgs().GetDatabaseByTag(default(string), default);
         }
 
@@ -78,7 +78,7 @@ namespace Dorc.Api.Tests.Controllers
             var result = controller.GetDbUsersPermissions("s1", "db1", tag);
 
             Assert.IsInstanceOfType(result, typeof(BadRequestObjectResult));
-            StringAssert.Contains((string)((BadRequestObjectResult)result).Value!, "tag");
+            StringAssert.Contains((string)((BadRequestObjectResult)result).Value!, "'tag'");
             source.DidNotReceiveWithAnyArgs().GetUserDbPermissions(default!, default!, default);
         }
 

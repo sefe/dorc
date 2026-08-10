@@ -28,7 +28,7 @@ import { MAX_TAG_STRING_LENGTH } from '../../src/helpers/tag-limits';
 // tag-set-overlap warning, and env-control-center ThinClient tag membership.
 
 describe('add-edit-database tag editing', () => {
-  it('round-trips chips from a semicolon-separated Type', async () => {
+  it('round-trips chips from a semicolon-separated Tags value', async () => {
     const el = await fixture<AddEditDatabase>(html`<add-edit-database></add-edit-database>`);
     el.database = { Id: 5, Name: 'D1', ServerName: 'S1', Tags: 'b;a', ArrayName: '' };
     await el.updateComplete;

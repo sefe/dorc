@@ -127,7 +127,7 @@ namespace Dorc.Api.Tests.Sources
                 users.Select(u => u.LanId).ToArray());
         }
 
-        // ---- Site 3: permissions dbType filter ----
+        // ---- Site 3: permissions tag filter ----
 
         private static UserPermsPersistentSource PermsSourceWithOneMultiTagDb(out IDeploymentContext context)
         {
@@ -154,9 +154,9 @@ namespace Dorc.Api.Tests.Sources
         }
 
         [TestMethod]
-        public void GetUserDbPermissions_OmittedDbType_AppliesNoFilter()
+        public void GetUserDbPermissions_OmittedTag_AppliesNoFilter()
         {
-            // Kept behaviour: an omitted optional dbType means "no filter" (IS S-004
+            // Kept behaviour: an omitted optional tag means "no filter" (IS S-004
             // reconciliation — S-003/S-004 must NOT change this).
             var source = PermsSourceWithOneMultiTagDb(out _);
             Assert.AreEqual(1, source.GetUserDbPermissions("s1", "db1").Count);

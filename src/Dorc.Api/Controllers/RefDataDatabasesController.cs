@@ -77,7 +77,7 @@ namespace Dorc.Api.Controllers
         ///     Return database details by environment name and database tag
         /// </summary>
         /// <param name="envName">Environment name</param>
-        /// <param name="type">A single database tag (e.g. "Endur") — matches any one entry of the database's semicolon-separated tag list</param>
+        /// <param name="tag">A single database tag (e.g. "Endur") — matches any one entry of the database's semicolon-separated tag list</param>
         /// <returns></returns>
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(DatabaseApiModel))]
         [SwaggerResponse(StatusCodes.Status400BadRequest, Type = typeof(string))]

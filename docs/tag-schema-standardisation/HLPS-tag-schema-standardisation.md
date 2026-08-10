@@ -2,7 +2,7 @@
 
 | Field       | Value                                                              |
 |-------------|--------------------------------------------------------------------|
-| **Status**  | **DRAFT** — pending adversarial panel                              |
+| **Status**  | **AS-BUILT** — written after implementation, not before it. See "Process deviation" below. Panel round 1 complete (REVIEW-round1.md); revised accordingly |
 | **Author**  | Agent                                                              |
 | **Date**    | 2026-08-10                                                         |
 | **Folder**  | docs/tag-schema-standardisation/                                   |
@@ -97,8 +97,8 @@ this out of band, and PR #774 added new code that had to be told it too.
 | SC-1 | The generated deployment script moves and renames rather than dropping and recreating | `sqlpackage /a:Script` new dacpac vs. a dacpac built from `main`; inspect for `ALTER SCHEMA TRANSFER`, `sp_rename`, and the absence of any unguarded `DROP TABLE` |
 | SC-2 | Redeploying the same dacpac is a no-op | Script new dacpac against itself; zero schema-change statements |
 | SC-3 | The dacpac model is internally consistent | `dotnet build` of the sqlproj resolves every cross-object reference (SQL71501 would fail the build) |
-| SC-4 | EF and the SSDT project agree | `DeploymentContextTagMappingTests` asserts schema, table name and column-name-equals-property-name for both entities |
-| SC-5 | No occurrence of the old names survives | Repository-wide search for `DB_Type`, `Application_Server_Name`, `ApplicationTags`, `DbType`, `GetDatabaseByType` |
+| SC-4 | EF and the SSDT project agree on names | `ReferenceDataSchemaMappingTests` asserts schema, table name and column-name-equals-property-name for both entities. Scoped to names: EF and SSDT still disagree on the non-tag max lengths and on the uniqueness/filter of `IX_Database_ServerName_Name`, which is pre-existing and left alone (SSDT is authoritative — the project uses no EF migrations) |
+| SC-5 | No occurrence of the old names survives | Repository-wide search, **unpaginated**, for `DB_Type`, `Application_Server_Name`, `ApplicationTags`, `DbType`, `ApplicationServerName`, `GetDatabaseByType`, `ByType` and the `type` / `dbType` query keys. The first five were the original list; the last three are the ones that were actually missed, and the search was truncated by a `head` limit that hid the hit — hence "unpaginated" |
 | SC-6 | Behaviour is unchanged | The PR #774 test suites pass unmodified except for the renames |
 
 ## 5. Unknowns Register
@@ -108,12 +108,27 @@ this out of band, and PR #774 added new code that had to be told it too.
 | U-1 | Does `MSBuild.Sdk.SqlProj` 4.2.0 honour the refactorlog? | **RESOLVED** | Yes. `Dorc.Database.sqlproj` already declares `<RefactorLog Include="Dorc.Database.refactorlog" />` and the build passes `--refactorlog` to DacpacTool. Confirmed in the generated script, which emits the recorded operations. |
 | U-2 | What XML shape does DacFx expect for a schema move? | **RESOLVED** | `Operation Name="Move Schema"` with `ElementName` / `ElementType` / `NewSchema` / `IsNewSchemaExternal`. Verified empirically — the generated script contains `ALTER SCHEMA [deploy] TRANSFER [dbo].[DATABASE]`. |
 | U-3 | Will DacFx emit the table rename `DATABASE` → `Database`? | **RESOLVED — NO** | Under the case-insensitive model collation DacFx reports "Rename refactoring operation … is skipped … will not be renamed". Chaining through a staging name does not help; DacFx collapses the chain. Handled by a guarded post-deployment script instead (see §6). |
-| U-4 | Does the table rebuild preserve identity values? | **RESOLVED** | Yes. The generated script wraps the swap in a serialisable transaction and copies rows under `SET IDENTITY_INSERT … ON` ordered by `Id`. |
+| U-4 | Does the table rebuild preserve identity values? | **RESOLVED — the values yes, the counter no** | The generated script wraps the swap in a serialisable transaction and copies rows under `SET IDENTITY_INSERT … ON` ordered by `Id`, so every surviving row keeps its `Id`. But it never reseeds, so the identity *counter* falls back to `MAX(Id)` — lower than its real value whenever the highest-numbered databases have since been deleted, and back to the seed outright if the table is empty. Those `Id`s then get handed out twice, and `deploy.DatabaseAudit.DatabaseId` has no foreign key, so a deleted database's audit history silently re-attaches to whichever database next takes its `Id`. Found by the panel. Closed by `StashDatabaseIdentityValue.sql` / `RestoreDatabaseIdentityValue.sql`. |
 | U-5 | Is renaming the public API surface acceptable? | **RESOLVED — user decision** | The user chose `Tags` everywhere in full knowledge that `DatabaseApiModel.Type`, `ServerApiModel.ApplicationTags` and `UserDbPermissionApiModel.DbType` are public fields. See §7. |
-| U-6 | Are there in-repo consumers of the `ByType` route or the `usp_Insert_*` parameter names? | **RESOLVED — none** | Repository search finds only tests. External consumers are covered by §7. |
+| U-6 | Are there in-repo consumers of the `ByType` route or the `usp_Insert_*` parameter names? | **RESOLVED — yes, one, and it was initially missed** | `Tools.PostRestoreEndurCLI` calls the route through `ApiCaller`'s literal path map (`Dorc.Core/ApiCaller.cs`), with `type` as the query key. This HLPS first recorded "none" on the strength of a search whose output was truncated before the hit; the panel caught it. Repointed, and `ApiCallerEndpointRouteTests` now fails the build if the map and the routes diverge. |
 | U-7 | Can the change be executed against a real database here? | **OPEN — accepted** | C-3. Offline script generation (SC-1, SC-2) plus line-by-line review stands in for execution. The generated script should be reviewed before the production publish. **Not blocking**: it constrains confidence, not correctness of the design. |
+| U-8 | Does the production publish profile set `IncludeTransactionalScripts` and `BlockOnPossibleDataLoss`? | **OPEN — needs an answer before rollout** | `install-scripts/RunDeployment.ps1` passes an external profile (`$settings.DACPACPublishProfile`) that is not in this repository, so it cannot be checked here. The acceptance harness sets `IncludeTransactionalScripts = true`; production is unverified. It matters because the five FK drops precede the table rebuild in separate committed batches — if the rebuild aborts, referential integrity is missing until a re-publish. Recoverable (a re-publish resumes cleanly, verified against a synthetic half-migrated model), but a wider window than it needs to be. |
+| U-9 | Should `deploy.Database.Name` / `deploy.Server.Name` become `NOT NULL`? | **RESOLVED — deliberately not now** | The comparable deploy tables (`Project`, `Environment`, `Component`, `Daemon`) all have `Name NOT NULL`, so the convention points that way. Doing it here would mean a data-quality gate and a backfill for existing NULL rows, which is a behaviour change on top of a migration whose whole value is that it changes no behaviour. Recorded as follow-up rather than done silently. |
 
-No blocking unknowns.
+No blocking unknowns. U-8 is open but belongs to rollout, not to the design.
+
+## 5a. Process deviation
+
+CLAUDE.md sequences HLPS → IS → JIT specs with approval checkpoints before
+implementation. That is not what happened here: the user gave the two scope
+decisions directly, the implementation was written, and these documents were
+written afterwards. They are therefore an **as-built record**, not a plan that
+gated the work, and the §S-001/§S-002 "Sequence" headings in the IS describe what
+was done rather than what was authorised. The adversarial panel did run, on the
+finished diff, and its findings are recorded in REVIEW-round1.md.
+
+Flagged rather than quietly presented as process-conformant, because the panel
+was right that the document framing implied otherwise.
 
 ## 6. Design Positions
 
@@ -133,6 +148,17 @@ both tables and both primary keys where the physical casing is still legacy. Eac
 compares under `Latin1_General_BIN2` so it matches on exact casing only and is a no-op
 once correct; each rename goes via a staging name differing by more than case, so no
 single `sp_rename` is asked to distinguish two names the server considers identical.
+
+**P-2a — the `GroupId` index has to be modelled, not renamed in place.** The rebuild
+constructs the replacement table from the model alone and drops the original, so any
+index that exists only in the estate dies with it. `IX_DATABASE_Group_ID` was in exactly
+that position — declared by `DatabaseEntityTypeConfiguration`, never in the SSDT project
+— and an earlier draft tried to rename it from the post-deployment script, which could
+never have run because the index was already gone by then. It is declared in
+`deploy/Tables/Database.sql` instead, so the rebuild creates it. The same reasoning
+applies to anything else unmodelled on these tables: triggers, extended properties and
+hand-made indexes do not survive a rebuild, so the estate should be checked for them
+before rollout.
 
 **P-3 — constraint and index names move to the convention too.** `PK_Database`,
 `FK_Database_AdGroup`, `IX_Database_ServerName_Name`, `PK_Server`,

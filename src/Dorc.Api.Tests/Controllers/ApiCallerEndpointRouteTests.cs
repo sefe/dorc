@@ -14,6 +14,13 @@ namespace Dorc.Api.Tests.Controllers
     ///
     /// These assertions close that gap: every mapped path must resolve to a real
     /// controller, and any sub-path must resolve to a real action route on it.
+    ///
+    /// Path-only. The other half of the same coupling — the query-key names callers
+    /// build their dictionaries from, e.g. RefreshEndur's { "tag", "Endur" } against
+    /// GetByTag(string tag) — is not checked here, because the keys are string
+    /// literals at each call site rather than anything this test can enumerate. A
+    /// mismatch there fails as a 400 rather than a 404, so it is quieter still;
+    /// closing it properly means giving ApiCaller a typed request surface.
     /// </summary>
     [TestClass]
     public class ApiCallerEndpointRouteTests

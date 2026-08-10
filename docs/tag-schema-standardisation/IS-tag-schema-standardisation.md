@@ -2,7 +2,7 @@
 
 | Field       | Value                                                    |
 |-------------|----------------------------------------------------------|
-| **Status**  | **DRAFT** — pending adversarial panel                    |
+| **Status**  | **AS-BUILT** — see HLPS §5a. Panel round 1 in REVIEW-round1.md |
 | **HLPS**    | HLPS-tag-schema-standardisation.md                       |
 | **Date**    | 2026-08-10                                               |
 
@@ -42,13 +42,22 @@ and constraint names, holding the rows that were in `dbo.DATABASE` and `dbo.SERV
 
 **Verification (HLPS SC-1..SC-3).** Build a dacpac from `main` and one from the branch;
 `sqlpackage /a:Script` the second against the first with `BlockOnPossibleDataLoss=True`
-and read the result. Then script the new dacpac against itself and confirm no schema
-changes. Neither needs a database.
+and read the result. Then script the new dacpac against itself, and against an empty
+model, and confirm each is what it should be. None of it needs a database.
 
-**Exit.** The generated script transfers both tables, renames every column, rebuilds
-`deploy.Database` with an `IDENTITY_INSERT` row copy inside a serialisable transaction,
-recreates the five foreign keys under their new names, and contains no unguarded
-`DROP TABLE`. Re-scripting yields nothing.
+Reproducing it needs the sqlproj to build, which on a non-Windows machine it did not:
+the pre/post-deployment `:r` includes used `.\`, and DacpacTool takes that literally.
+Changed to `./`, which SQLCMD accepts on both. SC-3 — the SQL71501 cross-object check,
+and the only automated guard that no SSDT object still points at the old tables — is
+now reproducible by anyone.
+
+**Exit.** Three scripts, all read and all as intended:
+
+| Target | Expectation | Result |
+|---|---|---|
+| dacpac built from `main` (the production upgrade) | transfer + rename + rebuild, no unguarded `DROP TABLE` | 2 `ALTER SCHEMA TRANSFER`, 10 column `sp_rename`, `IDENTITY_INSERT` row copy in a serialisable transaction, 5 FKs recreated under their new names, `IX_Database_GroupId` created, one `DROP TABLE` — the rebuild swap, after the copy |
+| the same dacpac against itself | no-op | zero schema-change statements |
+| an empty model (fresh database) | plain creation, no refactor operations | zero transfers, zero column renames, both tables created |
 
 ---
 

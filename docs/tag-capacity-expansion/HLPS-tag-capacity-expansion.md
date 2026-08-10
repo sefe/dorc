@@ -1,5 +1,11 @@
 # HLPS: Server Tag Capacity Expansion
 
+> **Superseded in part by `docs/tag-schema-standardisation/`.** The tables and
+> columns quoted below (`dbo.DATABASE`, `DB_Type`, `dbo.SERVER`,
+> `Application_Server_Name`, `Array_Name`) were renamed when the reference-data
+> tables moved into the `deploy` schema. This document is kept as the decision
+> record it was; read it for the reasoning, not for current schema names.
+
 | Field       | Value                                    |
 |-------------|------------------------------------------|
 | **Status**  | **DELIVERED (CORRECTED — server tags only)** 2026-07-17; database scope reverted, see Correction below |

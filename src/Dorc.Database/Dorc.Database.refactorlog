@@ -47,35 +47,23 @@
     the generated CREATE TABLE would collide with whatever a pre-deploy rename had
     already produced.
 
-    Order matters: move the schema first, then rename the table, then the columns,
-    so each ElementName below names the object as the preceding operations left it.
+    Order matters: the schema move comes first, and each column rename below names
+    its parent as the move left it — [deploy].[DATABASE], not [dbo].[DATABASE].
 
-    The table rename goes via a *RenameStage staging name because the model collation
-    is case-insensitive (1033,CI): DacFx compares DATABASE to Database, finds them
-    equal and skips a direct rename outright, leaving the physical table with its
-    legacy upper-case name. Two hops through a name that differs by more than case
-    are each a genuine change, so both are emitted. The staging name never survives
-    the deployment script.
+    There is deliberately no table-rename operation here. The model collation is
+    case-insensitive (1033,CI), so DacFx compares DATABASE to Database, finds them
+    equal and discards the rename; chaining it through a staging name does not help
+    either, because DacFx collapses the chain before emitting anything. Recording
+    such an operation anyway would only write a dead key into dbo.__RefactorLog,
+    permanently marking as applied something that never ran. Table and primary-key
+    casing is handled instead by
+    Scripts/Post-Deployment/ApplyDeployCasingToRefDataTables.sql.
   -->
   <Operation Name="Move Schema" Key="6d26fd55-8f83-42ff-8e17-726da1a5eb9f" ChangeDateTime="08/10/2026 09:00:00">
     <Property Name="ElementName" Value="[dbo].[DATABASE]" />
     <Property Name="ElementType" Value="SqlTable" />
     <Property Name="NewSchema" Value="deploy" />
     <Property Name="IsNewSchemaExternal" Value="False" />
-  </Operation>
-  <Operation Name="Rename Refactor" Key="fa64201f-bc19-4d98-9a8e-f186d669e978" ChangeDateTime="08/10/2026 09:00:01">
-    <Property Name="ElementName" Value="[deploy].[DATABASE]" />
-    <Property Name="ElementType" Value="SqlTable" />
-    <Property Name="ParentElementName" Value="[deploy]" />
-    <Property Name="ParentElementType" Value="SqlSchema" />
-    <Property Name="NewName" Value="DatabaseRenameStage" />
-  </Operation>
-  <Operation Name="Rename Refactor" Key="b1f0c4a2-6d3e-4c07-9f21-0a7e5b6c8d11" ChangeDateTime="08/10/2026 09:00:01">
-    <Property Name="ElementName" Value="[deploy].[DatabaseRenameStage]" />
-    <Property Name="ElementType" Value="SqlTable" />
-    <Property Name="ParentElementName" Value="[deploy]" />
-    <Property Name="ParentElementType" Value="SqlSchema" />
-    <Property Name="NewName" Value="Database" />
   </Operation>
   <Operation Name="Rename Refactor" Key="3694aba9-4e94-4e86-aae5-52fdb45ca634" ChangeDateTime="08/10/2026 09:00:02">
     <Property Name="ElementName" Value="[deploy].[Database].[DB_ID]" />
@@ -124,20 +112,6 @@
     <Property Name="ElementType" Value="SqlTable" />
     <Property Name="NewSchema" Value="deploy" />
     <Property Name="IsNewSchemaExternal" Value="False" />
-  </Operation>
-  <Operation Name="Rename Refactor" Key="17df5025-289e-43ef-a57f-bfc8c92adcc2" ChangeDateTime="08/10/2026 09:00:09">
-    <Property Name="ElementName" Value="[deploy].[SERVER]" />
-    <Property Name="ElementType" Value="SqlTable" />
-    <Property Name="ParentElementName" Value="[deploy]" />
-    <Property Name="ParentElementType" Value="SqlSchema" />
-    <Property Name="NewName" Value="ServerRenameStage" />
-  </Operation>
-  <Operation Name="Rename Refactor" Key="c39a7e58-2b41-4d6a-8e05-3f9c1d2a4b77" ChangeDateTime="08/10/2026 09:00:09">
-    <Property Name="ElementName" Value="[deploy].[ServerRenameStage]" />
-    <Property Name="ElementType" Value="SqlTable" />
-    <Property Name="ParentElementName" Value="[deploy]" />
-    <Property Name="ParentElementType" Value="SqlSchema" />
-    <Property Name="NewName" Value="Server" />
   </Operation>
   <Operation Name="Rename Refactor" Key="94b5c322-f38c-49cf-905a-4ce6c764aa5c" ChangeDateTime="08/10/2026 09:00:10">
     <Property Name="ElementName" Value="[deploy].[Server].[Server_ID]" />

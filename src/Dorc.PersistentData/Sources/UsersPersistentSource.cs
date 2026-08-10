@@ -53,7 +53,7 @@ namespace Dorc.PersistentData.Sources
                 {
                     case UserAccountType.Endur:
                         {
-                            // Tag membership over the semicolon-separated Type list —
+                            // Tag membership over the semicolon-separated Tags list —
                             // the EF-translatable delimiter-wrap pattern (DatabaseTagMatch).
                             var result = from user in context.Users
                                          from eu in context.EnvironmentUsers

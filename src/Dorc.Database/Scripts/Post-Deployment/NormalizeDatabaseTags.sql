@@ -14,7 +14,8 @@
  a regression, and converge the next time the application rewrites the row
  (TagString.Normalize trims all .NET whitespace).
 
- Idempotent: an already-normalized value re-normalizes to itself and is skipped.
+ Idempotent: an already-normalized value re-normalizes to itself and is skipped,
+ and rows that cannot need work are filtered out before the cursor opens.
  Compat-100-safe: no STRING_SPLIT (unavailable below 130); manual CHARINDEX walk.
 */
 DECLARE @DbId INT, @Raw NVARCHAR(4000);
@@ -24,7 +25,11 @@ DECLARE @Pos INT;
 DECLARE TagRows CURSOR LOCAL FAST_FORWARD FOR
     SELECT [Id], [Tags]
     FROM [deploy].[Database]
-    WHERE [Tags] IS NOT NULL;
+    -- Only rows that could possibly need work. A value with no whitespace and no
+    -- delimiter already normalizes to itself, so skipping it here costs nothing and
+    -- keeps this cursor from re-walking the whole table on every future publish.
+    WHERE [Tags] IS NOT NULL
+      AND ([Tags] LIKE '%;%' OR [Tags] <> LTRIM(RTRIM([Tags])));
 
 OPEN TagRows;
 FETCH NEXT FROM TagRows INTO @DbId, @Raw;

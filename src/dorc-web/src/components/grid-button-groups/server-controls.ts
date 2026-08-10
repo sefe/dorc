@@ -63,7 +63,7 @@ export class ServerControls extends LitElement {
       </vaadin-button>
 
       <vaadin-button
-        title="Edit Application Tags"
+        title="Edit Tags"
         theme="icon"
         @click="${this.manage}"
         ?disabled="${this.readonly}"
