@@ -211,7 +211,28 @@ static void ConfigureOAuth(WebApplicationBuilder builder, IConfigurationSettings
         options.AddPolicy(apiScopeAuthorizationPolicy, policy =>
         {
             policy.RequireAuthenticatedUser();
-            policy.RequireClaim("scope", dorcApiGlobalScope);
+
+            // The scope requirement applies to bearer-token requests only. In combined
+            // OAuth+WinAuth mode a Windows-authenticated principal carries no scope claim,
+            // so requiring one unconditionally would deny every Windows user. The
+            // discriminator is the same one the authentication forwarder uses
+            // (HttpContext.GetAuthenticationScheme), so the policy cannot diverge from the
+            // scheme that actually authenticated the request. A request that cannot be
+            // inspected falls back to requiring the scope, so the failure direction is
+            // refusal rather than admission.
+            //
+            // In OAuth-only mode every request is bearer, so this is equivalent to the
+            // RequireClaim it replaces.
+            policy.RequireAssertion(context =>
+            {
+                if (context.Resource is HttpContext httpContext &&
+                    httpContext.GetAuthenticationScheme() != JwtBearerDefaults.AuthenticationScheme)
+                {
+                    return true;
+                }
+
+                return context.User.HasClaim("scope", dorcApiGlobalScope);
+            });
         });
     });
 }
@@ -438,9 +459,13 @@ app.UseAuthorization();
 app.UseMiddleware<WinAuthLoggingMiddleware>();
 
 var endpointConventionBuilder = app.MapControllers();
-if (authenticationScheme is ConfigAuthScheme.OAuth)
+// Enforce Authorization Policy [see constant 'apiScopeAuthorizationPolicy'] on all the
+// Controllers. This must cover ConfigAuthScheme.Both as well as OAuth: Both is the distinct
+// string "OAuth+WinAuth", so an exact match against OAuth alone silently skipped the policy
+// and left bearer tokens unchecked for scope in combined mode. The policy itself exempts
+// Windows-authenticated requests, so applying it in Both mode does not deny them.
+if (authenticationScheme is ConfigAuthScheme.OAuth or ConfigAuthScheme.Both)
 {
-    // Enforce Authorization Policy [see constant 'apiScopeAuthorizationPolicy'] to all the Controllers
     endpointConventionBuilder.RequireAuthorization(apiScopeAuthorizationPolicy);
 }
 
