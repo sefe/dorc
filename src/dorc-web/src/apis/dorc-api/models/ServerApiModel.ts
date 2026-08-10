@@ -32,12 +32,12 @@ export interface ServerApiModel {
      */
     ServerId?: number;
     /**
-     * @type {Array<string>}
+     * @type {string}
      * @memberof ServerApiModel
      */
     Name?: string | null;
     /**
-     * @type {Array<string>}
+     * @type {string}
      * @memberof ServerApiModel
      */
     OsName?: string | null;

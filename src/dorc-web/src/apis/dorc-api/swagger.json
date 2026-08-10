@@ -1262,6 +1262,86 @@
         }
       }
     },
+    "/DaemonStatus/discover/{envName}": {
+      "get": {
+        "tags": [
+          "DaemonStatus"
+        ],
+        "summary": "Discover all daemons on environment servers and automatically create daemon-server mappings",
+        "parameters": [
+          {
+            "name": "envName",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscoverDaemonsResult"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscoverDaemonsResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/DaemonStatus/{envName}": {
       "get": {
         "tags": [
@@ -10457,6 +10537,42 @@
           "ErrorMessage": {
             "type": "string",
             "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "DiscoverDaemonsResult": {
+        "type": "object",
+        "properties": {
+          "MappingsCreated": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "ServersProcessed": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "DaemonsDiscovered": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "Errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "Success": {
+            "type": "boolean"
+          },
+          "DiscoveredDaemons": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DaemonStatusApiModel"
+            },
+            "nullable": true,
+            "description": "List of discovered daemon statuses to display in UI"
           }
         },
         "additionalProperties": false

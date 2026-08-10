@@ -40,10 +40,20 @@ namespace Tests.Acceptance.Support
         public int CreateDatabase(string databaseName, string serverName, string tags, string adGroup)
         {
             using (SqlConnection sqlConnection = new SqlConnection(this.connectionString))
+            // Writes the tag ROWS as well as the deprecated delimited column. Writing
+            // only the column would make every fixture built here read back with no
+            // tags, because the API now sources them from deploy.DatabaseTag — and the
+            // next dacpac publish would silently resurrect them from the column.
+            // deploy.SplitTagString is the same splitter the migration uses, so the
+            // fixture and the estate agree on the delimiter rules.
             using (SqlCommand insertCommand = new SqlCommand(
+                "DECLARE @newIds TABLE ([Id] INT); " +
                 "INSERT INTO [deploy].[Database] ([Name], [Tags], [ServerName], [GroupId]) " +
-                "OUTPUT INSERTED.[Id] " +
-                "VALUES (@dbName, @tags, @serverName, (SELECT Group_ID FROM [dbo].[AD_GROUP] WHERE Display_Name = @adGroup));", sqlConnection))
+                "OUTPUT INSERTED.[Id] INTO @newIds " +
+                "VALUES (@dbName, @tags, @serverName, (SELECT Group_ID FROM [dbo].[AD_GROUP] WHERE Display_Name = @adGroup)); " +
+                "INSERT INTO [deploy].[DatabaseTag] ([DatabaseId], [Tag]) " +
+                "SELECT n.[Id], t.Tag FROM @newIds n CROSS APPLY [deploy].[SplitTagString](@tags) t; " +
+                "SELECT [Id] FROM @newIds;", sqlConnection))
             {
                 SqlParameter dbNameParameter = new SqlParameter("@dbName", SqlDbType.NVarChar, 250);
                 dbNameParameter.Value = databaseName;

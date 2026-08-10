@@ -65,6 +65,22 @@ namespace Dorc.Api.Tests.Controllers
             var result = controller.GetByTag("Endur DV 10", "Endur");
 
             Assert.IsInstanceOfType(result, typeof(OkObjectResult));
+            source.Received(1).GetDatabaseByTag("Endur DV 10", "Endur");
+        }
+
+        [TestMethod]
+        public void GetByTag_TrimsTheNeedleAtTheBoundary()
+        {
+            // The trim has to happen here, once, so every layer below sees the same
+            // needle. Asserting only the status code would pass with the trim deleted,
+            // and the untrimmed needle would then miss a tag stored without padding.
+            var (controller, source) = DatabasesController();
+            source.GetDatabaseByTag("Endur DV 10", "Endur").Returns(new DatabaseApiModel { Name = "D1" });
+
+            var result = controller.GetByTag("Endur DV 10", "  Endur  ");
+
+            Assert.IsInstanceOfType(result, typeof(OkObjectResult));
+            source.Received(1).GetDatabaseByTag("Endur DV 10", "Endur");
         }
 
         [DataTestMethod]

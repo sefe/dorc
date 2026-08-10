@@ -27,7 +27,7 @@ export interface DatabaseApiModel {
      */
     UserEditable?: boolean;
     /**
-     * @type {Array<string>}
+     * @type {string}
      * @memberof DatabaseApiModel
      */
     Name?: string | null;
@@ -37,12 +37,12 @@ export interface DatabaseApiModel {
      */
     Tags?: Array<string> | null;
     /**
-     * @type {Array<string>}
+     * @type {string}
      * @memberof DatabaseApiModel
      */
     ServerName?: string | null;
     /**
-     * @type {Array<string>}
+     * @type {string}
      * @memberof DatabaseApiModel
      */
     AdGroup?: string | null;
@@ -52,7 +52,7 @@ export interface DatabaseApiModel {
      */
     Id?: number;
     /**
-     * @type {Array<string>}
+     * @type {string}
      * @memberof DatabaseApiModel
      */
     ArrayName?: string | null;

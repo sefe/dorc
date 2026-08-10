@@ -98,6 +98,25 @@ jobs:
           --logger "trx;LogFileName=database-acceptance.trx"
           --results-directory TestResults
 
+      # The filter selecting nothing is not a failure to dotnet test — it prints
+      # "No test matches the given testcase filter" and exits 0. That would put the
+      # job straight back to the state it exists to prevent: a schema migration
+      # reaching production having never been executed. Rename the category, move
+      # the tests, and this is the step that notices.
+      - name: Assert the migration tests actually ran
+        run: |
+          trx=$(find TestResults -name '*.trx' | head -1)
+          if [ -z "$trx" ]; then
+            echo "::error::No .trx produced - the test run did not happen."
+            exit 1
+          fi
+          executed=$(sed -n 's/.*<Counters[^>]*executed="\([0-9]*\)".*/\1/p' "$trx" | head -1)
+          echo "Executed tests: ${executed:-unknown}"
+          if [ -z "$executed" ] || [ "$executed" -lt 1 ]; then
+            echo "::error::The TestCategory=Database filter selected no tests."
+            exit 1
+          fi
+
       # Same reporter as release.yml and kafka-integration.yml, so all three
       # pipelines report identically. fail-on-error is off because the test step
       # above already fails the job; this step only reports.

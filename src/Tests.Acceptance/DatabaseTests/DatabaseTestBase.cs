@@ -189,9 +189,19 @@ namespace Tests.Acceptance.DatabaseTests
             var sqlDir = new DirectoryInfo(Path.Join(dir.FullName, "Dorc.Database", "sql"));
             if (sqlDir.Exists)
             {
-                var candidate = sqlDir.EnumerateFiles("Dorc.Database.dacpac", SearchOption.AllDirectories)
-                    .OrderByDescending(f => f.LastWriteTimeUtc)
-                    .FirstOrDefault();
+                var candidates = sqlDir.EnumerateFiles("Dorc.Database.dacpac", SearchOption.AllDirectories).ToList();
+
+                // Prefer the dacpac from the configuration these tests were built in.
+                // Ordering purely by timestamp means a stale Release dacpac that happens
+                // to be newer wins, and the test then reports on a build nobody made —
+                // green against schema that is not the schema under review.
+                var configuration = AppContext.BaseDirectory.Contains(
+                    Path.DirectorySeparatorChar + "Release" + Path.DirectorySeparatorChar,
+                    StringComparison.OrdinalIgnoreCase) ? "Release" : "Debug";
+
+                var candidate = candidates
+                    .FirstOrDefault(f => string.Equals(f.Directory?.Name, configuration, StringComparison.OrdinalIgnoreCase))
+                    ?? candidates.OrderByDescending(f => f.LastWriteTimeUtc).FirstOrDefault();
 
                 if (candidate != null)
                     return candidate.FullName;

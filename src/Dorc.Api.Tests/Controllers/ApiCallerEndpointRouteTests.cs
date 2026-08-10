@@ -99,5 +99,25 @@ namespace Dorc.Api.Tests.Controllers
                     $"ApiCaller maps {endpoint} to '{path}', which no controller in Dorc.Api serves.");
             }
         }
+
+        [TestMethod]
+        public void ByTag_QueryKeysMatchTheActionParameters()
+        {
+            // The other half of the coupling. RefreshEndur builds its query dictionary
+            // from the string literals "envName" and "tag"; nothing connects them to
+            // GetByTag's parameter names. Renaming a parameter turns the call into a
+            // 400 with a null needle rather than a 404, so it is quieter than the path
+            // mismatch above and would not be caught by it.
+            var action = typeof(Dorc.Api.Controllers.RefDataDatabasesController)
+                .GetMethod(nameof(Dorc.Api.Controllers.RefDataDatabasesController.GetByTag));
+
+            Assert.IsNotNull(action, "RefDataDatabasesController.GetByTag should exist");
+
+            var parameterNames = action!.GetParameters().Select(p => p.Name).ToArray();
+
+            CollectionAssert.AreEquivalent(new[] { "envName", "tag" }, parameterNames,
+                "RefreshEndur.GetEndurDatabase sends exactly these query keys; changing a "
+                + "parameter name here silently breaks the post-restore Endur refresh.");
+        }
     }
 }
