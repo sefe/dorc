@@ -2,7 +2,7 @@
 
 | Field       | Value                                        |
 |-------------|----------------------------------------------|
-| **Status**  | REVISION (adversarial rounds 1 and 2 applied) |
+| **Status**  | REVISION (rounds 1-2 applied; U-1 resolved, U-10 partially) |
 | **Author**  | Agent                                        |
 | **Date**    | 2026-08-09                                   |
 | **Folder**  | docs/deployment-privilege-containment/       |
@@ -318,7 +318,24 @@ This closes W-1 — rank 2, and the lowest-capability arbitrary-code-execution p
 
 The earlier framing of this direction offered only mechanism choices, all of which needed U-1, and so made the document's own top-ranked weakness unstartable behind a user query it did not need to wait for.
 
-**SD-1b — disposition of curated `fn:` usage.** With W-1 closed by SD-1a, what to do about legitimate curated expressions becomes a follow-on increment, gated on **U-1**. Three options, in descending preference:
+**SD-1b — disposition of curated `fn:` usage. U-1 is resolved and the option is decided: replace Roslyn with a fixed grammar.**
+
+The inventory returned 11 distinct expressions over 133 values, every one of the form:
+
+```
+fn:"<literal containing $Token$ interpolations>" [ .ToLower() | .ToUpper() | .Replace("<a>","<b>") ]*
+```
+
+Three operations, applied left to right to an interpolated string literal. That is a small parser, not a compiler — the `Microsoft.CodeAnalysis.CSharp.Scripting` dependency can be removed from `Dorc.Core` entirely rather than restricted.
+
+Design notes the IS will need, drawn from the actual data:
+
+- Interpolation must handle **adjacent tokens** (`$Coral_SefeLegalEntityAbbrev$$EnvironmentTier$`) and **tokens abutting literal text** (`$EnvironmentTier$1uks`) — both occur in the `Coral_Azure_KeyVaultName` values.
+- `Replace` is always called with two double-quoted string literals, including the empty string (`.Replace(" ","")`).
+- The grammar must **fail closed**: an expression it cannot parse is an error, never a fallback to compilation. This is what contains the U-1 residual, since secure `ConfigValue`s could not be inventoried and do reach the evaluator.
+- Migration is a no-op for all 133 known values by construction; the IS should still verify by evaluating both implementations over the inventory and comparing.
+
+Retained below for the record — the options considered before U-1 was answered, in what was then descending preference:
 
 - **Remove it.** Cleanest, contingent on U-1 returning "unused or trivially replaceable".
 - **Replace with a fixed function table.** A closed set of named operations (string manipulation, date arithmetic, whatever U-1 shows is actually used) resolved by lookup, with no compiler in the path. Preserves the useful capability and eliminates the class.
@@ -341,12 +358,19 @@ This direction can ship against today's two shared accounts and does **not** req
 
 Values DOrc needs in order to *operate* — deployment credentials above all — must never reach a runspace.
 
-- **SD-3a:** an unconditional reserved-key denylist covering the four `DORC_*Deploy*` keys. No schema change, no migration risk, cannot be switched off. Ships immediately.
+- **SD-3a:** a reserved-key denylist, **split by key type on the evidence from U-10**. No schema change, cannot be switched off.
+
+  - **`DORC_ProdDeployPassword` and `DORC_NonProdDeployPassword` — denylisted unconditionally.** These are the credentials. The U-10 inventory found nothing in either `PropertyValue` or `ConfigValue` referencing either one, so the DB-visible migration risk is nil.
+  - **`DORC_ProdDeployUsername` and `DORC_NonProdDeployUsername` — remain script-visible.** `FOIT_CondaProxyIdentity` interpolates `$DORC_NonProdDeployUsername$` across three values, so denying them breaks a working deployment. The security gain would be minimal in any case: an account *name* is an identity, not a credential, and is already visible in target-server ACLs, process listings and event logs. Withholding it buys recon friction at the cost of a live regression — the wrong trade.
+
+  The original direction denylisted all four. That would have broken `FOIT_CondaProxyIdentity` on the first deployment after release, which is precisely the failure mode U-10 was registered to catch.
+
+  **Conditional on the outstanding share grep.** If a script consumes a *password* directly as an injected variable, the password denylist becomes a migration rather than a drop-in, and that script needs a supported way to obtain the credential before SD-3a ships.
 - **SD-3b:** an additive `IsScriptVisible` flag on `ConfigValue`, defaulting to **visible for existing rows** and **hidden for new secure rows**. Existing deployments cannot break; admins tighten per key at their own pace. This inversion is what removes U-2 from the blocking set.
 
 Note the interaction with SD-4: if per-environment credentials land in `ConfigValues`, a fixed denylist cannot cover keys minted per environment, and SD-3b stops being optional. Either SD-4 uses the Connect-backed provider, or SD-3b is a prerequisite for SD-4.
 
-Because W-4's exposure is unconditional, **credential rotation is a precondition of this work, not a contingency.** Any credential that has been in a runspace must be treated as disclosed.
+Because W-4's exposure is unconditional, **credential rotation is a precondition of this work, not a contingency.** Any credential that has been in a runspace must be treated as disclosed. Scope: the **two password keys**. The usernames remain script-visible by design (SD-3a) and are not credentials to rotate.
 
 **Rotation must be gated on SD-1a *and* SD-3a together — not SD-3a alone.** SD-3a removes the credentials from the property bag; it does nothing about W-1, where arbitrary C# executing inside the Monitor process reads them directly through `ScriptDispatcher.GetConfigValue` (`:299-304`) whether or not they ever reach a runspace. A credential rotated after SD-3a but before SD-1a is re-disclosed to the lowest-privileged user in the system the moment anyone submits a request. This was stated incorrectly in the previous revision, and it is the error an operator would have acted on directly while believing they were contained.
 
@@ -412,7 +436,7 @@ This direction depends on nothing else in this document and should be sequenced 
 
 | ID  | Description | Owner | Blocking | Resolution |
 |-----|-------------|-------|----------|------------|
-| U-1 | Which property values in live estates use the `fn:` expression syntax, and what do they do? Determines whether SD-1b removes the mechanism, replaces it with a fixed function table, or must sandbox it. Query 1 of `inventory-queries.sql`. Scope narrowed in round 2: this **no longer gates W-1's closure**, because SD-1a contains the request-property path by provenance without needing the inventory. | User | **Blocking for SD-1b only** — the disposition of curated usage. SD-1a proceeds without it. | Unresolved. |
+| U-1 | Which property values in live estates use the `fn:` expression syntax, and what do they do? | User | Was blocking for SD-1b | **RESOLVED.** 11 distinct expressions, 133 occurrences, all `PropertyValue`, all `Secure = 0`, zero non-secure `ConfigValue` hits. Every expression is one shape: a double-quoted literal containing `$Token$` interpolations, followed by a chain of `.ToLower()`, `.ToUpper()` and/or `.Replace("<a>","<b>")`. No loops, reflection, assembly references, type construction or I/O. `EnvironmentNameWithUnderscores` (`fn:"$EnvironmentName$".Replace(" ","_")`) is 101 of the 133. **Decision: SD-1b adopts the fixed-grammar option — the Roslyn dependency is removed outright, not sandboxed.** Residual: secure `ConfigValue`s are encrypted at rest and could not be inspected by query; they *do* reach the evaluator, so the grammar must fail closed on anything it cannot parse rather than falling back to compilation. |
 | U-2 | Which secure config values are referenced by scripts on the share? | User | **No longer blocking.** SD-3b's default-visible inversion means no existing deployment can break, so the inventory is useful for tightening but gates nothing. If wanted: enumerate keys from `ConfigValues` and grep the share for `$<key>`. | Resolved as non-blocking by design change. |
 | U-3 | Are Monitor hosts able to reach 1Password Connect? | User | **No longer blocking.** SD-4's provider abstraction makes this a deployment-time choice between two implementations rather than a design dependency. | Resolved as non-blocking by design change. |
 | U-4 | Is there an existing per-environment service-account convention? Who provisions, what lead time, how many environments? | User | **Non-blocking.** It gates provisioning cost and adoption pace, not the code: SD-4 has a documented fallback under C-02, so the implementation can land and environments bind over time. The previous revision labelled this "blocking for value realisation", which contradicted §7's summary sentence and would have halted progress under the "blocking unknowns halt progress" rule for no gain. | Open, non-blocking. Recommendation: bind by sensitivity tier rather than per environment (SD-4). |
@@ -421,10 +445,12 @@ This direction depends on nothing else in this document and should be sequenced 
 | U-7 | Effective DACL on the named pipe as currently constructed. | Agent | Non-blocking | **RESOLVED in effect.** `CreateNamedPipe` with no security attributes receives the documented Win32 default DACL, which grants read to Everyone and to anonymous; the pipe is `PipeDirection.Out`, so read is precisely the access needed to receive the bundle. Confirm on a Monitor host before the IS cites it as exploited rather than exploitable; SD-2's fix is unchanged either way. |
 | U-8 | Are scripts on the share Authenticode-signed, and is there change control on it? | User | Non-blocking, but the answer **raised** W-5 rather than lowering it | **RESOLVED.** Promotion onto the share is gated — via a controlled pipeline or an administrator. That is a real control, and it means the share itself is not the soft entry point. It does not close W-5: `Script.Path` is set from `ComponentApiModel.ScriptPath` with no validation, through an endpoint gated only by per-project `Modify`, and `Path.Combine` honours a rooted path by discarding `ScriptRoot`. The gated pipeline is therefore bypassable without touching the share. W-5's capability requirement is revised **down** from "write to the share" to "`Modify` on one project", moving it to rank 2. Signature enforcement remains moot regardless: `AddScript(ReadAllText(...))` executes an in-memory scriptblock not subject to file signature checks. |
 | U-9 | Do existing scripts depend on running specifically as the shared account — e.g. target-server ACLs naming it? Principal migration cost driver for SD-4. | User | Non-blocking for design; material for sequencing | Unresolved. |
-| U-10 | **Do any scripts on the share reference the four `DORC_*Deploy*` config keys?** SD-3a is an unconditional denylist with no off switch; if a script re-uses the deployment credential to reach a downstream system, SD-3a breaks it on the first production deployment after release. The U-2 downgrade does **not** cover this: the default-visible inversion protects SD-3b, and SD-3a is precisely the case it does not protect. Answerable by grepping the script share for the four key names. | User | **Blocking for SD-3a** | Unresolved. |
+| U-10 | **Does anything consume the four `DORC_*Deploy*` config keys?** SD-3a is an unconditional denylist with no off switch; if a script re-uses a deployment credential to reach a downstream system, SD-3a breaks it on the first production deployment after release. | User | **Partially resolved — still blocking for the username half of SD-3a only** | **DB slice RESOLVED, and non-empty.** `FOIT_CondaProxyIdentity` interpolates `$DORC_NonProdDeployUsername$` across three property values. **No row in either table references either password.** This splits SD-3a — see the revised direction: passwords are denylisted unconditionally (nothing consumes them), usernames remain script-visible (something does, and a username is an identity rather than a credential). **Still outstanding: the share grep.** The DB query cannot see a script reading `$DORC_NonProdDeployPassword` as an injected PowerShell variable, which is the more likely consumption pattern for a password and is exactly W-4's exposure being used deliberately. The username finding raises rather than lowers the prior on this — see the note below the register. |
 | U-11 | **How many `Scripts` rows resolve outside the configured `ScriptRoot` after canonicalisation, across both `IsPathJSON` branches?** SD-5's dispatch-time rejection is a breaking change to every deployment relying on such a row, which C-02 forbids without an incremental path. Query 3 in `inventory-queries.sql` answers the pattern-matchable cases; the `IsPathJSON` rows need manual review. | User | **Blocking for SD-5's dispatch-time half only**; the write-time half proceeds without it | Unresolved. |
 
-**Three unknowns block, each gating one step rather than the plan: U-1 (SD-1b's disposition of curated `fn:` usage), U-10 (SD-3a), and U-11 (SD-5's dispatch-time half).** All three are answerable with a single query or grep. U-2, U-3, U-4 and U-8 are non-blocking — downgraded by changing the design rather than by obtaining answers: inverting SD-3b's default, adding SD-4's provider abstraction, relying on SD-4's documented fallback, and moving verification to point-of-read respectively.
+**Status after the U-1 and U-10 inventories: one unknown fully blocks (U-11), one partially (U-10's share-grep half).** U-1 is resolved and decided SD-1b's variant. U-10's database half is resolved and has already changed SD-3a's design.
+
+**A note on what U-10 implies for the outstanding grep.** `FOIT_CondaProxyIdentity` exists because something needed the deployment account's *identity* to reach a downstream system — a Conda proxy. Whatever authenticates as that identity needs a password too, and no property or config value supplies one. Either it obtains the password some other way, or it reads `$DORC_NonProdDeployPassword` directly from the injected variable scope, which is W-4's exposure being consumed deliberately rather than incidentally. The DB cannot distinguish these; the share grep can, and it is the one that decides whether the password denylist is a drop-in or a migration. This is why the grep should not be skipped on the strength of the SQL result looking benign. U-2, U-3, U-4 and U-8 are non-blocking — downgraded by changing the design rather than by obtaining answers: inverting SD-3b's default, adding SD-4's provider abstraction, relying on SD-4's documented fallback, and moving verification to point-of-read respectively.
 
 **What is unblocked today matters more than what is blocked.** These steps depend on no unknown and no other direction, and between them cover the rank-1 weakness and both local-host weaknesses:
 
