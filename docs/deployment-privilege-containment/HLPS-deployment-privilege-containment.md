@@ -2,7 +2,7 @@
 
 | Field       | Value                                        |
 |-------------|----------------------------------------------|
-| **Status**  | REVISION - rounds 1-3 applied. **NOT APPROVED - see section 11.** |
+| **Status**  | APPROVED - panel APPROVE WITH CHANGES (applied); round-3 additions accepted by the user at escalation |
 | **Author**  | Agent                                        |
 | **Date**    | 2026-08-09                                   |
 | **Folder**  | docs/deployment-privilege-containment/       |
@@ -665,7 +665,7 @@ Third panel of three (approval gate, internal consistency and fidelity, final se
 
 The approval gate returned **APPROVE WITH CHANGES** on six pre-approval items, all of which are applied below. The consistency reviewer returned ten items, all applied. **But the security sweep returned three new HIGH findings and one MEDIUM, one of which invalidated the document's central framing.** The approval verdict was formed without them.
 
-**This document is therefore NOT marked APPROVED.** Round 3 is exhausted, and `CLAUDE.md` directs that unresolved items escalate to the user rather than proceeding to a fourth round. The escalation is in the final subsection.
+**Resolution.** The document was held at REVISION pending user decision, since round 3 is exhausted and `CLAUDE.md` directs escalation rather than a fourth round. **The user declined round 4 and accepted the round-3 additions**, resolving escalation item 1. The status is now APPROVED on that basis: the panel's APPROVE WITH CHANGES verdict with every change applied, plus four late-arriving weaknesses the user has consciously accepted into scope rather than re-panelled. Escalation items 2-4 remain open and are carried into the Implementation Sequence as step preconditions, not as approval blockers.
 
 ### Applied - approval gate
 
