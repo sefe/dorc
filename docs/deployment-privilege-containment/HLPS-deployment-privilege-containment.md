@@ -38,7 +38,7 @@ Ranked by what an attacker must already have, not by subsystem. Identifiers are 
 | 3= | W-16 | Hold **Modify on any one project** | Entra token *or the API service account's Windows credentials* offered to an attacker-chosen host via `ArtefactsUrl` |
 | 4 | W-17 | Hold any token for the API audience | In `OAuth+WinAuth` mode the global API scope policy is never applied |
 | 5 | W-20 | `Modify` on the environment (post S-001) | Terraform plan artefacts embed cleartext secrets at rest, in storage and in transit |
-| — | W-19 | n/a — privilege-model defect | `CanReadSecrets` is held implicitly by every environment owner and answers two different questions; it widens whatever it gates |
+| 5= | W-19 | Own any environment | Decrypted secret property values delivered to humans through a privilege intended for service accounts only |
 | 5 | W-2 | Any local account on a Monitor host | Full control of a Runner process; read its decrypted memory or inject |
 | 6 | W-3 | Any local account on a Monitor host | Receive the cleartext bundle, or feed the Runner an attacker-authored one |
 | 7 | W-12 | Any local account on a Monitor host — **no race to win** | Read the whole resolved property bag from `terraform.tfvars` under `%ProgramData%\dorc` |
@@ -312,18 +312,25 @@ The deployment service account's password is formatted into host output on every
 
 This is outside DOrc's code and so outside this HLPS's remit to fix, but it is squarely inside its remit to *report*: SD-6 removes DOrc's own logging of resolved values, and a conforming implementation of SC-06 would still leave this line writing the same class of secret to the same log. Whoever owns that script should be told, and the wider question — how many deployment scripts do this — is worth an estate scan of its own.
 
-### W-19 — `CanReadSecrets` has drifted from a machine-access privilege into a general one
+### W-19 — `CanReadSecrets` is enforced against a population it was never intended for
 
-**Capability required: none directly. This is a privilege-model defect that widens the population of several other weaknesses.**
+**Capability required: own any environment. Humans should not hold this privilege at all.**
 
-`CanReadSecrets` was designed for machine access to secrets. Two mechanisms have widened it:
+`CanReadSecrets` exists for **service accounts belonging to live running systems** — an application fetching its own configuration secrets from DOrc at runtime. It was never intended as a human read permission. As implemented, it is granted to humans automatically and cannot be restricted to its intended audience.
 
-- **Implicit grant.** It resolves to `AccessLevel.ReadSecrets | AccessLevel.Owner`, so **every environment owner holds it without it ever being granted**. Any endpoint gated on it inherits that population automatically, and an audit of who holds `ReadSecrets` will not show them.
-- **Overloaded meaning.** It gates secret decryption in `PropertyValuesService` and, separately, ACL visibility in `AccessControlController` — two different questions answered by one predicate.
+**The constraint is unexpressible at the point that enforces it.** `SecurityPrivilegesChecker.CanReadSecrets` receives a `ClaimsPrincipal` and resolves `AccessLevel.ReadSecrets | AccessLevel.Owner` against the environment. Nothing in that decision can distinguish a service principal from a person.
 
-The consequence for this HLPS is direct: it is not a safe gate to reach for. SPEC-S-001 initially proposed using it for Terraform plan content and reversed that decision on exactly this ground, because binding a human-facing read path to it would have entrenched the drift while appearing to tighten security.
+**Yet the codebase already knows the difference.** `OAuthClaimsPrincipalReader` carries `IsM2MAuthentication`, testing an `m2m` claim, and `GetClientId`, reading `client_id`; both are used throughout to name machine callers. `IsM2MAuthentication` is **private**, and `IClaimsPrincipalReader` exposes only name, id, login, email and SIDs — so no authorization predicate can consult it. The mechanism exists one layer away from the decision that needs it and is not reachable from there.
 
-**Recorded here rather than fixed here.** Reclaiming the privilege means auditing its holders, separating the two meanings, and deciding whether owner-implies-read-secrets is intended — all of which is privilege-model work belonging to the deferred sibling HLPS. What this document owes it is the warning: *do not gate anything new on `CanReadSecrets` until it has been reclaimed.*
+**Consequences today:**
+
+- The `| AccessLevel.Owner` term means **every environment owner holds the privilege implicitly**, without grant. An audit of `ReadSecrets` holders will not list them.
+- `PropertyValuesService` decrypts secure property values for any principal passing the check — so human environment owners receive decrypted secrets through the API and the web UI, which is precisely what the privilege was designed to prevent.
+- `AccessControlController` uses the same predicate for ACL visibility, a question with nothing to do with runtime secret retrieval.
+
+**This is in scope for this HLPS, not the sibling.** The sibling concerns how endpoint authorization is expressed and enforced; this is secret disclosure to a population that should not receive it — the same subject as W-4, reached by a different route. It is addressed by **S-014a**.
+
+Until then the operative warning stands: *do not gate anything new on `CanReadSecrets`.* SPEC-S-001 initially proposed it for Terraform plan content and reversed that decision on this ground.
 
 ### W-20 — Terraform plan content embeds cleartext secrets at rest
 
