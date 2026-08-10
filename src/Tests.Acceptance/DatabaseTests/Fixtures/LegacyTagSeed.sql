@@ -95,6 +95,11 @@ INSERT INTO [dbo].[SERVER] ([Server_ID], [Server_Name], [Application_Server_Name
     (200, N'web01', NULL);
 SET IDENTITY_INSERT [dbo].[SERVER] OFF;
 
+-- The estate acquired the deploy schema in an earlier release (the environment
+-- tables moved before this migration), so the pre-publish fixture must create
+-- it too. CREATE SCHEMA must be alone in its batch, hence the EXEC.
+IF SCHEMA_ID(N'deploy') IS NULL EXEC (N'CREATE SCHEMA [deploy] AUTHORIZATION [dbo]');
+
 -------------------------------------------------------------------------------
 -- Populated children holding foreign keys INTO the two tables being rebuilt.
 -- These carry the legacy constraint names, so the publish has to drop them and
