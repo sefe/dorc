@@ -43,8 +43,13 @@ BEGIN
         SET LastIdentityValue = @current
         WHERE @current > LastIdentityValue;
 
+        -- PRINT is one of the contexts where subqueries raise Msg 1046 at parse
+        -- time (killing the whole batch on every publish), so read the value
+        -- into a variable first.
+        DECLARE @stashedNow BIGINT;
+        SELECT @stashedNow = MAX(LastIdentityValue) FROM [dbo].[DatabaseIdentityStash];
         PRINT 'Refreshed existing dbo.DatabaseIdentityStash to '
-            + ISNULL(CAST((SELECT MAX(LastIdentityValue) FROM [dbo].[DatabaseIdentityStash]) AS VARCHAR(20)), 'NULL');
+            + ISNULL(CAST(@stashedNow AS VARCHAR(20)), 'NULL');
     END
 END
 GO
