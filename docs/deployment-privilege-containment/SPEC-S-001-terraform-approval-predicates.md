@@ -9,6 +9,9 @@
 | **IS**      | IS-deployment-privilege-containment.md (DRAFT)               |
 | **HLPS**    | HLPS-deployment-privilege-containment.md (APPROVED)          |
 | **Addresses** | SD-10, W-10 (rank 1), SC-05a                               |
+| **Folder**  | docs/deployment-privilege-containment/                       |
+| **Branch**  | `feat/dpc-s001-terraform-approval-predicates`                |
+| **Governing constraints** | C-07 (naming), C-08 (no secrets in logs or error messages) |
 
 ---
 
@@ -110,8 +113,8 @@ Status validation, state transitions, plan loading, event publication and error 
 
 | ID | Criterion |
 |----|-----------|
-| AC-1 | A user without `CanReadSecrets` on the deployment's environment receives 403 from the plan-content endpoint, and no plan content is loaded from storage. |
-| AC-2 | A user with `CanReadSecrets` receives the plan as before. |
+| AC-1 | A user without `CanModifyEnvironment` on the deployment's environment receives 403 from the plan-content endpoint, and no plan content is loaded from storage. |
+| AC-2 | A user with `CanModifyEnvironment` receives the plan as before. |
 | AC-3 | A user without `CanModifyEnvironment` receives 403 from confirm, and the deployment result's status is unchanged. |
 | AC-4 | A user with `CanModifyEnvironment` can confirm, and the status transition and downstream dispatch behave exactly as today. |
 | AC-5 | Decline enforces the same predicate as confirm, verified independently rather than assumed from the delegation. |
@@ -119,6 +122,7 @@ Status validation, state transitions, plan loading, event publication and error 
 | AC-7 | If R3's segregation-of-duties option is adopted: a user who submitted the request cannot confirm it where the setting applies, and can where it does not. |
 | AC-8 | A deployment result whose request cannot be resolved produces a refusal, not an allow. |
 | AC-9 | No predicate is a constant expression — asserted by exercising the refuse path of each endpoint, not by inspection. |
+| AC-10 | R7 holds: status validation, state transitions, plan loading, event publication and error handling are unchanged. Verified by the existing Terraform workflow regression suite passing without modification, other than mechanical updates for the changed predicate signatures. |
 
 ---
 
@@ -159,7 +163,20 @@ Both are user decisions, not implementer decisions. Neither blocks drafting; bot
 
 ---
 
-## 7. Out of Scope
+## 7. Commit Strategy
+
+One branch, and a commit order that keeps the security fix reviewable in isolation:
+
+1. **The refusal-path fix (R5) first, on its own.** It is a correctness fix to a latent defect and is independently reviewable. Landing it first means the subsequent authorization commits do not carry an unrelated framework fix in the same diff.
+2. **The resolution chain and predicate signatures (R1)**, with the predicates still permissive. No behavioural change; pure refactor.
+3. **The three predicates (R2, R3, R4)** with their tests. This is the commit that changes behaviour and is the one a reviewer should spend time on.
+4. **The segregation-of-duties configuration** and its default, separable so it can be reverted without reverting the authorization itself.
+
+Squash on merge is fine, but the review should see the four steps. Do not combine 1 and 3 — a reviewer confronted with a framework fix and an authorization change in one diff will scrutinise the wrong one.
+
+---
+
+## 8. Out of Scope
 
 - The API-process credential resolution behind `DaemonStatusProbe` — S-002 addresses the endpoint, S-021 the underlying duplication.
 - Any change to the Terraform dispatch path, source acquisition, or the plan blob's own retention — SD-9, S-007.
