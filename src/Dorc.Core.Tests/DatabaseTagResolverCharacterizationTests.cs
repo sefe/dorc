@@ -172,6 +172,42 @@ namespace Dorc.Core.Tests
         }
 
         [TestMethod]
+        public void DatabasePermissions_StillCarryTheSupersededTypeName()
+        {
+            // PowerShell returns $null for a property that no longer exists rather
+            // than throwing, so a deploy script reading $db.Database.Type after the
+            // rename would silently resolve nothing. Both spellings are emitted for
+            // one release and must agree. Delete this test with the property.
+            var (resolver, variableResolver, _, values) = CreateResolver(
+                new DatabaseApiModel { Id = 1, Name = "D1", Tags = "Endur;Extra", ServerName = "s1" });
+
+            resolver.SetPropertyValues(variableResolver, Environment42());
+
+            var database = ((VariableValueDbPerm[])values["DatabasePermissions"]!.Value).Single().Database;
+#pragma warning disable CS0618 // deliberately asserting the superseded name still works
+            Assert.AreEqual(database.Tags, database.Type);
+#pragma warning restore CS0618
+        }
+
+        [TestMethod]
+        public void EnvironmentServers_StillCarryTheSupersededApplicationServerName()
+        {
+            // Same contract as above, for the server half of the payload.
+            var (resolver, variableResolver, _, values) = CreateResolver(
+                new DatabaseApiModel { Id = 1, Name = "D1", Tags = "Endur", ServerName = "s1" });
+
+            resolver.SetPropertyValues(variableResolver, Environment42());
+
+            var servers = (VariableValueServers[])values["EnvironmentServers"]!.Value;
+            foreach (var server in servers)
+            {
+#pragma warning disable CS0618 // deliberately asserting the superseded name still works
+                Assert.AreEqual(server.Tags, server.ApplicationServerName);
+#pragma warning restore CS0618
+            }
+        }
+
+        [TestMethod]
         public void DuplicateWholeType_AtFixedLookups_Throws()
         {
             // Kept behaviour: SingleOrDefault throws when two databases in one
