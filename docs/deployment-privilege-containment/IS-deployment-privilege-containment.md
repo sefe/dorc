@@ -27,7 +27,7 @@ Four rules determine the order below. They are stated up front because several a
 
 | ID | Title | Addresses | Depends On |
 |----|-------|-----------|------------|
-| ⚙ S-000 | Interim exposure containment via `IsForProd` | SD-0, W-4 | U-13; validate against S-013's three scripts |
+| ⚙ S-000 | Interim exposure containment via `IsForProd` | SD-0, W-4 | **U-13 CLOSED** — validate against S-013's three scripts, then apply |
 | S-001 | Implement the Terraform approval predicates | SD-10, W-10, SC-05a | — |
 | S-002 | Authorize the daemon status endpoint | W-15, SC-05a | — |
 | S-003 | Enforce the API scope policy in combined auth mode | W-17 | — |
@@ -62,14 +62,15 @@ Four rules determine the order below. They are stated up front because several a
 
 **What changes.** The production deployment password's production-scope flag is changed from unset to production-only. Data, not code, and reversible by reverting one row.
 
-**Why it changes.** W-4. With the flag unset, the value is published into *every* deployment — in the instance measured, all 1,084 non-production environments as well as the 202 production ones. Setting it removes the production credential from the lower-trust population entirely, an immediate reduction of roughly 84% in exposed environments. It is **not a fix**: production deployments still receive the value, and S-014 remains the actual remedy. It exists because the plan otherwise offers nothing between "active, maximal disclosure" and a remediation that cannot begin until S-004 and S-014 both land.
+**Why it changes.** W-4, **confirmed live in production**. With the flag unset, the value is published into *every* deployment — in the production instance, all 1,083 non-production environments as well as the 202 production ones. Setting it removes the production credential from the lower-trust population entirely, an immediate reduction of roughly 84% in exposed environments. It is **not a fix**: production deployments still receive the value, and S-014 remains the actual remedy. It exists because the plan otherwise offers nothing between "active, maximal disclosure" and a remediation that cannot begin until S-004 and S-014 both land.
 
-**Dependencies.** Two confirmations before applying:
+**Dependencies.** U-13 is closed: production carries the unset flag, so this step applies to production and to System Test alike. One confirmation remains before applying:
 
-- **U-13** — the production instance's configuration table has not been queried. This step is aimed at whichever instances actually carry the unset flag.
-- **The three scripts identified in S-013** must not rely on the production password reaching a non-production deployment. One of them consumes the non-production password from within the production script folder, so the interaction is not hypothetical.
+- **The three scripts identified in S-013** must not rely on the production password reaching a non-production deployment. One of them consumes the *non-production* password from within the *production* script folder, so the interaction is not hypothetical. This is a read of three known files, not an open-ended investigation.
 
-Assess the same change for the web deployment password and the API access password, which carry the same unset flag.
+Apply the same change to `DORC_WebDeployPassword` and `DorcApiAccessPassword`, which carry the same unset flag. Leave `DORC_NonProdDeployPassword` unset for now — scoping it to non-production is correct in principle but changes behaviour for production deployments, which is S-014's business rather than an interim step's.
+
+**This is the one step in the sequence with a live incident behind it.** Three of the estate's seven secure keys are already split into production and non-production pairs, so this is a correction toward an existing convention rather than a novel restriction.
 
 **Verification intent.** Non-production deployments continue to succeed after the change — this is the regression to watch, and the reason for the second precondition. The value no longer appears in a non-production deployment's resolved property set. Production deployments are unaffected. The change is recorded so that S-015's rotation is not confused with it.
 
