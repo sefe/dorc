@@ -438,7 +438,21 @@ Values DOrc needs in order to *operate* — deployment credentials above all —
 
 - **SD-3a:** a reserved-key denylist, **split by key type on the evidence from U-10**. No schema change, cannot be switched off.
 
-  - **Every secure password/secret config key — denylisted unconditionally.** Confirmed present and reaching every deployment: `DORC_ProdDeployPassword`, `DORC_NonProdDeployPassword`, `DORC_WebDeployPassword`, `DorcApiAccessPassword`; plus `DorcCliSecret` and `DeploymentServiceAccountPassword`, which are prod/non-prod split but still injected into their respective populations. The U-10 inventory found nothing in either `PropertyValue` or `ConfigValue` referencing any of them, so the DB-visible migration risk is nil. Earlier revisions scoped this to the four `DORC_*Deploy*` keys; the estate data shows that would have left at least two live secrets in every runspace.
+  - **Every secure password/secret config key — denylisted unconditionally.** The full set, established by enumerating `Secure = 1` rather than by assumption, is **7 distinct keys**:
+
+  | Key | `IsForProd` | Reaches |
+  |-----|-------------|---------|
+  | `DORC_ProdDeployPassword` | NULL | every deployment |
+  | `DORC_NonProdDeployPassword` | NULL | every deployment |
+  | `DORC_WebDeployPassword` | NULL | every deployment |
+  | `DorcApiAccessPassword` | NULL | every deployment |
+  | `DeploymentServiceAccountPassword` | 0 and 1 | its own population |
+  | `DorcCliSecret` | 0 and 1 | its own population |
+  | `ProgetAccountPassword` | 0 and 1 | its own population |
+
+  This set has grown twice — from the four `DORC_*Deploy*` keys assumed in rounds 1-2, to six after a partial listing, to seven once `Secure = 1` was enumerated in full. That is the reason SC-09 defines its carve-out by reference to this direction rather than restating a list.
+
+  **Note the estate's own convention:** three of the seven are correctly split into production and non-production pairs. Someone understood the flag and scoped them deliberately. The four NULL rows are exceptions to an existing practice, not the norm — which makes SD-0 a correction toward that convention rather than a new restriction, and lowers its risk accordingly. The U-10 inventory found nothing in either `PropertyValue` or `ConfigValue` referencing any of them, so the DB-visible migration risk is nil. Earlier revisions scoped this to the four `DORC_*Deploy*` keys; the estate data shows that would have left at least two live secrets in every runspace.
   - **`DORC_ProdDeployUsername`, `DORC_NonProdDeployUsername` and `DORC_WebDeployUsername` — remain script-visible.** `FOIT_CondaProxyIdentity` interpolates `$DORC_NonProdDeployUsername$` across three values, so denying them breaks a working deployment. The security gain would be minimal in any case: an account *name* is an identity, not a credential, and is already visible in target-server ACLs, process listings and event logs. Withholding it buys recon friction at the cost of a live regression — the wrong trade.
 
   The original direction denylisted all four. That would have broken `FOIT_CondaProxyIdentity` on the first deployment after release, which is precisely the failure mode U-10 was registered to catch.
