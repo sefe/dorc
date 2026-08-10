@@ -27,7 +27,7 @@ Four rules determine the order below. They are stated up front because several a
 
 | ID | Title | Addresses | Depends On |
 |----|-------|-----------|------------|
-| ⚙ S-000 | Interim exposure containment via `IsForProd` | SD-0, W-4 | **U-13 CLOSED** — validate against S-013's three scripts, then apply |
+| ⚙ S-000 | Interim exposure containment via `IsForProd` | SD-0, W-4 | **CLEARED — U-12 and U-13 both closed; no consumers. Apply.** |
 | S-001 | Implement the Terraform approval predicates | SD-10, W-10, SC-05a | — |
 | S-002 | Authorize the daemon status endpoint | W-15, SC-05a | — |
 | S-003 | Enforce the API scope policy in combined auth mode | W-17 | — |
@@ -40,8 +40,8 @@ Four rules determine the order below. They are stated up front because several a
 | S-010 | Validate script paths at the write path | SD-5, W-5 | — |
 | S-011 | Validate source URLs at the write path | SD-9, W-11, W-16 | — |
 | S-012 | Bind source credentials to validated hosts | SD-9, W-11, W-16, SC-05b | S-011 |
-| ⚙ S-013 | Migrate the credential-consuming deployment scripts | SD-3a precondition | U-12 |
-| S-014 | Classify config values: reserved-key denylist | SD-3a, W-4, SC-03 | S-006, S-013, U-12 |
+| ⚙ S-013 | Migrate the three `DORC_NonProdDeployPassword` consumers | SD-3a precondition | **U-12 CLOSED** |
+| S-014 | Denylist the operator-only secret keys | SD-3a, W-4, SC-03 | S-006, S-013 |
 | ⚙ S-015 | Rotate the deployment credentials | SD-3, W-4 | **S-004 and S-014** |
 | ⚙ S-016 | Remediate off-share script paths | SD-5 precondition | S-010 |
 | S-017 | Confine script paths at dispatch | SD-5, W-5, SC-05 | S-010, S-016 |
@@ -64,9 +64,7 @@ Four rules determine the order below. They are stated up front because several a
 
 **Why it changes.** W-4, **confirmed live in production**. With the flag unset, the value is published into *every* deployment — in the production instance, all 1,083 non-production environments as well as the 202 production ones. Setting it removes the production credential from the lower-trust population entirely, an immediate reduction of roughly 84% in exposed environments. It is **not a fix**: production deployments still receive the value, and S-014 remains the actual remedy. It exists because the plan otherwise offers nothing between "active, maximal disclosure" and a remediation that cannot begin until S-004 and S-014 both land.
 
-**Dependencies.** U-13 is closed: production carries the unset flag, so this step applies to production and to System Test alike. One confirmation remains before applying:
-
-- **The three scripts identified in S-013** must not rely on the production password reaching a non-production deployment. One of them consumes the *non-production* password from within the *production* script folder, so the interaction is not hypothetical. This is a read of three known files, not an open-ended investigation.
+**Dependencies.** **None remaining — this step is cleared to apply.** U-13 confirmed production carries the unset flag. U-12's completed scan of the production share found **zero consumers** of `DORC_ProdDeployPassword`, `DORC_WebDeployPassword` or `DorcApiAccessPassword` — the three keys this step targets — so there is no script to break and no migration to sequence first.
 
 Apply the same change to `DORC_WebDeployPassword` and `DorcApiAccessPassword`, which carry the same unset flag. Leave `DORC_NonProdDeployPassword` unset for now — scoping it to non-production is correct in principle but changes behaviour for production deployments, which is S-014's business rather than an interim step's.
 

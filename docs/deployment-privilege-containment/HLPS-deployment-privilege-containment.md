@@ -294,6 +294,22 @@ This weakness is why §1 was rewritten in round 3 and why SC-07 is now an invari
 
 This is not the deferred §3 problem: that concerns hand-written per-endpoint checks that exist. This is a global policy silently not applied by the composition root.
 
+### W-18 — Deployment scripts write the credential to host output
+
+**Capability required: read a runner log. Rank alongside W-7.**
+
+Found by the estate scan rather than by code review, in the deployment scripts themselves rather than in DOrc:
+
+```
+48 AIS\AISCommonCode.ps1:344
+  Write-Host ([String]::Format("Mapping drive {0} to {1} using account: {2} [{3}]",
+              $DriveName, $Path, $DeploymentServiceAccount, $DeploymentServiceAccountPassword))
+```
+
+The deployment service account's password is formatted into host output on every drive mapping. That output is captured by the runner's PowerShell host, written to the runner log, and the log path is published on the deployment request (W-7) — so it reaches a share, and the request record points at it.
+
+This is outside DOrc's code and so outside this HLPS's remit to fix, but it is squarely inside its remit to *report*: SD-6 removes DOrc's own logging of resolved values, and a conforming implementation of SC-06 would still leave this line writing the same class of secret to the same log. Whoever owns that script should be told, and the wider question — how many deployment scripts do this — is worth an estate scan of its own.
+
 ### W-9 — Deployment actions are not attributable below DOrc
 
 **Capability required: none. This is an absence, not a vulnerability.**
@@ -438,7 +454,19 @@ Values DOrc needs in order to *operate* — deployment credentials above all —
 
 - **SD-3a:** a reserved-key denylist, **split by key type on the evidence from U-10**. No schema change, cannot be switched off.
 
-  - **Every secure password/secret config key — denylisted unconditionally.** The full set, established by enumerating `Secure = 1` rather than by assumption, is **7 distinct keys**:
+  **Round-3 correction, from the completed estate scan.** "Denylist every secure key" was wrong. The scan shows the seven secure keys divide into two classes with opposite requirements:
+
+  | Class | Keys | Consumers in the script estate | Treatment |
+  |-------|------|-------------------------------|-----------|
+  | **Operator-only** — DOrc needs them; scripts never should | `DORC_ProdDeployPassword`, `DORC_WebDeployPassword`, `DorcApiAccessPassword` | **Zero** | Denylist unconditionally. No migration. |
+  | **Deliberately script-facing** — supplied to scripts as deployment inputs | `DeploymentServiceAccountPassword`, `ProgetAccountPassword`, `DorcCliSecret` | ~60 files / ~80 call sites; ~12; 2 | **Must remain available.** Denylisting breaks the estate. |
+  | Mixed | `DORC_NonProdDeployPassword` | 3 | Migrate those three, then denylist. |
+
+  `DeploymentServiceAccountPassword` is not an incidental consumer — it is how scripts reach target servers at all (`net use`, `Invoke-RemoteProcess`, `New-Object PSCredential`, NTLM credential construction). It is a deployment primitive, and no amount of sequencing makes removing it viable.
+
+  **This is why SD-3b's per-key classification is the real mechanism and SD-3a is only the head start.** A blanket rule over "secure" cannot express the distinction, because the distinction is not about sensitivity — both classes are genuinely secret — but about whether the script is the *intended recipient*. For the script-facing class the exposure is addressed by transport and lifecycle hardening (SD-2, SD-6, SD-7) and by identity binding (SD-4), not by withholding the value.
+
+  - **Operator-only keys — denylisted unconditionally.** The full set, established by enumerating `Secure = 1` rather than by assumption, is **7 distinct keys**:
 
   | Key | `IsForProd` | Reaches |
   |-----|-------------|---------|
@@ -453,7 +481,7 @@ Values DOrc needs in order to *operate* — deployment credentials above all —
   This set has grown twice — from the four `DORC_*Deploy*` keys assumed in rounds 1-2, to six after a partial listing, to seven once `Secure = 1` was enumerated in full. That is the reason SC-09 defines its carve-out by reference to this direction rather than restating a list.
 
   **Note the estate's own convention:** three of the seven are correctly split into production and non-production pairs. Someone understood the flag and scoped them deliberately. The four NULL rows are exceptions to an existing practice, not the norm — which makes SD-0 a correction toward that convention rather than a new restriction, and lowers its risk accordingly. The U-10 inventory found nothing in either `PropertyValue` or `ConfigValue` referencing any of them, so the DB-visible migration risk is nil. Earlier revisions scoped this to the four `DORC_*Deploy*` keys; the estate data shows that would have left at least two live secrets in every runspace.
-  - **`DORC_ProdDeployUsername`, `DORC_NonProdDeployUsername` and `DORC_WebDeployUsername` — remain script-visible.** `FOIT_CondaProxyIdentity` interpolates `$DORC_NonProdDeployUsername$` across three values, so denying them breaks a working deployment. The security gain would be minimal in any case: an account *name* is an identity, not a credential, and is already visible in target-server ACLs, process listings and event logs. Withholding it buys recon friction at the cost of a live regression — the wrong trade.
+  - **Username keys — remain script-visible.** `FOIT_CondaProxyIdentity` interpolates `$DORC_NonProdDeployUsername$` across three values, so denying them breaks a working deployment. The security gain would be minimal in any case: an account *name* is an identity, not a credential, and is already visible in target-server ACLs, process listings and event logs. Withholding it buys recon friction at the cost of a live regression — the wrong trade.
 
   The original direction denylisted all four. That would have broken `FOIT_CondaProxyIdentity` on the first deployment after release, which is precisely the failure mode U-10 was registered to catch.
 
@@ -580,7 +608,7 @@ The `IsPathJSON` rows sampled are relative (`00 Generic\DeployDacpac.ps1`) and s
 
 **SD-5's dispatch-time half requires the remediation step:** the three `trading1` rows must be relocated into `ScriptRoot` or explicitly exempted before enforcement, or three live deployments break. Row 12862 needs only rewriting as a relative path. |
 
-| U-12 | **Do any scripts consume the four secure keys added to SD-3a's denylist after the original scan — `DORC_WebDeployPassword`, `DorcApiAccessPassword`, `DorcCliSecret`, `DeploymentServiceAccountPassword`?** Both completed scans used the original four-key `DORC_*Deploy*` pattern, so consumption of these is unchecked while they sit in the denylist. | User | **Blocking for SD-3a's password half** | Unresolved. Re-run with the widened pattern, item 5 of `inventory-queries.sql`. |
+| U-12 | **Do any scripts consume the secure keys added to SD-3a's denylist after the original scan?** | User | Was blocking for SD-3a's password half | **RESOLVED — and it reversed the design.** The production share was scanned with all seven secure keys. `DORC_ProdDeployPassword`, `DORC_WebDeployPassword` and `DorcApiAccessPassword` have **zero** consumers, so denylisting them is a drop-in and **S-000's remaining precondition is satisfied**. But `DeploymentServiceAccountPassword` appears in roughly 60 files and 80 call sites as the mechanism by which scripts reach target servers, `ProgetAccountPassword` in about 12, and `DorcCliSecret` in 2. Those three cannot be denylisted at all. See the revised SD-3a: the secure keys are two classes, not one. |
 | U-13 | *(RESOLVED — see resolution column.)* **Is the production DOrc instance's *database* configured as System Test's is?** All database inventory here came from `DeploymentOrchestrator_ST`. Production's *script folder* has since been scanned and matches ST's exactly, but production's `ConfigValue` table has not: does its `DORC_ProdDeployPassword` also carry `IsForProd = NULL`? The mechanism is identical in both instances; only the data differs, so this decides whether W-4 is a live production incident or an ST-only one. | User | Was decisive for incident severity and for SD-0 | **RESOLVED — production matches System Test.** The user queried the production instance directly. `DORC_ProdDeployPassword`, `DORC_NonProdDeployPassword`, `DORC_WebDeployPassword` and `DorcApiAccessPassword` all carry `IsForProd = NULL` in production, reaching every one of its 1,285 environments. The production script folder was separately scanned and matches System Test's exactly. **W-4 is a live production incident and SD-0 is immediately actionable.** |
 | U-14 | **Who records a script's content hash, and how is it re-recorded when the gated pipeline promotes a new version?** Scripts change on the share outside DOrc's knowledge (U-8), so a naive implementation breaks dispatch on every legitimate update — a flag day, contrary to C-02. The adoption path needs an unrecorded-hash mode. | Agent + User | Non-blocking — gates only SD-5's content-verification half, not path confinement | Unresolved. |
 
