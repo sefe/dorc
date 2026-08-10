@@ -1,4 +1,5 @@
 ﻿using System.Data;
+using Dorc.ApiModel;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
 
@@ -22,7 +23,7 @@ namespace Tests.Acceptance.Support
         {
             using (SqlConnection sqlConnection = new SqlConnection(this.connectionString))
             using (SqlCommand deleteCommand = new SqlCommand(
-                "DELETE FROM [dbo].[DATABASE] WHERE DB_Name = @dbName ;", sqlConnection))
+                "DELETE FROM [deploy].[Database] WHERE [Name] = @dbName ;", sqlConnection))
             {
                 SqlParameter parameter = new SqlParameter("@dbName", SqlDbType.NChar, databaseName.Length);
                 parameter.Value = databaseName;
@@ -36,21 +37,21 @@ namespace Tests.Acceptance.Support
             }
         }
 
-        public int CreateDatabase(string databaseName, string serverName, string databaseType, string adGroup)
+        public int CreateDatabase(string databaseName, string serverName, string tags, string adGroup)
         {
             using (SqlConnection sqlConnection = new SqlConnection(this.connectionString))
             using (SqlCommand insertCommand = new SqlCommand(
-                "INSERT INTO [dbo].[DATABASE] (DB_Name, DB_Type, Server_Name, Group_ID) " +
-                "OUTPUT INSERTED.DB_ID " +
-                "VALUES (@dbName, @dbType, @serverName, (SELECT Group_ID FROM [dbo].[AD_GROUP] WHERE Display_Name = @adGroup));", sqlConnection))
+                "INSERT INTO [deploy].[Database] ([Name], [Tags], [ServerName], [GroupId]) " +
+                "OUTPUT INSERTED.[Id] " +
+                "VALUES (@dbName, @tags, @serverName, (SELECT Group_ID FROM [dbo].[AD_GROUP] WHERE Display_Name = @adGroup));", sqlConnection))
             {
                 SqlParameter dbNameParameter = new SqlParameter("@dbName", SqlDbType.NVarChar, 250);
                 dbNameParameter.Value = databaseName;
                 insertCommand.Parameters.Add(dbNameParameter);
 
-                SqlParameter dbTypeParameter = new SqlParameter("@dbType", SqlDbType.NVarChar, 250);
-                dbTypeParameter.Value = databaseType;
-                insertCommand.Parameters.Add(dbTypeParameter);
+                SqlParameter tagsParameter = new SqlParameter("@tags", SqlDbType.NVarChar, TagLimits.MaxTagStringLength);
+                tagsParameter.Value = tags;
+                insertCommand.Parameters.Add(tagsParameter);
 
                 SqlParameter serverNameParameter = new SqlParameter("@serverName", SqlDbType.NVarChar, 250);
                 serverNameParameter.Value = serverName;

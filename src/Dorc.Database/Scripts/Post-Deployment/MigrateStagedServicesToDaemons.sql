@@ -12,7 +12,7 @@ Idempotent via:
 
 Filters applied (data-quality edge cases - IS S-002):
   - Rows in service staging with NULL Service_Name are skipped (deploy.Daemon.Name is NOT NULL).
-  - Map rows referencing a Server_ID that no longer exists in dbo.SERVER are skipped.
+  - Map rows referencing a Server_ID that no longer exists in deploy.Server are skipped.
   - Map rows whose daemon was skipped above are also skipped (FK_ServerDaemon_Daemon integrity).
 */
 
@@ -67,11 +67,11 @@ BEGIN
 
     SELECT @orphanServerCount = COUNT(*)
     FROM [dbo].[SERVER_SERVICE_MAP_MIGRATION_STAGING] m
-    WHERE NOT EXISTS (SELECT 1 FROM [dbo].[SERVER] sv WHERE sv.Server_ID = m.Server_ID);
+    WHERE NOT EXISTS (SELECT 1 FROM [deploy].[Server] sv WHERE sv.[Id] = m.Server_ID);
 
     SELECT @orphanDaemonCount = COUNT(*)
     FROM [dbo].[SERVER_SERVICE_MAP_MIGRATION_STAGING] m
-    WHERE EXISTS (SELECT 1 FROM [dbo].[SERVER] sv WHERE sv.Server_ID = m.Server_ID)
+    WHERE EXISTS (SELECT 1 FROM [deploy].[Server] sv WHERE sv.[Id] = m.Server_ID)
       AND NOT EXISTS (SELECT 1 FROM [deploy].[Daemon] d WHERE d.Id = m.Service_ID);
 
     PRINT 'ServerDaemon migration: ' + CAST(@stagedMaps AS VARCHAR(20)) + ' map rows staged';
@@ -91,7 +91,7 @@ BEGIN
     INSERT INTO [deploy].[ServerDaemon] (ServerId, DaemonId)
     SELECT m.Server_ID, m.Service_ID
     FROM [dbo].[SERVER_SERVICE_MAP_MIGRATION_STAGING] m
-    WHERE EXISTS (SELECT 1 FROM [dbo].[SERVER] sv WHERE sv.Server_ID = m.Server_ID)
+    WHERE EXISTS (SELECT 1 FROM [deploy].[Server] sv WHERE sv.[Id] = m.Server_ID)
       AND EXISTS (SELECT 1 FROM [deploy].[Daemon] d WHERE d.Id = m.Service_ID)
       AND NOT EXISTS (SELECT 1 FROM [deploy].[ServerDaemon] sd
                       WHERE sd.ServerId = m.Server_ID AND sd.DaemonId = m.Service_ID);

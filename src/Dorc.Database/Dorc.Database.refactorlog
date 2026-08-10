@@ -35,4 +35,136 @@
     <Property Name="ParentElementType" Value="SqlTable" />
     <Property Name="NewName" Value="ArtefactsSubPaths" />
   </Operation>
+  <!--
+    Reference-data tables move from the legacy dbo schema to the deploy schema and
+    take the deploy column convention (docs/tag-schema-standardisation).
+
+    These operations are what make the move data-preserving: SqlPackage reads them
+    when it generates the deployment script and emits ALTER SCHEMA TRANSFER /
+    sp_rename instead of diffing dbo.DATABASE against deploy.Database and deciding
+    the latter is a brand new, empty table. A pre-deployment script cannot do this
+    job — the script is generated from the pre-migration state of the target, so
+    the generated CREATE TABLE would collide with whatever a pre-deploy rename had
+    already produced.
+
+    Order matters: move the schema first, then rename the table, then the columns,
+    so each ElementName below names the object as the preceding operations left it.
+
+    The table rename goes via a *RenameStage staging name because the model collation
+    is case-insensitive (1033,CI): DacFx compares DATABASE to Database, finds them
+    equal and skips a direct rename outright, leaving the physical table with its
+    legacy upper-case name. Two hops through a name that differs by more than case
+    are each a genuine change, so both are emitted. The staging name never survives
+    the deployment script.
+  -->
+  <Operation Name="Move Schema" Key="6d26fd55-8f83-42ff-8e17-726da1a5eb9f" ChangeDateTime="08/10/2026 09:00:00">
+    <Property Name="ElementName" Value="[dbo].[DATABASE]" />
+    <Property Name="ElementType" Value="SqlTable" />
+    <Property Name="NewSchema" Value="deploy" />
+    <Property Name="IsNewSchemaExternal" Value="False" />
+  </Operation>
+  <Operation Name="Rename Refactor" Key="fa64201f-bc19-4d98-9a8e-f186d669e978" ChangeDateTime="08/10/2026 09:00:01">
+    <Property Name="ElementName" Value="[deploy].[DATABASE]" />
+    <Property Name="ElementType" Value="SqlTable" />
+    <Property Name="ParentElementName" Value="[deploy]" />
+    <Property Name="ParentElementType" Value="SqlSchema" />
+    <Property Name="NewName" Value="DatabaseRenameStage" />
+  </Operation>
+  <Operation Name="Rename Refactor" Key="b1f0c4a2-6d3e-4c07-9f21-0a7e5b6c8d11" ChangeDateTime="08/10/2026 09:00:01">
+    <Property Name="ElementName" Value="[deploy].[DatabaseRenameStage]" />
+    <Property Name="ElementType" Value="SqlTable" />
+    <Property Name="ParentElementName" Value="[deploy]" />
+    <Property Name="ParentElementType" Value="SqlSchema" />
+    <Property Name="NewName" Value="Database" />
+  </Operation>
+  <Operation Name="Rename Refactor" Key="3694aba9-4e94-4e86-aae5-52fdb45ca634" ChangeDateTime="08/10/2026 09:00:02">
+    <Property Name="ElementName" Value="[deploy].[Database].[DB_ID]" />
+    <Property Name="ElementType" Value="SqlSimpleColumn" />
+    <Property Name="ParentElementName" Value="[deploy].[Database]" />
+    <Property Name="ParentElementType" Value="SqlTable" />
+    <Property Name="NewName" Value="Id" />
+  </Operation>
+  <Operation Name="Rename Refactor" Key="fb057f91-d7c3-42b9-9ad4-dd54f904434f" ChangeDateTime="08/10/2026 09:00:03">
+    <Property Name="ElementName" Value="[deploy].[Database].[DB_Name]" />
+    <Property Name="ElementType" Value="SqlSimpleColumn" />
+    <Property Name="ParentElementName" Value="[deploy].[Database]" />
+    <Property Name="ParentElementType" Value="SqlTable" />
+    <Property Name="NewName" Value="Name" />
+  </Operation>
+  <Operation Name="Rename Refactor" Key="d6248330-f529-48c0-bc19-90d324ae8501" ChangeDateTime="08/10/2026 09:00:04">
+    <Property Name="ElementName" Value="[deploy].[Database].[DB_Type]" />
+    <Property Name="ElementType" Value="SqlSimpleColumn" />
+    <Property Name="ParentElementName" Value="[deploy].[Database]" />
+    <Property Name="ParentElementType" Value="SqlTable" />
+    <Property Name="NewName" Value="Tags" />
+  </Operation>
+  <Operation Name="Rename Refactor" Key="92b79d58-263a-41ab-b1fa-aca02a2c1b45" ChangeDateTime="08/10/2026 09:00:05">
+    <Property Name="ElementName" Value="[deploy].[Database].[Server_Name]" />
+    <Property Name="ElementType" Value="SqlSimpleColumn" />
+    <Property Name="ParentElementName" Value="[deploy].[Database]" />
+    <Property Name="ParentElementType" Value="SqlTable" />
+    <Property Name="NewName" Value="ServerName" />
+  </Operation>
+  <Operation Name="Rename Refactor" Key="9bedaa43-1e03-4c8f-9ff6-09290ff23072" ChangeDateTime="08/10/2026 09:00:06">
+    <Property Name="ElementName" Value="[deploy].[Database].[Array_Name]" />
+    <Property Name="ElementType" Value="SqlSimpleColumn" />
+    <Property Name="ParentElementName" Value="[deploy].[Database]" />
+    <Property Name="ParentElementType" Value="SqlTable" />
+    <Property Name="NewName" Value="ArrayName" />
+  </Operation>
+  <Operation Name="Rename Refactor" Key="9d20a7dc-4f35-4a40-befa-54c3a2ce61ed" ChangeDateTime="08/10/2026 09:00:07">
+    <Property Name="ElementName" Value="[deploy].[Database].[Group_ID]" />
+    <Property Name="ElementType" Value="SqlSimpleColumn" />
+    <Property Name="ParentElementName" Value="[deploy].[Database]" />
+    <Property Name="ParentElementType" Value="SqlTable" />
+    <Property Name="NewName" Value="GroupId" />
+  </Operation>
+  <Operation Name="Move Schema" Key="9a617221-bc09-4a6f-98cc-738757526400" ChangeDateTime="08/10/2026 09:00:08">
+    <Property Name="ElementName" Value="[dbo].[SERVER]" />
+    <Property Name="ElementType" Value="SqlTable" />
+    <Property Name="NewSchema" Value="deploy" />
+    <Property Name="IsNewSchemaExternal" Value="False" />
+  </Operation>
+  <Operation Name="Rename Refactor" Key="17df5025-289e-43ef-a57f-bfc8c92adcc2" ChangeDateTime="08/10/2026 09:00:09">
+    <Property Name="ElementName" Value="[deploy].[SERVER]" />
+    <Property Name="ElementType" Value="SqlTable" />
+    <Property Name="ParentElementName" Value="[deploy]" />
+    <Property Name="ParentElementType" Value="SqlSchema" />
+    <Property Name="NewName" Value="ServerRenameStage" />
+  </Operation>
+  <Operation Name="Rename Refactor" Key="c39a7e58-2b41-4d6a-8e05-3f9c1d2a4b77" ChangeDateTime="08/10/2026 09:00:09">
+    <Property Name="ElementName" Value="[deploy].[ServerRenameStage]" />
+    <Property Name="ElementType" Value="SqlTable" />
+    <Property Name="ParentElementName" Value="[deploy]" />
+    <Property Name="ParentElementType" Value="SqlSchema" />
+    <Property Name="NewName" Value="Server" />
+  </Operation>
+  <Operation Name="Rename Refactor" Key="94b5c322-f38c-49cf-905a-4ce6c764aa5c" ChangeDateTime="08/10/2026 09:00:10">
+    <Property Name="ElementName" Value="[deploy].[Server].[Server_ID]" />
+    <Property Name="ElementType" Value="SqlSimpleColumn" />
+    <Property Name="ParentElementName" Value="[deploy].[Server]" />
+    <Property Name="ParentElementType" Value="SqlTable" />
+    <Property Name="NewName" Value="Id" />
+  </Operation>
+  <Operation Name="Rename Refactor" Key="d7de6ff1-9e3d-482e-912b-246bbce29933" ChangeDateTime="08/10/2026 09:00:11">
+    <Property Name="ElementName" Value="[deploy].[Server].[Server_Name]" />
+    <Property Name="ElementType" Value="SqlSimpleColumn" />
+    <Property Name="ParentElementName" Value="[deploy].[Server]" />
+    <Property Name="ParentElementType" Value="SqlTable" />
+    <Property Name="NewName" Value="Name" />
+  </Operation>
+  <Operation Name="Rename Refactor" Key="4c6240ce-eaf6-45e7-b3cb-389aa7b5921a" ChangeDateTime="08/10/2026 09:00:12">
+    <Property Name="ElementName" Value="[deploy].[Server].[OS_Version]" />
+    <Property Name="ElementType" Value="SqlSimpleColumn" />
+    <Property Name="ParentElementName" Value="[deploy].[Server]" />
+    <Property Name="ParentElementType" Value="SqlTable" />
+    <Property Name="NewName" Value="OsName" />
+  </Operation>
+  <Operation Name="Rename Refactor" Key="68d5803d-d1b7-4e7b-98db-c3d7b53dae4f" ChangeDateTime="08/10/2026 09:00:13">
+    <Property Name="ElementName" Value="[deploy].[Server].[Application_Server_Name]" />
+    <Property Name="ElementType" Value="SqlSimpleColumn" />
+    <Property Name="ParentElementName" Value="[deploy].[Server]" />
+    <Property Name="ParentElementType" Value="SqlTable" />
+    <Property Name="NewName" Value="Tags" />
+  </Operation>
 </Operations>

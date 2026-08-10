@@ -1,8 +1,8 @@
-﻿
+
 CREATE PROCEDURE [dbo].[usp_Insert_Server_Detail]
 @SERVER_NAME NVARCHAR(50),
 @OS_VERSION NVARCHAR(50),
-@APPLICATION_SERVER_NAME NVARCHAR(4000),
+@TAGS NVARCHAR(4000),
 @DEBUG BIT
 
 AS
@@ -17,16 +17,16 @@ IF @DEBUG = 0
 
 BEGIN TRY
 
-IF EXISTS (SELECT * FROM dbo.[SERVER] WHERE Server_Name = @SERVER_NAME)
+IF EXISTS (SELECT * FROM deploy.[Server] WHERE [Name] = @SERVER_NAME)
 	BEGIN
 		SELECT 'Server Exists'
 	END
 ELSE
 	BEGIN
-		INSERT INTO dbo.[SERVER]
-			(Server_Name, OS_Version, Application_Server_Name)
+		INSERT INTO deploy.[Server]
+			([Name], [OsName], [Tags])
 		VALUES
-			(@SERVER_NAME, @OS_VERSION, @APPLICATION_SERVER_NAME)
+			(@SERVER_NAME, @OS_VERSION, @TAGS)
 	END
 
 END TRY

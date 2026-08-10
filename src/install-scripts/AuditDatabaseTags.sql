@@ -17,32 +17,32 @@
 */
 
 -- Report 1: multi-tag rows
-SELECT d.[DB_ID], d.[DB_Name], d.[Server_Name], d.[DB_Type]
-FROM [dbo].[DATABASE] d
-WHERE d.[DB_Type] LIKE '%;%'
-ORDER BY d.[DB_Name];
+SELECT d.[Id], d.[Name], d.[ServerName], d.[Tags]
+FROM [deploy].[Database] d
+WHERE d.[Tags] LIKE '%;%'
+ORDER BY d.[Name];
 
 -- Report 2: padded rows (whole-value or entry-adjacent whitespace)
-SELECT d.[DB_ID], d.[DB_Name], d.[Server_Name], d.[DB_Type]
-FROM [dbo].[DATABASE] d
-WHERE d.[DB_Type] IS NOT NULL
-  AND (d.[DB_Type] <> LTRIM(RTRIM(d.[DB_Type]))
-       OR d.[DB_Type] LIKE '% ;%'
-       OR d.[DB_Type] LIKE '%; %')
-ORDER BY d.[DB_Name];
+SELECT d.[Id], d.[Name], d.[ServerName], d.[Tags]
+FROM [deploy].[Database] d
+WHERE d.[Tags] IS NOT NULL
+  AND (d.[Tags] <> LTRIM(RTRIM(d.[Tags]))
+       OR d.[Tags] LIKE '% ;%'
+       OR d.[Tags] LIKE '%; %')
+ORDER BY d.[Name];
 
 -- Report 3: per-environment tag collisions
 WITH Split AS
 (
-    SELECT d.[DB_ID],
-           LTRIM(RTRIM(LEFT(d.[DB_Type] + ';', CHARINDEX(';', d.[DB_Type] + ';') - 1))) AS Tag,
-           SUBSTRING(d.[DB_Type] + ';', CHARINDEX(';', d.[DB_Type] + ';') + 1, 4000) AS Rest
-    FROM [dbo].[DATABASE] d
-    WHERE d.[DB_Type] IS NOT NULL
+    SELECT d.[Id],
+           LTRIM(RTRIM(LEFT(d.[Tags] + ';', CHARINDEX(';', d.[Tags] + ';') - 1))) AS Tag,
+           SUBSTRING(d.[Tags] + ';', CHARINDEX(';', d.[Tags] + ';') + 1, 4000) AS Rest
+    FROM [deploy].[Database] d
+    WHERE d.[Tags] IS NOT NULL
 
     UNION ALL
 
-    SELECT s.[DB_ID],
+    SELECT s.[Id],
            LTRIM(RTRIM(LEFT(s.Rest, CHARINDEX(';', s.Rest) - 1))),
            SUBSTRING(s.Rest, CHARINDEX(';', s.Rest) + 1, 4000)
     FROM Split s
@@ -50,15 +50,15 @@ WITH Split AS
 )
 SELECT e.[Name] AS EnvironmentName,
        s.Tag,
-       COUNT(DISTINCT s.[DB_ID]) AS DatabasesSharingTag,
+       COUNT(DISTINCT s.[Id]) AS DatabasesSharingTag,
        -- kept small on purpose: the detail rows follow from re-filtering Report 1/2
-       MIN(d.[DB_Name]) AS ExampleDatabase
+       MIN(d.[Name]) AS ExampleDatabase
 FROM Split s
-JOIN [dbo].[DATABASE] d ON d.[DB_ID] = s.[DB_ID]
-JOIN [deploy].[EnvironmentDatabase] ed ON ed.[DbId] = s.[DB_ID]
+JOIN [deploy].[Database] d ON d.[Id] = s.[Id]
+JOIN [deploy].[EnvironmentDatabase] ed ON ed.[DbId] = s.[Id]
 JOIN [deploy].[Environment] e ON e.[Id] = ed.[EnvId]
 WHERE s.Tag <> ''
 GROUP BY e.[Name], s.Tag
-HAVING COUNT(DISTINCT s.[DB_ID]) > 1
+HAVING COUNT(DISTINCT s.[Id]) > 1
 ORDER BY e.[Name], s.Tag
 OPTION (MAXRECURSION 0);

@@ -1,7 +1,7 @@
 /*
- One-time normalization of dbo.[DATABASE].DB_Type (docs/database-tags, U-2).
+ One-time normalization of deploy.[Database].Tags (docs/database-tags, U-2).
 
- The tag-membership pattern (';' + DB_Type + ';' LIKE '%;<tag>;%') is exact about
+ The tag-membership pattern (';' + Tags + ';' LIKE '%;<tag>;%') is exact about
  whitespace, while the old equality matching was forgiven trailing spaces by SQL's
  '=' — so every row is normalized once with the rules the application applies on
  write: split on ';', trim each entry, drop empties, dedup exact duplicates
@@ -22,9 +22,9 @@ DECLARE @Normalized NVARCHAR(4000), @Remaining NVARCHAR(4000), @Entry NVARCHAR(4
 DECLARE @Pos INT;
 
 DECLARE TagRows CURSOR LOCAL FAST_FORWARD FOR
-    SELECT [DB_ID], [DB_Type]
-    FROM [dbo].[DATABASE]
-    WHERE [DB_Type] IS NOT NULL;
+    SELECT [Id], [Tags]
+    FROM [deploy].[Database]
+    WHERE [Tags] IS NOT NULL;
 
 OPEN TagRows;
 FETCH NEXT FROM TagRows INTO @DbId, @Raw;
@@ -64,7 +64,7 @@ BEGIN
     IF @Normalized IS NULL
        OR @Normalized COLLATE Latin1_General_BIN2 <> @Raw COLLATE Latin1_General_BIN2
     BEGIN
-        UPDATE [dbo].[DATABASE] SET [DB_Type] = @Normalized WHERE [DB_ID] = @DbId;
+        UPDATE [deploy].[Database] SET [Tags] = @Normalized WHERE [Id] = @DbId;
     END
 
     FETCH NEXT FROM TagRows INTO @DbId, @Raw;

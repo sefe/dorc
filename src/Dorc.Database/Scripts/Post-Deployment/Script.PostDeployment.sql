@@ -1,4 +1,4 @@
-﻿/*
+/*
 Post-Deployment Script Template							
 --------------------------------------------------------------------------------------
 This file contains SQL statements that will be appended to the build script.		
@@ -9,6 +9,7 @@ Example:      :setvar TableName MyTable
               SELECT * FROM [$(TableName)]					
 --------------------------------------------------------------------------------------
 */
+:r .\ApplyDeployCasingToRefDataTables.sql
 :r .\MigrateStagedServicesToDaemons.sql
 :r .\SeedRefDataAuditActions.sql
 :r .\CleanupOrphanedScripts.sql
