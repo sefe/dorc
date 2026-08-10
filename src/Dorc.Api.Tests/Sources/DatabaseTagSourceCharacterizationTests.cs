@@ -12,10 +12,10 @@ using Environment = Dorc.PersistentData.Model.Environment;
 namespace Dorc.Api.Tests.Sources
 {
     /// <summary>
-    /// docs/database-tags IS S-001 characterization, updated by S-003: the declared
-    /// flip candidates (multi-tag misses) now assert tag-membership semantics; the
-    /// U-1 duplicate/shared-tag throws and site 3's omitted-means-no-filter
-    /// behaviour survive unchanged from the freeze.
+    /// Characterization of the tag consumers in the persistent sources. Values that
+    /// used to miss because they carried several tags now assert tag-membership
+    /// semantics; the shared-tag throw and the permissions filter's
+    /// omitted-means-no-filter behaviour are kept behaviour and must survive.
     /// </summary>
     [TestClass]
     public class DatabaseTagSourceCharacterizationTests
@@ -57,7 +57,7 @@ namespace Dorc.Api.Tests.Sources
             var env = new EnvironmentApiModel { EnvironmentId = 42, EnvironmentName = "Endur DV 10" };
 
             // FLIPPED by S-003: "Endur" now matches the multi-tag row too, so the
-            // shared tag throws (U-1); the unique tag resolves the multi-tag row.
+            // A shared tag throws; a unique tag resolves the multi-tag row.
             Assert.Throws<InvalidOperationException>(() => source.GetDatabaseByTag(env, "Endur"));
             Assert.AreEqual("M1", source.GetDatabaseByTag(env, "Reporting").Name);
         }
@@ -78,7 +78,7 @@ namespace Dorc.Api.Tests.Sources
         [TestMethod]
         public void GetDatabaseByTag_BothOverloads_ThrowOnSharedTag()
         {
-            // U-1 kept behaviour — S-003 must NOT flip these.
+            // Kept behaviour — tag membership must NOT flip these.
             var context = ContextWithEnvironmentDatabases(
                 new Database { Id = 1, Name = "A", Tags = "Endur", ServerName = "s1" },
                 new Database { Id = 2, Name = "B", Tags = "Endur", ServerName = "s2" });
@@ -156,8 +156,7 @@ namespace Dorc.Api.Tests.Sources
         [TestMethod]
         public void GetUserDbPermissions_OmittedTag_AppliesNoFilter()
         {
-            // Kept behaviour: an omitted optional tag means "no filter" (IS S-004
-            // reconciliation — S-003/S-004 must NOT change this).
+            // Kept behaviour: an omitted optional tag means "no filter".
             var source = PermsSourceWithOneMultiTagDb(out _);
             Assert.AreEqual(1, source.GetUserDbPermissions("s1", "db1").Count);
             Assert.AreEqual(1, source.GetUserDbPermissions("s1", "db1", null).Count);
@@ -238,7 +237,7 @@ namespace Dorc.Api.Tests.Sources
                 .GetConfigurationFilePath(environment);
             StringAssert.Contains(hit, "ENDUR_END_DV10.cfg");
 
-            // Site 5, U-1 collision-throw fixture (gate F-1): two databases carrying
+            // Collision-throw fixture: two databases carrying
             // the Endur tag still throw.
             Assert.Throws<InvalidOperationException>(() =>
                 PropertiesSourceFor(
@@ -289,9 +288,9 @@ namespace Dorc.Api.Tests.Sources
         public void PaddedEntries_MissAtTheEfPattern_ButMatchInMemory()
         {
             // The delimiter-wrap pattern is exact about whitespace: a legacy padded
-            // entry ("Endur ;Ops") misses at EF sites until the one-time U-2
-            // normalization runs. In-memory sites trim during tokenization and are
-            // immune. Both behaviours are by design (HLPS §3, R-4).
+            // entry ("Endur ;Ops") misses at EF sites until the one-time
+            // NormalizeDatabaseTags script runs. In-memory sites trim during
+            // tokenization and are immune. Both behaviours are by design.
             var context = ContextWithEnvironmentDatabases(
                 new Database { Id = 1, Name = "P1", Tags = "Endur ;Ops", ServerName = "s1" });
             var source = DatabasesSource(context);

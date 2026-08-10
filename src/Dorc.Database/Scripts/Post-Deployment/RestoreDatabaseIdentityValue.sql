@@ -1,6 +1,6 @@
 /*
  Post-Deployment Script: put deploy.Database's identity counter back where the
- rebuild found it (docs/tag-schema-standardisation, S-001).
+ rebuild found it.
 
  Pairs with Scripts/Pre-Deployment/StashDatabaseIdentityValue.sql — see that file
  for why the rebuild loses the counter and why re-used Ids matter.

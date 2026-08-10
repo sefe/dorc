@@ -4,7 +4,7 @@ using Dorc.ApiModel;
 namespace Dorc.Api.Tests
 {
     /// <summary>
-    /// SC-1 boundary contract (docs/tag-capacity-expansion, IS S-003): the DTO
+    /// The tag-capacity boundary contract: the DTO
     /// validation attributes accept exactly N and reject N+1 with a readable message.
     /// [ApiController] on RefDataServersController / RefDataDatabasesController turns
     /// these validation failures into automatic 400 responses at the API boundary.
@@ -41,7 +41,7 @@ namespace Dorc.Api.Tests
         [TestMethod]
         public void DatabaseTags_AtLimit_Valid()
         {
-            // docs/database-tags IS S-004 / tag-schema-standardisation: deploy.Database.Tags.
+            // The database tag column is deploy.Database.Tags.
             var model = new DatabaseApiModel { Name = "d", Tags = new string('a', TagLimits.MaxTagStringLength) };
 
             Assert.AreEqual(0, Validate(model).Count);
@@ -61,7 +61,7 @@ namespace Dorc.Api.Tests
         [TestMethod]
         public void MappingRoundTrip_BeyondOldCeiling_Unmodified()
         {
-            // SC-3's mocked half: a value past the old effective 1000-char server
+            // A value past the old effective 1000-char server
             // ceiling survives DTO assignment/copy untouched.
             var tags = string.Join(";", Enumerable.Range(0, 150).Select(i => $"tag-{i:D4}-abcdefghij"));
             Assert.IsTrue(tags.Length > 1000 && tags.Length <= TagLimits.MaxTagStringLength);

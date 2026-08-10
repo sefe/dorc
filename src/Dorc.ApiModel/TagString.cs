@@ -5,7 +5,7 @@ using System.Linq;
 namespace Dorc.ApiModel
 {
     /// <summary>
-    /// The semicolon-separated tag string convention (docs/database-tags HLPS §3):
+    /// The semicolon-separated tag string convention:
     /// entries are trimmed, empties dropped, order preserved, duplicates deduped
     /// Ordinal keep-first. A null/empty/whitespace value means "no tags" and matches
     /// nothing; an individual tag never contains the delimiter.

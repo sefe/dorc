@@ -8,10 +8,10 @@ using NSubstitute;
 namespace Dorc.Core.Tests
 {
     /// <summary>
-    /// HLPS §3.3 consumer re-verification (docs/tag-capacity-expansion, IS S-003):
+    /// Consumer re-verification at the tag-capacity limit:
     /// the surveyed tag consumers behave correctly with near-limit multi-tag strings.
-    /// The Contains-substring semantics are the documented, checkpoint-accepted
-    /// behaviour (U-5) — asserted here as-is, not "fixed".
+    /// The Contains-substring semantics are documented, accepted behaviour —
+    /// asserted here as-is, not "fixed".
     /// </summary>
     [TestClass]
     public class TagConsumersAtCapacityTests
@@ -69,9 +69,9 @@ namespace Dorc.Core.Tests
         [TestMethod]
         public void ContainsBasedFiltering_MatchesSubstringsWithinLongTagStrings()
         {
-            // U-5 documented behaviour: substring matching over the joined string, so
+            // Documented behaviour: substring matching over the joined string, so
             // "appserv" matches whether standalone or embedded in a longer tag — at any
-            // string length. This is accepted, not a defect (HLPS §8 U-5).
+            // string length. This is accepted, not a defect.
             var joined = NearLimitTags(out _) + ";appserver-node";
 
             Assert.IsTrue(joined.Contains("appserv"));

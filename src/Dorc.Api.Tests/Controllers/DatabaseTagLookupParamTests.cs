@@ -10,10 +10,10 @@ using NSubstitute;
 namespace Dorc.Api.Tests.Controllers
 {
     /// <summary>
-    /// docs/database-tags IS S-004: tag lookup parameters must be single non-empty
-    /// tags. An empty needle would match every untagged database (HLPS round-2 NEW-1)
+    /// Tag lookup parameters must be single non-empty
+    /// tags. An empty needle would match every untagged database
     /// and a ';'-bearing one would perform adjacent-sublist matching. An OMITTED
-    /// optional tag keeps its no-filter semantics (SC-4 reconciliation).
+    /// optional tag keeps its no-filter semantics.
     /// </summary>
     [TestClass]
     public class DatabaseTagLookupParamTests

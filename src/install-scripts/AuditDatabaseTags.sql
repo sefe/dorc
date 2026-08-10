@@ -1,11 +1,11 @@
 /*
- Tag audit for the database-tags feature (docs/database-tags, U-7).
+ Tag audit for the database-tags feature.
 
  READ-ONLY. Its value is greatest BEFORE the tag-membership release is deployed:
  the rows it reports are the ones whose behaviour changes at deploy time.
 
  Schema-adaptive. The tag column lives in two places depending on whether
- docs/tag-schema-standardisation has been deployed yet:
+ the reference-data schema standardisation has been deployed yet:
 
      before the move   dbo.[DATABASE]     DB_ID / DB_Name / Server_Name / DB_Type
      after the move    deploy.[Database]  Id    / Name    / ServerName  / Tags
@@ -24,7 +24,7 @@
              BEFORE deploying; afterwards it reports nothing by construction.
  Report 3 — per-environment tag collisions: two databases in one environment
              sharing a tag make GetDatabaseByTag-style resolution throw (kept
-             U-1 behaviour) — fix the data or accept the throw before deploy.
+             behaviour) — fix the data or accept the throw before deploy.
 
  Compat-100-safe: recursive-CTE splitter, no STRING_SPLIT.
 */

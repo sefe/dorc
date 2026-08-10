@@ -23,7 +23,7 @@ import '../../src/components/environment-tabs/env-control-center.js';
 import { RefDataDatabasesApi } from '../../src/apis/dorc-api';
 import { MAX_TAG_STRING_LENGTH } from '../../src/helpers/tag-limits';
 
-// docs/database-tags IS S-005: SC-5's five assertions — chip round-trip, over-limit
+// Five assertions — chip round-trip, over-limit
 // visible rejection with no API call, exactly-at-limit accept, attach-database
 // tag-set-overlap warning, and env-control-center ThinClient tag membership.
 
@@ -35,7 +35,7 @@ describe('add-edit-database tag editing', () => {
 
     const tagsInput = el.shadowRoot?.getElementById('db-tags') as any;
     expect(tagsInput).to.exist;
-    // splitTags sorts; both chips are present. Relabel (U-4): the field says Tags.
+    // splitTags sorts; both chips are present, and the field is labelled Tags.
     expect(tagsInput.tags).to.deep.equal(['a', 'b']);
     expect(tagsInput.label).to.equal('Tags');
   });

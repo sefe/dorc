@@ -6,10 +6,10 @@ using Microsoft.EntityFrameworkCore;
 namespace Dorc.Core.Tests
 {
     /// <summary>
-    /// SC-3's EF-translation artifact (docs/database-tags, IS S-003): the delimiter-
-    /// wrap tag-membership pattern must translate to SQL Server SQL. The offline
-    /// context (EnsureCreated skipped) compiles the query without a connection;
-    /// ToQueryString is the evidence — captured verbatim in SPEC-S-003.
+    /// The EF-translation contract: the delimiter-wrap tag-membership pattern must
+    /// translate to SQL Server SQL rather than falling back to client evaluation.
+    /// The offline context (EnsureCreated skipped) compiles the query without a
+    /// connection, and ToQueryString is the evidence.
     /// </summary>
     [TestClass]
     public class DatabaseTagMatchTranslationTests

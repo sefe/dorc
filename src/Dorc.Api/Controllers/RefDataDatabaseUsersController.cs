@@ -57,8 +57,8 @@ namespace Dorc.Api.Controllers
         public IActionResult GetDbUsersPermissions(string serverName, string databaseName, string? tag = null)
         {
             // An OMITTED tag keeps today's no-filter semantics; a SUPPLIED one must
-            // be a single non-empty tag (docs/database-tags HLPS §3 / IS S-004
-            // reconciliation — empty would match every untagged database).
+            // be a single non-empty tag — an empty one would match every untagged
+            // database.
             if (tag != null && (string.IsNullOrWhiteSpace(tag) || tag.Contains(TagString.Delimiter)))
                 return BadRequest("The 'tag' parameter, when supplied, must be a single non-empty tag and must not contain ';'.");
 

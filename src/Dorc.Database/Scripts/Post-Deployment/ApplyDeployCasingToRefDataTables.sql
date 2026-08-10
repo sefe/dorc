@@ -1,6 +1,6 @@
 /*
  Post-Deployment Script: give the migrated reference-data objects their
- deploy-schema casing (docs/tag-schema-standardisation, S-001).
+ deploy-schema casing.
 
  The refactorlog moves dbo.DATABASE and dbo.SERVER into the deploy schema and
  renames their columns, but it cannot rename the tables themselves: the dacpac

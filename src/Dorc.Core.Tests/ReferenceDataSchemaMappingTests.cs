@@ -9,8 +9,7 @@ namespace Dorc.Core.Tests
 {
     /// <summary>
     /// Pins where the two reference-data entities live and what their columns are
-    /// called (docs/tag-schema-standardisation), plus the tag-column widths
-    /// (docs/tag-capacity-expansion, IS S-002).
+    /// called, plus the tag-column widths.
     ///
     /// EF and the SSDT project are two independent descriptions of the same tables,
     /// so a disagreement between them only surfaces at runtime against a real
@@ -105,7 +104,7 @@ namespace Dorc.Core.Tests
             var entity = context.Model.FindEntityType(typeof(Database))!;
 
             // ArrayName is the storage array the source database sits on — NOT a tag
-            // field (correction recorded in the HLPS after user domain review) — and
+            // field, as confirmed by domain review — and
             // stays at its original width. Name and ServerName sit under the unique
             // filtered index IX_Database_ServerName_Name.
             Assert.AreEqual(50, entity.FindProperty(nameof(Database.ArrayName))!.GetMaxLength());

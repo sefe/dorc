@@ -9,9 +9,9 @@ using Environment = Dorc.PersistentData.Model.Environment;
 namespace Dorc.Api.Tests.Sources
 {
     /// <summary>
-    /// HLPS §3.3 consumer re-verification, source-level half (tag-capacity IS S-003;
-    /// gate round-1 findings 1-2): the surveyed persistent-source consumers are
-    /// exercised with near-limit (~3,989-char) tag strings, not just string helpers.
+    /// Consumer re-verification at the tag-capacity limit, source-level half: the
+    /// persistent-source tag consumers are exercised with near-limit (~3,989-char)
+    /// tag strings, not just the string helpers.
     /// </summary>
     [TestClass]
     public class TagConsumerSourcesAtCapacityTests
@@ -83,7 +83,7 @@ namespace Dorc.Api.Tests.Sources
             var result = source.GetAppServerDetails("DV 01").ToList();
 
             // The Contains("appserv") substring filter matches the embedded
-            // "appserver-node" tag — the documented U-5 semantics — at near-limit length.
+            // "appserver-node" tag — the documented semantics — at near-limit length.
             Assert.AreEqual(1, result.Count);
             Assert.AreEqual("app01", result[0].Name);
         }

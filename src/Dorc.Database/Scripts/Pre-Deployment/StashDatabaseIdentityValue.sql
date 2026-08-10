@@ -1,6 +1,6 @@
 /*
  Pre-Deployment Script: remember where deploy.Database's identity counter had got
- to (docs/tag-schema-standardisation, S-001).
+ to.
 
  The schema move rebuilds the table — DacFx creates a replacement, copies the
  rows under SET IDENTITY_INSERT and drops the original. Copying explicit identity

@@ -8,10 +8,9 @@ using NSubstitute;
 namespace Dorc.Core.Tests
 {
     /// <summary>
-    /// docs/database-tags IS S-001: characterization freeze of the resolver's
-    /// database-Type consumers (survey sites 6-7) on today's whole-string semantics.
-    /// The multi-tag and null-Type assertions are the two declared flip candidates for
-    /// S-003; the duplicate-Type throw is U-1 kept behaviour and must survive.
+    /// Characterization of the resolver's database-tag consumers. The multi-tag and
+    /// null-tag assertions are the two cases tag membership deliberately changed; the
+    /// shared-tag throw is kept behaviour and must survive.
     /// </summary>
     [TestClass]
     public class DatabaseTagResolverCharacterizationTests
@@ -114,7 +113,7 @@ namespace Dorc.Core.Tests
         [TestMethod]
         public void SharedTagAcrossDatabases_ThrowsAtFixedLookups_AndEmitsArrayInLoop()
         {
-            // U-1 with tag semantics: a shared *resolution* tag still throws at the
+            // Under tag semantics a shared *resolution* tag still throws at the
             // fixed lookups; the per-tag loop handles sharing with the array shape.
             var (resolver, variableResolver, _, _) = CreateResolver(
                 new DatabaseApiModel { Id = 1, Name = "R1", Tags = "Endur Reporting;Extra", ServerName = "s1" },
@@ -136,7 +135,7 @@ namespace Dorc.Core.Tests
         [TestMethod]
         public void CaseDifferingTags_SurviveOrdinalDedup_AndEmitSeparately()
         {
-            // U-5: tokenization is Ordinal — "Endur" and "endur" are distinct tags,
+            // Tokenization is Ordinal — "Endur" and "endur" are distinct tags,
             // matching today's behaviour for two whole-Type strings differing by case.
             var (resolver, variableResolver, calls, _) = CreateResolver(
                 new DatabaseApiModel { Id = 1, Name = "D1", Tags = "Warehouse;warehouse", ServerName = "s1" });
@@ -162,7 +161,7 @@ namespace Dorc.Core.Tests
         [TestMethod]
         public void DatabasePermissions_CarryTheRawJoinedTagsVerbatim()
         {
-            // HLPS §3 position: DatabaseDefinition.Tags passes through unmodified.
+            // DatabaseDefinition.Tags passes through unmodified.
             var (resolver, variableResolver, _, values) = CreateResolver(
                 new DatabaseApiModel { Id = 1, Name = "D1", Tags = "Endur;Extra", ServerName = "s1" });
 
@@ -175,7 +174,7 @@ namespace Dorc.Core.Tests
         [TestMethod]
         public void DuplicateWholeType_AtFixedLookups_Throws()
         {
-            // U-1 kept behaviour: SingleOrDefault throws when two databases in one
+            // Kept behaviour: SingleOrDefault throws when two databases in one
             // environment share the looked-up type. S-003 must NOT flip this.
             var (resolver, variableResolver, _, _) = CreateResolver(
                 new DatabaseApiModel { Id = 1, Name = "R1", Tags = "Endur Reporting", ServerName = "s1" },

@@ -162,7 +162,7 @@ export class AttachDatabase extends LitElement {
   private checkForSameTagWarning() {
     const selectedTags = splitTags(this.selectedDatabase?.Tags);
     if (selectedTags.length > 0) {
-      // Tag-set overlap (docs/database-tags, IS S-005): any shared tag between
+      // Tag-set overlap: any shared tag between
       // the selected database and an already-attached one triggers the warning.
       this.existingDatabaseWithSameTag = this.existingDatabases?.find(db =>
         selectedTags.some(tag => hasTag(db.Tags, tag))

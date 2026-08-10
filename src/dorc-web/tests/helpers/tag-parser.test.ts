@@ -1,7 +1,7 @@
 import { expect } from '../_helpers';
 import { splitTags, joinTags, hasTag } from '../../src/helpers/tag-parser';
 
-// docs/database-tags IS S-005: hasTag mirrors the backend TagString.HasTag
+// hasTag mirrors the backend TagString.HasTag
 // contract — exact per-entry match after trimming; null/empty/whitespace on
 // either side never matches.
 describe('tag-parser hasTag', () => {

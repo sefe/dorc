@@ -21,7 +21,7 @@ import type { ServerTags } from '../../src/components/server-tags.js';
 import { RefDataServersApi } from '../../src/apis/dorc-api';
 import { MAX_TAG_STRING_LENGTH } from '../../src/helpers/tag-limits';
 
-// docs/tag-capacity-expansion IS S-004 (as rescoped to server tags only): the joined
+// Server tags only: the joined
 // semicolon string is validated client-side so the UI never submits what the API will
 // 400, and the rejection is visible.
 

@@ -318,7 +318,7 @@ export class EnvControlCenter extends PageEnvBase {
 
     // since ThinClient is a DB tag and DB type and environment filter, we can use
     // it to find the app database server — matched as tag membership over the
-    // semicolon-separated Tags list (docs/database-tags, IS S-005).
+    // semicolon-separated Tags list.
     this.appDbServer = this.envContent?.DbServers?.find(s =>
       hasTag(s.Tags, this.environment?.Details?.ThinClient)
     );

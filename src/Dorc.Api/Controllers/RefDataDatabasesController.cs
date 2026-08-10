@@ -88,7 +88,7 @@ namespace Dorc.Api.Controllers
         {
             // A lookup tag must be a single non-empty tag: an empty needle would match
             // every untagged database, and a ';'-bearing one would perform sub-list
-            // matching (docs/database-tags HLPS §3).
+            // matching.
             if (string.IsNullOrWhiteSpace(tag) || tag.Contains(TagString.Delimiter))
                 return BadRequest("The 'tag' parameter must be a single non-empty tag and must not contain ';'.");
 

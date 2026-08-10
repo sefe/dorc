@@ -243,7 +243,7 @@ export class AddEditDatabase extends LitElement {
 
   saveDatabase() {
     // Read the chips at save time and enforce the joined-string limit so the UI
-    // never submits what the API would 400 (docs/database-tags, IS S-005).
+    // never submits what the API would 400.
     const tagsInput = this.shadowRoot?.getElementById('db-tags') as TagsInput | null;
     if (tagsInput?.tagify !== undefined) {
       this.DatabaseTags = joinTags(tagsInput.tags);

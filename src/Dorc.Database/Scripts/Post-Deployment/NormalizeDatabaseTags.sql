@@ -1,5 +1,5 @@
 /*
- One-time normalization of deploy.[Database].Tags (docs/database-tags, U-2).
+ One-time normalization of deploy.[Database].Tags.
 
  The tag-membership pattern (';' + Tags + ';' LIKE '%;<tag>;%') is exact about
  whitespace, while the old equality matching was forgiven trailing spaces by SQL's
