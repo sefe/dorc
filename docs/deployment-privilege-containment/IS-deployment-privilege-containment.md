@@ -42,6 +42,7 @@ Four rules determine the order below. They are stated up front because several a
 | S-012 | Bind source credentials to validated hosts | SD-9, W-11, W-16, SC-05b | S-011 |
 | ⚙ S-013 | Migrate the three `DORC_NonProdDeployPassword` consumers | SD-3a precondition | **U-12 CLOSED** |
 | S-014 | Denylist the operator-only secret keys | SD-3a, W-4, SC-03 | S-006, S-013 |
+| S-014a | Restrict `CanReadSecrets` to service principals | W-19 | Usage decision (see step) |
 | ⚙ S-015 | Rotate the deployment credentials | SD-3, W-4 | **S-004 and S-014** |
 | ⚙ S-016 | Remediate off-share script paths | SD-5 precondition | S-010 |
 | S-017 | Confine script paths at dispatch | SD-5, W-5, SC-05 | S-010, S-016 |
@@ -252,6 +253,24 @@ One of the three sits in the production script folder and consumes the *non-prod
 **Dependencies.** S-006 (or same release), S-013, U-12.
 
 **Verification intent.** No denylisted key appears in the serialized script group for any environment, asserted as an invariant over the classified set rather than a fixed list. Username keys remain present. The scripts migrated in S-013 continue to deploy. Coverage sits at script-group serialization and at variable assignment in the runner, not only at dispatch.
+
+### S-014a — Restrict `CanReadSecrets` to service principals
+
+**What changes.** Two parts.
+
+*Enforcement.* The machine-principal determination that already exists in the OAuth claims reader — currently a private test of an `m2m` claim — is surfaced on the claims-reader interface so the authorization layer can consult it. `CanReadSecrets` then requires a service principal in addition to the environment privilege. A human principal fails the check regardless of what they have been granted or what they own.
+
+*Grant.* The `| Owner` term is removed from the privilege's resolution, so ownership no longer implies it. After this, holding the privilege requires an explicit grant, and an audit of holders is meaningful.
+
+Whether `AccessControlController`'s use of the same predicate for ACL visibility should move to a different predicate is a decision this step must make explicitly — it is a human-facing UI question that has nothing to do with runtime secret retrieval, so it should almost certainly not share the predicate.
+
+**Why it changes.** W-19. The privilege exists for service accounts belonging to live running systems. As implemented it is granted implicitly to every environment owner and cannot be restricted to machines, so human owners currently receive decrypted secret property values through the API and the web UI — the exact outcome it was designed to prevent. The mechanism to fix it is already in the codebase, one layer away from the decision that needs it.
+
+**Dependencies.** None technically. **One usage decision is required first, and it is not the implementer's:** what should a human see in place of a decrypted secret value? Options are the redaction already implemented for non-holders, an explicit "hidden" indication, or a separate human-facing privilege with a narrower grant and an audit trail. Choosing the first is the smallest change and the most defensible default.
+
+**Blast radius, stated plainly.** Every environment owner who today sees decrypted secret property values in the web UI will stop seeing them. If anyone relies on that to operate — debugging a deployment, confirming a credential rotation landed — this breaks their workflow. That is the same shape of risk as S-013's script migration, and deserves the same treatment: find out who relies on it before shipping, not after.
+
+**Verification intent.** A service principal with the privilege still retrieves decrypted values, which is the path that must not break. A human principal holding an explicit grant does not. An environment owner without an explicit grant does not, confirming the implicit path is closed. Secure values are redacted rather than erroring, so existing clients degrade rather than fail. ACL visibility behaves per the decision above and is verified independently of the secret-retrieval path.
 
 ### ⚙ S-015 — Rotate the deployment credentials
 
