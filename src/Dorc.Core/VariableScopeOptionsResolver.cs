@@ -175,8 +175,8 @@ namespace Dorc.Core
                 var serverTags =
                     joinedTags.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries);
                 foreach (var serverTag in serverTags)
-                    if (serverNamesByTag.ContainsKey(serverTag))
-                        serverNamesByTag[serverTag].Add(server.Name);
+                    if (serverNamesByTag.TryGetValue(serverTag, out var names))
+                        names.Add(server.Name);
                     else
                         serverNamesByTag.Add(serverTag, new List<string> { server.Name });
             }
