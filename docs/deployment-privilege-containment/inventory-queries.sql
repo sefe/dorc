@@ -4,16 +4,20 @@
 -- Companion to HLPS-deployment-privilege-containment.md.
 -- All queries are READ ONLY. Run against a DOrc deployment database.
 --
--- Query 1 resolves U-1, the only blocking unknown.
--- Query 3 is an ACTIVE EXPOSURE CHECK for W-5 (rank 2) — run it first if you
--- only run one.
---------------------------------------------------------------------------------
-
-
---------------------------------------------------------------------------------
--- 1. U-1 (BLOCKING) — inventory of `fn:` expression usage
+-- Three unknowns block the plan: U-1 (query 1), U-11 (query 3) and U-10
+-- (item 5, a share grep rather than SQL).
 --
--- Decides which SD-1 variant is viable:
+-- Query 3 is also an ACTIVE EXPOSURE CHECK for W-5 (rank 3) — run it first if
+-- you only run one. Any row it returns is a live finding.
+--------------------------------------------------------------------------------
+
+
+--------------------------------------------------------------------------------
+-- 1. U-1 (BLOCKING for SD-1b only) — inventory of `fn:` expression usage
+--
+-- Round 2 narrowed this: SD-1a contains the request-property path by provenance
+-- and closes W-1 without needing the inventory. What this decides is the
+-- disposition of legitimate CURATED usage (SD-1b):
 --   no rows            -> remove the mechanism outright
 --   small, repetitive  -> replace with a fixed function table
 --   varied/open-ended  -> must sandbox (weakest option)
@@ -83,9 +87,10 @@ ORDER BY cv.[Key];
 
 
 --------------------------------------------------------------------------------
--- 3. W-5 ACTIVE EXPOSURE CHECK — script paths that escape ScriptRoot
+-- 3. U-11 (BLOCKING for SD-5 dispatch-time) + W-5 ACTIVE EXPOSURE CHECK
+--    Script paths that escape ScriptRoot
 --
--- ExtractPath uses Path.Combine(scriptRoot, Script.Path) (ScriptDispatcher.cs:310,322).
+-- ExtractPath uses Path.Combine(scriptRoot, Script.Path) (ScriptDispatcher.cs:311,323).
 -- .NET Path.Combine DISCARDS the first argument when the second is rooted, so any
 -- row below already executes from outside the gated script share. ValidateComponents
 -- (ManageProjectsPersistentSource.cs:321-337) performs no path validation, and the
@@ -115,7 +120,7 @@ ORDER BY s.Name;
 
 
 -- IsPathJSON rows store a serialised JSONPath whose ScriptPath member is combined
--- the same way (ScriptDispatcher.cs:322). Those cannot be pattern-matched reliably
+-- the same way (ScriptDispatcher.cs:323). Those cannot be pattern-matched reliably
 -- in SQL — list them for manual review.
 
 SELECT  s.Id, s.Name, s.Path
