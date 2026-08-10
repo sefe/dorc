@@ -33,7 +33,7 @@ Four rules determine the order below. They are stated up front because several a
 | S-003 | Enforce the API scope policy in combined auth mode | W-17 | **DONE** |
 | S-004 | Contain expression evaluation by provenance | SD-1a, W-1, SC-01, SC-02 | **DONE** |
 | S-005 | Confine the build drop location | W-14, SC-05 | **DONE** |
-| S-006 | Remove resolved property values from runner logging | SD-6, W-7, SC-06 | — |
+| S-006 | Remove resolved property values from runner logging | SD-6, W-7, SC-06 | **DONE** |
 | S-007 | Expire execution artefacts | SD-7, W-8, W-12, SC-08, SC-08a | — |
 | S-008 | Replace the null process security descriptor | SD-2, W-2, SC-04 | — |
 | S-009 | Authenticate the script-group transport | SD-2, W-3, SC-04 | — |
