@@ -136,3 +136,25 @@ SELECT  IsProd,
         COUNT(*) AS EnvironmentCount
 FROM    deploy.[Environment]
 GROUP BY IsProd;
+
+
+--------------------------------------------------------------------------------
+-- 5. U-10 (BLOCKING for SD-3a) — do any scripts consume the deploy credentials?
+--
+-- NOT a SQL query: run against the ScriptRoot share. SD-3a is an unconditional
+-- denylist with no off switch, so any script re-using the deployment credential
+-- to reach a downstream system will break on the first production deployment
+-- after release.
+--
+--   rg -il "DORC_(Prod|NonProd)Deploy(Username|Password)" <ScriptRoot>
+--
+-- PowerShell equivalent on a Windows admin host:
+--
+--   Get-ChildItem -Path <ScriptRoot> -Recurse -Include *.ps1,*.psm1,*.psd1 |
+--     Select-String -Pattern 'DORC_(Prod|NonProd)Deploy(Username|Password)' |
+--     Select-Object Path, LineNumber, Line
+--
+-- Expect zero hits. Any hit is both a blocker for SD-3a and, in itself, a
+-- finding: it means a deployment script holds the estate's most privileged
+-- credential by design.
+--------------------------------------------------------------------------------
