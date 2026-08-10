@@ -173,10 +173,12 @@ export class ProjectControls extends ResponsiveMixin(LitElement) {
         display: inline-flex;
         align-items: center;
         flex-wrap: nowrap;
+        gap: var(--lumo-space-xs);
       }
       vaadin-button {
         --lumo-button-size: 28px;
-        --lumo-icon-size-m: 26px;
+        --lumo-icon-size-m: 20px;
+        padding: 0;
       }
     `;
   }

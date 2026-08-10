@@ -1,0 +1,93 @@
+name: Kafka Integration Tests
+
+# Live-broker test pass for the Kafka substrate. The Windows release
+# pipeline excludes *IntegrationTests* and the env-gated HA suite, which
+# previously meant the lock-failover and round-trip scenarios were never
+# exercised by CI at all. This job runs them on Linux against the same
+# compose stack contributors use locally (compose.kafka.yml).
+
+on:
+  pull_request:
+    paths:
+      - 'src/Dorc.Kafka.*/**'
+      - 'src/Dorc.Kafka.*.Tests/**'
+      # Monitor-side substrate wiring (poll signal, lock consumers, fallback
+      # registration) lives outside src/Dorc.Kafka.* — changes there must also
+      # trigger the live-broker suite.
+      - 'src/Dorc.Monitor/**'
+      - 'src/Dorc.Core/**'
+      - 'compose.kafka.yml'
+      - '.github/workflows/kafka-integration.yml'
+  push:
+    branches:
+      - main
+      - feat/kafka-migration
+    paths:
+      - 'src/Dorc.Kafka.*/**'
+      - 'src/Dorc.Monitor/**'
+      - 'src/Dorc.Core/**'
+      - 'compose.kafka.yml'
+      - '.github/workflows/kafka-integration.yml'
+
+# checks/pull-requests write are needed by the test-result publisher step;
+# everything else is read-only.
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+
+jobs:
+  kafka-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Start Kafka + Karapace stack
+        run: docker compose -f compose.kafka.yml up -d --wait --wait-timeout 180
+
+      - name: Client integration tests
+        run: dotnet test src/Dorc.Kafka.Client.IntegrationTests/Dorc.Kafka.Client.IntegrationTests.csproj --logger "trx;LogFileName=client-it.trx" --results-directory TestResults
+
+      - name: Events integration tests (Avro round-trip, schema gate, lifecycle)
+        run: dotnet test src/Dorc.Kafka.Events.IntegrationTests/Dorc.Kafka.Events.IntegrationTests.csproj --logger "trx;LogFileName=events-it.trx" --results-directory TestResults
+
+      - name: Distributed-lock HA scenarios (leader kill, failover, rebalance churn)
+        env:
+          DORC_KAFKA_HA_TESTS: '1'
+        run: dotnet test src/Dorc.Kafka.Lock.HATests/Dorc.Kafka.Lock.HATests.csproj --logger "trx;LogFileName=lock-ha.trx" --results-directory TestResults
+
+      # Same reporter as release.yml, so both pipelines report identically and
+      # there is one action to keep current rather than two. dotnet-trx consumes
+      # the .trx files the steps above already produce.
+      #
+      # fail-on-error is off because the `dotnet test` steps above already fail
+      # the job on a test failure; this step only reports, and should not be
+      # able to turn a reporting hiccup into a red build.
+      #
+      # Pinned to a commit hash rather than the moving 'v2' tag, matching the
+      # convention this file already used.
+      - name: Publish test results
+        if: always()
+        uses: dorny/test-reporter@df6247429542221bc30d46a036ee47af1102c451 # v2.7.0
+        with:
+          name: Kafka Integration Test Results
+          path: 'TestResults/**/*.trx'
+          reporter: dotnet-trx
+          fail-on-error: false
+
+      - name: Stack logs on failure
+        if: failure()
+        run: docker compose -f compose.kafka.yml logs --tail 200
+
+      - name: Tear down stack
+        if: always()
+        run: docker compose -f compose.kafka.yml down -v

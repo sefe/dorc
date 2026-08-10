@@ -45,7 +45,7 @@ export class EditDaemon extends LitElement {
 
   render() {
     return html`
-      <div style="width: 100%; max-width: 500px; box-sizing: border-box;">
+      <div style="padding: var(--lumo-space-s); width: min(500px, calc(100vw - 64px)); box-sizing: border-box;">
         <vaadin-vertical-layout>
           <vaadin-text-field
             class="block"

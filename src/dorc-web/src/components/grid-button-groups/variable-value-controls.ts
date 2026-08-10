@@ -30,6 +30,7 @@ export class VariableValueControls extends LitElement {
         display: flex;
         align-items: center;
         flex-wrap: nowrap;
+        gap: var(--lumo-space-xs);
         width: 100%;
       }
       vaadin-text-field,
