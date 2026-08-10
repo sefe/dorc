@@ -36,7 +36,7 @@ describe('server-tags joined-string enforcement', () => {
     try {
       const el = await fixture<ServerTags>(html`<server-tags></server-tags>`);
       const oversized = Array.from({ length: 200 }, (_, i) => `tag-${i}-${'x'.repeat(20)}`);
-      el.setTags({ ServerId: 1, Name: 's', ApplicationTags: oversized.join(';') });
+      el.setTags({ ServerId: 1, Name: 's', Tags: oversized.join(';') });
       await el.updateComplete;
 
       el.save();
@@ -60,12 +60,12 @@ describe('server-tags joined-string enforcement', () => {
     };
     try {
       const el = await fixture<ServerTags>(html`<server-tags></server-tags>`);
-      el.setTags({ ServerId: 1, Name: 's', ApplicationTags: 'x'.repeat(MAX_TAG_STRING_LENGTH) });
+      el.setTags({ ServerId: 1, Name: 's', Tags: 'x'.repeat(MAX_TAG_STRING_LENGTH) });
       await el.updateComplete;
 
       el.save();
       expect(payloads.length).to.equal(1);
-      expect(payloads[0].serverApiModel.ApplicationTags.length).to.equal(MAX_TAG_STRING_LENGTH);
+      expect(payloads[0].serverApiModel.Tags.length).to.equal(MAX_TAG_STRING_LENGTH);
     } finally {
       (RefDataServersApi.prototype as any).refDataServersPut = original;
     }

@@ -46,7 +46,7 @@ export class ServerTags extends LitElement {
 
   public setTags(server: ServerApiModel) {
     this._server = server;
-    this.tags = splitTags(this._server?.ApplicationTags);
+    this.tags = splitTags(this._server?.Tags);
   }
 
   public save() {
@@ -60,11 +60,11 @@ export class ServerTags extends LitElement {
         );
         return;
       }
-      this._server.ApplicationTags = joined;
+      this._server.Tags = joined;
 
       const api = new RefDataServersApi();
       const server: ServerApiModel = {};
-      server.ApplicationTags = this._server.ApplicationTags;
+      server.Tags = this._server.Tags;
       server.ServerId = this._server.ServerId;
       server.Name = this._server.Name;
       server.OsName = this._server.OsName;
@@ -77,7 +77,7 @@ export class ServerTags extends LitElement {
         .subscribe({
           next: () => {
             const oldTags = this.tags;
-            const newTags = splitTags(server.ApplicationTags);
+            const newTags = splitTags(server.Tags);
             const removed = oldTags?.filter(x => !newTags?.includes(x));
             let removedTags = '';
             if (removed.length > 0) {

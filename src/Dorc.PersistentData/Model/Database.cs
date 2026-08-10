@@ -9,7 +9,7 @@ namespace Dorc.PersistentData.Model
 
         public string? Name { get; set; }
 
-        public string? Type { get; set; }
+        public string? Tags { get; set; }
 
         public string? ServerName { get; set; }
 

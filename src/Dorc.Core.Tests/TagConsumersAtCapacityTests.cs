@@ -37,7 +37,7 @@ namespace Dorc.Core.Tests
             var userPerms = Substitute.For<IUserPermsPersistentSource>();
             servers.GetServersForEnvId(42).Returns(new[]
             {
-                new ServerApiModel { ServerId = 1, Name = "web01", ApplicationTags = joined }
+                new ServerApiModel { ServerId = 1, Name = "web01", Tags = joined }
             });
             daemons.GetDaemonsForServer(1).Returns(Array.Empty<DaemonApiModel>());
             databases.GetDatabasesForEnvironmentName(Arg.Any<string>())

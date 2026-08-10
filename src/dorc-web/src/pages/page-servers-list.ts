@@ -49,7 +49,7 @@ import { splitTags } from '../helpers/tag-parser';
 const environmentNames = 'EnvironmentNames';
 const name = 'Name';
 const osName = 'OsName';
-const applicationTags = 'ApplicationTags';
+const tags = 'Tags';
 
 @customElement('page-servers-list')
 export class PageServersList extends ResponsiveMixin(PageElement) {
@@ -71,7 +71,7 @@ export class PageServersList extends ResponsiveMixin(PageElement) {
   environmentNamesFilter: string = '';
   nameFilter: string = '';
   osNameFilter: string = '';
-  applicationTagsFilter: string = '';
+  tagsFilter: string = '';
 
   static get styles() {
     return css`
@@ -213,7 +213,7 @@ export class PageServersList extends ResponsiveMixin(PageElement) {
           ?hidden='${this._narrowScreen}'
         ></vaadin-grid-column>
         <vaadin-grid-column
-          .renderer='${this.applicationTagsRenderer}'
+          .renderer='${this.tagsRenderer}'
           resizable
           .headerRenderer='${this.appTagsHeaderRenderer}'
           ?hidden='${this._narrowScreen}'
@@ -271,12 +271,12 @@ export class PageServersList extends ResponsiveMixin(PageElement) {
       }
 
       if (
-        this.applicationTagsFilter !== '' &&
-        this.applicationTagsFilter !== undefined
+        this.tagsFilter !== '' &&
+        this.tagsFilter !== undefined
       ) {
         params.filters.push({
-          path: 'ApplicationTags',
-          value: this.applicationTagsFilter
+          path: 'Tags',
+          value: this.tagsFilter
         });
       }
 
@@ -346,8 +346,8 @@ export class PageServersList extends ResponsiveMixin(PageElement) {
         case osName:
           this.osNameFilter = value;
           break;
-        case applicationTags:
-          this.applicationTagsFilter = value;
+        case tags:
+          this.tagsFilter = value;
           break;
         case environmentNames:
           this.environmentNamesFilter = value;
@@ -557,7 +557,7 @@ export class PageServersList extends ResponsiveMixin(PageElement) {
   appTagsHeaderRenderer(root: HTMLElement) {
     render(
       html`<vaadin-grid-sorter
-          path="ApplicationTags"
+          path="Tags"
           style="align-items: normal"
         ></vaadin-grid-sorter>
         <vaadin-text-field
@@ -572,7 +572,7 @@ export class PageServersList extends ResponsiveMixin(PageElement) {
             this.dispatchEvent(
               new CustomEvent('searching-servers-started', {
                 detail: {
-                  field: applicationTags,
+                  field: tags,
                   value: textField?.value
                 },
                 bubbles: true,
@@ -680,13 +680,13 @@ export class PageServersList extends ResponsiveMixin(PageElement) {
     );
   }
 
-  private applicationTagsRenderer = (
+  private tagsRenderer = (
     root: HTMLElement,
     _: HTMLElement,
     model: GridItemModel<ServerApiModel>
   ) => {
     const server = model.item;
-    const appTags = splitTags(server.ApplicationTags);
+    const appTags = splitTags(server.Tags);
 
     render(
       html`
@@ -828,7 +828,7 @@ export class PageServersList extends ResponsiveMixin(PageElement) {
 
   private getEmptyServer(): ServerApiModel {
     return {
-      ApplicationTags: '',
+      Tags: '',
       Name: '',
       OsName: '',
       EnvironmentNames: [],

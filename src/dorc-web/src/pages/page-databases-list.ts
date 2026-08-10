@@ -44,7 +44,7 @@ import { ErrorNotification } from '../components/notifications/error-notificatio
 
 
 const name = 'Name';
-const type = 'Type';
+const tags = 'Tags';
 const serverName = 'ServerName';
 const environmentNames = 'EnvironmentNames';
 
@@ -64,7 +64,7 @@ export class PageDatabasesList extends ResponsiveMixin(PageElement) {
 
   environmentNamesFilter: string = '';
   nameFilter: string = '';
-  typeFilter: string = '';
+  tagsFilter: string = '';
   serverNameFilter: string = '';
 
   static get styles() {
@@ -179,7 +179,7 @@ export class PageDatabasesList extends ResponsiveMixin(PageElement) {
           flex-grow='0'
         ></vaadin-grid-column>
         <vaadin-grid-column
-          .renderer='${this.applicationTagsRenderer}'
+          .renderer='${this.tagsRenderer}'
           resizable
           .headerRenderer='${this.appTagsHeaderRenderer}'
           ?hidden='${this._narrowScreen}'
@@ -232,8 +232,8 @@ export class PageDatabasesList extends ResponsiveMixin(PageElement) {
         params.filters.push({ path: 'Name', value: this.nameFilter });
       }
 
-      if (this.typeFilter !== '' && this.typeFilter !== undefined) {
-        params.filters.push({ path: 'Type', value: this.typeFilter });
+      if (this.tagsFilter !== '' && this.tagsFilter !== undefined) {
+        params.filters.push({ path: 'Tags', value: this.tagsFilter });
       }
 
       if (this.serverNameFilter !== '' && this.serverNameFilter !== undefined) {
@@ -296,8 +296,8 @@ export class PageDatabasesList extends ResponsiveMixin(PageElement) {
         case name:
           this.nameFilter = value;
           break;
-        case type:
-          this.typeFilter = value;
+        case tags:
+          this.tagsFilter = value;
           break;
         case serverName:
           this.serverNameFilter = value;
@@ -475,7 +475,7 @@ export class PageDatabasesList extends ResponsiveMixin(PageElement) {
   appTagsHeaderRenderer(root: HTMLElement) {
     render(
       html`<vaadin-grid-sorter
-              path="Type"
+              path="Tags"
               style="align-items: normal"
       ></vaadin-grid-sorter>
       <vaadin-text-field
@@ -490,7 +490,7 @@ export class PageDatabasesList extends ResponsiveMixin(PageElement) {
                   this.dispatchEvent(
                           new CustomEvent('searching-databases-started', {
                               detail: {
-                                  field: type,
+                                  field: tags,
                                   value: textField?.value
                               },
                               bubbles: true,
@@ -598,17 +598,17 @@ export class PageDatabasesList extends ResponsiveMixin(PageElement) {
     );
   }
 
-  private applicationTagsRenderer = (
+  private tagsRenderer = (
     root: HTMLElement,
     _: HTMLElement,
     model: GridItemModel<DatabaseApiModel>
   ) => {
     const database = model.item;
     const appTags =
-      database.Type !== undefined &&
-      database.Type !== null &&
-      database.Type.length > 0
-        ? database.Type?.split(';')
+      database.Tags !== undefined &&
+      database.Tags !== null &&
+      database.Tags.length > 0
+        ? database.Tags?.split(';')
         : [];
 
     render(
@@ -741,7 +741,7 @@ export class PageDatabasesList extends ResponsiveMixin(PageElement) {
       AdGroup: '',
       ArrayName: '',
       ServerName: '',
-      Type: '',
+      Tags: '',
       Name: '',
       EnvironmentNames: [],
       Id: 0,

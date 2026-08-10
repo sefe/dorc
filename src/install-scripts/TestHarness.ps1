@@ -18,7 +18,7 @@ function GetServersOfType_V2([string] $strType = "") {
     $AllServerVariable=get-variable -Name $varName
     $AllTags=(get-variable -Name 'ServerNames_*').name.Replace('ServerNames_','')
     $table=new-object "System.Data.DataTable"
-    $ColumnNames='Server_Name','Application_Server_Name'
+    $ColumnNames='Name','Tags'
     foreach ($ColumnName in $ColumnNames) {
     $Col = New-Object system.Data.DataColumn $ColumnName, ([string])
     $table.columns.add($col)
@@ -31,8 +31,8 @@ function GetServersOfType_V2([string] $strType = "") {
             }
         }
         $Row = $table.NewRow()
-        $Row.Server_Name = $Server
-        $Row.Application_Server_Name = $ServerTags
+        $Row.Name = $Server
+        $Row.Tags = $ServerTags
         $table.Rows.Add($Row)        
     }
 

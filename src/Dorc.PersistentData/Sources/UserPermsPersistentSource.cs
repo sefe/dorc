@@ -44,7 +44,7 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        public IList<UserDbPermissionApiModel> GetUserDbPermissions(string serverName, string dbName, string? dbType = null)
+        public IList<UserDbPermissionApiModel> GetUserDbPermissions(string serverName, string dbName, string? tag = null)
         {
             using (var context = _contextFactory.GetContext())
             {
@@ -62,15 +62,15 @@ namespace Dorc.PersistentData.Sources
                                   PermissionName = perm.Name ?? string.Empty,
                                   PermissionDisplayName = perm.DisplayName ?? string.Empty,
                                   DbId = db.Id,
-                                  DbType = db.Type ?? string.Empty,
+                                  Tags = db.Tags ?? string.Empty,
                               });
 
-                if (!string.IsNullOrEmpty(dbType))
+                if (!string.IsNullOrEmpty(tag))
                 {
-                    // Tag membership over the semicolon-separated Type list — the
+                    // Tag membership over the semicolon-separated Tags list — the
                     // EF-translatable delimiter-wrap pattern (DatabaseTagMatch),
                     // inlined because the filter runs on the projected DTO.
-                    result = result.Where(r => (";" + r.DbType + ";").Contains(";" + dbType + ";"));
+                    result = result.Where(r => (";" + r.Tags + ";").Contains(";" + tag + ";"));
                 }
 
                 return result.ToList();

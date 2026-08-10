@@ -18,7 +18,7 @@ namespace Dorc.Api.Tests.Sources
     /// behaviour survive unchanged from the freeze.
     /// </summary>
     [TestClass]
-    public class DatabaseTypeSourceCharacterizationTests
+    public class DatabaseTagSourceCharacterizationTests
     {
         private static IDeploymentContextFactory FactoryFor(IDeploymentContext context)
         {
@@ -32,7 +32,7 @@ namespace Dorc.Api.Tests.Sources
                 Substitute.For<IRolePrivilegesChecker>(),
                 Substitute.For<IClaimsPrincipalReader>());
 
-        // ---- Sites 1 & 4: the two GetDatabaseByType overloads ----
+        // ---- Sites 1 & 4: the two GetDatabaseByTag overloads ----
 
         private static IDeploymentContext ContextWithEnvironmentDatabases(params Database[] databases)
         {
@@ -48,45 +48,45 @@ namespace Dorc.Api.Tests.Sources
         }
 
         [TestMethod]
-        public void GetDatabaseByType_EnvironmentOverload_UsesTagMembership()
+        public void GetDatabaseByTag_EnvironmentOverload_UsesTagMembership()
         {
             var context = ContextWithEnvironmentDatabases(
-                new Database { Id = 1, Name = "END_DB_DV10", Type = "Endur", ServerName = "s1" },
-                new Database { Id = 2, Name = "M1", Type = "Endur;Reporting", ServerName = "s2" });
+                new Database { Id = 1, Name = "END_DB_DV10", Tags = "Endur", ServerName = "s1" },
+                new Database { Id = 2, Name = "M1", Tags = "Endur;Reporting", ServerName = "s2" });
             var source = DatabasesSource(context);
             var env = new EnvironmentApiModel { EnvironmentId = 42, EnvironmentName = "Endur DV 10" };
 
             // FLIPPED by S-003: "Endur" now matches the multi-tag row too, so the
             // shared tag throws (U-1); the unique tag resolves the multi-tag row.
-            Assert.Throws<InvalidOperationException>(() => source.GetDatabaseByType(env, "Endur"));
-            Assert.AreEqual("M1", source.GetDatabaseByType(env, "Reporting").Name);
+            Assert.Throws<InvalidOperationException>(() => source.GetDatabaseByTag(env, "Endur"));
+            Assert.AreEqual("M1", source.GetDatabaseByTag(env, "Reporting").Name);
         }
 
         [TestMethod]
-        public void GetDatabaseByType_EnvNameOverload_UsesTagMembership()
+        public void GetDatabaseByTag_EnvNameOverload_UsesTagMembership()
         {
             var context = ContextWithEnvironmentDatabases(
-                new Database { Id = 1, Name = "END_DB_DV10", Type = "Endur", ServerName = "s1" },
-                new Database { Id = 2, Name = "M1", Type = "Endur;Reporting", ServerName = "s2" });
+                new Database { Id = 1, Name = "END_DB_DV10", Tags = "Endur", ServerName = "s1" },
+                new Database { Id = 2, Name = "M1", Tags = "Endur;Reporting", ServerName = "s2" });
             var source = DatabasesSource(context);
 
             // FLIPPED by S-003: same tag-membership semantics as the EF overload.
-            Assert.Throws<InvalidOperationException>(() => source.GetDatabaseByType("Endur DV 10", "Endur"));
-            Assert.AreEqual("M1", source.GetDatabaseByType("Endur DV 10", "Reporting")!.Name);
+            Assert.Throws<InvalidOperationException>(() => source.GetDatabaseByTag("Endur DV 10", "Endur"));
+            Assert.AreEqual("M1", source.GetDatabaseByTag("Endur DV 10", "Reporting")!.Name);
         }
 
         [TestMethod]
-        public void GetDatabaseByType_BothOverloads_ThrowOnDuplicateType()
+        public void GetDatabaseByTag_BothOverloads_ThrowOnSharedTag()
         {
             // U-1 kept behaviour — S-003 must NOT flip these.
             var context = ContextWithEnvironmentDatabases(
-                new Database { Id = 1, Name = "A", Type = "Endur", ServerName = "s1" },
-                new Database { Id = 2, Name = "B", Type = "Endur", ServerName = "s2" });
+                new Database { Id = 1, Name = "A", Tags = "Endur", ServerName = "s1" },
+                new Database { Id = 2, Name = "B", Tags = "Endur", ServerName = "s2" });
             var source = DatabasesSource(context);
             var env = new EnvironmentApiModel { EnvironmentId = 42, EnvironmentName = "Endur DV 10" };
 
-            Assert.Throws<InvalidOperationException>(() => source.GetDatabaseByType(env, "Endur"));
-            Assert.Throws<InvalidOperationException>(() => source.GetDatabaseByType("Endur DV 10", "Endur"));
+            Assert.Throws<InvalidOperationException>(() => source.GetDatabaseByTag(env, "Endur"));
+            Assert.Throws<InvalidOperationException>(() => source.GetDatabaseByTag("Endur DV 10", "Endur"));
         }
 
         // ---- Site 2: Endur users join ----
@@ -96,8 +96,8 @@ namespace Dorc.Api.Tests.Sources
         {
             var context = Substitute.For<IDeploymentContext>();
             var env = new Environment { Id = 42, Name = "Endur DV 10" };
-            var endurDb = new Database { Id = 10, Name = "D1", Type = "Endur" };
-            var multiTagDb = new Database { Id = 11, Name = "D2", Type = "Endur;Ops" };
+            var endurDb = new Database { Id = 10, Name = "D1", Tags = "Endur" };
+            var multiTagDb = new Database { Id = 11, Name = "D2", Tags = "Endur;Ops" };
             endurDb.Environments = new List<Environment> { env };
             multiTagDb.Environments = new List<Environment> { env };
             var envSet = DbContextMock.GetQueryableMockDbSet(new List<Environment> { env });
@@ -132,7 +132,7 @@ namespace Dorc.Api.Tests.Sources
         private static UserPermsPersistentSource PermsSourceWithOneMultiTagDb(out IDeploymentContext context)
         {
             context = Substitute.For<IDeploymentContext>();
-            var db = new Database { Id = 10, Name = "db1", ServerName = "s1", Type = "Endur;Ops" };
+            var db = new Database { Id = 10, Name = "db1", ServerName = "s1", Tags = "Endur;Ops" };
             var dbSet = DbContextMock.GetQueryableMockDbSet(new List<Database> { db });
             var userSet = DbContextMock.GetQueryableMockDbSet(new List<User>
             {
@@ -195,12 +195,12 @@ namespace Dorc.Api.Tests.Sources
                 Details = new EnvironmentDetailsApiModel { FileShare = @"\\share" }
             };
 
-            var hit = PropertiesSourceFor(new Database { Id = 1, Name = "END_DV10_DB", Type = "Endur" })
+            var hit = PropertiesSourceFor(new Database { Id = 1, Name = "END_DV10_DB", Tags = "Endur" })
                 .GetConfigurationFilePath(environment);
             StringAssert.Contains(hit, "ENDUR_END_DV10.cfg");
 
             // FLIPPED by S-003: a multi-tag row carrying "Endur" resolves the path.
-            var multiTag = PropertiesSourceFor(new Database { Id = 1, Name = "END_DV10_DB", Type = "Endur;Ops" })
+            var multiTag = PropertiesSourceFor(new Database { Id = 1, Name = "END_DV10_DB", Tags = "Endur;Ops" })
                 .GetConfigurationFilePath(environment);
             StringAssert.Contains(multiTag, "ENDUR_END_DV10.cfg");
         }
@@ -211,14 +211,14 @@ namespace Dorc.Api.Tests.Sources
         public void NullTypeDatabases_AreExcludedFromTagLookups()
         {
             var context = ContextWithEnvironmentDatabases(
-                new Database { Id = 1, Name = "N1", Type = null, ServerName = "s1" },
-                new Database { Id = 2, Name = "E1", Type = "Endur", ServerName = "s2" });
+                new Database { Id = 1, Name = "N1", Tags = null, ServerName = "s1" },
+                new Database { Id = 2, Name = "E1", Tags = "Endur", ServerName = "s2" });
             var source = DatabasesSource(context);
             var env = new EnvironmentApiModel { EnvironmentId = 42, EnvironmentName = "Endur DV 10" };
 
             // Sites 1 & 4: the null-Type row neither matches nor causes a duplicate.
-            Assert.AreEqual("E1", source.GetDatabaseByType(env, "Endur").Name);
-            Assert.AreEqual("E1", source.GetDatabaseByType("Endur DV 10", "Endur")!.Name);
+            Assert.AreEqual("E1", source.GetDatabaseByTag(env, "Endur").Name);
+            Assert.AreEqual("E1", source.GetDatabaseByTag("Endur DV 10", "Endur")!.Name);
         }
 
         [TestMethod]
@@ -233,8 +233,8 @@ namespace Dorc.Api.Tests.Sources
 
             // Site 5, null-Type row excluded (gate F-2).
             var hit = PropertiesSourceFor(
-                    new Database { Id = 1, Name = "X1", Type = null },
-                    new Database { Id = 2, Name = "END_DV10_DB", Type = "Endur" })
+                    new Database { Id = 1, Name = "X1", Tags = null },
+                    new Database { Id = 2, Name = "END_DV10_DB", Tags = "Endur" })
                 .GetConfigurationFilePath(environment);
             StringAssert.Contains(hit, "ENDUR_END_DV10.cfg");
 
@@ -242,8 +242,8 @@ namespace Dorc.Api.Tests.Sources
             // the Endur tag still throw.
             Assert.Throws<InvalidOperationException>(() =>
                 PropertiesSourceFor(
-                        new Database { Id = 1, Name = "A_DB", Type = "Endur;Ops" },
-                        new Database { Id = 2, Name = "B_DB", Type = "Endur" })
+                        new Database { Id = 1, Name = "A_DB", Tags = "Endur;Ops" },
+                        new Database { Id = 2, Name = "B_DB", Tags = "Endur" })
                     .GetConfigurationFilePath(environment));
         }
 
@@ -253,7 +253,7 @@ namespace Dorc.Api.Tests.Sources
             // Sites 2 & 3 (gate F-2): a null-Type database matches no tag.
             var context = Substitute.For<IDeploymentContext>();
             var env = new Environment { Id = 42, Name = "Endur DV 10" };
-            var nullDb = new Database { Id = 12, Name = "D3", ServerName = "s1", Type = null };
+            var nullDb = new Database { Id = 12, Name = "D3", ServerName = "s1", Tags = null };
             nullDb.Environments = new List<Environment> { env };
             var envSet = DbContextMock.GetQueryableMockDbSet(new List<Environment> { env });
             var dbSet = DbContextMock.GetQueryableMockDbSet(new List<Database> { nullDb });
@@ -293,13 +293,13 @@ namespace Dorc.Api.Tests.Sources
             // normalization runs. In-memory sites trim during tokenization and are
             // immune. Both behaviours are by design (HLPS §3, R-4).
             var context = ContextWithEnvironmentDatabases(
-                new Database { Id = 1, Name = "P1", Type = "Endur ;Ops", ServerName = "s1" });
+                new Database { Id = 1, Name = "P1", Tags = "Endur ;Ops", ServerName = "s1" });
             var source = DatabasesSource(context);
             var env = new EnvironmentApiModel { EnvironmentId = 42, EnvironmentName = "Endur DV 10" };
 
-            Assert.IsNull(source.GetDatabaseByType(env, "Endur"));            // EF pattern: miss
-            Assert.AreEqual("P1", source.GetDatabaseByType(env, "Ops").Name); // unpadded entry: hit
-            Assert.AreEqual("P1", source.GetDatabaseByType("Endur DV 10", "Endur")!.Name); // in-memory: trimmed hit
+            Assert.IsNull(source.GetDatabaseByTag(env, "Endur"));            // EF pattern: miss
+            Assert.AreEqual("P1", source.GetDatabaseByTag(env, "Ops").Name); // unpadded entry: hit
+            Assert.AreEqual("P1", source.GetDatabaseByTag("Endur DV 10", "Endur")!.Name); // in-memory: trimmed hit
         }
 
         [TestMethod]
@@ -314,9 +314,9 @@ namespace Dorc.Api.Tests.Sources
             var source = DatabasesSource(context);
 
             source.AddDatabase(new DatabaseApiModel
-            { Name = "N1", ServerName = "s9", Type = " Endur ; Ops ;; Endur " });
+            { Name = "N1", ServerName = "s9", Tags = " Endur ; Ops ;; Endur " });
 
-            Assert.AreEqual("Endur;Ops", addedDatabases.Single().Type);
+            Assert.AreEqual("Endur;Ops", addedDatabases.Single().Tags);
         }
     }
 }

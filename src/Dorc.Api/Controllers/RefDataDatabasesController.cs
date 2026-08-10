@@ -83,20 +83,20 @@ namespace Dorc.Api.Controllers
         [SwaggerResponse(StatusCodes.Status400BadRequest, Type = typeof(string))]
         [SwaggerResponse(StatusCodes.Status404NotFound, Type = typeof(string))]
         [HttpGet]
-        [Route("ByType")]
-        public IActionResult GetByType([FromQuery] string envName, [FromQuery] string type)
+        [Route("ByTag")]
+        public IActionResult GetByTag([FromQuery] string envName, [FromQuery] string tag)
         {
             // A lookup tag must be a single non-empty tag: an empty needle would match
             // every untagged database, and a ';'-bearing one would perform sub-list
             // matching (docs/database-tags HLPS §3).
-            if (string.IsNullOrWhiteSpace(type) || type.Contains(TagString.Delimiter))
-                return BadRequest("The 'type' parameter must be a single non-empty tag and must not contain ';'.");
+            if (string.IsNullOrWhiteSpace(tag) || tag.Contains(TagString.Delimiter))
+                return BadRequest("The 'tag' parameter must be a single non-empty tag and must not contain ';'.");
 
             // Trim at the boundary so the EF delimiter pattern and the in-memory
             // tokenizer see the same needle (S-001..S-003 gate F-3).
-            var database = _databasesPersistentSource.GetDatabaseByType(envName, type.Trim());
+            var database = _databasesPersistentSource.GetDatabaseByTag(envName, tag.Trim());
             if (database == null)
-                return NotFound($"No database of type '{type}' found for environment '{envName}'.");
+                return NotFound($"No database tagged '{tag}' found for environment '{envName}'.");
             return Ok(database);
         }
 

@@ -3485,7 +3485,7 @@
         }
       }
     },
-    "/RefDataDatabases/ByType": {
+    "/RefDataDatabases/ByTag": {
       "get": {
         "tags": [
           "RefDataDatabases"
@@ -3499,7 +3499,7 @@
             }
           },
           {
-            "name": "type",
+            "name": "tag",
             "in": "query",
             "schema": {
               "type": "string"
@@ -3703,7 +3703,7 @@
             }
           },
           {
-            "name": "dbType",
+            "name": "tag",
             "in": "query",
             "schema": {
               "type": "string"
@@ -8840,7 +8840,7 @@
             "type": "string",
             "nullable": true
           },
-          "Type": {
+          "Tags": {
             "maxLength": 4000,
             "minLength": 0,
             "type": "string",
@@ -10408,7 +10408,7 @@
             "type": "string",
             "nullable": true
           },
-          "ApplicationTags": {
+          "Tags": {
             "maxLength": 4000,
             "minLength": 0,
             "type": "string",
@@ -10606,7 +10606,7 @@
             "type": "integer",
             "format": "int32"
           },
-          "DbType": {
+          "Tags": {
             "type": "string",
             "nullable": true
           }

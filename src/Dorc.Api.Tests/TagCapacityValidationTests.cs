@@ -22,7 +22,7 @@ namespace Dorc.Api.Tests
         [TestMethod]
         public void ServerTags_AtLimit_Valid()
         {
-            var model = new ServerApiModel { Name = "s", ApplicationTags = new string('a', TagLimits.MaxTagStringLength) };
+            var model = new ServerApiModel { Name = "s", Tags = new string('a', TagLimits.MaxTagStringLength) };
 
             Assert.AreEqual(0, Validate(model).Count);
         }
@@ -30,19 +30,19 @@ namespace Dorc.Api.Tests
         [TestMethod]
         public void ServerTags_OverLimit_InvalidWithReadableMessage()
         {
-            var model = new ServerApiModel { Name = "s", ApplicationTags = new string('a', TagLimits.MaxTagStringLength + 1) };
+            var model = new ServerApiModel { Name = "s", Tags = new string('a', TagLimits.MaxTagStringLength + 1) };
 
             var results = Validate(model);
             Assert.AreEqual(1, results.Count);
             StringAssert.Contains(results[0].ErrorMessage, "4000");
-            CollectionAssert.Contains(results[0].MemberNames.ToList(), nameof(ServerApiModel.ApplicationTags));
+            CollectionAssert.Contains(results[0].MemberNames.ToList(), nameof(ServerApiModel.Tags));
         }
 
         [TestMethod]
         public void DatabaseTags_AtLimit_Valid()
         {
-            // docs/database-tags IS S-004: DB_Type is the database tags column.
-            var model = new DatabaseApiModel { Name = "d", Type = new string('a', TagLimits.MaxTagStringLength) };
+            // docs/database-tags IS S-004 / tag-schema-standardisation: deploy.Database.Tags.
+            var model = new DatabaseApiModel { Name = "d", Tags = new string('a', TagLimits.MaxTagStringLength) };
 
             Assert.AreEqual(0, Validate(model).Count);
         }
@@ -50,12 +50,12 @@ namespace Dorc.Api.Tests
         [TestMethod]
         public void DatabaseTags_OverLimit_InvalidWithReadableMessage()
         {
-            var model = new DatabaseApiModel { Name = "d", Type = new string('a', TagLimits.MaxTagStringLength + 1) };
+            var model = new DatabaseApiModel { Name = "d", Tags = new string('a', TagLimits.MaxTagStringLength + 1) };
 
             var results = Validate(model);
             Assert.AreEqual(1, results.Count);
             StringAssert.Contains(results[0].ErrorMessage, "4000");
-            CollectionAssert.Contains(results[0].MemberNames.ToList(), nameof(DatabaseApiModel.Type));
+            CollectionAssert.Contains(results[0].MemberNames.ToList(), nameof(DatabaseApiModel.Tags));
         }
 
         [TestMethod]
@@ -66,10 +66,10 @@ namespace Dorc.Api.Tests
             var tags = string.Join(";", Enumerable.Range(0, 150).Select(i => $"tag-{i:D4}-abcdefghij"));
             Assert.IsTrue(tags.Length > 1000 && tags.Length <= TagLimits.MaxTagStringLength);
 
-            var model = new ServerApiModel { Name = "s", ApplicationTags = tags };
-            var copy = new ServerApiModel { Name = model.Name, ApplicationTags = model.ApplicationTags };
+            var model = new ServerApiModel { Name = "s", Tags = tags };
+            var copy = new ServerApiModel { Name = model.Name, Tags = model.Tags };
 
-            Assert.AreEqual(tags, copy.ApplicationTags);
+            Assert.AreEqual(tags, copy.Tags);
             Assert.AreEqual(0, Validate(copy).Count);
         }
     }

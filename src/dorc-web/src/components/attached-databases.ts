@@ -102,7 +102,7 @@ export class AttachedDatabases extends ResponsiveMixin(LitElement) {
           resizable
         ></vaadin-grid-column>
         <vaadin-grid-column
-          .renderer="${this.applicationTagsRenderer}"
+          .renderer="${this.tagsRenderer}"
           resizable
           header="Tags"
           ?hidden="${this._narrowScreen}"
@@ -153,17 +153,17 @@ export class AttachedDatabases extends ResponsiveMixin(LitElement) {
     `;
   }
 
-  private applicationTagsRenderer = (
+  private tagsRenderer = (
     root: HTMLElement,
     _: HTMLElement,
     model: GridItemModel<DatabaseApiModel>
   ) => {
     const database = model.item;
     const appTags =
-      database.Type !== undefined &&
-      database.Type !== null &&
-      database.Type.length > 0
-        ? database.Type?.split(';')
+      database.Tags !== undefined &&
+      database.Tags !== null &&
+      database.Tags.length > 0
+        ? database.Tags?.split(';')
         : [];
 
     render(

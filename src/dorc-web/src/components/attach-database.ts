@@ -106,7 +106,7 @@ export class AttachDatabase extends LitElement {
           <h3>
             Tags:
             <span style="color: var(--dorc-link-color)"
-              >${this.selectedDatabase?.Type}</span
+              >${this.selectedDatabase?.Tags}</span
             >
           </h3>
           <h3>
@@ -160,16 +160,16 @@ export class AttachDatabase extends LitElement {
   }
 
   private checkForSameTagWarning() {
-    const selectedTags = splitTags(this.selectedDatabase?.Type);
+    const selectedTags = splitTags(this.selectedDatabase?.Tags);
     if (selectedTags.length > 0) {
       // Tag-set overlap (docs/database-tags, IS S-005): any shared tag between
       // the selected database and an already-attached one triggers the warning.
       this.existingDatabaseWithSameTag = this.existingDatabases?.find(db =>
-        selectedTags.some(tag => hasTag(db.Type, tag))
+        selectedTags.some(tag => hasTag(db.Tags, tag))
       );
       this.overlappingTags = this.existingDatabaseWithSameTag
         ? selectedTags.filter(tag =>
-            hasTag(this.existingDatabaseWithSameTag?.Type, tag)
+            hasTag(this.existingDatabaseWithSameTag?.Tags, tag)
           )
         : [];
       this.showSameTagWarning = !!this.existingDatabaseWithSameTag;
@@ -246,7 +246,7 @@ export class AttachDatabase extends LitElement {
     if (this.selectedDatabase) {
       this.selectedDatabase.Id = 0;
       this.selectedDatabase.Name = '';
-      this.selectedDatabase.Type = '';
+      this.selectedDatabase.Tags = '';
       this.selectedDatabase.ServerName = '';
       this.selectedDatabase.AdGroup = '';
     }

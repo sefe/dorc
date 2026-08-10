@@ -61,7 +61,7 @@ namespace Dorc.Api.Tests.Controllers
             {
                 Name = "TestDB",
                 ServerName = "TestServer",
-                Type = "Application"
+                Tags = "Application"
             };
             _databasesPersistentSource.When(x => x.AddDatabase(Arg.Any<DatabaseApiModel>()))
                 .Do(x => throw new ArgumentException("Database already exists TestServer:TestDB"));
@@ -83,7 +83,7 @@ namespace Dorc.Api.Tests.Controllers
                 Id = 1,
                 Name = "ExistingDB",
                 ServerName = "ExistingServer",
-                Type = "Application"
+                Tags = "Application"
             };
             _databasesPersistentSource.GetEnvironmentNamesForDatabaseId(updateDatabase.Id)
                 .Returns(new List<string> { "TestEnv" });
@@ -111,14 +111,14 @@ namespace Dorc.Api.Tests.Controllers
             {
                 Name = "UniqueDB",
                 ServerName = "UniqueServer",
-                Type = "Application"
+                Tags = "Application"
             };
             var createdDatabase = new DatabaseApiModel
             {
                 Id = 1,
                 Name = "UniqueDB",
                 ServerName = "UniqueServer",
-                Type = "Application"
+                Tags = "Application"
             };
             _databasesPersistentSource.AddDatabase(newDatabase).Returns(createdDatabase);
 

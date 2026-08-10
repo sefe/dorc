@@ -48,23 +48,23 @@ namespace Dorc.Api.Controllers
         /// </summary>
         /// <param name="serverName">The name of the database server.</param>
         /// <param name="databaseName">The name of the database.</param>
-        /// <param name="dbType">Optional single database tag filter — matches any one entry of the database's semicolon-separated tag list; omit for no filter.</param>
+        /// <param name="tag">Optional single database tag filter — matches any one entry of the database's semicolon-separated tag list; omit for no filter.</param>
         /// <returns>A list of users with permissions for the specified database.</returns>
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(IEnumerable<UserDbPermissionApiModel>))]
         [SwaggerResponse(StatusCodes.Status400BadRequest, Type = typeof(string))]
         [HttpGet]
         [Route("GetDbUsersPermissions")]
-        public IActionResult GetDbUsersPermissions(string serverName, string databaseName, string? dbType = null)
+        public IActionResult GetDbUsersPermissions(string serverName, string databaseName, string? tag = null)
         {
-            // An OMITTED dbType keeps today's no-filter semantics; a SUPPLIED one must
+            // An OMITTED tag keeps today's no-filter semantics; a SUPPLIED one must
             // be a single non-empty tag (docs/database-tags HLPS §3 / IS S-004
             // reconciliation — empty would match every untagged database).
-            if (dbType != null && (string.IsNullOrWhiteSpace(dbType) || dbType.Contains(TagString.Delimiter)))
-                return BadRequest("The 'dbType' parameter, when supplied, must be a single non-empty tag and must not contain ';'.");
+            if (tag != null && (string.IsNullOrWhiteSpace(tag) || tag.Contains(TagString.Delimiter)))
+                return BadRequest("The 'tag' parameter, when supplied, must be a single non-empty tag and must not contain ';'.");
 
             // Trim at the boundary so the EF delimiter pattern and the in-memory
             // tokenizer see the same needle (S-001..S-003 gate F-3).
-            var userPermissions = _userPermsPersistentSource.GetUserDbPermissions(serverName, databaseName, dbType?.Trim());
+            var userPermissions = _userPermsPersistentSource.GetUserDbPermissions(serverName, databaseName, tag?.Trim());
 
             return StatusCode(StatusCodes.Status200OK, userPermissions);
         }

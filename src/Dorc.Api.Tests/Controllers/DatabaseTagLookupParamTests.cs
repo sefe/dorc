@@ -13,7 +13,7 @@ namespace Dorc.Api.Tests.Controllers
     /// docs/database-tags IS S-004: tag lookup parameters must be single non-empty
     /// tags. An empty needle would match every untagged database (HLPS round-2 NEW-1)
     /// and a ';'-bearing one would perform adjacent-sublist matching. An OMITTED
-    /// optional dbType keeps its no-filter semantics (SC-4 reconciliation).
+    /// optional tag keeps its no-filter semantics (SC-4 reconciliation).
     /// </summary>
     [TestClass]
     public class DatabaseTagLookupParamTests
@@ -45,24 +45,24 @@ namespace Dorc.Api.Tests.Controllers
         [DataRow("")]
         [DataRow("   ")]
         [DataRow("Endur;Reporting")]
-        public void GetByType_RejectsInvalidTagWithoutCallingTheSource(string type)
+        public void GetByTag_RejectsInvalidTagWithoutCallingTheSource(string tag)
         {
             var (controller, source) = DatabasesController();
 
-            var result = controller.GetByType("Endur DV 10", type);
+            var result = controller.GetByTag("Endur DV 10", tag);
 
             Assert.IsInstanceOfType(result, typeof(BadRequestObjectResult));
-            StringAssert.Contains((string)((BadRequestObjectResult)result).Value!, "type");
-            source.DidNotReceiveWithAnyArgs().GetDatabaseByType(default(string), default);
+            StringAssert.Contains((string)((BadRequestObjectResult)result).Value!, "tag");
+            source.DidNotReceiveWithAnyArgs().GetDatabaseByTag(default(string), default);
         }
 
         [TestMethod]
-        public void GetByType_ValidSingleTag_CallsThrough()
+        public void GetByTag_ValidSingleTag_CallsThrough()
         {
             var (controller, source) = DatabasesController();
-            source.GetDatabaseByType("Endur DV 10", "Endur").Returns(new DatabaseApiModel { Name = "D1" });
+            source.GetDatabaseByTag("Endur DV 10", "Endur").Returns(new DatabaseApiModel { Name = "D1" });
 
-            var result = controller.GetByType("Endur DV 10", "Endur");
+            var result = controller.GetByTag("Endur DV 10", "Endur");
 
             Assert.IsInstanceOfType(result, typeof(OkObjectResult));
         }
@@ -71,19 +71,19 @@ namespace Dorc.Api.Tests.Controllers
         [DataRow("")]
         [DataRow("   ")]
         [DataRow("Endur;Ops")]
-        public void GetDbUsersPermissions_RejectsSuppliedInvalidTag(string dbType)
+        public void GetDbUsersPermissions_RejectsSuppliedInvalidTag(string tag)
         {
             var (controller, source) = UsersController();
 
-            var result = controller.GetDbUsersPermissions("s1", "db1", dbType);
+            var result = controller.GetDbUsersPermissions("s1", "db1", tag);
 
             Assert.IsInstanceOfType(result, typeof(BadRequestObjectResult));
-            StringAssert.Contains((string)((BadRequestObjectResult)result).Value!, "dbType");
+            StringAssert.Contains((string)((BadRequestObjectResult)result).Value!, "tag");
             source.DidNotReceiveWithAnyArgs().GetUserDbPermissions(default!, default!, default);
         }
 
         [TestMethod]
-        public void GetDbUsersPermissions_OmittedDbType_KeepsNoFilterSemantics()
+        public void GetDbUsersPermissions_OmittedTag_KeepsNoFilterSemantics()
         {
             // The absent-param regression demanded by the IS: omission is not an
             // empty parameter and must keep flowing through as "no filter".

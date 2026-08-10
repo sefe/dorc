@@ -32,8 +32,9 @@ namespace Dorc.Core.Tests
                 .ToQueryString();
 
             // Translated server-side (LIKE/CHARINDEX over the concatenated column),
-            // with the nullable column coalesced so a NULL Type matches nothing.
-            StringAssert.Contains(sql, "DB_Type");
+            // with the nullable column coalesced so a NULL Tags value matches nothing.
+            StringAssert.Contains(sql, "[deploy].[Database]");
+            StringAssert.Contains(sql, "[Tags]");
             StringAssert.Contains(sql, "COALESCE");
             Assert.IsTrue(sql.Contains("LIKE") || sql.Contains("CHARINDEX"),
                 $"Expected a server-side containment operator in:\n{sql}");

@@ -115,7 +115,7 @@ namespace Tools.PostRestoreEndurCLI
                            endurServiceManagerRow.default_service + ";" + endurServiceManagerRow.app_login_name + ";" +
                            endurServiceManagerRow.curr_date + ";" + endurServiceManagerRow.user_id);
                     var result = endurAppServers.SingleOrDefault(x =>
-                        x.ApplicationTags.Contains(endurServiceManagerRow.app_login_name));
+                        x.Tags.Contains(endurServiceManagerRow.app_login_name));
                     if (result != null)
                     {
                         endurServiceManagerRow.login_name = strSVCAccount;

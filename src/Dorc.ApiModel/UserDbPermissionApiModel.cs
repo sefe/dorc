@@ -9,6 +9,6 @@
         public string PermissionName { get; set; }
         public string PermissionDisplayName { get; set; }
         public int DbId { get; set; }
-        public string DbType { get; set; }
+        public string Tags { get; set; }
     }
 }

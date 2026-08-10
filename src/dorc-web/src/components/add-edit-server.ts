@@ -214,7 +214,7 @@ export class AddEditServer extends LitElement {
 
   getEmptyVirtualMachine(): ServerApiModel {
     return {
-      ApplicationTags: '',
+      Tags: '',
       Name: '',
       OsName: ''
     };

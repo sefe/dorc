@@ -30,7 +30,7 @@ import { MAX_TAG_STRING_LENGTH } from '../../src/helpers/tag-limits';
 describe('add-edit-database tag editing', () => {
   it('round-trips chips from a semicolon-separated Type', async () => {
     const el = await fixture<AddEditDatabase>(html`<add-edit-database></add-edit-database>`);
-    el.database = { Id: 5, Name: 'D1', ServerName: 'S1', Type: 'b;a', ArrayName: '' };
+    el.database = { Id: 5, Name: 'D1', ServerName: 'S1', Tags: 'b;a', ArrayName: '' };
     await el.updateComplete;
 
     const tagsInput = el.shadowRoot?.getElementById('db-tags') as any;
@@ -46,7 +46,7 @@ describe('add-edit-database tag editing', () => {
     // sibling field tears down and rebuilds the chips (and real Tagify fires
     // add events on programmatic addTags).
     const el = await fixture<AddEditDatabase>(html`<add-edit-database></add-edit-database>`);
-    el.database = { Id: 5, Name: 'D1', ServerName: 'S1', Type: 'a;b', ArrayName: '' };
+    el.database = { Id: 5, Name: 'D1', ServerName: 'S1', Tags: 'a;b', ArrayName: '' };
     await el.updateComplete;
 
     const tagsInput = el.shadowRoot?.getElementById('db-tags') as any;
@@ -64,7 +64,7 @@ describe('add-edit-database tag editing', () => {
     expect(rebuilds).to.equal(0);
 
     // A genuine tag change still rebuilds.
-    el.database = { Id: 5, Name: 'D1', ServerName: 'S1', Type: 'a;b;c', ArrayName: '' };
+    el.database = { Id: 5, Name: 'D1', ServerName: 'S1', Tags: 'a;b;c', ArrayName: '' };
     await el.updateComplete;
     expect(rebuilds).to.be.greaterThan(0);
     expect(tagsInput.tags).to.deep.equal(['a', 'b', 'c']);
@@ -80,7 +80,7 @@ describe('add-edit-database tag editing', () => {
     try {
       const el = await fixture<AddEditDatabase>(html`<add-edit-database></add-edit-database>`);
       const oversized = Array.from({ length: 200 }, (_, i) => `tag-${i}-${'x'.repeat(20)}`);
-      el.database = { Id: 5, Name: 'D1', ServerName: 'S1', Type: oversized.join(';'), ArrayName: '' };
+      el.database = { Id: 5, Name: 'D1', ServerName: 'S1', Tags: oversized.join(';'), ArrayName: '' };
       await el.updateComplete;
 
       el.saveDatabase();
@@ -107,14 +107,14 @@ describe('add-edit-database tag editing', () => {
         Id: 5,
         Name: 'D1',
         ServerName: 'S1',
-        Type: 'x'.repeat(MAX_TAG_STRING_LENGTH),
+        Tags: 'x'.repeat(MAX_TAG_STRING_LENGTH),
         ArrayName: ''
       };
       await el.updateComplete;
 
       el.saveDatabase();
       expect(payloads.length).to.equal(1);
-      expect(payloads[0].databaseApiModel.Type.length).to.equal(MAX_TAG_STRING_LENGTH);
+      expect(payloads[0].databaseApiModel.Tags.length).to.equal(MAX_TAG_STRING_LENGTH);
     } finally {
       (RefDataDatabasesApi.prototype as any).refDataDatabasesPut = original;
     }
@@ -124,9 +124,9 @@ describe('add-edit-database tag editing', () => {
 describe('attach-database tag-set overlap', () => {
   async function warned(selectedType: string, existingType: string): Promise<boolean> {
     const el = await fixture<AttachDatabase>(html`<attach-database></attach-database>`);
-    (el as any).selectedDatabase = { Id: 1, Name: 'New', ServerName: 's1', Type: selectedType };
+    (el as any).selectedDatabase = { Id: 1, Name: 'New', ServerName: 's1', Tags: selectedType };
     (el as any).existingDatabases = [
-      { Id: 2, Name: 'Existing', ServerName: 's2', Type: existingType }
+      { Id: 2, Name: 'Existing', ServerName: 's2', Tags: existingType }
     ];
     (el as any).checkForSameTagWarning();
     await el.updateComplete;
@@ -147,9 +147,9 @@ describe('attach-database tag-set overlap', () => {
 
   it('names the overlapping tag in the warning', async () => {
     const el = await fixture<AttachDatabase>(html`<attach-database></attach-database>`);
-    (el as any).selectedDatabase = { Id: 1, Name: 'New', ServerName: 's1', Type: 'Endur;Ops' };
+    (el as any).selectedDatabase = { Id: 1, Name: 'New', ServerName: 's1', Tags: 'Endur;Ops' };
     (el as any).existingDatabases = [
-      { Id: 2, Name: 'Existing', ServerName: 's2', Type: 'Ops;Extra' }
+      { Id: 2, Name: 'Existing', ServerName: 's2', Tags: 'Ops;Extra' }
     ];
     (el as any).checkForSameTagWarning();
     await el.updateComplete;
@@ -168,8 +168,8 @@ describe('env-control-center ThinClient tag membership', () => {
     el.envContent = {
       EnvironmentName: 'Endur DV 10',
       DbServers: [
-        { Id: 1, Name: 'OTHER_DB', ServerName: 'srv-a', Type: 'Reporting' },
-        { Id: 2, Name: 'APP_DB', ServerName: 'srv-b', Type: 'Endur;Reporting' }
+        { Id: 1, Name: 'OTHER_DB', ServerName: 'srv-a', Tags: 'Reporting' },
+        { Id: 2, Name: 'APP_DB', ServerName: 'srv-b', Tags: 'Endur;Reporting' }
       ]
     };
     await el.updateComplete;

@@ -38,7 +38,7 @@ namespace Dorc.Core
             foreach (var server in forEnvId)
             {
                 servers.Add(server.Name);
-                variableResolver.SetPropertyValue(server.ApplicationTags, server.Name);
+                variableResolver.SetPropertyValue(server.Tags, server.Name);
             }
 
             var environmentServers =
@@ -48,7 +48,7 @@ namespace Dorc.Core
                         {
                             Name = s.Name,
                             OsName = s.OsName,
-                            ApplicationServerName = s.ApplicationTags,
+                            Tags = s.Tags,
                             Services =
                                 _daemonsPersistentSource.GetDaemonsForServer(s.ServerId).Select(svc => new VariableValueDaemons
                                 { Name = svc.Name, DisplayName = svc.DisplayName, AccountName = svc.AccountName, ServiceType = svc.ServiceType })
@@ -64,7 +64,7 @@ namespace Dorc.Core
 
             variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.EndurConfigurationFile,
                 _propertiesPersistentSource.GetConfigurationFilePath(environment));
-            var endurDatabase = _databasesPersistentSource.GetDatabaseByType(environment, "Endur");
+            var endurDatabase = _databasesPersistentSource.GetDatabaseByTag(environment, "Endur");
             if (endurDatabase != null)
             {
                 variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.EndurDatabaseName, endurDatabase.Name);
@@ -78,7 +78,7 @@ namespace Dorc.Core
 
             var databaseApiModels = databasesForEnvId as DatabaseApiModel[] ?? databasesForEnvId.ToArray();
             var reportingDatabase =
-                databaseApiModels.SingleOrDefault(d => TagString.HasTag(d.Type, "Endur Reporting"));
+                databaseApiModels.SingleOrDefault(d => TagString.HasTag(d.Tags, "Endur Reporting"));
             if (reportingDatabase != null)
             {
                 variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.ReportingDatabaseName, reportingDatabase.Name);
@@ -87,7 +87,7 @@ namespace Dorc.Core
             }
 
             var externalDatabase =
-                databaseApiModels.SingleOrDefault(d => TagString.HasTag(d.Type, "Endur External"));
+                databaseApiModels.SingleOrDefault(d => TagString.HasTag(d.Tags, "Endur External"));
             if (externalDatabase != null)
             {
                 variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.ExternalDatabaseName, externalDatabase.Name);
@@ -101,12 +101,12 @@ namespace Dorc.Core
             // carrying several tags contributes to each tag's variables; a null/empty
             // Type contributes nothing (it used to throw here).
             var dbTags = databaseApiModels
-                .SelectMany(d => TagString.Split(d.Type))
+                .SelectMany(d => TagString.Split(d.Tags))
                 .Distinct();
 
             foreach (var dbTag in dbTags)
             {
-                var dbs = databaseApiModels.Where(d => TagString.HasTag(d.Type, dbTag)).ToList();
+                var dbs = databaseApiModels.Where(d => TagString.HasTag(d.Tags, dbTag)).ToList();
                 var propertyName = dbTag.Replace(" ", "_");
 
                 if (dbs.Count == 1)
@@ -158,7 +158,7 @@ namespace Dorc.Core
         {
             return new VariableValueDbPerm
             {
-                Database = new DatabaseDefinition { Name = databaseApiModel.Name, Type = databaseApiModel.Type },
+                Database = new DatabaseDefinition { Name = databaseApiModel.Name, Tags = databaseApiModel.Tags },
                 Users = _userPermsPersistentSource.GetPermissions(databaseApiModel.Id)
                     .GroupBy(u => u.User, u => u.Role)
                     .Select(g => new DbUserRole(g.Key, g.ToArray()))
@@ -171,7 +171,7 @@ namespace Dorc.Core
             var serverTypeWithServerNames = new Dictionary<string, List<string>>();
             foreach (var server in serverApiModels)
             {
-                var semicolonSeparatedServerTypes = server.ApplicationTags;
+                var semicolonSeparatedServerTypes = server.Tags;
                 var serverTypes =
                     semicolonSeparatedServerTypes.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries);
                 foreach (var serverType in serverTypes)

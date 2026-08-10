@@ -79,7 +79,7 @@ namespace Dorc.PersistentData.Sources
             {
                 var envDetails = context.Environments.Include(aps => aps.Servers).Single(x => x.Name == envName);
                 var endurAppServers =
-                    envDetails.Servers.Where(x => x.ApplicationTags.Contains("appserv")).ToList();
+                    envDetails.Servers.Where(x => x.Tags.Contains("appserv")).ToList();
                 return endurAppServers;
             }
         }
@@ -190,7 +190,7 @@ namespace Dorc.PersistentData.Sources
                     {
                         EnvironmentNames = s.Environments.Select(ed => ed.Name).ToList(),
                         Name = s.Name,
-                        ApplicationTags = s.ApplicationTags,
+                        Tags = s.Tags,
                         OsName = s.OsName,
                         ServerId = s.Id,
                         UserEditable = (from environmentDetail in s.Environments
@@ -210,7 +210,7 @@ namespace Dorc.PersistentData.Sources
             using (var context = _contextFactory.GetContext())
             {
                 return context.Servers.Select(s => new ServerApiModel
-                { Name = s.Name, ServerId = s.Id, ApplicationTags = s.ApplicationTags, OsName = s.OsName })
+                { Name = s.Name, ServerId = s.Id, Tags = s.Tags, OsName = s.OsName })
                     .ToList();
             }
         }
@@ -231,7 +231,7 @@ namespace Dorc.PersistentData.Sources
                 {
                     EnvironmentNames = svr.Environments.Select(ed => ed.Name).ToList(),
                     Name = svr.Name,
-                    ApplicationTags = svr.ApplicationTags,
+                    Tags = svr.Tags,
                     OsName = svr.OsName,
                     ServerId = svr.Id,
                 };
@@ -264,7 +264,7 @@ namespace Dorc.PersistentData.Sources
                 {
                     EnvironmentNames = svr.Environments.Select(ed => ed.Name).ToList(),
                     Name = svr.Name,
-                    ApplicationTags = svr.ApplicationTags,
+                    Tags = svr.Tags,
                     OsName = svr.OsName,
                     ServerId = svr.Id,
                 };
@@ -353,14 +353,14 @@ namespace Dorc.PersistentData.Sources
                     Id = server.ServerId,
                     Name = server.Name,
                     OsName = server.OsName,
-                    ApplicationTags = server.ApplicationTags
+                    Tags = server.Tags
                 };
             }
 
             s.Id = server.ServerId;
             s.Name = server.Name;
             s.OsName = server.OsName;
-            s.ApplicationTags = server.ApplicationTags;
+            s.Tags = server.Tags;
             return s;
         }
 
@@ -371,7 +371,7 @@ namespace Dorc.PersistentData.Sources
             return new ServerApiModel
             {
                 Name = server.Name,
-                ApplicationTags = server.ApplicationTags,
+                Tags = server.Tags,
                 OsName = server.OsName,
                 ServerId = server.Id,
                 EnvironmentNames = server.Environments?.Select(ed => ed.Name).ToList()
@@ -385,7 +385,7 @@ namespace Dorc.PersistentData.Sources
             return new ServerApiModel
             {
                 Name = serverData.Server.Name,
-                ApplicationTags = serverData.Server.ApplicationTags,
+                Tags = serverData.Server.Tags,
                 OsName = serverData.Server.OsName,
                 ServerId = serverData.Server.Id,
                 EnvironmentNames = serverData.Server.Environments.Select(ed => ed.Name).ToList(),

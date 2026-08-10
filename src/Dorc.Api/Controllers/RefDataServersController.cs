@@ -94,7 +94,7 @@ namespace Dorc.Api.Controllers
         }
 
         /// <summary>
-        ///     Returns app servers for an environment by environment name, filtered to those with "appserv" in ApplicationTags
+        ///     Returns app servers for an environment by environment name, filtered to those with "appserv" in Tags
         /// </summary>
         /// <param name="envName">Environment name</param>
         /// <returns>List of ServerApiModel</returns>
@@ -109,7 +109,7 @@ namespace Dorc.Api.Controllers
                 ServerId = s.Id,
                 Name = s.Name ?? string.Empty,
                 OsName = s.OsName ?? string.Empty,
-                ApplicationTags = s.ApplicationTags ?? string.Empty
+                Tags = s.Tags ?? string.Empty
             }).ToList();
             return Ok(result);
         }

@@ -11,6 +11,6 @@ namespace Dorc.ApiModel
 
         [StringLength(TagLimits.MaxTagStringLength,
             ErrorMessage = "Tags must be at most {1} characters (semicolon-separated).")]
-        public string ApplicationTags { set; get; }
+        public string Tags { set; get; }
     }
 }

@@ -35,7 +35,7 @@ export interface DatabaseApiModel {
      * @type {string}
      * @memberof DatabaseApiModel
      */
-    Type?: string | null;
+    Tags?: string | null;
     /**
      * @type {string}
      * @memberof DatabaseApiModel

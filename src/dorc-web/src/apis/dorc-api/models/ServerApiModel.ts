@@ -45,5 +45,5 @@ export interface ServerApiModel {
      * @type {string}
      * @memberof ServerApiModel
      */
-    ApplicationTags?: string | null;
+    Tags?: string | null;
 }

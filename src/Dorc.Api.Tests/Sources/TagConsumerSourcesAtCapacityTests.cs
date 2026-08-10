@@ -41,7 +41,7 @@ namespace Dorc.Api.Tests.Sources
                     Name = "svc",
                     Server = new List<Server>
                     {
-                        new() { Id = 1, Name = "web01", OsName = "w", ApplicationTags = joined }
+                        new() { Id = 1, Name = "web01", OsName = "w", Tags = joined }
                     }
                 }
             };
@@ -54,7 +54,7 @@ namespace Dorc.Api.Tests.Sources
             var servers = source.GetServersForDaemon(7).ToList();
 
             Assert.AreEqual(1, servers.Count);
-            Assert.AreEqual(joined, servers[0].ApplicationTags);
+            Assert.AreEqual(joined, servers[0].Tags);
         }
 
         [TestMethod]
@@ -65,9 +65,9 @@ namespace Dorc.Api.Tests.Sources
             contextFactory.GetContext().Returns(context);
 
             var matching = new Server
-            { Id = 1, Name = "app01", ApplicationTags = NearLimitTags("appserver-node") };
+            { Id = 1, Name = "app01", Tags = NearLimitTags("appserver-node") };
             var nonMatching = new Server
-            { Id = 2, Name = "web01", ApplicationTags = NearLimitTags() };
+            { Id = 2, Name = "web01", Tags = NearLimitTags() };
             var envList = new List<Environment>
             {
                 new() { Id = 5, Name = "DV 01", Servers = new List<Server> { matching, nonMatching } }

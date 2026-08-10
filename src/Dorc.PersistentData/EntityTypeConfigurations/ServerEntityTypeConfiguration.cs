@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Microsoft.EntityFrameworkCore;
+using Dorc.ApiModel;
 using Dorc.PersistentData.Model;
 
 namespace Dorc.PersistentData.EntityTypeConfigurations
@@ -9,27 +10,20 @@ namespace Dorc.PersistentData.EntityTypeConfigurations
         public void Configure(EntityTypeBuilder<Server> builder)
         {
             builder
-                .ToTable("SERVER")
+                .ToTable("Server", "deploy")
                 .HasKey(k => k.Id);
 
             builder
-                .Property(e => e.Id)
-                .HasColumnName("Server_ID");
-
-            builder
                 .Property(e => e.Name)
-                .HasColumnName("Server_Name")
                 .HasMaxLength(32);
 
             builder
                 .Property(e => e.OsName)
-                .HasColumnName("OS_Version")
                 .HasMaxLength(50);
 
             builder
-                .Property(e => e.ApplicationTags)
-                .HasColumnName("Application_Server_Name")
-                .HasMaxLength(4000);
+                .Property(e => e.Tags)
+                .HasMaxLength(TagLimits.MaxTagStringLength);
 
             builder
                 .HasMany(s => s.Daemons)

@@ -43,7 +43,7 @@ export class AddEditDatabase extends LitElement {
     this._database = JSON.parse(JSON.stringify(value));
 
     this.DatabaseName = this._database.Name ?? '';
-    this.DatabaseType = this._database.Type ?? '';
+    this.DatabaseTags = this._database.Tags ?? '';
     this.DbServerName = this._database.ServerName ?? '';
     this.AdGroup = this._database.AdGroup ?? '';
     this.ArrayName = this._database.ArrayName ?? '';
@@ -69,7 +69,7 @@ export class AddEditDatabase extends LitElement {
   public DatabaseName = '';
 
   @property({ type: String })
-  public DatabaseType = '';
+  public DatabaseTags = '';
 
   @property({ type: String })
   public DbServerName = '';
@@ -154,7 +154,7 @@ export class AddEditDatabase extends LitElement {
             class="block"
             label="Tags"
             pattern="^[a-zA-Z0-9&.\\- ]+$"
-            .tags="${splitTags(this.DatabaseType)}"
+            .tags="${splitTags(this.DatabaseTags)}"
             @tags-changed="${this._dbTagsChanged}"
           ></tags-input>
           <vaadin-text-field
@@ -231,7 +231,7 @@ export class AddEditDatabase extends LitElement {
     if (activeDirectoryGroups) activeDirectoryGroups.clear();
 
     this.DatabaseName = '';
-    this.DatabaseType = '';
+    this.DatabaseTags = '';
     this.DbServerName = '';
     this.ArrayName = '';
     this.AdGroup = '';
@@ -246,11 +246,11 @@ export class AddEditDatabase extends LitElement {
     // never submits what the API would 400 (docs/database-tags, IS S-005).
     const tagsInput = this.shadowRoot?.getElementById('db-tags') as TagsInput | null;
     if (tagsInput?.tagify !== undefined) {
-      this.DatabaseType = joinTags(tagsInput.tags);
+      this.DatabaseTags = joinTags(tagsInput.tags);
     }
-    if (this.DatabaseType.length > MAX_TAG_STRING_LENGTH) {
+    if (this.DatabaseTags.length > MAX_TAG_STRING_LENGTH) {
       Notification.show(
-        `Tags must be at most ${MAX_TAG_STRING_LENGTH} characters when joined (currently ${this.DatabaseType.length})`,
+        `Tags must be at most ${MAX_TAG_STRING_LENGTH} characters when joined (currently ${this.DatabaseTags.length})`,
         { theme: 'error', position: 'bottom-start', duration: 5000 }
       );
       return;
@@ -264,7 +264,7 @@ export class AddEditDatabase extends LitElement {
           Id: this._database.Id,
           ServerName: this.DbServerName,
           Name: this.DatabaseName,
-          Type: this.DatabaseType,
+          Tags: this.DatabaseTags,
           AdGroup: this.AdGroup,
           ArrayName: this.ArrayName
         }
@@ -288,7 +288,7 @@ export class AddEditDatabase extends LitElement {
           databaseApiModel: {
             ServerName: this.DbServerName,
             Name: this.DatabaseName,
-            Type: this.DatabaseType,
+            Tags: this.DatabaseTags,
             AdGroup: this.AdGroup,
             ArrayName: this.ArrayName
           }
@@ -328,7 +328,7 @@ export class AddEditDatabase extends LitElement {
   }
 
   _dbTagsChanged(e: CustomEvent) {
-    this.DatabaseType = joinTags(e.detail.tags);
+    this.DatabaseTags = joinTags(e.detail.tags);
     this.checkDBExists();
   }
 
@@ -455,7 +455,7 @@ export class AddEditDatabase extends LitElement {
     if (
       foundDatabase &&
       foundDatabase.Id === this._database.Id &&
-      this.checkDatabaseComplete({ServerName: this.DbServerName, Name: this.DatabaseName, Type: this.DatabaseType, AdGroup: this.AdGroup})
+      this.checkDatabaseComplete({ServerName: this.DbServerName, Name: this.DatabaseName, Tags: this.DatabaseTags, AdGroup: this.AdGroup})
     ) {
       this.isNameValid = true;
       this.infoMessage = '';
@@ -466,7 +466,7 @@ export class AddEditDatabase extends LitElement {
 
     } else if (
       !foundDatabase &&
-      this.checkDatabaseComplete({ServerName: this.DbServerName, Name: this.DatabaseName, Type: this.DatabaseType, AdGroup: this.AdGroup})
+      this.checkDatabaseComplete({ServerName: this.DbServerName, Name: this.DatabaseName, Tags: this.DatabaseTags, AdGroup: this.AdGroup})
     ) {
       this.isNameValid = true;
       this.infoMessage = '';
@@ -503,8 +503,8 @@ export class AddEditDatabase extends LitElement {
       instanceValid = true;
     }
     if (
-      db.Type &&
-      db.Type?.length > 0)
+      db.Tags &&
+      db.Tags?.length > 0)
     {
       typeValid = true;
     }
@@ -517,7 +517,7 @@ export class AddEditDatabase extends LitElement {
       ArrayName: '',
       Name: '',
       AdGroup: '',
-      Type: '',
+      Tags: '',
       EnvironmentNames: [],
       Id : 0,
       UserEditable: false

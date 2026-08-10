@@ -10,7 +10,7 @@
              stop matching the EF pattern until the one-time NormalizeDatabaseTags
              post-deploy script (shipped in the same dacpac) has run.
  Report 3 — per-environment tag collisions: two databases in one environment
-             sharing a tag make GetDatabaseByType-style resolution throw (kept
+             sharing a tag make GetDatabaseByTag-style resolution throw (kept
              U-1 behaviour) — fix the data or accept the throw before deploy.
 
  Compat-100-safe: recursive-CTE splitter, no STRING_SPLIT.

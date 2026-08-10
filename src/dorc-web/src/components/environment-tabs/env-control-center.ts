@@ -320,7 +320,7 @@ export class EnvControlCenter extends PageEnvBase {
     // it to find the app database server — matched as tag membership over the
     // semicolon-separated Type list (docs/database-tags, IS S-005).
     this.appDbServer = this.envContent?.DbServers?.find(s =>
-      hasTag(s.Type, this.environment?.Details?.ThinClient)
+      hasTag(s.Tags, this.environment?.Details?.ThinClient)
     );
   }
 }

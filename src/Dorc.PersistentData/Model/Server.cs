@@ -8,7 +8,7 @@
 
         public string? OsName { get; set; }
 
-        public string? ApplicationTags { get; set; }
+        public string? Tags { get; set; }
 
         public ICollection<Daemon> Daemons { get; set; } = new List<Daemon>();
 
