@@ -1,6 +1,11 @@
 CREATE TABLE [deploy].[Database] (
     [Id]         INT             IDENTITY (1, 1) NOT NULL,
     [Name]       NVARCHAR (250)  NULL,
+    -- DEPRECATED, removed in the follow-up release. deploy.DatabaseTag is the
+    -- source of truth; this is dual-written so the column stays accurate for
+    -- anything still reading it directly. It cannot be dropped in the same
+    -- release: SqlPackage's data-loss guard aborts the publish on any
+    -- non-empty table when a column is dropped.
     [Tags]       NVARCHAR (4000) NULL,
     [ServerName] NVARCHAR (250)  NULL,
     [ArrayName]  NVARCHAR (250)  NULL,

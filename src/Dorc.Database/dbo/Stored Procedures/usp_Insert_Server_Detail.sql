@@ -23,10 +23,23 @@ IF EXISTS (SELECT * FROM deploy.[Server] WHERE [Name] = @SERVER_NAME)
 	END
 ELSE
 	BEGIN
+		DECLARE @SERVER_ID INT
+
 		INSERT INTO deploy.[Server]
 			([Name], [OsName], [Tags])
 		VALUES
 			(@SERVER_NAME, @OS_VERSION, @TAGS)
+
+		SET @SERVER_ID = SCOPE_IDENTITY()
+
+		-- @TAGS keeps its delimited shape: it is a contract with external
+		-- operational tooling. deploy.ServerTag is the source of truth, so it is
+		-- split on the way in; the deprecated column above is dual-written until
+		-- the follow-up release drops it.
+		INSERT INTO deploy.[ServerTag] ([ServerId], [Tag])
+		SELECT @SERVER_ID, t.Tag
+		FROM deploy.SplitTagString(@TAGS) t
+		WHERE LEN(t.Tag) <= 200
 	END
 
 END TRY
