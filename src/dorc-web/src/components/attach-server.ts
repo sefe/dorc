@@ -13,6 +13,7 @@ import {
   ApiBoolResult,
   ServerApiModel
 } from '../apis/dorc-api';
+import { joinTags, normaliseTags } from '../helpers/tag-parser';
 
 @customElement('attach-server')
 export class AttachServer extends LitElement {
@@ -81,7 +82,7 @@ export class AttachServer extends LitElement {
             <h3 style="color: black">
               Server Tags:
               <span style="color: var(--dorc-link-color)"
-                >${this.selectedServer?.Tags}</span
+                >${joinTags(normaliseTags(this.selectedServer?.Tags))}</span
               >
             </h3>
           </div>

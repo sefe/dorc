@@ -151,13 +151,32 @@ describe('attach-database tag-set overlap', () => {
 
   it('names the overlapping tag in the warning', async () => {
     const el = await fixture<AttachDatabase>(html`<attach-database></attach-database>`);
-    (el as any).selectedDatabase = { Id: 1, Name: 'New', ServerName: 's1', Tags: 'Endur;Ops' };
+    (el as any).selectedDatabase = { Id: 1, Name: 'New', ServerName: 's1', Tags: ['Endur', 'Ops'] };
     (el as any).existingDatabases = [
-      { Id: 2, Name: 'Existing', ServerName: 's2', Tags: 'Ops;Extra' }
+      { Id: 2, Name: 'Existing', ServerName: 's2', Tags: ['Ops', 'Extra'] }
     ];
     (el as any).checkForSameTagWarning();
     await el.updateComplete;
     expect(el.shadowRoot?.textContent).to.contain('Ops');
+  });
+
+  it('separates the tags it displays', async () => {
+    // lit stamps an array as one text node per item with nothing between them, so
+    // a bare ${Tags} renders ['Endur','Reporting'] as "EndurReporting" — which is
+    // indistinguishable from ['End','urReporting']. This dialog is the last human
+    // check before a database is attached, so the separator has to be there.
+    const el = await fixture<AttachDatabase>(html`<attach-database></attach-database>`);
+    (el as any).selectedDatabase = {
+      Id: 1,
+      Name: 'D1',
+      ServerName: 's1',
+      Tags: ['Endur', 'Reporting']
+    };
+    await el.updateComplete;
+
+    const text = el.shadowRoot?.textContent ?? '';
+    expect(text).to.contain('Endur;Reporting');
+    expect(text).to.not.contain('EndurReporting');
   });
 });
 
@@ -172,8 +191,8 @@ describe('env-control-center ThinClient tag membership', () => {
     el.envContent = {
       EnvironmentName: 'Endur DV 10',
       DbServers: [
-        { Id: 1, Name: 'OTHER_DB', ServerName: 'srv-a', Tags: 'Reporting' },
-        { Id: 2, Name: 'APP_DB', ServerName: 'srv-b', Tags: 'Endur;Reporting' }
+        { Id: 1, Name: 'OTHER_DB', ServerName: 'srv-a', Tags: ['Reporting'] },
+        { Id: 2, Name: 'APP_DB', ServerName: 'srv-b', Tags: ['Endur', 'Reporting'] }
       ]
     };
     await el.updateComplete;

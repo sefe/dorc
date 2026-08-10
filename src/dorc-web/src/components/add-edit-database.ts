@@ -68,7 +68,7 @@ export class AddEditDatabase extends LitElement {
   @property({ type: String })
   public DatabaseName = '';
 
-  @property({ type: String })
+  @property({ type: Array })
   public DatabaseTags: string[] = [];
 
   @property({ type: String })

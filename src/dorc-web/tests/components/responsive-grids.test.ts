@@ -247,7 +247,7 @@ describe('Responsive grid column hiding (rendered)', () => {
       {
         ServerName: 'srv1',
         Name: 'db1',
-        Tags: 'Tag1',
+        Tags: ['Tag1'],
         ArrayName: 'arr1',
         Id: 1,
       },
@@ -283,7 +283,7 @@ describe('Responsive grid column hiding (rendered)', () => {
   // ── attached-servers ──
   describe('attached-servers', () => {
     const mockServers = [
-      { Name: 'srv1', OsName: 'Windows', Tags: 'tag1;tag2', Id: 1 },
+      { Name: 'srv1', OsName: 'Windows', Tags: ['tag1', 'tag2'], Id: 1 },
     ];
 
     it('hides secondary columns on narrow screens', async () => {

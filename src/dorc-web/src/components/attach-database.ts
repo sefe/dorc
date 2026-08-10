@@ -9,7 +9,7 @@ import '@vaadin/button';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { ApiBoolResult, DatabaseApiModel } from '../apis/dorc-api';
-import { splitTags, hasTag } from '../helpers/tag-parser';
+import { splitTags, hasTag, joinTags, normaliseTags } from '../helpers/tag-parser';
 import {
   RefDataDatabasesApi,
   RefDataEnvironmentsDetailsApi
@@ -106,7 +106,7 @@ export class AttachDatabase extends LitElement {
           <h3>
             Tags:
             <span style="color: var(--dorc-link-color)"
-              >${this.selectedDatabase?.Tags}</span
+              >${joinTags(normaliseTags(this.selectedDatabase?.Tags))}</span
             >
           </h3>
           <h3>
