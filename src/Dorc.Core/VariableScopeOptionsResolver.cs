@@ -38,7 +38,10 @@ namespace Dorc.Core
             foreach (var server in forEnvId)
             {
                 servers.Add(server.Name);
-                variableResolver.SetPropertyValue(server.Tags, server.Name);
+                // Pre-existing shape: a variable named after the whole joined tag
+                // string. Joined here so the emitted name is byte-identical to
+                // what it was before tags became rows.
+                variableResolver.SetPropertyValue(TagString.Join(server.Tags), server.Name);
             }
 
             var environmentServers =
@@ -48,7 +51,7 @@ namespace Dorc.Core
                         {
                             Name = s.Name,
                             OsName = s.OsName,
-                            Tags = s.Tags,
+                            Tags = TagString.Join(s.Tags),
                             Services =
                                 _daemonsPersistentSource.GetDaemonsForServer(s.ServerId).Select(svc => new VariableValueDaemons
                                 { Name = svc.Name, DisplayName = svc.DisplayName, AccountName = svc.AccountName, ServiceType = svc.ServiceType })
@@ -97,12 +100,12 @@ namespace Dorc.Core
             var databasePermissions = databaseApiModels
                 .Select(GetDbPermission).ToArray();
 
-            // Per-tag grouping over the semicolon-separated Tags list: a database
-            // carrying several tags contributes to each tag's variables; a null/empty
-            // Tags value contributes nothing (it used to throw here).
+            // Per-tag grouping: a database carrying several tags contributes to each
+            // tag's variables; one carrying none contributes nothing (it used to throw
+            // here).
             var dbTags = databaseApiModels
-                .SelectMany(d => TagString.Split(d.Tags))
-                .Distinct();
+                .SelectMany(d => d.Tags ?? System.Array.Empty<string>())
+                .Distinct(StringComparer.Ordinal);
 
             foreach (var dbTag in dbTags)
             {
@@ -158,7 +161,7 @@ namespace Dorc.Core
         {
             return new VariableValueDbPerm
             {
-                Database = new DatabaseDefinition { Name = databaseApiModel.Name, Tags = databaseApiModel.Tags },
+                Database = new DatabaseDefinition { Name = databaseApiModel.Name, Tags = TagString.Join(databaseApiModel.Tags) },
                 Users = _userPermsPersistentSource.GetPermissions(databaseApiModel.Id)
                     .GroupBy(u => u.User, u => u.Role)
                     .Select(g => new DbUserRole(g.Key, g.ToArray()))
@@ -171,10 +174,7 @@ namespace Dorc.Core
             var serverNamesByTag = new Dictionary<string, List<string>>();
             foreach (var server in serverApiModels)
             {
-                var joinedTags = server.Tags;
-                var serverTags =
-                    joinedTags.Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries);
-                foreach (var serverTag in serverTags)
+                foreach (var serverTag in server.Tags ?? Array.Empty<string>())
                     if (serverNamesByTag.TryGetValue(serverTag, out var names))
                         names.Add(server.Name);
                     else

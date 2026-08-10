@@ -8841,9 +8841,11 @@
             "nullable": true
           },
           "Tags": {
-            "maxLength": 4000,
-            "minLength": 0,
-            "type": "string",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 200
+            },
             "nullable": true
           },
           "ServerName": {
@@ -10409,9 +10411,11 @@
             "nullable": true
           },
           "Tags": {
-            "maxLength": 4000,
-            "minLength": 0,
-            "type": "string",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 200
+            },
             "nullable": true
           }
         },
@@ -10607,7 +10611,10 @@
             "format": "int32"
           },
           "Tags": {
-            "type": "string",
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
             "nullable": true
           }
         },

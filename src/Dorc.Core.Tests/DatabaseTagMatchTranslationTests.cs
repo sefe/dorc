@@ -31,13 +31,15 @@ namespace Dorc.Core.Tests
                 .Where(DatabaseTagMatch.HasTag("Endur"))
                 .ToQueryString();
 
-            // Translated server-side (LIKE/CHARINDEX over the concatenated column),
-            // with the nullable column coalesced so a NULL Tags value matches nothing.
+            // Translated server-side as EXISTS against the join table, which seeks
+            // IX_DatabaseTag_Tag. The delimited form this replaced could only be
+            // matched with a leading-wildcard LIKE, which forced a scan - so the
+            // absence of LIKE here is the point of the change, not an accident.
             StringAssert.Contains(sql, "[deploy].[Database]");
-            StringAssert.Contains(sql, "[Tags]");
-            StringAssert.Contains(sql, "COALESCE");
-            Assert.IsTrue(sql.Contains("LIKE") || sql.Contains("CHARINDEX"),
-                $"Expected a server-side containment operator in:\n{sql}");
+            StringAssert.Contains(sql, "[deploy].[DatabaseTag]");
+            StringAssert.Contains(sql, "EXISTS");
+            Assert.IsFalse(sql.Contains("LIKE"),
+                $"Tag membership must not degrade to a LIKE scan:\n{sql}");
         }
     }
 }

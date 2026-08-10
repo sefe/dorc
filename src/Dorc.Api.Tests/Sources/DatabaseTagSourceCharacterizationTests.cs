@@ -20,6 +20,10 @@ namespace Dorc.Api.Tests.Sources
     [TestClass]
     public class DatabaseTagSourceCharacterizationTests
     {
+
+        /// <summary>Tag rows for a Database fixture — tags are stored as rows now.</summary>
+        private static List<DatabaseTag> DbTags(params string[] tags) =>
+            tags.Select(t => new DatabaseTag { Tag = t }).ToList();
         private static IDeploymentContextFactory FactoryFor(IDeploymentContext context)
         {
             var factory = Substitute.For<IDeploymentContextFactory>();
@@ -51,8 +55,8 @@ namespace Dorc.Api.Tests.Sources
         public void GetDatabaseByTag_EnvironmentOverload_UsesTagMembership()
         {
             var context = ContextWithEnvironmentDatabases(
-                new Database { Id = 1, Name = "END_DB_DV10", Tags = "Endur", ServerName = "s1" },
-                new Database { Id = 2, Name = "M1", Tags = "Endur;Reporting", ServerName = "s2" });
+                new Database { Id = 1, Name = "END_DB_DV10", TagLinks = DbTags("Endur"), ServerName = "s1" },
+                new Database { Id = 2, Name = "M1", TagLinks = DbTags("Endur", "Reporting"), ServerName = "s2" });
             var source = DatabasesSource(context);
             var env = new EnvironmentApiModel { EnvironmentId = 42, EnvironmentName = "Endur DV 10" };
 
@@ -66,8 +70,8 @@ namespace Dorc.Api.Tests.Sources
         public void GetDatabaseByTag_EnvNameOverload_UsesTagMembership()
         {
             var context = ContextWithEnvironmentDatabases(
-                new Database { Id = 1, Name = "END_DB_DV10", Tags = "Endur", ServerName = "s1" },
-                new Database { Id = 2, Name = "M1", Tags = "Endur;Reporting", ServerName = "s2" });
+                new Database { Id = 1, Name = "END_DB_DV10", TagLinks = DbTags("Endur"), ServerName = "s1" },
+                new Database { Id = 2, Name = "M1", TagLinks = DbTags("Endur", "Reporting"), ServerName = "s2" });
             var source = DatabasesSource(context);
 
             // FLIPPED by S-003: same tag-membership semantics as the EF overload.
@@ -80,8 +84,8 @@ namespace Dorc.Api.Tests.Sources
         {
             // Kept behaviour — tag membership must NOT flip these.
             var context = ContextWithEnvironmentDatabases(
-                new Database { Id = 1, Name = "A", Tags = "Endur", ServerName = "s1" },
-                new Database { Id = 2, Name = "B", Tags = "Endur", ServerName = "s2" });
+                new Database { Id = 1, Name = "A", TagLinks = DbTags("Endur"), ServerName = "s1" },
+                new Database { Id = 2, Name = "B", TagLinks = DbTags("Endur"), ServerName = "s2" });
             var source = DatabasesSource(context);
             var env = new EnvironmentApiModel { EnvironmentId = 42, EnvironmentName = "Endur DV 10" };
 
@@ -96,8 +100,8 @@ namespace Dorc.Api.Tests.Sources
         {
             var context = Substitute.For<IDeploymentContext>();
             var env = new Environment { Id = 42, Name = "Endur DV 10" };
-            var endurDb = new Database { Id = 10, Name = "D1", Tags = "Endur" };
-            var multiTagDb = new Database { Id = 11, Name = "D2", Tags = "Endur;Ops" };
+            var endurDb = new Database { Id = 10, Name = "D1", TagLinks = DbTags("Endur") };
+            var multiTagDb = new Database { Id = 11, Name = "D2", TagLinks = DbTags("Endur", "Ops") };
             endurDb.Environments = new List<Environment> { env };
             multiTagDb.Environments = new List<Environment> { env };
             var envSet = DbContextMock.GetQueryableMockDbSet(new List<Environment> { env });
@@ -132,7 +136,7 @@ namespace Dorc.Api.Tests.Sources
         private static UserPermsPersistentSource PermsSourceWithOneMultiTagDb(out IDeploymentContext context)
         {
             context = Substitute.For<IDeploymentContext>();
-            var db = new Database { Id = 10, Name = "db1", ServerName = "s1", Tags = "Endur;Ops" };
+            var db = new Database { Id = 10, Name = "db1", ServerName = "s1", TagLinks = DbTags("Endur", "Ops") };
             var dbSet = DbContextMock.GetQueryableMockDbSet(new List<Database> { db });
             var userSet = DbContextMock.GetQueryableMockDbSet(new List<User>
             {
@@ -194,12 +198,12 @@ namespace Dorc.Api.Tests.Sources
                 Details = new EnvironmentDetailsApiModel { FileShare = @"\\share" }
             };
 
-            var hit = PropertiesSourceFor(new Database { Id = 1, Name = "END_DV10_DB", Tags = "Endur" })
+            var hit = PropertiesSourceFor(new Database { Id = 1, Name = "END_DV10_DB", TagLinks = DbTags("Endur") })
                 .GetConfigurationFilePath(environment);
             StringAssert.Contains(hit, "ENDUR_END_DV10.cfg");
 
             // FLIPPED by S-003: a multi-tag row carrying "Endur" resolves the path.
-            var multiTag = PropertiesSourceFor(new Database { Id = 1, Name = "END_DV10_DB", Tags = "Endur;Ops" })
+            var multiTag = PropertiesSourceFor(new Database { Id = 1, Name = "END_DV10_DB", TagLinks = DbTags("Endur", "Ops") })
                 .GetConfigurationFilePath(environment);
             StringAssert.Contains(multiTag, "ENDUR_END_DV10.cfg");
         }
@@ -210,8 +214,8 @@ namespace Dorc.Api.Tests.Sources
         public void NullTypeDatabases_AreExcludedFromTagLookups()
         {
             var context = ContextWithEnvironmentDatabases(
-                new Database { Id = 1, Name = "N1", Tags = null, ServerName = "s1" },
-                new Database { Id = 2, Name = "E1", Tags = "Endur", ServerName = "s2" });
+                new Database { Id = 1, Name = "N1", TagLinks = DbTags(), ServerName = "s1" },
+                new Database { Id = 2, Name = "E1", TagLinks = DbTags("Endur"), ServerName = "s2" });
             var source = DatabasesSource(context);
             var env = new EnvironmentApiModel { EnvironmentId = 42, EnvironmentName = "Endur DV 10" };
 
@@ -233,7 +237,7 @@ namespace Dorc.Api.Tests.Sources
             // Site 5, null-Type row excluded (gate F-2).
             var hit = PropertiesSourceFor(
                     new Database { Id = 1, Name = "X1", Tags = null },
-                    new Database { Id = 2, Name = "END_DV10_DB", Tags = "Endur" })
+                    new Database { Id = 2, Name = "END_DV10_DB", TagLinks = DbTags("Endur") })
                 .GetConfigurationFilePath(environment);
             StringAssert.Contains(hit, "ENDUR_END_DV10.cfg");
 
@@ -241,8 +245,8 @@ namespace Dorc.Api.Tests.Sources
             // the Endur tag still throw.
             Assert.Throws<InvalidOperationException>(() =>
                 PropertiesSourceFor(
-                        new Database { Id = 1, Name = "A_DB", Tags = "Endur;Ops" },
-                        new Database { Id = 2, Name = "B_DB", Tags = "Endur" })
+                        new Database { Id = 1, Name = "A_DB", TagLinks = DbTags("Endur", "Ops") },
+                        new Database { Id = 2, Name = "B_DB", TagLinks = DbTags("Endur") })
                     .GetConfigurationFilePath(environment));
         }
 
@@ -282,23 +286,29 @@ namespace Dorc.Api.Tests.Sources
             Assert.AreEqual(1, permsSource.GetUserDbPermissions("s1", "D3").Count);
         }
 
-        // ---- Padded legacy rows: the EF pattern vs in-memory tokenization ----
+        // ---- Padding can no longer make a row unmatchable ----
 
         [TestMethod]
-        public void PaddedEntries_MissAtTheEfPattern_ButMatchInMemory()
+        public void PaddedInput_IsTrimmedOnWrite_SoBothLookupsAgree()
         {
-            // The delimiter-wrap pattern is exact about whitespace: a legacy padded
-            // entry ("Endur ;Ops") misses at EF sites until the one-time
-            // NormalizeDatabaseTags script runs. In-memory sites trim during
-            // tokenization and are immune. Both behaviours are by design.
-            var context = ContextWithEnvironmentDatabases(
-                new Database { Id = 1, Name = "P1", Tags = "Endur ;Ops", ServerName = "s1" });
-            var source = DatabasesSource(context);
-            var env = new EnvironmentApiModel { EnvironmentId = 42, EnvironmentName = "Endur DV 10" };
+            // The old delimited column had an asymmetry worth a test: a padded entry
+            // ("Endur ;Ops") missed at the EF sites, because the delimiter-wrap LIKE
+            // was exact about whitespace, while in-memory sites trimmed and matched.
+            // Rows remove the asymmetry at the source - every entry point trims, so a
+            // padded tag never reaches storage and both lookups see the same thing.
+            var context = ContextWithEnvironmentDatabases();
+            var added = new List<Database>();
+            context.Databases.When(d => d.Add(Arg.Any<Database>())).Do(ci => added.Add(ci.Arg<Database>()));
+            var adGroupSet = DbContextMock.GetQueryableMockDbSet(new List<AdGroup>());
+            context.AdGroups.Returns(adGroupSet);
 
-            Assert.IsNull(source.GetDatabaseByTag(env, "Endur"));            // EF pattern: miss
-            Assert.AreEqual("P1", source.GetDatabaseByTag(env, "Ops").Name); // unpadded entry: hit
-            Assert.AreEqual("P1", source.GetDatabaseByTag("Endur DV 10", "Endur")!.Name); // in-memory: trimmed hit
+            DatabasesSource(context).AddDatabase(new DatabaseApiModel
+            {
+                Name = "P1", ServerName = "s1", Tags = new[] { "  Endur  ", "Ops" }
+            });
+
+            CollectionAssert.AreEqual(new[] { "Endur", "Ops" },
+                added.Single().TagLinks.Select(t => t.Tag).ToArray());
         }
 
         [TestMethod]
@@ -313,8 +323,12 @@ namespace Dorc.Api.Tests.Sources
             var source = DatabasesSource(context);
 
             source.AddDatabase(new DatabaseApiModel
-            { Name = "N1", ServerName = "s9", Tags = " Endur ; Ops ;; Endur " });
+            { Name = "N1", ServerName = "s9", Tags = new[] { "Endur", "Ops", "", "Endur" } });
 
+            // Rows are the source of truth; the deprecated column is dual-written
+            // until the follow-up release drops it, so both must agree.
+            CollectionAssert.AreEqual(new[] { "Endur", "Ops" },
+                addedDatabases.Single().TagLinks.Select(t => t.Tag).ToArray());
             Assert.AreEqual("Endur;Ops", addedDatabases.Single().Tags);
         }
     }

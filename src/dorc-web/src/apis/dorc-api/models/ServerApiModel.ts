@@ -32,18 +32,18 @@ export interface ServerApiModel {
      */
     ServerId?: number;
     /**
-     * @type {string}
+     * @type {Array<string>}
      * @memberof ServerApiModel
      */
     Name?: string | null;
     /**
-     * @type {string}
+     * @type {Array<string>}
      * @memberof ServerApiModel
      */
     OsName?: string | null;
     /**
-     * @type {string}
+     * @type {Array<string>}
      * @memberof ServerApiModel
      */
-    Tags?: string | null;
+    Tags?: Array<string> | null;
 }

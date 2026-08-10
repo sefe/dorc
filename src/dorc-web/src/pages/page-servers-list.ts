@@ -828,7 +828,7 @@ export class PageServersList extends ResponsiveMixin(PageElement) {
 
   private getEmptyServer(): ServerApiModel {
     return {
-      Tags: '',
+      Tags: [],
       Name: '',
       OsName: '',
       EnvironmentNames: [],

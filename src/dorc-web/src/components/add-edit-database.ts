@@ -22,8 +22,8 @@ import {
 import { Notification } from '@vaadin/notification';
 import './tags-input';
 import { TagsInput } from './tags-input';
-import { splitTags, joinTags } from '../helpers/tag-parser';
-import { MAX_TAG_STRING_LENGTH } from '../helpers/tag-limits';
+import { normaliseTags } from '../helpers/tag-parser';
+import { MAX_TAG_LENGTH } from '../helpers/tag-limits';
 
 @customElement('add-edit-database')
 export class AddEditDatabase extends LitElement {
@@ -43,7 +43,7 @@ export class AddEditDatabase extends LitElement {
     this._database = JSON.parse(JSON.stringify(value));
 
     this.DatabaseName = this._database.Name ?? '';
-    this.DatabaseTags = this._database.Tags ?? '';
+    this.DatabaseTags = normaliseTags(this._database.Tags);
     this.DbServerName = this._database.ServerName ?? '';
     this.AdGroup = this._database.AdGroup ?? '';
     this.ArrayName = this._database.ArrayName ?? '';
@@ -69,7 +69,7 @@ export class AddEditDatabase extends LitElement {
   public DatabaseName = '';
 
   @property({ type: String })
-  public DatabaseTags = '';
+  public DatabaseTags: string[] = [];
 
   @property({ type: String })
   public DbServerName = '';
@@ -154,7 +154,7 @@ export class AddEditDatabase extends LitElement {
             class="block"
             label="Tags"
             pattern="^[a-zA-Z0-9&.\\- ]+$"
-            .tags="${splitTags(this.DatabaseTags)}"
+            .tags="${this.DatabaseTags}"
             @tags-changed="${this._dbTagsChanged}"
           ></tags-input>
           <vaadin-text-field
@@ -231,7 +231,7 @@ export class AddEditDatabase extends LitElement {
     if (activeDirectoryGroups) activeDirectoryGroups.clear();
 
     this.DatabaseName = '';
-    this.DatabaseTags = '';
+    this.DatabaseTags = [];
     this.DbServerName = '';
     this.ArrayName = '';
     this.AdGroup = '';
@@ -242,15 +242,16 @@ export class AddEditDatabase extends LitElement {
   }
 
   saveDatabase() {
-    // Read the chips at save time and enforce the joined-string limit so the UI
-    // never submits what the API would 400.
+    // Read the chips at save time and enforce the per-tag limit the API and the
+    // Tag column both apply, so the UI never submits what would 400.
     const tagsInput = this.shadowRoot?.getElementById('db-tags') as TagsInput | null;
     if (tagsInput?.tagify !== undefined) {
-      this.DatabaseTags = joinTags(tagsInput.tags);
+      this.DatabaseTags = normaliseTags(tagsInput.tags);
     }
-    if (this.DatabaseTags.length > MAX_TAG_STRING_LENGTH) {
+    const overLong = this.DatabaseTags.filter(t => t.length > MAX_TAG_LENGTH);
+    if (overLong.length > 0) {
       Notification.show(
-        `Tags must be at most ${MAX_TAG_STRING_LENGTH} characters when joined (currently ${this.DatabaseTags.length})`,
+        `Each tag must be at most ${MAX_TAG_LENGTH} characters (too long: '${overLong[0]}')`,
         { theme: 'error', position: 'bottom-start', duration: 5000 }
       );
       return;
@@ -328,7 +329,7 @@ export class AddEditDatabase extends LitElement {
   }
 
   _dbTagsChanged(e: CustomEvent) {
-    this.DatabaseTags = joinTags(e.detail.tags);
+    this.DatabaseTags = normaliseTags(e.detail.tags);
     this.checkDBExists();
   }
 
@@ -517,7 +518,7 @@ export class AddEditDatabase extends LitElement {
       ArrayName: '',
       Name: '',
       AdGroup: '',
-      Tags: '',
+      Tags: [],
       EnvironmentNames: [],
       Id : 0,
       UserEditable: false

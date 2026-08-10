@@ -1,3 +1,4 @@
+import { normaliseTags } from '../helpers/tag-parser';
 import '@polymer/paper-dialog';
 import { PaperDialogElement } from '@polymer/paper-dialog';
 import '@vaadin/button';
@@ -159,12 +160,7 @@ export class AttachedDatabases extends ResponsiveMixin(LitElement) {
     model: GridItemModel<DatabaseApiModel>
   ) => {
     const database = model.item;
-    const appTags =
-      database.Tags !== undefined &&
-      database.Tags !== null &&
-      database.Tags.length > 0
-        ? database.Tags?.split(';')
-        : [];
+    const appTags = normaliseTags(database.Tags);
 
     render(
       html`

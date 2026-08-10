@@ -43,6 +43,7 @@ namespace Dorc.PersistentData.Sources
             {
                 return context.Databases
                     .Include(d => d.Group)
+                    .Include(d => d.TagLinks)
                     .Include(d => d.Environments)
                     .Where(d => d.Name.Equals(name) && d.ServerName.Equals(server)).ToList()
                     .Select(MapToDatabaseApiModel).ToList();
@@ -53,7 +54,7 @@ namespace Dorc.PersistentData.Sources
         {
             using (var context = _contextFactory.GetContext())
             {
-                return context.Databases.Include(d => d.Group).Where(d => d.Name != null).ToList()
+                return context.Databases.Include(d => d.Group).Include(d => d.TagLinks).Where(d => d.Name != null).ToList()
                     .Select(MapToDatabaseApiModel).ToList();
 
             }
@@ -64,7 +65,7 @@ namespace Dorc.PersistentData.Sources
             var output = new List<string>();
             using (var context = _contextFactory.GetContext())
             {
-                var database = context.Databases.Include(s => s.Environments)
+                var database = context.Databases.Include(s => s.TagLinks).Include(s => s.Environments)
                     .FirstOrDefault(s => s.Id.Equals(serverId));
 
                 if (database == null)
@@ -114,11 +115,34 @@ namespace Dorc.PersistentData.Sources
             using (var context = _contextFactory.GetContext())
             {
                 var dbDetails = context.Environments
-                    .Include(env => env.Databases)
+                    .Include(env => env.Databases).ThenInclude(d => d.TagLinks)
                     .Single(e => e.Name == envName)
-                    .Databases.SingleOrDefault(x => TagString.HasTag(x.Tags, tag));
+                    .Databases.SingleOrDefault(x => x.TagLinks.Any(t => t.Tag == tag));
                 return dbDetails != null ? MapToDatabaseApiModel(dbDetails) : null;
             }
+        }
+
+        /// <summary>
+        /// Make the database's tag rows match the supplied set, and keep the
+        /// deprecated delimited column in step until the follow-up release drops it.
+        /// Rows are added and removed rather than cleared and rebuilt, so unchanged
+        /// tags keep their identity and the write is a no-op when nothing moved.
+        /// </summary>
+        private static void SyncTagLinks(IDeploymentContext context, Database entity, IEnumerable<string> tags)
+        {
+            var wanted = TagString.Normalize(tags);
+
+            var toRemove = entity.TagLinks
+                .Where(link => !wanted.Contains(link.Tag, StringComparer.Ordinal))
+                .ToList();
+            foreach (var link in toRemove)
+                entity.TagLinks.Remove(link);
+
+            var existing = entity.TagLinks.Select(link => link.Tag).ToArray();
+            foreach (var tag in wanted.Where(t => !existing.Contains(t, StringComparer.Ordinal)))
+                entity.TagLinks.Add(new DatabaseTag { DatabaseId = entity.Id, Tag = tag });
+
+            entity.Tags = TagString.Join(wanted);
         }
 
         private DatabaseApiModel? GetDatabase(DatabaseApiModel db, IDeploymentContext context)
@@ -152,6 +176,7 @@ namespace Dorc.PersistentData.Sources
             {
                 var endurDb = context.Databases
                     .Include(d => d.Environments)
+                    .Include(d => d.TagLinks)
                     .Include(d => d.Group)
                     .Where(DatabaseTagMatch.HasTag(tag))
                     .SingleOrDefault(d => d.Environments.FirstOrDefault().Name == environment.EnvironmentName);
@@ -198,6 +223,7 @@ namespace Dorc.PersistentData.Sources
                 var envPrivilegeInfos = GetEnvironmentPrivInfos(user, context);
 
                 var reqStatusesQueryable = context.Databases.Include(database => database.Environments)
+                    .Include(database => database.TagLinks)
                     .Include(database => database.Group).AsQueryable();
 
                 if (operators.Filters != null && operators.Filters.Any())
@@ -295,7 +321,7 @@ namespace Dorc.PersistentData.Sources
                     {
                         Id = s.Id,
                         Name = s.Name,
-                        Tags = s.Tags,
+                        Tags = s.TagLinks.Select(t => t.Tag).ToArray(),
                         ServerName = s.ServerName,
                         AdGroup = s.Group?.Name,
                         ArrayName = s.ArrayName,
@@ -368,7 +394,7 @@ namespace Dorc.PersistentData.Sources
                 existingDatabase.Name = database.Name;
                 existingDatabase.ServerName = database.ServerName;
                 existingDatabase.ArrayName = database.ArrayName;
-                existingDatabase.Tags = TagString.Normalize(database.Tags);
+                SyncTagLinks(context, existingDatabase, database.Tags);
 
                 var adGroup = context.AdGroups
                     .FirstOrDefault(g => g.Name == database.AdGroup);
@@ -394,7 +420,9 @@ namespace Dorc.PersistentData.Sources
                 Id = db.Id,
                 Name = db.Name,
                 ServerName = db.ServerName,
-                Tags = TagString.Normalize(db.Tags),
+                Tags = TagString.Join(db.Tags),
+                TagLinks = TagString.Normalize(db.Tags)
+                    .Select(t => new DatabaseTag { Tag = t }).ToList(),
                 ArrayName = db.ArrayName
             };
         }
@@ -409,7 +437,7 @@ namespace Dorc.PersistentData.Sources
                 AdGroup = db.Group?.Name,
                 Id = db.Id,
                 Name = db.Name,
-                Tags = db.Tags,
+                Tags = db.TagLinks != null ? db.TagLinks.Select(t => t.Tag).ToArray() : System.Array.Empty<string>(),
                 ServerName = db.ServerName,
                 ArrayName = db.ArrayName,
                 EnvironmentNames = db.Environments != null ? db.Environments.Select(e => e.Name).ToList() : new List<string>()

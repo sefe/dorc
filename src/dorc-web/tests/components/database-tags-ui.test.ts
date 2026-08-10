@@ -21,7 +21,7 @@ import '../../src/components/attach-database.js';
 import type { AttachDatabase } from '../../src/components/attach-database.js';
 import '../../src/components/environment-tabs/env-control-center.js';
 import { RefDataDatabasesApi } from '../../src/apis/dorc-api';
-import { MAX_TAG_STRING_LENGTH } from '../../src/helpers/tag-limits';
+import { MAX_TAG_LENGTH } from '../../src/helpers/tag-limits';
 
 // Five assertions — chip round-trip, over-limit
 // visible rejection with no API call, exactly-at-limit accept, attach-database
@@ -70,7 +70,7 @@ describe('add-edit-database tag editing', () => {
     expect(tagsInput.tags).to.deep.equal(['a', 'b', 'c']);
   });
 
-  it('rejects an over-limit joined string without calling the API', async () => {
+  it('rejects an over-long tag without calling the API', async () => {
     const original = RefDataDatabasesApi.prototype.refDataDatabasesPut;
     let called = 0;
     (RefDataDatabasesApi.prototype as any).refDataDatabasesPut = () => {
@@ -79,22 +79,24 @@ describe('add-edit-database tag editing', () => {
     };
     try {
       const el = await fixture<AddEditDatabase>(html`<add-edit-database></add-edit-database>`);
-      const oversized = Array.from({ length: 200 }, (_, i) => `tag-${i}-${'x'.repeat(20)}`);
-      el.database = { Id: 5, Name: 'D1', ServerName: 'S1', Tags: oversized.join(';'), ArrayName: '' };
+      el.database = {
+        Id: 5, Name: 'D1', ServerName: 'S1', ArrayName: '',
+        Tags: ['ok', 'x'.repeat(MAX_TAG_LENGTH + 1)]
+      };
       await el.updateComplete;
 
       el.saveDatabase();
       expect(called).to.equal(0);
       await new Promise(r => setTimeout(r, 50));
       const card = document.querySelector('vaadin-notification-card');
-      expect(card?.textContent).to.contain('4000');
+      expect(card?.textContent).to.contain(String(MAX_TAG_LENGTH));
       document.querySelectorAll('vaadin-notification-card').forEach(c => c.remove());
     } finally {
       (RefDataDatabasesApi.prototype as any).refDataDatabasesPut = original;
     }
   });
 
-  it('saves an exactly-at-limit joined string through the API', async () => {
+  it('saves an exactly-at-limit tag, and many of them, through the API', async () => {
     const original = RefDataDatabasesApi.prototype.refDataDatabasesPut;
     const payloads: any[] = [];
     (RefDataDatabasesApi.prototype as any).refDataDatabasesPut = (req: any) => {
@@ -103,18 +105,20 @@ describe('add-edit-database tag editing', () => {
     };
     try {
       const el = await fixture<AddEditDatabase>(html`<add-edit-database></add-edit-database>`);
+      // 200 tags: past what the delimited column could have held once joined.
+      const many = Array.from({ length: 200 }, (_, i) => `tag-${i}-${'x'.repeat(20)}`);
       el.database = {
         Id: 5,
         Name: 'D1',
         ServerName: 'S1',
-        Tags: 'x'.repeat(MAX_TAG_STRING_LENGTH),
+        Tags: [...many, 'x'.repeat(MAX_TAG_LENGTH)],
         ArrayName: ''
       };
       await el.updateComplete;
 
       el.saveDatabase();
       expect(payloads.length).to.equal(1);
-      expect(payloads[0].databaseApiModel.Tags.length).to.equal(MAX_TAG_STRING_LENGTH);
+      expect(payloads[0].databaseApiModel.Tags.length).to.equal(201);
     } finally {
       (RefDataDatabasesApi.prototype as any).refDataDatabasesPut = original;
     }

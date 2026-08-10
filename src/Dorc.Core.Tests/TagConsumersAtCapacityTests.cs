@@ -8,27 +8,27 @@ using NSubstitute;
 namespace Dorc.Core.Tests
 {
     /// <summary>
-    /// Consumer re-verification at the tag-capacity limit:
-    /// the surveyed tag consumers behave correctly with near-limit multi-tag strings.
-    /// The Contains-substring semantics are documented, accepted behaviour —
-    /// asserted here as-is, not "fixed".
+    /// Consumer re-verification at scale: the tag consumers behave correctly with
+    /// large tag sets. Tags are rows now, so there is no joined-length ceiling — the
+    /// fixtures deliberately exceed what the old delimited column could have held.
+    /// The Contains-substring semantics of the app-server filter are documented,
+    /// accepted behaviour — asserted here as-is, not "fixed".
     /// </summary>
     [TestClass]
     public class TagConsumersAtCapacityTests
     {
-        private static string NearLimitTags(out string[] tags)
+        private static string[] ManyTags()
         {
-            // ~190 tags of 20 chars ≈ 3990 chars joined — just under the 4000 limit.
-            tags = Enumerable.Range(0, 190).Select(i => $"tag-{i:D4}-abcdefghijk").ToArray();
-            var joined = string.Join(";", tags);
-            Assert.IsTrue(joined.Length > 3900 && joined.Length <= TagLimits.MaxTagStringLength);
-            return joined;
+            // ~190 tags: past what the old delimited column could hold once joined.
+            var tags = Enumerable.Range(0, 190).Select(i => $"tag-{i:D4}-abcdefghijk").ToArray();
+            Assert.IsTrue(string.Join(";", tags).Length > TagLimits.MaxTagStringLength - 100);
+            return tags;
         }
 
         [TestMethod]
         public void VariableScopeOptionsResolver_EmitsPerTagVariables_AtNearLimitTagString()
         {
-            var joined = NearLimitTags(out var tags);
+            var tags = ManyTags();
 
             var properties = Substitute.For<IPropertiesPersistentSource>();
             var servers = Substitute.For<IServersPersistentSource>();
@@ -37,7 +37,7 @@ namespace Dorc.Core.Tests
             var userPerms = Substitute.For<IUserPermsPersistentSource>();
             servers.GetServersForEnvId(42).Returns(new[]
             {
-                new ServerApiModel { ServerId = 1, Name = "web01", Tags = joined }
+                new ServerApiModel { ServerId = 1, Name = "web01", Tags = tags }
             });
             daemons.GetDaemonsForServer(1).Returns(Array.Empty<DaemonApiModel>());
             databases.GetDatabasesForEnvironmentName(Arg.Any<string>())
@@ -60,22 +60,20 @@ namespace Dorc.Core.Tests
                 Details = new EnvironmentDetailsApiModel { FileShare = @"\\share" }
             });
 
-            // Every one of the ~190 tags yields its ServerNames_ variable — the split
-            // logic has no hidden length assumptions.
+            // Every one of the ~190 tags yields its ServerNames_ variable — the
+            // grouping has no hidden length assumptions.
             foreach (var tag in tags)
                 CollectionAssert.Contains(calls, $"ServerNames_{tag}");
         }
 
         [TestMethod]
-        public void ContainsBasedFiltering_MatchesSubstringsWithinLongTagStrings()
+        public void ContainsBasedFiltering_StillMatchesSubstringsWithinATag()
         {
-            // Documented behaviour: substring matching over the joined string, so
-            // "appserv" matches whether standalone or embedded in a longer tag — at any
-            // string length. This is accepted, not a defect.
-            var joined = NearLimitTags(out _) + ";appserver-node";
+            // Documented behaviour of the app-server filter: "appserv" matches whether
+            // standalone or embedded in a longer tag. Accepted, not a defect.
+            var tags = ManyTags().Append("appserver-node").ToArray();
 
-            Assert.IsTrue(joined.Contains("appserv"));
-            Assert.IsTrue(joined.Length > 3900);
+            Assert.IsTrue(tags.Any(t => t.Contains("appserv")));
         }
     }
 }

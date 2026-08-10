@@ -6,8 +6,8 @@ import { Notification } from '@vaadin/notification';
 import { TagsInput } from './tags-input';
 import { RefDataServersApi } from '../apis/dorc-api';
 import { ServerApiModel } from '../apis/dorc-api';
-import { splitTags, joinTags } from '../helpers/tag-parser';
-import { MAX_TAG_STRING_LENGTH } from '../helpers/tag-limits';
+import { splitTags, normaliseTags } from '../helpers/tag-parser';
+import { MAX_TAG_LENGTH } from '../helpers/tag-limits';
 
 @customElement('server-tags')
 export class ServerTags extends LitElement {
@@ -52,15 +52,16 @@ export class ServerTags extends LitElement {
   public save() {
     if (this._server !== undefined) {
       const tags = this.tagsInput?.tags;
-      const joined = joinTags(tags);
-      if (joined.length > MAX_TAG_STRING_LENGTH) {
+      const normalised = normaliseTags(tags);
+      const overLong = normalised.filter(t => t.length > MAX_TAG_LENGTH);
+      if (overLong.length > 0) {
         Notification.show(
-          `Tags must be at most ${MAX_TAG_STRING_LENGTH} characters when joined (currently ${joined.length})`,
+          `Each tag must be at most ${MAX_TAG_LENGTH} characters (too long: '${overLong[0]}')`,
           { theme: 'error', position: 'bottom-start', duration: 5000 }
         );
         return;
       }
-      this._server.Tags = joined;
+      this._server.Tags = normalised;
 
       const api = new RefDataServersApi();
       const server: ServerApiModel = {};

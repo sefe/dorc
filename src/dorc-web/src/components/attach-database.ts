@@ -246,7 +246,7 @@ export class AttachDatabase extends LitElement {
     if (this.selectedDatabase) {
       this.selectedDatabase.Id = 0;
       this.selectedDatabase.Name = '';
-      this.selectedDatabase.Tags = '';
+      this.selectedDatabase.Tags = [];
       this.selectedDatabase.ServerName = '';
       this.selectedDatabase.AdGroup = '';
     }

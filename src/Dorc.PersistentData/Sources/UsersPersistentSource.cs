@@ -61,7 +61,7 @@ namespace Dorc.PersistentData.Sources
                                          from db in context.Databases
                                          where env.Id == environmentDetail.Id &&
                                                db.Environments.Any(e => e.Id == environmentDetail.Id) &&
-                                               (";" + db.Tags + ";").Contains(";Endur;") &&
+                                               db.TagLinks.Any(t => t.Tag == "Endur") &&
                                                eu.DbId == db.Id && user.Id == eu.UserId
                                          select user;
                             var users = result.ToList();

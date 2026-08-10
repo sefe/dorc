@@ -1,5 +1,4 @@
 ﻿using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
 
 namespace Dorc.ApiModel
 {
@@ -9,8 +8,11 @@ namespace Dorc.ApiModel
         public string Name { set; get; }
         public string OsName { set; get; }
 
-        [StringLength(TagLimits.MaxTagStringLength,
-            ErrorMessage = "Tags must be at most {1} characters (semicolon-separated).")]
-        public string Tags { set; get; }
+        /// <summary>
+        /// Tags carried by this server. Stored as rows in deploy.ServerTag; each
+        /// entry is at most <see cref="TagLimits.MaxTagLength"/> characters.
+        /// </summary>
+        [TagSet]
+        public string[] Tags { set; get; } = System.Array.Empty<string>();
     }
 }

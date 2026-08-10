@@ -22,12 +22,12 @@ export interface UserDbPermissionApiModel {
      */
     UserId?: number;
     /**
-     * @type {string}
+     * @type {Array<string>}
      * @memberof UserDbPermissionApiModel
      */
     UserLoginId?: string | null;
     /**
-     * @type {string}
+     * @type {Array<string>}
      * @memberof UserDbPermissionApiModel
      */
     UserLoginType?: string | null;
@@ -37,12 +37,12 @@ export interface UserDbPermissionApiModel {
      */
     PermissionId?: number;
     /**
-     * @type {string}
+     * @type {Array<string>}
      * @memberof UserDbPermissionApiModel
      */
     PermissionName?: string | null;
     /**
-     * @type {string}
+     * @type {Array<string>}
      * @memberof UserDbPermissionApiModel
      */
     PermissionDisplayName?: string | null;
@@ -52,8 +52,8 @@ export interface UserDbPermissionApiModel {
      */
     DbId?: number;
     /**
-     * @type {string}
+     * @type {Array<string>}
      * @memberof UserDbPermissionApiModel
      */
-    Tags?: string | null;
+    Tags?: Array<string> | null;
 }

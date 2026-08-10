@@ -5,10 +5,16 @@ using System.Linq;
 namespace Dorc.ApiModel
 {
     /// <summary>
-    /// The semicolon-separated tag string convention:
-    /// entries are trimmed, empties dropped, order preserved, duplicates deduped
-    /// Ordinal keep-first. A null/empty/whitespace value means "no tags" and matches
-    /// nothing; an individual tag never contains the delimiter.
+    /// Conversion between a tag set and the semicolon-separated string form.
+    ///
+    /// Tags are a set: stored as rows in deploy.DatabaseTag / deploy.ServerTag and
+    /// carried as arrays through the API. The delimited form survives at three
+    /// edges only — the deprecated columns that are dual-written for one release,
+    /// the deployment-variable payload whose shape is a contract with PowerShell
+    /// deploy scripts, and the usp_Insert_*_Detail parameters.
+    ///
+    /// Entries are trimmed, empties dropped, order preserved, duplicates deduped
+    /// Ordinal keep-first. An individual tag never contains the delimiter.
     /// </summary>
     public static class TagString
     {
@@ -18,27 +24,48 @@ namespace Dorc.ApiModel
         {
             if (string.IsNullOrWhiteSpace(joined))
                 return Array.Empty<string>();
+
             return joined.Split(Delimiter)
                 .Select(t => t.Trim())
                 .Where(t => t.Length > 0)
+                .Distinct(StringComparer.Ordinal)
                 .ToArray();
         }
 
-        public static bool HasTag(string joined, string tag)
+        /// <summary>
+        /// Normalize a tag set: trim, drop empties, dedup Ordinal keeping the first
+        /// occurrence, preserve order. Null in, empty out.
+        /// </summary>
+        public static string[] Normalize(IEnumerable<string> tags)
         {
-            if (string.IsNullOrWhiteSpace(tag))
-                return false;
-            var sought = tag.Trim();
-            return Split(joined).Any(t => string.Equals(t, sought, StringComparison.Ordinal));
+            if (tags == null)
+                return Array.Empty<string>();
+
+            return tags.Where(t => t != null)
+                .Select(t => t.Trim())
+                .Where(t => t.Length > 0)
+                .Distinct(StringComparer.Ordinal)
+                .ToArray();
         }
 
-        public static string Normalize(string joined)
+        /// <summary>
+        /// Render a tag set in the delimited form the deprecated columns and the
+        /// deployment-variable payload still use. Empty renders as null, matching
+        /// the column's "no tags" representation.
+        /// </summary>
+        public static string Join(IEnumerable<string> tags)
         {
-            // Distinct is documented to keep the first occurrence in source order,
-            // preserving the keep-first, order-stable dedup contract.
-            var seen = Split(joined).Distinct(StringComparer.Ordinal).ToArray();
+            var normalized = Normalize(tags);
+            return normalized.Length == 0 ? null : string.Join(Delimiter.ToString(), normalized);
+        }
 
-            return seen.Length == 0 ? null : string.Join(Delimiter.ToString(), seen);
+        public static bool HasTag(IEnumerable<string> tags, string tag)
+        {
+            if (string.IsNullOrWhiteSpace(tag) || tags == null)
+                return false;
+
+            var sought = tag.Trim();
+            return tags.Any(t => string.Equals(t, sought, StringComparison.Ordinal));
         }
     }
 }

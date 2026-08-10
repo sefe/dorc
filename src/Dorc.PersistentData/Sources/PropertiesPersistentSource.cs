@@ -199,11 +199,11 @@ namespace Dorc.PersistentData.Sources
             using (var context = _contextFactory.GetContext())
             {
                 var env = context.Environments
-                    .Include(d => d.Databases)
+                    .Include(d => d.Databases).ThenInclude(db => db.TagLinks)
                     .FirstOrDefault(e => e.Id == environment.EnvironmentId);
                 if (env != null)
                 {
-                    var database = env.Databases.SingleOrDefault(d => TagString.HasTag(d.Tags, "Endur"));
+                    var database = env.Databases.SingleOrDefault(d => d.TagLinks.Any(t => t.Tag == "Endur"));
                     if (database == null) return null;
 
                     var shortName = GetEnvironmentShortNameFromDatabaseName(database.Name);

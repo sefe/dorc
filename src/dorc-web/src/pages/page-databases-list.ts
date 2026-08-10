@@ -1,3 +1,4 @@
+import { normaliseTags } from '../helpers/tag-parser';
 import '@vaadin/button';
 import '../components/dorc-spinner';
 import '@vaadin/grid/vaadin-grid';
@@ -604,12 +605,7 @@ export class PageDatabasesList extends ResponsiveMixin(PageElement) {
     model: GridItemModel<DatabaseApiModel>
   ) => {
     const database = model.item;
-    const appTags =
-      database.Tags !== undefined &&
-      database.Tags !== null &&
-      database.Tags.length > 0
-        ? database.Tags?.split(';')
-        : [];
+    const appTags = normaliseTags(database.Tags);
 
     render(
       html`
@@ -741,7 +737,7 @@ export class PageDatabasesList extends ResponsiveMixin(PageElement) {
       AdGroup: '',
       ArrayName: '',
       ServerName: '',
-      Tags: '',
+      Tags: [],
       Name: '',
       EnvironmentNames: [],
       Id: 0,

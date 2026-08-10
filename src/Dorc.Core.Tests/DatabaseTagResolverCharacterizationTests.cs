@@ -15,6 +15,7 @@ namespace Dorc.Core.Tests
     [TestClass]
     public class DatabaseTagResolverCharacterizationTests
     {
+
         private static (VariableScopeOptionsResolver resolver, IVariableResolver variableResolver,
             List<string> calls, Dictionary<string, VariableValue?> values)
             CreateResolver(params DatabaseApiModel[] databases)
@@ -55,10 +56,10 @@ namespace Dorc.Core.Tests
         public void SingleValueTypes_EmitBothPerTypeFamilies_WithScalarAndArrayShapes()
         {
             var (resolver, variableResolver, calls, values) = CreateResolver(
-                new DatabaseApiModel { Id = 1, Name = "R1", Tags = "Endur Reporting", ServerName = "s1" },
-                new DatabaseApiModel { Id = 2, Name = "X1", Tags = "Endur External", ServerName = "s2" },
-                new DatabaseApiModel { Id = 3, Name = "W1", Tags = "Warehouse", ServerName = "s3" },
-                new DatabaseApiModel { Id = 4, Name = "W2", Tags = "Warehouse", ServerName = "s4" });
+                new DatabaseApiModel { Id = 1, Name = "R1", Tags = new[] { "Endur Reporting" }, ServerName = "s1" },
+                new DatabaseApiModel { Id = 2, Name = "X1", Tags = new[] { "Endur External" }, ServerName = "s2" },
+                new DatabaseApiModel { Id = 3, Name = "W1", Tags = new[] { "Warehouse" }, ServerName = "s3" },
+                new DatabaseApiModel { Id = 4, Name = "W2", Tags = new[] { "Warehouse" }, ServerName = "s4" });
 
             resolver.SetPropertyValues(variableResolver, Environment42());
 
@@ -84,7 +85,7 @@ namespace Dorc.Core.Tests
             // FLIPPED by S-003 (declared flip candidate): a semicolon value is now a
             // tag list — each tag matches, and no joined-name variable is emitted.
             var (resolver, variableResolver, calls, _) = CreateResolver(
-                new DatabaseApiModel { Id = 1, Name = "R1", Tags = "Endur;Endur Reporting", ServerName = "s1" });
+                new DatabaseApiModel { Id = 1, Name = "R1", Tags = new[] { "Endur", "Endur Reporting" }, ServerName = "s1" });
 
             resolver.SetPropertyValues(variableResolver, Environment42());
 
@@ -101,8 +102,8 @@ namespace Dorc.Core.Tests
             // FLIPPED by S-003 (declared flip candidate): null means "no tags" — the
             // database is skipped instead of crashing variable resolution.
             var (resolver, variableResolver, calls, _) = CreateResolver(
-                new DatabaseApiModel { Id = 1, Name = "N1", Tags = null, ServerName = "s1" },
-                new DatabaseApiModel { Id = 2, Name = "W1", Tags = "Warehouse", ServerName = "s2" });
+                new DatabaseApiModel { Id = 1, Name = "N1", Tags = System.Array.Empty<string>(), ServerName = "s1" },
+                new DatabaseApiModel { Id = 2, Name = "W1", Tags = new[] { "Warehouse" }, ServerName = "s2" });
 
             resolver.SetPropertyValues(variableResolver, Environment42());
 
@@ -116,16 +117,16 @@ namespace Dorc.Core.Tests
             // Under tag semantics a shared *resolution* tag still throws at the
             // fixed lookups; the per-tag loop handles sharing with the array shape.
             var (resolver, variableResolver, _, _) = CreateResolver(
-                new DatabaseApiModel { Id = 1, Name = "R1", Tags = "Endur Reporting;Extra", ServerName = "s1" },
-                new DatabaseApiModel { Id = 2, Name = "R2", Tags = "Endur Reporting", ServerName = "s2" });
+                new DatabaseApiModel { Id = 1, Name = "R1", Tags = new[] { "Endur Reporting", "Extra" }, ServerName = "s1" },
+                new DatabaseApiModel { Id = 2, Name = "R2", Tags = new[] { "Endur Reporting" }, ServerName = "s2" });
 
             Assert.Throws<InvalidOperationException>(
                 () => resolver.SetPropertyValues(variableResolver, Environment42()));
 
             // The same sharing on a non-resolution tag emits the array shape.
             var (resolver2, variableResolver2, calls2, values2) = CreateResolver(
-                new DatabaseApiModel { Id = 1, Name = "W1", Tags = "Warehouse;Extra", ServerName = "s1" },
-                new DatabaseApiModel { Id = 2, Name = "W2", Tags = "Warehouse", ServerName = "s2" });
+                new DatabaseApiModel { Id = 1, Name = "W1", Tags = new[] { "Warehouse", "Extra" }, ServerName = "s1" },
+                new DatabaseApiModel { Id = 2, Name = "W2", Tags = new[] { "Warehouse" }, ServerName = "s2" });
             resolver2.SetPropertyValues(variableResolver2, Environment42());
             CollectionAssert.Contains(calls2, "DbServer_Warehouse");
             Assert.IsInstanceOfType(values2["DbServer_Warehouse"]!.Value, typeof(string[]));
@@ -138,7 +139,7 @@ namespace Dorc.Core.Tests
             // Tokenization is Ordinal — "Endur" and "endur" are distinct tags,
             // matching today's behaviour for two whole-Type strings differing by case.
             var (resolver, variableResolver, calls, _) = CreateResolver(
-                new DatabaseApiModel { Id = 1, Name = "D1", Tags = "Warehouse;warehouse", ServerName = "s1" });
+                new DatabaseApiModel { Id = 1, Name = "D1", Tags = new[] { "Warehouse", "warehouse" }, ServerName = "s1" });
 
             resolver.SetPropertyValues(variableResolver, Environment42());
 
@@ -150,7 +151,7 @@ namespace Dorc.Core.Tests
         public void PaddedEntries_AreTrimmedByTokenization_InMemory()
         {
             var (resolver, variableResolver, calls, _) = CreateResolver(
-                new DatabaseApiModel { Id = 1, Name = "D1", Tags = " Warehouse ; Extra ", ServerName = "s1" });
+                new DatabaseApiModel { Id = 1, Name = "D1", Tags = new[] { "Warehouse", "Extra" }, ServerName = "s1" });
 
             resolver.SetPropertyValues(variableResolver, Environment42());
 
@@ -163,7 +164,7 @@ namespace Dorc.Core.Tests
         {
             // DatabaseDefinition.Tags passes through unmodified.
             var (resolver, variableResolver, _, values) = CreateResolver(
-                new DatabaseApiModel { Id = 1, Name = "D1", Tags = "Endur;Extra", ServerName = "s1" });
+                new DatabaseApiModel { Id = 1, Name = "D1", Tags = new[] { "Endur", "Extra" }, ServerName = "s1" });
 
             resolver.SetPropertyValues(variableResolver, Environment42());
 
@@ -179,7 +180,7 @@ namespace Dorc.Core.Tests
             // rename would silently resolve nothing. Both spellings are emitted for
             // one release and must agree. Delete this test with the property.
             var (resolver, variableResolver, _, values) = CreateResolver(
-                new DatabaseApiModel { Id = 1, Name = "D1", Tags = "Endur;Extra", ServerName = "s1" });
+                new DatabaseApiModel { Id = 1, Name = "D1", Tags = new[] { "Endur", "Extra" }, ServerName = "s1" });
 
             resolver.SetPropertyValues(variableResolver, Environment42());
 
@@ -194,7 +195,7 @@ namespace Dorc.Core.Tests
         {
             // Same contract as above, for the server half of the payload.
             var (resolver, variableResolver, _, values) = CreateResolver(
-                new DatabaseApiModel { Id = 1, Name = "D1", Tags = "Endur", ServerName = "s1" });
+                new DatabaseApiModel { Id = 1, Name = "D1", Tags = new[] { "Endur" }, ServerName = "s1" });
 
             resolver.SetPropertyValues(variableResolver, Environment42());
 
@@ -213,8 +214,8 @@ namespace Dorc.Core.Tests
             // Kept behaviour: SingleOrDefault throws when two databases in one
             // environment share the looked-up type. S-003 must NOT flip this.
             var (resolver, variableResolver, _, _) = CreateResolver(
-                new DatabaseApiModel { Id = 1, Name = "R1", Tags = "Endur Reporting", ServerName = "s1" },
-                new DatabaseApiModel { Id = 2, Name = "R2", Tags = "Endur Reporting", ServerName = "s2" });
+                new DatabaseApiModel { Id = 1, Name = "R1", Tags = new[] { "Endur Reporting" }, ServerName = "s1" },
+                new DatabaseApiModel { Id = 2, Name = "R2", Tags = new[] { "Endur Reporting" }, ServerName = "s2" });
 
             Assert.Throws<InvalidOperationException>(
                 () => resolver.SetPropertyValues(variableResolver, Environment42()));

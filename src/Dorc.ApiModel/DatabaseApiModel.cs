@@ -6,9 +6,12 @@ namespace Dorc.ApiModel
     {
         public string Name { set; get; }
 
-        [StringLength(TagLimits.MaxTagStringLength,
-            ErrorMessage = "Tags must be at most {1} characters (semicolon-separated).")]
-        public string Tags { set; get; }
+        /// <summary>
+        /// Tags carried by this database. Stored as rows in deploy.DatabaseTag;
+        /// each entry is at most <see cref="TagLimits.MaxTagLength"/> characters.
+        /// </summary>
+        [TagSet]
+        public string[] Tags { set; get; } = System.Array.Empty<string>();
 
         public string ServerName { set; get; }
         public string AdGroup { set; get; }

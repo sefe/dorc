@@ -109,7 +109,7 @@ namespace Dorc.Api.Controllers
                 ServerId = s.Id,
                 Name = s.Name ?? string.Empty,
                 OsName = s.OsName ?? string.Empty,
-                Tags = s.Tags ?? string.Empty
+                Tags = s.TagLinks != null ? s.TagLinks.Select(t => t.Tag).ToArray() : System.Array.Empty<string>()
             }).ToList();
             return Ok(result);
         }

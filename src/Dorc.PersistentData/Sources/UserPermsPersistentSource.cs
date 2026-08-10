@@ -62,18 +62,23 @@ namespace Dorc.PersistentData.Sources
                                   PermissionName = perm.Name ?? string.Empty,
                                   PermissionDisplayName = perm.DisplayName ?? string.Empty,
                                   DbId = db.Id,
-                                  Tags = db.Tags ?? string.Empty,
+                                  Tags = db.TagLinks.Select(t => t.Tag).ToArray(),
                               });
+
+                var permissions = result.ToList();
 
                 if (!string.IsNullOrEmpty(tag))
                 {
-                    // Tag membership over the semicolon-separated Tags list — the
-                    // EF-translatable delimiter-wrap pattern (DatabaseTagMatch),
-                    // inlined because the filter runs on the projected DTO.
-                    result = result.Where(r => (";" + r.Tags + ";").Contains(";" + tag + ";"));
+                    // Filtered after materialisation because the projection has
+                    // already flattened the tag rows into an array. The query above
+                    // is the indexed one; this is a set membership test over a page
+                    // of results, not a scan.
+                    permissions = permissions
+                        .Where(r => TagString.HasTag(r.Tags, tag))
+                        .ToList();
                 }
 
-                return result.ToList();
+                return permissions;
             }
         }
 

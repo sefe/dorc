@@ -9,5 +9,12 @@ namespace Dorc.ApiModel
     public static class TagLimits
     {
         public const int MaxTagStringLength = 4000;
+
+        /// <summary>
+        /// Width of deploy.DatabaseTag.Tag / deploy.ServerTag.Tag — the limit on a
+        /// SINGLE tag now that tags are stored as rows. MaxTagStringLength above is
+        /// the deprecated delimited column's width and goes with it.
+        /// </summary>
+        public const int MaxTagLength = 200;
     }
 }

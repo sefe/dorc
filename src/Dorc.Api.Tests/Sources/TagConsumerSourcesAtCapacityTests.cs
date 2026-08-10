@@ -1,5 +1,6 @@
 using Dorc.Api.Tests.Mocks;
 using Dorc.PersistentData.Contexts;
+using Dorc.ApiModel;
 using Dorc.PersistentData.Model;
 using Dorc.PersistentData.Sources;
 using Dorc.PersistentData.Sources.Interfaces;
@@ -9,30 +10,36 @@ using Environment = Dorc.PersistentData.Model.Environment;
 namespace Dorc.Api.Tests.Sources
 {
     /// <summary>
-    /// Consumer re-verification at the tag-capacity limit, source-level half: the
-    /// persistent-source tag consumers are exercised with near-limit (~3,989-char)
-    /// tag strings, not just the string helpers.
+    /// Consumer re-verification at scale, source-level half: the persistent-source
+    /// tag consumers are exercised with large tag sets, not just the string helpers.
+    /// The old delimited column capped the joined value at 4,000 characters; rows
+    /// have no equivalent ceiling, so these fixtures deliberately exceed it.
     /// </summary>
     [TestClass]
     public class TagConsumerSourcesAtCapacityTests
     {
-        private static string NearLimitTags(string mustInclude = "")
+        private static string[] ManyTags(string mustInclude = "")
         {
-            var count = mustInclude.Length > 0 ? 188 : 190;
-            var tags = Enumerable.Range(0, count).Select(i => $"tag-{i:D4}-abcdefghijk");
-            var joined = string.Join(";", tags) + (mustInclude.Length > 0 ? ";" + mustInclude : "");
-            Assert.IsTrue(joined.Length > 3900 && joined.Length <= 4000);
-            return joined;
+            var tags = Enumerable.Range(0, 190).Select(i => $"tag-{i:D4}-abcdefghijk").ToList();
+            if (mustInclude.Length > 0)
+                tags.Add(mustInclude);
+
+            // Past what the delimited column could have held, which is the point.
+            Assert.IsTrue(string.Join(";", tags).Length > TagLimits.MaxTagStringLength - 100);
+            return tags.ToArray();
         }
 
+        private static List<ServerTag> ServerTagsFor(int serverId, string[] tags) =>
+            tags.Select(t => new ServerTag { ServerId = serverId, Tag = t }).ToList();
+
         [TestMethod]
-        public void DaemonsSource_GetServersForDaemon_ProjectsNearLimitTagsUnmodified()
+        public void DaemonsSource_GetServersForDaemon_ProjectsEveryTagRow()
         {
             var contextFactory = Substitute.For<IDeploymentContextFactory>();
             var context = Substitute.For<IDeploymentContext>();
             contextFactory.GetContext().Returns(context);
 
-            var joined = NearLimitTags();
+            var tags = ManyTags();
             var daemonList = new List<Daemon>
             {
                 new()
@@ -41,7 +48,11 @@ namespace Dorc.Api.Tests.Sources
                     Name = "svc",
                     Server = new List<Server>
                     {
-                        new() { Id = 1, Name = "web01", OsName = "w", Tags = joined }
+                        new()
+                        {
+                            Id = 1, Name = "web01", OsName = "w",
+                            TagLinks = tags.Select(t => new ServerTag { ServerId = 1, Tag = t }).ToList()
+                        }
                     }
                 }
             };
@@ -54,7 +65,7 @@ namespace Dorc.Api.Tests.Sources
             var servers = source.GetServersForDaemon(7).ToList();
 
             Assert.AreEqual(1, servers.Count);
-            Assert.AreEqual(joined, servers[0].Tags);
+            CollectionAssert.AreEqual(tags, servers[0].Tags);
         }
 
         [TestMethod]
@@ -65,9 +76,9 @@ namespace Dorc.Api.Tests.Sources
             contextFactory.GetContext().Returns(context);
 
             var matching = new Server
-            { Id = 1, Name = "app01", Tags = NearLimitTags("appserver-node") };
+            { Id = 1, Name = "app01", TagLinks = ServerTagsFor(1, ManyTags("appserver-node")) };
             var nonMatching = new Server
-            { Id = 2, Name = "web01", Tags = NearLimitTags() };
+            { Id = 2, Name = "web01", TagLinks = ServerTagsFor(2, ManyTags()) };
             var envList = new List<Environment>
             {
                 new() { Id = 5, Name = "DV 01", Servers = new List<Server> { matching, nonMatching } }
@@ -82,8 +93,8 @@ namespace Dorc.Api.Tests.Sources
 
             var result = source.GetAppServerDetails("DV 01").ToList();
 
-            // The Contains("appserv") substring filter matches the embedded
-            // "appserver-node" tag — the documented semantics — at near-limit length.
+            // The Contains("appserv") substring filter matches the "appserver-node"
+            // tag — the documented semantics — within a large tag set.
             Assert.AreEqual(1, result.Count);
             Assert.AreEqual("app01", result[0].Name);
         }

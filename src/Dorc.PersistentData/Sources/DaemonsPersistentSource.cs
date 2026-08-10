@@ -54,7 +54,7 @@ namespace Dorc.PersistentData.Sources
                         ServerId = s.Id,
                         Name = s.Name,
                         OsName = s.OsName,
-                        Tags = s.Tags
+                        Tags = s.TagLinks.Select(t => t.Tag).ToArray()
                     })
                     .ToList();
             }
