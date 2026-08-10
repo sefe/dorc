@@ -46,9 +46,19 @@ A missing request for a valid result is a data-integrity failure, not an authori
 
 ### R2 — View permission
 
-Plan content embeds resolved variable values, which per W-12 include the full deployment property set. Gate `GetTerraformPlan` on **`CanReadSecrets(user, environmentName)`**.
+Gate `GetTerraformPlan` on **`CanModifyEnvironment(user, environmentName)`** — the same predicate as confirm.
 
-The interface exposes no general "read environment" predicate, so the choice is between `CanReadSecrets` and `CanModifyEnvironment`. `CanReadSecrets` is the correct one on substance: this endpoint discloses secrets, and there is an existing privilege that means precisely "may see secrets for this environment". Using the modify privilege instead would grant plan visibility to a broader population than the estate's own secret-handling rules allow.
+**Explicitly do not use `CanReadSecrets`.** An earlier draft of this spec recommended it, on the reasoning that plan content embeds resolved variable values (W-12) and there is an existing privilege meaning "may see secrets for this environment". That reasoning was wrong in context, and the correction is worth recording so a later reviewer does not helpfully re-tighten it:
+
+- `CanReadSecrets` was designed for **machine access to secrets**, not as a human read-level permission. Binding a human-facing view endpoint to it would widen a privilege whose scope has already drifted, and make it harder to reclaim.
+- The drift has a concrete mechanism in code, not merely in practice: the predicate resolves to `AccessLevel.ReadSecrets | AccessLevel.Owner`, so **every environment owner holds it implicitly**, without it ever being granted. Any endpoint gated on it inherits that population automatically.
+- It is already doing double duty — gating secret decryption in `PropertyValuesService` and gating ACL visibility in `AccessControlController`. A third, differently-shaped use would entrench the ambiguity about what the privilege means.
+
+`CanModifyEnvironment` is the right gate for this step because the objective is to close a login-level hole, and it does that by an enormous margin: from "any authenticated user" to "users with write authority over this specific environment". It is also the gate confirm uses, so view and approve stay coherent.
+
+**Residual, stated rather than hidden.** A user with modify rights on an environment can see plan output that may contain secret values they could not obtain through `PropertyValuesService`. That gap is real and this step does not close it.
+
+**The gap's proper fix is not a stricter view gate — it is that plan content should not contain cleartext secrets in the first place.** Redacting secret-valued variables at plan generation or before the blob is stored would remove the disclosure at source, after which an ordinary environment-read permission is sufficient for viewing and the blob's own retention (W-12) stops being a secret-handling problem. That is registered as a follow-on rather than smuggled into this step, which is meant to be the cheap one with no dependencies.
 
 ### R3 — Confirm permission
 
@@ -128,7 +138,7 @@ Not required for this step. The logic is controller-level and the collaborators 
 | # | Decision | Recommendation |
 |---|----------|----------------|
 | 1 | Does confirm require a distinct approver from the requester? | Yes, configurable, defaulting on for production-tier environments (R3). |
-| 2 | Is `CanReadSecrets` the right gate for plan content, or is it too strict? | `CanReadSecrets` (R2). If it proves too strict operationally, the correct response is a new read-level privilege, not weakening this one. |
+| 2 | ~~Is `CanReadSecrets` the right gate for plan content?~~ **Resolved — no.** | Use `CanModifyEnvironment` (R2). `CanReadSecrets` is a machine-access privilege whose scope has already drifted, partly because it resolves to `ReadSecrets \| Owner` and so is held implicitly by every environment owner. Do not widen it further. The residual — modify-holders seeing secret values in plan output — is fixed by redacting plan content at source, not by a stricter view gate. |
 
 Both are user decisions, not implementer decisions. Neither blocks drafting; both block merge.
 
@@ -137,7 +147,7 @@ Both are user decisions, not implementer decisions. Neither blocks drafting; bot
 ## 6. Accepted Risks
 
 - **Users who currently rely on unrestricted access will lose it.** That is the intent, but it will surface as support requests from people who were legitimately using a workflow that happened to be ungated. Worth an announcement ahead of release rather than after.
-- **`CanReadSecrets` may be held by fewer people than currently view plans.** See decision 2. The conservative gate is the right default for content that embeds secrets; loosening it later is easier to justify than tightening it after a disclosure.
+- **A user with modify rights on an environment can view plan content containing secret values they could not retrieve through the properties API.** Accepted for this step. The alternative — gating on `CanReadSecrets` — trades a smaller disclosure for a wider entrenchment of a privilege that is already over-broad, which is the worse trade. The real remedy is plan-content redaction, registered as a follow-on.
 
 ---
 
