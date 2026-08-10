@@ -147,11 +147,11 @@ export class AddEditAccessControl extends LitElement {
         id="add-access-control-dialog"
         header-title="Access Control"
         draggable
+        no-close-on-esc
+        no-close-on-outside-click
         .opened="${this.dialogOpened}"
         @opened-changed="${(e: DialogOpenedChangedEvent) => {
           this.dialogOpened = e.detail.value;
-          // Escape and outside-click are close paths too; previously only the
-          // Close button reset this form.
           if (!this.dialogOpened) this.resetDialogState();
         }}"
         ${dialogRenderer(this.renderAccessControlContent, [
@@ -696,6 +696,19 @@ export class AddEditAccessControl extends LitElement {
   /**
    * Clears the form. Runs on every close path via `opened-changed`, not just
    * the Close button, so Escape and outside-click leave the same clean state.
+   */
+  /**
+   * Clears the form. Only reachable through the Close button, because the
+   * dialog opts out of Escape and outside-click dismissal.
+   *
+   * That opt-out is deliberate and restores what this dialog had as a
+   * `<paper-dialog modal>`: `modal` implies `noCancelOnOutsideClick` and
+   * `noCancelOnEscKey` (paper-dialog-behavior.js), so neither gesture could
+   * close it. Every other converted dialog dismisses freely, but this one holds
+   * work that exists nowhere else until Save — AD users added to `Privileges`
+   * and the permission bits ticked on them — and this method throws it away.
+   * Deferring the reset would not help: `open()` refetches from the API and
+   * overwrites `Privileges`, so a stray click would still lose the edits.
    */
   private resetDialogState() {
     this.Privileges = [];
