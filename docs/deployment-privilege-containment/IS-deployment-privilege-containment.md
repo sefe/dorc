@@ -245,7 +245,7 @@ One of the three sits in the production script folder and consumes the *non-prod
 
 **What changes.** Configuration values whose keys are on a reserved list are excluded from the property set published into script scope. The list is split by key type on the evidence gathered:
 
-- **Password and secret keys are denylisted unconditionally** — the deployment passwords, the web deployment password, the API access password, the CLI secret and the deployment service account password. The list is scoped to the estate's actual secure key set, not to a fixed four, because that assumption was wrong once already.
+- **Password and secret keys are denylisted unconditionally.** The list is derived by enumerating secure configuration values rather than fixed in code — seven distinct keys at the time of writing, a set that grew twice during planning as fuller listings arrived. Deriving it removes the failure mode where the code and the estate drift apart.
 - **Username keys remain visible.** Multiple deployment scripts legitimately consume them to grant logon rights, and an account name is an identity rather than a credential — already visible in target-server access control lists, process listings and event logs. Denying them would break working deployments for negligible gain.
 
 **Why it changes.** W-4. Every secure configuration value is currently decrypted and injected into every deployment matching a coarse production flag, with no exclusion for the credentials DOrc itself needs to operate.
