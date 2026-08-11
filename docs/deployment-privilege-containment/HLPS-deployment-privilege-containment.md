@@ -46,6 +46,7 @@ Ranked by what an attacker must already have, not by subsystem. Identifiers are 
 | 9 | W-13 | Same as W-3 / W-8 | Three first-class secrets on the wire that config-value classification cannot reach |
 | 10 | W-7 | Read the Runner log share | Same values as W-4, through further channels |
 | 11 | W-8 | Read the Monitor host filesystem | Historic bundles, indefinitely retained |
+| 11= | W-8a | Read the deployment host filesystem | Historic Terraform plan content, indefinitely retained |
 | 12 | W-6 | Already hold the shared account | Blast radius across the whole estate — a property, not an entry point |
 | 13 | W-9 | None | Absence of attribution, not a vulnerability |
 
@@ -199,6 +200,14 @@ The log path is then published: `ScriptDispatcher.cs:106-113` composes a UNC pat
 In the file transport the bundle is written to `c:\Log\DOrc\Deploy\Services\ScriptGroupsPipeFiles\{pipeName}.json` — a `const` in the shared `Dorc.ApiModel` assembly (`Constants/RunnerConstants.cs:6`) — and **never deleted**. Repo-wide, the only `File.Delete`/`Directory.Delete` calls in the Monitor and Runner projects are Terraform temp-zip cleanup. The directory DACL is hardened and re-asserted on start, but files accumulate for the life of the host.
 
 The hardening also has a construction defect: `PrivilegedIdentities()` (`ScriptGroupFileWriter.cs:91-99`) grants only `WindowsIdentity.GetCurrent().User` (the **Monitor** account), SYSTEM and Administrators, with `SetAccessRuleProtection(true, false)`. The Runner runs as the **deployment** account and reads that file (`Dorc.Runner/Pipes/ScriptGroupFileReader.cs:34`). The in-code comment "typically the same account the Runner executes under" (`:93-94`) is false by construction. Either the file transport only works because the deployment account is a local Administrator on Monitor hosts — itself a finding, and a sharper argument for W-6 than the one W-6 makes — or it works by accident (**U-5**).
+
+### W-8a — Local Terraform plan files persist indefinitely
+
+**Capability required: read the deployment host filesystem. Same rank as W-8.**
+
+Found while implementing S-007, and recorded rather than folded into it. The Monitor creates `%ProgramData%\dorc\terraform-plans` with `Directory.CreateDirectory` — inherited permissions — and both the binary plan and the rendered plan content are written into it and never removed (`TerraformDispatcher.cs:146-152`). The rendered content lists variable values, so the disclosure is the same as W-12's variables file; the retention is the same as W-8's.
+
+It is distinct from W-8 in what closing it costs. The local plan is the only copy if the blob upload failed, so deletion is entangled with the plan/apply handshake rather than being pure housekeeping; and the directory is shared across deployments, so restricting it needs the environment-dependent deployment identity rather than a constant. Both point at **S-021**, not S-007.
 
 ### W-10 — The Terraform approval gate has no authorization at all
 

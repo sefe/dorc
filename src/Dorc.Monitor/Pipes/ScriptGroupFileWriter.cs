@@ -1,4 +1,4 @@
-﻿using Dorc.ApiModel;
+using Dorc.ApiModel;
 using Dorc.ApiModel.Constants;
 using Microsoft.Extensions.Logging;
 using System.Runtime.Versioning;
@@ -13,6 +13,14 @@ namespace Dorc.Monitor.Pipes
     [SupportedOSPlatform("windows")]
     internal class ScriptGroupFileWriter : IScriptGroupPipeServer
     {
+        /// <summary>
+        /// How long a bundle may survive the deployment that produced it before a later
+        /// deployment removes it. A bundle is read once, within seconds of the Runner
+        /// starting, so this is far longer than any legitimate need; it exists only to clear
+        /// bundles orphaned by a Monitor that died between writing one and expiring it.
+        /// </summary>
+        private static readonly TimeSpan OrphanedBundleRetention = TimeSpan.FromDays(1);
+
         private ILogger logger;
 
         public ScriptGroupFileWriter(ILogger<ScriptGroupFileWriter> logger)
@@ -20,17 +28,30 @@ namespace Dorc.Monitor.Pipes
             this.logger = logger;
         }
 
-        public Task Start(string pipeName, ScriptGroup scriptGroup, CancellationToken cancellationToken)
+        public Task Start(
+            string pipeName,
+            ScriptGroup scriptGroup,
+            ScriptGroupReaderIdentity readerIdentity,
+            CancellationToken cancellationToken)
         {
-            string filesPath = RunnerConstants.ScriptGroupFilesPath;
-            string filename = $"{filesPath}{pipeName}.json";
+            string filename = BundlePath(pipeName);
             try
             {
                 // The serialised ScriptGroup contains secrets (GitHubToken, AzureBearerToken,
-                // TerraformGitPat). The directory ACL is locked down to the writing service
-                // account + SYSTEM + Administrators, with ContainerInherit | ObjectInherit so
-                // newly-created child files inherit the same restriction.
-                EnsureRestrictedDirectory(filesPath);
+                // TerraformGitPat) alongside every resolved deployment property. The directory
+                // ACL is locked down to the writing service account + SYSTEM + Administrators,
+                // with ContainerInherit | ObjectInherit so newly-created child files inherit
+                // the same restriction.
+                EnsureRestrictedDirectory(RunnerConstants.ScriptGroupFilesPath);
+                RemoveOrphanedBundles(RunnerConstants.ScriptGroupFilesPath);
+
+                // Deleted rather than truncated. File.Create on an existing file keeps that
+                // file's discretionary access list, so a bundle left behind by a build that
+                // predates the restricted directory - the whole accumulated backlog - would
+                // hand its permissive ACL to the bundle written over it, and the directory's
+                // restriction would never apply to it. Bundle names repeat across attempts at
+                // the same request, so this is reachable, not hypothetical.
+                Expire(pipeName);
 
                 var serializeOptions = new JsonSerializerOptions
                 {
@@ -41,16 +62,133 @@ namespace Dorc.Monitor.Pipes
                                 }
                 };
 
-                using FileStream createStream = File.Create(filename);
+                using (FileStream createStream = File.Create(filename))
+                {
+                    JsonSerializer.Serialize(createStream, scriptGroup, serializeOptions);
+                }
 
-                JsonSerializer.Serialize(createStream, scriptGroup, serializeOptions);
+                GrantReadAccessToRunner(filename, readerIdentity);
 
                 return Task.CompletedTask;
             }
             catch (Exception ex)
             {
                 logger.LogError($"File creation has failed. File name: '{filename}'. Exception: {ex}");
+
+                // A bundle that was written but could not be secured must not be left behind
+                // for the Runner - or anyone else - to read.
+                Expire(pipeName);
                 throw;
+            }
+        }
+
+        /// <summary>
+        /// Deletes the bundle. The secrets it carries are needed for the span of one Runner
+        /// process; retaining them afterwards turns a transient in-memory exposure into a
+        /// durable on-disk one, and every bundle ever written was previously kept.
+        /// </summary>
+        public void Expire(string pipeName)
+        {
+            string filename = BundlePath(pipeName);
+            try
+            {
+                if (File.Exists(filename))
+                {
+                    File.Delete(filename);
+                    logger.LogDebug($"Script group bundle '{filename}' has been removed.");
+                }
+            }
+            catch (Exception ex)
+            {
+                // Called from a finally block on the deployment path. Failing to delete is
+                // worth knowing about but must not replace the deployment's own outcome.
+                logger.LogError($"Failed to remove script group bundle '{filename}'. Exception: {ex}");
+            }
+        }
+
+        private static string BundlePath(string pipeName) =>
+            $"{RunnerConstants.ScriptGroupFilesPath}{pipeName}.json";
+
+        /// <summary>
+        /// Adds the Runner's own principal to the bundle's ACL.
+        ///
+        /// The directory DACL is protected and names only the Monitor's account, so the file
+        /// inherits nothing the Runner can use. Where the Monitor and deployment accounts
+        /// coincide this ACE is redundant; where they differ, its absence is what would
+        /// otherwise make the bundle unreadable. Access is granted on the file rather than the
+        /// directory so that a deployment account can reach its own bundle and not the
+        /// bundles of concurrent deployments.
+        ///
+        /// Reaching a file by path also needs traverse rights on its parents. Those come from
+        /// the "Bypass traverse checking" right, which Windows grants to Everyone by default;
+        /// a host hardened to withdraw it would need the deployment account added to the
+        /// directory ACL as well, and the symptom would be an access denial on open.
+        /// </summary>
+        private void GrantReadAccessToRunner(string filename, ScriptGroupReaderIdentity readerIdentity)
+        {
+            var account = readerIdentity.QualifiedAccountName;
+
+            SecurityIdentifier reader;
+            try
+            {
+                reader = (SecurityIdentifier)new NTAccount(account).Translate(typeof(SecurityIdentifier));
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException(
+                    $"The deployment account '{account}' could not be resolved, so the script group bundle" +
+                    " could not be made readable by the Runner.", ex);
+            }
+
+            var fileInfo = new FileInfo(filename);
+            var security = fileInfo.GetAccessControl();
+            security.AddAccessRule(new FileSystemAccessRule(
+                reader,
+                FileSystemRights.Read,
+                AccessControlType.Allow));
+            fileInfo.SetAccessControl(security);
+        }
+
+        /// <summary>
+        /// Removes bundles that outlived the deployment that wrote them. Expiry on the
+        /// deployment path covers the normal and failed cases; this covers the case where the
+        /// Monitor process itself did not survive to run it, and clears bundles accumulated
+        /// before expiry existed at all.
+        /// </summary>
+        private void RemoveOrphanedBundles(string path)
+        {
+            try
+            {
+                var cutoff = DateTime.UtcNow - OrphanedBundleRetention;
+                var removed = 0;
+
+                foreach (var bundle in Directory.EnumerateFiles(path, "*.json"))
+                {
+                    try
+                    {
+                        if (File.GetLastWriteTimeUtc(bundle) >= cutoff)
+                        {
+                            continue;
+                        }
+
+                        File.Delete(bundle);
+                        removed++;
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogWarning($"Failed to remove orphaned script group bundle '{bundle}'. Exception: {ex}");
+                    }
+                }
+
+                if (removed > 0)
+                {
+                    logger.LogInformation($"Removed {removed} orphaned script group bundle(s) from '{path}'.");
+                }
+            }
+            catch (Exception ex)
+            {
+                // Housekeeping. Never let it stop a deployment.
+                logger.LogWarning($"Failed to enumerate script group bundles in '{path}'. Exception: {ex}");
             }
         }
 
@@ -90,10 +228,12 @@ namespace Dorc.Monitor.Pipes
 
         private static IEnumerable<IdentityReference> PrivilegedIdentities()
         {
-            // Only the service account writing the file (typically the same account the Runner
-            // executes under) plus SYSTEM and BUILTIN\Administrators retain access. Everything
-            // else — including authenticated interactive users on the Monitor host — is denied
-            // by the absence of an inherited Users ACE.
+            // Only the service account writing the file plus SYSTEM and BUILTIN\Administrators
+            // retain access to the directory. Everything else — including authenticated
+            // interactive users on the Monitor host — is denied by the absence of an inherited
+            // Users ACE. The account that READS a bundle is granted on the bundle itself, by
+            // GrantReadAccessToRunner, because it is a per-deployment principal rather than a
+            // property of the directory.
             yield return WindowsIdentity.GetCurrent().User!;
             yield return new SecurityIdentifier(WellKnownSidType.LocalSystemSid, null);
             yield return new SecurityIdentifier(WellKnownSidType.BuiltinAdministratorsSid, null);
