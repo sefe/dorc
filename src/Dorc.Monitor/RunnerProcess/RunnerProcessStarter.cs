@@ -1,4 +1,5 @@
-﻿using System.ComponentModel;
+﻿using System.Security.Principal;
+using System.ComponentModel;
 using System.Runtime.InteropServices;
 using Microsoft.Extensions.Logging;
 using static Dorc.Monitor.RunnerProcess.ProcessSecurityContextBuilder;
@@ -52,7 +53,12 @@ namespace Dorc.Monitor.RunnerProcess
             var runnerFileInfo = new FileInfo(this.RunnerExecutableFullName);
             string commandLine = runnerFileInfo.Name
                 +" -p" + this.ScriptGroupPipeName
-                +" -l" + this.RunnerLogPath;
+                +" -l" + this.RunnerLogPath
+                // The Runner authenticates the script group pipe by its owner. It cannot know
+                // which account the Monitor runs as, so it is told - and the value is not a
+                // secret, it is an integrity reference. A squatter cannot satisfy it without
+                // already being the Monitor's account.
+                +" --serverSid=" + WindowsIdentity.GetCurrent().User!.Value;
 #if DEBUG
             commandLine += " --useFile=true";
 #endif
