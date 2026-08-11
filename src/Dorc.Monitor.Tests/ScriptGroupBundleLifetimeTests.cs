@@ -63,19 +63,35 @@ namespace Dorc.Monitor.Tests
         /// further. Building it is Windows interop against a real account, which a test host
         /// cannot satisfy - so the credential is deliberately incomplete and the resulting
         /// failure is the vehicle for observing what happened before it.
+        ///
+        /// The exception TYPE is not asserted on purpose. Which one surfaces depends on how
+        /// far the host gets before refusing, and on what ProcessSecurityContextBuilder
+        /// happens to throw today; pinning it would make these tests fail for reasons that
+        /// have nothing to do with the bundle lifetime they exist to cover.
         /// </summary>
         private static Exception DispatchExpectingFailure(ScriptDispatcher dispatcher, bool isProduction)
         {
-            return Assert.ThrowsExactly<Exception>(() => dispatcher.Dispatch(
-                @"\\host\share\Scripts",
-                new ScriptApiModel { Path = "Deploy.ps1", PowerShellVersionNumber = "7.4" },
-                new Dictionary<string, VariableValue>(),
-                requestId: 42,
-                deploymentRequestId: 42,
-                isProduction: isProduction,
-                environmentName: "SOME-ENV",
-                new StringBuilder(),
-                CancellationToken.None));
+            try
+            {
+                dispatcher.Dispatch(
+                    @"\\host\share\Scripts",
+                    new ScriptApiModel { Path = "Deploy.ps1", PowerShellVersionNumber = "7.4" },
+                    new Dictionary<string, VariableValue>(),
+                    requestId: 42,
+                    deploymentRequestId: 42,
+                    isProduction: isProduction,
+                    environmentName: "SOME-ENV",
+                    new StringBuilder(),
+                    CancellationToken.None);
+            }
+            catch (Exception dispatchFailure)
+            {
+                return dispatchFailure;
+            }
+
+            throw new AssertFailedException(
+                "Dispatch was expected to fail while building the Runner's security context. If it now" +
+                " succeeds on this host, these tests are no longer observing what they claim to.");
         }
 
         [TestMethod]
@@ -99,27 +115,9 @@ namespace Dorc.Monitor.Tests
         [TestMethod]
         public void TheReaderIdentityCarriesTheConfiguredDomain()
         {
-            var dispatcher = NewDispatcher();
-
             // With a domain present the dispatch fails later, in the logon interop itself. The
             // identity has still been handed over by then, which is what is under test.
-            try
-            {
-                dispatcher.Dispatch(
-                    @"\\host\share\Scripts",
-                    new ScriptApiModel { Path = "Deploy.ps1", PowerShellVersionNumber = "7.4" },
-                    new Dictionary<string, VariableValue>(),
-                    requestId: 42,
-                    deploymentRequestId: 42,
-                    isProduction: true,
-                    environmentName: "SOME-ENV",
-                    new StringBuilder(),
-                    CancellationToken.None);
-            }
-            catch
-            {
-                // Expected: the security context cannot be built off a domain-joined Windows host.
-            }
+            DispatchExpectingFailure(NewDispatcher(), isProduction: true);
 
             _pipeServer.Received(1).Start(
                 Arg.Any<string>(),

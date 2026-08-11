@@ -73,10 +73,10 @@ namespace Dorc.Monitor.Pipes
             }
             catch (Exception ex)
             {
-                logger.LogError($"File creation has failed. File name: '{filename}'. Exception: {ex}");
+                logger.LogError($"Script group bundle could not be written. File name: '{filename}'. Exception: {ex}");
 
-                // A bundle that was written but could not be secured must not be left behind
-                // for the Runner - or anyone else - to read.
+                // A bundle that was written but not completed must not be left behind for the
+                // Runner - or anyone else - to read.
                 Expire(pipeName);
                 throw;
             }
@@ -116,37 +116,79 @@ namespace Dorc.Monitor.Pipes
         /// inherits nothing the Runner can use. Where the Monitor and deployment accounts
         /// coincide this ACE is redundant; where they differ, its absence is what would
         /// otherwise make the bundle unreadable. Access is granted on the file rather than the
-        /// directory so that a deployment account can reach its own bundle and not the
-        /// bundles of concurrent deployments.
+        /// directory so that the deployment account can reach the bundle it is meant to consume
+        /// and not those of concurrent deployments — the isolation that buys is per-deployment,
+        /// but the principal is not: it is one shared account per production/non-production
+        /// tier, so any process already running as it can still read that tier's in-flight
+        /// bundles. Narrowing the principal itself is S-021's job, not this one's.
         ///
         /// Reaching a file by path also needs traverse rights on its parents. Those come from
         /// the "Bypass traverse checking" right, which Windows grants to Everyone by default;
         /// a host hardened to withdraw it would need the deployment account added to the
         /// directory ACL as well, and the symptom would be an access denial on open.
+        ///
+        /// Failure here is logged and swallowed, deliberately. This grant only ever WIDENS
+        /// access to the bundle; the confinement is the directory DACL, which has already been
+        /// applied by the time this runs. So a failure — a domain controller briefly
+        /// unreachable, a Monitor host not joined, an account the local authority cannot
+        /// resolve — can leave the bundle unreadable but never leave it over-readable. Throwing
+        /// would convert a transient directory-service blip into a failed production
+        /// deployment, which is a far worse outcome than the one being guarded against.
         /// </summary>
         private void GrantReadAccessToRunner(string filename, ScriptGroupReaderIdentity readerIdentity)
         {
             var account = readerIdentity.QualifiedAccountName;
 
-            SecurityIdentifier reader;
             try
             {
-                reader = (SecurityIdentifier)new NTAccount(account).Translate(typeof(SecurityIdentifier));
+                var reader = (SecurityIdentifier)new NTAccount(account).Translate(typeof(SecurityIdentifier));
+
+                if (IsTooBroadToHoldASecret(reader))
+                {
+                    // A misconfigured account name that resolves to a broad group would
+                    // publish the bundle to it. The deployment will fail moments later when
+                    // the logon is attempted with the same name, and the bundle is expired on
+                    // that path - but not granting it in the first place is free.
+                    logger.LogError(
+                        $"The configured deployment account '{account}' resolves to '{reader}', which is a" +
+                        " group broad enough that granting it access to the script group bundle would" +
+                        " disclose it. No access has been granted.");
+                    return;
+                }
+
+                var fileInfo = new FileInfo(filename);
+                var security = fileInfo.GetAccessControl();
+                security.AddAccessRule(new FileSystemAccessRule(
+                    reader,
+                    FileSystemRights.Read,
+                    AccessControlType.Allow));
+                fileInfo.SetAccessControl(security);
             }
             catch (Exception ex)
             {
-                throw new InvalidOperationException(
-                    $"The deployment account '{account}' could not be resolved, so the script group bundle" +
-                    " could not be made readable by the Runner.", ex);
+                logger.LogError(
+                    $"The deployment account '{account}' could not be granted access to the script group" +
+                    $" bundle '{filename}'. The Runner will be unable to read it unless it runs as an" +
+                    $" account the directory already admits. Exception: {ex}");
             }
+        }
 
-            var fileInfo = new FileInfo(filename);
-            var security = fileInfo.GetAccessControl();
-            security.AddAccessRule(new FileSystemAccessRule(
-                reader,
-                FileSystemRights.Read,
-                AccessControlType.Allow));
-            fileInfo.SetAccessControl(security);
+        /// <summary>
+        /// Refuses the principals whose membership is effectively "anyone on the host". This is
+        /// a denylist of the catastrophic cases, not a general test for whether a SID names a
+        /// group — that needs the account's SID_NAME_USE, which has no managed API. A narrower
+        /// group slipping through still only reaches one bundle, for the seconds before the
+        /// logon fails on the same misconfigured name and the bundle is expired.
+        /// </summary>
+        private static bool IsTooBroadToHoldASecret(SecurityIdentifier sid)
+        {
+            return sid.IsWellKnown(WellKnownSidType.WorldSid)
+                || sid.IsWellKnown(WellKnownSidType.AuthenticatedUserSid)
+                || sid.IsWellKnown(WellKnownSidType.BuiltinUsersSid)
+                || sid.IsWellKnown(WellKnownSidType.BuiltinGuestsSid)
+                || sid.IsWellKnown(WellKnownSidType.InteractiveSid)
+                || sid.IsWellKnown(WellKnownSidType.NetworkSid)
+                || sid.IsWellKnown(WellKnownSidType.AnonymousSid);
         }
 
         /// <summary>
