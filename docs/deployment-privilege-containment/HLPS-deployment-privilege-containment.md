@@ -203,7 +203,7 @@ The log path is then published: `ScriptDispatcher.cs:106-113` composes a UNC pat
 
 Found while implementing S-010. A Terraform component's `ScriptPath` is not a script path relative to the script root; under the `SharedFolder` source type it is passed as `ScriptsLocation` and *is* the location the infrastructure code is provisioned from, legitimately an absolute UNC path. W-5's relativity rule therefore cannot be applied to it — doing so would reject every Terraform component on that source type — and it is left unconstrained by S-010 as a result.
 
-It needs a host allow-list, the same control the two project-level URLs need, so it is folded into **S-011** rather than given a step of its own.
+It needs a host allow-list, the same control the two project-level URLs need, so it is folded into **S-011** rather than given a step of its own. **Closed in code by S-011, but inert until an operator fills in `AllowedTerraformSourceHosts`** — see that step for why the control ships unenforced.
 
 ### W-8 — Script-group artefacts persist indefinitely
 
