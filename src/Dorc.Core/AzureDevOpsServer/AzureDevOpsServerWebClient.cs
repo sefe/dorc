@@ -1,6 +1,7 @@
 ﻿using System.Text.RegularExpressions;
 using Dorc.Core.Models;
 using Microsoft.Extensions.Logging;
+using Dorc.PersistentData.Security;
 using Microsoft.Extensions.Configuration;
 using Org.OpenAPITools.Api;
 using Org.OpenAPITools.Client.Auth;
@@ -25,6 +26,13 @@ namespace Dorc.Core.AzureDevOpsServer
         private static string secret = AppSettings["AadSecret"];
         private static string[] scopes = { AppSettings["AadScopes"] };
         private static string azureEndpointUrl = AppSettings["AzureEndpoint"] ?? "dev.azure.com";
+
+        // Read the same way as AppSettings above, which this file already does statically. The
+        // client is constructed with `new` at three call sites rather than resolved from the
+        // container, so threading the allow-list in would mean widening three constructors that
+        // have nothing else to do with it.
+        private static readonly ISourceHostAllowList SourceHosts = new SourceHostAllowList(
+            new ConfigurationBuilder().AddJsonFile("appsettings.json").Build());
         
 
         public AzureDevOpsServerWebClient(string serverUrl, ILogger<AzureDevOpsServerWebClient> log)
@@ -40,25 +48,7 @@ namespace Dorc.Core.AzureDevOpsServer
         {
             var coll = GetAzureOrgAndUrl(collection, out var azureEndpoint);
 
-            Org.OpenAPITools.Client.Configuration config;
-
-            if (azureEndpoint.Contains(azureEndpointUrl))
-            {
-                config = new Org.OpenAPITools.Client.Configuration
-                {
-                    BasePath = azureEndpoint,
-                    AccessToken = _authTokenGenerator.GetToken()
-                };
-            }
-            else
-            {
-                config = new Org.OpenAPITools.Client.Configuration
-                {
-                    BasePath = azureEndpoint,
-                    UseDefaultCredentials = true,
-                };
-            }
-
+            var config = ConfigureClientFor(azureEndpoint);
             var instance = new DefinitionsApi(config);
 
             var projects = adosProjects.Split(new[] { ";" }, StringSplitOptions.RemoveEmptyEntries);
@@ -95,6 +85,77 @@ namespace Dorc.Core.AzureDevOpsServer
             return output;
         }
 
+        /// <summary>
+        /// Decides what credential, if any, this endpoint is offered.
+        ///
+        /// The endpoint is derived from the project's artefacts URL, which is settable at
+        /// per-project modify rights, so it is attacker-chosen text. Two things were wrong with
+        /// deciding on <c>azureEndpoint.Contains(azureEndpointUrl)</c>.
+        ///
+        /// A substring test for "dev.azure.com" is satisfied by
+        /// https://dev.azure.com.attacker.net/, which then received the Entra access token. And
+        /// everything that failed the test fell into an else branch that offered
+        /// UseDefaultCredentials - the API service account's Windows credentials - to whatever
+        /// host the project named. That second leg is the one no amount of token scoping would
+        /// have caught, because it hands over an interactive service identity rather than a
+        /// scoped token.
+        ///
+        /// The host is now parsed and compared whole. Windows credentials remain available,
+        /// because an on-premises Azure DevOps Server legitimately authenticates that way, but
+        /// only to a host the deployment has been configured to trust.
+        /// </summary>
+        private Org.OpenAPITools.Client.Configuration ConfigureClientFor(string azureEndpoint)
+        {
+            if (IsConfiguredAzureEndpoint(azureEndpoint))
+            {
+                return new Org.OpenAPITools.Client.Configuration
+                {
+                    BasePath = azureEndpoint,
+                    AccessToken = _authTokenGenerator.GetToken()
+                };
+            }
+
+            RequireDefaultCredentialsPermitted(azureEndpoint);
+
+            return new Org.OpenAPITools.Client.Configuration
+            {
+                BasePath = azureEndpoint,
+                UseDefaultCredentials = true,
+            };
+        }
+
+        private static bool IsConfiguredAzureEndpoint(string azureEndpoint)
+        {
+            // AzureEndpoint is configured as a bare host ("dev.azure.com") by default but may be
+            // written as a URL, so both sides are reduced to a host before comparing.
+            var configured = SourceHostAllowList.HostOf(azureEndpointUrl) ?? azureEndpointUrl?.Trim();
+            var actual = SourceHostAllowList.HostOf(azureEndpoint);
+
+            return !string.IsNullOrWhiteSpace(configured)
+                && actual != null
+                && string.Equals(actual, configured, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private void RequireDefaultCredentialsPermitted(string azureEndpoint)
+        {
+            if (SourceHosts.IsUnconfigured)
+            {
+                _log.LogWarning(
+                    "Offering default Windows credentials to '{Endpoint}' because no artefact host"
+                    + " allow-list is configured ('{Setting}'). This presents the service account's"
+                    + " own identity to a host named by project configuration.",
+                    azureEndpoint,
+                    SourceHostAllowList.ArtefactHostsSetting);
+                return;
+            }
+
+            if (!SourceHosts.IsArtefactSourceAllowed(azureEndpoint, out var reason))
+            {
+                throw new InvalidOperationException(
+                    $"Refusing to present default Windows credentials to '{azureEndpoint}', because {reason}");
+            }
+        }
+
         private static bool IsBuildDefinitionCompletedSuccessfully(BuildDefinitionReference buildDefinition)
         {
             var latestBuild = buildDefinition.LatestBuild;
@@ -121,25 +182,7 @@ namespace Dorc.Core.AzureDevOpsServer
         {
             var coll = GetAzureOrgAndUrl(collection, out var azureEndpoint);
 
-            Org.OpenAPITools.Client.Configuration config;
-
-            if (azureEndpoint.Contains(azureEndpointUrl))
-            {
-                config = new Org.OpenAPITools.Client.Configuration
-                {
-                    BasePath = azureEndpoint,
-                    AccessToken = _authTokenGenerator.GetToken()
-                };
-            }
-            else
-            {
-                config = new Org.OpenAPITools.Client.Configuration
-                {
-                    BasePath = azureEndpoint,
-                    UseDefaultCredentials = true,
-                };
-            }
-
+            var config = ConfigureClientFor(azureEndpoint);
             var instance = new BuildsApi(config);
 
             var projects = buildDefinitions.Select(def => def.Project.Name).Distinct().ToList();
@@ -179,25 +222,7 @@ namespace Dorc.Core.AzureDevOpsServer
         {
             var coll = GetAzureOrgAndUrl(collection, out var azureEndpoint);
 
-            Org.OpenAPITools.Client.Configuration config;
-
-            if (azureEndpoint.Contains(azureEndpointUrl))
-            {
-                config = new Org.OpenAPITools.Client.Configuration
-                {
-                    BasePath = azureEndpoint,
-                    AccessToken = _authTokenGenerator.GetToken()
-                };
-            }
-            else
-            {
-                config = new Org.OpenAPITools.Client.Configuration
-                {
-                    BasePath = azureEndpoint,
-                    UseDefaultCredentials = true,
-                };
-            }
-
+            var config = ConfigureClientFor(azureEndpoint);
             var instance = new BuildsApi(config);
 
             var builds = new List<Build>();
@@ -256,25 +281,7 @@ namespace Dorc.Core.AzureDevOpsServer
         public List<BuildArtifact> GetBuildArtifacts(string collection, string project, int buildId)
         {
             var coll = GetAzureOrgAndUrl(collection, out var azureEndpoint);
-            Org.OpenAPITools.Client.Configuration config;
-
-            if (azureEndpoint.Contains(azureEndpointUrl))
-            {
-                config = new Org.OpenAPITools.Client.Configuration
-                {
-                    BasePath = azureEndpoint,
-                    AccessToken = _authTokenGenerator.GetToken()
-                };
-            }
-            else
-            {
-                config = new Org.OpenAPITools.Client.Configuration
-                {
-                    BasePath = azureEndpoint,
-                    UseDefaultCredentials = true,
-                };
-            }
-
+            var config = ConfigureClientFor(azureEndpoint);
             var instance = new ArtifactsApi(config);
 
             string apiVersion = ApiVersion;
