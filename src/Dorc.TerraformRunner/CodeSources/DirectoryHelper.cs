@@ -12,9 +12,11 @@
                 throw new ArgumentException($"Terraform sub-path '{subPath}' not found in repository.");
             }
 
-            // Create a new temp directory to hold the extracted subpath contents
+            // Create a new temp directory to hold the extracted subpath contents. It is
+            // created with the same restriction as the working directory because it is moved
+            // over the top of it, taking its own DACL with it.
             var tempExtractDir = Path.Join(DorcProgramData.Root, $"terraform-extract-{Guid.NewGuid()}");
-            Directory.CreateDirectory(tempExtractDir);
+            RestrictedWorkingDirectory.Create(tempExtractDir);
 
             try
             {
