@@ -48,7 +48,12 @@ export class ProjectEnvsTab extends LitElement {
     </div>`;
   }
 
-  removeProjEnvs() {
+  removeProjEnvs(e: Event) {
+    // See the note in env-detail-tab.removeEnvDetail: stops the enclosing
+    // vaadin-tabs selecting the tab this handler is about to remove.
+    e.stopPropagation();
+    e.preventDefault();
+
     const event = new CustomEvent('close-project-envs', {
       detail: {
         Project: this.project

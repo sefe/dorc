@@ -67,7 +67,12 @@ export class MonitorResultTab extends LitElement {
     </div>`;
   }
 
-  removeMonitorResult() {
+  removeMonitorResult(e: Event) {
+    // See the note in env-detail-tab.removeEnvDetail: stops the enclosing
+    // vaadin-tabs selecting the tab this handler is about to remove.
+    e.stopPropagation();
+    e.preventDefault();
+
     const event = new CustomEvent('close-monitor-result', {
       detail: {
         request: this.requestStatus

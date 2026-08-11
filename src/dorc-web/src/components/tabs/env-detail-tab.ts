@@ -52,7 +52,14 @@ export class EnvDetailTab extends LitElement {
     </div>`;
   }
 
-  removeEnvDetail() {
+  removeEnvDetail(e: Event) {
+    // Keep the click away from the enclosing vaadin-tabs: ListMixin._onClick
+    // reads composedPath() and would select the tab this handler is about to
+    // remove, leaving the drawer highlighting an unrelated item. _onClick bails
+    // on defaultPrevented, so both calls are needed.
+    e.stopPropagation();
+    e.preventDefault();
+
     const event = new CustomEvent('close-env-detail', {
       detail: {
         Environment: this.env
