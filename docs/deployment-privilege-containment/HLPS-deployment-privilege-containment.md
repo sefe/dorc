@@ -45,7 +45,7 @@ Ranked by what an attacker must already have, not by subsystem. Identifiers are 
 | 8 | W-4 | Land any script or component in any deployment | Harvest every decrypted secure config value, including deployment credentials |
 | 9 | W-13 | Same as W-3 / W-8 | Three first-class secrets on the wire that config-value classification cannot reach |
 | 10 | W-7 | Read the Runner log share | Same values as W-4, through further channels |
-| 11 | W-8 | Read the Monitor host filesystem | Historic bundles, indefinitely retained |
+| 11 | W-8 | Read the Monitor host filesystem | Historic bundles, indefinitely retained — **Debug builds only**, see the scope note under W-8 |
 | 11= | W-8a | Read the deployment host filesystem | Historic Terraform plan content, indefinitely retained |
 | 12 | W-6 | Already hold the shared account | Blast radius across the whole estate — a property, not an entry point |
 | 13 | W-9 | None | Absence of attribution, not a vulnerability |
@@ -195,7 +195,9 @@ The log path is then published: `ScriptDispatcher.cs:106-113` composes a UNC pat
 
 ### W-8 — Script-group artefacts persist indefinitely
 
-**Capability required: read the Monitor host filesystem.**
+**Capability required: read the Monitor host filesystem. Debug builds only — see the scope note.**
+
+**Scope note, added during S-007.** The file transport is selected under `#if DEBUG` on *both* sides — the Monitor's registration (`Program.cs:188-192`) and the `--useFile=true` argument the Monitor puts on the Runner's command line (`RunnerProcessStarter.cs:56-58`, `TerraformRunnerProcessStarter.cs:63-65`). The two are consistent, so a Release build never writes a bundle at all and a Debug build always does. This weakness therefore does not describe production; **W-3 does**, and the same payload is exposed there through an unauthenticated pipe rather than a retained file. The `#if DEBUG` divergence was already recorded as a delivery risk in §8, but W-8 was ranked without carrying it, which overstated its production standing. The correction does not reduce the work: SD-7 is still required for the Debug path, and its Terraform half (W-12) is unconditional.
 
 In the file transport the bundle is written to `c:\Log\DOrc\Deploy\Services\ScriptGroupsPipeFiles\{pipeName}.json` — a `const` in the shared `Dorc.ApiModel` assembly (`Constants/RunnerConstants.cs:6`) — and **never deleted**. Repo-wide, the only `File.Delete`/`Directory.Delete` calls in the Monitor and Runner projects are Terraform temp-zip cleanup. The directory DACL is hardened and re-asserted on start, but files accumulate for the life of the host.
 
