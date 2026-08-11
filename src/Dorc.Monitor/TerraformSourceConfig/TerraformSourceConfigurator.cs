@@ -1,7 +1,8 @@
-using Dorc.ApiModel;
+﻿using Dorc.ApiModel;
 using Dorc.ApiModel.MonitorRunnerApi;
 using Dorc.Core.BuildServer;
 using Dorc.Core.Configuration;
+using Dorc.PersistentData.Security;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Dorc.AzureDevOps.Client.Auth;
@@ -18,6 +19,12 @@ namespace Dorc.Monitor.TerraformSourceConfig
         private readonly ILogger _logger;
         private readonly IConfigurationSettings _configurationSettings;
         private readonly IGitHubHostValidator _gitHubHostValidator;
+
+        // Read directly rather than injected: this type is constructed with `new` by both
+        // dispatchers, and the allow-list is process-wide configuration rather than per-request
+        // state.
+        private static readonly ISourceHostAllowList SourceHosts = new SourceHostAllowList(
+            new ConfigurationBuilder().AddJsonFile("appsettings.json").Build());
 
         public TerraformSourceConfigurator(ILogger logger, IConfigurationSettings configurationSettings,
             IGitHubHostValidator gitHubHostValidator)
@@ -75,10 +82,15 @@ namespace Dorc.Monitor.TerraformSourceConfig
 
             scriptGroup.TerraformGitRepoUrl = project.TerraformGitRepoUrl;
 
-            // Determine if this is GitHub or Azure DevOps
-            bool isAzureDevOpsRepo = scriptGroup.TerraformGitRepoUrl.Contains("dev.azure.com", StringComparison.OrdinalIgnoreCase) ||
-                                 scriptGroup.TerraformGitRepoUrl.Contains("visualstudio.com", StringComparison.OrdinalIgnoreCase);
-            if (isAzureDevOpsRepo)
+            if (!MayReceiveSourceCredentials(scriptGroup.TerraformGitRepoUrl))
+            {
+                // No credential is attached, so the clone either succeeds anonymously against a
+                // public repository or fails. Either is better than handing a token to a host
+                // nobody vouched for.
+                return;
+            }
+
+            if (IsAzureDevOpsRepository(scriptGroup.TerraformGitRepoUrl))
             {
                 scriptGroup.AzureBearerToken = GetAzureBearerToken();
             }
@@ -92,6 +104,63 @@ namespace Dorc.Monitor.TerraformSourceConfig
             {
                 _logger.LogWarning($"PAT token not found in properties. Expected property: {TerraformGitPatPropertyName}");
             }
+        }
+
+        /// <summary>
+        /// Whether this repository may be offered the deployment's Git credentials at all.
+        ///
+        /// The repository URL is project configuration, settable at per-project modify rights.
+        /// Both credentials it can attract are estate-wide: the Terraform PAT, and an Entra
+        /// access token issued to DOrc's own application registration. Neither is scoped to a
+        /// particular repository, so pointing a project at a host of one's choosing collected
+        /// them both.
+        /// </summary>
+        private bool MayReceiveSourceCredentials(string repositoryUrl)
+        {
+            if (SourceHosts.IsUnconfigured)
+            {
+                _logger.LogWarning(
+                    "Attaching Git credentials to '{RepositoryUrl}' because no Terraform source host"
+                    + " allow-list is configured ('{Setting}').",
+                    repositoryUrl,
+                    SourceHostAllowList.TerraformHostsSetting);
+                return true;
+            }
+
+            if (SourceHosts.IsTerraformSourceAllowed(repositoryUrl, out var reason))
+            {
+                return true;
+            }
+
+            _logger.LogError(
+                "Withholding Git credentials from '{RepositoryUrl}', because {Reason}",
+                repositoryUrl,
+                reason);
+            return false;
+        }
+
+        /// <summary>
+        /// Compared on the parsed host, not by substring. A test for "dev.azure.com" anywhere in
+        /// the URL is satisfied by https://dev.azure.com.attacker.net/repo.git, which then
+        /// received an Entra access token issued to DOrc.
+        ///
+        /// visualstudio.com is matched on its suffix because organisations live at
+        /// myorg.visualstudio.com; that is a suffix of the authority, not of the URL text, so it
+        /// cannot be satisfied by an attacker's host that merely ends in the same characters
+        /// somewhere in a path.
+        /// </summary>
+        internal static bool IsAzureDevOpsRepository(string repositoryUrl)
+        {
+            var host = SourceHostAllowList.HostOf(repositoryUrl);
+
+            if (host == null)
+            {
+                return false;
+            }
+
+            return string.Equals(host, "dev.azure.com", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(host, "visualstudio.com", StringComparison.OrdinalIgnoreCase)
+                || host.EndsWith(".visualstudio.com", StringComparison.OrdinalIgnoreCase);
         }
 
         private void ConfigureAzureArtifactSource(

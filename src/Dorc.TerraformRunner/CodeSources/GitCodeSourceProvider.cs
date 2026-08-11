@@ -1,4 +1,4 @@
-using Dorc.ApiModel;
+﻿using Dorc.ApiModel;
 using Dorc.Runner.Logger;
 using LibGit2Sharp;
 using Microsoft.Extensions.Logging;
@@ -32,16 +32,16 @@ namespace Dorc.TerraformRunner.CodeSources
             
             _logger.Information($"Cloning Git repository '{scriptGroup.TerraformGitRepoUrl}' branch '{branchName}'");
 
-            // Determine if this is GitHub or Azure DevOps
-            bool isGitHub = scriptGroup.TerraformGitRepoUrl.Contains("github.com", StringComparison.OrdinalIgnoreCase);
-            bool isAzureDevOps = scriptGroup.TerraformGitRepoUrl.Contains("dev.azure.com", StringComparison.OrdinalIgnoreCase) ||
-                                 scriptGroup.TerraformGitRepoUrl.Contains("visualstudio.com", StringComparison.OrdinalIgnoreCase);
+            var isGitHub = IsHost(scriptGroup.TerraformGitRepoUrl, "github.com");
+            var isAzureDevOps = IsHost(scriptGroup.TerraformGitRepoUrl, "dev.azure.com")
+                || IsHost(scriptGroup.TerraformGitRepoUrl, "visualstudio.com");
 
             await Task.Run(() =>
             {
                 var cloneOptions = new CloneOptions();
                 cloneOptions.BranchName = branchName;
-                cloneOptions.FetchOptions.CredentialsProvider = (_url, _user, _cred) => CreateCredentials(scriptGroup, isGitHub, isAzureDevOps);
+                cloneOptions.FetchOptions.CredentialsProvider = (url, _user, _cred) =>
+                    CreateCredentials(scriptGroup, url, isGitHub, isAzureDevOps);
                 cloneOptions.FetchOptions.OnProgress = (serverProgressOutput) =>
                 {
                     _logger.FileLogger.LogDebug($"Git clone progress: {serverProgressOutput}");
@@ -60,8 +60,30 @@ namespace Dorc.TerraformRunner.CodeSources
             }, cancellationToken);
         }
 
-        private UsernamePasswordCredentials CreateCredentials(ScriptGroup scriptGroup, bool isGitHub, bool isAzureDevOps)
+        /// <summary>
+        /// Supplies the credential libgit2 asks for - but only for the repository this clone was
+        /// asked to perform.
+        ///
+        /// The url argument was previously ignored, and libgit2 calls this back for every URL it
+        /// authenticates against during a clone, redirect targets included. A repository that
+        /// redirected elsewhere therefore collected the Terraform PAT or the Entra access token,
+        /// neither of which is scoped to a repository, without the redirect ever appearing in
+        /// project configuration for anyone to notice.
+        /// </summary>
+        internal UsernamePasswordCredentials CreateCredentials(
+            ScriptGroup scriptGroup, string url, bool isGitHub, bool isAzureDevOps)
         {
+            var requested = HostOf(url);
+            var expected = HostOf(scriptGroup.TerraformGitRepoUrl);
+
+            if (requested == null || expected == null
+                || !string.Equals(requested, expected, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(
+                    $"Refusing to authenticate to '{url}': it is not the configured Terraform repository"
+                    + " host. Credentials are supplied only to the repository the deployment names.");
+            }
+
             // For GitHub and Azure DevOps Git, PAT is used as username with empty password
             // or as password with any username (both work)
             if (!string.IsNullOrEmpty(scriptGroup.TerraformGitPat))
@@ -84,6 +106,40 @@ namespace Dorc.TerraformRunner.CodeSources
             }
 
             throw new InvalidOperationException("No valid credentials found for Git authentication.");
+        }
+
+        internal static bool IsHost(string? url, string host)
+        {
+            var actual = HostOf(url);
+
+            return actual != null
+                && (string.Equals(actual, host, StringComparison.OrdinalIgnoreCase)
+                    || actual.EndsWith("." + host, StringComparison.OrdinalIgnoreCase));
+        }
+
+        /// <summary>
+        /// The authority of a URL, or null when there is none.
+        ///
+        /// Deliberately a local copy of what SourceHostAllowList does on the API side, rather
+        /// than a shared reference: that type lives in Dorc.PersistentData, and referencing it
+        /// from the Terraform Runner would drag Entity Framework into a process whose whole job
+        /// is to run terraform. The duplicated part is one string operation; the two are doing
+        /// different jobs with it - one compares against a configured list, this compares two
+        /// URLs to each other.
+        /// </summary>
+        private static string? HostOf(string? url)
+        {
+            if (string.IsNullOrWhiteSpace(url))
+            {
+                return null;
+            }
+
+            if (!Uri.TryCreate(url.Trim(), UriKind.Absolute, out var uri))
+            {
+                return null;
+            }
+
+            return string.IsNullOrEmpty(uri.Host) ? null : uri.Host;
         }
 
         private string SanitizeGitParameter(string parameter)
