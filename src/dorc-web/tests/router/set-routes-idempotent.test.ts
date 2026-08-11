@@ -22,6 +22,9 @@ const second: AppRoute[] = [
 describe('setRoutes', () => {
   let outlet: HTMLElement;
   let startPath: string;
+  // Describe-scoped so afterEach can let go of it. Each test still builds its
+  // own — this file is specifically about constructing routers.
+  let router: AppRouter;
 
   beforeEach(() => {
     startPath = window.location.pathname;
@@ -30,12 +33,17 @@ describe('setRoutes', () => {
   });
 
   afterEach(() => {
+    // Let go of the document/window listeners. Without this every router
+    // built in this file keeps handling clicks and popstate, so the
+    // discarded one intercepts first and the router under test never
+    // routes — the assertion would be about the previous test's object.
+    router?.disconnect();
     window.history.replaceState(null, '', startPath);
     outlet.remove();
   });
 
   it('replaces the rendered chain instead of appending a second one', async () => {
-    const router = new AppRouter(outlet);
+    router = new AppRouter(outlet);
     await router.setRoutes(first);
     await router.navigate('/first');
     expect(outlet.children.length, 'one root rendered').to.equal(1);
@@ -48,7 +56,7 @@ describe('setRoutes', () => {
   });
 
   it('leaves the tree alone when the same table is installed again', async () => {
-    const router = new AppRouter(outlet);
+    router = new AppRouter(outlet);
     await router.setRoutes(first);
     await router.navigate('/first');
     const root = outlet.children[0];

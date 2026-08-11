@@ -4,11 +4,31 @@ import { afterEach } from 'vitest';
 import { _cleanupFixtures } from './_helpers';
 
 // Remove fixture containers between tests so DOM state doesn't leak.
+//
 // Vaadin 25 dialog overlays live inside the <vaadin-dialog> element's own
 // shadow root rather than being appended to document.body, so removing the
-// host removes them too — no separate overlay cleanup is needed.
+// host removes them too. Two things do NOT follow that rule and were leaking
+// past this hook:
+//
+//  - Notifications. `Notification.show` mounts a
+//    <vaadin-notification-container> on document.body and leaves it there.
+//    Three files end with a card still in it, which is exactly the "next test
+//    finds the wrong element" shape.
+//  - `document.body.style.pointerEvents`. A dialog's `_enterModalState()` sets
+//    it to 'none' and only `opened = false` clears it, so a test that ends
+//    with a dialog open leaves the page inert. Harmless today only because
+//    nothing in the suite uses real browser input — every click is `el.click()`
+//    or a dispatched event, neither of which pointer-events blocks. The first
+//    `userEvent.click` added would inherit a dead page.
+const BODY_LEVEL_LEFTOVERS =
+  'vaadin-notification, vaadin-notification-container, vaadin-confirm-dialog';
+
 afterEach(() => {
   _cleanupFixtures();
+  for (const node of document.body.querySelectorAll(BODY_LEVEL_LEFTOVERS)) {
+    node.remove();
+  }
+  document.body.style.pointerEvents = '';
 });
 
 // Silence known unhandled errors thrown from SUT modules that aren't fully

@@ -73,6 +73,24 @@ export class AppRouter {
   }
 
   /**
+   * Detaches the router's global listeners.
+   *
+   * The app builds one router for its lifetime, so nothing in `src` calls
+   * this. Tests build one per test, and without a way to let go, every router
+   * ever constructed keeps handling clicks and popstate: the discarded one
+   * intercepts first and calls `preventDefault()`, so the router under test
+   * never routes, and a single `history.back()` fires LOCATION_CHANGED_EVENT
+   * once per router alive in the file. Both are assertions some test is
+   * already making about the wrong object.
+   */
+  disconnect(): void {
+    if (!this.listening) return;
+    this.listening = false;
+    window.removeEventListener('popstate', this.onPopState);
+    document.removeEventListener('click', this.onClick);
+  }
+
+  /**
    * Navigates to `path`, pushing (or replacing) a history entry.
    *
    * `path` may be absolute (`/projects`) or relative to the document root

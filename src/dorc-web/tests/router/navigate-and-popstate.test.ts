@@ -56,6 +56,11 @@ describe('navigate, popstate and link default actions', () => {
   });
 
   afterEach(() => {
+    // Let go of the document/window listeners. Without this every router
+    // built in this file keeps handling clicks and popstate, so the
+    // discarded one intercepts first and the router under test never
+    // routes — the assertion would be about the previous test's object.
+    router.disconnect();
     window.history.replaceState(null, '', startPath);
     outlet.remove();
   });
