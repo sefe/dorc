@@ -1,4 +1,5 @@
 import '@vaadin/confirm-dialog';
+import { LOCATION_CHANGED_EVENT } from '../router/router';
 import type { ConfirmDialog } from '@vaadin/confirm-dialog';
 
 /**
@@ -64,11 +65,29 @@ export function confirmPrompt(
     const finish = (result: boolean) => {
       if (settled) return;
       settled = true;
+      window.removeEventListener(LOCATION_CHANGED_EVENT, onNavigated);
       resolve(result);
+      // Close before removing. On the confirm and cancel paths the mixin has
+      // already done this and it is a no-op; on the navigation path it is the
+      // only thing that runs the overlay's `_exitModalState()`, which is what
+      // puts `document.body { pointer-events }` back.
+      dialog.opened = false;
       // `closed` fires after the overlay has gone; removing here keeps the
       // DOM clean without racing the close transition.
       queueMicrotask(() => dialog.remove());
     };
+
+    // The dialog hangs off `document.body`, not off the component that raised
+    // it, so a navigation replaces the page underneath it and leaves it there.
+    // Because it is modal, `document.body` stays `pointer-events: none` and the
+    // newly rendered page is dead to the mouse — with browser Back the only way
+    // in or out. Treat navigating away as declining.
+    //
+    // The 31 page-level dialogs need no equivalent: DialogBaseMixin's
+    // disconnectedCallback schedules `opened = false` when its host is
+    // detached, so removing the page does exit modal state for those.
+    const onNavigated = () => finish(false);
+    window.addEventListener(LOCATION_CHANGED_EVENT, onNavigated);
 
     dialog.addEventListener('confirm', () => finish(true));
     // Escape arrives here, not on `closed`: the mixin's `_onOverlayEscapePress`

@@ -694,10 +694,6 @@ export class AddEditAccessControl extends LitElement {
   }
 
   /**
-   * Clears the form. Runs on every close path via `opened-changed`, not just
-   * the Close button, so Escape and outside-click leave the same clean state.
-   */
-  /**
    * Clears the form. Only reachable through the Close button, because the
    * dialog opts out of Escape and outside-click dismissal.
    *
