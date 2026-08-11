@@ -85,7 +85,20 @@ for (const file of walk(SRC)) {
     }
 
     const member = members.get(call.member);
-    if (!member) continue;
+    if (!member) {
+      // Not silently skipped: a binding this tool cannot resolve is a binding
+      // outside the "0 with a missing dependency" claim while looking covered
+      // by it. Same policy as the non-`this.<member>` branch above. Reachable
+      // when the renderer is inherited from a base class in another file.
+      stale += 1;
+      const line =
+        source.getLineAndCharacterOfPosition(call.node.getStart(source)).line + 1;
+      console.log(
+        `${relative(ROOT, file)}:${line}  ${call.directive}(${call.display}) ` +
+          `is not declared in this file — its reads cannot be checked`
+      );
+      continue;
+    }
     checked += 1;
 
     const reads = stateReads(member, reactive, members);
@@ -417,7 +430,18 @@ function stateReads(member, reactive, members) {
             seen.add(name);
             scan(members.get(name), depth - 1);
           }
-        } else if (depth > 0 && members.has(name) && !seen.has(name)) {
+        } else if (
+          depth > 0 &&
+          members.has(name) &&
+          !seen.has(name) &&
+          ts.isGetAccessor(members.get(name))
+        ) {
+          // Only a getter. Referencing a member without calling it yields a
+          // *value*: for a getter that means running its body now, so its reads
+          // are render-time reads; for a method or an arrow-valued field it
+          // means a function that runs later — `@click="${this._confirmPlan}"`
+          // is a handler, and following it would report what the click reads as
+          // a dependency of the render.
           seen.add(name);
           scan(members.get(name), depth - 1);
         }
@@ -454,6 +478,8 @@ function stateReads(member, reactive, members) {
     ts.forEachChild(body, visit);
   };
 
-  scan(member, 1);
+  // Depth 2, not 1: a renderer reaching reactive state through two helper
+  // methods slipped through at depth 1.
+  scan(member, 2);
   return reads;
 }

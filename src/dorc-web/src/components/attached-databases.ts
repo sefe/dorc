@@ -139,6 +139,10 @@ export class AttachedDatabases extends ResponsiveMixin(LitElement) {
         .opened="${this.permissionsDialogOpened}"
         @opened-changed="${(e: DialogOpenedChangedEvent) => {
           this.permissionsDialogOpened = e.detail.value;
+          // Clearing the id destroys the content, so the next open recreates it
+          // and re-seeds through `ref`. Without this the element persists and
+          // the stable callback would not fire for the next row.
+          if (!this.permissionsDialogOpened) this.editDbId = null;
         }}"
         ${dialogRenderer(this.renderEditPermissions, [this.editDbId, this.envId])}
         ${dialogFooterRenderer(this.renderEditPermissionsFooter, [])}
@@ -151,6 +155,7 @@ export class AttachedDatabases extends ResponsiveMixin(LitElement) {
         .opened="${this.viewPermissionsDialogOpened}"
         @opened-changed="${(e: DialogOpenedChangedEvent) => {
           this.viewPermissionsDialogOpened = e.detail.value;
+          if (!this.viewPermissionsDialogOpened) this.viewDbId = null;
         }}"
         ${dialogRenderer(this.renderViewPermissions, [
           this.viewDbId,
@@ -220,17 +225,40 @@ export class AttachedDatabases extends ResponsiveMixin(LitElement) {
    * element is created, which removes the old configure-then-open ordering
    * rather than trying to re-time it.
    */
+  /**
+   * Seeds the permission dialogs, once per open.
+   *
+   * These are class fields, not arrows written inline in the renderer. Lit's
+   * `ref` compares callback identity, so a fresh arrow each render re-fires the
+   * directive on every renderer invocation — and the overlay invokes the
+   * renderer itself on open and again on header/footer changes, which meant
+   * four loads per open and four `reset()`s, the first carrying the previous
+   * row's id.
+   *
+   * Seeding is driven by the element's lifetime instead: `viewDbId`/`editDbId`
+   * are cleared on close, so the element is destroyed and recreated per open
+   * and the callback runs exactly once with the right row.
+   */
+  private seedViewPermissions = (el?: Element) => {
+    if (!el || this.viewDbId === null) return;
+    const view = el as ViewDatabasePermissions;
+    view.setDbId(this.viewDbId);
+    view.loadDatabaseUsers();
+  };
+
+  private seedEditPermissions = (el?: Element) => {
+    if (!el || this.editDbId === null) return;
+    const edit = el as EditDatabasePermissions;
+    edit.reset();
+    edit.setDbId(this.editDbId);
+  };
+
   private renderEditPermissions = () =>
     this.editDbId !== null
       ? html`<edit-database-permissions
           id="edit"
           .envId="${this.envId}"
-          ${ref(el => {
-            if (!el || this.editDbId === null) return;
-            const edit = el as EditDatabasePermissions;
-            edit.reset();
-            edit.setDbId(this.editDbId);
-          })}
+          ${ref(this.seedEditPermissions)}
         ></edit-database-permissions>`
       : nothing;
 
@@ -246,12 +274,7 @@ export class AttachedDatabases extends ResponsiveMixin(LitElement) {
           id="view"
           .envId="${this.envId}"
           .readonly="${this.readonly}"
-          ${ref(el => {
-            if (!el || this.viewDbId === null) return;
-            const view = el as ViewDatabasePermissions;
-            view.setDbId(this.viewDbId);
-            view.loadDatabaseUsers();
-          })}
+          ${ref(this.seedViewPermissions)}
         ></view-database-permissions>`
       : nothing;
 

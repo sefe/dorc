@@ -13,6 +13,14 @@
  * The fix is always the same: snapshot into a local before the await, and use
  * the local from then on.
  *
+ * Known limit: this checks the handler's own body. It does not follow a call
+ * made after the await into the method it names. Following it was tried and
+ * backed out — a delegate that refreshes the view (`loadMappedDaemons()`,
+ * `performDelete()`) legitimately reads current state, so the hop reported
+ * seven false positives on correct code, and a gate that cries wolf gets
+ * suppressed. Handlers that delegate must thread the snapshot in as a
+ * parameter, as `server-controls.performDeleteServer` does.
+ *
  *   node tools/confirm-prompt-snapshot.mjs
  */
 
@@ -54,14 +62,43 @@ for (const file of walk(SRC)) {
   const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true);
 
   const visit = node => {
-    if (
+    // `await confirmPrompt(...)` and `confirmPrompt(...).then(...)` are the same
+    // hazard; only the first was visible while this matched AwaitExpression
+    // alone.
+    const isAwaited =
       ts.isAwaitExpression(node) &&
       ts.isCallExpression(node.expression) &&
-      node.expression.expression.getText(source).includes('confirmPrompt')
-    ) {
-      const fn = enclosingFunction(node);
-      if (fn?.body) {
-        const reads = stateReadsAfter(fn.body, node.getEnd(), source);
+      node.expression.expression.getText(source).includes('confirmPrompt');
+    const isThened =
+      ts.isCallExpression(node) &&
+      ts.isPropertyAccessExpression(node.expression) &&
+      node.expression.name.text === 'then' &&
+      node.expression.expression.getText(source).includes('confirmPrompt(');
+
+    if (isAwaited || isThened) {
+      // For `.then(cb)` the post-confirmation code is the callback body, and all
+      // of it runs after the answer — so scan that with no offset. For `await`
+      // it is the rest of the enclosing function, after the await expression.
+      const thenCallback = isThened ? node.arguments[0] : undefined;
+      const scanTarget =
+        thenCallback &&
+        (ts.isArrowFunction(thenCallback) ||
+          ts.isFunctionExpression(thenCallback))
+          ? { body: thenCallback.body, offset: 0, node: thenCallback }
+          : (() => {
+              const fn = enclosingFunction(node);
+              return fn?.body
+                ? { body: fn.body, offset: node.getEnd(), node: fn }
+                : null;
+            })();
+
+      if (scanTarget?.body) {
+        const fn = enclosingFunction(node);
+        const reads = stateReadsAfter(
+          scanTarget.body,
+          scanTarget.offset,
+          source
+        );
         if (reads.length) {
           offenders += 1;
           const line =

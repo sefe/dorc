@@ -56,9 +56,9 @@ const COLUMN = { write: 1, readSecrets: 2, owner: 3 };
  * recycled grid cell writing to the row it used to hold.
  */
 const clickCheckbox = (
-  checkbox: HTMLElement & { checked: boolean; disabled: boolean }
+  checkbox: (HTMLElement & { checked: boolean; disabled: boolean }) | null
 ) => {
-  (checkbox.querySelector('input') as HTMLInputElement).click();
+  (checkbox!.querySelector('input') as HTMLInputElement).click();
 };
 
 const checkboxAt = (el: Host, row: number, column: number) => {
@@ -67,10 +67,12 @@ const checkboxAt = (el: Host, row: number, column: number) => {
   const cell = rows[row]?.querySelectorAll('td')[column];
   const slot = cell?.querySelector('slot');
   const content = slot?.assignedElements()[0];
-  return content?.querySelector('vaadin-checkbox') as HTMLElement & {
-    checked: boolean;
-    disabled: boolean;
-  };
+  // `?? null` matters: without it a missing cell yields `undefined`, and the
+  // presence assertions below use chai's strict `equal(null)` — so they would
+  // pass with no checkbox rendered at all.
+  return (content?.querySelector('vaadin-checkbox') ?? null) as
+    | (HTMLElement & { checked: boolean; disabled: boolean })
+    | null;
 };
 
 describe('add-edit-access-control permission checkboxes', () => {
@@ -87,12 +89,12 @@ describe('add-edit-access-control permission checkboxes', () => {
     const el = await mount([
       { Name: 'someone', Allow: AC_ALLOW_WRITE | AC_ALLOW_OWNER }
     ]);
-    expect(checkboxAt(el, 0, COLUMN.write).checked, 'write').to.equal(true);
+    expect(checkboxAt(el, 0, COLUMN.write)!.checked, 'write').to.equal(true);
     expect(
-      checkboxAt(el, 0, COLUMN.readSecrets).checked,
+      checkboxAt(el, 0, COLUMN.readSecrets)!.checked,
       'read secrets'
     ).to.equal(false);
-    expect(checkboxAt(el, 0, COLUMN.owner).checked, 'owner').to.equal(true);
+    expect(checkboxAt(el, 0, COLUMN.owner)!.checked, 'owner').to.equal(true);
   });
 
   it('sets the bit when a permission is ticked', async () => {
@@ -134,12 +136,12 @@ describe('add-edit-access-control permission checkboxes', () => {
     await settle();
 
     expect(third.Allow! & AC_ALLOW_OWNER, 'bit not set').to.equal(0);
-    expect(owner.checked, 'checkbox reverted').to.equal(false);
+    expect(owner!.checked, 'checkbox reverted').to.equal(false);
   });
 
   it('disables the write column when the user cannot edit', async () => {
     const el = await mount([{ Name: 'someone', Allow: 0 }]);
-    expect(checkboxAt(el, 0, COLUMN.write).disabled).to.equal(false);
+    expect(checkboxAt(el, 0, COLUMN.write)!.disabled).to.equal(false);
 
     // No requestContentUpdate() anywhere in the component; the repaint comes
     // from the directive. Note this does not isolate one column's dependency
@@ -148,17 +150,17 @@ describe('add-edit-access-control permission checkboxes', () => {
     el.UserEditable = false;
     await settle();
 
-    expect(checkboxAt(el, 0, COLUMN.write).disabled).to.equal(true);
+    expect(checkboxAt(el, 0, COLUMN.write)!.disabled).to.equal(true);
   });
 
   it('disables the owner column when the user is not an owner', async () => {
     const el = await mount([{ Name: 'someone', Allow: 0 }]);
-    expect(checkboxAt(el, 0, COLUMN.owner).disabled).to.equal(false);
+    expect(checkboxAt(el, 0, COLUMN.owner)!.disabled).to.equal(false);
 
     el.UserIsOwner = false;
     await settle();
 
-    expect(checkboxAt(el, 0, COLUMN.owner).disabled).to.equal(true);
+    expect(checkboxAt(el, 0, COLUMN.owner)!.disabled).to.equal(true);
   });
 
   // Clicking the input fires `change` AND `checked-changed`, so a click test
@@ -170,7 +172,7 @@ describe('add-edit-access-control permission checkboxes', () => {
     const privilege: AccessControl = { Name: 'someone', Allow: 0 };
     const el = await mount([privilege]);
 
-    checkboxAt(el, 0, COLUMN.write).checked = true;
+    checkboxAt(el, 0, COLUMN.write)!.checked = true;
     await settle();
 
     expect(privilege.Allow, 'no write from a non-gesture change').to.equal(0);
@@ -180,7 +182,7 @@ describe('add-edit-access-control permission checkboxes', () => {
     const privilege: AccessControl = { Name: 'someone', Allow: 0 };
     const el = await mount([privilege]);
 
-    checkboxAt(el, 0, COLUMN.readSecrets).checked = true;
+    checkboxAt(el, 0, COLUMN.readSecrets)!.checked = true;
     await settle();
 
     expect(privilege.Allow, 'read-secrets bit not set').to.equal(0);
@@ -190,7 +192,7 @@ describe('add-edit-access-control permission checkboxes', () => {
     const privilege: AccessControl = { Name: 'someone', Allow: 0 };
     const el = await mount([privilege]);
 
-    checkboxAt(el, 0, COLUMN.owner).checked = true;
+    checkboxAt(el, 0, COLUMN.owner)!.checked = true;
     await settle();
 
     expect(privilege.Allow, 'owner bit not set').to.equal(0);

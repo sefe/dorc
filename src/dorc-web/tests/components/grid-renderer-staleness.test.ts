@@ -63,6 +63,13 @@ describe('grid cell re-renders when its dependency changes', () => {
     el.readonly = true;
     await el.updateComplete;
     await settle();
+    // Assert the intermediate state, or the final assertion is trivially true:
+    // with no repaint at all the button is never disabled, so "enabled at the
+    // end" holds without the dependency array doing anything.
+    expect(detachButton()?.disabled, 'disabled after the first flip').to.equal(
+      true
+    );
+
     el.readonly = false;
     await el.updateComplete;
     await settle();

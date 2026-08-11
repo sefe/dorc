@@ -1,6 +1,29 @@
 import { expect, settle } from '../_helpers';
 import { render } from 'lit';
-import '../../src/pages/page-scripts-list';
+import { vi } from 'vitest';
+import { of } from 'rxjs';
+
+// The page loads the PowerShell version list in its constructor, and the error
+// path assigns its own fallback (`['v5.1', 'v7']`). This fixture used to race
+// that: it assigned `powerShellVersions` after a fixed settle and hoped the
+// AjaxError had already landed. When it landed later — a slower CI round trip
+// is enough — the combo's items no longer contained '5.1'/'7.4', the combo
+// cleared itself, and the value assertion failed. That was a real intermittent
+// failure, reproducible by delaying the error handler.
+//
+// Mocking the API removes the race rather than documenting it.
+vi.mock('../../src/apis/dorc-api', async importOriginal => {
+  const actual = (await importOriginal()) as Record<string, unknown>;
+  return {
+    ...actual,
+    PowerShellVersionsApi: class {
+      powerShellVersionsGet = () =>
+        of([{ Version: '5.1' }, { Version: '7.4' }]);
+    }
+  };
+});
+
+await import('../../src/pages/page-scripts-list');
 
 // These exercise the real renderer methods rather than a lookalike template,
 // because the defect they guard is in the binding those methods choose.
@@ -35,11 +58,8 @@ const mountPage = async () => {
   const el = document.createElement('page-scripts-list') as Page;
   el.userRoles = ['Admin'];
   await settle();
-  // After settle, not before: the constructor kicks off loadPowerShellVersions,
-  // whose error path assigns its own fallback list and would overwrite these.
-  // With the wrong list the combo cannot hold '7.4', clears itself, and the
-  // handler's `if (!value) return` guard exits before the binding matters —
-  // which made the combo test below pass against a reverted fix.
+  // The mocked API supplies these synchronously, so nothing can overwrite them
+  // later. Assigned anyway so the fixture states what the combo needs to hold.
   el.powerShellVersions = ['5.1', '7.4'];
   await settle();
   return el;

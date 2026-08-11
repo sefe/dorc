@@ -213,8 +213,17 @@ function findImperativeAssignments(text) {
   // `<identifier>.renderer = ` where the left side is not a template binding
   // (those are preceded by whitespace or a quote inside a tag, and always have
   // a `${` on the right).
+  // The left side is anything an expression can end with, not just a bare
+  // identifier chain: `columns[0].renderer =` and `querySelector(...).renderer =`
+  // are the two most idiomatic Vaadin imperative shapes, and a chain-only
+  // pattern stops at the `]` or `)`.
   const assignRe = new RegExp(
-    `\\b([A-Za-z_$][\\w$]*(?:\\.[A-Za-z_$][\\w$]*)*)\\.(${RENDERER_PROPS.join('|')})\\s*=\\s*([^=])`,
+    `([A-Za-z_$0-9\\]\\)])\\.(${RENDERER_PROPS.join('|')})\\s*=\\s*([^=])`,
+    'g'
+  );
+  // Bracket notation reaches the same property without ever writing `.renderer`.
+  const bracketRe = new RegExp(
+    `\\[\\s*['"\`](${RENDERER_PROPS.join('|')})['"\`]\\s*\\]\\s*=\\s*([^=])`,
     'g'
   );
   let m;
@@ -225,8 +234,24 @@ function findImperativeAssignments(text) {
     const before = text.slice(0, m.index);
     out.push({
       prop: m[2],
-      element: `${m[1]} (assignment)`,
-      expression: text.slice(m.index + m[0].length - 1, m.index + m[0].length + 60).split('\n')[0].trim(),
+      element: '(assignment)',
+      expression: text
+        .slice(m.index + m[0].length - 1, m.index + m[0].length + 60)
+        .split('\n')[0]
+        .trim(),
+      line: before.split('\n').length
+    });
+  }
+  while ((m = bracketRe.exec(text)) !== null) {
+    if (m[2] === '$') continue;
+    const before = text.slice(0, m.index);
+    out.push({
+      prop: m[1],
+      element: '(bracket assignment)',
+      expression: text
+        .slice(m.index + m[0].length - 1, m.index + m[0].length + 60)
+        .split('\n')[0]
+        .trim(),
       line: before.split('\n').length
     });
   }
@@ -266,7 +291,9 @@ const renderers = new Map(); // `${file}#${member}` -> record
 
 for (const file of files) {
   const text = readFileSync(file, 'utf8');
-  if (!RENDERER_PROPS.some((p) => text.includes(`.${p}`))) continue;
+  // Bracket notation never writes `.renderer`, so the prefilter checks the
+  // bare property name too.
+  if (!RENDERER_PROPS.some((p) => text.includes(p))) continue;
 
   const sf = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true);
   const members = collectMembers(sf);

@@ -135,12 +135,17 @@ describe('page-sql-ports-list add-SQL-port dialog', () => {
     // opposite of what the Vaadin docs imply, and every converted dialog
     // depends on knowing which it is.
     await open();
-    expect(inDialog(dialog(), 'add-sql-port')).to.not.equal(null);
+    const first = inDialog(dialog(), 'add-sql-port');
+    expect(first, 'content rendered').to.not.equal(null);
 
     pressEscape();
     await settle();
     await open();
 
-    expect(inDialog(dialog(), 'add-sql-port')).to.not.equal(null);
+    // Identity, not presence: presence holds either way, so asserting it does
+    // not distinguish "cached" from "rebuilt" — which is the whole claim.
+    expect(inDialog(dialog(), 'add-sql-port'), 'same element reused').to.equal(
+      first
+    );
   });
 });

@@ -39,8 +39,6 @@ export class AddEditProject extends LitElement {
     this.setTextField('proj-leanix-url', this._project.LeanIXUrl ?? '');
     this.setTextField('proj-terraform-git-url', this._project.TerraformGitRepoUrl ?? '');
 
-    // Reset so updated() will set the combo-box for the new project
-    this._comboBoxInitialized = false;
     this.requestUpdate('project', oldVal);
   }
 
@@ -95,20 +93,6 @@ export class AddEditProject extends LitElement {
   setTextField(id: string, value: string) {
     const textField = this.shadowRoot?.getElementById(id) as TextField;
     if (textField) textField.value = value;
-  }
-
-  private _comboBoxInitialized = false;
-
-  protected updated(_changedProperties: Map<string, unknown>) {
-    super.updated(_changedProperties);
-    // Set combo-box value once after it first appears in DOM
-    if (!this._comboBoxInitialized) {
-      const comboBox = this.shadowRoot?.getElementById('proj-source-control') as any;
-      if (comboBox) {
-        comboBox.value = String(this._project?.SourceControlType ?? 'AzureDevOps');
-        this._comboBoxInitialized = true;
-      }
-    }
   }
 
   private _project = this.getEmptyProj();
@@ -251,6 +235,7 @@ export class AddEditProject extends LitElement {
             ]}"
             item-label-path="label"
             item-value-path="value"
+            .value="${String(this._project?.SourceControlType ?? 'AzureDevOps')}"
             @value-changed="${this._sourceControlTypeChanged}"
           ></vaadin-combo-box>
           <vaadin-text-field

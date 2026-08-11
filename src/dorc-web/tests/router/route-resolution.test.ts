@@ -247,11 +247,14 @@ describe('RouteResolver', () => {
     it('does not cross-contaminate between overlapping resolves', async () => {
       const resolver = new RouteResolver(buildRoutes());
 
-      // A nested path, so the traversal has enough await points for the two
-      // resolutions to interleave — a flat route finishes in one tick and
-      // would pass even with the resolver-level map.
+      // The pair matters. Two symmetric deep resolves both reach a childless
+      // leaf at the same depth, so even one shared map is written and read in
+      // order and the test passes against the bug. Racing a *bare layout*
+      // against a deep one breaks the symmetry: the layout defers through
+      // `next()` and calls `leaf()` only after the other resolve has already
+      // overwritten the map.
       const [first, second] = (await Promise.all([
-        resolver.resolve('/environment/AAA/components/servers'),
+        resolver.resolve('/environment/AAA'),
         resolver.resolve('/environment/BBB/components/servers')
       ])) as RouteResolution[];
 

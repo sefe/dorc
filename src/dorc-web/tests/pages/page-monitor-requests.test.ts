@@ -23,7 +23,6 @@ vi.mock('@vaadin/text-field', () => ({}));
 vi.mock('@vaadin/notification', () => ({
   Notification: { show: vi.fn() }
 }));
-vi.mock('@vaadin/grid', () => ({}));
 
 // Internal component side-effect registrations
 vi.mock('../../src/components/grid-button-groups/request-controls', () => ({}));
@@ -65,8 +64,6 @@ vi.mock('../../src/helpers/errorMessage-retriever.js', () => ({
 vi.mock('../../src/helpers/html-meta-manager', () => ({
   updateMetadata: vi.fn()
 }));
-vi.mock('../../src/router/routes.ts', () => ({}));
-vi.mock('universal-router', () => ({}));
 
 // DOrc API
 vi.mock('../../src/apis/dorc-api', () => ({

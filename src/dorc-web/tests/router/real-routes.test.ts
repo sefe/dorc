@@ -33,9 +33,17 @@ const cases: [string, string][] = [
   // stops at it — this is what @vaadin/router did.
   ['/environment/DEV1', 'dorc-app > page-environment'],
 
+  // A single trailing slash is the same URL. Leaf routes already tolerated it
+  // (`/projects/` below); layout routes did not, because path-to-regexp reports
+  // the matched path without the slash and the guard compared bytes.
+  ['/environment/DEV1/', 'dorc-app > page-environment'],
+  ['/projects/', 'dorc-app > page-projects-list'],
+
   // …but only when it consumed the whole path. A bogus tab is still not-found,
-  // rather than being swallowed by the parent.
+  // rather than being swallowed by the parent, and a second slash is not the
+  // same URL — both of which matched Vaadin Router.
   ['/environment/DEV1/nosuchtab', 'dorc-app > page-not-found'],
+  ['/environment/DEV1//', 'dorc-app > page-not-found'],
 
   ['/definitely/not/a/route', 'dorc-app > page-not-found']
 ];
