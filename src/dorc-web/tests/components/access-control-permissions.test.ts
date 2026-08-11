@@ -153,6 +153,20 @@ describe('add-edit-access-control permission checkboxes', () => {
     expect(checkboxAt(el, 0, COLUMN.write)!.disabled).to.equal(true);
   });
 
+  it('disables the read-secrets column when the user cannot read secrets', async () => {
+    // The write and owner columns had this guard; read-secrets did not, so
+    // dropping `UserCanReadSecrets` from its dependency array left the suite
+    // green — and that flag resolves separately from `UserEditable`, so a user
+    // who may edit but may not read secrets would get an enabled checkbox.
+    const el = await mount([{ Name: 'someone', Allow: 0 }]);
+    expect(checkboxAt(el, 0, COLUMN.readSecrets)!.disabled).to.equal(false);
+
+    el.UserCanReadSecrets = false;
+    await settle();
+
+    expect(checkboxAt(el, 0, COLUMN.readSecrets)!.disabled).to.equal(true);
+  });
+
   it('disables the owner column when the user is not an owner', async () => {
     const el = await mount([{ Name: 'someone', Allow: 0 }]);
     expect(checkboxAt(el, 0, COLUMN.owner)!.disabled).to.equal(false);

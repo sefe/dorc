@@ -8,6 +8,7 @@ import '@vaadin/vaadin-lumo-styles/icons.js';
 import { css, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
+import { live } from 'lit/directives/live.js';
 import { styleMap } from 'lit/directives/style-map.js';
 import { PropertyValuesApi } from '../../apis/dorc-api';
 import type { PropertyValueDto } from '../../apis/dorc-api';
@@ -77,7 +78,7 @@ export class VariableValueControls extends LitElement {
             id="${`propValue${this.value?.Id}`}"
             ?readonly="${!this.editing}"
             focus-target
-            .value="${this.value?.Value ?? ''}"
+            .value="${live(this.value?.Value ?? '')}"
             @value-changed="${(e: CustomEvent) => {
               const textField = e.detail as TextField;
               if (this.value) this.value.Value = textField.value;

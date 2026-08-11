@@ -18,6 +18,7 @@ import '@vaadin/horizontal-layout';
 import { BundledRequestsApi, BundledRequestsApiModel, RefDataProjectEnvironmentMappingsApi, EnvironmentApiModelTemplateApiModel } from '../apis/dorc-api';
 import { ErrorNotification } from '../components/notifications/error-notification.ts';
 import { Grid } from '@vaadin/grid';
+import '../components/hegs-json-viewer';
 import { HegsJsonViewer } from '../components/hegs-json-viewer.ts';
 import '../components/grid-button-groups/bundle-request-controls';
 import '../components/bundle-editor-dialog';

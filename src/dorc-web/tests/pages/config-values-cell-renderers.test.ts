@@ -90,6 +90,43 @@ describe('page-config-values-list editable cell renderers', () => {
     expect(updated, 'no update from a non-gesture change').to.deep.equal([]);
   });
 
+  it('does not persist when IsForProd is set programmatically', async () => {
+    // The file's header promises both halves for both columns; only Secure had
+    // the gesture-only half. Flipping IsForProd to `@checked-changed` left the
+    // whole suite green, and that regression would PUT a config value to
+    // production because a recycled cell committed the next row's flag.
+    const updated: ConfigValue[] = [];
+    (page as unknown as { updateConfigItem(v: ConfigValue): void }).updateConfigItem =
+      v => updated.push(v);
+
+    render(page.isForProdRenderer({ Id: 1, Key: 'first' }) as never, host);
+    await settle();
+    (host.querySelector('vaadin-checkbox') as HTMLElement & {
+      checked: boolean;
+    }).checked = true;
+    await settle();
+
+    expect(updated, 'no update from a non-gesture change').to.deep.equal([]);
+  });
+
+  it('persists a real click on IsForProd', async () => {
+    const updated: ConfigValue[] = [];
+    (page as unknown as { updateConfigItem(v: ConfigValue): void }).updateConfigItem =
+      v => updated.push(v);
+
+    render(page.isForProdRenderer({ Id: 1, Key: 'first' }) as never, host);
+    await settle();
+    (
+      host.querySelector('vaadin-checkbox')?.querySelector('input') as
+        | HTMLInputElement
+        | undefined
+    )?.click();
+    await settle();
+
+    expect(updated.length, 'one update').to.equal(1);
+    expect(updated[0].IsForProd, 'carries the new value').to.equal(true);
+  });
+
   it('persists a real click on Secure', async () => {
     const updated: ConfigValue[] = [];
     (page as unknown as { updateConfigItem(v: ConfigValue): void }).updateConfigItem =

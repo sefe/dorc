@@ -9,6 +9,7 @@ import '@vaadin/vaadin-lumo-styles/icons.js';
 import { css, PropertyValues } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
+import { live } from 'lit/directives/live.js';
 import AppConfig from '../app-config';
 import '../components/grid-button-groups/edit-comments-controls';
 import { Configuration, EnvironmentHistoryApiModel } from '../apis/dorc-api';
@@ -200,7 +201,7 @@ export class PageEnvironmentHistory extends ResponsiveMixin(PageElement) {
         id="${`comments${model.index}`}"
         readonly
         focus-target
-        .value="${history.Comment ?? ''}"
+        .value="${live(history.Comment ?? '')}"
         .history="${history}"
         @change="${(e: Event) => {
           history.Comment = (e.currentTarget as TextField).value;
