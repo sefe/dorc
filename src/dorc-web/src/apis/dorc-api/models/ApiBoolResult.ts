@@ -26,4 +26,9 @@ export interface ApiBoolResult {
      * @memberof ApiBoolResult
      */
     Message?: string | null;
+    /**
+     * @type {boolean}
+     * @memberof ApiBoolResult
+     */
+    RequiresConfirmation?: boolean | null;
 }

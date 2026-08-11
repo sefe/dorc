@@ -33,6 +33,7 @@ export class ServerControls extends LitElement {
         display: inline-flex;
         align-items: center;
         flex-wrap: nowrap;
+        gap: var(--lumo-space-xs);
       }
       vaadin-button {
         padding: 0px;
@@ -135,36 +136,53 @@ export class ServerControls extends LitElement {
   deleteServer() {
     const answer = confirm(`Delete server ${this.serverDetails?.Name}?`);
     if (answer && this.serverDetails?.ServerId) {
-      const api = new RefDataServersApi();
-      api
-        .refDataServersDelete({
-          serverId: this.serverDetails.ServerId
-        })
-        .subscribe({
-          next: (result: ApiBoolResult) => {
-            if (result.Result === true) {
-              const server = this.serverDetails;
-              const event = new CustomEvent('server-deleted', {
-                composed: true,
-                bubbles: true,
-                detail: {
-                  server
-                }
-              });
-              this.dispatchEvent(event);
-            } else {
-              const notification = new ErrorNotification();
-              notification.setAttribute('errorMessage', result.Message ?? '');
-              this.shadowRoot?.appendChild(notification);
-              notification.open();
-              console.error(result.Message);
-            }
-          },
-          error: err => console.error(err),
-          complete: () =>
-            console.log(`Deleted Server ${this.serverDetails?.Name}`)
-        });
+      this.performDeleteServer(this.serverDetails.ServerId, false);
     }
+  }
+
+  private performDeleteServer(serverId: number, confirmed: boolean) {
+    const api = new RefDataServersApi();
+    api
+      .refDataServersDelete({
+        serverId,
+        confirmed
+      })
+      .subscribe({
+        next: (result: ApiBoolResult) => {
+          if (result.Result === true) {
+            const server = this.serverDetails;
+            const event = new CustomEvent('server-deleted', {
+              composed: true,
+              bubbles: true,
+              detail: {
+                server
+              }
+            });
+            this.dispatchEvent(event);
+            return;
+          }
+
+          const isDaemonWarning =
+            !confirmed && result.RequiresConfirmation === true;
+
+          if (isDaemonWarning) {
+            const confirmDetach = confirm(
+              `${result.Message}\n\nDo you want to detach the daemon(s) and delete the server anyway?`
+            );
+            if (confirmDetach) {
+              this.performDeleteServer(serverId, true);
+            }
+            return;
+          }
+
+          const notification = new ErrorNotification();
+          notification.setAttribute('errorMessage', result.Message ?? '');
+          this.shadowRoot?.appendChild(notification);
+          notification.open();
+          console.error(result.Message);
+        },
+        error: err => console.error(err)
+      });
   }
 
   manage() {

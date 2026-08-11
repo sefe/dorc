@@ -100,3 +100,4 @@ export * from './DeploymentResultAttemptApiModel';
 export * from './ApiRegistrationApiModel';
 export * from './CloudResourceApiModel';
 export * from './ContainerApiModel';
+export * from './DiscoverDaemonsResult';

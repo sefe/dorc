@@ -1,8 +1,8 @@
-using Dorc.ApiModel;
+﻿using Dorc.ApiModel;
 using Dorc.Core;
 using Dorc.Core.Events;
 using Dorc.Core.Interfaces;
-using Dorc.Monitor.HighAvailability;
+using Dorc.Core.HighAvailability;
 using Dorc.Monitor.RequestProcessors;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.Extensions.Logging;
@@ -24,8 +24,9 @@ namespace Dorc.Monitor
         private bool disposedValue;
         private ConcurrentDictionary<string, int> environmentRequestIdRunning = new ConcurrentDictionary<string, int>();
         private readonly ConcurrentDictionary<string, DateTime> environmentLockBackoff = new ConcurrentDictionary<string, DateTime>();
-        private static readonly TimeSpan LockBackoffDuration = TimeSpan.FromSeconds(30);
-        private const int EnvironmentLockLeaseTimeMs = 300000;
+        // Internal (not private) so the unit tests can pin the backoff window.
+        internal static readonly TimeSpan LockBackoffDuration = TimeSpan.FromSeconds(30);
+        private const int EnvironmentLockAcquireTimeoutMs = 300000;
 
         // Test hook: invoked when a fire-and-forget publish task is created.
         // Null in production (zero overhead). Tests assign a callback to collect tasks
@@ -243,58 +244,56 @@ namespace Dorc.Monitor
             var methodName = method.ToString();
             if (requestToSwitchCount > 0)
             {
-                monitorCancellationToken.ThrowIfCancellationRequested();
                 var ids = requests.Select(r => r.Id).ToArray();
                 var idsString = string.Join(',', ids);
 
                 this.logger.LogInformation($"Going to {methodName} the requests: [{idsString}]");
 
-                foreach (var id in ids)
-                {
-                    TerminateRequestExecution(id, requestCancellationSources);
-                }
+                var updatedRequestCount = 0;
+                var updatedIds = new List<int>();
 
-                // Uses optimistic concurrency: only updates requests still in 'fromStatus'
-                int updatedRequestCount = this.requestsPersistentSource.SwitchDeploymentRequestStatuses(
-                    requests,
-                    fromStatus,
-                    toStatus,
-                    DateTimeOffset.Now);
-
-                if (updatedRequestCount == requestToSwitchCount)
+                foreach (var request in requests)
                 {
-                    // All requests were successfully updated
-                    foreach (var id in ids)
+                    monitorCancellationToken.ThrowIfCancellationRequested();
+
+                    TerminateRequestExecution(request.Id, requestCancellationSources);
+
+                    // Uses optimistic concurrency: only updates requests still in 'fromStatus'
+                    int switched = this.requestsPersistentSource.SwitchDeploymentRequestStatuses(
+                        new List<DeploymentRequestApiModel> { request },
+                        fromStatus,
+                        toStatus,
+                        DateTimeOffset.Now);
+
+                    if (switched > 0)
                     {
-                        TerminateRunnerProcesses(id);
+                        updatedRequestCount++;
+                        updatedIds.Add(request.Id);
+                        TerminateRunnerProcesses(request.Id);
                         PublishRequestStatusChangedSafe(new DeploymentRequestEventData(
-                            RequestId: id,
+                            RequestId: request.Id,
                             Status: toStatus.ToString(),
                             StartedTime: null,
                             CompletedTime: null,
                             Timestamp: DateTimeOffset.UtcNow
                         ));
                     }
+                }
+
+                if (updatedRequestCount == requestToSwitchCount)
+                {
+                    // All requests were successfully updated
                     this.logger.LogInformation($"Requests with ids [{idsString}] are {methodName}ed.");
                 }
                 else if (updatedRequestCount > 0)
                 {
                     // Partial success: some requests were already processed by another monitor
-                    foreach (var id in ids)
-                    {
-                        TerminateRunnerProcesses(id);
-                        PublishRequestStatusChangedSafe(new DeploymentRequestEventData(
-                            RequestId: id,
-                            Status: toStatus.ToString(),
-                            StartedTime: null,
-                            CompletedTime: null,
-                            Timestamp: DateTimeOffset.UtcNow
-                        ));
-                    }
+                    var updatedIdsString = string.Join(',', updatedIds);
                     var skippedCount = requestToSwitchCount - updatedRequestCount;
                     this.logger.LogInformation(
                         $"{updatedRequestCount} of {requestToSwitchCount} requests {methodName}ed. " +
-                        $"{skippedCount} were likely already processed by another monitor instance. IDs [{idsString}]");
+                        $"{skippedCount} were likely already processed by another monitor instance. " +
+                        $"Updated IDs [{updatedIdsString}], All IDs [{idsString}]");
                 }
                 else
                 {
@@ -490,9 +489,11 @@ namespace Dorc.Monitor
                         if (distributedLockService.IsEnabled)
                         {
                             var lockKey = $"env:{requestGroup.Key}";
-                            // Lock lease time is longer than typical request duration to handle long deployments
-                            // The lock will auto-release if the monitor crashes
-                            envLock = await distributedLockService.TryAcquireLockAsync(lockKey, EnvironmentLockLeaseTimeMs, monitorCancellationToken);
+                            // leaseTimeMs is advisory: the Kafka partition-ownership
+                            // lock has no lease concept and ignores it (acquire wait
+                            // is capped by Kafka:Locks:AcquireWaitMs); ownership
+                            // auto-releases via group rebalance if this monitor dies
+                            envLock = await distributedLockService.TryAcquireLockAsync(lockKey, EnvironmentLockAcquireTimeoutMs, monitorCancellationToken);
 
                             if (envLock == null)
                             {

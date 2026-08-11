@@ -26,6 +26,7 @@ export class DatabaseEnvControls extends LitElement {
         display: inline-flex;
         align-items: center;
         flex-wrap: nowrap;
+        gap: var(--lumo-space-xs);
       }
       vaadin-button {
         padding: 0px;
