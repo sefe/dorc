@@ -5,10 +5,18 @@ import { expect } from '../_helpers';
 // branch imported only the class, used solely as a type — which the compiler
 // elides, leaving the element undefined.
 //
-// Each case gets its own import here, and nothing else imports these elements,
-// so the assertion fails if the side-effect import is dropped. Putting them in a
-// file that already imports the elements for other reasons would make these
-// pass unconditionally.
+// This file covers ONE of the three, and it is the only one it can cover this
+// way: `add-edit-access-control` is imported by exactly one module, so
+// `customElements.get` before and after is a real signal, and the assertion
+// fails if the side-effect import is dropped. The other two render
+// <vaadin-checkbox>, which seventeen modules import — the same test written for
+// them passes with the import deleted, because a transitive dependency supplies
+// it. Those two are guarded at source level in
+// element-registration-checkbox.test.ts, which says why.
+//
+// It needs its own file either way: `customElements` is per-iframe, so the "not
+// registered beforehand" half is only true while nothing else here has loaded
+// the element.
 
 describe('modules register the elements they render', () => {
   it('env-control-center registers add-edit-access-control', async () => {

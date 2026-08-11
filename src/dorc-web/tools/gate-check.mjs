@@ -39,6 +39,9 @@ const fixture = (...parts) => join(HERE, 'gate-fixtures', ...parts);
  * Each case names the gate, the tree to point it at, and what must be true of
  * the result. `expect` is matched as a substring of stdout+stderr — enough to
  * pin the rule that fired without freezing the exact phrasing of the report.
+ * An array requires every entry. Substrings are anchored on whatever precedes
+ * the number, because a bare `1 imperative renderer binding(s) found` is also
+ * a substring of `21 imperative renderer binding(s) found`.
  */
 const CASES = [
   // ── renderer-audit ────────────────────────────────────────────────────────
@@ -47,31 +50,63 @@ const CASES = [
     args: ['--check'],
     root: fixture('renderer-audit', 'clean'),
     exit: 0,
-    expect: '0 imperative renderer bindings in 1 file(s)',
+    expect: 'Renderer audit: 0 imperative renderer bindings in 1 file(s)',
     why: 'directive bindings, and the word "renderer" inside a comment and a string'
   },
   ...[
-    ['property-assignment', 'column.renderer = ...'],
-    ['non-null-assertion', 'col!.renderer = ... — the form the old regex missed'],
+    ['property-assignment', 'column.renderer = ... — the plain form'],
+    ['non-null-assertion', 'col!.renderer = ... — a non-null assertion in the way'],
     ['element-access', "col['headerRenderer'] = ..."],
-    ['broken-chain', 'a chain prettier split across lines']
+    ['broken-chain', 'a chain prettier split across lines'],
+    ['compound-assignment', 'col.renderer ??= fn reaches the same property'],
+    [
+      'template-binding',
+      'the primary form the gate exists to forbid, and the one the regex finds'
+    ]
   ].map(([name, why]) => ({
     gate: 'renderer-audit.mjs',
     args: ['--check'],
     root: fixture('renderer-audit', 'stale', name),
     exit: 1,
-    expect: '1 imperative renderer binding(s) found',
+    expect: ': 1 imperative renderer binding(s) found',
     why
   })),
+
+  {
+    gate: 'renderer-audit.mjs',
+    args: ['--json'],
+    root: fixture('renderer-audit', 'analysis'),
+    exit: 0,
+    // `--check` asserts nothing but `bindings.length`, so the whole analysis
+    // layer could be stubbed out with every other case still green. These pin
+    // the parts that carry real inference: followBoundField seeing through
+    // `_bound = this.x.bind(this)`, collectMembers classifying the kind, and
+    // thisReads splitting reactive reads from undecorated ones.
+    expect: [
+      '"resolved": "rowRenderer"',
+      '"kind": "method"',
+      '"readonlyFlag"',
+      '"plain"'
+    ],
+    why: 'the audit report, not just its build gate'
+  },
 
   // ── renderer-deps ─────────────────────────────────────────────────────────
   {
     gate: 'renderer-deps.mjs',
     args: [],
+    root: fixture('renderer-deps', 'clean-two-classes'),
+    exit: 0,
+    expect: '\n2 directive binding(s) checked, 0 with a missing dependency',
+    why: 'two renderer-bearing classes in one file must not pool their members'
+  },
+  {
+    gate: 'renderer-deps.mjs',
+    args: [],
     root: fixture('renderer-deps', 'clean'),
     exit: 0,
-    expect: '9 directive binding(s) checked, 0 with a missing dependency',
-    why: 'every rule in its passing form — and all nine bindings actually checked'
+    expect: '\n12 directive binding(s) checked, 0 with a missing dependency',
+    why: 'every rule in its passing form — and all twelve bindings actually checked'
   },
   ...[
     ['missing-dep', 'reads readonly but does not depend on it', 'the base case'],
@@ -87,8 +122,8 @@ const CASES = [
     ],
     [
       'inherited-field',
-      'reads environmentId but does not depend on it',
-      'a reactive field declared by a base class in another file'
+      'reads narrow, environmentId but does not depend on them',
+      'both halves of `extends Mixin(Base)` — the arm with no fixture before'
     ],
     [
       'destructuring',
@@ -140,7 +175,7 @@ const CASES = [
     args: [],
     root: fixture('confirm-prompt', 'clean'),
     exit: 0,
-    expect: '4 confirmPrompt site(s) checked, none reading component state',
+    expect: '\n4 confirmPrompt site(s) checked, none reading component state',
     why: 'snapshot-first, shadowRoot, writes, calls, and the inline .then form'
   },
   ...[
@@ -163,6 +198,11 @@ const CASES = [
       'then-delegate',
       'hands the answer to a callback declared elsewhere',
       'the body is not here; reported as uncheckable rather than passed'
+    ],
+    [
+      'then-in-constructor',
+      'reads this.serverId after the await',
+      'a .then in a scope the walk-up does not stop at — used to crash the gate'
     ]
   ].map(([name, expect, why]) => ({
     gate: 'confirm-prompt-snapshot.mjs',
@@ -189,8 +229,10 @@ for (const testCase of CASES) {
   if (result.status !== testCase.exit) {
     problems.push(`exit ${result.status}, expected ${testCase.exit}`);
   }
-  if (!output.includes(testCase.expect)) {
-    problems.push(`output does not contain "${testCase.expect}"`);
+  for (const expected of [testCase.expect].flat()) {
+    if (!output.includes(expected)) {
+      problems.push(`output does not contain "${expected}"`);
+    }
   }
 
   if (problems.length) {

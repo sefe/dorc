@@ -14,12 +14,24 @@ import '@vaadin/button';
 import '@vaadin/icons/vaadin-icons';
 import '../components/add-daemon';
 import '@vaadin/text-field';
-import { Grid, GridDataProviderCallback, GridDataProviderParams, GridFilterDefinition, GridSorterDefinition } from '@vaadin/grid';
+import {
+  Grid,
+  GridDataProviderCallback,
+  GridDataProviderParams,
+  GridFilterDefinition,
+  GridSorterDefinition
+} from '@vaadin/grid';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { PageElement } from '../helpers/page-element';
 import { ResponsiveMixin } from '../helpers/responsive-mixin';
-import { PagedDataSorting, PowerShellVersionDto, PowerShellVersionsApi, RefDataScriptsApi, ScriptApiModel } from '../apis/dorc-api';
+import {
+  PagedDataSorting,
+  PowerShellVersionDto,
+  PowerShellVersionsApi,
+  RefDataScriptsApi,
+  ScriptApiModel
+} from '../apis/dorc-api';
 import { map } from 'lit/directives/map.js';
 import { GetScriptsListResponseDto, PagedDataFilter } from '../apis/dorc-api';
 import GlobalCache from '../global-cache';
@@ -42,14 +54,12 @@ const variableProjectNames = 'ProjectNames';
  * callback each time is what makes `ref` re-run, since expansion is only
  * exposed as a method.
  */
-const showJson =
-  (raw: string | null | undefined) =>
-  (element?: Element) => {
-    if (!element) return;
-    const viewer = element as unknown as HegsJsonViewer & { data?: unknown };
-    viewer.data = parseJson(raw);
-    viewer.expand('**');
-  };
+const showJson = (raw: string | null | undefined) => (element?: Element) => {
+  if (!element) return;
+  const viewer = element as unknown as HegsJsonViewer & { data?: unknown };
+  viewer.data = parseJson(raw);
+  viewer.expand('**');
+};
 
 /** Malformed JSON renders as the raw string rather than blowing up the grid. */
 function parseJson(raw: string | null | undefined): unknown {
@@ -142,147 +152,164 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
     `;
   }
 
+  // A stable identity, not an inline arrow. Vaadin's `_dataProviderChanged`
+  // calls `clearCache()` whenever the provider's identity changes, so a new
+  // closure per render makes the grid drop its pages and re-query. That went
+  // from harmless to visible when `userRoles` became `@state`: for a non-admin
+  // the roles callback used to change nothing reactive, and now it re-renders
+  // the host — so the grid populates, blanks, and re-queries once roles land.
+  // Same fix, same reason, as `env-variables.ts`.
+  private scriptsDataProvider = (
+    params: GridDataProviderParams<ScriptApiModel>,
+    callback: GridDataProviderCallback<ScriptApiModel>
+  ) => {
+    if (this.variableName !== '' && this.variableName !== undefined) {
+      params.filters.push({
+        path: variableName,
+        value: this.variableName
+      });
+    }
+
+    if (this.variablePath !== '' && this.variablePath !== undefined) {
+      params.filters.push({
+        path: variablePath,
+        value: this.variablePath
+      });
+    }
+
+    if (
+      this.variableProjectNames !== '' &&
+      this.variableProjectNames !== undefined
+    ) {
+      params.filters.push({
+        path: variableProjectNames,
+        value: this.variableProjectNames
+      });
+    }
+
+    const api = new RefDataScriptsApi();
+    api
+      .refDataScriptsPut({
+        pagedDataOperators: {
+          Filters: params.filters.map(
+            (f: GridFilterDefinition): PagedDataFilter => ({
+              Path: f.path,
+              FilterValue: f.value
+            })
+          ),
+          SortOrders: params.sortOrders.map(
+            (s: GridSorterDefinition): PagedDataSorting => ({
+              Path: s.path,
+              Direction: s.direction?.toString()
+            })
+          )
+        },
+        limit: params.pageSize,
+        page: params.page + 1
+      })
+      .subscribe({
+        next: (data: GetScriptsListResponseDto) => {
+          this.dispatchEvent(
+            new CustomEvent('searching-scripts-finished', {
+              detail: {},
+              bubbles: true,
+              composed: true
+            })
+          );
+          callback(data.Items ?? [], data.TotalItems);
+        },
+        error: (err: any) => console.error(err),
+        complete: () => {
+          this.dispatchEvent(
+            new CustomEvent('scripts-loaded', {
+              detail: {},
+              bubbles: true,
+              composed: true
+            })
+          );
+          console.log(
+            `done loading scripts page:${+(params.page + Number(1))}`
+          );
+        }
+      });
+  };
+
   render() {
     return html`
-      <dorc-spinner style="--dorc-spinner-z-index: 1000" ?hidden="${!(this.loading || this.searching || this.rolesLoading)}"></dorc-spinner>
+      <dorc-spinner
+        style="--dorc-spinner-z-index: 1000"
+        ?hidden="${!(this.loading || this.searching || this.rolesLoading)}"
+      ></dorc-spinner>
 
-      ${this.rolesLoading
-        ? html``
-        : html`<vaadin-grid
-            id="grid"
-            column-reordering-allowed
-            multi-sort
-            ?hidden="${this.loading}"
-            theme="compact row-stripes no-row-borders no-border"
-            .dataProvider="${(
-              params: GridDataProviderParams<ScriptApiModel>,
-              callback: GridDataProviderCallback<ScriptApiModel>
-            ) => {
-              if (this.variableName !== '' && this.variableName !== undefined) {
-                params.filters.push({
-                  path: variableName,
-                  value: this.variableName
-                });
-              }
-
-              if (this.variablePath !== '' && this.variablePath !== undefined) {
-                params.filters.push({
-                  path: variablePath,
-                  value: this.variablePath
-                });
-              }
-
-              if (this.variableProjectNames !== '' && this.variableProjectNames !== undefined) {
-                params.filters.push({
-                  path: variableProjectNames,
-                  value: this.variableProjectNames
-                });
-              }
-
-              const api = new RefDataScriptsApi();
-              api
-                .refDataScriptsPut({
-                  pagedDataOperators: {
-                    Filters: params.filters.map(
-                      (f: GridFilterDefinition): PagedDataFilter => ({
-                        Path: f.path,
-                        FilterValue: f.value
-                      })
-                    ),
-                    SortOrders: params.sortOrders.map(
-                      (s: GridSorterDefinition): PagedDataSorting => ({
-                        Path: s.path,
-                        Direction: s.direction?.toString()
-                      })
-                    )
-                  },
-                  limit: params.pageSize,
-                  page: params.page + 1
-                })
-                .subscribe({
-                  next: (data: GetScriptsListResponseDto) => {
-                    this.dispatchEvent(
-                      new CustomEvent('searching-scripts-finished', {
-                        detail: {},
-                        bubbles: true,
-                        composed: true
-                      })
-                    );
-                    callback(data.Items ?? [], data.TotalItems);
-                  },
-                  error: (err: any) => console.error(err),
-                  complete: () => {
-                    this.dispatchEvent(
-                      new CustomEvent('scripts-loaded', {
-                        detail: {},
-                        bubbles: true,
-                        composed: true
-                      })
-                    );
-                    console.log(
-                      `done loading scripts page:${+(params.page + Number(1))}`
-                    );
-                  }
-                });
-            }}"
-            style="z-index: 100;"
-          >
-            <vaadin-grid-column
-              header="Enabled"
-              resizable
-              width="80px"
-              flex-grow="0"
-              ${columnBodyRenderer(this.enabledRenderer, [this.userRoles])}
+      ${
+        this.rolesLoading
+          ? html``
+          : html`<vaadin-grid
+              id="grid"
+              column-reordering-allowed
+              multi-sort
+              ?hidden="${this.loading}"
+              theme="compact row-stripes no-row-borders no-border"
+              .dataProvider="${this.scriptsDataProvider}"
+              style="z-index: 100;"
             >
-            </vaadin-grid-column>
-            <vaadin-grid-column
-              path="Name"
-              header="Script Name"
-              resizable
-              ${columnHeaderRenderer(this.nameHeaderRenderer, [])}
-              width="500px"
-              flex-grow="0"
-            >
-            </vaadin-grid-column>
-            <vaadin-grid-column
-              path="ProjectNames"
-              header="Projects"
-              resizable
-              width="200px"
-              flex-grow="0"
-              ${columnBodyRenderer(this.projectNamesRenderer, [])}
-              ${columnHeaderRenderer(this.projectNamesHeaderRenderer, [])}
-              ?hidden="${this._narrowScreen}"
-            >
-            </vaadin-grid-column>
-            <vaadin-grid-sort-column
-              path="NonProdOnly"
-              header="Non Prod Only"
-              resizable
-              width="150px"
-              flex-grow="0"
-              ${columnBodyRenderer(this.nonProdRenderer, [])}
-              ?hidden="${this._narrowScreen}"
-            ></vaadin-grid-sort-column>
-            <vaadin-grid-column
-              path="Path"
-              header="Path"
-              resizable
-              ${columnBodyRenderer(this._jsonRenderer, [])}
-              ${columnHeaderRenderer(this.pathHeaderRenderer, [])}
-              ?hidden="${this._narrowScreen}"
-            ></vaadin-grid-column>
-            <vaadin-grid-column
-              path="PowerShellVersionNumber"
-              header="PS Version"
-              resizable
-              ${columnBodyRenderer(this.psVersionRenderer, [
+              <vaadin-grid-column
+                header="Enabled"
+                resizable
+                width="80px"
+                flex-grow="0"
+                ${columnBodyRenderer(this.enabledRenderer, [this.userRoles])}
+              >
+              </vaadin-grid-column>
+              <vaadin-grid-column
+                path="Name"
+                header="Script Name"
+                resizable
+                ${columnHeaderRenderer(this.nameHeaderRenderer, [])}
+                width="500px"
+                flex-grow="0"
+              >
+              </vaadin-grid-column>
+              <vaadin-grid-column
+                path="ProjectNames"
+                header="Projects"
+                resizable
+                width="200px"
+                flex-grow="0"
+                ${columnBodyRenderer(this.projectNamesRenderer, [])}
+                ${columnHeaderRenderer(this.projectNamesHeaderRenderer, [])}
+                ?hidden="${this._narrowScreen}"
+              >
+              </vaadin-grid-column>
+              <vaadin-grid-sort-column
+                path="NonProdOnly"
+                header="Non Prod Only"
+                resizable
+                width="150px"
+                flex-grow="0"
+                ${columnBodyRenderer(this.nonProdRenderer, [])}
+                ?hidden="${this._narrowScreen}"
+              ></vaadin-grid-sort-column>
+              <vaadin-grid-column
+                path="Path"
+                header="Path"
+                resizable
+                ${columnBodyRenderer(this._jsonRenderer, [])}
+                ${columnHeaderRenderer(this.pathHeaderRenderer, [])}
+                ?hidden="${this._narrowScreen}"
+              ></vaadin-grid-column>
+              <vaadin-grid-column
+                path="PowerShellVersionNumber"
+                header="PS Version"
+                resizable
+                ${columnBodyRenderer(this.psVersionRenderer, [
                 this.powerShellVersions,
                 this.userRoles
               ])}
-              ?hidden="${this._narrowScreen}"
-            ></vaadin-grid-column>
-          </vaadin-grid>`}
+                ?hidden="${this._narrowScreen}"
+              ></vaadin-grid-column>
+            </vaadin-grid>`
+      }
     `;
   }
 
@@ -328,44 +355,42 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
   private setUserRoles(userRoles: string[]) {
     this.userRoles = userRoles;
     this.isAdmin = this.userRoles.find(p => p === 'Admin') !== undefined;
-    this.isPowerUser = this.userRoles.find(p => p === 'PowerUser') !== undefined;
+    this.isPowerUser =
+      this.userRoles.find(p => p === 'PowerUser') !== undefined;
   }
 
   private searchingScriptsFinished() {
     this.searching = false;
   }
 
-  
-  private projectNamesRenderer = (
-      item: ScriptApiModel
-    ) => {
-      const script = item;
-      const projectNames = script.ProjectNames ?? [];
+  private projectNamesRenderer = (item: ScriptApiModel) => {
+    const script = item;
+    const projectNames = script.ProjectNames ?? [];
 
-      return html`
-          ${map(
+    return html`
+      ${map(
             projectNames,
             value =>
               html` <button
                 class="project-tag"
                 @click="${() =>
-                          this.dispatchEvent(
-                                  new CustomEvent('open-project-envs', {
-                                      detail: {
-                                          Project: {
-                                            ProjectName: value
-                                          }
-                                      },
-                                      bubbles: true,
-                                      composed: true
-                                  })
-                          )}"
+                  this.dispatchEvent(
+                    new CustomEvent('open-project-envs', {
+                      detail: {
+                        Project: {
+                          ProjectName: value
+                        }
+                      },
+                      bubbles: true,
+                      composed: true
+                    })
+                  )}"
               >
                 ${value}
               </button>`
           )}
-        `;
-    };
+    `;
+  };
 
   nonProdRenderer(script: ScriptApiModel) {
     return html`<vaadin-checkbox
@@ -475,18 +500,18 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
 
   nameHeaderRenderer() {
     return html`
-        <vaadin-grid-sorter
-          path="Name"
-          style="align-items: normal"
-        ></vaadin-grid-sorter>
-        <vaadin-text-field
-          placeholder="Name"
-          clear-button-visible
-          focus-target
-          style="width: 200px"
-          theme="small"
-          value="${this.variableName}"
-          @input="${(e: InputEvent) => {
+      <vaadin-grid-sorter
+        path="Name"
+        style="align-items: normal"
+      ></vaadin-grid-sorter>
+      <vaadin-text-field
+        placeholder="Name"
+        clear-button-visible
+        focus-target
+        style="width: 200px"
+        theme="small"
+        value="${this.variableName}"
+        @input="${(e: InputEvent) => {
             const textField = e.target as HTMLInputElement;
 
             this.dispatchEvent(
@@ -500,24 +525,24 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
               })
             );
           }}"
-        ></vaadin-text-field>
-      `;
+      ></vaadin-text-field>
+    `;
   }
 
   pathHeaderRenderer() {
     return html`
-        <vaadin-grid-sorter
-          path="Path"
-          style="align-items: normal"
-        ></vaadin-grid-sorter>
-        <vaadin-text-field
-          placeholder="Path"
-          clear-button-visible
-          focus-target
-          style="width: 200px"
-          theme="small"
-          value="${this.variablePath}"
-          @input="${(e: InputEvent) => {
+      <vaadin-grid-sorter
+        path="Path"
+        style="align-items: normal"
+      ></vaadin-grid-sorter>
+      <vaadin-text-field
+        placeholder="Path"
+        clear-button-visible
+        focus-target
+        style="width: 200px"
+        theme="small"
+        value="${this.variablePath}"
+        @input="${(e: InputEvent) => {
             const textField = e.target as HTMLInputElement;
 
             this.dispatchEvent(
@@ -531,21 +556,21 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
               })
             );
           }}"
-        ></vaadin-text-field>
-      `;
+      ></vaadin-text-field>
+    `;
   }
 
   projectNamesHeaderRenderer() {
     return html`
-        <div style="display: flex; flex-direction: column;">
-          <vaadin-text-field
-            placeholder="Project"
-            clear-button-visible
-            focus-target
-            style="width: 180px"
-            theme="small"
-            value="${this.variableProjectNames}"
-            @input="${(e: InputEvent) => {
+      <div style="display: flex; flex-direction: column;">
+        <vaadin-text-field
+          placeholder="Project"
+          clear-button-visible
+          focus-target
+          style="width: 180px"
+          theme="small"
+          value="${this.variableProjectNames}"
+          @input="${(e: InputEvent) => {
               const textField = e.target as HTMLInputElement;
 
               this.dispatchEvent(
@@ -559,9 +584,9 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
                 })
               );
             }}"
-          ></vaadin-text-field>
-        </div>
-      `;
+        ></vaadin-text-field>
+      </div>
+    `;
   }
 
   private scriptsLoaded() {
@@ -572,9 +597,11 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
     const api = new PowerShellVersionsApi();
     api.powerShellVersionsGet().subscribe({
       next: (versions: PowerShellVersionDto[]) => {
-        this.powerShellVersions = versions.map(v => v.Value || '').filter(v => v !== '');
+        this.powerShellVersions = versions
+          .map(v => v.Value || '')
+          .filter(v => v !== '');
       },
-      error: (error) => {
+      error: error => {
         console.error('Failed to load PowerShell versions:', error);
         // Fallback to hardcoded values
         this.powerShellVersions = ['v5.1', 'v7'];

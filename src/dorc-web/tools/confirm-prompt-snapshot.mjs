@@ -130,13 +130,14 @@ for (const file of walk(SRC)) {
         ? { body: thenCallback.body, offset: 0, node: thenCallback }
         : (() => {
             const fn = enclosingFunction(node);
+            // No enclosing function means module top level, where there is
+            // no `this` and so nothing that can go stale.
             return fn?.body
               ? { body: fn.body, offset: node.getEnd(), node: fn }
               : null;
           })();
 
       if (scanTarget?.body) {
-        const fn = enclosingFunction(node);
         const reads = stateReadsAfter(
           scanTarget.body,
           scanTarget.offset,
@@ -146,8 +147,12 @@ for (const file of walk(SRC)) {
           offenders += 1;
           const line =
             source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1;
+          // Labelled from `scanTarget.node`, which is always defined. Calling
+          // `enclosingFunction` again here and dereferencing `.name` crashed
+          // the whole gate — and with it `npm run build` — on any `.then(cb)`
+          // written inside a scope the walk-up does not stop at.
           console.log(
-            `${relative(ROOT, file)}:${line}  ${fn.name?.getText(source) ?? '(anonymous)'}() ` +
+            `${relative(ROOT, file)}:${line}  ${describe(scanTarget.node, source)} ` +
               `reads this.${reads.join(', this.')} after the await — snapshot before it instead`
           );
         }
@@ -167,6 +172,17 @@ console.log(
 );
 process.exitCode = offenders ? 1 : 0;
 
+/**
+ * The scope whose body runs after an awaited answer arrives.
+ *
+ * Only the four function forms are stops, and that is complete for this
+ * branch: `await` is a syntax error directly inside a constructor, an
+ * accessor or a static block (TS1308 / TS18037), so any `await confirmPrompt`
+ * reaching this walk is already inside one of the four. The `.then` branch
+ * does not use this function at all — it has the callback in hand — which is
+ * why the crash it used to cause was fixed by labelling the report from the
+ * scan target rather than by widening the walk.
+ */
 function enclosingFunction(node) {
   let current = node.parent;
   while (
@@ -179,6 +195,11 @@ function enclosingFunction(node) {
     current = current.parent;
   }
   return current;
+}
+
+/** A human label for the scope a report is about. */
+function describe(node, source) {
+  return `${node.name?.getText(source) ?? '(anonymous)'}()`;
 }
 
 /**

@@ -1,11 +1,15 @@
 // Fixture: every rule renderer-deps applies, in its passing form.
 // Not compiled or imported by the app — it is input for tools/gate-check.mjs.
-import { columnBodyRenderer, dialogRenderer } from '@vaadin/grid/lit';
+import {
+  columnBodyRenderer,
+  columnHeaderRenderer,
+  dialogRenderer
+} from '@vaadin/grid/lit';
 import { html } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { LitElement } from 'lit';
 
-import { formatRow } from './module-level-helper';
+import { formatHeader, formatRow } from './module-level-helper';
 
 @customElement('fixture-good')
 export class FixtureGood extends LitElement {
@@ -49,6 +53,21 @@ export class FixtureGood extends LitElement {
         <!-- a module-level function has no component state to read -->
         <vaadin-grid-column
           ${columnBodyRenderer(formatRow, [])}
+        ></vaadin-grid-column>
+
+        <!-- the other module-level form: a function declaration -->
+        <vaadin-grid-column
+          ${columnHeaderRenderer(formatHeader, [])}
+        ></vaadin-grid-column>
+
+        <!-- a dependency written as a nested access still declares its root -->
+        <vaadin-grid-column
+          ${columnBodyRenderer(this.nestedDepRenderer, [this.filters.name])}
+        ></vaadin-grid-column>
+
+        <!-- a renderer declared as a method, the dominant shape in src -->
+        <vaadin-grid-column
+          ${columnBodyRenderer(this.methodRenderer, [this.selectedId])}
         ></vaadin-grid-column>
 
         <!-- a handler runs long after the render that installed it -->
@@ -98,10 +117,21 @@ export class FixtureGood extends LitElement {
     return this.selectedId;
   }
 
+  // A write is not a read. This assigns to a *reactive* field on purpose: with
+  // `this.plain` (undecorated) the case was vacuous, because stateReads would
+  // never have reported it either way.
   private writingRenderer = () => {
-    this.plain = 'x';
+    this.selectedId = 0;
     return html`<span></span>`;
   };
+
+  @state() private filters = { name: '' };
+
+  private nestedDepRenderer = () => html`<span>${this.filters.name}</span>`;
+
+  private methodRenderer() {
+    return html`<span>${this.selectedId}</span>`;
+  }
 
   private dialogBody = () => html`<span>${this.selectedId}</span>`;
 }

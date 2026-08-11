@@ -3,9 +3,13 @@ import { columnBodyRenderer } from '@vaadin/grid/lit';
 import { html, LitElement } from 'lit';
 
 export class Fixture extends LitElement {
-  // The word `renderer` in prose: `column.renderer = ...` written in a comment
-  // is not a binding. The audit used to be a regex and flagged this.
-  private readonly note = "grid.renderer = 'this is a string, not code'";
+  // Prose describing the very form this gate forbids. Written out in full,
+  // interpolation and all, because a bare `column.renderer = ...` has no `${`
+  // and so could only ever reach the AST path — which is how the regex half
+  // went untested. This line reads:
+  //   .renderer="${this.rowRenderer}"
+  // and the string below carries the same shape. Both must be ignored.
+  private readonly note = '.renderer="${this.rowRenderer}" as a string';
 
   render() {
     return html`<vaadin-grid-column

@@ -69,6 +69,13 @@ const decoratorsOf = (node) =>
 
 const REACTIVE_DECORATORS = new Set(['property', 'state']);
 
+const ASSIGNMENT_OPERATORS = new Set([
+  ts.SyntaxKind.EqualsToken,
+  ts.SyntaxKind.QuestionQuestionEqualsToken,
+  ts.SyntaxKind.BarBarEqualsToken,
+  ts.SyntaxKind.AmpersandAmpersandEqualsToken
+]);
+
 /**
  * Collects every class member in a source file: its kind, whether Lit will
  * treat it as reactive, and its body node for later analysis.
@@ -175,15 +182,62 @@ function sideEffects(body, sourceFile, vaadinNames) {
 
 // ── binding discovery ───────────────────────────────────────────────────────
 /**
+ * A copy of `text` with every comment and every non-template string literal
+ * replaced by spaces of the same length. Offsets are preserved so callers can
+ * still slice the original. Template literals are left intact — that is where
+ * the bindings live.
+ */
+function maskCommentsAndStrings(text) {
+  const source = ts.createSourceFile(
+    'mask.ts',
+    text,
+    ts.ScriptTarget.Latest,
+    true
+  );
+  const chars = [...text];
+  const blank = (start, end) => {
+    for (let i = start; i < end && i < chars.length; i += 1) {
+      if (chars[i] !== '\n') chars[i] = ' ';
+    }
+  };
+
+  const visit = node => {
+    if (
+      ts.isStringLiteral(node) ||
+      ts.isNoSubstitutionTemplateLiteral(node)
+    ) {
+      blank(node.getStart(source), node.getEnd());
+      return;
+    }
+    for (const range of [
+      ...(ts.getLeadingCommentRanges(text, node.getFullStart()) ?? []),
+      ...(ts.getTrailingCommentRanges(text, node.getEnd()) ?? [])
+    ]) {
+      blank(range.pos, range.end);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(source);
+  return chars.join('');
+}
+
+/**
  * Finds `.renderer=${...}` style bindings and the element they sit on.
  * Walks backwards from the binding to the nearest opening tag, which is robust
  * against attribute values containing `>` inside `${...}`.
  */
 function findBindings(text) {
   const out = [];
+  // Search a masked copy, not the raw file. The binding syntax itself is
+  // regular — it lives inside a Lit template literal — but the word `renderer`
+  // also occurs in prose and in string constants, and a comment describing
+  // `.renderer=${this.rowRenderer}` (this migration's own documentation does
+  // exactly that) used to be reported as a binding and fail the build. Masking
+  // preserves offsets, so every slice below still indexes the real text.
+  const masked = maskCommentsAndStrings(text);
   const bindingRe = new RegExp(`\\.(${RENDERER_PROPS.join('|')})\\s*=\\s*("?\\$\\{|'\\$\\{)`, 'g');
   let m;
-  while ((m = bindingRe.exec(text)) !== null) {
+  while ((m = bindingRe.exec(masked)) !== null) {
     const before = text.slice(0, m.index);
     const tagStart = before.lastIndexOf('<');
     const tagMatch = /^<([a-z][a-z0-9-]*)/.exec(text.slice(tagStart));
@@ -248,9 +302,11 @@ function findImperativeAssignments(text) {
   };
 
   const visit = (node) => {
+    // `=` is not the only way to install a renderer. `col.renderer ??= fn` and
+    // `||=` reach the same property and used to pass the gate untouched.
     if (
       ts.isBinaryExpression(node) &&
-      node.operatorToken.kind === ts.SyntaxKind.EqualsToken
+      ASSIGNMENT_OPERATORS.has(node.operatorToken.kind)
     ) {
       const prop = rendererPropOf(node.left);
       if (prop) {

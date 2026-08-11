@@ -451,13 +451,7 @@ function directiveCalls(source) {
       const depsArg = node.arguments[1];
       const deps =
         depsArg && ts.isArrayLiteralExpression(depsArg)
-          ? depsArg.elements
-              .filter(
-                e =>
-                  ts.isPropertyAccessExpression(e) &&
-                  e.expression.kind === ts.SyntaxKind.ThisKeyword
-              )
-              .map(e => e.name.text)
+          ? depsArg.elements.map(rootThisField).filter(Boolean)
           : [];
       out.push({
         node,
@@ -471,6 +465,34 @@ function directiveCalls(source) {
   };
   visit(source);
   return out;
+}
+
+/**
+ * The `this.<field>` a dependency element ultimately hangs off, or null.
+ *
+ * `[this.filters.name]` declares a dependency on `filters` — Lit compares the
+ * value it evaluates to, and any change to `filters` that matters here shows
+ * up in it. Matching only bare `this.x` discarded the whole element, so the
+ * read side reported `filters` as undeclared and the gate raised a false
+ * positive on correct code. A gate that cries wolf gets suppressed, which is
+ * the one failure mode worse than a missed defect.
+ */
+function rootThisField(node) {
+  let current = node;
+  while (
+    ts.isPropertyAccessExpression(current) ||
+    ts.isElementAccessExpression(current) ||
+    ts.isNonNullExpression(current)
+  ) {
+    if (
+      ts.isPropertyAccessExpression(current) &&
+      current.expression.kind === ts.SyntaxKind.ThisKeyword
+    ) {
+      return current.name.text;
+    }
+    current = current.expression;
+  }
+  return null;
 }
 
 /** The body of a member declared as a method or as an arrow-function field. */
