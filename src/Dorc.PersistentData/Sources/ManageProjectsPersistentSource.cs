@@ -2,6 +2,7 @@
 using Dorc.PersistentData.Contexts;
 using Dorc.PersistentData.Extensions;
 using Dorc.PersistentData.Model;
+using Dorc.PersistentData.Security;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using System.Linq.Expressions;
@@ -331,6 +332,7 @@ namespace Dorc.PersistentData.Sources
                 ValidateComponentIdsDoNotBelongToOtherProject(component, projectId);
                 ValidateComponentNameDoesNotBelongToDifferentProject(component, projectId);
                 ValidateNameLengthRestrictions(component);
+                ValidateScriptPathIsConfined(component);
             }
 
             ValidateNoDuplicateComponentIdsOrNames(flattenedComponents);
@@ -778,6 +780,33 @@ namespace Dorc.PersistentData.Sources
                 throw new ArgumentOutOfRangeException(nameof(component),
                     "Component '" + component.ComponentName +
                     "' contains invalid characters. Only alphanumeric characters, spaces, and the following symbols are allowed: ,./?|:;'\"<>()[]{}_*&$#@!-=+");
+        }
+
+        /// <summary>
+        /// Rejects a script path that could resolve outside the script root once joined to it.
+        ///
+        /// Applies to PowerShell components only. A Terraform component's ScriptPath is not a
+        /// script relative to the root — for the SharedFolder source type it *is* the location,
+        /// and is legitimately an absolute UNC path. Confining it needs a host allow-list rather
+        /// than a relativity rule, which is a different control; see W-5a.
+        ///
+        /// This constrains what is written from here on. It deliberately does not inspect
+        /// stored data: existing components keep working, and remediating them is its own step
+        /// so that enforcement never becomes a flag day.
+        /// </summary>
+        private static void ValidateScriptPathIsConfined(ComponentApiModel component)
+        {
+            if (component.ComponentType != ComponentType.PowerShell)
+            {
+                return;
+            }
+
+            if (!ScriptPathConfinement.IsConfined(component.ScriptPath, out var reason))
+            {
+                throw new ArgumentOutOfRangeException(nameof(component),
+                    "Component '" + component.ComponentName + "' has a script path that cannot be"
+                    + " accepted, because " + reason);
+            }
         }
 
         private static void ValidateNameLengthRestrictions(ComponentApiModel component)
