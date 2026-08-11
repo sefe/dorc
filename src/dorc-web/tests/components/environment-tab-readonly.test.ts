@@ -78,6 +78,14 @@ describe('environment tab grids respect a late read-only flag', () => {
 
     const controls = controlsIn(el, 'daemon-controls');
     expect(controls.length, 'row controls rendered').to.be.greaterThan(0);
+    // Both ends, as in the servers case above. Without this the final
+    // assertion is satisfied by a control hardwired to never-editable, so the
+    // test would keep passing if the binding were dropped entirely rather than
+    // just going stale.
+    expect(
+      controls.every(c => c.userEditable === true),
+      'editable while the flag says so'
+    ).to.equal(true);
 
     el.userEditable = false;
     await el.updateComplete;

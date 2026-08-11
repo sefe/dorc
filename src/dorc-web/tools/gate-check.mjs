@@ -18,6 +18,13 @@
  * The fixtures are deliberately not app code and are excluded from tsconfig:
  * they contain the defects on purpose.
  *
+ * Each `clean` expectation pins a COUNT, not just the all-clear phrase. An
+ * all-clear over an empty tree is byte-identical to an all-clear over a tree
+ * full of correct code, so without the count a clean case would keep passing
+ * after its fixture stopped being scanned at all — the same "a rule that never
+ * fires looks like a rule that holds" failure this file exists to rule out,
+ * one level up.
+ *
  *   node tools/gate-check.mjs
  */
 
@@ -40,7 +47,7 @@ const CASES = [
     args: ['--check'],
     root: fixture('renderer-audit', 'clean'),
     exit: 0,
-    expect: '0 imperative renderer bindings',
+    expect: '0 imperative renderer bindings in 1 file(s)',
     why: 'directive bindings, and the word "renderer" inside a comment and a string'
   },
   ...[
@@ -112,6 +119,11 @@ const CASES = [
       'two-hop',
       'reads deep but does not depend on it',
       'two helper methods away, which depth 1 let through'
+    ],
+    [
+      'same-file-base',
+      'reads rowLabel but does not depend on it',
+      'a base class in the SAME file, which has no import to follow'
     ]
   ].map(([name, expect, why]) => ({
     gate: 'renderer-deps.mjs',
@@ -128,7 +140,7 @@ const CASES = [
     args: [],
     root: fixture('confirm-prompt', 'clean'),
     exit: 0,
-    expect: 'No confirmPrompt site reads component state after the await',
+    expect: '4 confirmPrompt site(s) checked, none reading component state',
     why: 'snapshot-first, shadowRoot, writes, calls, and the inline .then form'
   },
   ...[

@@ -92,9 +92,11 @@ describe('navigate, popstate and link default actions', () => {
   it('suppresses the browser navigation it is replacing', async () => {
     await router.navigate('/first');
 
-    // Registered BEFORE setRoutes' document listener would be too early; this
-    // one samples in the capture phase of a later bubble listener instead —
-    // what matters is reading defaultPrevented after the router has run.
+    // Registered after `setRoutes` installed the router's own document
+    // listener, so it runs second in the same bubble phase and sees the flag
+    // the router set. Adding `true` here to make it a capture listener would
+    // put it *before* the router and read defaultPrevented as false — the
+    // ordering is the whole mechanism, not an incidental detail.
     let preventedAfterRouter: boolean | undefined;
     const sample = (e: Event) => {
       preventedAfterRouter = e.defaultPrevented;

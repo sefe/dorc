@@ -432,10 +432,23 @@ function modelTypeArgument(typeNode) {
   return arg ? arg.getText() : null;
 }
 
+/**
+ * The file's own line ending. A CRLF checkout — which is what core.autocrlf
+ * gives on Windows — must not be handed LF-terminated inserts, or the file
+ * ends up with mixed endings and the whole thing shows as rewritten in the
+ * diff. `pruneImports` restores the ending it captured; these two sites insert
+ * a line that was not there before, so they have to pick one.
+ */
+function lineEndingOf(text) {
+  return text.includes('\r\n') ? '\r\n' : '\n';
+}
+
 /** Adds a named export to the existing `from 'lit'` import if it is missing. */
 function ensureLitImport(text, name) {
   const existing = /import \{([^}]*)\} from 'lit';/.exec(text);
-  if (!existing) return `import { ${name} } from 'lit';\n` + text;
+  if (!existing) {
+    return `import { ${name} } from 'lit';${lineEndingOf(text)}` + text;
+  }
   const have = existing[1].split(',').map(s => s.trim()).filter(Boolean);
   if (have.includes(name)) return text;
   return text.replace(
@@ -463,7 +476,10 @@ function addImport(text, module, names) {
       () => `import { ${merged.join(', ')} } from '${module}';`
     );
   }
-  return `import { ${names.sort().join(', ')} } from '${module}';\n` + text;
+  return (
+    `import { ${names.sort().join(', ')} } from '${module}';${lineEndingOf(text)}` +
+    text
+  );
 }
 
 /**

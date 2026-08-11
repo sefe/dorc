@@ -146,6 +146,23 @@ console.log(
 );
 process.exitCode = stale ? 1 : 0;
 
+/** A class declared in this module under `name`, or null. */
+function classNamed(moduleSource, name) {
+  let found = null;
+  const visit = node => {
+    if (
+      !found &&
+      (ts.isClassDeclaration(node) || ts.isClassExpression(node)) &&
+      node.name?.text === name
+    ) {
+      found = node;
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(moduleSource);
+  return found;
+}
+
 /** The class a node is written inside, or null at module scope. */
 function enclosingClass(node) {
   let current = node.parent;
@@ -257,6 +274,29 @@ function inheritedReactiveFields(node, file, moduleSource, seen = new Set()) {
   findImports(moduleSource);
 
   for (const base of baseNames) {
+    // A base class declared in the same file has no import to follow. Scoping
+    // the member map to the enclosing class made that case invisible: the
+    // child's own class body has none of the base's reactive fields, and this
+    // loop used to `continue` past a name that resolves locally — so a renderer
+    // reading an inherited field was compared against an empty reactive set and
+    // passed with no dependency at all. Resolve it in place instead.
+    if (!importedFrom.has(base)) {
+      const local = classNamed(moduleSource, base);
+      if (local && !seen.has(local)) {
+        seen.add(local);
+        for (const name of collectClass(local).reactive) names.add(name);
+        for (const name of inheritedReactiveFields(
+          local,
+          file,
+          moduleSource,
+          seen
+        )) {
+          names.add(name);
+        }
+      }
+      continue;
+    }
+
     const specifier = importedFrom.get(base);
     if (!specifier || !specifier.startsWith('.')) continue;
 

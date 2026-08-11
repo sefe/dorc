@@ -405,7 +405,14 @@ if (process.argv.includes('--json')) {
 // the component, and a stale cell that only repaints on requestContentUpdate().
 if (process.argv.includes('--check')) {
   if (bindings.length === 0) {
-    console.log('Renderer audit: 0 imperative renderer bindings.');
+    // The file count is part of the verdict, not decoration. "0 imperative
+    // renderer bindings" over an empty tree is byte-identical to the same line
+    // over a tree full of clean code, so a scan that silently stopped reaching
+    // its input would still read as a pass — which is precisely the failure
+    // mode tools/gate-check.mjs exists to rule out.
+    console.log(
+      `Renderer audit: 0 imperative renderer bindings in ${files.length} file(s).`
+    );
     process.exit(0);
   }
   console.error(

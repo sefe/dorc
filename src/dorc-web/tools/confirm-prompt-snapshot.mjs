@@ -67,6 +67,12 @@ const walk = dir =>
   });
 
 let offenders = 0;
+// Counted and reported, not just accumulated. The summary line for a clean
+// tree is otherwise byte-identical to the one an EMPTY tree produces, so a
+// fixture that stopped being scanned at all — renamed, moved, filtered out by
+// the walk — would still read as a pass. The count is what makes the clean
+// fixture assert something.
+let sites = 0;
 
 for (const file of walk(SRC)) {
   const text = readFileSync(file, 'utf8');
@@ -89,6 +95,7 @@ for (const file of walk(SRC)) {
       node.expression.expression.getText(source).includes('confirmPrompt(');
 
     if (isAwaited || isThened) {
+      sites += 1;
       // `.then(this.handleAnswer)` — the post-confirmation code is somewhere
       // else entirely, and following it is the delegate hop this tool
       // deliberately does not take (see the header). Falling back to "the rest
@@ -153,8 +160,10 @@ for (const file of walk(SRC)) {
 
 console.log(
   offenders
-    ? `\n${offenders} confirmPrompt site(s) reading component state after the await.`
-    : '\nNo confirmPrompt site reads component state after the await.'
+    ? `\n${sites} confirmPrompt site(s) checked, ${offenders} reading component ` +
+        `state after the await.`
+    : `\n${sites} confirmPrompt site(s) checked, none reading component state ` +
+        `after the await.`
 );
 process.exitCode = offenders ? 1 : 0;
 
