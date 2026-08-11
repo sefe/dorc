@@ -161,6 +161,8 @@ The bundle directory's privileged-identity set is corrected to grant the deploym
 
 **Dependencies.** None.
 
+**Deliberately excluded, found while implementing.** The *local* copies of the plan files under `%ProgramData%\dorc\terraform-plans` are a third artefact family with no lifecycle at all: the Monitor creates that directory with inherited permissions, the Runner writes the binary plan and the rendered plan content into it, and nothing ever removes either. The rendered content lists variable values, so this is the same disclosure as the variables file. It is excluded from S-007 for two reasons. Deleting the local copies means relying on the blob upload having succeeded, and the local file is the only remaining copy if it did not — a correctness risk in the plan/apply handshake that this step has no business taking. Restricting the directory needs the deployment identity on a directory shared across deployments, which is S-021's problem rather than a constant this step can supply. **Recorded as W-8a**; it belongs with S-021, and is noted here so that closing S-007 is not mistaken for closing the artefact question.
+
 **Verification intent.** After a successful deployment and after a failed one, no bundle and no Terraform working directory remains. A newly created working directory carries the restricted access control list rather than inherited permissions. The deployment identity can read the bundle it is meant to consume — this is the regression the current identity set would produce if corrected carelessly.
 
 ---
@@ -362,6 +364,8 @@ Binding granularity is by sensitivity tier rather than per environment: the esta
 **Why it changes.** W-6 and W-15. Execution identity is currently a boolean, and four sites across two processes duplicate the same resolution logic.
 
 **Dependencies.** S-020. **Revisits S-007, S-008 and S-009** — each sets an access control list naming the deployment identity, which this step makes environment-dependent. If those steps derived their principal from the credential resolution point as instructed, this is a drop-in; if not, they must be corrected here.
+
+**Also picks up W-8a**, deferred out of S-007: the local Terraform plan directory is shared across deployments, so restricting it needs the environment-dependent identity this step introduces, and its retention question is entangled with the plan/apply blob handshake rather than being housekeeping.
 
 **Verification intent.** An environment with a configured identity deploys under it on both dispatch paths and both API-side sites. An environment without one deploys exactly as before. No resolution site returns a credential for an environment it is not bound to. The fallback count is reportable.
 
