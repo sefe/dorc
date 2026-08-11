@@ -474,9 +474,14 @@ function addImport(text, module, names) {
 const ORPHANABLE = ['GridItemModel', 'GridColumn', 'ComboBoxItemModel', 'ComboBox', 'render'];
 
 function pruneImports(text) {
+  // `\r?\n`, not `\n`: a Windows checkout with core.autocrlf=true has CRLF
+  // line endings, and a `\n`-only pattern matches nothing there — the prune
+  // would silently no-op and leave orphaned imports for the linter to fail on,
+  // with no indication that the step had been skipped. The newline is captured
+  // so the file's own ending is put back rather than normalised.
   return text.replace(
-    /import (type )?\{([^}]*)\} from '([^']+)';\n/g,
-    (whole, typeOnly, names, module) => {
+    /import (type )?\{([^}]*)\} from '([^']+)';(\r?\n)/g,
+    (whole, typeOnly, names, module, eol) => {
       const kept = names
         .split(',')
         .map(s => s.trim())
@@ -490,7 +495,7 @@ function pruneImports(text) {
           return uses.test(body.replace(/^\s*render\(\)\s*\{/gm, ''));
         });
       if (!kept.length) return '';
-      return `import ${typeOnly ?? ''}{ ${kept.join(', ')} } from '${module}';\n`;
+      return `import ${typeOnly ?? ''}{ ${kept.join(', ')} } from '${module}';${eol}`;
     }
   );
 }

@@ -24,12 +24,21 @@
  */
 
 import { readFileSync, readdirSync, statSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import { join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
 
 const ROOT = join(fileURLToPath(new URL('.', import.meta.url)), '..');
-const SRC = join(ROOT, 'src');
+// The tree to scan. Defaults to this package's `src`; `--root <dir>` points it
+// at a fixture tree so the gate itself can be tested against known-good and
+// known-bad inputs. Without that, the only thing exercising these rules is the
+// repo they were written against, which cannot show a rule that never fires.
+const SRC = (() => {
+  const flag = process.argv.indexOf('--root');
+  return flag !== -1 && process.argv[flag + 1]
+    ? resolve(process.argv[flag + 1])
+    : join(ROOT, 'src');
+})();
 const SKIP_DIRS = new Set(['apis', 'node_modules']);
 
 const RENDERER_PROPS = [

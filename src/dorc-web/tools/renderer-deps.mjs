@@ -15,13 +15,22 @@
 
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { join, relative, sep } from 'node:path';
+import { join, relative, resolve, sep } from 'node:path';
 import ts from 'typescript';
 
 // fileURLToPath, not `.pathname`: on Windows the latter yields `/D:/a/...`,
 // which join() turns into `D:\D:\a\...`. This runs in CI on windows-latest.
 const ROOT = join(fileURLToPath(new URL('.', import.meta.url)), '..');
-const SRC = join(ROOT, 'src');
+// The tree to scan. Defaults to this package's `src`; `--root <dir>` points it
+// at a fixture tree so the gate itself can be tested against known-good and
+// known-bad inputs. Without that, the only thing exercising these rules is the
+// repo they were written against, which cannot show a rule that never fires.
+const SRC = (() => {
+  const flag = process.argv.indexOf('--root');
+  return flag !== -1 && process.argv[flag + 1]
+    ? resolve(process.argv[flag + 1])
+    : join(ROOT, 'src');
+})();
 
 const DIRECTIVES = [
   'columnBodyRenderer',
@@ -54,14 +63,31 @@ for (const file of walk(SRC)) {
   if (!DIRECTIVES.some(d => text.includes(`${d}(`))) continue;
 
   const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true);
-  const { reactive, members } = collectClass(source);
-  // A component's reactive fields are not all declared in its own file:
-  // page-env-base declares `environmentId` and every environment tab inherits
-  // it. Without walking up, a renderer reading an inherited property passes
-  // the gate with an empty dependency array.
-  for (const name of inheritedReactiveFields(source, file)) reactive.add(name);
+
+  // Scoped to the class the binding is written in, not to the file. A file with
+  // two classes would otherwise share one member map, so `this.rowRenderer` in
+  // one could resolve to the other's — reporting the wrong reads, or none.
+  // No file in `src` has two renderer-bearing classes today, which is exactly
+  // why this had to be reasoned about rather than observed.
+  const scopes = new Map();
+  const scopeFor = node => {
+    const owner = enclosingClass(node) ?? source;
+    if (!scopes.has(owner)) {
+      const scope = collectClass(owner);
+      // A component's reactive fields are not all declared in its own file:
+      // page-env-base declares `environmentId` and every environment tab
+      // inherits it. Without walking up, a renderer reading an inherited
+      // property passes the gate with an empty dependency array.
+      for (const name of inheritedReactiveFields(owner, file, source)) {
+        scope.reactive.add(name);
+      }
+      scopes.set(owner, scope);
+    }
+    return scopes.get(owner);
+  };
 
   for (const call of directiveCalls(source)) {
+    const { reactive, members } = scopeFor(call.node);
     if (call.member === null) {
       // Not `this.<member>`. A module-level function — declared here or
       // imported — cannot read component state at all, so an empty dependency
@@ -120,7 +146,20 @@ console.log(
 );
 process.exitCode = stale ? 1 : 0;
 
-/** Reactive field names and every class member, for the enclosing class. */
+/** The class a node is written inside, or null at module scope. */
+function enclosingClass(node) {
+  let current = node.parent;
+  while (
+    current &&
+    !ts.isClassDeclaration(current) &&
+    !ts.isClassExpression(current)
+  ) {
+    current = current.parent;
+  }
+  return current ?? null;
+}
+
+/** Reactive field names and every class member, for the given class or file. */
 function collectClass(source) {
   const reactive = new Set();
   const members = new Map();
@@ -166,12 +205,15 @@ function collectClass(source) {
  * cannot be resolved to a file in `src` is simply skipped, so the gate stays
  * conservative rather than wrong.
  */
-function inheritedReactiveFields(source, file, seen = new Set()) {
+function inheritedReactiveFields(node, file, moduleSource, seen = new Set()) {
   const names = new Set();
 
   const baseNames = [];
   const findHeritage = node => {
-    if (ts.isClassDeclaration(node) && node.heritageClauses) {
+    if (
+      (ts.isClassDeclaration(node) || ts.isClassExpression(node)) &&
+      node.heritageClauses
+    ) {
       for (const clause of node.heritageClauses) {
         for (const type of clause.types) {
           const expr = type.expression;
@@ -194,7 +236,7 @@ function inheritedReactiveFields(source, file, seen = new Set()) {
     }
     ts.forEachChild(node, findHeritage);
   };
-  findHeritage(source);
+  findHeritage(node);
   if (!baseNames.length) return names;
 
   // Map each imported name to the module it came from.
@@ -212,7 +254,7 @@ function inheritedReactiveFields(source, file, seen = new Set()) {
     }
     ts.forEachChild(node, findImports);
   };
-  findImports(source);
+  findImports(moduleSource);
 
   for (const base of baseNames) {
     const specifier = importedFrom.get(base);
@@ -229,8 +271,17 @@ function inheritedReactiveFields(source, file, seen = new Set()) {
       ts.ScriptTarget.Latest,
       true
     );
+    // Whole-file for a base module: a mixin declares its class inside a
+    // function, and there is no single class node to point at. The superset is
+    // the conservative direction here — it can only add dependencies the gate
+    // demands, never hide one.
     for (const name of collectClass(baseSource).reactive) names.add(name);
-    for (const name of inheritedReactiveFields(baseSource, resolved, seen)) {
+    for (const name of inheritedReactiveFields(
+      baseSource,
+      resolved,
+      baseSource,
+      seen
+    )) {
       names.add(name);
     }
   }

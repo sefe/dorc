@@ -21,18 +21,31 @@
  * suppressed. Handlers that delegate must thread the snapshot in as a
  * parameter, as `server-controls.performDeleteServer` does.
  *
+ * Where that limit would hide a site rather than merely under-check one —
+ * `.then(this.handler)`, whose entire post-confirmation body is elsewhere —
+ * the site is reported as uncheckable instead of passing silently.
+ *
  *   node tools/confirm-prompt-snapshot.mjs
  */
 
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { join, relative } from 'node:path';
+import { join, relative, resolve } from 'node:path';
 import ts from 'typescript';
 
 // fileURLToPath, not `.pathname`: on Windows the latter yields `/D:/a/...`,
 // which join() turns into `D:\D:\a\...`. This runs in CI on windows-latest.
 const ROOT = join(fileURLToPath(new URL('.', import.meta.url)), '..');
-const SRC = join(ROOT, 'src');
+// The tree to scan. Defaults to this package's `src`; `--root <dir>` points it
+// at a fixture tree so the gate itself can be tested against known-good and
+// known-bad inputs. Without that, the only thing exercising these rules is the
+// repo they were written against, which cannot show a rule that never fires.
+const SRC = (() => {
+  const flag = process.argv.indexOf('--root');
+  return flag !== -1 && process.argv[flag + 1]
+    ? resolve(process.argv[flag + 1])
+    : join(ROOT, 'src');
+})();
 
 /**
  * Fields that cannot go stale, because they are the component itself rather
@@ -76,21 +89,44 @@ for (const file of walk(SRC)) {
       node.expression.expression.getText(source).includes('confirmPrompt(');
 
     if (isAwaited || isThened) {
+      // `.then(this.handleAnswer)` — the post-confirmation code is somewhere
+      // else entirely, and following it is the delegate hop this tool
+      // deliberately does not take (see the header). Falling back to "the rest
+      // of the enclosing function" would scan the wrong body and report
+      // nothing, so the site would sit inside the clean bill of health while
+      // never having been looked at. Report it as uncheckable instead — the
+      // same policy renderer-deps applies to a binding it cannot resolve.
+      const thenCallback = isThened ? node.arguments[0] : undefined;
+      const isInlineCallback =
+        thenCallback &&
+        (ts.isArrowFunction(thenCallback) ||
+          ts.isFunctionExpression(thenCallback));
+
+      if (isThened && !isInlineCallback) {
+        offenders += 1;
+        const line =
+          source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1;
+        console.log(
+          `${relative(ROOT, file)}:${line}  confirmPrompt().then(` +
+            `${thenCallback ? thenCallback.getText(source) : ''}) hands the answer ` +
+            `to a callback declared elsewhere — its reads cannot be checked; ` +
+            `inline it, or await and pass the snapshot in as a parameter`
+        );
+        ts.forEachChild(node, visit);
+        return;
+      }
+
       // For `.then(cb)` the post-confirmation code is the callback body, and all
       // of it runs after the answer — so scan that with no offset. For `await`
       // it is the rest of the enclosing function, after the await expression.
-      const thenCallback = isThened ? node.arguments[0] : undefined;
-      const scanTarget =
-        thenCallback &&
-        (ts.isArrowFunction(thenCallback) ||
-          ts.isFunctionExpression(thenCallback))
-          ? { body: thenCallback.body, offset: 0, node: thenCallback }
-          : (() => {
-              const fn = enclosingFunction(node);
-              return fn?.body
-                ? { body: fn.body, offset: node.getEnd(), node: fn }
-                : null;
-            })();
+      const scanTarget = isInlineCallback
+        ? { body: thenCallback.body, offset: 0, node: thenCallback }
+        : (() => {
+            const fn = enclosingFunction(node);
+            return fn?.body
+              ? { body: fn.body, offset: node.getEnd(), node: fn }
+              : null;
+          })();
 
       if (scanTarget?.body) {
         const fn = enclosingFunction(node);
