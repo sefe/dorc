@@ -209,52 +209,54 @@ function findBindings(text) {
  * only enforces a style, not the property it claims to.
  */
 function findImperativeAssignments(text) {
+  // An AST walk, not a regex over raw text. The regex form both under- and
+  // over-fired: it missed `col!.renderer = fn` (the `!` is not an identifier
+  // char) and prettier-broken chains (`\n    .renderer = fn`), while flagging
+  // any comment or string that merely contained the words — so a comment
+  // explaining this very migration would fail the build.
   const out = [];
-  // `<identifier>.renderer = ` where the left side is not a template binding
-  // (those are preceded by whitespace or a quote inside a tag, and always have
-  // a `${` on the right).
-  // The left side is anything an expression can end with, not just a bare
-  // identifier chain: `columns[0].renderer =` and `querySelector(...).renderer =`
-  // are the two most idiomatic Vaadin imperative shapes, and a chain-only
-  // pattern stops at the `]` or `)`.
-  const assignRe = new RegExp(
-    `([A-Za-z_$0-9\\]\\)])\\.(${RENDERER_PROPS.join('|')})\\s*=\\s*([^=])`,
-    'g'
+  const source = ts.createSourceFile(
+    'assignment-scan.ts',
+    text,
+    ts.ScriptTarget.Latest,
+    true
   );
-  // Bracket notation reaches the same property without ever writing `.renderer`.
-  const bracketRe = new RegExp(
-    `\\[\\s*['"\`](${RENDERER_PROPS.join('|')})['"\`]\\s*\\]\\s*=\\s*([^=])`,
-    'g'
-  );
-  let m;
-  while ((m = assignRe.exec(text)) !== null) {
-    // `.renderer=${...}` inside a template is the declarative form, already
-    // collected above.
-    if (m[3] === '$') continue;
-    const before = text.slice(0, m.index);
-    out.push({
-      prop: m[2],
-      element: '(assignment)',
-      expression: text
-        .slice(m.index + m[0].length - 1, m.index + m[0].length + 60)
-        .split('\n')[0]
-        .trim(),
-      line: before.split('\n').length
-    });
-  }
-  while ((m = bracketRe.exec(text)) !== null) {
-    if (m[2] === '$') continue;
-    const before = text.slice(0, m.index);
-    out.push({
-      prop: m[1],
-      element: '(bracket assignment)',
-      expression: text
-        .slice(m.index + m[0].length - 1, m.index + m[0].length + 60)
-        .split('\n')[0]
-        .trim(),
-      line: before.split('\n').length
-    });
-  }
+
+  const rendererPropOf = (node) => {
+    if (ts.isPropertyAccessExpression(node)) {
+      return RENDERER_PROPS.includes(node.name.text) ? node.name.text : null;
+    }
+    // `column['renderer'] = fn` reaches the same property.
+    if (
+      ts.isElementAccessExpression(node) &&
+      node.argumentExpression &&
+      ts.isStringLiteralLike(node.argumentExpression)
+    ) {
+      const name = node.argumentExpression.text;
+      return RENDERER_PROPS.includes(name) ? name : null;
+    }
+    return null;
+  };
+
+  const visit = (node) => {
+    if (
+      ts.isBinaryExpression(node) &&
+      node.operatorToken.kind === ts.SyntaxKind.EqualsToken
+    ) {
+      const prop = rendererPropOf(node.left);
+      if (prop) {
+        out.push({
+          prop,
+          element: '(assignment)',
+          expression: node.right.getText(source).split('\n')[0].trim().slice(0, 60),
+          line:
+            source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1
+        });
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(source);
   return out;
 }
 

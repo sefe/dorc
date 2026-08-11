@@ -11,6 +11,16 @@ import '../../src/components/map-daemons';
 // array is the mechanism rather than decoration — losing it leaves a
 // permanently stale control, not a cosmetic lag.
 //
+// Scope, because it is easy to overstate what a per-column test proves:
+// `LitRendererDirective.runRenderer()` calls `grid.requestContentUpdate()` on
+// the WHOLE grid (column-renderer-directives.js:35-41), so within one
+// `<vaadin-grid>` the column arrays are effectively shared — any surviving one
+// repaints all of them. The config-values case therefore fails when the grid
+// loses `isAdmin` entirely, but not when only the two checkbox columns are
+// blanked, because `variableValueControlsRenderer` also names it. The
+// enforceable unit is the grid, not the binding site. map-daemons is a genuine
+// single-column case.
+//
 // They drive the real grid. Calling a renderer method directly and re-rendering
 // it by hand proves only that the body reads the flag; it passes with the array
 // blanked, because the test supplies the repaint the array was supposed to

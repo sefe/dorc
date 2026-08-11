@@ -81,6 +81,25 @@ describe('access control dialog dismissal', () => {
     expect(el.Privileges?.length, 'unsaved rows kept').to.equal(2);
   });
 
+  it('can still be closed by the Close button', async () => {
+    // Opting out of Escape and outside-click makes Close the only way out, so
+    // it is now load-bearing in a way it was not before. Nothing asserted it.
+    const el = await mount();
+    // Footer content is rendered into a slot, so it is a light-DOM descendant
+    // of the dialog element rather than inside the overlay's shadow root.
+    const dialog = el.shadowRoot?.querySelector('vaadin-dialog');
+    const buttons = Array.from(
+      dialog?.querySelectorAll('vaadin-button') ?? []
+    ) as HTMLElement[];
+    const close = buttons.find(b => b.textContent?.trim() === 'Close');
+
+    expect(close, 'Close button rendered').to.not.equal(undefined);
+    (close as HTMLElement).click();
+    await settle();
+
+    expect(el.dialogOpened, 'closes').to.equal(false);
+  });
+
   it('still clears the form when it does close', async () => {
     // The reset is not removed — it is just reachable only through Close.
     const el = await mount();

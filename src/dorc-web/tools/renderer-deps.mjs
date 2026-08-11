@@ -434,18 +434,40 @@ function stateReads(member, reactive, members) {
           depth > 0 &&
           members.has(name) &&
           !seen.has(name) &&
-          ts.isGetAccessor(members.get(name))
+          (ts.isGetAccessor(members.get(name)) ||
+            (ts.isCallExpression(n.parent) && n.parent.arguments.includes(n)))
         ) {
-          // Only a getter. Referencing a member without calling it yields a
-          // *value*: for a getter that means running its body now, so its reads
-          // are render-time reads; for a method or an arrow-valued field it
-          // means a function that runs later — `@click="${this._confirmPlan}"`
-          // is a handler, and following it would report what the click reads as
-          // a dependency of the render.
+          // Referencing a member without calling it yields a *value*, and
+          // whether its reads are render-time reads depends on when that value
+          // is invoked:
+          //   - a getter runs on access, so now;
+          //   - a member passed as a call argument — `tags.map(this.rowTemplate)`
+          //     — is invoked by that call, so also now;
+          //   - anything else is a function that runs later.
+          //     `@click="${this._confirmPlan}"` is a handler, and following it
+          //     would report what the click reads as a dependency of the render.
+          // Narrowing this to getters alone (which is how it was first written)
+          // stopped following the map/filter idiom, which is used at 14 sites in
+          // this codebase — a renderer adopting it would go stale silently.
           seen.add(name);
           scan(members.get(name), depth - 1);
         }
         // Keep descending: `this.a.b` and nested calls still matter.
+      }
+      // `const { selectedId } = this` is a read of every name it binds. Both
+      // gates matched PropertyAccessExpression only, so destructuring from
+      // `this` was invisible — and it is already house style here
+      // (`const { outlet, resolver } = this;` in router.ts).
+      if (
+        ts.isVariableDeclaration(n) &&
+        n.initializer &&
+        n.initializer.kind === ts.SyntaxKind.ThisKeyword &&
+        ts.isObjectBindingPattern(n.name)
+      ) {
+        for (const element of n.name.elements) {
+          const key = element.propertyName ?? element.name;
+          if (ts.isIdentifier(key) && reactive.has(key.text)) reads.add(key.text);
+        }
       }
       // A write is not a read — `this.filter = x` in a handler is not a
       // dependency, and treating it as one would reset the field being typed in.

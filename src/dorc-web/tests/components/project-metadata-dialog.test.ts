@@ -58,6 +58,11 @@ describe('project metadata dialog', () => {
     expect(combo?.value, 'source control type is populated').to.equal('GitHub');
   });
 
+  // Reverting the whole round-7 fix leaves this passing: the deleted
+  // `_comboBoxInitialized = false` in the `project` setter made the *second*
+  // open work, because by then the combo existed for the one-shot to find. So
+  // it guards the mechanism that was removed. Kept — reopening for another
+  // project is worth asserting — but the two tests above are what pin the fix.
   it('follows the project when reopened for a different one', async () => {
     const el = (await fixture(
       html`<add-edit-project></add-edit-project>`

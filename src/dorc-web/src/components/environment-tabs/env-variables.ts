@@ -131,6 +131,110 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
     `;
   }
 
+  /**
+   * A stable class field, not an inline arrow in the template.
+   *
+   * Vaadin re-binds and CLEARS THE CACHE whenever the data provider's
+   * identity changes (`_dataProviderChanged` -> `clearCache()`), and an
+   * inline arrow is a new function on every host render. Once
+   * `_editingValueId` became `@state()`, pressing Edit or Cancel re-rendered
+   * the host and therefore threw the grid's cache away and re-queried the
+   * API — a flash and a wasted paged request for what is a local UI toggle.
+   */
+  private variablesDataProvider = (
+                  params: GridDataProviderParams<FlatPropertyValueApiModel>,
+                  callback: GridDataProviderCallback<FlatPropertyValueApiModel>
+                ) => {
+                  if (
+                    this.filterVariableValue !== '' &&
+                    this.filterVariableValue !== undefined
+                  ) {
+                    params.filters.push({
+                      path: variableValue,
+                      value: this.filterVariableValue
+                    });
+                  }
+
+                  if (
+                    this.filterVariableName !== '' &&
+                    this.filterVariableName !== undefined
+                  ) {
+                    params.filters.push({
+                      path: variableName,
+                      value: this.filterVariableName
+                    });
+                  }
+
+                  if (
+                    this.filterVariableScope !== '' &&
+                    this.filterVariableScope !== undefined
+                  ) {
+                    params.filters.push({
+                      path: variableScope,
+                      value: this.filterVariableScope
+                    });
+                  }
+
+                  if (this.isShowDefaultProps && _environment?.EnvironmentName) {
+                    params.filters.push({
+                      path: variableScope,
+                      value: _environment.EnvironmentName
+                    });
+                  }
+
+                  if (_environment && _environment?.EnvironmentName !== '') {
+                    const api = new RefDataScopedPropertyValuesApi();
+                    api
+                      .refDataScopedPropertyValuesPut({
+                        pagedDataOperators: {
+                          Filters: params.filters.map(
+                            (f: GridFilterDefinition): PagedDataFilter => ({
+                              Path: f.path,
+                              FilterValue: String(f.value ?? '')
+                            })
+                          ),
+                          SortOrders: params.sortOrders.map(
+                            (s: GridSorterDefinition): PagedDataSorting => ({
+                              Path: s.path,
+                              Direction: s.direction?.toString()
+                            })
+                          )
+                        },
+                        limit: params.pageSize,
+                        page: params.page + 1,
+                        scope: _environment?.EnvironmentName || ' '
+                      })
+                      .subscribe({
+                        next: (data: GetScopedPropertyValuesResponseDto) => {
+                          this.dispatchEvent(
+                            new CustomEvent(
+                              'searching-env-variables-finished',
+                              {
+                                detail: {},
+                                bubbles: true,
+                                composed: true
+                              }
+                            )
+                          );
+                          callback(data.Items ?? [], data.TotalItems);
+                        },
+                        error: (err: any) => console.error(err),
+                        complete: () => {
+                          this.dispatchEvent(
+                            new CustomEvent('env-variables-loaded', {
+                              detail: {},
+                              bubbles: true,
+                              composed: true
+                            })
+                          );
+                          console.log(
+                            `done loading scoped Property Values page:${params.page}`
+                          );
+                        }
+                      });
+                  }
+  };
+
   render() {
     return html`
       <dorc-spinner style="--dorc-spinner-z-index: 1000" ?hidden="${!(this.loading || this.searching)}"></dorc-spinner>
@@ -225,99 +329,7 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
                 column-reordering-allowed
                 multi-sort
                 theme="compact row-stripes no-row-borders no-border"
-                .dataProvider="${(
-                  params: GridDataProviderParams<FlatPropertyValueApiModel>,
-                  callback: GridDataProviderCallback<FlatPropertyValueApiModel>
-                ) => {
-                  if (
-                    this.filterVariableValue !== '' &&
-                    this.filterVariableValue !== undefined
-                  ) {
-                    params.filters.push({
-                      path: variableValue,
-                      value: this.filterVariableValue
-                    });
-                  }
-
-                  if (
-                    this.filterVariableName !== '' &&
-                    this.filterVariableName !== undefined
-                  ) {
-                    params.filters.push({
-                      path: variableName,
-                      value: this.filterVariableName
-                    });
-                  }
-
-                  if (
-                    this.filterVariableScope !== '' &&
-                    this.filterVariableScope !== undefined
-                  ) {
-                    params.filters.push({
-                      path: variableScope,
-                      value: this.filterVariableScope
-                    });
-                  }
-
-                  if (this.isShowDefaultProps && _environment?.EnvironmentName) {
-                    params.filters.push({
-                      path: variableScope,
-                      value: _environment.EnvironmentName
-                    });
-                  }
-
-                  if (_environment && _environment?.EnvironmentName !== '') {
-                    const api = new RefDataScopedPropertyValuesApi();
-                    api
-                      .refDataScopedPropertyValuesPut({
-                        pagedDataOperators: {
-                          Filters: params.filters.map(
-                            (f: GridFilterDefinition): PagedDataFilter => ({
-                              Path: f.path,
-                              FilterValue: String(f.value ?? '')
-                            })
-                          ),
-                          SortOrders: params.sortOrders.map(
-                            (s: GridSorterDefinition): PagedDataSorting => ({
-                              Path: s.path,
-                              Direction: s.direction?.toString()
-                            })
-                          )
-                        },
-                        limit: params.pageSize,
-                        page: params.page + 1,
-                        scope: _environment?.EnvironmentName || ' '
-                      })
-                      .subscribe({
-                        next: (data: GetScopedPropertyValuesResponseDto) => {
-                          this.dispatchEvent(
-                            new CustomEvent(
-                              'searching-env-variables-finished',
-                              {
-                                detail: {},
-                                bubbles: true,
-                                composed: true
-                              }
-                            )
-                          );
-                          callback(data.Items ?? [], data.TotalItems);
-                        },
-                        error: (err: any) => console.error(err),
-                        complete: () => {
-                          this.dispatchEvent(
-                            new CustomEvent('env-variables-loaded', {
-                              detail: {},
-                              bubbles: true,
-                              composed: true
-                            })
-                          );
-                          console.log(
-                            `done loading scoped Property Values page:${params.page}`
-                          );
-                        }
-                      });
-                  }
-                }}"
+                .dataProvider="${this.variablesDataProvider}"
                 ?hidden="${this.loading}"
                 style="z-index: 100;"
               >

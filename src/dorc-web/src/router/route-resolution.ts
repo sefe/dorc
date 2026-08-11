@@ -124,13 +124,18 @@ export class RouteResolver {
         // `/environment/:id/nosuchtab` would fall back to the layout instead of
         // not-found, which Vaadin Router also did not do.
         //
-        // "Consumed the whole pathname" allows one trailing slash. A layout is
-        // matched with `end: false`, and path-to-regexp reports
-        // `/environment/DEV1` as the matched path for `/environment/DEV1/` — so
-        // a byte comparison sends the trailing-slash form to not-found, which
-        // Vaadin Router did not do either. Leaf routes already tolerate it
-        // (`/projects/` works), and this makes layouts agree. A second slash
-        // still does not match, matching Vaadin.
+        // "Consumed the whole pathname" allows one trailing slash, so
+        // `/environment/DEV1/` reaches the layout rather than not-found — which
+        // is what Vaadin Router did, and what leaf routes here already do
+        // (`/projects/` works). A second slash still does not match.
+        //
+        // `remaining` is the residue universal-router hands to the children, NOT
+        // a suffix of `context.pathname`. path-to-regexp reports the matched
+        // path *with* the trailing slash, and universal-router then strips the
+        // leading character (`path.substr(1)`, universal-router.js:36-37), so
+        // `consumed` is not a prefix of the pathname at all — only its *length*
+        // lines up with the child-facing offset. Do not "tidy" this into
+        // `pathname.startsWith(consumed)`: that reintroduces the 404.
         const consumed = `${matched.baseUrl ?? ''}${matched.path ?? ''}`;
         const remaining = context.pathname.slice(consumed.length);
         const stoppedHere = remaining === '' || remaining === '/';
