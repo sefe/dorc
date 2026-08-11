@@ -485,8 +485,14 @@ export class DorcNavbar extends LitElement {
     const tabs = this.shadowRoot?.getElementById('tabs') as Tabs;
     const path = this.getProjectEnvsPath(proj);
     const idx = this.getIndexOfPath(tabs, path);
-    const tabsArray = [].slice.call(tabs.children) as Tab[];
-    tabs.removeChild(tabsArray[idx]);
+    // getIndexOfPath returns -1 when no tab matches — routine when the page was
+    // reached by deep link or bookmark, so no shortcut was ever inserted.
+    // tabsArray[-1] is undefined and removeChild(undefined) throws, which would
+    // abort the caller mid-handler (see renameEnvDetail, which already guards).
+    if (idx >= 0) {
+      const tabsArray = [].slice.call(tabs.children) as Tab[];
+      tabs.removeChild(tabsArray[idx]);
+    }
     setCookie(this.projectEnvsTabs, JSON.stringify(this.openProjTabs));
   }
 
@@ -501,8 +507,11 @@ export class DorcNavbar extends LitElement {
     const tabs = this.shadowRoot?.getElementById('tabs') as Tabs;
     const path = this.getMonitorResultPath(req);
     const idx = this.getIndexOfPath(tabs, path);
-    const tabsArray = [].slice.call(tabs.children) as Tab[];
-    tabs.removeChild(tabsArray[idx]);
+    // No matching tab — see the note in closeProjectEnvs.
+    if (idx >= 0) {
+      const tabsArray = [].slice.call(tabs.children) as Tab[];
+      tabs.removeChild(tabsArray[idx]);
+    }
     setCookie(this.monitorResultTabs, JSON.stringify(this.openResultTabs));
   }
 
@@ -517,8 +526,13 @@ export class DorcNavbar extends LitElement {
     const tabs = this.shadowRoot?.getElementById('tabs') as Tabs;
     const path = this.getEnvDetailPath(env);
     const idx = this.getIndexOfPath(tabs, path);
-    const tabsArray = [].slice.call(tabs.children) as Tab[];
-    tabs.removeChild(tabsArray[idx]);
+    // No matching tab — see the note in closeProjectEnvs. This is the path that
+    // strands the user: environmentDeleted calls this before Router.go, so a
+    // throw here leaves them on the page of an environment that no longer exists.
+    if (idx >= 0) {
+      const tabsArray = [].slice.call(tabs.children) as Tab[];
+      tabs.removeChild(tabsArray[idx]);
+    }
     setCookie(this.envDetailTabs, JSON.stringify(this.openEnvTabs));
   }
 

@@ -142,7 +142,13 @@ export class ShortcutsStore extends LitElement {
     );
     let path: string;
     if (existingProjs === undefined) {
-      project.ArtefactsSubPaths = ''; // This field can occasionally contain ';' which breaks the cookies
+      // Note: this used to blank project.ArtefactsSubPaths here, on the theory
+      // that a ';' in the value broke the cookie. setCookie percent-encodes the
+      // whole value, so ';' was never the cause. `project` is the live grid row
+      // passed by reference, so the workaround blanked the column in the grid
+      // and, for FileShare projects, PUT the empty value back to the server on
+      // the next metadata save. Removed; the real cookie-size problem is
+      // tracked as D-02.
       this.dorcNavbar?.openProjTabs.push(project);
       path = this.dorcNavbar?.insertProjTab(project) ?? '';
     } else {
