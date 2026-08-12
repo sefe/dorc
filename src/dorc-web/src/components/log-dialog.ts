@@ -199,11 +199,5 @@ export class LogDialog extends LitElement {
 
   private close() {
     this.isOpened = false;
-    this.dispatchEvent(
-      new CustomEvent('log-dialog-closed', {
-        bubbles: true,
-        composed: true
-      })
-    );
   }
 }
