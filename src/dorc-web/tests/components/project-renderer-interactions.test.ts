@@ -37,7 +37,7 @@ vi.mock('../../src/apis/dorc-api', async importOriginal => {
   };
 });
 
-describe('PR #799 project action menu accessibility', () => {
+describe('project action menu accessibility', () => {
   let originalMatchMedia: typeof window.matchMedia;
 
   beforeEach(() => {
@@ -95,7 +95,7 @@ describe('PR #799 project action menu accessibility', () => {
   });
 });
 
-describe('PR #799 deployment result actions', () => {
+describe('deployment result actions', () => {
   it('opens the Terraform plan from the rendered action and publishes the resulting status change', async () => {
     const results = [{ Id: 17, Status: 'WaitingConfirmation' }];
     const el = await fixture<HTMLElement>(html`
@@ -148,7 +148,7 @@ describe('PR #799 deployment result actions', () => {
   });
 });
 
-describe('PR #799 component and variable renderers', () => {
+describe('component and variable renderers', () => {
   let host: HTMLElement;
 
   beforeEach(() => {

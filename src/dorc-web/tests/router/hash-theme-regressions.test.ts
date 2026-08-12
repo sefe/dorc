@@ -17,7 +17,7 @@ const routes: AppRoute[] = [
   }
 ];
 
-describe('PR #799 router hash navigation', () => {
+describe('router hash navigation', () => {
   let outlet: HTMLElement;
   let router: AppRouter;
   let startUrl: string;
@@ -48,7 +48,7 @@ describe('PR #799 router hash navigation', () => {
   });
 });
 
-describe('PR #799 theme overlays', () => {
+describe('theme overlays', () => {
   let savedTheme: string | null;
   let savedAttribute: string | null;
   let dialog: HTMLElement;

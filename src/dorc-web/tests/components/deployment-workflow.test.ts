@@ -38,7 +38,7 @@ const notificationCard = (toast: HTMLElement) => {
   return { notification, card };
 };
 
-describe('PR #799 successful deployment notification', () => {
+describe('successful deployment notification', () => {
   it('dispatches monitor details and lets the user dismiss the persistent toast', async () => {
     const host = await fixture(html`<div></div>`);
     const toast = document.createElement(
@@ -85,7 +85,7 @@ describe('PR #799 successful deployment notification', () => {
   });
 });
 
-describe('PR #799 deployment confirmation', () => {
+describe('deployment confirmation', () => {
   beforeEach(() => requestPostSpy.mockClear());
 
   const prepareDeployment = async () => {

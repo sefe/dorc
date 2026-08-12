@@ -14,7 +14,7 @@ type CloneDialog = HTMLElement & {
   updateComplete: Promise<unknown>;
 };
 
-describe('PR #799 form dialog reset', () => {
+describe('clone environment dialog reset', () => {
   it('resets the clone form immediately when Escape dismisses it', async () => {
     const el = await fixture<CloneDialog>(
       html`<clone-environment></clone-environment>`

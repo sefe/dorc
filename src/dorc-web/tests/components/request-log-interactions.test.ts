@@ -66,7 +66,7 @@ type RequestControl = HTMLElement & {
   resume(): Promise<void>;
 };
 
-describe('PR #799 request control row snapshots', () => {
+describe('request control row snapshots', () => {
   beforeEach(() => {
     confirmPromptSpy.mockReset();
     requestRestartSpy.mockClear();
@@ -204,7 +204,7 @@ describe('PR #799 request control row snapshots', () => {
   });
 });
 
-describe('PR #799 deployment log editor lifecycle', () => {
+describe('deployment log editor lifecycle', () => {
   beforeEach(() => {
     aceEditSpy.mockClear();
     aceDestroySpy.mockClear();
