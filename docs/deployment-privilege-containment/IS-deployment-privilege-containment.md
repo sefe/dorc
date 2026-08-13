@@ -42,7 +42,7 @@ Four rules determine the order below. They are stated up front because several a
 | S-012 | Bind source credentials to validated hosts | SD-9, W-11, W-16, SC-05b | **DONE** — partly inert until S-011 is configured |
 | ⚙ S-013 | Migrate the three `DORC_NonProdDeployPassword` consumers | SD-3a precondition | **U-12 CLOSED** |
 | S-014 | Classify config values: reserved-key denylist | SD-3a, W-4, SC-03 | **DONE for the three zero-consumer keys**; the rest still gated on S-013 |
-| S-014a | Restrict `CanReadSecrets` to service principals | W-19 | Usage decision (see step) |
+| S-014a | Restrict `CanReadSecrets` to service principals | W-19 | **DONE** — has a blast radius, see the step |
 | ⚙ S-015 | Rotate the deployment credentials | SD-3, W-4 | **S-004 and S-014** |
 | ⚙ S-016 | Remediate off-share script paths | SD-5 precondition | S-010 |
 | S-017 | Confine script paths at dispatch | SD-5, W-5, SC-05 | S-010, S-016 |
@@ -333,6 +333,10 @@ Whether `AccessControlController`'s use of the same predicate for ACL visibility
 Neither is introduced by this step; both are made prominent by it, which makes this the right moment to correct them.
 
 **Blast radius, stated plainly.** Every environment owner who today sees decrypted secret property values in the web UI will stop seeing them. If anyone relies on that to operate — debugging a deployment, confirming a credential rotation landed — this breaks their workflow. That is the same shape of risk as S-013's script migration, and deserves the same treatment: find out who relies on it before shipping, not after.
+
+**The predicate-separation decision, made.** `AccessControlController`'s second use of the predicate is not ACL visibility — it is the guard that stops a caller granting `ReadSecrets` when they do not hold it. Left on the restricted predicate, **no human could ever grant the privilege to anyone** and it would become unadministrable the moment this step shipped. So the two questions are now two predicates: `CanReadSecrets` for exercising it (service principal + explicit grant) and `CanGrantReadSecrets` for administering it (the original privilege-or-ownership test, unchanged). Administration behaves exactly as before. The `UserCanReadSecrets` flag on the access model keeps the restricted predicate, because it tells a client whether values will actually be readable, which is now false for people.
+
+**One consequence worth stating before this is deployed.** Windows authentication carries no machine-versus-person discriminator, so `IsServicePrincipal` is false for every Windows-authenticated caller and the privilege cannot be exercised over that scheme at all. That is the intended shape — service accounts of live running systems authenticate as OAuth machine clients, which is where the `m2m` claim exists — but a consumer that reads secrets over Windows authentication would stop working. The Monitor is unaffected: it uses the direct-tool reader, which reports itself a machine.
 
 **Verification intent.** A service principal with the privilege still retrieves decrypted values — the path that must not break. A human principal does not, whether they hold an explicit grant or own the environment; the owner case specifically confirms the implicit grant is closed. A result set consisting entirely of secure values returns redacted entries rather than raising an exception. An unscoped query redacts rather than returning ciphertext. Existing clients degrade to blank values rather than failing. ACL visibility is verified independently of the secret-retrieval path, per the predicate-separation decision above.
 
