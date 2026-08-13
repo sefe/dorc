@@ -55,11 +55,22 @@ namespace Dorc.Api.Services
             result.AddRange(propValues);
             var canReadSecrets = _securityPrivilegesChecker.CanReadSecrets(user, environmentName);
 
-            if (!canReadSecrets && !String.IsNullOrEmpty(environmentName))
+            if (!canReadSecrets)
             {
-                if (result.Any() && result.All(propertyValueDto => propertyValueDto.Property.Secure))
-                    throw new NonEnoughRightsException($"User {username} doesn't have \"ReadSecrets\" permission to read secured properties");
-
+                // Redaction is uniform, and both corrections here matter more than they did
+                // before: restricting the privilege to service principals turns this from the
+                // path a few callers take into the path every human takes.
+                //
+                // It previously raised a rights exception when EVERY value in the result was
+                // secure, so a partial result redacted while a wholly-secure one failed. For
+                // someone opening a property set that happens to contain only secure values,
+                // that surfaced as an error rather than as masked data.
+                //
+                // And it was conditioned on an environment being named, so an unscoped query
+                // redacted nothing - and because the decrypt branch is skipped too, the caller
+                // received the stored CIPHERTEXT rather than either the plaintext or a blank.
+                // Not a plaintext disclosure, but it hands encrypted material and value
+                // presence to a caller not entitled to the value at all.
                 result.Where(propertyValueDto => propertyValueDto.Property.Secure).ForEach(propertyValueDto =>
                 {
                     propertyValueDto.Value = String.Empty;

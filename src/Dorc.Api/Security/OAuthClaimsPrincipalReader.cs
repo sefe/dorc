@@ -29,6 +29,11 @@ namespace Dorc.Api.Security
             return user?.FindFirst(M2MClaimType)?.Value?.ToLower() == "true";
         }
 
+        public bool IsServicePrincipal(IPrincipal user)
+        {
+            return IsM2MAuthentication(GetClaimsPrincipal(user));
+        }
+
         private string GetClientId(ClaimsPrincipal user)
         {
             return user?.FindFirst(ClientIdClaimType)?.Value ?? string.Empty;

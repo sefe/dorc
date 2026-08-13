@@ -161,7 +161,19 @@ namespace Dorc.Api.Tests
                     }
                 });
 
-            Assert.Throws<NonEnoughRightsException>(() => testService.GetPropertyValues(propertyName, environmentName, new GenericPrincipal(new GenericIdentity("test-user"), null)));
+            // A result set consisting entirely of secure values used to raise a rights
+            // exception while a partially-secure one redacted, so the same caller saw masked
+            // data or an error depending on what happened to be in the set. Redaction is now
+            // uniform - which matters far more once restricting the privilege to service
+            // principals makes this the path every human takes.
+            var redacted = testService
+                .GetPropertyValues(propertyName, environmentName,
+                    new GenericPrincipal(new GenericIdentity("test-user"), null))
+                .ToList();
+
+            Assert.AreEqual(1, redacted.Count);
+            Assert.AreEqual(string.Empty, redacted[0].Value);
+            Assert.AreEqual(propertyName, redacted[0].Property.Name);
         }
 
         [TestMethod]
