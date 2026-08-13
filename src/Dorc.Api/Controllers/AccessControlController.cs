@@ -129,9 +129,13 @@ namespace Dorc.Api.Controllers
                 }
                 accessControl.ObjectId = authorizedObject.ObjectId;
 
-                // Prevent users without read-secrets privilege from granting it
+                // Prevent users without the read-secrets privilege from granting it. This asks
+                // whether the caller may ADMINISTER the privilege, which is not the same
+                // question as whether they may exercise it - exercising it is restricted to
+                // service principals, and using that predicate here would leave no-one able to
+                // grant it.
                 var requestingUserCanReadSecrets = accessControl.Type == AccessControlType.Environment
-                    ? _securityPrivilegesChecker.CanReadSecrets(User, accessControl.Name)
+                    ? _securityPrivilegesChecker.CanGrantReadSecrets(User, accessControl.Name)
                     : _securityPrivilegesChecker.IsProjectOwnerOrAdmin(User, accessControl.Name);
 
                 if (!requestingUserCanReadSecrets)
