@@ -41,4 +41,9 @@ export interface ConfigValueApiModel {
      * @memberof ConfigValueApiModel
      */
     IsForProd?: boolean | null;
+    /**
+     * @type {boolean}
+     * @memberof ConfigValueApiModel
+     */
+    VisibleToScripts?: boolean;
 }

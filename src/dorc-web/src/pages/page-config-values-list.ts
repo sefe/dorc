@@ -39,6 +39,7 @@ export class PageConfigValuesList extends ResponsiveMixin(PageElement) {
     this.getConfigValuesList();
     this.isSecuredRenderer = this.isSecuredRenderer.bind(this);
     this.isForProdRenderer = this.isForProdRenderer.bind(this);
+    this.isVisibleToScriptsRenderer = this.isVisibleToScriptsRenderer.bind(this);
   }
 
   private getConfigValuesList() {
@@ -207,6 +208,16 @@ export class PageConfigValuesList extends ResponsiveMixin(PageElement) {
                 .renderer=${this.isForProdRenderer}
                 ?hidden="${this._narrowScreen}"
               ></vaadin-grid-sort-column>
+              <vaadin-grid-sort-column
+                path="VisibleToScripts"
+                header="Visible To Scripts"
+                title="Whether deployment scripts may read this value. Some values are withheld from script scope regardless of this setting."
+                resizable
+                width="140px"
+                flex-grow="0"
+                .renderer=${this.isVisibleToScriptsRenderer}
+                ?hidden="${this._narrowScreen}"
+              ></vaadin-grid-sort-column>
               <vaadin-grid-column
                 header="Config Value"
                 .renderer=${this.variableValueControlsRenderer}
@@ -288,6 +299,41 @@ export class PageConfigValuesList extends ResponsiveMixin(PageElement) {
 
     checkbox.addEventListener('change', async () => {
       await this.updateConfigItem({...configValueApiModel, IsForProd: checkbox.checked
+      });
+    });
+
+    render(checkbox, root);
+  }
+
+  /**
+   * Whether deployment scripts may read this value.
+   *
+   * The classification is only meaningful for secure values — a non-secure value is
+   * ordinary configuration and is visible to scripts by definition, which is why the
+   * server forces it true on creation. The checkbox follows that: readable for every
+   * row, changeable only on the secure ones.
+   *
+   * Ticking this box is not the same as publishing the value. Values on the reserved-key
+   * list are withheld from script scope whatever this says, and the server is where that
+   * is decided — the list is not duplicated here, because a second copy of a security
+   * decision is a second place for it to drift.
+   */
+  isVisibleToScriptsRenderer(
+    root: HTMLElement,
+    _column: GridColumn,
+    model: GridItemModel<ConfigValueApiModel>
+  ) {
+    const configValueApiModel = model.item as ConfigValueApiModel;
+
+    const checkbox = new Checkbox();
+
+    checkbox.checked = configValueApiModel.VisibleToScripts as boolean;
+    checkbox.disabled = !this.isAdmin || !configValueApiModel.Secure;
+
+    checkbox.addEventListener('change', async () => {
+      await this.updateConfigItem({
+        ...configValueApiModel,
+        VisibleToScripts: checkbox.checked
       });
     });
 

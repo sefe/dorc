@@ -8660,6 +8660,9 @@
           "IsForProd": {
             "type": "boolean",
             "nullable": true
+          },
+          "VisibleToScripts": {
+            "type": "boolean"
           }
         },
         "additionalProperties": false
