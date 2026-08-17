@@ -98,7 +98,9 @@ namespace Dorc.Core
         // is gone but the input validation it guarded is transport-agnostic and still required.
         internal static bool IsValidSearchName(string name)
         {
-            return name != null && Regex.IsMatch(name, @"^[a-zA-Z0-9'_. -]+(\(External\))?$");
+            // \A..\z rather than ^..$: in .NET, $ also matches immediately before a trailing
+            // newline, so "alice\n" would otherwise pass and carry the \n into the OData filter.
+            return name != null && Regex.IsMatch(name, @"\A[a-zA-Z0-9'_. -]+(\(External\))?\z");
         }
 
         public List<UserElementApiModel> Search(string objectName)
