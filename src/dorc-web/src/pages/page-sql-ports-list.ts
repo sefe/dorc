@@ -173,7 +173,11 @@ export class PageSqlPortsList extends PageElement {
     const filters = value
       .trim()
       .split('|')
-      .map(filter => new RegExp(filter.replace("\\","\\\\"), 'i'));
+      // Escape every backslash, not just the first: the string form of
+      // replace() substitutes a single occurrence, so a search term such as
+      // "a\b\" still reached the RegExp constructor with a lone trailing
+      // backslash and threw "\ at end of pattern", breaking the filter.
+      .map(filter => new RegExp(filter.replace(/\\/g, '\\\\'), 'i'));
 
     this.filteredSqlPorts = this.sqlPorts.filter(({ InstanceName, SqlPort }) =>
       filters.some(

@@ -14,6 +14,14 @@ namespace Dorc.Core.AzureDevOpsServer
         private readonly string _serverUrl;
         private readonly ILogger _log;
         private const string ApiVersion = "6.0";
+
+        // Build-filtering patterns come from project configuration
+        // (ArtefactsBuildRegex and the caller-supplied filter list), so a
+        // catastrophically backtracking pattern is a misconfiguration rather
+        // than an attack — but without a bound it still pins a request thread
+        // indefinitely against a large build list. Matching fails fast and
+        // diagnosably instead.
+        private static readonly TimeSpan RegexMatchTimeout = TimeSpan.FromSeconds(5);
         private readonly IAuthTokenGenerator _authTokenGenerator;
         private static readonly IConfigurationSection AppSettings = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build().GetSection("AppSettings");
 
@@ -88,7 +96,7 @@ namespace Dorc.Core.AzureDevOpsServer
 
                 } while (!string.IsNullOrEmpty(continuationToken));
 
-                var regexs = new Regex(projectRegex, RegexOptions.IgnoreCase);
+                var regexs = new Regex(projectRegex, RegexOptions.IgnoreCase, RegexMatchTimeout);
 
                 output.AddRange(buildDefinitions.Where(x => regexs.IsMatch(x.Name)));
                 buildDefinitions.Clear();
@@ -242,7 +250,7 @@ namespace Dorc.Core.AzureDevOpsServer
 
         public List<Build> FilterBuildsByRegex(List<string> regexList, List<Build> buildsForProject)
         {
-            var regexes = regexList.Select(x => new Regex(x)).ToArray();
+            var regexes = regexList.Select(x => new Regex(x, RegexOptions.None, RegexMatchTimeout)).ToArray();
 
             var buildNames = buildsForProject.Select(x => x.BuildNumber).Where(x => regexes.Any(r => r.IsMatch(x)));
 
