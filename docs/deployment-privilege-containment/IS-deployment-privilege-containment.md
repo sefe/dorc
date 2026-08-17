@@ -47,7 +47,7 @@ Four rules determine the order below. They are stated up front because several a
 | ⚙ S-016 | Remediate off-share script paths | SD-5 precondition | S-010 |
 | S-017 | Confine script paths at dispatch | SD-5, W-5, SC-05 | S-010, S-016 |
 | S-018 | Verify script content at the point of read | SD-5, W-5, SC-05 | S-017, U-14; **lockstep release** |
-| S-019 | Introduce config-value visibility classification | SD-3b, W-4 | S-014 |
+| S-019 | Introduce config-value visibility classification | SD-3b, W-4 | **Server side DONE**; web UI outstanding, see the step |
 | S-020 | Introduce the credential provider abstraction | SD-4 | S-019 (ConfigValues variant only) |
 | S-021 | Bind execution identity to the environment | SD-4, W-6, W-15, SC-07 | S-020; revisits S-007, S-008, S-009 |
 | S-022 | Record attribution reached and not reached | SD-8, W-9 | S-021 |
@@ -401,6 +401,14 @@ Two of the three point at what appears to be an individual's incident-workaround
 **Dependencies.** S-014.
 
 **Verification intent.** An existing value's behaviour is unchanged until an administrator changes its classification. A newly created secure value is hidden by default. A hidden value does not appear in the serialized script group. The administrative surface is reachable only by administrators.
+
+**Delivered server side; the web UI is not done.** Schema, entity, API model, persistence and enforcement are complete, and the classification is maintainable through the existing `RefDataConfig` endpoints — which already gate every write on `IsAdmin`, so the "reachable only by administrators" criterion needed no new code. What is missing is the *convenient* surface: a column on the config values page and a control on the create form.
+
+That half needs the generated TypeScript API client regenerated from the OpenAPI document — `dorc-web/src/apis/dorc-api/models/ConfigValueApiModel.ts` carries a "do not edit manually" banner, and hand-editing generated output is how a client and a contract drift apart. The step is usable without it: an administrator can set the classification over the API today.
+
+**The asymmetric default is what makes this shippable.** Existing values default to visible, in the column default, so adding the column changes no deployment's behaviour on upgrade. New *secure* values are created hidden. A symmetric default would force a choice between breaking deployments on day one and shipping a control that protects nothing new.
+
+**The classification and S-014's reserved-key list are independent reasons to withhold**, and either is sufficient. Classifying a reserved key visible does not un-reserve it. The backlog report subtracts both, so a value hidden by classification drops out of the reported exposure exactly as a reserved key does — otherwise the report would overstate what remains and never converge.
 
 ### S-020 — Introduce the credential provider abstraction
 
