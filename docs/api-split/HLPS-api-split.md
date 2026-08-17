@@ -265,6 +265,29 @@ release*, not all work — an explicit deviation, recorded here rather than left
   and the class, or re-register it. Note that re-registering does not restore the behaviour, since
   its AD branch resolves names that Graph cannot match.
 
+### Non-blocking (added in Round 5)
+
+- **U-18** Six `Dorc.Api` controllers still carry `[SupportedOSPlatform("windows")]`
+  (`AccessControlController`, `AccountController`, `BundledRequestsController`,
+  `DirectorySearchController`, `MakeLikeProdController`, `ResetAppPasswordController`). CA1416
+  does not fire inside an annotated type, so each is a hole in the SC-1 gate. Two of them are
+  the AD-facing controllers S-001 was supposed to make Linux-clean and should no longer need
+  the attribute at all. Decide per controller: strip the attribute, or move the code to the
+  worker. The gate's suppression allow-list is the tracking list and must only shrink.
+- **U-19** Owner for [`parity-matrix.md`](parity-matrix.md). SC-9 makes it authoritative and
+  `status: LIVING` claims upkeep, but the `owner` field points at a success criterion, which
+  cannot be chased. Needs a named human.
+- **U-20** Two REST-surface changes contradict the Out-of-Scope line "changing the public
+  Swagger/REST surface in shape": `UserElementApiModel.SamAccountName` added by S-001, and the
+  `GetServerOperatingFromTarget` 400 body changed from string to object by S-004 while its
+  `[SwaggerResponse(400, Type = typeof(string))]` annotation was left in place. Decide: carve
+  both out of Out of Scope, or revert them. The annotation must be corrected either way.
+- **U-21** D-3 and SC-2 both state the worker "rejects any request without `X-Worker-Key`";
+  `/health` is deliberately unauthenticated. Amend the wording and record the threat-model
+  justification. The implementation also ships *both* U-11 options (`WindowsWorker:Enabled`
+  **and** a health probe) while U-11 still reads "recommendation pending" — close U-11 with
+  what actually shipped.
+
 ### Non-blocking (from Rounds 1-3; resolved during IS; some require named owner)
 - **U-4** Naming of the new project: `Dorc.Api.Windows` vs. `Dorc.Api.WindowsWorker`. Prefer the latter for specificity (per CLAUDE.md naming principle); confirm in the IS step that creates the project.
 - **U-5** Worker config: shared `appsettings.json` with the primary vs. its own. Affects secret-handling at install time.
