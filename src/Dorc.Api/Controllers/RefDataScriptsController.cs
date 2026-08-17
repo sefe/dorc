@@ -57,5 +57,33 @@ namespace Dorc.Api.Controllers
                 ? StatusCode(StatusCodes.Status400BadRequest, "Script must already exist in DOrc!")
                 : StatusCode(StatusCodes.Status200OK, _scriptsPersistentSource.UpdateScript(script, User));
         }
+
+        /// <summary>
+        /// Record, or clear, the content hash a script's bytes are verified against.
+        ///
+        /// This is the route a gated promotion pipeline calls after promoting a new version of a
+        /// script: without it, every legitimate promotion would look like tampering at the next
+        /// deployment. Sending no hash clears the recorded one, which means the next execution
+        /// records what it finds — the way to re-baseline a script whose new hash the caller does
+        /// not know.
+        ///
+        /// Administrators only, rather than PowerUsers as for the general script edit. The
+        /// recorded hash decides what a script is permitted to be; the general edit decides what
+        /// it is called and how it runs. Those are not the same authority.
+        /// </summary>
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(bool))]
+        [HttpPut("{id}/content-hash")]
+        public IActionResult PutContentHash(int id, [FromBody] ScriptContentHashApiModel? contentHash)
+        {
+            if (!_rolePrivilegesChecker.IsAdmin(User))
+                return StatusCode(StatusCodes.Status403Forbidden,
+                    "The script content hash can only be recorded by Admins!");
+
+            return _scriptsPersistentSource.RecordContentHash(id, contentHash?.ContentHash, User)
+                ? StatusCode(StatusCodes.Status200OK, true)
+                : StatusCode(StatusCodes.Status400BadRequest,
+                    "The script must exist in DOrc and the hash, if given, must be 64 hexadecimal"
+                    + " characters (SHA-256).");
+        }
     }
 }
