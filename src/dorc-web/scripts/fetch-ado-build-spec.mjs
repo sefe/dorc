@@ -1,11 +1,17 @@
-// Refreshes the Azure DevOps Build API spec from its official source before
-// the C# client is generated. The committed copy at
-// src/Dorc.AzureDevOps/build.json is the fallback: when the fetch fails
-// (offline, proxy, GitHub outage) generation proceeds with it unchanged, so
-// generation stays deterministic. When the fetch succeeds and upstream has
-// changed, the refreshed spec makes the regenerated client differ from the
-// committed one, and CI's in-sync gate turns that into a visible failure
-// asking for the update to be committed.
+// Refreshes the committed Azure DevOps Build API spec
+// (src/Dorc.AzureDevOps/build.json) from its official source.
+//
+// This is deliberately NOT part of `npm run api-gen`. Generation reads only
+// the committed spec, so builds are hermetic: a change Microsoft publishes
+// can never turn an unrelated pull request red, and the same commit always
+// produces the same client. Instead the ado-build-spec-refresh workflow runs
+// this on a schedule, regenerates, and opens a pull request when upstream has
+// moved — so the official spec stays authoritative and every adoption of it
+// is a reviewable change.
+//
+// Run it by hand with `npm run ado-build-spec-refresh` followed by
+// `npm run api-gen`. On failure (offline, proxy, GitHub outage) it warns and
+// leaves the committed copy untouched.
 import { writeFileSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';

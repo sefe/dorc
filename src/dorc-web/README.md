@@ -192,10 +192,17 @@ dependency; each client pins its generator version in its own
 From the `dorc-web` directory:
 
 ```bash
-npm run api-gen             # regenerate all clients (incl. the C# Azure DevOps client)
+npm run api-gen             # regenerate all clients from the committed specs
 npm run dorc-api-gen        # DOrc API client only (from src/apis/dorc-api/swagger.json)
-npm run ado-build-csharp-gen # Azure DevOps Build C# client (../Dorc.AzureDevOps; spec fetched from the official source, committed copy as fallback)
+npm run ado-build-csharp-gen # Azure DevOps Build C# client (from ../Dorc.AzureDevOps/build.json)
+npm run ado-build-spec-refresh # update ../Dorc.AzureDevOps/build.json from the official upstream spec
 ```
+
+Generation never fetches: it reads only committed specs, so the same commit
+always produces the same clients. `ado-build-spec-refresh` is the separate,
+deliberate step that adopts a new upstream Azure DevOps spec — run it, then
+`api-gen`, then commit both. CI runs it on a schedule and opens a pull
+request (`.github/workflows/ado-build-spec-refresh.yml`).
 
 ### DOrc API Client (`src/apis/dorc-api`)
 
@@ -218,11 +225,11 @@ from the spec's `oauth2` security scheme.
 
 The web app does not use an Azure DevOps client — build information reaches
 it through the DOrc API. The C# client the backend uses is generated from
-the official spec at
+`src/Dorc.AzureDevOps/build.json`, whose authoritative copy lives at
 https://github.com/MicrosoftDocs/vsts-rest-api-specs
-(`specification/build/6.0/build.json`), fetched fresh by
-`npm run ado-build-csharp-gen` with the committed
-`src/Dorc.AzureDevOps/build.json` as the offline fallback.
+(`specification/build/6.0/build.json`). See the generation commands above:
+`ado-build-csharp-gen` regenerates from the committed spec, and
+`ado-build-spec-refresh` is what pulls a newer one down.
 
 
 ## Performance Testing with K6

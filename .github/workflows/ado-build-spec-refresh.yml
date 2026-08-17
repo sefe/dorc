@@ -1,0 +1,120 @@
+name: Refresh Azure DevOps Build spec
+
+# The C# Azure DevOps client under src/Dorc.AzureDevOps is generated from
+# build.json, whose authoritative copy lives in MicrosoftDocs/vsts-rest-api-specs.
+# Fetching it during a normal build would make every run depend on an external
+# resource: a change Microsoft publishes would regenerate a different client
+# and turn unrelated pull requests red, and the same commit would stop
+# producing the same output. So the build reads only the committed spec, and
+# this workflow owns the refresh — it pulls the official document, regenerates,
+# and opens a pull request when anything changed. Upstream stays authoritative;
+# adopting it stays a reviewable, revertible change.
+
+on:
+  schedule:
+    # Weekly, Monday morning. Deliberately off the hour: :00 is when every
+    # scheduled workflow on GitHub fires at once and gets queued behind them.
+    - cron: '23 6 * * 1'
+  workflow_dispatch:
+
+# Needed to push the branch and open the pull request. Nothing else is granted.
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: ado-build-spec-refresh
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: '20.x'
+  BRANCH: chore/ado-build-spec-refresh
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v7
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v7
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: src/dorc-web/package-lock.json
+
+    # openapi-generator-cli is a Java jar behind an npm wrapper.
+    - name: Setup Java
+      uses: actions/setup-java@v5
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+
+    - name: Install web dependencies
+      working-directory: src/dorc-web
+      run: npm ci --loglevel=error
+
+    # Rewrites src/Dorc.AzureDevOps/build.json only when the fetch succeeds and
+    # the document validates as the Swagger 2.0 Build spec; otherwise it warns
+    # and leaves the committed copy alone, and the regeneration below is a
+    # no-op that produces no pull request.
+    - name: Refresh spec from the official source
+      working-directory: src/dorc-web
+      run: npm run ado-build-spec-refresh
+
+    - name: Regenerate API clients
+      working-directory: src/dorc-web
+      run: npm run api-gen
+
+    - name: Detect changes
+      id: changes
+      run: |
+        if git diff --quiet -- src/dorc-web/src/apis src/Dorc.AzureDevOps \
+          && [ -z "$(git ls-files --others --exclude-standard -- src/dorc-web/src/apis src/Dorc.AzureDevOps)" ]; then
+          echo "changed=false" >> "$GITHUB_OUTPUT"
+          echo "Spec and generated clients are already up to date."
+        else
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+          git --no-pager diff --stat -- src/dorc-web/src/apis src/Dorc.AzureDevOps
+        fi
+
+    # Force-pushed to a fixed branch: each run supersedes the last, so a spec
+    # that moves twice before anyone reviews produces one current pull request
+    # rather than a pile of stale ones.
+    - name: Open or update the pull request
+      if: steps.changes.outputs.changed == 'true'
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        set -euo pipefail
+        git config user.name  'github-actions[bot]'
+        git config user.email 'github-actions[bot]@users.noreply.github.com'
+        git checkout -B "$BRANCH"
+        git add -- src/dorc-web/src/apis src/Dorc.AzureDevOps
+        git commit -m 'Refresh Azure DevOps Build spec and regenerate client'
+        git push --force-with-lease -u origin "$BRANCH"
+
+        if [ -z "$(gh pr list --head "$BRANCH" --state open --json number --jq '.[].number')" ]; then
+          gh pr create \
+            --head "$BRANCH" \
+            --base "${{ github.event.repository.default_branch }}" \
+            --title 'Refresh Azure DevOps Build spec and regenerate client' \
+            --body 'The official Azure DevOps Build spec
+        ([MicrosoftDocs/vsts-rest-api-specs](https://github.com/MicrosoftDocs/vsts-rest-api-specs),
+        `specification/build/6.0/build.json`) has changed. This updates the
+        committed `src/Dorc.AzureDevOps/build.json` and regenerates the client
+        from it.
+
+        Opened automatically by the `ado-build-spec-refresh` workflow. Review the
+        regenerated client for changes that affect `Dorc.Core`s
+        `AzureDevOpsServerWebClient` (build numbers and artifact locations)
+        before merging.
+
+        Note: pull requests opened with `GITHUB_TOKEN` do not start further
+        workflow runs. Close and reopen this pull request to run the build
+        against it.'
+        else
+          echo "An open pull request for $BRANCH already exists; pushed the update to it."
+        fi

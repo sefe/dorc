@@ -158,9 +158,9 @@ clients must always be committed together.
 From the `src/dorc-web` directory:
 
 ```bash
-npm run api-gen             # regenerate both clients
+npm run api-gen             # regenerate both clients from the committed specs
 npm run dorc-api-gen        # DOrc API TypeScript client (from src/apis/dorc-api/swagger.json)
-npm run ado-build-csharp-gen # Azure DevOps Build C# client (spec fetched from the official source)
+npm run ado-build-csharp-gen # Azure DevOps Build C# client (from src/Dorc.AzureDevOps/build.json)
 ```
 
 When a C# controller or API model changes, update
@@ -181,11 +181,17 @@ tree is pure generator output — app concerns live alongside, not inside:
 
 The Azure DevOps Build spec is authoritative at
 [MicrosoftDocs/vsts-rest-api-specs](https://github.com/MicrosoftDocs/vsts-rest-api-specs)
-(`specification/build/6.0/build.json`); generation fetches it fresh and
-falls back to the committed `src/Dorc.AzureDevOps/build.json` when offline.
-If upstream has changed, the regenerated client differs from the committed
-one and CI's in-sync gate flags it — regenerate and commit to adopt the
-update.
+(`specification/build/6.0/build.json`). Generation itself reads only the
+committed `src/Dorc.AzureDevOps/build.json`, so builds are hermetic and an
+upstream change can never turn an unrelated pull request red. The
+`ado-build-spec-refresh` workflow owns adopting upstream: it runs weekly (and
+on demand), fetches the official document, regenerates, and opens a pull
+request when anything changed. To do it by hand:
+
+```bash
+npm run ado-build-spec-refresh   # update the committed build.json from upstream
+npm run api-gen                  # regenerate against it
+```
 
 ## Project Structure
 

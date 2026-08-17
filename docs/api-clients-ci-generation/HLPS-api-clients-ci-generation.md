@@ -100,14 +100,19 @@ committed clients, the committed specs, and the C# API had all drifted apart:
    The client csproj is the only exclusion
    (`.openapi-generator-ignore`): dependabot owns its package versions.
    The spec is authoritative at MicrosoftDocs/vsts-rest-api-specs
-   (`specification/build/6.0/build.json`):
-   `npm run ado-build-csharp-gen` fetches it fresh
-   (`scripts/fetch-ado-build-spec.mjs`) and falls back to the committed
-   `build.json` when the fetch fails, so generation works offline and stays
-   deterministic. When upstream changes, the refreshed spec regenerates a
-   different client and CI's in-sync gate surfaces it as a failure asking
-   for the update to be reviewed and committed. (Verified at adoption time:
-   the committed copy was byte-identical to the official 6.0 spec.)
+   (`specification/build/6.0/build.json`), adopted via a **scheduled refresh
+   rather than a fetch during generation**. Generation reads only committed
+   specs, so builds are hermetic — the same commit always produces the same
+   clients, and a document Microsoft republishes cannot turn an unrelated
+   pull request red. The `ado-build-spec-refresh` workflow runs weekly and on
+   demand: it runs `scripts/fetch-ado-build-spec.mjs` (which overwrites
+   `build.json` only when the response validates as the Swagger 2.0 Build
+   spec, and otherwise warns and leaves the committed copy alone),
+   regenerates, and opens a pull request when anything changed. Upstream
+   stays authoritative; every adoption of it is reviewable and revertible.
+   (An earlier iteration fetched inside `api-gen`; it was moved out because
+   it made every build depend on an external resource. Verified at adoption
+   time: the committed copy was byte-identical to the official 6.0 spec.)
 7. **The Azure DevOps pipeline (`pipelines/dorc-build.yml`) is unchanged.**
    It runs on a self-hosted agent whose Java availability cannot be verified
    from this repo; the GitHub Actions workflow is the enforced path. Mirror
