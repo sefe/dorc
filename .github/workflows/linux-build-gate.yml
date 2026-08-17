@@ -157,8 +157,10 @@ jobs:
         run: |
           set -euo pipefail
           dotnet build src/Dorc.Api/Dorc.Api.csproj -c Release --no-restore --nologo 2>&1 | tee api-build.log
-          # Known Windows-only sites awaiting S-005 (WMI / service control).
-          backlog='WmiUtil\.cs|RefDataServersController\.cs|CoreRegistry\.cs|Program\.cs'
+          # Known Windows-only sites awaiting S-005 (WMI). This list must only ever shrink:
+          # S-004 moved the RefDataServers registry probe to the worker, so
+          # RefDataServersController and CoreRegistry came off it here.
+          backlog='WmiUtil\.cs|Program\.cs'
           # NOTE: `grep -vE ""` matches nothing, so an EMPTY backlog would silently turn this
           # into a permanent pass — i.e. reaching SC-1b's terminal state would DISABLE the
           # gate. Handle the empty case explicitly: with no backlog, any CA1416 is a failure.
