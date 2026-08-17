@@ -1,6 +1,7 @@
 ﻿using Dorc.ApiModel;
 using Dorc.ApiModel.MonitorRunnerApi;
 using Dorc.Core.Configuration;
+using Dorc.Core.Security;
 using Dorc.Monitor;
 using Dorc.Monitor.Pipes;
 using Dorc.PersistentData.Security;
@@ -36,6 +37,38 @@ namespace Dorc.Monitor.Tests
         private IConfigurationSettings _configurationSettings = null!;
         private IScriptScopeConfigValues _scriptScopeConfigValues = null!;
 
+        private readonly IDeploymentCredentialSource _credentialSource = TierAwareCredentialSource();
+
+        /// <summary>
+        /// A credential source that resolves, so these tests exercise what they are about rather
+        /// than the missing-credential path.
+        /// </summary>
+        private static IDeploymentCredentialSource CredentialSourceFor(string userName, string password)
+        {
+            var source = Substitute.For<IDeploymentCredentialSource>();
+            source.Description.Returns("test");
+            source.Resolve(Arg.Any<DeploymentTier>())
+                .Returns(new DeploymentCredential(userName, password));
+            return source;
+        }
+
+        /// <summary>
+        /// Tier selection now lives in the credential source, not the dispatcher — so this
+        /// returns a different account per tier, and the assertions below verify the dispatcher
+        /// asks for the RIGHT tier rather than that it knows which config key to read. The key
+        /// mapping is tested where it moved to.
+        /// </summary>
+        private static IDeploymentCredentialSource TierAwareCredentialSource()
+        {
+            var source = Substitute.For<IDeploymentCredentialSource>();
+            source.Description.Returns("test");
+            source.Resolve(DeploymentTier.Production)
+                .Returns(new DeploymentCredential(ProdAccount, "prod-password"));
+            source.Resolve(DeploymentTier.NonProduction)
+                .Returns(new DeploymentCredential(NonProdAccount, "nonprod-password"));
+            return source;
+        }
+
         [TestInitialize]
         public void Setup()
         {
@@ -60,7 +93,8 @@ namespace Dorc.Monitor.Tests
                 _pipeServer,
                 _configurationSettings,
                 Substitute.For<IRequestsPersistentSource>(),
-                _scriptScopeConfigValues);
+                _scriptScopeConfigValues,
+                _credentialSource);
 
         /// <summary>
         /// Dispatch is driven to the point where the Runner's security context is built and no
@@ -212,6 +246,21 @@ namespace Dorc.Monitor.Tests
     [TestClass]
     public class WithheldKeysAreNotDispatchedTests
     {
+        private const string _unused = "";
+
+        /// <summary>
+        /// A credential source that resolves, so these tests exercise what they are about rather
+        /// than the missing-credential path.
+        /// </summary>
+        private static IDeploymentCredentialSource CredentialSourceFor(string userName, string password)
+        {
+            var source = Substitute.For<IDeploymentCredentialSource>();
+            source.Description.Returns("test");
+            source.Resolve(Arg.Any<DeploymentTier>())
+                .Returns(new DeploymentCredential(userName, password));
+            return source;
+        }
+
         private const string Withheld = "DORC_ProdDeployPassword";
 
         [TestMethod]
@@ -236,7 +285,8 @@ namespace Dorc.Monitor.Tests
                 pipeServer,
                 settings,
                 Substitute.For<IRequestsPersistentSource>(),
-                scopeValues);
+                scopeValues,
+                CredentialSourceFor("svc-dorc", "password"));
 
             var properties = new Dictionary<string, VariableValue>
             {

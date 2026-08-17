@@ -1,11 +1,16 @@
-using Dorc.Core.Configuration;
+﻿using Dorc.Core.Configuration;
 using Microsoft.Extensions.Logging;
-using OnePassword.Connect.Client;
+using Dorc.Core.Secrets.OnePassword;
 
-namespace Dorc.Api.Services
+namespace Dorc.Core.Secrets
 {
     /// <summary>
-    /// Manages secrets using 1Password
+    /// Reads secrets from 1Password.
+    ///
+    /// Relocated out of the API assembly, where it could not be reached by the Monitor at all,
+    /// and out of a `Services` namespace, which the repository's naming standard names as a
+    /// dumping ground to avoid. Credential resolution needs it in both processes, so leaving it
+    /// where it was would have meant a second copy.
     /// </summary>
     public class OnePasswordSecretsReader : IConfigurationSecretsReader
     {
@@ -45,6 +50,9 @@ namespace Dorc.Api.Services
             var itemId = _config.GetOnePasswordItemId();
             return GetSecretByItemId(itemId, "DORC API secret");
         }
+
+        public string GetSecret(string itemId, string humanizedName) =>
+            GetSecretByItemId(itemId, humanizedName);
 
         private string GetSecretByItemId(string itemId, string humanizedName)
         {

@@ -4,6 +4,7 @@ using Dorc.Core;
 using Dorc.Core.AzureStorageAccount;
 using Dorc.Core.BuildServer;
 using Dorc.Core.Configuration;
+using Dorc.Core.Security;
 using Dorc.Monitor.Pipes;
 using Dorc.Monitor.RunnerProcess;
 using Dorc.Monitor.RunnerProcess.Interop.Windows.Kernel32;
@@ -21,11 +22,6 @@ namespace Dorc.Monitor
 {
     public class TerraformDispatcher : ITerraformDispatcher
     {
-        private const string ProdDeployUsernamePropertyName = "DORC_ProdDeployUsername";
-        private const string ProdDeployPasswordPropertyName = "DORC_ProdDeployPassword";
-        private const string NonProdDeployUsernamePropertyName = "DORC_NonProdDeployUsername";
-        private const string NonProdDeployPasswordPropertyName = "DORC_NonProdDeployPassword";
-
         private readonly ILogger logger;
         private readonly IRequestsPersistentSource _requestsPersistentSource;
         private readonly IConfigValuesPersistentSource _configValuesPersistentSource;
@@ -36,6 +32,7 @@ namespace Dorc.Monitor
         private readonly IProjectsPersistentSource _projectsPersistentSource;
         private readonly TerraformSourceConfigurator _sourceConfigurator;
         private readonly IScriptScopeConfigValues _scriptScopeConfigValues;
+        private readonly IDeploymentCredentialSource _credentialSource;
 
         private bool isScriptExecutionSuccessful; // This field is needed to be instance-wide since Runner process errors are processed as instance-wide events.
 
@@ -49,7 +46,8 @@ namespace Dorc.Monitor
             IAzureStorageAccountWorker azureStorageAccountWorker,
             IProjectsPersistentSource projectsPersistentSource,
             IGitHubHostValidator gitHubHostValidator,
-            IScriptScopeConfigValues scriptScopeConfigValues)
+            IScriptScopeConfigValues scriptScopeConfigValues,
+            IDeploymentCredentialSource credentialSource)
         {
             this.logger = logger;
             this._requestsPersistentSource = requestsPersistentSource;
@@ -60,6 +58,7 @@ namespace Dorc.Monitor
             this._azureStorageAccountWorker = azureStorageAccountWorker;
             this._projectsPersistentSource = projectsPersistentSource;
             this._scriptScopeConfigValues = scriptScopeConfigValues;
+            this._credentialSource = credentialSource;
             this._sourceConfigurator = new TerraformSourceConfigurator(logger, _configurationSettingsEngine, gitHubHostValidator);
         }
 
@@ -87,17 +86,24 @@ namespace Dorc.Monitor
 
             isScriptExecutionSuccessful = true;
 
-            var processCredentials = GetProcessCredentials(isProduction, environmentName);
-            string processAccountName = processCredentials.Item1;
-            string processAccountPassword = processCredentials.Item2;
-            if (string.IsNullOrEmpty(processAccountName)
-                || string.IsNullOrEmpty(processAccountPassword))
+            // See ScriptDispatcher: one resolution point rather than a copy per dispatch path.
+            var credential = _credentialSource.Resolve(
+                isProduction ? DeploymentTier.Production : DeploymentTier.NonProduction);
+
+            if (credential == null)
             {
-                logger.LogError($"Unable to find a valid DOrc Username or Password for environment '{environmentName}'.");
+                logger.LogError(
+                    "No deployment credential is available for environment '{EnvironmentName}'."
+                    + " Credentials are read from {Source}.",
+                    environmentName,
+                    _credentialSource.Description);
 
                 isScriptExecutionSuccessful = false;
                 return isScriptExecutionSuccessful;
             }
+
+            var processAccountName = credential.UserName;
+            var processAccountPassword = credential.Password;
 
             // Get request and project information for Terraform source configuration
             var request = _requestsPersistentSource.GetRequest(requestId);
@@ -314,25 +320,6 @@ namespace Dorc.Monitor
             return properties
                 .Where(property => !_scriptScopeConfigValues.IsWithheld(property.Key))
                 .ToDictionary(property => property.Key, property => property.Value);
-        }
-
-        private (string, string) GetProcessCredentials(bool isProduction, string environmentName)
-        {
-            if (isProduction)
-            {
-                return (GetConfigValue(ProdDeployUsernamePropertyName),
-                    GetConfigValue(ProdDeployPasswordPropertyName));
-            }
-
-            return (GetConfigValue(NonProdDeployUsernamePropertyName),
-                GetConfigValue(NonProdDeployPasswordPropertyName));
-        }
-
-        private string GetConfigValue(string configValue)
-        {
-            if (string.IsNullOrEmpty(configValue))
-                throw new ApplicationException($"Config value name is empty, should have a value");
-            return _configValuesPersistentSource.GetConfigValue(configValue);
         }
 
         private ScriptGroup GetScriptGroup(
