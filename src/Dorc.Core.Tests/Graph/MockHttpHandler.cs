@@ -10,6 +10,11 @@ namespace Dorc.Core.Tests.Graph
     internal sealed class MockHttpHandler : HttpMessageHandler
     {
         private readonly List<RouteRule> _rules = new();
+        private bool _disposed;
+
+        // Captured for test introspection (e.g. asserting on the URL/headers of an outbound call).
+        // Ownership of the HttpRequestMessage instances is retained by this handler and they are
+        // disposed in Dispose(disposing).
         public List<HttpRequestMessage> Requests { get; } = new();
 
         public MockHttpHandler Map(Func<HttpRequestMessage, bool> match, string jsonBody, HttpStatusCode status = HttpStatusCode.OK)
@@ -41,17 +46,17 @@ namespace Dorc.Core.Tests.Graph
         {
             Requests.Add(request);
 
-            foreach (var rule in _rules)
+            // Returned HttpResponseMessage ownership transfers to the Kiota request adapter,
+            // which disposes it after reading the body. We intentionally do not dispose it here.
+            var rule = _rules.FirstOrDefault(r => r.Match(request));
+            if (rule != null)
             {
-                if (rule.Match(request))
+                var response = new HttpResponseMessage(rule.Status);
+                if (rule.Status != HttpStatusCode.NotFound)
                 {
-                    var response = new HttpResponseMessage(rule.Status);
-                    if (rule.Status != HttpStatusCode.NotFound)
-                    {
-                        response.Content = new StringContent(rule.Body, Encoding.UTF8, "application/json");
-                    }
-                    return Task.FromResult(response);
+                    response.Content = new StringContent(rule.Body, Encoding.UTF8, "application/json");
                 }
+                return Task.FromResult(response);
             }
 
             // No rule matched — return 404 so unmatched calls surface as a failed test, not a hang.
@@ -60,6 +65,20 @@ namespace Dorc.Core.Tests.Graph
                 Content = new StringContent($"{{\"error\":{{\"code\":\"itemNotFound\",\"message\":\"No mock for {request.Method} {request.RequestUri}\"}}}}", Encoding.UTF8, "application/json")
             };
             return Task.FromResult(fallback);
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (!_disposed && disposing)
+            {
+                foreach (var req in Requests)
+                {
+                    req?.Dispose();
+                }
+                Requests.Clear();
+                _disposed = true;
+            }
+            base.Dispose(disposing);
         }
 
         private sealed record RouteRule(Func<HttpRequestMessage, bool> Match, string Body, HttpStatusCode Status);
