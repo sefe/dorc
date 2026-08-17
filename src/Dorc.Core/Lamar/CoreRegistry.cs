@@ -1,4 +1,5 @@
-using Dorc.Core.Interfaces;
+﻿using Dorc.Core.Interfaces;
+using Dorc.Core.Security;
 using Dorc.Core.VariableResolution;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Sources.Interfaces;
@@ -29,6 +30,21 @@ namespace Dorc.Core.Lamar
 
             For<IEnvBackups>().Use<EnvSnapBackups>();
             For<IPropertyExpressionEvaluator>().Use<PropertyExpressionEvaluator>();
+
+            // Where deployment credentials come from is a deployment-time choice, resolved once
+            // here rather than four times across two processes. The configuration-value source
+            // is the default: switching where the whole estate's deployment credentials come
+            // from is a deliberate act, not something a release performs on an operator's
+            // behalf. Selecting the vault-backed source is what removes those credentials from
+            // DOrc's database.
+            For<IDeploymentCredentialSource>().Use(context =>
+            {
+                var configuration = context.GetInstance<Configuration.IConfigurationSettings>();
+
+                return configuration.GetDeploymentCredentialsFromVault()
+                    ? context.GetInstance<Security.VaultDeploymentCredentialSource>()
+                    : context.GetInstance<Security.ConfigValueDeploymentCredentialSource>();
+            });
         }
     }
 }
