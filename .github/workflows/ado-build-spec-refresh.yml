@@ -122,7 +122,9 @@ jobs:
         # --force-with-lease guards against a concurrent *ref* update, not
         # against replacing history, so a reviewer's fixup pushed to this branch
         # would otherwise be discarded without warning. Refuse instead, and say
-        # what to do about it.
+        # what to do about it. This is a guard against losing work by accident:
+        # it matches on author and subject, which anyone with push access could
+        # deliberately reproduce, and the bot's commits are not signed.
         if git rev-parse --verify --quiet "refs/remotes/origin/$BRANCH" >/dev/null; then
           tip_author=$(git log -1 --format='%an' "refs/remotes/origin/$BRANCH")
           tip_subject=$(git log -1 --format='%s' "refs/remotes/origin/$BRANCH")

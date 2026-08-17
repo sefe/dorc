@@ -12,8 +12,10 @@ export default [
   eslintConfigPrettier,
   { rules: { '@typescript-eslint/no-explicit-any': 0 } },
   {
-    // Build tooling under scripts/ runs in Node, not the browser: it needs
-    // process, and none of the browser globals.
+    // Build tooling under scripts/ runs in Node and needs process. Flat
+    // config merges globals across matching blocks rather than replacing
+    // them, so these files end up with the browser globals from the block
+    // above as well — this widens what is allowed, it does not restrict it.
     files: ['scripts/**/*.{js,mjs}'],
     languageOptions: { globals: globals.node },
   },
