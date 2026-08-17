@@ -7,27 +7,23 @@ import { OAUTH_SCHEME, oauthServiceContainer } from './Account/OAuthService';
 // page with N requests in flight starts N of them.
 let signInRedirectStarted = false;
 
-// How long to assume a started sign-in is still going. OAuthService.signIn()
-// swallows its own rejection, so a redirect that never happens — identity
-// provider down, captive portal — is invisible from here. Latching forever on
-// that would leave the app failing every request with no login prompt and no
-// way back, so the latch lapses and a later request may try again. A
-// successful redirect unloads the page long before this fires.
-const SIGN_IN_RETRY_AFTER_MS = 15_000;
-
 /** Test seam: the latch is module state and outlives an individual test. */
 export function resetSignInStateForTests(): void {
   signInRedirectStarted = false;
 }
 
+// If signIn() never navigates (identity provider unreachable) the latch holds
+// for the life of the page and no login prompt appears. A timed lapse was
+// tried and removed: location.assign() leaves the document running until the
+// new one commits, so under the slow identity provider the lapse is meant to
+// survive it fires mid-redirect and starts a second navigation that cancels
+// the first. Reloading the page clears this state, which is the same recourse
+// the user has for an unreachable identity provider anyway.
 function redirectToSignIn(): void {
   if (signInRedirectStarted) {
     return;
   }
   signInRedirectStarted = true;
-  setTimeout(() => {
-    signInRedirectStarted = false;
-  }, SIGN_IN_RETRY_AFTER_MS);
   // signIn() rather than location.assign('/signin.html'): it stores the
   // current URL under "lastUrl" so signInCallback can return the user to the
   // page they were on. /signin.html is a static page with a manual button and

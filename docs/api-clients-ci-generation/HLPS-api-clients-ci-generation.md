@@ -69,15 +69,10 @@ committed clients, the committed specs, and the C# API had all drifted apart:
    - A server-side 401 on a token the client believes valid (revocation,
      failed introspection, clock skew) no longer hard-redirects to sign-in:
      the generated runtime exposes no error hook, and `post` middleware runs
-     only on success. An earlier draft of this document claimed a manual
-     refresh recovers; round 2 of the review disproved that — `getUser()`
-     returns the stored expired user, the router's `!user ||
-     !user.access_token` guard passes, and the app reloads into the same
-     failing state. Recovery is instead restored at the real cause:
-     `OAuthService` now signs in again when *silent renewal* fails, which is
-     the signal that the session at the identity provider is genuinely gone.
-     The residual gap is a 401 with a renewable session, which renewal fixes
-     on its own. See U-5.
+     only on success. **This is unresolved and escalated — see U-5.** Two
+     attempts to close it were made and both withdrawn under review; the
+     history is recorded there because the obvious fixes are wrong in
+     non-obvious ways.
    - An expiring token is now sent rather than short-circuited, because
      `user.expired` is true during silent renewal and redirecting there would
      throw the user out mid-renewal. Sign-in is triggered only when there is
@@ -185,6 +180,6 @@ committed clients, the committed specs, and the C# API had all drifted apart:
 | U-2 | Should `swagger.json` itself be generated from the C# build (e.g. Swashbuckle CLI) instead of hand-maintained? | OPEN — would close the remaining C#→spec drift gap; needs API bootstrapping work. |
 | U-3 | Java availability on the ADO self-hosted agent (`TRADING-DOTNET-03`). | OPEN — blocks mirroring the gate into `pipelines/dorc-build.yml`. |
 | U-4 | The generator jar is downloaded from Maven Central per generating job, unpinned by checksum and uncached. A Maven outage reddens unrelated PRs; a compromised artefact would author committed source. | OPEN — mitigations: cache `~/.openapi-generator-cli`, or vendor/pin the jar by hash. |
-| U-5 | No *direct* 401 recovery path: the generated runtime exposes no error seam. Mitigated by re-signing-in on silent-renewal failure, which covers the session-gone case; a 401 from a server-side rejection of an otherwise-valid token still surfaces only as a failed request. | PARTIALLY MITIGATED — a thin wrapper around the generated APIs, or an rxjs global error handler, would close it fully. |
+| U-5 | **No 401 recovery path. ESCALATED — needs a designed fix, not a patch.** The generated runtime exposes no error seam (`post` middleware runs only on success). Two attempts were made and both reverted after review: (a) redirecting when `user.expired` — wrong, because `expired` is true during normal silent renewal, so it evicts users mid-renewal; (b) calling `signIn()` when silent renewal rejects — worse, and reverted in round 3. Silent renew uses a hidden iframe, so Safari/Firefox third-party-cookie blocking returns `login_required` while the *same* session succeeds top-level: that produces an unbreakable redirect loop with period `expires_in - 60`s, floored at 1s. It also pre-empts oidc-client-ts's own `ErrorTimeout` retry (every 5s, indefinitely), cancelling recovery that already worked. A correct fix must use `events.addSilentRenewError` (which fires only after the library's retry is exhausted), discriminate on `err instanceof ErrorResponse && err.error === 'login_required' \| 'interaction_required'`, drop the duplicate `addAccessTokenExpiring` registration in `OAuthService` (the library registers its own, so `signinSilent()` currently runs twice per expiry), and carry a persisted attempt marker so a renew-fails-immediately-after-sign-in condition cannot loop. Out of scope for this branch. | OPEN — own PR. |
 | U-7 | Nothing enforces that generated APIs are constructed with `dorcApiConfiguration`; `new FooApi()` compiles and silently loses both credentials and bearer token. All 175 sites are correct today. | OPEN — wants a lint rule. |
 | U-6 | `.gitignore` inside the generated tree (`dist`, `typings`, `node_modules`, `wwwroot/*.js`) would hide drift in those paths from `git ls-files --others`. Dormant: the pinned generator emits none of them. | OPEN — monitor on generator upgrades. |

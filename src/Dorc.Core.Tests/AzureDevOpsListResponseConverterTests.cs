@@ -31,6 +31,23 @@ namespace Dorc.Core.Tests
             return settings;
         }
 
+        /// <summary>
+        /// The converter is only reached at runtime because the factory puts it
+        /// on ApiClient.SerializerSettings. Nothing else asserts that wiring, so
+        /// a generator change that stopped routing SerializerSettings into the
+        /// codec would leave every converter test above green while every real
+        /// Azure DevOps list call broke.
+        /// </summary>
+        [TestMethod]
+        public void FactoryWiresTheConverterIntoTheApiClient()
+        {
+            var client = AzureDevOpsApiClientFactory.Create("https://dev.azure.com/");
+
+            Assert.IsTrue(
+                client.SerializerSettings.Converters.OfType<AzureDevOpsListResponseConverter>().Any(),
+                "AzureDevOpsApiClientFactory must register the list-envelope converter.");
+        }
+
         [TestMethod]
         public void UnwrapsCountValueEnvelopeIntoList()
         {
@@ -148,13 +165,22 @@ namespace Dorc.Core.Tests
                 () => JsonConvert.DeserializeObject<List<Build>>(@"""hello""", ProductionSettings()));
         }
 
+        /// <summary>
+        /// Asserts on the message, not merely the exception type: deserializing
+        /// this payload throws either way, because enumerating a JObject yields
+        /// JProperty tokens that ToObject rejects on its own. Only the message
+        /// distinguishes the guard below from that incidental failure, so
+        /// without this the test would pass with the guard removed.
+        /// </summary>
         [TestMethod]
         public void ThrowsWhenEnvelopeValueIsASingleObject()
         {
             var json = @"{""count"":1,""value"":{""id"":1}}";
 
-            Assert.ThrowsExactly<JsonSerializationException>(
+            var exception = Assert.ThrowsExactly<JsonSerializationException>(
                 () => JsonConvert.DeserializeObject<List<Build>>(json, ProductionSettings()));
+
+            StringAssert.Contains(exception.Message, "but the payload was");
         }
     }
 }

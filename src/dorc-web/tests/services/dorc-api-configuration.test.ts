@@ -92,7 +92,16 @@ describe('dorcApiConfiguration', () => {
     try {
       const api = new RefDataProjectsApi(dorcApiConfiguration);
       api.refDataProjectsGet().subscribe({ next: () => {}, error: () => {} });
-      const observed = await sent;
+      // Bounded: if the transport ever stops calling send() synchronously,
+      // `sent` would never settle, the finally below would never run, and the
+      // patched prototypes would leak into every later test in this worker.
+      // Fail fast instead of corrupting the rest of the suite.
+      const observed = await Promise.race([
+        sent,
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('no XHR was sent within 5s')), 5_000)
+        )
+      ]);
 
       expect(observed.withCredentials).to.equal(true);
       expect(observed.url).to.contain('/RefDataProjects');

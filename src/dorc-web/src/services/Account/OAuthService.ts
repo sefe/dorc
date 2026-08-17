@@ -140,16 +140,7 @@ export class OAuthService {
         this._signedInUser = user;
         console.log('silent renew success');
       })
-      .catch(err => {
-        console.log('silent renew error', err);
-        // Renewal failing means the session at the identity provider is gone,
-        // not merely that the access token aged out. Without this the stored
-        // user stays in place, expired, and every subsequent request 401s with
-        // nothing to recover it: getUser() keeps returning that expired user,
-        // so even a manual refresh reloads straight back into the same state.
-        // Sign in again and let the redirect restore the current page.
-        this.signIn();
-      });
+      .catch(err => console.log('silent renew error', err));
   }
 }
 
