@@ -91,9 +91,26 @@ namespace Dorc.Core
 
         private static string EscapeODataString(string s) => s?.Replace("'", "''") ?? string.Empty;
 
+        // Allowed characters for a directory search term. NOTE: the hyphen is intentionally last
+        // so it is a literal, not a range. A previous version used "'-_" which is a character
+        // RANGE (0x27-0x5F) that silently permitted metacharacters such as * ( ) and \.
+        // Carried over from ActiveDirectorySearcher, which this class replaces: the LDAP filter
+        // is gone but the input validation it guarded is transport-agnostic and still required.
+        internal static bool IsValidSearchName(string name)
+        {
+            return name != null && Regex.IsMatch(name, @"^[a-zA-Z0-9'_. -]+(\(External\))?$");
+        }
+
         public List<UserElementApiModel> Search(string objectName)
         {
             var output = new List<UserElementApiModel>();
+
+            // Parity with the replaced ActiveDirectorySearcher.Search: reject malformed search
+            // terms outright rather than round-tripping them to Graph.
+            if (!IsValidSearchName(objectName))
+            {
+                return output;
+            }
 
             var graphClient = GetGraphClient();
 
@@ -354,9 +371,9 @@ namespace Dorc.Core
 
         public UserElementApiModel GetUserData(string username)
         {
-            if (!Regex.IsMatch(username, @"^[a-zA-Z'-_. ]+(\(External\))?$"))
+            if (!IsValidSearchName(username))
             {
-                throw new ArgumentException("Invalid search criteria. Search criteria must be \"^[a-zA-Z-_. ]+(\\(External\\))?$\"!");
+                throw new ArgumentException("Invalid search criteria. Search criteria must match \"^[a-zA-Z0-9'_. -]+(\\(External\\))?$\"!");
             }
 
             var graphClient = GetGraphClient();
