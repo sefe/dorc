@@ -12,6 +12,13 @@
 using Xunit;
 
 using System;
+using System.Linq;
+using System.IO;
+using System.Collections.Generic;
+using Org.OpenAPITools.Model;
+using Org.OpenAPITools.Client;
+using System.Reflection;
+using Newtonsoft.Json;
 
 namespace Org.OpenAPITools.Test.Model
 {
@@ -48,7 +55,6 @@ namespace Org.OpenAPITools.Test.Model
             //Assert.IsType<AggregatedResultsDifference>(instance);
         }
 
-
         /// <summary>
         /// Test the property 'IncreaseInDuration'
         /// </summary>
@@ -57,6 +63,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'IncreaseInDuration'
         }
+
         /// <summary>
         /// Test the property 'IncreaseInFailures'
         /// </summary>
@@ -65,6 +72,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'IncreaseInFailures'
         }
+
         /// <summary>
         /// Test the property 'IncreaseInNonImpactedTests'
         /// </summary>
@@ -73,6 +81,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'IncreaseInNonImpactedTests'
         }
+
         /// <summary>
         /// Test the property 'IncreaseInOtherTests'
         /// </summary>
@@ -81,6 +90,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'IncreaseInOtherTests'
         }
+
         /// <summary>
         /// Test the property 'IncreaseInPassedTests'
         /// </summary>
@@ -89,6 +99,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'IncreaseInPassedTests'
         }
+
         /// <summary>
         /// Test the property 'IncreaseInTotalTests'
         /// </summary>
@@ -97,7 +108,5 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'IncreaseInTotalTests'
         }
-
     }
-
 }

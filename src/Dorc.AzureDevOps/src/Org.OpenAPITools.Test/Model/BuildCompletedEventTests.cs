@@ -12,6 +12,13 @@
 using Xunit;
 
 using System;
+using System.Linq;
+using System.IO;
+using System.Collections.Generic;
+using Org.OpenAPITools.Model;
+using Org.OpenAPITools.Client;
+using System.Reflection;
+using Newtonsoft.Json;
 
 namespace Org.OpenAPITools.Test.Model
 {
@@ -48,7 +55,6 @@ namespace Org.OpenAPITools.Test.Model
             //Assert.IsType<BuildCompletedEvent>(instance);
         }
 
-
         /// <summary>
         /// Test the property 'Changes'
         /// </summary>
@@ -57,6 +63,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'Changes'
         }
+
         /// <summary>
         /// Test the property 'PullRequest'
         /// </summary>
@@ -65,6 +72,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'PullRequest'
         }
+
         /// <summary>
         /// Test the property 'TestResults'
         /// </summary>
@@ -73,6 +81,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'TestResults'
         }
+
         /// <summary>
         /// Test the property 'TimelineRecords'
         /// </summary>
@@ -81,6 +90,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'TimelineRecords'
         }
+
         /// <summary>
         /// Test the property 'WorkItems'
         /// </summary>
@@ -89,6 +99,16 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'WorkItems'
         }
+
+        /// <summary>
+        /// Test the property 'Build'
+        /// </summary>
+        [Fact]
+        public void BuildTest()
+        {
+            // TODO unit test for the property 'Build'
+        }
+
         /// <summary>
         /// Test the property 'BuildId'
         /// </summary>
@@ -97,7 +117,5 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'BuildId'
         }
-
     }
-
 }

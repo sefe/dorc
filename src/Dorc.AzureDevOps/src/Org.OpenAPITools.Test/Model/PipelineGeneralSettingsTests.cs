@@ -12,6 +12,13 @@
 using Xunit;
 
 using System;
+using System.Linq;
+using System.IO;
+using System.Collections.Generic;
+using Org.OpenAPITools.Model;
+using Org.OpenAPITools.Client;
+using System.Reflection;
+using Newtonsoft.Json;
 
 namespace Org.OpenAPITools.Test.Model
 {
@@ -48,7 +55,6 @@ namespace Org.OpenAPITools.Test.Model
             //Assert.IsType<PipelineGeneralSettings>(instance);
         }
 
-
         /// <summary>
         /// Test the property 'EnforceJobAuthScope'
         /// </summary>
@@ -57,6 +63,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'EnforceJobAuthScope'
         }
+
         /// <summary>
         /// Test the property 'EnforceReferencedRepoScopedToken'
         /// </summary>
@@ -65,6 +72,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'EnforceReferencedRepoScopedToken'
         }
+
         /// <summary>
         /// Test the property 'EnforceSettableVar'
         /// </summary>
@@ -73,6 +81,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'EnforceSettableVar'
         }
+
         /// <summary>
         /// Test the property 'PublishPipelineMetadata'
         /// </summary>
@@ -81,6 +90,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'PublishPipelineMetadata'
         }
+
         /// <summary>
         /// Test the property 'StatusBadgesArePrivate'
         /// </summary>
@@ -89,7 +99,5 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'StatusBadgesArePrivate'
         }
-
     }
-
 }

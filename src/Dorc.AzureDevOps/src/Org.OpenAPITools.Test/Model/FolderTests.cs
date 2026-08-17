@@ -12,6 +12,13 @@
 using Xunit;
 
 using System;
+using System.Linq;
+using System.IO;
+using System.Collections.Generic;
+using Org.OpenAPITools.Model;
+using Org.OpenAPITools.Client;
+using System.Reflection;
+using Newtonsoft.Json;
 
 namespace Org.OpenAPITools.Test.Model
 {
@@ -48,7 +55,6 @@ namespace Org.OpenAPITools.Test.Model
             //Assert.IsType<Folder>(instance);
         }
 
-
         /// <summary>
         /// Test the property 'CreatedBy'
         /// </summary>
@@ -57,6 +63,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'CreatedBy'
         }
+
         /// <summary>
         /// Test the property 'CreatedOn'
         /// </summary>
@@ -65,6 +72,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'CreatedOn'
         }
+
         /// <summary>
         /// Test the property 'Description'
         /// </summary>
@@ -73,6 +81,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'Description'
         }
+
         /// <summary>
         /// Test the property 'LastChangedBy'
         /// </summary>
@@ -81,6 +90,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'LastChangedBy'
         }
+
         /// <summary>
         /// Test the property 'LastChangedDate'
         /// </summary>
@@ -89,6 +99,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'LastChangedDate'
         }
+
         /// <summary>
         /// Test the property 'Path'
         /// </summary>
@@ -97,6 +108,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'Path'
         }
+
         /// <summary>
         /// Test the property 'Project'
         /// </summary>
@@ -105,7 +117,5 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'Project'
         }
-
     }
-
 }

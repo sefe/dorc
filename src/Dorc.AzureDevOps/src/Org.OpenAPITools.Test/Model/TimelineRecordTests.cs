@@ -12,6 +12,13 @@
 using Xunit;
 
 using System;
+using System.Linq;
+using System.IO;
+using System.Collections.Generic;
+using Org.OpenAPITools.Model;
+using Org.OpenAPITools.Client;
+using System.Reflection;
+using Newtonsoft.Json;
 
 namespace Org.OpenAPITools.Test.Model
 {
@@ -48,7 +55,6 @@ namespace Org.OpenAPITools.Test.Model
             //Assert.IsType<TimelineRecord>(instance);
         }
 
-
         /// <summary>
         /// Test the property 'Links'
         /// </summary>
@@ -57,6 +63,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'Links'
         }
+
         /// <summary>
         /// Test the property 'Attempt'
         /// </summary>
@@ -65,6 +72,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'Attempt'
         }
+
         /// <summary>
         /// Test the property 'ChangeId'
         /// </summary>
@@ -73,6 +81,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'ChangeId'
         }
+
         /// <summary>
         /// Test the property 'CurrentOperation'
         /// </summary>
@@ -81,6 +90,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'CurrentOperation'
         }
+
         /// <summary>
         /// Test the property 'Details'
         /// </summary>
@@ -89,6 +99,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'Details'
         }
+
         /// <summary>
         /// Test the property 'ErrorCount'
         /// </summary>
@@ -97,6 +108,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'ErrorCount'
         }
+
         /// <summary>
         /// Test the property 'FinishTime'
         /// </summary>
@@ -105,6 +117,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'FinishTime'
         }
+
         /// <summary>
         /// Test the property 'Id'
         /// </summary>
@@ -113,6 +126,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'Id'
         }
+
         /// <summary>
         /// Test the property 'Identifier'
         /// </summary>
@@ -121,6 +135,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'Identifier'
         }
+
         /// <summary>
         /// Test the property 'Issues'
         /// </summary>
@@ -129,6 +144,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'Issues'
         }
+
         /// <summary>
         /// Test the property 'LastModified'
         /// </summary>
@@ -137,6 +153,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'LastModified'
         }
+
         /// <summary>
         /// Test the property 'Log'
         /// </summary>
@@ -145,6 +162,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'Log'
         }
+
         /// <summary>
         /// Test the property 'Name'
         /// </summary>
@@ -153,6 +171,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'Name'
         }
+
         /// <summary>
         /// Test the property 'Order'
         /// </summary>
@@ -161,6 +180,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'Order'
         }
+
         /// <summary>
         /// Test the property 'ParentId'
         /// </summary>
@@ -169,6 +189,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'ParentId'
         }
+
         /// <summary>
         /// Test the property 'PercentComplete'
         /// </summary>
@@ -177,6 +198,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'PercentComplete'
         }
+
         /// <summary>
         /// Test the property 'PreviousAttempts'
         /// </summary>
@@ -185,6 +207,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'PreviousAttempts'
         }
+
         /// <summary>
         /// Test the property 'QueueId'
         /// </summary>
@@ -193,6 +216,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'QueueId'
         }
+
         /// <summary>
         /// Test the property 'Result'
         /// </summary>
@@ -201,6 +225,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'Result'
         }
+
         /// <summary>
         /// Test the property 'ResultCode'
         /// </summary>
@@ -209,6 +234,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'ResultCode'
         }
+
         /// <summary>
         /// Test the property 'StartTime'
         /// </summary>
@@ -217,6 +243,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'StartTime'
         }
+
         /// <summary>
         /// Test the property 'State'
         /// </summary>
@@ -225,6 +252,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'State'
         }
+
         /// <summary>
         /// Test the property 'Task'
         /// </summary>
@@ -233,6 +261,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'Task'
         }
+
         /// <summary>
         /// Test the property 'Type'
         /// </summary>
@@ -241,6 +270,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'Type'
         }
+
         /// <summary>
         /// Test the property 'Url'
         /// </summary>
@@ -249,6 +279,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'Url'
         }
+
         /// <summary>
         /// Test the property 'WarningCount'
         /// </summary>
@@ -257,6 +288,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'WarningCount'
         }
+
         /// <summary>
         /// Test the property 'WorkerName'
         /// </summary>
@@ -265,7 +297,5 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'WorkerName'
         }
-
     }
-
 }

@@ -12,6 +12,13 @@
 using Xunit;
 
 using System;
+using System.Linq;
+using System.IO;
+using System.Collections.Generic;
+using Org.OpenAPITools.Model;
+using Org.OpenAPITools.Client;
+using System.Reflection;
+using Newtonsoft.Json;
 
 namespace Org.OpenAPITools.Test.Model
 {
@@ -48,7 +55,6 @@ namespace Org.OpenAPITools.Test.Model
             //Assert.IsType<AggregatedResultsAnalysis>(instance);
         }
 
-
         /// <summary>
         /// Test the property 'Duration'
         /// </summary>
@@ -57,6 +63,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'Duration'
         }
+
         /// <summary>
         /// Test the property 'NotReportedResultsByOutcome'
         /// </summary>
@@ -65,6 +72,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'NotReportedResultsByOutcome'
         }
+
         /// <summary>
         /// Test the property 'PreviousContext'
         /// </summary>
@@ -73,6 +81,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'PreviousContext'
         }
+
         /// <summary>
         /// Test the property 'ResultsByOutcome'
         /// </summary>
@@ -81,6 +90,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'ResultsByOutcome'
         }
+
         /// <summary>
         /// Test the property 'ResultsDifference'
         /// </summary>
@@ -89,6 +99,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'ResultsDifference'
         }
+
         /// <summary>
         /// Test the property 'RunSummaryByOutcome'
         /// </summary>
@@ -97,6 +108,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'RunSummaryByOutcome'
         }
+
         /// <summary>
         /// Test the property 'RunSummaryByState'
         /// </summary>
@@ -105,6 +117,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'RunSummaryByState'
         }
+
         /// <summary>
         /// Test the property 'TotalTests'
         /// </summary>
@@ -113,7 +126,5 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'TotalTests'
         }
-
     }
-
 }

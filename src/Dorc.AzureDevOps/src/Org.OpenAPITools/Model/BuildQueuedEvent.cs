@@ -30,16 +30,24 @@ namespace Org.OpenAPITools.Model
     /// BuildQueuedEvent
     /// </summary>
     [DataContract(Name = "BuildQueuedEvent")]
-    public partial class BuildQueuedEvent : IEquatable<BuildQueuedEvent>, IValidatableObject
+    public partial class BuildQueuedEvent : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="BuildQueuedEvent" /> class.
         /// </summary>
+        /// <param name="build">build.</param>
         /// <param name="buildId">buildId.</param>
-        public BuildQueuedEvent(int buildId = default(int))
+        public BuildQueuedEvent(Build build = default, int buildId = default)
         {
+            this.Build = build;
             this.BuildId = buildId;
         }
+
+        /// <summary>
+        /// Gets or Sets Build
+        /// </summary>
+        [DataMember(Name = "build", EmitDefaultValue = false)]
+        public Build Build { get; set; }
 
         /// <summary>
         /// Gets or Sets BuildId
@@ -55,6 +63,7 @@ namespace Org.OpenAPITools.Model
         {
             StringBuilder sb = new StringBuilder();
             sb.Append("class BuildQueuedEvent {\n");
+            sb.Append("  Build: ").Append(Build).Append("\n");
             sb.Append("  BuildId: ").Append(BuildId).Append("\n");
             sb.Append("}\n");
             return sb.ToString();
@@ -70,53 +79,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as BuildQueuedEvent);
-        }
-
-        /// <summary>
-        /// Returns true if BuildQueuedEvent instances are equal
-        /// </summary>
-        /// <param name="input">Instance of BuildQueuedEvent to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(BuildQueuedEvent input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.BuildId == input.BuildId ||
-                    this.BuildId.Equals(input.BuildId)
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                hashCode = (hashCode * 59) + this.BuildId.GetHashCode();
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

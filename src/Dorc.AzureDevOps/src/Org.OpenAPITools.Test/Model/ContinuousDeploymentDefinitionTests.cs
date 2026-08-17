@@ -12,6 +12,13 @@
 using Xunit;
 
 using System;
+using System.Linq;
+using System.IO;
+using System.Collections.Generic;
+using Org.OpenAPITools.Model;
+using Org.OpenAPITools.Client;
+using System.Reflection;
+using Newtonsoft.Json;
 
 namespace Org.OpenAPITools.Test.Model
 {
@@ -48,7 +55,6 @@ namespace Org.OpenAPITools.Test.Model
             //Assert.IsType<ContinuousDeploymentDefinition>(instance);
         }
 
-
         /// <summary>
         /// Test the property 'ConnectedService'
         /// </summary>
@@ -57,6 +63,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'ConnectedService'
         }
+
         /// <summary>
         /// Test the property 'Definition'
         /// </summary>
@@ -65,6 +72,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'Definition'
         }
+
         /// <summary>
         /// Test the property 'GitBranch'
         /// </summary>
@@ -73,6 +81,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'GitBranch'
         }
+
         /// <summary>
         /// Test the property 'HostedServiceName'
         /// </summary>
@@ -81,6 +90,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'HostedServiceName'
         }
+
         /// <summary>
         /// Test the property 'Project'
         /// </summary>
@@ -89,6 +99,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'Project'
         }
+
         /// <summary>
         /// Test the property 'RepositoryId'
         /// </summary>
@@ -97,6 +108,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'RepositoryId'
         }
+
         /// <summary>
         /// Test the property 'StorageAccountName'
         /// </summary>
@@ -105,6 +117,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'StorageAccountName'
         }
+
         /// <summary>
         /// Test the property 'SubscriptionId'
         /// </summary>
@@ -113,6 +126,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'SubscriptionId'
         }
+
         /// <summary>
         /// Test the property 'Website'
         /// </summary>
@@ -121,6 +135,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'Website'
         }
+
         /// <summary>
         /// Test the property 'Webspace'
         /// </summary>
@@ -129,7 +144,5 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'Webspace'
         }
-
     }
-
 }

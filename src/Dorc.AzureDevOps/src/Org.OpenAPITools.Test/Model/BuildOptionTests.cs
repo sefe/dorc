@@ -12,6 +12,13 @@
 using Xunit;
 
 using System;
+using System.Linq;
+using System.IO;
+using System.Collections.Generic;
+using Org.OpenAPITools.Model;
+using Org.OpenAPITools.Client;
+using System.Reflection;
+using Newtonsoft.Json;
 
 namespace Org.OpenAPITools.Test.Model
 {
@@ -48,7 +55,6 @@ namespace Org.OpenAPITools.Test.Model
             //Assert.IsType<BuildOption>(instance);
         }
 
-
         /// <summary>
         /// Test the property 'Definition'
         /// </summary>
@@ -57,6 +63,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'Definition'
         }
+
         /// <summary>
         /// Test the property 'Enabled'
         /// </summary>
@@ -65,6 +72,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'Enabled'
         }
+
         /// <summary>
         /// Test the property 'Inputs'
         /// </summary>
@@ -73,7 +81,5 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'Inputs'
         }
-
     }
-
 }

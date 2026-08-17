@@ -30,18 +30,20 @@ namespace Org.OpenAPITools.Model
     /// BuildTagsAddedEvent
     /// </summary>
     [DataContract(Name = "BuildTagsAddedEvent")]
-    public partial class BuildTagsAddedEvent : IEquatable<BuildTagsAddedEvent>, IValidatableObject
+    public partial class BuildTagsAddedEvent : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="BuildTagsAddedEvent" /> class.
         /// </summary>
         /// <param name="allTags">allTags.</param>
         /// <param name="newTags">newTags.</param>
+        /// <param name="build">build.</param>
         /// <param name="buildId">buildId.</param>
-        public BuildTagsAddedEvent(List<string> allTags = default(List<string>), List<string> newTags = default(List<string>), int buildId = default(int))
+        public BuildTagsAddedEvent(List<string> allTags = default, List<string> newTags = default, Build build = default, int buildId = default)
         {
             this.AllTags = allTags;
             this.NewTags = newTags;
+            this.Build = build;
             this.BuildId = buildId;
         }
 
@@ -56,6 +58,12 @@ namespace Org.OpenAPITools.Model
         /// </summary>
         [DataMember(Name = "newTags", EmitDefaultValue = false)]
         public List<string> NewTags { get; set; }
+
+        /// <summary>
+        /// Gets or Sets Build
+        /// </summary>
+        [DataMember(Name = "build", EmitDefaultValue = false)]
+        public Build Build { get; set; }
 
         /// <summary>
         /// Gets or Sets BuildId
@@ -73,6 +81,7 @@ namespace Org.OpenAPITools.Model
             sb.Append("class BuildTagsAddedEvent {\n");
             sb.Append("  AllTags: ").Append(AllTags).Append("\n");
             sb.Append("  NewTags: ").Append(NewTags).Append("\n");
+            sb.Append("  Build: ").Append(Build).Append("\n");
             sb.Append("  BuildId: ").Append(BuildId).Append("\n");
             sb.Append("}\n");
             return sb.ToString();
@@ -88,73 +97,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as BuildTagsAddedEvent);
-        }
-
-        /// <summary>
-        /// Returns true if BuildTagsAddedEvent instances are equal
-        /// </summary>
-        /// <param name="input">Instance of BuildTagsAddedEvent to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(BuildTagsAddedEvent input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.AllTags == input.AllTags ||
-                    this.AllTags != null &&
-                    input.AllTags != null &&
-                    this.AllTags.SequenceEqual(input.AllTags)
-                ) && 
-                (
-                    this.NewTags == input.NewTags ||
-                    this.NewTags != null &&
-                    input.NewTags != null &&
-                    this.NewTags.SequenceEqual(input.NewTags)
-                ) && 
-                (
-                    this.BuildId == input.BuildId ||
-                    this.BuildId.Equals(input.BuildId)
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.AllTags != null)
-                {
-                    hashCode = (hashCode * 59) + this.AllTags.GetHashCode();
-                }
-                if (this.NewTags != null)
-                {
-                    hashCode = (hashCode * 59) + this.NewTags.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.BuildId.GetHashCode();
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

@@ -12,6 +12,13 @@
 using Xunit;
 
 using System;
+using System.Linq;
+using System.IO;
+using System.Collections.Generic;
+using Org.OpenAPITools.Model;
+using Org.OpenAPITools.Client;
+using System.Reflection;
+using Newtonsoft.Json;
 
 namespace Org.OpenAPITools.Test.Model
 {
@@ -48,7 +55,6 @@ namespace Org.OpenAPITools.Test.Model
             //Assert.IsType<DataSourceBindingBase>(instance);
         }
 
-
         /// <summary>
         /// Test the property 'CallbackContextTemplate'
         /// </summary>
@@ -57,6 +63,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'CallbackContextTemplate'
         }
+
         /// <summary>
         /// Test the property 'CallbackRequiredTemplate'
         /// </summary>
@@ -65,6 +72,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'CallbackRequiredTemplate'
         }
+
         /// <summary>
         /// Test the property 'DataSourceName'
         /// </summary>
@@ -73,6 +81,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'DataSourceName'
         }
+
         /// <summary>
         /// Test the property 'EndpointId'
         /// </summary>
@@ -81,6 +90,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'EndpointId'
         }
+
         /// <summary>
         /// Test the property 'EndpointUrl'
         /// </summary>
@@ -89,6 +99,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'EndpointUrl'
         }
+
         /// <summary>
         /// Test the property 'Headers'
         /// </summary>
@@ -97,6 +108,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'Headers'
         }
+
         /// <summary>
         /// Test the property 'InitialContextTemplate'
         /// </summary>
@@ -105,6 +117,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'InitialContextTemplate'
         }
+
         /// <summary>
         /// Test the property 'Parameters'
         /// </summary>
@@ -113,6 +126,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'Parameters'
         }
+
         /// <summary>
         /// Test the property 'RequestContent'
         /// </summary>
@@ -121,6 +135,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'RequestContent'
         }
+
         /// <summary>
         /// Test the property 'RequestVerb'
         /// </summary>
@@ -129,6 +144,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'RequestVerb'
         }
+
         /// <summary>
         /// Test the property 'ResultSelector'
         /// </summary>
@@ -137,6 +153,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'ResultSelector'
         }
+
         /// <summary>
         /// Test the property 'ResultTemplate'
         /// </summary>
@@ -145,6 +162,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'ResultTemplate'
         }
+
         /// <summary>
         /// Test the property 'Target'
         /// </summary>
@@ -153,7 +171,5 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'Target'
         }
-
     }
-
 }

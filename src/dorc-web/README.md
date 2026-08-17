@@ -193,9 +193,10 @@ dependency; each client pins its generator version in its own
 From the `dorc-web` directory:
 
 ```bash
-npm run api-gen           # regenerate both clients
-npm run dorc-api-gen      # DOrc API client only (from src/apis/dorc-api/swagger.json)
-npm run ado-build-api-gen # Azure DevOps Build client only (from src/apis/azure-devops-build/build.json)
+npm run api-gen             # regenerate all clients (incl. the C# Azure DevOps client)
+npm run dorc-api-gen        # DOrc API client only (from src/apis/dorc-api/swagger.json)
+npm run ado-build-api-gen   # Azure DevOps Build TS client only (from src/apis/azure-devops-build/build.json)
+npm run ado-build-csharp-gen # Azure DevOps Build C# client (../Dorc.AzureDevOps)
 ```
 
 ### DOrc API Client (`src/apis/dorc-api`)

@@ -30,14 +30,14 @@ namespace Org.OpenAPITools.Model
     /// Represents a reference to an agent queue.
     /// </summary>
     [DataContract(Name = "AgentPoolQueueReference")]
-    public partial class AgentPoolQueueReference : IEquatable<AgentPoolQueueReference>, IValidatableObject
+    public partial class AgentPoolQueueReference : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="AgentPoolQueueReference" /> class.
         /// </summary>
         /// <param name="id">The ID of the queue..</param>
         /// <param name="alias">An alias to be used when referencing the resource..</param>
-        public AgentPoolQueueReference(int id = default(int), string alias = default(string))
+        public AgentPoolQueueReference(int id = default, string alias = default)
         {
             this.Id = id;
             this.Alias = alias;
@@ -81,62 +81,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as AgentPoolQueueReference);
-        }
-
-        /// <summary>
-        /// Returns true if AgentPoolQueueReference instances are equal
-        /// </summary>
-        /// <param name="input">Instance of AgentPoolQueueReference to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(AgentPoolQueueReference input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.Id == input.Id ||
-                    this.Id.Equals(input.Id)
-                ) && 
-                (
-                    this.Alias == input.Alias ||
-                    (this.Alias != null &&
-                    this.Alias.Equals(input.Alias))
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                hashCode = (hashCode * 59) + this.Id.GetHashCode();
-                if (this.Alias != null)
-                {
-                    hashCode = (hashCode * 59) + this.Alias.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

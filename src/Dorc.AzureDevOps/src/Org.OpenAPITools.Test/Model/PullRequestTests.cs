@@ -12,6 +12,13 @@
 using Xunit;
 
 using System;
+using System.Linq;
+using System.IO;
+using System.Collections.Generic;
+using Org.OpenAPITools.Model;
+using Org.OpenAPITools.Client;
+using System.Reflection;
+using Newtonsoft.Json;
 
 namespace Org.OpenAPITools.Test.Model
 {
@@ -48,7 +55,6 @@ namespace Org.OpenAPITools.Test.Model
             //Assert.IsType<PullRequest>(instance);
         }
 
-
         /// <summary>
         /// Test the property 'Links'
         /// </summary>
@@ -57,6 +63,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'Links'
         }
+
         /// <summary>
         /// Test the property 'Author'
         /// </summary>
@@ -65,6 +72,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'Author'
         }
+
         /// <summary>
         /// Test the property 'CurrentState'
         /// </summary>
@@ -73,6 +81,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'CurrentState'
         }
+
         /// <summary>
         /// Test the property 'Description'
         /// </summary>
@@ -81,6 +90,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'Description'
         }
+
         /// <summary>
         /// Test the property 'Id'
         /// </summary>
@@ -89,6 +99,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'Id'
         }
+
         /// <summary>
         /// Test the property 'ProviderName'
         /// </summary>
@@ -97,6 +108,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'ProviderName'
         }
+
         /// <summary>
         /// Test the property 'SourceBranchRef'
         /// </summary>
@@ -105,6 +117,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'SourceBranchRef'
         }
+
         /// <summary>
         /// Test the property 'SourceRepositoryOwner'
         /// </summary>
@@ -113,6 +126,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'SourceRepositoryOwner'
         }
+
         /// <summary>
         /// Test the property 'TargetBranchRef'
         /// </summary>
@@ -121,6 +135,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'TargetBranchRef'
         }
+
         /// <summary>
         /// Test the property 'TargetRepositoryOwner'
         /// </summary>
@@ -129,6 +144,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'TargetRepositoryOwner'
         }
+
         /// <summary>
         /// Test the property 'Title'
         /// </summary>
@@ -137,7 +153,5 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'Title'
         }
-
     }
-
 }

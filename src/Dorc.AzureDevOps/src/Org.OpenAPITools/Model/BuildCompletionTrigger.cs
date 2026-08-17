@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// Represents a build completion trigger.
     /// </summary>
     [DataContract(Name = "BuildCompletionTrigger")]
-    public partial class BuildCompletionTrigger : IEquatable<BuildCompletionTrigger>, IValidatableObject
+    public partial class BuildCompletionTrigger : IValidatableObject
     {
         /// <summary>
         /// The type of the trigger.
@@ -92,7 +92,6 @@ namespace Org.OpenAPITools.Model
             /// </summary>
             [EnumMember(Value = "all")]
             All = 9
-
         }
 
 
@@ -109,7 +108,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="definition">definition.</param>
         /// <param name="requiresSuccessfulBuild">requiresSuccessfulBuild.</param>
         /// <param name="triggerType">The type of the trigger..</param>
-        public BuildCompletionTrigger(List<string> branchFilters = default(List<string>), DefinitionReference definition = default(DefinitionReference), bool requiresSuccessfulBuild = default(bool), TriggerTypeEnum? triggerType = default(TriggerTypeEnum?))
+        public BuildCompletionTrigger(List<string> branchFilters = default, DefinitionReference definition = default, bool requiresSuccessfulBuild = default, TriggerTypeEnum? triggerType = default)
         {
             this.BranchFilters = branchFilters;
             this.Definition = definition;
@@ -161,77 +160,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as BuildCompletionTrigger);
-        }
-
-        /// <summary>
-        /// Returns true if BuildCompletionTrigger instances are equal
-        /// </summary>
-        /// <param name="input">Instance of BuildCompletionTrigger to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(BuildCompletionTrigger input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.BranchFilters == input.BranchFilters ||
-                    this.BranchFilters != null &&
-                    input.BranchFilters != null &&
-                    this.BranchFilters.SequenceEqual(input.BranchFilters)
-                ) && 
-                (
-                    this.Definition == input.Definition ||
-                    (this.Definition != null &&
-                    this.Definition.Equals(input.Definition))
-                ) && 
-                (
-                    this.RequiresSuccessfulBuild == input.RequiresSuccessfulBuild ||
-                    this.RequiresSuccessfulBuild.Equals(input.RequiresSuccessfulBuild)
-                ) && 
-                (
-                    this.TriggerType == input.TriggerType ||
-                    this.TriggerType.Equals(input.TriggerType)
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.BranchFilters != null)
-                {
-                    hashCode = (hashCode * 59) + this.BranchFilters.GetHashCode();
-                }
-                if (this.Definition != null)
-                {
-                    hashCode = (hashCode * 59) + this.Definition.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.RequiresSuccessfulBuild.GetHashCode();
-                hashCode = (hashCode * 59) + this.TriggerType.GetHashCode();
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

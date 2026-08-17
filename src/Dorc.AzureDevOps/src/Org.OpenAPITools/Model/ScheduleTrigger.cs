@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// Represents a schedule trigger.
     /// </summary>
     [DataContract(Name = "ScheduleTrigger")]
-    public partial class ScheduleTrigger : IEquatable<ScheduleTrigger>, IValidatableObject
+    public partial class ScheduleTrigger : IValidatableObject
     {
         /// <summary>
         /// The type of the trigger.
@@ -92,7 +92,6 @@ namespace Org.OpenAPITools.Model
             /// </summary>
             [EnumMember(Value = "all")]
             All = 9
-
         }
 
 
@@ -107,7 +106,7 @@ namespace Org.OpenAPITools.Model
         /// </summary>
         /// <param name="schedules">schedules.</param>
         /// <param name="triggerType">The type of the trigger..</param>
-        public ScheduleTrigger(List<Schedule> schedules = default(List<Schedule>), TriggerTypeEnum? triggerType = default(TriggerTypeEnum?))
+        public ScheduleTrigger(List<Schedule> schedules = default, TriggerTypeEnum? triggerType = default)
         {
             this.Schedules = schedules;
             this.TriggerType = triggerType;
@@ -143,63 +142,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as ScheduleTrigger);
-        }
-
-        /// <summary>
-        /// Returns true if ScheduleTrigger instances are equal
-        /// </summary>
-        /// <param name="input">Instance of ScheduleTrigger to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(ScheduleTrigger input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.Schedules == input.Schedules ||
-                    this.Schedules != null &&
-                    input.Schedules != null &&
-                    this.Schedules.SequenceEqual(input.Schedules)
-                ) && 
-                (
-                    this.TriggerType == input.TriggerType ||
-                    this.TriggerType.Equals(input.TriggerType)
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.Schedules != null)
-                {
-                    hashCode = (hashCode * 59) + this.Schedules.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.TriggerType.GetHashCode();
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

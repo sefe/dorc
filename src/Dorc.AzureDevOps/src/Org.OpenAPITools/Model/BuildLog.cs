@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// Represents a build log.
     /// </summary>
     [DataContract(Name = "BuildLog")]
-    public partial class BuildLog : IEquatable<BuildLog>, IValidatableObject
+    public partial class BuildLog : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="BuildLog" /> class.
@@ -41,7 +41,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="id">The ID of the log..</param>
         /// <param name="type">The type of the log location..</param>
         /// <param name="url">A full link to the log resource..</param>
-        public BuildLog(DateTime createdOn = default(DateTime), DateTime lastChangedOn = default(DateTime), long lineCount = default(long), int id = default(int), string type = default(string), string url = default(string))
+        public BuildLog(DateTime createdOn = default, DateTime lastChangedOn = default, long lineCount = default, int id = default, string type = default, string url = default)
         {
             this.CreatedOn = createdOn;
             this.LastChangedOn = lastChangedOn;
@@ -121,94 +121,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as BuildLog);
-        }
-
-        /// <summary>
-        /// Returns true if BuildLog instances are equal
-        /// </summary>
-        /// <param name="input">Instance of BuildLog to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(BuildLog input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.CreatedOn == input.CreatedOn ||
-                    (this.CreatedOn != null &&
-                    this.CreatedOn.Equals(input.CreatedOn))
-                ) && 
-                (
-                    this.LastChangedOn == input.LastChangedOn ||
-                    (this.LastChangedOn != null &&
-                    this.LastChangedOn.Equals(input.LastChangedOn))
-                ) && 
-                (
-                    this.LineCount == input.LineCount ||
-                    this.LineCount.Equals(input.LineCount)
-                ) && 
-                (
-                    this.Id == input.Id ||
-                    this.Id.Equals(input.Id)
-                ) && 
-                (
-                    this.Type == input.Type ||
-                    (this.Type != null &&
-                    this.Type.Equals(input.Type))
-                ) && 
-                (
-                    this.Url == input.Url ||
-                    (this.Url != null &&
-                    this.Url.Equals(input.Url))
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.CreatedOn != null)
-                {
-                    hashCode = (hashCode * 59) + this.CreatedOn.GetHashCode();
-                }
-                if (this.LastChangedOn != null)
-                {
-                    hashCode = (hashCode * 59) + this.LastChangedOn.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.LineCount.GetHashCode();
-                hashCode = (hashCode * 59) + this.Id.GetHashCode();
-                if (this.Type != null)
-                {
-                    hashCode = (hashCode * 59) + this.Type.GetHashCode();
-                }
-                if (this.Url != null)
-                {
-                    hashCode = (hashCode * 59) + this.Url.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// ConsoleLogEvent
     /// </summary>
     [DataContract(Name = "ConsoleLogEvent")]
-    public partial class ConsoleLogEvent : IEquatable<ConsoleLogEvent>, IValidatableObject
+    public partial class ConsoleLogEvent : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="ConsoleLogEvent" /> class.
@@ -40,7 +40,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="timelineId">timelineId.</param>
         /// <param name="timelineRecordId">timelineRecordId.</param>
         /// <param name="buildId">buildId.</param>
-        public ConsoleLogEvent(List<string> lines = default(List<string>), Guid stepRecordId = default(Guid), Guid timelineId = default(Guid), Guid timelineRecordId = default(Guid), int buildId = default(int))
+        public ConsoleLogEvent(List<string> lines = default, Guid stepRecordId = default, Guid timelineId = default, Guid timelineRecordId = default, int buildId = default)
         {
             this.Lines = lines;
             this.StepRecordId = stepRecordId;
@@ -106,90 +106,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as ConsoleLogEvent);
-        }
-
-        /// <summary>
-        /// Returns true if ConsoleLogEvent instances are equal
-        /// </summary>
-        /// <param name="input">Instance of ConsoleLogEvent to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(ConsoleLogEvent input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.Lines == input.Lines ||
-                    this.Lines != null &&
-                    input.Lines != null &&
-                    this.Lines.SequenceEqual(input.Lines)
-                ) && 
-                (
-                    this.StepRecordId == input.StepRecordId ||
-                    (this.StepRecordId != null &&
-                    this.StepRecordId.Equals(input.StepRecordId))
-                ) && 
-                (
-                    this.TimelineId == input.TimelineId ||
-                    (this.TimelineId != null &&
-                    this.TimelineId.Equals(input.TimelineId))
-                ) && 
-                (
-                    this.TimelineRecordId == input.TimelineRecordId ||
-                    (this.TimelineRecordId != null &&
-                    this.TimelineRecordId.Equals(input.TimelineRecordId))
-                ) && 
-                (
-                    this.BuildId == input.BuildId ||
-                    this.BuildId.Equals(input.BuildId)
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.Lines != null)
-                {
-                    hashCode = (hashCode * 59) + this.Lines.GetHashCode();
-                }
-                if (this.StepRecordId != null)
-                {
-                    hashCode = (hashCode * 59) + this.StepRecordId.GetHashCode();
-                }
-                if (this.TimelineId != null)
-                {
-                    hashCode = (hashCode * 59) + this.TimelineId.GetHashCode();
-                }
-                if (this.TimelineRecordId != null)
-                {
-                    hashCode = (hashCode * 59) + this.TimelineRecordId.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.BuildId.GetHashCode();
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

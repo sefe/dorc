@@ -12,6 +12,13 @@
 using Xunit;
 
 using System;
+using System.Linq;
+using System.IO;
+using System.Collections.Generic;
+using Org.OpenAPITools.Model;
+using Org.OpenAPITools.Client;
+using System.Reflection;
+using Newtonsoft.Json;
 
 namespace Org.OpenAPITools.Test.Model
 {
@@ -48,7 +55,6 @@ namespace Org.OpenAPITools.Test.Model
             //Assert.IsType<TimelineAttempt>(instance);
         }
 
-
         /// <summary>
         /// Test the property 'Attempt'
         /// </summary>
@@ -57,6 +63,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'Attempt'
         }
+
         /// <summary>
         /// Test the property 'RecordId'
         /// </summary>
@@ -65,6 +72,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'RecordId'
         }
+
         /// <summary>
         /// Test the property 'TimelineId'
         /// </summary>
@@ -73,7 +81,5 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'TimelineId'
         }
-
     }
-
 }

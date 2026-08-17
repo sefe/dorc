@@ -12,6 +12,13 @@
 using Xunit;
 
 using System;
+using System.Linq;
+using System.IO;
+using System.Collections.Generic;
+using Org.OpenAPITools.Model;
+using Org.OpenAPITools.Client;
+using System.Reflection;
+using Newtonsoft.Json;
 
 namespace Org.OpenAPITools.Test.Model
 {
@@ -48,7 +55,6 @@ namespace Org.OpenAPITools.Test.Model
             //Assert.IsType<RetentionLease>(instance);
         }
 
-
         /// <summary>
         /// Test the property 'CreatedOn'
         /// </summary>
@@ -57,6 +63,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'CreatedOn'
         }
+
         /// <summary>
         /// Test the property 'DefinitionId'
         /// </summary>
@@ -65,6 +72,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'DefinitionId'
         }
+
         /// <summary>
         /// Test the property 'LeaseId'
         /// </summary>
@@ -73,6 +81,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'LeaseId'
         }
+
         /// <summary>
         /// Test the property 'OwnerId'
         /// </summary>
@@ -81,6 +90,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'OwnerId'
         }
+
         /// <summary>
         /// Test the property 'RunId'
         /// </summary>
@@ -89,6 +99,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'RunId'
         }
+
         /// <summary>
         /// Test the property 'ValidUntil'
         /// </summary>
@@ -97,7 +108,5 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'ValidUntil'
         }
-
     }
-
 }

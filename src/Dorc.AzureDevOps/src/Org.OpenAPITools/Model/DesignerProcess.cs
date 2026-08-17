@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// Represents a build process supported by the build definition designer.
     /// </summary>
     [DataContract(Name = "DesignerProcess")]
-    public partial class DesignerProcess : IEquatable<DesignerProcess>, IValidatableObject
+    public partial class DesignerProcess : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="DesignerProcess" /> class.
@@ -38,7 +38,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="phases">phases.</param>
         /// <param name="target">target.</param>
         /// <param name="type">The type of the process..</param>
-        public DesignerProcess(List<Phase> phases = default(List<Phase>), DesignerProcessTarget target = default(DesignerProcessTarget), int type = default(int))
+        public DesignerProcess(List<Phase> phases = default, DesignerProcessTarget target = default, int type = default)
         {
             this.Phases = phases;
             this.Target = target;
@@ -89,72 +89,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as DesignerProcess);
-        }
-
-        /// <summary>
-        /// Returns true if DesignerProcess instances are equal
-        /// </summary>
-        /// <param name="input">Instance of DesignerProcess to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(DesignerProcess input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.Phases == input.Phases ||
-                    this.Phases != null &&
-                    input.Phases != null &&
-                    this.Phases.SequenceEqual(input.Phases)
-                ) && 
-                (
-                    this.Target == input.Target ||
-                    (this.Target != null &&
-                    this.Target.Equals(input.Target))
-                ) && 
-                (
-                    this.Type == input.Type ||
-                    this.Type.Equals(input.Type)
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.Phases != null)
-                {
-                    hashCode = (hashCode * 59) + this.Phases.GetHashCode();
-                }
-                if (this.Target != null)
-                {
-                    hashCode = (hashCode * 59) + this.Target.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.Type.GetHashCode();
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

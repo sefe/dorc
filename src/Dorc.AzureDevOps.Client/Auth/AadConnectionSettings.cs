@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Globalization;
 
-namespace Org.OpenAPITools.Client.Auth
+namespace Dorc.AzureDevOps.Client.Auth
 {
     /// <summary>
     /// ConnectionSettings object contains values for Connecting to Azure Active Directory (AAD)

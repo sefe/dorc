@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// IdentityRef
     /// </summary>
     [DataContract(Name = "IdentityRef")]
-    public partial class IdentityRef : IEquatable<IdentityRef>, IValidatableObject
+    public partial class IdentityRef : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="IdentityRef" /> class.
@@ -48,7 +48,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="descriptor">The descriptor is the primary way to reference the graph subject while the system is running. This field will uniquely identify the same graph subject across both Accounts and Organizations..</param>
         /// <param name="displayName">This is the non-unique display name of the graph subject. To change this field, you must alter its value in the source provider..</param>
         /// <param name="url">This url is the full route to the source resource of this graph subject..</param>
-        public IdentityRef(string directoryAlias = default(string), string id = default(string), string imageUrl = default(string), bool inactive = default(bool), bool isAadIdentity = default(bool), bool isContainer = default(bool), bool isDeletedInOrigin = default(bool), string profileUrl = default(string), string uniqueName = default(string), ReferenceLinks links = default(ReferenceLinks), string descriptor = default(string), string displayName = default(string), string url = default(string))
+        public IdentityRef(string directoryAlias = default, string id = default, string imageUrl = default, bool inactive = default, bool isAadIdentity = default, bool isContainer = default, bool isDeletedInOrigin = default, string profileUrl = default, string uniqueName = default, ReferenceLinks links = default, string descriptor = default, string displayName = default, string url = default)
         {
             this.DirectoryAlias = directoryAlias;
             this.Id = id;
@@ -188,149 +188,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as IdentityRef);
-        }
-
-        /// <summary>
-        /// Returns true if IdentityRef instances are equal
-        /// </summary>
-        /// <param name="input">Instance of IdentityRef to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(IdentityRef input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.DirectoryAlias == input.DirectoryAlias ||
-                    (this.DirectoryAlias != null &&
-                    this.DirectoryAlias.Equals(input.DirectoryAlias))
-                ) && 
-                (
-                    this.Id == input.Id ||
-                    (this.Id != null &&
-                    this.Id.Equals(input.Id))
-                ) && 
-                (
-                    this.ImageUrl == input.ImageUrl ||
-                    (this.ImageUrl != null &&
-                    this.ImageUrl.Equals(input.ImageUrl))
-                ) && 
-                (
-                    this.Inactive == input.Inactive ||
-                    this.Inactive.Equals(input.Inactive)
-                ) && 
-                (
-                    this.IsAadIdentity == input.IsAadIdentity ||
-                    this.IsAadIdentity.Equals(input.IsAadIdentity)
-                ) && 
-                (
-                    this.IsContainer == input.IsContainer ||
-                    this.IsContainer.Equals(input.IsContainer)
-                ) && 
-                (
-                    this.IsDeletedInOrigin == input.IsDeletedInOrigin ||
-                    this.IsDeletedInOrigin.Equals(input.IsDeletedInOrigin)
-                ) && 
-                (
-                    this.ProfileUrl == input.ProfileUrl ||
-                    (this.ProfileUrl != null &&
-                    this.ProfileUrl.Equals(input.ProfileUrl))
-                ) && 
-                (
-                    this.UniqueName == input.UniqueName ||
-                    (this.UniqueName != null &&
-                    this.UniqueName.Equals(input.UniqueName))
-                ) && 
-                (
-                    this.Links == input.Links ||
-                    (this.Links != null &&
-                    this.Links.Equals(input.Links))
-                ) && 
-                (
-                    this.Descriptor == input.Descriptor ||
-                    (this.Descriptor != null &&
-                    this.Descriptor.Equals(input.Descriptor))
-                ) && 
-                (
-                    this.DisplayName == input.DisplayName ||
-                    (this.DisplayName != null &&
-                    this.DisplayName.Equals(input.DisplayName))
-                ) && 
-                (
-                    this.Url == input.Url ||
-                    (this.Url != null &&
-                    this.Url.Equals(input.Url))
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.DirectoryAlias != null)
-                {
-                    hashCode = (hashCode * 59) + this.DirectoryAlias.GetHashCode();
-                }
-                if (this.Id != null)
-                {
-                    hashCode = (hashCode * 59) + this.Id.GetHashCode();
-                }
-                if (this.ImageUrl != null)
-                {
-                    hashCode = (hashCode * 59) + this.ImageUrl.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.Inactive.GetHashCode();
-                hashCode = (hashCode * 59) + this.IsAadIdentity.GetHashCode();
-                hashCode = (hashCode * 59) + this.IsContainer.GetHashCode();
-                hashCode = (hashCode * 59) + this.IsDeletedInOrigin.GetHashCode();
-                if (this.ProfileUrl != null)
-                {
-                    hashCode = (hashCode * 59) + this.ProfileUrl.GetHashCode();
-                }
-                if (this.UniqueName != null)
-                {
-                    hashCode = (hashCode * 59) + this.UniqueName.GetHashCode();
-                }
-                if (this.Links != null)
-                {
-                    hashCode = (hashCode * 59) + this.Links.GetHashCode();
-                }
-                if (this.Descriptor != null)
-                {
-                    hashCode = (hashCode * 59) + this.Descriptor.GetHashCode();
-                }
-                if (this.DisplayName != null)
-                {
-                    hashCode = (hashCode * 59) + this.DisplayName.GetHashCode();
-                }
-                if (this.Url != null)
-                {
-                    hashCode = (hashCode * 59) + this.Url.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

@@ -1,9 +1,8 @@
-﻿using Microsoft.Identity.Client;
-using System.Threading;
+﻿using System.Threading;
 using Azure.Core;
 using Azure.Identity;
 
-namespace Org.OpenAPITools.Client.Auth
+namespace Dorc.AzureDevOps.Client.Auth
 {
     /// <summary>
     /// AppFlow approach for Auth

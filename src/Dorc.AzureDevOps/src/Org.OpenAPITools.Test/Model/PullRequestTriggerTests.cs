@@ -12,6 +12,13 @@
 using Xunit;
 
 using System;
+using System.Linq;
+using System.IO;
+using System.Collections.Generic;
+using Org.OpenAPITools.Model;
+using Org.OpenAPITools.Client;
+using System.Reflection;
+using Newtonsoft.Json;
 
 namespace Org.OpenAPITools.Test.Model
 {
@@ -48,7 +55,6 @@ namespace Org.OpenAPITools.Test.Model
             //Assert.IsType<PullRequestTrigger>(instance);
         }
 
-
         /// <summary>
         /// Test the property 'AutoCancel'
         /// </summary>
@@ -57,6 +63,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'AutoCancel'
         }
+
         /// <summary>
         /// Test the property 'BranchFilters'
         /// </summary>
@@ -65,6 +72,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'BranchFilters'
         }
+
         /// <summary>
         /// Test the property 'Forks'
         /// </summary>
@@ -73,6 +81,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'Forks'
         }
+
         /// <summary>
         /// Test the property 'IsCommentRequiredForPullRequest'
         /// </summary>
@@ -81,6 +90,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'IsCommentRequiredForPullRequest'
         }
+
         /// <summary>
         /// Test the property 'PathFilters'
         /// </summary>
@@ -89,6 +99,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'PathFilters'
         }
+
         /// <summary>
         /// Test the property 'RequireCommentsForNonTeamMembersOnly'
         /// </summary>
@@ -97,6 +108,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'RequireCommentsForNonTeamMembersOnly'
         }
+
         /// <summary>
         /// Test the property 'SettingsSourceType'
         /// </summary>
@@ -105,6 +117,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'SettingsSourceType'
         }
+
         /// <summary>
         /// Test the property 'TriggerType'
         /// </summary>
@@ -113,7 +126,5 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'TriggerType'
         }
-
     }
-
 }

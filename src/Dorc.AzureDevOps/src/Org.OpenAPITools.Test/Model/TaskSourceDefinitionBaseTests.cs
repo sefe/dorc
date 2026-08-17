@@ -12,6 +12,13 @@
 using Xunit;
 
 using System;
+using System.Linq;
+using System.IO;
+using System.Collections.Generic;
+using Org.OpenAPITools.Model;
+using Org.OpenAPITools.Client;
+using System.Reflection;
+using Newtonsoft.Json;
 
 namespace Org.OpenAPITools.Test.Model
 {
@@ -48,7 +55,6 @@ namespace Org.OpenAPITools.Test.Model
             //Assert.IsType<TaskSourceDefinitionBase>(instance);
         }
 
-
         /// <summary>
         /// Test the property 'AuthKey'
         /// </summary>
@@ -57,6 +63,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'AuthKey'
         }
+
         /// <summary>
         /// Test the property 'Endpoint'
         /// </summary>
@@ -65,6 +72,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'Endpoint'
         }
+
         /// <summary>
         /// Test the property 'KeySelector'
         /// </summary>
@@ -73,6 +81,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'KeySelector'
         }
+
         /// <summary>
         /// Test the property 'Selector'
         /// </summary>
@@ -81,6 +90,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'Selector'
         }
+
         /// <summary>
         /// Test the property 'Target'
         /// </summary>
@@ -89,7 +99,5 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'Target'
         }
-
     }
-
 }

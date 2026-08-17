@@ -30,14 +30,14 @@ namespace Org.OpenAPITools.Model
     /// Represents a build badge.
     /// </summary>
     [DataContract(Name = "BuildBadge")]
-    public partial class BuildBadge : IEquatable<BuildBadge>, IValidatableObject
+    public partial class BuildBadge : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="BuildBadge" /> class.
         /// </summary>
         /// <param name="buildId">The ID of the build represented by this badge..</param>
         /// <param name="imageUrl">A link to the SVG resource..</param>
-        public BuildBadge(int buildId = default(int), string imageUrl = default(string))
+        public BuildBadge(int buildId = default, string imageUrl = default)
         {
             this.BuildId = buildId;
             this.ImageUrl = imageUrl;
@@ -81,62 +81,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as BuildBadge);
-        }
-
-        /// <summary>
-        /// Returns true if BuildBadge instances are equal
-        /// </summary>
-        /// <param name="input">Instance of BuildBadge to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(BuildBadge input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.BuildId == input.BuildId ||
-                    this.BuildId.Equals(input.BuildId)
-                ) && 
-                (
-                    this.ImageUrl == input.ImageUrl ||
-                    (this.ImageUrl != null &&
-                    this.ImageUrl.Equals(input.ImageUrl))
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                hashCode = (hashCode * 59) + this.BuildId.GetHashCode();
-                if (this.ImageUrl != null)
-                {
-                    hashCode = (hashCode * 59) + this.ImageUrl.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

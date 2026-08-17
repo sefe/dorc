@@ -12,6 +12,13 @@
 using Xunit;
 
 using System;
+using System.Linq;
+using System.IO;
+using System.Collections.Generic;
+using Org.OpenAPITools.Model;
+using Org.OpenAPITools.Client;
+using System.Reflection;
+using Newtonsoft.Json;
 
 namespace Org.OpenAPITools.Test.Model
 {
@@ -48,7 +55,6 @@ namespace Org.OpenAPITools.Test.Model
             //Assert.IsType<BuildDefinitionStep>(instance);
         }
 
-
         /// <summary>
         /// Test the property 'AlwaysRun'
         /// </summary>
@@ -57,6 +63,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'AlwaysRun'
         }
+
         /// <summary>
         /// Test the property 'Condition'
         /// </summary>
@@ -65,6 +72,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'Condition'
         }
+
         /// <summary>
         /// Test the property 'ContinueOnError'
         /// </summary>
@@ -73,6 +81,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'ContinueOnError'
         }
+
         /// <summary>
         /// Test the property 'DisplayName'
         /// </summary>
@@ -81,6 +90,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'DisplayName'
         }
+
         /// <summary>
         /// Test the property 'Enabled'
         /// </summary>
@@ -89,14 +99,16 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'Enabled'
         }
+
         /// <summary>
-        /// Test the property 'Environment'
+        /// Test the property 'VarEnvironment'
         /// </summary>
         [Fact]
-        public void EnvironmentTest()
+        public void VarEnvironmentTest()
         {
-            // TODO unit test for the property 'Environment'
+            // TODO unit test for the property 'VarEnvironment'
         }
+
         /// <summary>
         /// Test the property 'Inputs'
         /// </summary>
@@ -105,6 +117,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'Inputs'
         }
+
         /// <summary>
         /// Test the property 'RefName'
         /// </summary>
@@ -113,6 +126,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'RefName'
         }
+
         /// <summary>
         /// Test the property 'Task'
         /// </summary>
@@ -121,6 +135,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'Task'
         }
+
         /// <summary>
         /// Test the property 'TimeoutInMinutes'
         /// </summary>
@@ -129,7 +144,5 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'TimeoutInMinutes'
         }
-
     }
-
 }

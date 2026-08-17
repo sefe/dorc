@@ -70,7 +70,31 @@ committed clients, the committed specs, and the C# API had all drifted apart:
    `npm run format` had prettier-formatted it). It is reset to generator
    output so the drift gate covers it too, and `npm run format` now honours
    `.prettierignore` so formatting no longer touches `src/apis`.
-6. **The Azure DevOps pipeline (`pipelines/dorc-build.yml`) is unchanged.**
+6. **The C# Azure DevOps client (`src/Dorc.AzureDevOps`) is under the same
+   gate.** It is the load-bearing generated client — `Dorc.Core`'s
+   `AzureDevOpsServerWebClient` (used by the API and, via the
+   TerraformRunner/`TerraformSourceConfigurator`, the Monitor) pulls build
+   numbers (`BuildsApi`/`DefinitionsApi`) and artifact locations
+   (`ArtifactsApi`) through it. The committed tree was a stratified hybrid
+   (6.5.0 models/client, ~7.2–7.4 Api files, a hand-ported RestSharp 112
+   `ApiClient`, hand-written AAD auth inside the generated tree, a
+   dependabot-bumped csproj). It was regenerated as pure 7.13.0
+   `csharp`/restsharp output, with the DOrc-owned pieces moved to a new
+   `Dorc.AzureDevOps.Client` project:
+   - `Auth/*` — the AAD client-credentials token generation
+     (`Configuration.AccessToken` is the generated client's supported seam,
+     which consumers already used).
+   - `AzureDevOpsListResponseConverter` — Azure DevOps list endpoints return
+     a `{"count":n,"value":[...]}` envelope while the vendored spec declares
+     bare arrays; the old build relied on a hand-patch inside the generated
+     `ApiClient` to unwrap it. The converter now does this through
+     `ApiClient.SerializerSettings` (injected via
+     `AzureDevOpsApiClientFactory` and the Api classes'
+     `(client, asyncClient, configuration)` constructors), covered by unit
+     tests in `Dorc.Core.Tests`.
+   The two csproj files are the only exclusions
+   (`.openapi-generator-ignore`): dependabot owns their package versions.
+7. **The Azure DevOps pipeline (`pipelines/dorc-build.yml`) is unchanged.**
    It runs on a self-hosted agent whose Java availability cannot be verified
    from this repo; the GitHub Actions workflow is the enforced path. Mirror
    the two steps there once the agent is known to have a JRE.
@@ -102,6 +126,6 @@ committed clients, the committed specs, and the C# API had all drifted apart:
 
 | # | Unknown | Status |
 |---|---------|--------|
-| U-1 | Is `azure-devops-build` still needed at all? Nothing imports it. | OPEN — candidate for removal in a separate change. |
+| U-1 | Is the **TypeScript** `azure-devops-build` client still needed? Nothing in the web app imports it. (The **C#** Azure DevOps client is in active use — build numbers and artifact locations — and is not in question.) | OPEN — TS copy is a candidate for removal in a separate change. |
 | U-2 | Should `swagger.json` itself be generated from the C# build (e.g. Swashbuckle CLI) instead of hand-maintained? | OPEN — would close the remaining C#→spec drift gap; needs API bootstrapping work. |
 | U-3 | Java availability on the ADO self-hosted agent (`TRADING-DOTNET-03`). | OPEN — blocks mirroring the gate into `pipelines/dorc-build.yml`. |

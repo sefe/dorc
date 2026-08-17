@@ -12,6 +12,13 @@
 using Xunit;
 
 using System;
+using System.Linq;
+using System.IO;
+using System.Collections.Generic;
+using Org.OpenAPITools.Model;
+using Org.OpenAPITools.Client;
+using System.Reflection;
+using Newtonsoft.Json;
 
 namespace Org.OpenAPITools.Test.Model
 {
@@ -48,7 +55,6 @@ namespace Org.OpenAPITools.Test.Model
             //Assert.IsType<NewRetentionLease>(instance);
         }
 
-
         /// <summary>
         /// Test the property 'DaysValid'
         /// </summary>
@@ -57,6 +63,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'DaysValid'
         }
+
         /// <summary>
         /// Test the property 'DefinitionId'
         /// </summary>
@@ -65,6 +72,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'DefinitionId'
         }
+
         /// <summary>
         /// Test the property 'OwnerId'
         /// </summary>
@@ -73,6 +81,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'OwnerId'
         }
+
         /// <summary>
         /// Test the property 'ProtectPipeline'
         /// </summary>
@@ -81,6 +90,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'ProtectPipeline'
         }
+
         /// <summary>
         /// Test the property 'RunId'
         /// </summary>
@@ -89,7 +99,5 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'RunId'
         }
-
     }
-
 }

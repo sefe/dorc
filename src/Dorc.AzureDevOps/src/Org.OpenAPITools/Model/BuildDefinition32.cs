@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// For back-compat with extensions that use the old Steps format instead of Process and Phases
     /// </summary>
     [DataContract(Name = "BuildDefinition3_2")]
-    public partial class BuildDefinition32 : IEquatable<BuildDefinition32>, IValidatableObject
+    public partial class BuildDefinition32 : IValidatableObject
     {
         /// <summary>
         /// The job authorization scope for builds which are queued against this definition
@@ -50,7 +50,6 @@ namespace Org.OpenAPITools.Model
             /// </summary>
             [EnumMember(Value = "project")]
             Project = 2
-
         }
 
 
@@ -60,6 +59,33 @@ namespace Org.OpenAPITools.Model
         /// <value>The job authorization scope for builds which are queued against this definition</value>
         [DataMember(Name = "jobAuthorizationScope", EmitDefaultValue = false)]
         public JobAuthorizationScopeEnum? JobAuthorizationScope { get; set; }
+        /// <summary>
+        /// The quality of the definition document (draft, etc.)
+        /// </summary>
+        /// <value>The quality of the definition document (draft, etc.)</value>
+        [JsonConverter(typeof(StringEnumConverter))]
+        public enum QualityEnum
+        {
+            /// <summary>
+            /// Enum Definition for value: definition
+            /// </summary>
+            [EnumMember(Value = "definition")]
+            Definition = 1,
+
+            /// <summary>
+            /// Enum Draft for value: draft
+            /// </summary>
+            [EnumMember(Value = "draft")]
+            Draft = 2
+        }
+
+
+        /// <summary>
+        /// The quality of the definition document (draft, etc.)
+        /// </summary>
+        /// <value>The quality of the definition document (draft, etc.)</value>
+        [DataMember(Name = "quality", EmitDefaultValue = false)]
+        public QualityEnum? Quality { get; set; }
         /// <summary>
         /// A value that indicates whether builds can be queued against this definition.
         /// </summary>
@@ -84,7 +110,6 @@ namespace Org.OpenAPITools.Model
             /// </summary>
             [EnumMember(Value = "disabled")]
             Disabled = 3
-
         }
 
 
@@ -112,7 +137,6 @@ namespace Org.OpenAPITools.Model
             /// </summary>
             [EnumMember(Value = "build")]
             Build = 2
-
         }
 
 
@@ -145,6 +169,13 @@ namespace Org.OpenAPITools.Model
         /// <param name="tags">tags.</param>
         /// <param name="triggers">triggers.</param>
         /// <param name="variables">variables.</param>
+        /// <param name="links">links.</param>
+        /// <param name="authoredBy">authoredBy.</param>
+        /// <param name="draftOf">draftOf.</param>
+        /// <param name="drafts">The list of drafts associated with this definition, if this is not a draft definition..</param>
+        /// <param name="metrics">metrics.</param>
+        /// <param name="quality">The quality of the definition document (draft, etc.).</param>
+        /// <param name="queue">queue.</param>
         /// <param name="createdDate">The date this version of the definition was created..</param>
         /// <param name="id">The ID of the referenced definition..</param>
         /// <param name="name">The name of the referenced definition..</param>
@@ -155,7 +186,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="type">The type of the definition..</param>
         /// <param name="uri">The definition&#39;s URI..</param>
         /// <param name="url">The REST URL of the definition..</param>
-        public BuildDefinition32(bool badgeEnabled = default(bool), List<BuildDefinitionStep> build = default(List<BuildDefinitionStep>), string buildNumberFormat = default(string), string comment = default(string), List<Demand> demands = default(List<Demand>), string description = default(string), string dropLocation = default(string), JobAuthorizationScopeEnum? jobAuthorizationScope = default(JobAuthorizationScopeEnum?), int jobCancelTimeoutInMinutes = default(int), int jobTimeoutInMinutes = default(int), Build latestBuild = default(Build), Build latestCompletedBuild = default(Build), List<BuildOption> options = default(List<BuildOption>), ProcessParameters processParameters = default(ProcessParameters), PropertiesCollection properties = default(PropertiesCollection), BuildRepository repository = default(BuildRepository), List<RetentionPolicy> retentionRules = default(List<RetentionPolicy>), List<string> tags = default(List<string>), List<BuildTrigger> triggers = default(List<BuildTrigger>), Dictionary<string, BuildDefinitionVariable> variables = default(Dictionary<string, BuildDefinitionVariable>), DateTime createdDate = default(DateTime), int id = default(int), string name = default(string), string path = default(string), TeamProjectReference project = default(TeamProjectReference), QueueStatusEnum? queueStatus = default(QueueStatusEnum?), int revision = default(int), TypeEnum? type = default(TypeEnum?), string uri = default(string), string url = default(string))
+        public BuildDefinition32(bool badgeEnabled = default, List<BuildDefinitionStep> build = default, string buildNumberFormat = default, string comment = default, List<Demand> demands = default, string description = default, string dropLocation = default, JobAuthorizationScopeEnum? jobAuthorizationScope = default, int jobCancelTimeoutInMinutes = default, int jobTimeoutInMinutes = default, Build latestBuild = default, Build latestCompletedBuild = default, List<BuildOption> options = default, ProcessParameters processParameters = default, PropertiesCollection properties = default, BuildRepository repository = default, List<RetentionPolicy> retentionRules = default, List<string> tags = default, List<BuildTrigger> triggers = default, Dictionary<string, BuildDefinitionVariable> variables = default, ReferenceLinks links = default, IdentityRef authoredBy = default, DefinitionReference draftOf = default, List<DefinitionReference> drafts = default, List<BuildMetric> metrics = default, QualityEnum? quality = default, AgentPoolQueue queue = default, DateTime createdDate = default, int id = default, string name = default, string path = default, TeamProjectReference project = default, QueueStatusEnum? queueStatus = default, int revision = default, TypeEnum? type = default, string uri = default, string url = default)
         {
             this.BadgeEnabled = badgeEnabled;
             this.Build = build;
@@ -177,6 +208,13 @@ namespace Org.OpenAPITools.Model
             this.Tags = tags;
             this.Triggers = triggers;
             this.Variables = variables;
+            this.Links = links;
+            this.AuthoredBy = authoredBy;
+            this.DraftOf = draftOf;
+            this.Drafts = drafts;
+            this.Metrics = metrics;
+            this.Quality = quality;
+            this.Queue = queue;
             this.CreatedDate = createdDate;
             this.Id = id;
             this.Name = name;
@@ -311,6 +349,43 @@ namespace Org.OpenAPITools.Model
         public Dictionary<string, BuildDefinitionVariable> Variables { get; set; }
 
         /// <summary>
+        /// Gets or Sets Links
+        /// </summary>
+        [DataMember(Name = "_links", EmitDefaultValue = false)]
+        public ReferenceLinks Links { get; set; }
+
+        /// <summary>
+        /// Gets or Sets AuthoredBy
+        /// </summary>
+        [DataMember(Name = "authoredBy", EmitDefaultValue = false)]
+        public IdentityRef AuthoredBy { get; set; }
+
+        /// <summary>
+        /// Gets or Sets DraftOf
+        /// </summary>
+        [DataMember(Name = "draftOf", EmitDefaultValue = false)]
+        public DefinitionReference DraftOf { get; set; }
+
+        /// <summary>
+        /// The list of drafts associated with this definition, if this is not a draft definition.
+        /// </summary>
+        /// <value>The list of drafts associated with this definition, if this is not a draft definition.</value>
+        [DataMember(Name = "drafts", EmitDefaultValue = false)]
+        public List<DefinitionReference> Drafts { get; set; }
+
+        /// <summary>
+        /// Gets or Sets Metrics
+        /// </summary>
+        [DataMember(Name = "metrics", EmitDefaultValue = false)]
+        public List<BuildMetric> Metrics { get; set; }
+
+        /// <summary>
+        /// Gets or Sets Queue
+        /// </summary>
+        [DataMember(Name = "queue", EmitDefaultValue = false)]
+        public AgentPoolQueue Queue { get; set; }
+
+        /// <summary>
         /// The date this version of the definition was created.
         /// </summary>
         /// <value>The date this version of the definition was created.</value>
@@ -393,6 +468,13 @@ namespace Org.OpenAPITools.Model
             sb.Append("  Tags: ").Append(Tags).Append("\n");
             sb.Append("  Triggers: ").Append(Triggers).Append("\n");
             sb.Append("  Variables: ").Append(Variables).Append("\n");
+            sb.Append("  Links: ").Append(Links).Append("\n");
+            sb.Append("  AuthoredBy: ").Append(AuthoredBy).Append("\n");
+            sb.Append("  DraftOf: ").Append(DraftOf).Append("\n");
+            sb.Append("  Drafts: ").Append(Drafts).Append("\n");
+            sb.Append("  Metrics: ").Append(Metrics).Append("\n");
+            sb.Append("  Quality: ").Append(Quality).Append("\n");
+            sb.Append("  Queue: ").Append(Queue).Append("\n");
             sb.Append("  CreatedDate: ").Append(CreatedDate).Append("\n");
             sb.Append("  Id: ").Append(Id).Append("\n");
             sb.Append("  Name: ").Append(Name).Append("\n");
@@ -417,293 +499,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as BuildDefinition32);
-        }
-
-        /// <summary>
-        /// Returns true if BuildDefinition32 instances are equal
-        /// </summary>
-        /// <param name="input">Instance of BuildDefinition32 to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(BuildDefinition32 input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.BadgeEnabled == input.BadgeEnabled ||
-                    this.BadgeEnabled.Equals(input.BadgeEnabled)
-                ) && 
-                (
-                    this.Build == input.Build ||
-                    this.Build != null &&
-                    input.Build != null &&
-                    this.Build.SequenceEqual(input.Build)
-                ) && 
-                (
-                    this.BuildNumberFormat == input.BuildNumberFormat ||
-                    (this.BuildNumberFormat != null &&
-                    this.BuildNumberFormat.Equals(input.BuildNumberFormat))
-                ) && 
-                (
-                    this.Comment == input.Comment ||
-                    (this.Comment != null &&
-                    this.Comment.Equals(input.Comment))
-                ) && 
-                (
-                    this.Demands == input.Demands ||
-                    this.Demands != null &&
-                    input.Demands != null &&
-                    this.Demands.SequenceEqual(input.Demands)
-                ) && 
-                (
-                    this.Description == input.Description ||
-                    (this.Description != null &&
-                    this.Description.Equals(input.Description))
-                ) && 
-                (
-                    this.DropLocation == input.DropLocation ||
-                    (this.DropLocation != null &&
-                    this.DropLocation.Equals(input.DropLocation))
-                ) && 
-                (
-                    this.JobAuthorizationScope == input.JobAuthorizationScope ||
-                    this.JobAuthorizationScope.Equals(input.JobAuthorizationScope)
-                ) && 
-                (
-                    this.JobCancelTimeoutInMinutes == input.JobCancelTimeoutInMinutes ||
-                    this.JobCancelTimeoutInMinutes.Equals(input.JobCancelTimeoutInMinutes)
-                ) && 
-                (
-                    this.JobTimeoutInMinutes == input.JobTimeoutInMinutes ||
-                    this.JobTimeoutInMinutes.Equals(input.JobTimeoutInMinutes)
-                ) && 
-                (
-                    this.LatestBuild == input.LatestBuild ||
-                    (this.LatestBuild != null &&
-                    this.LatestBuild.Equals(input.LatestBuild))
-                ) && 
-                (
-                    this.LatestCompletedBuild == input.LatestCompletedBuild ||
-                    (this.LatestCompletedBuild != null &&
-                    this.LatestCompletedBuild.Equals(input.LatestCompletedBuild))
-                ) && 
-                (
-                    this.Options == input.Options ||
-                    this.Options != null &&
-                    input.Options != null &&
-                    this.Options.SequenceEqual(input.Options)
-                ) && 
-                (
-                    this.ProcessParameters == input.ProcessParameters ||
-                    (this.ProcessParameters != null &&
-                    this.ProcessParameters.Equals(input.ProcessParameters))
-                ) && 
-                (
-                    this.Properties == input.Properties ||
-                    (this.Properties != null &&
-                    this.Properties.Equals(input.Properties))
-                ) && 
-                (
-                    this.Repository == input.Repository ||
-                    (this.Repository != null &&
-                    this.Repository.Equals(input.Repository))
-                ) && 
-                (
-                    this.RetentionRules == input.RetentionRules ||
-                    this.RetentionRules != null &&
-                    input.RetentionRules != null &&
-                    this.RetentionRules.SequenceEqual(input.RetentionRules)
-                ) && 
-                (
-                    this.Tags == input.Tags ||
-                    this.Tags != null &&
-                    input.Tags != null &&
-                    this.Tags.SequenceEqual(input.Tags)
-                ) && 
-                (
-                    this.Triggers == input.Triggers ||
-                    this.Triggers != null &&
-                    input.Triggers != null &&
-                    this.Triggers.SequenceEqual(input.Triggers)
-                ) && 
-                (
-                    this.Variables == input.Variables ||
-                    this.Variables != null &&
-                    input.Variables != null &&
-                    this.Variables.SequenceEqual(input.Variables)
-                ) && 
-                (
-                    this.CreatedDate == input.CreatedDate ||
-                    (this.CreatedDate != null &&
-                    this.CreatedDate.Equals(input.CreatedDate))
-                ) && 
-                (
-                    this.Id == input.Id ||
-                    this.Id.Equals(input.Id)
-                ) && 
-                (
-                    this.Name == input.Name ||
-                    (this.Name != null &&
-                    this.Name.Equals(input.Name))
-                ) && 
-                (
-                    this.Path == input.Path ||
-                    (this.Path != null &&
-                    this.Path.Equals(input.Path))
-                ) && 
-                (
-                    this.Project == input.Project ||
-                    (this.Project != null &&
-                    this.Project.Equals(input.Project))
-                ) && 
-                (
-                    this.QueueStatus == input.QueueStatus ||
-                    this.QueueStatus.Equals(input.QueueStatus)
-                ) && 
-                (
-                    this.Revision == input.Revision ||
-                    this.Revision.Equals(input.Revision)
-                ) && 
-                (
-                    this.Type == input.Type ||
-                    this.Type.Equals(input.Type)
-                ) && 
-                (
-                    this.Uri == input.Uri ||
-                    (this.Uri != null &&
-                    this.Uri.Equals(input.Uri))
-                ) && 
-                (
-                    this.Url == input.Url ||
-                    (this.Url != null &&
-                    this.Url.Equals(input.Url))
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                hashCode = (hashCode * 59) + this.BadgeEnabled.GetHashCode();
-                if (this.Build != null)
-                {
-                    hashCode = (hashCode * 59) + this.Build.GetHashCode();
-                }
-                if (this.BuildNumberFormat != null)
-                {
-                    hashCode = (hashCode * 59) + this.BuildNumberFormat.GetHashCode();
-                }
-                if (this.Comment != null)
-                {
-                    hashCode = (hashCode * 59) + this.Comment.GetHashCode();
-                }
-                if (this.Demands != null)
-                {
-                    hashCode = (hashCode * 59) + this.Demands.GetHashCode();
-                }
-                if (this.Description != null)
-                {
-                    hashCode = (hashCode * 59) + this.Description.GetHashCode();
-                }
-                if (this.DropLocation != null)
-                {
-                    hashCode = (hashCode * 59) + this.DropLocation.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.JobAuthorizationScope.GetHashCode();
-                hashCode = (hashCode * 59) + this.JobCancelTimeoutInMinutes.GetHashCode();
-                hashCode = (hashCode * 59) + this.JobTimeoutInMinutes.GetHashCode();
-                if (this.LatestBuild != null)
-                {
-                    hashCode = (hashCode * 59) + this.LatestBuild.GetHashCode();
-                }
-                if (this.LatestCompletedBuild != null)
-                {
-                    hashCode = (hashCode * 59) + this.LatestCompletedBuild.GetHashCode();
-                }
-                if (this.Options != null)
-                {
-                    hashCode = (hashCode * 59) + this.Options.GetHashCode();
-                }
-                if (this.ProcessParameters != null)
-                {
-                    hashCode = (hashCode * 59) + this.ProcessParameters.GetHashCode();
-                }
-                if (this.Properties != null)
-                {
-                    hashCode = (hashCode * 59) + this.Properties.GetHashCode();
-                }
-                if (this.Repository != null)
-                {
-                    hashCode = (hashCode * 59) + this.Repository.GetHashCode();
-                }
-                if (this.RetentionRules != null)
-                {
-                    hashCode = (hashCode * 59) + this.RetentionRules.GetHashCode();
-                }
-                if (this.Tags != null)
-                {
-                    hashCode = (hashCode * 59) + this.Tags.GetHashCode();
-                }
-                if (this.Triggers != null)
-                {
-                    hashCode = (hashCode * 59) + this.Triggers.GetHashCode();
-                }
-                if (this.Variables != null)
-                {
-                    hashCode = (hashCode * 59) + this.Variables.GetHashCode();
-                }
-                if (this.CreatedDate != null)
-                {
-                    hashCode = (hashCode * 59) + this.CreatedDate.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.Id.GetHashCode();
-                if (this.Name != null)
-                {
-                    hashCode = (hashCode * 59) + this.Name.GetHashCode();
-                }
-                if (this.Path != null)
-                {
-                    hashCode = (hashCode * 59) + this.Path.GetHashCode();
-                }
-                if (this.Project != null)
-                {
-                    hashCode = (hashCode * 59) + this.Project.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.QueueStatus.GetHashCode();
-                hashCode = (hashCode * 59) + this.Revision.GetHashCode();
-                hashCode = (hashCode * 59) + this.Type.GetHashCode();
-                if (this.Uri != null)
-                {
-                    hashCode = (hashCode * 59) + this.Uri.GetHashCode();
-                }
-                if (this.Url != null)
-                {
-                    hashCode = (hashCode * 59) + this.Url.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

@@ -30,14 +30,14 @@ namespace Org.OpenAPITools.Model
     /// Deployment information for type \&quot;Build\&quot;
     /// </summary>
     [DataContract(Name = "DeploymentBuild")]
-    public partial class DeploymentBuild : IEquatable<DeploymentBuild>, IValidatableObject
+    public partial class DeploymentBuild : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="DeploymentBuild" /> class.
         /// </summary>
         /// <param name="buildId">buildId.</param>
         /// <param name="type">type.</param>
-        public DeploymentBuild(int buildId = default(int), string type = default(string))
+        public DeploymentBuild(int buildId = default, string type = default)
         {
             this.BuildId = buildId;
             this.Type = type;
@@ -79,62 +79,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as DeploymentBuild);
-        }
-
-        /// <summary>
-        /// Returns true if DeploymentBuild instances are equal
-        /// </summary>
-        /// <param name="input">Instance of DeploymentBuild to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(DeploymentBuild input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.BuildId == input.BuildId ||
-                    this.BuildId.Equals(input.BuildId)
-                ) && 
-                (
-                    this.Type == input.Type ||
-                    (this.Type != null &&
-                    this.Type.Equals(input.Type))
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                hashCode = (hashCode * 59) + this.BuildId.GetHashCode();
-                if (this.Type != null)
-                {
-                    hashCode = (hashCode * 59) + this.Type.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

@@ -12,6 +12,13 @@
 using Xunit;
 
 using System;
+using System.Linq;
+using System.IO;
+using System.Collections.Generic;
+using Org.OpenAPITools.Model;
+using Org.OpenAPITools.Client;
+using System.Reflection;
+using Newtonsoft.Json;
 
 namespace Org.OpenAPITools.Test.Model
 {
@@ -48,7 +55,6 @@ namespace Org.OpenAPITools.Test.Model
             //Assert.IsType<BuildResourceUsage>(instance);
         }
 
-
         /// <summary>
         /// Test the property 'DistributedTaskAgents'
         /// </summary>
@@ -57,6 +63,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'DistributedTaskAgents'
         }
+
         /// <summary>
         /// Test the property 'PaidPrivateAgentSlots'
         /// </summary>
@@ -65,6 +72,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'PaidPrivateAgentSlots'
         }
+
         /// <summary>
         /// Test the property 'TotalUsage'
         /// </summary>
@@ -73,6 +81,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'TotalUsage'
         }
+
         /// <summary>
         /// Test the property 'XamlControllers'
         /// </summary>
@@ -81,7 +90,5 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'XamlControllers'
         }
-
     }
-
 }

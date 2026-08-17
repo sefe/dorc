@@ -158,18 +158,28 @@ clients must always be committed together.
 From the `src/dorc-web` directory:
 
 ```bash
-npm run api-gen           # regenerate both TypeScript clients
-npm run dorc-api-gen      # DOrc API client (from src/apis/dorc-api/swagger.json)
-npm run ado-build-api-gen # Azure DevOps Build client (from src/apis/azure-devops-build/build.json)
+npm run api-gen             # regenerate all three clients
+npm run dorc-api-gen        # DOrc API TypeScript client (from src/apis/dorc-api/swagger.json)
+npm run ado-build-api-gen   # Azure DevOps Build TypeScript client (from src/apis/azure-devops-build/build.json)
+npm run ado-build-csharp-gen # Azure DevOps Build C# client (from src/Dorc.AzureDevOps/build.json)
 ```
 
 When a C# controller or API model changes, update
 `src/dorc-web/src/apis/dorc-api/swagger.json` to match (a running API serves
-the document at `/swagger/v1/swagger.json`) and regenerate. Everything under
-`src/dorc-web/src/apis` is pure generator output — app concerns such as the
-base URL and OAuth tokens are supplied through the generated `Configuration`
-class from `src/dorc-web/src/services/dorc-api-configuration.ts`. See
-[src/dorc-web/README.md](src/dorc-web/README.md) for details.
+the document at `/swagger/v1/swagger.json`) and regenerate. Every generated
+tree is pure generator output — app concerns live alongside, not inside:
+
+- Web: base URL and OAuth tokens are supplied through the generated
+  `Configuration` class from
+  `src/dorc-web/src/services/dorc-api-configuration.ts`. See
+  [src/dorc-web/README.md](src/dorc-web/README.md).
+- C# (`src/Dorc.AzureDevOps`, consumed by `Dorc.Core`, the Monitor and the
+  TerraformRunner for build numbers and artifact locations): AAD token
+  generation and the count/value list-envelope handling live in the
+  `Dorc.AzureDevOps.Client` project, wired in through the generated
+  `Configuration`/`ApiClient` classes. The two csproj files are
+  dependabot-owned and excluded from generation via that tree's
+  `.openapi-generator-ignore`.
 
 Azure DevOps API specifications: https://github.com/MicrosoftDocs/vsts-rest-api-specs
 

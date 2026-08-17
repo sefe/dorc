@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// XamlBuildDefinition
     /// </summary>
     [DataContract(Name = "XamlBuildDefinition")]
-    public partial class XamlBuildDefinition : IEquatable<XamlBuildDefinition>, IValidatableObject
+    public partial class XamlBuildDefinition : IValidatableObject
     {
         /// <summary>
         /// The reasons supported by the template
@@ -122,7 +122,6 @@ namespace Org.OpenAPITools.Model
             /// </summary>
             [EnumMember(Value = "all")]
             All = 14
-
         }
 
 
@@ -192,7 +191,6 @@ namespace Org.OpenAPITools.Model
             /// </summary>
             [EnumMember(Value = "all")]
             All = 9
-
         }
 
 
@@ -226,7 +224,6 @@ namespace Org.OpenAPITools.Model
             /// </summary>
             [EnumMember(Value = "disabled")]
             Disabled = 3
-
         }
 
 
@@ -254,7 +251,6 @@ namespace Org.OpenAPITools.Model
             /// </summary>
             [EnumMember(Value = "build")]
             Build = 2
-
         }
 
 
@@ -289,7 +285,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="type">The type of the definition..</param>
         /// <param name="uri">The definition&#39;s URI..</param>
         /// <param name="url">The REST URL of the definition..</param>
-        public XamlBuildDefinition(ReferenceLinks links = default(ReferenceLinks), int batchSize = default(int), string buildArgs = default(string), int continuousIntegrationQuietPeriod = default(int), BuildController controller = default(BuildController), DateTime createdOn = default(DateTime), string defaultDropLocation = default(string), string description = default(string), XamlBuildReference lastBuild = default(XamlBuildReference), BuildRepository repository = default(BuildRepository), SupportedReasonsEnum? supportedReasons = default(SupportedReasonsEnum?), TriggerTypeEnum? triggerType = default(TriggerTypeEnum?), DateTime createdDate = default(DateTime), int id = default(int), string name = default(string), string path = default(string), TeamProjectReference project = default(TeamProjectReference), QueueStatusEnum? queueStatus = default(QueueStatusEnum?), int revision = default(int), TypeEnum? type = default(TypeEnum?), string uri = default(string), string url = default(string))
+        public XamlBuildDefinition(ReferenceLinks links = default, int batchSize = default, string buildArgs = default, int continuousIntegrationQuietPeriod = default, BuildController controller = default, DateTime createdOn = default, string defaultDropLocation = default, string description = default, XamlBuildReference lastBuild = default, BuildRepository repository = default, SupportedReasonsEnum? supportedReasons = default, TriggerTypeEnum? triggerType = default, DateTime createdDate = default, int id = default, string name = default, string path = default, TeamProjectReference project = default, QueueStatusEnum? queueStatus = default, int revision = default, TypeEnum? type = default, string uri = default, string url = default)
         {
             this.Links = links;
             this.BatchSize = batchSize;
@@ -479,214 +475,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as XamlBuildDefinition);
-        }
-
-        /// <summary>
-        /// Returns true if XamlBuildDefinition instances are equal
-        /// </summary>
-        /// <param name="input">Instance of XamlBuildDefinition to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(XamlBuildDefinition input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.Links == input.Links ||
-                    (this.Links != null &&
-                    this.Links.Equals(input.Links))
-                ) && 
-                (
-                    this.BatchSize == input.BatchSize ||
-                    this.BatchSize.Equals(input.BatchSize)
-                ) && 
-                (
-                    this.BuildArgs == input.BuildArgs ||
-                    (this.BuildArgs != null &&
-                    this.BuildArgs.Equals(input.BuildArgs))
-                ) && 
-                (
-                    this.ContinuousIntegrationQuietPeriod == input.ContinuousIntegrationQuietPeriod ||
-                    this.ContinuousIntegrationQuietPeriod.Equals(input.ContinuousIntegrationQuietPeriod)
-                ) && 
-                (
-                    this.Controller == input.Controller ||
-                    (this.Controller != null &&
-                    this.Controller.Equals(input.Controller))
-                ) && 
-                (
-                    this.CreatedOn == input.CreatedOn ||
-                    (this.CreatedOn != null &&
-                    this.CreatedOn.Equals(input.CreatedOn))
-                ) && 
-                (
-                    this.DefaultDropLocation == input.DefaultDropLocation ||
-                    (this.DefaultDropLocation != null &&
-                    this.DefaultDropLocation.Equals(input.DefaultDropLocation))
-                ) && 
-                (
-                    this.Description == input.Description ||
-                    (this.Description != null &&
-                    this.Description.Equals(input.Description))
-                ) && 
-                (
-                    this.LastBuild == input.LastBuild ||
-                    (this.LastBuild != null &&
-                    this.LastBuild.Equals(input.LastBuild))
-                ) && 
-                (
-                    this.Repository == input.Repository ||
-                    (this.Repository != null &&
-                    this.Repository.Equals(input.Repository))
-                ) && 
-                (
-                    this.SupportedReasons == input.SupportedReasons ||
-                    this.SupportedReasons.Equals(input.SupportedReasons)
-                ) && 
-                (
-                    this.TriggerType == input.TriggerType ||
-                    this.TriggerType.Equals(input.TriggerType)
-                ) && 
-                (
-                    this.CreatedDate == input.CreatedDate ||
-                    (this.CreatedDate != null &&
-                    this.CreatedDate.Equals(input.CreatedDate))
-                ) && 
-                (
-                    this.Id == input.Id ||
-                    this.Id.Equals(input.Id)
-                ) && 
-                (
-                    this.Name == input.Name ||
-                    (this.Name != null &&
-                    this.Name.Equals(input.Name))
-                ) && 
-                (
-                    this.Path == input.Path ||
-                    (this.Path != null &&
-                    this.Path.Equals(input.Path))
-                ) && 
-                (
-                    this.Project == input.Project ||
-                    (this.Project != null &&
-                    this.Project.Equals(input.Project))
-                ) && 
-                (
-                    this.QueueStatus == input.QueueStatus ||
-                    this.QueueStatus.Equals(input.QueueStatus)
-                ) && 
-                (
-                    this.Revision == input.Revision ||
-                    this.Revision.Equals(input.Revision)
-                ) && 
-                (
-                    this.Type == input.Type ||
-                    this.Type.Equals(input.Type)
-                ) && 
-                (
-                    this.Uri == input.Uri ||
-                    (this.Uri != null &&
-                    this.Uri.Equals(input.Uri))
-                ) && 
-                (
-                    this.Url == input.Url ||
-                    (this.Url != null &&
-                    this.Url.Equals(input.Url))
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.Links != null)
-                {
-                    hashCode = (hashCode * 59) + this.Links.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.BatchSize.GetHashCode();
-                if (this.BuildArgs != null)
-                {
-                    hashCode = (hashCode * 59) + this.BuildArgs.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.ContinuousIntegrationQuietPeriod.GetHashCode();
-                if (this.Controller != null)
-                {
-                    hashCode = (hashCode * 59) + this.Controller.GetHashCode();
-                }
-                if (this.CreatedOn != null)
-                {
-                    hashCode = (hashCode * 59) + this.CreatedOn.GetHashCode();
-                }
-                if (this.DefaultDropLocation != null)
-                {
-                    hashCode = (hashCode * 59) + this.DefaultDropLocation.GetHashCode();
-                }
-                if (this.Description != null)
-                {
-                    hashCode = (hashCode * 59) + this.Description.GetHashCode();
-                }
-                if (this.LastBuild != null)
-                {
-                    hashCode = (hashCode * 59) + this.LastBuild.GetHashCode();
-                }
-                if (this.Repository != null)
-                {
-                    hashCode = (hashCode * 59) + this.Repository.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.SupportedReasons.GetHashCode();
-                hashCode = (hashCode * 59) + this.TriggerType.GetHashCode();
-                if (this.CreatedDate != null)
-                {
-                    hashCode = (hashCode * 59) + this.CreatedDate.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.Id.GetHashCode();
-                if (this.Name != null)
-                {
-                    hashCode = (hashCode * 59) + this.Name.GetHashCode();
-                }
-                if (this.Path != null)
-                {
-                    hashCode = (hashCode * 59) + this.Path.GetHashCode();
-                }
-                if (this.Project != null)
-                {
-                    hashCode = (hashCode * 59) + this.Project.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.QueueStatus.GetHashCode();
-                hashCode = (hashCode * 59) + this.Revision.GetHashCode();
-                hashCode = (hashCode * 59) + this.Type.GetHashCode();
-                if (this.Uri != null)
-                {
-                    hashCode = (hashCode * 59) + this.Uri.GetHashCode();
-                }
-                if (this.Url != null)
-                {
-                    hashCode = (hashCode * 59) + this.Url.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

@@ -12,6 +12,13 @@
 using Xunit;
 
 using System;
+using System.Linq;
+using System.IO;
+using System.Collections.Generic;
+using Org.OpenAPITools.Model;
+using Org.OpenAPITools.Client;
+using System.Reflection;
+using Newtonsoft.Json;
 
 namespace Org.OpenAPITools.Test.Model
 {
@@ -48,7 +55,6 @@ namespace Org.OpenAPITools.Test.Model
             //Assert.IsType<Phase>(instance);
         }
 
-
         /// <summary>
         /// Test the property 'Condition'
         /// </summary>
@@ -57,6 +63,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'Condition'
         }
+
         /// <summary>
         /// Test the property 'Dependencies'
         /// </summary>
@@ -65,6 +72,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'Dependencies'
         }
+
         /// <summary>
         /// Test the property 'JobAuthorizationScope'
         /// </summary>
@@ -73,6 +81,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'JobAuthorizationScope'
         }
+
         /// <summary>
         /// Test the property 'JobCancelTimeoutInMinutes'
         /// </summary>
@@ -81,6 +90,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'JobCancelTimeoutInMinutes'
         }
+
         /// <summary>
         /// Test the property 'JobTimeoutInMinutes'
         /// </summary>
@@ -89,6 +99,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'JobTimeoutInMinutes'
         }
+
         /// <summary>
         /// Test the property 'Name'
         /// </summary>
@@ -97,6 +108,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'Name'
         }
+
         /// <summary>
         /// Test the property 'RefName'
         /// </summary>
@@ -105,6 +117,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'RefName'
         }
+
         /// <summary>
         /// Test the property 'Steps'
         /// </summary>
@@ -113,6 +126,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'Steps'
         }
+
         /// <summary>
         /// Test the property 'Target'
         /// </summary>
@@ -121,6 +135,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'Target'
         }
+
         /// <summary>
         /// Test the property 'Variables'
         /// </summary>
@@ -129,7 +144,5 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'Variables'
         }
-
     }
-
 }

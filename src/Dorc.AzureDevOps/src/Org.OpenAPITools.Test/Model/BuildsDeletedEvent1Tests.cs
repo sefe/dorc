@@ -12,6 +12,13 @@
 using Xunit;
 
 using System;
+using System.Linq;
+using System.IO;
+using System.Collections.Generic;
+using Org.OpenAPITools.Model;
+using Org.OpenAPITools.Client;
+using System.Reflection;
+using Newtonsoft.Json;
 
 namespace Org.OpenAPITools.Test.Model
 {
@@ -48,7 +55,6 @@ namespace Org.OpenAPITools.Test.Model
             //Assert.IsType<BuildsDeletedEvent1>(instance);
         }
 
-
         /// <summary>
         /// Test the property 'BuildIds'
         /// </summary>
@@ -57,6 +63,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'BuildIds'
         }
+
         /// <summary>
         /// Test the property 'DefinitionId'
         /// </summary>
@@ -65,6 +72,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'DefinitionId'
         }
+
         /// <summary>
         /// Test the property 'ProjectId'
         /// </summary>
@@ -73,7 +81,5 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'ProjectId'
         }
-
     }
-
 }

@@ -68,8 +68,9 @@ jobs:
         java-version: '17'
 
     # The suite must exercise the same client code a release build ships:
-    # both API clients are regenerated from their committed specs before the
-    # tests run. The authoritative in-sync gate lives in the build job.
+    # the generated API clients are regenerated from their committed specs
+    # before the tests run. The authoritative in-sync gate lives in the
+    # build job.
     - name: Generate API clients
       working-directory: src/dorc-web
       run: npm run api-gen
@@ -177,28 +178,34 @@ jobs:
         distribution: 'temurin'
         java-version: '17'
 
-    # The API clients under src/dorc-web/src/apis are generated code: dorc-api
-    # from swagger.json and azure-devops-build from build.json, each pinned to
-    # the generator version in its own openapitools.json. Regenerating here —
-    # before the web build — means every release is built from clients the
-    # generator actually produced, never from hand-drifted files.
+    # Three clients are generated code: the TypeScript dorc-api and
+    # azure-devops-build clients under src/dorc-web/src/apis, and the C#
+    # Org.OpenAPITools client under src/Dorc.AzureDevOps that Dorc.Core,
+    # the Monitor and the TerraformRunner consume for build numbers and
+    # artifact locations. Each pins its generator version in its own
+    # openapitools.json. Regenerating here — before the web and solution
+    # builds — means every release is built from clients the generator
+    # actually produced, never from hand-drifted files.
     - name: Generate API clients
       working-directory: src/dorc-web
       run: npm run api-gen
 
     # The committed clients are the same files the generator just wrote, so
     # any diff means someone edited generated code by hand or changed a spec
-    # without regenerating. Nothing under src/apis is hand-maintained: app
-    # concerns (base URL, OAuth tokens) live in
-    # src/services/dorc-api-configuration.ts, outside the generated tree.
+    # without regenerating. No generated file is hand-maintained: app
+    # concerns live outside the generated trees (the web's
+    # src/services/dorc-api-configuration.ts; the C# side's
+    # Dorc.AzureDevOps.Client project). The two csproj files under
+    # src/Dorc.AzureDevOps are dependabot-owned and excluded via that tree's
+    # .openapi-generator-ignore, so they never diff here either.
     - name: Fail if generated clients are out of sync
       shell: pwsh
       run: |
-        $drift = git status --porcelain -- src/dorc-web/src/apis
+        $drift = git status --porcelain -- src/dorc-web/src/apis src/Dorc.AzureDevOps
         if ($drift) {
           Write-Host "Generated API clients differ from the committed code:"
           $drift | ForEach-Object { Write-Host "  $_" }
-          git --no-pager diff -- src/dorc-web/src/apis | Select-Object -First 200
+          git --no-pager diff -- src/dorc-web/src/apis src/Dorc.AzureDevOps | Select-Object -First 200
           Write-Error ("API clients are out of sync with their specs. " +
             "Run 'npm run api-gen' in src/dorc-web and commit the result.")
           exit 1

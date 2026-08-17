@@ -12,6 +12,13 @@
 using Xunit;
 
 using System;
+using System.Linq;
+using System.IO;
+using System.Collections.Generic;
+using Org.OpenAPITools.Model;
+using Org.OpenAPITools.Client;
+using System.Reflection;
+using Newtonsoft.Json;
 
 namespace Org.OpenAPITools.Test.Model
 {
@@ -48,7 +55,6 @@ namespace Org.OpenAPITools.Test.Model
             //Assert.IsType<ReleaseReference>(instance);
         }
 
-
         /// <summary>
         /// Test the property 'Attempt'
         /// </summary>
@@ -57,6 +63,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'Attempt'
         }
+
         /// <summary>
         /// Test the property 'CreationDate'
         /// </summary>
@@ -65,6 +72,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'CreationDate'
         }
+
         /// <summary>
         /// Test the property 'DefinitionId'
         /// </summary>
@@ -73,6 +81,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'DefinitionId'
         }
+
         /// <summary>
         /// Test the property 'EnvironmentCreationDate'
         /// </summary>
@@ -81,6 +90,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'EnvironmentCreationDate'
         }
+
         /// <summary>
         /// Test the property 'EnvironmentDefinitionId'
         /// </summary>
@@ -89,6 +99,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'EnvironmentDefinitionId'
         }
+
         /// <summary>
         /// Test the property 'EnvironmentDefinitionName'
         /// </summary>
@@ -97,6 +108,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'EnvironmentDefinitionName'
         }
+
         /// <summary>
         /// Test the property 'EnvironmentId'
         /// </summary>
@@ -105,6 +117,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'EnvironmentId'
         }
+
         /// <summary>
         /// Test the property 'EnvironmentName'
         /// </summary>
@@ -113,6 +126,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'EnvironmentName'
         }
+
         /// <summary>
         /// Test the property 'Id'
         /// </summary>
@@ -121,6 +135,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'Id'
         }
+
         /// <summary>
         /// Test the property 'Name'
         /// </summary>
@@ -129,7 +144,5 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'Name'
         }
-
     }
-
 }

@@ -30,14 +30,14 @@ namespace Org.OpenAPITools.Model
     /// Represents a phase target that runs on the server.
     /// </summary>
     [DataContract(Name = "ServerTarget")]
-    public partial class ServerTarget : IEquatable<ServerTarget>, IValidatableObject
+    public partial class ServerTarget : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="ServerTarget" /> class.
         /// </summary>
         /// <param name="executionOptions">executionOptions.</param>
         /// <param name="type">The type of the target..</param>
-        public ServerTarget(ServerTargetExecutionOptions executionOptions = default(ServerTargetExecutionOptions), int type = default(int))
+        public ServerTarget(ServerTargetExecutionOptions executionOptions = default, int type = default)
         {
             this.ExecutionOptions = executionOptions;
             this.Type = type;
@@ -80,62 +80,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as ServerTarget);
-        }
-
-        /// <summary>
-        /// Returns true if ServerTarget instances are equal
-        /// </summary>
-        /// <param name="input">Instance of ServerTarget to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(ServerTarget input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.ExecutionOptions == input.ExecutionOptions ||
-                    (this.ExecutionOptions != null &&
-                    this.ExecutionOptions.Equals(input.ExecutionOptions))
-                ) && 
-                (
-                    this.Type == input.Type ||
-                    this.Type.Equals(input.Type)
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.ExecutionOptions != null)
-                {
-                    hashCode = (hashCode * 59) + this.ExecutionOptions.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.Type.GetHashCode();
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

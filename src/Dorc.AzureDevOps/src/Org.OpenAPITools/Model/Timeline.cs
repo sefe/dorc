@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// Represents the timeline of a build.
     /// </summary>
     [DataContract(Name = "Timeline")]
-    public partial class Timeline : IEquatable<Timeline>, IValidatableObject
+    public partial class Timeline : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="Timeline" /> class.
@@ -41,7 +41,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="changeId">The change ID..</param>
         /// <param name="id">The ID of the timeline..</param>
         /// <param name="url">The REST URL of the timeline..</param>
-        public Timeline(Guid lastChangedBy = default(Guid), DateTime lastChangedOn = default(DateTime), List<TimelineRecord> records = default(List<TimelineRecord>), int changeId = default(int), Guid id = default(Guid), string url = default(string))
+        public Timeline(Guid lastChangedBy = default, DateTime lastChangedOn = default, List<TimelineRecord> records = default, int changeId = default, Guid id = default, string url = default)
         {
             this.LastChangedBy = lastChangedBy;
             this.LastChangedOn = lastChangedOn;
@@ -120,99 +120,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as Timeline);
-        }
-
-        /// <summary>
-        /// Returns true if Timeline instances are equal
-        /// </summary>
-        /// <param name="input">Instance of Timeline to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(Timeline input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.LastChangedBy == input.LastChangedBy ||
-                    (this.LastChangedBy != null &&
-                    this.LastChangedBy.Equals(input.LastChangedBy))
-                ) && 
-                (
-                    this.LastChangedOn == input.LastChangedOn ||
-                    (this.LastChangedOn != null &&
-                    this.LastChangedOn.Equals(input.LastChangedOn))
-                ) && 
-                (
-                    this.Records == input.Records ||
-                    this.Records != null &&
-                    input.Records != null &&
-                    this.Records.SequenceEqual(input.Records)
-                ) && 
-                (
-                    this.ChangeId == input.ChangeId ||
-                    this.ChangeId.Equals(input.ChangeId)
-                ) && 
-                (
-                    this.Id == input.Id ||
-                    (this.Id != null &&
-                    this.Id.Equals(input.Id))
-                ) && 
-                (
-                    this.Url == input.Url ||
-                    (this.Url != null &&
-                    this.Url.Equals(input.Url))
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.LastChangedBy != null)
-                {
-                    hashCode = (hashCode * 59) + this.LastChangedBy.GetHashCode();
-                }
-                if (this.LastChangedOn != null)
-                {
-                    hashCode = (hashCode * 59) + this.LastChangedOn.GetHashCode();
-                }
-                if (this.Records != null)
-                {
-                    hashCode = (hashCode * 59) + this.Records.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.ChangeId.GetHashCode();
-                if (this.Id != null)
-                {
-                    hashCode = (hashCode * 59) + this.Id.GetHashCode();
-                }
-                if (this.Url != null)
-                {
-                    hashCode = (hashCode * 59) + this.Url.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

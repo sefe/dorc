@@ -9,7 +9,15 @@
  */
 
 using System;
+using System.IO;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Linq;
+using System.Reflection;
+using RestSharp;
 using Xunit;
+
+using Org.OpenAPITools.Client;
 using Org.OpenAPITools.Api;
 
 namespace Org.OpenAPITools.Test.Api

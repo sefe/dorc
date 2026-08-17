@@ -30,14 +30,14 @@ namespace Org.OpenAPITools.Model
     /// BuildUpdatedEvent
     /// </summary>
     [DataContract(Name = "BuildUpdatedEvent")]
-    public partial class BuildUpdatedEvent : IEquatable<BuildUpdatedEvent>, IValidatableObject
+    public partial class BuildUpdatedEvent : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="BuildUpdatedEvent" /> class.
         /// </summary>
         /// <param name="build">build.</param>
         /// <param name="buildId">buildId.</param>
-        public BuildUpdatedEvent(Build build = default(Build), int buildId = default(int))
+        public BuildUpdatedEvent(Build build = default, int buildId = default)
         {
             this.Build = build;
             this.BuildId = buildId;
@@ -79,62 +79,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as BuildUpdatedEvent);
-        }
-
-        /// <summary>
-        /// Returns true if BuildUpdatedEvent instances are equal
-        /// </summary>
-        /// <param name="input">Instance of BuildUpdatedEvent to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(BuildUpdatedEvent input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.Build == input.Build ||
-                    (this.Build != null &&
-                    this.Build.Equals(input.Build))
-                ) && 
-                (
-                    this.BuildId == input.BuildId ||
-                    this.BuildId.Equals(input.BuildId)
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.Build != null)
-                {
-                    hashCode = (hashCode * 59) + this.Build.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.BuildId.GetHashCode();
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

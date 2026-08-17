@@ -12,6 +12,13 @@
 using Xunit;
 
 using System;
+using System.Linq;
+using System.IO;
+using System.Collections.Generic;
+using Org.OpenAPITools.Model;
+using Org.OpenAPITools.Client;
+using System.Reflection;
+using Newtonsoft.Json;
 
 namespace Org.OpenAPITools.Test.Model
 {
@@ -48,7 +55,6 @@ namespace Org.OpenAPITools.Test.Model
             //Assert.IsType<IdentityRef>(instance);
         }
 
-
         /// <summary>
         /// Test the property 'DirectoryAlias'
         /// </summary>
@@ -57,6 +63,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'DirectoryAlias'
         }
+
         /// <summary>
         /// Test the property 'Id'
         /// </summary>
@@ -65,6 +72,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'Id'
         }
+
         /// <summary>
         /// Test the property 'ImageUrl'
         /// </summary>
@@ -73,6 +81,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'ImageUrl'
         }
+
         /// <summary>
         /// Test the property 'Inactive'
         /// </summary>
@@ -81,6 +90,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'Inactive'
         }
+
         /// <summary>
         /// Test the property 'IsAadIdentity'
         /// </summary>
@@ -89,6 +99,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'IsAadIdentity'
         }
+
         /// <summary>
         /// Test the property 'IsContainer'
         /// </summary>
@@ -97,6 +108,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'IsContainer'
         }
+
         /// <summary>
         /// Test the property 'IsDeletedInOrigin'
         /// </summary>
@@ -105,6 +117,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'IsDeletedInOrigin'
         }
+
         /// <summary>
         /// Test the property 'ProfileUrl'
         /// </summary>
@@ -113,6 +126,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'ProfileUrl'
         }
+
         /// <summary>
         /// Test the property 'UniqueName'
         /// </summary>
@@ -121,6 +135,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'UniqueName'
         }
+
         /// <summary>
         /// Test the property 'Links'
         /// </summary>
@@ -129,6 +144,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'Links'
         }
+
         /// <summary>
         /// Test the property 'Descriptor'
         /// </summary>
@@ -137,6 +153,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'Descriptor'
         }
+
         /// <summary>
         /// Test the property 'DisplayName'
         /// </summary>
@@ -145,6 +162,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'DisplayName'
         }
+
         /// <summary>
         /// Test the property 'Url'
         /// </summary>
@@ -153,7 +171,5 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'Url'
         }
-
     }
-
 }

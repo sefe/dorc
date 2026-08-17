@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Org.OpenAPITools.Client.Auth
+namespace Dorc.AzureDevOps.Client.Auth
 {
     /// <summary>
     /// For any future DI needed and importantly used by the AuthTokenGeneratorFactory

@@ -30,14 +30,14 @@ namespace Org.OpenAPITools.Model
     /// DockerProcess
     /// </summary>
     [DataContract(Name = "DockerProcess")]
-    public partial class DockerProcess : IEquatable<DockerProcess>, IValidatableObject
+    public partial class DockerProcess : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="DockerProcess" /> class.
         /// </summary>
         /// <param name="target">target.</param>
         /// <param name="type">The type of the process..</param>
-        public DockerProcess(DockerProcessTarget target = default(DockerProcessTarget), int type = default(int))
+        public DockerProcess(DockerProcessTarget target = default, int type = default)
         {
             this.Target = target;
             this.Type = type;
@@ -80,62 +80,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as DockerProcess);
-        }
-
-        /// <summary>
-        /// Returns true if DockerProcess instances are equal
-        /// </summary>
-        /// <param name="input">Instance of DockerProcess to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(DockerProcess input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.Target == input.Target ||
-                    (this.Target != null &&
-                    this.Target.Equals(input.Target))
-                ) && 
-                (
-                    this.Type == input.Type ||
-                    this.Type.Equals(input.Type)
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.Target != null)
-                {
-                    hashCode = (hashCode * 59) + this.Target.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.Type.GetHashCode();
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

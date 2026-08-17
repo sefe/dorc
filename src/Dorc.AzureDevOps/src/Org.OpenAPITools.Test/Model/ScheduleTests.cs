@@ -12,6 +12,13 @@
 using Xunit;
 
 using System;
+using System.Linq;
+using System.IO;
+using System.Collections.Generic;
+using Org.OpenAPITools.Model;
+using Org.OpenAPITools.Client;
+using System.Reflection;
+using Newtonsoft.Json;
 
 namespace Org.OpenAPITools.Test.Model
 {
@@ -48,7 +55,6 @@ namespace Org.OpenAPITools.Test.Model
             //Assert.IsType<Schedule>(instance);
         }
 
-
         /// <summary>
         /// Test the property 'BranchFilters'
         /// </summary>
@@ -57,6 +63,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'BranchFilters'
         }
+
         /// <summary>
         /// Test the property 'DaysToBuild'
         /// </summary>
@@ -65,6 +72,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'DaysToBuild'
         }
+
         /// <summary>
         /// Test the property 'ScheduleJobId'
         /// </summary>
@@ -73,6 +81,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'ScheduleJobId'
         }
+
         /// <summary>
         /// Test the property 'ScheduleOnlyWithChanges'
         /// </summary>
@@ -81,6 +90,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'ScheduleOnlyWithChanges'
         }
+
         /// <summary>
         /// Test the property 'StartHours'
         /// </summary>
@@ -89,6 +99,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'StartHours'
         }
+
         /// <summary>
         /// Test the property 'StartMinutes'
         /// </summary>
@@ -97,6 +108,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'StartMinutes'
         }
+
         /// <summary>
         /// Test the property 'TimeZoneId'
         /// </summary>
@@ -105,7 +117,5 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'TimeZoneId'
         }
-
     }
-
 }

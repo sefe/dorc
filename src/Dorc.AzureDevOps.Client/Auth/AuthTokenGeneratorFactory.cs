@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Org.OpenAPITools.Client.Auth
+namespace Dorc.AzureDevOps.Client.Auth
 {
     /// <summary>
     /// Factory class to get a particular Token Generator

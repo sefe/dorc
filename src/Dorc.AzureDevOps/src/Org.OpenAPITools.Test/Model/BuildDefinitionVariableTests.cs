@@ -12,6 +12,13 @@
 using Xunit;
 
 using System;
+using System.Linq;
+using System.IO;
+using System.Collections.Generic;
+using Org.OpenAPITools.Model;
+using Org.OpenAPITools.Client;
+using System.Reflection;
+using Newtonsoft.Json;
 
 namespace Org.OpenAPITools.Test.Model
 {
@@ -48,7 +55,6 @@ namespace Org.OpenAPITools.Test.Model
             //Assert.IsType<BuildDefinitionVariable>(instance);
         }
 
-
         /// <summary>
         /// Test the property 'AllowOverride'
         /// </summary>
@@ -57,6 +63,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'AllowOverride'
         }
+
         /// <summary>
         /// Test the property 'IsSecret'
         /// </summary>
@@ -65,6 +72,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'IsSecret'
         }
+
         /// <summary>
         /// Test the property 'Value'
         /// </summary>
@@ -73,7 +81,5 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'Value'
         }
-
     }
-
 }

@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// Represents a variable group.
     /// </summary>
     [DataContract(Name = "VariableGroup")]
-    public partial class VariableGroup : IEquatable<VariableGroup>, IValidatableObject
+    public partial class VariableGroup : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="VariableGroup" /> class.
@@ -41,7 +41,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="variables">variables.</param>
         /// <param name="alias">The Name of the variable group..</param>
         /// <param name="id">The ID of the variable group..</param>
-        public VariableGroup(string description = default(string), string name = default(string), string type = default(string), Dictionary<string, BuildDefinitionVariable> variables = default(Dictionary<string, BuildDefinitionVariable>), string alias = default(string), int id = default(int))
+        public VariableGroup(string description = default, string name = default, string type = default, Dictionary<string, BuildDefinitionVariable> variables = default, string alias = default, int id = default)
         {
             this.Description = description;
             this.Name = name;
@@ -120,99 +120,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as VariableGroup);
-        }
-
-        /// <summary>
-        /// Returns true if VariableGroup instances are equal
-        /// </summary>
-        /// <param name="input">Instance of VariableGroup to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(VariableGroup input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.Description == input.Description ||
-                    (this.Description != null &&
-                    this.Description.Equals(input.Description))
-                ) && 
-                (
-                    this.Name == input.Name ||
-                    (this.Name != null &&
-                    this.Name.Equals(input.Name))
-                ) && 
-                (
-                    this.Type == input.Type ||
-                    (this.Type != null &&
-                    this.Type.Equals(input.Type))
-                ) && 
-                (
-                    this.Variables == input.Variables ||
-                    this.Variables != null &&
-                    input.Variables != null &&
-                    this.Variables.SequenceEqual(input.Variables)
-                ) && 
-                (
-                    this.Alias == input.Alias ||
-                    (this.Alias != null &&
-                    this.Alias.Equals(input.Alias))
-                ) && 
-                (
-                    this.Id == input.Id ||
-                    this.Id.Equals(input.Id)
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.Description != null)
-                {
-                    hashCode = (hashCode * 59) + this.Description.GetHashCode();
-                }
-                if (this.Name != null)
-                {
-                    hashCode = (hashCode * 59) + this.Name.GetHashCode();
-                }
-                if (this.Type != null)
-                {
-                    hashCode = (hashCode * 59) + this.Type.GetHashCode();
-                }
-                if (this.Variables != null)
-                {
-                    hashCode = (hashCode * 59) + this.Variables.GetHashCode();
-                }
-                if (this.Alias != null)
-                {
-                    hashCode = (hashCode * 59) + this.Alias.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.Id.GetHashCode();
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

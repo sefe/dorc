@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// BuildProcessTemplate
     /// </summary>
     [DataContract(Name = "BuildProcessTemplate")]
-    public partial class BuildProcessTemplate : IEquatable<BuildProcessTemplate>, IValidatableObject
+    public partial class BuildProcessTemplate : IValidatableObject
     {
         /// <summary>
         /// Defines SupportedReasons
@@ -121,7 +121,6 @@ namespace Org.OpenAPITools.Model
             /// </summary>
             [EnumMember(Value = "all")]
             All = 14
-
         }
 
 
@@ -153,7 +152,6 @@ namespace Org.OpenAPITools.Model
             /// </summary>
             [EnumMember(Value = "upgrade")]
             Upgrade = 3
-
         }
 
 
@@ -174,8 +172,8 @@ namespace Org.OpenAPITools.Model
         /// <param name="teamProject">teamProject.</param>
         /// <param name="templateType">templateType.</param>
         /// <param name="url">url.</param>
-        /// <param name="version">version.</param>
-        public BuildProcessTemplate(string description = default(string), bool fileExists = default(bool), int id = default(int), string parameters = default(string), string serverPath = default(string), SupportedReasonsEnum? supportedReasons = default(SupportedReasonsEnum?), string teamProject = default(string), TemplateTypeEnum? templateType = default(TemplateTypeEnum?), string url = default(string), string version = default(string))
+        /// <param name="varVersion">varVersion.</param>
+        public BuildProcessTemplate(string description = default, bool fileExists = default, int id = default, string parameters = default, string serverPath = default, SupportedReasonsEnum? supportedReasons = default, string teamProject = default, TemplateTypeEnum? templateType = default, string url = default, string varVersion = default)
         {
             this.Description = description;
             this.FileExists = fileExists;
@@ -186,7 +184,7 @@ namespace Org.OpenAPITools.Model
             this.TeamProject = teamProject;
             this.TemplateType = templateType;
             this.Url = url;
-            this._Version = version;
+            this.VarVersion = varVersion;
         }
 
         /// <summary>
@@ -232,10 +230,10 @@ namespace Org.OpenAPITools.Model
         public string Url { get; set; }
 
         /// <summary>
-        /// Gets or Sets _Version
+        /// Gets or Sets VarVersion
         /// </summary>
         [DataMember(Name = "version", EmitDefaultValue = false)]
-        public string _Version { get; set; }
+        public string VarVersion { get; set; }
 
         /// <summary>
         /// Returns the string presentation of the object
@@ -254,7 +252,7 @@ namespace Org.OpenAPITools.Model
             sb.Append("  TeamProject: ").Append(TeamProject).Append("\n");
             sb.Append("  TemplateType: ").Append(TemplateType).Append("\n");
             sb.Append("  Url: ").Append(Url).Append("\n");
-            sb.Append("  _Version: ").Append(_Version).Append("\n");
+            sb.Append("  VarVersion: ").Append(VarVersion).Append("\n");
             sb.Append("}\n");
             return sb.ToString();
         }
@@ -269,122 +267,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as BuildProcessTemplate);
-        }
-
-        /// <summary>
-        /// Returns true if BuildProcessTemplate instances are equal
-        /// </summary>
-        /// <param name="input">Instance of BuildProcessTemplate to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(BuildProcessTemplate input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.Description == input.Description ||
-                    (this.Description != null &&
-                    this.Description.Equals(input.Description))
-                ) && 
-                (
-                    this.FileExists == input.FileExists ||
-                    this.FileExists.Equals(input.FileExists)
-                ) && 
-                (
-                    this.Id == input.Id ||
-                    this.Id.Equals(input.Id)
-                ) && 
-                (
-                    this.Parameters == input.Parameters ||
-                    (this.Parameters != null &&
-                    this.Parameters.Equals(input.Parameters))
-                ) && 
-                (
-                    this.ServerPath == input.ServerPath ||
-                    (this.ServerPath != null &&
-                    this.ServerPath.Equals(input.ServerPath))
-                ) && 
-                (
-                    this.SupportedReasons == input.SupportedReasons ||
-                    this.SupportedReasons.Equals(input.SupportedReasons)
-                ) && 
-                (
-                    this.TeamProject == input.TeamProject ||
-                    (this.TeamProject != null &&
-                    this.TeamProject.Equals(input.TeamProject))
-                ) && 
-                (
-                    this.TemplateType == input.TemplateType ||
-                    this.TemplateType.Equals(input.TemplateType)
-                ) && 
-                (
-                    this.Url == input.Url ||
-                    (this.Url != null &&
-                    this.Url.Equals(input.Url))
-                ) && 
-                (
-                    this._Version == input._Version ||
-                    (this._Version != null &&
-                    this._Version.Equals(input._Version))
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.Description != null)
-                {
-                    hashCode = (hashCode * 59) + this.Description.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.FileExists.GetHashCode();
-                hashCode = (hashCode * 59) + this.Id.GetHashCode();
-                if (this.Parameters != null)
-                {
-                    hashCode = (hashCode * 59) + this.Parameters.GetHashCode();
-                }
-                if (this.ServerPath != null)
-                {
-                    hashCode = (hashCode * 59) + this.ServerPath.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.SupportedReasons.GetHashCode();
-                if (this.TeamProject != null)
-                {
-                    hashCode = (hashCode * 59) + this.TeamProject.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.TemplateType.GetHashCode();
-                if (this.Url != null)
-                {
-                    hashCode = (hashCode * 59) + this.Url.GetHashCode();
-                }
-                if (this._Version != null)
-                {
-                    hashCode = (hashCode * 59) + this._Version.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

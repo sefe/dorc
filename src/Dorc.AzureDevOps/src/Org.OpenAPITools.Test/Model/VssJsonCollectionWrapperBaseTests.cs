@@ -12,6 +12,13 @@
 using Xunit;
 
 using System;
+using System.Linq;
+using System.IO;
+using System.Collections.Generic;
+using Org.OpenAPITools.Model;
+using Org.OpenAPITools.Client;
+using System.Reflection;
+using Newtonsoft.Json;
 
 namespace Org.OpenAPITools.Test.Model
 {
@@ -48,7 +55,6 @@ namespace Org.OpenAPITools.Test.Model
             //Assert.IsType<VssJsonCollectionWrapperBase>(instance);
         }
 
-
         /// <summary>
         /// Test the property 'Count'
         /// </summary>
@@ -57,7 +63,5 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'Count'
         }
-
     }
-
 }

@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// For back-compat with extensions that use the old Steps format instead of Process and Phases
     /// </summary>
     [DataContract(Name = "BuildDefinitionReference3_2")]
-    public partial class BuildDefinitionReference32 : IEquatable<BuildDefinitionReference32>, IValidatableObject
+    public partial class BuildDefinitionReference32 : IValidatableObject
     {
         /// <summary>
         /// The quality of the definition document (draft, etc.)
@@ -50,7 +50,6 @@ namespace Org.OpenAPITools.Model
             /// </summary>
             [EnumMember(Value = "draft")]
             Draft = 2
-
         }
 
 
@@ -84,7 +83,6 @@ namespace Org.OpenAPITools.Model
             /// </summary>
             [EnumMember(Value = "disabled")]
             Disabled = 3
-
         }
 
 
@@ -112,7 +110,6 @@ namespace Org.OpenAPITools.Model
             /// </summary>
             [EnumMember(Value = "build")]
             Build = 2
-
         }
 
 
@@ -142,7 +139,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="type">The type of the definition..</param>
         /// <param name="uri">The definition&#39;s URI..</param>
         /// <param name="url">The REST URL of the definition..</param>
-        public BuildDefinitionReference32(ReferenceLinks links = default(ReferenceLinks), IdentityRef authoredBy = default(IdentityRef), DefinitionReference draftOf = default(DefinitionReference), List<DefinitionReference> drafts = default(List<DefinitionReference>), List<BuildMetric> metrics = default(List<BuildMetric>), QualityEnum? quality = default(QualityEnum?), AgentPoolQueue queue = default(AgentPoolQueue), DateTime createdDate = default(DateTime), int id = default(int), string name = default(string), string path = default(string), TeamProjectReference project = default(TeamProjectReference), QueueStatusEnum? queueStatus = default(QueueStatusEnum?), int revision = default(int), TypeEnum? type = default(TypeEnum?), string uri = default(string), string url = default(string))
+        public BuildDefinitionReference32(ReferenceLinks links = default, IdentityRef authoredBy = default, DefinitionReference draftOf = default, List<DefinitionReference> drafts = default, List<BuildMetric> metrics = default, QualityEnum? quality = default, AgentPoolQueue queue = default, DateTime createdDate = default, int id = default, string name = default, string path = default, TeamProjectReference project = default, QueueStatusEnum? queueStatus = default, int revision = default, TypeEnum? type = default, string uri = default, string url = default)
         {
             this.Links = links;
             this.AuthoredBy = authoredBy;
@@ -294,183 +291,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as BuildDefinitionReference32);
-        }
-
-        /// <summary>
-        /// Returns true if BuildDefinitionReference32 instances are equal
-        /// </summary>
-        /// <param name="input">Instance of BuildDefinitionReference32 to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(BuildDefinitionReference32 input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.Links == input.Links ||
-                    (this.Links != null &&
-                    this.Links.Equals(input.Links))
-                ) && 
-                (
-                    this.AuthoredBy == input.AuthoredBy ||
-                    (this.AuthoredBy != null &&
-                    this.AuthoredBy.Equals(input.AuthoredBy))
-                ) && 
-                (
-                    this.DraftOf == input.DraftOf ||
-                    (this.DraftOf != null &&
-                    this.DraftOf.Equals(input.DraftOf))
-                ) && 
-                (
-                    this.Drafts == input.Drafts ||
-                    this.Drafts != null &&
-                    input.Drafts != null &&
-                    this.Drafts.SequenceEqual(input.Drafts)
-                ) && 
-                (
-                    this.Metrics == input.Metrics ||
-                    this.Metrics != null &&
-                    input.Metrics != null &&
-                    this.Metrics.SequenceEqual(input.Metrics)
-                ) && 
-                (
-                    this.Quality == input.Quality ||
-                    this.Quality.Equals(input.Quality)
-                ) && 
-                (
-                    this.Queue == input.Queue ||
-                    (this.Queue != null &&
-                    this.Queue.Equals(input.Queue))
-                ) && 
-                (
-                    this.CreatedDate == input.CreatedDate ||
-                    (this.CreatedDate != null &&
-                    this.CreatedDate.Equals(input.CreatedDate))
-                ) && 
-                (
-                    this.Id == input.Id ||
-                    this.Id.Equals(input.Id)
-                ) && 
-                (
-                    this.Name == input.Name ||
-                    (this.Name != null &&
-                    this.Name.Equals(input.Name))
-                ) && 
-                (
-                    this.Path == input.Path ||
-                    (this.Path != null &&
-                    this.Path.Equals(input.Path))
-                ) && 
-                (
-                    this.Project == input.Project ||
-                    (this.Project != null &&
-                    this.Project.Equals(input.Project))
-                ) && 
-                (
-                    this.QueueStatus == input.QueueStatus ||
-                    this.QueueStatus.Equals(input.QueueStatus)
-                ) && 
-                (
-                    this.Revision == input.Revision ||
-                    this.Revision.Equals(input.Revision)
-                ) && 
-                (
-                    this.Type == input.Type ||
-                    this.Type.Equals(input.Type)
-                ) && 
-                (
-                    this.Uri == input.Uri ||
-                    (this.Uri != null &&
-                    this.Uri.Equals(input.Uri))
-                ) && 
-                (
-                    this.Url == input.Url ||
-                    (this.Url != null &&
-                    this.Url.Equals(input.Url))
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.Links != null)
-                {
-                    hashCode = (hashCode * 59) + this.Links.GetHashCode();
-                }
-                if (this.AuthoredBy != null)
-                {
-                    hashCode = (hashCode * 59) + this.AuthoredBy.GetHashCode();
-                }
-                if (this.DraftOf != null)
-                {
-                    hashCode = (hashCode * 59) + this.DraftOf.GetHashCode();
-                }
-                if (this.Drafts != null)
-                {
-                    hashCode = (hashCode * 59) + this.Drafts.GetHashCode();
-                }
-                if (this.Metrics != null)
-                {
-                    hashCode = (hashCode * 59) + this.Metrics.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.Quality.GetHashCode();
-                if (this.Queue != null)
-                {
-                    hashCode = (hashCode * 59) + this.Queue.GetHashCode();
-                }
-                if (this.CreatedDate != null)
-                {
-                    hashCode = (hashCode * 59) + this.CreatedDate.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.Id.GetHashCode();
-                if (this.Name != null)
-                {
-                    hashCode = (hashCode * 59) + this.Name.GetHashCode();
-                }
-                if (this.Path != null)
-                {
-                    hashCode = (hashCode * 59) + this.Path.GetHashCode();
-                }
-                if (this.Project != null)
-                {
-                    hashCode = (hashCode * 59) + this.Project.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.QueueStatus.GetHashCode();
-                hashCode = (hashCode * 59) + this.Revision.GetHashCode();
-                hashCode = (hashCode * 59) + this.Type.GetHashCode();
-                if (this.Uri != null)
-                {
-                    hashCode = (hashCode * 59) + this.Uri.GetHashCode();
-                }
-                if (this.Url != null)
-                {
-                    hashCode = (hashCode * 59) + this.Url.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

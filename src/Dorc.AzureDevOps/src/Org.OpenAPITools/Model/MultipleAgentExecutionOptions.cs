@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// Represents options for running a phase against multiple agents.
     /// </summary>
     [DataContract(Name = "MultipleAgentExecutionOptions")]
-    public partial class MultipleAgentExecutionOptions : IEquatable<MultipleAgentExecutionOptions>, IValidatableObject
+    public partial class MultipleAgentExecutionOptions : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="MultipleAgentExecutionOptions" /> class.
@@ -38,7 +38,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="continueOnError">Indicates whether failure on one agent should prevent the phase from running on other agents..</param>
         /// <param name="maxConcurrency">The maximum number of agents to use simultaneously..</param>
         /// <param name="type">Indicates the type of execution options..</param>
-        public MultipleAgentExecutionOptions(bool continueOnError = default(bool), int maxConcurrency = default(int), int type = default(int))
+        public MultipleAgentExecutionOptions(bool continueOnError = default, int maxConcurrency = default, int type = default)
         {
             this.ContinueOnError = continueOnError;
             this.MaxConcurrency = maxConcurrency;
@@ -91,63 +91,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as MultipleAgentExecutionOptions);
-        }
-
-        /// <summary>
-        /// Returns true if MultipleAgentExecutionOptions instances are equal
-        /// </summary>
-        /// <param name="input">Instance of MultipleAgentExecutionOptions to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(MultipleAgentExecutionOptions input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.ContinueOnError == input.ContinueOnError ||
-                    this.ContinueOnError.Equals(input.ContinueOnError)
-                ) && 
-                (
-                    this.MaxConcurrency == input.MaxConcurrency ||
-                    this.MaxConcurrency.Equals(input.MaxConcurrency)
-                ) && 
-                (
-                    this.Type == input.Type ||
-                    this.Type.Equals(input.Type)
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                hashCode = (hashCode * 59) + this.ContinueOnError.GetHashCode();
-                hashCode = (hashCode * 59) + this.MaxConcurrency.GetHashCode();
-                hashCode = (hashCode * 59) + this.Type.GetHashCode();
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

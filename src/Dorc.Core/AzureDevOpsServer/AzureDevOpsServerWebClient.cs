@@ -3,7 +3,8 @@ using Dorc.Core.Models;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
 using Org.OpenAPITools.Api;
-using Org.OpenAPITools.Client.Auth;
+using Dorc.AzureDevOps.Client;
+using Dorc.AzureDevOps.Client.Auth;
 using Org.OpenAPITools.Model;
 
 namespace Dorc.Core.AzureDevOpsServer
@@ -59,7 +60,8 @@ namespace Dorc.Core.AzureDevOpsServer
                 };
             }
 
-            var instance = new DefinitionsApi(config);
+            var apiClient = AzureDevOpsApiClientFactory.Create(config.BasePath);
+            var instance = new DefinitionsApi(apiClient, apiClient, config);
 
             var projects = adosProjects.Split(new[] { ";" }, StringSplitOptions.RemoveEmptyEntries);
             var output = new List<BuildDefinitionReference>();
@@ -140,7 +142,8 @@ namespace Dorc.Core.AzureDevOpsServer
                 };
             }
 
-            var instance = new BuildsApi(config);
+            var apiClient = AzureDevOpsApiClientFactory.Create(config.BasePath);
+            var instance = new BuildsApi(apiClient, apiClient, config);
 
             var projects = buildDefinitions.Select(def => def.Project.Name).Distinct().ToList();
 
@@ -198,7 +201,8 @@ namespace Dorc.Core.AzureDevOpsServer
                 };
             }
 
-            var instance = new BuildsApi(config);
+            var apiClient = AzureDevOpsApiClientFactory.Create(config.BasePath);
+            var instance = new BuildsApi(apiClient, apiClient, config);
 
             var builds = new List<Build>();
 
@@ -275,7 +279,8 @@ namespace Dorc.Core.AzureDevOpsServer
                 };
             }
 
-            var instance = new ArtifactsApi(config);
+            var apiClient = AzureDevOpsApiClientFactory.Create(config.BasePath);
+            var instance = new ArtifactsApi(apiClient, apiClient, config);
 
             string apiVersion = ApiVersion;
             return instance.ArtifactsList(coll, project, buildId, apiVersion);

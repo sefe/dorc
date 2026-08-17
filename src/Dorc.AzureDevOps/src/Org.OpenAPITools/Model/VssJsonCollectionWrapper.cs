@@ -30,14 +30,14 @@ namespace Org.OpenAPITools.Model
     /// This class is used to serialized collections as a single JSON object on the wire, to avoid serializing JSON arrays directly to the client, which can be a security hole
     /// </summary>
     [DataContract(Name = "VssJsonCollectionWrapper")]
-    public partial class VssJsonCollectionWrapper : IEquatable<VssJsonCollectionWrapper>, IValidatableObject
+    public partial class VssJsonCollectionWrapper : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="VssJsonCollectionWrapper" /> class.
         /// </summary>
         /// <param name="value">value.</param>
         /// <param name="count">count.</param>
-        public VssJsonCollectionWrapper(string value = default(string), int count = default(int))
+        public VssJsonCollectionWrapper(string value = default, int count = default)
         {
             this.Value = value;
             this.Count = count;
@@ -79,62 +79,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as VssJsonCollectionWrapper);
-        }
-
-        /// <summary>
-        /// Returns true if VssJsonCollectionWrapper instances are equal
-        /// </summary>
-        /// <param name="input">Instance of VssJsonCollectionWrapper to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(VssJsonCollectionWrapper input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.Value == input.Value ||
-                    (this.Value != null &&
-                    this.Value.Equals(input.Value))
-                ) && 
-                (
-                    this.Count == input.Count ||
-                    this.Count.Equals(input.Count)
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.Value != null)
-                {
-                    hashCode = (hashCode * 59) + this.Value.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.Count.GetHashCode();
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

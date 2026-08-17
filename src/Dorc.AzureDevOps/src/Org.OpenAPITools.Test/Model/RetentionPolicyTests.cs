@@ -12,6 +12,13 @@
 using Xunit;
 
 using System;
+using System.Linq;
+using System.IO;
+using System.Collections.Generic;
+using Org.OpenAPITools.Model;
+using Org.OpenAPITools.Client;
+using System.Reflection;
+using Newtonsoft.Json;
 
 namespace Org.OpenAPITools.Test.Model
 {
@@ -48,7 +55,6 @@ namespace Org.OpenAPITools.Test.Model
             //Assert.IsType<RetentionPolicy>(instance);
         }
 
-
         /// <summary>
         /// Test the property 'Artifacts'
         /// </summary>
@@ -57,6 +63,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'Artifacts'
         }
+
         /// <summary>
         /// Test the property 'ArtifactTypesToDelete'
         /// </summary>
@@ -65,6 +72,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'ArtifactTypesToDelete'
         }
+
         /// <summary>
         /// Test the property 'Branches'
         /// </summary>
@@ -73,6 +81,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'Branches'
         }
+
         /// <summary>
         /// Test the property 'DaysToKeep'
         /// </summary>
@@ -81,6 +90,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'DaysToKeep'
         }
+
         /// <summary>
         /// Test the property 'DeleteBuildRecord'
         /// </summary>
@@ -89,6 +99,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'DeleteBuildRecord'
         }
+
         /// <summary>
         /// Test the property 'DeleteTestResults'
         /// </summary>
@@ -97,6 +108,7 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'DeleteTestResults'
         }
+
         /// <summary>
         /// Test the property 'MinimumToKeep'
         /// </summary>
@@ -105,7 +117,5 @@ namespace Org.OpenAPITools.Test.Model
         {
             // TODO unit test for the property 'MinimumToKeep'
         }
-
     }
-
 }

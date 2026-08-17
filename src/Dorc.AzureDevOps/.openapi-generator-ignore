@@ -21,3 +21,10 @@
 #docs/*.md
 # Then explicitly reverse the ignore rule for a single file:
 #!docs/README.md
+
+# The project files are excluded from generation: dependabot owns the
+# package versions in them, and the client csproj must not regress to the
+# generator's template versions on every regeneration. Everything else in
+# this tree is pure generator output.
+src/Org.OpenAPITools/Org.OpenAPITools.csproj
+src/Org.OpenAPITools.Test/Org.OpenAPITools.Test.csproj

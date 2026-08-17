@@ -2826,7 +2826,7 @@ paths:
       x-ms-docs-override-version: "6.0"
       x-ms-vss-resource: revisions
       x-ms-vss-method: GetDefinitionRevisions
-  /{organization}/{project}/_apis/build/definitions/{definitionId}/tags:
+  /{organization}/{project}/_apis/build/definitions/{DefinitionId}/tags:
     get:
       description: Gets the tags for a definition.
       operationId: Tags_Get Definition Tags
@@ -2940,7 +2940,7 @@ paths:
       x-ms-vss-method: AddDefinitionTags
       x-ms-preview: true
       x-codegen-request-body-name: body
-  /{organization}/{project}/_apis/build/definitions/{definitionId}/tags/{tag}:
+  /{organization}/{project}/_apis/build/definitions/{DefinitionId}/tags/{tag}:
     delete:
       description: Removes a tag from a definition.
       operationId: Tags_Delete Definition Tag
@@ -8612,6 +8612,7 @@ components:
           $ref: '#/components/schemas/JsonPatchOperation'
         type: array
       description: The JSON model for JSON Patch Operations
+      example: {}
     JsonPatchOperation:
       description: The JSON model for a JSON Patch operation
       properties:
