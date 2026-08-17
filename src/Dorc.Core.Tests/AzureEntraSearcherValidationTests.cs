@@ -29,5 +29,14 @@ namespace Dorc.Core.Tests
             Assert.IsFalse(AzureEntraSearcher.IsValidSearchName(""));
             Assert.IsFalse(AzureEntraSearcher.IsValidSearchName(null));
         }
+
+        [TestMethod]
+        public void IsValidSearchName_RejectsTrailingNewline()
+        {
+            // Guards the \A..\z anchoring: with ^..$, .NET also matches immediately
+            // before a trailing newline, letting "alice\n" reach the OData filter.
+            Assert.IsFalse(AzureEntraSearcher.IsValidSearchName("alice\n"));
+            Assert.IsFalse(AzureEntraSearcher.IsValidSearchName("alice\nbob"));
+        }
     }
 }
