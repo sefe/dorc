@@ -58,6 +58,7 @@ namespace Dorc.Monitor
             int deploymentRequestId,
             bool isProduction,
             string environmentName,
+            string? executionIdentityReference,
             StringBuilder componentResultLogBuilder,
             CancellationToken cancellationToken)
         {
@@ -71,8 +72,12 @@ namespace Dorc.Monitor
             // probe and the password reset controller. Four independent copies of the same four
             // key names and the same production boolean is four places for a security decision
             // to drift.
+            // Environment-keyed. An environment naming its own execution identity deploys under
+            // it; one that does not falls back to the tier default and behaves exactly as before,
+            // so migration proceeds environment by environment rather than as a flag day.
             var credential = _credentialSource.Resolve(
-                isProduction ? DeploymentTier.Production : DeploymentTier.NonProduction);
+                isProduction ? DeploymentTier.Production : DeploymentTier.NonProduction,
+                executionIdentityReference);
 
             if (credential == null)
             {

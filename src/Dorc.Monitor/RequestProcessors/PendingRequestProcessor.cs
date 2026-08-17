@@ -4,6 +4,7 @@ using Dorc.Core;
 using Dorc.Core.Events;
 using Dorc.Core.Interfaces;
 using Dorc.Core.VariableResolution;
+using Dorc.Core.Security;
 using Dorc.PersistentData.Security;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.Extensions.Configuration;
@@ -28,6 +29,7 @@ namespace Dorc.Monitor.RequestProcessors
         private readonly ILoggerFactory _loggerFactory;
         private readonly IGitHubArtifactDownloader _gitHubArtifactDownloader;
         private readonly IScriptScopeConfigValues _scriptScopeConfigValues;
+        private readonly IDeploymentCredentialSource _credentialSource;
 
         public PendingRequestProcessor(
             ILoggerFactory loggerFactory,
@@ -41,13 +43,15 @@ namespace Dorc.Monitor.RequestProcessors
             IPropertyEvaluator propertyEvaluator,
             IDeploymentEventsPublisher eventPublisher,
             IGitHubArtifactDownloader gitHubArtifactDownloader,
-            IScriptScopeConfigValues scriptScopeConfigValues)
+            IScriptScopeConfigValues scriptScopeConfigValues,
+            IDeploymentCredentialSource credentialSource)
         {
             _loggerFactory = loggerFactory;
             _propertyEvaluator = propertyEvaluator;
             _configValuesPersistentSource = configValuesPersistentSource;
             _gitHubArtifactDownloader = gitHubArtifactDownloader;
             _scriptScopeConfigValues = scriptScopeConfigValues;
+            _credentialSource = credentialSource;
             this.logger = _loggerFactory.CreateLogger<PendingRequestProcessor>();
 
             this.componentProcessor = componentProcessor;
@@ -222,6 +226,10 @@ namespace Dorc.Monitor.RequestProcessors
                                     environment.EnvironmentId,
                                     environment.EnvironmentIsProd,
                                     environmentName,
+                                    // The environment's own execution identity, where it names
+                                    // one. Null means the tier default, which is how every
+                                    // environment behaves until it is bound.
+                                    environment.ExecutionIdentityReference,
                                     scriptRoot,
                                     commonProperties,
                                     cancellationToken);
@@ -312,6 +320,8 @@ namespace Dorc.Monitor.RequestProcessors
                         criticalLogBuilder.AppendLine(log.ToString());
 
                         CancelPendingDeploymentResults(requestToExecute.Request.Id, DeploymentRequestStatus.Errored);
+
+                        ReportExecutionIdentityAdoption();
 
                         requestsPersistentSource.SetRequestCompletionStatus(
                             requestToExecute.Request.Id,
@@ -535,6 +545,29 @@ namespace Dorc.Monitor.RequestProcessors
                     + " scope: {Keys}. Each is readable by any script the deployment runs.",
                     stillPublished.Count,
                     string.Join(", ", stillPublished));
+            }
+        }
+
+        /// <summary>
+        /// Records how many credential resolutions used an environment's own execution identity
+        /// and how many fell back to the tier default.
+        ///
+        /// Migration progress is otherwise invisible, and "we have started binding identities"
+        /// is not the same claim as "the estate is bound". Reported from the count rather than
+        /// from a configuration flag, so it cannot be wrong.
+        /// </summary>
+        private void ReportExecutionIdentityAdoption()
+        {
+            var (bound, fallback) = _credentialSource.ResolutionCounts;
+
+            if (fallback > 0)
+            {
+                logger.LogInformation(
+                    "Execution identity: {Bound} resolution(s) used an environment's own identity,"
+                    + " {Fallback} fell back to the shared tier default. Every fallback shares one"
+                    + " account across its whole tier.",
+                    bound,
+                    fallback);
             }
         }
 

@@ -1,4 +1,4 @@
-namespace Dorc.Core.Security
+﻿namespace Dorc.Core.Security
 {
     /// <summary>
     /// Which population a deployment belongs to, and therefore which credential pair it runs
@@ -65,6 +65,27 @@ namespace Dorc.Core.Security
         /// authenticates as whatever the host happens to be running as.
         /// </summary>
         DeploymentCredential? Resolve(DeploymentTier tier);
+
+        /// <summary>
+        /// The credential for an environment: its own execution identity where it names one,
+        /// and the tier default where it does not.
+        ///
+        /// Execution identity was a boolean — production or not — which is why one compromised
+        /// deployment reaches the whole estate. An environment may now name its own identity,
+        /// and one that does not behaves exactly as before, so migration proceeds environment by
+        /// environment rather than as a flag day.
+        /// </summary>
+        /// <param name="identityReference">
+        /// The environment's identity reference, or null/empty for the tier default.
+        /// </param>
+        DeploymentCredential? Resolve(DeploymentTier tier, string? identityReference);
+
+        /// <summary>
+        /// How many resolutions have fallen back to the tier default, and how many used an
+        /// environment's own identity. Migration progress is otherwise invisible, and "we have
+        /// started binding identities" is not the same claim as "the estate is bound".
+        /// </summary>
+        (int Bound, int Fallback) ResolutionCounts { get; }
 
         /// <summary>
         /// Where this implementation reads from, for logging. Which source is in force is

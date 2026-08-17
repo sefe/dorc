@@ -1,4 +1,4 @@
-using Dorc.Core.Configuration;
+﻿using Dorc.Core.Configuration;
 using Microsoft.Extensions.Logging;
 
 namespace Dorc.Core.Security
@@ -17,25 +17,38 @@ namespace Dorc.Core.Security
     /// question with a configured answer, not an architectural dependency — which is the point
     /// of having two implementations rather than moving everything to one.
     /// </summary>
-    public class VaultDeploymentCredentialSource : IDeploymentCredentialSource
+    public class VaultDeploymentCredentialSource : DeploymentCredentialSource
     {
         private readonly IConfigurationSecretsReader _secrets;
         private readonly IConfigurationSettings _configuration;
-        private readonly ILogger _logger;
 
         public VaultDeploymentCredentialSource(
             IConfigurationSecretsReader secrets,
             IConfigurationSettings configuration,
             ILogger<VaultDeploymentCredentialSource> logger)
+            : base(logger)
         {
             _secrets = secrets;
             _configuration = configuration;
-            _logger = logger;
         }
 
-        public string Description => "the secrets vault";
+        public override string Description => "the secrets vault";
 
-        public DeploymentCredential? Resolve(DeploymentTier tier)
+        /// <summary>
+        /// A named identity is a vault item reference in its own right, so no per-identity
+        /// configuration is needed - the environment's reference IS the lookup key. This is the
+        /// variant that scales to a thousand environments without a thousand config rows.
+        /// </summary>
+        protected override DeploymentCredential? ResolveNamedIdentity(string identityReference, DeploymentTier tier)
+        {
+            var credential = new DeploymentCredential(
+                _secrets.GetSecret($"{identityReference}-username", $"{identityReference} deployment username"),
+                _secrets.GetSecret($"{identityReference}-password", $"{identityReference} deployment password"));
+
+            return credential.IsComplete ? credential : null;
+        }
+
+        protected override DeploymentCredential? ResolveTierDefault(DeploymentTier tier)
         {
             var userNameItem = _configuration.GetDeploymentCredentialItemId(tier, forPassword: false);
             var passwordItem = _configuration.GetDeploymentCredentialItemId(tier, forPassword: true);
@@ -45,7 +58,7 @@ namespace Dorc.Core.Security
                 // Selected as the source but not told where to look. Refusing is the only safe
                 // answer: falling back to configuration values would silently undo the choice to
                 // stop keeping deployment credentials in DOrc's database.
-                _logger.LogError(
+                Logger.LogError(
                     "The {Tier} deployment credential is configured to come from {Source}, but its"
                     + " vault item identifiers are not set. Refusing to fall back to configuration"
                     + " values.",
@@ -61,7 +74,7 @@ namespace Dorc.Core.Security
 
             if (!credential.IsComplete)
             {
-                _logger.LogError(
+                Logger.LogError(
                     "No {Tier} deployment credential could be retrieved from {Source}."
                     + " The username item returned {UserNameState} and the password item returned"
                     + " {PasswordState}.",

@@ -1,4 +1,4 @@
-using Dorc.Core.Configuration;
+﻿using Dorc.Core.Configuration;
 using Dorc.Core.Security;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.Extensions.Logging;
@@ -159,6 +159,98 @@ namespace Dorc.Core.Tests
 
             Assert.AreEqual(fromConfig!.UserName, fromVault!.UserName);
             Assert.AreEqual(fromConfig.Password, fromVault.Password);
+        }
+    }
+    /// <summary>
+    /// Execution identity was a boolean — production or not — which is why one compromised
+    /// deployment reaches the whole estate. An environment may now name its own identity.
+    ///
+    /// The interesting property is a negative one: an environment that names nothing must
+    /// resolve exactly as it did before. That is what lets migration proceed environment by
+    /// environment instead of as a flag day, and it is why the keying and the fallback
+    /// accounting live in one shared place rather than once per implementation.
+    /// </summary>
+    [TestClass]
+    public class EnvironmentKeyedCredentialResolutionTests
+    {
+        private IConfigValuesPersistentSource _configValues = null!;
+        private ConfigValueDeploymentCredentialSource _source = null!;
+
+        [TestInitialize]
+        public void Setup()
+        {
+            _configValues = Substitute.For<IConfigValuesPersistentSource>();
+            _configValues.GetConfigValue("DORC_NonProdDeployUsername").Returns("svc-shared");
+            _configValues.GetConfigValue("DORC_NonProdDeployPassword").Returns("shared-secret");
+            _configValues.GetConfigValue("DORC_Deploy_trading-tier_Username").Returns("svc-trading");
+            _configValues.GetConfigValue("DORC_Deploy_trading-tier_Password").Returns("trading-secret");
+
+            _source = new ConfigValueDeploymentCredentialSource(
+                _configValues,
+                Substitute.For<ILogger<ConfigValueDeploymentCredentialSource>>());
+        }
+
+        [TestMethod]
+        public void AnEnvironmentNamingAnIdentityDeploysUnderIt()
+        {
+            var credential = _source.Resolve(DeploymentTier.NonProduction, "trading-tier");
+
+            Assert.AreEqual("svc-trading", credential!.UserName);
+        }
+
+        /// <summary>
+        /// The property that makes this safe to ship.
+        /// </summary>
+        [TestMethod]
+        [DataRow(null)]
+        [DataRow("")]
+        [DataRow("   ")]
+        public void AnEnvironmentNamingNothingResolvesExactlyAsBefore(string? identityReference)
+        {
+            var credential = _source.Resolve(DeploymentTier.NonProduction, identityReference);
+
+            Assert.AreEqual("svc-shared", credential!.UserName);
+        }
+
+        /// <summary>
+        /// Deliberately NOT a fallback. An environment bound to an identity was bound on
+        /// purpose; quietly running it under the shared account would undo the binding without
+        /// anyone noticing, and the whole point of binding is that one compromised deployment
+        /// does not reach the estate.
+        /// </summary>
+        [TestMethod]
+        public void AnUnresolvableIdentityRefusesRatherThanFallingBackToTheSharedAccount()
+        {
+            Assert.IsNull(_source.Resolve(DeploymentTier.NonProduction, "no-such-identity"));
+        }
+
+        /// <summary>
+        /// "We have started binding identities" is not the same claim as "the estate is bound".
+        /// Reported from the count rather than from a configuration flag, so it cannot be wrong.
+        /// </summary>
+        [TestMethod]
+        public void CountsBoundResolutionsSeparatelyFromFallbacks()
+        {
+            _source.Resolve(DeploymentTier.NonProduction, "trading-tier");
+            _source.Resolve(DeploymentTier.NonProduction, null);
+            _source.Resolve(DeploymentTier.NonProduction, "   ");
+
+            var (bound, fallback) = _source.ResolutionCounts;
+
+            Assert.AreEqual(1, bound);
+            Assert.AreEqual(2, fallback);
+        }
+
+        /// <summary>
+        /// A refused identity is neither bound nor a fallback — counting it as either would
+        /// misreport migration progress in one direction or the other.
+        /// </summary>
+        [TestMethod]
+        public void ARefusedIdentityCountsAsNeither()
+        {
+            _source.Resolve(DeploymentTier.NonProduction, "no-such-identity");
+
+            Assert.AreEqual((0, 0), _source.ResolutionCounts);
         }
     }
 }
