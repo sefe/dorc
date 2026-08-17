@@ -666,6 +666,85 @@ namespace Dorc.Core.Tests
                 "$top=2 is what makes an ambiguous name detectable rather than silently collapsed");
         }
 
+        // M2M: service principals must appear in the picker again, keyed on appId because
+        // that is what OAuthClaimsPrincipalReader matches against AccessControl.Pid.
+        [TestMethod]
+        public void Search_IncludesServicePrincipalsKeyedOnAppId()
+        {
+            var handler = new MockHttpHandler()
+                .MapPath(HttpMethod.Get, "/servicePrincipals", """
+                {
+                    "value": [{
+                        "id": "aaaa1111-0000-0000-0000-000000000001",
+                        "appId": "bbbb2222-0000-0000-0000-000000000002",
+                        "displayName": "dorc-ci-client",
+                        "accountEnabled": true
+                    }]
+                }
+                """)
+                .MapPath(HttpMethod.Get, "/users", """{ "value": [] }""")
+                .MapPath(HttpMethod.Get, "/groups", """{ "value": [] }""");
+
+            var results = NewSearcher(handler).Search("dorc");
+
+            Assert.AreEqual(1, results.Count);
+            Assert.AreEqual("dorc-ci-client", results[0].DisplayName);
+            Assert.AreEqual("bbbb2222-0000-0000-0000-000000000002", results[0].Pid,
+                "Pid must be the appId — that is the value AccessControl.Pid holds for M2M callers");
+        }
+
+        // Application.Read.All is a permission existing tenants have not consented to. A 403
+        // on that one query must not take user and group search down with it.
+        [TestMethod]
+        public void Search_ServicePrincipalsForbidden_StillReturnsUsersAndGroups()
+        {
+            var handler = new MockHttpHandler()
+                .MapPath(HttpMethod.Get, "/servicePrincipals",
+                    """{ "error": { "code": "Authorization_RequestDenied", "message": "denied" } }""",
+                    System.Net.HttpStatusCode.Forbidden)
+                .MapPath(HttpMethod.Get, "/users", """
+                {
+                    "value": [{
+                        "id": "11111111-1111-1111-1111-111111111111",
+                        "displayName": "Alice Smith",
+                        "userPrincipalName": "alice@contoso.com",
+                        "accountEnabled": true
+                    }]
+                }
+                """)
+                .MapPath(HttpMethod.Get, "/groups", """{ "value": [] }""");
+
+            var results = NewSearcher(handler).Search("alice");
+
+            Assert.AreEqual(1, results.Count, "a missing Application.Read.All consent must degrade, not fail the search");
+            Assert.AreEqual("Alice Smith", results[0].DisplayName);
+        }
+
+        // Search paginates: the AD path returned ~1000, a single Graph page is 100.
+        [TestMethod]
+        public void Search_DrainsAllUserPages()
+        {
+            var handler = new MockHttpHandler();
+            handler.Map(req => req.RequestUri != null && req.RequestUri.Query.Contains("USERPAGE2"), """
+                { "value": [{ "id": "22222222-2222-2222-2222-222222222222", "displayName": "Bob Two", "accountEnabled": true }] }
+                """);
+            handler.MapPath(HttpMethod.Get, "/users", """
+                {
+                    "value": [{ "id": "11111111-1111-1111-1111-111111111111", "displayName": "Bob One", "accountEnabled": true }],
+                    "@odata.nextLink": "https://graph.microsoft.com/v1.0/users?$skiptoken=USERPAGE2"
+                }
+                """);
+            handler.MapPath(HttpMethod.Get, "/groups", """{ "value": [] }""");
+            handler.MapPath(HttpMethod.Get, "/servicePrincipals", """{ "value": [] }""");
+
+            var results = NewSearcher(handler).Search("bob");
+
+            CollectionAssert.AreEquivalent(
+                new[] { "Bob One", "Bob Two" },
+                results.Select(r => r.DisplayName).ToArray(),
+                "second page of user results was not drained");
+        }
+
         private static AzureEntraSearcher NewSearcher(MockHttpHandler handler)
         {
             return new AzureEntraSearcher(
