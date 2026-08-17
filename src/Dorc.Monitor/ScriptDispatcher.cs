@@ -8,6 +8,7 @@ using Dorc.PersistentData.Security;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
+using System.Security.Principal;
 using System.Text;
 using System.Text.Json;
 using Dorc.Monitor.RunnerProcess;
@@ -26,6 +27,7 @@ namespace Dorc.Monitor
         private readonly IRequestsPersistentSource requestsPersistentSource;
         private readonly IScriptScopeConfigValues _scriptScopeConfigValues;
         private readonly IDeploymentCredentialSource _credentialSource;
+        private readonly IScriptsPersistentSource _scriptsPersistentSource;
 
         private bool isScriptExecutionSuccessful; // This field is needed to be instance-wide since Runner process errors are processed as instance-wide events.
 
@@ -39,8 +41,10 @@ namespace Dorc.Monitor
             IConfigurationSettings configurationSettingsEngine,
             IRequestsPersistentSource requestsPersistentSource,
             IScriptScopeConfigValues scriptScopeConfigValues,
-            IDeploymentCredentialSource credentialSource)
+            IDeploymentCredentialSource credentialSource,
+            IScriptsPersistentSource scriptsPersistentSource)
         {
+            this._scriptsPersistentSource = scriptsPersistentSource;
             this.processesPersistentSource = processesPersistentSource;
             this._configValuesPersistentSource = configValuesPersistentSource;
             this.logger = logger;
@@ -105,6 +109,8 @@ namespace Dorc.Monitor
                 isScriptExecutionSuccessful = false;
                 return isScriptExecutionSuccessful;
             }
+
+            ApplyContentBaseline(script, scriptGroups);
 
             foreach (ScriptGroup scriptGroup in scriptGroups)
             {
@@ -382,6 +388,121 @@ namespace Dorc.Monitor
 
             // Reporting mode reports and proceeds. Only enforcement stops the deployment.
             return confined || !enforcing;
+        }
+
+        /// <summary>
+        /// Puts the script's content baseline into the group the runner will receive, recording
+        /// one from the share when none exists yet.
+        ///
+        /// The baseline is *captured* here and *verified* in the runner, and the split is the
+        /// whole point. Verifying here would be defeated by the design: dispatch happens in this
+        /// process and the executed bytes are read later, from a network share, by another one.
+        /// Anything checked here can be swapped in that window by exactly the actor this exists
+        /// to stop.
+        ///
+        /// Capturing here is a different matter, and capturing here is better than capturing in
+        /// the runner would be. A baseline read at dispatch and verified at the point of read
+        /// covers the dispatch-to-read window on the very first deployment too — where a runner
+        /// that recorded what it was about to execute would be recording the attacker's bytes as
+        /// the baseline and reporting a match.
+        ///
+        /// Nothing here refuses. A share that cannot be read at this moment, or a script that is
+        /// not there, is a deployment failure moments later for its own reasons and with its own
+        /// message; failing it here would replace that message with a worse one.
+        /// </summary>
+        private void ApplyContentBaseline(ScriptApiModel script, IEnumerable<ScriptGroup> scriptGroups)
+        {
+            var mode = configurationSettingsEngine.GetScriptContentVerificationMode();
+
+            foreach (var scriptGroup in scriptGroups)
+            {
+                scriptGroup.ContentVerification = mode;
+            }
+
+            if (mode == ScriptContentVerificationMode.Off)
+            {
+                return;
+            }
+
+            var baseline = script.ContentHash;
+
+            if (string.IsNullOrWhiteSpace(baseline))
+            {
+                baseline = RecordFirstSeenBaseline(script, scriptGroups);
+            }
+
+            if (string.IsNullOrWhiteSpace(baseline))
+            {
+                return;
+            }
+
+            foreach (var scriptGroup in scriptGroups)
+            {
+                foreach (var scriptProperties in scriptGroup.ScriptProperties)
+                {
+                    scriptProperties.ExpectedContentHash = baseline;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Trust on first use. Worth being honest about what this is and is not: it does not
+        /// establish that the script was legitimate when first seen — if the share was already
+        /// compromised, the compromised bytes become the baseline. What it detects is change
+        /// *after* recording, which is the actual attack, and it is what makes the control
+        /// adoptable without an inventory of what every script in the estate currently is.
+        /// </summary>
+        private string? RecordFirstSeenBaseline(ScriptApiModel script, IEnumerable<ScriptGroup> scriptGroups)
+        {
+            var path = scriptGroups
+                .SelectMany(group => group.ScriptProperties)
+                .Select(properties => properties.ScriptPath)
+                .FirstOrDefault(candidate => !string.IsNullOrWhiteSpace(candidate));
+
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return null;
+            }
+
+            try
+            {
+                var baseline = ScriptContentHash.Of(File.ReadAllBytes(path));
+
+                // A synthetic principal, because there is no user here — this is the deployment
+                // engine baselining a script, and the audit entry should say so. The Monitor's
+                // claims reader reports the service's own configured identity whatever it is
+                // handed, so the name below is what makes the intent legible in code rather than
+                // what lands in the audit trail.
+                var engine = new GenericPrincipal(new GenericIdentity("DOrc deployment engine"), null);
+
+                if (!_scriptsPersistentSource.RecordContentHash(script.Id, baseline, engine))
+                {
+                    logger.LogWarning(
+                        "Could not record a content baseline for script {ScriptId} ('{ScriptPath}')."
+                        + " It will be verified from whenever one is recorded.",
+                        script.Id, path);
+
+                    return null;
+                }
+
+                logger.LogInformation(
+                    "Recorded a first-seen content baseline for script {ScriptId} ('{ScriptPath}')."
+                    + " Subsequent deployments verify against it.",
+                    script.Id, path);
+
+                return baseline;
+            }
+            catch (Exception ex)
+            {
+                // Reading the share can fail for every ordinary reason. The deployment is about
+                // to fail on its own for the same reason and say so more usefully.
+                logger.LogWarning(ex,
+                    "Could not read '{ScriptPath}' to record a content baseline. The script will be"
+                    + " dispatched without one.",
+                    path);
+
+                return null;
+            }
         }
 
         private void Report(bool enforcing, string? scriptPath, string scriptsLocation, string reason)
