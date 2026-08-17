@@ -2,7 +2,7 @@
 
 | Field       | Value                                                        |
 |-------------|--------------------------------------------------------------|
-| **Status**  | DRAFT                                                        |
+| **Status**  | DELIVERED — every step S-000..S-023 built or handed to an operator |
 | **Author**  | Agent                                                        |
 | **Date**    | 2026-08-10                                                   |
 | **HLPS**    | HLPS-deployment-privilege-containment.md (APPROVED)          |
@@ -558,8 +558,25 @@ These are step preconditions, not approval blockers. Each is named in the step i
 | Item | Gates | Action |
 |------|-------|--------|
 | U-12 | S-013, S-014 | Re-run the script-share scan with the widened secure key set. Both completed scans used the original four-key pattern. |
-| U-13 | S-000 | Query the production instance's configuration table. All database inventory to date came from the System Test instance. Read-only. |
-| U-14 | S-018 | Decide who records a script's content hash and how it is re-recorded on pipeline promotion. |
+| U-13 | S-000 | Query the production instance's configuration table. All database inventory to date came from the System Test instance. Read-only. **Answered**; S-000 applied in production. |
+| ~~U-14~~ | S-018 | **Resolved** in `SPEC-S-018-script-content-verification.md`: DOrc records the baseline on first dispatch, an administrator-gated endpoint re-records it on promotion, and an unrecorded baseline is never a refusal. |
 | U-5 | Bounds S-008's value | Whether the deployment account is a local administrator on Monitor hosts. The step is correct either way. |
 | U-9 | S-021 adoption pace | Target-server access control lists naming the shared account. |
 | Sibling HLPS | — | The API authorization enforcement document has no owner and does not exist. W-17 and two low findings recorded in the HLPS belong there. The HLPS makes raising it a pre-approval condition; that condition is unmet and was accepted at escalation rather than satisfied. |
+
+
+---
+
+## Closing State
+
+Every step is built or handed to an operator. What that does and does not mean:
+
+**Delivered as code**, on stacked branches so each step is reviewable on its own: S-001 to S-012, S-014, S-014a, S-017 to S-023. Each carries its own tests and its own residuals; the residuals are recorded in the steps above rather than closed.
+
+**Delivered to an operator**, and not executed from here: S-000 (applied in production), S-013, S-015, S-016. Credential rotation, script-share migration and stored-row remediation touch live systems, and this sequence prepares and verifies them rather than performing them. **S-013 and S-015 are unexecuted at the time of writing**, and S-014's reserved-key list therefore still covers only the three keys with zero consumers.
+
+**Two steps ship inert until configured.** S-011's source-URL validation does nothing until the allowed hosts are set, which makes S-012 partly inert with it. S-017 reports rather than enforces until S-016's worklist is cleared. That ordering is deliberate — confine, remediate, then enforce — and it means shipping the code is not the same as closing the weakness.
+
+**Two steps must ship in lockstep, not additively**: S-009 (the script-group transport, which an old runner would fail to authenticate to) and S-018b (content verification, which an old runner would silently skip). Both span all three runners and both dispatchers, and both are packaged in one installer, so this is achievable. It must be confirmed rather than assumed.
+
+**What remains genuinely open**, beyond execution of the operational steps: the sibling HLPS on API authorization enforcement, which has no owner and does not exist. The HLPS made raising it a pre-approval condition; that condition was accepted at escalation rather than satisfied, and W-17's neighbours still live there.
