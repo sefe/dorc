@@ -217,6 +217,18 @@ export class PageConfigValuesList extends ResponsiveMixin(PageElement) {
                   ${columnBodyRenderer(this.isForProdRenderer, [this.isAdmin])}
                   ?hidden="${this._narrowScreen}"
                 ></vaadin-grid-sort-column>
+                <vaadin-grid-sort-column
+                  path="VisibleToScripts"
+                  header="Visible To Scripts"
+                  title="Whether deployment scripts may read this value. Some values are withheld from script scope regardless of this setting."
+                  resizable
+                  width="140px"
+                  flex-grow="0"
+                  ${columnBodyRenderer(this.isVisibleToScriptsRenderer, [
+                    this.isAdmin
+                  ])}
+                  ?hidden="${this._narrowScreen}"
+                ></vaadin-grid-sort-column>
                 <vaadin-grid-column
                   header="Config Value"
                   ${columnBodyRenderer(this.variableValueControlsRenderer, [this.isAdmin])}
@@ -291,6 +303,31 @@ export class PageConfigValuesList extends ResponsiveMixin(PageElement) {
         this.updateConfigItem({
           ...configValue,
           IsForProd: (e.currentTarget as Checkbox).checked
+        })}"
+    ></vaadin-checkbox>`;
+  }
+
+  /**
+   * Whether deployment scripts may read this value.
+   *
+   * The classification is only meaningful for secure values — a non-secure value is
+   * ordinary configuration and is visible to scripts by definition, which is why the
+   * server forces it true on creation. The checkbox follows that: readable for every
+   * row, changeable only on the secure ones.
+   *
+   * Ticking this box is not the same as publishing the value. Values on the reserved-key
+   * list are withheld from script scope whatever this says, and the server is where that
+   * is decided — the list is not duplicated here, because a second copy of a security
+   * decision is a second place for it to drift.
+   */
+  isVisibleToScriptsRenderer(configValue: ConfigValueApiModel) {
+    return html`<vaadin-checkbox
+      ?disabled="${!this.isAdmin || !configValue.Secure}"
+      .checked="${live(configValue.VisibleToScripts as boolean)}"
+      @change="${(e: Event) =>
+        this.updateConfigItem({
+          ...configValue,
+          VisibleToScripts: (e.currentTarget as Checkbox).checked
         })}"
     ></vaadin-checkbox>`;
   }
