@@ -92,6 +92,33 @@ jobs:
             status=1
           fi
 
+          # SC-1b's mechanism. Reported as a warning until S-005 moves WMI to the worker;
+          # SC-1b is met when this reports nothing.
+          echo "Checking for System.Management PackageReference..."
+          if grep -rn -E '<PackageReference[^>]*Include[[:space:]]*=[[:space:]]*["'"'"']System\.Management' \
+              $roots --include='*.csproj'; then
+            echo "::warning::System.Management PackageReference present — expected until S-005; blocks SC-1b."
+          fi
+
+          # CA1416 does NOT fire inside a type annotated [SupportedOSPlatform("windows")], and
+          # a #pragma disable silences it outright. Both defeat the CA1416 layer below, so any
+          # NEW occurrence is itself a gate violation. The allow-list is the set present when
+          # this check was added; it must only ever shrink.
+          echo "Checking for CA1416 suppression routes..."
+          # Known sites and the step that clears each. This list must only ever shrink:
+          #   AccessControlController, DirectorySearchController  -> S-001 follow-up (see U-18)
+          #   AccountController, BundledRequestsController,
+          #   MakeLikeProdController                              -> S-001 follow-up (see U-18)
+          #   ResetAppPasswordController                          -> S-006
+          #   ClaimsTransformer                                   -> S-007
+          #   DaemonStatusProbe, CoreRegistry                     -> S-005
+          suppress_allow='AccessControlController\.cs|AccountController\.cs|BundledRequestsController\.cs|DirectorySearchController\.cs|MakeLikeProdController\.cs|ResetAppPasswordController\.cs|CoreRegistry\.cs|ClaimsTransformer\.cs|DaemonStatusProbe\.cs'
+          if grep -rn -E 'SupportedOSPlatform\("windows"\)|#pragma warning disable CA1416' \
+              $roots --include='*.cs' | grep -vE "$suppress_allow"; then
+            echo "::error::New [SupportedOSPlatform(\"windows\")] or CA1416 pragma in the primary compile graph. These suppress the CA1416 gate — move the code to the worker rather than annotating it."
+            status=1
+          fi
+
           [ $status -eq 0 ] && echo "OK — no Windows-only package refs or RIDs."
           exit $status
 
@@ -122,8 +149,16 @@ jobs:
           dotnet build src/Dorc.Api/Dorc.Api.csproj -c Release --no-restore --nologo 2>&1 | tee api-build.log
           # Known Windows-only sites awaiting S-005 (WMI / service control).
           backlog='WmiUtil\.cs|RefDataServersController\.cs|CoreRegistry\.cs|Program\.cs'
-          if grep -E 'warning CA1416' api-build.log | grep -vE "$backlog"; then
-            echo "::error::New CA1416 platform-compatibility warning in Dorc.Api outside the S-005 backlog."
+          # NOTE: `grep -vE ""` matches nothing, so an EMPTY backlog would silently turn this
+          # into a permanent pass — i.e. reaching SC-1b's terminal state would DISABLE the
+          # gate. Handle the empty case explicitly: with no backlog, any CA1416 is a failure.
+          if [ -z "$backlog" ]; then
+            if grep -E 'warning CA1416' api-build.log; then
+              echo "::error::CA1416 warning in Dorc.Api with an empty backlog."
+              exit 1
+            fi
+          elif grep -E 'warning CA1416' api-build.log | grep -vE "$backlog"; then
+            echo "::error::New CA1416 platform-compatibility warning in Dorc.Api outside the backlog."
             exit 1
           fi
           echo "OK — no new Windows-only API usage in Dorc.Api."
