@@ -179,7 +179,8 @@ namespace Dorc.Core
             return _credentialSource.Resolve(
                 environment?.EnvironmentIsProd == true
                     ? DeploymentTier.Production
-                    : DeploymentTier.NonProduction);
+                    : DeploymentTier.NonProduction,
+                environment?.ExecutionIdentityReference);
         }
 
         private static bool Logon(

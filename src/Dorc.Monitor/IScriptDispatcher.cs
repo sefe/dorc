@@ -13,6 +13,7 @@ namespace Dorc.Monitor
             int deploymentRequestId,
             bool isProduction,
             string environmentName,
+            string? executionIdentityReference,
             StringBuilder resultLogBuilder,
             CancellationToken cancellationToken);
     }

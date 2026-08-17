@@ -928,6 +928,7 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
                 EnvironmentSecure = env.Secure,
                 EnvironmentIsProd = env.IsProd,
                 EnvironmentId = env.Id,
+                ExecutionIdentityReference = env.ExecutionIdentityReference,
                 Details = MapToEnvironmentDetailsApiModel(env),
                 ParentId = env.ParentId,
                 IsParent = env.ChildEnvironments.Any(),

@@ -5,6 +5,7 @@ using Dorc.Core.Events;
 using Dorc.Core.Interfaces;
 using Dorc.Core.VariableResolution;
 using Dorc.Monitor.RequestProcessors;
+using Dorc.Core.Security;
 using Dorc.PersistentData.Security;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.Extensions.Logging;
@@ -86,7 +87,8 @@ namespace Dorc.Monitor.Tests
                 mockPropertyEvaluator,
                 mockEventsPublisher,
                 mockGitHubArtifactDownloader,
-                Substitute.For<IScriptScopeConfigValues>());
+                Substitute.For<IScriptScopeConfigValues>(),
+                Substitute.For<IDeploymentCredentialSource>());
         }
 
         private static RequestToProcessDto CreateRequest(List<ComponentApiModel> components)
@@ -145,7 +147,7 @@ namespace Dorc.Monitor.Tests
             mockComponentProcessor.DeployComponent(
                 comp1, Arg.Any<DeploymentResultApiModel>(),
                 Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<int>(), Arg.Any<bool>(),
-                Arg.Any<string>(), Arg.Any<string>(),
+                Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<string>(),
                 Arg.Any<IDictionary<string, VariableValue>>(), Arg.Any<CancellationToken>())
                 .Returns(false);
 
@@ -153,7 +155,7 @@ namespace Dorc.Monitor.Tests
             mockComponentProcessor.DeployComponent(
                 comp2, Arg.Any<DeploymentResultApiModel>(),
                 Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<int>(), Arg.Any<bool>(),
-                Arg.Any<string>(), Arg.Any<string>(),
+                Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<string>(),
                 Arg.Any<IDictionary<string, VariableValue>>(), Arg.Any<CancellationToken>())
                 .Returns(true);
 
@@ -164,7 +166,7 @@ namespace Dorc.Monitor.Tests
             mockComponentProcessor.DidNotReceive().DeployComponent(
                 comp2, Arg.Any<DeploymentResultApiModel>(),
                 Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<int>(), Arg.Any<bool>(),
-                Arg.Any<string>(), Arg.Any<string>(),
+                Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<string>(),
                 Arg.Any<IDictionary<string, VariableValue>>(), Arg.Any<CancellationToken>());
 
             // Assert - request marked as Failed
@@ -190,14 +192,14 @@ namespace Dorc.Monitor.Tests
             mockComponentProcessor.DeployComponent(
                 comp1, Arg.Any<DeploymentResultApiModel>(),
                 Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<int>(), Arg.Any<bool>(),
-                Arg.Any<string>(), Arg.Any<string>(),
+                Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<string>(),
                 Arg.Any<IDictionary<string, VariableValue>>(), Arg.Any<CancellationToken>())
                 .Returns(false);
 
             mockComponentProcessor.DeployComponent(
                 comp2, Arg.Any<DeploymentResultApiModel>(),
                 Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<int>(), Arg.Any<bool>(),
-                Arg.Any<string>(), Arg.Any<string>(),
+                Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<string>(),
                 Arg.Any<IDictionary<string, VariableValue>>(), Arg.Any<CancellationToken>())
                 .Returns(true);
 
@@ -208,7 +210,7 @@ namespace Dorc.Monitor.Tests
             mockComponentProcessor.Received().DeployComponent(
                 comp2, Arg.Any<DeploymentResultApiModel>(),
                 Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<int>(), Arg.Any<bool>(),
-                Arg.Any<string>(), Arg.Any<string>(),
+                Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<string>(),
                 Arg.Any<IDictionary<string, VariableValue>>(), Arg.Any<CancellationToken>());
         }
 
@@ -239,7 +241,7 @@ namespace Dorc.Monitor.Tests
             mockComponentProcessor.DeployComponent(
                 comp1, Arg.Any<DeploymentResultApiModel>(),
                 Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<int>(), Arg.Any<bool>(),
-                Arg.Any<string>(), Arg.Any<string>(),
+                Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<string>(),
                 Arg.Any<IDictionary<string, VariableValue>>(), Arg.Any<CancellationToken>())
                 .Returns(false);
 
@@ -267,7 +269,7 @@ namespace Dorc.Monitor.Tests
             mockComponentProcessor.DeployComponent(
                 comp1, Arg.Any<DeploymentResultApiModel>(),
                 Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<int>(), Arg.Any<bool>(),
-                Arg.Any<string>(), Arg.Any<string>(),
+                Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<string>(),
                 Arg.Any<IDictionary<string, VariableValue>>(), Arg.Any<CancellationToken>())
                 .Returns(x => throw new InvalidOperationException("Script failed"));
 
@@ -278,7 +280,7 @@ namespace Dorc.Monitor.Tests
             mockComponentProcessor.DidNotReceive().DeployComponent(
                 comp2, Arg.Any<DeploymentResultApiModel>(),
                 Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<int>(), Arg.Any<bool>(),
-                Arg.Any<string>(), Arg.Any<string>(),
+                Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<string>(),
                 Arg.Any<IDictionary<string, VariableValue>>(), Arg.Any<CancellationToken>());
         }
 
@@ -300,7 +302,7 @@ namespace Dorc.Monitor.Tests
             mockComponentProcessor.DeployComponent(
                 comp1, Arg.Any<DeploymentResultApiModel>(),
                 Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<int>(), Arg.Any<bool>(),
-                Arg.Any<string>(), Arg.Any<string>(),
+                Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<string>(),
                 Arg.Any<IDictionary<string, VariableValue>>(), Arg.Any<CancellationToken>())
                 .Returns(true);
 
@@ -347,7 +349,7 @@ namespace Dorc.Monitor.Tests
             mockComponentProcessor.DeployComponent(
                 comp1, Arg.Any<DeploymentResultApiModel>(),
                 Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<int>(), Arg.Any<bool>(),
-                Arg.Any<string>(), Arg.Any<string>(),
+                Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<string>(),
                 Arg.Any<IDictionary<string, VariableValue>>(), Arg.Any<CancellationToken>())
                 .Returns(x => throw new InvalidOperationException("deployment blew up"));
 
@@ -383,7 +385,7 @@ namespace Dorc.Monitor.Tests
             mockComponentProcessor.DeployComponent(
                 comp1, Arg.Any<DeploymentResultApiModel>(),
                 Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<int>(), Arg.Any<bool>(),
-                Arg.Any<string>(), Arg.Any<string>(),
+                Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<string>(),
                 Arg.Any<IDictionary<string, VariableValue>>(), Arg.Any<CancellationToken>())
                 .Returns(true);
 
