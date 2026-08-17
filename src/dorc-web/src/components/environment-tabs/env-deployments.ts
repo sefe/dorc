@@ -16,6 +16,7 @@ import {
 } from '../../apis/dorc-api';
 import { EnvironmentContentBuildsApiModelExtended } from '../model-extensions/EnvironmentContentBuildsApiModelExtended';
 import '@vaadin/date-time-picker';
+import { dorcApiConfiguration } from '../../services/dorc-api-configuration';
 
 @customElement('env-deployments')
 export class EnvDeployments extends PageEnvBase {
@@ -155,7 +156,7 @@ export class EnvDeployments extends PageEnvBase {
 
     const dt = new Date(dateTimePicker.value);
 
-    const api = new RefDataEnvironmentsDetailsApi();
+    const api = new RefDataEnvironmentsDetailsApi(dorcApiConfiguration);
     api
       .refDataEnvironmentsDetailsGetComponentStatuesGet({
         envName: this.environment?.EnvironmentName ?? '',

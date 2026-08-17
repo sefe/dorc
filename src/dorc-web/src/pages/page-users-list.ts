@@ -11,12 +11,12 @@ import '@vaadin/text-field';
 import { css, PropertyValues, render, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
-import AppConfig from '../app-config';
 import '../components/add-user-or-group/add-user-or-group';
-import { Configuration, UserApiModel } from '../apis/dorc-api';
+import { UserApiModel } from '../apis/dorc-api';
 import { RefDataUsersApi } from '../apis/dorc-api';
 import { PageElement } from '../helpers/page-element';
 import '../icons/hardware-icons.js';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('page-users-list')
 export class PageUsersList extends PageElement {
@@ -32,10 +32,7 @@ export class PageUsersList extends PageElement {
   constructor() {
     super();
 
-    const appConfig = new Configuration({
-      basePath: new AppConfig().dorcApi
-    });
-    const api = new RefDataUsersApi(appConfig);
+    const api = new RefDataUsersApi(dorcApiConfiguration);
     api.refDataUsersGet().subscribe(
       (data: Array<UserApiModel>) => {
         this.setUsers(data);

@@ -33,6 +33,7 @@ import { HegsTree } from './component-tree/hegs-tree';
 import { TreeNode } from './component-tree/TreeNode';
 import { SuccessfulDeployNotification } from './notifications/successful-deploy-notification';
 import { DeployConfirmDialog } from './deploy-confirm-dialog';
+import { dorcApiConfiguration } from '../../services/dorc-api-configuration';
 
 @customElement('deploy-env')
 export class DeployEnv extends LitElement {
@@ -187,7 +188,7 @@ export class DeployEnv extends LitElement {
       this.startDeployment as EventListener
     );
 
-    const api = new PropertiesApi();
+    const api = new PropertiesApi(dorcApiConfiguration);
     api.propertiesGet().subscribe({
       next: (data: PropertyApiModel[]) => {
         this.properties = data;
@@ -435,7 +436,7 @@ export class DeployEnv extends LitElement {
 
   private LoadBuilds() {
     this.buildsLoading = true;
-    const api = new RequestApi();
+    const api = new RequestApi(dorcApiConfiguration);
     api
       .requestBuildsGet({
         projectId: this._project?.ProjectId ?? 0,
@@ -468,7 +469,7 @@ export class DeployEnv extends LitElement {
   getProjectComponents() {
     const tree = this.shadowRoot?.getElementById('hegs-tree') as HegsTree;
     if (tree) tree.componentsLoading = true;
-    const reqApi = new RequestApi();
+    const reqApi = new RequestApi(dorcApiConfiguration);
     reqApi
       .requestComponentsGet({ projectId: this._project?.ProjectId ?? 0 })
       .subscribe(
@@ -671,7 +672,7 @@ export class DeployEnv extends LitElement {
   startDeployment() {
     this.ErrorMessage = '';
     this.deploymentStarting = true;
-    const api = new RequestApi();
+    const api = new RequestApi(dorcApiConfiguration);
     api.requestPost(this.req).subscribe({
       next: (data: RequestStatusDto) => {
         this.requestedDeployment = data;
@@ -716,7 +717,7 @@ export class DeployEnv extends LitElement {
       this.buildDefinitions = [];
       this.buildDefsLoading = true;
 
-      const reqApi = new RequestApi();
+      const reqApi = new RequestApi(dorcApiConfiguration);
       reqApi
         .requestBuildDefinitionsGet({ projectId: this._project.ProjectId ?? 0 })
         .subscribe({

@@ -11,6 +11,7 @@ import { DaemonStatusApi } from '../apis/dorc-api';
 import { DaemonStatusApiModel } from '../apis/dorc-api';
 import type { DiscoverDaemonsResult } from '../apis/dorc-api';
 import { Notification } from '@vaadin/notification';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('application-daemons')
 export class ApplicationDaemons extends LitElement {
@@ -138,7 +139,7 @@ export class ApplicationDaemons extends LitElement {
   }
 
   public loadDaemons() {
-    const api = new DaemonStatusApi();
+    const api = new DaemonStatusApi(dorcApiConfiguration);
     api.daemonStatusEnvNameGet({ envName: this.envName }).subscribe({
       next: (data: DaemonStatusApiModel[]) => {
         this.setDaemonStatuses(data);
@@ -158,7 +159,7 @@ export class ApplicationDaemons extends LitElement {
       return;
     }
 
-    const api = new DaemonStatusApi();
+    const api = new DaemonStatusApi(dorcApiConfiguration);
     api.daemonStatusDiscoverEnvNameGet({ envName: this.envName }).subscribe({
       next: (result) => {
         if (result.Success) {

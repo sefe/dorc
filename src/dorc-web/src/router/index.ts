@@ -5,11 +5,12 @@ import { appConfig } from '../app-config';
 import { ApiConfigApi, ApiConfigModel } from '../apis/dorc-api';
 import { OAUTH_SCHEME, oauthServiceContainer, OAuthServiceSettings } from '../services/Account/OAuthService';
 import { oauthSettings } from '../OAuthSettings.ts';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 // Cast needed: TS 6 hits recursion depth limit with Route<RouteMeta> generics
 const routeConfig = routes as any;
 
-new ApiConfigApi().apiConfigGet().subscribe({
+new ApiConfigApi(dorcApiConfiguration).apiConfigGet().subscribe({
   next: (apiConfig: ApiConfigModel) => {
     appConfig.authenticationScheme = apiConfig.AuthenticationScheme ?? 'NotSet';
     appConfig.pauseDeploymentEnabled = Boolean((apiConfig as Record<string, unknown>)['PauseDeploymentEnabled']);

@@ -19,6 +19,7 @@ import {
 } from '../apis/dorc-api';
 import type { EnvironmentApiModel } from '../apis/dorc-api';
 import { Router } from '@vaadin/router/dist/router.js';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('add-edit-environment')
 export class AddEditEnvironment extends LitElement {
@@ -184,7 +185,7 @@ export class AddEditEnvironment extends LitElement {
   loadOwners() {
     this.owners = [];
     if (!this.environment?.EnvironmentName) return;
-    const api = new AccessControlApi();
+    const api = new AccessControlApi(dorcApiConfiguration);
     api.accessControlGet({
       accessControlType: AccessControlType.Environment,
       accessControlName: this.environment.EnvironmentName
@@ -512,7 +513,7 @@ export class AddEditEnvironment extends LitElement {
       this.savingMetadata = true;
 
       if (this.environment?.EnvironmentId === 0) {
-        const api = new RefDataEnvironmentsApi();
+        const api = new RefDataEnvironmentsApi(dorcApiConfiguration);
         api
           .refDataEnvironmentsPost({ environmentApiModel: this.environment })
           .subscribe({
@@ -534,7 +535,7 @@ export class AddEditEnvironment extends LitElement {
             complete: () => console.log('done adding environment')
           });
       } else {
-        const api = new RefDataEnvironmentsApi();
+        const api = new RefDataEnvironmentsApi(dorcApiConfiguration);
         api
           .refDataEnvironmentsPut({ environmentApiModel: this.environment })
           .subscribe({

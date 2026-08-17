@@ -39,6 +39,7 @@ import { PageEnvBase } from './page-env-base';
 import { ResponsiveMixin } from '../../helpers/responsive-mixin';
 import { ErrorNotification } from '../notifications/error-notification';
 import { Notification } from '@vaadin/notification';
+import { dorcApiConfiguration } from '../../services/dorc-api-configuration';
 
 const variableValue = 'PropertyValue';
 const variableName = 'Property';
@@ -282,7 +283,7 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
                   }
 
                   if (_environment && _environment?.EnvironmentName !== '') {
-                    const api = new RefDataScopedPropertyValuesApi();
+                    const api = new RefDataScopedPropertyValuesApi(dorcApiConfiguration);
                     api
                       .refDataScopedPropertyValuesPut({
                         pagedDataOperators: {
@@ -476,7 +477,7 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
   }
 
   private getAllVariableNames() {
-    const propertiesApi = new PropertiesApi();
+    const propertiesApi = new PropertiesApi(dorcApiConfiguration);
     propertiesApi.propertiesGet().subscribe({
       next: (data: PropertyApiModel[]) => {
         this.properties = data.sort(this.sortProperties);
@@ -486,7 +487,7 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
       complete: () => console.log('done loading properties')
     });
 
-    const api = new PropertyValuesApi();
+    const api = new PropertyValuesApi(dorcApiConfiguration);
     api
       .propertyValuesScopeOptionsGet({
         propertyValueScope: this.environmentName
@@ -542,7 +543,7 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
       '#newVariableValue'
     ) as unknown as TextField;
     this.addingVariableValue = true;
-    const api = new PropertyValuesApi();
+    const api = new PropertyValuesApi(dorcApiConfiguration);
     const existingProperty = this.properties?.find(
       value => value.Name === this.propertyName
     );

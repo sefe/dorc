@@ -15,6 +15,7 @@ import { PageElement } from '../helpers/page-element';
 import { SqlPortApiModel } from '../apis/dorc-api';
 import { RefDataSqlPortsApi } from '../apis/dorc-api';
 import GlobalCache from '../global-cache';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('page-sql-ports-list')
 export class PageSqlPortsList extends PageElement {
@@ -58,7 +59,7 @@ export class PageSqlPortsList extends PageElement {
 
   
   private getSqlPortsList() {
-    const api = new RefDataSqlPortsApi();
+    const api = new RefDataSqlPortsApi(dorcApiConfiguration);
     api.refDataSqlPortsGet().subscribe(
       (data: SqlPortApiModel[]) => {
         this.setSqlPorts(data);

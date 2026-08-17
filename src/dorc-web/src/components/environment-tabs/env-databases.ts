@@ -14,6 +14,7 @@ import '@vaadin/dialog';
 import { DialogOpenedChangedEvent } from '@vaadin/dialog';
 import { dialogFooterRenderer, dialogRenderer } from '@vaadin/dialog/lit';
 import { DatabaseApiModel, EnvironmentContentApiModel, RefDataEnvironmentsDetailsApi } from '../../apis/dorc-api';
+import { dorcApiConfiguration } from '../../services/dorc-api-configuration';
 
 @customElement('env-databases')
 export class EnvDatabases extends PageEnvBase {
@@ -128,7 +129,7 @@ export class EnvDatabases extends PageEnvBase {
 
   refreshDatabases() {
     if (!this.environmentId || this.environmentId === -1) return;
-    const api = new RefDataEnvironmentsDetailsApi();
+    const api = new RefDataEnvironmentsDetailsApi(dorcApiConfiguration);
     api.refDataEnvironmentsDetailsIdGet({ id: this.environmentId }).subscribe(
       (data: EnvironmentContentApiModel) => {
         this.setDatabases(data);

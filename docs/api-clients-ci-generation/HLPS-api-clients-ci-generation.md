@@ -39,10 +39,22 @@ committed clients, the committed specs, and the C# API had all drifted apart:
    committed clients are therefore guaranteed to be exactly what the pinned
    generator produces from the committed specs, and the release build
    consumes freshly generated code.
-2. **Hand customisations live in `.openapi-generator-ignore`, not in diffs.**
-   `runtime.ts` (OAuth token injection, 401 redirect) and `servers.ts`
-   (base URL from `AppConfig`) in `dorc-api` are the only hand-maintained
-   files; the generator now skips them. Everything else is generator output.
+2. **No hand-maintained files inside the generated tree.** (Originally
+   `runtime.ts`/`servers.ts` were kept as protected customisations via
+   `.openapi-generator-ignore`; that was reworked in favour of the
+   generator's supported extension points.) Every DOrc API class is now
+   constructed with the shared `Configuration` instance from
+   `src/services/dorc-api-configuration.ts`, which supplies:
+   - `basePath` from `AppConfig` (what the `servers.ts` edit did), and
+   - `accessToken` under the OAuth scheme (what the `runtime.ts` edit did) —
+     the generated per-operation `Authorization` headers come from the spec's
+     `oauth2` security scheme, and a missing/expired session redirects to
+     `/signin.html` before the request instead of after a 401 round-trip.
+   Both parameters are property getters because the auth scheme and base URL
+   only become known after the initial `/ApiConfig` fetch. One behavioural
+   delta: a server-side 401 for an *unexpired* token no longer hard-redirects
+   to sign-in (the generated runtime has no error hook); silent renew plus
+   the pre-request expiry check cover the expiry cases that redirect handled.
 3. **The spec follows the C# API.** The five spec gaps above were fixed in
    `swagger.json`; the client-side hand patches they replaced were dropped in
    favour of regenerated code. The dead

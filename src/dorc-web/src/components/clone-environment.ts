@@ -10,21 +10,12 @@ import { css, LitElement } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { Notification } from '@vaadin/notification';
-import { ajax } from 'rxjs/ajax';
-import { EnvironmentApiModel } from '../apis/dorc-api';
-import { BASE_PATH } from '../apis/dorc-api/runtime';
-import { oauthServiceContainer } from '../services/Account/OAuthService';
-
-// Request interface for cloning environment
-interface CloneEnvironmentRequest {
-  SourceEnvironmentId: number;
-  NewEnvironmentName: string;
-  CopyPropertyValues?: boolean;
-  CopyServerMappings?: boolean;
-  CopyDatabaseMappings?: boolean;
-  CopyProjectMappings?: boolean;
-  CopyAccessControls?: boolean;
-}
+import {
+  CloneEnvironmentRequest,
+  EnvironmentApiModel,
+  RefDataEnvironmentsApi
+} from '../apis/dorc-api';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('clone-environment')
 export class CloneEnvironment extends LitElement {
@@ -241,21 +232,9 @@ export class CloneEnvironment extends LitElement {
       CopyAccessControls: this.copyAccessControls
     };
 
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    const signedInUser = oauthServiceContainer.service.signedInUser;
-    if (signedInUser?.access_token) {
-      headers['Authorization'] = 'Bearer ' + signedInUser.access_token;
-    }
-
-    ajax<EnvironmentApiModel>({
-      url: `${BASE_PATH}/RefDataEnvironments/Clone`,
-      method: 'POST',
-      headers,
-      body: JSON.stringify(request),
-      withCredentials: true
-    }).subscribe({
-      next: (response) => {
-        const clonedEnv = response.response;
+    const api = new RefDataEnvironmentsApi(dorcApiConfiguration);
+    api.refDataEnvironmentsClonePost({ cloneEnvironmentRequest: request }).subscribe({
+      next: (clonedEnv: EnvironmentApiModel) => {
         this.isCloning = false;
 
         Notification.show(

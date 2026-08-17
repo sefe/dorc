@@ -12,6 +12,7 @@ import {
 import { dialogFooterRenderer, dialogRenderer } from '@vaadin/dialog/lit';
 import { DialogOpenedChangedEvent } from '@vaadin/dialog';
 import './make-like-production';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('make-like-production-dialog')
 export class MakeLikeProductionDialog extends LitElement {
@@ -158,7 +159,7 @@ export class MakeLikeProductionDialog extends LitElement {
     console.log('making like prod');
     this.loading = true;
     this.canSubmit = false;
-    const api = new MakeLikeProdApi();
+    const api = new MakeLikeProdApi(dorcApiConfiguration);
     api
       .makeLikeProdPut({
         makeLikeProdRequest: {

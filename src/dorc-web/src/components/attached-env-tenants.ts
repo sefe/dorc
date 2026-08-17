@@ -10,6 +10,7 @@ import { Notification } from '@vaadin/notification';
 import { ApiBoolResult, EnvironmentApiModel, RefDataEnvironmentsDetailsApi } from '../apis/dorc-api';
 import { styleMap } from 'lit/directives/style-map.js';
 import { EnvPageTabNames } from '../pages/page-environment';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('attached-env-tenants')
 export class AttachedEnvTenants extends LitElement {
@@ -84,7 +85,7 @@ export class AttachedEnvTenants extends LitElement {
   detachTenant(envId: number | undefined) {
     const answer = confirm('Detach tenant?');
     if (answer && envId) {
-      const api = new RefDataEnvironmentsDetailsApi();
+      const api = new RefDataEnvironmentsDetailsApi(dorcApiConfiguration);
       api.refDataEnvironmentsDetailsSetParentForEnvironmentPut({
         childEnvId: envId,
         parentEnvId: undefined

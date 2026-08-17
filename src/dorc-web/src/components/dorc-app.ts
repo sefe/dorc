@@ -12,6 +12,7 @@ import { ShortcutsStore } from './shortcuts-store.ts';
 import { appConfig } from '../app-config.ts';
 import { OAUTH_SCHEME, oauthServiceContainer } from '../services/Account/OAuthService.ts';
 import { NARROW_BREAKPOINT } from '../helpers/responsive-mixin.ts';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 let dorcNavbar: DorcNavbar;
 
@@ -540,7 +541,7 @@ export class DorcApp extends ShortcutsStore {
   }
 
   private getUserRoles() {
-    const api = new RefDataRolesApi();
+    const api = new RefDataRolesApi(dorcApiConfiguration);
     api.refDataRolesGet().subscribe({
       next: (data: string[]) => {
         this.userRoles = data.join(' | ');
@@ -550,7 +551,7 @@ export class DorcApp extends ShortcutsStore {
   }
 
   private getUserEmail() {
-    const api = new MakeLikeProdApi();
+    const api = new MakeLikeProdApi(dorcApiConfiguration);
     api.makeLikeProdNotifyEmailAddressGet().subscribe({
       next: value => {
         this.userEmail = value;
@@ -560,7 +561,7 @@ export class DorcApp extends ShortcutsStore {
   }
 
   private getDorcEnv() {
-    const api = new MetadataApi();
+    const api = new MetadataApi(dorcApiConfiguration);
     api.metadataGet().subscribe({
       next: (data: string) => {
         this.dorcEnv = data.split('-')[0].trim();

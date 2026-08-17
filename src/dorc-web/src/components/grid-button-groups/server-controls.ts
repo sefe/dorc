@@ -14,6 +14,7 @@ import {
   RefDataServersApi,
   ServerApiModel
 } from '../../apis/dorc-api';
+import { dorcApiConfiguration } from '../../services/dorc-api-configuration';
 
 @customElement('server-controls')
 export class ServerControls extends LitElement {
@@ -119,7 +120,7 @@ export class ServerControls extends LitElement {
   detachServer() {
     const answer = confirm(`Detach server ${this.serverDetails?.Name}?`);
     if (answer && this.serverDetails?.ServerId) {
-      const api = new RefDataEnvironmentsDetailsApi();
+      const api = new RefDataEnvironmentsDetailsApi(dorcApiConfiguration);
       api
         .refDataEnvironmentsDetailsPut({
           componentId: this.serverDetails?.ServerId,
@@ -141,7 +142,7 @@ export class ServerControls extends LitElement {
   }
 
   private performDeleteServer(serverId: number, confirmed: boolean) {
-    const api = new RefDataServersApi();
+    const api = new RefDataServersApi(dorcApiConfiguration);
     api
       .refDataServersDelete({
         serverId,

@@ -10,6 +10,7 @@ import {
   RefDataEnvironmentsDetailsApi
 } from '../../apis/dorc-api';
 import '../../icons/social-icons.js';
+import { dorcApiConfiguration } from '../../services/dorc-api-configuration';
 
 @customElement('database-env-controls')
 export class DatabaseEnvControls extends LitElement {
@@ -81,7 +82,7 @@ export class DatabaseEnvControls extends LitElement {
   detailedResults() {
     const answer = confirm('Detach database?');
     if (answer && this.dbDetails?.Id) {
-      const api = new RefDataEnvironmentsDetailsApi();
+      const api = new RefDataEnvironmentsDetailsApi(dorcApiConfiguration);
       api
         .refDataEnvironmentsDetailsPut({
           componentId: this.dbDetails.Id,

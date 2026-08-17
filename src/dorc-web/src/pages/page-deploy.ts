@@ -17,6 +17,7 @@ import {
 } from '../apis/dorc-api';
 import type { ProjectApiModel } from '../apis/dorc-api';
 import { PageElement } from '../helpers/page-element';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('page-deploy')
 export class PageDeploy extends PageElement {
@@ -74,7 +75,7 @@ export class PageDeploy extends PageElement {
   constructor() {
     super();
 
-    const api = new RefDataProjectsApi();
+    const api = new RefDataProjectsApi(dorcApiConfiguration);
     api.refDataProjectsGet().subscribe(
       (data: ProjectApiModel[]) => {
         this.setProjects(data);
@@ -166,7 +167,7 @@ export class PageDeploy extends PageElement {
 
     if (this.project !== undefined) {
       this.envsLoading = true;
-      const api = new RefDataProjectEnvironmentMappingsApi();
+      const api = new RefDataProjectEnvironmentMappingsApi(dorcApiConfiguration);
       api
         .refDataProjectEnvironmentMappingsGet({
           project: this.project?.ProjectName ?? '',

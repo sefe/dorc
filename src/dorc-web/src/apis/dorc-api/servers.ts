@@ -4,27 +4,25 @@
  * url template and variable configuration based on the url.
  *
  */
-import AppConfig from '../../app-config';
-
 export class ServerConfiguration<T extends { [key: string]: string }> {
     public constructor(private url: string, private variableConfiguration: T, private description: string) {}
 
-  /**
-   * Sets the value of the variables of this server.
-   *
-   * @param variableConfiguration a partial variable configuration for the variables contained in the url
-   */
-  public setVariables(variableConfiguration: Partial<T>) {
-    Object.assign(this.variableConfiguration, variableConfiguration);
-  }
+    /**
+     * Sets the value of the variables of this server.
+     *
+     * @param variableConfiguration a partial variable configuration for the variables contained in the url
+     */
+    public setVariables(variableConfiguration: Partial<T>) {
+        Object.assign(this.variableConfiguration, variableConfiguration);
+    }
 
-  public getConfiguration(): T {
-    return this.variableConfiguration;
-  }
+    public getConfiguration(): T {
+        return this.variableConfiguration;
+    }
 
-  public getDescription(): string {
-    return this.description;
-  }
+    public getDescription(): string {
+        return this.description;
+    }
 
     /**
      * Constructions the URL this server using the url with variables
@@ -42,6 +40,6 @@ export class ServerConfiguration<T extends { [key: string]: string }> {
     }
 }
 
-const server1 = new ServerConfiguration<NonNullable<unknown>>(new AppConfig().dorcApi, {}, '');
+const server1 = new ServerConfiguration<{  }>("", {  }, "");
 
 export const servers = [server1];

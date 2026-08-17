@@ -9,14 +9,14 @@ import '@vaadin/vaadin-lumo-styles/icons.js';
 import { css, PropertyValues, render } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
-import AppConfig from '../app-config';
 import '../components/grid-button-groups/edit-comments-controls';
-import { Configuration, EnvironmentHistoryApiModel } from '../apis/dorc-api';
+import { EnvironmentHistoryApiModel } from '../apis/dorc-api';
 import { RefDataEnvironmentsHistoryApi } from '../apis/dorc-api/apis';
 import { PageElement, PageLocation } from '../helpers/page-element';
 import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import { router } from '../router/router';
 import { EnvironmentHistoryApiModelExtended } from '../components/model-extensions/environment-history-api-model-extended';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('page-env-history')
 export class PageEnvironmentHistory extends ResponsiveMixin(PageElement) {
@@ -29,10 +29,7 @@ export class PageEnvironmentHistory extends ResponsiveMixin(PageElement) {
     super();
     this.location = router.location as PageLocation;
 
-    const appConfig = new Configuration({
-      basePath: new AppConfig().dorcApi
-    });
-    const api = new RefDataEnvironmentsHistoryApi(appConfig);
+    const api = new RefDataEnvironmentsHistoryApi(dorcApiConfiguration);
 
     const envId = parseInt(new URLSearchParams(location.search).get('id')!, 10);
 

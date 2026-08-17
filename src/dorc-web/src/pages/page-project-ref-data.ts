@@ -8,6 +8,7 @@ import { ErrorNotification } from '../components/notifications/error-notificatio
 import { PageElement } from '../helpers/page-element';
 import { RefDataApi, RefDataApiModel, ComponentApiModel } from '../apis/dorc-api';
 import { retrieveErrorMessage } from '../helpers/errorMessage-retriever';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 const ALLOWED_COMPONENT_NAME_REGEX = new RegExp(
   "^[a-zA-Z0-9 ,./?|:;'\"<>()\\[\\]{}_*&$#@!\\-=+]+$"
@@ -134,7 +135,7 @@ export class PageProjectRefData extends PageElement {
   }
 
   getProjectJson(projId: number) {
-    const api = new RefDataApi();
+    const api = new RefDataApi(dorcApiConfiguration);
     api.refDataIdGet({ id: projId.toString() }).subscribe(value => {
       this.editor?.setValue(JSON.stringify(value, null, 2), 0);
       this.refDataLoading = false;
@@ -158,7 +159,7 @@ export class PageProjectRefData extends PageElement {
         return;
       }
 
-      const api = new RefDataApi();
+      const api = new RefDataApi(dorcApiConfiguration);
       api.refDataPut({ refDataApiModel: rd }).subscribe({
         next: () => {
           if (this.projectId !== undefined) {

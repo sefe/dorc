@@ -13,6 +13,7 @@ import {
   UserApiModel
 } from '../apis/dorc-api';
 import { SuccessNotification } from './notifications/success-notification';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('reset-app-password-behalf')
 export class ResetAppPasswordBehalf extends LitElement {
@@ -140,7 +141,7 @@ export class ResetAppPasswordBehalf extends LitElement {
     );
     if (answer) {
       this.resettingAppPassword = true;
-      const api = new ResetAppPasswordApi();
+      const api = new ResetAppPasswordApi(dorcApiConfiguration);
       api
         .resetAppPasswordForUserPut({
           envFilter: this.envFilter ?? '',

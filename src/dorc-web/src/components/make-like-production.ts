@@ -17,6 +17,7 @@ import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
 import { GridItemModel } from '@vaadin/grid';
 import './deploy/property-override-controls'
 import { MakeLikeProductionDialog } from './make-like-production-dialog.ts';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('make-like-production')
 export class MakeLikeProduction extends LitElement {
@@ -28,7 +29,7 @@ export class MakeLikeProduction extends LitElement {
   set mappedProjects(value: string[] | undefined) {
     this._mappedProjects = value;
 
-    const api = new BundledRequestsApi();
+    const api = new BundledRequestsApi(dorcApiConfiguration);
     api
       .bundledRequestsGet({ projectNames: this._mappedProjects })
       .subscribe({
@@ -178,7 +179,7 @@ export class MakeLikeProduction extends LitElement {
   constructor() {
     super();
 
-    const api = new PropertiesApi();
+    const api = new PropertiesApi(dorcApiConfiguration);
     api.propertiesGet().subscribe({
       next: (data: PropertyApiModel[]) => {
         this.properties = data;
@@ -279,7 +280,7 @@ export class MakeLikeProduction extends LitElement {
 
     const projectId: number = selectedBundleReqs[0].ProjectId ?? 0;
 
-    const api = new MakeLikeProdApi();
+    const api = new MakeLikeProdApi(dorcApiConfiguration);
     api.makeLikeProdDataBackupsGet({ projectId: projectId }).subscribe({
       next: (data: string[]) => {
         this.setDataBackups(data);

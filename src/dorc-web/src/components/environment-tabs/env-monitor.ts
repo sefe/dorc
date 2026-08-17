@@ -41,6 +41,7 @@ import type { PropertyValues } from 'lit';
 import type { PageLocation } from '../../helpers/page-element';
 import { PageEnvBase } from './page-env-base';
 import { ResponsiveMixin } from '../../helpers/responsive-mixin';
+import { dorcApiConfiguration } from '../../services/dorc-api-configuration';
 
 const username = 'Username';
 const status = 'Status';
@@ -195,7 +196,7 @@ export class EnvMonitor extends ResponsiveMixin(PageEnvBase) implements IDeploym
             value: this.componentsFilter
           });
         }
-        const api = new RequestStatusesApi();
+        const api = new RequestStatusesApi(dorcApiConfiguration);
         api
           .requestStatusesPut({
             pagedDataOperators: {

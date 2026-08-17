@@ -30,6 +30,7 @@ import {
 } from '../apis/dorc-api';
 import './connection-status-indicator';
 import { HubConnectionState } from '@microsoft/signalr';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('request-status-card')
 export class RequestStatusCard extends LitElement {
@@ -325,7 +326,7 @@ export class RequestStatusCard extends LitElement {
   }
 
   openEnvironmentDetails() {
-    const api2 = new RefDataEnvironmentsApi();
+    const api2 = new RefDataEnvironmentsApi(dorcApiConfiguration);
     api2
       .refDataEnvironmentsGet({
         env:
@@ -426,7 +427,7 @@ export class RequestStatusCard extends LitElement {
   protected firstUpdated(_changedProperties: PropertyValues) {
     super.firstUpdated(_changedProperties);
 
-    const projectsApi = new RefDataProjectsApi();
+    const projectsApi = new RefDataProjectsApi(dorcApiConfiguration);
     projectsApi
       .refDataProjectsProjectNameGet({ projectName: this.deployRequest.Project ?? '' })
       .subscribe({

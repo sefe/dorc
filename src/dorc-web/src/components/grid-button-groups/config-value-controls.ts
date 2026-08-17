@@ -11,6 +11,7 @@ import { html } from 'lit/html.js';
 import { ConfigValueApiModel, RefDataConfigApi } from '../../apis/dorc-api';
 import '../../icons/editor-icons.js';
 import '../../icons/iron-icons.js';
+import { dorcApiConfiguration } from '../../services/dorc-api-configuration';
 
 @customElement('config-value-controls')
 export class ConfigValueControls extends LitElement {
@@ -119,7 +120,7 @@ export class ConfigValueControls extends LitElement {
       }`
     );
     if (answer && this.value?.Id) {
-      const api = new RefDataConfigApi();
+      const api = new RefDataConfigApi(dorcApiConfiguration);
       api
         .refDataConfigDelete({
           id: this.value.Id
@@ -175,7 +176,7 @@ export class ConfigValueControls extends LitElement {
   }
 
   _saveClick() {
-    const api = new RefDataConfigApi();
+    const api = new RefDataConfigApi(dorcApiConfiguration);
     api
       .refDataConfigPut({
         id: this.value.Id,

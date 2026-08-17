@@ -14,6 +14,7 @@ import {
   RefDataEnvironmentsDetailsApi
 } from '../apis/dorc-api';
 import { Notification } from '@vaadin/notification';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('attach-database')
 export class AttachDatabase extends LitElement {
@@ -47,7 +48,7 @@ export class AttachDatabase extends LitElement {
   constructor() {
     super();
 
-    const api = new RefDataDatabasesApi();
+    const api = new RefDataDatabasesApi(dorcApiConfiguration);
     api.refDataDatabasesGet({}).subscribe({
       next: (data: DatabaseApiModel[]) => {
         this.setDatabases(data);
@@ -168,7 +169,7 @@ export class AttachDatabase extends LitElement {
   }
 
   _displayDb() {
-    const api = new RefDataDatabasesApi();
+    const api = new RefDataDatabasesApi(dorcApiConfiguration);
     api
       .refDataDatabasesGet({
         name: this.selectedDatabase?.Name ?? '',
@@ -203,7 +204,7 @@ export class AttachDatabase extends LitElement {
   }
 
   _submit() {
-    const api = new RefDataEnvironmentsDetailsApi();
+    const api = new RefDataEnvironmentsDetailsApi(dorcApiConfiguration);
     api
       .refDataEnvironmentsDetailsPut({
         action: 'attach',

@@ -10,6 +10,7 @@ import { RequestApi } from '../../apis/dorc-api';
 import { ajax } from 'rxjs/ajax';
 import { appConfig } from '../../app-config';
 import { oauthServiceContainer } from '../../services/Account/OAuthService';
+import { dorcApiConfiguration } from '../../services/dorc-api-configuration';
 
 @customElement('request-controls')
 export class RequestControls extends LitElement {
@@ -146,7 +147,7 @@ export class RequestControls extends LitElement {
     );
 
     if (answer) {
-      const api = new RequestApi();
+      const api = new RequestApi(dorcApiConfiguration);
       api.requestRestartPost({ requestId: this.requestId }).subscribe(() => {
         const event = new CustomEvent('request-restarted', {
           detail: {
@@ -167,7 +168,7 @@ export class RequestControls extends LitElement {
     );
 
     if (answer) {
-      const api = new RequestApi();
+      const api = new RequestApi(dorcApiConfiguration);
       api.requestCancelPut({ requestId: this.requestId }).subscribe(() => {
         const event = new CustomEvent('request-cancelled', {
           detail: {

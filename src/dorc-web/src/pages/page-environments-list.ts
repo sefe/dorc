@@ -25,6 +25,7 @@ import '../components/hegs-dialog';
 import { HegsDialog } from '../components/hegs-dialog';
 import { AddEditEnvironment } from '../components/add-edit-environment';
 import { CloneEnvironment } from '../components/clone-environment';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('page-environments-list')
 export class PageEnvironmentsList extends ResponsiveMixin(PageElement) {
@@ -214,7 +215,7 @@ export class PageEnvironmentsList extends ResponsiveMixin(PageElement) {
   constructor() {
     super();
 
-    const refDataRolesApi = new RefDataRolesApi();
+    const refDataRolesApi = new RefDataRolesApi(dorcApiConfiguration);
     refDataRolesApi.refDataRolesGet().subscribe({
       next: (data: string[]) => {
         this.userRoles = data;
@@ -380,7 +381,7 @@ export class PageEnvironmentsList extends ResponsiveMixin(PageElement) {
     if (this.environments === undefined || this.environments.length === 0) {
       this.loading = true;
 
-      const api = new RefDataEnvironmentsApi();
+      const api = new RefDataEnvironmentsApi(dorcApiConfiguration);
       api.refDataEnvironmentsGet({ env: '' }).subscribe(
         (data: EnvironmentApiModel[]) => {
           this.setEnvironments(data);

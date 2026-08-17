@@ -40,6 +40,7 @@ import { retrieveErrorMessage } from '../helpers/errorMessage-retriever.js';
 import type { PropertyValues } from 'lit';
 import { PageElement, PageLocation } from '../helpers/page-element';
 import { ResponsiveMixin } from '../helpers/responsive-mixin';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 const username = 'Username';
 const status = 'Status';
@@ -192,7 +193,7 @@ export class PageMonitorRequests
               value: this.componentsFilter
             });
           }
-          const api = new RequestStatusesApi();
+          const api = new RequestStatusesApi(dorcApiConfiguration);
           api
             .requestStatusesPut({
               pagedDataOperators: {

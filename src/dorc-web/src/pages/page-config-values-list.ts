@@ -19,6 +19,7 @@ import { Checkbox } from '@vaadin/checkbox';
 import '../components/grid-button-groups/config-value-controls';
 import '../components/add-config-value';
 import { RefDataRolesApi } from '../apis/dorc-api';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('page-config-values-list')
 export class PageConfigValuesList extends ResponsiveMixin(PageElement) {
@@ -42,7 +43,7 @@ export class PageConfigValuesList extends ResponsiveMixin(PageElement) {
   }
 
   private getConfigValuesList() {
-    const api = new RefDataConfigApi();
+    const api = new RefDataConfigApi(dorcApiConfiguration);
     api.refDataConfigGet().subscribe({
       next: (data: ConfigValueApiModel[]) => {
         this.setConfigValues(data);
@@ -53,7 +54,7 @@ export class PageConfigValuesList extends ResponsiveMixin(PageElement) {
   }
 
   private loadRoles(): void {
-    const api = new RefDataRolesApi();
+    const api = new RefDataRolesApi(dorcApiConfiguration);
     api.refDataRolesGet().subscribe({
       next: (roles: string[]) => {
         this.isAdmin = roles.find(p => p === 'Admin') !== undefined;
@@ -72,7 +73,7 @@ export class PageConfigValuesList extends ResponsiveMixin(PageElement) {
   }
 
   private updateConfigItem(updated: ConfigValueApiModel): void {
-    const api = new RefDataConfigApi();
+    const api = new RefDataConfigApi(dorcApiConfiguration);
     const id = updated.Id;
 
     if (id == null) {

@@ -16,6 +16,7 @@ import {
   UserApiModel,
   UserPermDto
 } from '../apis/dorc-api';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('edit-database-permissions')
 export class EditDatabasePermissions extends LitElement {
@@ -53,7 +54,7 @@ export class EditDatabasePermissions extends LitElement {
   constructor() {
     super();
 
-    const refDataPermissionApi = new RefDataPermissionApi();
+    const refDataPermissionApi = new RefDataPermissionApi(dorcApiConfiguration);
     refDataPermissionApi.refDataPermissionGet().subscribe(
       (data: PermissionDto[]) => {
         this.setPermissions(data);
@@ -62,7 +63,7 @@ export class EditDatabasePermissions extends LitElement {
       () => console.log('done loading permissions')
     );
 
-    const api = new RefDataUsersApi();
+    const api = new RefDataUsersApi(dorcApiConfiguration);
     api.refDataUsersGet().subscribe(
       (data: UserApiModel[]) => {
         this.setUsers(data);
@@ -223,7 +224,7 @@ export class EditDatabasePermissions extends LitElement {
     const removeRoleId = userPerm.Id || 0;
     const answer = confirm('Remove permission?');
     if (answer && removeRoleId) {
-      const api = new RefDataUserPermissionsApi();
+      const api = new RefDataUserPermissionsApi(dorcApiConfiguration);
       const perm: number = removeRoleId;
       const user: number = this?.selectedUser?.Id || 0;
       api
@@ -261,7 +262,7 @@ export class EditDatabasePermissions extends LitElement {
 
   _addPermissionForUser() {
     this.StatusMessage = '';
-    const api = new RefDataUserPermissionsApi();
+    const api = new RefDataUserPermissionsApi(dorcApiConfiguration);
     const perm: number = this?.selectedPermission?.Id || 0;
     const user: number = this?.selectedUser?.Id || 0;
     api
@@ -294,7 +295,7 @@ export class EditDatabasePermissions extends LitElement {
       const userId = this.selectedUser?.Id;
 
       if (userId !== undefined && userId > 0) {
-        const api = new RefDataUserPermissionsApi();
+        const api = new RefDataUserPermissionsApi(dorcApiConfiguration);
         api
           .refDataUserPermissionsGet({
             userId,

@@ -188,8 +188,9 @@ jobs:
 
     # The committed clients are the same files the generator just wrote, so
     # any diff means someone edited generated code by hand or changed a spec
-    # without regenerating. Hand-maintained files (runtime.ts, servers.ts in
-    # dorc-api) are protected by .openapi-generator-ignore and never diff.
+    # without regenerating. Nothing under src/apis is hand-maintained: app
+    # concerns (base URL, OAuth tokens) live in
+    # src/services/dorc-api-configuration.ts, outside the generated tree.
     - name: Fail if generated clients are out of sync
       shell: pwsh
       run: |

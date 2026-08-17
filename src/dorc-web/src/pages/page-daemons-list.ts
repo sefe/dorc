@@ -23,6 +23,7 @@ import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import { DaemonApiModel, RefDataDaemonsApi, ServerDaemonsApi } from '../apis/dorc-api';
 import type { ServerApiModel } from '../apis/dorc-api';
 import GlobalCache from '../global-cache';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('page-daemons-list')
 export class PageDaemonsList extends ResponsiveMixin(PageElement) {
@@ -72,7 +73,7 @@ export class PageDaemonsList extends ResponsiveMixin(PageElement) {
   }
 
   private getDaemonsList() {
-    const api = new RefDataDaemonsApi();
+    const api = new RefDataDaemonsApi(dorcApiConfiguration);
     api.refDataDaemonsGet().subscribe(
       (data: DaemonApiModel[]) => {
         this.setDaemons(data);
@@ -397,7 +398,7 @@ export class PageDaemonsList extends ResponsiveMixin(PageElement) {
     this.pendingDeleteAttachedServers = [];
 
     if (daemon.Id && daemon.Id > 0) {
-      const api = new ServerDaemonsApi();
+      const api = new ServerDaemonsApi(dorcApiConfiguration);
       api.serverDaemonsByDaemonDaemonIdGet({ daemonId: daemon.Id }).subscribe({
         next: (servers: ServerApiModel[]) => {
           this.pendingDeleteAttachedServers = servers
@@ -419,7 +420,7 @@ export class PageDaemonsList extends ResponsiveMixin(PageElement) {
       this.confirmDeleteOpen = false;
       return;
     }
-    const api = new RefDataDaemonsApi();
+    const api = new RefDataDaemonsApi(dorcApiConfiguration);
     api.refDataDaemonsDelete({ id: daemon.Id }).subscribe(
       () => {
         this.pendingDelete = null;

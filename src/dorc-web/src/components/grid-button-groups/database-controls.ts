@@ -10,6 +10,7 @@ import '@vaadin/vaadin-lumo-styles/icons.js';
 import { ApiBoolResult, DatabaseApiModel, RefDataDatabasesApi } from '../../apis/dorc-api';
 import { ErrorNotification } from '../notifications/error-notification';
 import { retrieveErrorMessage } from '../../helpers/errorMessage-retriever.js';
+import { dorcApiConfiguration } from '../../services/dorc-api-configuration';
 
 @customElement('database-controls')
 export class DatabaseControls extends LitElement {
@@ -72,7 +73,7 @@ export class DatabaseControls extends LitElement {
   deleteDatabase() {
     const answer = confirm(`Delete database ${this.databaseDetails?.Name}?`);
     if (answer && this.databaseDetails?.Id) {
-      const api = new RefDataDatabasesApi();
+      const api = new RefDataDatabasesApi(dorcApiConfiguration);
       api
         .refDataDatabasesDelete({
           databaseId: this.databaseDetails.Id

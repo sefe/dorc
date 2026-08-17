@@ -7,6 +7,7 @@ import { html } from 'lit/html.js';
 import type { PermissionDto } from '../apis/dorc-api';
 import { Notification } from '@vaadin/notification';
 import { RefDataPermissionApi } from '../apis/dorc-api';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('add-permission')
 export class AddPermission extends LitElement {
@@ -123,7 +124,7 @@ export class AddPermission extends LitElement {
   }
 
   _submit() {
-    const api = new RefDataPermissionApi();
+    const api = new RefDataPermissionApi(dorcApiConfiguration);
 
     this.permission.DisplayName = this.displayName.trim();
     this.permission.PermissionName = this.permissionName.trim();

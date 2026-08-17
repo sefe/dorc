@@ -165,9 +165,11 @@ npm run ado-build-api-gen # Azure DevOps Build client (from src/apis/azure-devop
 
 When a C# controller or API model changes, update
 `src/dorc-web/src/apis/dorc-api/swagger.json` to match (a running API serves
-the document at `/swagger/v1/swagger.json`) and regenerate. See
-[src/dorc-web/README.md](src/dorc-web/README.md) for details, including the
-hand-maintained files protected by `.openapi-generator-ignore`.
+the document at `/swagger/v1/swagger.json`) and regenerate. Everything under
+`src/dorc-web/src/apis` is pure generator output — app concerns such as the
+base URL and OAuth tokens are supplied through the generated `Configuration`
+class from `src/dorc-web/src/services/dorc-api-configuration.ts`. See
+[src/dorc-web/README.md](src/dorc-web/README.md) for details.
 
 Azure DevOps API specifications: https://github.com/MicrosoftDocs/vsts-rest-api-specs
 

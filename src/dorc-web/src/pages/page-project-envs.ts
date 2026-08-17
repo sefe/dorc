@@ -27,6 +27,7 @@ import {
   EnvironmentApiModelTemplateApiModel,
   RefDataProjectEnvironmentMappingsApi
 } from '../apis/dorc-api';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('page-project-envs')
 export class PageProjectEnvs extends PageElement {
@@ -315,7 +316,7 @@ export class PageProjectEnvs extends PageElement {
   }
 
   private getProjects() {
-    const api = new RefDataProjectsApi();
+    const api = new RefDataProjectsApi(dorcApiConfiguration);
     api.refDataProjectsGet().subscribe(
       (data: ProjectApiModel[]) => {
         this.setProjects(data);
@@ -371,7 +372,7 @@ export class PageProjectEnvs extends PageElement {
   }
 
   public getEnvironments() {
-    const api = new RefDataProjectEnvironmentMappingsApi();
+    const api = new RefDataProjectEnvironmentMappingsApi(dorcApiConfiguration);
     if (this.project !== undefined) {
       api
         .refDataProjectEnvironmentMappingsGet({
@@ -419,7 +420,7 @@ export class PageProjectEnvs extends PageElement {
 
   private checkProjectAccess() {
     if (this.project) {
-      const api = new AccessControlApi();
+      const api = new AccessControlApi(dorcApiConfiguration);
       api
         .accessControlGet({
           accessControlType: AccessControlType.Project,

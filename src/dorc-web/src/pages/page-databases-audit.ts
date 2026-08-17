@@ -24,6 +24,7 @@ import { DatabaseAuditApiModel } from '../apis/dorc-api/models/DatabaseAuditApiM
 import { GetDatabaseAuditListResponseDto } from '../apis/dorc-api/models/GetDatabaseAuditListResponseDto';
 import { PageElement } from '../helpers/page-element';
 import { getShortLogonName } from '../helpers/user-extensions';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('page-databases-audit')
 export class PageDatabasesAudit extends PageElement {
@@ -371,7 +372,7 @@ export class PageDatabasesAudit extends PageElement {
       filters.push({ Path: 'Action', FilterValue: this.actionFilter });
     }
 
-    const api = new DatabaseAuditApi();
+    const api = new DatabaseAuditApi(dorcApiConfiguration);
     api
       .databaseAuditPut({
         pagedDataOperators: {

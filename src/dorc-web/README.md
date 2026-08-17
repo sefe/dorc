@@ -205,14 +205,15 @@ OpenAPI document (obtainable from a running API at `/swagger/v1/swagger.json`).
 When you change a controller or API model in C#, update `swagger.json` to
 match and run `npm run dorc-api-gen`.
 
-Two files are deliberately hand-maintained and listed in
-`src/apis/dorc-api/.openapi-generator-ignore`, so the generator leaves them
-alone:
-
-- `runtime.ts` — OAuth integration (Bearer token injection, 401 redirect to
-  `/signin.html`)
-- `servers.ts` — API base URL resolved from `AppConfig` instead of the spec's
-  server list
+Every file under `src/apis/dorc-api` is pure generator output. App concerns
+are wired in through the generated `Configuration` class instead of edits to
+generated files: construct every API with the shared instance from
+`src/services/dorc-api-configuration.ts`
+(`new RefDataEnvironmentsApi(dorcApiConfiguration)`), which supplies the
+base URL from `AppConfig` and, under the OAuth scheme, the Bearer token
+(redirecting to `/signin.html` when the session is missing or expired). The
+per-operation `Authorization` header handling in the generated code comes
+from the spec's `oauth2` security scheme.
 
 ### Azure DevOps Client (`src/apis/azure-devops-build`)
 

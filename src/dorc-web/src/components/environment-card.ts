@@ -10,6 +10,7 @@ import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
 import '../icons/iron-icons.js';
 import { AccessControlType } from '../apis/dorc-api';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('environment-card')
 export class EnvironmentCard extends LitElement {
@@ -186,7 +187,7 @@ export class EnvironmentCard extends LitElement {
   removeMapping(data: any) {
     const env = data.currentTarget.env as EnvironmentApiModel;
 
-    const api = new RefDataProjectEnvironmentMappingsApi();
+    const api = new RefDataProjectEnvironmentMappingsApi(dorcApiConfiguration);
     api
       .refDataProjectEnvironmentMappingsDelete({
         environment: env.EnvironmentName || '',

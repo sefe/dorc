@@ -34,6 +34,7 @@ vi.mock('@vaadin/combo-box', () => ({}));
 
 // --- Mock the DOrc API surface used by the page ---
 vi.mock('../../src/apis/dorc-api', () => ({
+  Configuration: class {},
   AnalyticsApi: class {
     analyticsDeploymentsMonthGet = () => syncObservable(monthHolder.value);
     analyticsDeploymentSummaryGet = () =>

@@ -10,6 +10,7 @@ import { html } from 'lit/html.js';
 import { Notification } from '@vaadin/notification';
 import type { SqlPortApiModel } from '../apis/dorc-api';
 import { RefDataDatabasesApi, RefDataSqlPortsApi } from '../apis/dorc-api';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('add-sql-port')
 export class AddSqlPort extends LitElement {
@@ -56,7 +57,7 @@ export class AddSqlPort extends LitElement {
   constructor() {
     super();
 
-    const api = new RefDataDatabasesApi();
+    const api = new RefDataDatabasesApi(dorcApiConfiguration);
 
     api.refDataDatabasesGetDatabasServerNameslistGet().subscribe(
       (data: string[]) => {
@@ -137,7 +138,7 @@ export class AddSqlPort extends LitElement {
     }
 
     if (this.database !== undefined) {
-      const api = new RefDataDatabasesApi();
+      const api = new RefDataDatabasesApi(dorcApiConfiguration);
       //const params = new GridDataProviderParams<DatabaseApiModel>
       api.refDataDatabasesGetDatabasServerNameslistGet().subscribe(
         (data: string[]) => {
@@ -167,7 +168,7 @@ export class AddSqlPort extends LitElement {
   }
 
   _submit() {
-    const api = new RefDataSqlPortsApi();
+    const api = new RefDataSqlPortsApi(dorcApiConfiguration);
     const sqlPortModel: SqlPortApiModel = {
       InstanceName: this.database,
       SqlPort: this.portNumber

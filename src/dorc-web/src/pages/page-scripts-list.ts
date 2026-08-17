@@ -36,6 +36,7 @@ import GlobalCache from '../global-cache';
 import '../components/hegs-json-viewer';
 import { HegsJsonViewer } from '../components/hegs-json-viewer';
 import { ComboBox } from '@vaadin/combo-box';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 const variableName = 'Name';
 const variablePath = 'Path';
@@ -161,7 +162,7 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
                 });
               }
 
-              const api = new RefDataScriptsApi();
+              const api = new RefDataScriptsApi(dorcApiConfiguration);
               api
                 .refDataScriptsPut({
                   pagedDataOperators: {
@@ -325,7 +326,7 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
     select.addEventListener('value-changed', (event: any) => {
       if (script.PowerShellVersionNumber != event.detail.value && !!event.detail.value){
         script.PowerShellVersionNumber = event.detail.value;
-        const api = new RefDataScriptsApi();
+        const api = new RefDataScriptsApi(dorcApiConfiguration);
         api.refDataScriptsEditPut({ scriptApiModel: script }).subscribe({
           next: (data: boolean) =>
             console.log(
@@ -426,7 +427,7 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
       if (script.IsEnabled !== e.detail.value) {
         // don't fire when value is same
         script.IsEnabled = e.detail.value;
-        const api = new RefDataScriptsApi();
+        const api = new RefDataScriptsApi(dorcApiConfiguration);
         api.refDataScriptsEditPut({ scriptApiModel: script }).subscribe({
           next: (data: boolean) =>
             console.log(
@@ -605,7 +606,7 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
   }
 
   private loadPowerShellVersions() {
-    const api = new PowerShellVersionsApi();
+    const api = new PowerShellVersionsApi(dorcApiConfiguration);
     api.powerShellVersionsGet().subscribe({
       next: (versions: PowerShellVersionDto[]) => {
         this.powerShellVersions = versions.map(v => v.Value || '').filter(v => v !== '');

@@ -30,6 +30,7 @@ import { ScriptsAuditApi } from '../apis/dorc-api/apis/ScriptsAuditApi';
 import { PageElement } from '../helpers/page-element';
 import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import { getShortLogonName } from '../helpers/user-extensions';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('page-scripts-audit')
 export class PageScriptsAudit extends ResponsiveMixin(PageElement) {
@@ -454,7 +455,7 @@ export class PageScriptsAudit extends ResponsiveMixin(PageElement) {
       filters.push({ Path: 'FromValue', FilterValue: this.valueFilterValue });
     }
 
-    const api = new ScriptsAuditApi();
+    const api = new ScriptsAuditApi(dorcApiConfiguration);
     api
       .scriptsAuditPut({
         pagedDataOperators: {

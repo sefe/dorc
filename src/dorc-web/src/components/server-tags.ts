@@ -7,6 +7,7 @@ import { TagsInput } from './tags-input';
 import { RefDataServersApi } from '../apis/dorc-api';
 import { ServerApiModel } from '../apis/dorc-api';
 import { splitTags, joinTags } from '../helpers/tag-parser';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('server-tags')
 export class ServerTags extends LitElement {
@@ -53,7 +54,7 @@ export class ServerTags extends LitElement {
       const tags = this.tagsInput?.tags;
       this._server.ApplicationTags = joinTags(tags);
 
-      const api = new RefDataServersApi();
+      const api = new RefDataServersApi(dorcApiConfiguration);
       const server: ServerApiModel = {};
       server.ApplicationTags = this._server.ApplicationTags;
       server.ServerId = this._server.ServerId;
