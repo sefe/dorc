@@ -164,7 +164,11 @@ The matrix below is derived from the `IActiveDirectorySearcher` contract *and* i
 - Supporting pure on-prem AD installs without an Entra tenant. Per D-2, an Entra tenant is now a hard prerequisite.
 - Replacing WMI with SSH / PowerShell-remoting / REST agents (separate HLPS if/when desired). Worker is permanent (D-1).
 - Folder reorganisation by "function" (`Identity/`, `Build/`, `Orchestration/`) inside the existing API.
-- Changing the public Swagger/REST surface of `Dorc.Api` in shape. (Behaviour envelope on Linux installs is covered by C-1 and SC-4.)
+- Changing the public Swagger/REST surface of `Dorc.Api` in shape, **except the two deltas
+  carved out in Round 6 under U-20**: `UserElementApiModel.SamAccountName` (additive, nullable)
+  and the `GetServerOperatingFromTarget` 400 body reshaped from string to object, whose
+  `[SwaggerResponse]` annotation is corrected to match. Both are listed in release notes.
+  (Behaviour envelope on Linux installs is covered by C-1 and SC-4.)
 - Hardening the shared-secret storage to DPAPI / Azure Key Vault. Separate concern (M-1/D-3 acknowledged).
 - Log-injection findings in `BundledRequestsController`, `MakeLikeProdController`, `ResetAppPasswordController`, `Dorc.Api/Services/RequestService.cs` (was `Deployment/Requests.cs`, which does not exist at `aebd286`) — see SC-8b.
 
@@ -172,7 +176,10 @@ The matrix below is derived from the `IActiveDirectorySearcher` contract *and* i
 as scope decisions rather than left as silent behaviour changes; each needs an explicit accept or
 reject from the panel:
 
-- **M2M / IdentityServer client principals leave the identity picker.** Deleting
+- **M2M / IdentityServer client principals leave the identity picker.** **REVERSED in Round 6:**
+  the panel decision was to *restore* them via a Graph `/servicePrincipals` search in S-001,
+  keyed on `appId` (the value `AccessControl.Pid` holds for M2M callers). The IdentityServer
+  client code remains unreachable and is removed in a follow-up step. Original text: deleting
   `IdentityServerSearcher` removes the only searcher returning IdentityServer clients from
   `AccessControlController.SearchUsers`. Existing M2M grants continue to work; new ones cannot be
   created through the UI. `IdentityServerClient.cs` and `GetIdentityServerClientId()` remain in
@@ -187,7 +194,10 @@ reject from the panel:
 
 ## 5. Constraints
 
-- **C-1 No client-side compile-time change.** Existing API consumers (`dorc-web`, `Dorc.Api.Client`, CLI tools) compile and ship unchanged. Behavioural changes are scoped: on Windows installs they are nil (SC-3); on Linux installs the WMI / registry / password-reset endpoints return a documented `503` (SC-4). Customer-facing release notes must call out this behavioural envelope.
+- **C-1 No client-side compile-time change.** Existing API consumers (`dorc-web`, `Dorc.Api.Client`, CLI tools) compile and ship unchanged. Behavioural changes are scoped: on Windows installs the moved endpoints are unchanged (SC-3), but Round 6 records a
+  non-empty Windows-install delta that release notes must carry: the two REST-surface changes
+  under U-20, the `ActiveDirectoryRoles` removal and its `role`-claim prerequisite (U-12), and
+  the requirement for `Application.Read.All` consent (U-9). "Nil" was wrong; on Linux installs the WMI / registry / password-reset endpoints return a documented `503` (SC-4). Customer-facing release notes must call out this behavioural envelope.
 - **C-2 No bundled refactor.** Naming, folder layout, and DI cleanup do not ride along on this HLPS.
 - **C-3 Single host on Windows.** On Windows installs, the worker process ships and runs alongside the primary as a separate MSI component, bound to loopback only.
 - **C-4 Customer infrastructure.** Every DORC install requires an Entra ID tenant + app registration with Graph permissions. Document required permissions (U-9) and the AD-to-Entra migration path (U-10) before release.
@@ -227,13 +237,25 @@ release-only concern. Implementation of the remaining steps may continue. Note t
 reads CLAUDE.md's "blocking unknowns halt progress" as halting *the affected merge or the
 release*, not all work — an explicit deviation, recorded here rather than left implicit.
 
-- **U-10 (promoted from non-blocking in Round 4) — migration path for Cohort B.** Customers on
+- **U-10 — RESOLVED (Round 6). Owner: Ben Hegarty.** Decision: **hard break with published
+  prerequisites.** Customers with no Entra tenant cannot upgrade; an Entra tenant plus Entra
+  Connect (or Cloud Sync) populating `onPremisesSecurityIdentifier` is a documented upgrade
+  prerequisite. No back-compat shim. S-010 publishes the prerequisite; release notes must lead
+  with it. Original text retained below for the reasoning trail.
+
+  *(was)* Migration path for Cohort B. Customers on
   pure on-prem AD with no Entra tenant lose all ACL resolution at upgrade. This was filed as
   non-blocking with a default of "hard break, no shim, published prerequisites", but a default
   chosen by the authors is not a product decision, and by Round 3 the HLPS was APPROVED with a
   customer-breaking change resting on an unanswered question. **Owner: Product.** Required
   before release: confirm the hard break, or fund a back-compat shim.
-- **U-12 (new) — role-claim prerequisite.** S-007 deletes `ClaimsTransformer`, which was the only
+- **U-12 — RESOLVED (Round 6). Owner: Ben Hegarty.** Decision: **delete `ActiveDirectoryRoles`
+  and its WiX writes.** The config knob stops lying about being effective, and the Entra app
+  registration emitting a `role` claim becomes a documented prerequisite in S-010. Implemented
+  in S-007 (config + `RequestApi.wxs` writes) — note the WiX half depends on S-008 owning that
+  file, and on #808 which relocates it. Original text retained.
+
+  *(was)* Role-claim prerequisite. S-007 deletes `ClaimsTransformer`, which was the only
   reader of `AppSettings:ActiveDirectoryRoles`. `User.IsInRole("Admin")` / `("PowerUser")` remain
   load-bearing across `RefDataController`, `RefDataPermissionController`, `RefDataSqlPortsController`,
   `DeploymentsHub`, `RolePrivilegesChecker` and `SecurityObjectFilter`, and now resolve **solely**
@@ -242,7 +264,17 @@ release*, not all work — an explicit deviation, recorded here rather than left
   registration does not emit `role`. **Owner: architecture + docs.** Required before release:
   either the app-registration guidance makes `role` emission a documented prerequisite, or the
   dead config and its WiX writes are removed so the knob stops lying about being effective.
-- **U-16 (new) — worker provisioning ordering.** S-004 routes a live endpoint through the worker
+- **U-16 — RESOLVED (Round 6). Owner: Ben Hegarty.** Decision: **S-008 owns both** worker
+  provisioning *and* the `RequestApi.wxs` auth/roles migration. S-004 and S-007 stay in draft
+  until it lands. **Sequencing constraint discovered in Round 6: #808 relocates
+  `RequestApi.wxs` from `src/Setup.Dorc/Web/RequestApi/` to `src/Setup.Dorc.Api/` and carries
+  every line S-008 must change (IIS `Negotiate,NTLM`, the `ActiveDirectoryRoles` writes, and
+  the `AuthenticationScheme` write, each duplicated across dev and prod blocks). #808 must
+  merge first, or S-008 is written against a path that moves.** #808 also touches
+  `Setup.Acceptance`, which U-8 now makes responsible for installing the worker MSI — a second
+  dependency between the two work streams. Original text retained.
+
+  *(was)* Worker provisioning ordering. S-004 routes a live endpoint through the worker
   while `WindowsWorker:Enabled` ships `false` and nothing sets it `true`, because provisioning is
   S-008's job and S-008 has no PR. As sequenced, merging S-004 turns a working endpoint into a
   503 on every existing Windows install. **Owner: architecture.** Required before S-004 merges:
@@ -251,10 +283,13 @@ release*, not all work — an explicit deviation, recorded here rather than left
 
 ### Non-blocking (added in Round 4)
 
-- **U-13** Graph fault tolerance. Removing `CompositeActiveDirectorySearcher` means a Graph 429/503
+- **U-13 — RESOLVED (Round 6).** Decision: **fix in S-001.** Kiota's `RetryHandler` configured
+  for 429/503/504 with backoff, honouring Graph's `Retry-After`. *(was)* Graph fault tolerance. Removing `CompositeActiveDirectorySearcher` means a Graph 429/503
   is now a 500 rather than a degraded result, and no retry handler is configured on the Kiota
   adapter. Decide whether to configure Graph SDK retry/backoff or accept the change.
-- **U-14** Result-set truncation. `Search` reads one Graph page (100 users + 100 groups) with no
+- **U-14 — RESOLVED (Round 6).** Decision: **fix in S-001.** `Search` now requests `$top=999`
+  and drains `@odata.nextLink` for users, groups and service principals, capped at 10 pages.
+  *(was)* Result-set truncation. `Search` reads one Graph page (100 users + 100 groups) with no
   signal to the caller; the AD path returned up to ~1000. Pre-existing on the OAuth path, but
   S-001 makes it the only path, including for `DirectorySearchController`.
 - **U-15** Multi-domain tenants. `onPremisesSamAccountName` is unique per domain, not per tenant.
@@ -267,17 +302,26 @@ release*, not all work — an explicit deviation, recorded here rather than left
 
 ### Non-blocking (added in Round 5)
 
-- **U-18** Six `Dorc.Api` controllers still carry `[SupportedOSPlatform("windows")]`
+- **U-18 — PARTIALLY RESOLVED (Round 6).** `AccessControlController` and
+  `DirectorySearchController` had their attribute stripped in S-001: both were verified to have
+  no remaining Windows-only usage, so the annotation was purely stale and each was a live hole
+  in the SC-1 gate. The remaining four (`AccountController`, `BundledRequestsController`,
+  `MakeLikeProdController`, `ResetAppPasswordController`) clear at S-005/S-006 and remain on the
+  gate's allow-list, which must only shrink. *(was)* Six `Dorc.Api` controllers still carry `[SupportedOSPlatform("windows")]`
   (`AccessControlController`, `AccountController`, `BundledRequestsController`,
   `DirectorySearchController`, `MakeLikeProdController`, `ResetAppPasswordController`). CA1416
   does not fire inside an annotated type, so each is a hole in the SC-1 gate. Two of them are
   the AD-facing controllers S-001 was supposed to make Linux-clean and should no longer need
   the attribute at all. Decide per controller: strip the attribute, or move the code to the
   worker. The gate's suppression allow-list is the tracking list and must only shrink.
-- **U-19** Owner for [`parity-matrix.md`](parity-matrix.md). SC-9 makes it authoritative and
+- **U-19 — RESOLVED (Round 6). Owner: Ben Hegarty.** *(was)* Owner for [`parity-matrix.md`](parity-matrix.md). SC-9 makes it authoritative and
   `status: LIVING` claims upkeep, but the `owner` field points at a success criterion, which
   cannot be chased. Needs a named human.
-- **U-20** Two REST-surface changes contradict the Out-of-Scope line "changing the public
+- **U-20 — RESOLVED (Round 6).** Decision: **carve both out of Out of Scope** and correct the
+  Swagger annotation. `UserElementApiModel.SamAccountName` is load-bearing — without it logon
+  names resolve to nobody — and the 400 reshape carries the worker's actual error message.
+  Both are additive/nullable, so SC-5 (clients compile unchanged) still holds; release notes must
+  list them. *(was)* Two REST-surface changes contradict the Out-of-Scope line "changing the public
   Swagger/REST surface in shape": `UserElementApiModel.SamAccountName` added by S-001, and the
   `GetServerOperatingFromTarget` 400 body changed from string to object by S-004 while its
   `[SwaggerResponse(400, Type = typeof(string))]` annotation was left in place. Decide: carve
@@ -293,8 +337,17 @@ release*, not all work — an explicit deviation, recorded here rather than left
 - **U-5** Worker config: shared `appsettings.json` with the primary vs. its own. Affects secret-handling at install time.
 - **U-6** Worker URL discovery: config-file (likely) vs. service discovery.
 - **U-7** Contract-test strategy for the inter-API surface (consumer-driven vs. shared-DTO vs. OpenAPI-spec-driven). Recommendation pending in the IS step that wires the contract: shared-DTO via the existing `Dorc.ApiModel` pattern is the lowest-friction choice.
-- **U-8** `Setup.Acceptance` handling: install the worker MSI for the test environment, or stub the worker endpoints. Gates SC-6 (contract tests on a real worker vs. mock).
-- **U-9** Graph permission set required (delegated vs application; specific permission names). Affects customer setup guidance (C-4) and the IS step that does the Graph migration. **Recommendation pending architecture confirmation:** application-only permissions (`User.Read.All`, `Group.Read.All`, `GroupMember.Read.All`) with admin consent, since the worker runs as a service account and never acts on behalf of an end user.
+- **U-8 — RESOLVED (Round 6).** Decision: **install the worker MSI** in the acceptance
+  environment. This couples `Setup.Acceptance` to S-008 and a Windows host, so SC-6's contract
+  tests cannot be satisfied until S-008 lands — and #808 also modifies `Setup.Acceptance`.
+  *(was)* `Setup.Acceptance` handling: install the worker MSI for the test environment, or stub the worker endpoints. Gates SC-6 (contract tests on a real worker vs. mock).
+- **U-9 — RESOLVED (Round 6).** Decision: **application-only permissions with admin consent** —
+  `User.Read.All`, `Group.Read.All`, `GroupMember.Read.All`, **`Application.Read.All`**. The last
+  is new in Round 6: restoring M2M clients to the identity picker requires reading
+  `/servicePrincipals`. It is a broader consent than the original set and should be flagged in
+  the customer conversation. The service-principal query is implemented as non-fatal so a tenant
+  that has not consented degrades to "no machine clients" rather than losing user search.
+  *(was)* Graph permission set required (delegated vs application; specific permission names). Affects customer setup guidance (C-4) and the IS step that does the Graph migration. **Recommendation pending architecture confirmation:** application-only permissions (`User.Read.All`, `Group.Read.All`, `GroupMember.Read.All`) with admin consent, since the worker runs as a service account and never acts on behalf of an end user.
 - **U-10** *(promoted to Blocking in Round 4 — detail retained here.)* Migration path for existing customers from AD to Entra. **Owner: Product.** Two customer cohorts and two outcomes:
   - **Cohort A — has Entra tenant + Entra Connect populating `onPremisesSecurityIdentifier`.** Upgrade is transparent: P-4 / P-7 in the parity matrix resolve existing `AccessControl.Sid` rows via Entra. SC-10 covers this.
   - **Cohort B — pure on-prem AD, no Entra tenant.** Hard break. Existing ACLs cannot be resolved post-migration.
