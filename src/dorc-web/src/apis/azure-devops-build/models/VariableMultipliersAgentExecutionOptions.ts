@@ -11,12 +11,13 @@
  * Do not edit the class manually.
  */
 
-import type { AgentTargetExecutionOptions } from './index';
+import type {
+    AgentTargetExecutionOptions,
+} from './';
 
 /**
  * @type VariableMultipliersAgentExecutionOptions
  * Represents options for running a phase based on values specified by a list of variables.
  * @export
  */
-export type VariableMultipliersAgentExecutionOptions =
-  AgentTargetExecutionOptions;
+export type VariableMultipliersAgentExecutionOptions = AgentTargetExecutionOptions;

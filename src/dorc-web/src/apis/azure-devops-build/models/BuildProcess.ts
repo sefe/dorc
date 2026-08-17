@@ -17,10 +17,10 @@
  * @interface BuildProcess
  */
 export interface BuildProcess {
-  /**
-   * The type of the process.
-   * @type {number}
-   * @memberof BuildProcess
-   */
-  type?: number;
+    /**
+     * The type of the process.
+     * @type {number}
+     * @memberof BuildProcess
+     */
+    type?: number;
 }

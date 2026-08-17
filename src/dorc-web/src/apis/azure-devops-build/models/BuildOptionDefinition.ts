@@ -11,7 +11,11 @@
  * Do not edit the class manually.
  */
 
-import type { BuildOptionDefinitionReference } from './index';
+import type {
+    BuildOptionDefinitionReference,
+    BuildOptionGroupDefinition,
+    BuildOptionInputDefinition,
+} from './';
 
 /**
  * @type BuildOptionDefinition

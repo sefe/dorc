@@ -17,28 +17,28 @@
  * @interface BuildMetric
  */
 export interface BuildMetric {
-  /**
-   * The date for the scope.
-   * @type {string}
-   * @memberof BuildMetric
-   */
-  date?: string;
-  /**
-   * The value.
-   * @type {number}
-   * @memberof BuildMetric
-   */
-  intValue?: number;
-  /**
-   * The name of the metric.
-   * @type {string}
-   * @memberof BuildMetric
-   */
-  name?: string;
-  /**
-   * The scope.
-   * @type {string}
-   * @memberof BuildMetric
-   */
-  scope?: string;
+    /**
+     * The date for the scope.
+     * @type {string}
+     * @memberof BuildMetric
+     */
+    date?: string;
+    /**
+     * The value.
+     * @type {number}
+     * @memberof BuildMetric
+     */
+    intValue?: number;
+    /**
+     * The name of the metric.
+     * @type {string}
+     * @memberof BuildMetric
+     */
+    name?: string;
+    /**
+     * The scope.
+     * @type {string}
+     * @memberof BuildMetric
+     */
+    scope?: string;
 }

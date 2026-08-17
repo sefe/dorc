@@ -12,26 +12,26 @@
  */
 
 /**
- *
+ * 
  * @export
  * @interface BuildsDeletedEvent1
  */
 export interface BuildsDeletedEvent1 {
-  /**
-   * @type {Array<number>}
-   * @memberof BuildsDeletedEvent1
-   */
-  buildIds?: Array<number>;
-  /**
-   * The ID of the definition.
-   * @type {number}
-   * @memberof BuildsDeletedEvent1
-   */
-  definitionId?: number;
-  /**
-   * The ID of the project.
-   * @type {string}
-   * @memberof BuildsDeletedEvent1
-   */
-  projectId?: string;
+    /**
+     * @type {Array<number>}
+     * @memberof BuildsDeletedEvent1
+     */
+    buildIds?: Array<number>;
+    /**
+     * The ID of the definition.
+     * @type {number}
+     * @memberof BuildsDeletedEvent1
+     */
+    definitionId?: number;
+    /**
+     * The ID of the project.
+     * @type {string}
+     * @memberof BuildsDeletedEvent1
+     */
+    projectId?: string;
 }

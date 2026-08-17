@@ -17,45 +17,45 @@
  * @interface SourceRepository
  */
 export interface SourceRepository {
-  /**
-   * The name of the default branch.
-   * @type {string}
-   * @memberof SourceRepository
-   */
-  defaultBranch?: string;
-  /**
-   * The full name of the repository.
-   * @type {string}
-   * @memberof SourceRepository
-   */
-  fullName?: string;
-  /**
-   * The ID of the repository.
-   * @type {string}
-   * @memberof SourceRepository
-   */
-  id?: string;
-  /**
-   * The friendly name of the repository.
-   * @type {string}
-   * @memberof SourceRepository
-   */
-  name?: string;
-  /**
-   * @type {{ [key: string]: string; }}
-   * @memberof SourceRepository
-   */
-  properties?: { [key: string]: string };
-  /**
-   * The name of the source provider the repository is from.
-   * @type {string}
-   * @memberof SourceRepository
-   */
-  sourceProviderName?: string;
-  /**
-   * The URL of the repository.
-   * @type {string}
-   * @memberof SourceRepository
-   */
-  url?: string;
+    /**
+     * The name of the default branch.
+     * @type {string}
+     * @memberof SourceRepository
+     */
+    defaultBranch?: string;
+    /**
+     * The full name of the repository.
+     * @type {string}
+     * @memberof SourceRepository
+     */
+    fullName?: string;
+    /**
+     * The ID of the repository.
+     * @type {string}
+     * @memberof SourceRepository
+     */
+    id?: string;
+    /**
+     * The friendly name of the repository.
+     * @type {string}
+     * @memberof SourceRepository
+     */
+    name?: string;
+    /**
+     * @type {{ [key: string]: string; }}
+     * @memberof SourceRepository
+     */
+    properties?: { [key: string]: string; };
+    /**
+     * The name of the source provider the repository is from.
+     * @type {string}
+     * @memberof SourceRepository
+     */
+    sourceProviderName?: string;
+    /**
+     * The URL of the repository.
+     * @type {string}
+     * @memberof SourceRepository
+     */
+    url?: string;
 }

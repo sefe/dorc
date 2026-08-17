@@ -11,11 +11,13 @@
  * Do not edit the class manually.
  */
 
-import type { BuildUpdatedEvent } from './index';
+import type {
+    BuildUpdatedEvent,
+} from './';
 
 /**
  * @type BuildTagsAddedEvent
- *
+ * 
  * @export
  */
 export type BuildTagsAddedEvent = BuildUpdatedEvent;

@@ -17,22 +17,22 @@
  * @interface TimelineReference
  */
 export interface TimelineReference {
-  /**
-   * The change ID.
-   * @type {number}
-   * @memberof TimelineReference
-   */
-  changeId?: number;
-  /**
-   * The ID of the timeline.
-   * @type {string}
-   * @memberof TimelineReference
-   */
-  id?: string;
-  /**
-   * The REST URL of the timeline.
-   * @type {string}
-   * @memberof TimelineReference
-   */
-  url?: string;
+    /**
+     * The change ID.
+     * @type {number}
+     * @memberof TimelineReference
+     */
+    changeId?: number;
+    /**
+     * The ID of the timeline.
+     * @type {string}
+     * @memberof TimelineReference
+     */
+    id?: string;
+    /**
+     * The REST URL of the timeline.
+     * @type {string}
+     * @memberof TimelineReference
+     */
+    url?: string;
 }

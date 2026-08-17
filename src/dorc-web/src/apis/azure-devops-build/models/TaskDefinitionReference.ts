@@ -17,22 +17,22 @@
  * @interface TaskDefinitionReference
  */
 export interface TaskDefinitionReference {
-  /**
-   * The type of task (task or task group).
-   * @type {string}
-   * @memberof TaskDefinitionReference
-   */
-  definitionType?: string;
-  /**
-   * The ID of the task.
-   * @type {string}
-   * @memberof TaskDefinitionReference
-   */
-  id?: string;
-  /**
-   * The version of the task.
-   * @type {string}
-   * @memberof TaskDefinitionReference
-   */
-  versionSpec?: string;
+    /**
+     * The type of task (task or task group).
+     * @type {string}
+     * @memberof TaskDefinitionReference
+     */
+    definitionType?: string;
+    /**
+     * The ID of the task.
+     * @type {string}
+     * @memberof TaskDefinitionReference
+     */
+    id?: string;
+    /**
+     * The version of the task.
+     * @type {string}
+     * @memberof TaskDefinitionReference
+     */
+    versionSpec?: string;
 }

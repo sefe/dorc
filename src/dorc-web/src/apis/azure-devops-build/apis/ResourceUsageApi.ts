@@ -13,64 +13,45 @@
 
 import type { Observable } from 'rxjs';
 import type { AjaxResponse } from 'rxjs/ajax';
-import type { HttpHeaders, HttpQuery, OperationOpts } from '../runtime';
-import { BaseAPI, encodeURI, throwIfNullOrUndefined } from '../runtime';
-import type { BuildResourceUsage } from '../models';
+import { BaseAPI, throwIfNullOrUndefined, encodeURI } from '../runtime';
+import type { OperationOpts, HttpHeaders, HttpQuery } from '../runtime';
+import type {
+    BuildResourceUsage,
+} from '../models';
 
 export interface ResourceUsageGetRequest {
-  organization: string;
-  apiVersion: string;
+    organization: string;
+    apiVersion: string;
 }
 
 /**
  * no description
  */
 export class ResourceUsageApi extends BaseAPI {
-  /**
-   * Gets information about build resources in the system.
-   */
-  resourceUsageGet({
-    organization,
-    apiVersion
-  }: ResourceUsageGetRequest): Observable<BuildResourceUsage>;
-  resourceUsageGet(
-    { organization, apiVersion }: ResourceUsageGetRequest,
-    opts?: OperationOpts
-  ): Observable<AjaxResponse<BuildResourceUsage>>;
-  resourceUsageGet(
-    { organization, apiVersion }: ResourceUsageGetRequest,
-    opts?: OperationOpts
-  ): Observable<BuildResourceUsage | AjaxResponse<BuildResourceUsage>> {
-    throwIfNullOrUndefined(organization, 'organization', 'resourceUsageGet');
-    throwIfNullOrUndefined(apiVersion, 'apiVersion', 'resourceUsageGet');
 
-    const headers: HttpHeaders = {
-      ...(this.configuration.username != null &&
-      this.configuration.password != null
-        ? {
-            Authorization: `Basic ${btoa(
-              this.configuration.username + ':' + this.configuration.password
-            )}`
-          }
-        : undefined)
+    /**
+     * Gets information about build resources in the system.
+     */
+    resourceUsageGet({ organization, apiVersion }: ResourceUsageGetRequest): Observable<BuildResourceUsage>
+    resourceUsageGet({ organization, apiVersion }: ResourceUsageGetRequest, opts?: OperationOpts): Observable<AjaxResponse<BuildResourceUsage>>
+    resourceUsageGet({ organization, apiVersion }: ResourceUsageGetRequest, opts?: OperationOpts): Observable<BuildResourceUsage | AjaxResponse<BuildResourceUsage>> {
+        throwIfNullOrUndefined(organization, 'organization', 'resourceUsageGet');
+        throwIfNullOrUndefined(apiVersion, 'apiVersion', 'resourceUsageGet');
+
+        const headers: HttpHeaders = {
+            ...(this.configuration.username != null && this.configuration.password != null ? { Authorization: `Basic ${btoa(this.configuration.username + ':' + this.configuration.password)}` } : undefined),
+        };
+
+        const query: HttpQuery = { // required parameters are used directly since they are already checked by throwIfNullOrUndefined
+            'api-version': apiVersion,
+        };
+
+        return this.request<BuildResourceUsage>({
+            url: '/{organization}/_apis/build/resourceusage'.replace('{organization}', encodeURI(organization)),
+            method: 'GET',
+            headers,
+            query,
+        }, opts?.responseOpts);
     };
 
-    const query: HttpQuery = {
-      // required parameters are used directly since they are already checked by throwIfNullOrUndefined
-      'api-version': apiVersion
-    };
-
-    return this.request<BuildResourceUsage>(
-      {
-        url: '/{organization}/_apis/build/resourceusage'.replace(
-          '{organization}',
-          encodeURI(organization)
-        ),
-        method: 'GET',
-        headers,
-        query
-      },
-      opts?.responseOpts
-    );
-  }
 }

@@ -12,14 +12,14 @@
  */
 
 /**
- *
+ * 
  * @export
  * @interface VssJsonCollectionWrapperBase
  */
 export interface VssJsonCollectionWrapperBase {
-  /**
-   * @type {number}
-   * @memberof VssJsonCollectionWrapperBase
-   */
-  count?: number;
+    /**
+     * @type {number}
+     * @memberof VssJsonCollectionWrapperBase
+     */
+    count?: number;
 }

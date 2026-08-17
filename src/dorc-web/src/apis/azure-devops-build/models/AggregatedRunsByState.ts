@@ -11,29 +11,31 @@
  * Do not edit the class manually.
  */
 
-import type { AggregatedResultsByOutcome } from './index';
+import type {
+    AggregatedResultsByOutcome,
+} from './';
 
 /**
- *
+ * 
  * @export
  * @interface AggregatedRunsByState
  */
 export interface AggregatedRunsByState {
-  /**
-   * @type {{ [key: string]: AggregatedResultsByOutcome; }}
-   * @memberof AggregatedRunsByState
-   */
-  resultsByOutcome?: { [key: string]: AggregatedResultsByOutcome };
-  /**
-   * @type {number}
-   * @memberof AggregatedRunsByState
-   */
-  runsCount?: number;
-  /**
-   * @type {string}
-   * @memberof AggregatedRunsByState
-   */
-  state?: AggregatedRunsByStateStateEnum;
+    /**
+     * @type {{ [key: string]: AggregatedResultsByOutcome; }}
+     * @memberof AggregatedRunsByState
+     */
+    resultsByOutcome?: { [key: string]: AggregatedResultsByOutcome; };
+    /**
+     * @type {number}
+     * @memberof AggregatedRunsByState
+     */
+    runsCount?: number;
+    /**
+     * @type {string}
+     * @memberof AggregatedRunsByState
+     */
+    state?: AggregatedRunsByStateStateEnum;
 }
 
 /**
@@ -41,11 +43,12 @@ export interface AggregatedRunsByState {
  * @enum {string}
  */
 export enum AggregatedRunsByStateStateEnum {
-  Unspecified = 'unspecified',
-  NotStarted = 'notStarted',
-  InProgress = 'inProgress',
-  Completed = 'completed',
-  Aborted = 'aborted',
-  Waiting = 'waiting',
-  NeedsInvestigation = 'needsInvestigation'
+    Unspecified = 'unspecified',
+    NotStarted = 'notStarted',
+    InProgress = 'inProgress',
+    Completed = 'completed',
+    Aborted = 'aborted',
+    Waiting = 'waiting',
+    NeedsInvestigation = 'needsInvestigation'
 }
+

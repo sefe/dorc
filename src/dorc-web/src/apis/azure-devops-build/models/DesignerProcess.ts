@@ -11,7 +11,11 @@
  * Do not edit the class manually.
  */
 
-import type { BuildProcess } from './index';
+import type {
+    BuildProcess,
+    DesignerProcessTarget,
+    Phase,
+} from './';
 
 /**
  * @type DesignerProcess

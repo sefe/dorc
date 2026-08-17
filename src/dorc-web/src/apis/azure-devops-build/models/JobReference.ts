@@ -17,16 +17,16 @@
  * @interface JobReference
  */
 export interface JobReference {
-  /**
-   * Attempt number of the job
-   * @type {number}
-   * @memberof JobReference
-   */
-  attempt?: number;
-  /**
-   * Matrixing in YAML generates copies of a job with different inputs in matrix. JobName is the name of those input. Maximum supported length for name is 256 character.
-   * @type {string}
-   * @memberof JobReference
-   */
-  jobName?: string;
+    /**
+     * Attempt number of the job
+     * @type {number}
+     * @memberof JobReference
+     */
+    attempt?: number;
+    /**
+     * Matrixing in YAML generates copies of a job with different inputs in matrix. JobName is the name of those input. Maximum supported length for name is 256 character.
+     * @type {string}
+     * @memberof JobReference
+     */
+    jobName?: string;
 }

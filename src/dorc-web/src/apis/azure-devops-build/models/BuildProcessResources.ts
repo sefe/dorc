@@ -12,11 +12,11 @@
  */
 
 import type {
-  AgentPoolQueueReference,
-  SecureFileReference,
-  ServiceEndpointReference,
-  VariableGroupReference
-} from './index';
+    AgentPoolQueueReference,
+    SecureFileReference,
+    ServiceEndpointReference,
+    VariableGroupReference,
+} from './';
 
 /**
  * Represents resources used by a build process.
@@ -24,24 +24,24 @@ import type {
  * @interface BuildProcessResources
  */
 export interface BuildProcessResources {
-  /**
-   * @type {Array<ServiceEndpointReference>}
-   * @memberof BuildProcessResources
-   */
-  endpoints?: Array<ServiceEndpointReference>;
-  /**
-   * @type {Array<SecureFileReference>}
-   * @memberof BuildProcessResources
-   */
-  files?: Array<SecureFileReference>;
-  /**
-   * @type {Array<AgentPoolQueueReference>}
-   * @memberof BuildProcessResources
-   */
-  queues?: Array<AgentPoolQueueReference>;
-  /**
-   * @type {Array<VariableGroupReference>}
-   * @memberof BuildProcessResources
-   */
-  variableGroups?: Array<VariableGroupReference>;
+    /**
+     * @type {Array<ServiceEndpointReference>}
+     * @memberof BuildProcessResources
+     */
+    endpoints?: Array<ServiceEndpointReference>;
+    /**
+     * @type {Array<SecureFileReference>}
+     * @memberof BuildProcessResources
+     */
+    files?: Array<SecureFileReference>;
+    /**
+     * @type {Array<AgentPoolQueueReference>}
+     * @memberof BuildProcessResources
+     */
+    queues?: Array<AgentPoolQueueReference>;
+    /**
+     * @type {Array<VariableGroupReference>}
+     * @memberof BuildProcessResources
+     */
+    variableGroups?: Array<VariableGroupReference>;
 }

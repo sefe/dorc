@@ -12,19 +12,19 @@
  */
 
 /**
- *
+ * 
  * @export
  * @interface ResourceRef
  */
 export interface ResourceRef {
-  /**
-   * @type {string}
-   * @memberof ResourceRef
-   */
-  id?: string;
-  /**
-   * @type {string}
-   * @memberof ResourceRef
-   */
-  url?: string;
+    /**
+     * @type {string}
+     * @memberof ResourceRef
+     */
+    id?: string;
+    /**
+     * @type {string}
+     * @memberof ResourceRef
+     */
+    url?: string;
 }

@@ -11,7 +11,9 @@
  * Do not edit the class manually.
  */
 
-import type { SourceRepository } from './index';
+import type {
+    SourceRepository,
+} from './';
 
 /**
  * A set of repositories returned from the source provider.
@@ -19,28 +21,28 @@ import type { SourceRepository } from './index';
  * @interface SourceRepositories
  */
 export interface SourceRepositories {
-  /**
-   * A token used to continue this paged request; \'null\' if the request is complete
-   * @type {string}
-   * @memberof SourceRepositories
-   */
-  continuationToken?: string;
-  /**
-   * The number of repositories requested for each page
-   * @type {number}
-   * @memberof SourceRepositories
-   */
-  pageLength?: number;
-  /**
-   * A list of repositories
-   * @type {Array<SourceRepository>}
-   * @memberof SourceRepositories
-   */
-  repositories?: Array<SourceRepository>;
-  /**
-   * The total number of pages, or \'-1\' if unknown
-   * @type {number}
-   * @memberof SourceRepositories
-   */
-  totalPageCount?: number;
+    /**
+     * A token used to continue this paged request; \'null\' if the request is complete
+     * @type {string}
+     * @memberof SourceRepositories
+     */
+    continuationToken?: string;
+    /**
+     * The number of repositories requested for each page
+     * @type {number}
+     * @memberof SourceRepositories
+     */
+    pageLength?: number;
+    /**
+     * A list of repositories
+     * @type {Array<SourceRepository>}
+     * @memberof SourceRepositories
+     */
+    repositories?: Array<SourceRepository>;
+    /**
+     * The total number of pages, or \'-1\' if unknown
+     * @type {number}
+     * @memberof SourceRepositories
+     */
+    totalPageCount?: number;
 }

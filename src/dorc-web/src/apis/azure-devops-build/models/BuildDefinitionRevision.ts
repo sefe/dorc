@@ -11,7 +11,9 @@
  * Do not edit the class manually.
  */
 
-import type { IdentityRef } from './index';
+import type {
+    IdentityRef,
+} from './';
 
 /**
  * Represents a revision of a build definition.
@@ -19,47 +21,47 @@ import type { IdentityRef } from './index';
  * @interface BuildDefinitionRevision
  */
 export interface BuildDefinitionRevision {
-  /**
-   * @type {IdentityRef}
-   * @memberof BuildDefinitionRevision
-   */
-  changedBy?: IdentityRef;
-  /**
-   * The date and time that the definition was changed.
-   * @type {string}
-   * @memberof BuildDefinitionRevision
-   */
-  changedDate?: string;
-  /**
-   * The change type (add, edit, delete).
-   * @type {string}
-   * @memberof BuildDefinitionRevision
-   */
-  changeType?: BuildDefinitionRevisionChangeTypeEnum;
-  /**
-   * The comment associated with the change.
-   * @type {string}
-   * @memberof BuildDefinitionRevision
-   */
-  comment?: string;
-  /**
-   * A link to the definition at this revision.
-   * @type {string}
-   * @memberof BuildDefinitionRevision
-   */
-  definitionUrl?: string;
-  /**
-   * The name of the definition.
-   * @type {string}
-   * @memberof BuildDefinitionRevision
-   */
-  name?: string;
-  /**
-   * The revision number.
-   * @type {number}
-   * @memberof BuildDefinitionRevision
-   */
-  revision?: number;
+    /**
+     * @type {IdentityRef}
+     * @memberof BuildDefinitionRevision
+     */
+    changedBy?: IdentityRef;
+    /**
+     * The date and time that the definition was changed.
+     * @type {string}
+     * @memberof BuildDefinitionRevision
+     */
+    changedDate?: string;
+    /**
+     * The change type (add, edit, delete).
+     * @type {string}
+     * @memberof BuildDefinitionRevision
+     */
+    changeType?: BuildDefinitionRevisionChangeTypeEnum;
+    /**
+     * The comment associated with the change.
+     * @type {string}
+     * @memberof BuildDefinitionRevision
+     */
+    comment?: string;
+    /**
+     * A link to the definition at this revision.
+     * @type {string}
+     * @memberof BuildDefinitionRevision
+     */
+    definitionUrl?: string;
+    /**
+     * The name of the definition.
+     * @type {string}
+     * @memberof BuildDefinitionRevision
+     */
+    name?: string;
+    /**
+     * The revision number.
+     * @type {number}
+     * @memberof BuildDefinitionRevision
+     */
+    revision?: number;
 }
 
 /**
@@ -67,7 +69,8 @@ export interface BuildDefinitionRevision {
  * @enum {string}
  */
 export enum BuildDefinitionRevisionChangeTypeEnum {
-  Add = 'add',
-  Update = 'update',
-  Delete = 'delete'
+    Add = 'add',
+    Update = 'update',
+    Delete = 'delete'
 }
+

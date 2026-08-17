@@ -12,19 +12,19 @@
  */
 
 /**
- *
+ * 
  * @export
  * @interface UpdateTagParameters
  */
 export interface UpdateTagParameters {
-  /**
-   * @type {Array<string>}
-   * @memberof UpdateTagParameters
-   */
-  tagsToAdd?: Array<string>;
-  /**
-   * @type {Array<string>}
-   * @memberof UpdateTagParameters
-   */
-  tagsToRemove?: Array<string>;
+    /**
+     * @type {Array<string>}
+     * @memberof UpdateTagParameters
+     */
+    tagsToAdd?: Array<string>;
+    /**
+     * @type {Array<string>}
+     * @memberof UpdateTagParameters
+     */
+    tagsToRemove?: Array<string>;
 }

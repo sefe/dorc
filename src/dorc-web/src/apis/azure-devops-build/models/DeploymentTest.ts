@@ -11,7 +11,9 @@
  * Do not edit the class manually.
  */
 
-import type { Deployment } from './index';
+import type {
+    Deployment,
+} from './';
 
 /**
  * @type DeploymentTest

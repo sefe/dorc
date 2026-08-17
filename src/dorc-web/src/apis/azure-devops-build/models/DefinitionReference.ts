@@ -11,7 +11,9 @@
  * Do not edit the class manually.
  */
 
-import type { TeamProjectReference } from './index';
+import type {
+    TeamProjectReference,
+} from './';
 
 /**
  * Represents a reference to a definition.
@@ -19,65 +21,65 @@ import type { TeamProjectReference } from './index';
  * @interface DefinitionReference
  */
 export interface DefinitionReference {
-  /**
-   * The date this version of the definition was created.
-   * @type {string}
-   * @memberof DefinitionReference
-   */
-  createdDate?: string;
-  /**
-   * The ID of the referenced definition.
-   * @type {number}
-   * @memberof DefinitionReference
-   */
-  id?: number;
-  /**
-   * The name of the referenced definition.
-   * @type {string}
-   * @memberof DefinitionReference
-   */
-  name?: string;
-  /**
-   * The folder path of the definition.
-   * @type {string}
-   * @memberof DefinitionReference
-   */
-  path?: string;
-  /**
-   * @type {TeamProjectReference}
-   * @memberof DefinitionReference
-   */
-  project?: TeamProjectReference;
-  /**
-   * A value that indicates whether builds can be queued against this definition.
-   * @type {string}
-   * @memberof DefinitionReference
-   */
-  queueStatus?: DefinitionReferenceQueueStatusEnum;
-  /**
-   * The definition revision number.
-   * @type {number}
-   * @memberof DefinitionReference
-   */
-  revision?: number;
-  /**
-   * The type of the definition.
-   * @type {string}
-   * @memberof DefinitionReference
-   */
-  type?: DefinitionReferenceTypeEnum;
-  /**
-   * The definition\'s URI.
-   * @type {string}
-   * @memberof DefinitionReference
-   */
-  uri?: string;
-  /**
-   * The REST URL of the definition.
-   * @type {string}
-   * @memberof DefinitionReference
-   */
-  url?: string;
+    /**
+     * The date this version of the definition was created.
+     * @type {string}
+     * @memberof DefinitionReference
+     */
+    createdDate?: string;
+    /**
+     * The ID of the referenced definition.
+     * @type {number}
+     * @memberof DefinitionReference
+     */
+    id?: number;
+    /**
+     * The name of the referenced definition.
+     * @type {string}
+     * @memberof DefinitionReference
+     */
+    name?: string;
+    /**
+     * The folder path of the definition.
+     * @type {string}
+     * @memberof DefinitionReference
+     */
+    path?: string;
+    /**
+     * @type {TeamProjectReference}
+     * @memberof DefinitionReference
+     */
+    project?: TeamProjectReference;
+    /**
+     * A value that indicates whether builds can be queued against this definition.
+     * @type {string}
+     * @memberof DefinitionReference
+     */
+    queueStatus?: DefinitionReferenceQueueStatusEnum;
+    /**
+     * The definition revision number.
+     * @type {number}
+     * @memberof DefinitionReference
+     */
+    revision?: number;
+    /**
+     * The type of the definition.
+     * @type {string}
+     * @memberof DefinitionReference
+     */
+    type?: DefinitionReferenceTypeEnum;
+    /**
+     * The definition\'s URI.
+     * @type {string}
+     * @memberof DefinitionReference
+     */
+    uri?: string;
+    /**
+     * The REST URL of the definition.
+     * @type {string}
+     * @memberof DefinitionReference
+     */
+    url?: string;
 }
 
 /**
@@ -85,15 +87,16 @@ export interface DefinitionReference {
  * @enum {string}
  */
 export enum DefinitionReferenceQueueStatusEnum {
-  Enabled = 'enabled',
-  Paused = 'paused',
-  Disabled = 'disabled'
+    Enabled = 'enabled',
+    Paused = 'paused',
+    Disabled = 'disabled'
 }
 /**
  * @export
  * @enum {string}
  */
 export enum DefinitionReferenceTypeEnum {
-  Xaml = 'xaml',
-  Build = 'build'
+    Xaml = 'xaml',
+    Build = 'build'
 }
+

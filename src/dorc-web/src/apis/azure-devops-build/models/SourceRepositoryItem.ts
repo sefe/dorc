@@ -17,28 +17,28 @@
  * @interface SourceRepositoryItem
  */
 export interface SourceRepositoryItem {
-  /**
-   * Whether the item is able to have sub-items (e.g., is a folder).
-   * @type {boolean}
-   * @memberof SourceRepositoryItem
-   */
-  isContainer?: boolean;
-  /**
-   * The full path of the item, relative to the root of the repository.
-   * @type {string}
-   * @memberof SourceRepositoryItem
-   */
-  path?: string;
-  /**
-   * The type of the item (folder, file, etc).
-   * @type {string}
-   * @memberof SourceRepositoryItem
-   */
-  type?: string;
-  /**
-   * The URL of the item.
-   * @type {string}
-   * @memberof SourceRepositoryItem
-   */
-  url?: string;
+    /**
+     * Whether the item is able to have sub-items (e.g., is a folder).
+     * @type {boolean}
+     * @memberof SourceRepositoryItem
+     */
+    isContainer?: boolean;
+    /**
+     * The full path of the item, relative to the root of the repository.
+     * @type {string}
+     * @memberof SourceRepositoryItem
+     */
+    path?: string;
+    /**
+     * The type of the item (folder, file, etc).
+     * @type {string}
+     * @memberof SourceRepositoryItem
+     */
+    type?: string;
+    /**
+     * The URL of the item.
+     * @type {string}
+     * @memberof SourceRepositoryItem
+     */
+    url?: string;
 }

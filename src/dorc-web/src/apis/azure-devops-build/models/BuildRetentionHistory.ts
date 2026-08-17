@@ -11,7 +11,9 @@
  * Do not edit the class manually.
  */
 
-import type { BuildRetentionSample } from './index';
+import type {
+    BuildRetentionSample,
+} from './';
 
 /**
  * A historical overview of build retention information. This includes a list of snapshots taken about build retention usage, and a list of builds that have exceeded the default 30 day retention policy.
@@ -19,10 +21,10 @@ import type { BuildRetentionSample } from './index';
  * @interface BuildRetentionHistory
  */
 export interface BuildRetentionHistory {
-  /**
-   * A list of builds that are older than the default retention policy, but are not marked as retained. Something is causing these builds to not get cleaned up.
-   * @type {Array<BuildRetentionSample>}
-   * @memberof BuildRetentionHistory
-   */
-  buildRetentionSamples?: Array<BuildRetentionSample>;
+    /**
+     * A list of builds that are older than the default retention policy, but are not marked as retained. Something is causing these builds to not get cleaned up.
+     * @type {Array<BuildRetentionSample>}
+     * @memberof BuildRetentionHistory
+     */
+    buildRetentionSamples?: Array<BuildRetentionSample>;
 }

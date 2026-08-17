@@ -11,7 +11,20 @@
  * Do not edit the class manually.
  */
 
-import type { BuildDefinitionReference } from './index';
+import type {
+    BuildDefinitionReference,
+    BuildDefinitionVariable,
+    BuildOption,
+    BuildProcess,
+    BuildRepository,
+    BuildTrigger,
+    Demand,
+    ProcessParameters,
+    PropertiesCollection,
+    RetentionPolicy,
+    TeamProjectReference,
+    VariableGroup,
+} from './';
 
 /**
  * @type BuildDefinition

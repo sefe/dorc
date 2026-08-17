@@ -17,58 +17,58 @@
  * @interface BuildOptionInputDefinition
  */
 export interface BuildOptionInputDefinition {
-  /**
-   * The default value.
-   * @type {string}
-   * @memberof BuildOptionInputDefinition
-   */
-  defaultValue?: string;
-  /**
-   * The name of the input group that this input belongs to.
-   * @type {string}
-   * @memberof BuildOptionInputDefinition
-   */
-  groupName?: string;
-  /**
-   * @type {{ [key: string]: string; }}
-   * @memberof BuildOptionInputDefinition
-   */
-  help?: { [key: string]: string };
-  /**
-   * The label for the input.
-   * @type {string}
-   * @memberof BuildOptionInputDefinition
-   */
-  label?: string;
-  /**
-   * The name of the input.
-   * @type {string}
-   * @memberof BuildOptionInputDefinition
-   */
-  name?: string;
-  /**
-   * @type {{ [key: string]: string; }}
-   * @memberof BuildOptionInputDefinition
-   */
-  options?: { [key: string]: string };
-  /**
-   * Indicates whether the input is required to have a value.
-   * @type {boolean}
-   * @memberof BuildOptionInputDefinition
-   */
-  required?: boolean;
-  /**
-   * Indicates the type of the input value.
-   * @type {string}
-   * @memberof BuildOptionInputDefinition
-   */
-  type?: BuildOptionInputDefinitionTypeEnum;
-  /**
-   * The rule that is applied to determine whether the input is visible in the UI.
-   * @type {string}
-   * @memberof BuildOptionInputDefinition
-   */
-  visibleRule?: string;
+    /**
+     * The default value.
+     * @type {string}
+     * @memberof BuildOptionInputDefinition
+     */
+    defaultValue?: string;
+    /**
+     * The name of the input group that this input belongs to.
+     * @type {string}
+     * @memberof BuildOptionInputDefinition
+     */
+    groupName?: string;
+    /**
+     * @type {{ [key: string]: string; }}
+     * @memberof BuildOptionInputDefinition
+     */
+    help?: { [key: string]: string; };
+    /**
+     * The label for the input.
+     * @type {string}
+     * @memberof BuildOptionInputDefinition
+     */
+    label?: string;
+    /**
+     * The name of the input.
+     * @type {string}
+     * @memberof BuildOptionInputDefinition
+     */
+    name?: string;
+    /**
+     * @type {{ [key: string]: string; }}
+     * @memberof BuildOptionInputDefinition
+     */
+    options?: { [key: string]: string; };
+    /**
+     * Indicates whether the input is required to have a value.
+     * @type {boolean}
+     * @memberof BuildOptionInputDefinition
+     */
+    required?: boolean;
+    /**
+     * Indicates the type of the input value.
+     * @type {string}
+     * @memberof BuildOptionInputDefinition
+     */
+    type?: BuildOptionInputDefinitionTypeEnum;
+    /**
+     * The rule that is applied to determine whether the input is visible in the UI.
+     * @type {string}
+     * @memberof BuildOptionInputDefinition
+     */
+    visibleRule?: string;
 }
 
 /**
@@ -76,11 +76,12 @@ export interface BuildOptionInputDefinition {
  * @enum {string}
  */
 export enum BuildOptionInputDefinitionTypeEnum {
-  String = 'string',
-  Boolean = 'boolean',
-  StringList = 'stringList',
-  Radio = 'radio',
-  PickList = 'pickList',
-  MultiLine = 'multiLine',
-  BranchFilter = 'branchFilter'
+    String = 'string',
+    Boolean = 'boolean',
+    StringList = 'stringList',
+    Radio = 'radio',
+    PickList = 'pickList',
+    MultiLine = 'multiLine',
+    BranchFilter = 'branchFilter'
 }
+

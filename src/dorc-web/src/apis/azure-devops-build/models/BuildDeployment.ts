@@ -11,22 +11,25 @@
  * Do not edit the class manually.
  */
 
-import type { BuildSummary, XamlBuildReference } from './index';
+import type {
+    BuildSummary,
+    XamlBuildReference,
+} from './';
 
 /**
- *
+ * 
  * @export
  * @interface BuildDeployment
  */
 export interface BuildDeployment {
-  /**
-   * @type {BuildSummary}
-   * @memberof BuildDeployment
-   */
-  deployment?: BuildSummary;
-  /**
-   * @type {XamlBuildReference}
-   * @memberof BuildDeployment
-   */
-  sourceBuild?: XamlBuildReference;
+    /**
+     * @type {BuildSummary}
+     * @memberof BuildDeployment
+     */
+    deployment?: BuildSummary;
+    /**
+     * @type {XamlBuildReference}
+     * @memberof BuildDeployment
+     */
+    sourceBuild?: XamlBuildReference;
 }

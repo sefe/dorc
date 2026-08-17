@@ -12,76 +12,76 @@
  */
 
 import type {
-  BuildAgentReference,
-  XamlBuildControllerReference
-} from './index';
+    BuildAgentReference,
+    XamlBuildControllerReference,
+} from './';
 
 /**
- *
+ * 
  * @export
  * @interface BuildServer
  */
 export interface BuildServer {
-  /**
-   * @type {Array<BuildAgentReference>}
-   * @memberof BuildServer
-   */
-  agents?: Array<BuildAgentReference>;
-  /**
-   * @type {XamlBuildControllerReference}
-   * @memberof BuildServer
-   */
-  controller?: XamlBuildControllerReference;
-  /**
-   * @type {number}
-   * @memberof BuildServer
-   */
-  id?: number;
-  /**
-   * @type {boolean}
-   * @memberof BuildServer
-   */
-  isVirtual?: boolean;
-  /**
-   * @type {string}
-   * @memberof BuildServer
-   */
-  messageQueueUrl?: string;
-  /**
-   * @type {string}
-   * @memberof BuildServer
-   */
-  name?: string;
-  /**
-   * @type {boolean}
-   * @memberof BuildServer
-   */
-  requireClientCertificates?: boolean;
-  /**
-   * @type {string}
-   * @memberof BuildServer
-   */
-  status?: BuildServerStatusEnum;
-  /**
-   * @type {string}
-   * @memberof BuildServer
-   */
-  statusChangedDate?: string;
-  /**
-   * @type {string}
-   * @memberof BuildServer
-   */
-  uri?: string;
-  /**
-   * @type {string}
-   * @memberof BuildServer
-   */
-  url?: string;
-  /**
-   * @type {number}
-   * @memberof BuildServer
-   */
-  version?: number;
+    /**
+     * @type {Array<BuildAgentReference>}
+     * @memberof BuildServer
+     */
+    agents?: Array<BuildAgentReference>;
+    /**
+     * @type {XamlBuildControllerReference}
+     * @memberof BuildServer
+     */
+    controller?: XamlBuildControllerReference;
+    /**
+     * @type {number}
+     * @memberof BuildServer
+     */
+    id?: number;
+    /**
+     * @type {boolean}
+     * @memberof BuildServer
+     */
+    isVirtual?: boolean;
+    /**
+     * @type {string}
+     * @memberof BuildServer
+     */
+    messageQueueUrl?: string;
+    /**
+     * @type {string}
+     * @memberof BuildServer
+     */
+    name?: string;
+    /**
+     * @type {boolean}
+     * @memberof BuildServer
+     */
+    requireClientCertificates?: boolean;
+    /**
+     * @type {string}
+     * @memberof BuildServer
+     */
+    status?: BuildServerStatusEnum;
+    /**
+     * @type {string}
+     * @memberof BuildServer
+     */
+    statusChangedDate?: string;
+    /**
+     * @type {string}
+     * @memberof BuildServer
+     */
+    uri?: string;
+    /**
+     * @type {string}
+     * @memberof BuildServer
+     */
+    url?: string;
+    /**
+     * @type {number}
+     * @memberof BuildServer
+     */
+    version?: number;
 }
 
 /**
@@ -89,6 +89,7 @@ export interface BuildServer {
  * @enum {string}
  */
 export enum BuildServerStatusEnum {
-  Online = 'online',
-  Offline = 'offline'
+    Online = 'online',
+    Offline = 'offline'
 }
+

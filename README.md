@@ -150,29 +150,24 @@ The web application will be available at `http://localhost:8888`.
 
 ### Update Client Libraries
 
-The project uses OpenAPI Generator to create client libraries from API specifications.
-
-#### Regenerate DOrc API TypeScript Client
+The project uses OpenAPI Generator to create client libraries from API
+specifications. CI regenerates the TypeScript clients on every build and
+fails if the committed code differs from the generator output, so specs and
+clients must always be committed together.
 
 From the `src/dorc-web` directory:
 
 ```bash
-npm run dorc-api-gen
+npm run api-gen           # regenerate both TypeScript clients
+npm run dorc-api-gen      # DOrc API client (from src/apis/dorc-api/swagger.json)
+npm run ado-build-api-gen # Azure DevOps Build client (from src/apis/azure-devops-build/build.json)
 ```
 
-Or manually:
-
-```bash
-openapi-generator-cli generate -g typescript-rxjs -i ./src/apis/dorc-api/swagger.json -o ./src/apis/dorc-api/ --additional-properties=supportsES6=true,npmVersion=9.4.0,typescriptThreePlus=true --skip-validate-spec
-```
-
-#### Regenerate Azure DevOps Build Client
-
-From the appropriate directory containing `build.json`:
-
-```bash
-openapi-generator-cli generate -g csharp -i ./build.json --skip-validate-spec
-```
+When a C# controller or API model changes, update
+`src/dorc-web/src/apis/dorc-api/swagger.json` to match (a running API serves
+the document at `/swagger/v1/swagger.json`) and regenerate. See
+[src/dorc-web/README.md](src/dorc-web/README.md) for details, including the
+hand-maintained files protected by `.openapi-generator-ignore`.
 
 Azure DevOps API specifications: https://github.com/MicrosoftDocs/vsts-rest-api-specs
 

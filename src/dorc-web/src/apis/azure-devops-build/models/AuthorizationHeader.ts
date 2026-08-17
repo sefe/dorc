@@ -12,19 +12,19 @@
  */
 
 /**
- *
+ * 
  * @export
  * @interface AuthorizationHeader
  */
 export interface AuthorizationHeader {
-  /**
-   * @type {string}
-   * @memberof AuthorizationHeader
-   */
-  name?: string;
-  /**
-   * @type {string}
-   * @memberof AuthorizationHeader
-   */
-  value?: string;
+    /**
+     * @type {string}
+     * @memberof AuthorizationHeader
+     */
+    name?: string;
+    /**
+     * @type {string}
+     * @memberof AuthorizationHeader
+     */
+    value?: string;
 }

@@ -11,7 +11,9 @@
  * Do not edit the class manually.
  */
 
-import type { BuildDefinition } from './index';
+import type {
+    BuildDefinition,
+} from './';
 
 /**
  * Represents a template from which new build definitions can be created.
@@ -19,56 +21,56 @@ import type { BuildDefinition } from './index';
  * @interface BuildDefinitionTemplate
  */
 export interface BuildDefinitionTemplate {
-  /**
-   * Indicates whether the template can be deleted.
-   * @type {boolean}
-   * @memberof BuildDefinitionTemplate
-   */
-  canDelete?: boolean;
-  /**
-   * The template category.
-   * @type {string}
-   * @memberof BuildDefinitionTemplate
-   */
-  category?: string;
-  /**
-   * An optional hosted agent queue for the template to use by default.
-   * @type {string}
-   * @memberof BuildDefinitionTemplate
-   */
-  defaultHostedQueue?: string;
-  /**
-   * A description of the template.
-   * @type {string}
-   * @memberof BuildDefinitionTemplate
-   */
-  description?: string;
-  /**
-   * @type {{ [key: string]: string; }}
-   * @memberof BuildDefinitionTemplate
-   */
-  icons?: { [key: string]: string };
-  /**
-   * The ID of the task whose icon is used when showing this template in the UI.
-   * @type {string}
-   * @memberof BuildDefinitionTemplate
-   */
-  iconTaskId?: string;
-  /**
-   * The ID of the template.
-   * @type {string}
-   * @memberof BuildDefinitionTemplate
-   */
-  id?: string;
-  /**
-   * The name of the template.
-   * @type {string}
-   * @memberof BuildDefinitionTemplate
-   */
-  name?: string;
-  /**
-   * @type {BuildDefinition}
-   * @memberof BuildDefinitionTemplate
-   */
-  template?: BuildDefinition;
+    /**
+     * Indicates whether the template can be deleted.
+     * @type {boolean}
+     * @memberof BuildDefinitionTemplate
+     */
+    canDelete?: boolean;
+    /**
+     * The template category.
+     * @type {string}
+     * @memberof BuildDefinitionTemplate
+     */
+    category?: string;
+    /**
+     * An optional hosted agent queue for the template to use by default.
+     * @type {string}
+     * @memberof BuildDefinitionTemplate
+     */
+    defaultHostedQueue?: string;
+    /**
+     * A description of the template.
+     * @type {string}
+     * @memberof BuildDefinitionTemplate
+     */
+    description?: string;
+    /**
+     * @type {{ [key: string]: string; }}
+     * @memberof BuildDefinitionTemplate
+     */
+    icons?: { [key: string]: string; };
+    /**
+     * The ID of the task whose icon is used when showing this template in the UI.
+     * @type {string}
+     * @memberof BuildDefinitionTemplate
+     */
+    iconTaskId?: string;
+    /**
+     * The ID of the template.
+     * @type {string}
+     * @memberof BuildDefinitionTemplate
+     */
+    id?: string;
+    /**
+     * The name of the template.
+     * @type {string}
+     * @memberof BuildDefinitionTemplate
+     */
+    name?: string;
+    /**
+     * @type {BuildDefinition}
+     * @memberof BuildDefinitionTemplate
+     */
+    template?: BuildDefinition;
 }

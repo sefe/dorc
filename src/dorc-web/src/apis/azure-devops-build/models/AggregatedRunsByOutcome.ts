@@ -12,21 +12,21 @@
  */
 
 /**
- *
+ * 
  * @export
  * @interface AggregatedRunsByOutcome
  */
 export interface AggregatedRunsByOutcome {
-  /**
-   * @type {string}
-   * @memberof AggregatedRunsByOutcome
-   */
-  outcome?: AggregatedRunsByOutcomeOutcomeEnum;
-  /**
-   * @type {number}
-   * @memberof AggregatedRunsByOutcome
-   */
-  runsCount?: number;
+    /**
+     * @type {string}
+     * @memberof AggregatedRunsByOutcome
+     */
+    outcome?: AggregatedRunsByOutcomeOutcomeEnum;
+    /**
+     * @type {number}
+     * @memberof AggregatedRunsByOutcome
+     */
+    runsCount?: number;
 }
 
 /**
@@ -34,8 +34,9 @@ export interface AggregatedRunsByOutcome {
  * @enum {string}
  */
 export enum AggregatedRunsByOutcomeOutcomeEnum {
-  Passed = 'passed',
-  Failed = 'failed',
-  NotImpacted = 'notImpacted',
-  Others = 'others'
+    Passed = 'passed',
+    Failed = 'failed',
+    NotImpacted = 'notImpacted',
+    Others = 'others'
 }
+

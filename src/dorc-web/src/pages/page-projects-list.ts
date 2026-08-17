@@ -245,7 +245,7 @@ export class PageProjectsList extends ResponsiveMixin(PageElement) {
       'add-edit-access-control'
     ) as AddEditAccessControl;
 
-    addEditAccessControl.open(this.secureName, AccessControlType.NUMBER_0);
+    addEditAccessControl.open(this.secureName, AccessControlType.Project);
   }
 
 

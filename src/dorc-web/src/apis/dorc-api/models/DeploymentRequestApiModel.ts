@@ -111,4 +111,9 @@ export interface DeploymentRequestApiModel {
      * @memberof DeploymentRequestApiModel
      */
     UserEditable?: boolean;
+    /**
+     * @type {string}
+     * @memberof DeploymentRequestApiModel
+     */
+    EnvironmentOwnerEmail?: string | null;
 }

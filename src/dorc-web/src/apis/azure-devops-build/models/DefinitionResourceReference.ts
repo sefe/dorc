@@ -12,33 +12,33 @@
  */
 
 /**
- *
+ * 
  * @export
  * @interface DefinitionResourceReference
  */
 export interface DefinitionResourceReference {
-  /**
-   * Indicates whether the resource is authorized for use.
-   * @type {boolean}
-   * @memberof DefinitionResourceReference
-   */
-  authorized?: boolean;
-  /**
-   * The id of the resource.
-   * @type {string}
-   * @memberof DefinitionResourceReference
-   */
-  id?: string;
-  /**
-   * A friendly name for the resource.
-   * @type {string}
-   * @memberof DefinitionResourceReference
-   */
-  name?: string;
-  /**
-   * The type of the resource.
-   * @type {string}
-   * @memberof DefinitionResourceReference
-   */
-  type?: string;
+    /**
+     * Indicates whether the resource is authorized for use.
+     * @type {boolean}
+     * @memberof DefinitionResourceReference
+     */
+    authorized?: boolean;
+    /**
+     * The id of the resource.
+     * @type {string}
+     * @memberof DefinitionResourceReference
+     */
+    id?: string;
+    /**
+     * A friendly name for the resource.
+     * @type {string}
+     * @memberof DefinitionResourceReference
+     */
+    name?: string;
+    /**
+     * The type of the resource.
+     * @type {string}
+     * @memberof DefinitionResourceReference
+     */
+    type?: string;
 }

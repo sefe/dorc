@@ -17,16 +17,16 @@
  * @interface PhaseReference
  */
 export interface PhaseReference {
-  /**
-   * Attempt number of the phase
-   * @type {number}
-   * @memberof PhaseReference
-   */
-  attempt?: number;
-  /**
-   * Name of the phase. Maximum supported length for name is 256 character.
-   * @type {string}
-   * @memberof PhaseReference
-   */
-  phaseName?: string;
+    /**
+     * Attempt number of the phase
+     * @type {number}
+     * @memberof PhaseReference
+     */
+    attempt?: number;
+    /**
+     * Name of the phase. Maximum supported length for name is 256 character.
+     * @type {string}
+     * @memberof PhaseReference
+     */
+    phaseName?: string;
 }

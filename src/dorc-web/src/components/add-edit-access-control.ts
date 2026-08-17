@@ -21,7 +21,7 @@ import {
   AccessSecureApiModel,
   UserElementApiModel
 } from '../apis/dorc-api';
-import { AccessControlApi } from '../apis/dorc-api';
+import { AccessControlApi, AccessControlType } from '../apis/dorc-api';
 import { AccessControlApiModel } from '../apis/dorc-api';
 import '@vaadin/notification';
 import { ErrorNotification } from './notifications/error-notification';
@@ -679,7 +679,7 @@ export class AddEditAccessControl extends LitElement {
     if (textField) textField.value = value;
   }
 
-  open(secureName: string, secureType: number) {
+  open(secureName: string, secureType: AccessControlType) {
     const dialog = this.shadowRoot?.getElementById(
       'add-access-control-dialog'
     ) as PaperDialogElement;

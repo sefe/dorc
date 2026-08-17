@@ -12,39 +12,39 @@
  */
 
 /**
- *
+ * 
  * @export
  * @interface AggregatedResultsDifference
  */
 export interface AggregatedResultsDifference {
-  /**
-   * @type {string}
-   * @memberof AggregatedResultsDifference
-   */
-  increaseInDuration?: string;
-  /**
-   * @type {number}
-   * @memberof AggregatedResultsDifference
-   */
-  increaseInFailures?: number;
-  /**
-   * @type {number}
-   * @memberof AggregatedResultsDifference
-   */
-  increaseInNonImpactedTests?: number;
-  /**
-   * @type {number}
-   * @memberof AggregatedResultsDifference
-   */
-  increaseInOtherTests?: number;
-  /**
-   * @type {number}
-   * @memberof AggregatedResultsDifference
-   */
-  increaseInPassedTests?: number;
-  /**
-   * @type {number}
-   * @memberof AggregatedResultsDifference
-   */
-  increaseInTotalTests?: number;
+    /**
+     * @type {string}
+     * @memberof AggregatedResultsDifference
+     */
+    increaseInDuration?: string;
+    /**
+     * @type {number}
+     * @memberof AggregatedResultsDifference
+     */
+    increaseInFailures?: number;
+    /**
+     * @type {number}
+     * @memberof AggregatedResultsDifference
+     */
+    increaseInNonImpactedTests?: number;
+    /**
+     * @type {number}
+     * @memberof AggregatedResultsDifference
+     */
+    increaseInOtherTests?: number;
+    /**
+     * @type {number}
+     * @memberof AggregatedResultsDifference
+     */
+    increaseInPassedTests?: number;
+    /**
+     * @type {number}
+     * @memberof AggregatedResultsDifference
+     */
+    increaseInTotalTests?: number;
 }

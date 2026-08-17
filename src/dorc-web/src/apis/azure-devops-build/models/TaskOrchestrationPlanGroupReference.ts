@@ -17,16 +17,16 @@
  * @interface TaskOrchestrationPlanGroupReference
  */
 export interface TaskOrchestrationPlanGroupReference {
-  /**
-   * The name of the plan group.
-   * @type {string}
-   * @memberof TaskOrchestrationPlanGroupReference
-   */
-  planGroup?: string;
-  /**
-   * The project ID.
-   * @type {string}
-   * @memberof TaskOrchestrationPlanGroupReference
-   */
-  projectId?: string;
+    /**
+     * The name of the plan group.
+     * @type {string}
+     * @memberof TaskOrchestrationPlanGroupReference
+     */
+    planGroup?: string;
+    /**
+     * The project ID.
+     * @type {string}
+     * @memberof TaskOrchestrationPlanGroupReference
+     */
+    projectId?: string;
 }

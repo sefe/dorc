@@ -13,77 +13,58 @@
 
 import type { Observable } from 'rxjs';
 import type { AjaxResponse } from 'rxjs/ajax';
-import type { HttpHeaders, HttpQuery, OperationOpts } from '../runtime';
-import { BaseAPI, encodeURI, throwIfNullOrUndefined } from '../runtime';
-import type { BuildReportMetadata } from '../models';
+import { BaseAPI, throwIfNullOrUndefined, encodeURI } from '../runtime';
+import type { OperationOpts, HttpHeaders, HttpQuery } from '../runtime';
+import type {
+    BuildReportMetadata,
+} from '../models';
 
 export interface ReportGetRequest {
-  organization: string;
-  project: string;
-  buildId: number;
-  apiVersion: string;
-  type?: string;
+    organization: string;
+    project: string;
+    buildId: number;
+    apiVersion: string;
+    type?: string;
 }
 
 /**
  * no description
  */
 export class ReportApi extends BaseAPI {
-  /**
-   * Gets a build report.
-   */
-  reportGet({
-    organization,
-    project,
-    buildId,
-    apiVersion,
-    type
-  }: ReportGetRequest): Observable<BuildReportMetadata>;
-  reportGet(
-    { organization, project, buildId, apiVersion, type }: ReportGetRequest,
-    opts?: OperationOpts
-  ): Observable<AjaxResponse<BuildReportMetadata>>;
-  reportGet(
-    { organization, project, buildId, apiVersion, type }: ReportGetRequest,
-    opts?: OperationOpts
-  ): Observable<BuildReportMetadata | AjaxResponse<BuildReportMetadata>> {
-    throwIfNullOrUndefined(organization, 'organization', 'reportGet');
-    throwIfNullOrUndefined(project, 'project', 'reportGet');
-    throwIfNullOrUndefined(buildId, 'buildId', 'reportGet');
-    throwIfNullOrUndefined(apiVersion, 'apiVersion', 'reportGet');
 
-    const headers: HttpHeaders = {
-      // oauth required
-      ...(this.configuration.accessToken != null
-        ? {
-            Authorization:
-              typeof this.configuration.accessToken === 'function'
-                ? this.configuration.accessToken('oauth2', ['vso.build'])
-                : this.configuration.accessToken
-          }
-        : undefined)
+    /**
+     * Gets a build report.
+     */
+    reportGet({ organization, project, buildId, apiVersion, type }: ReportGetRequest): Observable<BuildReportMetadata>
+    reportGet({ organization, project, buildId, apiVersion, type }: ReportGetRequest, opts?: OperationOpts): Observable<AjaxResponse<BuildReportMetadata>>
+    reportGet({ organization, project, buildId, apiVersion, type }: ReportGetRequest, opts?: OperationOpts): Observable<BuildReportMetadata | AjaxResponse<BuildReportMetadata>> {
+        throwIfNullOrUndefined(organization, 'organization', 'reportGet');
+        throwIfNullOrUndefined(project, 'project', 'reportGet');
+        throwIfNullOrUndefined(buildId, 'buildId', 'reportGet');
+        throwIfNullOrUndefined(apiVersion, 'apiVersion', 'reportGet');
+
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['vso.build'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
+        const query: HttpQuery = { // required parameters are used directly since they are already checked by throwIfNullOrUndefined
+            'api-version': apiVersion,
+        };
+
+        if (type != null) { query['type'] = type; }
+
+        return this.request<BuildReportMetadata>({
+            url: '/{organization}/{project}/_apis/build/builds/{buildId}/report'.replace('{organization}', encodeURI(organization)).replace('{project}', encodeURI(project)).replace('{buildId}', encodeURI(buildId)),
+            method: 'GET',
+            headers,
+            query,
+        }, opts?.responseOpts);
     };
 
-    const query: HttpQuery = {
-      // required parameters are used directly since they are already checked by throwIfNullOrUndefined
-      'api-version': apiVersion
-    };
-
-    if (type != null) {
-      query['type'] = type;
-    }
-
-    return this.request<BuildReportMetadata>(
-      {
-        url: '/{organization}/{project}/_apis/build/builds/{buildId}/report'
-          .replace('{organization}', encodeURI(organization))
-          .replace('{project}', encodeURI(project))
-          .replace('{buildId}', encodeURI(buildId)),
-        method: 'GET',
-        headers,
-        query
-      },
-      opts?.responseOpts
-    );
-  }
 }

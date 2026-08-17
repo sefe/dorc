@@ -11,11 +11,14 @@
  * Do not edit the class manually.
  */
 
-import type { RealtimeBuildEvent } from './index';
+import type {
+    RealtimeBuildEvent,
+    TimelineRecord,
+} from './';
 
 /**
  * @type TimelineRecordsUpdatedEvent
- *
+ * 
  * @export
  */
 export type TimelineRecordsUpdatedEvent = RealtimeBuildEvent;

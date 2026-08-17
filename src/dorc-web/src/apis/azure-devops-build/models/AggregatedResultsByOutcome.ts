@@ -12,41 +12,41 @@
  */
 
 /**
- *
+ * 
  * @export
  * @interface AggregatedResultsByOutcome
  */
 export interface AggregatedResultsByOutcome {
-  /**
-   * @type {number}
-   * @memberof AggregatedResultsByOutcome
-   */
-  count?: number;
-  /**
-   * @type {string}
-   * @memberof AggregatedResultsByOutcome
-   */
-  duration?: string;
-  /**
-   * @type {string}
-   * @memberof AggregatedResultsByOutcome
-   */
-  groupByField?: string;
-  /**
-   * @type {object}
-   * @memberof AggregatedResultsByOutcome
-   */
-  groupByValue?: object;
-  /**
-   * @type {string}
-   * @memberof AggregatedResultsByOutcome
-   */
-  outcome?: AggregatedResultsByOutcomeOutcomeEnum;
-  /**
-   * @type {number}
-   * @memberof AggregatedResultsByOutcome
-   */
-  rerunResultCount?: number;
+    /**
+     * @type {number}
+     * @memberof AggregatedResultsByOutcome
+     */
+    count?: number;
+    /**
+     * @type {string}
+     * @memberof AggregatedResultsByOutcome
+     */
+    duration?: string;
+    /**
+     * @type {string}
+     * @memberof AggregatedResultsByOutcome
+     */
+    groupByField?: string;
+    /**
+     * @type {object}
+     * @memberof AggregatedResultsByOutcome
+     */
+    groupByValue?: object;
+    /**
+     * @type {string}
+     * @memberof AggregatedResultsByOutcome
+     */
+    outcome?: AggregatedResultsByOutcomeOutcomeEnum;
+    /**
+     * @type {number}
+     * @memberof AggregatedResultsByOutcome
+     */
+    rerunResultCount?: number;
 }
 
 /**
@@ -54,19 +54,20 @@ export interface AggregatedResultsByOutcome {
  * @enum {string}
  */
 export enum AggregatedResultsByOutcomeOutcomeEnum {
-  Unspecified = 'unspecified',
-  None = 'none',
-  Passed = 'passed',
-  Failed = 'failed',
-  Inconclusive = 'inconclusive',
-  Timeout = 'timeout',
-  Aborted = 'aborted',
-  Blocked = 'blocked',
-  NotExecuted = 'notExecuted',
-  Warning = 'warning',
-  Error = 'error',
-  NotApplicable = 'notApplicable',
-  Paused = 'paused',
-  InProgress = 'inProgress',
-  NotImpacted = 'notImpacted'
+    Unspecified = 'unspecified',
+    None = 'none',
+    Passed = 'passed',
+    Failed = 'failed',
+    Inconclusive = 'inconclusive',
+    Timeout = 'timeout',
+    Aborted = 'aborted',
+    Blocked = 'blocked',
+    NotExecuted = 'notExecuted',
+    Warning = 'warning',
+    Error = 'error',
+    NotApplicable = 'notApplicable',
+    Paused = 'paused',
+    InProgress = 'inProgress',
+    NotImpacted = 'notImpacted'
 }
+

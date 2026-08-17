@@ -11,72 +11,74 @@
  * Do not edit the class manually.
  */
 
-import type { TaskInputValidation } from './index';
+import type {
+    TaskInputValidation,
+} from './';
 
 /**
- *
+ * 
  * @export
  * @interface TaskInputDefinitionBase
  */
 export interface TaskInputDefinitionBase {
-  /**
-   * @type {Array<string>}
-   * @memberof TaskInputDefinitionBase
-   */
-  aliases?: Array<string>;
-  /**
-   * @type {string}
-   * @memberof TaskInputDefinitionBase
-   */
-  defaultValue?: string;
-  /**
-   * @type {string}
-   * @memberof TaskInputDefinitionBase
-   */
-  groupName?: string;
-  /**
-   * @type {string}
-   * @memberof TaskInputDefinitionBase
-   */
-  helpMarkDown?: string;
-  /**
-   * @type {string}
-   * @memberof TaskInputDefinitionBase
-   */
-  label?: string;
-  /**
-   * @type {string}
-   * @memberof TaskInputDefinitionBase
-   */
-  name?: string;
-  /**
-   * @type {{ [key: string]: string; }}
-   * @memberof TaskInputDefinitionBase
-   */
-  options?: { [key: string]: string };
-  /**
-   * @type {{ [key: string]: string; }}
-   * @memberof TaskInputDefinitionBase
-   */
-  properties?: { [key: string]: string };
-  /**
-   * @type {boolean}
-   * @memberof TaskInputDefinitionBase
-   */
-  required?: boolean;
-  /**
-   * @type {string}
-   * @memberof TaskInputDefinitionBase
-   */
-  type?: string;
-  /**
-   * @type {TaskInputValidation}
-   * @memberof TaskInputDefinitionBase
-   */
-  validation?: TaskInputValidation;
-  /**
-   * @type {string}
-   * @memberof TaskInputDefinitionBase
-   */
-  visibleRule?: string;
+    /**
+     * @type {Array<string>}
+     * @memberof TaskInputDefinitionBase
+     */
+    aliases?: Array<string>;
+    /**
+     * @type {string}
+     * @memberof TaskInputDefinitionBase
+     */
+    defaultValue?: string;
+    /**
+     * @type {string}
+     * @memberof TaskInputDefinitionBase
+     */
+    groupName?: string;
+    /**
+     * @type {string}
+     * @memberof TaskInputDefinitionBase
+     */
+    helpMarkDown?: string;
+    /**
+     * @type {string}
+     * @memberof TaskInputDefinitionBase
+     */
+    label?: string;
+    /**
+     * @type {string}
+     * @memberof TaskInputDefinitionBase
+     */
+    name?: string;
+    /**
+     * @type {{ [key: string]: string; }}
+     * @memberof TaskInputDefinitionBase
+     */
+    options?: { [key: string]: string; };
+    /**
+     * @type {{ [key: string]: string; }}
+     * @memberof TaskInputDefinitionBase
+     */
+    properties?: { [key: string]: string; };
+    /**
+     * @type {boolean}
+     * @memberof TaskInputDefinitionBase
+     */
+    required?: boolean;
+    /**
+     * @type {string}
+     * @memberof TaskInputDefinitionBase
+     */
+    type?: string;
+    /**
+     * @type {TaskInputValidation}
+     * @memberof TaskInputDefinitionBase
+     */
+    validation?: TaskInputValidation;
+    /**
+     * @type {string}
+     * @memberof TaskInputDefinitionBase
+     */
+    visibleRule?: string;
 }

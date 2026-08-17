@@ -12,21 +12,21 @@
  */
 
 /**
- *
+ * 
  * @export
  * @interface TaskInputValidation
  */
 export interface TaskInputValidation {
-  /**
-   * Conditional expression
-   * @type {string}
-   * @memberof TaskInputValidation
-   */
-  expression?: string;
-  /**
-   * Message explaining how user can correct if validation fails
-   * @type {string}
-   * @memberof TaskInputValidation
-   */
-  message?: string;
+    /**
+     * Conditional expression
+     * @type {string}
+     * @memberof TaskInputValidation
+     */
+    expression?: string;
+    /**
+     * Message explaining how user can correct if validation fails
+     * @type {string}
+     * @memberof TaskInputValidation
+     */
+    message?: string;
 }

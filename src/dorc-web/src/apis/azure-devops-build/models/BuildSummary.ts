@@ -11,54 +11,57 @@
  * Do not edit the class manually.
  */
 
-import type { IdentityRef, XamlBuildReference } from './index';
+import type {
+    IdentityRef,
+    XamlBuildReference,
+} from './';
 
 /**
- *
+ * 
  * @export
  * @interface BuildSummary
  */
 export interface BuildSummary {
-  /**
-   * @type {XamlBuildReference}
-   * @memberof BuildSummary
-   */
-  build?: XamlBuildReference;
-  /**
-   * @type {string}
-   * @memberof BuildSummary
-   */
-  finishTime?: string;
-  /**
-   * @type {boolean}
-   * @memberof BuildSummary
-   */
-  keepForever?: boolean;
-  /**
-   * @type {string}
-   * @memberof BuildSummary
-   */
-  quality?: string;
-  /**
-   * @type {string}
-   * @memberof BuildSummary
-   */
-  reason?: BuildSummaryReasonEnum;
-  /**
-   * @type {IdentityRef}
-   * @memberof BuildSummary
-   */
-  requestedFor?: IdentityRef;
-  /**
-   * @type {string}
-   * @memberof BuildSummary
-   */
-  startTime?: string;
-  /**
-   * @type {string}
-   * @memberof BuildSummary
-   */
-  status?: BuildSummaryStatusEnum;
+    /**
+     * @type {XamlBuildReference}
+     * @memberof BuildSummary
+     */
+    build?: XamlBuildReference;
+    /**
+     * @type {string}
+     * @memberof BuildSummary
+     */
+    finishTime?: string;
+    /**
+     * @type {boolean}
+     * @memberof BuildSummary
+     */
+    keepForever?: boolean;
+    /**
+     * @type {string}
+     * @memberof BuildSummary
+     */
+    quality?: string;
+    /**
+     * @type {string}
+     * @memberof BuildSummary
+     */
+    reason?: BuildSummaryReasonEnum;
+    /**
+     * @type {IdentityRef}
+     * @memberof BuildSummary
+     */
+    requestedFor?: IdentityRef;
+    /**
+     * @type {string}
+     * @memberof BuildSummary
+     */
+    startTime?: string;
+    /**
+     * @type {string}
+     * @memberof BuildSummary
+     */
+    status?: BuildSummaryStatusEnum;
 }
 
 /**
@@ -66,31 +69,32 @@ export interface BuildSummary {
  * @enum {string}
  */
 export enum BuildSummaryReasonEnum {
-  None = 'none',
-  Manual = 'manual',
-  IndividualCi = 'individualCI',
-  BatchedCi = 'batchedCI',
-  Schedule = 'schedule',
-  ScheduleForced = 'scheduleForced',
-  UserCreated = 'userCreated',
-  ValidateShelveset = 'validateShelveset',
-  CheckInShelveset = 'checkInShelveset',
-  PullRequest = 'pullRequest',
-  BuildCompletion = 'buildCompletion',
-  ResourceTrigger = 'resourceTrigger',
-  Triggered = 'triggered',
-  All = 'all'
+    None = 'none',
+    Manual = 'manual',
+    IndividualCi = 'individualCI',
+    BatchedCi = 'batchedCI',
+    Schedule = 'schedule',
+    ScheduleForced = 'scheduleForced',
+    UserCreated = 'userCreated',
+    ValidateShelveset = 'validateShelveset',
+    CheckInShelveset = 'checkInShelveset',
+    PullRequest = 'pullRequest',
+    BuildCompletion = 'buildCompletion',
+    ResourceTrigger = 'resourceTrigger',
+    Triggered = 'triggered',
+    All = 'all'
 }
 /**
  * @export
  * @enum {string}
  */
 export enum BuildSummaryStatusEnum {
-  None = 'none',
-  InProgress = 'inProgress',
-  Completed = 'completed',
-  Cancelling = 'cancelling',
-  Postponed = 'postponed',
-  NotStarted = 'notStarted',
-  All = 'all'
+    None = 'none',
+    InProgress = 'inProgress',
+    Completed = 'completed',
+    Cancelling = 'cancelling',
+    Postponed = 'postponed',
+    NotStarted = 'notStarted',
+    All = 'all'
 }
+

@@ -17,22 +17,22 @@
  * @interface Forks
  */
 export interface Forks {
-  /**
-   * Indicates whether a build should allow a full access token or scope it down when building forks of the selected repository.
-   * @type {boolean}
-   * @memberof Forks
-   */
-  allowFullAccessToken?: boolean;
-  /**
-   * Indicates whether a build should use secrets when building forks of the selected repository.
-   * @type {boolean}
-   * @memberof Forks
-   */
-  allowSecrets?: boolean;
-  /**
-   * Indicates whether the trigger should queue builds for forks of the selected repository.
-   * @type {boolean}
-   * @memberof Forks
-   */
-  enabled?: boolean;
+    /**
+     * Indicates whether a build should allow a full access token or scope it down when building forks of the selected repository.
+     * @type {boolean}
+     * @memberof Forks
+     */
+    allowFullAccessToken?: boolean;
+    /**
+     * Indicates whether a build should use secrets when building forks of the selected repository.
+     * @type {boolean}
+     * @memberof Forks
+     */
+    allowSecrets?: boolean;
+    /**
+     * Indicates whether the trigger should queue builds for forks of the selected repository.
+     * @type {boolean}
+     * @memberof Forks
+     */
+    enabled?: boolean;
 }

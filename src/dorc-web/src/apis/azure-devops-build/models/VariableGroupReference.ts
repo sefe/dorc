@@ -17,16 +17,16 @@
  * @interface VariableGroupReference
  */
 export interface VariableGroupReference {
-  /**
-   * The Name of the variable group.
-   * @type {string}
-   * @memberof VariableGroupReference
-   */
-  alias?: string;
-  /**
-   * The ID of the variable group.
-   * @type {number}
-   * @memberof VariableGroupReference
-   */
-  id?: number;
+    /**
+     * The Name of the variable group.
+     * @type {string}
+     * @memberof VariableGroupReference
+     */
+    alias?: string;
+    /**
+     * The ID of the variable group.
+     * @type {number}
+     * @memberof VariableGroupReference
+     */
+    id?: number;
 }

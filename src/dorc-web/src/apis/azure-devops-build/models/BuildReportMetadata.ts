@@ -17,22 +17,22 @@
  * @interface BuildReportMetadata
  */
 export interface BuildReportMetadata {
-  /**
-   * The Id of the build.
-   * @type {number}
-   * @memberof BuildReportMetadata
-   */
-  buildId?: number;
-  /**
-   * The content of the report.
-   * @type {string}
-   * @memberof BuildReportMetadata
-   */
-  content?: string;
-  /**
-   * The type of the report.
-   * @type {string}
-   * @memberof BuildReportMetadata
-   */
-  type?: string;
+    /**
+     * The Id of the build.
+     * @type {number}
+     * @memberof BuildReportMetadata
+     */
+    buildId?: number;
+    /**
+     * The content of the report.
+     * @type {string}
+     * @memberof BuildReportMetadata
+     */
+    content?: string;
+    /**
+     * The type of the report.
+     * @type {string}
+     * @memberof BuildReportMetadata
+     */
+    type?: string;
 }

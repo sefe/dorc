@@ -21,3 +21,12 @@
 #docs/*.md
 # Then explicitly reverse the ignore rule for a single file:
 #!docs/README.md
+
+# DOrc customisations — these files carry hand-written integration code and
+# must survive regeneration:
+#   runtime.ts — wires Configuration/BaseAPI into OAuthService (Bearer token
+#                injection, 401 -> /signin.html redirect via appConfig scheme)
+#   servers.ts — resolves the API base URL from AppConfig instead of the
+#                spec's server list
+runtime.ts
+servers.ts

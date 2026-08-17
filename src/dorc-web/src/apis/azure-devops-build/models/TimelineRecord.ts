@@ -12,13 +12,13 @@
  */
 
 import type {
-  BuildLogReference,
-  Issue,
-  ReferenceLinks,
-  TaskReference,
-  TimelineAttempt,
-  TimelineReference
-} from './index';
+    BuildLogReference,
+    Issue,
+    ReferenceLinks,
+    TaskReference,
+    TimelineAttempt,
+    TimelineReference,
+} from './';
 
 /**
  * Represents an entry in a build\'s timeline.
@@ -26,162 +26,162 @@ import type {
  * @interface TimelineRecord
  */
 export interface TimelineRecord {
-  /**
-   * @type {ReferenceLinks}
-   * @memberof TimelineRecord
-   */
-  _links?: ReferenceLinks;
-  /**
-   * Attempt number of record.
-   * @type {number}
-   * @memberof TimelineRecord
-   */
-  attempt?: number;
-  /**
-   * The change ID.
-   * @type {number}
-   * @memberof TimelineRecord
-   */
-  changeId?: number;
-  /**
-   * A string that indicates the current operation.
-   * @type {string}
-   * @memberof TimelineRecord
-   */
-  currentOperation?: string;
-  /**
-   * @type {TimelineReference}
-   * @memberof TimelineRecord
-   */
-  details?: TimelineReference;
-  /**
-   * The number of errors produced by this operation.
-   * @type {number}
-   * @memberof TimelineRecord
-   */
-  errorCount?: number;
-  /**
-   * The finish time.
-   * @type {string}
-   * @memberof TimelineRecord
-   */
-  finishTime?: string;
-  /**
-   * The ID of the record.
-   * @type {string}
-   * @memberof TimelineRecord
-   */
-  id?: string;
-  /**
-   * String identifier that is consistent across attempts.
-   * @type {string}
-   * @memberof TimelineRecord
-   */
-  identifier?: string;
-  /**
-   * @type {Array<Issue>}
-   * @memberof TimelineRecord
-   */
-  issues?: Array<Issue>;
-  /**
-   * The time the record was last modified.
-   * @type {string}
-   * @memberof TimelineRecord
-   */
-  lastModified?: string;
-  /**
-   * @type {BuildLogReference}
-   * @memberof TimelineRecord
-   */
-  log?: BuildLogReference;
-  /**
-   * The name.
-   * @type {string}
-   * @memberof TimelineRecord
-   */
-  name?: string;
-  /**
-   * An ordinal value relative to other records.
-   * @type {number}
-   * @memberof TimelineRecord
-   */
-  order?: number;
-  /**
-   * The ID of the record\'s parent.
-   * @type {string}
-   * @memberof TimelineRecord
-   */
-  parentId?: string;
-  /**
-   * The current completion percentage.
-   * @type {number}
-   * @memberof TimelineRecord
-   */
-  percentComplete?: number;
-  /**
-   * @type {Array<TimelineAttempt>}
-   * @memberof TimelineRecord
-   */
-  previousAttempts?: Array<TimelineAttempt>;
-  /**
-   * The queue ID of the queue that the operation ran on.
-   * @type {number}
-   * @memberof TimelineRecord
-   */
-  queueId?: number;
-  /**
-   * The result.
-   * @type {string}
-   * @memberof TimelineRecord
-   */
-  result?: TimelineRecordResultEnum;
-  /**
-   * The result code.
-   * @type {string}
-   * @memberof TimelineRecord
-   */
-  resultCode?: string;
-  /**
-   * The start time.
-   * @type {string}
-   * @memberof TimelineRecord
-   */
-  startTime?: string;
-  /**
-   * The state of the record.
-   * @type {string}
-   * @memberof TimelineRecord
-   */
-  state?: TimelineRecordStateEnum;
-  /**
-   * @type {TaskReference}
-   * @memberof TimelineRecord
-   */
-  task?: TaskReference;
-  /**
-   * The type of the record.
-   * @type {string}
-   * @memberof TimelineRecord
-   */
-  type?: string;
-  /**
-   * The REST URL of the timeline record.
-   * @type {string}
-   * @memberof TimelineRecord
-   */
-  url?: string;
-  /**
-   * The number of warnings produced by this operation.
-   * @type {number}
-   * @memberof TimelineRecord
-   */
-  warningCount?: number;
-  /**
-   * The name of the agent running the operation.
-   * @type {string}
-   * @memberof TimelineRecord
-   */
-  workerName?: string;
+    /**
+     * @type {ReferenceLinks}
+     * @memberof TimelineRecord
+     */
+    _links?: ReferenceLinks;
+    /**
+     * Attempt number of record.
+     * @type {number}
+     * @memberof TimelineRecord
+     */
+    attempt?: number;
+    /**
+     * The change ID.
+     * @type {number}
+     * @memberof TimelineRecord
+     */
+    changeId?: number;
+    /**
+     * A string that indicates the current operation.
+     * @type {string}
+     * @memberof TimelineRecord
+     */
+    currentOperation?: string;
+    /**
+     * @type {TimelineReference}
+     * @memberof TimelineRecord
+     */
+    details?: TimelineReference;
+    /**
+     * The number of errors produced by this operation.
+     * @type {number}
+     * @memberof TimelineRecord
+     */
+    errorCount?: number;
+    /**
+     * The finish time.
+     * @type {string}
+     * @memberof TimelineRecord
+     */
+    finishTime?: string;
+    /**
+     * The ID of the record.
+     * @type {string}
+     * @memberof TimelineRecord
+     */
+    id?: string;
+    /**
+     * String identifier that is consistent across attempts.
+     * @type {string}
+     * @memberof TimelineRecord
+     */
+    identifier?: string;
+    /**
+     * @type {Array<Issue>}
+     * @memberof TimelineRecord
+     */
+    issues?: Array<Issue>;
+    /**
+     * The time the record was last modified.
+     * @type {string}
+     * @memberof TimelineRecord
+     */
+    lastModified?: string;
+    /**
+     * @type {BuildLogReference}
+     * @memberof TimelineRecord
+     */
+    log?: BuildLogReference;
+    /**
+     * The name.
+     * @type {string}
+     * @memberof TimelineRecord
+     */
+    name?: string;
+    /**
+     * An ordinal value relative to other records.
+     * @type {number}
+     * @memberof TimelineRecord
+     */
+    order?: number;
+    /**
+     * The ID of the record\'s parent.
+     * @type {string}
+     * @memberof TimelineRecord
+     */
+    parentId?: string;
+    /**
+     * The current completion percentage.
+     * @type {number}
+     * @memberof TimelineRecord
+     */
+    percentComplete?: number;
+    /**
+     * @type {Array<TimelineAttempt>}
+     * @memberof TimelineRecord
+     */
+    previousAttempts?: Array<TimelineAttempt>;
+    /**
+     * The queue ID of the queue that the operation ran on.
+     * @type {number}
+     * @memberof TimelineRecord
+     */
+    queueId?: number;
+    /**
+     * The result.
+     * @type {string}
+     * @memberof TimelineRecord
+     */
+    result?: TimelineRecordResultEnum;
+    /**
+     * The result code.
+     * @type {string}
+     * @memberof TimelineRecord
+     */
+    resultCode?: string;
+    /**
+     * The start time.
+     * @type {string}
+     * @memberof TimelineRecord
+     */
+    startTime?: string;
+    /**
+     * The state of the record.
+     * @type {string}
+     * @memberof TimelineRecord
+     */
+    state?: TimelineRecordStateEnum;
+    /**
+     * @type {TaskReference}
+     * @memberof TimelineRecord
+     */
+    task?: TaskReference;
+    /**
+     * The type of the record.
+     * @type {string}
+     * @memberof TimelineRecord
+     */
+    type?: string;
+    /**
+     * The REST URL of the timeline record.
+     * @type {string}
+     * @memberof TimelineRecord
+     */
+    url?: string;
+    /**
+     * The number of warnings produced by this operation.
+     * @type {number}
+     * @memberof TimelineRecord
+     */
+    warningCount?: number;
+    /**
+     * The name of the agent running the operation.
+     * @type {string}
+     * @memberof TimelineRecord
+     */
+    workerName?: string;
 }
 
 /**
@@ -189,19 +189,20 @@ export interface TimelineRecord {
  * @enum {string}
  */
 export enum TimelineRecordResultEnum {
-  Succeeded = 'succeeded',
-  SucceededWithIssues = 'succeededWithIssues',
-  Failed = 'failed',
-  Canceled = 'canceled',
-  Skipped = 'skipped',
-  Abandoned = 'abandoned'
+    Succeeded = 'succeeded',
+    SucceededWithIssues = 'succeededWithIssues',
+    Failed = 'failed',
+    Canceled = 'canceled',
+    Skipped = 'skipped',
+    Abandoned = 'abandoned'
 }
 /**
  * @export
  * @enum {string}
  */
 export enum TimelineRecordStateEnum {
-  Pending = 'pending',
-  InProgress = 'inProgress',
-  Completed = 'completed'
+    Pending = 'pending',
+    InProgress = 'inProgress',
+    Completed = 'completed'
 }
+

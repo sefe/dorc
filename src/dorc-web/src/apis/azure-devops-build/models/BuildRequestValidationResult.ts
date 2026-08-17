@@ -17,18 +17,18 @@
  * @interface BuildRequestValidationResult
  */
 export interface BuildRequestValidationResult {
-  /**
-   * The message associated with the result.
-   * @type {string}
-   * @memberof BuildRequestValidationResult
-   */
-  message?: string;
-  /**
-   * The result.
-   * @type {string}
-   * @memberof BuildRequestValidationResult
-   */
-  result?: BuildRequestValidationResultResultEnum;
+    /**
+     * The message associated with the result.
+     * @type {string}
+     * @memberof BuildRequestValidationResult
+     */
+    message?: string;
+    /**
+     * The result.
+     * @type {string}
+     * @memberof BuildRequestValidationResult
+     */
+    result?: BuildRequestValidationResultResultEnum;
 }
 
 /**
@@ -36,7 +36,8 @@ export interface BuildRequestValidationResult {
  * @enum {string}
  */
 export enum BuildRequestValidationResultResultEnum {
-  Ok = 'ok',
-  Warning = 'warning',
-  Error = 'error'
+    Ok = 'ok',
+    Warning = 'warning',
+    Error = 'error'
 }
+

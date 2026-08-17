@@ -17,22 +17,22 @@
  * @interface MappingDetails
  */
 export interface MappingDetails {
-  /**
-   * The local path.
-   * @type {string}
-   * @memberof MappingDetails
-   */
-  localPath?: string;
-  /**
-   * The mapping type.
-   * @type {string}
-   * @memberof MappingDetails
-   */
-  mappingType?: string;
-  /**
-   * The server path.
-   * @type {string}
-   * @memberof MappingDetails
-   */
-  serverPath?: string;
+    /**
+     * The local path.
+     * @type {string}
+     * @memberof MappingDetails
+     */
+    localPath?: string;
+    /**
+     * The mapping type.
+     * @type {string}
+     * @memberof MappingDetails
+     */
+    mappingType?: string;
+    /**
+     * The server path.
+     * @type {string}
+     * @memberof MappingDetails
+     */
+    serverPath?: string;
 }

@@ -11,7 +11,10 @@
  * Do not edit the class manually.
  */
 
-import type { IdentityRef, ReferenceLinks } from './index';
+import type {
+    IdentityRef,
+    ReferenceLinks,
+} from './';
 
 /**
  * Represents a reference to a build.
@@ -19,64 +22,64 @@ import type { IdentityRef, ReferenceLinks } from './index';
  * @interface BuildReference
  */
 export interface BuildReference {
-  /**
-   * @type {ReferenceLinks}
-   * @memberof BuildReference
-   */
-  _links?: ReferenceLinks;
-  /**
-   * The build number.
-   * @type {string}
-   * @memberof BuildReference
-   */
-  buildNumber?: string;
-  /**
-   * Indicates whether the build has been deleted.
-   * @type {boolean}
-   * @memberof BuildReference
-   */
-  deleted?: boolean;
-  /**
-   * The time that the build was completed.
-   * @type {string}
-   * @memberof BuildReference
-   */
-  finishTime?: string;
-  /**
-   * The ID of the build.
-   * @type {number}
-   * @memberof BuildReference
-   */
-  id?: number;
-  /**
-   * The time that the build was queued.
-   * @type {string}
-   * @memberof BuildReference
-   */
-  queueTime?: string;
-  /**
-   * @type {IdentityRef}
-   * @memberof BuildReference
-   */
-  requestedFor?: IdentityRef;
-  /**
-   * The build result.
-   * @type {string}
-   * @memberof BuildReference
-   */
-  result?: BuildReferenceResultEnum;
-  /**
-   * The time that the build was started.
-   * @type {string}
-   * @memberof BuildReference
-   */
-  startTime?: string;
-  /**
-   * The build status.
-   * @type {string}
-   * @memberof BuildReference
-   */
-  status?: BuildReferenceStatusEnum;
+    /**
+     * @type {ReferenceLinks}
+     * @memberof BuildReference
+     */
+    _links?: ReferenceLinks;
+    /**
+     * The build number.
+     * @type {string}
+     * @memberof BuildReference
+     */
+    buildNumber?: string;
+    /**
+     * Indicates whether the build has been deleted.
+     * @type {boolean}
+     * @memberof BuildReference
+     */
+    deleted?: boolean;
+    /**
+     * The time that the build was completed.
+     * @type {string}
+     * @memberof BuildReference
+     */
+    finishTime?: string;
+    /**
+     * The ID of the build.
+     * @type {number}
+     * @memberof BuildReference
+     */
+    id?: number;
+    /**
+     * The time that the build was queued.
+     * @type {string}
+     * @memberof BuildReference
+     */
+    queueTime?: string;
+    /**
+     * @type {IdentityRef}
+     * @memberof BuildReference
+     */
+    requestedFor?: IdentityRef;
+    /**
+     * The build result.
+     * @type {string}
+     * @memberof BuildReference
+     */
+    result?: BuildReferenceResultEnum;
+    /**
+     * The time that the build was started.
+     * @type {string}
+     * @memberof BuildReference
+     */
+    startTime?: string;
+    /**
+     * The build status.
+     * @type {string}
+     * @memberof BuildReference
+     */
+    status?: BuildReferenceStatusEnum;
 }
 
 /**
@@ -84,22 +87,23 @@ export interface BuildReference {
  * @enum {string}
  */
 export enum BuildReferenceResultEnum {
-  None = 'none',
-  Succeeded = 'succeeded',
-  PartiallySucceeded = 'partiallySucceeded',
-  Failed = 'failed',
-  Canceled = 'canceled'
+    None = 'none',
+    Succeeded = 'succeeded',
+    PartiallySucceeded = 'partiallySucceeded',
+    Failed = 'failed',
+    Canceled = 'canceled'
 }
 /**
  * @export
  * @enum {string}
  */
 export enum BuildReferenceStatusEnum {
-  None = 'none',
-  InProgress = 'inProgress',
-  Completed = 'completed',
-  Cancelling = 'cancelling',
-  Postponed = 'postponed',
-  NotStarted = 'notStarted',
-  All = 'all'
+    None = 'none',
+    InProgress = 'inProgress',
+    Completed = 'completed',
+    Cancelling = 'cancelling',
+    Postponed = 'postponed',
+    NotStarted = 'notStarted',
+    All = 'all'
 }
+

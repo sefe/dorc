@@ -57,6 +57,23 @@ jobs:
       working-directory: src/dorc-web
       run: npm ci --loglevel=error
 
+    # openapi-generator-cli is a thin npm wrapper around a Java jar; the
+    # runner image ships several JDKs but its default java on PATH is not
+    # guaranteed to satisfy the generator's minimum. setup-java only points
+    # env vars at a JDK already on the image, so this costs seconds.
+    - name: Setup Java (OpenAPI Generator)
+      uses: actions/setup-java@v5
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+
+    # The suite must exercise the same client code a release build ships:
+    # both API clients are regenerated from their committed specs before the
+    # tests run. The authoritative in-sync gate lives in the build job.
+    - name: Generate API clients
+      working-directory: src/dorc-web
+      run: npm run api-gen
+
     # The next three steps assume Windows (pwsh + the Windows cache path).
     # The whole job is windows-latest today; the `if: runner.os == 'Windows'`
     # guards align them so adding a Linux/macOS matrix entry later is a
@@ -152,7 +169,41 @@ jobs:
     - name: Install web dependencies
       working-directory: src/dorc-web
       run: npm ci --loglevel=error
-      
+
+    # See the web-tests job for why setup-java is needed before generation.
+    - name: Setup Java (OpenAPI Generator)
+      uses: actions/setup-java@v5
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+
+    # The API clients under src/dorc-web/src/apis are generated code: dorc-api
+    # from swagger.json and azure-devops-build from build.json, each pinned to
+    # the generator version in its own openapitools.json. Regenerating here —
+    # before the web build — means every release is built from clients the
+    # generator actually produced, never from hand-drifted files.
+    - name: Generate API clients
+      working-directory: src/dorc-web
+      run: npm run api-gen
+
+    # The committed clients are the same files the generator just wrote, so
+    # any diff means someone edited generated code by hand or changed a spec
+    # without regenerating. Hand-maintained files (runtime.ts, servers.ts in
+    # dorc-api) are protected by .openapi-generator-ignore and never diff.
+    - name: Fail if generated clients are out of sync
+      shell: pwsh
+      run: |
+        $drift = git status --porcelain -- src/dorc-web/src/apis
+        if ($drift) {
+          Write-Host "Generated API clients differ from the committed code:"
+          $drift | ForEach-Object { Write-Host "  $_" }
+          git --no-pager diff -- src/dorc-web/src/apis | Select-Object -First 200
+          Write-Error ("API clients are out of sync with their specs. " +
+            "Run 'npm run api-gen' in src/dorc-web and commit the result.")
+          exit 1
+        }
+        Write-Host "Generated API clients match the committed code."
+
     - name: Build web site
       working-directory: src/dorc-web
       run: npm run build

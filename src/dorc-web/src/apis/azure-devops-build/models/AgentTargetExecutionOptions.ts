@@ -17,10 +17,10 @@
  * @interface AgentTargetExecutionOptions
  */
 export interface AgentTargetExecutionOptions {
-  /**
-   * Indicates the type of execution options.
-   * @type {number}
-   * @memberof AgentTargetExecutionOptions
-   */
-  type?: number;
+    /**
+     * Indicates the type of execution options.
+     * @type {number}
+     * @memberof AgentTargetExecutionOptions
+     */
+    type?: number;
 }

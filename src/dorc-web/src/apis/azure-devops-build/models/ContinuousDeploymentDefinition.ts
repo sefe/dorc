@@ -12,65 +12,65 @@
  */
 
 import type {
-  TeamProjectReference,
-  WebApiConnectedServiceRef,
-  XamlDefinitionReference
-} from './index';
+    TeamProjectReference,
+    WebApiConnectedServiceRef,
+    XamlDefinitionReference,
+} from './';
 
 /**
- *
+ * 
  * @export
  * @interface ContinuousDeploymentDefinition
  */
 export interface ContinuousDeploymentDefinition {
-  /**
-   * @type {WebApiConnectedServiceRef}
-   * @memberof ContinuousDeploymentDefinition
-   */
-  connectedService?: WebApiConnectedServiceRef;
-  /**
-   * @type {XamlDefinitionReference}
-   * @memberof ContinuousDeploymentDefinition
-   */
-  definition?: XamlDefinitionReference;
-  /**
-   * @type {string}
-   * @memberof ContinuousDeploymentDefinition
-   */
-  gitBranch?: string;
-  /**
-   * @type {string}
-   * @memberof ContinuousDeploymentDefinition
-   */
-  hostedServiceName?: string;
-  /**
-   * @type {TeamProjectReference}
-   * @memberof ContinuousDeploymentDefinition
-   */
-  project?: TeamProjectReference;
-  /**
-   * @type {string}
-   * @memberof ContinuousDeploymentDefinition
-   */
-  repositoryId?: string;
-  /**
-   * @type {string}
-   * @memberof ContinuousDeploymentDefinition
-   */
-  storageAccountName?: string;
-  /**
-   * @type {string}
-   * @memberof ContinuousDeploymentDefinition
-   */
-  subscriptionId?: string;
-  /**
-   * @type {string}
-   * @memberof ContinuousDeploymentDefinition
-   */
-  website?: string;
-  /**
-   * @type {string}
-   * @memberof ContinuousDeploymentDefinition
-   */
-  webspace?: string;
+    /**
+     * @type {WebApiConnectedServiceRef}
+     * @memberof ContinuousDeploymentDefinition
+     */
+    connectedService?: WebApiConnectedServiceRef;
+    /**
+     * @type {XamlDefinitionReference}
+     * @memberof ContinuousDeploymentDefinition
+     */
+    definition?: XamlDefinitionReference;
+    /**
+     * @type {string}
+     * @memberof ContinuousDeploymentDefinition
+     */
+    gitBranch?: string;
+    /**
+     * @type {string}
+     * @memberof ContinuousDeploymentDefinition
+     */
+    hostedServiceName?: string;
+    /**
+     * @type {TeamProjectReference}
+     * @memberof ContinuousDeploymentDefinition
+     */
+    project?: TeamProjectReference;
+    /**
+     * @type {string}
+     * @memberof ContinuousDeploymentDefinition
+     */
+    repositoryId?: string;
+    /**
+     * @type {string}
+     * @memberof ContinuousDeploymentDefinition
+     */
+    storageAccountName?: string;
+    /**
+     * @type {string}
+     * @memberof ContinuousDeploymentDefinition
+     */
+    subscriptionId?: string;
+    /**
+     * @type {string}
+     * @memberof ContinuousDeploymentDefinition
+     */
+    website?: string;
+    /**
+     * @type {string}
+     * @memberof ContinuousDeploymentDefinition
+     */
+    webspace?: string;
 }

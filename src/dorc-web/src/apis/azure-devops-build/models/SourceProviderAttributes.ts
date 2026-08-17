@@ -11,30 +11,32 @@
  * Do not edit the class manually.
  */
 
-import type { SupportedTrigger } from './index';
+import type {
+    SupportedTrigger,
+} from './';
 
 /**
- *
+ * 
  * @export
  * @interface SourceProviderAttributes
  */
 export interface SourceProviderAttributes {
-  /**
-   * The name of the source provider.
-   * @type {string}
-   * @memberof SourceProviderAttributes
-   */
-  name?: string;
-  /**
-   * The capabilities supported by this source provider.
-   * @type {{ [key: string]: boolean; }}
-   * @memberof SourceProviderAttributes
-   */
-  supportedCapabilities?: { [key: string]: boolean };
-  /**
-   * The types of triggers supported by this source provider.
-   * @type {Array<SupportedTrigger>}
-   * @memberof SourceProviderAttributes
-   */
-  supportedTriggers?: Array<SupportedTrigger>;
+    /**
+     * The name of the source provider.
+     * @type {string}
+     * @memberof SourceProviderAttributes
+     */
+    name?: string;
+    /**
+     * The capabilities supported by this source provider.
+     * @type {{ [key: string]: boolean; }}
+     * @memberof SourceProviderAttributes
+     */
+    supportedCapabilities?: { [key: string]: boolean; };
+    /**
+     * The types of triggers supported by this source provider.
+     * @type {Array<SupportedTrigger>}
+     * @memberof SourceProviderAttributes
+     */
+    supportedTriggers?: Array<SupportedTrigger>;
 }

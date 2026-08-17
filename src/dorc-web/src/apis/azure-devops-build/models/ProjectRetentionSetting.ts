@@ -11,7 +11,9 @@
  * Do not edit the class manually.
  */
 
-import type { RetentionSetting } from './index';
+import type {
+    RetentionSetting,
+} from './';
 
 /**
  * Contains the settings for the retention rules.
@@ -19,24 +21,24 @@ import type { RetentionSetting } from './index';
  * @interface ProjectRetentionSetting
  */
 export interface ProjectRetentionSetting {
-  /**
-   * @type {RetentionSetting}
-   * @memberof ProjectRetentionSetting
-   */
-  purgeArtifacts?: RetentionSetting;
-  /**
-   * @type {RetentionSetting}
-   * @memberof ProjectRetentionSetting
-   */
-  purgePullRequestRuns?: RetentionSetting;
-  /**
-   * @type {RetentionSetting}
-   * @memberof ProjectRetentionSetting
-   */
-  purgeRuns?: RetentionSetting;
-  /**
-   * @type {RetentionSetting}
-   * @memberof ProjectRetentionSetting
-   */
-  retainRunsPerProtectedBranch?: RetentionSetting;
+    /**
+     * @type {RetentionSetting}
+     * @memberof ProjectRetentionSetting
+     */
+    purgeArtifacts?: RetentionSetting;
+    /**
+     * @type {RetentionSetting}
+     * @memberof ProjectRetentionSetting
+     */
+    purgePullRequestRuns?: RetentionSetting;
+    /**
+     * @type {RetentionSetting}
+     * @memberof ProjectRetentionSetting
+     */
+    purgeRuns?: RetentionSetting;
+    /**
+     * @type {RetentionSetting}
+     * @memberof ProjectRetentionSetting
+     */
+    retainRunsPerProtectedBranch?: RetentionSetting;
 }

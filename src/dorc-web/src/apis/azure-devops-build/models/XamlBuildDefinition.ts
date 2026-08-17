@@ -11,11 +11,18 @@
  * Do not edit the class manually.
  */
 
-import type { DefinitionReference } from './index';
+import type {
+    BuildController,
+    BuildRepository,
+    DefinitionReference,
+    ReferenceLinks,
+    TeamProjectReference,
+    XamlBuildReference,
+} from './';
 
 /**
  * @type XamlBuildDefinition
- *
+ * 
  * @export
  */
 export type XamlBuildDefinition = DefinitionReference;

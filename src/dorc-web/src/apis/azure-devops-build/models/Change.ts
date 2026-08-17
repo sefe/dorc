@@ -11,7 +11,9 @@
  * Do not edit the class manually.
  */
 
-import type { IdentityRef } from './index';
+import type {
+    IdentityRef,
+} from './';
 
 /**
  * Represents a change associated with a build.
@@ -19,57 +21,57 @@ import type { IdentityRef } from './index';
  * @interface Change
  */
 export interface Change {
-  /**
-   * @type {IdentityRef}
-   * @memberof Change
-   */
-  author?: IdentityRef;
-  /**
-   * The location of a user-friendly representation of the resource.
-   * @type {string}
-   * @memberof Change
-   */
-  displayUri?: string;
-  /**
-   * The identifier for the change. For a commit, this would be the SHA1. For a TFVC changeset, this would be the changeset ID.
-   * @type {string}
-   * @memberof Change
-   */
-  id?: string;
-  /**
-   * The location of the full representation of the resource.
-   * @type {string}
-   * @memberof Change
-   */
-  location?: string;
-  /**
-   * The description of the change. This might be a commit message or changeset description.
-   * @type {string}
-   * @memberof Change
-   */
-  message?: string;
-  /**
-   * Indicates whether the message was truncated.
-   * @type {boolean}
-   * @memberof Change
-   */
-  messageTruncated?: boolean;
-  /**
-   * The person or process that pushed the change.
-   * @type {string}
-   * @memberof Change
-   */
-  pusher?: string;
-  /**
-   * The timestamp for the change.
-   * @type {string}
-   * @memberof Change
-   */
-  timestamp?: string;
-  /**
-   * The type of change. \"commit\", \"changeset\", etc.
-   * @type {string}
-   * @memberof Change
-   */
-  type?: string;
+    /**
+     * @type {IdentityRef}
+     * @memberof Change
+     */
+    author?: IdentityRef;
+    /**
+     * The location of a user-friendly representation of the resource.
+     * @type {string}
+     * @memberof Change
+     */
+    displayUri?: string;
+    /**
+     * The identifier for the change. For a commit, this would be the SHA1. For a TFVC changeset, this would be the changeset ID.
+     * @type {string}
+     * @memberof Change
+     */
+    id?: string;
+    /**
+     * The location of the full representation of the resource.
+     * @type {string}
+     * @memberof Change
+     */
+    location?: string;
+    /**
+     * The description of the change. This might be a commit message or changeset description.
+     * @type {string}
+     * @memberof Change
+     */
+    message?: string;
+    /**
+     * Indicates whether the message was truncated.
+     * @type {boolean}
+     * @memberof Change
+     */
+    messageTruncated?: boolean;
+    /**
+     * The person or process that pushed the change.
+     * @type {string}
+     * @memberof Change
+     */
+    pusher?: string;
+    /**
+     * The timestamp for the change.
+     * @type {string}
+     * @memberof Change
+     */
+    timestamp?: string;
+    /**
+     * The type of change. \"commit\", \"changeset\", etc.
+     * @type {string}
+     * @memberof Change
+     */
+    type?: string;
 }

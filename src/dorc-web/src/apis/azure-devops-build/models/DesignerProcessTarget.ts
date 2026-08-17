@@ -11,7 +11,9 @@
  * Do not edit the class manually.
  */
 
-import type { AgentSpecification } from './index';
+import type {
+    AgentSpecification,
+} from './';
 
 /**
  * Represents the target for the build process.
@@ -19,9 +21,9 @@ import type { AgentSpecification } from './index';
  * @interface DesignerProcessTarget
  */
 export interface DesignerProcessTarget {
-  /**
-   * @type {AgentSpecification}
-   * @memberof DesignerProcessTarget
-   */
-  agentSpecification?: AgentSpecification;
+    /**
+     * @type {AgentSpecification}
+     * @memberof DesignerProcessTarget
+     */
+    agentSpecification?: AgentSpecification;
 }

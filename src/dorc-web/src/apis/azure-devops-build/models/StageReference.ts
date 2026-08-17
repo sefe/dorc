@@ -17,16 +17,16 @@
  * @interface StageReference
  */
 export interface StageReference {
-  /**
-   * Attempt number of stage
-   * @type {number}
-   * @memberof StageReference
-   */
-  attempt?: number;
-  /**
-   * Name of the stage. Maximum supported length for name is 256 character.
-   * @type {string}
-   * @memberof StageReference
-   */
-  stageName?: string;
+    /**
+     * Attempt number of stage
+     * @type {number}
+     * @memberof StageReference
+     */
+    attempt?: number;
+    /**
+     * Name of the stage. Maximum supported length for name is 256 character.
+     * @type {string}
+     * @memberof StageReference
+     */
+    stageName?: string;
 }

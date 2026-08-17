@@ -13,275 +13,191 @@
 
 import type { Observable } from 'rxjs';
 import type { AjaxResponse } from 'rxjs/ajax';
-import type { HttpHeaders, HttpQuery, OperationOpts } from '../runtime';
-import { BaseAPI, encodeURI, throwIfNullOrUndefined } from '../runtime';
-import type { Folder } from '../models';
+import { BaseAPI, throwIfNullOrUndefined, encodeURI } from '../runtime';
+import type { OperationOpts, HttpHeaders, HttpQuery } from '../runtime';
+import type {
+    Folder,
+} from '../models';
 
 export interface FoldersCreateRequest {
-  organization: string;
-  project: string;
-  path: string;
-  apiVersion: string;
-  body: Folder;
+    organization: string;
+    project: string;
+    path: string;
+    apiVersion: string;
+    body: Folder;
 }
 
 export interface FoldersDeleteRequest {
-  organization: string;
-  project: string;
-  path: string;
-  apiVersion: string;
+    organization: string;
+    project: string;
+    path: string;
+    apiVersion: string;
 }
 
 export interface FoldersListRequest {
-  organization: string;
-  project: string;
-  path: string;
-  apiVersion: string;
-  queryOrder?: FoldersListQueryOrderEnum;
+    organization: string;
+    project: string;
+    path: string;
+    apiVersion: string;
+    queryOrder?: FoldersListQueryOrderEnum;
 }
 
 export interface FoldersUpdateRequest {
-  organization: string;
-  project: string;
-  path: string;
-  apiVersion: string;
-  body: Folder;
+    organization: string;
+    project: string;
+    path: string;
+    apiVersion: string;
+    body: Folder;
 }
 
 /**
  * no description
  */
 export class FoldersApi extends BaseAPI {
-  /**
-   * Creates a new folder.
-   */
-  foldersCreate({
-    organization,
-    project,
-    path,
-    apiVersion,
-    body
-  }: FoldersCreateRequest): Observable<Folder>;
-  foldersCreate(
-    { organization, project, path, apiVersion, body }: FoldersCreateRequest,
-    opts?: OperationOpts
-  ): Observable<AjaxResponse<Folder>>;
-  foldersCreate(
-    { organization, project, path, apiVersion, body }: FoldersCreateRequest,
-    opts?: OperationOpts
-  ): Observable<Folder | AjaxResponse<Folder>> {
-    throwIfNullOrUndefined(organization, 'organization', 'foldersCreate');
-    throwIfNullOrUndefined(project, 'project', 'foldersCreate');
-    throwIfNullOrUndefined(path, 'path', 'foldersCreate');
-    throwIfNullOrUndefined(apiVersion, 'apiVersion', 'foldersCreate');
-    throwIfNullOrUndefined(body, 'body', 'foldersCreate');
 
-    const headers: HttpHeaders = {
-      'Content-Type': 'application/json',
-      // oauth required
-      ...(this.configuration.accessToken != null
-        ? {
-            Authorization:
-              typeof this.configuration.accessToken === 'function'
-                ? this.configuration.accessToken('oauth2', [
-                    'vso.build_execute'
-                  ])
-                : this.configuration.accessToken
-          }
-        : undefined)
+    /**
+     * Creates a new folder.
+     */
+    foldersCreate({ organization, project, path, apiVersion, body }: FoldersCreateRequest): Observable<Folder>
+    foldersCreate({ organization, project, path, apiVersion, body }: FoldersCreateRequest, opts?: OperationOpts): Observable<AjaxResponse<Folder>>
+    foldersCreate({ organization, project, path, apiVersion, body }: FoldersCreateRequest, opts?: OperationOpts): Observable<Folder | AjaxResponse<Folder>> {
+        throwIfNullOrUndefined(organization, 'organization', 'foldersCreate');
+        throwIfNullOrUndefined(project, 'project', 'foldersCreate');
+        throwIfNullOrUndefined(path, 'path', 'foldersCreate');
+        throwIfNullOrUndefined(apiVersion, 'apiVersion', 'foldersCreate');
+        throwIfNullOrUndefined(body, 'body', 'foldersCreate');
+
+        const headers: HttpHeaders = {
+            'Content-Type': 'application/json',
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['vso.build_execute'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
+        const query: HttpQuery = { // required parameters are used directly since they are already checked by throwIfNullOrUndefined
+            'path': path,
+            'api-version': apiVersion,
+        };
+
+        return this.request<Folder>({
+            url: '/{organization}/{project}/_apis/build/folders'.replace('{organization}', encodeURI(organization)).replace('{project}', encodeURI(project)),
+            method: 'PUT',
+            headers,
+            query,
+            body: body,
+        }, opts?.responseOpts);
     };
 
-    const query: HttpQuery = {
-      // required parameters are used directly since they are already checked by throwIfNullOrUndefined
-      path: path,
-      'api-version': apiVersion
+    /**
+     * Deletes a definition folder. Definitions and their corresponding builds will also be deleted.
+     */
+    foldersDelete({ organization, project, path, apiVersion }: FoldersDeleteRequest): Observable<void>
+    foldersDelete({ organization, project, path, apiVersion }: FoldersDeleteRequest, opts?: OperationOpts): Observable<void | AjaxResponse<void>>
+    foldersDelete({ organization, project, path, apiVersion }: FoldersDeleteRequest, opts?: OperationOpts): Observable<void | AjaxResponse<void>> {
+        throwIfNullOrUndefined(organization, 'organization', 'foldersDelete');
+        throwIfNullOrUndefined(project, 'project', 'foldersDelete');
+        throwIfNullOrUndefined(path, 'path', 'foldersDelete');
+        throwIfNullOrUndefined(apiVersion, 'apiVersion', 'foldersDelete');
+
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['vso.build_execute'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
+        const query: HttpQuery = { // required parameters are used directly since they are already checked by throwIfNullOrUndefined
+            'path': path,
+            'api-version': apiVersion,
+        };
+
+        return this.request<void>({
+            url: '/{organization}/{project}/_apis/build/folders'.replace('{organization}', encodeURI(organization)).replace('{project}', encodeURI(project)),
+            method: 'DELETE',
+            headers,
+            query,
+        }, opts?.responseOpts);
     };
 
-    return this.request<Folder>(
-      {
-        url: '/{organization}/{project}/_apis/build/folders'
-          .replace('{organization}', encodeURI(organization))
-          .replace('{project}', encodeURI(project)),
-        method: 'PUT',
-        headers,
-        query,
-        body: body
-      },
-      opts?.responseOpts
-    );
-  }
+    /**
+     * Gets a list of build definition folders.
+     */
+    foldersList({ organization, project, path, apiVersion, queryOrder }: FoldersListRequest): Observable<Array<Folder>>
+    foldersList({ organization, project, path, apiVersion, queryOrder }: FoldersListRequest, opts?: OperationOpts): Observable<AjaxResponse<Array<Folder>>>
+    foldersList({ organization, project, path, apiVersion, queryOrder }: FoldersListRequest, opts?: OperationOpts): Observable<Array<Folder> | AjaxResponse<Array<Folder>>> {
+        throwIfNullOrUndefined(organization, 'organization', 'foldersList');
+        throwIfNullOrUndefined(project, 'project', 'foldersList');
+        throwIfNullOrUndefined(path, 'path', 'foldersList');
+        throwIfNullOrUndefined(apiVersion, 'apiVersion', 'foldersList');
 
-  /**
-   * Deletes a definition folder. Definitions and their corresponding builds will also be deleted.
-   */
-  foldersDelete({
-    organization,
-    project,
-    path,
-    apiVersion
-  }: FoldersDeleteRequest): Observable<void>;
-  foldersDelete(
-    { organization, project, path, apiVersion }: FoldersDeleteRequest,
-    opts?: OperationOpts
-  ): Observable<void | AjaxResponse<void>>;
-  foldersDelete(
-    { organization, project, path, apiVersion }: FoldersDeleteRequest,
-    opts?: OperationOpts
-  ): Observable<void | AjaxResponse<void>> {
-    throwIfNullOrUndefined(organization, 'organization', 'foldersDelete');
-    throwIfNullOrUndefined(project, 'project', 'foldersDelete');
-    throwIfNullOrUndefined(path, 'path', 'foldersDelete');
-    throwIfNullOrUndefined(apiVersion, 'apiVersion', 'foldersDelete');
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['vso.build'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
 
-    const headers: HttpHeaders = {
-      // oauth required
-      ...(this.configuration.accessToken != null
-        ? {
-            Authorization:
-              typeof this.configuration.accessToken === 'function'
-                ? this.configuration.accessToken('oauth2', [
-                    'vso.build_execute'
-                  ])
-                : this.configuration.accessToken
-          }
-        : undefined)
+        const query: HttpQuery = { // required parameters are used directly since they are already checked by throwIfNullOrUndefined
+            'api-version': apiVersion,
+        };
+
+        if (queryOrder != null) { query['queryOrder'] = queryOrder; }
+
+        return this.request<Array<Folder>>({
+            url: '/{organization}/{project}/_apis/build/folders/{path}'.replace('{organization}', encodeURI(organization)).replace('{project}', encodeURI(project)).replace('{path}', encodeURI(path)),
+            method: 'GET',
+            headers,
+            query,
+        }, opts?.responseOpts);
     };
 
-    const query: HttpQuery = {
-      // required parameters are used directly since they are already checked by throwIfNullOrUndefined
-      path: path,
-      'api-version': apiVersion
+    /**
+     * Updates an existing folder at given  existing path
+     */
+    foldersUpdate({ organization, project, path, apiVersion, body }: FoldersUpdateRequest): Observable<Folder>
+    foldersUpdate({ organization, project, path, apiVersion, body }: FoldersUpdateRequest, opts?: OperationOpts): Observable<AjaxResponse<Folder>>
+    foldersUpdate({ organization, project, path, apiVersion, body }: FoldersUpdateRequest, opts?: OperationOpts): Observable<Folder | AjaxResponse<Folder>> {
+        throwIfNullOrUndefined(organization, 'organization', 'foldersUpdate');
+        throwIfNullOrUndefined(project, 'project', 'foldersUpdate');
+        throwIfNullOrUndefined(path, 'path', 'foldersUpdate');
+        throwIfNullOrUndefined(apiVersion, 'apiVersion', 'foldersUpdate');
+        throwIfNullOrUndefined(body, 'body', 'foldersUpdate');
+
+        const headers: HttpHeaders = {
+            'Content-Type': 'application/json',
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['vso.build_execute'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
+        const query: HttpQuery = { // required parameters are used directly since they are already checked by throwIfNullOrUndefined
+            'path': path,
+            'api-version': apiVersion,
+        };
+
+        return this.request<Folder>({
+            url: '/{organization}/{project}/_apis/build/folders'.replace('{organization}', encodeURI(organization)).replace('{project}', encodeURI(project)),
+            method: 'POST',
+            headers,
+            query,
+            body: body,
+        }, opts?.responseOpts);
     };
 
-    return this.request<void>(
-      {
-        url: '/{organization}/{project}/_apis/build/folders'
-          .replace('{organization}', encodeURI(organization))
-          .replace('{project}', encodeURI(project)),
-        method: 'DELETE',
-        headers,
-        query
-      },
-      opts?.responseOpts
-    );
-  }
-
-  /**
-   * Gets a list of build definition folders.
-   */
-  foldersList({
-    organization,
-    project,
-    path,
-    apiVersion,
-    queryOrder
-  }: FoldersListRequest): Observable<Array<Folder>>;
-  foldersList(
-    { organization, project, path, apiVersion, queryOrder }: FoldersListRequest,
-    opts?: OperationOpts
-  ): Observable<AjaxResponse<Array<Folder>>>;
-  foldersList(
-    { organization, project, path, apiVersion, queryOrder }: FoldersListRequest,
-    opts?: OperationOpts
-  ): Observable<Array<Folder> | AjaxResponse<Array<Folder>>> {
-    throwIfNullOrUndefined(organization, 'organization', 'foldersList');
-    throwIfNullOrUndefined(project, 'project', 'foldersList');
-    throwIfNullOrUndefined(path, 'path', 'foldersList');
-    throwIfNullOrUndefined(apiVersion, 'apiVersion', 'foldersList');
-
-    const headers: HttpHeaders = {
-      // oauth required
-      ...(this.configuration.accessToken != null
-        ? {
-            Authorization:
-              typeof this.configuration.accessToken === 'function'
-                ? this.configuration.accessToken('oauth2', ['vso.build'])
-                : this.configuration.accessToken
-          }
-        : undefined)
-    };
-
-    const query: HttpQuery = {
-      // required parameters are used directly since they are already checked by throwIfNullOrUndefined
-      'api-version': apiVersion
-    };
-
-    if (queryOrder != null) {
-      query['queryOrder'] = queryOrder;
-    }
-
-    return this.request<Array<Folder>>(
-      {
-        url: '/{organization}/{project}/_apis/build/folders/{path}'
-          .replace('{organization}', encodeURI(organization))
-          .replace('{project}', encodeURI(project))
-          .replace('{path}', encodeURI(path)),
-        method: 'GET',
-        headers,
-        query
-      },
-      opts?.responseOpts
-    );
-  }
-
-  /**
-   * Updates an existing folder at given  existing path
-   */
-  foldersUpdate({
-    organization,
-    project,
-    path,
-    apiVersion,
-    body
-  }: FoldersUpdateRequest): Observable<Folder>;
-  foldersUpdate(
-    { organization, project, path, apiVersion, body }: FoldersUpdateRequest,
-    opts?: OperationOpts
-  ): Observable<AjaxResponse<Folder>>;
-  foldersUpdate(
-    { organization, project, path, apiVersion, body }: FoldersUpdateRequest,
-    opts?: OperationOpts
-  ): Observable<Folder | AjaxResponse<Folder>> {
-    throwIfNullOrUndefined(organization, 'organization', 'foldersUpdate');
-    throwIfNullOrUndefined(project, 'project', 'foldersUpdate');
-    throwIfNullOrUndefined(path, 'path', 'foldersUpdate');
-    throwIfNullOrUndefined(apiVersion, 'apiVersion', 'foldersUpdate');
-    throwIfNullOrUndefined(body, 'body', 'foldersUpdate');
-
-    const headers: HttpHeaders = {
-      'Content-Type': 'application/json',
-      // oauth required
-      ...(this.configuration.accessToken != null
-        ? {
-            Authorization:
-              typeof this.configuration.accessToken === 'function'
-                ? this.configuration.accessToken('oauth2', [
-                    'vso.build_execute'
-                  ])
-                : this.configuration.accessToken
-          }
-        : undefined)
-    };
-
-    const query: HttpQuery = {
-      // required parameters are used directly since they are already checked by throwIfNullOrUndefined
-      path: path,
-      'api-version': apiVersion
-    };
-
-    return this.request<Folder>(
-      {
-        url: '/{organization}/{project}/_apis/build/folders'
-          .replace('{organization}', encodeURI(organization))
-          .replace('{project}', encodeURI(project)),
-        method: 'POST',
-        headers,
-        query,
-        body: body
-      },
-      opts?.responseOpts
-    );
-  }
 }
 
 /**
@@ -289,7 +205,7 @@ export class FoldersApi extends BaseAPI {
  * @enum {string}
  */
 export enum FoldersListQueryOrderEnum {
-  None = 'none',
-  FolderAscending = 'folderAscending',
-  FolderDescending = 'folderDescending'
+    None = 'none',
+    FolderAscending = 'folderAscending',
+    FolderDescending = 'folderDescending'
 }

@@ -13,732 +13,358 @@
 
 import type { Observable } from 'rxjs';
 import type { AjaxResponse } from 'rxjs/ajax';
-import type { HttpHeaders, HttpQuery, OperationOpts } from '../runtime';
-import { BaseAPI, encodeURI, throwIfNullOrUndefined } from '../runtime';
+import { BaseAPI, throwIfNullOrUndefined, encodeURI } from '../runtime';
+import type { OperationOpts, HttpHeaders, HttpQuery } from '../runtime';
 import type {
-  BuildDefinition,
-  BuildDefinitionReference,
-  BuildDefinitionRevision
+    BuildDefinition,
+    BuildDefinitionReference,
+    BuildDefinitionRevision,
 } from '../models';
 
 export interface DefinitionsCreateRequest {
-  organization: string;
-  project: string;
-  apiVersion: string;
-  body: BuildDefinition;
-  definitionToCloneId?: number;
-  definitionToCloneRevision?: number;
+    organization: string;
+    project: string;
+    apiVersion: string;
+    body: BuildDefinition;
+    definitionToCloneId?: number;
+    definitionToCloneRevision?: number;
 }
 
 export interface DefinitionsDeleteRequest {
-  organization: string;
-  project: string;
-  definitionId: number;
-  apiVersion: string;
+    organization: string;
+    project: string;
+    definitionId: number;
+    apiVersion: string;
 }
 
 export interface DefinitionsGetRequest {
-  organization: string;
-  project: string;
-  definitionId: number;
-  apiVersion: string;
-  revision?: number;
-  minMetricsTime?: string;
-  propertyFilters?: string;
-  includeLatestBuilds?: boolean;
+    organization: string;
+    project: string;
+    definitionId: number;
+    apiVersion: string;
+    revision?: number;
+    minMetricsTime?: string;
+    propertyFilters?: string;
+    includeLatestBuilds?: boolean;
 }
 
 export interface DefinitionsGetDefinitionRevisionsRequest {
-  organization: string;
-  project: string;
-  definitionId: number;
-  apiVersion: string;
+    organization: string;
+    project: string;
+    definitionId: number;
+    apiVersion: string;
 }
 
 export interface DefinitionsListRequest {
-  organization: string;
-  project: string;
-  apiVersion: string;
-  name?: string;
-  repositoryId?: string;
-  repositoryType?: string;
-  queryOrder?: DefinitionsListQueryOrderEnum;
-  $top?: number;
-  continuationToken?: string;
-  minMetricsTime?: string;
-  definitionIds?: string;
-  path?: string;
-  builtAfter?: string;
-  notBuiltAfter?: string;
-  includeAllProperties?: boolean;
-  includeLatestBuilds?: boolean;
-  taskIdFilter?: string;
-  processType?: number;
-  yamlFilename?: string;
+    organization: string;
+    project: string;
+    apiVersion: string;
+    name?: string;
+    repositoryId?: string;
+    repositoryType?: string;
+    queryOrder?: DefinitionsListQueryOrderEnum;
+    $top?: number;
+    continuationToken?: string;
+    minMetricsTime?: string;
+    definitionIds?: string;
+    path?: string;
+    builtAfter?: string;
+    notBuiltAfter?: string;
+    includeAllProperties?: boolean;
+    includeLatestBuilds?: boolean;
+    taskIdFilter?: string;
+    processType?: number;
+    yamlFilename?: string;
 }
 
 export interface DefinitionsRestoreDefinitionRequest {
-  organization: string;
-  project: string;
-  definitionId: number;
-  deleted: boolean;
-  apiVersion: string;
+    organization: string;
+    project: string;
+    definitionId: number;
+    deleted: boolean;
+    apiVersion: string;
 }
 
 export interface DefinitionsUpdateRequest {
-  organization: string;
-  project: string;
-  definitionId: number;
-  apiVersion: string;
-  body: BuildDefinition;
-  secretsSourceDefinitionId?: number;
-  secretsSourceDefinitionRevision?: number;
+    organization: string;
+    project: string;
+    definitionId: number;
+    apiVersion: string;
+    body: BuildDefinition;
+    secretsSourceDefinitionId?: number;
+    secretsSourceDefinitionRevision?: number;
 }
 
 /**
  * no description
  */
 export class DefinitionsApi extends BaseAPI {
-  /**
-   * Creates a new definition.
-   */
-  definitionsCreate({
-    organization,
-    project,
-    apiVersion,
-    body,
-    definitionToCloneId,
-    definitionToCloneRevision
-  }: DefinitionsCreateRequest): Observable<BuildDefinition>;
-  definitionsCreate(
-    {
-      organization,
-      project,
-      apiVersion,
-      body,
-      definitionToCloneId,
-      definitionToCloneRevision
-    }: DefinitionsCreateRequest,
-    opts?: OperationOpts
-  ): Observable<AjaxResponse<BuildDefinition>>;
-  definitionsCreate(
-    {
-      organization,
-      project,
-      apiVersion,
-      body,
-      definitionToCloneId,
-      definitionToCloneRevision
-    }: DefinitionsCreateRequest,
-    opts?: OperationOpts
-  ): Observable<BuildDefinition | AjaxResponse<BuildDefinition>> {
-    throwIfNullOrUndefined(organization, 'organization', 'definitionsCreate');
-    throwIfNullOrUndefined(project, 'project', 'definitionsCreate');
-    throwIfNullOrUndefined(apiVersion, 'apiVersion', 'definitionsCreate');
-    throwIfNullOrUndefined(body, 'body', 'definitionsCreate');
 
-    const headers: HttpHeaders = {
-      'Content-Type': 'application/json',
-      // oauth required
-      ...(this.configuration.accessToken != null
-        ? {
-            Authorization:
-              typeof this.configuration.accessToken === 'function'
-                ? this.configuration.accessToken('oauth2', [
-                    'vso.build_execute'
-                  ])
-                : this.configuration.accessToken
-          }
-        : undefined)
+    /**
+     * Creates a new definition.
+     */
+    definitionsCreate({ organization, project, apiVersion, body, definitionToCloneId, definitionToCloneRevision }: DefinitionsCreateRequest): Observable<BuildDefinition>
+    definitionsCreate({ organization, project, apiVersion, body, definitionToCloneId, definitionToCloneRevision }: DefinitionsCreateRequest, opts?: OperationOpts): Observable<AjaxResponse<BuildDefinition>>
+    definitionsCreate({ organization, project, apiVersion, body, definitionToCloneId, definitionToCloneRevision }: DefinitionsCreateRequest, opts?: OperationOpts): Observable<BuildDefinition | AjaxResponse<BuildDefinition>> {
+        throwIfNullOrUndefined(organization, 'organization', 'definitionsCreate');
+        throwIfNullOrUndefined(project, 'project', 'definitionsCreate');
+        throwIfNullOrUndefined(apiVersion, 'apiVersion', 'definitionsCreate');
+        throwIfNullOrUndefined(body, 'body', 'definitionsCreate');
+
+        const headers: HttpHeaders = {
+            'Content-Type': 'application/json',
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['vso.build_execute'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
+        const query: HttpQuery = { // required parameters are used directly since they are already checked by throwIfNullOrUndefined
+            'api-version': apiVersion,
+        };
+
+        if (definitionToCloneId != null) { query['definitionToCloneId'] = definitionToCloneId; }
+        if (definitionToCloneRevision != null) { query['definitionToCloneRevision'] = definitionToCloneRevision; }
+
+        return this.request<BuildDefinition>({
+            url: '/{organization}/{project}/_apis/build/definitions'.replace('{organization}', encodeURI(organization)).replace('{project}', encodeURI(project)),
+            method: 'POST',
+            headers,
+            query,
+            body: body,
+        }, opts?.responseOpts);
     };
 
-    const query: HttpQuery = {
-      // required parameters are used directly since they are already checked by throwIfNullOrUndefined
-      'api-version': apiVersion
+    /**
+     * Deletes a definition and all associated builds.
+     */
+    definitionsDelete({ organization, project, definitionId, apiVersion }: DefinitionsDeleteRequest): Observable<void>
+    definitionsDelete({ organization, project, definitionId, apiVersion }: DefinitionsDeleteRequest, opts?: OperationOpts): Observable<void | AjaxResponse<void>>
+    definitionsDelete({ organization, project, definitionId, apiVersion }: DefinitionsDeleteRequest, opts?: OperationOpts): Observable<void | AjaxResponse<void>> {
+        throwIfNullOrUndefined(organization, 'organization', 'definitionsDelete');
+        throwIfNullOrUndefined(project, 'project', 'definitionsDelete');
+        throwIfNullOrUndefined(definitionId, 'definitionId', 'definitionsDelete');
+        throwIfNullOrUndefined(apiVersion, 'apiVersion', 'definitionsDelete');
+
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['vso.build_execute'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
+        const query: HttpQuery = { // required parameters are used directly since they are already checked by throwIfNullOrUndefined
+            'api-version': apiVersion,
+        };
+
+        return this.request<void>({
+            url: '/{organization}/{project}/_apis/build/definitions/{definitionId}'.replace('{organization}', encodeURI(organization)).replace('{project}', encodeURI(project)).replace('{definitionId}', encodeURI(definitionId)),
+            method: 'DELETE',
+            headers,
+            query,
+        }, opts?.responseOpts);
     };
 
-    if (definitionToCloneId != null) {
-      query['definitionToCloneId'] = definitionToCloneId;
-    }
-    if (definitionToCloneRevision != null) {
-      query['definitionToCloneRevision'] = definitionToCloneRevision;
-    }
+    /**
+     * Gets a definition, optionally at a specific revision.
+     */
+    definitionsGet({ organization, project, definitionId, apiVersion, revision, minMetricsTime, propertyFilters, includeLatestBuilds }: DefinitionsGetRequest): Observable<BuildDefinition>
+    definitionsGet({ organization, project, definitionId, apiVersion, revision, minMetricsTime, propertyFilters, includeLatestBuilds }: DefinitionsGetRequest, opts?: OperationOpts): Observable<AjaxResponse<BuildDefinition>>
+    definitionsGet({ organization, project, definitionId, apiVersion, revision, minMetricsTime, propertyFilters, includeLatestBuilds }: DefinitionsGetRequest, opts?: OperationOpts): Observable<BuildDefinition | AjaxResponse<BuildDefinition>> {
+        throwIfNullOrUndefined(organization, 'organization', 'definitionsGet');
+        throwIfNullOrUndefined(project, 'project', 'definitionsGet');
+        throwIfNullOrUndefined(definitionId, 'definitionId', 'definitionsGet');
+        throwIfNullOrUndefined(apiVersion, 'apiVersion', 'definitionsGet');
 
-    return this.request<BuildDefinition>(
-      {
-        url: '/{organization}/{project}/_apis/build/definitions'
-          .replace('{organization}', encodeURI(organization))
-          .replace('{project}', encodeURI(project)),
-        method: 'POST',
-        headers,
-        query,
-        body: body
-      },
-      opts?.responseOpts
-    );
-  }
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['vso.build'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
 
-  /**
-   * Deletes a definition and all associated builds.
-   */
-  definitionsDelete({
-    organization,
-    project,
-    definitionId,
-    apiVersion
-  }: DefinitionsDeleteRequest): Observable<void>;
-  definitionsDelete(
-    {
-      organization,
-      project,
-      definitionId,
-      apiVersion
-    }: DefinitionsDeleteRequest,
-    opts?: OperationOpts
-  ): Observable<void | AjaxResponse<void>>;
-  definitionsDelete(
-    {
-      organization,
-      project,
-      definitionId,
-      apiVersion
-    }: DefinitionsDeleteRequest,
-    opts?: OperationOpts
-  ): Observable<void | AjaxResponse<void>> {
-    throwIfNullOrUndefined(organization, 'organization', 'definitionsDelete');
-    throwIfNullOrUndefined(project, 'project', 'definitionsDelete');
-    throwIfNullOrUndefined(definitionId, 'definitionId', 'definitionsDelete');
-    throwIfNullOrUndefined(apiVersion, 'apiVersion', 'definitionsDelete');
+        const query: HttpQuery = { // required parameters are used directly since they are already checked by throwIfNullOrUndefined
+            'api-version': apiVersion,
+        };
 
-    const headers: HttpHeaders = {
-      // oauth required
-      ...(this.configuration.accessToken != null
-        ? {
-            Authorization:
-              typeof this.configuration.accessToken === 'function'
-                ? this.configuration.accessToken('oauth2', [
-                    'vso.build_execute'
-                  ])
-                : this.configuration.accessToken
-          }
-        : undefined)
+        if (revision != null) { query['revision'] = revision; }
+        if (minMetricsTime != null) { query['minMetricsTime'] = (minMetricsTime as any).toISOString(); }
+        if (propertyFilters != null) { query['propertyFilters'] = propertyFilters; }
+        if (includeLatestBuilds != null) { query['includeLatestBuilds'] = includeLatestBuilds; }
+
+        return this.request<BuildDefinition>({
+            url: '/{organization}/{project}/_apis/build/definitions/{definitionId}'.replace('{organization}', encodeURI(organization)).replace('{project}', encodeURI(project)).replace('{definitionId}', encodeURI(definitionId)),
+            method: 'GET',
+            headers,
+            query,
+        }, opts?.responseOpts);
     };
 
-    const query: HttpQuery = {
-      // required parameters are used directly since they are already checked by throwIfNullOrUndefined
-      'api-version': apiVersion
+    /**
+     * Gets all revisions of a definition.
+     */
+    definitionsGetDefinitionRevisions({ organization, project, definitionId, apiVersion }: DefinitionsGetDefinitionRevisionsRequest): Observable<Array<BuildDefinitionRevision>>
+    definitionsGetDefinitionRevisions({ organization, project, definitionId, apiVersion }: DefinitionsGetDefinitionRevisionsRequest, opts?: OperationOpts): Observable<AjaxResponse<Array<BuildDefinitionRevision>>>
+    definitionsGetDefinitionRevisions({ organization, project, definitionId, apiVersion }: DefinitionsGetDefinitionRevisionsRequest, opts?: OperationOpts): Observable<Array<BuildDefinitionRevision> | AjaxResponse<Array<BuildDefinitionRevision>>> {
+        throwIfNullOrUndefined(organization, 'organization', 'definitionsGetDefinitionRevisions');
+        throwIfNullOrUndefined(project, 'project', 'definitionsGetDefinitionRevisions');
+        throwIfNullOrUndefined(definitionId, 'definitionId', 'definitionsGetDefinitionRevisions');
+        throwIfNullOrUndefined(apiVersion, 'apiVersion', 'definitionsGetDefinitionRevisions');
+
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['vso.build'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
+        const query: HttpQuery = { // required parameters are used directly since they are already checked by throwIfNullOrUndefined
+            'api-version': apiVersion,
+        };
+
+        return this.request<Array<BuildDefinitionRevision>>({
+            url: '/{organization}/{project}/_apis/build/definitions/{definitionId}/revisions'.replace('{organization}', encodeURI(organization)).replace('{project}', encodeURI(project)).replace('{definitionId}', encodeURI(definitionId)),
+            method: 'GET',
+            headers,
+            query,
+        }, opts?.responseOpts);
     };
 
-    return this.request<void>(
-      {
-        url: '/{organization}/{project}/_apis/build/definitions/{definitionId}'
-          .replace('{organization}', encodeURI(organization))
-          .replace('{project}', encodeURI(project))
-          .replace('{definitionId}', encodeURI(definitionId)),
-        method: 'DELETE',
-        headers,
-        query
-      },
-      opts?.responseOpts
-    );
-  }
+    /**
+     * Gets a list of definitions.
+     */
+    definitionsList({ organization, project, apiVersion, name, repositoryId, repositoryType, queryOrder, $top, continuationToken, minMetricsTime, definitionIds, path, builtAfter, notBuiltAfter, includeAllProperties, includeLatestBuilds, taskIdFilter, processType, yamlFilename }: DefinitionsListRequest): Observable<Array<BuildDefinitionReference>>
+    definitionsList({ organization, project, apiVersion, name, repositoryId, repositoryType, queryOrder, $top, continuationToken, minMetricsTime, definitionIds, path, builtAfter, notBuiltAfter, includeAllProperties, includeLatestBuilds, taskIdFilter, processType, yamlFilename }: DefinitionsListRequest, opts?: OperationOpts): Observable<AjaxResponse<Array<BuildDefinitionReference>>>
+    definitionsList({ organization, project, apiVersion, name, repositoryId, repositoryType, queryOrder, $top, continuationToken, minMetricsTime, definitionIds, path, builtAfter, notBuiltAfter, includeAllProperties, includeLatestBuilds, taskIdFilter, processType, yamlFilename }: DefinitionsListRequest, opts?: OperationOpts): Observable<Array<BuildDefinitionReference> | AjaxResponse<Array<BuildDefinitionReference>>> {
+        throwIfNullOrUndefined(organization, 'organization', 'definitionsList');
+        throwIfNullOrUndefined(project, 'project', 'definitionsList');
+        throwIfNullOrUndefined(apiVersion, 'apiVersion', 'definitionsList');
 
-  /**
-   * Gets a definition, optionally at a specific revision.
-   */
-  definitionsGet({
-    organization,
-    project,
-    definitionId,
-    apiVersion,
-    revision,
-    minMetricsTime,
-    propertyFilters,
-    includeLatestBuilds
-  }: DefinitionsGetRequest): Observable<BuildDefinition>;
-  definitionsGet(
-    {
-      organization,
-      project,
-      definitionId,
-      apiVersion,
-      revision,
-      minMetricsTime,
-      propertyFilters,
-      includeLatestBuilds
-    }: DefinitionsGetRequest,
-    opts?: OperationOpts
-  ): Observable<AjaxResponse<BuildDefinition>>;
-  definitionsGet(
-    {
-      organization,
-      project,
-      definitionId,
-      apiVersion,
-      revision,
-      minMetricsTime,
-      propertyFilters,
-      includeLatestBuilds
-    }: DefinitionsGetRequest,
-    opts?: OperationOpts
-  ): Observable<BuildDefinition | AjaxResponse<BuildDefinition>> {
-    throwIfNullOrUndefined(organization, 'organization', 'definitionsGet');
-    throwIfNullOrUndefined(project, 'project', 'definitionsGet');
-    throwIfNullOrUndefined(definitionId, 'definitionId', 'definitionsGet');
-    throwIfNullOrUndefined(apiVersion, 'apiVersion', 'definitionsGet');
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['vso.build'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
 
-    const headers: HttpHeaders = {
-      // oauth required
-      ...(this.configuration.accessToken != null
-        ? {
-            Authorization:
-              typeof this.configuration.accessToken === 'function'
-                ? this.configuration.accessToken('oauth2', ['vso.build'])
-                : this.configuration.accessToken
-          }
-        : undefined)
+        const query: HttpQuery = { // required parameters are used directly since they are already checked by throwIfNullOrUndefined
+            'api-version': apiVersion,
+        };
+
+        if (name != null) { query['name'] = name; }
+        if (repositoryId != null) { query['repositoryId'] = repositoryId; }
+        if (repositoryType != null) { query['repositoryType'] = repositoryType; }
+        if (queryOrder != null) { query['queryOrder'] = queryOrder; }
+        if ($top != null) { query['$top'] = $top; }
+        if (continuationToken != null) { query['continuationToken'] = continuationToken; }
+        if (minMetricsTime != null) { query['minMetricsTime'] = (minMetricsTime as any).toISOString(); }
+        if (definitionIds != null) { query['definitionIds'] = definitionIds; }
+        if (path != null) { query['path'] = path; }
+        if (builtAfter != null) { query['builtAfter'] = (builtAfter as any).toISOString(); }
+        if (notBuiltAfter != null) { query['notBuiltAfter'] = (notBuiltAfter as any).toISOString(); }
+        if (includeAllProperties != null) { query['includeAllProperties'] = includeAllProperties; }
+        if (includeLatestBuilds != null) { query['includeLatestBuilds'] = includeLatestBuilds; }
+        if (taskIdFilter != null) { query['taskIdFilter'] = taskIdFilter; }
+        if (processType != null) { query['processType'] = processType; }
+        if (yamlFilename != null) { query['yamlFilename'] = yamlFilename; }
+
+        return this.request<Array<BuildDefinitionReference>>({
+            url: '/{organization}/{project}/_apis/build/definitions'.replace('{organization}', encodeURI(organization)).replace('{project}', encodeURI(project)),
+            method: 'GET',
+            headers,
+            query,
+        }, opts?.responseOpts);
     };
 
-    const query: HttpQuery = {
-      // required parameters are used directly since they are already checked by throwIfNullOrUndefined
-      'api-version': apiVersion
+    /**
+     * Restores a deleted definition
+     */
+    definitionsRestoreDefinition({ organization, project, definitionId, deleted, apiVersion }: DefinitionsRestoreDefinitionRequest): Observable<BuildDefinition>
+    definitionsRestoreDefinition({ organization, project, definitionId, deleted, apiVersion }: DefinitionsRestoreDefinitionRequest, opts?: OperationOpts): Observable<AjaxResponse<BuildDefinition>>
+    definitionsRestoreDefinition({ organization, project, definitionId, deleted, apiVersion }: DefinitionsRestoreDefinitionRequest, opts?: OperationOpts): Observable<BuildDefinition | AjaxResponse<BuildDefinition>> {
+        throwIfNullOrUndefined(organization, 'organization', 'definitionsRestoreDefinition');
+        throwIfNullOrUndefined(project, 'project', 'definitionsRestoreDefinition');
+        throwIfNullOrUndefined(definitionId, 'definitionId', 'definitionsRestoreDefinition');
+        throwIfNullOrUndefined(deleted, 'deleted', 'definitionsRestoreDefinition');
+        throwIfNullOrUndefined(apiVersion, 'apiVersion', 'definitionsRestoreDefinition');
+
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['vso.build_execute'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
+        const query: HttpQuery = { // required parameters are used directly since they are already checked by throwIfNullOrUndefined
+            'deleted': deleted,
+            'api-version': apiVersion,
+        };
+
+        return this.request<BuildDefinition>({
+            url: '/{organization}/{project}/_apis/build/definitions/{definitionId}'.replace('{organization}', encodeURI(organization)).replace('{project}', encodeURI(project)).replace('{definitionId}', encodeURI(definitionId)),
+            method: 'PATCH',
+            headers,
+            query,
+        }, opts?.responseOpts);
     };
 
-    if (revision != null) {
-      query['revision'] = revision;
-    }
-    if (minMetricsTime != null) {
-      query['minMetricsTime'] = (minMetricsTime as any).toISOString();
-    }
-    if (propertyFilters != null) {
-      query['propertyFilters'] = propertyFilters;
-    }
-    if (includeLatestBuilds != null) {
-      query['includeLatestBuilds'] = includeLatestBuilds;
-    }
+    /**
+     * Updates an existing build definition.  In order for this operation to succeed, the value of the \"Revision\" property of the request body must match the existing build definition\'s. It is recommended that you obtain the existing build definition by using GET, modify the build definition as necessary, and then submit the modified definition with PUT.
+     */
+    definitionsUpdate({ organization, project, definitionId, apiVersion, body, secretsSourceDefinitionId, secretsSourceDefinitionRevision }: DefinitionsUpdateRequest): Observable<BuildDefinition>
+    definitionsUpdate({ organization, project, definitionId, apiVersion, body, secretsSourceDefinitionId, secretsSourceDefinitionRevision }: DefinitionsUpdateRequest, opts?: OperationOpts): Observable<AjaxResponse<BuildDefinition>>
+    definitionsUpdate({ organization, project, definitionId, apiVersion, body, secretsSourceDefinitionId, secretsSourceDefinitionRevision }: DefinitionsUpdateRequest, opts?: OperationOpts): Observable<BuildDefinition | AjaxResponse<BuildDefinition>> {
+        throwIfNullOrUndefined(organization, 'organization', 'definitionsUpdate');
+        throwIfNullOrUndefined(project, 'project', 'definitionsUpdate');
+        throwIfNullOrUndefined(definitionId, 'definitionId', 'definitionsUpdate');
+        throwIfNullOrUndefined(apiVersion, 'apiVersion', 'definitionsUpdate');
+        throwIfNullOrUndefined(body, 'body', 'definitionsUpdate');
 
-    return this.request<BuildDefinition>(
-      {
-        url: '/{organization}/{project}/_apis/build/definitions/{definitionId}'
-          .replace('{organization}', encodeURI(organization))
-          .replace('{project}', encodeURI(project))
-          .replace('{definitionId}', encodeURI(definitionId)),
-        method: 'GET',
-        headers,
-        query
-      },
-      opts?.responseOpts
-    );
-  }
+        const headers: HttpHeaders = {
+            'Content-Type': 'application/json',
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['vso.build_execute'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
 
-  /**
-   * Gets all revisions of a definition.
-   */
-  definitionsGetDefinitionRevisions({
-    organization,
-    project,
-    definitionId,
-    apiVersion
-  }: DefinitionsGetDefinitionRevisionsRequest): Observable<
-    Array<BuildDefinitionRevision>
-  >;
-  definitionsGetDefinitionRevisions(
-    {
-      organization,
-      project,
-      definitionId,
-      apiVersion
-    }: DefinitionsGetDefinitionRevisionsRequest,
-    opts?: OperationOpts
-  ): Observable<AjaxResponse<Array<BuildDefinitionRevision>>>;
-  definitionsGetDefinitionRevisions(
-    {
-      organization,
-      project,
-      definitionId,
-      apiVersion
-    }: DefinitionsGetDefinitionRevisionsRequest,
-    opts?: OperationOpts
-  ): Observable<
-    | Array<BuildDefinitionRevision>
-    | AjaxResponse<Array<BuildDefinitionRevision>>
-  > {
-    throwIfNullOrUndefined(
-      organization,
-      'organization',
-      'definitionsGetDefinitionRevisions'
-    );
-    throwIfNullOrUndefined(
-      project,
-      'project',
-      'definitionsGetDefinitionRevisions'
-    );
-    throwIfNullOrUndefined(
-      definitionId,
-      'definitionId',
-      'definitionsGetDefinitionRevisions'
-    );
-    throwIfNullOrUndefined(
-      apiVersion,
-      'apiVersion',
-      'definitionsGetDefinitionRevisions'
-    );
+        const query: HttpQuery = { // required parameters are used directly since they are already checked by throwIfNullOrUndefined
+            'api-version': apiVersion,
+        };
 
-    const headers: HttpHeaders = {
-      // oauth required
-      ...(this.configuration.accessToken != null
-        ? {
-            Authorization:
-              typeof this.configuration.accessToken === 'function'
-                ? this.configuration.accessToken('oauth2', ['vso.build'])
-                : this.configuration.accessToken
-          }
-        : undefined)
+        if (secretsSourceDefinitionId != null) { query['secretsSourceDefinitionId'] = secretsSourceDefinitionId; }
+        if (secretsSourceDefinitionRevision != null) { query['secretsSourceDefinitionRevision'] = secretsSourceDefinitionRevision; }
+
+        return this.request<BuildDefinition>({
+            url: '/{organization}/{project}/_apis/build/definitions/{definitionId}'.replace('{organization}', encodeURI(organization)).replace('{project}', encodeURI(project)).replace('{definitionId}', encodeURI(definitionId)),
+            method: 'PUT',
+            headers,
+            query,
+            body: body,
+        }, opts?.responseOpts);
     };
 
-    const query: HttpQuery = {
-      // required parameters are used directly since they are already checked by throwIfNullOrUndefined
-      'api-version': apiVersion
-    };
-
-    return this.request<Array<BuildDefinitionRevision>>(
-      {
-        url: '/{organization}/{project}/_apis/build/definitions/{definitionId}/revisions'
-          .replace('{organization}', encodeURI(organization))
-          .replace('{project}', encodeURI(project))
-          .replace('{definitionId}', encodeURI(definitionId)),
-        method: 'GET',
-        headers,
-        query
-      },
-      opts?.responseOpts
-    );
-  }
-
-  /**
-   * Gets a list of definitions.
-   */
-  definitionsList({
-    organization,
-    project,
-    apiVersion,
-    name,
-    repositoryId,
-    repositoryType,
-    queryOrder,
-    $top,
-    continuationToken,
-    minMetricsTime,
-    definitionIds,
-    path,
-    builtAfter,
-    notBuiltAfter,
-    includeAllProperties,
-    includeLatestBuilds,
-    taskIdFilter,
-    processType,
-    yamlFilename
-  }: DefinitionsListRequest): Observable<Array<BuildDefinitionReference>>;
-  definitionsList(
-    {
-      organization,
-      project,
-      apiVersion,
-      name,
-      repositoryId,
-      repositoryType,
-      queryOrder,
-      $top,
-      continuationToken,
-      minMetricsTime,
-      definitionIds,
-      path,
-      builtAfter,
-      notBuiltAfter,
-      includeAllProperties,
-      includeLatestBuilds,
-      taskIdFilter,
-      processType,
-      yamlFilename
-    }: DefinitionsListRequest,
-    opts?: OperationOpts
-  ): Observable<AjaxResponse<Array<BuildDefinitionReference>>>;
-  definitionsList(
-    {
-      organization,
-      project,
-      apiVersion,
-      name,
-      repositoryId,
-      repositoryType,
-      queryOrder,
-      $top,
-      continuationToken,
-      minMetricsTime,
-      definitionIds,
-      path,
-      builtAfter,
-      notBuiltAfter,
-      includeAllProperties,
-      includeLatestBuilds,
-      taskIdFilter,
-      processType,
-      yamlFilename
-    }: DefinitionsListRequest,
-    opts?: OperationOpts
-  ): Observable<
-    | Array<BuildDefinitionReference>
-    | AjaxResponse<Array<BuildDefinitionReference>>
-  > {
-    throwIfNullOrUndefined(organization, 'organization', 'definitionsList');
-    throwIfNullOrUndefined(project, 'project', 'definitionsList');
-    throwIfNullOrUndefined(apiVersion, 'apiVersion', 'definitionsList');
-
-    const headers: HttpHeaders = {
-      // oauth required
-      ...(this.configuration.accessToken != null
-        ? {
-            Authorization:
-              typeof this.configuration.accessToken === 'function'
-                ? this.configuration.accessToken('oauth2', ['vso.build'])
-                : this.configuration.accessToken
-          }
-        : undefined)
-    };
-
-    const query: HttpQuery = {
-      // required parameters are used directly since they are already checked by throwIfNullOrUndefined
-      'api-version': apiVersion
-    };
-
-    if (name != null) {
-      query['name'] = name;
-    }
-    if (repositoryId != null) {
-      query['repositoryId'] = repositoryId;
-    }
-    if (repositoryType != null) {
-      query['repositoryType'] = repositoryType;
-    }
-    if (queryOrder != null) {
-      query['queryOrder'] = queryOrder;
-    }
-    if ($top != null) {
-      query['$top'] = $top;
-    }
-    if (continuationToken != null) {
-      query['continuationToken'] = continuationToken;
-    }
-    if (minMetricsTime != null) {
-      query['minMetricsTime'] = (minMetricsTime as any).toISOString();
-    }
-    if (definitionIds != null) {
-      query['definitionIds'] = definitionIds;
-    }
-    if (path != null) {
-      query['path'] = path;
-    }
-    if (builtAfter != null) {
-      query['builtAfter'] = (builtAfter as any).toISOString();
-    }
-    if (notBuiltAfter != null) {
-      query['notBuiltAfter'] = (notBuiltAfter as any).toISOString();
-    }
-    if (includeAllProperties != null) {
-      query['includeAllProperties'] = includeAllProperties;
-    }
-    if (includeLatestBuilds != null) {
-      query['includeLatestBuilds'] = includeLatestBuilds;
-    }
-    if (taskIdFilter != null) {
-      query['taskIdFilter'] = taskIdFilter;
-    }
-    if (processType != null) {
-      query['processType'] = processType;
-    }
-    if (yamlFilename != null) {
-      query['yamlFilename'] = yamlFilename;
-    }
-
-    return this.request<Array<BuildDefinitionReference>>(
-      {
-        url: '/{organization}/{project}/_apis/build/definitions'
-          .replace('{organization}', encodeURI(organization))
-          .replace('{project}', encodeURI(project)),
-        method: 'GET',
-        headers,
-        query
-      },
-      opts?.responseOpts
-    );
-  }
-
-  /**
-   * Restores a deleted definition
-   */
-  definitionsRestoreDefinition({
-    organization,
-    project,
-    definitionId,
-    deleted,
-    apiVersion
-  }: DefinitionsRestoreDefinitionRequest): Observable<BuildDefinition>;
-  definitionsRestoreDefinition(
-    {
-      organization,
-      project,
-      definitionId,
-      deleted,
-      apiVersion
-    }: DefinitionsRestoreDefinitionRequest,
-    opts?: OperationOpts
-  ): Observable<AjaxResponse<BuildDefinition>>;
-  definitionsRestoreDefinition(
-    {
-      organization,
-      project,
-      definitionId,
-      deleted,
-      apiVersion
-    }: DefinitionsRestoreDefinitionRequest,
-    opts?: OperationOpts
-  ): Observable<BuildDefinition | AjaxResponse<BuildDefinition>> {
-    throwIfNullOrUndefined(
-      organization,
-      'organization',
-      'definitionsRestoreDefinition'
-    );
-    throwIfNullOrUndefined(project, 'project', 'definitionsRestoreDefinition');
-    throwIfNullOrUndefined(
-      definitionId,
-      'definitionId',
-      'definitionsRestoreDefinition'
-    );
-    throwIfNullOrUndefined(deleted, 'deleted', 'definitionsRestoreDefinition');
-    throwIfNullOrUndefined(
-      apiVersion,
-      'apiVersion',
-      'definitionsRestoreDefinition'
-    );
-
-    const headers: HttpHeaders = {
-      // oauth required
-      ...(this.configuration.accessToken != null
-        ? {
-            Authorization:
-              typeof this.configuration.accessToken === 'function'
-                ? this.configuration.accessToken('oauth2', [
-                    'vso.build_execute'
-                  ])
-                : this.configuration.accessToken
-          }
-        : undefined)
-    };
-
-    const query: HttpQuery = {
-      // required parameters are used directly since they are already checked by throwIfNullOrUndefined
-      deleted: deleted,
-      'api-version': apiVersion
-    };
-
-    return this.request<BuildDefinition>(
-      {
-        url: '/{organization}/{project}/_apis/build/definitions/{definitionId}'
-          .replace('{organization}', encodeURI(organization))
-          .replace('{project}', encodeURI(project))
-          .replace('{definitionId}', encodeURI(definitionId)),
-        method: 'PATCH',
-        headers,
-        query
-      },
-      opts?.responseOpts
-    );
-  }
-
-  /**
-   * Updates an existing build definition.  In order for this operation to succeed, the value of the \"Revision\" property of the request body must match the existing build definition\'s. It is recommended that you obtain the existing build definition by using GET, modify the build definition as necessary, and then submit the modified definition with PUT.
-   */
-  definitionsUpdate({
-    organization,
-    project,
-    definitionId,
-    apiVersion,
-    body,
-    secretsSourceDefinitionId,
-    secretsSourceDefinitionRevision
-  }: DefinitionsUpdateRequest): Observable<BuildDefinition>;
-  definitionsUpdate(
-    {
-      organization,
-      project,
-      definitionId,
-      apiVersion,
-      body,
-      secretsSourceDefinitionId,
-      secretsSourceDefinitionRevision
-    }: DefinitionsUpdateRequest,
-    opts?: OperationOpts
-  ): Observable<AjaxResponse<BuildDefinition>>;
-  definitionsUpdate(
-    {
-      organization,
-      project,
-      definitionId,
-      apiVersion,
-      body,
-      secretsSourceDefinitionId,
-      secretsSourceDefinitionRevision
-    }: DefinitionsUpdateRequest,
-    opts?: OperationOpts
-  ): Observable<BuildDefinition | AjaxResponse<BuildDefinition>> {
-    throwIfNullOrUndefined(organization, 'organization', 'definitionsUpdate');
-    throwIfNullOrUndefined(project, 'project', 'definitionsUpdate');
-    throwIfNullOrUndefined(definitionId, 'definitionId', 'definitionsUpdate');
-    throwIfNullOrUndefined(apiVersion, 'apiVersion', 'definitionsUpdate');
-    throwIfNullOrUndefined(body, 'body', 'definitionsUpdate');
-
-    const headers: HttpHeaders = {
-      'Content-Type': 'application/json',
-      // oauth required
-      ...(this.configuration.accessToken != null
-        ? {
-            Authorization:
-              typeof this.configuration.accessToken === 'function'
-                ? this.configuration.accessToken('oauth2', [
-                    'vso.build_execute'
-                  ])
-                : this.configuration.accessToken
-          }
-        : undefined)
-    };
-
-    const query: HttpQuery = {
-      // required parameters are used directly since they are already checked by throwIfNullOrUndefined
-      'api-version': apiVersion
-    };
-
-    if (secretsSourceDefinitionId != null) {
-      query['secretsSourceDefinitionId'] = secretsSourceDefinitionId;
-    }
-    if (secretsSourceDefinitionRevision != null) {
-      query['secretsSourceDefinitionRevision'] =
-        secretsSourceDefinitionRevision;
-    }
-
-    return this.request<BuildDefinition>(
-      {
-        url: '/{organization}/{project}/_apis/build/definitions/{definitionId}'
-          .replace('{organization}', encodeURI(organization))
-          .replace('{project}', encodeURI(project))
-          .replace('{definitionId}', encodeURI(definitionId)),
-        method: 'PUT',
-        headers,
-        query,
-        body: body
-      },
-      opts?.responseOpts
-    );
-  }
 }
 
 /**
@@ -746,9 +372,9 @@ export class DefinitionsApi extends BaseAPI {
  * @enum {string}
  */
 export enum DefinitionsListQueryOrderEnum {
-  None = 'none',
-  LastModifiedAscending = 'lastModifiedAscending',
-  LastModifiedDescending = 'lastModifiedDescending',
-  DefinitionNameAscending = 'definitionNameAscending',
-  DefinitionNameDescending = 'definitionNameDescending'
+    None = 'none',
+    LastModifiedAscending = 'lastModifiedAscending',
+    LastModifiedDescending = 'lastModifiedDescending',
+    DefinitionNameAscending = 'definitionNameAscending',
+    DefinitionNameDescending = 'definitionNameDescending'
 }

@@ -12,35 +12,35 @@
  */
 
 /**
- *
+ * 
  * @export
  * @interface SupportedTrigger
  */
 export interface SupportedTrigger {
-  /**
-   * The default interval to wait between polls (only relevant when NotificationType is Polling).
-   * @type {number}
-   * @memberof SupportedTrigger
-   */
-  defaultPollingInterval?: number;
-  /**
-   * How the trigger is notified of changes.
-   * @type {string}
-   * @memberof SupportedTrigger
-   */
-  notificationType?: string;
-  /**
-   * The capabilities supported by this trigger.
-   * @type {{ [key: string]: object; }}
-   * @memberof SupportedTrigger
-   */
-  supportedCapabilities?: { [key: string]: object };
-  /**
-   * The type of trigger.
-   * @type {string}
-   * @memberof SupportedTrigger
-   */
-  type?: SupportedTriggerTypeEnum;
+    /**
+     * The default interval to wait between polls (only relevant when NotificationType is Polling).
+     * @type {number}
+     * @memberof SupportedTrigger
+     */
+    defaultPollingInterval?: number;
+    /**
+     * How the trigger is notified of changes.
+     * @type {string}
+     * @memberof SupportedTrigger
+     */
+    notificationType?: string;
+    /**
+     * The capabilities supported by this trigger.
+     * @type {{ [key: string]: object; }}
+     * @memberof SupportedTrigger
+     */
+    supportedCapabilities?: { [key: string]: object; };
+    /**
+     * The type of trigger.
+     * @type {string}
+     * @memberof SupportedTrigger
+     */
+    type?: SupportedTriggerTypeEnum;
 }
 
 /**
@@ -48,13 +48,14 @@ export interface SupportedTrigger {
  * @enum {string}
  */
 export enum SupportedTriggerTypeEnum {
-  None = 'none',
-  ContinuousIntegration = 'continuousIntegration',
-  BatchedContinuousIntegration = 'batchedContinuousIntegration',
-  Schedule = 'schedule',
-  GatedCheckIn = 'gatedCheckIn',
-  BatchedGatedCheckIn = 'batchedGatedCheckIn',
-  PullRequest = 'pullRequest',
-  BuildCompletion = 'buildCompletion',
-  All = 'all'
+    None = 'none',
+    ContinuousIntegration = 'continuousIntegration',
+    BatchedContinuousIntegration = 'batchedContinuousIntegration',
+    Schedule = 'schedule',
+    GatedCheckIn = 'gatedCheckIn',
+    BatchedGatedCheckIn = 'batchedGatedCheckIn',
+    PullRequest = 'pullRequest',
+    BuildCompletion = 'buildCompletion',
+    All = 'all'
 }
+

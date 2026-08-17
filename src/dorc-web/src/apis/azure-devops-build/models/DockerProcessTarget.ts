@@ -11,7 +11,10 @@
  * Do not edit the class manually.
  */
 
-import type { DesignerProcessTarget } from './index';
+import type {
+    AgentSpecification,
+    DesignerProcessTarget,
+} from './';
 
 /**
  * @type DockerProcessTarget

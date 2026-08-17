@@ -17,22 +17,22 @@
  * @interface BuildOptionGroupDefinition
  */
 export interface BuildOptionGroupDefinition {
-  /**
-   * The name of the group to display in the UI.
-   * @type {string}
-   * @memberof BuildOptionGroupDefinition
-   */
-  displayName?: string;
-  /**
-   * Indicates whether the group is initially displayed as expanded in the UI.
-   * @type {boolean}
-   * @memberof BuildOptionGroupDefinition
-   */
-  isExpanded?: boolean;
-  /**
-   * The internal name of the group.
-   * @type {string}
-   * @memberof BuildOptionGroupDefinition
-   */
-  name?: string;
+    /**
+     * The name of the group to display in the UI.
+     * @type {string}
+     * @memberof BuildOptionGroupDefinition
+     */
+    displayName?: string;
+    /**
+     * Indicates whether the group is initially displayed as expanded in the UI.
+     * @type {boolean}
+     * @memberof BuildOptionGroupDefinition
+     */
+    isExpanded?: boolean;
+    /**
+     * The internal name of the group.
+     * @type {string}
+     * @memberof BuildOptionGroupDefinition
+     */
+    name?: string;
 }

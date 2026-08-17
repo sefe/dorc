@@ -11,9 +11,14 @@
  * Do not edit the class manually.
  */
 
+import type {
+    JsonPatchOperation,
+} from './';
+
 /**
  * The JSON model for JSON Patch Operations
  * @export
  * @interface JsonPatchDocument
  */
-export interface JsonPatchDocument {}
+export interface JsonPatchDocument {
+}

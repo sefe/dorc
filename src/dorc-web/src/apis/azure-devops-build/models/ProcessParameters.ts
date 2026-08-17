@@ -12,30 +12,30 @@
  */
 
 import type {
-  DataSourceBindingBase,
-  TaskInputDefinitionBase,
-  TaskSourceDefinitionBase
-} from './index';
+    DataSourceBindingBase,
+    TaskInputDefinitionBase,
+    TaskSourceDefinitionBase,
+} from './';
 
 /**
- *
+ * 
  * @export
  * @interface ProcessParameters
  */
 export interface ProcessParameters {
-  /**
-   * @type {Array<DataSourceBindingBase>}
-   * @memberof ProcessParameters
-   */
-  dataSourceBindings?: Array<DataSourceBindingBase>;
-  /**
-   * @type {Array<TaskInputDefinitionBase>}
-   * @memberof ProcessParameters
-   */
-  inputs?: Array<TaskInputDefinitionBase>;
-  /**
-   * @type {Array<TaskSourceDefinitionBase>}
-   * @memberof ProcessParameters
-   */
-  sourceDefinitions?: Array<TaskSourceDefinitionBase>;
+    /**
+     * @type {Array<DataSourceBindingBase>}
+     * @memberof ProcessParameters
+     */
+    dataSourceBindings?: Array<DataSourceBindingBase>;
+    /**
+     * @type {Array<TaskInputDefinitionBase>}
+     * @memberof ProcessParameters
+     */
+    inputs?: Array<TaskInputDefinitionBase>;
+    /**
+     * @type {Array<TaskSourceDefinitionBase>}
+     * @memberof ProcessParameters
+     */
+    sourceDefinitions?: Array<TaskSourceDefinitionBase>;
 }

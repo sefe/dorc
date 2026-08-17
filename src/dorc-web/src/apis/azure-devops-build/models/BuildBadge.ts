@@ -17,16 +17,16 @@
  * @interface BuildBadge
  */
 export interface BuildBadge {
-  /**
-   * The ID of the build represented by this badge.
-   * @type {number}
-   * @memberof BuildBadge
-   */
-  buildId?: number;
-  /**
-   * A link to the SVG resource.
-   * @type {string}
-   * @memberof BuildBadge
-   */
-  imageUrl?: string;
+    /**
+     * The ID of the build represented by this badge.
+     * @type {number}
+     * @memberof BuildBadge
+     */
+    buildId?: number;
+    /**
+     * A link to the SVG resource.
+     * @type {string}
+     * @memberof BuildBadge
+     */
+    imageUrl?: string;
 }

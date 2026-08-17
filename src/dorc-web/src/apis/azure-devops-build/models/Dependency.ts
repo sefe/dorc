@@ -17,16 +17,16 @@
  * @interface Dependency
  */
 export interface Dependency {
-  /**
-   * The event. The dependency is satisfied when the referenced object emits this event.
-   * @type {string}
-   * @memberof Dependency
-   */
-  event?: string;
-  /**
-   * The scope. This names the object referenced by the dependency.
-   * @type {string}
-   * @memberof Dependency
-   */
-  scope?: string;
+    /**
+     * The event. The dependency is satisfied when the referenced object emits this event.
+     * @type {string}
+     * @memberof Dependency
+     */
+    event?: string;
+    /**
+     * The scope. This names the object referenced by the dependency.
+     * @type {string}
+     * @memberof Dependency
+     */
+    scope?: string;
 }

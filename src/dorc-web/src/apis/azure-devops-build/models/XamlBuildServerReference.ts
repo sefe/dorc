@@ -12,27 +12,27 @@
  */
 
 /**
- *
+ * 
  * @export
  * @interface XamlBuildServerReference
  */
 export interface XamlBuildServerReference {
-  /**
-   * Id of the resource
-   * @type {number}
-   * @memberof XamlBuildServerReference
-   */
-  id?: number;
-  /**
-   * Name of the linked resource (definition name, controller name, etc.)
-   * @type {string}
-   * @memberof XamlBuildServerReference
-   */
-  name?: string;
-  /**
-   * Full http link to the resource
-   * @type {string}
-   * @memberof XamlBuildServerReference
-   */
-  url?: string;
+    /**
+     * Id of the resource
+     * @type {number}
+     * @memberof XamlBuildServerReference
+     */
+    id?: number;
+    /**
+     * Name of the linked resource (definition name, controller name, etc.)
+     * @type {string}
+     * @memberof XamlBuildServerReference
+     */
+    name?: string;
+    /**
+     * Full http link to the resource
+     * @type {string}
+     * @memberof XamlBuildServerReference
+     */
+    url?: string;
 }

@@ -17,64 +17,64 @@
  * @interface ReleaseReference
  */
 export interface ReleaseReference {
-  /**
-   * Number of Release Attempt.
-   * @type {number}
-   * @memberof ReleaseReference
-   */
-  attempt?: number;
-  /**
-   * Release Creation Date(UTC).
-   * @type {string}
-   * @memberof ReleaseReference
-   */
-  creationDate?: string;
-  /**
-   * Release definition ID.
-   * @type {number}
-   * @memberof ReleaseReference
-   */
-  definitionId?: number;
-  /**
-   * Environment creation Date(UTC).
-   * @type {string}
-   * @memberof ReleaseReference
-   */
-  environmentCreationDate?: string;
-  /**
-   * Release environment definition ID.
-   * @type {number}
-   * @memberof ReleaseReference
-   */
-  environmentDefinitionId?: number;
-  /**
-   * Release environment definition name.
-   * @type {string}
-   * @memberof ReleaseReference
-   */
-  environmentDefinitionName?: string;
-  /**
-   * Release environment ID.
-   * @type {number}
-   * @memberof ReleaseReference
-   */
-  environmentId?: number;
-  /**
-   * Release environment name.
-   * @type {string}
-   * @memberof ReleaseReference
-   */
-  environmentName?: string;
-  /**
-   * Release ID.
-   * @type {number}
-   * @memberof ReleaseReference
-   */
-  id?: number;
-  /**
-   * Release name.
-   * @type {string}
-   * @memberof ReleaseReference
-   */
-  name?: string;
+    /**
+     * Number of Release Attempt.
+     * @type {number}
+     * @memberof ReleaseReference
+     */
+    attempt?: number;
+    /**
+     * Release Creation Date(UTC).
+     * @type {string}
+     * @memberof ReleaseReference
+     */
+    creationDate?: string;
+    /**
+     * Release definition ID.
+     * @type {number}
+     * @memberof ReleaseReference
+     */
+    definitionId?: number;
+    /**
+     * Environment creation Date(UTC).
+     * @type {string}
+     * @memberof ReleaseReference
+     */
+    environmentCreationDate?: string;
+    /**
+     * Release environment definition ID.
+     * @type {number}
+     * @memberof ReleaseReference
+     */
+    environmentDefinitionId?: number;
+    /**
+     * Release environment definition name.
+     * @type {string}
+     * @memberof ReleaseReference
+     */
+    environmentDefinitionName?: string;
+    /**
+     * Release environment ID.
+     * @type {number}
+     * @memberof ReleaseReference
+     */
+    environmentId?: number;
+    /**
+     * Release environment name.
+     * @type {string}
+     * @memberof ReleaseReference
+     */
+    environmentName?: string;
+    /**
+     * Release ID.
+     * @type {number}
+     * @memberof ReleaseReference
+     */
+    id?: number;
+    /**
+     * Release name.
+     * @type {string}
+     * @memberof ReleaseReference
+     */
+    name?: string;
 }

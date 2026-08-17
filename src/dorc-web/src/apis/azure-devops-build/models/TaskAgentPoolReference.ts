@@ -17,22 +17,22 @@
  * @interface TaskAgentPoolReference
  */
 export interface TaskAgentPoolReference {
-  /**
-   * The pool ID.
-   * @type {number}
-   * @memberof TaskAgentPoolReference
-   */
-  id?: number;
-  /**
-   * A value indicating whether or not this pool is managed by the service.
-   * @type {boolean}
-   * @memberof TaskAgentPoolReference
-   */
-  isHosted?: boolean;
-  /**
-   * The pool name.
-   * @type {string}
-   * @memberof TaskAgentPoolReference
-   */
-  name?: string;
+    /**
+     * The pool ID.
+     * @type {number}
+     * @memberof TaskAgentPoolReference
+     */
+    id?: number;
+    /**
+     * A value indicating whether or not this pool is managed by the service.
+     * @type {boolean}
+     * @memberof TaskAgentPoolReference
+     */
+    isHosted?: boolean;
+    /**
+     * The pool name.
+     * @type {string}
+     * @memberof TaskAgentPoolReference
+     */
+    name?: string;
 }

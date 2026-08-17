@@ -11,7 +11,10 @@
  * Do not edit the class manually.
  */
 
-import type { BuildProcess } from './index';
+import type {
+    BuildProcess,
+    BuildProcessResources,
+} from './';
 
 /**
  * @type YamlProcess

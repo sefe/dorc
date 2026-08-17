@@ -17,22 +17,22 @@
  * @interface BuildDefinitionVariable
  */
 export interface BuildDefinitionVariable {
-  /**
-   * Indicates whether the value can be set at queue time.
-   * @type {boolean}
-   * @memberof BuildDefinitionVariable
-   */
-  allowOverride?: boolean;
-  /**
-   * Indicates whether the variable\'s value is a secret.
-   * @type {boolean}
-   * @memberof BuildDefinitionVariable
-   */
-  isSecret?: boolean;
-  /**
-   * The value of the variable.
-   * @type {string}
-   * @memberof BuildDefinitionVariable
-   */
-  value?: string;
+    /**
+     * Indicates whether the value can be set at queue time.
+     * @type {boolean}
+     * @memberof BuildDefinitionVariable
+     */
+    allowOverride?: boolean;
+    /**
+     * Indicates whether the variable\'s value is a secret.
+     * @type {boolean}
+     * @memberof BuildDefinitionVariable
+     */
+    isSecret?: boolean;
+    /**
+     * The value of the variable.
+     * @type {string}
+     * @memberof BuildDefinitionVariable
+     */
+    value?: string;
 }

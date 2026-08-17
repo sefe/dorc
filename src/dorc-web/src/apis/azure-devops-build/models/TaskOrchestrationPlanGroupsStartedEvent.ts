@@ -11,17 +11,19 @@
  * Do not edit the class manually.
  */
 
-import type { TaskOrchestrationPlanGroupReference } from './index';
+import type {
+    TaskOrchestrationPlanGroupReference,
+} from './';
 
 /**
- *
+ * 
  * @export
  * @interface TaskOrchestrationPlanGroupsStartedEvent
  */
 export interface TaskOrchestrationPlanGroupsStartedEvent {
-  /**
-   * @type {Array<TaskOrchestrationPlanGroupReference>}
-   * @memberof TaskOrchestrationPlanGroupsStartedEvent
-   */
-  planGroups?: Array<TaskOrchestrationPlanGroupReference>;
+    /**
+     * @type {Array<TaskOrchestrationPlanGroupReference>}
+     * @memberof TaskOrchestrationPlanGroupsStartedEvent
+     */
+    planGroups?: Array<TaskOrchestrationPlanGroupReference>;
 }

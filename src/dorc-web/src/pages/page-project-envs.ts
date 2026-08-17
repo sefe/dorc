@@ -422,7 +422,7 @@ export class PageProjectEnvs extends PageElement {
       const api = new AccessControlApi();
       api
         .accessControlGet({
-          accessControlType: AccessControlType.NUMBER_0,
+          accessControlType: AccessControlType.Project,
           accessControlName: this.project
         })
         .subscribe({
@@ -444,7 +444,7 @@ export class PageProjectEnvs extends PageElement {
 
   openAccessControl(e: CustomEvent) {
     this.secureName = e.detail.Name as string;
-    const type = e.detail.Type as number;
+    const type = e.detail.Type as AccessControlType;
 
     const addEditAccessControl = this.shadowRoot?.getElementById(
       'add-edit-access-control'

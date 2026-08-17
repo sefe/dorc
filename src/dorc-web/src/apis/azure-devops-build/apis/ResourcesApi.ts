@@ -13,176 +13,97 @@
 
 import type { Observable } from 'rxjs';
 import type { AjaxResponse } from 'rxjs/ajax';
-import type { HttpHeaders, HttpQuery, OperationOpts } from '../runtime';
-import { BaseAPI, encodeURI, throwIfNullOrUndefined } from '../runtime';
-import type { DefinitionResourceReference } from '../models';
+import { BaseAPI, throwIfNullOrUndefined, encodeURI } from '../runtime';
+import type { OperationOpts, HttpHeaders, HttpQuery } from '../runtime';
+import type {
+    DefinitionResourceReference,
+} from '../models';
 
 export interface ResourcesAuthorizeDefinitionResourcesRequest {
-  organization: string;
-  project: string;
-  definitionId: number;
-  apiVersion: string;
-  body: Array<DefinitionResourceReference>;
+    organization: string;
+    project: string;
+    definitionId: number;
+    apiVersion: string;
+    body: Array<DefinitionResourceReference>;
 }
 
 export interface ResourcesListRequest {
-  organization: string;
-  project: string;
-  definitionId: number;
-  apiVersion: string;
+    organization: string;
+    project: string;
+    definitionId: number;
+    apiVersion: string;
 }
 
 /**
  * no description
  */
 export class ResourcesApi extends BaseAPI {
-  /**
-   */
-  resourcesAuthorizeDefinitionResources({
-    organization,
-    project,
-    definitionId,
-    apiVersion,
-    body
-  }: ResourcesAuthorizeDefinitionResourcesRequest): Observable<
-    Array<DefinitionResourceReference>
-  >;
-  resourcesAuthorizeDefinitionResources(
-    {
-      organization,
-      project,
-      definitionId,
-      apiVersion,
-      body
-    }: ResourcesAuthorizeDefinitionResourcesRequest,
-    opts?: OperationOpts
-  ): Observable<AjaxResponse<Array<DefinitionResourceReference>>>;
-  resourcesAuthorizeDefinitionResources(
-    {
-      organization,
-      project,
-      definitionId,
-      apiVersion,
-      body
-    }: ResourcesAuthorizeDefinitionResourcesRequest,
-    opts?: OperationOpts
-  ): Observable<
-    | Array<DefinitionResourceReference>
-    | AjaxResponse<Array<DefinitionResourceReference>>
-  > {
-    throwIfNullOrUndefined(
-      organization,
-      'organization',
-      'resourcesAuthorizeDefinitionResources'
-    );
-    throwIfNullOrUndefined(
-      project,
-      'project',
-      'resourcesAuthorizeDefinitionResources'
-    );
-    throwIfNullOrUndefined(
-      definitionId,
-      'definitionId',
-      'resourcesAuthorizeDefinitionResources'
-    );
-    throwIfNullOrUndefined(
-      apiVersion,
-      'apiVersion',
-      'resourcesAuthorizeDefinitionResources'
-    );
-    throwIfNullOrUndefined(
-      body,
-      'body',
-      'resourcesAuthorizeDefinitionResources'
-    );
 
-    const headers: HttpHeaders = {
-      'Content-Type': 'application/json',
-      // oauth required
-      ...(this.configuration.accessToken != null
-        ? {
-            Authorization:
-              typeof this.configuration.accessToken === 'function'
-                ? this.configuration.accessToken('oauth2', [
-                    'vso.build_execute'
-                  ])
-                : this.configuration.accessToken
-          }
-        : undefined)
+    /**
+     */
+    resourcesAuthorizeDefinitionResources({ organization, project, definitionId, apiVersion, body }: ResourcesAuthorizeDefinitionResourcesRequest): Observable<Array<DefinitionResourceReference>>
+    resourcesAuthorizeDefinitionResources({ organization, project, definitionId, apiVersion, body }: ResourcesAuthorizeDefinitionResourcesRequest, opts?: OperationOpts): Observable<AjaxResponse<Array<DefinitionResourceReference>>>
+    resourcesAuthorizeDefinitionResources({ organization, project, definitionId, apiVersion, body }: ResourcesAuthorizeDefinitionResourcesRequest, opts?: OperationOpts): Observable<Array<DefinitionResourceReference> | AjaxResponse<Array<DefinitionResourceReference>>> {
+        throwIfNullOrUndefined(organization, 'organization', 'resourcesAuthorizeDefinitionResources');
+        throwIfNullOrUndefined(project, 'project', 'resourcesAuthorizeDefinitionResources');
+        throwIfNullOrUndefined(definitionId, 'definitionId', 'resourcesAuthorizeDefinitionResources');
+        throwIfNullOrUndefined(apiVersion, 'apiVersion', 'resourcesAuthorizeDefinitionResources');
+        throwIfNullOrUndefined(body, 'body', 'resourcesAuthorizeDefinitionResources');
+
+        const headers: HttpHeaders = {
+            'Content-Type': 'application/json',
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['vso.build_execute'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
+        const query: HttpQuery = { // required parameters are used directly since they are already checked by throwIfNullOrUndefined
+            'api-version': apiVersion,
+        };
+
+        return this.request<Array<DefinitionResourceReference>>({
+            url: '/{organization}/{project}/_apis/build/definitions/{definitionId}/resources'.replace('{organization}', encodeURI(organization)).replace('{project}', encodeURI(project)).replace('{definitionId}', encodeURI(definitionId)),
+            method: 'PATCH',
+            headers,
+            query,
+            body: body,
+        }, opts?.responseOpts);
     };
 
-    const query: HttpQuery = {
-      // required parameters are used directly since they are already checked by throwIfNullOrUndefined
-      'api-version': apiVersion
+    /**
+     */
+    resourcesList({ organization, project, definitionId, apiVersion }: ResourcesListRequest): Observable<Array<DefinitionResourceReference>>
+    resourcesList({ organization, project, definitionId, apiVersion }: ResourcesListRequest, opts?: OperationOpts): Observable<AjaxResponse<Array<DefinitionResourceReference>>>
+    resourcesList({ organization, project, definitionId, apiVersion }: ResourcesListRequest, opts?: OperationOpts): Observable<Array<DefinitionResourceReference> | AjaxResponse<Array<DefinitionResourceReference>>> {
+        throwIfNullOrUndefined(organization, 'organization', 'resourcesList');
+        throwIfNullOrUndefined(project, 'project', 'resourcesList');
+        throwIfNullOrUndefined(definitionId, 'definitionId', 'resourcesList');
+        throwIfNullOrUndefined(apiVersion, 'apiVersion', 'resourcesList');
+
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['vso.build'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
+        const query: HttpQuery = { // required parameters are used directly since they are already checked by throwIfNullOrUndefined
+            'api-version': apiVersion,
+        };
+
+        return this.request<Array<DefinitionResourceReference>>({
+            url: '/{organization}/{project}/_apis/build/definitions/{definitionId}/resources'.replace('{organization}', encodeURI(organization)).replace('{project}', encodeURI(project)).replace('{definitionId}', encodeURI(definitionId)),
+            method: 'GET',
+            headers,
+            query,
+        }, opts?.responseOpts);
     };
 
-    return this.request<Array<DefinitionResourceReference>>(
-      {
-        url: '/{organization}/{project}/_apis/build/definitions/{definitionId}/resources'
-          .replace('{organization}', encodeURI(organization))
-          .replace('{project}', encodeURI(project))
-          .replace('{definitionId}', encodeURI(definitionId)),
-        method: 'PATCH',
-        headers,
-        query,
-        body: body
-      },
-      opts?.responseOpts
-    );
-  }
-
-  /**
-   */
-  resourcesList({
-    organization,
-    project,
-    definitionId,
-    apiVersion
-  }: ResourcesListRequest): Observable<Array<DefinitionResourceReference>>;
-  resourcesList(
-    { organization, project, definitionId, apiVersion }: ResourcesListRequest,
-    opts?: OperationOpts
-  ): Observable<AjaxResponse<Array<DefinitionResourceReference>>>;
-  resourcesList(
-    { organization, project, definitionId, apiVersion }: ResourcesListRequest,
-    opts?: OperationOpts
-  ): Observable<
-    | Array<DefinitionResourceReference>
-    | AjaxResponse<Array<DefinitionResourceReference>>
-  > {
-    throwIfNullOrUndefined(organization, 'organization', 'resourcesList');
-    throwIfNullOrUndefined(project, 'project', 'resourcesList');
-    throwIfNullOrUndefined(definitionId, 'definitionId', 'resourcesList');
-    throwIfNullOrUndefined(apiVersion, 'apiVersion', 'resourcesList');
-
-    const headers: HttpHeaders = {
-      // oauth required
-      ...(this.configuration.accessToken != null
-        ? {
-            Authorization:
-              typeof this.configuration.accessToken === 'function'
-                ? this.configuration.accessToken('oauth2', ['vso.build'])
-                : this.configuration.accessToken
-          }
-        : undefined)
-    };
-
-    const query: HttpQuery = {
-      // required parameters are used directly since they are already checked by throwIfNullOrUndefined
-      'api-version': apiVersion
-    };
-
-    return this.request<Array<DefinitionResourceReference>>(
-      {
-        url: '/{organization}/{project}/_apis/build/definitions/{definitionId}/resources'
-          .replace('{organization}', encodeURI(organization))
-          .replace('{project}', encodeURI(project))
-          .replace('{definitionId}', encodeURI(definitionId)),
-        method: 'GET',
-        headers,
-        query
-      },
-      opts?.responseOpts
-    );
-  }
 }

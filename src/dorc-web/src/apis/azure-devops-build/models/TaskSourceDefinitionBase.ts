@@ -12,34 +12,34 @@
  */
 
 /**
- *
+ * 
  * @export
  * @interface TaskSourceDefinitionBase
  */
 export interface TaskSourceDefinitionBase {
-  /**
-   * @type {string}
-   * @memberof TaskSourceDefinitionBase
-   */
-  authKey?: string;
-  /**
-   * @type {string}
-   * @memberof TaskSourceDefinitionBase
-   */
-  endpoint?: string;
-  /**
-   * @type {string}
-   * @memberof TaskSourceDefinitionBase
-   */
-  keySelector?: string;
-  /**
-   * @type {string}
-   * @memberof TaskSourceDefinitionBase
-   */
-  selector?: string;
-  /**
-   * @type {string}
-   * @memberof TaskSourceDefinitionBase
-   */
-  target?: string;
+    /**
+     * @type {string}
+     * @memberof TaskSourceDefinitionBase
+     */
+    authKey?: string;
+    /**
+     * @type {string}
+     * @memberof TaskSourceDefinitionBase
+     */
+    endpoint?: string;
+    /**
+     * @type {string}
+     * @memberof TaskSourceDefinitionBase
+     */
+    keySelector?: string;
+    /**
+     * @type {string}
+     * @memberof TaskSourceDefinitionBase
+     */
+    selector?: string;
+    /**
+     * @type {string}
+     * @memberof TaskSourceDefinitionBase
+     */
+    target?: string;
 }

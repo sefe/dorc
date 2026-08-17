@@ -11,7 +11,9 @@
  * Do not edit the class manually.
  */
 
-import type { SvnMappingDetails } from './index';
+import type {
+    SvnMappingDetails,
+} from './';
 
 /**
  * Represents a subversion workspace.
@@ -19,9 +21,9 @@ import type { SvnMappingDetails } from './index';
  * @interface SvnWorkspace
  */
 export interface SvnWorkspace {
-  /**
-   * @type {Array<SvnMappingDetails>}
-   * @memberof SvnWorkspace
-   */
-  mappings?: Array<SvnMappingDetails>;
+    /**
+     * @type {Array<SvnMappingDetails>}
+     * @memberof SvnWorkspace
+     */
+    mappings?: Array<SvnMappingDetails>;
 }

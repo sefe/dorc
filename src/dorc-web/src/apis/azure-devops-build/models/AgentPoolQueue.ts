@@ -11,7 +11,10 @@
  * Do not edit the class manually.
  */
 
-import type { ReferenceLinks, TaskAgentPoolReference } from './index';
+import type {
+    ReferenceLinks,
+    TaskAgentPoolReference,
+} from './';
 
 /**
  * Represents a queue for running builds.
@@ -19,32 +22,32 @@ import type { ReferenceLinks, TaskAgentPoolReference } from './index';
  * @interface AgentPoolQueue
  */
 export interface AgentPoolQueue {
-  /**
-   * @type {ReferenceLinks}
-   * @memberof AgentPoolQueue
-   */
-  _links?: ReferenceLinks;
-  /**
-   * The ID of the queue.
-   * @type {number}
-   * @memberof AgentPoolQueue
-   */
-  id?: number;
-  /**
-   * The name of the queue.
-   * @type {string}
-   * @memberof AgentPoolQueue
-   */
-  name?: string;
-  /**
-   * @type {TaskAgentPoolReference}
-   * @memberof AgentPoolQueue
-   */
-  pool?: TaskAgentPoolReference;
-  /**
-   * The full http link to the resource.
-   * @type {string}
-   * @memberof AgentPoolQueue
-   */
-  url?: string;
+    /**
+     * @type {ReferenceLinks}
+     * @memberof AgentPoolQueue
+     */
+    _links?: ReferenceLinks;
+    /**
+     * The ID of the queue.
+     * @type {number}
+     * @memberof AgentPoolQueue
+     */
+    id?: number;
+    /**
+     * The name of the queue.
+     * @type {string}
+     * @memberof AgentPoolQueue
+     */
+    name?: string;
+    /**
+     * @type {TaskAgentPoolReference}
+     * @memberof AgentPoolQueue
+     */
+    pool?: TaskAgentPoolReference;
+    /**
+     * The full http link to the resource.
+     * @type {string}
+     * @memberof AgentPoolQueue
+     */
+    url?: string;
 }

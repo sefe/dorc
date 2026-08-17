@@ -12,14 +12,14 @@
  */
 
 /**
- *
+ * 
  * @export
  * @interface UpdateRetentionSettingModel
  */
 export interface UpdateRetentionSettingModel {
-  /**
-   * @type {number}
-   * @memberof UpdateRetentionSettingModel
-   */
-  value?: number;
+    /**
+     * @type {number}
+     * @memberof UpdateRetentionSettingModel
+     */
+    value?: number;
 }

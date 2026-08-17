@@ -17,28 +17,28 @@
  * @interface BuildRetentionSample
  */
 export interface BuildRetentionSample {
-  /**
-   * Summary of retention by build
-   * @type {string}
-   * @memberof BuildRetentionSample
-   */
-  builds?: string;
-  /**
-   * List of build definitions
-   * @type {string}
-   * @memberof BuildRetentionSample
-   */
-  definitions?: string;
-  /**
-   * Summary of files consumed by retained builds
-   * @type {string}
-   * @memberof BuildRetentionSample
-   */
-  files?: string;
-  /**
-   * The date and time when the sample was taken
-   * @type {string}
-   * @memberof BuildRetentionSample
-   */
-  sampleTime?: string;
+    /**
+     * Summary of retention by build
+     * @type {string}
+     * @memberof BuildRetentionSample
+     */
+    builds?: string;
+    /**
+     * List of build definitions
+     * @type {string}
+     * @memberof BuildRetentionSample
+     */
+    definitions?: string;
+    /**
+     * Summary of files consumed by retained builds
+     * @type {string}
+     * @memberof BuildRetentionSample
+     */
+    files?: string;
+    /**
+     * The date and time when the sample was taken
+     * @type {string}
+     * @memberof BuildRetentionSample
+     */
+    sampleTime?: string;
 }

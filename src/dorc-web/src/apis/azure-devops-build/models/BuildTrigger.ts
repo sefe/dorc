@@ -17,12 +17,12 @@
  * @interface BuildTrigger
  */
 export interface BuildTrigger {
-  /**
-   * The type of the trigger.
-   * @type {string}
-   * @memberof BuildTrigger
-   */
-  triggerType?: BuildTriggerTriggerTypeEnum;
+    /**
+     * The type of the trigger.
+     * @type {string}
+     * @memberof BuildTrigger
+     */
+    triggerType?: BuildTriggerTriggerTypeEnum;
 }
 
 /**
@@ -30,13 +30,14 @@ export interface BuildTrigger {
  * @enum {string}
  */
 export enum BuildTriggerTriggerTypeEnum {
-  None = 'none',
-  ContinuousIntegration = 'continuousIntegration',
-  BatchedContinuousIntegration = 'batchedContinuousIntegration',
-  Schedule = 'schedule',
-  GatedCheckIn = 'gatedCheckIn',
-  BatchedGatedCheckIn = 'batchedGatedCheckIn',
-  PullRequest = 'pullRequest',
-  BuildCompletion = 'buildCompletion',
-  All = 'all'
+    None = 'none',
+    ContinuousIntegration = 'continuousIntegration',
+    BatchedContinuousIntegration = 'batchedContinuousIntegration',
+    Schedule = 'schedule',
+    GatedCheckIn = 'gatedCheckIn',
+    BatchedGatedCheckIn = 'batchedGatedCheckIn',
+    PullRequest = 'pullRequest',
+    BuildCompletion = 'buildCompletion',
+    All = 'all'
 }
+

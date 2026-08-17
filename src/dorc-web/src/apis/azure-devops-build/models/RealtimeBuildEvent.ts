@@ -12,14 +12,14 @@
  */
 
 /**
- *
+ * 
  * @export
  * @interface RealtimeBuildEvent
  */
 export interface RealtimeBuildEvent {
-  /**
-   * @type {number}
-   * @memberof RealtimeBuildEvent
-   */
-  buildId?: number;
+    /**
+     * @type {number}
+     * @memberof RealtimeBuildEvent
+     */
+    buildId?: number;
 }

@@ -17,10 +17,10 @@
  * @interface ReferenceLinks
  */
 export interface ReferenceLinks {
-  /**
-   * The readonly view of the links.  Because Reference links are readonly, we only want to expose them as read only.
-   * @type {{ [key: string]: object; }}
-   * @memberof ReferenceLinks
-   */
-  links?: { [key: string]: object };
+    /**
+     * The readonly view of the links.  Because Reference links are readonly, we only want to expose them as read only.
+     * @type {{ [key: string]: object; }}
+     * @memberof ReferenceLinks
+     */
+    links?: { [key: string]: object; };
 }

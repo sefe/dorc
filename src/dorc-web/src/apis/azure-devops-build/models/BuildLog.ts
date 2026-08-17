@@ -11,7 +11,9 @@
  * Do not edit the class manually.
  */
 
-import type { BuildLogReference } from './index';
+import type {
+    BuildLogReference,
+} from './';
 
 /**
  * @type BuildLog

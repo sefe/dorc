@@ -17,10 +17,10 @@
  * @interface PhaseTarget
  */
 export interface PhaseTarget {
-  /**
-   * The type of the target.
-   * @type {number}
-   * @memberof PhaseTarget
-   */
-  type?: number;
+    /**
+     * The type of the target.
+     * @type {number}
+     * @memberof PhaseTarget
+     */
+    type?: number;
 }

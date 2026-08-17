@@ -17,10 +17,10 @@
  * @interface YamlBuild
  */
 export interface YamlBuild {
-  /**
-   * The yaml used to define the build
-   * @type {string}
-   * @memberof YamlBuild
-   */
-  yaml?: string;
+    /**
+     * The yaml used to define the build
+     * @type {string}
+     * @memberof YamlBuild
+     */
+    yaml?: string;
 }

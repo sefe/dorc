@@ -10,18 +10,7 @@ import type { Checkbox } from '@vaadin/checkbox';
 import type { ComboBox } from '@vaadin/combo-box';
 import { PageElement } from '../helpers/page-element';
 import {
-  AnalyticsComponentReliabilityApi,
-  AnalyticsDeploymentsMonthApi,
-  AnalyticsDeploymentSummaryApi,
-  AnalyticsEnvironmentUsageApi,
-  AnalyticsEnvironmentWaitApi,
-  AnalyticsMonthlyOutcomeApi,
-  AnalyticsProjectDurationApi,
-  AnalyticsRecoveryTimeApi,
-  AnalyticsUserActivityApi,
-  AnalyticsTimePatternApi,
-  AnalyticsComponentUsageApi,
-  AnalyticsDurationApi,
+  AnalyticsApi,
   AnalyticsComponentReliabilityApiModel,
   AnalyticsDeploymentsPerProjectApiModel,
   AnalyticsDeploymentSummaryApiModel,
@@ -556,7 +545,7 @@ export class PageAnalytics extends PageElement {
   }
 
   private loadMonthData() {
-    const api = new AnalyticsDeploymentsMonthApi();
+    const api = new AnalyticsApi();
     this.subscriptions.push(
       api.analyticsDeploymentsMonthGet().subscribe({
         next: (res: AnalyticsDeploymentsPerProjectApiModel[]) => {
@@ -574,7 +563,7 @@ export class PageAnalytics extends PageElement {
   }
 
   private loadSummary() {
-    const api = new AnalyticsDeploymentSummaryApi();
+    const api = new AnalyticsApi();
     this.subscriptions.push(
       api.analyticsDeploymentSummaryGet().subscribe({
         next: (res: AnalyticsDeploymentSummaryApiModel) => {
@@ -607,7 +596,7 @@ export class PageAnalytics extends PageElement {
 
   private loadCharts() {
     // Environment Usage
-    const envApi = new AnalyticsEnvironmentUsageApi();
+    const envApi = new AnalyticsApi();
     this.subscriptions.push(
       envApi.analyticsEnvironmentUsageGet().subscribe({
         next: (res: AnalyticsEnvironmentUsageApiModel[]) => {
@@ -621,7 +610,7 @@ export class PageAnalytics extends PageElement {
     );
 
     // User Activity
-    const userApi = new AnalyticsUserActivityApi();
+    const userApi = new AnalyticsApi();
     this.subscriptions.push(
       userApi.analyticsUserActivityGet().subscribe({
         next: (res: AnalyticsUserActivityApiModel[]) => {
@@ -634,7 +623,7 @@ export class PageAnalytics extends PageElement {
     );
 
     // Time Patterns
-    const timeApi = new AnalyticsTimePatternApi();
+    const timeApi = new AnalyticsApi();
     this.subscriptions.push(
       timeApi.analyticsTimePatternGet().subscribe({
         next: (res: AnalyticsTimePatternApiModel[]) => {
@@ -647,7 +636,7 @@ export class PageAnalytics extends PageElement {
     );
 
     // Component Usage
-    const compApi = new AnalyticsComponentUsageApi();
+    const compApi = new AnalyticsApi();
     this.subscriptions.push(
       compApi.analyticsComponentUsageGet().subscribe({
         next: (res: AnalyticsComponentUsageApiModel[]) => {
@@ -660,7 +649,7 @@ export class PageAnalytics extends PageElement {
     );
 
     // Duration Stats
-    const durApi = new AnalyticsDurationApi();
+    const durApi = new AnalyticsApi();
     this.subscriptions.push(
       durApi.analyticsDurationGet().subscribe({
         next: (res: AnalyticsDurationApiModel) => {
@@ -673,7 +662,7 @@ export class PageAnalytics extends PageElement {
     );
 
     // Monthly Outcomes (volume / failures / cancellations, prod vs non-prod)
-    const outcomeApi = new AnalyticsMonthlyOutcomeApi();
+    const outcomeApi = new AnalyticsApi();
     this.subscriptions.push(
       outcomeApi.analyticsMonthlyOutcomeGet().subscribe({
         next: (res: AnalyticsMonthlyOutcomeApiModel[]) => {
@@ -687,7 +676,7 @@ export class PageAnalytics extends PageElement {
     );
 
     // Environment Wait Times
-    const waitApi = new AnalyticsEnvironmentWaitApi();
+    const waitApi = new AnalyticsApi();
     this.subscriptions.push(
       waitApi.analyticsEnvironmentWaitGet().subscribe({
         next: (res: AnalyticsEnvironmentWaitApiModel[]) => {
@@ -700,7 +689,7 @@ export class PageAnalytics extends PageElement {
     );
 
     // Per-project Durations
-    const projDurApi = new AnalyticsProjectDurationApi();
+    const projDurApi = new AnalyticsApi();
     this.subscriptions.push(
       projDurApi.analyticsProjectDurationGet().subscribe({
         next: (res: AnalyticsProjectDurationApiModel[]) => {
@@ -713,7 +702,7 @@ export class PageAnalytics extends PageElement {
     );
 
     // Component Reliability
-    const reliabilityApi = new AnalyticsComponentReliabilityApi();
+    const reliabilityApi = new AnalyticsApi();
     this.subscriptions.push(
       reliabilityApi.analyticsComponentReliabilityGet().subscribe({
         next: (res: AnalyticsComponentReliabilityApiModel[]) => {
@@ -726,7 +715,7 @@ export class PageAnalytics extends PageElement {
     );
 
     // Recovery Times
-    const recoveryApi = new AnalyticsRecoveryTimeApi();
+    const recoveryApi = new AnalyticsApi();
     this.subscriptions.push(
       recoveryApi.analyticsRecoveryTimeGet().subscribe({
         next: (res: AnalyticsRecoveryTimeApiModel[]) => {

@@ -17,9 +17,9 @@
  * @interface Deployment
  */
 export interface Deployment {
-  /**
-   * @type {string}
-   * @memberof Deployment
-   */
-  type?: string;
+    /**
+     * @type {string}
+     * @memberof Deployment
+     */
+    type?: string;
 }

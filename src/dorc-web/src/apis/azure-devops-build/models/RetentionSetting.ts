@@ -17,19 +17,19 @@
  * @interface RetentionSetting
  */
 export interface RetentionSetting {
-  /**
-   * @type {number}
-   * @memberof RetentionSetting
-   */
-  max?: number;
-  /**
-   * @type {number}
-   * @memberof RetentionSetting
-   */
-  min?: number;
-  /**
-   * @type {number}
-   * @memberof RetentionSetting
-   */
-  value?: number;
+    /**
+     * @type {number}
+     * @memberof RetentionSetting
+     */
+    max?: number;
+    /**
+     * @type {number}
+     * @memberof RetentionSetting
+     */
+    min?: number;
+    /**
+     * @type {number}
+     * @memberof RetentionSetting
+     */
+    value?: number;
 }

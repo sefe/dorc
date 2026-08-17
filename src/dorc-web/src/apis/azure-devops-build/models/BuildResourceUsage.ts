@@ -17,28 +17,28 @@
  * @interface BuildResourceUsage
  */
 export interface BuildResourceUsage {
-  /**
-   * The number of build agents.
-   * @type {number}
-   * @memberof BuildResourceUsage
-   */
-  distributedTaskAgents?: number;
-  /**
-   * The number of paid private agent slots.
-   * @type {number}
-   * @memberof BuildResourceUsage
-   */
-  paidPrivateAgentSlots?: number;
-  /**
-   * The total usage.
-   * @type {number}
-   * @memberof BuildResourceUsage
-   */
-  totalUsage?: number;
-  /**
-   * The number of XAML controllers.
-   * @type {number}
-   * @memberof BuildResourceUsage
-   */
-  xamlControllers?: number;
+    /**
+     * The number of build agents.
+     * @type {number}
+     * @memberof BuildResourceUsage
+     */
+    distributedTaskAgents?: number;
+    /**
+     * The number of paid private agent slots.
+     * @type {number}
+     * @memberof BuildResourceUsage
+     */
+    paidPrivateAgentSlots?: number;
+    /**
+     * The total usage.
+     * @type {number}
+     * @memberof BuildResourceUsage
+     */
+    totalUsage?: number;
+    /**
+     * The number of XAML controllers.
+     * @type {number}
+     * @memberof BuildResourceUsage
+     */
+    xamlControllers?: number;
 }

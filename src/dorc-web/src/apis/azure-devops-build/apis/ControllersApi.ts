@@ -13,127 +13,92 @@
 
 import type { Observable } from 'rxjs';
 import type { AjaxResponse } from 'rxjs/ajax';
-import type { HttpHeaders, HttpQuery, OperationOpts } from '../runtime';
-import { BaseAPI, encodeURI, throwIfNullOrUndefined } from '../runtime';
-import type { BuildController } from '../models';
+import { BaseAPI, throwIfNullOrUndefined, encodeURI } from '../runtime';
+import type { OperationOpts, HttpHeaders, HttpQuery } from '../runtime';
+import type {
+    BuildController,
+} from '../models';
 
 export interface ControllersGetRequest {
-  organization: string;
-  controllerId: number;
-  apiVersion: string;
+    organization: string;
+    controllerId: number;
+    apiVersion: string;
 }
 
 export interface ControllersListRequest {
-  organization: string;
-  apiVersion: string;
-  name?: string;
+    organization: string;
+    apiVersion: string;
+    name?: string;
 }
 
 /**
  * no description
  */
 export class ControllersApi extends BaseAPI {
-  /**
-   * Gets a controller
-   */
-  controllersGet({
-    organization,
-    controllerId,
-    apiVersion
-  }: ControllersGetRequest): Observable<BuildController>;
-  controllersGet(
-    { organization, controllerId, apiVersion }: ControllersGetRequest,
-    opts?: OperationOpts
-  ): Observable<AjaxResponse<BuildController>>;
-  controllersGet(
-    { organization, controllerId, apiVersion }: ControllersGetRequest,
-    opts?: OperationOpts
-  ): Observable<BuildController | AjaxResponse<BuildController>> {
-    throwIfNullOrUndefined(organization, 'organization', 'controllersGet');
-    throwIfNullOrUndefined(controllerId, 'controllerId', 'controllersGet');
-    throwIfNullOrUndefined(apiVersion, 'apiVersion', 'controllersGet');
 
-    const headers: HttpHeaders = {
-      // oauth required
-      ...(this.configuration.accessToken != null
-        ? {
-            Authorization:
-              typeof this.configuration.accessToken === 'function'
-                ? this.configuration.accessToken('oauth2', ['vso.build'])
-                : this.configuration.accessToken
-          }
-        : undefined)
+    /**
+     * Gets a controller
+     */
+    controllersGet({ organization, controllerId, apiVersion }: ControllersGetRequest): Observable<BuildController>
+    controllersGet({ organization, controllerId, apiVersion }: ControllersGetRequest, opts?: OperationOpts): Observable<AjaxResponse<BuildController>>
+    controllersGet({ organization, controllerId, apiVersion }: ControllersGetRequest, opts?: OperationOpts): Observable<BuildController | AjaxResponse<BuildController>> {
+        throwIfNullOrUndefined(organization, 'organization', 'controllersGet');
+        throwIfNullOrUndefined(controllerId, 'controllerId', 'controllersGet');
+        throwIfNullOrUndefined(apiVersion, 'apiVersion', 'controllersGet');
+
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['vso.build'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
+        const query: HttpQuery = { // required parameters are used directly since they are already checked by throwIfNullOrUndefined
+            'api-version': apiVersion,
+        };
+
+        return this.request<BuildController>({
+            url: '/{organization}/_apis/build/controllers/{controllerId}'.replace('{organization}', encodeURI(organization)).replace('{controllerId}', encodeURI(controllerId)),
+            method: 'GET',
+            headers,
+            query,
+        }, opts?.responseOpts);
     };
 
-    const query: HttpQuery = {
-      // required parameters are used directly since they are already checked by throwIfNullOrUndefined
-      'api-version': apiVersion
+    /**
+     * Gets controller, optionally filtered by name
+     */
+    controllersList({ organization, apiVersion, name }: ControllersListRequest): Observable<Array<BuildController>>
+    controllersList({ organization, apiVersion, name }: ControllersListRequest, opts?: OperationOpts): Observable<AjaxResponse<Array<BuildController>>>
+    controllersList({ organization, apiVersion, name }: ControllersListRequest, opts?: OperationOpts): Observable<Array<BuildController> | AjaxResponse<Array<BuildController>>> {
+        throwIfNullOrUndefined(organization, 'organization', 'controllersList');
+        throwIfNullOrUndefined(apiVersion, 'apiVersion', 'controllersList');
+
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['vso.build'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
+        const query: HttpQuery = { // required parameters are used directly since they are already checked by throwIfNullOrUndefined
+            'api-version': apiVersion,
+        };
+
+        if (name != null) { query['name'] = name; }
+
+        return this.request<Array<BuildController>>({
+            url: '/{organization}/_apis/build/controllers'.replace('{organization}', encodeURI(organization)),
+            method: 'GET',
+            headers,
+            query,
+        }, opts?.responseOpts);
     };
 
-    return this.request<BuildController>(
-      {
-        url: '/{organization}/_apis/build/controllers/{controllerId}'
-          .replace('{organization}', encodeURI(organization))
-          .replace('{controllerId}', encodeURI(controllerId)),
-        method: 'GET',
-        headers,
-        query
-      },
-      opts?.responseOpts
-    );
-  }
-
-  /**
-   * Gets controller, optionally filtered by name
-   */
-  controllersList({
-    organization,
-    apiVersion,
-    name
-  }: ControllersListRequest): Observable<Array<BuildController>>;
-  controllersList(
-    { organization, apiVersion, name }: ControllersListRequest,
-    opts?: OperationOpts
-  ): Observable<AjaxResponse<Array<BuildController>>>;
-  controllersList(
-    { organization, apiVersion, name }: ControllersListRequest,
-    opts?: OperationOpts
-  ): Observable<Array<BuildController> | AjaxResponse<Array<BuildController>>> {
-    throwIfNullOrUndefined(organization, 'organization', 'controllersList');
-    throwIfNullOrUndefined(apiVersion, 'apiVersion', 'controllersList');
-
-    const headers: HttpHeaders = {
-      // oauth required
-      ...(this.configuration.accessToken != null
-        ? {
-            Authorization:
-              typeof this.configuration.accessToken === 'function'
-                ? this.configuration.accessToken('oauth2', ['vso.build'])
-                : this.configuration.accessToken
-          }
-        : undefined)
-    };
-
-    const query: HttpQuery = {
-      // required parameters are used directly since they are already checked by throwIfNullOrUndefined
-      'api-version': apiVersion
-    };
-
-    if (name != null) {
-      query['name'] = name;
-    }
-
-    return this.request<Array<BuildController>>(
-      {
-        url: '/{organization}/_apis/build/controllers'.replace(
-          '{organization}',
-          encodeURI(organization)
-        ),
-        method: 'GET',
-        headers,
-        query
-      },
-      opts?.responseOpts
-    );
-  }
 }

@@ -17,34 +17,34 @@
  * @interface SvnMappingDetails
  */
 export interface SvnMappingDetails {
-  /**
-   * The depth.
-   * @type {number}
-   * @memberof SvnMappingDetails
-   */
-  depth?: number;
-  /**
-   * Indicates whether to ignore externals.
-   * @type {boolean}
-   * @memberof SvnMappingDetails
-   */
-  ignoreExternals?: boolean;
-  /**
-   * The local path.
-   * @type {string}
-   * @memberof SvnMappingDetails
-   */
-  localPath?: string;
-  /**
-   * The revision.
-   * @type {string}
-   * @memberof SvnMappingDetails
-   */
-  revision?: string;
-  /**
-   * The server path.
-   * @type {string}
-   * @memberof SvnMappingDetails
-   */
-  serverPath?: string;
+    /**
+     * The depth.
+     * @type {number}
+     * @memberof SvnMappingDetails
+     */
+    depth?: number;
+    /**
+     * Indicates whether to ignore externals.
+     * @type {boolean}
+     * @memberof SvnMappingDetails
+     */
+    ignoreExternals?: boolean;
+    /**
+     * The local path.
+     * @type {string}
+     * @memberof SvnMappingDetails
+     */
+    localPath?: string;
+    /**
+     * The revision.
+     * @type {string}
+     * @memberof SvnMappingDetails
+     */
+    revision?: string;
+    /**
+     * The server path.
+     * @type {string}
+     * @memberof SvnMappingDetails
+     */
+    serverPath?: string;
 }

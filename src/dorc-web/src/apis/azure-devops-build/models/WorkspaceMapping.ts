@@ -17,42 +17,42 @@
  * @interface WorkspaceMapping
  */
 export interface WorkspaceMapping {
-  /**
-   * Uri of the associated definition
-   * @type {string}
-   * @memberof WorkspaceMapping
-   */
-  definitionUri?: string;
-  /**
-   * Depth of this mapping
-   * @type {number}
-   * @memberof WorkspaceMapping
-   */
-  depth?: number;
-  /**
-   * local location of the definition
-   * @type {string}
-   * @memberof WorkspaceMapping
-   */
-  localItem?: string;
-  /**
-   * type of workspace mapping
-   * @type {string}
-   * @memberof WorkspaceMapping
-   */
-  mappingType?: WorkspaceMappingMappingTypeEnum;
-  /**
-   * Server location of the definition
-   * @type {string}
-   * @memberof WorkspaceMapping
-   */
-  serverItem?: string;
-  /**
-   * Id of the workspace
-   * @type {number}
-   * @memberof WorkspaceMapping
-   */
-  workspaceId?: number;
+    /**
+     * Uri of the associated definition
+     * @type {string}
+     * @memberof WorkspaceMapping
+     */
+    definitionUri?: string;
+    /**
+     * Depth of this mapping
+     * @type {number}
+     * @memberof WorkspaceMapping
+     */
+    depth?: number;
+    /**
+     * local location of the definition
+     * @type {string}
+     * @memberof WorkspaceMapping
+     */
+    localItem?: string;
+    /**
+     * type of workspace mapping
+     * @type {string}
+     * @memberof WorkspaceMapping
+     */
+    mappingType?: WorkspaceMappingMappingTypeEnum;
+    /**
+     * Server location of the definition
+     * @type {string}
+     * @memberof WorkspaceMapping
+     */
+    serverItem?: string;
+    /**
+     * Id of the workspace
+     * @type {number}
+     * @memberof WorkspaceMapping
+     */
+    workspaceId?: number;
 }
 
 /**
@@ -60,6 +60,7 @@ export interface WorkspaceMapping {
  * @enum {string}
  */
 export enum WorkspaceMappingMappingTypeEnum {
-  Map = 'map',
-  Cloak = 'cloak'
+    Map = 'map',
+    Cloak = 'cloak'
 }
+

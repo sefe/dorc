@@ -17,22 +17,22 @@
  * @interface BuildLogReference
  */
 export interface BuildLogReference {
-  /**
-   * The ID of the log.
-   * @type {number}
-   * @memberof BuildLogReference
-   */
-  id?: number;
-  /**
-   * The type of the log location.
-   * @type {string}
-   * @memberof BuildLogReference
-   */
-  type?: string;
-  /**
-   * A full link to the log resource.
-   * @type {string}
-   * @memberof BuildLogReference
-   */
-  url?: string;
+    /**
+     * The ID of the log.
+     * @type {number}
+     * @memberof BuildLogReference
+     */
+    id?: number;
+    /**
+     * The type of the log location.
+     * @type {string}
+     * @memberof BuildLogReference
+     */
+    type?: string;
+    /**
+     * A full link to the log resource.
+     * @type {string}
+     * @memberof BuildLogReference
+     */
+    url?: string;
 }

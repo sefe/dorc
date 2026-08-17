@@ -11,7 +11,10 @@
  * Do not edit the class manually.
  */
 
-import type { IdentityRef, ReferenceLinks } from './index';
+import type {
+    IdentityRef,
+    ReferenceLinks,
+} from './';
 
 /**
  * Represents a work item related to some source item. These are retrieved from Source Providers.
@@ -19,50 +22,50 @@ import type { IdentityRef, ReferenceLinks } from './index';
  * @interface SourceRelatedWorkItem
  */
 export interface SourceRelatedWorkItem {
-  /**
-   * @type {ReferenceLinks}
-   * @memberof SourceRelatedWorkItem
-   */
-  _links?: ReferenceLinks;
-  /**
-   * @type {IdentityRef}
-   * @memberof SourceRelatedWorkItem
-   */
-  assignedTo?: IdentityRef;
-  /**
-   * Current state of the work item, e.g. Active, Resolved, Closed, etc.
-   * @type {string}
-   * @memberof SourceRelatedWorkItem
-   */
-  currentState?: string;
-  /**
-   * Long description for the work item.
-   * @type {string}
-   * @memberof SourceRelatedWorkItem
-   */
-  description?: string;
-  /**
-   * Unique identifier for the work item
-   * @type {string}
-   * @memberof SourceRelatedWorkItem
-   */
-  id?: string;
-  /**
-   * The name of the provider the work item is associated with.
-   * @type {string}
-   * @memberof SourceRelatedWorkItem
-   */
-  providerName?: string;
-  /**
-   * Short name for the work item.
-   * @type {string}
-   * @memberof SourceRelatedWorkItem
-   */
-  title?: string;
-  /**
-   * Type of work item, e.g. Bug, Task, User Story, etc.
-   * @type {string}
-   * @memberof SourceRelatedWorkItem
-   */
-  type?: string;
+    /**
+     * @type {ReferenceLinks}
+     * @memberof SourceRelatedWorkItem
+     */
+    _links?: ReferenceLinks;
+    /**
+     * @type {IdentityRef}
+     * @memberof SourceRelatedWorkItem
+     */
+    assignedTo?: IdentityRef;
+    /**
+     * Current state of the work item, e.g. Active, Resolved, Closed, etc.
+     * @type {string}
+     * @memberof SourceRelatedWorkItem
+     */
+    currentState?: string;
+    /**
+     * Long description for the work item.
+     * @type {string}
+     * @memberof SourceRelatedWorkItem
+     */
+    description?: string;
+    /**
+     * Unique identifier for the work item
+     * @type {string}
+     * @memberof SourceRelatedWorkItem
+     */
+    id?: string;
+    /**
+     * The name of the provider the work item is associated with.
+     * @type {string}
+     * @memberof SourceRelatedWorkItem
+     */
+    providerName?: string;
+    /**
+     * Short name for the work item.
+     * @type {string}
+     * @memberof SourceRelatedWorkItem
+     */
+    title?: string;
+    /**
+     * Type of work item, e.g. Bug, Task, User Story, etc.
+     * @type {string}
+     * @memberof SourceRelatedWorkItem
+     */
+    type?: string;
 }

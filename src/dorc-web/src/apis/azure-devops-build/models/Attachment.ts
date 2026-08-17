@@ -11,7 +11,9 @@
  * Do not edit the class manually.
  */
 
-import type { ReferenceLinks } from './index';
+import type {
+    ReferenceLinks,
+} from './';
 
 /**
  * Represents an attachment to a build.
@@ -19,15 +21,15 @@ import type { ReferenceLinks } from './index';
  * @interface Attachment
  */
 export interface Attachment {
-  /**
-   * @type {ReferenceLinks}
-   * @memberof Attachment
-   */
-  _links?: ReferenceLinks;
-  /**
-   * The name of the attachment.
-   * @type {string}
-   * @memberof Attachment
-   */
-  name?: string;
+    /**
+     * @type {ReferenceLinks}
+     * @memberof Attachment
+     */
+    _links?: ReferenceLinks;
+    /**
+     * The name of the attachment.
+     * @type {string}
+     * @memberof Attachment
+     */
+    name?: string;
 }

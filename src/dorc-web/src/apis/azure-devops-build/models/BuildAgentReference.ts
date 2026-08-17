@@ -12,27 +12,27 @@
  */
 
 /**
- *
+ * 
  * @export
  * @interface BuildAgentReference
  */
 export interface BuildAgentReference {
-  /**
-   * Id of the resource
-   * @type {number}
-   * @memberof BuildAgentReference
-   */
-  id?: number;
-  /**
-   * Name of the linked resource (definition name, controller name, etc.)
-   * @type {string}
-   * @memberof BuildAgentReference
-   */
-  name?: string;
-  /**
-   * Full http link to the resource
-   * @type {string}
-   * @memberof BuildAgentReference
-   */
-  url?: string;
+    /**
+     * Id of the resource
+     * @type {number}
+     * @memberof BuildAgentReference
+     */
+    id?: number;
+    /**
+     * Name of the linked resource (definition name, controller name, etc.)
+     * @type {string}
+     * @memberof BuildAgentReference
+     */
+    name?: string;
+    /**
+     * Full http link to the resource
+     * @type {string}
+     * @memberof BuildAgentReference
+     */
+    url?: string;
 }

@@ -17,10 +17,10 @@
  * @interface ServerTargetExecutionOptions
  */
 export interface ServerTargetExecutionOptions {
-  /**
-   * The type.
-   * @type {number}
-   * @memberof ServerTargetExecutionOptions
-   */
-  type?: number;
+    /**
+     * The type.
+     * @type {number}
+     * @memberof ServerTargetExecutionOptions
+     */
+    type?: number;
 }

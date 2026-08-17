@@ -12,27 +12,27 @@
  */
 
 /**
- *
+ * 
  * @export
  * @interface MinimalRetentionLease
  */
 export interface MinimalRetentionLease {
-  /**
-   * The pipeline definition of the run.
-   * @type {number}
-   * @memberof MinimalRetentionLease
-   */
-  definitionId?: number;
-  /**
-   * User-provided string that identifies the owner of a retention lease.
-   * @type {string}
-   * @memberof MinimalRetentionLease
-   */
-  ownerId?: string;
-  /**
-   * The pipeline run to protect.
-   * @type {number}
-   * @memberof MinimalRetentionLease
-   */
-  runId?: number;
+    /**
+     * The pipeline definition of the run.
+     * @type {number}
+     * @memberof MinimalRetentionLease
+     */
+    definitionId?: number;
+    /**
+     * User-provided string that identifies the owner of a retention lease.
+     * @type {string}
+     * @memberof MinimalRetentionLease
+     */
+    ownerId?: string;
+    /**
+     * The pipeline run to protect.
+     * @type {number}
+     * @memberof MinimalRetentionLease
+     */
+    runId?: number;
 }

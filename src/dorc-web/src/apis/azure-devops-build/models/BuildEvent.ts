@@ -12,19 +12,19 @@
  */
 
 /**
- *
+ * 
  * @export
  * @interface BuildEvent
  */
 export interface BuildEvent {
-  /**
-   * @type {Array<string>}
-   * @memberof BuildEvent
-   */
-  data?: Array<string>;
-  /**
-   * @type {string}
-   * @memberof BuildEvent
-   */
-  identifier?: string;
+    /**
+     * @type {Array<string>}
+     * @memberof BuildEvent
+     */
+    data?: Array<string>;
+    /**
+     * @type {string}
+     * @memberof BuildEvent
+     */
+    identifier?: string;
 }

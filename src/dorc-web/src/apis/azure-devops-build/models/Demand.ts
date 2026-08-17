@@ -17,16 +17,16 @@
  * @interface Demand
  */
 export interface Demand {
-  /**
-   * The name of the capability referenced by the demand.
-   * @type {string}
-   * @memberof Demand
-   */
-  name?: string;
-  /**
-   * The demanded value.
-   * @type {string}
-   * @memberof Demand
-   */
-  value?: string;
+    /**
+     * The name of the capability referenced by the demand.
+     * @type {string}
+     * @memberof Demand
+     */
+    name?: string;
+    /**
+     * The demanded value.
+     * @type {string}
+     * @memberof Demand
+     */
+    value?: string;
 }

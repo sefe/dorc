@@ -12,21 +12,21 @@
  */
 
 /**
- *
+ * 
  * @export
  * @interface UpdateStageParameters
  */
 export interface UpdateStageParameters {
-  /**
-   * @type {boolean}
-   * @memberof UpdateStageParameters
-   */
-  forceRetryAllJobs?: boolean;
-  /**
-   * @type {string}
-   * @memberof UpdateStageParameters
-   */
-  state?: UpdateStageParametersStateEnum;
+    /**
+     * @type {boolean}
+     * @memberof UpdateStageParameters
+     */
+    forceRetryAllJobs?: boolean;
+    /**
+     * @type {string}
+     * @memberof UpdateStageParameters
+     */
+    state?: UpdateStageParametersStateEnum;
 }
 
 /**
@@ -34,6 +34,7 @@ export interface UpdateStageParameters {
  * @enum {string}
  */
 export enum UpdateStageParametersStateEnum {
-  Cancel = 'cancel',
-  Retry = 'retry'
+    Cancel = 'cancel',
+    Retry = 'retry'
 }
+

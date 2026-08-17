@@ -12,11 +12,11 @@
  */
 
 import type {
-  BuildDefinitionStep,
-  BuildDefinitionVariable,
-  Dependency,
-  PhaseTarget
-} from './index';
+    BuildDefinitionStep,
+    BuildDefinitionVariable,
+    Dependency,
+    PhaseTarget,
+} from './';
 
 /**
  * Represents a phase of a build definition.
@@ -24,62 +24,62 @@ import type {
  * @interface Phase
  */
 export interface Phase {
-  /**
-   * The condition that must be true for this phase to execute.
-   * @type {string}
-   * @memberof Phase
-   */
-  condition?: string;
-  /**
-   * @type {Array<Dependency>}
-   * @memberof Phase
-   */
-  dependencies?: Array<Dependency>;
-  /**
-   * The job authorization scope for builds queued against this definition.
-   * @type {string}
-   * @memberof Phase
-   */
-  jobAuthorizationScope?: PhaseJobAuthorizationScopeEnum;
-  /**
-   * The cancellation timeout, in minutes, for builds queued against this definition.
-   * @type {number}
-   * @memberof Phase
-   */
-  jobCancelTimeoutInMinutes?: number;
-  /**
-   * The job execution timeout, in minutes, for builds queued against this definition.
-   * @type {number}
-   * @memberof Phase
-   */
-  jobTimeoutInMinutes?: number;
-  /**
-   * The name of the phase.
-   * @type {string}
-   * @memberof Phase
-   */
-  name?: string;
-  /**
-   * The unique ref name of the phase.
-   * @type {string}
-   * @memberof Phase
-   */
-  refName?: string;
-  /**
-   * @type {Array<BuildDefinitionStep>}
-   * @memberof Phase
-   */
-  steps?: Array<BuildDefinitionStep>;
-  /**
-   * @type {PhaseTarget}
-   * @memberof Phase
-   */
-  target?: PhaseTarget;
-  /**
-   * @type {{ [key: string]: BuildDefinitionVariable; }}
-   * @memberof Phase
-   */
-  variables?: { [key: string]: BuildDefinitionVariable };
+    /**
+     * The condition that must be true for this phase to execute.
+     * @type {string}
+     * @memberof Phase
+     */
+    condition?: string;
+    /**
+     * @type {Array<Dependency>}
+     * @memberof Phase
+     */
+    dependencies?: Array<Dependency>;
+    /**
+     * The job authorization scope for builds queued against this definition.
+     * @type {string}
+     * @memberof Phase
+     */
+    jobAuthorizationScope?: PhaseJobAuthorizationScopeEnum;
+    /**
+     * The cancellation timeout, in minutes, for builds queued against this definition.
+     * @type {number}
+     * @memberof Phase
+     */
+    jobCancelTimeoutInMinutes?: number;
+    /**
+     * The job execution timeout, in minutes, for builds queued against this definition.
+     * @type {number}
+     * @memberof Phase
+     */
+    jobTimeoutInMinutes?: number;
+    /**
+     * The name of the phase.
+     * @type {string}
+     * @memberof Phase
+     */
+    name?: string;
+    /**
+     * The unique ref name of the phase.
+     * @type {string}
+     * @memberof Phase
+     */
+    refName?: string;
+    /**
+     * @type {Array<BuildDefinitionStep>}
+     * @memberof Phase
+     */
+    steps?: Array<BuildDefinitionStep>;
+    /**
+     * @type {PhaseTarget}
+     * @memberof Phase
+     */
+    target?: PhaseTarget;
+    /**
+     * @type {{ [key: string]: BuildDefinitionVariable; }}
+     * @memberof Phase
+     */
+    variables?: { [key: string]: BuildDefinitionVariable; };
 }
 
 /**
@@ -87,6 +87,7 @@ export interface Phase {
  * @enum {string}
  */
 export enum PhaseJobAuthorizationScopeEnum {
-  ProjectCollection = 'projectCollection',
-  Project = 'project'
+    ProjectCollection = 'projectCollection',
+    Project = 'project'
 }
+

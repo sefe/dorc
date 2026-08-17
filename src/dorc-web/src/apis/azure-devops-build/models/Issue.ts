@@ -17,29 +17,29 @@
  * @interface Issue
  */
 export interface Issue {
-  /**
-   * The category.
-   * @type {string}
-   * @memberof Issue
-   */
-  category?: string;
-  /**
-   * @type {{ [key: string]: string; }}
-   * @memberof Issue
-   */
-  data?: { [key: string]: string };
-  /**
-   * A description of the issue.
-   * @type {string}
-   * @memberof Issue
-   */
-  message?: string;
-  /**
-   * The type (error, warning) of the issue.
-   * @type {string}
-   * @memberof Issue
-   */
-  type?: IssueTypeEnum;
+    /**
+     * The category.
+     * @type {string}
+     * @memberof Issue
+     */
+    category?: string;
+    /**
+     * @type {{ [key: string]: string; }}
+     * @memberof Issue
+     */
+    data?: { [key: string]: string; };
+    /**
+     * A description of the issue.
+     * @type {string}
+     * @memberof Issue
+     */
+    message?: string;
+    /**
+     * The type (error, warning) of the issue.
+     * @type {string}
+     * @memberof Issue
+     */
+    type?: IssueTypeEnum;
 }
 
 /**
@@ -47,6 +47,7 @@ export interface Issue {
  * @enum {string}
  */
 export enum IssueTypeEnum {
-  Error = 'error',
-  Warning = 'warning'
+    Error = 'error',
+    Warning = 'warning'
 }
+

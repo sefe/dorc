@@ -11,7 +11,9 @@
  * Do not edit the class manually.
  */
 
-import type { ArtifactResource } from './index';
+import type {
+    ArtifactResource,
+} from './';
 
 /**
  * Represents an artifact produced by a build.
@@ -19,27 +21,27 @@ import type { ArtifactResource } from './index';
  * @interface BuildArtifact
  */
 export interface BuildArtifact {
-  /**
-   * The artifact ID.
-   * @type {number}
-   * @memberof BuildArtifact
-   */
-  id?: number;
-  /**
-   * The name of the artifact.
-   * @type {string}
-   * @memberof BuildArtifact
-   */
-  name?: string;
-  /**
-   * @type {ArtifactResource}
-   * @memberof BuildArtifact
-   */
-  resource?: ArtifactResource;
-  /**
-   * The artifact source, which will be the ID of the job that produced this artifact. If an artifact is associated with multiple sources, this points to the first source.
-   * @type {string}
-   * @memberof BuildArtifact
-   */
-  source?: string;
+    /**
+     * The artifact ID.
+     * @type {number}
+     * @memberof BuildArtifact
+     */
+    id?: number;
+    /**
+     * The name of the artifact.
+     * @type {string}
+     * @memberof BuildArtifact
+     */
+    name?: string;
+    /**
+     * @type {ArtifactResource}
+     * @memberof BuildArtifact
+     */
+    resource?: ArtifactResource;
+    /**
+     * The artifact source, which will be the ID of the job that produced this artifact. If an artifact is associated with multiple sources, this points to the first source.
+     * @type {string}
+     * @memberof BuildArtifact
+     */
+    source?: string;
 }

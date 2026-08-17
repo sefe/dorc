@@ -11,11 +11,18 @@
  * Do not edit the class manually.
  */
 
-import type { BuildUpdatedEvent } from './index';
+import type {
+    AggregatedResultsAnalysis,
+    AssociatedWorkItem,
+    BuildUpdatedEvent,
+    Change,
+    PullRequest,
+    TimelineRecord,
+} from './';
 
 /**
  * @type BuildCompletedEvent
- *
+ * 
  * @export
  */
 export type BuildCompletedEvent = BuildUpdatedEvent;

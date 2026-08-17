@@ -12,19 +12,19 @@
  */
 
 /**
- *
+ * 
  * @export
  * @interface WebApiConnectedServiceRef
  */
 export interface WebApiConnectedServiceRef {
-  /**
-   * @type {string}
-   * @memberof WebApiConnectedServiceRef
-   */
-  id?: string;
-  /**
-   * @type {string}
-   * @memberof WebApiConnectedServiceRef
-   */
-  url?: string;
+    /**
+     * @type {string}
+     * @memberof WebApiConnectedServiceRef
+     */
+    id?: string;
+    /**
+     * @type {string}
+     * @memberof WebApiConnectedServiceRef
+     */
+    url?: string;
 }

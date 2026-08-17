@@ -17,10 +17,10 @@
  * @interface AgentSpecification
  */
 export interface AgentSpecification {
-  /**
-   * Agent specification unique identifier.
-   * @type {string}
-   * @memberof AgentSpecification
-   */
-  identifier?: string;
+    /**
+     * Agent specification unique identifier.
+     * @type {string}
+     * @memberof AgentSpecification
+     */
+    identifier?: string;
 }

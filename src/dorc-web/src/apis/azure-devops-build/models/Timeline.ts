@@ -11,7 +11,10 @@
  * Do not edit the class manually.
  */
 
-import type { TimelineReference } from './index';
+import type {
+    TimelineRecord,
+    TimelineReference,
+} from './';
 
 /**
  * @type Timeline

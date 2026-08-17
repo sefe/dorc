@@ -11,11 +11,14 @@
  * Do not edit the class manually.
  */
 
-import type { GraphSubjectBase } from './index';
+import type {
+    GraphSubjectBase,
+    ReferenceLinks,
+} from './';
 
 /**
  * @type IdentityRef
- *
+ * 
  * @export
  */
 export type IdentityRef = GraphSubjectBase;

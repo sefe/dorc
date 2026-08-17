@@ -11,47 +11,49 @@
  * Do not edit the class manually.
  */
 
-import type { ReferenceLinks } from './index';
+import type {
+    ReferenceLinks,
+} from './';
 
 /**
- *
+ * 
  * @export
  * @interface ArtifactResource
  */
 export interface ArtifactResource {
-  /**
-   * @type {ReferenceLinks}
-   * @memberof ArtifactResource
-   */
-  _links?: ReferenceLinks;
-  /**
-   * Type-specific data about the artifact.
-   * @type {string}
-   * @memberof ArtifactResource
-   */
-  data?: string;
-  /**
-   * A link to download the resource.
-   * @type {string}
-   * @memberof ArtifactResource
-   */
-  downloadUrl?: string;
-  /**
-   * Type-specific properties of the artifact.
-   * @type {{ [key: string]: string; }}
-   * @memberof ArtifactResource
-   */
-  properties?: { [key: string]: string };
-  /**
-   * The type of the resource: File container, version control folder, UNC path, etc.
-   * @type {string}
-   * @memberof ArtifactResource
-   */
-  type?: string;
-  /**
-   * The full http link to the resource.
-   * @type {string}
-   * @memberof ArtifactResource
-   */
-  url?: string;
+    /**
+     * @type {ReferenceLinks}
+     * @memberof ArtifactResource
+     */
+    _links?: ReferenceLinks;
+    /**
+     * Type-specific data about the artifact.
+     * @type {string}
+     * @memberof ArtifactResource
+     */
+    data?: string;
+    /**
+     * A link to download the resource.
+     * @type {string}
+     * @memberof ArtifactResource
+     */
+    downloadUrl?: string;
+    /**
+     * Type-specific properties of the artifact.
+     * @type {{ [key: string]: string; }}
+     * @memberof ArtifactResource
+     */
+    properties?: { [key: string]: string; };
+    /**
+     * The type of the resource: File container, version control folder, UNC path, etc.
+     * @type {string}
+     * @memberof ArtifactResource
+     */
+    type?: string;
+    /**
+     * The full http link to the resource.
+     * @type {string}
+     * @memberof ArtifactResource
+     */
+    url?: string;
 }

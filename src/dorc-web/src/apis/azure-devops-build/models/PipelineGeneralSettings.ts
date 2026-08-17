@@ -17,40 +17,40 @@
  * @interface PipelineGeneralSettings
  */
 export interface PipelineGeneralSettings {
-  /**
-   * If enabled, scope of access for all non-release pipelines reduces to the current project.
-   * @type {boolean}
-   * @memberof PipelineGeneralSettings
-   */
-  enforceJobAuthScope?: boolean;
-  /**
-   * If enabled, scope of access for all release pipelines reduces to the current project.
-   * @type {boolean}
-   * @memberof PipelineGeneralSettings
-   */
-  enforceJobAuthScopeForReleases?: boolean;
-  /**
-   * Restricts the scope of access for all pipelines to only repositories explicitly referenced by the pipeline.
-   * @type {boolean}
-   * @memberof PipelineGeneralSettings
-   */
-  enforceReferencedRepoScopedToken?: boolean;
-  /**
-   * If enabled, only those variables that are explicitly marked as \"Settable at queue time\" can be set at queue time.
-   * @type {boolean}
-   * @memberof PipelineGeneralSettings
-   */
-  enforceSettableVar?: boolean;
-  /**
-   * Allows pipelines to record metadata.
-   * @type {boolean}
-   * @memberof PipelineGeneralSettings
-   */
-  publishPipelineMetadata?: boolean;
-  /**
-   * Anonymous users can access the status badge API for all pipelines unless this option is enabled.
-   * @type {boolean}
-   * @memberof PipelineGeneralSettings
-   */
-  statusBadgesArePrivate?: boolean;
+    /**
+     * If enabled, scope of access for all non-release pipelines reduces to the current project.
+     * @type {boolean}
+     * @memberof PipelineGeneralSettings
+     */
+    enforceJobAuthScope?: boolean;
+    /**
+     * If enabled, scope of access for all release pipelines reduces to the current project.
+     * @type {boolean}
+     * @memberof PipelineGeneralSettings
+     */
+    enforceJobAuthScopeForReleases?: boolean;
+    /**
+     * Restricts the scope of access for all pipelines to only repositories explicitly referenced by the pipeline.
+     * @type {boolean}
+     * @memberof PipelineGeneralSettings
+     */
+    enforceReferencedRepoScopedToken?: boolean;
+    /**
+     * If enabled, only those variables that are explicitly marked as \"Settable at queue time\" can be set at queue time.
+     * @type {boolean}
+     * @memberof PipelineGeneralSettings
+     */
+    enforceSettableVar?: boolean;
+    /**
+     * Allows pipelines to record metadata.
+     * @type {boolean}
+     * @memberof PipelineGeneralSettings
+     */
+    publishPipelineMetadata?: boolean;
+    /**
+     * Anonymous users can access the status badge API for all pipelines unless this option is enabled.
+     * @type {boolean}
+     * @memberof PipelineGeneralSettings
+     */
+    statusBadgesArePrivate?: boolean;
 }

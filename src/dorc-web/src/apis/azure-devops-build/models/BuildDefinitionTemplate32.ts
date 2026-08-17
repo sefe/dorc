@@ -11,7 +11,9 @@
  * Do not edit the class manually.
  */
 
-import type { BuildDefinition32 } from './index';
+import type {
+    BuildDefinition32,
+} from './';
 
 /**
  * For back-compat with extensions that use the old Steps format instead of Process and Phases
@@ -19,49 +21,49 @@ import type { BuildDefinition32 } from './index';
  * @interface BuildDefinitionTemplate32
  */
 export interface BuildDefinitionTemplate32 {
-  /**
-   * @type {boolean}
-   * @memberof BuildDefinitionTemplate32
-   */
-  canDelete?: boolean;
-  /**
-   * @type {string}
-   * @memberof BuildDefinitionTemplate32
-   */
-  category?: string;
-  /**
-   * @type {string}
-   * @memberof BuildDefinitionTemplate32
-   */
-  defaultHostedQueue?: string;
-  /**
-   * @type {string}
-   * @memberof BuildDefinitionTemplate32
-   */
-  description?: string;
-  /**
-   * @type {{ [key: string]: string; }}
-   * @memberof BuildDefinitionTemplate32
-   */
-  icons?: { [key: string]: string };
-  /**
-   * @type {string}
-   * @memberof BuildDefinitionTemplate32
-   */
-  iconTaskId?: string;
-  /**
-   * @type {string}
-   * @memberof BuildDefinitionTemplate32
-   */
-  id?: string;
-  /**
-   * @type {string}
-   * @memberof BuildDefinitionTemplate32
-   */
-  name?: string;
-  /**
-   * @type {BuildDefinition32}
-   * @memberof BuildDefinitionTemplate32
-   */
-  template?: BuildDefinition32;
+    /**
+     * @type {boolean}
+     * @memberof BuildDefinitionTemplate32
+     */
+    canDelete?: boolean;
+    /**
+     * @type {string}
+     * @memberof BuildDefinitionTemplate32
+     */
+    category?: string;
+    /**
+     * @type {string}
+     * @memberof BuildDefinitionTemplate32
+     */
+    defaultHostedQueue?: string;
+    /**
+     * @type {string}
+     * @memberof BuildDefinitionTemplate32
+     */
+    description?: string;
+    /**
+     * @type {{ [key: string]: string; }}
+     * @memberof BuildDefinitionTemplate32
+     */
+    icons?: { [key: string]: string; };
+    /**
+     * @type {string}
+     * @memberof BuildDefinitionTemplate32
+     */
+    iconTaskId?: string;
+    /**
+     * @type {string}
+     * @memberof BuildDefinitionTemplate32
+     */
+    id?: string;
+    /**
+     * @type {string}
+     * @memberof BuildDefinitionTemplate32
+     */
+    name?: string;
+    /**
+     * @type {BuildDefinition32}
+     * @memberof BuildDefinitionTemplate32
+     */
+    template?: BuildDefinition32;
 }

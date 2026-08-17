@@ -11,7 +11,9 @@
  * Do not edit the class manually.
  */
 
-import type { RetentionPolicy } from './index';
+import type {
+    RetentionPolicy,
+} from './';
 
 /**
  * Represents system-wide build settings.
@@ -19,20 +21,20 @@ import type { RetentionPolicy } from './index';
  * @interface BuildSettings
  */
 export interface BuildSettings {
-  /**
-   * The number of days to keep records of deleted builds.
-   * @type {number}
-   * @memberof BuildSettings
-   */
-  daysToKeepDeletedBuildsBeforeDestroy?: number;
-  /**
-   * @type {RetentionPolicy}
-   * @memberof BuildSettings
-   */
-  defaultRetentionPolicy?: RetentionPolicy;
-  /**
-   * @type {RetentionPolicy}
-   * @memberof BuildSettings
-   */
-  maximumRetentionPolicy?: RetentionPolicy;
+    /**
+     * The number of days to keep records of deleted builds.
+     * @type {number}
+     * @memberof BuildSettings
+     */
+    daysToKeepDeletedBuildsBeforeDestroy?: number;
+    /**
+     * @type {RetentionPolicy}
+     * @memberof BuildSettings
+     */
+    defaultRetentionPolicy?: RetentionPolicy;
+    /**
+     * @type {RetentionPolicy}
+     * @memberof BuildSettings
+     */
+    maximumRetentionPolicy?: RetentionPolicy;
 }

@@ -11,7 +11,10 @@
  * Do not edit the class manually.
  */
 
-import type { BuildTrigger } from './index';
+import type {
+    BuildTrigger,
+    Forks,
+} from './';
 
 /**
  * @type PullRequestTrigger

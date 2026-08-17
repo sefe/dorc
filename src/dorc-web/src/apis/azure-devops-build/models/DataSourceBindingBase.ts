@@ -11,7 +11,9 @@
  * Do not edit the class manually.
  */
 
-import type { AuthorizationHeader } from './index';
+import type {
+    AuthorizationHeader,
+} from './';
 
 /**
  * Represents binding of data source for the service endpoint request.
@@ -19,82 +21,82 @@ import type { AuthorizationHeader } from './index';
  * @interface DataSourceBindingBase
  */
 export interface DataSourceBindingBase {
-  /**
-   * Pagination format supported by this data source(ContinuationToken/SkipTop).
-   * @type {string}
-   * @memberof DataSourceBindingBase
-   */
-  callbackContextTemplate?: string;
-  /**
-   * Subsequent calls needed?
-   * @type {string}
-   * @memberof DataSourceBindingBase
-   */
-  callbackRequiredTemplate?: string;
-  /**
-   * Gets or sets the name of the data source.
-   * @type {string}
-   * @memberof DataSourceBindingBase
-   */
-  dataSourceName?: string;
-  /**
-   * Gets or sets the endpoint Id.
-   * @type {string}
-   * @memberof DataSourceBindingBase
-   */
-  endpointId?: string;
-  /**
-   * Gets or sets the url of the service endpoint.
-   * @type {string}
-   * @memberof DataSourceBindingBase
-   */
-  endpointUrl?: string;
-  /**
-   * Gets or sets the authorization headers.
-   * @type {Array<AuthorizationHeader>}
-   * @memberof DataSourceBindingBase
-   */
-  headers?: Array<AuthorizationHeader>;
-  /**
-   * Defines the initial value of the query params
-   * @type {string}
-   * @memberof DataSourceBindingBase
-   */
-  initialContextTemplate?: string;
-  /**
-   * Gets or sets the parameters for the data source.
-   * @type {{ [key: string]: string; }}
-   * @memberof DataSourceBindingBase
-   */
-  parameters?: { [key: string]: string };
-  /**
-   * Gets or sets http request body
-   * @type {string}
-   * @memberof DataSourceBindingBase
-   */
-  requestContent?: string;
-  /**
-   * Gets or sets http request verb
-   * @type {string}
-   * @memberof DataSourceBindingBase
-   */
-  requestVerb?: string;
-  /**
-   * Gets or sets the result selector.
-   * @type {string}
-   * @memberof DataSourceBindingBase
-   */
-  resultSelector?: string;
-  /**
-   * Gets or sets the result template.
-   * @type {string}
-   * @memberof DataSourceBindingBase
-   */
-  resultTemplate?: string;
-  /**
-   * Gets or sets the target of the data source.
-   * @type {string}
-   * @memberof DataSourceBindingBase
-   */
-  target?: string;
+    /**
+     * Pagination format supported by this data source(ContinuationToken/SkipTop).
+     * @type {string}
+     * @memberof DataSourceBindingBase
+     */
+    callbackContextTemplate?: string;
+    /**
+     * Subsequent calls needed?
+     * @type {string}
+     * @memberof DataSourceBindingBase
+     */
+    callbackRequiredTemplate?: string;
+    /**
+     * Gets or sets the name of the data source.
+     * @type {string}
+     * @memberof DataSourceBindingBase
+     */
+    dataSourceName?: string;
+    /**
+     * Gets or sets the endpoint Id.
+     * @type {string}
+     * @memberof DataSourceBindingBase
+     */
+    endpointId?: string;
+    /**
+     * Gets or sets the url of the service endpoint.
+     * @type {string}
+     * @memberof DataSourceBindingBase
+     */
+    endpointUrl?: string;
+    /**
+     * Gets or sets the authorization headers.
+     * @type {Array<AuthorizationHeader>}
+     * @memberof DataSourceBindingBase
+     */
+    headers?: Array<AuthorizationHeader>;
+    /**
+     * Defines the initial value of the query params
+     * @type {string}
+     * @memberof DataSourceBindingBase
+     */
+    initialContextTemplate?: string;
+    /**
+     * Gets or sets the parameters for the data source.
+     * @type {{ [key: string]: string; }}
+     * @memberof DataSourceBindingBase
+     */
+    parameters?: { [key: string]: string; };
+    /**
+     * Gets or sets http request body
+     * @type {string}
+     * @memberof DataSourceBindingBase
+     */
+    requestContent?: string;
+    /**
+     * Gets or sets http request verb
+     * @type {string}
+     * @memberof DataSourceBindingBase
+     */
+    requestVerb?: string;
+    /**
+     * Gets or sets the result selector.
+     * @type {string}
+     * @memberof DataSourceBindingBase
+     */
+    resultSelector?: string;
+    /**
+     * Gets or sets the result template.
+     * @type {string}
+     * @memberof DataSourceBindingBase
+     */
+    resultTemplate?: string;
+    /**
+     * Gets or sets the target of the data source.
+     * @type {string}
+     * @memberof DataSourceBindingBase
+     */
+    target?: string;
 }

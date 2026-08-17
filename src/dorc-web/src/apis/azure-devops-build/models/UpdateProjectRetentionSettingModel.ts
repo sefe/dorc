@@ -11,7 +11,9 @@
  * Do not edit the class manually.
  */
 
-import type { UpdateRetentionSettingModel } from './index';
+import type {
+    UpdateRetentionSettingModel,
+} from './';
 
 /**
  * Contains members for updating the retention settings values. All fields are optional.
@@ -19,24 +21,24 @@ import type { UpdateRetentionSettingModel } from './index';
  * @interface UpdateProjectRetentionSettingModel
  */
 export interface UpdateProjectRetentionSettingModel {
-  /**
-   * @type {UpdateRetentionSettingModel}
-   * @memberof UpdateProjectRetentionSettingModel
-   */
-  artifactsRetention?: UpdateRetentionSettingModel;
-  /**
-   * @type {UpdateRetentionSettingModel}
-   * @memberof UpdateProjectRetentionSettingModel
-   */
-  pullRequestRunRetention?: UpdateRetentionSettingModel;
-  /**
-   * @type {UpdateRetentionSettingModel}
-   * @memberof UpdateProjectRetentionSettingModel
-   */
-  retainRunsPerProtectedBranch?: UpdateRetentionSettingModel;
-  /**
-   * @type {UpdateRetentionSettingModel}
-   * @memberof UpdateProjectRetentionSettingModel
-   */
-  runRetention?: UpdateRetentionSettingModel;
+    /**
+     * @type {UpdateRetentionSettingModel}
+     * @memberof UpdateProjectRetentionSettingModel
+     */
+    artifactsRetention?: UpdateRetentionSettingModel;
+    /**
+     * @type {UpdateRetentionSettingModel}
+     * @memberof UpdateProjectRetentionSettingModel
+     */
+    pullRequestRunRetention?: UpdateRetentionSettingModel;
+    /**
+     * @type {UpdateRetentionSettingModel}
+     * @memberof UpdateProjectRetentionSettingModel
+     */
+    retainRunsPerProtectedBranch?: UpdateRetentionSettingModel;
+    /**
+     * @type {UpdateRetentionSettingModel}
+     * @memberof UpdateProjectRetentionSettingModel
+     */
+    runRetention?: UpdateRetentionSettingModel;
 }

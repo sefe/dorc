@@ -17,10 +17,10 @@
  * @interface ResourceReference
  */
 export interface ResourceReference {
-  /**
-   * An alias to be used when referencing the resource.
-   * @type {string}
-   * @memberof ResourceReference
-   */
-  alias?: string;
+    /**
+     * An alias to be used when referencing the resource.
+     * @type {string}
+     * @memberof ResourceReference
+     */
+    alias?: string;
 }

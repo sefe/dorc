@@ -12,46 +12,46 @@
  */
 
 /**
- *
+ * 
  * @export
  * @interface AssociatedWorkItem
  */
 export interface AssociatedWorkItem {
-  /**
-   * @type {string}
-   * @memberof AssociatedWorkItem
-   */
-  assignedTo?: string;
-  /**
-   * Id of associated the work item.
-   * @type {number}
-   * @memberof AssociatedWorkItem
-   */
-  id?: number;
-  /**
-   * @type {string}
-   * @memberof AssociatedWorkItem
-   */
-  state?: string;
-  /**
-   * @type {string}
-   * @memberof AssociatedWorkItem
-   */
-  title?: string;
-  /**
-   * REST Url of the work item.
-   * @type {string}
-   * @memberof AssociatedWorkItem
-   */
-  url?: string;
-  /**
-   * @type {string}
-   * @memberof AssociatedWorkItem
-   */
-  webUrl?: string;
-  /**
-   * @type {string}
-   * @memberof AssociatedWorkItem
-   */
-  workItemType?: string;
+    /**
+     * @type {string}
+     * @memberof AssociatedWorkItem
+     */
+    assignedTo?: string;
+    /**
+     * Id of associated the work item.
+     * @type {number}
+     * @memberof AssociatedWorkItem
+     */
+    id?: number;
+    /**
+     * @type {string}
+     * @memberof AssociatedWorkItem
+     */
+    state?: string;
+    /**
+     * @type {string}
+     * @memberof AssociatedWorkItem
+     */
+    title?: string;
+    /**
+     * REST Url of the work item.
+     * @type {string}
+     * @memberof AssociatedWorkItem
+     */
+    url?: string;
+    /**
+     * @type {string}
+     * @memberof AssociatedWorkItem
+     */
+    webUrl?: string;
+    /**
+     * @type {string}
+     * @memberof AssociatedWorkItem
+     */
+    workItemType?: string;
 }

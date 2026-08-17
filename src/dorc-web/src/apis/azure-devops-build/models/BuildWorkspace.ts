@@ -11,7 +11,9 @@
  * Do not edit the class manually.
  */
 
-import type { MappingDetails } from './index';
+import type {
+    MappingDetails,
+} from './';
 
 /**
  * Represents a workspace mapping.
@@ -19,9 +21,9 @@ import type { MappingDetails } from './index';
  * @interface BuildWorkspace
  */
 export interface BuildWorkspace {
-  /**
-   * @type {Array<MappingDetails>}
-   * @memberof BuildWorkspace
-   */
-  mappings?: Array<MappingDetails>;
+    /**
+     * @type {Array<MappingDetails>}
+     * @memberof BuildWorkspace
+     */
+    mappings?: Array<MappingDetails>;
 }

@@ -17,27 +17,27 @@
  * @interface PropertiesCollection
  */
 export interface PropertiesCollection {
-  /**
-   * The count of properties in the collection.
-   * @type {number}
-   * @memberof PropertiesCollection
-   */
-  count?: number;
-  /**
-   * @type {object}
-   * @memberof PropertiesCollection
-   */
-  item?: object;
-  /**
-   * The set of keys in the collection.
-   * @type {Array<string>}
-   * @memberof PropertiesCollection
-   */
-  keys?: Array<string>;
-  /**
-   * The set of values in the collection.
-   * @type {Array<string>}
-   * @memberof PropertiesCollection
-   */
-  values?: Array<string>;
+    /**
+     * The count of properties in the collection.
+     * @type {number}
+     * @memberof PropertiesCollection
+     */
+    count?: number;
+    /**
+     * @type {object}
+     * @memberof PropertiesCollection
+     */
+    item?: object;
+    /**
+     * The set of keys in the collection.
+     * @type {Array<string>}
+     * @memberof PropertiesCollection
+     */
+    keys?: Array<string>;
+    /**
+     * The set of values in the collection.
+     * @type {Array<string>}
+     * @memberof PropertiesCollection
+     */
+    values?: Array<string>;
 }

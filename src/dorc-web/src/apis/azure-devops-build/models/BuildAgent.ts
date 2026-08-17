@@ -12,91 +12,91 @@
  */
 
 import type {
-  XamlBuildControllerReference,
-  XamlBuildServerReference
-} from './index';
+    XamlBuildControllerReference,
+    XamlBuildServerReference,
+} from './';
 
 /**
- *
+ * 
  * @export
  * @interface BuildAgent
  */
 export interface BuildAgent {
-  /**
-   * @type {string}
-   * @memberof BuildAgent
-   */
-  buildDirectory?: string;
-  /**
-   * @type {XamlBuildControllerReference}
-   * @memberof BuildAgent
-   */
-  controller?: XamlBuildControllerReference;
-  /**
-   * @type {string}
-   * @memberof BuildAgent
-   */
-  createdDate?: string;
-  /**
-   * @type {string}
-   * @memberof BuildAgent
-   */
-  description?: string;
-  /**
-   * @type {boolean}
-   * @memberof BuildAgent
-   */
-  enabled?: boolean;
-  /**
-   * @type {number}
-   * @memberof BuildAgent
-   */
-  id?: number;
-  /**
-   * @type {string}
-   * @memberof BuildAgent
-   */
-  messageQueueUrl?: string;
-  /**
-   * @type {string}
-   * @memberof BuildAgent
-   */
-  name?: string;
-  /**
-   * @type {string}
-   * @memberof BuildAgent
-   */
-  reservedForBuild?: string;
-  /**
-   * @type {XamlBuildServerReference}
-   * @memberof BuildAgent
-   */
-  server?: XamlBuildServerReference;
-  /**
-   * @type {string}
-   * @memberof BuildAgent
-   */
-  status?: BuildAgentStatusEnum;
-  /**
-   * @type {string}
-   * @memberof BuildAgent
-   */
-  statusMessage?: string;
-  /**
-   * @type {string}
-   * @memberof BuildAgent
-   */
-  updatedDate?: string;
-  /**
-   * @type {string}
-   * @memberof BuildAgent
-   */
-  uri?: string;
-  /**
-   * @type {string}
-   * @memberof BuildAgent
-   */
-  url?: string;
+    /**
+     * @type {string}
+     * @memberof BuildAgent
+     */
+    buildDirectory?: string;
+    /**
+     * @type {XamlBuildControllerReference}
+     * @memberof BuildAgent
+     */
+    controller?: XamlBuildControllerReference;
+    /**
+     * @type {string}
+     * @memberof BuildAgent
+     */
+    createdDate?: string;
+    /**
+     * @type {string}
+     * @memberof BuildAgent
+     */
+    description?: string;
+    /**
+     * @type {boolean}
+     * @memberof BuildAgent
+     */
+    enabled?: boolean;
+    /**
+     * @type {number}
+     * @memberof BuildAgent
+     */
+    id?: number;
+    /**
+     * @type {string}
+     * @memberof BuildAgent
+     */
+    messageQueueUrl?: string;
+    /**
+     * @type {string}
+     * @memberof BuildAgent
+     */
+    name?: string;
+    /**
+     * @type {string}
+     * @memberof BuildAgent
+     */
+    reservedForBuild?: string;
+    /**
+     * @type {XamlBuildServerReference}
+     * @memberof BuildAgent
+     */
+    server?: XamlBuildServerReference;
+    /**
+     * @type {string}
+     * @memberof BuildAgent
+     */
+    status?: BuildAgentStatusEnum;
+    /**
+     * @type {string}
+     * @memberof BuildAgent
+     */
+    statusMessage?: string;
+    /**
+     * @type {string}
+     * @memberof BuildAgent
+     */
+    updatedDate?: string;
+    /**
+     * @type {string}
+     * @memberof BuildAgent
+     */
+    uri?: string;
+    /**
+     * @type {string}
+     * @memberof BuildAgent
+     */
+    url?: string;
 }
 
 /**
@@ -104,7 +104,8 @@ export interface BuildAgent {
  * @enum {string}
  */
 export enum BuildAgentStatusEnum {
-  Unavailable = 'unavailable',
-  Available = 'available',
-  Offline = 'offline'
+    Unavailable = 'unavailable',
+    Available = 'available',
+    Offline = 'offline'
 }
+

@@ -12,47 +12,47 @@
  */
 
 /**
- *
+ * 
  * @export
  * @interface BuildDefinitionSourceProvider
  */
 export interface BuildDefinitionSourceProvider {
-  /**
-   * Uri of the associated definition
-   * @type {string}
-   * @memberof BuildDefinitionSourceProvider
-   */
-  definitionUri?: string;
-  /**
-   * fields associated with this build definition
-   * @type {{ [key: string]: string; }}
-   * @memberof BuildDefinitionSourceProvider
-   */
-  fields?: { [key: string]: string };
-  /**
-   * Id of this source provider
-   * @type {number}
-   * @memberof BuildDefinitionSourceProvider
-   */
-  id?: number;
-  /**
-   * The lst time this source provider was modified
-   * @type {string}
-   * @memberof BuildDefinitionSourceProvider
-   */
-  lastModified?: string;
-  /**
-   * Name of the source provider
-   * @type {string}
-   * @memberof BuildDefinitionSourceProvider
-   */
-  name?: string;
-  /**
-   * Which trigger types are supported by this definition source provider
-   * @type {string}
-   * @memberof BuildDefinitionSourceProvider
-   */
-  supportedTriggerTypes?: BuildDefinitionSourceProviderSupportedTriggerTypesEnum;
+    /**
+     * Uri of the associated definition
+     * @type {string}
+     * @memberof BuildDefinitionSourceProvider
+     */
+    definitionUri?: string;
+    /**
+     * fields associated with this build definition
+     * @type {{ [key: string]: string; }}
+     * @memberof BuildDefinitionSourceProvider
+     */
+    fields?: { [key: string]: string; };
+    /**
+     * Id of this source provider
+     * @type {number}
+     * @memberof BuildDefinitionSourceProvider
+     */
+    id?: number;
+    /**
+     * The lst time this source provider was modified
+     * @type {string}
+     * @memberof BuildDefinitionSourceProvider
+     */
+    lastModified?: string;
+    /**
+     * Name of the source provider
+     * @type {string}
+     * @memberof BuildDefinitionSourceProvider
+     */
+    name?: string;
+    /**
+     * Which trigger types are supported by this definition source provider
+     * @type {string}
+     * @memberof BuildDefinitionSourceProvider
+     */
+    supportedTriggerTypes?: BuildDefinitionSourceProviderSupportedTriggerTypesEnum;
 }
 
 /**
@@ -60,13 +60,14 @@ export interface BuildDefinitionSourceProvider {
  * @enum {string}
  */
 export enum BuildDefinitionSourceProviderSupportedTriggerTypesEnum {
-  None = 'none',
-  ContinuousIntegration = 'continuousIntegration',
-  BatchedContinuousIntegration = 'batchedContinuousIntegration',
-  Schedule = 'schedule',
-  GatedCheckIn = 'gatedCheckIn',
-  BatchedGatedCheckIn = 'batchedGatedCheckIn',
-  PullRequest = 'pullRequest',
-  BuildCompletion = 'buildCompletion',
-  All = 'all'
+    None = 'none',
+    ContinuousIntegration = 'continuousIntegration',
+    BatchedContinuousIntegration = 'batchedContinuousIntegration',
+    Schedule = 'schedule',
+    GatedCheckIn = 'gatedCheckIn',
+    BatchedGatedCheckIn = 'batchedGatedCheckIn',
+    PullRequest = 'pullRequest',
+    BuildCompletion = 'buildCompletion',
+    All = 'all'
 }
+

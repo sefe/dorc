@@ -12,57 +12,57 @@
  */
 
 import type {
-  AggregatedResultsByOutcome,
-  AggregatedResultsDifference,
-  AggregatedRunsByOutcome,
-  AggregatedRunsByState,
-  TestResultsContext
-} from './index';
+    AggregatedResultsByOutcome,
+    AggregatedResultsDifference,
+    AggregatedRunsByOutcome,
+    AggregatedRunsByState,
+    TestResultsContext,
+} from './';
 
 /**
- *
+ * 
  * @export
  * @interface AggregatedResultsAnalysis
  */
 export interface AggregatedResultsAnalysis {
-  /**
-   * @type {string}
-   * @memberof AggregatedResultsAnalysis
-   */
-  duration?: string;
-  /**
-   * @type {{ [key: string]: AggregatedResultsByOutcome; }}
-   * @memberof AggregatedResultsAnalysis
-   */
-  notReportedResultsByOutcome?: { [key: string]: AggregatedResultsByOutcome };
-  /**
-   * @type {TestResultsContext}
-   * @memberof AggregatedResultsAnalysis
-   */
-  previousContext?: TestResultsContext;
-  /**
-   * @type {{ [key: string]: AggregatedResultsByOutcome; }}
-   * @memberof AggregatedResultsAnalysis
-   */
-  resultsByOutcome?: { [key: string]: AggregatedResultsByOutcome };
-  /**
-   * @type {AggregatedResultsDifference}
-   * @memberof AggregatedResultsAnalysis
-   */
-  resultsDifference?: AggregatedResultsDifference;
-  /**
-   * @type {{ [key: string]: AggregatedRunsByOutcome; }}
-   * @memberof AggregatedResultsAnalysis
-   */
-  runSummaryByOutcome?: { [key: string]: AggregatedRunsByOutcome };
-  /**
-   * @type {{ [key: string]: AggregatedRunsByState; }}
-   * @memberof AggregatedResultsAnalysis
-   */
-  runSummaryByState?: { [key: string]: AggregatedRunsByState };
-  /**
-   * @type {number}
-   * @memberof AggregatedResultsAnalysis
-   */
-  totalTests?: number;
+    /**
+     * @type {string}
+     * @memberof AggregatedResultsAnalysis
+     */
+    duration?: string;
+    /**
+     * @type {{ [key: string]: AggregatedResultsByOutcome; }}
+     * @memberof AggregatedResultsAnalysis
+     */
+    notReportedResultsByOutcome?: { [key: string]: AggregatedResultsByOutcome; };
+    /**
+     * @type {TestResultsContext}
+     * @memberof AggregatedResultsAnalysis
+     */
+    previousContext?: TestResultsContext;
+    /**
+     * @type {{ [key: string]: AggregatedResultsByOutcome; }}
+     * @memberof AggregatedResultsAnalysis
+     */
+    resultsByOutcome?: { [key: string]: AggregatedResultsByOutcome; };
+    /**
+     * @type {AggregatedResultsDifference}
+     * @memberof AggregatedResultsAnalysis
+     */
+    resultsDifference?: AggregatedResultsDifference;
+    /**
+     * @type {{ [key: string]: AggregatedRunsByOutcome; }}
+     * @memberof AggregatedResultsAnalysis
+     */
+    runSummaryByOutcome?: { [key: string]: AggregatedRunsByOutcome; };
+    /**
+     * @type {{ [key: string]: AggregatedRunsByState; }}
+     * @memberof AggregatedResultsAnalysis
+     */
+    runSummaryByState?: { [key: string]: AggregatedRunsByState; };
+    /**
+     * @type {number}
+     * @memberof AggregatedResultsAnalysis
+     */
+    totalTests?: number;
 }

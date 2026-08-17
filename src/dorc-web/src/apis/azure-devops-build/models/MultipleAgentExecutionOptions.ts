@@ -11,7 +11,9 @@
  * Do not edit the class manually.
  */
 
-import type { AgentTargetExecutionOptions } from './index';
+import type {
+    AgentTargetExecutionOptions,
+} from './';
 
 /**
  * @type MultipleAgentExecutionOptions

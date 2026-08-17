@@ -13,110 +13,64 @@
 
 import type { Observable } from 'rxjs';
 import type { AjaxResponse } from 'rxjs/ajax';
-import type { HttpHeaders, HttpQuery, OperationOpts } from '../runtime';
-import { BaseAPI, encodeURI, throwIfNullOrUndefined } from '../runtime';
-import type { YamlBuild } from '../models';
+import { BaseAPI, throwIfNullOrUndefined, encodeURI } from '../runtime';
+import type { OperationOpts, HttpHeaders, HttpQuery } from '../runtime';
+import type {
+    YamlBuild,
+} from '../models';
 
 export interface YamlGetRequest {
-  organization: string;
-  project: string;
-  definitionId: number;
-  apiVersion: string;
-  revision?: number;
-  minMetricsTime?: string;
-  propertyFilters?: string;
-  includeLatestBuilds?: boolean;
+    organization: string;
+    project: string;
+    definitionId: number;
+    apiVersion: string;
+    revision?: number;
+    minMetricsTime?: string;
+    propertyFilters?: string;
+    includeLatestBuilds?: boolean;
 }
 
 /**
  * no description
  */
 export class YamlApi extends BaseAPI {
-  /**
-   * Converts a definition to YAML, optionally at a specific revision.
-   */
-  yamlGet({
-    organization,
-    project,
-    definitionId,
-    apiVersion,
-    revision,
-    minMetricsTime,
-    propertyFilters,
-    includeLatestBuilds
-  }: YamlGetRequest): Observable<YamlBuild>;
-  yamlGet(
-    {
-      organization,
-      project,
-      definitionId,
-      apiVersion,
-      revision,
-      minMetricsTime,
-      propertyFilters,
-      includeLatestBuilds
-    }: YamlGetRequest,
-    opts?: OperationOpts
-  ): Observable<AjaxResponse<YamlBuild>>;
-  yamlGet(
-    {
-      organization,
-      project,
-      definitionId,
-      apiVersion,
-      revision,
-      minMetricsTime,
-      propertyFilters,
-      includeLatestBuilds
-    }: YamlGetRequest,
-    opts?: OperationOpts
-  ): Observable<YamlBuild | AjaxResponse<YamlBuild>> {
-    throwIfNullOrUndefined(organization, 'organization', 'yamlGet');
-    throwIfNullOrUndefined(project, 'project', 'yamlGet');
-    throwIfNullOrUndefined(definitionId, 'definitionId', 'yamlGet');
-    throwIfNullOrUndefined(apiVersion, 'apiVersion', 'yamlGet');
 
-    const headers: HttpHeaders = {
-      // oauth required
-      ...(this.configuration.accessToken != null
-        ? {
-            Authorization:
-              typeof this.configuration.accessToken === 'function'
-                ? this.configuration.accessToken('oauth2', ['vso.build'])
-                : this.configuration.accessToken
-          }
-        : undefined)
+    /**
+     * Converts a definition to YAML, optionally at a specific revision.
+     */
+    yamlGet({ organization, project, definitionId, apiVersion, revision, minMetricsTime, propertyFilters, includeLatestBuilds }: YamlGetRequest): Observable<YamlBuild>
+    yamlGet({ organization, project, definitionId, apiVersion, revision, minMetricsTime, propertyFilters, includeLatestBuilds }: YamlGetRequest, opts?: OperationOpts): Observable<AjaxResponse<YamlBuild>>
+    yamlGet({ organization, project, definitionId, apiVersion, revision, minMetricsTime, propertyFilters, includeLatestBuilds }: YamlGetRequest, opts?: OperationOpts): Observable<YamlBuild | AjaxResponse<YamlBuild>> {
+        throwIfNullOrUndefined(organization, 'organization', 'yamlGet');
+        throwIfNullOrUndefined(project, 'project', 'yamlGet');
+        throwIfNullOrUndefined(definitionId, 'definitionId', 'yamlGet');
+        throwIfNullOrUndefined(apiVersion, 'apiVersion', 'yamlGet');
+
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['vso.build'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
+        const query: HttpQuery = { // required parameters are used directly since they are already checked by throwIfNullOrUndefined
+            'api-version': apiVersion,
+        };
+
+        if (revision != null) { query['revision'] = revision; }
+        if (minMetricsTime != null) { query['minMetricsTime'] = (minMetricsTime as any).toISOString(); }
+        if (propertyFilters != null) { query['propertyFilters'] = propertyFilters; }
+        if (includeLatestBuilds != null) { query['includeLatestBuilds'] = includeLatestBuilds; }
+
+        return this.request<YamlBuild>({
+            url: '/{organization}/{project}/_apis/build/definitions/{definitionId}/yaml'.replace('{organization}', encodeURI(organization)).replace('{project}', encodeURI(project)).replace('{definitionId}', encodeURI(definitionId)),
+            method: 'GET',
+            headers,
+            query,
+        }, opts?.responseOpts);
     };
 
-    const query: HttpQuery = {
-      // required parameters are used directly since they are already checked by throwIfNullOrUndefined
-      'api-version': apiVersion
-    };
-
-    if (revision != null) {
-      query['revision'] = revision;
-    }
-    if (minMetricsTime != null) {
-      query['minMetricsTime'] = (minMetricsTime as any).toISOString();
-    }
-    if (propertyFilters != null) {
-      query['propertyFilters'] = propertyFilters;
-    }
-    if (includeLatestBuilds != null) {
-      query['includeLatestBuilds'] = includeLatestBuilds;
-    }
-
-    return this.request<YamlBuild>(
-      {
-        url: '/{organization}/{project}/_apis/build/definitions/{definitionId}/yaml'
-          .replace('{organization}', encodeURI(organization))
-          .replace('{project}', encodeURI(project))
-          .replace('{definitionId}', encodeURI(definitionId)),
-        method: 'GET',
-        headers,
-        query
-      },
-      opts?.responseOpts
-    );
-  }
 }

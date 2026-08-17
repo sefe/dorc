@@ -17,66 +17,66 @@
  * @interface TeamProjectReference
  */
 export interface TeamProjectReference {
-  /**
-   * Project abbreviation.
-   * @type {string}
-   * @memberof TeamProjectReference
-   */
-  abbreviation?: string;
-  /**
-   * Url to default team identity image.
-   * @type {string}
-   * @memberof TeamProjectReference
-   */
-  defaultTeamImageUrl?: string;
-  /**
-   * The project\'s description (if any).
-   * @type {string}
-   * @memberof TeamProjectReference
-   */
-  description?: string;
-  /**
-   * Project identifier.
-   * @type {string}
-   * @memberof TeamProjectReference
-   */
-  id?: string;
-  /**
-   * Project last update time.
-   * @type {string}
-   * @memberof TeamProjectReference
-   */
-  lastUpdateTime?: string;
-  /**
-   * Project name.
-   * @type {string}
-   * @memberof TeamProjectReference
-   */
-  name?: string;
-  /**
-   * Project revision.
-   * @type {number}
-   * @memberof TeamProjectReference
-   */
-  revision?: number;
-  /**
-   * Project state.
-   * @type {string}
-   * @memberof TeamProjectReference
-   */
-  state?: TeamProjectReferenceStateEnum;
-  /**
-   * Url to the full version of the object.
-   * @type {string}
-   * @memberof TeamProjectReference
-   */
-  url?: string;
-  /**
-   * Project visibility.
-   * @type {string}
-   * @memberof TeamProjectReference
-   */
-  visibility?: TeamProjectReferenceVisibilityEnum;
+    /**
+     * Project abbreviation.
+     * @type {string}
+     * @memberof TeamProjectReference
+     */
+    abbreviation?: string;
+    /**
+     * Url to default team identity image.
+     * @type {string}
+     * @memberof TeamProjectReference
+     */
+    defaultTeamImageUrl?: string;
+    /**
+     * The project\'s description (if any).
+     * @type {string}
+     * @memberof TeamProjectReference
+     */
+    description?: string;
+    /**
+     * Project identifier.
+     * @type {string}
+     * @memberof TeamProjectReference
+     */
+    id?: string;
+    /**
+     * Project last update time.
+     * @type {string}
+     * @memberof TeamProjectReference
+     */
+    lastUpdateTime?: string;
+    /**
+     * Project name.
+     * @type {string}
+     * @memberof TeamProjectReference
+     */
+    name?: string;
+    /**
+     * Project revision.
+     * @type {number}
+     * @memberof TeamProjectReference
+     */
+    revision?: number;
+    /**
+     * Project state.
+     * @type {string}
+     * @memberof TeamProjectReference
+     */
+    state?: TeamProjectReferenceStateEnum;
+    /**
+     * Url to the full version of the object.
+     * @type {string}
+     * @memberof TeamProjectReference
+     */
+    url?: string;
+    /**
+     * Project visibility.
+     * @type {string}
+     * @memberof TeamProjectReference
+     */
+    visibility?: TeamProjectReferenceVisibilityEnum;
 }
 
 /**
@@ -84,19 +84,20 @@ export interface TeamProjectReference {
  * @enum {string}
  */
 export enum TeamProjectReferenceStateEnum {
-  Deleting = 'deleting',
-  New = 'new',
-  WellFormed = 'wellFormed',
-  CreatePending = 'createPending',
-  All = 'all',
-  Unchanged = 'unchanged',
-  Deleted = 'deleted'
+    Deleting = 'deleting',
+    New = 'new',
+    WellFormed = 'wellFormed',
+    CreatePending = 'createPending',
+    All = 'all',
+    Unchanged = 'unchanged',
+    Deleted = 'deleted'
 }
 /**
  * @export
  * @enum {string}
  */
 export enum TeamProjectReferenceVisibilityEnum {
-  Private = 'private',
-  Public = 'public'
+    Private = 'private',
+    Public = 'public'
 }
+

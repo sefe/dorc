@@ -11,42 +11,44 @@
  * Do not edit the class manually.
  */
 
-import type { WorkspaceMapping } from './index';
+import type {
+    WorkspaceMapping,
+} from './';
 
 /**
- *
+ * 
  * @export
  * @interface WorkspaceTemplate
  */
 export interface WorkspaceTemplate {
-  /**
-   * Uri of the associated definition
-   * @type {string}
-   * @memberof WorkspaceTemplate
-   */
-  definitionUri?: string;
-  /**
-   * The identity that last modified this template
-   * @type {string}
-   * @memberof WorkspaceTemplate
-   */
-  lastModifiedBy?: string;
-  /**
-   * The last time this template was modified
-   * @type {string}
-   * @memberof WorkspaceTemplate
-   */
-  lastModifiedDate?: string;
-  /**
-   * List of workspace mappings
-   * @type {Array<WorkspaceMapping>}
-   * @memberof WorkspaceTemplate
-   */
-  mappings?: Array<WorkspaceMapping>;
-  /**
-   * Id of the workspace for this template
-   * @type {number}
-   * @memberof WorkspaceTemplate
-   */
-  workspaceId?: number;
+    /**
+     * Uri of the associated definition
+     * @type {string}
+     * @memberof WorkspaceTemplate
+     */
+    definitionUri?: string;
+    /**
+     * The identity that last modified this template
+     * @type {string}
+     * @memberof WorkspaceTemplate
+     */
+    lastModifiedBy?: string;
+    /**
+     * The last time this template was modified
+     * @type {string}
+     * @memberof WorkspaceTemplate
+     */
+    lastModifiedDate?: string;
+    /**
+     * List of workspace mappings
+     * @type {Array<WorkspaceMapping>}
+     * @memberof WorkspaceTemplate
+     */
+    mappings?: Array<WorkspaceMapping>;
+    /**
+     * Id of the workspace for this template
+     * @type {number}
+     * @memberof WorkspaceTemplate
+     */
+    workspaceId?: number;
 }

@@ -11,7 +11,11 @@
  * Do not edit the class manually.
  */
 
-import type { JobReference, PhaseReference, StageReference } from './index';
+import type {
+    JobReference,
+    PhaseReference,
+    StageReference,
+} from './';
 
 /**
  * Pipeline reference
@@ -19,25 +23,25 @@ import type { JobReference, PhaseReference, StageReference } from './index';
  * @interface PipelineReference
  */
 export interface PipelineReference {
-  /**
-   * @type {JobReference}
-   * @memberof PipelineReference
-   */
-  jobReference?: JobReference;
-  /**
-   * @type {PhaseReference}
-   * @memberof PipelineReference
-   */
-  phaseReference?: PhaseReference;
-  /**
-   * Reference of the pipeline with which this pipeline instance is related.
-   * @type {number}
-   * @memberof PipelineReference
-   */
-  pipelineId?: number;
-  /**
-   * @type {StageReference}
-   * @memberof PipelineReference
-   */
-  stageReference?: StageReference;
+    /**
+     * @type {JobReference}
+     * @memberof PipelineReference
+     */
+    jobReference?: JobReference;
+    /**
+     * @type {PhaseReference}
+     * @memberof PipelineReference
+     */
+    phaseReference?: PhaseReference;
+    /**
+     * Reference of the pipeline with which this pipeline instance is related.
+     * @type {number}
+     * @memberof PipelineReference
+     */
+    pipelineId?: number;
+    /**
+     * @type {StageReference}
+     * @memberof PipelineReference
+     */
+    stageReference?: StageReference;
 }

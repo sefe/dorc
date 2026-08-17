@@ -11,7 +11,9 @@
  * Do not edit the class manually.
  */
 
-import type { BuildOptionDefinitionReference } from './index';
+import type {
+    BuildOptionDefinitionReference,
+} from './';
 
 /**
  * Represents the application of an optional behavior to a build definition.
@@ -19,20 +21,20 @@ import type { BuildOptionDefinitionReference } from './index';
  * @interface BuildOption
  */
 export interface BuildOption {
-  /**
-   * @type {BuildOptionDefinitionReference}
-   * @memberof BuildOption
-   */
-  definition?: BuildOptionDefinitionReference;
-  /**
-   * Indicates whether the behavior is enabled.
-   * @type {boolean}
-   * @memberof BuildOption
-   */
-  enabled?: boolean;
-  /**
-   * @type {{ [key: string]: string; }}
-   * @memberof BuildOption
-   */
-  inputs?: { [key: string]: string };
+    /**
+     * @type {BuildOptionDefinitionReference}
+     * @memberof BuildOption
+     */
+    definition?: BuildOptionDefinitionReference;
+    /**
+     * Indicates whether the behavior is enabled.
+     * @type {boolean}
+     * @memberof BuildOption
+     */
+    enabled?: boolean;
+    /**
+     * @type {{ [key: string]: string; }}
+     * @memberof BuildOption
+     */
+    inputs?: { [key: string]: string; };
 }

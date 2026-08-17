@@ -17,16 +17,16 @@
  * @interface TaskOrchestrationPlanReference
  */
 export interface TaskOrchestrationPlanReference {
-  /**
-   * The type of the plan.
-   * @type {number}
-   * @memberof TaskOrchestrationPlanReference
-   */
-  orchestrationType?: number;
-  /**
-   * The ID of the plan.
-   * @type {string}
-   * @memberof TaskOrchestrationPlanReference
-   */
-  planId?: string;
+    /**
+     * The type of the plan.
+     * @type {number}
+     * @memberof TaskOrchestrationPlanReference
+     */
+    orchestrationType?: number;
+    /**
+     * The ID of the plan.
+     * @type {string}
+     * @memberof TaskOrchestrationPlanReference
+     */
+    planId?: string;
 }

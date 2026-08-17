@@ -11,7 +11,9 @@
  * Do not edit the class manually.
  */
 
-import type { ResourceReference } from './index';
+import type {
+    ResourceReference,
+} from './';
 
 /**
  * @type SecureFileReference

@@ -11,7 +11,9 @@
  * Do not edit the class manually.
  */
 
-import type { VssJsonCollectionWrapperBase } from './index';
+import type {
+    VssJsonCollectionWrapperBase,
+} from './';
 
 /**
  * @type VssJsonCollectionWrapper

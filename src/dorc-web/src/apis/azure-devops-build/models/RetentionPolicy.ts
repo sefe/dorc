@@ -17,43 +17,43 @@
  * @interface RetentionPolicy
  */
 export interface RetentionPolicy {
-  /**
-   * @type {Array<string>}
-   * @memberof RetentionPolicy
-   */
-  artifacts?: Array<string>;
-  /**
-   * @type {Array<string>}
-   * @memberof RetentionPolicy
-   */
-  artifactTypesToDelete?: Array<string>;
-  /**
-   * @type {Array<string>}
-   * @memberof RetentionPolicy
-   */
-  branches?: Array<string>;
-  /**
-   * The number of days to keep builds.
-   * @type {number}
-   * @memberof RetentionPolicy
-   */
-  daysToKeep?: number;
-  /**
-   * Indicates whether the build record itself should be deleted.
-   * @type {boolean}
-   * @memberof RetentionPolicy
-   */
-  deleteBuildRecord?: boolean;
-  /**
-   * Indicates whether to delete test results associated with the build.
-   * @type {boolean}
-   * @memberof RetentionPolicy
-   */
-  deleteTestResults?: boolean;
-  /**
-   * The minimum number of builds to keep.
-   * @type {number}
-   * @memberof RetentionPolicy
-   */
-  minimumToKeep?: number;
+    /**
+     * @type {Array<string>}
+     * @memberof RetentionPolicy
+     */
+    artifacts?: Array<string>;
+    /**
+     * @type {Array<string>}
+     * @memberof RetentionPolicy
+     */
+    artifactTypesToDelete?: Array<string>;
+    /**
+     * @type {Array<string>}
+     * @memberof RetentionPolicy
+     */
+    branches?: Array<string>;
+    /**
+     * The number of days to keep builds.
+     * @type {number}
+     * @memberof RetentionPolicy
+     */
+    daysToKeep?: number;
+    /**
+     * Indicates whether the build record itself should be deleted.
+     * @type {boolean}
+     * @memberof RetentionPolicy
+     */
+    deleteBuildRecord?: boolean;
+    /**
+     * Indicates whether to delete test results associated with the build.
+     * @type {boolean}
+     * @memberof RetentionPolicy
+     */
+    deleteTestResults?: boolean;
+    /**
+     * The minimum number of builds to keep.
+     * @type {number}
+     * @memberof RetentionPolicy
+     */
+    minimumToKeep?: number;
 }

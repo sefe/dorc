@@ -17,46 +17,46 @@
  * @interface RetentionLease
  */
 export interface RetentionLease {
-  /**
-   * When the lease was created.
-   * @type {string}
-   * @memberof RetentionLease
-   */
-  createdOn?: string;
-  /**
-   * The pipeline definition of the run.
-   * @type {number}
-   * @memberof RetentionLease
-   */
-  definitionId?: number;
-  /**
-   * The unique identifier for this lease.
-   * @type {number}
-   * @memberof RetentionLease
-   */
-  leaseId?: number;
-  /**
-   * Non-unique string that identifies the owner of a retention lease.
-   * @type {string}
-   * @memberof RetentionLease
-   */
-  ownerId?: string;
-  /**
-   * If set, this lease will also prevent the pipeline from being deleted while the lease is still valid.
-   * @type {boolean}
-   * @memberof RetentionLease
-   */
-  protectPipeline?: boolean;
-  /**
-   * The pipeline run protected by this lease.
-   * @type {number}
-   * @memberof RetentionLease
-   */
-  runId?: number;
-  /**
-   * The last day the lease is considered valid.
-   * @type {string}
-   * @memberof RetentionLease
-   */
-  validUntil?: string;
+    /**
+     * When the lease was created.
+     * @type {string}
+     * @memberof RetentionLease
+     */
+    createdOn?: string;
+    /**
+     * The pipeline definition of the run.
+     * @type {number}
+     * @memberof RetentionLease
+     */
+    definitionId?: number;
+    /**
+     * The unique identifier for this lease.
+     * @type {number}
+     * @memberof RetentionLease
+     */
+    leaseId?: number;
+    /**
+     * Non-unique string that identifies the owner of a retention lease.
+     * @type {string}
+     * @memberof RetentionLease
+     */
+    ownerId?: string;
+    /**
+     * If set, this lease will also prevent the pipeline from being deleted while the lease is still valid.
+     * @type {boolean}
+     * @memberof RetentionLease
+     */
+    protectPipeline?: boolean;
+    /**
+     * The pipeline run protected by this lease.
+     * @type {number}
+     * @memberof RetentionLease
+     */
+    runId?: number;
+    /**
+     * The last day the lease is considered valid.
+     * @type {string}
+     * @memberof RetentionLease
+     */
+    validUntil?: string;
 }

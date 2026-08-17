@@ -12,61 +12,61 @@
  */
 
 /**
- *
+ * 
  * @export
  * @interface BuildProcessTemplate
  */
 export interface BuildProcessTemplate {
-  /**
-   * @type {string}
-   * @memberof BuildProcessTemplate
-   */
-  description?: string;
-  /**
-   * @type {boolean}
-   * @memberof BuildProcessTemplate
-   */
-  fileExists?: boolean;
-  /**
-   * @type {number}
-   * @memberof BuildProcessTemplate
-   */
-  id?: number;
-  /**
-   * @type {string}
-   * @memberof BuildProcessTemplate
-   */
-  parameters?: string;
-  /**
-   * @type {string}
-   * @memberof BuildProcessTemplate
-   */
-  serverPath?: string;
-  /**
-   * @type {string}
-   * @memberof BuildProcessTemplate
-   */
-  supportedReasons?: BuildProcessTemplateSupportedReasonsEnum;
-  /**
-   * @type {string}
-   * @memberof BuildProcessTemplate
-   */
-  teamProject?: string;
-  /**
-   * @type {string}
-   * @memberof BuildProcessTemplate
-   */
-  templateType?: BuildProcessTemplateTemplateTypeEnum;
-  /**
-   * @type {string}
-   * @memberof BuildProcessTemplate
-   */
-  url?: string;
-  /**
-   * @type {string}
-   * @memberof BuildProcessTemplate
-   */
-  version?: string;
+    /**
+     * @type {string}
+     * @memberof BuildProcessTemplate
+     */
+    description?: string;
+    /**
+     * @type {boolean}
+     * @memberof BuildProcessTemplate
+     */
+    fileExists?: boolean;
+    /**
+     * @type {number}
+     * @memberof BuildProcessTemplate
+     */
+    id?: number;
+    /**
+     * @type {string}
+     * @memberof BuildProcessTemplate
+     */
+    parameters?: string;
+    /**
+     * @type {string}
+     * @memberof BuildProcessTemplate
+     */
+    serverPath?: string;
+    /**
+     * @type {string}
+     * @memberof BuildProcessTemplate
+     */
+    supportedReasons?: BuildProcessTemplateSupportedReasonsEnum;
+    /**
+     * @type {string}
+     * @memberof BuildProcessTemplate
+     */
+    teamProject?: string;
+    /**
+     * @type {string}
+     * @memberof BuildProcessTemplate
+     */
+    templateType?: BuildProcessTemplateTemplateTypeEnum;
+    /**
+     * @type {string}
+     * @memberof BuildProcessTemplate
+     */
+    url?: string;
+    /**
+     * @type {string}
+     * @memberof BuildProcessTemplate
+     */
+    version?: string;
 }
 
 /**
@@ -74,27 +74,28 @@ export interface BuildProcessTemplate {
  * @enum {string}
  */
 export enum BuildProcessTemplateSupportedReasonsEnum {
-  None = 'none',
-  Manual = 'manual',
-  IndividualCi = 'individualCI',
-  BatchedCi = 'batchedCI',
-  Schedule = 'schedule',
-  ScheduleForced = 'scheduleForced',
-  UserCreated = 'userCreated',
-  ValidateShelveset = 'validateShelveset',
-  CheckInShelveset = 'checkInShelveset',
-  PullRequest = 'pullRequest',
-  BuildCompletion = 'buildCompletion',
-  ResourceTrigger = 'resourceTrigger',
-  Triggered = 'triggered',
-  All = 'all'
+    None = 'none',
+    Manual = 'manual',
+    IndividualCi = 'individualCI',
+    BatchedCi = 'batchedCI',
+    Schedule = 'schedule',
+    ScheduleForced = 'scheduleForced',
+    UserCreated = 'userCreated',
+    ValidateShelveset = 'validateShelveset',
+    CheckInShelveset = 'checkInShelveset',
+    PullRequest = 'pullRequest',
+    BuildCompletion = 'buildCompletion',
+    ResourceTrigger = 'resourceTrigger',
+    Triggered = 'triggered',
+    All = 'all'
 }
 /**
  * @export
  * @enum {string}
  */
 export enum BuildProcessTemplateTemplateTypeEnum {
-  Custom = 'custom',
-  Default = 'default',
-  Upgrade = 'upgrade'
+    Custom = 'custom',
+    Default = 'default',
+    Upgrade = 'upgrade'
 }
+

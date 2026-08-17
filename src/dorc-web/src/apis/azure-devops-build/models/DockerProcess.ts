@@ -11,11 +11,14 @@
  * Do not edit the class manually.
  */
 
-import type { BuildProcess } from './index';
+import type {
+    BuildProcess,
+    DockerProcessTarget,
+} from './';
 
 /**
  * @type DockerProcess
- *
+ * 
  * @export
  */
 export type DockerProcess = BuildProcess;

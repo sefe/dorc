@@ -11,7 +11,10 @@
  * Do not edit the class manually.
  */
 
-import type { IdentityRef, TeamProjectReference } from './index';
+import type {
+    IdentityRef,
+    TeamProjectReference,
+} from './';
 
 /**
  * Represents a folder that contains build definitions.
@@ -19,43 +22,43 @@ import type { IdentityRef, TeamProjectReference } from './index';
  * @interface Folder
  */
 export interface Folder {
-  /**
-   * @type {IdentityRef}
-   * @memberof Folder
-   */
-  createdBy?: IdentityRef;
-  /**
-   * The date the folder was created.
-   * @type {string}
-   * @memberof Folder
-   */
-  createdOn?: string;
-  /**
-   * The description.
-   * @type {string}
-   * @memberof Folder
-   */
-  description?: string;
-  /**
-   * @type {IdentityRef}
-   * @memberof Folder
-   */
-  lastChangedBy?: IdentityRef;
-  /**
-   * The date the folder was last changed.
-   * @type {string}
-   * @memberof Folder
-   */
-  lastChangedDate?: string;
-  /**
-   * The full path.
-   * @type {string}
-   * @memberof Folder
-   */
-  path?: string;
-  /**
-   * @type {TeamProjectReference}
-   * @memberof Folder
-   */
-  project?: TeamProjectReference;
+    /**
+     * @type {IdentityRef}
+     * @memberof Folder
+     */
+    createdBy?: IdentityRef;
+    /**
+     * The date the folder was created.
+     * @type {string}
+     * @memberof Folder
+     */
+    createdOn?: string;
+    /**
+     * The description.
+     * @type {string}
+     * @memberof Folder
+     */
+    description?: string;
+    /**
+     * @type {IdentityRef}
+     * @memberof Folder
+     */
+    lastChangedBy?: IdentityRef;
+    /**
+     * The date the folder was last changed.
+     * @type {string}
+     * @memberof Folder
+     */
+    lastChangedDate?: string;
+    /**
+     * The full path.
+     * @type {string}
+     * @memberof Folder
+     */
+    path?: string;
+    /**
+     * @type {TeamProjectReference}
+     * @memberof Folder
+     */
+    project?: TeamProjectReference;
 }

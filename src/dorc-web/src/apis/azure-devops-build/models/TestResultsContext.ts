@@ -12,37 +12,37 @@
  */
 
 import type {
-  BuildReference,
-  PipelineReference,
-  ReleaseReference
-} from './index';
+    BuildReference,
+    PipelineReference,
+    ReleaseReference,
+} from './';
 
 /**
- *
+ * 
  * @export
  * @interface TestResultsContext
  */
 export interface TestResultsContext {
-  /**
-   * @type {BuildReference}
-   * @memberof TestResultsContext
-   */
-  build?: BuildReference;
-  /**
-   * @type {string}
-   * @memberof TestResultsContext
-   */
-  contextType?: TestResultsContextContextTypeEnum;
-  /**
-   * @type {PipelineReference}
-   * @memberof TestResultsContext
-   */
-  pipelineReference?: PipelineReference;
-  /**
-   * @type {ReleaseReference}
-   * @memberof TestResultsContext
-   */
-  release?: ReleaseReference;
+    /**
+     * @type {BuildReference}
+     * @memberof TestResultsContext
+     */
+    build?: BuildReference;
+    /**
+     * @type {string}
+     * @memberof TestResultsContext
+     */
+    contextType?: TestResultsContextContextTypeEnum;
+    /**
+     * @type {PipelineReference}
+     * @memberof TestResultsContext
+     */
+    pipelineReference?: PipelineReference;
+    /**
+     * @type {ReleaseReference}
+     * @memberof TestResultsContext
+     */
+    release?: ReleaseReference;
 }
 
 /**
@@ -50,7 +50,8 @@ export interface TestResultsContext {
  * @enum {string}
  */
 export enum TestResultsContextContextTypeEnum {
-  Build = 'build',
-  Release = 'release',
-  Pipeline = 'pipeline'
+    Build = 'build',
+    Release = 'release',
+    Pipeline = 'pipeline'
 }
+

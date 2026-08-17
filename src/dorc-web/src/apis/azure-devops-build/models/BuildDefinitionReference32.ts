@@ -11,7 +11,14 @@
  * Do not edit the class manually.
  */
 
-import type { DefinitionReference } from './index';
+import type {
+    AgentPoolQueue,
+    BuildMetric,
+    DefinitionReference,
+    IdentityRef,
+    ReferenceLinks,
+    TeamProjectReference,
+} from './';
 
 /**
  * @type BuildDefinitionReference32

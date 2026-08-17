@@ -17,30 +17,30 @@
  * @interface JsonPatchOperation
  */
 export interface JsonPatchOperation {
-  /**
-   * The path to copy from for the Move/Copy operation.
-   * @type {string}
-   * @memberof JsonPatchOperation
-   */
-  from?: string;
-  /**
-   * The patch operation
-   * @type {string}
-   * @memberof JsonPatchOperation
-   */
-  op?: JsonPatchOperationOpEnum;
-  /**
-   * The path for the operation. In the case of an array, a zero based index can be used to specify the position in the array (e.g. /biscuits/0/name). The \"-\" character can be used instead of an index to insert at the end of the array (e.g. /biscuits/-).
-   * @type {string}
-   * @memberof JsonPatchOperation
-   */
-  path?: string;
-  /**
-   * The value for the operation. This is either a primitive or a JToken.
-   * @type {object}
-   * @memberof JsonPatchOperation
-   */
-  value?: object;
+    /**
+     * The path to copy from for the Move/Copy operation.
+     * @type {string}
+     * @memberof JsonPatchOperation
+     */
+    from?: string;
+    /**
+     * The patch operation
+     * @type {string}
+     * @memberof JsonPatchOperation
+     */
+    op?: JsonPatchOperationOpEnum;
+    /**
+     * The path for the operation. In the case of an array, a zero based index can be used to specify the position in the array (e.g. /biscuits/0/name). The \"-\" character can be used instead of an index to insert at the end of the array (e.g. /biscuits/-).
+     * @type {string}
+     * @memberof JsonPatchOperation
+     */
+    path?: string;
+    /**
+     * The value for the operation. This is either a primitive or a JToken.
+     * @type {object}
+     * @memberof JsonPatchOperation
+     */
+    value?: object;
 }
 
 /**
@@ -48,10 +48,11 @@ export interface JsonPatchOperation {
  * @enum {string}
  */
 export enum JsonPatchOperationOpEnum {
-  Add = 'add',
-  Remove = 'remove',
-  Replace = 'replace',
-  Move = 'move',
-  Copy = 'copy',
-  Test = 'test'
+    Add = 'add',
+    Remove = 'remove',
+    Replace = 'replace',
+    Move = 'move',
+    Copy = 'copy',
+    Test = 'test'
 }
+

@@ -17,21 +17,21 @@
  * @interface RepositoryWebhook
  */
 export interface RepositoryWebhook {
-  /**
-   * The friendly name of the repository.
-   * @type {string}
-   * @memberof RepositoryWebhook
-   */
-  name?: string;
-  /**
-   * @type {Array<object>}
-   * @memberof RepositoryWebhook
-   */
-  types?: Array<object>;
-  /**
-   * The URL of the repository.
-   * @type {string}
-   * @memberof RepositoryWebhook
-   */
-  url?: string;
+    /**
+     * The friendly name of the repository.
+     * @type {string}
+     * @memberof RepositoryWebhook
+     */
+    name?: string;
+    /**
+     * @type {Array<object>}
+     * @memberof RepositoryWebhook
+     */
+    types?: Array<object>;
+    /**
+     * The URL of the repository.
+     * @type {string}
+     * @memberof RepositoryWebhook
+     */
+    url?: string;
 }

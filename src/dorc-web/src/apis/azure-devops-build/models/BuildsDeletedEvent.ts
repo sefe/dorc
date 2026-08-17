@@ -11,11 +11,13 @@
  * Do not edit the class manually.
  */
 
-import type { BuildsDeletedEvent1 } from './index';
+import type {
+    BuildsDeletedEvent1,
+} from './';
 
 /**
  * @type BuildsDeletedEvent
- *
+ * 
  * @export
  */
 export type BuildsDeletedEvent = BuildsDeletedEvent1;

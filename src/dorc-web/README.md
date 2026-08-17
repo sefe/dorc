@@ -180,50 +180,46 @@ This step is automated by the [build for production command](#build-for-producti
 
 ## API Client Generation
 
-### DOrc API Client
+The TypeScript clients under `src/apis/` are generated code, and CI enforces
+that: every build regenerates both clients from their committed specs and
+fails if the result differs from what is committed (`Fail if generated
+clients are out of sync` in `.github/workflows/release.yml`). Never edit
+generated files by hand — change the spec and regenerate.
 
-The TypeScript client for the DOrc API is auto-generated from the OpenAPI/Swagger specification.
-
-#### Prerequisites
-
-Install the OpenAPI Generator CLI:
-
-```bash
-npm install @openapitools/openapi-generator-cli -g
-```
-
-#### Regenerate the Client
+Requires a Java runtime (the OpenAPI Generator CLI is installed as a dev
+dependency; each client pins its generator version in its own
+`openapitools.json`).
 
 From the `dorc-web` directory:
 
 ```bash
-npm run dorc-api-gen
+npm run api-gen           # regenerate both clients
+npm run dorc-api-gen      # DOrc API client only (from src/apis/dorc-api/swagger.json)
+npm run ado-build-api-gen # Azure DevOps Build client only (from src/apis/azure-devops-build/build.json)
 ```
 
-Or manually:
+### DOrc API Client (`src/apis/dorc-api`)
 
-```bash
-openapi-generator-cli generate -g typescript-rxjs \
-  -i ./src/apis/dorc-api/swagger.json \
-  -o ./src/apis/dorc-api/ \
-  --additional-properties=supportsES6=true,npmVersion=9.4.0,typescriptThreePlus=true \
-  --skip-validate-spec
-```
+Generated from `src/apis/dorc-api/swagger.json`, which mirrors the DOrc API's
+OpenAPI document (obtainable from a running API at `/swagger/v1/swagger.json`).
+When you change a controller or API model in C#, update `swagger.json` to
+match and run `npm run dorc-api-gen`.
 
-**Note:** The `swagger.json` file should be obtained from the running DOrc API at `/swagger/v1/swagger.json`.
+Two files are deliberately hand-maintained and listed in
+`src/apis/dorc-api/.openapi-generator-ignore`, so the generator leaves them
+alone:
 
-### Azure DevOps Client
+- `runtime.ts` — OAuth integration (Bearer token injection, 401 redirect to
+  `/signin.html`)
+- `servers.ts` — API base URL resolved from `AppConfig` instead of the spec's
+  server list
 
-The Azure DevOps Build API client is also auto-generated. Azure DevOps API specifications come from: https://github.com/MicrosoftDocs/vsts-rest-api-specs
+### Azure DevOps Client (`src/apis/azure-devops-build`)
 
-To regenerate (from the appropriate location):
+Generated from `src/apis/azure-devops-build/build.json`. Azure DevOps API
+specifications come from: https://github.com/MicrosoftDocs/vsts-rest-api-specs
 
-```bash
-openapi-generator-cli generate -g typescript-rxjs \
-  -i ./build.json \
-  --skip-validate-spec \
-  --additional-properties=supportsES6=true
-```
+Regenerate with `npm run ado-build-api-gen`.
 
 
 ## Performance Testing with K6

@@ -12,27 +12,27 @@
  */
 
 /**
- *
+ * 
  * @export
  * @interface TimelineAttempt
  */
 export interface TimelineAttempt {
-  /**
-   * Gets or sets the attempt of the record.
-   * @type {number}
-   * @memberof TimelineAttempt
-   */
-  attempt?: number;
-  /**
-   * Gets or sets the record identifier located within the specified timeline.
-   * @type {string}
-   * @memberof TimelineAttempt
-   */
-  recordId?: string;
-  /**
-   * Gets or sets the timeline identifier which owns the record representing this attempt.
-   * @type {string}
-   * @memberof TimelineAttempt
-   */
-  timelineId?: string;
+    /**
+     * Gets or sets the attempt of the record.
+     * @type {number}
+     * @memberof TimelineAttempt
+     */
+    attempt?: number;
+    /**
+     * Gets or sets the record identifier located within the specified timeline.
+     * @type {string}
+     * @memberof TimelineAttempt
+     */
+    recordId?: string;
+    /**
+     * Gets or sets the timeline identifier which owns the record representing this attempt.
+     * @type {string}
+     * @memberof TimelineAttempt
+     */
+    timelineId?: string;
 }

@@ -13,134 +13,83 @@
 
 import type { Observable } from 'rxjs';
 import type { AjaxResponse } from 'rxjs/ajax';
-import type { HttpHeaders, HttpQuery, OperationOpts } from '../runtime';
-import { BaseAPI, encodeURI, throwIfNullOrUndefined } from '../runtime';
-import type { PipelineGeneralSettings } from '../models';
+import { BaseAPI, throwIfNullOrUndefined, encodeURI } from '../runtime';
+import type { OperationOpts, HttpHeaders, HttpQuery } from '../runtime';
+import type {
+    PipelineGeneralSettings,
+} from '../models';
 
 export interface GeneralSettingsGetRequest {
-  organization: string;
-  project: string;
-  apiVersion: string;
+    organization: string;
+    project: string;
+    apiVersion: string;
 }
 
 export interface GeneralSettingsUpdateRequest {
-  organization: string;
-  project: string;
-  apiVersion: string;
-  body: PipelineGeneralSettings;
+    organization: string;
+    project: string;
+    apiVersion: string;
+    body: PipelineGeneralSettings;
 }
 
 /**
  * no description
  */
 export class GeneralSettingsApi extends BaseAPI {
-  /**
-   * Gets pipeline general settings.
-   */
-  generalSettingsGet({
-    organization,
-    project,
-    apiVersion
-  }: GeneralSettingsGetRequest): Observable<PipelineGeneralSettings>;
-  generalSettingsGet(
-    { organization, project, apiVersion }: GeneralSettingsGetRequest,
-    opts?: OperationOpts
-  ): Observable<AjaxResponse<PipelineGeneralSettings>>;
-  generalSettingsGet(
-    { organization, project, apiVersion }: GeneralSettingsGetRequest,
-    opts?: OperationOpts
-  ): Observable<
-    PipelineGeneralSettings | AjaxResponse<PipelineGeneralSettings>
-  > {
-    throwIfNullOrUndefined(organization, 'organization', 'generalSettingsGet');
-    throwIfNullOrUndefined(project, 'project', 'generalSettingsGet');
-    throwIfNullOrUndefined(apiVersion, 'apiVersion', 'generalSettingsGet');
 
-    const headers: HttpHeaders = {
-      ...(this.configuration.username != null &&
-      this.configuration.password != null
-        ? {
-            Authorization: `Basic ${btoa(
-              this.configuration.username + ':' + this.configuration.password
-            )}`
-          }
-        : undefined)
+    /**
+     * Gets pipeline general settings.
+     */
+    generalSettingsGet({ organization, project, apiVersion }: GeneralSettingsGetRequest): Observable<PipelineGeneralSettings>
+    generalSettingsGet({ organization, project, apiVersion }: GeneralSettingsGetRequest, opts?: OperationOpts): Observable<AjaxResponse<PipelineGeneralSettings>>
+    generalSettingsGet({ organization, project, apiVersion }: GeneralSettingsGetRequest, opts?: OperationOpts): Observable<PipelineGeneralSettings | AjaxResponse<PipelineGeneralSettings>> {
+        throwIfNullOrUndefined(organization, 'organization', 'generalSettingsGet');
+        throwIfNullOrUndefined(project, 'project', 'generalSettingsGet');
+        throwIfNullOrUndefined(apiVersion, 'apiVersion', 'generalSettingsGet');
+
+        const headers: HttpHeaders = {
+            ...(this.configuration.username != null && this.configuration.password != null ? { Authorization: `Basic ${btoa(this.configuration.username + ':' + this.configuration.password)}` } : undefined),
+        };
+
+        const query: HttpQuery = { // required parameters are used directly since they are already checked by throwIfNullOrUndefined
+            'api-version': apiVersion,
+        };
+
+        return this.request<PipelineGeneralSettings>({
+            url: '/{organization}/{project}/_apis/build/generalsettings'.replace('{organization}', encodeURI(organization)).replace('{project}', encodeURI(project)),
+            method: 'GET',
+            headers,
+            query,
+        }, opts?.responseOpts);
     };
 
-    const query: HttpQuery = {
-      // required parameters are used directly since they are already checked by throwIfNullOrUndefined
-      'api-version': apiVersion
+    /**
+     * Updates pipeline general settings.
+     */
+    generalSettingsUpdate({ organization, project, apiVersion, body }: GeneralSettingsUpdateRequest): Observable<PipelineGeneralSettings>
+    generalSettingsUpdate({ organization, project, apiVersion, body }: GeneralSettingsUpdateRequest, opts?: OperationOpts): Observable<AjaxResponse<PipelineGeneralSettings>>
+    generalSettingsUpdate({ organization, project, apiVersion, body }: GeneralSettingsUpdateRequest, opts?: OperationOpts): Observable<PipelineGeneralSettings | AjaxResponse<PipelineGeneralSettings>> {
+        throwIfNullOrUndefined(organization, 'organization', 'generalSettingsUpdate');
+        throwIfNullOrUndefined(project, 'project', 'generalSettingsUpdate');
+        throwIfNullOrUndefined(apiVersion, 'apiVersion', 'generalSettingsUpdate');
+        throwIfNullOrUndefined(body, 'body', 'generalSettingsUpdate');
+
+        const headers: HttpHeaders = {
+            'Content-Type': 'application/json',
+            ...(this.configuration.username != null && this.configuration.password != null ? { Authorization: `Basic ${btoa(this.configuration.username + ':' + this.configuration.password)}` } : undefined),
+        };
+
+        const query: HttpQuery = { // required parameters are used directly since they are already checked by throwIfNullOrUndefined
+            'api-version': apiVersion,
+        };
+
+        return this.request<PipelineGeneralSettings>({
+            url: '/{organization}/{project}/_apis/build/generalsettings'.replace('{organization}', encodeURI(organization)).replace('{project}', encodeURI(project)),
+            method: 'PATCH',
+            headers,
+            query,
+            body: body,
+        }, opts?.responseOpts);
     };
 
-    return this.request<PipelineGeneralSettings>(
-      {
-        url: '/{organization}/{project}/_apis/build/generalsettings'
-          .replace('{organization}', encodeURI(organization))
-          .replace('{project}', encodeURI(project)),
-        method: 'GET',
-        headers,
-        query
-      },
-      opts?.responseOpts
-    );
-  }
-
-  /**
-   * Updates pipeline general settings.
-   */
-  generalSettingsUpdate({
-    organization,
-    project,
-    apiVersion,
-    body
-  }: GeneralSettingsUpdateRequest): Observable<PipelineGeneralSettings>;
-  generalSettingsUpdate(
-    { organization, project, apiVersion, body }: GeneralSettingsUpdateRequest,
-    opts?: OperationOpts
-  ): Observable<AjaxResponse<PipelineGeneralSettings>>;
-  generalSettingsUpdate(
-    { organization, project, apiVersion, body }: GeneralSettingsUpdateRequest,
-    opts?: OperationOpts
-  ): Observable<
-    PipelineGeneralSettings | AjaxResponse<PipelineGeneralSettings>
-  > {
-    throwIfNullOrUndefined(
-      organization,
-      'organization',
-      'generalSettingsUpdate'
-    );
-    throwIfNullOrUndefined(project, 'project', 'generalSettingsUpdate');
-    throwIfNullOrUndefined(apiVersion, 'apiVersion', 'generalSettingsUpdate');
-    throwIfNullOrUndefined(body, 'body', 'generalSettingsUpdate');
-
-    const headers: HttpHeaders = {
-      'Content-Type': 'application/json',
-      ...(this.configuration.username != null &&
-      this.configuration.password != null
-        ? {
-            Authorization: `Basic ${btoa(
-              this.configuration.username + ':' + this.configuration.password
-            )}`
-          }
-        : undefined)
-    };
-
-    const query: HttpQuery = {
-      // required parameters are used directly since they are already checked by throwIfNullOrUndefined
-      'api-version': apiVersion
-    };
-
-    return this.request<PipelineGeneralSettings>(
-      {
-        url: '/{organization}/{project}/_apis/build/generalsettings'
-          .replace('{organization}', encodeURI(organization))
-          .replace('{project}', encodeURI(project)),
-        method: 'PATCH',
-        headers,
-        query,
-        body: body
-      },
-      opts?.responseOpts
-    );
-  }
 }

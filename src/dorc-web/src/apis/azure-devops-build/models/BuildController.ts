@@ -11,11 +11,14 @@
  * Do not edit the class manually.
  */
 
-import type { XamlBuildControllerReference } from './index';
+import type {
+    ReferenceLinks,
+    XamlBuildControllerReference,
+} from './';
 
 /**
  * @type BuildController
- *
+ * 
  * @export
  */
 export type BuildController = XamlBuildControllerReference;

@@ -11,11 +11,13 @@
  * Do not edit the class manually.
  */
 
-import type { RealtimeBuildEvent } from './index';
+import type {
+    RealtimeBuildEvent,
+} from './';
 
 /**
  * @type ConsoleLogEvent
- *
+ * 
  * @export
  */
 export type ConsoleLogEvent = RealtimeBuildEvent;

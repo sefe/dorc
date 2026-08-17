@@ -17,10 +17,10 @@
  * @interface BuildOptionDefinitionReference
  */
 export interface BuildOptionDefinitionReference {
-  /**
-   * The ID of the referenced build option.
-   * @type {string}
-   * @memberof BuildOptionDefinitionReference
-   */
-  id?: string;
+    /**
+     * The ID of the referenced build option.
+     * @type {string}
+     * @memberof BuildOptionDefinitionReference
+     */
+    id?: string;
 }

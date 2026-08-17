@@ -11,12 +11,13 @@
  * Do not edit the class manually.
  */
 
-import type { ServerTargetExecutionOptions } from './index';
+import type {
+    ServerTargetExecutionOptions,
+} from './';
 
 /**
  * @type VariableMultipliersServerExecutionOptions
  * Represents options for running a phase based on values specified by a list of variables.
  * @export
  */
-export type VariableMultipliersServerExecutionOptions =
-  ServerTargetExecutionOptions;
+export type VariableMultipliersServerExecutionOptions = ServerTargetExecutionOptions;

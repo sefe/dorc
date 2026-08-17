@@ -11,7 +11,10 @@
  * Do not edit the class manually.
  */
 
-import type { PhaseTarget } from './index';
+import type {
+    PhaseTarget,
+    ServerTargetExecutionOptions,
+} from './';
 
 /**
  * @type ServerTarget

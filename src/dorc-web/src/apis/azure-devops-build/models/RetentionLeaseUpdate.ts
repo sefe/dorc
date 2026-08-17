@@ -17,16 +17,16 @@
  * @interface RetentionLeaseUpdate
  */
 export interface RetentionLeaseUpdate {
-  /**
-   * The number of days to consider the lease valid. A retention lease valid for more than 100 years (36500 days) will display as retaining the build \"forever\".
-   * @type {number}
-   * @memberof RetentionLeaseUpdate
-   */
-  daysValid?: number;
-  /**
-   * If set, this lease will also prevent the pipeline from being deleted while the lease is still valid.
-   * @type {boolean}
-   * @memberof RetentionLeaseUpdate
-   */
-  protectPipeline?: boolean;
+    /**
+     * The number of days to consider the lease valid. A retention lease valid for more than 100 years (36500 days) will display as retaining the build \"forever\".
+     * @type {number}
+     * @memberof RetentionLeaseUpdate
+     */
+    daysValid?: number;
+    /**
+     * If set, this lease will also prevent the pipeline from being deleted while the lease is still valid.
+     * @type {boolean}
+     * @memberof RetentionLeaseUpdate
+     */
+    protectPipeline?: boolean;
 }

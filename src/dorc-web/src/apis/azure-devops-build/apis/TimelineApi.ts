@@ -13,102 +13,62 @@
 
 import type { Observable } from 'rxjs';
 import type { AjaxResponse } from 'rxjs/ajax';
-import type { HttpHeaders, HttpQuery, OperationOpts } from '../runtime';
-import { BaseAPI, encodeURI, throwIfNullOrUndefined } from '../runtime';
-import type { Timeline } from '../models';
+import { BaseAPI, throwIfNullOrUndefined, encodeURI } from '../runtime';
+import type { OperationOpts, HttpHeaders, HttpQuery } from '../runtime';
+import type {
+    Timeline,
+} from '../models';
 
 export interface TimelineGetRequest {
-  organization: string;
-  project: string;
-  buildId: number;
-  timelineId: string;
-  apiVersion: string;
-  changeId?: number;
-  planId?: string;
+    organization: string;
+    project: string;
+    buildId: number;
+    timelineId: string;
+    apiVersion: string;
+    changeId?: number;
+    planId?: string;
 }
 
 /**
  * no description
  */
 export class TimelineApi extends BaseAPI {
-  /**
-   * Gets details for a build
-   */
-  timelineGet({
-    organization,
-    project,
-    buildId,
-    timelineId,
-    apiVersion,
-    changeId,
-    planId
-  }: TimelineGetRequest): Observable<Timeline>;
-  timelineGet(
-    {
-      organization,
-      project,
-      buildId,
-      timelineId,
-      apiVersion,
-      changeId,
-      planId
-    }: TimelineGetRequest,
-    opts?: OperationOpts
-  ): Observable<AjaxResponse<Timeline>>;
-  timelineGet(
-    {
-      organization,
-      project,
-      buildId,
-      timelineId,
-      apiVersion,
-      changeId,
-      planId
-    }: TimelineGetRequest,
-    opts?: OperationOpts
-  ): Observable<Timeline | AjaxResponse<Timeline>> {
-    throwIfNullOrUndefined(organization, 'organization', 'timelineGet');
-    throwIfNullOrUndefined(project, 'project', 'timelineGet');
-    throwIfNullOrUndefined(buildId, 'buildId', 'timelineGet');
-    throwIfNullOrUndefined(timelineId, 'timelineId', 'timelineGet');
-    throwIfNullOrUndefined(apiVersion, 'apiVersion', 'timelineGet');
 
-    const headers: HttpHeaders = {
-      // oauth required
-      ...(this.configuration.accessToken != null
-        ? {
-            Authorization:
-              typeof this.configuration.accessToken === 'function'
-                ? this.configuration.accessToken('oauth2', ['vso.build'])
-                : this.configuration.accessToken
-          }
-        : undefined)
+    /**
+     * Gets details for a build
+     */
+    timelineGet({ organization, project, buildId, timelineId, apiVersion, changeId, planId }: TimelineGetRequest): Observable<Timeline>
+    timelineGet({ organization, project, buildId, timelineId, apiVersion, changeId, planId }: TimelineGetRequest, opts?: OperationOpts): Observable<AjaxResponse<Timeline>>
+    timelineGet({ organization, project, buildId, timelineId, apiVersion, changeId, planId }: TimelineGetRequest, opts?: OperationOpts): Observable<Timeline | AjaxResponse<Timeline>> {
+        throwIfNullOrUndefined(organization, 'organization', 'timelineGet');
+        throwIfNullOrUndefined(project, 'project', 'timelineGet');
+        throwIfNullOrUndefined(buildId, 'buildId', 'timelineGet');
+        throwIfNullOrUndefined(timelineId, 'timelineId', 'timelineGet');
+        throwIfNullOrUndefined(apiVersion, 'apiVersion', 'timelineGet');
+
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['vso.build'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
+        const query: HttpQuery = { // required parameters are used directly since they are already checked by throwIfNullOrUndefined
+            'api-version': apiVersion,
+        };
+
+        if (changeId != null) { query['changeId'] = changeId; }
+        if (planId != null) { query['planId'] = planId; }
+
+        return this.request<Timeline>({
+            url: '/{organization}/{project}/_apis/build/builds/{buildId}/timeline/{timelineId}'.replace('{organization}', encodeURI(organization)).replace('{project}', encodeURI(project)).replace('{buildId}', encodeURI(buildId)).replace('{timelineId}', encodeURI(timelineId)),
+            method: 'GET',
+            headers,
+            query,
+        }, opts?.responseOpts);
     };
 
-    const query: HttpQuery = {
-      // required parameters are used directly since they are already checked by throwIfNullOrUndefined
-      'api-version': apiVersion
-    };
-
-    if (changeId != null) {
-      query['changeId'] = changeId;
-    }
-    if (planId != null) {
-      query['planId'] = planId;
-    }
-
-    return this.request<Timeline>(
-      {
-        url: '/{organization}/{project}/_apis/build/builds/{buildId}/timeline/{timelineId}'
-          .replace('{organization}', encodeURI(organization))
-          .replace('{project}', encodeURI(project))
-          .replace('{buildId}', encodeURI(buildId))
-          .replace('{timelineId}', encodeURI(timelineId)),
-        method: 'GET',
-        headers,
-        query
-      },
-      opts?.responseOpts
-    );
-  }
 }

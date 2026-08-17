@@ -100,8 +100,9 @@ The API (`Dorc.Api`) requires several configurations to run:
 ## Common Tasks
 
 ### Generate API Clients
+- **Both clients**: `cd src/dorc-web && npm run api-gen` (CI runs this and fails on any diff — never hand-edit generated files)
 - **DOrc API**: `cd src/dorc-web && npm run dorc-api-gen`
-- **Azure DevOps API**: Uses OpenAPI generator with build.json spec
+- **Azure DevOps API**: `cd src/dorc-web && npm run ado-build-api-gen`
 
 ### Code Quality
 - **Lint Web UI**: ESLint runs automatically during build

@@ -11,7 +11,10 @@
  * Do not edit the class manually.
  */
 
-import type { VariableGroupReference } from './index';
+import type {
+    BuildDefinitionVariable,
+    VariableGroupReference,
+} from './';
 
 /**
  * @type VariableGroup

@@ -13,115 +13,57 @@
 
 import type { Observable } from 'rxjs';
 import type { AjaxResponse } from 'rxjs/ajax';
-import type { HttpHeaders, HttpQuery, OperationOpts } from '../runtime';
-import { BaseAPI, encodeURI, throwIfNullOrUndefined } from '../runtime';
+import { BaseAPI, throwIfNullOrUndefined, encodeURI } from '../runtime';
+import type { OperationOpts, HttpHeaders, HttpQuery } from '../runtime';
 
 export interface StatusGetRequest {
-  organization: string;
-  project: string;
-  definition: string;
-  apiVersion: string;
-  branchName?: string;
-  stageName?: string;
-  jobName?: string;
-  configuration?: string;
-  label?: string;
+    organization: string;
+    project: string;
+    definition: string;
+    apiVersion: string;
+    branchName?: string;
+    stageName?: string;
+    jobName?: string;
+    configuration?: string;
+    label?: string;
 }
 
 /**
  * no description
  */
 export class StatusApi extends BaseAPI {
-  /**
-   * <p>Gets the build status for a definition, optionally scoped to a specific branch, stage, job, and configuration.</p> <p>If there are more than one, then it is required to pass in a stageName value when specifying a jobName, and the same rule then applies for both if passing a configuration parameter.</p>
-   */
-  statusGet({
-    organization,
-    project,
-    definition,
-    apiVersion,
-    branchName,
-    stageName,
-    jobName,
-    configuration,
-    label
-  }: StatusGetRequest): Observable<string>;
-  statusGet(
-    {
-      organization,
-      project,
-      definition,
-      apiVersion,
-      branchName,
-      stageName,
-      jobName,
-      configuration,
-      label
-    }: StatusGetRequest,
-    opts?: OperationOpts
-  ): Observable<AjaxResponse<string>>;
-  statusGet(
-    {
-      organization,
-      project,
-      definition,
-      apiVersion,
-      branchName,
-      stageName,
-      jobName,
-      configuration,
-      label
-    }: StatusGetRequest,
-    opts?: OperationOpts
-  ): Observable<string | AjaxResponse<string>> {
-    throwIfNullOrUndefined(organization, 'organization', 'statusGet');
-    throwIfNullOrUndefined(project, 'project', 'statusGet');
-    throwIfNullOrUndefined(definition, 'definition', 'statusGet');
-    throwIfNullOrUndefined(apiVersion, 'apiVersion', 'statusGet');
 
-    const headers: HttpHeaders = {
-      ...(this.configuration.username != null &&
-      this.configuration.password != null
-        ? {
-            Authorization: `Basic ${btoa(
-              this.configuration.username + ':' + this.configuration.password
-            )}`
-          }
-        : undefined)
+    /**
+     * <p>Gets the build status for a definition, optionally scoped to a specific branch, stage, job, and configuration.</p> <p>If there are more than one, then it is required to pass in a stageName value when specifying a jobName, and the same rule then applies for both if passing a configuration parameter.</p>
+     */
+    statusGet({ organization, project, definition, apiVersion, branchName, stageName, jobName, configuration, label }: StatusGetRequest): Observable<string>
+    statusGet({ organization, project, definition, apiVersion, branchName, stageName, jobName, configuration, label }: StatusGetRequest, opts?: OperationOpts): Observable<AjaxResponse<string>>
+    statusGet({ organization, project, definition, apiVersion, branchName, stageName, jobName, configuration, label }: StatusGetRequest, opts?: OperationOpts): Observable<string | AjaxResponse<string>> {
+        throwIfNullOrUndefined(organization, 'organization', 'statusGet');
+        throwIfNullOrUndefined(project, 'project', 'statusGet');
+        throwIfNullOrUndefined(definition, 'definition', 'statusGet');
+        throwIfNullOrUndefined(apiVersion, 'apiVersion', 'statusGet');
+
+        const headers: HttpHeaders = {
+            ...(this.configuration.username != null && this.configuration.password != null ? { Authorization: `Basic ${btoa(this.configuration.username + ':' + this.configuration.password)}` } : undefined),
+        };
+
+        const query: HttpQuery = { // required parameters are used directly since they are already checked by throwIfNullOrUndefined
+            'api-version': apiVersion,
+        };
+
+        if (branchName != null) { query['branchName'] = branchName; }
+        if (stageName != null) { query['stageName'] = stageName; }
+        if (jobName != null) { query['jobName'] = jobName; }
+        if (configuration != null) { query['configuration'] = configuration; }
+        if (label != null) { query['label'] = label; }
+
+        return this.request<string>({
+            url: '/{organization}/{project}/_apis/build/status/{definition}'.replace('{organization}', encodeURI(organization)).replace('{project}', encodeURI(project)).replace('{definition}', encodeURI(definition)),
+            method: 'GET',
+            headers,
+            query,
+        }, opts?.responseOpts);
     };
 
-    const query: HttpQuery = {
-      // required parameters are used directly since they are already checked by throwIfNullOrUndefined
-      'api-version': apiVersion
-    };
-
-    if (branchName != null) {
-      query['branchName'] = branchName;
-    }
-    if (stageName != null) {
-      query['stageName'] = stageName;
-    }
-    if (jobName != null) {
-      query['jobName'] = jobName;
-    }
-    if (configuration != null) {
-      query['configuration'] = configuration;
-    }
-    if (label != null) {
-      query['label'] = label;
-    }
-
-    return this.request<string>(
-      {
-        url: '/{organization}/{project}/_apis/build/status/{definition}'
-          .replace('{organization}', encodeURI(organization))
-          .replace('{project}', encodeURI(project))
-          .replace('{definition}', encodeURI(definition)),
-        method: 'GET',
-        headers,
-        query
-      },
-      opts?.responseOpts
-    );
-  }
 }

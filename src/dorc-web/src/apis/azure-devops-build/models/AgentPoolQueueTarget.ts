@@ -11,7 +11,13 @@
  * Do not edit the class manually.
  */
 
-import type { PhaseTarget } from './index';
+import type {
+    AgentPoolQueue,
+    AgentSpecification,
+    AgentTargetExecutionOptions,
+    Demand,
+    PhaseTarget,
+} from './';
 
 /**
  * @type AgentPoolQueueTarget
