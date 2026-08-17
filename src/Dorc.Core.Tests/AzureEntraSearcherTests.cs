@@ -584,6 +584,88 @@ namespace Dorc.Core.Tests
             Assert.ThrowsExactly<UnauthorizedAccessException>(() => NewSearcher(handler).Search("alice"));
         }
 
+        // P-4 / SC-10 (request side). MapFilter only requires the property NAME to appear,
+        // so a hardcoded wrong SID routed identically and the suite stayed green. These assert
+        // the SID VALUE the caller passed actually reaches the filter.
+        [TestMethod]
+        public void P4_GetUserDataById_SendsTheCallersSidInTheFilter()
+        {
+            const string sid = "S-1-5-21-100-200-300-1234";
+            var handler = new MockHttpHandler()
+                .MapFilter(HttpMethod.Get, "/users", "onPremisesSecurityIdentifier", $$"""
+                {
+                    "value": [{
+                        "id": "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee",
+                        "displayName": "Alice",
+                        "userPrincipalName": "alice@contoso.com",
+                        "accountEnabled": true,
+                        "onPremisesSecurityIdentifier": "{{sid}}"
+                    }]
+                }
+                """);
+
+            NewSearcher(handler).GetUserDataById(sid);
+
+            var filter = handler.LastFilter("/users");
+            Assert.IsNotNull(filter, "no $filter was sent for the SID lookup");
+            StringAssert.Contains(filter, $"onPremisesSecurityIdentifier eq '{sid}'",
+                "the caller's SID must reach the filter — otherwise every legacy AccessControl.Sid row resolves to the wrong principal");
+        }
+
+        [TestMethod]
+        public void P4_GetUserDataById_SendsTheCallersSidInTheGroupFilter()
+        {
+            const string sid = "S-1-5-21-100-200-300-5678";
+            var handler = new MockHttpHandler()
+                .MapFilter(HttpMethod.Get, "/users", "onPremisesSecurityIdentifier", """{ "value": [] }""")
+                .MapFilter(HttpMethod.Get, "/groups", "onPremisesSecurityIdentifier", $$"""
+                {
+                    "value": [{
+                        "id": "ffffffff-ffff-ffff-ffff-ffffffffffff",
+                        "displayName": "Admins",
+                        "mailNickname": "admins",
+                        "onPremisesSecurityIdentifier": "{{sid}}"
+                    }]
+                }
+                """);
+
+            NewSearcher(handler).GetUserDataById(sid);
+
+            var filter = handler.LastFilter("/groups");
+            Assert.IsNotNull(filter);
+            StringAssert.Contains(filter, $"onPremisesSecurityIdentifier eq '{sid}'");
+        }
+
+        // P-5 (request side): the membership path must exclude disabled accounts and must
+        // request two matches so an ambiguous name is detectable rather than silently taken.
+        [TestMethod]
+        public void P5_ResolveUserIdFromName_ExcludesDisabledAndRequestsTwoMatches()
+        {
+            var handler = new MockHttpHandler()
+                .MapFilter(HttpMethod.Get, "/users", "onPremisesSamAccountName", """
+                { "value": [{ "id": "66666666-6666-6666-6666-666666666666" }] }
+                """)
+                .MapPath(HttpMethod.Get, "/groups", """
+                { "value": [{ "id": "77777777-7777-7777-7777-777777777777" }] }
+                """)
+                .MapPath(HttpMethod.Post, "/checkMemberGroups", """
+                { "value": [ "77777777-7777-7777-7777-777777777777" ] }
+                """);
+
+            NewSearcher(handler).GetGroupSidIfUserIsMemberRecursive("alice", "Admins", "contoso.com");
+
+            // /users/{id}/checkMemberGroups also contains "/users", so select the GET that
+            // actually carried a $filter.
+            var req = handler.Captured.LastOrDefault(c =>
+                c.Method == "GET" && c.Path.Contains("/users") && c.Filter != null);
+            Assert.IsNotNull(req, "no filtered GET /users request was sent");
+            StringAssert.Contains(req!.Filter, "accountEnabled eq true",
+                "a disabled leaver must not resolve and receive group claims");
+            StringAssert.Contains(req.Filter, "onPremisesSamAccountName eq 'alice'");
+            StringAssert.Contains(req.Query, "top=2",
+                "$top=2 is what makes an ambiguous name detectable rather than silently collapsed");
+        }
+
         private static AzureEntraSearcher NewSearcher(MockHttpHandler handler)
         {
             return new AzureEntraSearcher(
