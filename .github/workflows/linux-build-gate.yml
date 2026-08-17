@@ -113,15 +113,16 @@ jobs:
           # this check was added; it must only ever shrink.
           echo "Checking for CA1416 suppression routes..."
           # Known sites and the step that clears each. This list must only ever shrink:
-          #   AccessControlController, DirectorySearchController  -> S-001 follow-up (see U-18)
           #   AccountController, BundledRequestsController,
-          #   MakeLikeProdController                              -> S-001 follow-up (see U-18)
+          #   MakeLikeProdController                              -> S-005/S-006 (see U-18)
+          # AccessControlController and DirectorySearchController came off this list:
+          # S-001 removed their Windows-only dependencies, so the attribute was stale.
           #   ResetAppPasswordController                          -> S-006
           #   ClaimsTransformer                                   -> S-007
           #   DaemonStatusProbe                                   -> S-005
           # CoreRegistry came off this list: its CA1416 pragma was replaced with an
           # OperatingSystem.IsWindows() guard, which the analyzer accepts without suppression.
-          suppress_allow='AccessControlController\.cs|AccountController\.cs|BundledRequestsController\.cs|DirectorySearchController\.cs|MakeLikeProdController\.cs|ResetAppPasswordController\.cs|ClaimsTransformer\.cs|DaemonStatusProbe\.cs'
+          suppress_allow='AccountController\.cs|BundledRequestsController\.cs|MakeLikeProdController\.cs|ResetAppPasswordController\.cs|ClaimsTransformer\.cs|DaemonStatusProbe\.cs'
           if grep -rn -E 'SupportedOSPlatform\("windows"\)|#pragma warning disable CA1416' \
               $roots --include='*.cs' | grep -vE "$suppress_allow"; then
             echo "::error::New [SupportedOSPlatform(\"windows\")] or CA1416 pragma in the primary compile graph. These suppress the CA1416 gate — move the code to the worker rather than annotating it."
