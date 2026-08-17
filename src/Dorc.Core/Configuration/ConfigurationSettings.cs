@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Configuration;
+﻿using Dorc.ApiModel;
+using Microsoft.Extensions.Configuration;
 
 namespace Dorc.Core.Configuration
 {
@@ -202,6 +203,23 @@ namespace Dorc.Core.Configuration
             var value = _configuration.GetSection("AppSettings")["EnforceScriptPathConfinement"];
 
             return bool.TryParse(value, out bool enforce) && enforce;
+        }
+
+        /// <summary>
+        /// How far script content verification is taken.
+        ///
+        /// Absence, and any value that is not recognised, means Report. An unreadable setting
+        /// must not be able to turn the control off silently, and must not be able to turn
+        /// enforcement on either — a typo that refused every deployment in the estate would be a
+        /// self-inflicted outage.
+        /// </summary>
+        public ScriptContentVerificationMode GetScriptContentVerificationMode()
+        {
+            var value = _configuration.GetSection("AppSettings")["ScriptContentVerification"];
+
+            return Enum.TryParse<ScriptContentVerificationMode>(value, ignoreCase: true, out var mode)
+                ? mode
+                : ScriptContentVerificationMode.Report;
         }
 
         /// <summary>
