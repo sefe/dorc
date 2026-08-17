@@ -287,14 +287,43 @@ static void AddSwaggerGen(IServiceCollection services, IConfigurationSettings co
 var workerEnabled = builder.Configuration.GetValue<bool>("WindowsWorker:Enabled");
 if (workerEnabled)
 {
+    // Fail at startup rather than on the first user request: an empty key made the
+    // delegating handler omit the header entirely, so the worker answered 401 and the
+    // operator saw a 500 with no hint that the key was missing.
+    var sharedKey = builder.Configuration["WindowsWorker:SharedKey"];
+    if (string.IsNullOrWhiteSpace(sharedKey))
+    {
+        throw new InvalidOperationException(
+            "WindowsWorker:Enabled=true but WindowsWorker:SharedKey is missing or blank. " +
+            "Set a shared secret matching the worker's WindowsWorker:SharedKey.");
+    }
+
     builder.Services.AddTransient<WorkerKeyDelegatingHandler>();
     builder.Services
         .AddHttpClient<IWindowsWorkerClient, HttpWindowsWorkerClient>(client =>
         {
             var url = builder.Configuration["WindowsWorker:Url"]
                 ?? throw new InvalidOperationException("WindowsWorker:Enabled=true but WindowsWorker:Url is missing");
-            client.BaseAddress = new Uri(url);
+            var uri = new Uri(url);
+
+            // The worker's entire threat model is "reachable on loopback only". If the URL
+            // can name an arbitrary host, anyone able to write config exfiltrates the shared
+            // secret in cleartext on every call.
+            if (!uri.IsLoopback)
+            {
+                throw new InvalidOperationException(
+                    $"WindowsWorker:Url must be a loopback address (got '{uri.Host}'). " +
+                    "The worker is only ever addressed on the local machine.");
+            }
+
+            client.BaseAddress = new Uri(uri.GetLeftPart(UriPartial.Authority) + "/");
+            // Default HttpClient timeout is 100s; a blocked remote-registry probe would pin
+            // a request that long before failing.
+            client.Timeout = TimeSpan.FromSeconds(30);
         })
+        // Without this, raising the log level to Trace to debug worker connectivity writes
+        // the shared secret into the log sinks.
+        .RedactLoggedHeaders(new[] { WorkerKeyDelegatingHandler.HeaderName })
         .AddHttpMessageHandler<WorkerKeyDelegatingHandler>();
 }
 else

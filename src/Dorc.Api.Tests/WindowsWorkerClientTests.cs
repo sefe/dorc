@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Dorc.Api.Tests
 {
@@ -51,7 +52,7 @@ namespace Dorc.Api.Tests
         [TestMethod]
         public void WorkerUnavailableExceptionFilter_Translates503_WithDocumentedBody()
         {
-            var filter = new WorkerUnavailableExceptionFilter();
+            var filter = new WorkerUnavailableExceptionFilter(NullLogger<WorkerUnavailableExceptionFilter>.Instance);
             var context = NewExceptionContext(new WorkerUnavailableException("reset-password"));
 
             filter.OnException(context);
@@ -70,13 +71,87 @@ namespace Dorc.Api.Tests
         [TestMethod]
         public void WorkerUnavailableExceptionFilter_IgnoresOtherExceptions()
         {
-            var filter = new WorkerUnavailableExceptionFilter();
+            var filter = new WorkerUnavailableExceptionFilter(NullLogger<WorkerUnavailableExceptionFilter>.Instance);
             var context = NewExceptionContext(new InvalidOperationException("something else"));
 
             filter.OnException(context);
 
             Assert.IsFalse(context.ExceptionHandled);
             Assert.IsNull(context.Result);
+        }
+
+        [TestMethod]
+        public async Task HttpWindowsWorkerClient_ConnectionFailure_ThrowsWorkerUnavailable()
+        {
+            // Worker configured (Enabled=true) but the process is not listening. Previously
+            // EnsureSuccessStatusCode/HttpRequestException escaped as a 500, so the documented
+            // 503 only ever fired for the config-disabled case.
+            var handler = new ThrowingHandler(new HttpRequestException("Connection refused"));
+            var http = new HttpClient(handler) { BaseAddress = new Uri("http://127.0.0.1:5005/") };
+            var client = new HttpWindowsWorkerClient(http);
+
+            var ex = await Assert.ThrowsExactlyAsync<WorkerUnavailableException>(
+                () => client.GetServerOperatingSystemAsync("SERVER01"));
+            Assert.AreEqual("remote-server/operating-system", ex.Endpoint);
+        }
+
+        [TestMethod]
+        public async Task HttpWindowsWorkerClient_Timeout_ThrowsWorkerUnavailable()
+        {
+            var handler = new ThrowingHandler(new TaskCanceledException("timed out"));
+            var http = new HttpClient(handler) { BaseAddress = new Uri("http://127.0.0.1:5005/") };
+            var client = new HttpWindowsWorkerClient(http);
+
+            await Assert.ThrowsExactlyAsync<WorkerUnavailableException>(
+                () => client.GetServerOperatingSystemAsync("SERVER01"));
+        }
+
+        [TestMethod]
+        public async Task HttpWindowsWorkerClient_WorkerBadRequest_SurfacesAsRejection()
+        {
+            // The worker answers 400 for real user-facing failures; collapsing that into a
+            // 500 loses the actionable message the endpoint documents.
+            var handler = new CannedHandler(System.Net.HttpStatusCode.BadRequest,
+                "{\"error\":\"Unable to open the target machine\"}");
+            var http = new HttpClient(handler) { BaseAddress = new Uri("http://127.0.0.1:5005/") };
+            var client = new HttpWindowsWorkerClient(http);
+
+            await Assert.ThrowsExactlyAsync<WorkerRequestRejectedException>(
+                () => client.GetServerOperatingSystemAsync("SERVER01"));
+        }
+
+        [TestMethod]
+        public void WorkerUnavailableExceptionFilter_RejectionBecomes400()
+        {
+            var filter = new WorkerUnavailableExceptionFilter(NullLogger<WorkerUnavailableExceptionFilter>.Instance);
+            var context = NewExceptionContext(new WorkerRequestRejectedException("Unable to open the target machine"));
+
+            filter.OnException(context);
+
+            Assert.IsTrue(context.ExceptionHandled);
+            var result = context.Result as BadRequestObjectResult;
+            Assert.IsNotNull(result);
+            Assert.AreEqual(StatusCodes.Status400BadRequest, result!.StatusCode);
+        }
+
+        private sealed class ThrowingHandler : HttpMessageHandler
+        {
+            private readonly Exception _ex;
+            public ThrowingHandler(Exception ex) => _ex = ex;
+            protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+                => Task.FromException<HttpResponseMessage>(_ex);
+        }
+
+        private sealed class CannedHandler : HttpMessageHandler
+        {
+            private readonly System.Net.HttpStatusCode _status;
+            private readonly string _body;
+            public CannedHandler(System.Net.HttpStatusCode status, string body) { _status = status; _body = body; }
+            protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+                => Task.FromResult(new HttpResponseMessage(_status)
+                {
+                    Content = new StringContent(_body, System.Text.Encoding.UTF8, "application/json")
+                });
         }
 
         private static ExceptionContext NewExceptionContext(Exception ex)
