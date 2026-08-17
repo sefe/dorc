@@ -27,7 +27,7 @@ using OpenAPIDateConverter = Org.OpenAPITools.Client.OpenAPIDateConverter;
 namespace Org.OpenAPITools.Model
 {
     /// <summary>
-    /// Describes how a phase should run against an agent queue.
+    /// AgentPoolQueueTarget
     /// </summary>
     [DataContract(Name = "AgentPoolQueueTarget")]
     public partial class AgentPoolQueueTarget : IValidatableObject
@@ -35,21 +35,28 @@ namespace Org.OpenAPITools.Model
         /// <summary>
         /// Initializes a new instance of the <see cref="AgentPoolQueueTarget" /> class.
         /// </summary>
+        /// <param name="type">The type of the target..</param>
         /// <param name="agentSpecification">agentSpecification.</param>
         /// <param name="allowScriptsAuthAccessOption">Enables scripts and other processes launched while executing phase to access the OAuth token.</param>
         /// <param name="demands">demands.</param>
         /// <param name="executionOptions">executionOptions.</param>
         /// <param name="queue">queue.</param>
-        /// <param name="type">The type of the target..</param>
-        public AgentPoolQueueTarget(AgentSpecification agentSpecification = default, bool allowScriptsAuthAccessOption = default, List<Demand> demands = default, AgentTargetExecutionOptions executionOptions = default, AgentPoolQueue queue = default, int type = default)
+        public AgentPoolQueueTarget(int type = default, AgentSpecification agentSpecification = default, bool allowScriptsAuthAccessOption = default, List<Demand> demands = default, AgentTargetExecutionOptions executionOptions = default, AgentPoolQueue queue = default)
         {
+            this.Type = type;
             this.AgentSpecification = agentSpecification;
             this.AllowScriptsAuthAccessOption = allowScriptsAuthAccessOption;
             this.Demands = demands;
             this.ExecutionOptions = executionOptions;
             this.Queue = queue;
-            this.Type = type;
         }
+
+        /// <summary>
+        /// The type of the target.
+        /// </summary>
+        /// <value>The type of the target.</value>
+        [DataMember(Name = "type", EmitDefaultValue = false)]
+        public int Type { get; set; }
 
         /// <summary>
         /// Gets or Sets AgentSpecification
@@ -83,13 +90,6 @@ namespace Org.OpenAPITools.Model
         public AgentPoolQueue Queue { get; set; }
 
         /// <summary>
-        /// The type of the target.
-        /// </summary>
-        /// <value>The type of the target.</value>
-        [DataMember(Name = "type", EmitDefaultValue = false)]
-        public int Type { get; set; }
-
-        /// <summary>
         /// Returns the string presentation of the object
         /// </summary>
         /// <returns>String presentation of the object</returns>
@@ -97,12 +97,12 @@ namespace Org.OpenAPITools.Model
         {
             StringBuilder sb = new StringBuilder();
             sb.Append("class AgentPoolQueueTarget {\n");
+            sb.Append("  Type: ").Append(Type).Append("\n");
             sb.Append("  AgentSpecification: ").Append(AgentSpecification).Append("\n");
             sb.Append("  AllowScriptsAuthAccessOption: ").Append(AllowScriptsAuthAccessOption).Append("\n");
             sb.Append("  Demands: ").Append(Demands).Append("\n");
             sb.Append("  ExecutionOptions: ").Append(ExecutionOptions).Append("\n");
             sb.Append("  Queue: ").Append(Queue).Append("\n");
-            sb.Append("  Type: ").Append(Type).Append("\n");
             sb.Append("}\n");
             return sb.ToString();
         }

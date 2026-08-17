@@ -27,7 +27,7 @@ using OpenAPIDateConverter = Org.OpenAPITools.Client.OpenAPIDateConverter;
 namespace Org.OpenAPITools.Model
 {
     /// <summary>
-    /// Deployment information for type \&quot;Build\&quot;
+    /// DeploymentBuild
     /// </summary>
     [DataContract(Name = "DeploymentBuild")]
     public partial class DeploymentBuild : IValidatableObject
@@ -35,25 +35,25 @@ namespace Org.OpenAPITools.Model
         /// <summary>
         /// Initializes a new instance of the <see cref="DeploymentBuild" /> class.
         /// </summary>
-        /// <param name="buildId">buildId.</param>
         /// <param name="type">type.</param>
-        public DeploymentBuild(int buildId = default, string type = default)
+        /// <param name="buildId">buildId.</param>
+        public DeploymentBuild(string type = default, int buildId = default)
         {
-            this.BuildId = buildId;
             this.Type = type;
+            this.BuildId = buildId;
         }
-
-        /// <summary>
-        /// Gets or Sets BuildId
-        /// </summary>
-        [DataMember(Name = "buildId", EmitDefaultValue = false)]
-        public int BuildId { get; set; }
 
         /// <summary>
         /// Gets or Sets Type
         /// </summary>
         [DataMember(Name = "type", EmitDefaultValue = false)]
         public string Type { get; set; }
+
+        /// <summary>
+        /// Gets or Sets BuildId
+        /// </summary>
+        [DataMember(Name = "buildId", EmitDefaultValue = false)]
+        public int BuildId { get; set; }
 
         /// <summary>
         /// Returns the string presentation of the object
@@ -63,8 +63,8 @@ namespace Org.OpenAPITools.Model
         {
             StringBuilder sb = new StringBuilder();
             sb.Append("class DeploymentBuild {\n");
-            sb.Append("  BuildId: ").Append(BuildId).Append("\n");
             sb.Append("  Type: ").Append(Type).Append("\n");
+            sb.Append("  BuildId: ").Append(BuildId).Append("\n");
             sb.Append("}\n");
             return sb.ToString();
         }

@@ -35,17 +35,29 @@ namespace Org.OpenAPITools.Model
         /// <summary>
         /// Initializes a new instance of the <see cref="BuildTagsAddedEvent" /> class.
         /// </summary>
+        /// <param name="buildId">buildId.</param>
+        /// <param name="build">build.</param>
         /// <param name="allTags">allTags.</param>
         /// <param name="newTags">newTags.</param>
-        /// <param name="build">build.</param>
-        /// <param name="buildId">buildId.</param>
-        public BuildTagsAddedEvent(List<string> allTags = default, List<string> newTags = default, Build build = default, int buildId = default)
+        public BuildTagsAddedEvent(int buildId = default, Build build = default, List<string> allTags = default, List<string> newTags = default)
         {
+            this.BuildId = buildId;
+            this.Build = build;
             this.AllTags = allTags;
             this.NewTags = newTags;
-            this.Build = build;
-            this.BuildId = buildId;
         }
+
+        /// <summary>
+        /// Gets or Sets BuildId
+        /// </summary>
+        [DataMember(Name = "buildId", EmitDefaultValue = false)]
+        public int BuildId { get; set; }
+
+        /// <summary>
+        /// Gets or Sets Build
+        /// </summary>
+        [DataMember(Name = "build", EmitDefaultValue = false)]
+        public Build Build { get; set; }
 
         /// <summary>
         /// Gets or Sets AllTags
@@ -60,18 +72,6 @@ namespace Org.OpenAPITools.Model
         public List<string> NewTags { get; set; }
 
         /// <summary>
-        /// Gets or Sets Build
-        /// </summary>
-        [DataMember(Name = "build", EmitDefaultValue = false)]
-        public Build Build { get; set; }
-
-        /// <summary>
-        /// Gets or Sets BuildId
-        /// </summary>
-        [DataMember(Name = "buildId", EmitDefaultValue = false)]
-        public int BuildId { get; set; }
-
-        /// <summary>
         /// Returns the string presentation of the object
         /// </summary>
         /// <returns>String presentation of the object</returns>
@@ -79,10 +79,10 @@ namespace Org.OpenAPITools.Model
         {
             StringBuilder sb = new StringBuilder();
             sb.Append("class BuildTagsAddedEvent {\n");
+            sb.Append("  BuildId: ").Append(BuildId).Append("\n");
+            sb.Append("  Build: ").Append(Build).Append("\n");
             sb.Append("  AllTags: ").Append(AllTags).Append("\n");
             sb.Append("  NewTags: ").Append(NewTags).Append("\n");
-            sb.Append("  Build: ").Append(Build).Append("\n");
-            sb.Append("  BuildId: ").Append(BuildId).Append("\n");
             sb.Append("}\n");
             return sb.ToString();
         }

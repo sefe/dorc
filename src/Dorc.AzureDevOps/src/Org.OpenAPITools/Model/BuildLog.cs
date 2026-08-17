@@ -27,7 +27,7 @@ using OpenAPIDateConverter = Org.OpenAPITools.Client.OpenAPIDateConverter;
 namespace Org.OpenAPITools.Model
 {
     /// <summary>
-    /// Represents a build log.
+    /// BuildLog
     /// </summary>
     [DataContract(Name = "BuildLog")]
     public partial class BuildLog : IValidatableObject
@@ -35,42 +35,21 @@ namespace Org.OpenAPITools.Model
         /// <summary>
         /// Initializes a new instance of the <see cref="BuildLog" /> class.
         /// </summary>
-        /// <param name="createdOn">The date and time the log was created..</param>
-        /// <param name="lastChangedOn">The date and time the log was last changed..</param>
-        /// <param name="lineCount">The number of lines in the log..</param>
         /// <param name="id">The ID of the log..</param>
         /// <param name="type">The type of the log location..</param>
         /// <param name="url">A full link to the log resource..</param>
-        public BuildLog(DateTime createdOn = default, DateTime lastChangedOn = default, long lineCount = default, int id = default, string type = default, string url = default)
+        /// <param name="createdOn">The date and time the log was created..</param>
+        /// <param name="lastChangedOn">The date and time the log was last changed..</param>
+        /// <param name="lineCount">The number of lines in the log..</param>
+        public BuildLog(int id = default, string type = default, string url = default, DateTime createdOn = default, DateTime lastChangedOn = default, long lineCount = default)
         {
-            this.CreatedOn = createdOn;
-            this.LastChangedOn = lastChangedOn;
-            this.LineCount = lineCount;
             this.Id = id;
             this.Type = type;
             this.Url = url;
+            this.CreatedOn = createdOn;
+            this.LastChangedOn = lastChangedOn;
+            this.LineCount = lineCount;
         }
-
-        /// <summary>
-        /// The date and time the log was created.
-        /// </summary>
-        /// <value>The date and time the log was created.</value>
-        [DataMember(Name = "createdOn", EmitDefaultValue = false)]
-        public DateTime CreatedOn { get; set; }
-
-        /// <summary>
-        /// The date and time the log was last changed.
-        /// </summary>
-        /// <value>The date and time the log was last changed.</value>
-        [DataMember(Name = "lastChangedOn", EmitDefaultValue = false)]
-        public DateTime LastChangedOn { get; set; }
-
-        /// <summary>
-        /// The number of lines in the log.
-        /// </summary>
-        /// <value>The number of lines in the log.</value>
-        [DataMember(Name = "lineCount", EmitDefaultValue = false)]
-        public long LineCount { get; set; }
 
         /// <summary>
         /// The ID of the log.
@@ -94,6 +73,27 @@ namespace Org.OpenAPITools.Model
         public string Url { get; set; }
 
         /// <summary>
+        /// The date and time the log was created.
+        /// </summary>
+        /// <value>The date and time the log was created.</value>
+        [DataMember(Name = "createdOn", EmitDefaultValue = false)]
+        public DateTime CreatedOn { get; set; }
+
+        /// <summary>
+        /// The date and time the log was last changed.
+        /// </summary>
+        /// <value>The date and time the log was last changed.</value>
+        [DataMember(Name = "lastChangedOn", EmitDefaultValue = false)]
+        public DateTime LastChangedOn { get; set; }
+
+        /// <summary>
+        /// The number of lines in the log.
+        /// </summary>
+        /// <value>The number of lines in the log.</value>
+        [DataMember(Name = "lineCount", EmitDefaultValue = false)]
+        public long LineCount { get; set; }
+
+        /// <summary>
         /// Returns the string presentation of the object
         /// </summary>
         /// <returns>String presentation of the object</returns>
@@ -101,12 +101,12 @@ namespace Org.OpenAPITools.Model
         {
             StringBuilder sb = new StringBuilder();
             sb.Append("class BuildLog {\n");
-            sb.Append("  CreatedOn: ").Append(CreatedOn).Append("\n");
-            sb.Append("  LastChangedOn: ").Append(LastChangedOn).Append("\n");
-            sb.Append("  LineCount: ").Append(LineCount).Append("\n");
             sb.Append("  Id: ").Append(Id).Append("\n");
             sb.Append("  Type: ").Append(Type).Append("\n");
             sb.Append("  Url: ").Append(Url).Append("\n");
+            sb.Append("  CreatedOn: ").Append(CreatedOn).Append("\n");
+            sb.Append("  LastChangedOn: ").Append(LastChangedOn).Append("\n");
+            sb.Append("  LineCount: ").Append(LineCount).Append("\n");
             sb.Append("}\n");
             return sb.ToString();
         }

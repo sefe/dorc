@@ -12,15 +12,21 @@
  */
 
 import type {
+    AgentPoolQueue,
+    Build,
     BuildDefinitionReference,
     BuildDefinitionVariable,
+    BuildMetric,
     BuildOption,
     BuildProcess,
     BuildRepository,
     BuildTrigger,
+    DefinitionReference,
     Demand,
+    IdentityRef,
     ProcessParameters,
     PropertiesCollection,
+    ReferenceLinks,
     RetentionPolicy,
     TeamProjectReference,
     VariableGroup,
@@ -28,7 +34,6 @@ import type {
 
 /**
  * @type BuildDefinition
- * Represents a build definition.
  * @export
  */
 export type BuildDefinition = BuildDefinitionReference;

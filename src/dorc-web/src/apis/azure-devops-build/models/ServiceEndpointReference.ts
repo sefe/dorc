@@ -17,7 +17,6 @@ import type {
 
 /**
  * @type ServiceEndpointReference
- * Represents a referenec to a service endpoint.
  * @export
  */
 export type ServiceEndpointReference = ResourceReference;

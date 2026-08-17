@@ -18,7 +18,6 @@ import type {
 
 /**
  * @type Timeline
- * Represents the timeline of a build.
  * @export
  */
 export type Timeline = TimelineReference;

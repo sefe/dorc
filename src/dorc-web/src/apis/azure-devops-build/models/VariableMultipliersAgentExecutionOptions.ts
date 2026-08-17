@@ -17,7 +17,6 @@ import type {
 
 /**
  * @type VariableMultipliersAgentExecutionOptions
- * Represents options for running a phase based on values specified by a list of variables.
  * @export
  */
 export type VariableMultipliersAgentExecutionOptions = AgentTargetExecutionOptions;

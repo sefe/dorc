@@ -17,7 +17,6 @@ import type {
 
 /**
  * @type SecureFileReference
- * Represents a reference to a secure file.
  * @export
  */
 export type SecureFileReference = ResourceReference;

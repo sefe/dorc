@@ -19,7 +19,6 @@ import type {
 
 /**
  * @type DesignerProcess
- * Represents a build process supported by the build definition designer.
  * @export
  */
 export type DesignerProcess = BuildProcess;

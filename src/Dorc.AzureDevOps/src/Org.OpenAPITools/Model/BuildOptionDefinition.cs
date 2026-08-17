@@ -27,7 +27,7 @@ using OpenAPIDateConverter = Org.OpenAPITools.Client.OpenAPIDateConverter;
 namespace Org.OpenAPITools.Model
 {
     /// <summary>
-    /// Represents an optional behavior that can be applied to a build definition.
+    /// BuildOptionDefinition
     /// </summary>
     [DataContract(Name = "BuildOptionDefinition")]
     public partial class BuildOptionDefinition : IValidatableObject
@@ -35,21 +35,28 @@ namespace Org.OpenAPITools.Model
         /// <summary>
         /// Initializes a new instance of the <see cref="BuildOptionDefinition" /> class.
         /// </summary>
+        /// <param name="id">The ID of the referenced build option..</param>
         /// <param name="description">The description..</param>
         /// <param name="groups">The list of input groups defined for the build option..</param>
         /// <param name="inputs">The list of inputs defined for the build option..</param>
         /// <param name="name">The name of the build option..</param>
         /// <param name="ordinal">A value that indicates the relative order in which the behavior should be applied..</param>
-        /// <param name="id">The ID of the referenced build option..</param>
-        public BuildOptionDefinition(string description = default, List<BuildOptionGroupDefinition> groups = default, List<BuildOptionInputDefinition> inputs = default, string name = default, int ordinal = default, Guid id = default)
+        public BuildOptionDefinition(Guid id = default, string description = default, List<BuildOptionGroupDefinition> groups = default, List<BuildOptionInputDefinition> inputs = default, string name = default, int ordinal = default)
         {
+            this.Id = id;
             this.Description = description;
             this.Groups = groups;
             this.Inputs = inputs;
             this.Name = name;
             this.Ordinal = ordinal;
-            this.Id = id;
         }
+
+        /// <summary>
+        /// The ID of the referenced build option.
+        /// </summary>
+        /// <value>The ID of the referenced build option.</value>
+        [DataMember(Name = "id", EmitDefaultValue = false)]
+        public Guid Id { get; set; }
 
         /// <summary>
         /// The description.
@@ -87,13 +94,6 @@ namespace Org.OpenAPITools.Model
         public int Ordinal { get; set; }
 
         /// <summary>
-        /// The ID of the referenced build option.
-        /// </summary>
-        /// <value>The ID of the referenced build option.</value>
-        [DataMember(Name = "id", EmitDefaultValue = false)]
-        public Guid Id { get; set; }
-
-        /// <summary>
         /// Returns the string presentation of the object
         /// </summary>
         /// <returns>String presentation of the object</returns>
@@ -101,12 +101,12 @@ namespace Org.OpenAPITools.Model
         {
             StringBuilder sb = new StringBuilder();
             sb.Append("class BuildOptionDefinition {\n");
+            sb.Append("  Id: ").Append(Id).Append("\n");
             sb.Append("  Description: ").Append(Description).Append("\n");
             sb.Append("  Groups: ").Append(Groups).Append("\n");
             sb.Append("  Inputs: ").Append(Inputs).Append("\n");
             sb.Append("  Name: ").Append(Name).Append("\n");
             sb.Append("  Ordinal: ").Append(Ordinal).Append("\n");
-            sb.Append("  Id: ").Append(Id).Append("\n");
             sb.Append("}\n");
             return sb.ToString();
         }

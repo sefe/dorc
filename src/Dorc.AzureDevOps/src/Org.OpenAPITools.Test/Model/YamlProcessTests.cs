@@ -56,6 +56,15 @@ namespace Org.OpenAPITools.Test.Model
         }
 
         /// <summary>
+        /// Test the property 'Type'
+        /// </summary>
+        [Fact]
+        public void TypeTest()
+        {
+            // TODO unit test for the property 'Type'
+        }
+
+        /// <summary>
         /// Test the property 'Errors'
         /// </summary>
         [Fact]
@@ -80,15 +89,6 @@ namespace Org.OpenAPITools.Test.Model
         public void YamlFilenameTest()
         {
             // TODO unit test for the property 'YamlFilename'
-        }
-
-        /// <summary>
-        /// Test the property 'Type'
-        /// </summary>
-        [Fact]
-        public void TypeTest()
-        {
-            // TODO unit test for the property 'Type'
         }
     }
 }

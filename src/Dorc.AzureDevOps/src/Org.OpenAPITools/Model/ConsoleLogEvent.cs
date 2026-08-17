@@ -35,19 +35,25 @@ namespace Org.OpenAPITools.Model
         /// <summary>
         /// Initializes a new instance of the <see cref="ConsoleLogEvent" /> class.
         /// </summary>
+        /// <param name="buildId">buildId.</param>
         /// <param name="lines">lines.</param>
         /// <param name="stepRecordId">stepRecordId.</param>
         /// <param name="timelineId">timelineId.</param>
         /// <param name="timelineRecordId">timelineRecordId.</param>
-        /// <param name="buildId">buildId.</param>
-        public ConsoleLogEvent(List<string> lines = default, Guid stepRecordId = default, Guid timelineId = default, Guid timelineRecordId = default, int buildId = default)
+        public ConsoleLogEvent(int buildId = default, List<string> lines = default, Guid stepRecordId = default, Guid timelineId = default, Guid timelineRecordId = default)
         {
+            this.BuildId = buildId;
             this.Lines = lines;
             this.StepRecordId = stepRecordId;
             this.TimelineId = timelineId;
             this.TimelineRecordId = timelineRecordId;
-            this.BuildId = buildId;
         }
+
+        /// <summary>
+        /// Gets or Sets BuildId
+        /// </summary>
+        [DataMember(Name = "buildId", EmitDefaultValue = false)]
+        public int BuildId { get; set; }
 
         /// <summary>
         /// Gets or Sets Lines
@@ -74,12 +80,6 @@ namespace Org.OpenAPITools.Model
         public Guid TimelineRecordId { get; set; }
 
         /// <summary>
-        /// Gets or Sets BuildId
-        /// </summary>
-        [DataMember(Name = "buildId", EmitDefaultValue = false)]
-        public int BuildId { get; set; }
-
-        /// <summary>
         /// Returns the string presentation of the object
         /// </summary>
         /// <returns>String presentation of the object</returns>
@@ -87,11 +87,11 @@ namespace Org.OpenAPITools.Model
         {
             StringBuilder sb = new StringBuilder();
             sb.Append("class ConsoleLogEvent {\n");
+            sb.Append("  BuildId: ").Append(BuildId).Append("\n");
             sb.Append("  Lines: ").Append(Lines).Append("\n");
             sb.Append("  StepRecordId: ").Append(StepRecordId).Append("\n");
             sb.Append("  TimelineId: ").Append(TimelineId).Append("\n");
             sb.Append("  TimelineRecordId: ").Append(TimelineRecordId).Append("\n");
-            sb.Append("  BuildId: ").Append(BuildId).Append("\n");
             sb.Append("}\n");
             return sb.ToString();
         }

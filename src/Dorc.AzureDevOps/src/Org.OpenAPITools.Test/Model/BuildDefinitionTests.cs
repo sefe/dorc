@@ -56,6 +56,177 @@ namespace Org.OpenAPITools.Test.Model
         }
 
         /// <summary>
+        /// Test the property 'CreatedDate'
+        /// </summary>
+        [Fact]
+        public void CreatedDateTest()
+        {
+            // TODO unit test for the property 'CreatedDate'
+        }
+
+        /// <summary>
+        /// Test the property 'Id'
+        /// </summary>
+        [Fact]
+        public void IdTest()
+        {
+            // TODO unit test for the property 'Id'
+        }
+
+        /// <summary>
+        /// Test the property 'Name'
+        /// </summary>
+        [Fact]
+        public void NameTest()
+        {
+            // TODO unit test for the property 'Name'
+        }
+
+        /// <summary>
+        /// Test the property 'Path'
+        /// </summary>
+        [Fact]
+        public void PathTest()
+        {
+            // TODO unit test for the property 'Path'
+        }
+
+        /// <summary>
+        /// Test the property 'Project'
+        /// </summary>
+        [Fact]
+        public void ProjectTest()
+        {
+            // TODO unit test for the property 'Project'
+        }
+
+        /// <summary>
+        /// Test the property 'QueueStatus'
+        /// </summary>
+        [Fact]
+        public void QueueStatusTest()
+        {
+            // TODO unit test for the property 'QueueStatus'
+        }
+
+        /// <summary>
+        /// Test the property 'Revision'
+        /// </summary>
+        [Fact]
+        public void RevisionTest()
+        {
+            // TODO unit test for the property 'Revision'
+        }
+
+        /// <summary>
+        /// Test the property 'Type'
+        /// </summary>
+        [Fact]
+        public void TypeTest()
+        {
+            // TODO unit test for the property 'Type'
+        }
+
+        /// <summary>
+        /// Test the property 'Uri'
+        /// </summary>
+        [Fact]
+        public void UriTest()
+        {
+            // TODO unit test for the property 'Uri'
+        }
+
+        /// <summary>
+        /// Test the property 'Url'
+        /// </summary>
+        [Fact]
+        public void UrlTest()
+        {
+            // TODO unit test for the property 'Url'
+        }
+
+        /// <summary>
+        /// Test the property 'Links'
+        /// </summary>
+        [Fact]
+        public void LinksTest()
+        {
+            // TODO unit test for the property 'Links'
+        }
+
+        /// <summary>
+        /// Test the property 'AuthoredBy'
+        /// </summary>
+        [Fact]
+        public void AuthoredByTest()
+        {
+            // TODO unit test for the property 'AuthoredBy'
+        }
+
+        /// <summary>
+        /// Test the property 'DraftOf'
+        /// </summary>
+        [Fact]
+        public void DraftOfTest()
+        {
+            // TODO unit test for the property 'DraftOf'
+        }
+
+        /// <summary>
+        /// Test the property 'Drafts'
+        /// </summary>
+        [Fact]
+        public void DraftsTest()
+        {
+            // TODO unit test for the property 'Drafts'
+        }
+
+        /// <summary>
+        /// Test the property 'LatestBuild'
+        /// </summary>
+        [Fact]
+        public void LatestBuildTest()
+        {
+            // TODO unit test for the property 'LatestBuild'
+        }
+
+        /// <summary>
+        /// Test the property 'LatestCompletedBuild'
+        /// </summary>
+        [Fact]
+        public void LatestCompletedBuildTest()
+        {
+            // TODO unit test for the property 'LatestCompletedBuild'
+        }
+
+        /// <summary>
+        /// Test the property 'Metrics'
+        /// </summary>
+        [Fact]
+        public void MetricsTest()
+        {
+            // TODO unit test for the property 'Metrics'
+        }
+
+        /// <summary>
+        /// Test the property 'Quality'
+        /// </summary>
+        [Fact]
+        public void QualityTest()
+        {
+            // TODO unit test for the property 'Quality'
+        }
+
+        /// <summary>
+        /// Test the property 'Queue'
+        /// </summary>
+        [Fact]
+        public void QueueTest()
+        {
+            // TODO unit test for the property 'Queue'
+        }
+
+        /// <summary>
         /// Test the property 'BadgeEnabled'
         /// </summary>
         [Fact]
@@ -224,177 +395,6 @@ namespace Org.OpenAPITools.Test.Model
         public void VariablesTest()
         {
             // TODO unit test for the property 'Variables'
-        }
-
-        /// <summary>
-        /// Test the property 'Links'
-        /// </summary>
-        [Fact]
-        public void LinksTest()
-        {
-            // TODO unit test for the property 'Links'
-        }
-
-        /// <summary>
-        /// Test the property 'AuthoredBy'
-        /// </summary>
-        [Fact]
-        public void AuthoredByTest()
-        {
-            // TODO unit test for the property 'AuthoredBy'
-        }
-
-        /// <summary>
-        /// Test the property 'DraftOf'
-        /// </summary>
-        [Fact]
-        public void DraftOfTest()
-        {
-            // TODO unit test for the property 'DraftOf'
-        }
-
-        /// <summary>
-        /// Test the property 'Drafts'
-        /// </summary>
-        [Fact]
-        public void DraftsTest()
-        {
-            // TODO unit test for the property 'Drafts'
-        }
-
-        /// <summary>
-        /// Test the property 'LatestBuild'
-        /// </summary>
-        [Fact]
-        public void LatestBuildTest()
-        {
-            // TODO unit test for the property 'LatestBuild'
-        }
-
-        /// <summary>
-        /// Test the property 'LatestCompletedBuild'
-        /// </summary>
-        [Fact]
-        public void LatestCompletedBuildTest()
-        {
-            // TODO unit test for the property 'LatestCompletedBuild'
-        }
-
-        /// <summary>
-        /// Test the property 'Metrics'
-        /// </summary>
-        [Fact]
-        public void MetricsTest()
-        {
-            // TODO unit test for the property 'Metrics'
-        }
-
-        /// <summary>
-        /// Test the property 'Quality'
-        /// </summary>
-        [Fact]
-        public void QualityTest()
-        {
-            // TODO unit test for the property 'Quality'
-        }
-
-        /// <summary>
-        /// Test the property 'Queue'
-        /// </summary>
-        [Fact]
-        public void QueueTest()
-        {
-            // TODO unit test for the property 'Queue'
-        }
-
-        /// <summary>
-        /// Test the property 'CreatedDate'
-        /// </summary>
-        [Fact]
-        public void CreatedDateTest()
-        {
-            // TODO unit test for the property 'CreatedDate'
-        }
-
-        /// <summary>
-        /// Test the property 'Id'
-        /// </summary>
-        [Fact]
-        public void IdTest()
-        {
-            // TODO unit test for the property 'Id'
-        }
-
-        /// <summary>
-        /// Test the property 'Name'
-        /// </summary>
-        [Fact]
-        public void NameTest()
-        {
-            // TODO unit test for the property 'Name'
-        }
-
-        /// <summary>
-        /// Test the property 'Path'
-        /// </summary>
-        [Fact]
-        public void PathTest()
-        {
-            // TODO unit test for the property 'Path'
-        }
-
-        /// <summary>
-        /// Test the property 'Project'
-        /// </summary>
-        [Fact]
-        public void ProjectTest()
-        {
-            // TODO unit test for the property 'Project'
-        }
-
-        /// <summary>
-        /// Test the property 'QueueStatus'
-        /// </summary>
-        [Fact]
-        public void QueueStatusTest()
-        {
-            // TODO unit test for the property 'QueueStatus'
-        }
-
-        /// <summary>
-        /// Test the property 'Revision'
-        /// </summary>
-        [Fact]
-        public void RevisionTest()
-        {
-            // TODO unit test for the property 'Revision'
-        }
-
-        /// <summary>
-        /// Test the property 'Type'
-        /// </summary>
-        [Fact]
-        public void TypeTest()
-        {
-            // TODO unit test for the property 'Type'
-        }
-
-        /// <summary>
-        /// Test the property 'Uri'
-        /// </summary>
-        [Fact]
-        public void UriTest()
-        {
-            // TODO unit test for the property 'Uri'
-        }
-
-        /// <summary>
-        /// Test the property 'Url'
-        /// </summary>
-        [Fact]
-        public void UrlTest()
-        {
-            // TODO unit test for the property 'Url'
         }
     }
 }

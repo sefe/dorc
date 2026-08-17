@@ -56,6 +56,42 @@ namespace Org.OpenAPITools.Test.Model
         }
 
         /// <summary>
+        /// Test the property 'Links'
+        /// </summary>
+        [Fact]
+        public void LinksTest()
+        {
+            // TODO unit test for the property 'Links'
+        }
+
+        /// <summary>
+        /// Test the property 'Descriptor'
+        /// </summary>
+        [Fact]
+        public void DescriptorTest()
+        {
+            // TODO unit test for the property 'Descriptor'
+        }
+
+        /// <summary>
+        /// Test the property 'DisplayName'
+        /// </summary>
+        [Fact]
+        public void DisplayNameTest()
+        {
+            // TODO unit test for the property 'DisplayName'
+        }
+
+        /// <summary>
+        /// Test the property 'Url'
+        /// </summary>
+        [Fact]
+        public void UrlTest()
+        {
+            // TODO unit test for the property 'Url'
+        }
+
+        /// <summary>
         /// Test the property 'DirectoryAlias'
         /// </summary>
         [Fact]
@@ -134,42 +170,6 @@ namespace Org.OpenAPITools.Test.Model
         public void UniqueNameTest()
         {
             // TODO unit test for the property 'UniqueName'
-        }
-
-        /// <summary>
-        /// Test the property 'Links'
-        /// </summary>
-        [Fact]
-        public void LinksTest()
-        {
-            // TODO unit test for the property 'Links'
-        }
-
-        /// <summary>
-        /// Test the property 'Descriptor'
-        /// </summary>
-        [Fact]
-        public void DescriptorTest()
-        {
-            // TODO unit test for the property 'Descriptor'
-        }
-
-        /// <summary>
-        /// Test the property 'DisplayName'
-        /// </summary>
-        [Fact]
-        public void DisplayNameTest()
-        {
-            // TODO unit test for the property 'DisplayName'
-        }
-
-        /// <summary>
-        /// Test the property 'Url'
-        /// </summary>
-        [Fact]
-        public void UrlTest()
-        {
-            // TODO unit test for the property 'Url'
         }
     }
 }

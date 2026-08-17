@@ -56,33 +56,6 @@ namespace Org.OpenAPITools.Test.Model
         }
 
         /// <summary>
-        /// Test the property 'LastChangedBy'
-        /// </summary>
-        [Fact]
-        public void LastChangedByTest()
-        {
-            // TODO unit test for the property 'LastChangedBy'
-        }
-
-        /// <summary>
-        /// Test the property 'LastChangedOn'
-        /// </summary>
-        [Fact]
-        public void LastChangedOnTest()
-        {
-            // TODO unit test for the property 'LastChangedOn'
-        }
-
-        /// <summary>
-        /// Test the property 'Records'
-        /// </summary>
-        [Fact]
-        public void RecordsTest()
-        {
-            // TODO unit test for the property 'Records'
-        }
-
-        /// <summary>
         /// Test the property 'ChangeId'
         /// </summary>
         [Fact]
@@ -107,6 +80,33 @@ namespace Org.OpenAPITools.Test.Model
         public void UrlTest()
         {
             // TODO unit test for the property 'Url'
+        }
+
+        /// <summary>
+        /// Test the property 'LastChangedBy'
+        /// </summary>
+        [Fact]
+        public void LastChangedByTest()
+        {
+            // TODO unit test for the property 'LastChangedBy'
+        }
+
+        /// <summary>
+        /// Test the property 'LastChangedOn'
+        /// </summary>
+        [Fact]
+        public void LastChangedOnTest()
+        {
+            // TODO unit test for the property 'LastChangedOn'
+        }
+
+        /// <summary>
+        /// Test the property 'Records'
+        /// </summary>
+        [Fact]
+        public void RecordsTest()
+        {
+            // TODO unit test for the property 'Records'
         }
     }
 }

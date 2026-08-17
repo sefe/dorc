@@ -56,6 +56,15 @@ namespace Org.OpenAPITools.Test.Model
         }
 
         /// <summary>
+        /// Test the property 'Type'
+        /// </summary>
+        [Fact]
+        public void TypeTest()
+        {
+            // TODO unit test for the property 'Type'
+        }
+
+        /// <summary>
         /// Test the property 'AgentSpecification'
         /// </summary>
         [Fact]
@@ -98,15 +107,6 @@ namespace Org.OpenAPITools.Test.Model
         public void QueueTest()
         {
             // TODO unit test for the property 'Queue'
-        }
-
-        /// <summary>
-        /// Test the property 'Type'
-        /// </summary>
-        [Fact]
-        public void TypeTest()
-        {
-            // TODO unit test for the property 'Type'
         }
     }
 }

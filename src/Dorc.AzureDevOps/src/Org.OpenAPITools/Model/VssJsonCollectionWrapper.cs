@@ -27,7 +27,7 @@ using OpenAPIDateConverter = Org.OpenAPITools.Client.OpenAPIDateConverter;
 namespace Org.OpenAPITools.Model
 {
     /// <summary>
-    /// This class is used to serialized collections as a single JSON object on the wire, to avoid serializing JSON arrays directly to the client, which can be a security hole
+    /// VssJsonCollectionWrapper
     /// </summary>
     [DataContract(Name = "VssJsonCollectionWrapper")]
     public partial class VssJsonCollectionWrapper : IValidatableObject
@@ -35,25 +35,25 @@ namespace Org.OpenAPITools.Model
         /// <summary>
         /// Initializes a new instance of the <see cref="VssJsonCollectionWrapper" /> class.
         /// </summary>
-        /// <param name="value">value.</param>
         /// <param name="count">count.</param>
-        public VssJsonCollectionWrapper(string value = default, int count = default)
+        /// <param name="value">value.</param>
+        public VssJsonCollectionWrapper(int count = default, string value = default)
         {
-            this.Value = value;
             this.Count = count;
+            this.Value = value;
         }
-
-        /// <summary>
-        /// Gets or Sets Value
-        /// </summary>
-        [DataMember(Name = "value", EmitDefaultValue = false)]
-        public string Value { get; set; }
 
         /// <summary>
         /// Gets or Sets Count
         /// </summary>
         [DataMember(Name = "count", EmitDefaultValue = false)]
         public int Count { get; set; }
+
+        /// <summary>
+        /// Gets or Sets Value
+        /// </summary>
+        [DataMember(Name = "value", EmitDefaultValue = false)]
+        public string Value { get; set; }
 
         /// <summary>
         /// Returns the string presentation of the object
@@ -63,8 +63,8 @@ namespace Org.OpenAPITools.Model
         {
             StringBuilder sb = new StringBuilder();
             sb.Append("class VssJsonCollectionWrapper {\n");
-            sb.Append("  Value: ").Append(Value).Append("\n");
             sb.Append("  Count: ").Append(Count).Append("\n");
+            sb.Append("  Value: ").Append(Value).Append("\n");
             sb.Append("}\n");
             return sb.ToString();
         }

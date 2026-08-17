@@ -17,7 +17,6 @@ import type {
 
 /**
  * @type MultipleAgentExecutionOptions
- * Represents options for running a phase against multiple agents.
  * @export
  */
 export type MultipleAgentExecutionOptions = AgentTargetExecutionOptions;

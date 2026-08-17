@@ -56,21 +56,21 @@ namespace Org.OpenAPITools.Test.Model
         }
 
         /// <summary>
-        /// Test the property 'BuildId'
-        /// </summary>
-        [Fact]
-        public void BuildIdTest()
-        {
-            // TODO unit test for the property 'BuildId'
-        }
-
-        /// <summary>
         /// Test the property 'Type'
         /// </summary>
         [Fact]
         public void TypeTest()
         {
             // TODO unit test for the property 'Type'
+        }
+
+        /// <summary>
+        /// Test the property 'BuildId'
+        /// </summary>
+        [Fact]
+        public void BuildIdTest()
+        {
+            // TODO unit test for the property 'BuildId'
         }
     }
 }

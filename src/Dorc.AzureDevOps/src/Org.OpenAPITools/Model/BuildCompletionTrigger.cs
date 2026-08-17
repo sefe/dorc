@@ -27,7 +27,7 @@ using OpenAPIDateConverter = Org.OpenAPITools.Client.OpenAPIDateConverter;
 namespace Org.OpenAPITools.Model
 {
     /// <summary>
-    /// Represents a build completion trigger.
+    /// BuildCompletionTrigger
     /// </summary>
     [DataContract(Name = "BuildCompletionTrigger")]
     public partial class BuildCompletionTrigger : IValidatableObject
@@ -104,16 +104,16 @@ namespace Org.OpenAPITools.Model
         /// <summary>
         /// Initializes a new instance of the <see cref="BuildCompletionTrigger" /> class.
         /// </summary>
+        /// <param name="triggerType">The type of the trigger..</param>
         /// <param name="branchFilters">branchFilters.</param>
         /// <param name="definition">definition.</param>
         /// <param name="requiresSuccessfulBuild">requiresSuccessfulBuild.</param>
-        /// <param name="triggerType">The type of the trigger..</param>
-        public BuildCompletionTrigger(List<string> branchFilters = default, DefinitionReference definition = default, bool requiresSuccessfulBuild = default, TriggerTypeEnum? triggerType = default)
+        public BuildCompletionTrigger(TriggerTypeEnum? triggerType = default, List<string> branchFilters = default, DefinitionReference definition = default, bool requiresSuccessfulBuild = default)
         {
+            this.TriggerType = triggerType;
             this.BranchFilters = branchFilters;
             this.Definition = definition;
             this.RequiresSuccessfulBuild = requiresSuccessfulBuild;
-            this.TriggerType = triggerType;
         }
 
         /// <summary>
@@ -142,10 +142,10 @@ namespace Org.OpenAPITools.Model
         {
             StringBuilder sb = new StringBuilder();
             sb.Append("class BuildCompletionTrigger {\n");
+            sb.Append("  TriggerType: ").Append(TriggerType).Append("\n");
             sb.Append("  BranchFilters: ").Append(BranchFilters).Append("\n");
             sb.Append("  Definition: ").Append(Definition).Append("\n");
             sb.Append("  RequiresSuccessfulBuild: ").Append(RequiresSuccessfulBuild).Append("\n");
-            sb.Append("  TriggerType: ").Append(TriggerType).Append("\n");
             sb.Append("}\n");
             return sb.ToString();
         }

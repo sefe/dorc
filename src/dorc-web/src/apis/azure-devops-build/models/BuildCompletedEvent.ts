@@ -14,6 +14,7 @@
 import type {
     AggregatedResultsAnalysis,
     AssociatedWorkItem,
+    Build,
     BuildUpdatedEvent,
     Change,
     PullRequest,
@@ -22,7 +23,6 @@ import type {
 
 /**
  * @type BuildCompletedEvent
- * 
  * @export
  */
 export type BuildCompletedEvent = BuildUpdatedEvent;

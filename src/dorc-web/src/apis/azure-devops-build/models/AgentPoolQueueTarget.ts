@@ -21,7 +21,6 @@ import type {
 
 /**
  * @type AgentPoolQueueTarget
- * Describes how a phase should run against an agent queue.
  * @export
  */
 export type AgentPoolQueueTarget = PhaseTarget;

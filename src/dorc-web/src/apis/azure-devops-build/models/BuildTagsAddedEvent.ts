@@ -12,12 +12,12 @@
  */
 
 import type {
+    Build,
     BuildUpdatedEvent,
 } from './';
 
 /**
  * @type BuildTagsAddedEvent
- * 
  * @export
  */
 export type BuildTagsAddedEvent = BuildUpdatedEvent;

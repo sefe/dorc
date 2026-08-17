@@ -18,7 +18,6 @@ import type {
 
 /**
  * @type BuildController
- * 
  * @export
  */
 export type BuildController = XamlBuildControllerReference;

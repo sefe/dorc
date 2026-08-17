@@ -42,7 +42,7 @@ export interface PropertiesUpdateBuildPropertiesRequest {
     project: string;
     buildId: number;
     apiVersion: string;
-    body: JsonPatchDocument | null;
+    body: JsonPatchDocument;
 }
 
 export interface PropertiesUpdateDefinitionPropertiesRequest {
@@ -50,7 +50,7 @@ export interface PropertiesUpdateDefinitionPropertiesRequest {
     project: string;
     definitionId: number;
     apiVersion: string;
-    body: JsonPatchDocument | null;
+    body: JsonPatchDocument;
 }
 
 /**

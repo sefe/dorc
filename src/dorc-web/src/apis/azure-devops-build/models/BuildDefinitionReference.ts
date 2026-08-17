@@ -23,7 +23,6 @@ import type {
 
 /**
  * @type BuildDefinitionReference
- * Represents a reference to a build definition.
  * @export
  */
 export type BuildDefinitionReference = DefinitionReference;

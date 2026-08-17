@@ -19,7 +19,6 @@ import type {
 
 /**
  * @type BuildOptionDefinition
- * Represents an optional behavior that can be applied to a build definition.
  * @export
  */
 export type BuildOptionDefinition = BuildOptionDefinitionReference;

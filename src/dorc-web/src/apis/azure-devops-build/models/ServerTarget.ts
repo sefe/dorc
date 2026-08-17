@@ -18,7 +18,6 @@ import type {
 
 /**
  * @type ServerTarget
- * Represents a phase target that runs on the server.
  * @export
  */
 export type ServerTarget = PhaseTarget;

@@ -22,7 +22,6 @@ import type {
 
 /**
  * @type BuildDefinitionReference32
- * For back-compat with extensions that use the old Steps format instead of Process and Phases
  * @export
  */
 export type BuildDefinitionReference32 = DefinitionReference;

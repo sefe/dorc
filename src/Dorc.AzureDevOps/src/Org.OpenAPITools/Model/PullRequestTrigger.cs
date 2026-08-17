@@ -27,7 +27,7 @@ using OpenAPIDateConverter = Org.OpenAPITools.Client.OpenAPIDateConverter;
 namespace Org.OpenAPITools.Model
 {
     /// <summary>
-    /// Represents a pull request trigger.
+    /// PullRequestTrigger
     /// </summary>
     [DataContract(Name = "PullRequestTrigger")]
     public partial class PullRequestTrigger : IValidatableObject
@@ -104,6 +104,7 @@ namespace Org.OpenAPITools.Model
         /// <summary>
         /// Initializes a new instance of the <see cref="PullRequestTrigger" /> class.
         /// </summary>
+        /// <param name="triggerType">The type of the trigger..</param>
         /// <param name="autoCancel">Indicates if an update to a PR should delete current in-progress builds..</param>
         /// <param name="branchFilters">branchFilters.</param>
         /// <param name="forks">forks.</param>
@@ -111,9 +112,9 @@ namespace Org.OpenAPITools.Model
         /// <param name="pathFilters">pathFilters.</param>
         /// <param name="requireCommentsForNonTeamMembersOnly">requireCommentsForNonTeamMembersOnly.</param>
         /// <param name="settingsSourceType">settingsSourceType.</param>
-        /// <param name="triggerType">The type of the trigger..</param>
-        public PullRequestTrigger(bool autoCancel = default, List<string> branchFilters = default, Forks forks = default, bool isCommentRequiredForPullRequest = default, List<string> pathFilters = default, bool requireCommentsForNonTeamMembersOnly = default, int settingsSourceType = default, TriggerTypeEnum? triggerType = default)
+        public PullRequestTrigger(TriggerTypeEnum? triggerType = default, bool autoCancel = default, List<string> branchFilters = default, Forks forks = default, bool isCommentRequiredForPullRequest = default, List<string> pathFilters = default, bool requireCommentsForNonTeamMembersOnly = default, int settingsSourceType = default)
         {
+            this.TriggerType = triggerType;
             this.AutoCancel = autoCancel;
             this.BranchFilters = branchFilters;
             this.Forks = forks;
@@ -121,7 +122,6 @@ namespace Org.OpenAPITools.Model
             this.PathFilters = pathFilters;
             this.RequireCommentsForNonTeamMembersOnly = requireCommentsForNonTeamMembersOnly;
             this.SettingsSourceType = settingsSourceType;
-            this.TriggerType = triggerType;
         }
 
         /// <summary>
@@ -175,6 +175,7 @@ namespace Org.OpenAPITools.Model
         {
             StringBuilder sb = new StringBuilder();
             sb.Append("class PullRequestTrigger {\n");
+            sb.Append("  TriggerType: ").Append(TriggerType).Append("\n");
             sb.Append("  AutoCancel: ").Append(AutoCancel).Append("\n");
             sb.Append("  BranchFilters: ").Append(BranchFilters).Append("\n");
             sb.Append("  Forks: ").Append(Forks).Append("\n");
@@ -182,7 +183,6 @@ namespace Org.OpenAPITools.Model
             sb.Append("  PathFilters: ").Append(PathFilters).Append("\n");
             sb.Append("  RequireCommentsForNonTeamMembersOnly: ").Append(RequireCommentsForNonTeamMembersOnly).Append("\n");
             sb.Append("  SettingsSourceType: ").Append(SettingsSourceType).Append("\n");
-            sb.Append("  TriggerType: ").Append(TriggerType).Append("\n");
             sb.Append("}\n");
             return sb.ToString();
         }

@@ -17,7 +17,6 @@ import type {
 
 /**
  * @type ContinuousIntegrationTrigger
- * Represents a continuous integration (CI) trigger.
  * @export
  */
 export type ContinuousIntegrationTrigger = BuildTrigger;

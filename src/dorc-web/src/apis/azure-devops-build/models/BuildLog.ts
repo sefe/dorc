@@ -17,7 +17,6 @@ import type {
 
 /**
  * @type BuildLog
- * Represents a build log.
  * @export
  */
 export type BuildLog = BuildLogReference;

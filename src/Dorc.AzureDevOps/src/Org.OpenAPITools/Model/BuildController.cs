@@ -68,6 +68,9 @@ namespace Org.OpenAPITools.Model
         /// <summary>
         /// Initializes a new instance of the <see cref="BuildController" /> class.
         /// </summary>
+        /// <param name="id">Id of the resource.</param>
+        /// <param name="name">Name of the linked resource (definition name, controller name, etc.).</param>
+        /// <param name="url">Full http link to the resource.</param>
         /// <param name="links">links.</param>
         /// <param name="createdDate">The date the controller was created..</param>
         /// <param name="description">The description of the controller..</param>
@@ -75,11 +78,11 @@ namespace Org.OpenAPITools.Model
         /// <param name="status">The status of the controller..</param>
         /// <param name="updatedDate">The date the controller was last updated..</param>
         /// <param name="uri">The controller&#39;s URI..</param>
-        /// <param name="id">Id of the resource.</param>
-        /// <param name="name">Name of the linked resource (definition name, controller name, etc.).</param>
-        /// <param name="url">Full http link to the resource.</param>
-        public BuildController(ReferenceLinks links = default, DateTime createdDate = default, string description = default, bool enabled = default, StatusEnum? status = default, DateTime updatedDate = default, string uri = default, int id = default, string name = default, string url = default)
+        public BuildController(int id = default, string name = default, string url = default, ReferenceLinks links = default, DateTime createdDate = default, string description = default, bool enabled = default, StatusEnum? status = default, DateTime updatedDate = default, string uri = default)
         {
+            this.Id = id;
+            this.Name = name;
+            this.Url = url;
             this.Links = links;
             this.CreatedDate = createdDate;
             this.Description = description;
@@ -87,10 +90,28 @@ namespace Org.OpenAPITools.Model
             this.Status = status;
             this.UpdatedDate = updatedDate;
             this.Uri = uri;
-            this.Id = id;
-            this.Name = name;
-            this.Url = url;
         }
+
+        /// <summary>
+        /// Id of the resource
+        /// </summary>
+        /// <value>Id of the resource</value>
+        [DataMember(Name = "id", EmitDefaultValue = false)]
+        public int Id { get; set; }
+
+        /// <summary>
+        /// Name of the linked resource (definition name, controller name, etc.)
+        /// </summary>
+        /// <value>Name of the linked resource (definition name, controller name, etc.)</value>
+        [DataMember(Name = "name", EmitDefaultValue = false)]
+        public string Name { get; set; }
+
+        /// <summary>
+        /// Full http link to the resource
+        /// </summary>
+        /// <value>Full http link to the resource</value>
+        [DataMember(Name = "url", EmitDefaultValue = false)]
+        public string Url { get; set; }
 
         /// <summary>
         /// Gets or Sets Links
@@ -134,27 +155,6 @@ namespace Org.OpenAPITools.Model
         public string Uri { get; set; }
 
         /// <summary>
-        /// Id of the resource
-        /// </summary>
-        /// <value>Id of the resource</value>
-        [DataMember(Name = "id", EmitDefaultValue = false)]
-        public int Id { get; set; }
-
-        /// <summary>
-        /// Name of the linked resource (definition name, controller name, etc.)
-        /// </summary>
-        /// <value>Name of the linked resource (definition name, controller name, etc.)</value>
-        [DataMember(Name = "name", EmitDefaultValue = false)]
-        public string Name { get; set; }
-
-        /// <summary>
-        /// Full http link to the resource
-        /// </summary>
-        /// <value>Full http link to the resource</value>
-        [DataMember(Name = "url", EmitDefaultValue = false)]
-        public string Url { get; set; }
-
-        /// <summary>
         /// Returns the string presentation of the object
         /// </summary>
         /// <returns>String presentation of the object</returns>
@@ -162,6 +162,9 @@ namespace Org.OpenAPITools.Model
         {
             StringBuilder sb = new StringBuilder();
             sb.Append("class BuildController {\n");
+            sb.Append("  Id: ").Append(Id).Append("\n");
+            sb.Append("  Name: ").Append(Name).Append("\n");
+            sb.Append("  Url: ").Append(Url).Append("\n");
             sb.Append("  Links: ").Append(Links).Append("\n");
             sb.Append("  CreatedDate: ").Append(CreatedDate).Append("\n");
             sb.Append("  Description: ").Append(Description).Append("\n");
@@ -169,9 +172,6 @@ namespace Org.OpenAPITools.Model
             sb.Append("  Status: ").Append(Status).Append("\n");
             sb.Append("  UpdatedDate: ").Append(UpdatedDate).Append("\n");
             sb.Append("  Uri: ").Append(Uri).Append("\n");
-            sb.Append("  Id: ").Append(Id).Append("\n");
-            sb.Append("  Name: ").Append(Name).Append("\n");
-            sb.Append("  Url: ").Append(Url).Append("\n");
             sb.Append("}\n");
             return sb.ToString();
         }

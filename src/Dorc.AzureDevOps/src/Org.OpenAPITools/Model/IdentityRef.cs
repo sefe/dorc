@@ -35,6 +35,10 @@ namespace Org.OpenAPITools.Model
         /// <summary>
         /// Initializes a new instance of the <see cref="IdentityRef" /> class.
         /// </summary>
+        /// <param name="links">links.</param>
+        /// <param name="descriptor">The descriptor is the primary way to reference the graph subject while the system is running. This field will uniquely identify the same graph subject across both Accounts and Organizations..</param>
+        /// <param name="displayName">This is the non-unique display name of the graph subject. To change this field, you must alter its value in the source provider..</param>
+        /// <param name="url">This url is the full route to the source resource of this graph subject..</param>
         /// <param name="directoryAlias">Deprecated - Can be retrieved by querying the Graph user referenced in the \&quot;self\&quot; entry of the IdentityRef \&quot;_links\&quot; dictionary.</param>
         /// <param name="id">id.</param>
         /// <param name="imageUrl">Deprecated - Available in the \&quot;avatar\&quot; entry of the IdentityRef \&quot;_links\&quot; dictionary.</param>
@@ -44,12 +48,12 @@ namespace Org.OpenAPITools.Model
         /// <param name="isDeletedInOrigin">isDeletedInOrigin.</param>
         /// <param name="profileUrl">Deprecated - not in use in most preexisting implementations of ToIdentityRef.</param>
         /// <param name="uniqueName">Deprecated - use Domain+PrincipalName instead.</param>
-        /// <param name="links">links.</param>
-        /// <param name="descriptor">The descriptor is the primary way to reference the graph subject while the system is running. This field will uniquely identify the same graph subject across both Accounts and Organizations..</param>
-        /// <param name="displayName">This is the non-unique display name of the graph subject. To change this field, you must alter its value in the source provider..</param>
-        /// <param name="url">This url is the full route to the source resource of this graph subject..</param>
-        public IdentityRef(string directoryAlias = default, string id = default, string imageUrl = default, bool inactive = default, bool isAadIdentity = default, bool isContainer = default, bool isDeletedInOrigin = default, string profileUrl = default, string uniqueName = default, ReferenceLinks links = default, string descriptor = default, string displayName = default, string url = default)
+        public IdentityRef(ReferenceLinks links = default, string descriptor = default, string displayName = default, string url = default, string directoryAlias = default, string id = default, string imageUrl = default, bool inactive = default, bool isAadIdentity = default, bool isContainer = default, bool isDeletedInOrigin = default, string profileUrl = default, string uniqueName = default)
         {
+            this.Links = links;
+            this.Descriptor = descriptor;
+            this.DisplayName = displayName;
+            this.Url = url;
             this.DirectoryAlias = directoryAlias;
             this.Id = id;
             this.ImageUrl = imageUrl;
@@ -59,11 +63,34 @@ namespace Org.OpenAPITools.Model
             this.IsDeletedInOrigin = isDeletedInOrigin;
             this.ProfileUrl = profileUrl;
             this.UniqueName = uniqueName;
-            this.Links = links;
-            this.Descriptor = descriptor;
-            this.DisplayName = displayName;
-            this.Url = url;
         }
+
+        /// <summary>
+        /// Gets or Sets Links
+        /// </summary>
+        [DataMember(Name = "_links", EmitDefaultValue = false)]
+        public ReferenceLinks Links { get; set; }
+
+        /// <summary>
+        /// The descriptor is the primary way to reference the graph subject while the system is running. This field will uniquely identify the same graph subject across both Accounts and Organizations.
+        /// </summary>
+        /// <value>The descriptor is the primary way to reference the graph subject while the system is running. This field will uniquely identify the same graph subject across both Accounts and Organizations.</value>
+        [DataMember(Name = "descriptor", EmitDefaultValue = false)]
+        public string Descriptor { get; set; }
+
+        /// <summary>
+        /// This is the non-unique display name of the graph subject. To change this field, you must alter its value in the source provider.
+        /// </summary>
+        /// <value>This is the non-unique display name of the graph subject. To change this field, you must alter its value in the source provider.</value>
+        [DataMember(Name = "displayName", EmitDefaultValue = false)]
+        public string DisplayName { get; set; }
+
+        /// <summary>
+        /// This url is the full route to the source resource of this graph subject.
+        /// </summary>
+        /// <value>This url is the full route to the source resource of this graph subject.</value>
+        [DataMember(Name = "url", EmitDefaultValue = false)]
+        public string Url { get; set; }
 
         /// <summary>
         /// Deprecated - Can be retrieved by querying the Graph user referenced in the \&quot;self\&quot; entry of the IdentityRef \&quot;_links\&quot; dictionary
@@ -127,33 +154,6 @@ namespace Org.OpenAPITools.Model
         public string UniqueName { get; set; }
 
         /// <summary>
-        /// Gets or Sets Links
-        /// </summary>
-        [DataMember(Name = "_links", EmitDefaultValue = false)]
-        public ReferenceLinks Links { get; set; }
-
-        /// <summary>
-        /// The descriptor is the primary way to reference the graph subject while the system is running. This field will uniquely identify the same graph subject across both Accounts and Organizations.
-        /// </summary>
-        /// <value>The descriptor is the primary way to reference the graph subject while the system is running. This field will uniquely identify the same graph subject across both Accounts and Organizations.</value>
-        [DataMember(Name = "descriptor", EmitDefaultValue = false)]
-        public string Descriptor { get; set; }
-
-        /// <summary>
-        /// This is the non-unique display name of the graph subject. To change this field, you must alter its value in the source provider.
-        /// </summary>
-        /// <value>This is the non-unique display name of the graph subject. To change this field, you must alter its value in the source provider.</value>
-        [DataMember(Name = "displayName", EmitDefaultValue = false)]
-        public string DisplayName { get; set; }
-
-        /// <summary>
-        /// This url is the full route to the source resource of this graph subject.
-        /// </summary>
-        /// <value>This url is the full route to the source resource of this graph subject.</value>
-        [DataMember(Name = "url", EmitDefaultValue = false)]
-        public string Url { get; set; }
-
-        /// <summary>
         /// Returns the string presentation of the object
         /// </summary>
         /// <returns>String presentation of the object</returns>
@@ -161,6 +161,10 @@ namespace Org.OpenAPITools.Model
         {
             StringBuilder sb = new StringBuilder();
             sb.Append("class IdentityRef {\n");
+            sb.Append("  Links: ").Append(Links).Append("\n");
+            sb.Append("  Descriptor: ").Append(Descriptor).Append("\n");
+            sb.Append("  DisplayName: ").Append(DisplayName).Append("\n");
+            sb.Append("  Url: ").Append(Url).Append("\n");
             sb.Append("  DirectoryAlias: ").Append(DirectoryAlias).Append("\n");
             sb.Append("  Id: ").Append(Id).Append("\n");
             sb.Append("  ImageUrl: ").Append(ImageUrl).Append("\n");
@@ -170,10 +174,6 @@ namespace Org.OpenAPITools.Model
             sb.Append("  IsDeletedInOrigin: ").Append(IsDeletedInOrigin).Append("\n");
             sb.Append("  ProfileUrl: ").Append(ProfileUrl).Append("\n");
             sb.Append("  UniqueName: ").Append(UniqueName).Append("\n");
-            sb.Append("  Links: ").Append(Links).Append("\n");
-            sb.Append("  Descriptor: ").Append(Descriptor).Append("\n");
-            sb.Append("  DisplayName: ").Append(DisplayName).Append("\n");
-            sb.Append("  Url: ").Append(Url).Append("\n");
             sb.Append("}\n");
             return sb.ToString();
         }

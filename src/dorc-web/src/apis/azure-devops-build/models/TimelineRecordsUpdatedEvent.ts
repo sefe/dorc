@@ -18,7 +18,6 @@ import type {
 
 /**
  * @type TimelineRecordsUpdatedEvent
- * 
  * @export
  */
 export type TimelineRecordsUpdatedEvent = RealtimeBuildEvent;

@@ -27,7 +27,7 @@ using OpenAPIDateConverter = Org.OpenAPITools.Client.OpenAPIDateConverter;
 namespace Org.OpenAPITools.Model
 {
     /// <summary>
-    /// Represents options for running a phase against multiple agents.
+    /// MultipleAgentExecutionOptions
     /// </summary>
     [DataContract(Name = "MultipleAgentExecutionOptions")]
     public partial class MultipleAgentExecutionOptions : IValidatableObject
@@ -35,15 +35,22 @@ namespace Org.OpenAPITools.Model
         /// <summary>
         /// Initializes a new instance of the <see cref="MultipleAgentExecutionOptions" /> class.
         /// </summary>
+        /// <param name="type">Indicates the type of execution options..</param>
         /// <param name="continueOnError">Indicates whether failure on one agent should prevent the phase from running on other agents..</param>
         /// <param name="maxConcurrency">The maximum number of agents to use simultaneously..</param>
-        /// <param name="type">Indicates the type of execution options..</param>
-        public MultipleAgentExecutionOptions(bool continueOnError = default, int maxConcurrency = default, int type = default)
+        public MultipleAgentExecutionOptions(int type = default, bool continueOnError = default, int maxConcurrency = default)
         {
+            this.Type = type;
             this.ContinueOnError = continueOnError;
             this.MaxConcurrency = maxConcurrency;
-            this.Type = type;
         }
+
+        /// <summary>
+        /// Indicates the type of execution options.
+        /// </summary>
+        /// <value>Indicates the type of execution options.</value>
+        [DataMember(Name = "type", EmitDefaultValue = false)]
+        public int Type { get; set; }
 
         /// <summary>
         /// Indicates whether failure on one agent should prevent the phase from running on other agents.
@@ -60,13 +67,6 @@ namespace Org.OpenAPITools.Model
         public int MaxConcurrency { get; set; }
 
         /// <summary>
-        /// Indicates the type of execution options.
-        /// </summary>
-        /// <value>Indicates the type of execution options.</value>
-        [DataMember(Name = "type", EmitDefaultValue = false)]
-        public int Type { get; set; }
-
-        /// <summary>
         /// Returns the string presentation of the object
         /// </summary>
         /// <returns>String presentation of the object</returns>
@@ -74,9 +74,9 @@ namespace Org.OpenAPITools.Model
         {
             StringBuilder sb = new StringBuilder();
             sb.Append("class MultipleAgentExecutionOptions {\n");
+            sb.Append("  Type: ").Append(Type).Append("\n");
             sb.Append("  ContinueOnError: ").Append(ContinueOnError).Append("\n");
             sb.Append("  MaxConcurrency: ").Append(MaxConcurrency).Append("\n");
-            sb.Append("  Type: ").Append(Type).Append("\n");
             sb.Append("}\n");
             return sb.ToString();
         }

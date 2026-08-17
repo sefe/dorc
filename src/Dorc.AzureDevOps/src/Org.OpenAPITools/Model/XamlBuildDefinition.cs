@@ -33,6 +33,66 @@ namespace Org.OpenAPITools.Model
     public partial class XamlBuildDefinition : IValidatableObject
     {
         /// <summary>
+        /// A value that indicates whether builds can be queued against this definition.
+        /// </summary>
+        /// <value>A value that indicates whether builds can be queued against this definition.</value>
+        [JsonConverter(typeof(StringEnumConverter))]
+        public enum QueueStatusEnum
+        {
+            /// <summary>
+            /// Enum Enabled for value: enabled
+            /// </summary>
+            [EnumMember(Value = "enabled")]
+            Enabled = 1,
+
+            /// <summary>
+            /// Enum Paused for value: paused
+            /// </summary>
+            [EnumMember(Value = "paused")]
+            Paused = 2,
+
+            /// <summary>
+            /// Enum Disabled for value: disabled
+            /// </summary>
+            [EnumMember(Value = "disabled")]
+            Disabled = 3
+        }
+
+
+        /// <summary>
+        /// A value that indicates whether builds can be queued against this definition.
+        /// </summary>
+        /// <value>A value that indicates whether builds can be queued against this definition.</value>
+        [DataMember(Name = "queueStatus", EmitDefaultValue = false)]
+        public QueueStatusEnum? QueueStatus { get; set; }
+        /// <summary>
+        /// The type of the definition.
+        /// </summary>
+        /// <value>The type of the definition.</value>
+        [JsonConverter(typeof(StringEnumConverter))]
+        public enum TypeEnum
+        {
+            /// <summary>
+            /// Enum Xaml for value: xaml
+            /// </summary>
+            [EnumMember(Value = "xaml")]
+            Xaml = 1,
+
+            /// <summary>
+            /// Enum Build for value: build
+            /// </summary>
+            [EnumMember(Value = "build")]
+            Build = 2
+        }
+
+
+        /// <summary>
+        /// The type of the definition.
+        /// </summary>
+        /// <value>The type of the definition.</value>
+        [DataMember(Name = "type", EmitDefaultValue = false)]
+        public TypeEnum? Type { get; set; }
+        /// <summary>
         /// The reasons supported by the template
         /// </summary>
         /// <value>The reasons supported by the template</value>
@@ -201,68 +261,18 @@ namespace Org.OpenAPITools.Model
         [DataMember(Name = "triggerType", EmitDefaultValue = false)]
         public TriggerTypeEnum? TriggerType { get; set; }
         /// <summary>
-        /// A value that indicates whether builds can be queued against this definition.
-        /// </summary>
-        /// <value>A value that indicates whether builds can be queued against this definition.</value>
-        [JsonConverter(typeof(StringEnumConverter))]
-        public enum QueueStatusEnum
-        {
-            /// <summary>
-            /// Enum Enabled for value: enabled
-            /// </summary>
-            [EnumMember(Value = "enabled")]
-            Enabled = 1,
-
-            /// <summary>
-            /// Enum Paused for value: paused
-            /// </summary>
-            [EnumMember(Value = "paused")]
-            Paused = 2,
-
-            /// <summary>
-            /// Enum Disabled for value: disabled
-            /// </summary>
-            [EnumMember(Value = "disabled")]
-            Disabled = 3
-        }
-
-
-        /// <summary>
-        /// A value that indicates whether builds can be queued against this definition.
-        /// </summary>
-        /// <value>A value that indicates whether builds can be queued against this definition.</value>
-        [DataMember(Name = "queueStatus", EmitDefaultValue = false)]
-        public QueueStatusEnum? QueueStatus { get; set; }
-        /// <summary>
-        /// The type of the definition.
-        /// </summary>
-        /// <value>The type of the definition.</value>
-        [JsonConverter(typeof(StringEnumConverter))]
-        public enum TypeEnum
-        {
-            /// <summary>
-            /// Enum Xaml for value: xaml
-            /// </summary>
-            [EnumMember(Value = "xaml")]
-            Xaml = 1,
-
-            /// <summary>
-            /// Enum Build for value: build
-            /// </summary>
-            [EnumMember(Value = "build")]
-            Build = 2
-        }
-
-
-        /// <summary>
-        /// The type of the definition.
-        /// </summary>
-        /// <value>The type of the definition.</value>
-        [DataMember(Name = "type", EmitDefaultValue = false)]
-        public TypeEnum? Type { get; set; }
-        /// <summary>
         /// Initializes a new instance of the <see cref="XamlBuildDefinition" /> class.
         /// </summary>
+        /// <param name="createdDate">The date this version of the definition was created..</param>
+        /// <param name="id">The ID of the referenced definition..</param>
+        /// <param name="name">The name of the referenced definition..</param>
+        /// <param name="path">The folder path of the definition..</param>
+        /// <param name="project">project.</param>
+        /// <param name="queueStatus">A value that indicates whether builds can be queued against this definition..</param>
+        /// <param name="revision">The definition revision number..</param>
+        /// <param name="type">The type of the definition..</param>
+        /// <param name="uri">The definition&#39;s URI..</param>
+        /// <param name="url">The REST URL of the definition..</param>
         /// <param name="links">links.</param>
         /// <param name="batchSize">Batch size of the definition.</param>
         /// <param name="buildArgs">buildArgs.</param>
@@ -275,18 +285,18 @@ namespace Org.OpenAPITools.Model
         /// <param name="repository">repository.</param>
         /// <param name="supportedReasons">The reasons supported by the template.</param>
         /// <param name="triggerType">How builds are triggered from this definition.</param>
-        /// <param name="createdDate">The date this version of the definition was created..</param>
-        /// <param name="id">The ID of the referenced definition..</param>
-        /// <param name="name">The name of the referenced definition..</param>
-        /// <param name="path">The folder path of the definition..</param>
-        /// <param name="project">project.</param>
-        /// <param name="queueStatus">A value that indicates whether builds can be queued against this definition..</param>
-        /// <param name="revision">The definition revision number..</param>
-        /// <param name="type">The type of the definition..</param>
-        /// <param name="uri">The definition&#39;s URI..</param>
-        /// <param name="url">The REST URL of the definition..</param>
-        public XamlBuildDefinition(ReferenceLinks links = default, int batchSize = default, string buildArgs = default, int continuousIntegrationQuietPeriod = default, BuildController controller = default, DateTime createdOn = default, string defaultDropLocation = default, string description = default, XamlBuildReference lastBuild = default, BuildRepository repository = default, SupportedReasonsEnum? supportedReasons = default, TriggerTypeEnum? triggerType = default, DateTime createdDate = default, int id = default, string name = default, string path = default, TeamProjectReference project = default, QueueStatusEnum? queueStatus = default, int revision = default, TypeEnum? type = default, string uri = default, string url = default)
+        public XamlBuildDefinition(DateTime createdDate = default, int id = default, string name = default, string path = default, TeamProjectReference project = default, QueueStatusEnum? queueStatus = default, int revision = default, TypeEnum? type = default, string uri = default, string url = default, ReferenceLinks links = default, int batchSize = default, string buildArgs = default, int continuousIntegrationQuietPeriod = default, BuildController controller = default, DateTime createdOn = default, string defaultDropLocation = default, string description = default, XamlBuildReference lastBuild = default, BuildRepository repository = default, SupportedReasonsEnum? supportedReasons = default, TriggerTypeEnum? triggerType = default)
         {
+            this.CreatedDate = createdDate;
+            this.Id = id;
+            this.Name = name;
+            this.Path = path;
+            this.Project = project;
+            this.QueueStatus = queueStatus;
+            this.Revision = revision;
+            this.Type = type;
+            this.Uri = uri;
+            this.Url = url;
             this.Links = links;
             this.BatchSize = batchSize;
             this.BuildArgs = buildArgs;
@@ -299,17 +309,62 @@ namespace Org.OpenAPITools.Model
             this.Repository = repository;
             this.SupportedReasons = supportedReasons;
             this.TriggerType = triggerType;
-            this.CreatedDate = createdDate;
-            this.Id = id;
-            this.Name = name;
-            this.Path = path;
-            this.Project = project;
-            this.QueueStatus = queueStatus;
-            this.Revision = revision;
-            this.Type = type;
-            this.Uri = uri;
-            this.Url = url;
         }
+
+        /// <summary>
+        /// The date this version of the definition was created.
+        /// </summary>
+        /// <value>The date this version of the definition was created.</value>
+        [DataMember(Name = "createdDate", EmitDefaultValue = false)]
+        public DateTime CreatedDate { get; set; }
+
+        /// <summary>
+        /// The ID of the referenced definition.
+        /// </summary>
+        /// <value>The ID of the referenced definition.</value>
+        [DataMember(Name = "id", EmitDefaultValue = false)]
+        public int Id { get; set; }
+
+        /// <summary>
+        /// The name of the referenced definition.
+        /// </summary>
+        /// <value>The name of the referenced definition.</value>
+        [DataMember(Name = "name", EmitDefaultValue = false)]
+        public string Name { get; set; }
+
+        /// <summary>
+        /// The folder path of the definition.
+        /// </summary>
+        /// <value>The folder path of the definition.</value>
+        [DataMember(Name = "path", EmitDefaultValue = false)]
+        public string Path { get; set; }
+
+        /// <summary>
+        /// Gets or Sets Project
+        /// </summary>
+        [DataMember(Name = "project", EmitDefaultValue = false)]
+        public TeamProjectReference Project { get; set; }
+
+        /// <summary>
+        /// The definition revision number.
+        /// </summary>
+        /// <value>The definition revision number.</value>
+        [DataMember(Name = "revision", EmitDefaultValue = false)]
+        public int Revision { get; set; }
+
+        /// <summary>
+        /// The definition&#39;s URI.
+        /// </summary>
+        /// <value>The definition&#39;s URI.</value>
+        [DataMember(Name = "uri", EmitDefaultValue = false)]
+        public string Uri { get; set; }
+
+        /// <summary>
+        /// The REST URL of the definition.
+        /// </summary>
+        /// <value>The REST URL of the definition.</value>
+        [DataMember(Name = "url", EmitDefaultValue = false)]
+        public string Url { get; set; }
 
         /// <summary>
         /// Gets or Sets Links
@@ -377,61 +432,6 @@ namespace Org.OpenAPITools.Model
         public BuildRepository Repository { get; set; }
 
         /// <summary>
-        /// The date this version of the definition was created.
-        /// </summary>
-        /// <value>The date this version of the definition was created.</value>
-        [DataMember(Name = "createdDate", EmitDefaultValue = false)]
-        public DateTime CreatedDate { get; set; }
-
-        /// <summary>
-        /// The ID of the referenced definition.
-        /// </summary>
-        /// <value>The ID of the referenced definition.</value>
-        [DataMember(Name = "id", EmitDefaultValue = false)]
-        public int Id { get; set; }
-
-        /// <summary>
-        /// The name of the referenced definition.
-        /// </summary>
-        /// <value>The name of the referenced definition.</value>
-        [DataMember(Name = "name", EmitDefaultValue = false)]
-        public string Name { get; set; }
-
-        /// <summary>
-        /// The folder path of the definition.
-        /// </summary>
-        /// <value>The folder path of the definition.</value>
-        [DataMember(Name = "path", EmitDefaultValue = false)]
-        public string Path { get; set; }
-
-        /// <summary>
-        /// Gets or Sets Project
-        /// </summary>
-        [DataMember(Name = "project", EmitDefaultValue = false)]
-        public TeamProjectReference Project { get; set; }
-
-        /// <summary>
-        /// The definition revision number.
-        /// </summary>
-        /// <value>The definition revision number.</value>
-        [DataMember(Name = "revision", EmitDefaultValue = false)]
-        public int Revision { get; set; }
-
-        /// <summary>
-        /// The definition&#39;s URI.
-        /// </summary>
-        /// <value>The definition&#39;s URI.</value>
-        [DataMember(Name = "uri", EmitDefaultValue = false)]
-        public string Uri { get; set; }
-
-        /// <summary>
-        /// The REST URL of the definition.
-        /// </summary>
-        /// <value>The REST URL of the definition.</value>
-        [DataMember(Name = "url", EmitDefaultValue = false)]
-        public string Url { get; set; }
-
-        /// <summary>
         /// Returns the string presentation of the object
         /// </summary>
         /// <returns>String presentation of the object</returns>
@@ -439,6 +439,16 @@ namespace Org.OpenAPITools.Model
         {
             StringBuilder sb = new StringBuilder();
             sb.Append("class XamlBuildDefinition {\n");
+            sb.Append("  CreatedDate: ").Append(CreatedDate).Append("\n");
+            sb.Append("  Id: ").Append(Id).Append("\n");
+            sb.Append("  Name: ").Append(Name).Append("\n");
+            sb.Append("  Path: ").Append(Path).Append("\n");
+            sb.Append("  Project: ").Append(Project).Append("\n");
+            sb.Append("  QueueStatus: ").Append(QueueStatus).Append("\n");
+            sb.Append("  Revision: ").Append(Revision).Append("\n");
+            sb.Append("  Type: ").Append(Type).Append("\n");
+            sb.Append("  Uri: ").Append(Uri).Append("\n");
+            sb.Append("  Url: ").Append(Url).Append("\n");
             sb.Append("  Links: ").Append(Links).Append("\n");
             sb.Append("  BatchSize: ").Append(BatchSize).Append("\n");
             sb.Append("  BuildArgs: ").Append(BuildArgs).Append("\n");
@@ -451,16 +461,6 @@ namespace Org.OpenAPITools.Model
             sb.Append("  Repository: ").Append(Repository).Append("\n");
             sb.Append("  SupportedReasons: ").Append(SupportedReasons).Append("\n");
             sb.Append("  TriggerType: ").Append(TriggerType).Append("\n");
-            sb.Append("  CreatedDate: ").Append(CreatedDate).Append("\n");
-            sb.Append("  Id: ").Append(Id).Append("\n");
-            sb.Append("  Name: ").Append(Name).Append("\n");
-            sb.Append("  Path: ").Append(Path).Append("\n");
-            sb.Append("  Project: ").Append(Project).Append("\n");
-            sb.Append("  QueueStatus: ").Append(QueueStatus).Append("\n");
-            sb.Append("  Revision: ").Append(Revision).Append("\n");
-            sb.Append("  Type: ").Append(Type).Append("\n");
-            sb.Append("  Uri: ").Append(Uri).Append("\n");
-            sb.Append("  Url: ").Append(Url).Append("\n");
             sb.Append("}\n");
             return sb.ToString();
         }

@@ -56,6 +56,15 @@ namespace Org.OpenAPITools.Test.Model
         }
 
         /// <summary>
+        /// Test the property 'Type'
+        /// </summary>
+        [Fact]
+        public void TypeTest()
+        {
+            // TODO unit test for the property 'Type'
+        }
+
+        /// <summary>
         /// Test the property 'ContinueOnError'
         /// </summary>
         [Fact]
@@ -80,15 +89,6 @@ namespace Org.OpenAPITools.Test.Model
         public void MultipliersTest()
         {
             // TODO unit test for the property 'Multipliers'
-        }
-
-        /// <summary>
-        /// Test the property 'Type'
-        /// </summary>
-        [Fact]
-        public void TypeTest()
-        {
-            // TODO unit test for the property 'Type'
         }
     }
 }

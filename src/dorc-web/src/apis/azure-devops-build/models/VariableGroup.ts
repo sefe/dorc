@@ -18,7 +18,6 @@ import type {
 
 /**
  * @type VariableGroup
- * Represents a variable group.
  * @export
  */
 export type VariableGroup = VariableGroupReference;

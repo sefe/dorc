@@ -14,7 +14,7 @@
 import type { Observable } from 'rxjs';
 import type { AjaxResponse } from 'rxjs/ajax';
 import { BaseAPI, throwIfNullOrUndefined, encodeURI } from '../runtime';
-import type { OperationOpts, HttpHeaders, HttpQuery } from '../runtime';
+import type { OperationOpts, HttpQuery } from '../runtime';
 
 export interface StatusGetRequest {
     organization: string;
@@ -44,10 +44,6 @@ export class StatusApi extends BaseAPI {
         throwIfNullOrUndefined(definition, 'definition', 'statusGet');
         throwIfNullOrUndefined(apiVersion, 'apiVersion', 'statusGet');
 
-        const headers: HttpHeaders = {
-            ...(this.configuration.username != null && this.configuration.password != null ? { Authorization: `Basic ${btoa(this.configuration.username + ':' + this.configuration.password)}` } : undefined),
-        };
-
         const query: HttpQuery = { // required parameters are used directly since they are already checked by throwIfNullOrUndefined
             'api-version': apiVersion,
         };
@@ -61,7 +57,6 @@ export class StatusApi extends BaseAPI {
         return this.request<string>({
             url: '/{organization}/{project}/_apis/build/status/{definition}'.replace('{organization}', encodeURI(organization)).replace('{project}', encodeURI(project)).replace('{definition}', encodeURI(definition)),
             method: 'GET',
-            headers,
             query,
         }, opts?.responseOpts);
     };

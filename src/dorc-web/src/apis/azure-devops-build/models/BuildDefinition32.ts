@@ -12,23 +12,27 @@
  */
 
 import type {
+    AgentPoolQueue,
     Build,
     BuildDefinitionReference32,
     BuildDefinitionStep,
     BuildDefinitionVariable,
+    BuildMetric,
     BuildOption,
     BuildRepository,
     BuildTrigger,
+    DefinitionReference,
     Demand,
+    IdentityRef,
     ProcessParameters,
     PropertiesCollection,
+    ReferenceLinks,
     RetentionPolicy,
     TeamProjectReference,
 } from './';
 
 /**
  * @type BuildDefinition32
- * For back-compat with extensions that use the old Steps format instead of Process and Phases
  * @export
  */
 export type BuildDefinition32 = BuildDefinitionReference32;

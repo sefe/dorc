@@ -27,7 +27,7 @@ using OpenAPIDateConverter = Org.OpenAPITools.Client.OpenAPIDateConverter;
 namespace Org.OpenAPITools.Model
 {
     /// <summary>
-    /// Represents a build process supported by the build definition designer.
+    /// DesignerProcess
     /// </summary>
     [DataContract(Name = "DesignerProcess")]
     public partial class DesignerProcess : IValidatableObject
@@ -35,15 +35,22 @@ namespace Org.OpenAPITools.Model
         /// <summary>
         /// Initializes a new instance of the <see cref="DesignerProcess" /> class.
         /// </summary>
+        /// <param name="type">The type of the process..</param>
         /// <param name="phases">phases.</param>
         /// <param name="target">target.</param>
-        /// <param name="type">The type of the process..</param>
-        public DesignerProcess(List<Phase> phases = default, DesignerProcessTarget target = default, int type = default)
+        public DesignerProcess(int type = default, List<Phase> phases = default, DesignerProcessTarget target = default)
         {
+            this.Type = type;
             this.Phases = phases;
             this.Target = target;
-            this.Type = type;
         }
+
+        /// <summary>
+        /// The type of the process.
+        /// </summary>
+        /// <value>The type of the process.</value>
+        [DataMember(Name = "type", EmitDefaultValue = false)]
+        public int Type { get; set; }
 
         /// <summary>
         /// Gets or Sets Phases
@@ -58,13 +65,6 @@ namespace Org.OpenAPITools.Model
         public DesignerProcessTarget Target { get; set; }
 
         /// <summary>
-        /// The type of the process.
-        /// </summary>
-        /// <value>The type of the process.</value>
-        [DataMember(Name = "type", EmitDefaultValue = false)]
-        public int Type { get; set; }
-
-        /// <summary>
         /// Returns the string presentation of the object
         /// </summary>
         /// <returns>String presentation of the object</returns>
@@ -72,9 +72,9 @@ namespace Org.OpenAPITools.Model
         {
             StringBuilder sb = new StringBuilder();
             sb.Append("class DesignerProcess {\n");
+            sb.Append("  Type: ").Append(Type).Append("\n");
             sb.Append("  Phases: ").Append(Phases).Append("\n");
             sb.Append("  Target: ").Append(Target).Append("\n");
-            sb.Append("  Type: ").Append(Type).Append("\n");
             sb.Append("}\n");
             return sb.ToString();
         }

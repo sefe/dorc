@@ -17,7 +17,6 @@ import type {
 
 /**
  * @type AgentPoolQueueReference
- * Represents a reference to an agent queue.
  * @export
  */
 export type AgentPoolQueueReference = ResourceReference;

@@ -35,25 +35,25 @@ namespace Org.OpenAPITools.Model
         /// <summary>
         /// Initializes a new instance of the <see cref="BuildDeletedEvent" /> class.
         /// </summary>
-        /// <param name="build">build.</param>
         /// <param name="buildId">buildId.</param>
-        public BuildDeletedEvent(Build build = default, int buildId = default)
+        /// <param name="build">build.</param>
+        public BuildDeletedEvent(int buildId = default, Build build = default)
         {
-            this.Build = build;
             this.BuildId = buildId;
+            this.Build = build;
         }
-
-        /// <summary>
-        /// Gets or Sets Build
-        /// </summary>
-        [DataMember(Name = "build", EmitDefaultValue = false)]
-        public Build Build { get; set; }
 
         /// <summary>
         /// Gets or Sets BuildId
         /// </summary>
         [DataMember(Name = "buildId", EmitDefaultValue = false)]
         public int BuildId { get; set; }
+
+        /// <summary>
+        /// Gets or Sets Build
+        /// </summary>
+        [DataMember(Name = "build", EmitDefaultValue = false)]
+        public Build Build { get; set; }
 
         /// <summary>
         /// Returns the string presentation of the object
@@ -63,8 +63,8 @@ namespace Org.OpenAPITools.Model
         {
             StringBuilder sb = new StringBuilder();
             sb.Append("class BuildDeletedEvent {\n");
-            sb.Append("  Build: ").Append(Build).Append("\n");
             sb.Append("  BuildId: ").Append(BuildId).Append("\n");
+            sb.Append("  Build: ").Append(Build).Append("\n");
             sb.Append("}\n");
             return sb.ToString();
         }

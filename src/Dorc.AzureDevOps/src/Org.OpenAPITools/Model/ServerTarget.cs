@@ -27,7 +27,7 @@ using OpenAPIDateConverter = Org.OpenAPITools.Client.OpenAPIDateConverter;
 namespace Org.OpenAPITools.Model
 {
     /// <summary>
-    /// Represents a phase target that runs on the server.
+    /// ServerTarget
     /// </summary>
     [DataContract(Name = "ServerTarget")]
     public partial class ServerTarget : IValidatableObject
@@ -35,19 +35,13 @@ namespace Org.OpenAPITools.Model
         /// <summary>
         /// Initializes a new instance of the <see cref="ServerTarget" /> class.
         /// </summary>
-        /// <param name="executionOptions">executionOptions.</param>
         /// <param name="type">The type of the target..</param>
-        public ServerTarget(ServerTargetExecutionOptions executionOptions = default, int type = default)
+        /// <param name="executionOptions">executionOptions.</param>
+        public ServerTarget(int type = default, ServerTargetExecutionOptions executionOptions = default)
         {
-            this.ExecutionOptions = executionOptions;
             this.Type = type;
+            this.ExecutionOptions = executionOptions;
         }
-
-        /// <summary>
-        /// Gets or Sets ExecutionOptions
-        /// </summary>
-        [DataMember(Name = "executionOptions", EmitDefaultValue = false)]
-        public ServerTargetExecutionOptions ExecutionOptions { get; set; }
 
         /// <summary>
         /// The type of the target.
@@ -57,6 +51,12 @@ namespace Org.OpenAPITools.Model
         public int Type { get; set; }
 
         /// <summary>
+        /// Gets or Sets ExecutionOptions
+        /// </summary>
+        [DataMember(Name = "executionOptions", EmitDefaultValue = false)]
+        public ServerTargetExecutionOptions ExecutionOptions { get; set; }
+
+        /// <summary>
         /// Returns the string presentation of the object
         /// </summary>
         /// <returns>String presentation of the object</returns>
@@ -64,8 +64,8 @@ namespace Org.OpenAPITools.Model
         {
             StringBuilder sb = new StringBuilder();
             sb.Append("class ServerTarget {\n");
-            sb.Append("  ExecutionOptions: ").Append(ExecutionOptions).Append("\n");
             sb.Append("  Type: ").Append(Type).Append("\n");
+            sb.Append("  ExecutionOptions: ").Append(ExecutionOptions).Append("\n");
             sb.Append("}\n");
             return sb.ToString();
         }

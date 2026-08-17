@@ -18,7 +18,6 @@ import type {
 
 /**
  * @type BuildDeletedEvent
- * 
  * @export
  */
 export type BuildDeletedEvent = RealtimeBuildEvent;

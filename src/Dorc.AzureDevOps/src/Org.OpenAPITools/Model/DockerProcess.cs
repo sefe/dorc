@@ -35,19 +35,13 @@ namespace Org.OpenAPITools.Model
         /// <summary>
         /// Initializes a new instance of the <see cref="DockerProcess" /> class.
         /// </summary>
-        /// <param name="target">target.</param>
         /// <param name="type">The type of the process..</param>
-        public DockerProcess(DockerProcessTarget target = default, int type = default)
+        /// <param name="target">target.</param>
+        public DockerProcess(int type = default, DockerProcessTarget target = default)
         {
-            this.Target = target;
             this.Type = type;
+            this.Target = target;
         }
-
-        /// <summary>
-        /// Gets or Sets Target
-        /// </summary>
-        [DataMember(Name = "target", EmitDefaultValue = false)]
-        public DockerProcessTarget Target { get; set; }
 
         /// <summary>
         /// The type of the process.
@@ -57,6 +51,12 @@ namespace Org.OpenAPITools.Model
         public int Type { get; set; }
 
         /// <summary>
+        /// Gets or Sets Target
+        /// </summary>
+        [DataMember(Name = "target", EmitDefaultValue = false)]
+        public DockerProcessTarget Target { get; set; }
+
+        /// <summary>
         /// Returns the string presentation of the object
         /// </summary>
         /// <returns>String presentation of the object</returns>
@@ -64,8 +64,8 @@ namespace Org.OpenAPITools.Model
         {
             StringBuilder sb = new StringBuilder();
             sb.Append("class DockerProcess {\n");
-            sb.Append("  Target: ").Append(Target).Append("\n");
             sb.Append("  Type: ").Append(Type).Append("\n");
+            sb.Append("  Target: ").Append(Target).Append("\n");
             sb.Append("}\n");
             return sb.ToString();
         }

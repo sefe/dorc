@@ -56,6 +56,15 @@ namespace Org.OpenAPITools.Test.Model
         }
 
         /// <summary>
+        /// Test the property 'Type'
+        /// </summary>
+        [Fact]
+        public void TypeTest()
+        {
+            // TODO unit test for the property 'Type'
+        }
+
+        /// <summary>
         /// Test the property 'ContinueOnError'
         /// </summary>
         [Fact]
@@ -71,15 +80,6 @@ namespace Org.OpenAPITools.Test.Model
         public void MaxConcurrencyTest()
         {
             // TODO unit test for the property 'MaxConcurrency'
-        }
-
-        /// <summary>
-        /// Test the property 'Type'
-        /// </summary>
-        [Fact]
-        public void TypeTest()
-        {
-            // TODO unit test for the property 'Type'
         }
     }
 }

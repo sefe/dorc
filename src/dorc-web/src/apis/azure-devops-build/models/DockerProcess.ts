@@ -18,7 +18,6 @@ import type {
 
 /**
  * @type DockerProcess
- * 
  * @export
  */
 export type DockerProcess = BuildProcess;

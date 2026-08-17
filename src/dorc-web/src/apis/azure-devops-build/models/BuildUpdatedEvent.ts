@@ -18,7 +18,6 @@ import type {
 
 /**
  * @type BuildUpdatedEvent
- * 
  * @export
  */
 export type BuildUpdatedEvent = RealtimeBuildEvent;

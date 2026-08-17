@@ -27,7 +27,7 @@ using OpenAPIDateConverter = Org.OpenAPITools.Client.OpenAPIDateConverter;
 namespace Org.OpenAPITools.Model
 {
     /// <summary>
-    /// Deployment information for type \&quot;Test\&quot;
+    /// DeploymentTest
     /// </summary>
     [DataContract(Name = "DeploymentTest")]
     public partial class DeploymentTest : IValidatableObject
@@ -35,25 +35,25 @@ namespace Org.OpenAPITools.Model
         /// <summary>
         /// Initializes a new instance of the <see cref="DeploymentTest" /> class.
         /// </summary>
-        /// <param name="runId">runId.</param>
         /// <param name="type">type.</param>
-        public DeploymentTest(int runId = default, string type = default)
+        /// <param name="runId">runId.</param>
+        public DeploymentTest(string type = default, int runId = default)
         {
-            this.RunId = runId;
             this.Type = type;
+            this.RunId = runId;
         }
-
-        /// <summary>
-        /// Gets or Sets RunId
-        /// </summary>
-        [DataMember(Name = "runId", EmitDefaultValue = false)]
-        public int RunId { get; set; }
 
         /// <summary>
         /// Gets or Sets Type
         /// </summary>
         [DataMember(Name = "type", EmitDefaultValue = false)]
         public string Type { get; set; }
+
+        /// <summary>
+        /// Gets or Sets RunId
+        /// </summary>
+        [DataMember(Name = "runId", EmitDefaultValue = false)]
+        public int RunId { get; set; }
 
         /// <summary>
         /// Returns the string presentation of the object
@@ -63,8 +63,8 @@ namespace Org.OpenAPITools.Model
         {
             StringBuilder sb = new StringBuilder();
             sb.Append("class DeploymentTest {\n");
-            sb.Append("  RunId: ").Append(RunId).Append("\n");
             sb.Append("  Type: ").Append(Type).Append("\n");
+            sb.Append("  RunId: ").Append(RunId).Append("\n");
             sb.Append("}\n");
             return sb.ToString();
         }

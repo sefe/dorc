@@ -27,7 +27,7 @@ using OpenAPIDateConverter = Org.OpenAPITools.Client.OpenAPIDateConverter;
 namespace Org.OpenAPITools.Model
 {
     /// <summary>
-    /// Represents a schedule trigger.
+    /// ScheduleTrigger
     /// </summary>
     [DataContract(Name = "ScheduleTrigger")]
     public partial class ScheduleTrigger : IValidatableObject
@@ -104,12 +104,12 @@ namespace Org.OpenAPITools.Model
         /// <summary>
         /// Initializes a new instance of the <see cref="ScheduleTrigger" /> class.
         /// </summary>
-        /// <param name="schedules">schedules.</param>
         /// <param name="triggerType">The type of the trigger..</param>
-        public ScheduleTrigger(List<Schedule> schedules = default, TriggerTypeEnum? triggerType = default)
+        /// <param name="schedules">schedules.</param>
+        public ScheduleTrigger(TriggerTypeEnum? triggerType = default, List<Schedule> schedules = default)
         {
-            this.Schedules = schedules;
             this.TriggerType = triggerType;
+            this.Schedules = schedules;
         }
 
         /// <summary>
@@ -126,8 +126,8 @@ namespace Org.OpenAPITools.Model
         {
             StringBuilder sb = new StringBuilder();
             sb.Append("class ScheduleTrigger {\n");
-            sb.Append("  Schedules: ").Append(Schedules).Append("\n");
             sb.Append("  TriggerType: ").Append(TriggerType).Append("\n");
+            sb.Append("  Schedules: ").Append(Schedules).Append("\n");
             sb.Append("}\n");
             return sb.ToString();
         }

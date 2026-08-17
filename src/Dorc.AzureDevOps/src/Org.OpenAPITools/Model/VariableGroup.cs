@@ -27,7 +27,7 @@ using OpenAPIDateConverter = Org.OpenAPITools.Client.OpenAPIDateConverter;
 namespace Org.OpenAPITools.Model
 {
     /// <summary>
-    /// Represents a variable group.
+    /// VariableGroup
     /// </summary>
     [DataContract(Name = "VariableGroup")]
     public partial class VariableGroup : IValidatableObject
@@ -35,21 +35,35 @@ namespace Org.OpenAPITools.Model
         /// <summary>
         /// Initializes a new instance of the <see cref="VariableGroup" /> class.
         /// </summary>
+        /// <param name="alias">The Name of the variable group..</param>
+        /// <param name="id">The ID of the variable group..</param>
         /// <param name="description">The description..</param>
         /// <param name="name">The name of the variable group..</param>
         /// <param name="type">The type of the variable group..</param>
         /// <param name="variables">variables.</param>
-        /// <param name="alias">The Name of the variable group..</param>
-        /// <param name="id">The ID of the variable group..</param>
-        public VariableGroup(string description = default, string name = default, string type = default, Dictionary<string, BuildDefinitionVariable> variables = default, string alias = default, int id = default)
+        public VariableGroup(string alias = default, int id = default, string description = default, string name = default, string type = default, Dictionary<string, BuildDefinitionVariable> variables = default)
         {
+            this.Alias = alias;
+            this.Id = id;
             this.Description = description;
             this.Name = name;
             this.Type = type;
             this.Variables = variables;
-            this.Alias = alias;
-            this.Id = id;
         }
+
+        /// <summary>
+        /// The Name of the variable group.
+        /// </summary>
+        /// <value>The Name of the variable group.</value>
+        [DataMember(Name = "alias", EmitDefaultValue = false)]
+        public string Alias { get; set; }
+
+        /// <summary>
+        /// The ID of the variable group.
+        /// </summary>
+        /// <value>The ID of the variable group.</value>
+        [DataMember(Name = "id", EmitDefaultValue = false)]
+        public int Id { get; set; }
 
         /// <summary>
         /// The description.
@@ -79,20 +93,6 @@ namespace Org.OpenAPITools.Model
         public Dictionary<string, BuildDefinitionVariable> Variables { get; set; }
 
         /// <summary>
-        /// The Name of the variable group.
-        /// </summary>
-        /// <value>The Name of the variable group.</value>
-        [DataMember(Name = "alias", EmitDefaultValue = false)]
-        public string Alias { get; set; }
-
-        /// <summary>
-        /// The ID of the variable group.
-        /// </summary>
-        /// <value>The ID of the variable group.</value>
-        [DataMember(Name = "id", EmitDefaultValue = false)]
-        public int Id { get; set; }
-
-        /// <summary>
         /// Returns the string presentation of the object
         /// </summary>
         /// <returns>String presentation of the object</returns>
@@ -100,12 +100,12 @@ namespace Org.OpenAPITools.Model
         {
             StringBuilder sb = new StringBuilder();
             sb.Append("class VariableGroup {\n");
+            sb.Append("  Alias: ").Append(Alias).Append("\n");
+            sb.Append("  Id: ").Append(Id).Append("\n");
             sb.Append("  Description: ").Append(Description).Append("\n");
             sb.Append("  Name: ").Append(Name).Append("\n");
             sb.Append("  Type: ").Append(Type).Append("\n");
             sb.Append("  Variables: ").Append(Variables).Append("\n");
-            sb.Append("  Alias: ").Append(Alias).Append("\n");
-            sb.Append("  Id: ").Append(Id).Append("\n");
             sb.Append("}\n");
             return sb.ToString();
         }

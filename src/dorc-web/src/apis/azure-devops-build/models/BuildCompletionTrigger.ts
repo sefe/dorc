@@ -18,7 +18,6 @@ import type {
 
 /**
  * @type BuildCompletionTrigger
- * Represents a build completion trigger.
  * @export
  */
 export type BuildCompletionTrigger = BuildTrigger;

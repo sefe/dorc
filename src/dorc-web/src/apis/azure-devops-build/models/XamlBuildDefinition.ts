@@ -22,7 +22,6 @@ import type {
 
 /**
  * @type XamlBuildDefinition
- * 
  * @export
  */
 export type XamlBuildDefinition = DefinitionReference;

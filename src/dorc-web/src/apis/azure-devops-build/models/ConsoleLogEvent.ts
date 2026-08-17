@@ -17,7 +17,6 @@ import type {
 
 /**
  * @type ConsoleLogEvent
- * 
  * @export
  */
 export type ConsoleLogEvent = RealtimeBuildEvent;

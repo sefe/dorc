@@ -12,6 +12,7 @@
  */
 
 import type {
+    Build,
     BuildUpdatedEvent,
 } from './';
 

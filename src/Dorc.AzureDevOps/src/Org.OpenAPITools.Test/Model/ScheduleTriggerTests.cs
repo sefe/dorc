@@ -56,21 +56,21 @@ namespace Org.OpenAPITools.Test.Model
         }
 
         /// <summary>
-        /// Test the property 'Schedules'
-        /// </summary>
-        [Fact]
-        public void SchedulesTest()
-        {
-            // TODO unit test for the property 'Schedules'
-        }
-
-        /// <summary>
         /// Test the property 'TriggerType'
         /// </summary>
         [Fact]
         public void TriggerTypeTest()
         {
             // TODO unit test for the property 'TriggerType'
+        }
+
+        /// <summary>
+        /// Test the property 'Schedules'
+        /// </summary>
+        [Fact]
+        public void SchedulesTest()
+        {
+            // TODO unit test for the property 'Schedules'
         }
     }
 }

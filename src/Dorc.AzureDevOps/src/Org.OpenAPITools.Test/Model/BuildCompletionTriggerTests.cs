@@ -56,6 +56,15 @@ namespace Org.OpenAPITools.Test.Model
         }
 
         /// <summary>
+        /// Test the property 'TriggerType'
+        /// </summary>
+        [Fact]
+        public void TriggerTypeTest()
+        {
+            // TODO unit test for the property 'TriggerType'
+        }
+
+        /// <summary>
         /// Test the property 'BranchFilters'
         /// </summary>
         [Fact]
@@ -80,15 +89,6 @@ namespace Org.OpenAPITools.Test.Model
         public void RequiresSuccessfulBuildTest()
         {
             // TODO unit test for the property 'RequiresSuccessfulBuild'
-        }
-
-        /// <summary>
-        /// Test the property 'TriggerType'
-        /// </summary>
-        [Fact]
-        public void TriggerTypeTest()
-        {
-            // TODO unit test for the property 'TriggerType'
         }
     }
 }

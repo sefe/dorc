@@ -27,7 +27,7 @@ using OpenAPIDateConverter = Org.OpenAPITools.Client.OpenAPIDateConverter;
 namespace Org.OpenAPITools.Model
 {
     /// <summary>
-    /// Represents options for running a phase based on values specified by a list of variables.
+    /// VariableMultipliersServerExecutionOptions
     /// </summary>
     [DataContract(Name = "VariableMultipliersServerExecutionOptions")]
     public partial class VariableMultipliersServerExecutionOptions : IValidatableObject
@@ -35,17 +35,24 @@ namespace Org.OpenAPITools.Model
         /// <summary>
         /// Initializes a new instance of the <see cref="VariableMultipliersServerExecutionOptions" /> class.
         /// </summary>
+        /// <param name="type">The type..</param>
         /// <param name="continueOnError">Indicates whether failure of one job should prevent the phase from running in other jobs..</param>
         /// <param name="maxConcurrency">The maximum number of server jobs to run in parallel..</param>
         /// <param name="multipliers">multipliers.</param>
-        /// <param name="type">The type..</param>
-        public VariableMultipliersServerExecutionOptions(bool continueOnError = default, int maxConcurrency = default, List<string> multipliers = default, int type = default)
+        public VariableMultipliersServerExecutionOptions(int type = default, bool continueOnError = default, int maxConcurrency = default, List<string> multipliers = default)
         {
+            this.Type = type;
             this.ContinueOnError = continueOnError;
             this.MaxConcurrency = maxConcurrency;
             this.Multipliers = multipliers;
-            this.Type = type;
         }
+
+        /// <summary>
+        /// The type.
+        /// </summary>
+        /// <value>The type.</value>
+        [DataMember(Name = "type", EmitDefaultValue = false)]
+        public int Type { get; set; }
 
         /// <summary>
         /// Indicates whether failure of one job should prevent the phase from running in other jobs.
@@ -68,13 +75,6 @@ namespace Org.OpenAPITools.Model
         public List<string> Multipliers { get; set; }
 
         /// <summary>
-        /// The type.
-        /// </summary>
-        /// <value>The type.</value>
-        [DataMember(Name = "type", EmitDefaultValue = false)]
-        public int Type { get; set; }
-
-        /// <summary>
         /// Returns the string presentation of the object
         /// </summary>
         /// <returns>String presentation of the object</returns>
@@ -82,10 +82,10 @@ namespace Org.OpenAPITools.Model
         {
             StringBuilder sb = new StringBuilder();
             sb.Append("class VariableMultipliersServerExecutionOptions {\n");
+            sb.Append("  Type: ").Append(Type).Append("\n");
             sb.Append("  ContinueOnError: ").Append(ContinueOnError).Append("\n");
             sb.Append("  MaxConcurrency: ").Append(MaxConcurrency).Append("\n");
             sb.Append("  Multipliers: ").Append(Multipliers).Append("\n");
-            sb.Append("  Type: ").Append(Type).Append("\n");
             sb.Append("}\n");
             return sb.ToString();
         }

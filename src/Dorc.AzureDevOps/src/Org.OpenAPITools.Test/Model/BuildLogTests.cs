@@ -56,33 +56,6 @@ namespace Org.OpenAPITools.Test.Model
         }
 
         /// <summary>
-        /// Test the property 'CreatedOn'
-        /// </summary>
-        [Fact]
-        public void CreatedOnTest()
-        {
-            // TODO unit test for the property 'CreatedOn'
-        }
-
-        /// <summary>
-        /// Test the property 'LastChangedOn'
-        /// </summary>
-        [Fact]
-        public void LastChangedOnTest()
-        {
-            // TODO unit test for the property 'LastChangedOn'
-        }
-
-        /// <summary>
-        /// Test the property 'LineCount'
-        /// </summary>
-        [Fact]
-        public void LineCountTest()
-        {
-            // TODO unit test for the property 'LineCount'
-        }
-
-        /// <summary>
         /// Test the property 'Id'
         /// </summary>
         [Fact]
@@ -107,6 +80,33 @@ namespace Org.OpenAPITools.Test.Model
         public void UrlTest()
         {
             // TODO unit test for the property 'Url'
+        }
+
+        /// <summary>
+        /// Test the property 'CreatedOn'
+        /// </summary>
+        [Fact]
+        public void CreatedOnTest()
+        {
+            // TODO unit test for the property 'CreatedOn'
+        }
+
+        /// <summary>
+        /// Test the property 'LastChangedOn'
+        /// </summary>
+        [Fact]
+        public void LastChangedOnTest()
+        {
+            // TODO unit test for the property 'LastChangedOn'
+        }
+
+        /// <summary>
+        /// Test the property 'LineCount'
+        /// </summary>
+        [Fact]
+        public void LineCountTest()
+        {
+            // TODO unit test for the property 'LineCount'
         }
     }
 }

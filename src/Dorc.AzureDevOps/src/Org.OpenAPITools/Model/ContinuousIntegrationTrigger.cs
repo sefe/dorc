@@ -27,7 +27,7 @@ using OpenAPIDateConverter = Org.OpenAPITools.Client.OpenAPIDateConverter;
 namespace Org.OpenAPITools.Model
 {
     /// <summary>
-    /// Represents a continuous integration (CI) trigger.
+    /// ContinuousIntegrationTrigger
     /// </summary>
     [DataContract(Name = "ContinuousIntegrationTrigger")]
     public partial class ContinuousIntegrationTrigger : IValidatableObject
@@ -104,6 +104,7 @@ namespace Org.OpenAPITools.Model
         /// <summary>
         /// Initializes a new instance of the <see cref="ContinuousIntegrationTrigger" /> class.
         /// </summary>
+        /// <param name="triggerType">The type of the trigger..</param>
         /// <param name="batchChanges">Indicates whether changes should be batched while another CI build is running..</param>
         /// <param name="branchFilters">branchFilters.</param>
         /// <param name="maxConcurrentBuildsPerBranch">The maximum number of simultaneous CI builds that will run per branch..</param>
@@ -111,9 +112,9 @@ namespace Org.OpenAPITools.Model
         /// <param name="pollingInterval">The polling interval, in seconds..</param>
         /// <param name="pollingJobId">The ID of the job used to poll an external repository..</param>
         /// <param name="settingsSourceType">settingsSourceType.</param>
-        /// <param name="triggerType">The type of the trigger..</param>
-        public ContinuousIntegrationTrigger(bool batchChanges = default, List<string> branchFilters = default, int maxConcurrentBuildsPerBranch = default, List<string> pathFilters = default, int pollingInterval = default, Guid pollingJobId = default, int settingsSourceType = default, TriggerTypeEnum? triggerType = default)
+        public ContinuousIntegrationTrigger(TriggerTypeEnum? triggerType = default, bool batchChanges = default, List<string> branchFilters = default, int maxConcurrentBuildsPerBranch = default, List<string> pathFilters = default, int pollingInterval = default, Guid pollingJobId = default, int settingsSourceType = default)
         {
+            this.TriggerType = triggerType;
             this.BatchChanges = batchChanges;
             this.BranchFilters = branchFilters;
             this.MaxConcurrentBuildsPerBranch = maxConcurrentBuildsPerBranch;
@@ -121,7 +122,6 @@ namespace Org.OpenAPITools.Model
             this.PollingInterval = pollingInterval;
             this.PollingJobId = pollingJobId;
             this.SettingsSourceType = settingsSourceType;
-            this.TriggerType = triggerType;
         }
 
         /// <summary>
@@ -178,6 +178,7 @@ namespace Org.OpenAPITools.Model
         {
             StringBuilder sb = new StringBuilder();
             sb.Append("class ContinuousIntegrationTrigger {\n");
+            sb.Append("  TriggerType: ").Append(TriggerType).Append("\n");
             sb.Append("  BatchChanges: ").Append(BatchChanges).Append("\n");
             sb.Append("  BranchFilters: ").Append(BranchFilters).Append("\n");
             sb.Append("  MaxConcurrentBuildsPerBranch: ").Append(MaxConcurrentBuildsPerBranch).Append("\n");
@@ -185,7 +186,6 @@ namespace Org.OpenAPITools.Model
             sb.Append("  PollingInterval: ").Append(PollingInterval).Append("\n");
             sb.Append("  PollingJobId: ").Append(PollingJobId).Append("\n");
             sb.Append("  SettingsSourceType: ").Append(SettingsSourceType).Append("\n");
-            sb.Append("  TriggerType: ").Append(TriggerType).Append("\n");
             sb.Append("}\n");
             return sb.ToString();
         }

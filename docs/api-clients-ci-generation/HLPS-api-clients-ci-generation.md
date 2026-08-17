@@ -61,10 +61,14 @@ committed clients, the committed specs, and the C# API had all drifted apart:
    `IsEnvironmentOwnerOrDelegate` call was migrated to the real
    `IsEnvironmentOwner` endpoint.
 4. **Generator versions are pinned per client** in each client directory's
-   `openapitools.json` (`dorc-api` 7.13.0, `azure-devops-build` 6.0.1), and
-   the npm scripts pass `--openapitools` explicitly so the pin in use is
-   never ambient. The stray `src/apis/openapitools.json` (7.9.0) was removed
-   and the `src/dorc-web` default aligned to 7.13.0.
+   `openapitools.json`, and the npm scripts pass `--openapitools` explicitly
+   so the pin in use is never ambient. All clients are pinned to the latest
+   generator (7.24.0 at the time of writing; originally reconciled to the
+   versions that had produced the committed code, then upgraded). The stray
+   `src/apis/openapitools.json` was removed and the `src/dorc-web` default
+   aligned to the same pin. 7.24.0 no longer emits the C# test-stub project,
+   so `Org.OpenAPITools.Test` (vacuous generated placeholders, always
+   excluded from CI test runs) was removed from the repo and solution.
 5. **`azure-devops-build` is kept as raw generator output.** Nothing imports
    it today; its committed copy had only formatting drift (a prior
    `npm run format` had prettier-formatted it). It is reset to generator
@@ -78,8 +82,8 @@ committed clients, the committed specs, and the C# API had all drifted apart:
    (`ArtifactsApi`) through it. The committed tree was a stratified hybrid
    (6.5.0 models/client, ~7.2–7.4 Api files, a hand-ported RestSharp 112
    `ApiClient`, hand-written AAD auth inside the generated tree, a
-   dependabot-bumped csproj). It was regenerated as pure 7.13.0
-   `csharp`/restsharp output, with the DOrc-owned pieces moved to a new
+   dependabot-bumped csproj). It was regenerated as pure
+   `csharp`/restsharp generator output (see decision 4 for the pin), with the DOrc-owned pieces moved to a new
    `Dorc.AzureDevOps.Client` project:
    - `Auth/*` — the AAD client-credentials token generation
      (`Configuration.AccessToken` is the generated client's supported seam,

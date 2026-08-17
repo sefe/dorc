@@ -56,87 +56,6 @@ namespace Org.OpenAPITools.Test.Model
         }
 
         /// <summary>
-        /// Test the property 'Links'
-        /// </summary>
-        [Fact]
-        public void LinksTest()
-        {
-            // TODO unit test for the property 'Links'
-        }
-
-        /// <summary>
-        /// Test the property 'AuthoredBy'
-        /// </summary>
-        [Fact]
-        public void AuthoredByTest()
-        {
-            // TODO unit test for the property 'AuthoredBy'
-        }
-
-        /// <summary>
-        /// Test the property 'DraftOf'
-        /// </summary>
-        [Fact]
-        public void DraftOfTest()
-        {
-            // TODO unit test for the property 'DraftOf'
-        }
-
-        /// <summary>
-        /// Test the property 'Drafts'
-        /// </summary>
-        [Fact]
-        public void DraftsTest()
-        {
-            // TODO unit test for the property 'Drafts'
-        }
-
-        /// <summary>
-        /// Test the property 'LatestBuild'
-        /// </summary>
-        [Fact]
-        public void LatestBuildTest()
-        {
-            // TODO unit test for the property 'LatestBuild'
-        }
-
-        /// <summary>
-        /// Test the property 'LatestCompletedBuild'
-        /// </summary>
-        [Fact]
-        public void LatestCompletedBuildTest()
-        {
-            // TODO unit test for the property 'LatestCompletedBuild'
-        }
-
-        /// <summary>
-        /// Test the property 'Metrics'
-        /// </summary>
-        [Fact]
-        public void MetricsTest()
-        {
-            // TODO unit test for the property 'Metrics'
-        }
-
-        /// <summary>
-        /// Test the property 'Quality'
-        /// </summary>
-        [Fact]
-        public void QualityTest()
-        {
-            // TODO unit test for the property 'Quality'
-        }
-
-        /// <summary>
-        /// Test the property 'Queue'
-        /// </summary>
-        [Fact]
-        public void QueueTest()
-        {
-            // TODO unit test for the property 'Queue'
-        }
-
-        /// <summary>
         /// Test the property 'CreatedDate'
         /// </summary>
         [Fact]
@@ -224,6 +143,87 @@ namespace Org.OpenAPITools.Test.Model
         public void UrlTest()
         {
             // TODO unit test for the property 'Url'
+        }
+
+        /// <summary>
+        /// Test the property 'Links'
+        /// </summary>
+        [Fact]
+        public void LinksTest()
+        {
+            // TODO unit test for the property 'Links'
+        }
+
+        /// <summary>
+        /// Test the property 'AuthoredBy'
+        /// </summary>
+        [Fact]
+        public void AuthoredByTest()
+        {
+            // TODO unit test for the property 'AuthoredBy'
+        }
+
+        /// <summary>
+        /// Test the property 'DraftOf'
+        /// </summary>
+        [Fact]
+        public void DraftOfTest()
+        {
+            // TODO unit test for the property 'DraftOf'
+        }
+
+        /// <summary>
+        /// Test the property 'Drafts'
+        /// </summary>
+        [Fact]
+        public void DraftsTest()
+        {
+            // TODO unit test for the property 'Drafts'
+        }
+
+        /// <summary>
+        /// Test the property 'LatestBuild'
+        /// </summary>
+        [Fact]
+        public void LatestBuildTest()
+        {
+            // TODO unit test for the property 'LatestBuild'
+        }
+
+        /// <summary>
+        /// Test the property 'LatestCompletedBuild'
+        /// </summary>
+        [Fact]
+        public void LatestCompletedBuildTest()
+        {
+            // TODO unit test for the property 'LatestCompletedBuild'
+        }
+
+        /// <summary>
+        /// Test the property 'Metrics'
+        /// </summary>
+        [Fact]
+        public void MetricsTest()
+        {
+            // TODO unit test for the property 'Metrics'
+        }
+
+        /// <summary>
+        /// Test the property 'Quality'
+        /// </summary>
+        [Fact]
+        public void QualityTest()
+        {
+            // TODO unit test for the property 'Quality'
+        }
+
+        /// <summary>
+        /// Test the property 'Queue'
+        /// </summary>
+        [Fact]
+        public void QueueTest()
+        {
+            // TODO unit test for the property 'Queue'
         }
     }
 }

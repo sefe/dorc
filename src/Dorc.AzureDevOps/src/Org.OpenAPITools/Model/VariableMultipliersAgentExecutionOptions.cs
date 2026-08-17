@@ -27,7 +27,7 @@ using OpenAPIDateConverter = Org.OpenAPITools.Client.OpenAPIDateConverter;
 namespace Org.OpenAPITools.Model
 {
     /// <summary>
-    /// Represents options for running a phase based on values specified by a list of variables.
+    /// VariableMultipliersAgentExecutionOptions
     /// </summary>
     [DataContract(Name = "VariableMultipliersAgentExecutionOptions")]
     public partial class VariableMultipliersAgentExecutionOptions : IValidatableObject
@@ -35,17 +35,24 @@ namespace Org.OpenAPITools.Model
         /// <summary>
         /// Initializes a new instance of the <see cref="VariableMultipliersAgentExecutionOptions" /> class.
         /// </summary>
+        /// <param name="type">Indicates the type of execution options..</param>
         /// <param name="continueOnError">Indicates whether failure on one agent should prevent the phase from running on other agents..</param>
         /// <param name="maxConcurrency">The maximum number of agents to use in parallel..</param>
         /// <param name="multipliers">multipliers.</param>
-        /// <param name="type">Indicates the type of execution options..</param>
-        public VariableMultipliersAgentExecutionOptions(bool continueOnError = default, int maxConcurrency = default, List<string> multipliers = default, int type = default)
+        public VariableMultipliersAgentExecutionOptions(int type = default, bool continueOnError = default, int maxConcurrency = default, List<string> multipliers = default)
         {
+            this.Type = type;
             this.ContinueOnError = continueOnError;
             this.MaxConcurrency = maxConcurrency;
             this.Multipliers = multipliers;
-            this.Type = type;
         }
+
+        /// <summary>
+        /// Indicates the type of execution options.
+        /// </summary>
+        /// <value>Indicates the type of execution options.</value>
+        [DataMember(Name = "type", EmitDefaultValue = false)]
+        public int Type { get; set; }
 
         /// <summary>
         /// Indicates whether failure on one agent should prevent the phase from running on other agents.
@@ -68,13 +75,6 @@ namespace Org.OpenAPITools.Model
         public List<string> Multipliers { get; set; }
 
         /// <summary>
-        /// Indicates the type of execution options.
-        /// </summary>
-        /// <value>Indicates the type of execution options.</value>
-        [DataMember(Name = "type", EmitDefaultValue = false)]
-        public int Type { get; set; }
-
-        /// <summary>
         /// Returns the string presentation of the object
         /// </summary>
         /// <returns>String presentation of the object</returns>
@@ -82,10 +82,10 @@ namespace Org.OpenAPITools.Model
         {
             StringBuilder sb = new StringBuilder();
             sb.Append("class VariableMultipliersAgentExecutionOptions {\n");
+            sb.Append("  Type: ").Append(Type).Append("\n");
             sb.Append("  ContinueOnError: ").Append(ContinueOnError).Append("\n");
             sb.Append("  MaxConcurrency: ").Append(MaxConcurrency).Append("\n");
             sb.Append("  Multipliers: ").Append(Multipliers).Append("\n");
-            sb.Append("  Type: ").Append(Type).Append("\n");
             sb.Append("}\n");
             return sb.ToString();
         }

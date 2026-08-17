@@ -18,7 +18,6 @@ import type {
 
 /**
  * @type IdentityRef
- * 
  * @export
  */
 export type IdentityRef = GraphSubjectBase;

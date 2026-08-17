@@ -27,38 +27,11 @@ using OpenAPIDateConverter = Org.OpenAPITools.Client.OpenAPIDateConverter;
 namespace Org.OpenAPITools.Model
 {
     /// <summary>
-    /// Represents a reference to a build definition.
+    /// BuildDefinitionReference
     /// </summary>
     [DataContract(Name = "BuildDefinitionReference")]
     public partial class BuildDefinitionReference : IValidatableObject
     {
-        /// <summary>
-        /// The quality of the definition document (draft, etc.)
-        /// </summary>
-        /// <value>The quality of the definition document (draft, etc.)</value>
-        [JsonConverter(typeof(StringEnumConverter))]
-        public enum QualityEnum
-        {
-            /// <summary>
-            /// Enum Definition for value: definition
-            /// </summary>
-            [EnumMember(Value = "definition")]
-            Definition = 1,
-
-            /// <summary>
-            /// Enum Draft for value: draft
-            /// </summary>
-            [EnumMember(Value = "draft")]
-            Draft = 2
-        }
-
-
-        /// <summary>
-        /// The quality of the definition document (draft, etc.)
-        /// </summary>
-        /// <value>The quality of the definition document (draft, etc.)</value>
-        [DataMember(Name = "quality", EmitDefaultValue = false)]
-        public QualityEnum? Quality { get; set; }
         /// <summary>
         /// A value that indicates whether builds can be queued against this definition.
         /// </summary>
@@ -120,17 +93,35 @@ namespace Org.OpenAPITools.Model
         [DataMember(Name = "type", EmitDefaultValue = false)]
         public TypeEnum? Type { get; set; }
         /// <summary>
+        /// The quality of the definition document (draft, etc.)
+        /// </summary>
+        /// <value>The quality of the definition document (draft, etc.)</value>
+        [JsonConverter(typeof(StringEnumConverter))]
+        public enum QualityEnum
+        {
+            /// <summary>
+            /// Enum Definition for value: definition
+            /// </summary>
+            [EnumMember(Value = "definition")]
+            Definition = 1,
+
+            /// <summary>
+            /// Enum Draft for value: draft
+            /// </summary>
+            [EnumMember(Value = "draft")]
+            Draft = 2
+        }
+
+
+        /// <summary>
+        /// The quality of the definition document (draft, etc.)
+        /// </summary>
+        /// <value>The quality of the definition document (draft, etc.)</value>
+        [DataMember(Name = "quality", EmitDefaultValue = false)]
+        public QualityEnum? Quality { get; set; }
+        /// <summary>
         /// Initializes a new instance of the <see cref="BuildDefinitionReference" /> class.
         /// </summary>
-        /// <param name="links">links.</param>
-        /// <param name="authoredBy">authoredBy.</param>
-        /// <param name="draftOf">draftOf.</param>
-        /// <param name="drafts">The list of drafts associated with this definition, if this is not a draft definition..</param>
-        /// <param name="latestBuild">latestBuild.</param>
-        /// <param name="latestCompletedBuild">latestCompletedBuild.</param>
-        /// <param name="metrics">metrics.</param>
-        /// <param name="quality">The quality of the definition document (draft, etc.).</param>
-        /// <param name="queue">queue.</param>
         /// <param name="createdDate">The date this version of the definition was created..</param>
         /// <param name="id">The ID of the referenced definition..</param>
         /// <param name="name">The name of the referenced definition..</param>
@@ -141,17 +132,17 @@ namespace Org.OpenAPITools.Model
         /// <param name="type">The type of the definition..</param>
         /// <param name="uri">The definition&#39;s URI..</param>
         /// <param name="url">The REST URL of the definition..</param>
-        public BuildDefinitionReference(ReferenceLinks links = default, IdentityRef authoredBy = default, DefinitionReference draftOf = default, List<DefinitionReference> drafts = default, Build latestBuild = default, Build latestCompletedBuild = default, List<BuildMetric> metrics = default, QualityEnum? quality = default, AgentPoolQueue queue = default, DateTime createdDate = default, int id = default, string name = default, string path = default, TeamProjectReference project = default, QueueStatusEnum? queueStatus = default, int revision = default, TypeEnum? type = default, string uri = default, string url = default)
+        /// <param name="links">links.</param>
+        /// <param name="authoredBy">authoredBy.</param>
+        /// <param name="draftOf">draftOf.</param>
+        /// <param name="drafts">The list of drafts associated with this definition, if this is not a draft definition..</param>
+        /// <param name="latestBuild">latestBuild.</param>
+        /// <param name="latestCompletedBuild">latestCompletedBuild.</param>
+        /// <param name="metrics">metrics.</param>
+        /// <param name="quality">The quality of the definition document (draft, etc.).</param>
+        /// <param name="queue">queue.</param>
+        public BuildDefinitionReference(DateTime createdDate = default, int id = default, string name = default, string path = default, TeamProjectReference project = default, QueueStatusEnum? queueStatus = default, int revision = default, TypeEnum? type = default, string uri = default, string url = default, ReferenceLinks links = default, IdentityRef authoredBy = default, DefinitionReference draftOf = default, List<DefinitionReference> drafts = default, Build latestBuild = default, Build latestCompletedBuild = default, List<BuildMetric> metrics = default, QualityEnum? quality = default, AgentPoolQueue queue = default)
         {
-            this.Links = links;
-            this.AuthoredBy = authoredBy;
-            this.DraftOf = draftOf;
-            this.Drafts = drafts;
-            this.LatestBuild = latestBuild;
-            this.LatestCompletedBuild = latestCompletedBuild;
-            this.Metrics = metrics;
-            this.Quality = quality;
-            this.Queue = queue;
             this.CreatedDate = createdDate;
             this.Id = id;
             this.Name = name;
@@ -162,56 +153,16 @@ namespace Org.OpenAPITools.Model
             this.Type = type;
             this.Uri = uri;
             this.Url = url;
+            this.Links = links;
+            this.AuthoredBy = authoredBy;
+            this.DraftOf = draftOf;
+            this.Drafts = drafts;
+            this.LatestBuild = latestBuild;
+            this.LatestCompletedBuild = latestCompletedBuild;
+            this.Metrics = metrics;
+            this.Quality = quality;
+            this.Queue = queue;
         }
-
-        /// <summary>
-        /// Gets or Sets Links
-        /// </summary>
-        [DataMember(Name = "_links", EmitDefaultValue = false)]
-        public ReferenceLinks Links { get; set; }
-
-        /// <summary>
-        /// Gets or Sets AuthoredBy
-        /// </summary>
-        [DataMember(Name = "authoredBy", EmitDefaultValue = false)]
-        public IdentityRef AuthoredBy { get; set; }
-
-        /// <summary>
-        /// Gets or Sets DraftOf
-        /// </summary>
-        [DataMember(Name = "draftOf", EmitDefaultValue = false)]
-        public DefinitionReference DraftOf { get; set; }
-
-        /// <summary>
-        /// The list of drafts associated with this definition, if this is not a draft definition.
-        /// </summary>
-        /// <value>The list of drafts associated with this definition, if this is not a draft definition.</value>
-        [DataMember(Name = "drafts", EmitDefaultValue = false)]
-        public List<DefinitionReference> Drafts { get; set; }
-
-        /// <summary>
-        /// Gets or Sets LatestBuild
-        /// </summary>
-        [DataMember(Name = "latestBuild", EmitDefaultValue = false)]
-        public Build LatestBuild { get; set; }
-
-        /// <summary>
-        /// Gets or Sets LatestCompletedBuild
-        /// </summary>
-        [DataMember(Name = "latestCompletedBuild", EmitDefaultValue = false)]
-        public Build LatestCompletedBuild { get; set; }
-
-        /// <summary>
-        /// Gets or Sets Metrics
-        /// </summary>
-        [DataMember(Name = "metrics", EmitDefaultValue = false)]
-        public List<BuildMetric> Metrics { get; set; }
-
-        /// <summary>
-        /// Gets or Sets Queue
-        /// </summary>
-        [DataMember(Name = "queue", EmitDefaultValue = false)]
-        public AgentPoolQueue Queue { get; set; }
 
         /// <summary>
         /// The date this version of the definition was created.
@@ -269,6 +220,55 @@ namespace Org.OpenAPITools.Model
         public string Url { get; set; }
 
         /// <summary>
+        /// Gets or Sets Links
+        /// </summary>
+        [DataMember(Name = "_links", EmitDefaultValue = false)]
+        public ReferenceLinks Links { get; set; }
+
+        /// <summary>
+        /// Gets or Sets AuthoredBy
+        /// </summary>
+        [DataMember(Name = "authoredBy", EmitDefaultValue = false)]
+        public IdentityRef AuthoredBy { get; set; }
+
+        /// <summary>
+        /// Gets or Sets DraftOf
+        /// </summary>
+        [DataMember(Name = "draftOf", EmitDefaultValue = false)]
+        public DefinitionReference DraftOf { get; set; }
+
+        /// <summary>
+        /// The list of drafts associated with this definition, if this is not a draft definition.
+        /// </summary>
+        /// <value>The list of drafts associated with this definition, if this is not a draft definition.</value>
+        [DataMember(Name = "drafts", EmitDefaultValue = false)]
+        public List<DefinitionReference> Drafts { get; set; }
+
+        /// <summary>
+        /// Gets or Sets LatestBuild
+        /// </summary>
+        [DataMember(Name = "latestBuild", EmitDefaultValue = false)]
+        public Build LatestBuild { get; set; }
+
+        /// <summary>
+        /// Gets or Sets LatestCompletedBuild
+        /// </summary>
+        [DataMember(Name = "latestCompletedBuild", EmitDefaultValue = false)]
+        public Build LatestCompletedBuild { get; set; }
+
+        /// <summary>
+        /// Gets or Sets Metrics
+        /// </summary>
+        [DataMember(Name = "metrics", EmitDefaultValue = false)]
+        public List<BuildMetric> Metrics { get; set; }
+
+        /// <summary>
+        /// Gets or Sets Queue
+        /// </summary>
+        [DataMember(Name = "queue", EmitDefaultValue = false)]
+        public AgentPoolQueue Queue { get; set; }
+
+        /// <summary>
         /// Returns the string presentation of the object
         /// </summary>
         /// <returns>String presentation of the object</returns>
@@ -276,15 +276,6 @@ namespace Org.OpenAPITools.Model
         {
             StringBuilder sb = new StringBuilder();
             sb.Append("class BuildDefinitionReference {\n");
-            sb.Append("  Links: ").Append(Links).Append("\n");
-            sb.Append("  AuthoredBy: ").Append(AuthoredBy).Append("\n");
-            sb.Append("  DraftOf: ").Append(DraftOf).Append("\n");
-            sb.Append("  Drafts: ").Append(Drafts).Append("\n");
-            sb.Append("  LatestBuild: ").Append(LatestBuild).Append("\n");
-            sb.Append("  LatestCompletedBuild: ").Append(LatestCompletedBuild).Append("\n");
-            sb.Append("  Metrics: ").Append(Metrics).Append("\n");
-            sb.Append("  Quality: ").Append(Quality).Append("\n");
-            sb.Append("  Queue: ").Append(Queue).Append("\n");
             sb.Append("  CreatedDate: ").Append(CreatedDate).Append("\n");
             sb.Append("  Id: ").Append(Id).Append("\n");
             sb.Append("  Name: ").Append(Name).Append("\n");
@@ -295,6 +286,15 @@ namespace Org.OpenAPITools.Model
             sb.Append("  Type: ").Append(Type).Append("\n");
             sb.Append("  Uri: ").Append(Uri).Append("\n");
             sb.Append("  Url: ").Append(Url).Append("\n");
+            sb.Append("  Links: ").Append(Links).Append("\n");
+            sb.Append("  AuthoredBy: ").Append(AuthoredBy).Append("\n");
+            sb.Append("  DraftOf: ").Append(DraftOf).Append("\n");
+            sb.Append("  Drafts: ").Append(Drafts).Append("\n");
+            sb.Append("  LatestBuild: ").Append(LatestBuild).Append("\n");
+            sb.Append("  LatestCompletedBuild: ").Append(LatestCompletedBuild).Append("\n");
+            sb.Append("  Metrics: ").Append(Metrics).Append("\n");
+            sb.Append("  Quality: ").Append(Quality).Append("\n");
+            sb.Append("  Queue: ").Append(Queue).Append("\n");
             sb.Append("}\n");
             return sb.ToString();
         }

@@ -27,7 +27,7 @@ using OpenAPIDateConverter = Org.OpenAPITools.Client.OpenAPIDateConverter;
 namespace Org.OpenAPITools.Model
 {
     /// <summary>
-    /// Represents the timeline of a build.
+    /// Timeline
     /// </summary>
     [DataContract(Name = "Timeline")]
     public partial class Timeline : IValidatableObject
@@ -35,41 +35,21 @@ namespace Org.OpenAPITools.Model
         /// <summary>
         /// Initializes a new instance of the <see cref="Timeline" /> class.
         /// </summary>
-        /// <param name="lastChangedBy">The process or person that last changed the timeline..</param>
-        /// <param name="lastChangedOn">The time the timeline was last changed..</param>
-        /// <param name="records">records.</param>
         /// <param name="changeId">The change ID..</param>
         /// <param name="id">The ID of the timeline..</param>
         /// <param name="url">The REST URL of the timeline..</param>
-        public Timeline(Guid lastChangedBy = default, DateTime lastChangedOn = default, List<TimelineRecord> records = default, int changeId = default, Guid id = default, string url = default)
+        /// <param name="lastChangedBy">The process or person that last changed the timeline..</param>
+        /// <param name="lastChangedOn">The time the timeline was last changed..</param>
+        /// <param name="records">records.</param>
+        public Timeline(int changeId = default, Guid id = default, string url = default, Guid lastChangedBy = default, DateTime lastChangedOn = default, List<TimelineRecord> records = default)
         {
-            this.LastChangedBy = lastChangedBy;
-            this.LastChangedOn = lastChangedOn;
-            this.Records = records;
             this.ChangeId = changeId;
             this.Id = id;
             this.Url = url;
+            this.LastChangedBy = lastChangedBy;
+            this.LastChangedOn = lastChangedOn;
+            this.Records = records;
         }
-
-        /// <summary>
-        /// The process or person that last changed the timeline.
-        /// </summary>
-        /// <value>The process or person that last changed the timeline.</value>
-        [DataMember(Name = "lastChangedBy", EmitDefaultValue = false)]
-        public Guid LastChangedBy { get; set; }
-
-        /// <summary>
-        /// The time the timeline was last changed.
-        /// </summary>
-        /// <value>The time the timeline was last changed.</value>
-        [DataMember(Name = "lastChangedOn", EmitDefaultValue = false)]
-        public DateTime LastChangedOn { get; set; }
-
-        /// <summary>
-        /// Gets or Sets Records
-        /// </summary>
-        [DataMember(Name = "records", EmitDefaultValue = false)]
-        public List<TimelineRecord> Records { get; set; }
 
         /// <summary>
         /// The change ID.
@@ -93,6 +73,26 @@ namespace Org.OpenAPITools.Model
         public string Url { get; set; }
 
         /// <summary>
+        /// The process or person that last changed the timeline.
+        /// </summary>
+        /// <value>The process or person that last changed the timeline.</value>
+        [DataMember(Name = "lastChangedBy", EmitDefaultValue = false)]
+        public Guid LastChangedBy { get; set; }
+
+        /// <summary>
+        /// The time the timeline was last changed.
+        /// </summary>
+        /// <value>The time the timeline was last changed.</value>
+        [DataMember(Name = "lastChangedOn", EmitDefaultValue = false)]
+        public DateTime LastChangedOn { get; set; }
+
+        /// <summary>
+        /// Gets or Sets Records
+        /// </summary>
+        [DataMember(Name = "records", EmitDefaultValue = false)]
+        public List<TimelineRecord> Records { get; set; }
+
+        /// <summary>
         /// Returns the string presentation of the object
         /// </summary>
         /// <returns>String presentation of the object</returns>
@@ -100,12 +100,12 @@ namespace Org.OpenAPITools.Model
         {
             StringBuilder sb = new StringBuilder();
             sb.Append("class Timeline {\n");
-            sb.Append("  LastChangedBy: ").Append(LastChangedBy).Append("\n");
-            sb.Append("  LastChangedOn: ").Append(LastChangedOn).Append("\n");
-            sb.Append("  Records: ").Append(Records).Append("\n");
             sb.Append("  ChangeId: ").Append(ChangeId).Append("\n");
             sb.Append("  Id: ").Append(Id).Append("\n");
             sb.Append("  Url: ").Append(Url).Append("\n");
+            sb.Append("  LastChangedBy: ").Append(LastChangedBy).Append("\n");
+            sb.Append("  LastChangedOn: ").Append(LastChangedOn).Append("\n");
+            sb.Append("  Records: ").Append(Records).Append("\n");
             sb.Append("}\n");
             return sb.ToString();
         }

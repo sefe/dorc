@@ -56,21 +56,21 @@ namespace Org.OpenAPITools.Test.Model
         }
 
         /// <summary>
-        /// Test the property 'TimelineRecords'
-        /// </summary>
-        [Fact]
-        public void TimelineRecordsTest()
-        {
-            // TODO unit test for the property 'TimelineRecords'
-        }
-
-        /// <summary>
         /// Test the property 'BuildId'
         /// </summary>
         [Fact]
         public void BuildIdTest()
         {
             // TODO unit test for the property 'BuildId'
+        }
+
+        /// <summary>
+        /// Test the property 'TimelineRecords'
+        /// </summary>
+        [Fact]
+        public void TimelineRecordsTest()
+        {
+            // TODO unit test for the property 'TimelineRecords'
         }
     }
 }

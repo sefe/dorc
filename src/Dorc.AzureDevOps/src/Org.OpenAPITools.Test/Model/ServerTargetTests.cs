@@ -56,21 +56,21 @@ namespace Org.OpenAPITools.Test.Model
         }
 
         /// <summary>
-        /// Test the property 'ExecutionOptions'
-        /// </summary>
-        [Fact]
-        public void ExecutionOptionsTest()
-        {
-            // TODO unit test for the property 'ExecutionOptions'
-        }
-
-        /// <summary>
         /// Test the property 'Type'
         /// </summary>
         [Fact]
         public void TypeTest()
         {
             // TODO unit test for the property 'Type'
+        }
+
+        /// <summary>
+        /// Test the property 'ExecutionOptions'
+        /// </summary>
+        [Fact]
+        public void ExecutionOptionsTest()
+        {
+            // TODO unit test for the property 'ExecutionOptions'
         }
     }
 }

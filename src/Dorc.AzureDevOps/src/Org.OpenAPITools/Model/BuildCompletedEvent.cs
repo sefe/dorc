@@ -35,23 +35,35 @@ namespace Org.OpenAPITools.Model
         /// <summary>
         /// Initializes a new instance of the <see cref="BuildCompletedEvent" /> class.
         /// </summary>
+        /// <param name="buildId">buildId.</param>
+        /// <param name="build">build.</param>
         /// <param name="changes">Changes associated with a build used for build notifications.</param>
         /// <param name="pullRequest">pullRequest.</param>
         /// <param name="testResults">testResults.</param>
         /// <param name="timelineRecords">Timeline records associated with a build used for build notifications.</param>
         /// <param name="workItems">Work items associated with a build used for build notifications.</param>
-        /// <param name="build">build.</param>
-        /// <param name="buildId">buildId.</param>
-        public BuildCompletedEvent(List<Change> changes = default, PullRequest pullRequest = default, AggregatedResultsAnalysis testResults = default, List<TimelineRecord> timelineRecords = default, List<AssociatedWorkItem> workItems = default, Build build = default, int buildId = default)
+        public BuildCompletedEvent(int buildId = default, Build build = default, List<Change> changes = default, PullRequest pullRequest = default, AggregatedResultsAnalysis testResults = default, List<TimelineRecord> timelineRecords = default, List<AssociatedWorkItem> workItems = default)
         {
+            this.BuildId = buildId;
+            this.Build = build;
             this.Changes = changes;
             this.PullRequest = pullRequest;
             this.TestResults = testResults;
             this.TimelineRecords = timelineRecords;
             this.WorkItems = workItems;
-            this.Build = build;
-            this.BuildId = buildId;
         }
+
+        /// <summary>
+        /// Gets or Sets BuildId
+        /// </summary>
+        [DataMember(Name = "buildId", EmitDefaultValue = false)]
+        public int BuildId { get; set; }
+
+        /// <summary>
+        /// Gets or Sets Build
+        /// </summary>
+        [DataMember(Name = "build", EmitDefaultValue = false)]
+        public Build Build { get; set; }
 
         /// <summary>
         /// Changes associated with a build used for build notifications
@@ -87,18 +99,6 @@ namespace Org.OpenAPITools.Model
         public List<AssociatedWorkItem> WorkItems { get; set; }
 
         /// <summary>
-        /// Gets or Sets Build
-        /// </summary>
-        [DataMember(Name = "build", EmitDefaultValue = false)]
-        public Build Build { get; set; }
-
-        /// <summary>
-        /// Gets or Sets BuildId
-        /// </summary>
-        [DataMember(Name = "buildId", EmitDefaultValue = false)]
-        public int BuildId { get; set; }
-
-        /// <summary>
         /// Returns the string presentation of the object
         /// </summary>
         /// <returns>String presentation of the object</returns>
@@ -106,13 +106,13 @@ namespace Org.OpenAPITools.Model
         {
             StringBuilder sb = new StringBuilder();
             sb.Append("class BuildCompletedEvent {\n");
+            sb.Append("  BuildId: ").Append(BuildId).Append("\n");
+            sb.Append("  Build: ").Append(Build).Append("\n");
             sb.Append("  Changes: ").Append(Changes).Append("\n");
             sb.Append("  PullRequest: ").Append(PullRequest).Append("\n");
             sb.Append("  TestResults: ").Append(TestResults).Append("\n");
             sb.Append("  TimelineRecords: ").Append(TimelineRecords).Append("\n");
             sb.Append("  WorkItems: ").Append(WorkItems).Append("\n");
-            sb.Append("  Build: ").Append(Build).Append("\n");
-            sb.Append("  BuildId: ").Append(BuildId).Append("\n");
             sb.Append("}\n");
             return sb.ToString();
         }

@@ -56,6 +56,15 @@ namespace Org.OpenAPITools.Test.Model
         }
 
         /// <summary>
+        /// Test the property 'Id'
+        /// </summary>
+        [Fact]
+        public void IdTest()
+        {
+            // TODO unit test for the property 'Id'
+        }
+
+        /// <summary>
         /// Test the property 'Description'
         /// </summary>
         [Fact]
@@ -98,15 +107,6 @@ namespace Org.OpenAPITools.Test.Model
         public void OrdinalTest()
         {
             // TODO unit test for the property 'Ordinal'
-        }
-
-        /// <summary>
-        /// Test the property 'Id'
-        /// </summary>
-        [Fact]
-        public void IdTest()
-        {
-            // TODO unit test for the property 'Id'
         }
     }
 }

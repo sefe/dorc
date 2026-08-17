@@ -27,7 +27,7 @@ using OpenAPIDateConverter = Org.OpenAPITools.Client.OpenAPIDateConverter;
 namespace Org.OpenAPITools.Model
 {
     /// <summary>
-    /// Represents a YAML process.
+    /// YamlProcess
     /// </summary>
     [DataContract(Name = "YamlProcess")]
     public partial class YamlProcess : IValidatableObject
@@ -35,17 +35,24 @@ namespace Org.OpenAPITools.Model
         /// <summary>
         /// Initializes a new instance of the <see cref="YamlProcess" /> class.
         /// </summary>
+        /// <param name="type">The type of the process..</param>
         /// <param name="errors">errors.</param>
         /// <param name="resources">resources.</param>
         /// <param name="yamlFilename">The YAML filename..</param>
-        /// <param name="type">The type of the process..</param>
-        public YamlProcess(List<string> errors = default, BuildProcessResources resources = default, string yamlFilename = default, int type = default)
+        public YamlProcess(int type = default, List<string> errors = default, BuildProcessResources resources = default, string yamlFilename = default)
         {
+            this.Type = type;
             this.Errors = errors;
             this.Resources = resources;
             this.YamlFilename = yamlFilename;
-            this.Type = type;
         }
+
+        /// <summary>
+        /// The type of the process.
+        /// </summary>
+        /// <value>The type of the process.</value>
+        [DataMember(Name = "type", EmitDefaultValue = false)]
+        public int Type { get; set; }
 
         /// <summary>
         /// Gets or Sets Errors
@@ -67,13 +74,6 @@ namespace Org.OpenAPITools.Model
         public string YamlFilename { get; set; }
 
         /// <summary>
-        /// The type of the process.
-        /// </summary>
-        /// <value>The type of the process.</value>
-        [DataMember(Name = "type", EmitDefaultValue = false)]
-        public int Type { get; set; }
-
-        /// <summary>
         /// Returns the string presentation of the object
         /// </summary>
         /// <returns>String presentation of the object</returns>
@@ -81,10 +81,10 @@ namespace Org.OpenAPITools.Model
         {
             StringBuilder sb = new StringBuilder();
             sb.Append("class YamlProcess {\n");
+            sb.Append("  Type: ").Append(Type).Append("\n");
             sb.Append("  Errors: ").Append(Errors).Append("\n");
             sb.Append("  Resources: ").Append(Resources).Append("\n");
             sb.Append("  YamlFilename: ").Append(YamlFilename).Append("\n");
-            sb.Append("  Type: ").Append(Type).Append("\n");
             sb.Append("}\n");
             return sb.ToString();
         }

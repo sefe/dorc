@@ -56,21 +56,21 @@ namespace Org.OpenAPITools.Test.Model
         }
 
         /// <summary>
-        /// Test the property 'Value'
-        /// </summary>
-        [Fact]
-        public void ValueTest()
-        {
-            // TODO unit test for the property 'Value'
-        }
-
-        /// <summary>
         /// Test the property 'Count'
         /// </summary>
         [Fact]
         public void CountTest()
         {
             // TODO unit test for the property 'Count'
+        }
+
+        /// <summary>
+        /// Test the property 'Value'
+        /// </summary>
+        [Fact]
+        public void ValueTest()
+        {
+            // TODO unit test for the property 'Value'
         }
     }
 }

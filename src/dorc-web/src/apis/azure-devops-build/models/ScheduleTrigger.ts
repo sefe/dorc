@@ -18,7 +18,6 @@ import type {
 
 /**
  * @type ScheduleTrigger
- * Represents a schedule trigger.
  * @export
  */
 export type ScheduleTrigger = BuildTrigger;

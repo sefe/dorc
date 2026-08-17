@@ -17,7 +17,6 @@ import type {
 
 /**
  * @type VariableMultipliersServerExecutionOptions
- * Represents options for running a phase based on values specified by a list of variables.
  * @export
  */
 export type VariableMultipliersServerExecutionOptions = ServerTargetExecutionOptions;

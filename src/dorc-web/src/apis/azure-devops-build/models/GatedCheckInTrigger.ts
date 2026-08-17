@@ -17,7 +17,6 @@ import type {
 
 /**
  * @type GatedCheckInTrigger
- * Represents a gated check-in trigger.
  * @export
  */
 export type GatedCheckInTrigger = BuildTrigger;

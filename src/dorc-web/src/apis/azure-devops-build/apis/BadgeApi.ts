@@ -40,6 +40,7 @@ export class BadgeApi extends BaseAPI {
 
     /**
      * This endpoint is deprecated. Please see the Build Status REST endpoint.
+     * @deprecated
      */
     badgeGet({ organization, project, definitionId, apiVersion, branchName }: BadgeGetRequest): Observable<string>
     badgeGet({ organization, project, definitionId, apiVersion, branchName }: BadgeGetRequest, opts?: OperationOpts): Observable<AjaxResponse<string>>

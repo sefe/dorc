@@ -27,7 +27,7 @@ using OpenAPIDateConverter = Org.OpenAPITools.Client.OpenAPIDateConverter;
 namespace Org.OpenAPITools.Model
 {
     /// <summary>
-    /// Represents a reference to a secure file.
+    /// SecureFileReference
     /// </summary>
     [DataContract(Name = "SecureFileReference")]
     public partial class SecureFileReference : IValidatableObject
@@ -35,20 +35,13 @@ namespace Org.OpenAPITools.Model
         /// <summary>
         /// Initializes a new instance of the <see cref="SecureFileReference" /> class.
         /// </summary>
-        /// <param name="id">The ID of the secure file..</param>
         /// <param name="alias">An alias to be used when referencing the resource..</param>
-        public SecureFileReference(Guid id = default, string alias = default)
+        /// <param name="id">The ID of the secure file..</param>
+        public SecureFileReference(string alias = default, Guid id = default)
         {
-            this.Id = id;
             this.Alias = alias;
+            this.Id = id;
         }
-
-        /// <summary>
-        /// The ID of the secure file.
-        /// </summary>
-        /// <value>The ID of the secure file.</value>
-        [DataMember(Name = "id", EmitDefaultValue = false)]
-        public Guid Id { get; set; }
 
         /// <summary>
         /// An alias to be used when referencing the resource.
@@ -58,6 +51,13 @@ namespace Org.OpenAPITools.Model
         public string Alias { get; set; }
 
         /// <summary>
+        /// The ID of the secure file.
+        /// </summary>
+        /// <value>The ID of the secure file.</value>
+        [DataMember(Name = "id", EmitDefaultValue = false)]
+        public Guid Id { get; set; }
+
+        /// <summary>
         /// Returns the string presentation of the object
         /// </summary>
         /// <returns>String presentation of the object</returns>
@@ -65,8 +65,8 @@ namespace Org.OpenAPITools.Model
         {
             StringBuilder sb = new StringBuilder();
             sb.Append("class SecureFileReference {\n");
-            sb.Append("  Id: ").Append(Id).Append("\n");
             sb.Append("  Alias: ").Append(Alias).Append("\n");
+            sb.Append("  Id: ").Append(Id).Append("\n");
             sb.Append("}\n");
             return sb.ToString();
         }

@@ -18,7 +18,6 @@ import type {
 
 /**
  * @type PullRequestTrigger
- * Represents a pull request trigger.
  * @export
  */
 export type PullRequestTrigger = BuildTrigger;

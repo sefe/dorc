@@ -27,7 +27,7 @@ using OpenAPIDateConverter = Org.OpenAPITools.Client.OpenAPIDateConverter;
 namespace Org.OpenAPITools.Model
 {
     /// <summary>
-    /// Represents a gated check-in trigger.
+    /// GatedCheckInTrigger
     /// </summary>
     [DataContract(Name = "GatedCheckInTrigger")]
     public partial class GatedCheckInTrigger : IValidatableObject
@@ -104,16 +104,16 @@ namespace Org.OpenAPITools.Model
         /// <summary>
         /// Initializes a new instance of the <see cref="GatedCheckInTrigger" /> class.
         /// </summary>
+        /// <param name="triggerType">The type of the trigger..</param>
         /// <param name="pathFilters">pathFilters.</param>
         /// <param name="runContinuousIntegration">Indicates whether CI triggers should run after the gated check-in succeeds..</param>
         /// <param name="useWorkspaceMappings">Indicates whether to take workspace mappings into account when determining whether a build should run..</param>
-        /// <param name="triggerType">The type of the trigger..</param>
-        public GatedCheckInTrigger(List<string> pathFilters = default, bool runContinuousIntegration = default, bool useWorkspaceMappings = default, TriggerTypeEnum? triggerType = default)
+        public GatedCheckInTrigger(TriggerTypeEnum? triggerType = default, List<string> pathFilters = default, bool runContinuousIntegration = default, bool useWorkspaceMappings = default)
         {
+            this.TriggerType = triggerType;
             this.PathFilters = pathFilters;
             this.RunContinuousIntegration = runContinuousIntegration;
             this.UseWorkspaceMappings = useWorkspaceMappings;
-            this.TriggerType = triggerType;
         }
 
         /// <summary>
@@ -144,10 +144,10 @@ namespace Org.OpenAPITools.Model
         {
             StringBuilder sb = new StringBuilder();
             sb.Append("class GatedCheckInTrigger {\n");
+            sb.Append("  TriggerType: ").Append(TriggerType).Append("\n");
             sb.Append("  PathFilters: ").Append(PathFilters).Append("\n");
             sb.Append("  RunContinuousIntegration: ").Append(RunContinuousIntegration).Append("\n");
             sb.Append("  UseWorkspaceMappings: ").Append(UseWorkspaceMappings).Append("\n");
-            sb.Append("  TriggerType: ").Append(TriggerType).Append("\n");
             sb.Append("}\n");
             return sb.ToString();
         }

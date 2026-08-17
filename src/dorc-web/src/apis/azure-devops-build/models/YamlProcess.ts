@@ -18,7 +18,6 @@ import type {
 
 /**
  * @type YamlProcess
- * Represents a YAML process.
  * @export
  */
 export type YamlProcess = BuildProcess;

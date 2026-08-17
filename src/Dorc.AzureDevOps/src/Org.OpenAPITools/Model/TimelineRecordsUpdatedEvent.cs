@@ -35,25 +35,25 @@ namespace Org.OpenAPITools.Model
         /// <summary>
         /// Initializes a new instance of the <see cref="TimelineRecordsUpdatedEvent" /> class.
         /// </summary>
-        /// <param name="timelineRecords">timelineRecords.</param>
         /// <param name="buildId">buildId.</param>
-        public TimelineRecordsUpdatedEvent(List<TimelineRecord> timelineRecords = default, int buildId = default)
+        /// <param name="timelineRecords">timelineRecords.</param>
+        public TimelineRecordsUpdatedEvent(int buildId = default, List<TimelineRecord> timelineRecords = default)
         {
-            this.TimelineRecords = timelineRecords;
             this.BuildId = buildId;
+            this.TimelineRecords = timelineRecords;
         }
-
-        /// <summary>
-        /// Gets or Sets TimelineRecords
-        /// </summary>
-        [DataMember(Name = "timelineRecords", EmitDefaultValue = false)]
-        public List<TimelineRecord> TimelineRecords { get; set; }
 
         /// <summary>
         /// Gets or Sets BuildId
         /// </summary>
         [DataMember(Name = "buildId", EmitDefaultValue = false)]
         public int BuildId { get; set; }
+
+        /// <summary>
+        /// Gets or Sets TimelineRecords
+        /// </summary>
+        [DataMember(Name = "timelineRecords", EmitDefaultValue = false)]
+        public List<TimelineRecord> TimelineRecords { get; set; }
 
         /// <summary>
         /// Returns the string presentation of the object
@@ -63,8 +63,8 @@ namespace Org.OpenAPITools.Model
         {
             StringBuilder sb = new StringBuilder();
             sb.Append("class TimelineRecordsUpdatedEvent {\n");
-            sb.Append("  TimelineRecords: ").Append(TimelineRecords).Append("\n");
             sb.Append("  BuildId: ").Append(BuildId).Append("\n");
+            sb.Append("  TimelineRecords: ").Append(TimelineRecords).Append("\n");
             sb.Append("}\n");
             return sb.ToString();
         }

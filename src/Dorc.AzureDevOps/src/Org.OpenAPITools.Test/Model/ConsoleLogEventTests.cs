@@ -56,6 +56,15 @@ namespace Org.OpenAPITools.Test.Model
         }
 
         /// <summary>
+        /// Test the property 'BuildId'
+        /// </summary>
+        [Fact]
+        public void BuildIdTest()
+        {
+            // TODO unit test for the property 'BuildId'
+        }
+
+        /// <summary>
         /// Test the property 'Lines'
         /// </summary>
         [Fact]
@@ -89,15 +98,6 @@ namespace Org.OpenAPITools.Test.Model
         public void TimelineRecordIdTest()
         {
             // TODO unit test for the property 'TimelineRecordId'
-        }
-
-        /// <summary>
-        /// Test the property 'BuildId'
-        /// </summary>
-        [Fact]
-        public void BuildIdTest()
-        {
-            // TODO unit test for the property 'BuildId'
         }
     }
 }

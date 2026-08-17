@@ -17,7 +17,6 @@ import type {
 
 /**
  * @type DeploymentDeploy
- * Deployment information for type \"Deploy\"
  * @export
  */
 export type DeploymentDeploy = Deployment;
