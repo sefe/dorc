@@ -17,6 +17,15 @@ namespace Dorc.Core
         // whether to fall back to onPremisesSecurityIdentifier filter queries on direct-lookup 404.
         private static readonly Regex AdSidShape = new("^S-1-(5|12)-\\d+(-\\d+)*$", RegexOptions.Compiled);
 
+        // Graph's maximum $top for directory collections; keeps the page count low when
+        // draining nextLink.
+        private const int MaxPageSize = 999;
+
+        // Hard cap on nextLink follows. At MaxPageSize this covers ~50k group memberships —
+        // far beyond any real principal — while guaranteeing the drain loop terminates even
+        // if Graph returns a self-referential or endlessly repeating nextLink.
+        private const int MaxPages = 50;
+
         private readonly string _tenantId;
         private readonly string _clientId;
         private readonly string _clientSecret;
@@ -103,6 +112,13 @@ namespace Dorc.Core
             return name != null && Regex.IsMatch(name, @"\A[a-zA-Z0-9'_. -]+(\(External\))?\z");
         }
 
+        // Graph accepts an object id (GUID) or a UPN as a /users/{x} path segment. A bare
+        // sAMAccountName is neither and yields 400, so callers must resolve it first.
+        private static bool LooksLikeGraphUserIdentifier(string value)
+        {
+            return Guid.TryParse(value, out _) || value.Contains('@');
+        }
+
         // Broad-search guard. Deliberately wider than IsValidSearchName: this backs the
         // free-text people picker, so it must accept everything DirectorySearchController's
         // own contract accepts (letters, digits, - _ . ' space ( ) &) plus non-ASCII names
@@ -157,6 +173,7 @@ namespace Dorc.Core
                             DisplayName = user.DisplayName,
                             Pid = user.Id,
                             Sid = user.OnPremisesSecurityIdentifier,
+                            SamAccountName = user.OnPremisesSamAccountName,
                             IsGroup = false,
                             Email = user.Mail ?? user.UserPrincipalName
                         });
@@ -186,6 +203,7 @@ namespace Dorc.Core
                             DisplayName = group.DisplayName,
                             Pid = group.Id,
                             Sid = group.OnPremisesSecurityIdentifier,
+                            SamAccountName = group.OnPremisesSamAccountName,
                             IsGroup = true,
                             Email = group.Mail
                         });
@@ -222,7 +240,10 @@ namespace Dorc.Core
             var graphClient = GetGraphClient();
             var isSidShaped = AdSidShape.IsMatch(pid);
 
-            // Direct user lookup
+            // Direct user lookup. Skipped for SID-shaped input: Graph treats a non-GUID
+            // segment as a UPN and answers 400 Request_BadRequest (NOT 404) for an AD SID,
+            // so probing here would throw past the fallback below rather than fall through.
+            if (!isSidShaped)
             try
             {
                 var user = graphClient.Users[pid]
@@ -245,7 +266,8 @@ namespace Dorc.Core
                     };
                 }
             }
-            catch (ApiException ex) when (ex.ResponseStatusCode == (int)System.Net.HttpStatusCode.NotFound)
+            catch (ApiException ex) when (ex.ResponseStatusCode == (int)System.Net.HttpStatusCode.NotFound
+                                          || ex.ResponseStatusCode == (int)System.Net.HttpStatusCode.BadRequest)
             {
                 // Fall through to SID-shape user fallback / group lookup
             }
@@ -262,7 +284,8 @@ namespace Dorc.Core
                 if (hit != null) return hit;
             }
 
-            // Direct group lookup
+            // Direct group lookup — skipped for SID-shaped input, same 400 reason as above.
+            if (!isSidShaped)
             try
             {
                 var group = graphClient.Groups[pid]
@@ -285,7 +308,8 @@ namespace Dorc.Core
                     };
                 }
             }
-            catch (ApiException ex) when (ex.ResponseStatusCode == (int)System.Net.HttpStatusCode.NotFound)
+            catch (ApiException ex) when (ex.ResponseStatusCode == (int)System.Net.HttpStatusCode.NotFound
+                                          || ex.ResponseStatusCode == (int)System.Net.HttpStatusCode.BadRequest)
             {
                 // Fall through to SID-shape group fallback
             }
@@ -448,11 +472,28 @@ namespace Dorc.Core
             var result = new List<string> { userId };
             var graphClient = GetGraphClient();
 
+            // WinAuthClaimsPrincipalReader passes a bare sAMAccountName here (and
+            // ClaimsPrincipalReaderFactory a sAMAccountName-or-email when
+            // IsUseAdSidsForAccessControl is set). Graph only accepts an object id or a UPN
+            // as a path segment and answers 400 for anything else, so resolve first —
+            // the same step GetGroupSidIfUserIsMemberRecursive already performs.
+            var graphUserId = LooksLikeGraphUserIdentifier(userId)
+                ? userId
+                : ResolveUserIdFromName(graphClient, userId);
+
+            if (string.IsNullOrEmpty(graphUserId))
+            {
+                // Unresolvable caller: return the raw input only. Every consumer treats a
+                // short list as deny, so this fails closed rather than throwing a 500.
+                _log.LogWarning("Unable to resolve the requested user to an Entra object id");
+                return result;
+            }
+
             try
             {
                 // Append the caller's own on-prem SID, if any — supports authz against legacy
                 // AccessControl.Sid rows that name the user directly (rather than a group).
-                var self = graphClient.Users[userId]
+                var self = graphClient.Users[graphUserId]
                     .GetAsync(req =>
                     {
                         req.QueryParameters.Select = new[] { "id", "onPremisesSecurityIdentifier" };
@@ -463,24 +504,29 @@ namespace Dorc.Core
                     result.Add(self.OnPremisesSecurityIdentifier);
                 }
             }
-            catch (Exception ex)
+            catch (ApiException ex) when (ex.ResponseStatusCode == (int)System.Net.HttpStatusCode.NotFound)
             {
-                // Logged but not fatal — the user-self lookup is a best-effort enrichment.
+                // Genuinely absent (cloud-only account) — not fatal, this is enrichment.
                 // Caller identity is intentionally omitted from the log message: CodeQL flagged
                 // it as PII when reached via authenticated call paths (e.g. GetUserEmail upstream).
-                _log.LogWarning(ex, "Unable to resolve onPremisesSecurityIdentifier for the requested user");
+                _log.LogWarning(ex, "No onPremisesSecurityIdentifier for the requested user");
             }
 
             try
             {
                 // Transitive group memberships — emits both `id` (Pid) and on-prem SID (Sid).
-                var memberOf = graphClient.Users[userId].TransitiveMemberOf.GraphGroup
+                var memberOf = graphClient.Users[graphUserId].TransitiveMemberOf.GraphGroup
                     .GetAsync(req =>
                     {
+                        req.QueryParameters.Top = MaxPageSize;
                         req.QueryParameters.Select = new[] { "id", "onPremisesSecurityIdentifier" };
                     }).GetAwaiter().GetResult();
 
-                if (memberOf?.Value != null)
+                // transitiveMemberOf is a PAGED collection (the replaced getMemberGroups
+                // action was not). Without draining nextLink a user in more than one page of
+                // groups silently loses ACL grants — and CachedUserGroupReader caches that.
+                var pagesRead = 0;
+                while (memberOf?.Value != null)
                 {
                     foreach (var group in memberOf.Value)
                     {
@@ -493,6 +539,23 @@ namespace Dorc.Core
                             result.Add(group.OnPremisesSecurityIdentifier);
                         }
                     }
+
+                    if (string.IsNullOrEmpty(memberOf.OdataNextLink))
+                    {
+                        break;
+                    }
+
+                    if (++pagesRead >= MaxPages)
+                    {
+                        // Fail loudly: silently returning a truncated authorization list is
+                        // exactly the defect this drain loop exists to prevent.
+                        throw new InvalidOperationException(
+                            $"Transitive group membership exceeded {MaxPages} pages; refusing to return a truncated authorization list.");
+                    }
+
+                    memberOf = graphClient.Users[graphUserId].TransitiveMemberOf.GraphGroup
+                        .WithUrl(memberOf.OdataNextLink)
+                        .GetAsync().GetAwaiter().GetResult();
                 }
             }
             catch (Exception ex)
@@ -542,7 +605,7 @@ namespace Dorc.Core
                 };
 
                 var isMember = graphClient.Users[resolvedUserId].CheckMemberGroups
-                    .PostAsCheckMemberGroupsPostResponseAsync(requestBody).Result;
+                    .PostAsCheckMemberGroupsPostResponseAsync(requestBody).GetAwaiter().GetResult();
 
                 if (isMember?.Value != null && isMember.Value.Any())
                 {
@@ -593,12 +656,31 @@ namespace Dorc.Core
                 {
                     req.Headers.Add("ConsistencyLevel", "eventual");
                     req.QueryParameters.Count = true;
+                    // Ask for 2 so an ambiguous name is detectable rather than silently
+                    // collapsed by FirstOrDefault.
+                    req.QueryParameters.Top = 2;
                     req.QueryParameters.Filter =
-                        $"onPremisesSamAccountName eq '{safe}' or userPrincipalName eq '{safe}'";
+                        $"accountEnabled eq true and (onPremisesSamAccountName eq '{safe}' or userPrincipalName eq '{safe}')";
                     req.QueryParameters.Select = new[] { "id" };
                 }).GetAwaiter().GetResult();
 
-            return users?.Value?.FirstOrDefault()?.Id;
+            var matches = users?.Value;
+            if (matches == null || matches.Count == 0)
+            {
+                return null;
+            }
+
+            // onPremisesSamAccountName is unique within a DOMAIN, not within a tenant. When
+            // several on-prem domains sync into one tenant the same name can resolve to more
+            // than one principal, and picking either would bind the caller to the wrong
+            // identity's group claims. Refuse instead of guessing.
+            if (matches.Count > 1)
+            {
+                _log.LogError("Directory name resolved to multiple Entra principals; refusing to guess an identity");
+                return null;
+            }
+
+            return matches[0].Id;
         }
     }
 }
