@@ -36,7 +36,7 @@ namespace Dorc.Api.Services
                 .Select(e => new GroupSearchResult
                 {
                     DisplayName = e.DisplayName,
-                    FullLogonName = $@"{domainName}\{e.DisplayName ?? e.Username}"
+                    FullLogonName = $@"{domainName}\{e.SamAccountName ?? e.DisplayName ?? e.Username}"
                 })
                 .ToList();
         }
@@ -49,6 +49,15 @@ namespace Dorc.Api.Services
 
         private static string? ResolveLogonName(UserElementApiModel e)
         {
+            // Prefer the synced sAMAccountName: ActiveDirectorySearchService built
+            // DOMAIN\sAMAccountName, and the UPN local part is frequently different
+            // (alice.smith@contoso.com vs asmith), which would produce a logon name that
+            // resolves to nobody.
+            if (!string.IsNullOrEmpty(e.SamAccountName))
+            {
+                return e.SamAccountName;
+            }
+
             if (!string.IsNullOrEmpty(e.Username))
             {
                 var at = e.Username.IndexOf('@');
