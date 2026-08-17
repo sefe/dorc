@@ -1,4 +1,4 @@
-namespace Dorc.Core.Configuration
+﻿namespace Dorc.Core.Configuration
 {
     public interface IConfigurationSettings
     {
@@ -46,6 +46,12 @@ namespace Dorc.Core.Configuration
         /// absent key to false and would ship this control silently off.
         /// </summary>
         bool? GetTerraformSeparateApproverRequired();
+
+        /// <summary>
+        /// Whether a script path resolving outside the script root refuses the deployment, or is
+        /// only reported. Absence means report.
+        /// </summary>
+        bool GetScriptPathEnforcementEnabled();
         bool GetIsProduction();
     }
 }
