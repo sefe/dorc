@@ -17,10 +17,10 @@ on:
     - cron: '23 6 * * 1'
   workflow_dispatch:
 
-# Needed to push the branch and open the pull request. Nothing else is granted.
-permissions:
-  contents: write
-  pull-requests: write
+# Nothing is granted by default. The single job below asks for exactly the two
+# scopes it needs, so a job added here later starts with no access rather than
+# inheriting write permissions it never asked for.
+permissions: {}
 
 concurrency:
   group: ado-build-spec-refresh
@@ -34,9 +34,20 @@ jobs:
   refresh:
     runs-on: ubuntu-latest
 
+    # Only what the branch push and `gh pr create` at the end of this job need.
+    permissions:
+      contents: write
+      pull-requests: write
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v7
+      with:
+        # Keep the token out of .git/config. `npm ci` below executes
+        # third-party package lifecycle scripts, and anything persisted here
+        # would be readable by all of them for the rest of the job. The push
+        # step authenticates explicitly instead, once that code has run.
+        persist-credentials: false
 
     - name: Setup Node.js
       uses: actions/setup-node@v7
@@ -91,10 +102,21 @@ jobs:
         set -euo pipefail
         git config user.name  'github-actions[bot]'
         git config user.email 'github-actions[bot]@users.noreply.github.com'
+
+        # Authenticate only now, after npm ci and the generator have run, so no
+        # third-party code in this job ever saw the token (checkout above uses
+        # persist-credentials: false). Actions masks the token in logs.
+        git remote set-url origin \
+          "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+
+        # Gives --force-with-lease a baseline to compare against; the branch
+        # will not exist on the first run, hence the || true.
+        git fetch origin "$BRANCH" || true
+
         git checkout -B "$BRANCH"
         git add -- src/dorc-web/src/apis src/Dorc.AzureDevOps
         git commit -m 'Refresh Azure DevOps Build spec and regenerate client'
-        git push --force-with-lease -u origin "$BRANCH"
+        git push --force-with-lease origin "$BRANCH"
 
         if [ -z "$(gh pr list --head "$BRANCH" --state open --json number --jq '.[].number')" ]; then
           gh pr create \
