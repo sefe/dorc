@@ -151,6 +151,8 @@ namespace Dorc.Monitor
                 // context rather than assumed to be the Monitor's own identity.
                 var readerIdentity = new ScriptGroupReaderIdentity(domainName, processAccountName);
 
+                Terraform.TerraformPlanStore? planStore = null;
+
                 try
                 {
                     Task scriptGroupPipeTask = _scriptGroupPipeServer.Start(
@@ -167,13 +169,20 @@ namespace Dorc.Monitor
 
                     _requestsPersistentSource.UpdateUncLogPath(requestId, uncLogPath);
 
-                    var planStorageDir = Path.Join(DorcProgramData.Root, "terraform-plans");
-                    if (!Directory.Exists(planStorageDir))
-                        Directory.CreateDirectory(planStorageDir);
+                    // The plan and its rendered content carry the variable values they were planned
+                    // with, so they get a directory of their own, restricted to this deployment's
+                    // identity, rather than the shared inherited-permission folder they used to
+                    // share with every plan the host had ever produced.
+                    planStore = Terraform.TerraformPlanStore.Reserve(
+                        logger,
+                        Path.Join(DorcProgramData.Root, "terraform-plans"),
+                        deploymentResult.Id,
+                        readerIdentity);
+
                     var terraformPlanFileName = deploymentResult.Id.CreateTerraformPlanBlobName();
-                    var terraformPlanFilePath = Path.Combine(planStorageDir, terraformPlanFileName);
+                    var terraformPlanFilePath = planStore.PathOf(terraformPlanFileName);
                     var terraformPlanContentFileName = deploymentResult.Id.CreateTerraformPlanContentBlobName();
-                    var terraformPlanContentFilePath = Path.Combine(planStorageDir, terraformPlanContentFileName);
+                    var terraformPlanContentFilePath = planStore.PathOf(terraformPlanContentFileName);
                     if (terreformOperation == TerraformRunnerOperations.ApplyPlan)
                     {
                         _azureStorageAccountWorker.DownloadFileFromBlobs(terraformPlanFileName, terraformPlanFilePath);
@@ -271,6 +280,13 @@ namespace Dorc.Monitor
                             // save Terraform human-readable plan file to Azure Storage Account
                             _azureStorageAccountWorker.SaveFileToBlobs(terraformPlanContentFilePath);
 
+                            // Both artefacts now have a durable copy in blob storage, which is
+                            // where the apply reads the plan back from - so the local ones, which
+                            // list the variable values the plan was made with, are withdrawn.
+                            // Reached only if both uploads returned: if either threw, the local
+                            // copy is the only copy and is deliberately left in place.
+                            planStore.Expire();
+
                             // Update status to WaitingConfirmation
                             _requestsPersistentSource.UpdateResultStatus(
                                 deploymentResult,
@@ -296,6 +312,15 @@ namespace Dorc.Monitor
                     // withdrawn as soon as that process is gone - on the failure and
                     // cancellation paths as much as the successful one.
                     _scriptGroupPipeServer.Expire(startedScriptGroupPipeName);
+
+                    if (terreformOperation == TerraformRunnerOperations.ApplyPlan)
+                    {
+                        // On the apply path the local plan is a cache of the blob that was
+                        // downloaded into it, so nothing is lost by withdrawing it whatever the
+                        // outcome. The plan path is the asymmetric one: there the local copy is
+                        // the original, and it is expired only once the upload has succeeded.
+                        planStore?.Expire();
+                    }
                 }
 
             }

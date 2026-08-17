@@ -34,7 +34,7 @@ Four rules determine the order below. They are stated up front because several a
 | S-004 | Contain expression evaluation by provenance | SD-1a, W-1, SC-01, SC-02 | **DONE** |
 | S-005 | Confine the build drop location | W-14, SC-05 | **DONE** |
 | S-006 | Remove resolved property values from runner logging | SD-6, W-7, SC-06 | **DONE** |
-| S-007 | Expire execution artefacts | SD-7, W-8, W-12, SC-08, SC-08a | **DONE** (W-8a deferred to S-021) |
+| S-007 | Expire execution artefacts | SD-7, W-8, W-12, SC-08, SC-08a | **DONE** (W-8a deferred to S-021, closed there) |
 | S-008 | Replace the null process security descriptor | SD-2, W-2, SC-04 | **DONE** — see the W-2 correction |
 | S-009 | Authenticate the script-group transport | SD-2, W-3, SC-04 | **DONE** — must ship in lockstep, see the step |
 | S-010 | Validate script paths at the write path | SD-5, W-5 | **DONE** (W-5a recorded, deferred to S-011) |
@@ -49,7 +49,7 @@ Four rules determine the order below. They are stated up front because several a
 | S-018 | Verify script content at the point of read | SD-5, W-5, SC-05 | S-017, U-14; **lockstep release** |
 | S-019 | Introduce config-value visibility classification | SD-3b, W-4 | **Server side DONE**; web UI outstanding, see the step |
 | S-020 | Introduce the credential provider abstraction | SD-4 | **DONE** |
-| S-021 | Bind execution identity to the environment | SD-4, W-6, W-15, SC-07 | **Binding DONE** — opt-in per environment; W-8a follows |
+| S-021 | Bind execution identity to the environment | SD-4, W-6, W-15, SC-07, W-8a | **DONE** — opt-in per environment; W-8a closed here |
 | S-022 | Record attribution reached and not reached | SD-8, W-9 | S-021 |
 | S-023 | Replace the expression compiler with a fixed grammar | SD-1b, W-1 | **DONE** |
 
@@ -466,6 +466,18 @@ Binding granularity is by sensitivity tier rather than per environment: the esta
 **The password reset controller is bound by identity but not by tier.** It resolves the environment's identity reference like every other site, so an environment that names one resets passwords under it. Its hard-coded non-production tier is left exactly as it was: correcting it would begin making production logons from the API process where none were made before, which is a change of behaviour for whoever owns that endpoint to make, not a side effect of this step. Both halves are now visible at one call site.
 
 **The Terraform gate insertion point was not established.** This step recorded that the Terraform component branch has no equivalent of the PowerShell branch's production-only gate, and that its insertion point must be found before identity gating can be applied uniformly. It has not been found. What this step delivers on the Terraform branch is identity *binding*, not identity *gating* — the Terraform dispatcher resolves the environment's identity exactly as the PowerShell one does, but there is still no place on that branch where a component is refused for being production-bound. That is unchanged from before this step and is not made worse by it; it is recorded here rather than closed.
+
+#### W-8a, picked up here
+
+The local Terraform plan directory is now one directory per deployment result under `%ProgramData%\dorc\terraform-plans`, with a protected access control list admitting the Monitor, SYSTEM, Administrators, and that deployment's own identity. The shared directory is what made restriction impossible before: an access control list over a folder every deployment writes into would have to admit every identity that deploys on the host, which is no restriction at all. Splitting the layout is what lets a single identity be named, and that identity only became environment-dependent in this step.
+
+The grant is on the directory rather than on the files because the files do not exist yet — `terraform plan -out` creates the binary plan and the Runner writes the rendered content, both as the deployment account. That is the difference from the script-group bundle, which the Monitor writes and can therefore grant per file.
+
+**Retention resolves the entanglement rather than ignoring it.** The plan path expires its local artefacts only after both blob uploads have returned, so a failed upload leaves the local copy in place — it is the only copy, and deleting it would turn a recoverable failure into a lost plan. The apply path expires unconditionally, on success and failure alike, because there the local file is a cache of the blob that was downloaded into it. A sweep on each reservation clears what an earlier deployment left behind, including artefacts written directly into the root before this layout existed — on a long-lived deployment host that backlog is every plan it has ever produced.
+
+Two things the sweep deliberately does not do: it never removes the directory being reserved, however old that directory looks, because an apply confirmed after the retention window has passed reserves a directory older than the cutoff; and it judges a directory's age by the newest artefact inside it rather than by the directory's own write time, which does not move when a file within it is written.
+
+**What is not covered by test.** The access control list itself. Applying one needs a Windows security authority, and these tests run wherever the build does — the same boundary the runner process descriptor tests draw. What is covered is the layout and the lifetime, which is what decides who *could* be admitted. The dispatcher's half of the lifetime is not reachable either: dispatch builds a Windows process security context from a real account before it ever touches the plan store.
 
 ### S-022 — Record attribution reached and not reached
 

@@ -118,9 +118,11 @@ namespace Dorc.Monitor.Pipes
         /// otherwise make the bundle unreadable. Access is granted on the file rather than the
         /// directory so that the deployment account can reach the bundle it is meant to consume
         /// and not those of concurrent deployments — the isolation that buys is per-deployment,
-        /// but the principal is not: it is one shared account per production/non-production
-        /// tier, so any process already running as it can still read that tier's in-flight
-        /// bundles. Narrowing the principal itself is S-021's job, not this one's.
+        /// but the principal need not be: an environment that names no execution identity of its
+        /// own still resolves to one shared account per production/non-production tier, so any
+        /// process already running as it can still read that tier's in-flight bundles. What
+        /// narrows the principal is the environment naming its own identity; that is a migration
+        /// per environment, not a property of this code.
         ///
         /// Reaching a file by path also needs traverse rights on its parents. Those come from
         /// the "Bypass traverse checking" right, which Windows grants to Everyone by default;
@@ -139,23 +141,21 @@ namespace Dorc.Monitor.Pipes
         {
             var account = readerIdentity.QualifiedAccountName;
 
+            // A misconfigured account name that resolves to a broad group would publish the
+            // bundle to it. The deployment will fail moments later when the logon is attempted
+            // with the same name, and the bundle is expired on that path - but not granting it
+            // in the first place is free.
+            if (!readerIdentity.TryResolveSecurityIdentifier(out var reader, out var refusal))
+            {
+                logger.LogError(
+                    $"{refusal} No access to the script group bundle '{filename}' has been granted, so the" +
+                    " Runner will be unable to read it unless it runs as an account the directory already" +
+                    " admits.");
+                return;
+            }
+
             try
             {
-                var reader = (SecurityIdentifier)new NTAccount(account).Translate(typeof(SecurityIdentifier));
-
-                if (IsTooBroadToHoldASecret(reader))
-                {
-                    // A misconfigured account name that resolves to a broad group would
-                    // publish the bundle to it. The deployment will fail moments later when
-                    // the logon is attempted with the same name, and the bundle is expired on
-                    // that path - but not granting it in the first place is free.
-                    logger.LogError(
-                        $"The configured deployment account '{account}' resolves to '{reader}', which is a" +
-                        " group broad enough that granting it access to the script group bundle would" +
-                        " disclose it. No access has been granted.");
-                    return;
-                }
-
                 var fileInfo = new FileInfo(filename);
                 var security = fileInfo.GetAccessControl();
                 security.AddAccessRule(new FileSystemAccessRule(
@@ -171,24 +171,6 @@ namespace Dorc.Monitor.Pipes
                     $" bundle '{filename}'. The Runner will be unable to read it unless it runs as an" +
                     $" account the directory already admits. Exception: {ex}");
             }
-        }
-
-        /// <summary>
-        /// Refuses the principals whose membership is effectively "anyone on the host". This is
-        /// a denylist of the catastrophic cases, not a general test for whether a SID names a
-        /// group — that needs the account's SID_NAME_USE, which has no managed API. A narrower
-        /// group slipping through still only reaches one bundle, for the seconds before the
-        /// logon fails on the same misconfigured name and the bundle is expired.
-        /// </summary>
-        private static bool IsTooBroadToHoldASecret(SecurityIdentifier sid)
-        {
-            return sid.IsWellKnown(WellKnownSidType.WorldSid)
-                || sid.IsWellKnown(WellKnownSidType.AuthenticatedUserSid)
-                || sid.IsWellKnown(WellKnownSidType.BuiltinUsersSid)
-                || sid.IsWellKnown(WellKnownSidType.BuiltinGuestsSid)
-                || sid.IsWellKnown(WellKnownSidType.InteractiveSid)
-                || sid.IsWellKnown(WellKnownSidType.NetworkSid)
-                || sid.IsWellKnown(WellKnownSidType.AnonymousSid);
         }
 
         /// <summary>
