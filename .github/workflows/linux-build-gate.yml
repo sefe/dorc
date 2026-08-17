@@ -118,8 +118,10 @@ jobs:
           #   MakeLikeProdController                              -> S-001 follow-up (see U-18)
           #   ResetAppPasswordController                          -> S-006
           #   ClaimsTransformer                                   -> S-007
-          #   DaemonStatusProbe, CoreRegistry                     -> S-005
-          suppress_allow='AccessControlController\.cs|AccountController\.cs|BundledRequestsController\.cs|DirectorySearchController\.cs|MakeLikeProdController\.cs|ResetAppPasswordController\.cs|CoreRegistry\.cs|ClaimsTransformer\.cs|DaemonStatusProbe\.cs'
+          #   DaemonStatusProbe                                   -> S-005
+          # CoreRegistry came off this list: its CA1416 pragma was replaced with an
+          # OperatingSystem.IsWindows() guard, which the analyzer accepts without suppression.
+          suppress_allow='AccessControlController\.cs|AccountController\.cs|BundledRequestsController\.cs|DirectorySearchController\.cs|MakeLikeProdController\.cs|ResetAppPasswordController\.cs|ClaimsTransformer\.cs|DaemonStatusProbe\.cs'
           if grep -rn -E 'SupportedOSPlatform\("windows"\)|#pragma warning disable CA1416' \
               $roots --include='*.cs' | grep -vE "$suppress_allow"; then
             echo "::error::New [SupportedOSPlatform(\"windows\")] or CA1416 pragma in the primary compile graph. These suppress the CA1416 gate — move the code to the worker rather than annotating it."
