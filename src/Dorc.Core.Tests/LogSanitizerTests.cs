@@ -83,5 +83,44 @@ namespace Dorc.Core.Tests
             // The substitution char prevents a parser from misinterpreting as a new entry.
             StringAssert.StartsWith(result, "alice_");
         }
+
+        [TestMethod]
+        [DataRow("\u0085", "NEL — a line terminator for .NET Regex multiline and JS log viewers")]
+        [DataRow("\u009B", "CSI — single-char ANSI escape introducer; blocking ESC alone is not enough")]
+        [DataRow("\u0080", "PAD — C1 control")]
+        [DataRow("\u2028", "LINE SEPARATOR")]
+        [DataRow("\u2029", "PARAGRAPH SEPARATOR")]
+        [DataRow("\u202E", "RLO — visually reverses the rest of the audit line")]
+        public void NonAsciiControlAndSeparators_AreStripped(string dangerous, string why)
+        {
+            var result = LogSanitizer.Sanitize("a" + dangerous + "b");
+
+            Assert.AreEqual("a_b", result, why);
+            Assert.IsFalse(result!.Contains(dangerous, StringComparison.Ordinal),
+                $"{why}: character survived sanitisation");
+        }
+
+        [TestMethod]
+        public void RealNames_WithNonAsciiLetters_SurviveUnchanged()
+        {
+            // The stripping must key off Unicode category, not "non-ASCII".
+            Assert.AreEqual("Müller", LogSanitizer.Sanitize("Müller"));
+            Assert.AreEqual("Łukasz", LogSanitizer.Sanitize("Łukasz"));
+            Assert.AreEqual("José", LogSanitizer.Sanitize("José"));
+        }
+
+        [TestMethod]
+        public void Truncation_DoesNotSplitSurrogatePair()
+        {
+            // 511 filler + a 2-char emoji: a naive 512 slice leaves a lone high surrogate,
+            // which serialises downstream as U+FFFD.
+            var input = new string('x', 511) + "\U0001F600";
+
+            var result = LogSanitizer.Sanitize(input)!;
+
+            Assert.IsFalse(char.IsHighSurrogate(result[^1]), "truncation left a dangling surrogate");
+            Assert.AreEqual(511, result.Length);
+        }
+
     }
 }
