@@ -174,9 +174,11 @@ namespace Dorc.Monitor.Pipes
         /// otherwise make the bundle unreadable. Access is granted on the file rather than the
         /// directory so that the deployment account can reach the bundle it is meant to consume
         /// and not those of concurrent deployments — the isolation that buys is per-deployment,
-        /// but the principal is not: it is one shared account per production/non-production
-        /// tier, so any process already running as it can still read that tier's in-flight
-        /// bundles. Narrowing the principal itself is S-021's job, not this one's.
+        /// but the principal need not be: an environment that names no execution identity of its
+        /// own still resolves to one shared account per production/non-production tier, so any
+        /// process already running as it can still read that tier's in-flight bundles. What
+        /// narrows the principal is the environment naming its own identity; that is a migration
+        /// per environment, not a property of this code.
         ///
         /// Reaching a file by path also needs traverse rights on its parents. Those come from
         /// the "Bypass traverse checking" right, which Windows grants to Everyone by default;
@@ -200,25 +202,23 @@ namespace Dorc.Monitor.Pipes
             // the first one.
             var filename = BundlePath(pipeName);
 
+            // A misconfigured account name that resolves to a broad group would publish the
+            // bundle to it. The deployment will fail moments later when the logon is attempted
+            // with the same name, and the bundle is expired on that path - but not granting it
+            // in the first place is free.
+            if (!readerIdentity.TryResolveSecurityIdentifier(out var reader, out var refusal))
+            {
+                logger.LogError(
+                    "{Refusal} No access to the script group bundle '{BundlePath}' has been granted, so the" +
+                    " Runner will be unable to read it unless it runs as an account the directory already" +
+                    " admits.",
+                    DeploymentPrincipal.SanitizeForLog(refusal ?? string.Empty),
+                    filename);
+                return;
+            }
+
             try
             {
-                var reader = (SecurityIdentifier)new NTAccount(account).Translate(typeof(SecurityIdentifier));
-
-                if (DeploymentPrincipal.IsTooBroadToHoldASecret(reader))
-                {
-                    // A misconfigured account name that resolves to a broad group would
-                    // publish the bundle to it. The deployment will fail moments later when
-                    // the logon is attempted with the same name, and the bundle is expired on
-                    // that path - but not granting it in the first place is free.
-                    logger.LogError(
-                        "The configured deployment account '{Account}' resolves to '{Sid}', which is a group" +
-                        " broad enough that granting it access to the script group bundle would disclose it." +
-                        " No access has been granted.",
-                        DeploymentPrincipal.SanitizeForLog(account),
-                        reader.Value);
-                    return;
-                }
-
                 var fileInfo = new FileInfo(filename);
                 var security = fileInfo.GetAccessControl();
                 security.AddAccessRule(new FileSystemAccessRule(
