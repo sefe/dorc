@@ -20,7 +20,6 @@
         string? GetIdentityServerClientId();
         string? GetOnePasswordIdentityServerApiSecretItemId();
         bool GetIsUseAdAsSearcher();
-        bool GetIsUseAdSidsForAccessControl();
 
         string GetAzureEntraTenantId();
         string GetAzureEntraClientId();

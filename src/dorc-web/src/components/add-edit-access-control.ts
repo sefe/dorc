@@ -475,14 +475,24 @@ export class AddEditAccessControl extends LitElement {
     );
   }
 
-  renderUserId(item: DirectoryPrincipalApiModel): unknown {
+  // Called with both a directory search result and an existing access-control row. Those
+  // now carry different property names (PrincipalId/OnPremisesSid vs Pid/Sid), so the two
+  // shapes are normalised here. Before the rename, structural typing quietly allowed the
+  // AccessControlApiModel case and read `Username`, which that type does not have — so the
+  // display-name comparison below was always true for grid rows.
+  renderUserId(
+    item: DirectoryPrincipalApiModel | AccessControlApiModel
+  ): unknown {
     if (!item) {
       return html``;
     }
-    const pid = item.PrincipalId ?? '';
-    const sid = item.OnPremisesSid ?? '';
+    const principal = item as Partial<DirectoryPrincipalApiModel>;
+    const access = item as Partial<AccessControlApiModel>;
+    const pid = principal.PrincipalId ?? access.Pid ?? '';
+    const sid = principal.OnPremisesSid ?? access.Sid ?? '';
+    const label = principal.Username ?? access.Name ?? '';
 
-    const hasAdditionalId = pid && pid !== item.Username;
+    const hasAdditionalId = pid && pid !== label;
     const additionalId = hasAdditionalId ? pid : sid;
 
     return additionalId
