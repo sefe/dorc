@@ -2,19 +2,19 @@
 status: IN REVIEW
 author: Agent
 date: 2026-05-28
-revised: 2026-08-17 (Round 4)
+revised: 2026-08-17 (Round 5 — Round 4 rejected by panel)
 issue: sefe/dorc#423
 folder: docs/api-split/
 supersedes_pr: sefe/dorc#424
 codebase_anchor: aebd286 (main, 2026-08-10) — re-anchored in Round 4; was aab79d14, 214 commits behind
-revision_round: 4
+revision_round: 5
 ---
 
 # HLPS: Replace AD with Microsoft Graph + Split `Dorc.Api` into a Linux-compatible API and a Windows-only worker
 
 | Field      | Value                       |
 |------------|-----------------------------|
-| **Status** | IN REVIEW (Round 4). Was APPROVED at Round 3; **re-opened 2026-08-17** because implementation of S-001/S-002/S-003/S-004/S-007 falsified four success criteria and surfaced five undocumented behavioural changes. See Appendix B. |
+| **Status** | IN REVIEW (Round 5 — the panel returned REVISION REQUIRED on Round 4; see Appendix C). Was APPROVED at Round 3; **re-opened 2026-08-17** because implementation of S-001/S-002/S-003/S-004/S-007 falsified four success criteria and surfaced five undocumented behavioural changes. See Appendix B. |
 | **Author** | Agent                       |
 | **Date**   | 2026-05-28                  |
 | **Issue**  | sefe/dorc#423               |
@@ -38,7 +38,7 @@ To meet (1) end-to-end, the entire compile graph of the primary API — not just
 
 ## 2. Observed Constraints from Today's Codebase
 
-All file references in this section are pinned to `aab79d14` (see frontmatter). Research carried over from PR #424 lives in [`research/`](research/) and may have drifted; treat it as background, not the source of truth.
+All file references in this section are pinned to `aebd286` (see frontmatter). Paths were re-verified at that commit in Round 5; the Round 4 re-anchor updated the frontmatter only, which is how a since-deleted file survived in SC-8b. Research carried over from PR #424 lives in [`research/`](research/) and may have drifted; treat it as background, not the source of truth.
 
 | Surface                  | Where it lives (`aab79d14`) | Linux alternative |
 |--------------------------|-------------------------------|--------------------|
@@ -166,7 +166,7 @@ The matrix below is derived from the `IActiveDirectorySearcher` contract *and* i
 - Folder reorganisation by "function" (`Identity/`, `Build/`, `Orchestration/`) inside the existing API.
 - Changing the public Swagger/REST surface of `Dorc.Api` in shape. (Behaviour envelope on Linux installs is covered by C-1 and SC-4.)
 - Hardening the shared-secret storage to DPAPI / Azure Key Vault. Separate concern (M-1/D-3 acknowledged).
-- Log-injection findings in `BundledRequestsController`, `MakeLikeProdController`, `ResetAppPasswordController`, `Deployment/Requests.cs` — see SC-8b.
+- Log-injection findings in `BundledRequestsController`, `MakeLikeProdController`, `ResetAppPasswordController`, `Dorc.Api/Services/RequestService.cs` (was `Deployment/Requests.cs`, which does not exist at `aebd286`) — see SC-8b.
 
 **Added in Round 4 — consequences of S-001 that were not stated at Round 3.** These are recorded
 as scope decisions rather than left as silent behaviour changes; each needs an explicit accept or
@@ -210,7 +210,7 @@ reject from the panel:
 - **SC-6** All existing unit and integration tests pass at parity with pre-split coverage; new contract tests cover the primary↔worker HTTP surface; new tests cover the Graph-backed AD code path against the parity matrix in §4.
 - **SC-7** MSI installer adds the worker as a Windows-only component without breaking existing upgrade paths.
 - **SC-8a** LDAP-injection findings on PR #424 (`DirectorySearchController` ×2) are eliminated by the Graph migration removing the LDAP code path. Verified by re-running the security scan post-merge.
-- **SC-8b** Log-injection findings (`BundledRequestsController`, `MakeLikeProdController`, `ResetAppPasswordController`, `Deployment/Requests.cs`) are addressed in dedicated SPECs carved out from the relevant IS steps (**S-006** for `ResetAppPasswordController` — corrected in Round 4, this said S-005, which is the WMI probe step and never touches that file; the others get their own SPEC under the step that touches them). Not deferred outside this HLPS.
+- **SC-8b** Log-injection findings (`BundledRequestsController`, `MakeLikeProdController`, `ResetAppPasswordController`, `Dorc.Api/Services/RequestService.cs` (was `Deployment/Requests.cs`, which does not exist at `aebd286`)) are addressed in dedicated SPECs carved out from the relevant IS steps (**S-009** for all four sites — see R4-5/R5-1: Round 3 said S-005, Round 4 changed it to S-006, and *both were wrong*. The IS assigns every log-injection fix to S-009 and states explicitly that S-006 is the worker-move only, keeping the security diff on its own reviewable surface). Not deferred outside this HLPS.
 - **SC-9** The parity matrix lives at [`docs/api-split/parity-matrix.md`](parity-matrix.md) — created in Round 4; SC-9 had mandated it since Round 1 but it was never written, and the matrix lived only inside §4 and SPEC-S-001, both of which go stale when their step merges. Every row has at least one **integration-level** test exercising the Graph-backed path against a Graph SDK fake or recorded HTTP harness. Interface-level mocks at the `IActiveDirectorySearcher` boundary alone do not satisfy this criterion.
   - **Added in Round 4:** for rows whose risk is a *wrong query* rather than a wrong response, the test must assert the emitted `$filter` / `$select`. A response-only test cannot detect a wrong filter, because the fake answers regardless of what was asked. A row is not ✅ until its test **fails when the behaviour is removed**.
 - **SC-10** Existing customer installs with `AccessControl.Sid` rows backed by on-prem AD SIDs continue to resolve correctly after migration, provided their Entra tenant has Entra Connect (or Cloud Sync) populating `onPremisesSecurityIdentifier`. Verified by an integration test against a Graph fake that exposes `onPremisesSecurityIdentifier` for sample users/groups.
@@ -222,9 +222,10 @@ reject from the panel:
 ### Blocking
 
 Per CLAUDE.md, **blocking unknowns halt progress**. Original U-1, U-2, U-3 were resolved as D-1,
-D-2, D-3. Round 4 promotes one existing unknown and adds two, all of which gate *release*
-rather than further implementation — S-001 through S-007 can continue, but none of this may
-ship to a customer until they are answered.
+D-2, D-3. Round 4 promotes one existing unknown and adds two, **U-10 and U-12 gate release**; **U-16 gates the S-004 and S-007 merges** and is not a
+release-only concern. Implementation of the remaining steps may continue. Note this section
+reads CLAUDE.md's "blocking unknowns halt progress" as halting *the affected merge or the
+release*, not all work — an explicit deviation, recorded here rather than left implicit.
 
 - **U-10 (promoted from non-blocking in Round 4) — migration path for Cohort B.** Customers on
   pure on-prem AD with no Entra tenant lose all ACL resolution at upgrade. This was filed as
@@ -308,7 +309,7 @@ The step list below is **indicative**, not binding — the binding ordering live
    - **S-006** — Move `ResetAppPasswordController` impersonation (worker uses its own service account); includes SC-8b carve-out for that controller's log-injection fix.
    - **S-007** — Remove Windows-auth scheme from primary (Negotiate scheme + `WinAuth*` files).
    - **S-008** — Installer wiring: ship worker MSI component, provision shared secret + service account at install time (subject to C-7 security review).
-   - **S-009** — Remaining log-injection SPEC carve-outs (per SC-8b) for `BundledRequestsController`, `MakeLikeProdController`, `Deployment/Requests.cs`.
+   - **S-009** — Remaining log-injection SPEC carve-outs (per SC-8b) for `BundledRequestsController`, `MakeLikeProdController`, `Dorc.Api/Services/RequestService.cs` (was `Deployment/Requests.cs`, which does not exist at `aebd286`).
    - **S-010** — Documentation: Entra tenant setup, Graph permissions, AD-to-Entra migration prerequisites, deployment topology.
 3. SPECs are drafted just-in-time per S-step, each adversarially reviewed before execution.
 
@@ -390,3 +391,48 @@ fail, or that a test passes against a mutated implementation.
   worker projects are `net8.0-windows`, so they cannot be verified in Linux CI at all. SC-2 and SC-3
   need a stated verification host before S-005 and S-006 add more worker surface.
 - SC-6 depends on U-8 (`Setup.Acceptance` strategy), still unanswered.
+
+---
+
+## Appendix C — Round 5: the panel rejected Round 4
+
+Two independent reviewers returned **REVISION REQUIRED** on the Round 4 revision. Both were
+right, and the pattern is worth recording because it repeats Round 3's failure one level up:
+Round 4 claimed to close R4-2 (tests that cannot detect a wrong query) and R4-4 (a gate that
+cannot enforce), and **both defects survived inside the artefacts written to close them.**
+
+Round 4 was also, in three places, a *documentation* fix applied without reading the documents
+it cited. R5-1 is the clearest case: it "corrected" SC-8b on a premise about the IS that the IS
+contradicts in two places.
+
+| ID | Severity | Finding | Disposition |
+|---|---|---|---|
+| R5-1 | HIGH | SC-8b's Round-4 correction (S-005 → S-006) was wrong, and Appendix B justified it with a false statement about the IS. The IS assigns all four log-injection sites to **S-009** and says explicitly that S-006 is the worker-move only. Executing SC-8b as revised would have duplicated a security fix into S-006 and reversed an IS Round-1 decision without review. | Accept — corrected to S-009; R4-5's false claim called out in place rather than quietly overwritten. |
+| R5-2 | CRITICAL | Parity-matrix P-4 and SC-10 were ✅ under a rule the matrix itself states ("a row is not ✅ until its test fails when the behaviour is removed"). `MapFilter` matched on the property *name*, so hardcoding a wrong SID into the filter passed 164/164 — every legacy `AccessControl.Sid` row could resolve to the wrong principal, undetected. | Accept — value assertions added; mutation now fails 2 tests. |
+| R5-3 | CRITICAL | Same class: removing `accountEnabled eq true` from the membership resolution path passed 164/164. A disabled leaver would resolve and receive group claims. | Accept — assertion added; mutation now fails. |
+| R5-4 | CRITICAL | SC-1's CA1416 layer does not fire inside a type annotated `[SupportedOSPlatform("windows")]`, and a `#pragma warning disable CA1416` silences it outright. Six `Dorc.Api` controllers still carry the attribute, including the two AD-facing ones S-001 was meant to clean. Windows-only code inside them passes all three layers. | Accept — a fourth grep layer added; known sites allow-listed with the step that clears each. **The HLPS's "three-layer gate" claim was wrong as stated.** |
+| R5-5 | HIGH | SC-1b's terminal condition ("the accepted-backlog list is empty") would have *disabled* the gate: `grep -vE ""` matches nothing, so an empty backlog makes the check a permanent pass. Satisfying the criterion removed the enforcement. | Accept — empty case handled explicitly; `System.Management` check added so SC-1b has a mechanism at all. |
+| R5-6 | HIGH | Out of Scope forbids changing the REST surface "in shape", but S-001 added `UserElementApiModel.SamAccountName` and S-004 changed a 400 body from string to object while leaving `[SwaggerResponse(400, Type = typeof(string))]` in place. The worker's 400 body was also double-wrapped: `{"error":"{\"error\":\"...\"}"}`. | Partially accepted — the double-wrap was a live bug and is fixed. The two surface deltas need a panel decision: carve them out of Out of Scope, or revert them. Tracked as U-20. |
+| R5-7 | HIGH | D-3 and SC-2 both state the worker "rejects any request without `X-Worker-Key`". `/health` is deliberately unauthenticated. The implementation also ships *both* U-11 options (config flag **and** health probe) while U-11 still records "recommendation pending". | Accept in principle — needs the D-3/SC-2 wording amended and U-11 closed with the decision actually shipped. Not yet done; tracked as U-21. |
+| R5-8 | MEDIUM | Scope A describes P-4 as falling back "when the direct `Users[id]` lookup 404s". The code deliberately *skips* the direct lookup for SID-shaped input because Graph returns 400. The P-4 tests still mock a 404 route that is never taken — which is how R5-2's false ✅ went unnoticed. | Accept — matrix corrected; §4's P-4 bullet still needs rewriting. |
+| R5-9 | MEDIUM | Scope A mandates updating two `Dorc.Api.Tests` files to the Graph-backed pattern. `git diff` shows neither was touched. | Open — unrecorded incomplete scope item. |
+| R5-10 | MEDIUM | Scope E's deletion list omits `ContextExtensions.cs`, `ClaimsTransformer.cs`, `IUserGroupsReaderFactory.cs` and the added `EntraDirectorySearchService.cs`. D-2 still asserts `ClaimsTransformer` "keeps its interface dependency and gains no behavioural change" — it was deleted. | Open — scope lists and D-2 need correcting. |
+| R5-11 | MEDIUM | HLPS U-12..U-17 collide with the IS's own U-12 (worker hosting model), which can force retroactive revision of S-002 and appears in no HLPS register. | Open — renumber, and lift the worker-hosting unknown into the HLPS register. |
+| R5-12 | MEDIUM | Five unknowns (U-4, U-5, U-6, U-7, U-11) are listed open with "recommendation pending" but were resolved in the IS and are in shipped code. Round 4 closed none of them. | Open. |
+| R5-13 | MEDIUM | SC-2/SC-3/SC-5/SC-6/SC-7 remain unverifiable: no fixtures exist for SC-3, no SPEC-S-004 was ever written, no step verifies `dorc-web` for SC-5, SC-6's baseline is unrecoverable after the re-anchor, and **no step owns `RequestApi.wxs`** — so S-007 ships an API that will not start on an upgraded install while SC-7 passes anyway. | Open — R5-13 is the largest remaining hole and needs a scope item plus an IS step. |
+
+### Status after Round 5
+
+`IN REVIEW`. The CRITICAL and gate findings (R5-2 through R5-5) are fixed and re-verified by
+mutation. R5-1 and the stale file/anchor citations are corrected. **R5-6 through R5-13 are
+recorded and unresolved** — several need panel or owner decisions rather than an author's, which
+is exactly the failure mode that produced the premature Round 3 approval. This document should
+not be marked APPROVED until at least R5-13 has an owning step.
+
+### Process note carried from the panel
+
+One reviewer observed that R5-1, and the stale-path and ID-collision findings, are cross-document
+contradictions a mechanical pass would have caught before any code ran: every SC that names a step
+checked against the IS, every file path checked against the anchor, every unknown ID checked for
+collisions. That pass should be a checklist item on every future revision, not left to reviewer
+diligence. Adopted.

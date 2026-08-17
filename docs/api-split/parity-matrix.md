@@ -23,6 +23,15 @@ once their step merges, which is precisely why SC-9 asked for a standalone file.
 - A row is not ✅ until its test exists **and** fails when the behaviour is removed. Mutation
   results are recorded in the Evidence column where they have been run.
 
+## Maintenance
+
+`status: LIVING` is a claim about upkeep, so state the upkeep rather than implying it:
+
+- **Trigger.** Any PR modifying `Dorc.Core/AzureEntraSearcher.cs`, `Dorc.Core/Interfaces/IActiveDirectorySearcher.cs`, or `Dorc.Core.Tests/Graph/` must update this file *in the same PR*.
+- **Owner.** Unassigned — this needs a named human, not a pointer at a success criterion. Tracked as U-19.
+- **Re-verification.** `last_verified` is refreshed only when the mutation results below are re-run, not when the file is merely edited.
+- **Evidence location.** The tests cited below live on `claude/423-4-graph-migration` and downstream, **not** on the branch carrying this file or on `main`. A row may not be considered settled until its test is on `main`.
+
 ## Matrix
 
 | # | Behaviour | Graph strategy | Status | Evidence |
@@ -30,13 +39,13 @@ once their step merges, which is precisely why SC-9 asked for a standalone file.
 | P-1 | User search by name | `/users?$filter=accountEnabled eq true and (startsWith(displayName,…) or startsWith(givenName,…) or startsWith(onPremisesSamAccountName,…) or startsWith(surname,…) or startsWith(mail,…) or startsWith(userPrincipalName,…))` | ✅ | `P1_Search_FindsUserByDisplayName` + `P1_Search_EmitsEnabledOnlyFilterAcrossExpectedProperties` (asserts `$filter`). Mutation: replacing the filter fails the suite. |
 | P-2 | Group search by name | `/groups?$filter=startsWith(displayName,…) or startsWith(mailNickname,…) or startsWith(onPremisesSamAccountName,…)` | ✅ | `P2_Search_FindsGroupByDisplayName` + `P2_Search_EmitsGroupFilterAcrossExpectedProperties` (asserts `$filter`). |
 | P-3 | Resolve identity by Entra object id | `/users/{id}` then `/groups/{id}` | ✅ | `P3_GetUserDataById_ResolvesByEntraId`. |
-| P-4 | Resolve identity by legacy AD SID | `/users?$filter=onPremisesSecurityIdentifier eq '<sid>'`, then groups | ✅ | `P4_GetUserDataById_ResolvesByAdSidViaOnPremisesFilter`, `P4_…_ResolvesGroupByAdSidWhenUserMisses`. Filter matching is now parsed from `$filter` specifically — matching the whole query string was unsound because `$select` contains the same property name. |
-| P-5 | Resolve user by sAMAccountName (incl. `DOMAIN\name`, `(External)`) | `/users?$filter=accountEnabled eq true and (onPremisesSamAccountName eq '<name>' or userPrincipalName eq '<name>')`, `$top=2` | ✅ | `P5_…_ResolvesUserBySamAccountName`, `P5_…_StripsDomainPrefix`, `P5_…_NoUserMatch_ReturnsEmptyString`, `GetGroupSidIfUserIsMemberRecursive_AmbiguousName_RefusesToGuess`. |
+| P-4 | Resolve identity by legacy AD SID | `/users?$filter=onPremisesSecurityIdentifier eq '<sid>'`, then groups (direct `/users/{sid}` is **skipped** — Graph answers 400, not 404, for a SID-shaped segment) | ✅ | `P4_…_ResolvesByAdSidViaOnPremisesFilter`, `P4_…_ResolvesGroupByAdSidWhenUserMisses`, plus `P4_…_SendsTheCallersSidInTheFilter` / `…InTheGroupFilter`. **Mutation: hardcoding a wrong SID into the filter fails 2 tests.** It passed 164/164 before those two assertions existed — routing on the property *name* is not evidence the *value* is sent. |
+| P-5 | Resolve user by sAMAccountName (incl. `DOMAIN\name`, `(External)`) | `/users?$filter=accountEnabled eq true and (onPremisesSamAccountName eq '<name>' or userPrincipalName eq '<name>')`, `$top=2` | ✅ | `P5_…_ResolvesUserBySamAccountName`, `…_StripsDomainPrefix`, `…_NoUserMatch_ReturnsEmptyString`, `…_AmbiguousName_RefusesToGuess`, plus `P5_ResolveUserIdFromName_ExcludesDisabledAndRequestsTwoMatches`. **Mutation: removing `accountEnabled eq true` fails 1 test.** It passed 164/164 before — a disabled leaver would have resolved and received group claims on the authorization path. |
 | P-6 | Recursive group membership | `/users/{id}/checkMemberGroups` | ✅ | `P6_…_NonMember_ReturnsEmptyString` — the **negative** case is the load-bearing one here. Previously untested: a mutation making the method ignore the `checkMemberGroups` result and always return the group id passed the entire suite (an authorization bypass). |
 | P-7 | All group ids + SIDs for a user | `/users/{id}/transitiveMemberOf/microsoft.graph.group?$select=id,onPremisesSecurityIdentifier&$top=999`, draining `@odata.nextLink` | ✅ | `P7_GetSidsForUser_EmitsBothPidAndSid`, `GetSidsForUser_DrainsAllPagesOfTransitiveMemberOf`, `GetSidsForUser_ResolvesBareSamAccountNameBeforeAddressingGraph`. The `$select` is asserted directly — the fake does not honour `$select`, so a response-only test cannot catch its removal. |
 | P-8 | Disabled account detection | `accountEnabled` | ✅ | `P8_GetUserDataById_DisabledUserButGroupHit_ReturnsGroup`, `P8_…_DisabledUserNoGroup_Throws`. |
 | P-9 | Display name + email | `displayName` / `mail` / `userPrincipalName` fallback | ✅ | `P9_GetUserData_PopulatesDisplayNameAndEmail`, `P9_GetUserData_FallsBackToUpnWhenMailUnset`. Previously claimed covered with **no test calling `GetUserData` at all**. |
-| SC-10 | Legacy `AccessControl.Sid` rows resolve post-migration | `onPremisesSecurityIdentifier` filter | ✅ | `SC10_AccessControlSidRow_ResolvesViaOnPremisesIdentifier`. See caveat below. |
+| SC-10 | Legacy `AccessControl.Sid` rows resolve post-migration | `onPremisesSecurityIdentifier` filter | ✅ | `SC10_AccessControlSidRow_ResolvesViaOnPremisesIdentifier` + the P-4 value assertions (same helpers). Covers **synced principals only** — see the cloud-only caveat below, which contradicts U-10's "upgrade is transparent" for hybrid tenants. |
 
 ## Explicitly out of parity
 
