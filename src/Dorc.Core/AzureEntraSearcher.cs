@@ -7,6 +7,8 @@ using Microsoft.Graph;
 using Microsoft.Graph.Authentication;
 using Microsoft.Graph.Users.Item.CheckMemberGroups;
 using Microsoft.Kiota.Abstractions;
+using Microsoft.Kiota.Http.HttpClientLibrary.Middleware;
+using Microsoft.Kiota.Http.HttpClientLibrary.Middleware.Options;
 using System.Text.RegularExpressions;
 
 namespace Dorc.Core
@@ -25,6 +27,10 @@ namespace Dorc.Core
         // far beyond any real principal — while guaranteeing the drain loop terminates even
         // if Graph returns a self-referential or endlessly repeating nextLink.
         private const int MaxPages = 50;
+
+        // Page cap for the people picker. 10 x MaxPageSize comfortably exceeds the ~1000 the
+        // AD path returned, while bounding a runaway prefix search in a very large tenant.
+        private const int MaxSearchPages = 10;
 
         private readonly string _tenantId;
         private readonly string _clientId;
@@ -87,7 +93,30 @@ namespace Dorc.Core
                     isCaeEnabled: false
                 );
 
-                _graphClient = new GraphServiceClient(authProvider);
+                // Retry/backoff on throttling and transient 5xx. The composite searcher used to
+                // absorb a failing backend and return partial results; with one searcher a Graph
+                // 429 or 503 otherwise surfaces to the user as a 500. RetryHandler honours the
+                // Retry-After header Graph sends with 429.
+                var retryOption = new RetryHandlerOption
+                {
+                    MaxRetry = 3,
+                    Delay = 2,
+                    ShouldRetry = (_, _, response) =>
+                        response.StatusCode == System.Net.HttpStatusCode.TooManyRequests
+                        || response.StatusCode == System.Net.HttpStatusCode.ServiceUnavailable
+                        || response.StatusCode == System.Net.HttpStatusCode.GatewayTimeout
+                };
+
+                var handlers = GraphClientFactory.CreateDefaultHandlers();
+                var defaultRetry = handlers.OfType<RetryHandler>().FirstOrDefault();
+                if (defaultRetry != null)
+                {
+                    handlers.Remove(defaultRetry);
+                }
+                handlers.Insert(0, new RetryHandler(retryOption));
+
+                var httpClient = GraphClientFactory.Create(handlers);
+                _graphClient = new GraphServiceClient(httpClient, authProvider);
             }
             catch (Exception ex)
             {
@@ -153,6 +182,7 @@ namespace Dorc.Core
                     {
                         requestConfiguration.Headers.Add("ConsistencyLevel", "eventual");
                         requestConfiguration.QueryParameters.Count = true;
+                        requestConfiguration.QueryParameters.Top = MaxPageSize;
                         requestConfiguration.QueryParameters.Filter =
                             $"accountEnabled eq true and (" +
                             $"startsWith(displayName,'{objectName}') or startsWith(givenName,'{objectName}') or " +
@@ -163,7 +193,11 @@ namespace Dorc.Core
                             new[] { "id", "displayName", "userPrincipalName", "mail", "accountEnabled", "onPremisesSamAccountName", "onPremisesSecurityIdentifier" };
                     }).GetAwaiter().GetResult();
 
-                if (users?.Value != null)
+                // Drain every page. The replaced DirectorySearcher.FindAll() returned up to the
+                // server limit (~1000); reading one 100-row Graph page silently truncated the
+                // people picker in any large tenant with no signal to the caller.
+                var userPages = 0;
+                while (users?.Value != null)
                 {
                     foreach (var user in users.Value)
                     {
@@ -178,6 +212,10 @@ namespace Dorc.Core
                             Email = user.Mail ?? user.UserPrincipalName
                         });
                     }
+
+                    if (string.IsNullOrEmpty(users.OdataNextLink) || ++userPages >= MaxSearchPages) break;
+                    users = graphClient.Users.WithUrl(users.OdataNextLink)
+                        .GetAsync().GetAwaiter().GetResult();
                 }
 
                 // Search for groups
@@ -186,6 +224,7 @@ namespace Dorc.Core
                     {
                         requestConfiguration.Headers.Add("ConsistencyLevel", "eventual");
                         requestConfiguration.QueryParameters.Count = true;
+                        requestConfiguration.QueryParameters.Top = MaxPageSize;
                         requestConfiguration.QueryParameters.Filter =
                             $"startsWith(displayName,'{objectName}') or startsWith(mailNickname,'{objectName}') or " +
                             $"startsWith(onPremisesSamAccountName, '{objectName}')";
@@ -193,7 +232,8 @@ namespace Dorc.Core
                             new[] { "id", "displayName", "mailNickname", "mail", "onPremisesSamAccountName", "onPremisesSecurityIdentifier" };
                     }).GetAwaiter().GetResult();
 
-                if (groups?.Value != null)
+                var groupPages = 0;
+                while (groups?.Value != null)
                 {
                     foreach (var group in groups.Value)
                     {
@@ -208,6 +248,10 @@ namespace Dorc.Core
                             Email = group.Mail
                         });
                     }
+
+                    if (string.IsNullOrEmpty(groups.OdataNextLink) || ++groupPages >= MaxSearchPages) break;
+                    groups = graphClient.Groups.WithUrl(groups.OdataNextLink)
+                        .GetAsync().GetAwaiter().GetResult();
                 }
             }
             catch (ApiException ex)
