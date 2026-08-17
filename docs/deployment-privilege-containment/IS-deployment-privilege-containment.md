@@ -46,7 +46,7 @@ Four rules determine the order below. They are stated up front because several a
 | ⚙ S-015 | Rotate the deployment credentials | SD-3, W-4 | **Runbook delivered**; gate satisfied, operator-executed |
 | ⚙ S-016 | Remediate off-share script paths | SD-5 precondition | **Worklist queries delivered** (`S-016-off-share-script-paths.sql`); operator-executed |
 | S-017 | Confine script paths at dispatch | SD-5, W-5, SC-05 | **DONE** — reports by default, enforce after S-016 |
-| S-018 | Verify script content at the point of read | SD-5, W-5, SC-05 | **U-14 resolved**, see `SPEC-S-018-*`; a) record **DONE**, b) verify **lockstep** |
+| S-018 | Verify script content at the point of read | SD-5, W-5, SC-05 | **DONE** — U-14 resolved in `SPEC-S-018-*`; **b) is a lockstep release** |
 | S-019 | Introduce config-value visibility classification | SD-3b, W-4 | **DONE** — server and web UI |
 | S-020 | Introduce the credential provider abstraction | SD-4 | **DONE** |
 | S-021 | Bind execution identity to the environment | SD-4, W-6, W-15, SC-07, W-8a | **DONE** — opt-in per environment; W-8a closed here |
@@ -409,6 +409,10 @@ Everything in it is read-only except a remediation template that is commented ou
 **The Monitor does not attempt to confirm that verification happened.** The IS asks for that behaviour to be defined, and this is the definition. The runner reports its outcome, the Monitor records what was reported, and records when nothing was. Anything stronger would be a false claim: the Monitor cannot distinguish "verified silently" from "old build" without a protocol version, and an old build ignores a protocol version too. The real guard against a stale runner is the lockstep release, not a runtime check.
 
 **Delivered in two parts.** **S-018a** — schema column, entity, API model, the hash computation in the shared assembly, the mode setting, and the recording endpoint. Nothing reads the column, so it changes no behaviour and ships on its own. **S-018b** — the hash travels in the script group, both PowerShell runners verify before execution, first use records, outcome reported. That half carries the lockstep constraint.
+
+**The baseline is captured by the Monitor at dispatch, not by the runner.** This was decided while implementing and is worth recording, because the obvious alternative is worse in exactly the scenario the step is about: a runner that recorded the bytes in front of it would record *the attacker's* bytes as the baseline and report a match. Capturing at dispatch and verifying at the point of read covers the dispatch-to-read window on the very first deployment too, rather than merely baselining it. Nothing in capture refuses — a share that cannot be read fails the deployment moments later, for its own reasons and with its own message.
+
+**The verification mode travels on the script group.** The runner does not read it from its own configuration: that would let a deployment host with a stale or edited configuration file quietly execute unverified, and the deployment host is the least trustworthy place to keep the answer.
 
 **Two residuals, recorded not closed.** Trust on first use does not authenticate the first read. And verification covers the entry script, not what it dot-sources — a verified script that dot-sources an unverified file from the same share executes unverified code, and no check placed at a single point of read closes that.
 
