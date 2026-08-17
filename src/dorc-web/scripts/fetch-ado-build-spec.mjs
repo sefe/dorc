@@ -60,14 +60,20 @@ try {
   // would otherwise be indistinguishable from "upstream unchanged" and could
   // go unnoticed indefinitely. Surface it where a human will see it: the
   // workflow step summary when running in Actions, a warning otherwise.
-  const message =
-    `could not fetch the official Azure DevOps Build spec (${error.message}); ` +
-    `using the committed backup copy at ${specPath}`;
-  console.warn(`WARNING: ${message}`);
+  console.warn(
+    `WARNING: could not fetch the official Azure DevOps Build spec ` +
+      `(${error.message}); using the committed backup copy at ${specPath}`
+  );
   if (process.env.GITHUB_STEP_SUMMARY) {
+    // Deliberately a fixed string: error.message can carry text from the
+    // fetched document (the validation failures below quote its `swagger` and
+    // `info.title` values), and the step summary is rendered as markdown on
+    // the run page. The detail belongs in the step log, which is not rendered.
     appendFileSync(
       process.env.GITHUB_STEP_SUMMARY,
-      `> [!WARNING]\n> Spec refresh fell back to the committed copy: ${message}\n`
+      '> [!WARNING]\n' +
+        '> The Azure DevOps Build spec refresh fell back to the committed copy. ' +
+        'See the "Refresh spec from the official source" step log for the reason.\n'
     );
   }
 }
