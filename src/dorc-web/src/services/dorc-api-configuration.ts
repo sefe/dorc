@@ -3,15 +3,31 @@ import { Configuration } from '../apis/dorc-api';
 import { appConfig } from '../app-config';
 import { OAUTH_SCHEME, oauthServiceContainer } from './Account/OAuthService';
 
-// location.assign() does not stop the calling frame, so without this guard a
-// page with N requests in flight triggers N navigations.
+// Starting sign-in does not stop the calling frame, so without this guard a
+// page with N requests in flight starts N of them.
 let signInRedirectStarted = false;
+
+// How long to assume a started sign-in is still going. OAuthService.signIn()
+// swallows its own rejection, so a redirect that never happens — identity
+// provider down, captive portal — is invisible from here. Latching forever on
+// that would leave the app failing every request with no login prompt and no
+// way back, so the latch lapses and a later request may try again. A
+// successful redirect unloads the page long before this fires.
+const SIGN_IN_RETRY_AFTER_MS = 15_000;
+
+/** Test seam: the latch is module state and outlives an individual test. */
+export function resetSignInStateForTests(): void {
+  signInRedirectStarted = false;
+}
 
 function redirectToSignIn(): void {
   if (signInRedirectStarted) {
     return;
   }
   signInRedirectStarted = true;
+  setTimeout(() => {
+    signInRedirectStarted = false;
+  }, SIGN_IN_RETRY_AFTER_MS);
   // signIn() rather than location.assign('/signin.html'): it stores the
   // current URL under "lastUrl" so signInCallback can return the user to the
   // page they were on. /signin.html is a static page with a manual button and

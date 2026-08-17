@@ -140,9 +140,14 @@ jobs:
         git push --force-with-lease origin "$BRANCH"
 
         if [ -z "$(gh pr list --head "$BRANCH" --state open --json number --jq '.[].number')" ]; then
+          # --base is deliberately omitted rather than interpolated: expanding
+          # a ${{ github.* }} expression into a shell command is the template
+          # injection pattern, and this job holds a token with write access.
+          # It also avoids depending on github.event.repository, which is not
+          # reliably populated for schedule events — this workflow's main
+          # trigger. gh resolves the base from the repository's default branch.
           gh pr create \
             --head "$BRANCH" \
-            --base "${{ github.event.repository.default_branch }}" \
             --title 'Refresh Azure DevOps Build spec and regenerate client' \
             --body 'The official Azure DevOps Build spec
         ([MicrosoftDocs/vsts-rest-api-specs](https://github.com/MicrosoftDocs/vsts-rest-api-specs),

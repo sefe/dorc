@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { AjaxConfig } from 'rxjs/ajax';
 
 // Stand-ins for the two modules the configuration reads. Both are mutated per
 // test to prove the configuration re-reads them rather than capturing values
@@ -33,13 +32,17 @@ vi.mock('../../src/services/Account/OAuthService', () => ({
   }
 }));
 
-const { dorcApiConfiguration } = await import(
+const { dorcApiConfiguration, resetSignInStateForTests } = await import(
   '../../src/services/dorc-api-configuration'
 );
+const { RefDataProjectsApi } = await import('../../src/apis/dorc-api');
 
 describe('dorcApiConfiguration', () => {
   beforeEach(() => {
     signInSpy.mockClear();
+    // Module-level state that outlives a single test: without this a test
+    // that trips the latch silently changes the meaning of later ones.
+    resetSignInStateForTests();
     signedInUserHolder.value = null;
     appConfigStub.authenticationScheme = 'NotSet';
     appConfigStub.dorcApi = 'https://api.example.test';
@@ -50,32 +53,53 @@ describe('dorcApiConfiguration', () => {
   // losing it silently breaks every call on a Windows-authenticated
   // deployment, where the API is cross-origin and the browser will not send
   // Negotiate credentials without it.
-  it('sends credentials on every request', () => {
-    const middleware = dorcApiConfiguration.middleware;
-    expect(middleware.length).toBeGreaterThan(0);
+  //
+  // This drives a real generated API and inspects the XMLHttpRequest it
+  // produces, rather than asserting over the middleware array. Asserting the
+  // array only proves this module's own contents: it would stay green if a
+  // regenerated runtime stopped reading configuration.middleware at all, which
+  // is precisely the silent failure being guarded against — and CI regenerates
+  // that runtime on every build.
+  it('sends credentials on a real request through a generated API', async () => {
+    const originalOpen = XMLHttpRequest.prototype.open;
+    const originalSend = XMLHttpRequest.prototype.send;
 
-    const request = middleware
-      .filter(m => m.pre)
-      .reduce<AjaxConfig>(
-        (acc, m) => m.pre!(acc),
-        { url: '/RefDataEnvironments', method: 'GET' } as AjaxConfig
-      );
+    // Resolve from the interceptor itself: the request is aborted rather than
+    // allowed onto the network, so the observable never settles and awaiting
+    // it would simply time out.
+    const sent = new Promise<{ url: string; withCredentials: boolean }>(resolve => {
+      XMLHttpRequest.prototype.open = function patchedOpen(
+        this: XMLHttpRequest & { __url?: string },
+        method: string,
+        url: string
+      ) {
+        this.__url = url;
+        return (originalOpen as unknown as (m: string, u: string) => void).call(
+          this,
+          method,
+          url
+        );
+      } as typeof XMLHttpRequest.prototype.open;
 
-    expect(request.withCredentials).to.equal(true);
-  });
+      XMLHttpRequest.prototype.send = function patchedSend(
+        this: XMLHttpRequest & { __url?: string }
+      ) {
+        resolve({ url: this.__url ?? '', withCredentials: this.withCredentials });
+        this.abort();
+      } as typeof XMLHttpRequest.prototype.send;
+    });
 
-  it('preserves the rest of the request when adding credentials', () => {
-    const pre = dorcApiConfiguration.middleware[0].pre!;
-    const result = pre({
-      url: '/RefDataProjects',
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: '{"a":1}'
-    } as AjaxConfig);
+    try {
+      const api = new RefDataProjectsApi(dorcApiConfiguration);
+      api.refDataProjectsGet().subscribe({ next: () => {}, error: () => {} });
+      const observed = await sent;
 
-    expect(result.url).to.equal('/RefDataProjects');
-    expect(result.method).to.equal('POST');
-    expect(result.body).to.equal('{"a":1}');
+      expect(observed.withCredentials).to.equal(true);
+      expect(observed.url).to.contain('/RefDataProjects');
+    } finally {
+      XMLHttpRequest.prototype.open = originalOpen;
+      XMLHttpRequest.prototype.send = originalSend;
+    }
   });
 
   it('reads the base URL at request time, not at module load', () => {
