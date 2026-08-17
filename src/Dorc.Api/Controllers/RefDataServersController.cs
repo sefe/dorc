@@ -185,8 +185,10 @@ namespace Dorc.Api.Controllers
         /// <param name="serverName"></param>
         /// <returns></returns>
         [HttpGet]
-        [SwaggerResponse(StatusCodes.Status400BadRequest, Type = typeof(string))]
-        [SwaggerResponse(StatusCodes.Status503ServiceUnavailable, Type = typeof(object), Description = "On Linux installs (Windows worker absent)")]
+        // Body is { "error": "<message>" } — reshaped from a bare string when the probe moved
+        // to the worker. Carved out of Out of Scope under HLPS U-20.
+        [SwaggerResponse(StatusCodes.Status400BadRequest, Type = typeof(object), Description = "Target machine could not be read")]
+        [SwaggerResponse(StatusCodes.Status503ServiceUnavailable, Type = typeof(object), Description = "Windows worker unavailable (Linux install, or worker not running)")]
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(ServerOperatingSystemApiModel))]
         [Route("GetServerOperatingFromTarget")]
         public async Task<IActionResult> GetServerOperatingFromTarget(string serverName, CancellationToken cancellationToken)
