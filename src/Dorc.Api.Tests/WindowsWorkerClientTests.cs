@@ -116,8 +116,13 @@ namespace Dorc.Api.Tests
             var http = new HttpClient(handler) { BaseAddress = new Uri("http://127.0.0.1:5005/") };
             var client = new HttpWindowsWorkerClient(http);
 
-            await Assert.ThrowsExactlyAsync<WorkerRequestRejectedException>(
+            var ex = await Assert.ThrowsExactlyAsync<WorkerRequestRejectedException>(
                 () => client.GetServerOperatingSystemAsync("SERVER01"));
+
+            // The worker's body is already {"error":"..."} — the message must be the inner
+            // text, not the whole JSON, or the filter re-wraps it into
+            // {"error":"{\"error\":\"...\"}"} and the client shows escaped JSON to the user.
+            Assert.AreEqual("Unable to open the target machine", ex.Message);
         }
 
         [TestMethod]

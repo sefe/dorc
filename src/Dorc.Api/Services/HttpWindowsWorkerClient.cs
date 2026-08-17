@@ -57,8 +57,11 @@ namespace Dorc.Api.Services
                 // 500, which is what EnsureSuccessStatusCode did.
                 if (resp.StatusCode == HttpStatusCode.BadRequest)
                 {
+                    // The worker's 400 body is already {"error":"..."}. Reading it whole and
+                    // re-wrapping in the filter produced {"error":"{\"error\":\"...\"}"} —
+                    // unwrap to the message so the client sees a single, flat envelope.
                     var detail = await resp.Content.ReadAsStringAsync(cancellationToken);
-                    throw new WorkerRequestRejectedException(detail);
+                    throw new WorkerRequestRejectedException(ExtractErrorMessage(detail));
                 }
 
                 // 5xx from the worker means the worker itself is faulted — still unavailable
@@ -77,6 +80,28 @@ namespace Dorc.Api.Services
                 return body ?? throw new InvalidOperationException(
                     $"Windows worker returned a success status with an empty body for {endpoint}.");
             }
+        }
+
+        // Pulls the "error" property out of the worker's {"error":"..."} body. Falls back to
+        // the raw body when it is not that shape, so an unexpected payload is not swallowed.
+        private static string ExtractErrorMessage(string? body)
+        {
+            if (string.IsNullOrWhiteSpace(body)) return string.Empty;
+            try
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(body);
+                if (doc.RootElement.ValueKind == System.Text.Json.JsonValueKind.Object
+                    && doc.RootElement.TryGetProperty("error", out var err)
+                    && err.ValueKind == System.Text.Json.JsonValueKind.String)
+                {
+                    return err.GetString() ?? body;
+                }
+            }
+            catch (System.Text.Json.JsonException)
+            {
+                // Not JSON — fall through and surface the raw body.
+            }
+            return body;
         }
     }
 }
