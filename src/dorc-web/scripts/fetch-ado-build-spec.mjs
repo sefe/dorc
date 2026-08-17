@@ -6,7 +6,7 @@
 // changed, the refreshed spec makes the regenerated client differ from the
 // committed one, and CI's in-sync gate turns that into a visible failure
 // asking for the update to be committed.
-import { writeFileSync, readFileSync, existsSync } from 'node:fs';
+import { writeFileSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 
@@ -28,10 +28,33 @@ try {
     throw new Error(`HTTP ${response.status} ${response.statusText}`);
   }
   const body = await response.text();
-  // A truncated or non-JSON response must never clobber the backup copy.
-  JSON.parse(body.replace(/^﻿/, ''));
 
-  const current = existsSync(specPath) ? readFileSync(specPath, 'utf8') : null;
+  // Never let a truncated response, an error page, or a different document
+  // served from that URL clobber the backup copy: the response has to parse
+  // and to be recognisably the Swagger 2.0 Build spec this client is
+  // generated from. Anything else falls through to the catch below and
+  // leaves the committed copy in place.
+  const spec = JSON.parse(body.replace(/^\uFEFF/, ''));
+  if (spec?.swagger !== '2.0') {
+    throw new Error(`expected a Swagger 2.0 document, got ${spec?.swagger ?? 'none'}`);
+  }
+  if (spec?.info?.title !== 'Build') {
+    throw new Error(`expected the Build spec, got ${spec?.info?.title ?? 'no title'}`);
+  }
+  if (!spec.paths || Object.keys(spec.paths).length === 0) {
+    throw new Error('spec declares no paths');
+  }
+
+  // Read-then-write with no prior existsSync check: the check would be a
+  // separate stat that the write cannot rely on anyway (TOCTOU), and a
+  // missing file is simply "no current content".
+  let current = null;
+  try {
+    current = readFileSync(specPath, 'utf8');
+  } catch {
+    current = null;
+  }
+
   if (current === body) {
     console.log(`build.json already matches the official spec (${SPEC_URL})`);
   } else {

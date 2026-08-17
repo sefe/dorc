@@ -202,14 +202,33 @@ jobs:
     # Dorc.AzureDevOps.Client project). The client csproj under
     # src/Dorc.AzureDevOps is dependabot-owned and excluded via that tree's
     # .openapi-generator-ignore, so it never diffs here either.
+    # Content is compared with `git diff`, not `git status`: diff applies the
+    # same eol filters to both sides, so a file that only differs in line-ending
+    # representation is correctly reported as unchanged. `git status` does not,
+    # and reported all 284 generated files as modified on the Windows runner
+    # while `git diff` showed nothing (run 32056758186). `.gitattributes` pins
+    # these trees to LF so that mismatch cannot arise in the first place; this
+    # step stays representation-independent as the second line of defence.
+    # ls-files --others covers the case diff cannot see: a brand new generated
+    # file that has never been committed.
     - name: Fail if generated clients are out of sync
       shell: pwsh
       run: |
-        $drift = git status --porcelain -- src/dorc-web/src/apis src/Dorc.AzureDevOps
-        if ($drift) {
+        $paths = @('src/dorc-web/src/apis', 'src/Dorc.AzureDevOps')
+
+        git --no-pager diff --exit-code --stat -- $paths
+        $changed = $LASTEXITCODE -ne 0
+        $untracked = git ls-files --others --exclude-standard -- $paths
+
+        if ($changed -or $untracked) {
           Write-Host "Generated API clients differ from the committed code:"
-          $drift | ForEach-Object { Write-Host "  $_" }
-          git --no-pager diff -- src/dorc-web/src/apis src/Dorc.AzureDevOps | Select-Object -First 200
+          if ($changed) {
+            git --no-pager diff -- $paths | Select-Object -First 200
+          }
+          if ($untracked) {
+            Write-Host "Untracked generated files:"
+            $untracked | ForEach-Object { Write-Host "  $_" }
+          }
           Write-Error ("API clients are out of sync with their specs. " +
             "Run 'npm run api-gen' in src/dorc-web and commit the result.")
           exit 1
