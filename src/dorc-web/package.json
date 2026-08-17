@@ -12,10 +12,10 @@
   "scripts": {
     "build": "eslint && tsc && npm run typecheck:tests && vite build",
     "buildLocal": "set NODE_OPTIONS=--openssl-legacy-provider && rimraf server/dist/ && rollup --config",
-    "api-gen": "npm run dorc-api-gen && npm run ado-build-api-gen && npm run ado-build-csharp-gen",
+    "api-gen": "npm run dorc-api-gen && npm run ado-build-csharp-gen",
     "dorc-api-gen": "openapi-generator-cli --openapitools ./src/apis/dorc-api/openapitools.json generate -g typescript-rxjs -i ./src/apis/dorc-api/swagger.json -o ./src/apis/dorc-api/ --additional-properties=supportsES6=true,npmVersion=9.4.0,typescriptThreePlus=true --skip-validate-spec",
-    "ado-build-api-gen": "openapi-generator-cli --openapitools ./src/apis/azure-devops-build/openapitools.json generate -g typescript-rxjs -i ./src/apis/azure-devops-build/build.json -o ./src/apis/azure-devops-build/ --additional-properties=supportsES6=true --skip-validate-spec",
-    "ado-build-csharp-gen": "openapi-generator-cli --openapitools ../Dorc.AzureDevOps/openapitools.json generate -g csharp -i ../Dorc.AzureDevOps/build.json -o ../Dorc.AzureDevOps --library restsharp --additional-properties=targetFramework=net8.0,nullableReferenceTypes=true --skip-validate-spec",
+    "ado-build-spec-fetch": "node scripts/fetch-ado-build-spec.mjs",
+    "ado-build-csharp-gen": "npm run ado-build-spec-fetch && openapi-generator-cli --openapitools ../Dorc.AzureDevOps/openapitools.json generate -g csharp -i ../Dorc.AzureDevOps/build.json -o ../Dorc.AzureDevOps --library restsharp --additional-properties=targetFramework=net8.0,nullableReferenceTypes=true,packageGuid={45A98C2E-0629-4B20-9B7F-450B0F9AE8ED} --skip-validate-spec",
     "format": "prettier \"**/*.ts\" --write --ignore-path .gitignore --ignore-path .prettierignore",
     "lit:type-checking": "lit-analyzer \"src/{components,pages}/**/*.ts\" --strict",
     "dev": "vite",

@@ -69,11 +69,12 @@ committed clients, the committed specs, and the C# API had all drifted apart:
    aligned to the same pin. 7.24.0 no longer emits the C# test-stub project,
    so `Org.OpenAPITools.Test` (vacuous generated placeholders, always
    excluded from CI test runs) was removed from the repo and solution.
-5. **`azure-devops-build` is kept as raw generator output.** Nothing imports
-   it today; its committed copy had only formatting drift (a prior
-   `npm run format` had prettier-formatted it). It is reset to generator
-   output so the drift gate covers it too, and `npm run format` now honours
-   `.prettierignore` so formatting no longer touches `src/apis`.
+5. **The TypeScript `azure-devops-build` client is removed.** Nothing in the
+   web app ever imported it (build information reaches the web through the
+   DOrc API), so the dead copy and its spec/scripts are deleted rather than
+   kept regenerating. (An earlier iteration kept it as raw generator output;
+   removal supersedes that.) `npm run format` now honours `.prettierignore`
+   so formatting no longer touches `src/apis`.
 6. **The C# Azure DevOps client (`src/Dorc.AzureDevOps`) is under the same
    gate.** It is the load-bearing generated client — `Dorc.Core`'s
    `AzureDevOpsServerWebClient` (used by the API and, via the
@@ -98,6 +99,15 @@ committed clients, the committed specs, and the C# API had all drifted apart:
      tests in `Dorc.Core.Tests`.
    The client csproj is the only exclusion
    (`.openapi-generator-ignore`): dependabot owns its package versions.
+   The spec is authoritative at MicrosoftDocs/vsts-rest-api-specs
+   (`specification/build/6.0/build.json`):
+   `npm run ado-build-csharp-gen` fetches it fresh
+   (`scripts/fetch-ado-build-spec.mjs`) and falls back to the committed
+   `build.json` when the fetch fails, so generation works offline and stays
+   deterministic. When upstream changes, the refreshed spec regenerates a
+   different client and CI's in-sync gate surfaces it as a failure asking
+   for the update to be reviewed and committed. (Verified at adoption time:
+   the committed copy was byte-identical to the official 6.0 spec.)
 7. **The Azure DevOps pipeline (`pipelines/dorc-build.yml`) is unchanged.**
    It runs on a self-hosted agent whose Java availability cannot be verified
    from this repo; the GitHub Actions workflow is the enforced path. Mirror
@@ -130,6 +140,6 @@ committed clients, the committed specs, and the C# API had all drifted apart:
 
 | # | Unknown | Status |
 |---|---------|--------|
-| U-1 | Is the **TypeScript** `azure-devops-build` client still needed? Nothing in the web app imports it. (The **C#** Azure DevOps client is in active use — build numbers and artifact locations — and is not in question.) | OPEN — TS copy is a candidate for removal in a separate change. |
+| U-1 | Is the **TypeScript** `azure-devops-build` client still needed? Nothing in the web app imports it. (The **C#** Azure DevOps client is in active use — build numbers and artifact locations — and is not in question.) | RESOLVED — removed (decision 5). |
 | U-2 | Should `swagger.json` itself be generated from the C# build (e.g. Swashbuckle CLI) instead of hand-maintained? | OPEN — would close the remaining C#→spec drift gap; needs API bootstrapping work. |
 | U-3 | Java availability on the ADO self-hosted agent (`TRADING-DOTNET-03`). | OPEN — blocks mirroring the gate into `pipelines/dorc-build.yml`. |

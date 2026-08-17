@@ -158,10 +158,9 @@ clients must always be committed together.
 From the `src/dorc-web` directory:
 
 ```bash
-npm run api-gen             # regenerate all three clients
+npm run api-gen             # regenerate both clients
 npm run dorc-api-gen        # DOrc API TypeScript client (from src/apis/dorc-api/swagger.json)
-npm run ado-build-api-gen   # Azure DevOps Build TypeScript client (from src/apis/azure-devops-build/build.json)
-npm run ado-build-csharp-gen # Azure DevOps Build C# client (from src/Dorc.AzureDevOps/build.json)
+npm run ado-build-csharp-gen # Azure DevOps Build C# client (spec fetched from the official source)
 ```
 
 When a C# controller or API model changes, update
@@ -177,11 +176,16 @@ tree is pure generator output — app concerns live alongside, not inside:
   TerraformRunner for build numbers and artifact locations): AAD token
   generation and the count/value list-envelope handling live in the
   `Dorc.AzureDevOps.Client` project, wired in through the generated
-  `Configuration`/`ApiClient` classes. The two csproj files are
-  dependabot-owned and excluded from generation via that tree's
-  `.openapi-generator-ignore`.
+  `Configuration`/`ApiClient` classes. The client csproj is dependabot-owned
+  and excluded from generation via that tree's `.openapi-generator-ignore`.
 
-Azure DevOps API specifications: https://github.com/MicrosoftDocs/vsts-rest-api-specs
+The Azure DevOps Build spec is authoritative at
+[MicrosoftDocs/vsts-rest-api-specs](https://github.com/MicrosoftDocs/vsts-rest-api-specs)
+(`specification/build/6.0/build.json`); generation fetches it fresh and
+falls back to the committed `src/Dorc.AzureDevOps/build.json` when offline.
+If upstream has changed, the regenerated client differs from the committed
+one and CI's in-sync gate flags it — regenerate and commit to adopt the
+update.
 
 ## Project Structure
 

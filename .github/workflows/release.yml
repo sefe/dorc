@@ -178,12 +178,14 @@ jobs:
         distribution: 'temurin'
         java-version: '17'
 
-    # Three clients are generated code: the TypeScript dorc-api and
-    # azure-devops-build clients under src/dorc-web/src/apis, and the C#
-    # Org.OpenAPITools client under src/Dorc.AzureDevOps that Dorc.Core,
-    # the Monitor and the TerraformRunner consume for build numbers and
-    # artifact locations. Each pins its generator version in its own
-    # openapitools.json. Regenerating here — before the web and solution
+    # Two clients are generated code: the TypeScript dorc-api client under
+    # src/dorc-web/src/apis, and the C# Org.OpenAPITools client under
+    # src/Dorc.AzureDevOps that Dorc.Core, the Monitor and the
+    # TerraformRunner consume for build numbers and artifact locations.
+    # Each pins its generator version in its own openapitools.json. The C#
+    # client's spec (build.json) is refreshed from its official source
+    # (MicrosoftDocs/vsts-rest-api-specs) first, with the committed copy as
+    # the offline fallback. Regenerating here — before the web and solution
     # builds — means every release is built from clients the generator
     # actually produced, never from hand-drifted files.
     - name: Generate API clients
@@ -191,13 +193,15 @@ jobs:
       run: npm run api-gen
 
     # The committed clients are the same files the generator just wrote, so
-    # any diff means someone edited generated code by hand or changed a spec
-    # without regenerating. No generated file is hand-maintained: app
-    # concerns live outside the generated trees (the web's
+    # any diff means someone edited generated code by hand, changed a spec
+    # without regenerating, or the official Azure DevOps spec moved ahead of
+    # the committed build.json — in every case the fix is to regenerate and
+    # commit. No generated file is hand-maintained: app concerns live
+    # outside the generated trees (the web's
     # src/services/dorc-api-configuration.ts; the C# side's
-    # Dorc.AzureDevOps.Client project). The two csproj files under
-    # src/Dorc.AzureDevOps are dependabot-owned and excluded via that tree's
-    # .openapi-generator-ignore, so they never diff here either.
+    # Dorc.AzureDevOps.Client project). The client csproj under
+    # src/Dorc.AzureDevOps is dependabot-owned and excluded via that tree's
+    # .openapi-generator-ignore, so it never diffs here either.
     - name: Fail if generated clients are out of sync
       shell: pwsh
       run: |

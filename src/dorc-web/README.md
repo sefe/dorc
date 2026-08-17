@@ -37,8 +37,7 @@ dorc-web/
 │  └─ health/               # Health check endpoint
 ├─ src/
 │  ├─ apis/                 # Generated API clients
-│  │  ├─ dorc-api/          # DOrc API client (TypeScript)
-│  │  └─ azure-devops-build/ # Azure DevOps client
+│  │  └─ dorc-api/          # DOrc API client (TypeScript)
 │  ├─ components/           # Reusable Web Components
 │  │  ├─ add-*.ts           # Dialog components for adding entities
 │  │  ├─ attached-*.ts      # Components showing related entities
@@ -195,8 +194,7 @@ From the `dorc-web` directory:
 ```bash
 npm run api-gen             # regenerate all clients (incl. the C# Azure DevOps client)
 npm run dorc-api-gen        # DOrc API client only (from src/apis/dorc-api/swagger.json)
-npm run ado-build-api-gen   # Azure DevOps Build TS client only (from src/apis/azure-devops-build/build.json)
-npm run ado-build-csharp-gen # Azure DevOps Build C# client (../Dorc.AzureDevOps)
+npm run ado-build-csharp-gen # Azure DevOps Build C# client (../Dorc.AzureDevOps; spec fetched from the official source, committed copy as fallback)
 ```
 
 ### DOrc API Client (`src/apis/dorc-api`)
@@ -216,12 +214,15 @@ base URL from `AppConfig` and, under the OAuth scheme, the Bearer token
 per-operation `Authorization` header handling in the generated code comes
 from the spec's `oauth2` security scheme.
 
-### Azure DevOps Client (`src/apis/azure-devops-build`)
+### Azure DevOps Client (C#, `../Dorc.AzureDevOps`)
 
-Generated from `src/apis/azure-devops-build/build.json`. Azure DevOps API
-specifications come from: https://github.com/MicrosoftDocs/vsts-rest-api-specs
-
-Regenerate with `npm run ado-build-api-gen`.
+The web app does not use an Azure DevOps client — build information reaches
+it through the DOrc API. The C# client the backend uses is generated from
+the official spec at
+https://github.com/MicrosoftDocs/vsts-rest-api-specs
+(`specification/build/6.0/build.json`), fetched fresh by
+`npm run ado-build-csharp-gen` with the committed
+`src/Dorc.AzureDevOps/build.json` as the offline fallback.
 
 
 ## Performance Testing with K6
