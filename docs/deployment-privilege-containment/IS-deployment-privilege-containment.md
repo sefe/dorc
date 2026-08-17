@@ -50,7 +50,7 @@ Four rules determine the order below. They are stated up front because several a
 | S-019 | Introduce config-value visibility classification | SD-3b, W-4 | **Server side DONE**; web UI outstanding, see the step |
 | S-020 | Introduce the credential provider abstraction | SD-4 | **DONE** |
 | S-021 | Bind execution identity to the environment | SD-4, W-6, W-15, SC-07, W-8a | **DONE** — opt-in per environment; W-8a closed here |
-| S-022 | Record attribution reached and not reached | SD-8, W-9 | S-021 |
+| S-022 | Record attribution reached and not reached | SD-8, W-9 | **DONE** — `S-022-attribution-reached-and-not-reached.md` |
 | S-023 | Replace the expression compiler with a fixed grammar | SD-1b, W-1 | **DONE** |
 
 **Independently shippable today, in any order:** S-001, S-002, S-003, S-004, S-005, S-006, S-007, S-008, S-009, S-010, S-011. Eleven steps, covering every rank-1 and rank-2 weakness and the write-path half of every rank-3 weakness. Nothing in that set waits on an unknown.
@@ -488,6 +488,14 @@ Two things the sweep deliberately does not do: it never removes the directory be
 **Dependencies.** S-021.
 
 **Verification intent.** Not applicable — this step is deliberately exempt from a testable criterion, as stated in the HLPS.
+
+**Delivered as `S-022-attribution-reached-and-not-reached.md`.** Three things in it are worth carrying back here.
+
+**Attribution is a property of migration state, not of the release.** Shipping S-021 changed the attribution of nothing: every environment's identity reference is null, and a null reference resolves the tier default exactly as before. What changes attribution is an operator naming an identity on an environment *and* provisioning that account on its target servers. This is why the bound-versus-fallback count exists — "we have begun binding identities" and "the estate is bound" are different claims, and only the second means anything for attribution.
+
+**What improves is the join, not the target's own record.** DOrc's side of the seam is fully populated — request, raiser, environment, project, component, result, Monitor host, Runner process identifier, Runner log path. The target server holds the account, the source host and the time. The join is therefore `(account, source host, time window)`, which identifies a deployment uniquely only when one deployment under that account was in flight from that host in that window. DOrc runs deployments concurrently, so that condition often fails at tier granularity and usually holds at environment granularity. That is the honest statement of the improvement.
+
+**Per-user attribution is not narrowed at all and is not proposed.** The requesting user never reaches the target server in any form. Carrying it there would require the user to hold rights on the target servers, which inverts the reason DOrc exists — people deploy precisely because they do not hold those rights. The document records the three routes to finer attribution and why each is out of scope, so the decision is visible rather than re-derived later under time pressure.
 
 ---
 
