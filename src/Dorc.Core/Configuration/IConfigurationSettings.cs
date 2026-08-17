@@ -1,4 +1,6 @@
-﻿namespace Dorc.Core.Configuration
+﻿using Dorc.ApiModel;
+
+namespace Dorc.Core.Configuration
 {
     public interface IConfigurationSettings
     {
@@ -52,6 +54,12 @@
         /// only reported. Absence means report.
         /// </summary>
         bool GetScriptPathEnforcementEnabled();
+
+        /// <summary>
+        /// How far script content verification is taken. Absence, or an unrecognised value,
+        /// means <see cref="ScriptContentVerificationMode.Report"/>.
+        /// </summary>
+        ScriptContentVerificationMode GetScriptContentVerificationMode();
 
         /// <summary>
         /// Whether deployment credentials come from the secrets vault rather than DOrc's own

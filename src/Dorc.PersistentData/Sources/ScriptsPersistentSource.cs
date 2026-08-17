@@ -176,6 +176,75 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
+        /// <summary>
+        /// Sets or clears the recorded content hash for a script.
+        ///
+        /// Separate from <see cref="UpdateScript"/> deliberately. The recorded hash decides what
+        /// a script is allowed to BE, and the general edit is where someone renames a script or
+        /// changes its PowerShell version — folding the two together would let an unrelated edit
+        /// silently re-baseline the content, which is precisely the state an attacker with
+        /// script-edit rights would want to reach.
+        ///
+        /// Clearing (a null hash) means "re-record on next execution", not "stop verifying this
+        /// one". There is no per-script opt-out, because a per-script opt-out is a per-script
+        /// hole; withdrawing the control is an estate-wide setting.
+        /// </summary>
+        /// <returns>False when no such script exists, or the hash is not shaped like one.</returns>
+        public bool RecordContentHash(int scriptId, string? contentHash, IPrincipal user)
+        {
+            var recording = string.IsNullOrWhiteSpace(contentHash)
+                ? null
+                : contentHash!.Trim().ToLowerInvariant();
+
+            if (recording != null && !ScriptContentHash.IsWellFormed(recording))
+            {
+                // Refused where it is recorded rather than discovered as a mismatch on the next
+                // deployment, when the report would say the script had changed and it had not.
+                return false;
+            }
+
+            using (var context = _contextFactory.GetContext())
+            {
+                var foundScript = context.Scripts
+                    .Include(s => s.Components).ThenInclude(c => c.Projects)
+                    .FirstOrDefault(s => s.Id == scriptId);
+
+                if (foundScript == null)
+                    return false;
+
+                if (string.Equals(foundScript.ContentHash, recording, StringComparison.Ordinal))
+                {
+                    // Already what it is being set to. Recording it again would add an audit
+                    // entry saying nothing happened, and a pipeline that re-promotes an
+                    // unchanged artefact would fill the audit trail with them.
+                    return true;
+                }
+
+                var fromValue = $"ContentHash={foundScript.ContentHash ?? "(unrecorded)"}";
+                var toValue = $"ContentHash={recording ?? "(unrecorded)"}";
+
+                foundScript.ContentHash = recording;
+
+                var projectNames = string.Join(", ", foundScript.Components
+                    .SelectMany(c => c.Projects)
+                    .Select(p => p.Name)
+                    .Distinct());
+
+                context.SaveChanges();
+
+                // Audited like any other change to a script. A hash that changes without a
+                // promotion behind it is exactly the thing an investigation would want to find,
+                // and an unaudited security baseline is not a baseline.
+                _scriptsAuditPersistentSource.AddRecord(
+                    foundScript.Id, foundScript.Name, fromValue, toValue,
+                    _claimsPrincipalReader.GetUserFullDomainName(user),
+                    recording == null ? "ClearContentHash" : "RecordContentHash",
+                    projectNames);
+
+                return true;
+            }
+        }
+
         private static ScriptApiModel MapToScriptApiModel(Script script)
         {
             if (script == null) return null;
@@ -199,6 +268,7 @@ namespace Dorc.PersistentData.Sources
                 IsPathJSON = script.IsPathJSON,
                 IsEnabled = isEnabled,
                 PowerShellVersionNumber = script.PowerShellVersionNumber,
+                ContentHash = script.ContentHash,
                 ProjectNames = script.Components?.SelectMany(s => s.Projects).Select(p => p.Name).ToList()
             };
         }
