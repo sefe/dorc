@@ -103,13 +103,24 @@ namespace Dorc.Core
             return name != null && Regex.IsMatch(name, @"\A[a-zA-Z0-9'_. -]+(\(External\))?\z");
         }
 
+        // Broad-search guard. Deliberately wider than IsValidSearchName: this backs the
+        // free-text people picker, so it must accept everything DirectorySearchController's
+        // own contract accepts (letters, digits, - _ . ' space ( ) &) plus non-ASCII names
+        // such as "Müller" or "Łukasz" — hence \p{L}/\p{N} rather than a-zA-Z0-9.
+        // AccessControlController.SearchUsers performs no validation of its own, so this is
+        // the only structural guard on that path.
+        internal static bool IsValidSearchTerm(string term)
+        {
+            return term != null && Regex.IsMatch(term, @"\A[\p{L}\p{N}_.'\- ()&]+\z");
+        }
+
         public List<UserElementApiModel> Search(string objectName)
         {
             var output = new List<UserElementApiModel>();
 
-            // Parity with the replaced ActiveDirectorySearcher.Search: reject malformed search
-            // terms outright rather than round-tripping them to Graph.
-            if (!IsValidSearchName(objectName))
+            // Reject structurally malformed search terms rather than round-tripping them to
+            // Graph. Returns empty (not throw), matching the replaced ActiveDirectorySearcher.
+            if (!IsValidSearchTerm(objectName))
             {
                 return output;
             }
