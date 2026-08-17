@@ -342,6 +342,248 @@ namespace Dorc.Core.Tests
 #pragma warning restore CS0618
         }
 
+        // ---------------------------------------------------------------------
+        // Request-level assertions. Response-shape tests alone let a completely
+        // wrong $filter pass; these assert what the code actually SENT to Graph.
+        // ---------------------------------------------------------------------
+
+        // P-1 (request side): the user search must constrain to enabled accounts and must
+        // probe onPremisesSamAccountName, or on-prem-synced users become unsearchable.
+        [TestMethod]
+        public void P1_Search_EmitsEnabledOnlyFilterAcrossExpectedProperties()
+        {
+            var handler = new MockHttpHandler()
+                .MapPath(HttpMethod.Get, "/users", """{ "value": [] }""")
+                .MapPath(HttpMethod.Get, "/groups", """{ "value": [] }""");
+
+            NewSearcher(handler).Search("alice");
+
+            var filter = handler.LastFilter("/users");
+            Assert.IsNotNull(filter, "no $filter was sent for the user search");
+            StringAssert.Contains(filter, "accountEnabled eq true",
+                "dropping this lets disabled leavers appear in the people picker");
+            StringAssert.Contains(filter, "startsWith(onPremisesSamAccountName,'alice')");
+            StringAssert.Contains(filter, "startsWith(displayName,'alice')");
+            StringAssert.Contains(filter, "startsWith(userPrincipalName,'alice')");
+        }
+
+        // P-2 (request side): group search must probe displayName and onPremisesSamAccountName.
+        [TestMethod]
+        public void P2_Search_EmitsGroupFilterAcrossExpectedProperties()
+        {
+            var handler = new MockHttpHandler()
+                .MapPath(HttpMethod.Get, "/users", """{ "value": [] }""")
+                .MapPath(HttpMethod.Get, "/groups", """{ "value": [] }""");
+
+            NewSearcher(handler).Search("admins");
+
+            var filter = handler.LastFilter("/groups");
+            Assert.IsNotNull(filter);
+            StringAssert.Contains(filter, "startsWith(displayName,'admins')");
+            StringAssert.Contains(filter, "startsWith(onPremisesSamAccountName, 'admins')");
+        }
+
+        // R-6: a single quote in the search term must be doubled, not passed through, or the
+        // term can break out of the OData string literal.
+        [TestMethod]
+        public void Search_EscapesSingleQuoteInODataStringLiteral()
+        {
+            var handler = new MockHttpHandler()
+                .MapPath(HttpMethod.Get, "/users", """{ "value": [] }""")
+                .MapPath(HttpMethod.Get, "/groups", """{ "value": [] }""");
+
+            NewSearcher(handler).Search("O'Brien");
+
+            var filter = handler.LastFilter("/users");
+            Assert.IsNotNull(filter);
+            StringAssert.Contains(filter, "O''Brien", "single quote must be doubled for OData");
+            Assert.IsFalse(filter!.Contains("'O'Brien'", StringComparison.Ordinal),
+                "unescaped quote would terminate the string literal early");
+        }
+
+        // The Search guard must actually be invoked — a malformed term must never reach Graph.
+        [TestMethod]
+        public void Search_RejectsMalformedTermWithoutCallingGraph()
+        {
+            var handler = new MockHttpHandler { ThrowOnUnmatched = true };
+
+            var results = NewSearcher(handler).Search("a\\b");
+
+            Assert.AreEqual(0, results.Count);
+            Assert.AreEqual(0, handler.Captured.Count, "no Graph call should be made for a rejected term");
+        }
+
+        // P-6 (negative): the load-bearing case. If checkMemberGroups reports no membership,
+        // the method must return empty — not the group id it happened to resolve.
+        [TestMethod]
+        public void P6_GetGroupSidIfUserIsMemberRecursive_NonMember_ReturnsEmptyString()
+        {
+            var handler = new MockHttpHandler()
+                .MapFilter(HttpMethod.Get, "/users", "onPremisesSamAccountName", """
+                { "value": [{ "id": "66666666-6666-6666-6666-666666666666" }] }
+                """)
+                .MapPath(HttpMethod.Get, "/groups", """
+                { "value": [{ "id": "77777777-7777-7777-7777-777777777777" }] }
+                """)
+                // Resolvable user, resolvable group, but NOT a member.
+                .MapPath(HttpMethod.Post, "/checkMemberGroups", """{ "value": [] }""");
+
+            var result = NewSearcher(handler).GetGroupSidIfUserIsMemberRecursive("alice", "Admins", "contoso.com");
+
+            Assert.AreEqual(string.Empty, result,
+                "a non-member must not receive the group id — this is the privilege-escalation guard");
+        }
+
+        // P-9: GetUserData populates display name and email, including the mail fallback.
+        [TestMethod]
+        public void P9_GetUserData_PopulatesDisplayNameAndEmail()
+        {
+            var handler = new MockHttpHandler()
+                .MapPath(HttpMethod.Get, "/users", """
+                {
+                    "value": [{
+                        "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+                        "displayName": "Alice Smith",
+                        "userPrincipalName": "alice@contoso.com",
+                        "mail": "alice.smith@contoso.com",
+                        "accountEnabled": true,
+                        "onPremisesSecurityIdentifier": "S-1-5-21-100-200-300-1001"
+                    }]
+                }
+                """);
+
+            var user = NewSearcher(handler).GetUserData("alice");
+
+            Assert.AreEqual("Alice Smith", user.DisplayName);
+            Assert.AreEqual("alice.smith@contoso.com", user.Email);
+            Assert.AreEqual("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", user.Pid);
+        }
+
+        // P-9: when Entra has no `mail`, Email falls back to the UPN rather than going null —
+        // notification paths depend on this.
+        [TestMethod]
+        public void P9_GetUserData_FallsBackToUpnWhenMailUnset()
+        {
+            var handler = new MockHttpHandler()
+                .MapPath(HttpMethod.Get, "/users", """
+                {
+                    "value": [{
+                        "id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+                        "displayName": "Bob Jones",
+                        "userPrincipalName": "bob@contoso.com",
+                        "accountEnabled": true
+                    }]
+                }
+                """);
+
+            var user = NewSearcher(handler).GetUserData("bob");
+
+            Assert.AreEqual("bob@contoso.com", user.Email);
+        }
+
+        // GetSidsForUser is handed a bare sAMAccountName by WinAuthClaimsPrincipalReader.
+        // It must resolve that to an object id before addressing Graph — a bare name as a
+        // path segment yields 400 and takes down every authorization check.
+        [TestMethod]
+        public void GetSidsForUser_ResolvesBareSamAccountNameBeforeAddressingGraph()
+        {
+            const string objectId = "cccccccc-cccc-cccc-cccc-cccccccccccc";
+            var handler = new MockHttpHandler()
+                .MapFilter(HttpMethod.Get, "/users", "onPremisesSamAccountName", $$"""
+                { "value": [{ "id": "{{objectId}}" }] }
+                """)
+                .MapPath(HttpMethod.Get, $"/users/{objectId}/transitiveMemberOf", """
+                { "value": [{ "id": "dddddddd-dddd-dddd-dddd-dddddddddddd",
+                              "onPremisesSecurityIdentifier": "S-1-5-21-9-9-9-500" }] }
+                """)
+                .MapPath(HttpMethod.Get, $"/users/{objectId}", """
+                { "id": "cccccccc-cccc-cccc-cccc-cccccccccccc",
+                  "onPremisesSecurityIdentifier": "S-1-5-21-9-9-9-100" }
+                """);
+
+            var sids = NewSearcher(handler).GetSidsForUser("jsmith");
+
+            CollectionAssert.Contains(sids, "dddddddd-dddd-dddd-dddd-dddddddddddd");
+            CollectionAssert.Contains(sids, "S-1-5-21-9-9-9-500");
+
+            // P-7: the membership query must $select the on-prem SID. Without it, legacy
+            // AccessControl.Sid rows stop matching after the migration — and because the
+            // fake does not honour $select, only asserting the emitted query catches this.
+            var select = handler.LastSelect("/transitiveMemberOf");
+            Assert.IsNotNull(select, "no $select was sent for transitiveMemberOf");
+            StringAssert.Contains(select, "onPremisesSecurityIdentifier");
+            Assert.IsFalse(handler.Captured.Any(c => c.Path.Contains("/users/jsmith", StringComparison.OrdinalIgnoreCase)),
+                "a bare sAMAccountName must never be used as a Graph path segment");
+        }
+
+        // transitiveMemberOf is a PAGED collection. Every page must be drained or users in
+        // many groups silently lose ACL grants.
+        [TestMethod]
+        public void GetSidsForUser_DrainsAllPagesOfTransitiveMemberOf()
+        {
+            const string objectId = "cccccccc-cccc-cccc-cccc-cccccccccccc";
+            var handler = new MockHttpHandler();
+            // Page 2 first: rules match first-wins, so the skiptoken rule must precede
+            // the generic transitiveMemberOf rule, or page 1 would answer itself forever.
+            handler.Map(req => req.RequestUri != null && req.RequestUri.Query.Contains("PAGE2"), """
+                { "value": [{ "id": "20000000-0000-0000-0000-000000000002" }] }
+                """);
+            handler.MapPath(HttpMethod.Get, $"/users/{objectId}/transitiveMemberOf", """
+                {
+                    "value": [{ "id": "10000000-0000-0000-0000-000000000001" }],
+                    "@odata.nextLink": "https://graph.microsoft.com/v1.0/users/cccccccc-cccc-cccc-cccc-cccccccccccc/transitiveMemberOf/microsoft.graph.group?$skiptoken=PAGE2"
+                }
+                """);
+            handler.MapPath(HttpMethod.Get, $"/users/{objectId}", """
+                { "id": "cccccccc-cccc-cccc-cccc-cccccccccccc" }
+                """);
+
+            var sids = NewSearcher(handler).GetSidsForUser(objectId);
+
+            CollectionAssert.Contains(sids, "10000000-0000-0000-0000-000000000001");
+            CollectionAssert.Contains(sids, "20000000-0000-0000-0000-000000000002",
+                "second page of transitiveMemberOf was not drained");
+        }
+
+        // An ambiguous name (same sAMAccountName synced from two on-prem domains) must not
+        // silently bind the caller to whichever principal Graph returned first.
+        [TestMethod]
+        public void GetGroupSidIfUserIsMemberRecursive_AmbiguousName_RefusesToGuess()
+        {
+            var handler = new MockHttpHandler()
+                .MapFilter(HttpMethod.Get, "/users", "onPremisesSamAccountName", """
+                {
+                    "value": [
+                        { "id": "11111111-0000-0000-0000-000000000001" },
+                        { "id": "22222222-0000-0000-0000-000000000002" }
+                    ]
+                }
+                """)
+                .MapPath(HttpMethod.Get, "/groups", """
+                { "value": [{ "id": "77777777-7777-7777-7777-777777777777" }] }
+                """)
+                .MapPath(HttpMethod.Post, "/checkMemberGroups", """
+                { "value": [ "77777777-7777-7777-7777-777777777777" ] }
+                """);
+
+            var result = NewSearcher(handler).GetGroupSidIfUserIsMemberRecursive("alice", "Admins", "contoso.com");
+
+            Assert.AreEqual(string.Empty, result,
+                "an ambiguous sAMAccountName must not resolve to an arbitrary principal");
+        }
+
+        // 401/403 from Graph must surface as UnauthorizedAccessException, not a raw ApiException.
+        [TestMethod]
+        public void Search_MapsForbiddenToUnauthorizedAccessException()
+        {
+            var handler = new MockHttpHandler()
+                .MapPath(HttpMethod.Get, "/users",
+                    """{ "error": { "code": "Authorization_RequestDenied", "message": "denied" } }""",
+                    System.Net.HttpStatusCode.Forbidden);
+
+            Assert.ThrowsExactly<UnauthorizedAccessException>(() => NewSearcher(handler).Search("alice"));
+        }
+
         private static AzureEntraSearcher NewSearcher(MockHttpHandler handler)
         {
             return new AzureEntraSearcher(
