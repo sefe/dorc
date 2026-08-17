@@ -26,6 +26,9 @@ on:
 env:
   DOTNET_VERSION: '8.0.x'
 
+permissions:
+  contents: read
+
 jobs:
   linux-build:
     name: Build primary API compile graph on Linux
