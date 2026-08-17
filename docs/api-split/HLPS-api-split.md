@@ -1,25 +1,26 @@
 ---
-status: APPROVED
+status: IN REVIEW
 author: Agent
 date: 2026-05-28
+revised: 2026-08-17 (Round 4)
 issue: sefe/dorc#423
 folder: docs/api-split/
 supersedes_pr: sefe/dorc#424
-codebase_anchor: aab79d14 (main, 2026-05-28) — file counts, paths, and class names are pinned to this commit
-revision_round: 3
+codebase_anchor: aebd286 (main, 2026-08-10) — re-anchored in Round 4; was aab79d14, 214 commits behind
+revision_round: 4
 ---
 
 # HLPS: Replace AD with Microsoft Graph + Split `Dorc.Api` into a Linux-compatible API and a Windows-only worker
 
 | Field      | Value                       |
 |------------|-----------------------------|
-| **Status** | APPROVED (Round 3 verification passed 2026-05-28; see Appendix A for full disposition trail) |
+| **Status** | IN REVIEW (Round 4). Was APPROVED at Round 3; **re-opened 2026-08-17** because implementation of S-001/S-002/S-003/S-004/S-007 falsified four success criteria and surfaced five undocumented behavioural changes. See Appendix B. |
 | **Author** | Agent                       |
 | **Date**   | 2026-05-28                  |
 | **Issue**  | sefe/dorc#423               |
 | **Folder** | docs/api-split/             |
 | **Supersedes** | sefe/dorc#424 (Copilot agent PR, closed unmerged) |
-| **Codebase anchor** | `aab79d14` (`main`, 2026-05-28). File counts/paths/classes valid at this SHA. |
+| **Codebase anchor** | `aebd286` (`main`, 2026-08-10). Re-anchored in Round 4 — the Round 3 anchor `aab79d14` was 214 commits stale, predating the Kafka substrate, the daemons modernisation follow-ups, and an LDAP-injection fix on `ActiveDirectorySearcher` (see Appendix B, R4-6). |
 
 ---
 
@@ -107,6 +108,12 @@ Rationale: JWT/mTLS add machinery without material security benefit on loopback;
 
 **Parity matrix (load-bearing behaviours that must work post-Graph):**
 
+> **Round 4:** the authoritative matrix now lives at [`parity-matrix.md`](parity-matrix.md) per
+> SC-9. The table below is retained as the record of what was known at drafting time; where the
+> two differ, the living artefact wins. Three rows the table marked ✅ at Round 3 turned out to
+> have no test behind them (P-6's negative case, P-9 entirely) or a test that could not detect a
+> wrong query (P-1/P-2/P-4). See Appendix B.
+
 The matrix below is derived from the `IActiveDirectorySearcher` contract *and* its call sites (notably `AccessControlPersistentSource`, `EnvironmentsPersistentSource`, `ClaimsTransformer`). Every row in this table represents behaviour an existing customer install relies on; the Graph implementation in `aab79d14` already covers some rows but has gaps in others — those gaps are flagged below and are in-scope for S-001.
 
 | # | Behaviour | Today (DirectoryServices) | Graph equivalent / strategy | Current Graph impl status at `aab79d14` |
@@ -161,6 +168,21 @@ The matrix below is derived from the `IActiveDirectorySearcher` contract *and* i
 - Hardening the shared-secret storage to DPAPI / Azure Key Vault. Separate concern (M-1/D-3 acknowledged).
 - Log-injection findings in `BundledRequestsController`, `MakeLikeProdController`, `ResetAppPasswordController`, `Deployment/Requests.cs` — see SC-8b.
 
+**Added in Round 4 — consequences of S-001 that were not stated at Round 3.** These are recorded
+as scope decisions rather than left as silent behaviour changes; each needs an explicit accept or
+reject from the panel:
+
+- **M2M / IdentityServer client principals leave the identity picker.** Deleting
+  `IdentityServerSearcher` removes the only searcher returning IdentityServer clients from
+  `AccessControlController.SearchUsers`. Existing M2M grants continue to work; new ones cannot be
+  created through the UI. `IdentityServerClient.cs` and `GetIdentityServerClientId()` remain in
+  the tree but unreachable. **Proposed disposition: accept, and remove the dead client code in
+  S-010.** If rejected, S-001 must keep a Graph service-principal search path.
+- **Graph result truncation and loss of composite fault tolerance** — tracked as U-14 and U-13
+  rather than silently accepted.
+- **`AppSettings:ActiveDirectoryRoles` becomes dead configuration** — tracked as U-12.
+- **`AppSettings:IsUseAdSidsForAccessControl` becomes a no-op** — tracked as U-17.
+
 ---
 
 ## 5. Constraints
@@ -177,7 +199,10 @@ The matrix below is derived from the `IActiveDirectorySearcher` contract *and* i
 
 ## 6. Success Criteria
 
-- **SC-1** `Dorc.Api`, `Dorc.Core`, and `Dorc.PersistentData` build with no `System.DirectoryServices*` package refs and no `System.Management` package refs. `Dorc.Api` runs on a Linux container with no `<RuntimeIdentifier>win-*</RuntimeIdentifier>`. CI gate: a Linux build job that fails if Windows-only refs reappear.
+- **SC-1** `Dorc.Api`, `Dorc.Core`, and `Dorc.PersistentData` build on Linux with no Windows-only dependencies, enforced by CI. **Phased, because the two halves land in different steps and stating them as one criterion made SC-1 unsatisfiable from S-001 until S-005:**
+  - **SC-1a (S-001):** no `System.DirectoryServices*` package refs; no `<RuntimeIdentifier>win-*</RuntimeIdentifier>`; no *new* Windows-only API usage. Enforced by the Linux build gate.
+  - **SC-1b (S-005):** no `System.Management` package refs, and the gate's accepted-backlog list is empty.
+  - The gate must enforce this at **three** layers, not one: a `csproj` guard (catches the dependency being *declared*), CA1416-as-error (catches the API being *used* — a Windows-only API compiles clean on Linux unless the warning is promoted, so a package-ref grep alone is not a gate), and a Linux test run. Added in Round 4 after the original single-layer gate was shown to pass with full `System.DirectoryServices.AccountManagement` usage reintroduced.
 - **SC-2** `Dorc.Api.WindowsWorker` builds, runs on Windows only, binds to `127.0.0.1`, and rejects calls missing `X-Worker-Key` with a documented `401` body.
 - **SC-3** On Windows installs with the worker present: WMI, registry, and password-reset endpoints behave identically to today (verified by parity tests against pre-split fixtures).
 - **SC-4** On Linux installs (no worker): WMI / registry / password-reset endpoints return `503 Service Unavailable` with body `{"error":"windows_worker_unavailable", "endpoint":"<name>"}`. This is the documented behavioural envelope referenced in C-1.
@@ -185,8 +210,9 @@ The matrix below is derived from the `IActiveDirectorySearcher` contract *and* i
 - **SC-6** All existing unit and integration tests pass at parity with pre-split coverage; new contract tests cover the primary↔worker HTTP surface; new tests cover the Graph-backed AD code path against the parity matrix in §4.
 - **SC-7** MSI installer adds the worker as a Windows-only component without breaking existing upgrade paths.
 - **SC-8a** LDAP-injection findings on PR #424 (`DirectorySearchController` ×2) are eliminated by the Graph migration removing the LDAP code path. Verified by re-running the security scan post-merge.
-- **SC-8b** Log-injection findings (`BundledRequestsController`, `MakeLikeProdController`, `ResetAppPasswordController`, `Deployment/Requests.cs`) are addressed in dedicated SPECs carved out from the relevant IS steps (S-005 for `ResetAppPasswordController`; the others get their own SPEC under the step that touches them). Not deferred outside this HLPS.
-- **SC-9** Parity matrix in §4 is documented as a living artefact (`docs/api-split/parity-matrix.md`) and every row has at least one **integration-level** test exercising the Graph-backed path against a Graph SDK fake or recorded HTTP harness. Interface-level mocks at the `IActiveDirectorySearcher` boundary alone do not satisfy this criterion.
+- **SC-8b** Log-injection findings (`BundledRequestsController`, `MakeLikeProdController`, `ResetAppPasswordController`, `Deployment/Requests.cs`) are addressed in dedicated SPECs carved out from the relevant IS steps (**S-006** for `ResetAppPasswordController` — corrected in Round 4, this said S-005, which is the WMI probe step and never touches that file; the others get their own SPEC under the step that touches them). Not deferred outside this HLPS.
+- **SC-9** The parity matrix lives at [`docs/api-split/parity-matrix.md`](parity-matrix.md) — created in Round 4; SC-9 had mandated it since Round 1 but it was never written, and the matrix lived only inside §4 and SPEC-S-001, both of which go stale when their step merges. Every row has at least one **integration-level** test exercising the Graph-backed path against a Graph SDK fake or recorded HTTP harness. Interface-level mocks at the `IActiveDirectorySearcher` boundary alone do not satisfy this criterion.
+  - **Added in Round 4:** for rows whose risk is a *wrong query* rather than a wrong response, the test must assert the emitted `$filter` / `$select`. A response-only test cannot detect a wrong filter, because the fake answers regardless of what was asked. A row is not ✅ until its test **fails when the behaviour is removed**.
 - **SC-10** Existing customer installs with `AccessControl.Sid` rows backed by on-prem AD SIDs continue to resolve correctly after migration, provided their Entra tenant has Entra Connect (or Cloud Sync) populating `onPremisesSecurityIdentifier`. Verified by an integration test against a Graph fake that exposes `onPremisesSecurityIdentifier` for sample users/groups.
 
 ---
@@ -194,16 +220,58 @@ The matrix below is derived from the `IActiveDirectorySearcher` contract *and* i
 ## 7. Unknowns Register
 
 ### Blocking
-*None remaining.* Original U-1, U-2, U-3 resolved as D-1, D-2, D-3 above.
 
-### Non-blocking (resolved during IS; some require named owner)
+Per CLAUDE.md, **blocking unknowns halt progress**. Original U-1, U-2, U-3 were resolved as D-1,
+D-2, D-3. Round 4 promotes one existing unknown and adds two, all of which gate *release*
+rather than further implementation — S-001 through S-007 can continue, but none of this may
+ship to a customer until they are answered.
+
+- **U-10 (promoted from non-blocking in Round 4) — migration path for Cohort B.** Customers on
+  pure on-prem AD with no Entra tenant lose all ACL resolution at upgrade. This was filed as
+  non-blocking with a default of "hard break, no shim, published prerequisites", but a default
+  chosen by the authors is not a product decision, and by Round 3 the HLPS was APPROVED with a
+  customer-breaking change resting on an unanswered question. **Owner: Product.** Required
+  before release: confirm the hard break, or fund a back-compat shim.
+- **U-12 (new) — role-claim prerequisite.** S-007 deletes `ClaimsTransformer`, which was the only
+  reader of `AppSettings:ActiveDirectoryRoles`. `User.IsInRole("Admin")` / `("PowerUser")` remain
+  load-bearing across `RefDataController`, `RefDataPermissionController`, `RefDataSqlPortsController`,
+  `DeploymentsHub`, `RolePrivilegesChecker` and `SecurityObjectFilter`, and now resolve **solely**
+  from the JWT `role` claim. The installer still writes the AD group settings, so an operator who
+  upgrades and configures them as always gets 403 on every admin endpoint if their Entra app
+  registration does not emit `role`. **Owner: architecture + docs.** Required before release:
+  either the app-registration guidance makes `role` emission a documented prerequisite, or the
+  dead config and its WiX writes are removed so the knob stops lying about being effective.
+- **U-16 (new) — worker provisioning ordering.** S-004 routes a live endpoint through the worker
+  while `WindowsWorker:Enabled` ships `false` and nothing sets it `true`, because provisioning is
+  S-008's job and S-008 has no PR. As sequenced, merging S-004 turns a working endpoint into a
+  503 on every existing Windows install. **Owner: architecture.** Required before S-004 merges:
+  land S-008 first, or flip the shipped default. The same ordering trap applies to S-007, whose
+  startup guard rejects the `AuthenticationScheme` value the MSI itself writes.
+
+### Non-blocking (added in Round 4)
+
+- **U-13** Graph fault tolerance. Removing `CompositeActiveDirectorySearcher` means a Graph 429/503
+  is now a 500 rather than a degraded result, and no retry handler is configured on the Kiota
+  adapter. Decide whether to configure Graph SDK retry/backoff or accept the change.
+- **U-14** Result-set truncation. `Search` reads one Graph page (100 users + 100 groups) with no
+  signal to the caller; the AD path returned up to ~1000. Pre-existing on the OAuth path, but
+  S-001 makes it the only path, including for `DirectorySearchController`.
+- **U-15** Multi-domain tenants. `onPremisesSamAccountName` is unique per domain, not per tenant.
+  Current behaviour refuses to resolve an ambiguous name (fails closed). Confirm that refusing is
+  preferred over a domain-scoped filter.
+- **U-17** `IsUseAdSidsForAccessControl` is a no-op after S-007 — `ClaimsPrincipalReaderFactory`,
+  its only reader, is left unregistered when `ConfigureBoth` is deleted. Decide: delete the flag
+  and the class, or re-register it. Note that re-registering does not restore the behaviour, since
+  its AD branch resolves names that Graph cannot match.
+
+### Non-blocking (from Rounds 1-3; resolved during IS; some require named owner)
 - **U-4** Naming of the new project: `Dorc.Api.Windows` vs. `Dorc.Api.WindowsWorker`. Prefer the latter for specificity (per CLAUDE.md naming principle); confirm in the IS step that creates the project.
 - **U-5** Worker config: shared `appsettings.json` with the primary vs. its own. Affects secret-handling at install time.
 - **U-6** Worker URL discovery: config-file (likely) vs. service discovery.
 - **U-7** Contract-test strategy for the inter-API surface (consumer-driven vs. shared-DTO vs. OpenAPI-spec-driven). Recommendation pending in the IS step that wires the contract: shared-DTO via the existing `Dorc.ApiModel` pattern is the lowest-friction choice.
 - **U-8** `Setup.Acceptance` handling: install the worker MSI for the test environment, or stub the worker endpoints. Gates SC-6 (contract tests on a real worker vs. mock).
 - **U-9** Graph permission set required (delegated vs application; specific permission names). Affects customer setup guidance (C-4) and the IS step that does the Graph migration. **Recommendation pending architecture confirmation:** application-only permissions (`User.Read.All`, `Group.Read.All`, `GroupMember.Read.All`) with admin consent, since the worker runs as a service account and never acts on behalf of an end user.
-- **U-10** Migration path for existing customers from AD to Entra. **Owner: Product.** Two customer cohorts and two outcomes:
+- **U-10** *(promoted to Blocking in Round 4 — detail retained here.)* Migration path for existing customers from AD to Entra. **Owner: Product.** Two customer cohorts and two outcomes:
   - **Cohort A — has Entra tenant + Entra Connect populating `onPremisesSecurityIdentifier`.** Upgrade is transparent: P-4 / P-7 in the parity matrix resolve existing `AccessControl.Sid` rows via Entra. SC-10 covers this.
   - **Cohort B — pure on-prem AD, no Entra tenant.** Hard break. Existing ACLs cannot be resolved post-migration.
   Product decision required before release: do we publish migration guidance only, or do we ship a back-compat shim (e.g. an on-prem LDAP fallback for the SID-resolution path)? Default position absent product input: hard break for Cohort B; published prerequisites; no shim.
@@ -287,3 +355,38 @@ For audit. Disposition of findings from the 2026-05-28 adversarial panel (Round 
 | NM-3 | MED | SC-4 `503` envelope doesn't say how primary detects worker absence | Accept — added as new non-blocking U-11 with config-flag recommendation; decision in S-003 SPEC |
 | NL-1 | LOW | CI gate not visible in Next Steps | Accept — S-001 step description updated to call out the Linux build CI gate explicitly |
 | NL-2 | LOW | Appendix A maps R2-8 to MED but Round 1 had it as HIGH | Accept (cosmetic) — original Round 1 review listed R2-8 in its MEDIUM section ("'No silent functional change… except where Graph semantics differ' is a get-out clause"), so the mapping is correct; this row clarifies the trace |
+
+---
+
+## Appendix B — Round 4 revision: why an APPROVED HLPS was re-opened
+
+Round 3 approved this document on 2026-05-28 against codebase anchor `aab79d14`. Between then and
+2026-08-17, steps S-001, S-002, S-003, S-004 and S-007 were implemented and adversarially reviewed.
+That work falsified four success criteria and surfaced five behavioural changes the HLPS never
+stated. Approval at Round 3 was therefore premature — not wrong in its decisions (D-1/D-2/D-3 all
+held up under implementation), but wrong in claiming its criteria were sound and its scope complete.
+
+The pattern worth recording: **every one of these was invisible to document review and only
+became visible when something executed.** A plan review cannot tell you that a CI gate does not
+fail, or that a test passes against a mutated implementation.
+
+| ID | Severity | Finding | Disposition |
+|---|---|---|---|
+| R4-1 | HIGH | SC-9 mandated `docs/api-split/parity-matrix.md` since Round 1. The file was never created; the matrix lived only in §4 and SPEC-S-001, both of which go stale when their step merges. | Accept — artefact created; SC-9 reworded to reference it and to require request-level assertions. |
+| R4-2 | HIGH | Three matrix rows marked ✅ had no evidence: P-6's negative case and P-9 had no test at all, and P-1/P-2/P-4's tests asserted only the response, so a wrong `$filter` passed. Mutation testing showed six of eight injected defects — including an authorization bypass and removal of the OData escaping — passing the suite. | Accept — SC-9 now requires a row's test to fail when the behaviour is removed; matrix records mutation evidence per row. |
+| R4-3 | HIGH | SC-1 combined `System.DirectoryServices*` (removed at S-001) with `System.Management` (removed at S-005) into one criterion, making it unsatisfiable for the entire span between those steps and giving no way to state partial compliance. | Accept — split into SC-1a / SC-1b. |
+| R4-4 | HIGH | SC-1's CI gate was specified as "a Linux build job that fails if Windows-only refs reappear". A build job does not fail: CA1416 is a warning unless promoted, so full `System.DirectoryServices.AccountManagement` usage compiles clean on Linux. The criterion described an enforcement mechanism that cannot enforce. | Accept — SC-1 now specifies three layers and names CA1416-as-error explicitly. |
+| R4-5 | MEDIUM | SC-8b assigned the `ResetAppPasswordController` log-injection fix to S-005, which is the WMI probe step and never touches that file. The IS assigns that controller to S-006. | Accept — corrected to S-006. |
+| R4-6 | MEDIUM | The Round 3 anchor was 214 commits stale. In that window `main` gained the Kafka substrate and an LDAP-injection fix to `ActiveDirectorySearcher` — a file S-001 deletes. The identical vulnerable regex in `AzureEntraSearcher` was never covered by that fix, so migrating as planned would have reverted a security fix in effect, with no git conflict to signal it. | Accept — re-anchored to `aebd286`; carry-forward performed in S-001. Recorded because an HLPS pinned to a stale anchor cannot see this class of interaction. |
+| R4-7 | MEDIUM | U-10 (Cohort B hard break) sat in the non-blocking list with an authors' default standing in for a Product decision, while the HLPS was APPROVED and implementation proceeded. | Accept — promoted to Blocking. |
+| R4-8 | MEDIUM | Five consequences of S-001/S-007 were absent from Scope: M2M principals leaving the identity picker, `ActiveDirectoryRoles` becoming dead config with a new IdP prerequisite, `IsUseAdSidsForAccessControl` becoming a no-op, loss of composite fault tolerance, and Graph result truncation. | Accept — added to Scope / Out of Scope and tracked as U-12 through U-17. |
+| R4-9 | MEDIUM | The step sequence lets S-004 and S-007 merge before S-008 provisions them, turning working endpoints into 503s and a failed startup on existing installs. The HLPS records step *dependencies* but has no notion of a step being un-shippable without a later one. | Accept — U-16 added as blocking; IS dependency column should distinguish "builds on" from "cannot ship without". |
+
+### What Round 4 does not resolve
+
+- U-10, U-12 and U-16 are blocking and need named owners, not author defaults.
+- SC-3 ("verified by parity tests against pre-split fixtures") still has no fixtures. S-004 shipped
+  with no test asserting the worker's registry endpoint rejects an unauthenticated request, and the
+  worker projects are `net8.0-windows`, so they cannot be verified in Linux CI at all. SC-2 and SC-3
+  need a stated verification host before S-005 and S-006 add more worker surface.
+- SC-6 depends on U-8 (`Setup.Acceptance` strategy), still unanswered.
