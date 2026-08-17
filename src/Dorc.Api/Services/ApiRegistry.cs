@@ -23,9 +23,9 @@ namespace Dorc.Api.Services
 
             // Graph-backed AD replacement — single implementation, no composite/factory.
             // See HLPS-api-split.md D-2 and SPEC-S-001 §2.5.
-            For<IPrincipalDirectory>().Use<EntraPrincipalDirectory>().Singleton();
+            For<IPrincipalDirectory>().Use<PrincipalDirectory>().Singleton();
             For<IUserGroupReader>().Use<CachedUserGroupReader>().Singleton();
-            For<IPrincipalSearch>().Use<EntraPrincipalSearch>().Scoped();
+            For<IPrincipalSearch>().Use<PrincipalSearch>().Scoped();
 
             For<IFileSystemHelper>().Use<FileSystemHelper>();
             For<IGitHubHostValidator>().Use<GitHubHostValidator>().Singleton();

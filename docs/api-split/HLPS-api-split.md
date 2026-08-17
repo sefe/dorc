@@ -1,5 +1,5 @@
 ---
-status: IN REVIEW
+status: REFERENCE
 author: Agent
 date: 2026-05-28
 revised: 2026-08-17 (Round 5 — Round 4 rejected by panel)
@@ -14,7 +14,7 @@ revision_round: 5
 
 | Field      | Value                       |
 |------------|-----------------------------|
-| **Status** | IN REVIEW (Round 5 — the panel returned REVISION REQUIRED on Round 4; see Appendix C). Was APPROVED at Round 3; **re-opened 2026-08-17** because implementation of S-001/S-002/S-003/S-004/S-007 falsified four success criteria and surfaced five undocumented behavioural changes. See Appendix B. |
+| **Status** | REFERENCE (process stood down at Round 6 by owner decision; no further rounds). Previously IN REVIEW (Round 5 — the panel returned REVISION REQUIRED on Round 4; see Appendix C). Was APPROVED at Round 3; **re-opened 2026-08-17** because implementation of S-001/S-002/S-003/S-004/S-007 falsified four success criteria and surfaced five undocumented behavioural changes. See Appendix B. |
 | **Author** | Agent                       |
 | **Date**   | 2026-05-28                  |
 | **Issue**  | sefe/dorc#423               |
@@ -202,7 +202,14 @@ reject from the panel:
 - **C-3 Single host on Windows.** On Windows installs, the worker process ships and runs alongside the primary as a separate MSI component, bound to loopback only.
 - **C-4 Customer infrastructure.** Every DORC install requires an Entra ID tenant + app registration with Graph permissions. Document required permissions (U-9) and the AD-to-Entra migration path (U-10) before release.
 - **C-5 Bounded functional change.** Endpoints behave identically pre- and post-split for the parity matrix in §4. Known semantic gaps outside the matrix (foreign security principals, well-known SIDs, local-machine SIDs — none currently relied on) are documented and any future use is gated on a follow-up HLPS.
-- **C-6 Follow the HLPS → IS → SPEC process.** Each batch of file moves and the Graph migration go through an IS step with their own SPEC and adversarial review.
+- **C-6 Follow the HLPS → IS → SPEC process.** **Stood down (Round 6, owner decision):** the
+  revision rounds, adversarial-panel approval gate and Unknowns Register bookkeeping are
+  discontinued as of this round. These documents remain as reference — the decisions, the parity
+  matrix and the disposition trail are worth keeping — but they are no longer a gate, and no
+  Round 7 will be run. Decisions from here live in PR descriptions and code. The original
+  constraint text follows for the record.
+
+  *(was)* Follow the HLPS → IS → SPEC process. Each batch of file moves and the Graph migration go through an IS step with their own SPEC and adversarial review.
 - **C-7 Installer-side secret handling requires security review.** The MSI component that provisions the shared secret at install time must pass an explicit security review pass before release (the secret-provisioning surface is a new attack vector).
 
 ---

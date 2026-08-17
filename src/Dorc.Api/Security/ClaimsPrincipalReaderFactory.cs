@@ -13,7 +13,7 @@ namespace Dorc.Api.Security
     // AD SIDs, so AccessControl rows keyed on legacy AD SIDs stop matching (fails closed).
     // Decide before merge: delete this class and the flag, or register it — but note the AD
     // branch resolves names via GetUserName/GetUserLogin, which under OAuth yields a display
-    // name or email that EntraPrincipalDirectory.ResolveUserIdFromName will not match.
+    // name or email that PrincipalDirectory.ResolveUserIdFromName will not match.
     // Post-S-007, only the OAuth reader is supported (WinAuth/Negotiate removed
     // per HLPS Scope E). The name "Factory" is now misleading — there's no
     // choice to make — but the type is preserved so consumers' DI registrations

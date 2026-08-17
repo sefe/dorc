@@ -6,12 +6,12 @@ namespace Dorc.Api.Services
 {
     // Graph-backed implementation of the search surface DirectorySearchController exposes.
     // Replaces ActiveDirectorySearchService (which depended on System.DirectoryServices).
-    public class EntraPrincipalSearch : IPrincipalSearch
+    public class PrincipalSearch : IPrincipalSearch
     {
         private readonly IPrincipalDirectory _searcher;
         private readonly string _intraDomainName;
 
-        public EntraPrincipalSearch(IPrincipalDirectory searcher, IConfigurationSettings config)
+        public PrincipalSearch(IPrincipalDirectory searcher, IConfigurationSettings config)
         {
             _searcher = searcher;
             _intraDomainName = config.GetConfigurationDomainNameIntra();

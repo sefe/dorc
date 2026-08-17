@@ -4,7 +4,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace Dorc.Core.Tests
 {
     [TestClass]
-    public class EntraPrincipalDirectoryTests
+    public class PrincipalDirectoryTests
     {
         // P-1: user search by name returns a populated DirectoryPrincipalApiModel.
         [TestMethod]
@@ -745,11 +745,11 @@ namespace Dorc.Core.Tests
                 "second page of user results was not drained");
         }
 
-        private static EntraPrincipalDirectory NewSearcher(MockHttpHandler handler)
+        private static PrincipalDirectory NewSearcher(MockHttpHandler handler)
         {
-            return new EntraPrincipalDirectory(
+            return new PrincipalDirectory(
                 () => GraphTestClient.Create(handler),
-                NullLogger<EntraPrincipalDirectory>.Instance);
+                NullLogger<PrincipalDirectory>.Instance);
         }
     }
 }

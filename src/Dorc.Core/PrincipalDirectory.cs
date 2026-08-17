@@ -13,7 +13,7 @@ using System.Text.RegularExpressions;
 
 namespace Dorc.Core
 {
-    public class EntraPrincipalDirectory : IPrincipalDirectory
+    public class PrincipalDirectory : IPrincipalDirectory
     {
         // Matches well-formed Windows/AD SIDs (S-1-5-..., S-1-12-...). Used to decide
         // whether to fall back to onPremisesSecurityIdentifier filter queries on direct-lookup 404.
@@ -39,7 +39,7 @@ namespace Dorc.Core
         private readonly Func<GraphServiceClient>? _graphClientFactory;
         private GraphServiceClient? _graphClient;
 
-        public EntraPrincipalDirectory(IConfigurationSettings config, ILogger<EntraPrincipalDirectory> log)
+        public PrincipalDirectory(IConfigurationSettings config, ILogger<PrincipalDirectory> log)
         {
             _tenantId = config.GetAzureEntraTenantId();
             _clientId = config.GetAzureEntraClientId();
@@ -50,7 +50,7 @@ namespace Dorc.Core
 
         // Test-seam ctor: injects a pre-built GraphServiceClient so tests can drive a fake.
         // Per SPEC-S-001 §3.1 — the only way to satisfy HLPS SC-9 (integration-level Graph-fake tests).
-        internal EntraPrincipalDirectory(Func<GraphServiceClient> graphClientFactory, ILogger<EntraPrincipalDirectory> log)
+        internal PrincipalDirectory(Func<GraphServiceClient> graphClientFactory, ILogger<PrincipalDirectory> log)
         {
             _tenantId = string.Empty;
             _clientId = string.Empty;
@@ -536,7 +536,7 @@ AppendServicePrincipals(graphClient, objectName, output);
             {
                 // Unresolvable caller: return the raw input only. Every consumer treats a
                 // short list as deny, so this fails closed rather than throwing a 500.
-                _log.LogWarning("Unable to resolve the requested user to an Entra object id");
+                _log.LogWarning("Unable to resolve the requested user to a directory object id");
                 return result;
             }
 
@@ -778,7 +778,7 @@ AppendServicePrincipals(graphClient, objectName, output);
             // identity's group claims. Refuse instead of guessing.
             if (matches.Count > 1)
             {
-                _log.LogError("Directory name resolved to multiple Entra principals; refusing to guess an identity");
+                _log.LogError("Directory name resolved to multiple principals; refusing to guess an identity");
                 return null;
             }
 
