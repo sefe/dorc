@@ -51,7 +51,7 @@ Four rules determine the order below. They are stated up front because several a
 | S-020 | Introduce the credential provider abstraction | SD-4 | S-019 (ConfigValues variant only) |
 | S-021 | Bind execution identity to the environment | SD-4, W-6, W-15, SC-07 | S-020; revisits S-007, S-008, S-009 |
 | S-022 | Record attribution reached and not reached | SD-8, W-9 | S-021 |
-| S-023 | Replace the expression compiler with a fixed grammar | SD-1b, W-1 | S-004 |
+| S-023 | Replace the expression compiler with a fixed grammar | SD-1b, W-1 | **DONE** |
 
 **Independently shippable today, in any order:** S-001, S-002, S-003, S-004, S-005, S-006, S-007, S-008, S-009, S-010, S-011. Eleven steps, covering every rank-1 and rank-2 weakness and the write-path half of every rank-3 weakness. Nothing in that set waits on an unknown.
 
@@ -461,6 +461,16 @@ Design notes from the inventory: interpolation must handle adjacent tokens and t
 **Dependencies.** S-004. Distant — the containment has already removed the reachable path, so this is cleanup rather than urgent.
 
 **Verification intent.** A differential test evaluates every inventoried expression under both the old and new implementations and asserts identical results. An unparseable expression fails with a clear error and does not fall back. The scripting-compiler package is absent from the assembly's dependencies.
+
+**One correction to the design notes.** They call for interpolation to be handled by the grammar, including adjacent tokens and tokens abutting literal text. It must not be: interpolation has already happened by the time an expression reaches the evaluator, so what the parser sees is the *substituted* literal. Adjacent tokens and abutting text reduce to ordinary literal content before parsing and need no special handling. The differential corpus therefore uses post-interpolation forms, which is what actually reaches the evaluator.
+
+That ordering is also why parsing is strict rather than forgiving: a substituted value containing a quote makes the literal's extent ambiguous, and an ambiguous expression is refused rather than guessed at.
+
+**The differential is real, not recorded.** The scripting package moves to the test project so both implementations can be evaluated side by side; production no longer carries it. The corpus covers every grammar feature the inventory recorded rather than the verbatim eleven expressions, which the HLPS records by shape rather than in full.
+
+**The dependency's absence is asserted by a test**, against the production assembly's own reference list rather than by reading a project file, so it stays true if the package is reintroduced transitively. Verified absent from the `Dorc.Core`, `Dorc.Monitor` and `Dorc.Api` dependency graphs.
+
+**Failing closed has a real cost, accepted deliberately.** Secure configuration values are encrypted at rest, could not be inventoried, and do reach the evaluator. If one of them carries an `fn:` expression outside this grammar, it evaluated before and will now fail the deployment. That is the trade the HLPS chose; the failure names the shape of the problem and its position, and deliberately does **not** quote the literal, which is a resolved property value and may be a secret.
 
 ---
 
