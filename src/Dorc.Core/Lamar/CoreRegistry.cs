@@ -10,13 +10,16 @@ namespace Dorc.Core.Lamar
     {
         public CoreRegistry()
         {
-            // DaemonStatusProbe is Windows-only (Service Control Manager). It moves behind
-            // the Windows worker at S-005; until then this is the one accepted CA1416 site in
-            // Dorc.Core, suppressed narrowly so the Linux gate can treat every OTHER CA1416
-            // as a build error. Remove this pragma with S-005.
-#pragma warning disable CA1416
-            For<IDaemonStatusProbe>().Use<DaemonStatusProbe>();
-#pragma warning restore CA1416
+            // DaemonStatusProbe is Windows-only (Service Control Manager) and moves behind the
+            // Windows worker at S-005. Guarded rather than suppressed: OperatingSystem.IsWindows()
+            // is a platform guard CA1416 understands, so this satisfies the analyzer honestly
+            // instead of silencing it — and a suppression here would be a hole in the very gate
+            // that promotes CA1416 to an error. On Linux the registration is simply absent;
+            // resolving IDaemonStatusProbe there is a configuration error by definition.
+            if (OperatingSystem.IsWindows())
+            {
+                For<IDaemonStatusProbe>().Use<DaemonStatusProbe>();
+            }
 
             For<IDeployLibrary>().Use<DeployLibrary>();
 
