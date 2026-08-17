@@ -31,6 +31,37 @@ namespace Dorc.Core.Tests
         }
 
         [TestMethod]
+        public void IsValidSearchTerm_AcceptsEverythingTheControllerContractAccepts()
+        {
+            // DirectorySearchController's documented pattern is ^[a-zA-Z0-9-_.' ()&]+$ —
+            // the searcher guard must not be narrower, or valid searches silently return
+            // zero rows instead of erroring.
+            Assert.IsTrue(AzureEntraSearcher.IsValidSearchTerm("Smith & Co"));
+            Assert.IsTrue(AzureEntraSearcher.IsValidSearchTerm("Smith (Contractor)"));
+            Assert.IsTrue(AzureEntraSearcher.IsValidSearchTerm("O'Brien-Smith"));
+            Assert.IsTrue(AzureEntraSearcher.IsValidSearchTerm("user_123.test"));
+        }
+
+        [TestMethod]
+        public void IsValidSearchTerm_AcceptsNonAsciiNames()
+        {
+            Assert.IsTrue(AzureEntraSearcher.IsValidSearchTerm("Müller"));
+            Assert.IsTrue(AzureEntraSearcher.IsValidSearchTerm("José"));
+            Assert.IsTrue(AzureEntraSearcher.IsValidSearchTerm("Łukasz"));
+        }
+
+        [TestMethod]
+        public void IsValidSearchTerm_RejectsStructuralMetacharacters()
+        {
+            Assert.IsFalse(AzureEntraSearcher.IsValidSearchTerm("a\\b"));
+            Assert.IsFalse(AzureEntraSearcher.IsValidSearchTerm("a\"b"));
+            Assert.IsFalse(AzureEntraSearcher.IsValidSearchTerm("a,b"));
+            Assert.IsFalse(AzureEntraSearcher.IsValidSearchTerm("alice\n"));
+            Assert.IsFalse(AzureEntraSearcher.IsValidSearchTerm(""));
+            Assert.IsFalse(AzureEntraSearcher.IsValidSearchTerm(null));
+        }
+
+        [TestMethod]
         public void IsValidSearchName_RejectsTrailingNewline()
         {
             // Guards the \A..\z anchoring: with ^..$, .NET also matches immediately
