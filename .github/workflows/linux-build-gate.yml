@@ -4,16 +4,23 @@ name: Linux Build Gate
 # Dorc.PersistentData): no Windows-only package refs, no win-* RuntimeIdentifier,
 # and no NEW Windows-only API usage.
 #
-# Enforcement is in three layers, because any one alone is evasible:
-#   1. csproj guard  — catches the dependency being declared.
-#   2. CA1416-as-error — catches the API actually being USED. Package refs can be
-#      added transitively, and a Windows-only API compiles fine on Linux (it is a
-#      warning, not an error, unless promoted), so layer 1 alone is not a gate.
-#   3. Linux test run — the Graph parity suite has no other Linux CI home.
+# Enforcement is in FOUR layers, because each one alone is evasible:
+#   1. csproj guard — catches the dependency being declared. Not sufficient alone:
+#      a package ref can arrive transitively.
+#   2. Suppression guard — catches the two ways CA1416 is silenced:
+#      [SupportedOSPlatform("windows")] on the enclosing type (the analyzer does not
+#      fire inside one) and #pragma warning disable CA1416. Without this, layer 3 is
+#      trivially bypassed by annotating the class.
+#   3. CA1416-as-error — catches the API actually being USED. A Windows-only API
+#      compiles clean on Linux unless the warning is promoted, so a build job that
+#      merely succeeds is not a gate.
+#   4. Linux test run — the Graph parity suite has no other Linux CI home.
 #
-# System.Management is deliberately NOT gated in Dorc.Api yet: the WMI code moves
-# behind the Windows worker at S-005 and still carries CA1416 warnings. Until then
-# Dorc.Api is gated against NEW Windows-only sites via an explicit backlog list.
+# System.Management IS checked (layer 1), but reported as a warning rather than an
+# error: the WMI code moves behind the Windows worker at S-005 and still carries
+# CA1416 until then. SC-1b is met when that warning stops appearing and the CA1416
+# backlog list below is empty. Dorc.Api is meanwhile gated against NEW Windows-only
+# sites via that backlog.
 
 on:
   push:
