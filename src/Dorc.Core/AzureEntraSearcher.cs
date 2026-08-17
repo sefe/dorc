@@ -253,6 +253,13 @@ namespace Dorc.Core
                     groups = graphClient.Groups.WithUrl(groups.OdataNextLink)
                         .GetAsync().GetAwaiter().GetResult();
                 }
+
+                // Service principals (M2M clients). Deleting IdentityServerSearcher removed the
+                // only searcher that surfaced machine clients in the ACL picker, so new M2M
+                // grants could not be made through the UI. Their appId is what
+                // OAuthClaimsPrincipalReader matches against AccessControl.Pid for M2M callers,
+                // so that is what we surface as Pid. Requires Application.Read.All.
+AppendServicePrincipals(graphClient, objectName, output);
             }
             catch (ApiException ex)
             {
@@ -672,6 +679,57 @@ namespace Dorc.Core
 
         // P-5 helper: normalises caller input (DOMAIN\name, name(External), bare name, UPN)
         // and resolves to an Entra object id via onPremisesSamAccountName/userPrincipalName filter.
+
+        // Service principals (M2M clients). Deleting IdentityServerSearcher removed the only
+        // searcher that surfaced machine clients in the ACL picker, so new M2M grants could not
+        // be made through the UI. Their appId is what OAuthClaimsPrincipalReader matches against
+        // AccessControl.Pid for M2M callers, so that is what we surface as Pid.
+        //
+        // Deliberately non-fatal: this needs Application.Read.All, a permission existing tenants
+        // have not consented to. A 403 here must degrade to "no machine clients in the results",
+        // not take down user and group search with it.
+        private void AppendServicePrincipals(GraphServiceClient graphClient, string escapedName, List<UserElementApiModel> output)
+        {
+            try
+            {
+                var principals = graphClient.ServicePrincipals
+                    .GetAsync(req =>
+                    {
+                        req.Headers.Add("ConsistencyLevel", "eventual");
+                        req.QueryParameters.Count = true;
+                        req.QueryParameters.Top = MaxPageSize;
+                        req.QueryParameters.Filter =
+                            $"startsWith(displayName,'{escapedName}') or startsWith(appId,'{escapedName}')";
+                        req.QueryParameters.Select = new[] { "id", "appId", "displayName", "accountEnabled" };
+                    }).GetAwaiter().GetResult();
+
+                var pages = 0;
+                while (principals?.Value != null)
+                {
+                    foreach (var sp in principals.Value.Where(sp => sp.AccountEnabled != false))
+                    {
+                        output.Add(new UserElementApiModel
+                        {
+                            Username = sp.AppId,
+                            DisplayName = sp.DisplayName,
+                            Pid = sp.AppId,
+                            IsGroup = false
+                        });
+                    }
+
+                    if (string.IsNullOrEmpty(principals.OdataNextLink) || ++pages >= MaxSearchPages) break;
+                    principals = graphClient.ServicePrincipals.WithUrl(principals.OdataNextLink)
+                        .GetAsync().GetAwaiter().GetResult();
+                }
+            }
+            catch (Exception ex)
+            {
+                _log.LogWarning(ex,
+                    "Unable to search service principals; machine clients will be absent from the results. " +
+                    "This usually means the app registration lacks Application.Read.All.");
+            }
+        }
+
         private string? ResolveUserIdFromName(GraphServiceClient graphClient, string userName)
         {
             if (string.IsNullOrWhiteSpace(userName)) return null;
