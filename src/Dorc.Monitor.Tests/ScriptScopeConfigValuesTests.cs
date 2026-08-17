@@ -1,4 +1,4 @@
-using Dorc.ApiModel;
+﻿using Dorc.ApiModel;
 using Dorc.PersistentData.Security;
 using Microsoft.Extensions.Configuration;
 
@@ -135,5 +135,66 @@ namespace Dorc.Monitor.Tests
 
         private static ConfigValueApiModel NotSecure(string key) =>
             new() { Key = key, Value = "x", Secure = false };
+        // --- per-value classification (S-019) -------------------------------------------
+
+        /// <summary>
+        /// The reserved-key list is estate-wide and settled by evidence. The classification is
+        /// per key, maintained by an administrator, and generalises the list without needing an
+        /// inventory of the estate first. Either reason withholds a value; neither depends on
+        /// the other.
+        /// </summary>
+        [TestMethod]
+        public void WithholdsAValueClassifiedHiddenEvenWhenItsKeyIsNotReserved()
+        {
+            Assert.IsTrue(Default().IsWithheld(Hidden("SomeApplicationSecret")));
+        }
+
+        [TestMethod]
+        public void WithholdsAReservedKeyEvenWhenItIsClassifiedVisible()
+        {
+            Assert.IsTrue(Default().IsWithheld(Visible("DORC_ProdDeployPassword")),
+                "The reserved list is not overridable by classifying the value visible.");
+        }
+
+        [TestMethod]
+        public void PublishesAVisibleValueWhoseKeyIsNotReserved()
+        {
+            Assert.IsFalse(Default().IsWithheld(Visible("DeploymentServiceAccountPassword")));
+        }
+
+        /// <summary>
+        /// A value that cannot be examined cannot be shown to be publishable.
+        /// </summary>
+        [TestMethod]
+        public void WithholdsAValueThatIsNotThere()
+        {
+            Assert.IsTrue(Default().IsWithheld((ConfigValueApiModel)null!));
+        }
+
+        /// <summary>
+        /// The backlog report is over what the estate actually holds, so a value hidden by
+        /// classification drops out of it just as a reserved key does - otherwise the report
+        /// would overstate the remaining exposure and never converge.
+        /// </summary>
+        [TestMethod]
+        public void ExcludesClassifiedHiddenValuesFromTheBacklogReport()
+        {
+            var estate = new[]
+            {
+                Visible("DeploymentServiceAccountPassword"),
+                Hidden("ProgetAccountPassword"),
+                Visible("DORC_ProdDeployPassword")
+            };
+
+            CollectionAssert.AreEqual(
+                new[] { "DeploymentServiceAccountPassword" },
+                Default().StillPublishedSecureKeys(estate).ToArray());
+        }
+
+        private static ConfigValueApiModel Visible(string key) =>
+            new() { Key = key, Value = "x", Secure = true, VisibleToScripts = true };
+
+        private static ConfigValueApiModel Hidden(string key) =>
+            new() { Key = key, Value = "x", Secure = true, VisibleToScripts = false };
     }
 }
