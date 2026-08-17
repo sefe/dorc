@@ -1,4 +1,4 @@
-using Dorc.PersistentData.Sources.Interfaces;
+﻿using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.Extensions.Logging;
 
 namespace Dorc.Core.Security
@@ -11,7 +11,7 @@ namespace Dorc.Core.Security
     /// credentials come from. The vault-backed source is the migration target; switching is a
     /// configuration change rather than a code change, which is the point.
     /// </summary>
-    public class ConfigValueDeploymentCredentialSource : IDeploymentCredentialSource
+    public class ConfigValueDeploymentCredentialSource : DeploymentCredentialSource
     {
         internal const string ProductionUserNameKey = "DORC_ProdDeployUsername";
         internal const string ProductionPasswordKey = "DORC_ProdDeployPassword";
@@ -19,19 +19,34 @@ namespace Dorc.Core.Security
         internal const string NonProductionPasswordKey = "DORC_NonProdDeployPassword";
 
         private readonly IConfigValuesPersistentSource _configValues;
-        private readonly ILogger _logger;
 
         public ConfigValueDeploymentCredentialSource(
             IConfigValuesPersistentSource configValues,
             ILogger<ConfigValueDeploymentCredentialSource> logger)
+            : base(logger)
         {
             _configValues = configValues;
-            _logger = logger;
         }
 
-        public string Description => "DOrc configuration values";
+        public override string Description => "DOrc configuration values";
 
-        public DeploymentCredential? Resolve(DeploymentTier tier)
+        /// <summary>
+        /// A named identity maps to its own pair of configuration keys,
+        /// <c>DORC_Deploy_&lt;identity&gt;_Username</c> and <c>..._Password</c>. Per-identity
+        /// keys rather than a fixed set is exactly why the reserved-key denylist could not cover
+        /// this variant on its own - a fixed list cannot name keys minted per environment - and
+        /// why the per-value classification had to exist first.
+        /// </summary>
+        protected override DeploymentCredential? ResolveNamedIdentity(string identityReference, DeploymentTier tier)
+        {
+            var credential = new DeploymentCredential(
+                _configValues.GetConfigValue($"DORC_Deploy_{identityReference}_Username") ?? string.Empty,
+                _configValues.GetConfigValue($"DORC_Deploy_{identityReference}_Password") ?? string.Empty);
+
+            return credential.IsComplete ? credential : null;
+        }
+
+        protected override DeploymentCredential? ResolveTierDefault(DeploymentTier tier)
         {
             var userNameKey = tier == DeploymentTier.Production
                 ? ProductionUserNameKey
@@ -51,7 +66,7 @@ namespace Dorc.Core.Security
                 // authenticates as whatever the host is running as, and the previous copies of
                 // this logic reported only that "a valid DOrc Username or Password" was missing
                 // without saying which key was empty.
-                _logger.LogError(
+                Logger.LogError(
                     "No {Tier} deployment credential could be resolved from {Source}."
                     + " '{UserNameKey}' is {UserNameState} and '{PasswordKey}' is {PasswordState}.",
                     tier,

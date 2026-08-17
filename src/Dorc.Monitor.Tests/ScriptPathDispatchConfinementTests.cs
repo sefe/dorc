@@ -42,7 +42,11 @@ namespace Dorc.Monitor.Tests
         {
             var source = Substitute.For<IDeploymentCredentialSource>();
             source.Description.Returns("test");
+            // Both overloads: the dispatchers call the environment-keyed one, and NSubstitute
+            // treats them as separate members.
             source.Resolve(Arg.Any<DeploymentTier>())
+                .Returns(new DeploymentCredential(userName, password));
+            source.Resolve(Arg.Any<DeploymentTier>(), Arg.Any<string?>())
                 .Returns(new DeploymentCredential(userName, password));
             return source;
         }
@@ -88,6 +92,7 @@ namespace Dorc.Monitor.Tests
                     deploymentRequestId: 42,
                     isProduction: false,
                     environmentName: "SOME-ENV",
+                    executionIdentityReference: null,
                     new StringBuilder(),
                     CancellationToken.None);
             }

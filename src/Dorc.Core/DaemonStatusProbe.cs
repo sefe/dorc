@@ -179,7 +179,8 @@ namespace Dorc.Core
             var credential = _credentialSource.Resolve(
                 environment?.EnvironmentIsProd == true
                     ? DeploymentTier.Production
-                    : DeploymentTier.NonProduction);
+                    : DeploymentTier.NonProduction,
+                environment?.ExecutionIdentityReference);
 
             // Empty rather than a substitute. The caller performs a LogonUser with these; an
             // empty pair fails that call, where a fallback would authenticate as whatever the
