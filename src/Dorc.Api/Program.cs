@@ -119,13 +119,24 @@ builder.Services.AddCors(options =>
 // migrate AuthenticationScheme to "OAuth" in appsettings.json before upgrading;
 // see docs/api-split/ for the Entra ID setup guide that S-010 publishes.
 string? authenticationScheme = configurationSettings.GetAuthenticationScheme();
-if (authenticationScheme == ConfigAuthScheme.WinAuth || authenticationScheme == ConfigAuthScheme.Both)
+// Accept ONLY OAuth. The previous form rejected the two known-bad literals and let
+// everything else through, so a null/blank/mis-cased value silently configured OAuth
+// with a null Authority and failed on the first request instead of at startup — the
+// very outcome this guard exists to prevent.
+if (!string.Equals(authenticationScheme, ConfigAuthScheme.OAuth, StringComparison.OrdinalIgnoreCase))
 {
-    throw new InvalidOperationException(
-        $"AuthenticationScheme '{authenticationScheme}' is no longer supported. " +
+    var message =
+        $"AuthenticationScheme '{authenticationScheme ?? "(not set)"}' is not supported. " +
         "Negotiate/WinAuth was removed in S-007 of the API-split work (issue #423). " +
         "Set AppSettings:AuthenticationScheme to 'OAuth' and configure an Entra ID app registration. " +
-        "See docs/api-split/ for migration guidance.");
+        "See docs/api-split/ for migration guidance.";
+
+    // Serilog is configured above but this throws before builder.Build(), outside any
+    // handler — under ANCM in-process hosting an unlogged throw surfaces only as a
+    // generic 500.30, so the migration message never reaches the operator.
+    Log.Fatal(message);
+    Log.CloseAndFlush();
+    throw new InvalidOperationException(message);
 }
 
 ConfigureOAuth(builder, configurationSettings, secretsReader);

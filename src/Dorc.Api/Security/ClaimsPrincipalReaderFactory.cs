@@ -6,6 +6,14 @@ using System.Security.Principal;
 
 namespace Dorc.Api.Security
 {
+    // NOTE: as of S-007 this type is NOT registered anywhere — ConfigureBoth was its only
+    // wiring and that was deleted. IClaimsPrincipalReader resolves to OAuthClaimsPrincipalReader.
+    // Consequence: AppSettings:IsUseAdSidsForAccessControl is now read only from inside this
+    // dead class, i.e. it is a silent no-op. Sites relying on it get Entra oids/pids instead of
+    // AD SIDs, so AccessControl rows keyed on legacy AD SIDs stop matching (fails closed).
+    // Decide before merge: delete this class and the flag, or register it — but note the AD
+    // branch resolves names via GetUserName/GetUserLogin, which under OAuth yields a display
+    // name or email that AzureEntraSearcher.ResolveUserIdFromName will not match.
     // Post-S-007, only the OAuth reader is supported (WinAuth/Negotiate removed
     // per HLPS Scope E). The name "Factory" is now misleading — there's no
     // choice to make — but the type is preserved so consumers' DI registrations
