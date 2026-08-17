@@ -29,6 +29,9 @@ concurrency:
 env:
   NODE_VERSION: '20.x'
   BRANCH: chore/ado-build-spec-refresh
+  # Used both as the commit subject and as the marker that identifies this
+  # workflow's own commits when deciding whether force-pushing is safe.
+  COMMIT_SUBJECT: 'Refresh Azure DevOps Build spec and regenerate client'
 
 jobs:
   refresh:
@@ -109,13 +112,29 @@ jobs:
         git remote set-url origin \
           "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
 
-        # Gives --force-with-lease a baseline to compare against; the branch
-        # will not exist on the first run, hence the || true.
+        # The branch will not exist on the first run, hence the || true.
         git fetch origin "$BRANCH" || true
+
+        # Each run rebuilds this branch from the default branch and force-pushes,
+        # so that a spec which moves twice before anyone reviews leaves one
+        # current pull request rather than a pile of stale ones. That is only
+        # safe while the branch contains nothing but this job's own commits:
+        # --force-with-lease guards against a concurrent *ref* update, not
+        # against replacing history, so a reviewer's fixup pushed to this branch
+        # would otherwise be discarded without warning. Refuse instead, and say
+        # what to do about it.
+        if git rev-parse --verify --quiet "refs/remotes/origin/$BRANCH" >/dev/null; then
+          tip_author=$(git log -1 --format='%an' "refs/remotes/origin/$BRANCH")
+          tip_subject=$(git log -1 --format='%s' "refs/remotes/origin/$BRANCH")
+          if [ "$tip_author" != 'github-actions[bot]' ] || [ "$tip_subject" != "$COMMIT_SUBJECT" ]; then
+            echo "::error::$BRANCH carries commits this workflow did not make (tip: '$tip_subject' by $tip_author). Refusing to force-push over them. Merge or close the open pull request, or delete the branch, then re-run."
+            exit 1
+          fi
+        fi
 
         git checkout -B "$BRANCH"
         git add -- src/dorc-web/src/apis src/Dorc.AzureDevOps
-        git commit -m 'Refresh Azure DevOps Build spec and regenerate client'
+        git commit -m "$COMMIT_SUBJECT"
         git push --force-with-lease origin "$BRANCH"
 
         if [ -z "$(gh pr list --head "$BRANCH" --state open --json number --jq '.[].number')" ]; then
@@ -130,8 +149,8 @@ jobs:
         from it.
 
         Opened automatically by the `ado-build-spec-refresh` workflow. Review the
-        regenerated client for changes that affect `Dorc.Core`s
-        `AzureDevOpsServerWebClient` (build numbers and artifact locations)
+        regenerated client for changes that affect the `AzureDevOpsServerWebClient`
+        in `Dorc.Core` (build numbers and artifact locations)
         before merging.
 
         Note: pull requests opened with `GITHUB_TOKEN` do not start further

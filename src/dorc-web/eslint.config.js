@@ -12,6 +12,12 @@ export default [
   eslintConfigPrettier,
   { rules: { '@typescript-eslint/no-explicit-any': 0 } },
   {
+    // Build tooling under scripts/ runs in Node, not the browser: it needs
+    // process, and none of the browser globals.
+    files: ['scripts/**/*.{js,mjs}'],
+    languageOptions: { globals: globals.node },
+  },
+  {
     files: ['tests/**/*.ts'],
     rules: {
       '@typescript-eslint/no-unused-expressions': 0,

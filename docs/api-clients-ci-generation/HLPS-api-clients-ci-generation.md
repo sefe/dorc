@@ -1,6 +1,12 @@
 # HLPS — Generated API Clients in CI
 
-**Status:** APPROVED (executed)
+**Status:** IN REVIEW (executed; round 1 of adversarial review complete)
+
+> Process note: this work was executed before the `CLAUDE.md` gate was
+> applied — there is no IS, no JIT specs, and this HLPS was written after the
+> fact. A four-reviewer adversarial panel has since run (round 1) and its
+> accepted findings are folded into the decisions below; the missing planning
+> artefacts are a known process debt, not a claim of compliance.
 **Scope:** `src/dorc-web/src/apis/*`, `.github/workflows/release.yml`, `src/dorc-web/package.json`
 
 ## Problem
@@ -50,11 +56,25 @@ committed clients, the committed specs, and the C# API had all drifted apart:
      the generated per-operation `Authorization` headers come from the spec's
      `oauth2` security scheme, and a missing/expired session redirects to
      `/signin.html` before the request instead of after a 401 round-trip.
+   - `withCredentials` on every request via a `pre` middleware. The
+     hand-edited `runtime.ts` set this too, and it is what makes the browser
+     send Negotiate/NTLM credentials cross-origin. Missing it silently broke
+     *every* call on a Windows-authenticated deployment — the API's default
+     scheme — since those requests carry no bearer token either. Found by the
+     adversarial panel, not by the build or the tests, and now covered by
+     `tests/services/dorc-api-configuration.test.ts`.
    Both parameters are property getters because the auth scheme and base URL
-   only become known after the initial `/ApiConfig` fetch. One behavioural
-   delta: a server-side 401 for an *unexpired* token no longer hard-redirects
-   to sign-in (the generated runtime has no error hook); silent renew plus
-   the pre-request expiry check cover the expiry cases that redirect handled.
+   only become known after the initial `/ApiConfig` fetch. Two behavioural
+   deltas remain, both accepted:
+   - A server-side 401 on a token the client believes valid (revocation,
+     failed introspection, clock skew) no longer hard-redirects to sign-in:
+     the generated runtime exposes no error hook, and `post` middleware runs
+     only on success. Recovery needs a manual refresh. See U-5.
+   - An expiring token is now sent rather than short-circuited, because
+     `user.expired` is true during silent renewal and redirecting there would
+     throw the user out mid-renewal. Sign-in is triggered only when there is
+     no session at all, once per page, via `signIn()` so the current URL is
+     preserved.
 3. **The spec follows the C# API.** The five spec gaps above were fixed in
    `swagger.json`; the client-side hand patches they replaced were dropped in
    favour of regenerated code. The dead
@@ -66,9 +86,13 @@ committed clients, the committed specs, and the C# API had all drifted apart:
    generator (7.24.0 at the time of writing; originally reconciled to the
    versions that had produced the committed code, then upgraded). The stray
    `src/apis/openapitools.json` was removed and the `src/dorc-web` default
-   aligned to the same pin. 7.24.0 no longer emits the C# test-stub project,
-   so `Org.OpenAPITools.Test` (vacuous generated placeholders, always
-   excluded from CI test runs) was removed from the repo and solution.
+   aligned to the same pin. The generator still emits a C# test-stub project
+   (`Org.OpenAPITools.Test`) — vacuous placeholders that CI never runs, since
+   test discovery matches `*Tests.csproj` not `*Test.csproj`. It is excluded
+   via `.openapi-generator-ignore` and deleted. Deleting it alone does not
+   work: an earlier attempt removed the files *and* the ignore entry, and the
+   next generation wrote all ~190 back. The exclusion is what makes the
+   removal hold.
 5. **The TypeScript `azure-devops-build` client is removed.** Nothing in the
    web app ever imported it (build information reaches the web through the
    DOrc API), so the dead copy and its spec/scripts are deleted rather than
@@ -97,14 +121,18 @@ committed clients, the committed specs, and the C# API had all drifted apart:
      `AzureDevOpsApiClientFactory` and the Api classes'
      `(client, asyncClient, configuration)` constructors), covered by unit
      tests in `Dorc.Core.Tests`.
-   The client csproj is the only exclusion
-   (`.openapi-generator-ignore`): dependabot owns its package versions.
+   Two things are excluded via `.openapi-generator-ignore`: the client csproj
+   (dependabot owns its package versions) and the vacuous generated test
+   project (see decision 4).
    The spec is authoritative at MicrosoftDocs/vsts-rest-api-specs
    (`specification/build/6.0/build.json`), adopted via a **scheduled refresh
    rather than a fetch during generation**. Generation reads only committed
-   specs, so builds are hermetic — the same commit always produces the same
-   clients, and a document Microsoft republishes cannot turn an unrelated
-   pull request red. The `ado-build-spec-refresh` workflow runs weekly and on
+   *specs*, so the same commit always produces the same clients and a document
+   Microsoft republishes cannot turn an unrelated pull request red. This is
+   not full hermeticity: `openapi-generator-cli` is an npm wrapper that
+   downloads the ~30 MB generator jar from Maven Central at run time, with no
+   checksum pinning and no caching, once per generating job — a residual
+   availability and supply-chain dependency (U-4). The `ado-build-spec-refresh` workflow runs weekly and on
    demand: it runs `scripts/fetch-ado-build-spec.mjs` (which overwrites
    `build.json` only when the response validates as the Swagger 2.0 Build
    spec, and otherwise warns and leaves the committed copy alone),
@@ -148,3 +176,6 @@ committed clients, the committed specs, and the C# API had all drifted apart:
 | U-1 | Is the **TypeScript** `azure-devops-build` client still needed? Nothing in the web app imports it. (The **C#** Azure DevOps client is in active use — build numbers and artifact locations — and is not in question.) | RESOLVED — removed (decision 5). |
 | U-2 | Should `swagger.json` itself be generated from the C# build (e.g. Swashbuckle CLI) instead of hand-maintained? | OPEN — would close the remaining C#→spec drift gap; needs API bootstrapping work. |
 | U-3 | Java availability on the ADO self-hosted agent (`TRADING-DOTNET-03`). | OPEN — blocks mirroring the gate into `pipelines/dorc-build.yml`. |
+| U-4 | The generator jar is downloaded from Maven Central per generating job, unpinned by checksum and uncached. A Maven outage reddens unrelated PRs; a compromised artefact would author committed source. | OPEN — mitigations: cache `~/.openapi-generator-cli`, or vendor/pin the jar by hash. |
+| U-5 | No 401 recovery path: restoring it needs an error seam the generated runtime does not expose. | OPEN — options: a thin wrapper around the generated APIs, or an rxjs global error handler. |
+| U-6 | `.gitignore` inside the generated tree (`dist`, `typings`, `node_modules`, `wwwroot/*.js`) would hide drift in those paths from `git ls-files --others`. Dormant: the pinned generator emits none of them. | OPEN — monitor on generator upgrades. |
