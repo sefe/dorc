@@ -160,7 +160,7 @@ The matrix below is derived from the `IActiveDirectorySearcher` contract *and* i
 - Customer-facing: Entra tenant setup, required Graph permissions, AD-to-Entra migration prerequisites.
 
 ### Out of Scope (explicitly)
-- **Bulk class renaming** to remove the words *Service / Helper / Manager / Util*. CLAUDE.md's rule is principle-first; class-by-class renames belong in their own scoped PRs only when the new name is *more* specific than the old.
+- **Bulk class renaming** to remove the words *Service / Helper / Manager / Util*. CLAUDE.md's rule is principle-first; class-by-class renames belong in their own scoped PRs only when the new name is *more* specific than the old. **S-011 (Round 6) is exactly that scoped PR** and is in scope: after the Graph migration, `IActiveDirectorySearcher` names a technology the code no longer uses, `GetSidsForUser` returns Entra object ids as well as SIDs, and `AzureEntraSearcher` names a product that does not exist. Each new name is more specific than the old; no dumping-ground names are introduced.
 - Supporting pure on-prem AD installs without an Entra tenant. Per D-2, an Entra tenant is now a hard prerequisite.
 - Replacing WMI with SSH / PowerShell-remoting / REST agents (separate HLPS if/when desired). Worker is permanent (D-1).
 - Folder reorganisation by "function" (`Identity/`, `Build/`, `Orchestration/`) inside the existing API.
@@ -198,7 +198,7 @@ reject from the panel:
   non-empty Windows-install delta that release notes must carry: the two REST-surface changes
   under U-20, the `ActiveDirectoryRoles` removal and its `role`-claim prerequisite (U-12), and
   the requirement for `Application.Read.All` consent (U-9). "Nil" was wrong; on Linux installs the WMI / registry / password-reset endpoints return a documented `503` (SC-4). Customer-facing release notes must call out this behavioural envelope.
-- **C-2 No bundled refactor.** Naming, folder layout, and DI cleanup do not ride along on this HLPS.
+- **C-2 No bundled refactor.** Naming, folder layout, and DI cleanup do not ride along on this HLPS. **Amended in Round 6:** one scoped naming pass is authorised as its own step (S-011), landing *after* the migration, on the explicit condition that it is mechanical and separable — the failure mode C-2 exists to prevent is a rename diff being indistinguishable from a behaviour diff, which is what closed #424. S-011 changes no behaviour and adds no logic.
 - **C-3 Single host on Windows.** On Windows installs, the worker process ships and runs alongside the primary as a separate MSI component, bound to loopback only.
 - **C-4 Customer infrastructure.** Every DORC install requires an Entra ID tenant + app registration with Graph permissions. Document required permissions (U-9) and the AD-to-Entra migration path (U-10) before release.
 - **C-5 Bounded functional change.** Endpoints behave identically pre- and post-split for the parity matrix in §4. Known semantic gaps outside the matrix (foreign security principals, well-known SIDs, local-machine SIDs — none currently relied on) are documented and any future use is gated on a follow-up HLPS.
@@ -216,7 +216,7 @@ reject from the panel:
 - **SC-2** `Dorc.Api.WindowsWorker` builds, runs on Windows only, binds to `127.0.0.1`, and rejects calls missing `X-Worker-Key` with a documented `401` body.
 - **SC-3** On Windows installs with the worker present: WMI, registry, and password-reset endpoints behave identically to today (verified by parity tests against pre-split fixtures).
 - **SC-4** On Linux installs (no worker): WMI / registry / password-reset endpoints return `503 Service Unavailable` with body `{"error":"windows_worker_unavailable", "endpoint":"<name>"}`. This is the documented behavioural envelope referenced in C-1.
-- **SC-5** Existing client apps (`dorc-web`, `Dorc.Api.Client`) require no code changes to compile and ship. Behavioural-envelope changes (SC-4) are handled by surfaced error messages, not by client logic changes.
+- **SC-5** Existing client apps (`dorc-web`, `Dorc.Api.Client`) require no code changes to compile and ship **through S-010**. **S-011 is an explicit, one-time exception**: it renames `UserElementApiModel` to `DirectoryPrincipalApiModel` and its `Pid`/`Sid` properties to `PrincipalId`/`OnPremisesSid`, which is a breaking wire change. It is taken deliberately because the API is internal to DORC, and it requires regenerating `Dorc.Api.Client` and the `dorc-web` client in the same PR. `AccessControl.Pid`/`.Sid` are database columns and are NOT renamed — fixing those needs a migration and is out of scope. Behavioural-envelope changes (SC-4) are handled by surfaced error messages, not by client logic changes.
 - **SC-6** All existing unit and integration tests pass at parity with pre-split coverage; new contract tests cover the primary↔worker HTTP surface; new tests cover the Graph-backed AD code path against the parity matrix in §4.
 - **SC-7** MSI installer adds the worker as a Windows-only component without breaking existing upgrade paths.
 - **SC-8a** LDAP-injection findings on PR #424 (`DirectorySearchController` ×2) are eliminated by the Graph migration removing the LDAP code path. Verified by re-running the security scan post-merge.

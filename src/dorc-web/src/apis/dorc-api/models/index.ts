@@ -87,7 +87,7 @@ export * from './UpdateEnvironmentHistoryRequest';
 export * from './UserAccountType';
 export * from './UserApiModel';
 export * from './UserDbPermissionApiModel';
-export * from './UserElementApiModel';
+export * from './DirectoryPrincipalApiModel';
 export * from './UserPermDto';
 export * from './UserSearchResult';
 export * from './AnalyticsEnvironmentUsageApiModel';

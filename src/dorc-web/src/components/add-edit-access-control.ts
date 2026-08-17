@@ -19,7 +19,7 @@ import { html } from 'lit/html.js';
 import '../components/grid-button-groups/access-control-controls';
 import {
   AccessSecureApiModel,
-  UserElementApiModel
+  DirectoryPrincipalApiModel
 } from '../apis/dorc-api';
 import { AccessControlApi } from '../apis/dorc-api';
 import { AccessControlApiModel } from '../apis/dorc-api';
@@ -47,7 +47,7 @@ export class AddEditAccessControl extends LitElement {
 
   searchADValue = '';
 
-  @property({ type: Array }) searchResults!: UserElementApiModel[];
+  @property({ type: Array }) searchResults!: DirectoryPrincipalApiModel[];
 
   @property({ type: Boolean }) searchingUsers = false;
 
@@ -423,7 +423,7 @@ export class AddEditAccessControl extends LitElement {
     const user = cbSelectedUser.selectedItem
 
     if (user !== undefined) {
-      const existing = this.Privileges?.find(item => (item.Sid && item.Sid === user.Sid) || (item.Pid && item.Pid === user.Pid));
+      const existing = this.Privileges?.find(item => (item.Sid && item.Sid === user.OnPremisesSid) || (item.Pid && item.Pid === user.PrincipalId));
       if (existing) {
         Notification.show(`User is already in the list`, {
           theme: 'warning',
@@ -437,8 +437,8 @@ export class AddEditAccessControl extends LitElement {
         Name: user.DisplayName,
         Allow: 0,
         Deny: 0,
-        Pid: user.Pid,
-        Sid: user.Sid,
+        Pid: user.PrincipalId,
+        Sid: user.OnPremisesSid,
       };
       this.Privileges?.push(acam);
       this.Privileges = JSON.parse(JSON.stringify(this.Privileges));
@@ -448,7 +448,7 @@ export class AddEditAccessControl extends LitElement {
   searchResultsRenderer = (
     root: HTMLElement,
     _comboBox: ComboBox,
-    model: ComboBoxItemModel<UserElementApiModel>
+    model: ComboBoxItemModel<DirectoryPrincipalApiModel>
   ) => {
     if (!model.item) {
       render(html``, root);
@@ -475,12 +475,12 @@ export class AddEditAccessControl extends LitElement {
     );
   }
 
-  renderUserId(item: UserElementApiModel): unknown {
+  renderUserId(item: DirectoryPrincipalApiModel): unknown {
     if (!item) {
       return html``;
     }
-    const pid = item.Pid ?? '';
-    const sid = item.Sid ?? '';
+    const pid = item.PrincipalId ?? '';
+    const sid = item.OnPremisesSid ?? '';
 
     const hasAdditionalId = pid && pid !== item.Username;
     const additionalId = hasAdditionalId ? pid : sid;
@@ -502,7 +502,7 @@ export class AddEditAccessControl extends LitElement {
     this.searchingUsers = true;
     const api = new AccessControlApi();
     api.accessControlSearchUsersGet({ search: this.searchADValue }).subscribe(
-      (data: Array<UserElementApiModel>) => {
+      (data: Array<DirectoryPrincipalApiModel>) => {
         this.searchResults = data;
         this.searchingUsers = false;
         const combo = this.shadowRoot?.getElementById(

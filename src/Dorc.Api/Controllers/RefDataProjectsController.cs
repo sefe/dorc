@@ -15,7 +15,7 @@ namespace Dorc.Api.Controllers
     {
         private readonly IProjectsPersistentSource _projectsPersistentSource;
         private readonly IAccessControlPersistentSource _accessControlPersistentSource;
-        private readonly IActiveDirectorySearcher _activeDirectorySearcher;
+        private readonly IPrincipalDirectory _activeDirectorySearcher;
         private readonly IRolePrivilegesChecker _rolePrivilegesChecker;
         private readonly ISecurityPrivilegesChecker _securityPrivilegesChecker;
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
@@ -23,7 +23,7 @@ namespace Dorc.Api.Controllers
         public RefDataProjectsController(
             IProjectsPersistentSource projectsPersistentSource,
             IAccessControlPersistentSource accessControlPersistentSource,
-            IActiveDirectorySearcher activeDirectorySearcher, IRolePrivilegesChecker rolePrivilegesChecker,
+            IPrincipalDirectory activeDirectorySearcher, IRolePrivilegesChecker rolePrivilegesChecker,
             ISecurityPrivilegesChecker securityPrivilegesChecker,
             IClaimsPrincipalReader claimsPrincipalReader
             )
@@ -101,10 +101,10 @@ namespace Dorc.Api.Controllers
                 var securityObject = _projectsPersistentSource.GetSecurityObject(project.ProjectName);
 
                 string username = _claimsPrincipalReader.GetUserLogin(User);
-                var adSearch = _activeDirectorySearcher.GetUserData(username);
+                var adSearch = _activeDirectorySearcher.FindByName(username);
 
                 _accessControlPersistentSource.AddAccessControl(new AccessControlApiModel
-                { Sid = adSearch.Sid, Pid = adSearch.Pid, Name = adSearch.DisplayName, Allow = (int)(AccessLevel.Write | AccessLevel.ReadSecrets), Deny = 0 }, securityObject.ObjectId, User);
+                { Sid = adSearch.OnPremisesSid, Pid = adSearch.PrincipalId, Name = adSearch.DisplayName, Allow = (int)(AccessLevel.Write | AccessLevel.ReadSecrets), Deny = 0 }, securityObject.ObjectId, User);
 
                 return StatusCode(StatusCodes.Status200OK, _projectsPersistentSource.GetProject(project.ProjectName));
             }

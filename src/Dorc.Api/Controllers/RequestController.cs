@@ -27,7 +27,7 @@ namespace Dorc.Api.Controllers
         private readonly IDeploymentEventsPublisher _deploymentEventsPublisher;
         private readonly IConfigurationSettings _configurationSettings;
         private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
-        private readonly IActiveDirectorySearcher _directorySearcher;
+        private readonly IPrincipalDirectory _directorySearcher;
         private readonly IDeploymentLogService _deploymentLogService;
 
         public RequestController(IRequestService service, ISecurityPrivilegesChecker apiSecurityService, ILogger<RequestController> log,
@@ -37,7 +37,7 @@ namespace Dorc.Api.Controllers
             IDeploymentEventsPublisher deploymentEventsPublisher,
             IConfigurationSettings configurationSettings,
             IEnvironmentsPersistentSource environmentsPersistentSource,
-            IActiveDirectorySearcher activeDirectorySearcher,
+            IPrincipalDirectory activeDirectorySearcher,
             IDeploymentLogService deploymentLogService
             )
         {
@@ -656,7 +656,7 @@ namespace Dorc.Api.Controllers
                 {
                     try
                     {
-                        var ownerData = _directorySearcher.GetUserDataById(ownerId);
+                        var ownerData = _directorySearcher.FindById(ownerId);
                         if (!string.IsNullOrEmpty(ownerData?.Email))
                         {
                             emails.Add(ownerData.Email);

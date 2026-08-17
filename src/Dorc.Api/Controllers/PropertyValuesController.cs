@@ -23,7 +23,7 @@ namespace Dorc.Api.Controllers
         private readonly IVariableResolver _variableResolver;
         private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
         private readonly IVariableScopeOptionsResolver _variableScopeOptionsResolver;
-        private readonly IActiveDirectorySearcher _directorySearcher;
+        private readonly IPrincipalDirectory _directorySearcher;
         private readonly ILogger<PropertyValuesController> _logger;
 
         public PropertyValuesController(IPropertyValuesService propertyValuesService,
@@ -31,7 +31,7 @@ namespace Dorc.Api.Controllers
             [FromKeyedServices("VariableResolver")] IVariableResolver variableResolver,
             IEnvironmentsPersistentSource environmentsPersistentSource,
             IVariableScopeOptionsResolver variableScopeOptionsResolver,
-            IActiveDirectorySearcher activeDirectorySearcher,
+            IPrincipalDirectory activeDirectorySearcher,
             ILogger<PropertyValuesController> logger)
         {
             _variableScopeOptionsResolver = variableScopeOptionsResolver;
@@ -93,7 +93,7 @@ namespace Dorc.Api.Controllers
                 {
                     try
                     {
-                        var ownerData = _directorySearcher.GetUserDataById(ownerId);
+                        var ownerData = _directorySearcher.FindById(ownerId);
                         if (!string.IsNullOrEmpty(ownerData?.Email))
                         {
                             emails.Add(ownerData.Email);

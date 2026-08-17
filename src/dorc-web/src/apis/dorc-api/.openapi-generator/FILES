@@ -136,7 +136,7 @@ models/SqlPortApiModel.ts
 models/UserAccountType.ts
 models/UserApiModel.ts
 models/UserDbPermissionApiModel.ts
-models/UserElementApiModel.ts
+models/DirectoryPrincipalApiModel.ts
 models/UserPermDto.ts
 models/UserSearchResult.ts
 models/index.ts

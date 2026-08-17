@@ -162,7 +162,7 @@ namespace Dorc.Api.Tests
             var envId = 1;
             var oldOwnerSid = "old-owner-sid";
             var newOwnerSid = "new-owner-sid";
-            var newOwner = new UserElementApiModel { Username = "newowner", DisplayName = "New Owner", Pid = newOwnerSid };
+            var newOwner = new DirectoryPrincipalApiModel { Username = "newowner", DisplayName = "New Owner", PrincipalId = newOwnerSid };
             
             var testEnv = SetupTestEnvironment(envId, oldOwnerSid, AccessLevel.Owner | AccessLevel.Write);
 
@@ -181,7 +181,7 @@ namespace Dorc.Api.Tests
             var envId = 1;
             var oldOwnerSid = "old-owner-sid";
             var newOwnerSid = "new-owner-sid";
-            var newOwner = new UserElementApiModel { Username = "newowner", DisplayName = "New Owner", Pid = newOwnerSid };
+            var newOwner = new DirectoryPrincipalApiModel { Username = "newowner", DisplayName = "New Owner", PrincipalId = newOwnerSid };
             
             var testEnv = SetupTestEnvironment(envId, oldOwnerSid, AccessLevel.Owner);
 
@@ -200,7 +200,7 @@ namespace Dorc.Api.Tests
             var envId = 1;
             var oldOwnerSid = "old-owner-sid";
             var newOwnerSid = "new-owner-sid";
-            var newOwner = new UserElementApiModel { Username = "newowner", DisplayName = "New Owner", Pid = newOwnerSid };
+            var newOwner = new DirectoryPrincipalApiModel { Username = "newowner", DisplayName = "New Owner", PrincipalId = newOwnerSid };
             
             var testEnv = SetupTestEnvironment(envId, oldOwnerSid, AccessLevel.Owner, newOwnerSid, AccessLevel.Write);
 

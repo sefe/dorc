@@ -13,7 +13,7 @@ namespace Dorc.PersistentData.Sources.Interfaces
         bool EnvironmentExists(string rowEnvironment);
         string GetEnvironmentOwnerId(int envId);
         List<string> GetEnvironmentOwnerIds(int envId);
-        bool SetEnvironmentOwner(IPrincipal updatedBy, int envId, UserElementApiModel user);
+        bool SetEnvironmentOwner(IPrincipal updatedBy, int envId, DirectoryPrincipalApiModel user);
         EnvironmentApiModel AttachServerToEnv(int envId, int serverId, ClaimsPrincipal user);
         EnvironmentApiModel DetachServerFromEnv(int envId, int serverId, ClaimsPrincipal user);
         EnvironmentApiModel AttachDatabaseToEnv(int envId, int databaseId, ClaimsPrincipal user);

@@ -56,7 +56,7 @@ namespace Dorc.PersistentData
             // Get access control entries for the object
             var accessControls = accessControlPersistentSource.GetAccessControls(securityObject.ObjectId).ToArray();
 
-            var userSids = _claimsPrincipalReader.GetSidsForUser(user);
+            var userSids = _claimsPrincipalReader.GetIdentifiersForUser(user);
 
             var userAccessControls = accessControls.Where(
                 accessControl => userSids.Contains(accessControl.Sid) ||

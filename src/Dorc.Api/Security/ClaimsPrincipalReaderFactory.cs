@@ -13,7 +13,7 @@ namespace Dorc.Api.Security
     // AD SIDs, so AccessControl rows keyed on legacy AD SIDs stop matching (fails closed).
     // Decide before merge: delete this class and the flag, or register it — but note the AD
     // branch resolves names via GetUserName/GetUserLogin, which under OAuth yields a display
-    // name or email that AzureEntraSearcher.ResolveUserIdFromName will not match.
+    // name or email that EntraPrincipalDirectory.ResolveUserIdFromName will not match.
     // Post-S-007, only the OAuth reader is supported (WinAuth/Negotiate removed
     // per HLPS Scope E). The name "Factory" is now misleading — there's no
     // choice to make — but the type is preserved so consumers' DI registrations
@@ -41,8 +41,8 @@ namespace Dorc.Api.Security
         {
             if (_config.GetIsUseAdSidsForAccessControl())
             {
-                var data = _adUserGroupsReader.GetUserData(GetUserName(user));
-                return data.Sid;
+                var data = _adUserGroupsReader.FindByName(GetUserName(user));
+                return data.OnPremisesSid;
             }
             return _oauthReader.GetUserId(user);
         }
@@ -55,13 +55,13 @@ namespace Dorc.Api.Security
 
         public string GetUserEmail(ClaimsPrincipal user) => _oauthReader.GetUserEmail(user);
 
-        public List<string> GetSidsForUser(IPrincipal user)
+        public List<string> GetIdentifiersForUser(IPrincipal user)
         {
             if (_config.GetIsUseAdSidsForAccessControl())
             {
-                return _adUserGroupsReader.GetSidsForUser(GetUserLogin(user));
+                return _adUserGroupsReader.GetIdentifiersForUser(GetUserLogin(user));
             }
-            return _oauthReader.GetSidsForUser(user);
+            return _oauthReader.GetIdentifiersForUser(user);
         }
     }
 }

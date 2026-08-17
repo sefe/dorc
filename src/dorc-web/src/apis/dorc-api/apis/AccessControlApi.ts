@@ -18,7 +18,7 @@ import type { OperationOpts, HttpHeaders, HttpQuery } from '../runtime';
 import type {
     AccessControlType,
     AccessSecureApiModel,
-    UserElementApiModel,
+    DirectoryPrincipalApiModel,
 } from '../models';
 
 export interface AccessControlGetRequest {
@@ -77,15 +77,15 @@ export class AccessControlApi extends BaseAPI {
 
     /**
      */
-    accessControlSearchUsersGet({ search }: AccessControlSearchUsersGetRequest): Observable<Array<UserElementApiModel>>
-    accessControlSearchUsersGet({ search }: AccessControlSearchUsersGetRequest, opts?: OperationOpts): Observable<AjaxResponse<Array<UserElementApiModel>>>
-    accessControlSearchUsersGet({ search }: AccessControlSearchUsersGetRequest, opts?: OperationOpts): Observable<Array<UserElementApiModel> | AjaxResponse<Array<UserElementApiModel>>> {
+    accessControlSearchUsersGet({ search }: AccessControlSearchUsersGetRequest): Observable<Array<DirectoryPrincipalApiModel>>
+    accessControlSearchUsersGet({ search }: AccessControlSearchUsersGetRequest, opts?: OperationOpts): Observable<AjaxResponse<Array<DirectoryPrincipalApiModel>>>
+    accessControlSearchUsersGet({ search }: AccessControlSearchUsersGetRequest, opts?: OperationOpts): Observable<Array<DirectoryPrincipalApiModel> | AjaxResponse<Array<DirectoryPrincipalApiModel>>> {
 
         const query: HttpQuery = {};
 
         if (search != null) { query['search'] = search; }
 
-        return this.request<Array<UserElementApiModel>>({
+        return this.request<Array<DirectoryPrincipalApiModel>>({
             url: '/AccessControl/SearchUsers',
             method: 'GET',
             query,

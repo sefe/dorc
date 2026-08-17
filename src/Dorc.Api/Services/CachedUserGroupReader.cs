@@ -19,10 +19,10 @@ namespace Dorc.Api.Services
 
         private readonly string _domainName;
         private readonly IMemoryCache _cache;
-        private readonly IActiveDirectorySearcher _activeDirectorySearcher;
+        private readonly IPrincipalDirectory _activeDirectorySearcher;
         private readonly TimeSpan? _cacheExpiration;
 
-        public CachedUserGroupReader(IConfigurationSettings config, IMemoryCache cache, IActiveDirectorySearcher activeDirectorySearcher)
+        public CachedUserGroupReader(IConfigurationSettings config, IMemoryCache cache, IPrincipalDirectory activeDirectorySearcher)
         {
             _domainName = config.GetConfigurationDomainNameIntra();
             _cacheExpiration = config.GetADUserCacheTimeSpan();
@@ -30,7 +30,7 @@ namespace Dorc.Api.Services
             _activeDirectorySearcher = activeDirectorySearcher;
         }
 
-        public string? GetGroupSidIfUserIsMember(string userName, string groupName)
+        public string? FindGroupIfMemberByName(string userName, string groupName)
         {
             var cacheKey = $"{userName}:{groupName}";
             if (_cacheExpiration.HasValue && _cache.TryGetValue(cacheKey, out string? cachedSid))
@@ -38,7 +38,7 @@ namespace Dorc.Api.Services
                 return cachedSid;
             }
 
-            var sid = _activeDirectorySearcher.GetGroupSidIfUserIsMemberRecursive(userName, groupName, _domainName);
+            var sid = _activeDirectorySearcher.FindGroupIfMember(userName, groupName, _domainName);
             if (_cacheExpiration.HasValue && sid != null)
             {
                 _cache.Set(cacheKey, sid, _cacheExpiration.Value);
@@ -49,20 +49,20 @@ namespace Dorc.Api.Services
 
         public string GetUserMail(string userName)
         {
-            var data = this.GetUserData(userName);
+            var data = this.FindByName(userName);
 
             return data.Email;
         }
 
-        public UserElementApiModel GetUserData(string userName)
+        public DirectoryPrincipalApiModel FindByName(string userName)
         {
             var cacheKey = $"{userName}";
-            if (_cacheExpiration.HasValue && _cache.TryGetValue(cacheKey, out UserElementApiModel? cachedData))
+            if (_cacheExpiration.HasValue && _cache.TryGetValue(cacheKey, out DirectoryPrincipalApiModel? cachedData))
             {
                 return cachedData;
             }
 
-            var data = _activeDirectorySearcher.GetUserData(userName);
+            var data = _activeDirectorySearcher.FindByName(userName);
 
             if (_cacheExpiration.HasValue && data != null)
             {
@@ -72,14 +72,14 @@ namespace Dorc.Api.Services
             return data;
         }
 
-        public List<string> GetSidsForUser(string username)
+        public List<string> GetIdentifiersForUser(string username)
         {
             if (_cacheExpiration.HasValue && SidCache.TryGetValue(username, out var cacheEntry) && (DateTime.Now - cacheEntry.Timestamp) < _cacheExpiration)
             {
                 return cacheEntry.Sids;
             }
 
-            var sidList = _activeDirectorySearcher.GetSidsForUser(username);
+            var sidList = _activeDirectorySearcher.GetIdentifiersForUser(username);
             if (_cacheExpiration.HasValue)
                 SidCache[username] = new CacheEntry { Sids = sidList, Timestamp = DateTime.Now };
 

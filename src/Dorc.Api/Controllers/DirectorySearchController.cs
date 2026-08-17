@@ -34,10 +34,10 @@ namespace Dorc.Api.Controllers
         internal const string IncorrectCharactersInGroupSearchCriteriaMessage = "Incorrect characters in group search criteria.";
         internal const string IncorrectCharactersInGroupSearchCriteriaExplanationFormat = "Group search criteria contains unacceptable characters. Group search criteria should match the RegEx: {0}";
 
-        private readonly IDirectorySearchService _searchService;
+        private readonly IPrincipalSearch _searchService;
         internal readonly string _domainName;
 
-        public DirectorySearchController(IDirectorySearchService searchService, IConfigurationSettings configurationSettingsEngine)
+        public DirectorySearchController(IPrincipalSearch searchService, IConfigurationSettings configurationSettingsEngine)
         {
             _searchService = searchService;
             _domainName = configurationSettingsEngine.GetConfigurationDomainName();

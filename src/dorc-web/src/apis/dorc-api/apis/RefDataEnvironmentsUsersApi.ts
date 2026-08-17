@@ -19,7 +19,7 @@ import type {
     EnvironmentOwnerApiModel,
     UserAccountType,
     UserApiModel,
-    UserElementApiModel,
+    DirectoryPrincipalApiModel,
 } from '../models';
 
 export interface RefDataEnvironmentsUsersGetRequest {
@@ -114,12 +114,12 @@ export class RefDataEnvironmentsUsersApi extends BaseAPI {
 
     /**
      */
-    refDataEnvironmentsUsersSearchUsersSearchGet({ search }: RefDataEnvironmentsUsersSearchUsersSearchGetRequest): Observable<Array<UserElementApiModel>>
-    refDataEnvironmentsUsersSearchUsersSearchGet({ search }: RefDataEnvironmentsUsersSearchUsersSearchGetRequest, opts?: OperationOpts): Observable<AjaxResponse<Array<UserElementApiModel>>>
-    refDataEnvironmentsUsersSearchUsersSearchGet({ search }: RefDataEnvironmentsUsersSearchUsersSearchGetRequest, opts?: OperationOpts): Observable<Array<UserElementApiModel> | AjaxResponse<Array<UserElementApiModel>>> {
+    refDataEnvironmentsUsersSearchUsersSearchGet({ search }: RefDataEnvironmentsUsersSearchUsersSearchGetRequest): Observable<Array<DirectoryPrincipalApiModel>>
+    refDataEnvironmentsUsersSearchUsersSearchGet({ search }: RefDataEnvironmentsUsersSearchUsersSearchGetRequest, opts?: OperationOpts): Observable<AjaxResponse<Array<DirectoryPrincipalApiModel>>>
+    refDataEnvironmentsUsersSearchUsersSearchGet({ search }: RefDataEnvironmentsUsersSearchUsersSearchGetRequest, opts?: OperationOpts): Observable<Array<DirectoryPrincipalApiModel> | AjaxResponse<Array<DirectoryPrincipalApiModel>>> {
         throwIfNullOrUndefined(search, 'search', 'refDataEnvironmentsUsersSearchUsersSearchGet');
 
-        return this.request<Array<UserElementApiModel>>({
+        return this.request<Array<DirectoryPrincipalApiModel>>({
             url: '/RefDataEnvironmentsUsers/SearchUsers/{search}'.replace('{search}', encodeURI(search)),
             method: 'GET',
         }, opts?.responseOpts);

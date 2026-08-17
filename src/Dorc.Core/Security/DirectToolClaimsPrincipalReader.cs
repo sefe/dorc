@@ -54,7 +54,7 @@ namespace Dorc.Core.Security
             return string.Empty;
         }
 
-        public List<string> GetSidsForUser(IPrincipal user)
+        public List<string> GetIdentifiersForUser(IPrincipal user)
         {
             return new List<string> { _clientId };
         }
