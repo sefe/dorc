@@ -1,9 +1,19 @@
 name: Linux Build Gate
 
-# Guards HLPS SC-1: Dorc.Api and its primary compile graph (Dorc.Core,
-# Dorc.PersistentData) must build on Linux. Fails the pipeline if Windows-only
-# package refs (System.DirectoryServices*, System.Management) reappear, or if
-# any of the three target projects fail to build under linux-x64 RID.
+# Guards HLPS SC-1 for the primary API compile graph (Dorc.Api, Dorc.Core,
+# Dorc.PersistentData): no Windows-only package refs, no win-* RuntimeIdentifier,
+# and no NEW Windows-only API usage.
+#
+# Enforcement is in three layers, because any one alone is evasible:
+#   1. csproj guard  — catches the dependency being declared.
+#   2. CA1416-as-error — catches the API actually being USED. Package refs can be
+#      added transitively, and a Windows-only API compiles fine on Linux (it is a
+#      warning, not an error, unless promoted), so layer 1 alone is not a gate.
+#   3. Linux test run — the Graph parity suite has no other Linux CI home.
+#
+# System.Management is deliberately NOT gated in Dorc.Api yet: the WMI code moves
+# behind the Windows worker at S-005 and still carries CA1416 warnings. Until then
+# Dorc.Api is gated against NEW Windows-only sites via an explicit backlog list.
 
 on:
   push:
@@ -22,17 +32,25 @@ on:
     branches:
       - main
       - develop
+      - 'release/**'
 
 env:
   DOTNET_VERSION: '8.0.x'
+  DOTNET_CLI_TELEMETRY_OPTOUT: 1
+  DOTNET_NOLOGO: 1
 
 permissions:
   contents: read
+
+concurrency:
+  group: linux-build-gate-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   linux-build:
     name: Build primary API compile graph on Linux
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -42,34 +60,75 @@ jobs:
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
-      - name: Guard — no System.DirectoryServices package refs
-        # HLPS SC-1 (DirectoryServices half) — gates against the package refs
-        # only, not source usages of the namespace. After S-001 the primary
-        # compile graph (Dorc.Api/Core/PersistentData) must hold no
-        # System.DirectoryServices* PackageReference. System.Management is
-        # NOT gated here — that's S-005's job (WMI move to worker).
+      - name: Guard — no Windows-only package refs or RIDs in the primary compile graph
         run: |
-          set -e
-          echo "Checking csproj files for System.DirectoryServices* PackageReference..."
-          if grep -rn -E '<PackageReference[^>]*Include="System\.DirectoryServices(\.AccountManagement)?"' \
-              src/Dorc.Api src/Dorc.Core src/Dorc.PersistentData \
-              --include='*.csproj' 2>/dev/null; then
-            echo "::error::System.DirectoryServices* PackageReference found in primary compile graph. SC-1 regression."
+          set -euo pipefail
+          roots="src/Dorc.Api src/Dorc.Core src/Dorc.PersistentData"
+
+          # A renamed or moved directory must fail the gate, not silently pass it.
+          # (grep exiting non-zero on a missing path would otherwise read as "clean".)
+          for d in $roots; do
+            if [ ! -d "$d" ]; then
+              echo "::error::guard path $d does not exist — the gate would be a no-op. Update this workflow."
+              exit 1
+            fi
+          done
+
+          status=0
+
+          # Matches any System.DirectoryServices* package, single or double quoted,
+          # with or without spaces around '='. Anchoring the optional .AccountManagement
+          # suffix would miss .Protocols and any future sibling.
+          echo "Checking for System.DirectoryServices* PackageReference..."
+          if grep -rn -E '<PackageReference[^>]*Include[[:space:]]*=[[:space:]]*["'"'"']System\.DirectoryServices' \
+              $roots --include='*.csproj'; then
+            echo "::error::System.DirectoryServices* PackageReference found in the primary compile graph. SC-1 regression."
+            status=1
+          fi
+
+          echo "Checking for win-* RuntimeIdentifier..."
+          if grep -rn -E '<RuntimeIdentifier>[[:space:]]*win' $roots --include='*.csproj'; then
+            echo "::error::win-* RuntimeIdentifier found in the primary compile graph. SC-1 requires Dorc.Api to run on Linux."
+            status=1
+          fi
+
+          [ $status -eq 0 ] && echo "OK — no Windows-only package refs or RIDs."
+          exit $status
+
+      - name: Restore
+        run: |
+          set -euo pipefail
+          dotnet restore src/Dorc.Core/Dorc.Core.csproj
+          dotnet restore src/Dorc.PersistentData/Dorc.PersistentData.csproj
+          dotnet restore src/Dorc.Api/Dorc.Api.csproj
+          dotnet restore src/Dorc.Core.Tests/Dorc.Core.Tests.csproj
+
+      # CA1416 promoted to an error: this is what actually catches Windows-only APIs
+      # being used again. Dorc.Core carries one accepted site (DaemonStatusProbe,
+      # suppressed inline in CoreRegistry.cs, removed at S-005).
+      - name: Build Dorc.Core (Release, CA1416 = error)
+        run: dotnet build src/Dorc.Core/Dorc.Core.csproj -c Release --no-restore --nologo -warnaserror:CA1416
+
+      - name: Build Dorc.PersistentData (Release, CA1416 = error)
+        run: dotnet build src/Dorc.PersistentData/Dorc.PersistentData.csproj -c Release --no-restore --nologo -warnaserror:CA1416
+
+      # Dorc.Api still holds the pre-S-005 WMI backlog, so CA1416 cannot be a blanket
+      # error here yet. Instead: build normally, then fail if a CA1416 warning appears
+      # in any file outside the known backlog. That blocks NEW Windows-only code while
+      # the S-005 migration is still outstanding.
+      - name: Build Dorc.Api (Release, CA1416 gated outside the S-005 backlog)
+        run: |
+          set -euo pipefail
+          dotnet build src/Dorc.Api/Dorc.Api.csproj -c Release --no-restore --nologo 2>&1 | tee api-build.log
+          # Known Windows-only sites awaiting S-005 (WMI / service control).
+          backlog='WmiUtil\.cs|RefDataServersController\.cs|CoreRegistry\.cs|Program\.cs'
+          if grep -E 'warning CA1416' api-build.log | grep -vE "$backlog"; then
+            echo "::error::New CA1416 platform-compatibility warning in Dorc.Api outside the S-005 backlog."
             exit 1
           fi
-          echo "OK — no System.DirectoryServices* package refs in primary compile graph."
+          echo "OK — no new Windows-only API usage in Dorc.Api."
 
-      - name: Restore Dorc.Core
-        run: dotnet restore src/Dorc.Core/Dorc.Core.csproj
-      - name: Build Dorc.Core (Release)
-        run: dotnet build src/Dorc.Core/Dorc.Core.csproj -c Release --no-restore --nologo
-
-      - name: Restore Dorc.PersistentData
-        run: dotnet restore src/Dorc.PersistentData/Dorc.PersistentData.csproj
-      - name: Build Dorc.PersistentData (Release)
-        run: dotnet build src/Dorc.PersistentData/Dorc.PersistentData.csproj -c Release --no-restore --nologo
-
-      - name: Restore Dorc.Api
-        run: dotnet restore src/Dorc.Api/Dorc.Api.csproj
-      - name: Build Dorc.Api (Release)
-        run: dotnet build src/Dorc.Api/Dorc.Api.csproj -c Release --no-restore --nologo
+      # The Graph parity suite is the evidence base for SC-6 / SC-9 / SC-10 and
+      # otherwise only runs on windows-latest in release.yml. Run it on Linux too.
+      - name: Test Dorc.Core.Tests on Linux
+        run: dotnet test src/Dorc.Core.Tests/Dorc.Core.Tests.csproj -c Release --no-restore --nologo
