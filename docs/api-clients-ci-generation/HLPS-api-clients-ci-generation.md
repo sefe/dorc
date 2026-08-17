@@ -96,8 +96,8 @@ committed clients, the committed specs, and the C# API had all drifted apart:
      `AzureDevOpsApiClientFactory` and the Api classes'
      `(client, asyncClient, configuration)` constructors), covered by unit
      tests in `Dorc.Core.Tests`.
-   The two csproj files are the only exclusions
-   (`.openapi-generator-ignore`): dependabot owns their package versions.
+   The client csproj is the only exclusion
+   (`.openapi-generator-ignore`): dependabot owns its package versions.
 7. **The Azure DevOps pipeline (`pipelines/dorc-build.yml`) is unchanged.**
    It runs on a self-hosted agent whose Java availability cannot be verified
    from this repo; the GitHub Actions workflow is the enforced path. Mirror
