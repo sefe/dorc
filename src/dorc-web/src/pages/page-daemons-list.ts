@@ -21,7 +21,11 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { PageElement } from '../helpers/page-element';
 import { ResponsiveMixin } from '../helpers/responsive-mixin';
-import { DaemonApiModel, RefDataDaemonsApi, ServerDaemonsApi } from '../apis/dorc-api';
+import {
+  DaemonApiModel,
+  RefDataDaemonsApi,
+  ServerDaemonsApi
+} from '../apis/dorc-api';
 import type { ServerApiModel } from '../apis/dorc-api';
 import GlobalCache from '../global-cache';
 
@@ -181,77 +185,84 @@ export class PageDaemonsList extends ResponsiveMixin(PageElement) {
         cancel-button-visible
         @confirm="${this.performDelete}"
       >
-        ${this.pendingDelete
-          ? html`Delete daemon
-              <strong>${this.pendingDelete.Name}</strong>? This cannot be
-              undone.
-              ${this.pendingDeleteAttachedServers.length > 0
-                ? html`<br /><br />Currently attached to
-                    ${this.pendingDeleteAttachedServers.length} server${this.pendingDeleteAttachedServers.length === 1 ? '' : 's'}:
-                    <ul style="margin: 4px 0 0 0">
-                      ${this.pendingDeleteAttachedServers.map(
+        ${
+          this.pendingDelete
+            ? html`<div style="overflow-wrap: anywhere">
+                Delete daemon
+                <strong>${this.pendingDelete.Name}</strong>? This cannot be
+                undone.
+                ${
+                this.pendingDeleteAttachedServers.length > 0
+                  ? html`<br /><br />Currently attached to
+                      ${this.pendingDeleteAttachedServers.length}
+                      server${this.pendingDeleteAttachedServers.length === 1 ? '' : 's'}:
+                      <ul style="margin: 4px 0 0 0">
+                        ${this.pendingDeleteAttachedServers.map(
                         name => html`<li>${name}</li>`
                       )}
-                    </ul>
-                    Deleting will detach the daemon from all of them.`
-                : html`<br /><br />No server mappings to remove.`}`
-          : html``}
+                      </ul>
+                      Deleting will detach the daemon from all of them.`
+                  : html`<br /><br />No server mappings to remove.`
+              }
+              </div>`
+            : html``
+        }
       </vaadin-confirm-dialog>
 
-      ${this.loading
-        ? html`
-            <dorc-spinner></dorc-spinner>
-          `
-        : html`
-            <vaadin-grid
-              id="grid"
-              .items=${this.filteredDaemons}
-              column-reordering-allowed
-              multi-sort
-              theme="compact row-stripes no-row-borders no-border"
-            >
-              <vaadin-grid-sort-column
-                path="Name"
-                header="Daemon Name"
-                resizable
-              ></vaadin-grid-sort-column>
-              <vaadin-grid-sort-column
-                path="DisplayName"
-                header="Display Name"
-                resizable
-                ?hidden="${this._narrowScreen}"
-              ></vaadin-grid-sort-column>
-              <vaadin-grid-sort-column
-                path="AccountName"
-                header="Account Name"
-                resizable
-                ?hidden="${this._narrowScreen}"
-              ></vaadin-grid-sort-column>
-              <vaadin-grid-sort-column
-                path="ServiceType"
-                header="Type"
-                resizable
-                ?hidden="${this._narrowScreen}"
-              ></vaadin-grid-sort-column>
-              <vaadin-grid-sort-column
-                path="LastSeenDate"
-                header="Last Seen"
-                resizable
-                direction="desc"
-                ?hidden="${this._narrowScreen}"
-                ${columnBodyRenderer(this._lastSeenRenderer, [])}
-              ></vaadin-grid-sort-column>
-              <vaadin-grid-column
-                header="Actions"
-                width="180px"
-                flex-grow="0"
-                ${columnBodyRenderer(this._rowActionsRenderer, [
+      ${
+        this.loading
+          ? html` <dorc-spinner></dorc-spinner> `
+          : html`
+              <vaadin-grid
+                id="grid"
+                .items=${this.filteredDaemons}
+                column-reordering-allowed
+                multi-sort
+                theme="compact row-stripes no-row-borders no-border"
+              >
+                <vaadin-grid-sort-column
+                  path="Name"
+                  header="Daemon Name"
+                  resizable
+                ></vaadin-grid-sort-column>
+                <vaadin-grid-sort-column
+                  path="DisplayName"
+                  header="Display Name"
+                  resizable
+                  ?hidden="${this._narrowScreen}"
+                ></vaadin-grid-sort-column>
+                <vaadin-grid-sort-column
+                  path="AccountName"
+                  header="Account Name"
+                  resizable
+                  ?hidden="${this._narrowScreen}"
+                ></vaadin-grid-sort-column>
+                <vaadin-grid-sort-column
+                  path="ServiceType"
+                  header="Type"
+                  resizable
+                  ?hidden="${this._narrowScreen}"
+                ></vaadin-grid-sort-column>
+                <vaadin-grid-sort-column
+                  path="LastSeenDate"
+                  header="Last Seen"
+                  resizable
+                  direction="desc"
+                  ?hidden="${this._narrowScreen}"
+                  ${columnBodyRenderer(this._lastSeenRenderer, [])}
+                ></vaadin-grid-sort-column>
+                <vaadin-grid-column
+                  header="Actions"
+                  width="180px"
+                  flex-grow="0"
+                  ${columnBodyRenderer(this._rowActionsRenderer, [
                   this.isAdmin,
                   this.isPowerUser
                 ])}
-              ></vaadin-grid-column>
-            </vaadin-grid>
-          `} `;
+                ></vaadin-grid-column>
+              </vaadin-grid>
+            `
+      } `;
   }
 
   private _lastSeenRenderer = (daemon: DaemonApiModel) => {
@@ -270,10 +281,10 @@ export class PageDaemonsList extends ResponsiveMixin(PageElement) {
       status === 'running'
         ? 'var(--dorc-success-bg, inherit)'
         : status === 'stopped'
-        ? 'inherit'
-        : status == null || status === ''
-        ? 'var(--dorc-error-color, inherit)'
-        : 'inherit';
+          ? 'inherit'
+          : status == null || status === ''
+            ? 'var(--dorc-error-color, inherit)'
+            : 'inherit';
 
     return html`<span title="${tooltip}" style="color: ${color}"
       >${relative}</span
@@ -349,7 +360,8 @@ export class PageDaemonsList extends ResponsiveMixin(PageElement) {
     );
   }
 
-  private renderAddDaemon = () => html`<add-daemon id="add-daemon"></add-daemon>`;
+  private renderAddDaemon = () =>
+    html`<add-daemon id="add-daemon"></add-daemon>`;
 
   private renderAddDaemonFooter = () => html`
     <vaadin-button @click="${() => (this.addDaemonDialogOpened = false)}"

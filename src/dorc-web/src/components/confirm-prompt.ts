@@ -58,6 +58,14 @@ export function confirmPrompt(
     // collapses to a space and the warning runs on from the question.
     const text = document.createElement('div');
     text.style.whiteSpace = 'pre-line';
+    // Every message interpolates an identifier the user did not choose — an
+    // FQDN from `Delete server ${name}?`, a domain-qualified group from
+    // `Remove Access from ${accessControl?.Name}?`. Dots and backslashes are
+    // not break opportunities in CSS, and vaadin-confirm-dialog's overlay
+    // content is `overflow-x: visible` (unlike vaadin-dialog's, which is
+    // `auto`), so without this the name runs past the edge with nothing able
+    // to scroll to it.
+    text.style.overflowWrap = 'anywhere';
     text.textContent = message;
     dialog.appendChild(text);
 

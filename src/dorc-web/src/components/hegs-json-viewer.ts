@@ -287,6 +287,17 @@ export class HegsJsonViewer extends LitElement {
         color: var(--color);
         font-family: var(--font-family);
         font-size: var(--font-size);
+
+        /* This used to sit inside hegs-dialog, whose box was positioned
+           absolutely with no width cap, so the dialog simply grew to fit
+           whatever JSON it was given. Its replacements, vaadin-dialog and
+           vaadin-confirm-dialog, constrain the overlay width, and the
+           overlay's content part has overflow-x visible — so without this a
+           long build number or artefact path is clipped and cannot be
+           scrolled to at all. Reported from DV 02 against the deploy
+           confirmation. */
+        overflow: auto;
+        max-width: 100%;
       }
 
       .preview {
