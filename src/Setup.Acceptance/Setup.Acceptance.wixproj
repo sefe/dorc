@@ -36,7 +36,13 @@
       <RefTargetDir>INSTALLFOLDER</RefTargetDir>
     </ProjectReference>
   </ItemGroup>
-  <Target Name="PublishProjects" AfterTargets="BeforeResolveReferences">
+  <!--
+    Local-build fallback only — see the equivalent target in Setup.Dorc.wixproj
+    for the full reasoning. CI runs src\InstallerPayload.proj first and passes
+    DorcPayloadPrepublished=true, which skips this.
+  -->
+  <Target Name="PublishProjects" AfterTargets="BeforeResolveReferences"
+          Condition="'$(DorcPayloadPrepublished)' != 'true'">
     <Exec Command="dotnet publish &quot;$(SolutionDir)Tests.Acceptance\Tests.Acceptance.csproj&quot; -c $(Configuration)" />
   </Target>
   <ItemGroup>
