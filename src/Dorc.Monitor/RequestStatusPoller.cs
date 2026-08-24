@@ -28,11 +28,11 @@ internal sealed class RequestStatusPoller : IDisposable
     /// If a request transitions to any of these states while we're processing it,
     /// we must abort immediately.
     /// </summary>
-    private static readonly HashSet<string> TerminalCancelStates = new(StringComparer.OrdinalIgnoreCase)
+    private static readonly HashSet<string> TerminalStopStates = new(StringComparer.OrdinalIgnoreCase)
     {
         nameof(DeploymentRequestStatus.Cancelled),
         nameof(DeploymentRequestStatus.Abandoned),
-        nameof(DeploymentRequestStatus.Cancelling),
+        nameof(DeploymentRequestStatus.Restarting),
     };
 
     public RequestStatusPoller(
@@ -65,6 +65,8 @@ internal sealed class RequestStatusPoller : IDisposable
             _logger.LogInformation("Started status polling for request {RequestId} (interval: {Interval})", 
                 requestId, _pollInterval);
 
+            var wasRunning = false;
+
             try
             {
                 while (await _timer.WaitForNextTickAsync(_disposalCts.Token))
@@ -81,12 +83,27 @@ internal sealed class RequestStatusPoller : IDisposable
                             break;
                         }
 
-                        if (TerminalCancelStates.Contains(currentRequest.Status))
+                        if (string.Equals(currentRequest.Status, DeploymentRequestStatus.Running.ToString(), StringComparison.OrdinalIgnoreCase))
+                        {
+                            wasRunning = true;
+                        }
+
+                        if (TerminalStopStates.Contains(currentRequest.Status))
                         {
                             _logger.LogWarning(
                                 "Request {RequestId} transitioned to {Status} - triggering cancellation of in-flight execution",
                                 requestId, currentRequest.Status);
                             
+                            cancellationTokenSource.Cancel();
+                            break;
+                        }
+
+                        if (wasRunning && string.Equals(currentRequest.Status, DeploymentRequestStatus.Pending.ToString(), StringComparison.OrdinalIgnoreCase))
+                        {
+                            _logger.LogWarning(
+                                "Request {RequestId} changed from Running to Pending - treating as restart and cancelling execution",
+                                requestId);
+
                             cancellationTokenSource.Cancel();
                             break;
                         }
