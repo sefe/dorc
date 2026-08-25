@@ -115,6 +115,13 @@ export class EnvMonitor extends ResponsiveMixin(PageEnvBase) implements IDeploym
         margin: 0px;
       }
 
+      /* During background (silent) refreshes keep the previous cell content
+         visible instead of Vaadin's hidden loading rows - stops the grid
+         flashing blank on every SignalR-triggered refresh. */
+      vaadin-grid[silent-refresh] vaadin-grid-cell-content {
+        visibility: visible;
+      }
+
       vaadin-grid::part(row) {
         cursor: pointer;
       }
@@ -420,9 +427,14 @@ export class EnvMonitor extends ResponsiveMixin(PageEnvBase) implements IDeploym
   }
 
   private refreshGrid() {
-    // Avoid toggling loading overlays; simply invalidate cache
-    this.maxCountBeforeRefresh = 0;
-    this.grid?.clearCache();
+    if (!this.grid) return;
+    // Silent in-place refresh: keep the current cached row count so the grid
+    // size doesn't collapse (scroll jump), and flag the grid so loading rows
+    // keep their previous content visible instead of flashing blank.
+    this.maxCountBeforeRefresh =
+      (this.grid as any)._flatSize ?? this.maxCountBeforeRefresh ?? 0;
+    this.grid.setAttribute('silent-refresh', '');
+    this.grid.clearCache();
   }
 
   private searchingRequestsStarted(event: CustomEvent) {
@@ -476,6 +488,7 @@ export class EnvMonitor extends ResponsiveMixin(PageEnvBase) implements IDeploym
     this.noResults = data.TotalItems === 0;
 
     this.isSearching = false;
+    this.grid?.removeAttribute('silent-refresh');
   }
 
   private monitorRequestsLoaded() {
@@ -484,7 +497,7 @@ export class EnvMonitor extends ResponsiveMixin(PageEnvBase) implements IDeploym
 
   updateGrid() {
     if (this.grid) {
-      this.maxCountBeforeRefresh = (this.grid as any).__data?._flatSize; // there is no good way to get size of loaded items in vaadin grid(!)
+      this.maxCountBeforeRefresh = (this.grid as any)._flatSize; // there is no good way to get size of loaded items in vaadin grid(!)
       this.grid.clearCache();
       this.isLoading = true;
     }

@@ -390,7 +390,7 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
               .hubConnectionState="${this.hubConnectionState}"
             ></request-status-card>
             <div class="results-section">
-              ${this.resultsLoading
+              ${this.resultsLoading && !this.resultItems
                 ? html` <div class="small-loader"></div>`
                 : html`
                     <vaadin-details
