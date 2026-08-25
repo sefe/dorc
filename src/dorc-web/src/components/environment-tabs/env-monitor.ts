@@ -489,6 +489,10 @@ export class EnvMonitor extends ResponsiveMixin(PageEnvBase) implements IDeploym
 
     this.isSearching = false;
     this.grid?.removeAttribute('silent-refresh');
+    // Drop the preserved size guard now fresh data has arrived so subsequent
+    // responses adopt the server's real total - a shrunk result set must
+    // shrink the grid rather than leave it permanently oversized.
+    this.maxCountBeforeRefresh = 0;
   }
 
   private monitorRequestsLoaded() {

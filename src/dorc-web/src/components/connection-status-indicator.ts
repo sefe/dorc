@@ -182,7 +182,7 @@ export class ConnectionStatusIndicator extends LitElement {
         class="${this.pillClass}"
         role="status"
         .title="${this.titleText}"
-        aria-label="${this.label} (${this.state})"
+        aria-label="${this.label}"
       >
         <span class="dot"></span><span>${this.label}</span>
       </span>
