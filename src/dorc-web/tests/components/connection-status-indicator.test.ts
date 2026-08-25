@@ -89,6 +89,20 @@ describe('ConnectionStatusIndicator', () => {
       expect(toggled).to.be.true;
     });
 
+    it('does not promise live updates in the tooltip while offline', async () => {
+      const el = await fixture<ConnectionStatusIndicator>(html`
+        <connection-status-indicator
+          mode="toggle"
+          .state="${HubConnectionState.Disconnected}"
+          .autoRefresh="${false}"
+        ></connection-status-indicator>
+      `);
+
+      const title = (pill(el) as HTMLButtonElement).title;
+      expect(title).to.contain('unavailable');
+      expect(title).to.not.contain('click to resume');
+    });
+
     it('reflects auto refresh state via aria-pressed', async () => {
       const el = await fixture<ConnectionStatusIndicator>(html`
         <connection-status-indicator

@@ -41,6 +41,10 @@ import type { PropertyValues } from 'lit';
 import type { PageLocation } from '../../helpers/page-element';
 import { PageEnvBase } from './page-env-base';
 import { ResponsiveMixin } from '../../helpers/responsive-mixin';
+import {
+  SilentGridRefresher,
+  silentRefreshStyles
+} from '../../helpers/silent-grid-refresh';
 
 const username = 'Username';
 const status = 'Status';
@@ -52,9 +56,7 @@ const id = 'Id';
 export class EnvMonitor extends ResponsiveMixin(PageEnvBase) implements IDeploymentsEventsClient{
   @query('#grid') grid: Grid | undefined;
 
-  // since grid is being refreshed with multiple requests (pages) in non-deterministic way,
-  // we need to store the max count of items before refresh to keep grid's cache size
-  maxCountBeforeRefresh: number | undefined;
+  private silentRefresh = new SilentGridRefresher(() => this.grid);
 
   private hubConnection: HubConnection | undefined;
 
@@ -89,7 +91,9 @@ export class EnvMonitor extends ResponsiveMixin(PageEnvBase) implements IDeploym
   }
 
   static get styles() {
-    return css`
+    return [
+      silentRefreshStyles,
+      css`
       :host {
         display: flex;
         flex-direction: column;
@@ -115,13 +119,6 @@ export class EnvMonitor extends ResponsiveMixin(PageEnvBase) implements IDeploym
         margin: 0px;
       }
 
-      /* During background (silent) refreshes keep the previous cell content
-         visible instead of Vaadin's hidden loading rows - stops the grid
-         flashing blank on every SignalR-triggered refresh. */
-      vaadin-grid[silent-refresh] vaadin-grid-cell-content {
-        visibility: visible;
-      }
-
       vaadin-grid::part(row) {
         cursor: pointer;
       }
@@ -140,7 +137,8 @@ export class EnvMonitor extends ResponsiveMixin(PageEnvBase) implements IDeploym
           overflow-wrap: break-word;
         }
       }
-    `;
+    `
+    ];
   }
 
   render() {
@@ -203,6 +201,7 @@ export class EnvMonitor extends ResponsiveMixin(PageEnvBase) implements IDeploym
           });
         }
         const api = new RequestStatusesApi();
+        this.silentRefresh.requestStarted();
         api
           .requestStatusesPut({
             pagedDataOperators: {
@@ -227,7 +226,7 @@ export class EnvMonitor extends ResponsiveMixin(PageEnvBase) implements IDeploym
               data.Items?.map(
                 item => (item.UserName = getShortLogonName(item.UserName))
               );
-              callback(data.Items ?? [], Math.max(this.maxCountBeforeRefresh ?? 0, data.TotalItems ?? 0));
+              callback(data.Items ?? [], this.silentRefresh.reportedSize(data.TotalItems));
 
               this.dispatchEvent(
                 new CustomEvent('searching-requests-finished', {
@@ -248,6 +247,7 @@ export class EnvMonitor extends ResponsiveMixin(PageEnvBase) implements IDeploym
               notification.open();
               console.error(errMessage, err);
               callback([], 0);
+              this.silentRefresh.requestFinished();
               this.dispatchEvent(
                 new CustomEvent('searching-requests-finished', {
                   detail: { TotalItems: 0 },
@@ -257,6 +257,7 @@ export class EnvMonitor extends ResponsiveMixin(PageEnvBase) implements IDeploym
               );
             },
             complete: () => {
+              this.silentRefresh.requestFinished();
               this.monitorRequestsLoaded();
             }
           });
@@ -427,14 +428,7 @@ export class EnvMonitor extends ResponsiveMixin(PageEnvBase) implements IDeploym
   }
 
   private refreshGrid() {
-    if (!this.grid) return;
-    // Silent in-place refresh: keep the current cached row count so the grid
-    // size doesn't collapse (scroll jump), and flag the grid so loading rows
-    // keep their previous content visible instead of flashing blank.
-    this.maxCountBeforeRefresh =
-      (this.grid as any)._flatSize ?? this.maxCountBeforeRefresh ?? 0;
-    this.grid.setAttribute('silent-refresh', '');
-    this.grid.clearCache();
+    this.silentRefresh.refresh();
   }
 
   private searchingRequestsStarted(event: CustomEvent) {
@@ -464,7 +458,6 @@ export class EnvMonitor extends ResponsiveMixin(PageEnvBase) implements IDeploym
         default:
           break;
       }
-      this.maxCountBeforeRefresh = 0;
       this.grid?.clearCache();
       this.isSearching = true;
     },
@@ -488,11 +481,6 @@ export class EnvMonitor extends ResponsiveMixin(PageEnvBase) implements IDeploym
     this.noResults = data.TotalItems === 0;
 
     this.isSearching = false;
-    this.grid?.removeAttribute('silent-refresh');
-    // Drop the preserved size guard now fresh data has arrived so subsequent
-    // responses adopt the server's real total - a shrunk result set must
-    // shrink the grid rather than leave it permanently oversized.
-    this.maxCountBeforeRefresh = 0;
   }
 
   private monitorRequestsLoaded() {
@@ -501,8 +489,7 @@ export class EnvMonitor extends ResponsiveMixin(PageEnvBase) implements IDeploym
 
   updateGrid() {
     if (this.grid) {
-      this.maxCountBeforeRefresh = (this.grid as any)._flatSize; // there is no good way to get size of loaded items in vaadin grid(!)
-      this.grid.clearCache();
+      this.silentRefresh.refreshWithLoadingUi();
       this.isLoading = true;
     }
   }

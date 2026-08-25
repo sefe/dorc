@@ -146,6 +146,12 @@ export class ConnectionStatusIndicator extends LitElement {
   private get titleText() {
     const state = `Connection: ${this.state}`;
     if (this.mode === 'toggle') {
+      if (this.status === 'reconnecting') {
+        return `Reconnecting - live updates will resume automatically\n${state}`;
+      }
+      if (this.status === 'offline') {
+        return `Connection lost - live updates unavailable\n${state}`;
+      }
       return this.autoRefresh
         ? `Live updates on (click to pause)\n${state}`
         : `Live updates paused (click to resume)\n${state}`;

@@ -254,6 +254,8 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
         this.shadowRoot?.appendChild(notification);
         notification.open();
         console.error(err);
+        this.loading = false;
+        this.resultsLoading = false;
       },
       complete: () => {
         console.log('done loading request');
@@ -276,6 +278,11 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
       },
       error: (err: any) => {
         console.error(err);
+        // 'complete' never runs after an error, so clear the loading flags
+        // here or a failed first load spins the loader forever.
+        this.resultItems = this.resultItems ?? [];
+        this.loading = false;
+        this.resultsLoading = false;
       },
       complete: () => {
         console.log('done loading result Statuses');
