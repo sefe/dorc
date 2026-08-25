@@ -106,6 +106,31 @@ describe('SilentGridRefresher', () => {
     expect(refresher.reportedSize(150)).to.equal(200);
   });
 
+  it('resets its state when the grid disappears mid-refresh', () => {
+    let grid: StubGrid | undefined = makeGrid(200);
+    const refresher = new SilentGridRefresher(
+      () => grid as unknown as Grid | undefined
+    );
+
+    refresher.refresh();
+    refresher.requestStarted();
+    grid = undefined;
+    refresher.requestFinished();
+
+    // A replacement grid must not inherit the preserved size...
+    const newGrid = makeGrid(50);
+    grid = newGrid;
+    refresher.requestStarted();
+    expect(refresher.reportedSize(30)).to.equal(30);
+    refresher.requestFinished();
+
+    // ...and must still get interaction listeners on the next refresh.
+    refresher.refresh();
+    expect(newGrid.hasAttribute('silent-refresh')).to.be.true;
+    newGrid.dispatchEvent(new Event('wheel'));
+    expect(newGrid.hasAttribute('silent-refresh')).to.be.false;
+  });
+
   it('falls back gracefully when the Vaadin internal is missing', () => {
     const grid = makeGrid();
     grid._flatSize = undefined;

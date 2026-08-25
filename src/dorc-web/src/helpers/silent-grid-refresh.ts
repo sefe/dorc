@@ -106,13 +106,18 @@ export class SilentGridRefresher {
     if (this.pendingRequests > 0) return;
 
     const grid = this.getGrid();
-    if (!grid) return;
-    grid.removeAttribute('silent-refresh');
-    this.detachInteractionListeners(grid);
-    if (this.sawResponse && this.preservedCount > this.lastTotal) {
-      // The preserved count masked a shrink; snap to the real total so the
-      // grid doesn't keep blank scroll space at the end.
-      grid.size = this.lastTotal;
+    if (grid) {
+      grid.removeAttribute('silent-refresh');
+      this.detachInteractionListeners(grid);
+      if (this.sawResponse && this.preservedCount > this.lastTotal) {
+        // The preserved count masked a shrink; snap to the real total so the
+        // grid doesn't keep blank scroll space at the end.
+        grid.size = this.lastTotal;
+      }
+    } else {
+      // Grid detached/replaced mid-refresh: the listeners died with the old
+      // element, so clear the flag or a future grid never gets them.
+      this.listenersAttached = false;
     }
     this.preservedCount = 0;
   }

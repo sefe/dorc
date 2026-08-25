@@ -278,10 +278,11 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
       },
       error: (err: any) => {
         console.error(err);
-        // 'complete' never runs after an error, so clear the loading flags
-        // here or a failed first load spins the loader forever.
+        // 'complete' never runs after an error, so clear the results loading
+        // flag here or a failed first load spins the loader forever. The
+        // page-level 'loading' flag belongs to the request-details call,
+        // which may still be in flight - leave it alone.
         this.resultItems = this.resultItems ?? [];
-        this.loading = false;
         this.resultsLoading = false;
       },
       complete: () => {
