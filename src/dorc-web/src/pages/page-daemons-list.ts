@@ -28,9 +28,14 @@ import {
 } from '../apis/dorc-api';
 import type { ServerApiModel } from '../apis/dorc-api';
 import GlobalCache from '../global-cache';
+import '@vaadin/tooltip';
+import { ref } from 'lit/directives/ref.js';
+import { UnsavedChangesGuard } from '../components/unsaved-changes-guard';
 
 @customElement('page-daemons-list')
 export class PageDaemonsList extends ResponsiveMixin(PageElement) {
+  private readonly unsavedChanges = new UnsavedChangesGuard();
+
   @property({ type: Array }) daemons: Array<DaemonApiModel> = [];
 
   @property({ type: Array }) filteredDaemons: Array<DaemonApiModel> = [];
@@ -149,6 +154,7 @@ export class PageDaemonsList extends ResponsiveMixin(PageElement) {
       </div>
 
       <vaadin-dialog
+        ${ref(this.unsavedChanges.attach)}
         id="add-daemon-dialog"
         header-title="Add Daemon"
         draggable
@@ -162,6 +168,7 @@ export class PageDaemonsList extends ResponsiveMixin(PageElement) {
       ></vaadin-dialog>
 
       <vaadin-dialog
+        ${ref(this.unsavedChanges.attach)}
         id="edit-daemon-dialog"
         header-title="Edit Daemon"
         draggable
@@ -192,18 +199,18 @@ export class PageDaemonsList extends ResponsiveMixin(PageElement) {
                 <strong>${this.pendingDelete.Name}</strong>? This cannot be
                 undone.
                 ${
-                this.pendingDeleteAttachedServers.length > 0
-                  ? html`<br /><br />Currently attached to
-                      ${this.pendingDeleteAttachedServers.length}
-                      server${this.pendingDeleteAttachedServers.length === 1 ? '' : 's'}:
-                      <ul style="margin: 4px 0 0 0">
-                        ${this.pendingDeleteAttachedServers.map(
-                        name => html`<li>${name}</li>`
-                      )}
-                      </ul>
-                      Deleting will detach the daemon from all of them.`
-                  : html`<br /><br />No server mappings to remove.`
-              }
+                  this.pendingDeleteAttachedServers.length > 0
+                    ? html`<br /><br />Currently attached to
+                        ${this.pendingDeleteAttachedServers.length}
+                        server${this.pendingDeleteAttachedServers.length === 1 ? '' : 's'}:
+                        <ul style="margin: 4px 0 0 0">
+                          ${this.pendingDeleteAttachedServers.map(
+                            name => html`<li>${name}</li>`
+                          )}
+                        </ul>
+                        Deleting will detach the daemon from all of them.`
+                    : html`<br /><br />No server mappings to remove.`
+                }
               </div>`
             : html``
         }
@@ -256,9 +263,9 @@ export class PageDaemonsList extends ResponsiveMixin(PageElement) {
                   width="180px"
                   flex-grow="0"
                   ${columnBodyRenderer(this._rowActionsRenderer, [
-                  this.isAdmin,
-                  this.isPowerUser
-                ])}
+                    this.isAdmin,
+                    this.isPowerUser
+                  ])}
                 ></vaadin-grid-column>
               </vaadin-grid>
             `
@@ -311,35 +318,38 @@ export class PageDaemonsList extends ResponsiveMixin(PageElement) {
   private _rowActionsRenderer = (daemon: DaemonApiModel) =>
     html`<div class="row-actions">
       <vaadin-button
-        title="View audit history"
         aria-label="View audit history"
         theme="icon"
         @click="${() => this.openAudit(daemon)}"
       >
+        <vaadin-tooltip
+          slot="tooltip"
+          text="View audit history"
+        ></vaadin-tooltip>
         <vaadin-icon
           icon="vaadin:calendar-user"
           style="color: var(--dorc-link-color)"
         ></vaadin-icon>
       </vaadin-button>
       <vaadin-button
-        title="Edit daemon"
         aria-label="Edit daemon"
         theme="icon"
         ?hidden="${!(this.isAdmin || this.isPowerUser)}"
         @click="${() => this.openEdit(daemon)}"
       >
+        <vaadin-tooltip slot="tooltip" text="Edit daemon"></vaadin-tooltip>
         <vaadin-icon
           icon="lumo:edit"
           style="color: var(--dorc-link-color)"
         ></vaadin-icon>
       </vaadin-button>
       <vaadin-button
-        title="Delete daemon"
         aria-label="Delete daemon"
         theme="icon"
         ?hidden="${!this.isAdmin}"
         @click="${() => this.requestDelete(daemon)}"
       >
+        <vaadin-tooltip slot="tooltip" text="Delete daemon"></vaadin-tooltip>
         <vaadin-icon
           icon="icons:delete"
           style="color: var(--dorc-error-color)"

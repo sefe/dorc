@@ -6,7 +6,9 @@ import { render } from 'lit';
 // noise; vi.fn()'s inferred call tuple is empty when the factory takes no args.
 const { mockRequestStatusesPut, mockSubscribe } = vi.hoisted(() => {
   const mockSubscribe = vi.fn();
-  const mockRequestStatusesPut: any = vi.fn(() => ({ subscribe: mockSubscribe }));
+  const mockRequestStatusesPut: any = vi.fn(() => ({
+    subscribe: mockSubscribe
+  }));
   return { mockRequestStatusesPut, mockSubscribe };
 });
 
@@ -299,6 +301,15 @@ describe('PageMonitorRequests', () => {
       expect(filters).not.toContainEqual(
         expect.objectContaining({ Path: 'BuildNumber' })
       );
+    });
+
+    it('keeps the same provider across host re-renders', async () => {
+      const before = getDataProvider();
+
+      el.requestUpdate();
+      await el.updateComplete;
+
+      expect(getDataProvider()).toBe(before);
     });
   });
 

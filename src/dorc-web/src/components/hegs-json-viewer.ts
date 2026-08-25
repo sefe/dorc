@@ -298,6 +298,8 @@ export class HegsJsonViewer extends LitElement {
            confirmation. */
         overflow: auto;
         max-width: 100%;
+        padding: 5px;
+        box-sizing: border-box;
       }
 
       .preview {
@@ -511,15 +513,17 @@ export class HegsJsonViewer extends LitElement {
                 })}"
                 role="${!isPrimitive ? 'button' : nothing}"
                 tabindex="${!isPrimitive ? '0' : nothing}"
-                aria-expanded="${!isPrimitive
-                  ? String(Boolean(this.state.expanded[nodePath]))
-                  : nothing}"
-                @click="${!isPrimitive
-                  ? this.handlePropertyClick(nodePath)
-                  : null}"
-                @keydown="${!isPrimitive
-                  ? this.handlePropertyKeydown(nodePath)
-                  : null}"
+                aria-expanded="${
+                  !isPrimitive
+                    ? String(Boolean(this.state.expanded[nodePath]))
+                    : nothing
+                }"
+                @click="${
+                  !isPrimitive ? this.handlePropertyClick(nodePath) : null
+                }"
+                @keydown="${
+                  !isPrimitive ? this.handlePropertyKeydown(nodePath) : null
+                }"
               >
                 ${key}:
               </span>

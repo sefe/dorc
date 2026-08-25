@@ -23,16 +23,16 @@ export class AddConfigValue extends LitElement {
 
   @state() private valueValid = false;
 
-  @property({type: Boolean}) private isSecure = false;
+  @property({ type: Boolean }) isSecure = false;
 
-  @property({type: Boolean }) private isForProd: boolean = false;
+  @property({ type: Boolean }) isForProd: boolean = false;
 
-  @property({ type: Boolean }) private valid = false;
+  @property({ type: Boolean }) valid = false;
 
-  @property({ type: Object })
-  private configValue: ConfigValueApiModel = this.getEmptyConfigValue();
+  @property({ type: Object }) configValue: ConfigValueApiModel =
+    this.getEmptyConfigValue();
 
-  @property() private overlayMessage: any;
+  @property() overlayMessage: any;
 
   static get styles() {
     return css`
@@ -66,7 +66,9 @@ export class AddConfigValue extends LitElement {
 
   render() {
     return html`
-      <div style="padding: var(--lumo-space-s); width: min(500px, calc(100vw - 64px)); box-sizing: border-box;">
+      <div
+        style="padding: var(--lumo-space-s); width: min(500px, calc(100vw - 64px)); box-sizing: border-box;"
+      >
         <vaadin-vertical-layout>
           <vaadin-text-field
             class="block"
@@ -102,9 +104,8 @@ export class AddConfigValue extends LitElement {
         <div>
           <vaadin-button @click="${this.reset}">Clear</vaadin-button>
           <vaadin-button .disabled="${!this.valid}" @click="${this._submit}"
-          >Save
-          </vaadin-button
-          >
+            >Save
+          </vaadin-button>
         </div>
         <span style="color: darkred">${this.overlayMessage}</span>
       </div>

@@ -5,10 +5,17 @@ import '@vaadin/button';
 import '@vaadin/combo-box';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
-import { BundledRequestsApi, BundledRequestsApiModel, MakeLikeProdApi, PropertiesApi, PropertyApiModel, RequestProperty } from '../apis/dorc-api';
+import {
+  BundledRequestsApi,
+  BundledRequestsApiModel,
+  MakeLikeProdApi,
+  PropertiesApi,
+  PropertyApiModel,
+  RequestProperty
+} from '../apis/dorc-api';
 import { ComboBox } from '@vaadin/combo-box';
 import { TextField } from '@vaadin/text-field';
-import './deploy/property-override-controls'
+import './deploy/property-override-controls';
 import { MakeLikeProductionDialog } from './make-like-production-dialog.ts';
 import '@vaadin/details';
 import '@vaadin/grid/vaadin-grid-sort-column';
@@ -26,27 +33,24 @@ export class MakeLikeProduction extends LitElement {
     this._mappedProjects = value;
 
     const api = new BundledRequestsApi();
-    api
-      .bundledRequestsGet({ projectNames: this._mappedProjects })
-      .subscribe({
-        next: (data: BundledRequestsApiModel[]) => {
-          this.bundleRequests = data;
+    api.bundledRequestsGet({ projectNames: this._mappedProjects }).subscribe({
+      next: (data: BundledRequestsApiModel[]) => {
+        this.bundleRequests = data;
 
-          const unique = [...new Set(data.map(item => item.BundleName))];
+        const unique = [...new Set(data.map(item => item.BundleName))];
 
-          this.setBundleNames(unique);
-        },
-        error: (err: any) => console.error(err),
-        complete: () => console.log('done loading bundles')
-      });
+        this.setBundleNames(unique);
+      },
+      error: (err: any) => console.error(err),
+      complete: () => console.log('done loading bundles')
+    });
   }
 
   private bundleRequests!: BundledRequestsApiModel[];
-  @property({ type: Array }) private dataBackups: string[] | undefined;
+  @property({ type: Array }) dataBackups: string[] | undefined;
 
-  @property({ type: Array }) private bundledRequests:
-    | (string | null | undefined)[]
-    | undefined;
+  @property({ type: Array }) bundledRequests:
+    (string | null | undefined)[] | undefined;
 
   private _mappedProjects: string[] | undefined;
 
@@ -219,31 +223,31 @@ export class MakeLikeProduction extends LitElement {
 
     const property: RequestProperty = {
       PropertyName: find.Name,
-        PropertyValue: this.propertyValue
-    }
+      PropertyValue: this.propertyValue
+    };
     this.propertyOverrides.push(property);
     this.propertyOverrides = JSON.parse(JSON.stringify(this.propertyOverrides));
 
-    this.dialog?.propertyAdded(property)
+    this.dialog?.propertyAdded(property);
   }
 
-  _boundPropOverridesButtonsRenderer(
-    item: RequestProperty
-  ) {
+  _boundPropOverridesButtonsRenderer(item: RequestProperty) {
     const propertyOverride = item as RequestProperty;
 
     return html` <property-override-controls
-        .propertyOverride="${propertyOverride}"
-        @property-override-removed="${(e: CustomEvent) => {
-          this.RemoveOverrideProperty(e.detail.propertyOverride);
-        }}"
-      ></property-override-controls>`;
+      .propertyOverride="${propertyOverride}"
+      @property-override-removed="${(e: CustomEvent) => {
+        this.RemoveOverrideProperty(e.detail.propertyOverride);
+      }}"
+    ></property-override-controls>`;
   }
 
   private RemoveOverrideProperty(propertyOverride: RequestProperty) {
-    this.propertyOverrides = this.propertyOverrides.filter((val) => val.PropertyName != propertyOverride.PropertyName);
+    this.propertyOverrides = this.propertyOverrides.filter(
+      val => val.PropertyName != propertyOverride.PropertyName
+    );
     this.propertyOverrides = JSON.parse(JSON.stringify(this.propertyOverrides));
-    this.dialog?.propertyRemoved(propertyOverride)
+    this.dialog?.propertyRemoved(propertyOverride);
   }
 
   _dataSourceDataBackupChanged(data: CustomEvent) {

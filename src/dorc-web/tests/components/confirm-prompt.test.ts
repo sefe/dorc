@@ -14,6 +14,7 @@ const openDialog = () =>
         header: string;
         confirmText: string;
         confirmTheme: string;
+        cancelTheme: string;
       })
     | null;
 
@@ -58,13 +59,15 @@ describe('confirmPrompt', () => {
     const dialog = openDialog();
     expect(dialog?.header).to.equal('Confirm');
     expect(dialog?.confirmTheme).to.equal('primary error');
+    expect(dialog?.cancelTheme).to.equal('primary');
   });
 
-  it('honours header, confirmText and confirmTheme overrides', async () => {
+  it('honours button and header overrides', async () => {
     void confirmPrompt('Anything?', {
       header: 'Detach server',
       confirmText: 'Detach',
-      confirmTheme: 'primary'
+      confirmTheme: 'primary',
+      cancelTheme: 'tertiary'
     });
     await settle();
 
@@ -72,6 +75,7 @@ describe('confirmPrompt', () => {
     expect(dialog?.header).to.equal('Detach server');
     expect(dialog?.confirmText).to.equal('Detach');
     expect(dialog?.confirmTheme).to.equal('primary');
+    expect(dialog?.cancelTheme).to.equal('tertiary');
   });
 
   it('resolves true when confirmed', async () => {
@@ -113,7 +117,9 @@ describe('confirmPrompt', () => {
     const answer = confirmPrompt('Proceed?');
     await settle();
 
-    const overlay = openDialog()?.shadowRoot?.querySelector('vaadin-confirm-dialog-overlay');
+    const overlay = openDialog()?.shadowRoot?.querySelector(
+      'vaadin-confirm-dialog-overlay'
+    );
     overlay?.dispatchEvent(
       new KeyboardEvent('keydown', {
         key: 'Escape',

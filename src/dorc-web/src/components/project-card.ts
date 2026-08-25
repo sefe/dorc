@@ -9,6 +9,7 @@ import '@vaadin/icon';
 import '../icons/iron-icons.js';
 import { ProjectApiModel } from '../apis/dorc-api';
 import '@vaadin/button';
+import '@vaadin/tooltip';
 
 @customElement('project-card')
 export class ProjectCard extends LitElement {
@@ -78,11 +79,14 @@ export class ProjectCard extends LitElement {
         </div>
         <div>
           <vaadin-button
-            title="Project Environments for ${this.project?.ProjectName}"
             aria-label="Project Environments for ${this.project?.ProjectName}"
             theme="icon"
             @click="${this.openProjectEnvironments}"
           >
+            <vaadin-tooltip
+              slot="tooltip"
+              text="Project Environments for ${this.project?.ProjectName}"
+            ></vaadin-tooltip>
             <vaadin-icon
               icon="vaadin:records"
               style="color: var(--dorc-link-color)"

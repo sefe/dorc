@@ -9,10 +9,11 @@ import '../add-env-tenant';
 import { PageEnvBase } from './page-env-base.ts';
 import { css, PropertyValues } from 'lit';
 import { EnvPageTabNames } from '../../pages/page-environment.ts';
+import '@vaadin/tooltip';
 
 @customElement('env-tenants')
 export class EnvTenants extends PageEnvBase {
-  @property({ type: Boolean }) private envReadOnly = false;
+  @property({ type: Boolean }) envReadOnly = false;
   @property({ type: Boolean }) addTenant = false;
 
   static get styles() {
@@ -38,7 +39,10 @@ export class EnvTenants extends PageEnvBase {
 
   constructor() {
     super();
-    this.addEventListener('request-environment-update', this.forceLoadEnvironmentInfo);
+    this.addEventListener(
+      'request-environment-update',
+      this.forceLoadEnvironmentInfo
+    );
   }
 
   _addTenant(e: Event) {
@@ -47,22 +51,30 @@ export class EnvTenants extends PageEnvBase {
 
   render() {
     return html`
-      ${this.environment?.ParentEnvironment ? html`
-        <h4 class="card-element__text">
-          Parent Environment: ${this.environment?.ParentEnvironment?.EnvironmentName}
-          <vaadin-button
-              title="Open Environment Details for ${this.environment?.ParentEnvironment?.EnvironmentName}"
-              aria-label="Open Environment Details for ${this.environment?.ParentEnvironment?.EnvironmentName}"
-              theme="icon"
-              @click="${this.openEnvironmentDetails}"
-            >
-              <vaadin-icon
-                icon="hardware:developer-board"
-                style="color: var(--dorc-link-color)"
-              ></vaadin-icon>
-            </vaadin-button>
-          </h4>
-      `: html``}
+      ${
+        this.environment?.ParentEnvironment
+          ? html`
+              <h4 class="card-element__text">
+                Parent Environment:
+                ${this.environment?.ParentEnvironment?.EnvironmentName}
+                <vaadin-button
+                  aria-label="Open Environment Details for ${this.environment?.ParentEnvironment?.EnvironmentName}"
+                  theme="icon"
+                  @click="${this.openEnvironmentDetails}"
+                >
+                  <vaadin-tooltip
+                    slot="tooltip"
+                    text="Open Environment Details for ${this.environment?.ParentEnvironment?.EnvironmentName}"
+                  ></vaadin-tooltip>
+                  <vaadin-icon
+                    icon="hardware:developer-board"
+                    style="color: var(--dorc-link-color)"
+                  ></vaadin-icon>
+                </vaadin-button>
+              </h4>
+            `
+          : html``
+      }
       <vaadin-details
         opened
         summary="Environment tenants"
@@ -78,10 +90,16 @@ export class EnvTenants extends PageEnvBase {
             .disabled="${this.envReadOnly || !!this.environment?.ParentEnvironment}"
           ></vaadin-checkbox>
         </div>
-        ${this.addTenant && !this.environment?.ParentEnvironment ? html`
-          <add-env-tenant .parentEnvironment="${this.environment}"></add-env-tenant>
-        `: html``}
-        <attached-env-tenants 
+        ${
+          this.addTenant && !this.environment?.ParentEnvironment
+            ? html`
+                <add-env-tenant
+                  .parentEnvironment="${this.environment}"
+                ></add-env-tenant>
+              `
+            : html``
+        }
+        <attached-env-tenants
           .childEnvironments="${this.environment?.ChildEnvironments}"
           .readonly="${this.envReadOnly}"
         ></attached-env-tenants>
@@ -91,7 +109,7 @@ export class EnvTenants extends PageEnvBase {
 
   protected firstUpdated(_changedProperties: PropertyValues) {
     super.firstUpdated(_changedProperties);
-    
+
     this.loadEnvironmentInfo();
   }
 

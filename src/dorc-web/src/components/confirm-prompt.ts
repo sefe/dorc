@@ -28,6 +28,8 @@ export interface ConfirmPromptOptions {
    * since almost every call site guards a destructive action.
    */
   confirmTheme?: string;
+  /** Theme for the cancel button. Defaults to a filled neutral button. */
+  cancelTheme?: string;
 }
 
 export function confirmPrompt(
@@ -37,7 +39,8 @@ export function confirmPrompt(
   const {
     header = 'Confirm',
     confirmText = 'OK',
-    confirmTheme = 'primary error'
+    confirmTheme = 'primary error',
+    cancelTheme = 'primary'
   } = options;
 
   return new Promise<boolean>(resolve => {
@@ -48,6 +51,7 @@ export function confirmPrompt(
     dialog.header = header;
     dialog.confirmText = confirmText;
     dialog.confirmTheme = confirmTheme;
+    dialog.cancelTheme = cancelTheme;
     dialog.cancelButtonVisible = true;
 
     // `white-space: pre-line` so the message keeps its line breaks. Several

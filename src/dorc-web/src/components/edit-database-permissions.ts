@@ -25,29 +25,29 @@ export class EditDatabasePermissions extends LitElement {
   dbId = 0;
 
   @property({ type: Array })
-  private permissions: PermissionDto[] | undefined;
+  permissions: PermissionDto[] | undefined;
 
   @property({ type: Array })
-  private users: UserApiModel[] | undefined;
+  users: UserApiModel[] | undefined;
 
   private permissionsMap: Map<number | undefined, PermissionDto> | undefined;
 
   private usersMap: Map<number | undefined, UserApiModel> | undefined;
 
   @property({ type: Object })
-  private selectedUser: UserApiModel | undefined;
+  selectedUser: UserApiModel | undefined;
 
   @property({ type: Object })
-  private selectedPermission: PermissionDto | undefined;
+  selectedPermission: PermissionDto | undefined;
 
   @property({ type: Boolean })
-  private canSubmit = false;
+  canSubmit = false;
 
   @property({ type: Array })
-  private userPermissionList: UserPermDto[] = [];
+  userPermissionList: UserPermDto[] = [];
 
   @property({ type: String })
-  private StatusMessage = '';
+  StatusMessage = '';
 
   @property({ type: Number })
   envId = 0;
@@ -116,11 +116,13 @@ export class EditDatabasePermissions extends LitElement {
           >
         </div>
         <div style="background: aliceblue">
-          ${this.selectedUser !== undefined
-            ? html`<span
-                >Current permissions for ${this.selectedUser?.DisplayName}
-              </span>`
-            : html``}
+          ${
+            this.selectedUser !== undefined
+              ? html`<span
+                  >Current permissions for ${this.selectedUser?.DisplayName}
+                </span>`
+              : html``
+          }
           <paper-listbox>
             ${this.userPermissionList.map(
               userPerm => html`

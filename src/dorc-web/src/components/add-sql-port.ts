@@ -15,24 +15,23 @@ import '@vaadin/combo-box';
 
 @customElement('add-sql-port')
 export class AddSqlPort extends LitElement {
-
   private readonly maxPortValue = 9999999999;
   private readonly maxPortLength = 10;
 
   @property({ type: Array }) databases: string[] = [];
 
-  @property() private database: string = '';
+  @property() database: string = '';
 
-  @property() private portNumber = '';
+  @property() portNumber = '';
 
-  @property({ type: Boolean }) private portNumberValid = false;
+  @property({ type: Boolean }) portNumberValid = false;
 
-  @property({ type: Boolean }) private databaseValid = false;
+  @property({ type: Boolean }) databaseValid = false;
 
-  @property({ type: Boolean }) private valid = false;
+  @property({ type: Boolean }) valid = false;
 
-  @property() private overlayMessage: any;
-  @property() private errorMessage: any;
+  @property() overlayMessage: any;
+  @property() errorMessage: any;
 
   static get styles() {
     return css`
@@ -148,7 +147,9 @@ export class AddSqlPort extends LitElement {
 
   _portNumberValueChanged(data: any) {
     this.portNumber = data.currentTarget.value;
-    this.portNumberValid = Number(this.portNumber) > 0 && Number(this.portNumber) <= this.maxPortValue;
+    this.portNumberValid =
+      Number(this.portNumber) > 0 &&
+      Number(this.portNumber) <= this.maxPortValue;
     this.validate();
   }
 

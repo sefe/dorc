@@ -11,6 +11,7 @@ import {
   RefDataEnvironmentsDetailsApi
 } from '../../apis/dorc-api';
 import '../../icons/social-icons.js';
+import '@vaadin/tooltip';
 
 @customElement('database-env-controls')
 export class DatabaseEnvControls extends LitElement {
@@ -19,7 +20,7 @@ export class DatabaseEnvControls extends LitElement {
   @property({ type: Number })
   envId = 0;
 
-  @property({ type: Boolean }) private readonly = true;
+  @property({ type: Boolean }) readonly = true;
 
   static get styles() {
     return css`
@@ -38,42 +39,52 @@ export class DatabaseEnvControls extends LitElement {
 
   render() {
     const unlinkStyles = {
-      color: this.readonly ? 'var(--dorc-text-secondary)' : 'var(--dorc-error-color)'
+      color: this.readonly
+        ? 'var(--dorc-text-secondary)'
+        : 'var(--dorc-error-color)'
     };
     const editStyles = {
-      color: this.readonly ? 'var(--dorc-text-secondary)' : 'var(--dorc-link-color)'
+      color: this.readonly
+        ? 'var(--dorc-text-secondary)'
+        : 'var(--dorc-link-color)'
     };
     return html`
       <vaadin-button
-        title="Detach database"
         aria-label="Detach database"
         theme="icon"
         @click="${this.detailedResults}"
         ?disabled="${this.readonly}"
       >
+        <vaadin-tooltip slot="tooltip" text="Detach database"></vaadin-tooltip>
         <vaadin-icon
           icon="vaadin:unlink"
           style=${styleMap(unlinkStyles)}
         ></vaadin-icon>
       </vaadin-button>
       <vaadin-button
-        title="Manage permissions"
         aria-label="Manage permissions"
         theme="icon"
         @click="${this.manage}"
         ?disabled="${this.readonly}"
       >
+        <vaadin-tooltip
+          slot="tooltip"
+          text="Manage permissions"
+        ></vaadin-tooltip>
         <vaadin-icon
           icon="social:group-add"
           style=${styleMap(editStyles)}
         ></vaadin-icon>
       </vaadin-button>
       <vaadin-button
-        title="View database permissions"
         aria-label="View database permissions"
         theme="icon"
         @click="${this.view}"
       >
+        <vaadin-tooltip
+          slot="tooltip"
+          text="View database permissions"
+        ></vaadin-tooltip>
         <vaadin-icon
           icon="social:group"
           style="color: var(--dorc-link-color)"

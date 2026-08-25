@@ -14,6 +14,7 @@ import {
 import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
 import '@vaadin/button';
+import '@vaadin/tooltip';
 
 @customElement('view-database-permissions')
 export class ViewDatabasePermissions extends LitElement {
@@ -21,23 +22,23 @@ export class ViewDatabasePermissions extends LitElement {
   dbId = 0;
 
   @property({ type: Array })
-  private users: UserApiModel[] | undefined;
+  users: UserApiModel[] | undefined;
 
   @property({ type: String })
-  private StatusMessage = '';
+  StatusMessage = '';
 
   @property({ type: Array })
-  private userPermissionList: UserPermDto[] = [];
+  userPermissionList: UserPermDto[] = [];
 
   @property({ type: Object })
-  private selectedUser: UserApiModel | undefined;
+  selectedUser: UserApiModel | undefined;
 
   @property({ type: Number })
   envId = 0;
 
-  @property({ type: Boolean }) private readonly = true;
+  @property({ type: Boolean }) readonly = true;
 
-  @property({ type: Boolean }) private loading = true;
+  @property({ type: Boolean }) loading = true;
 
   static get styles() {
     return css`
@@ -66,7 +67,9 @@ export class ViewDatabasePermissions extends LitElement {
 
   render() {
     const unlinkStyles = {
-      color: this.readonly ? 'var(--dorc-text-secondary)' : 'var(--dorc-error-color)'
+      color: this.readonly
+        ? 'var(--dorc-text-secondary)'
+        : 'var(--dorc-error-color)'
     };
     return html`
       <div>            
@@ -94,12 +97,15 @@ export class ViewDatabasePermissions extends LitElement {
                   html` <vaadin-item>
                     ${userPerm.Role}
                     <vaadin-button
-                      title="Manage permissions"
                       aria-label="Manage permissions"
                       theme="icon"
                       @click="${this._remove}"
                       ?disabled="${this.readonly}"
                     >
+                      <vaadin-tooltip
+                        slot="tooltip"
+                        text="Manage permissions"
+                      ></vaadin-tooltip>
                       <vaadin-icon
                         icon="vaadin:unlink"
                         style=${styleMap(unlinkStyles)}
@@ -177,7 +183,10 @@ export class ViewDatabasePermissions extends LitElement {
   }
 
   sortUsers(a: UserApiModel, b: UserApiModel): number {
-    if (String(a.DisplayName).toLowerCase() > String(b.DisplayName).toLowerCase()) return 1;
+    if (
+      String(a.DisplayName).toLowerCase() > String(b.DisplayName).toLowerCase()
+    )
+      return 1;
 
     return -1;
   }

@@ -24,9 +24,7 @@ describe('grid cell re-renders when its dependency changes', () => {
 
   beforeEach(async () => {
     el = document.createElement('attached-env-tenants') as AttachedEnvTenants;
-    el.childEnvironments = [
-      { EnvironmentId: 1, EnvironmentName: 'TENANT-A' }
-    ];
+    el.childEnvironments = [{ EnvironmentId: 1, EnvironmentName: 'TENANT-A' }];
     // Mirrors the real sequence: the grid is populated first, and `readonly`
     // only settles later, when the environment API call resolves.
     el.readonly = false;
@@ -42,7 +40,7 @@ describe('grid cell re-renders when its dependency changes', () => {
     const buttons = Array.from(
       grid?.querySelectorAll('vaadin-button') ?? []
     ) as (HTMLElement & { disabled: boolean })[];
-    return buttons.find(b => b.getAttribute('title') === 'Detach tenant');
+    return buttons.find(b => b.getAttribute('aria-label') === 'Detach tenant');
   };
 
   it('renders the detach button enabled while readonly is false', () => {

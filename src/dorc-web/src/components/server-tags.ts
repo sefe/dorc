@@ -25,7 +25,7 @@ export class ServerTags extends LitElement {
 
   private _server: ServerApiModel | undefined;
 
-  @property({ type: Array }) private tags: string[] = [];
+  @property({ type: Array }) tags: string[] = [];
 
   @query('#tag-input')
   private tagsInput: TagsInput | undefined;

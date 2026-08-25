@@ -10,8 +10,8 @@ import { PageEnvBase } from './page-env-base';
 
 @customElement('env-daemons')
 export class EnvDaemons extends PageEnvBase {
-  @property({ type: Boolean }) private daemonsLoading = false;
-  @property({ type: Boolean }) private discovering = false;
+  @property({ type: Boolean }) daemonsLoading = false;
+  @property({ type: Boolean }) discovering = false;
 
   static get styles() {
     return css`
@@ -94,16 +94,18 @@ export class EnvDaemons extends PageEnvBase {
             >
               Load Daemons
             </vaadin-button>
-            ${this.daemonsLoading || this.discovering
-              ? html`
-                  <div class="lds-ring">
-                    <div></div>
-                    <div></div>
-                    <div></div>
-                    <div></div>
-                  </div>
-                `
-              : html``}
+            ${
+              this.daemonsLoading || this.discovering
+                ? html`
+                    <div class="lds-ring">
+                      <div></div>
+                      <div></div>
+                      <div></div>
+                      <div></div>
+                    </div>
+                  `
+                : html``
+            }
           </div>
           <vaadin-button
             @click="${this.discoverDaemons}"

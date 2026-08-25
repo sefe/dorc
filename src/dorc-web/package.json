@@ -53,6 +53,7 @@
     "@vaadin/tabs": "^25.2.6",
     "@vaadin/text-area": "^25.2.6",
     "@vaadin/text-field": "^25.0.0",
+    "@vaadin/tooltip": "^25.2.6",
     "@vaadin/vaadin-lumo-styles": "^25.2.6",
     "@vaadin/vaadin-themable-mixin": "^25.0.0",
     "@vaadin/vertical-layout": "^25.2.6",

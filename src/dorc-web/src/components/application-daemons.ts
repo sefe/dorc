@@ -13,15 +13,15 @@ import { Notification } from '@vaadin/notification';
 
 @customElement('application-daemons')
 export class ApplicationDaemons extends LitElement {
-  @property({ type: String })
-  _envName = '';
+  private _envName = '';
 
   @property({ type: Array })
-  private daemonsAndStatuses: DaemonStatusApiModel[] | undefined;
+  daemonsAndStatuses: DaemonStatusApiModel[] | undefined;
 
   @property({ type: Boolean })
   public userEditable = false;
 
+  @property({ type: String })
   get envName() {
     return this._envName;
   }
@@ -33,13 +33,13 @@ export class ApplicationDaemons extends LitElement {
 
   static get styles() {
     return css`
-        :host {
-            height: 100%;
-            display: flex;
-        }
+      :host {
+        height: 100%;
+        display: flex;
+      }
       vaadin-grid#grid {
         overflow: hidden;
-        height: 100%
+        height: 100%;
       }
       vaadin-button {
         padding: 0px;
@@ -110,11 +110,12 @@ export class ApplicationDaemons extends LitElement {
       : html`<span style="color: ${colour}">${daemon?.Status}</span>`;
   }
 
-  _boundDaemonsButtonsRenderer(
-    item: DaemonStatusApiModel
-  ) {
+  _boundDaemonsButtonsRenderer(item: DaemonStatusApiModel) {
     const daemon = item as DaemonStatusApiModel;
-    return html`<daemon-controls .daemonDetails="${daemon}" .userEditable="${this.userEditable}"></daemon-controls>`;
+    return html`<daemon-controls
+      .daemonDetails="${daemon}"
+      .userEditable="${this.userEditable}"
+    ></daemon-controls>`;
   }
 
   public loadDaemons() {
@@ -124,8 +125,8 @@ export class ApplicationDaemons extends LitElement {
         this.setDaemonStatuses(data);
       },
       error: (err: any) => console.error(err),
-      complete: () => console.log('done loading daemon statuses')}
-    );
+      complete: () => console.log('done loading daemon statuses')
+    });
   }
 
   public discoverDaemons() {
@@ -140,7 +141,7 @@ export class ApplicationDaemons extends LitElement {
 
     const api = new DaemonStatusApi();
     api.daemonStatusDiscoverEnvNameGet({ envName: this.envName }).subscribe({
-      next: (result) => {
+      next: result => {
         if (result.Success) {
           let message = `Discovery complete: ${result.MappingsCreated} new mapping(s) created`;
           if (result.DaemonsDiscovered && result.DaemonsDiscovered > 0) {
@@ -174,7 +175,9 @@ export class ApplicationDaemons extends LitElement {
             }
           );
 
-          this.dispatchEvent(new CustomEvent('daemons-loaded', { detail: { message: '' } }));
+          this.dispatchEvent(
+            new CustomEvent('daemons-loaded', { detail: { message: '' } })
+          );
         }
       },
       error: (err: any) => {
@@ -188,7 +191,9 @@ export class ApplicationDaemons extends LitElement {
           }
         );
 
-        this.dispatchEvent(new CustomEvent('daemons-loaded', { detail: { message: '' } }));
+        this.dispatchEvent(
+          new CustomEvent('daemons-loaded', { detail: { message: '' } })
+        );
       },
       complete: () => {
         console.log('done discovering daemons');
@@ -202,7 +207,9 @@ export class ApplicationDaemons extends LitElement {
     });
   }
 
-  private getDaemonStatusesFromDiscovery(result: DiscoverDaemonsResult): DaemonStatusApiModel[] | undefined {
+  private getDaemonStatusesFromDiscovery(
+    result: DiscoverDaemonsResult
+  ): DaemonStatusApiModel[] | undefined {
     if (Array.isArray(result.DiscoveredDaemons)) {
       return result.DiscoveredDaemons;
     }
@@ -227,11 +234,12 @@ export class ApplicationDaemons extends LitElement {
     );
   }
 
-  daemonStatusUpdated(event: CustomEvent<DaemonStatusApiModel>)
-  {
+  daemonStatusUpdated(event: CustomEvent<DaemonStatusApiModel>) {
     const daemonData = event.detail as DaemonStatusApiModel;
     const index = this.daemonsAndStatuses?.findIndex(
-      (daemon) => daemon.DaemonName === daemonData.DaemonName && daemon.ServerName === daemonData.ServerName
+      daemon =>
+        daemon.DaemonName === daemonData.DaemonName &&
+        daemon.ServerName === daemonData.ServerName
     );
     if (index !== undefined && index > -1) {
       const updatedDaemons = [...this.daemonsAndStatuses!];

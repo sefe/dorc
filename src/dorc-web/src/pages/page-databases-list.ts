@@ -18,8 +18,21 @@ import { dialogFooterRenderer, dialogRenderer } from '@vaadin/dialog/lit';
 import { map } from 'lit/directives/map.js';
 import { Notification } from '@vaadin/notification';
 import { TextField } from '@vaadin/text-field';
-import { Grid, GridDataProviderCallback, GridDataProviderParams, GridFilterDefinition, GridSorterDefinition } from '@vaadin/grid';
-import { EnvironmentApiModel, PagedDataFilter, PagedDataSorting, RefDataEnvironmentsApi, DatabaseApiModel, type GetDatabaseApiModelListResponseDto } from '../apis/dorc-api';
+import {
+  Grid,
+  GridDataProviderCallback,
+  GridDataProviderParams,
+  GridFilterDefinition,
+  GridSorterDefinition
+} from '@vaadin/grid';
+import {
+  EnvironmentApiModel,
+  PagedDataFilter,
+  PagedDataSorting,
+  RefDataEnvironmentsApi,
+  DatabaseApiModel,
+  type GetDatabaseApiModelListResponseDto
+} from '../apis/dorc-api';
 import { RefDataDatabasesApi } from '../apis/dorc-api';
 import { PageElement } from '../helpers/page-element';
 import { ResponsiveMixin } from '../helpers/responsive-mixin';
@@ -27,7 +40,8 @@ import { AttachedDatabases } from '../components/attached-databases';
 import '../components/grid-button-groups/database-controls';
 import '@vaadin/grid/vaadin-grid-sorter';
 import { ErrorNotification } from '../components/notifications/error-notification';
-
+import { ref } from 'lit/directives/ref.js';
+import { UnsavedChangesGuard } from '../components/unsaved-changes-guard';
 
 const name = 'Name';
 const type = 'Type';
@@ -36,6 +50,8 @@ const environmentNames = 'EnvironmentNames';
 
 @customElement('page-databases-list')
 export class PageDatabasesList extends ResponsiveMixin(PageElement) {
+  private readonly unsavedChanges = new UnsavedChangesGuard();
+
   @property({ type: Boolean }) loading = true;
   @property({ type: Boolean }) searching = false;
   @property({ type: Boolean }) noResults = false;
@@ -126,6 +142,7 @@ export class PageDatabasesList extends ResponsiveMixin(PageElement) {
   render() {
     return html`
       <vaadin-dialog
+        ${ref(this.unsavedChanges.attach)}
         id='add-edit-database-dialog'
         header-title='Add/Edit Database'
         .opened='${this.addEditDatabaseDialogOpened}'
@@ -223,11 +240,20 @@ export class PageDatabasesList extends ResponsiveMixin(PageElement) {
       }
 
       if (this.serverNameFilter !== '' && this.serverNameFilter !== undefined) {
-        params.filters.push({ path: 'ServerName', value: this.serverNameFilter });
+        params.filters.push({
+          path: 'ServerName',
+          value: this.serverNameFilter
+        });
       }
 
-      if (this.environmentNamesFilter !== '' && this.environmentNamesFilter !== undefined) {
-        params.filters.push({ path: 'EnvironmentNames', value: this.environmentNamesFilter });
+      if (
+        this.environmentNamesFilter !== '' &&
+        this.environmentNamesFilter !== undefined
+      ) {
+        params.filters.push({
+          path: 'EnvironmentNames',
+          value: this.environmentNamesFilter
+        });
       }
 
       const api = new RefDataDatabasesApi();
@@ -345,170 +371,165 @@ export class PageDatabasesList extends ResponsiveMixin(PageElement) {
 
   buttonsHeaderRenderer() {
     return html`
-        <vaadin-button
-          title="Add Database"
-          theme="small"
-          @click="${() => {
-            const event = new CustomEvent('open-add-edit-database-dialog', {
-              detail: {},
-              bubbles: true,
-              composed: true
-            });
-            this.dispatchEvent(event);
-          }}"
-        >
-          <vaadin-icon
-            icon="vaadin:database"
-            style="color: var(--dorc-link-color)"
-          ></vaadin-icon>
-          Add Database...
-        </vaadin-button>
-      `;
+      <vaadin-button
+        title="Add Database"
+        theme="small"
+        @click="${() => {
+          const event = new CustomEvent('open-add-edit-database-dialog', {
+            detail: {},
+            bubbles: true,
+            composed: true
+          });
+          this.dispatchEvent(event);
+        }}"
+      >
+        <vaadin-icon
+          icon="vaadin:database"
+          style="color: var(--dorc-link-color)"
+        ></vaadin-icon>
+        Add Database...
+      </vaadin-button>
+    `;
   }
 
   environmentNamesHeaderRenderer() {
     return html`
-        <vaadin-text-field
-          placeholder="Environments"
-          clear-button-visible
-          focus-target
-          style="width: 120px"
-          theme="small"
-          @input="${(e: InputEvent) => {
-            const textField = e.target as TextField;
-            this.dispatchEvent(
-              new CustomEvent('searching-databases-started', {
-                detail: {
-                  field: environmentNames,
-                  value: textField?.value
-                },
-                bubbles: true,
-                composed: true
-              })
-            );
-          }}"
-        ></vaadin-text-field>
-      `;
+      <vaadin-text-field
+        placeholder="Environments"
+        clear-button-visible
+        focus-target
+        style="width: 120px"
+        theme="small"
+        @input="${(e: InputEvent) => {
+          const textField = e.target as TextField;
+          this.dispatchEvent(
+            new CustomEvent('searching-databases-started', {
+              detail: {
+                field: environmentNames,
+                value: textField?.value
+              },
+              bubbles: true,
+              composed: true
+            })
+          );
+        }}"
+      ></vaadin-text-field>
+    `;
   }
 
   instanceHeaderRenderer() {
     return html`<vaadin-grid-sorter
-          direction="asc"
-          path="ServerName"
-          style="align-items: normal"
-        ></vaadin-grid-sorter>
-        <vaadin-text-field
-          placeholder="Instance"
-          clear-button-visible
-          focus-target
-          style="width: 120px"
-          theme="small"
-          @input="${(e: InputEvent) => {
-            const textField = e.target as TextField;
-            this.dispatchEvent(
-              new CustomEvent('searching-databases-started', {
-                detail: {
-                  field: serverName,
-                  value: textField?.value
-                },
-                bubbles: true,
-                composed: true
-              })
-            );
-          }}"
-        ></vaadin-text-field> `;
+        direction="asc"
+        path="ServerName"
+        style="align-items: normal"
+      ></vaadin-grid-sorter>
+      <vaadin-text-field
+        placeholder="Instance"
+        clear-button-visible
+        focus-target
+        style="width: 120px"
+        theme="small"
+        @input="${(e: InputEvent) => {
+          const textField = e.target as TextField;
+          this.dispatchEvent(
+            new CustomEvent('searching-databases-started', {
+              detail: {
+                field: serverName,
+                value: textField?.value
+              },
+              bubbles: true,
+              composed: true
+            })
+          );
+        }}"
+      ></vaadin-text-field> `;
   }
 
   dbNameHeaderRenderer() {
     return html`<vaadin-grid-sorter
-              path="Name"
-              style="align-items: normal"
+        path="Name"
+        style="align-items: normal"
       ></vaadin-grid-sorter>
       <vaadin-text-field
-              placeholder="Database"
-              clear-button-visible
-              focus-target
-              style="width: 120px"
-              theme="small"
-              @input="${(e: InputEvent) => {
-                  const textField = e.target as TextField;
-                  this.dispatchEvent(
-                          new CustomEvent('searching-databases-started', {
-                              detail: {
-                                  field: name,
-                                  value: textField?.value
-                              },
-                              bubbles: true,
-                              composed: true
-                          })
-                  );
-              }}"
+        placeholder="Database"
+        clear-button-visible
+        focus-target
+        style="width: 120px"
+        theme="small"
+        @input="${(e: InputEvent) => {
+          const textField = e.target as TextField;
+          this.dispatchEvent(
+            new CustomEvent('searching-databases-started', {
+              detail: {
+                field: name,
+                value: textField?.value
+              },
+              bubbles: true,
+              composed: true
+            })
+          );
+        }}"
       ></vaadin-text-field> `;
   }
 
   appTagsHeaderRenderer() {
     return html`<vaadin-grid-sorter
-              path="Type"
-              style="align-items: normal"
+        path="Type"
+        style="align-items: normal"
       ></vaadin-grid-sorter>
       <vaadin-text-field
-              id="tags-search"
-              placeholder="Application Tag"
-              clear-button-visible
-              focus-target
-              style="width: 120px"
-              theme="small"
-              @value-changed="${(e: CustomEvent) => {
-                  const textField = e.target as TextField;
-                  this.dispatchEvent(
-                          new CustomEvent('searching-databases-started', {
-                              detail: {
-                                  field: type,
-                                  value: textField?.value
-                              },
-                              bubbles: true,
-                              composed: true
-                          })
-                  );
-              }}"
+        id="tags-search"
+        placeholder="Application Tag"
+        clear-button-visible
+        focus-target
+        style="width: 120px"
+        theme="small"
+        @value-changed="${(e: CustomEvent) => {
+          const textField = e.target as TextField;
+          this.dispatchEvent(
+            new CustomEvent('searching-databases-started', {
+              detail: {
+                field: type,
+                value: textField?.value
+              },
+              bubbles: true,
+              composed: true
+            })
+          );
+        }}"
       ></vaadin-text-field> `;
   }
 
-  private environmentNamesRenderer = (
-    item: DatabaseApiModel
-  ) => {
+  private environmentNamesRenderer = (item: DatabaseApiModel) => {
     const database = item;
     const envNames = database.EnvironmentNames?.sort();
 
     return html`
-        <vaadin-horizontal-layout style="align-items: center;" theme="spacing">
-          <vaadin-vertical-layout
-            style="line-height: var(--lumo-line-height-s);"
-          >
-            ${map(
-              envNames,
-              (i: string) =>
-                html` <button
-                  class="env"
-                  @click="${() =>
-                          this.dispatchEvent(
-                                  new CustomEvent('open-environment-details', {
-                                      detail: {
-                                          envName: i
-                                      },
-                                      bubbles: true,
-                                      composed: true
-                                  })
-                          )
-              }"
-                  style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
-                >
-                  ${i}
-                </button>`
-            )}
-          </vaadin-vertical-layout>
-        </vaadin-horizontal-layout>
-      `;
+      <vaadin-horizontal-layout style="align-items: center;" theme="spacing">
+        <vaadin-vertical-layout style="line-height: var(--lumo-line-height-s);">
+          ${map(
+            envNames,
+            (i: string) =>
+              html` <button
+                class="env"
+                @click="${() =>
+                    this.dispatchEvent(
+                      new CustomEvent('open-environment-details', {
+                        detail: {
+                          envName: i
+                        },
+                        bubbles: true,
+                        composed: true
+                      })
+                    )}"
+                style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
+              >
+                ${i}
+              </button>`
+          )}
+        </vaadin-vertical-layout>
+      </vaadin-horizontal-layout>
+    `;
   };
 
   openEnvironmentDetails(event: CustomEvent) {
@@ -547,21 +568,17 @@ export class PageDatabasesList extends ResponsiveMixin(PageElement) {
     });
   }
 
-  _boundDatabasesButtonsRenderer(
-    item: AttachedDatabases
-  ) {
+  _boundDatabasesButtonsRenderer(item: AttachedDatabases) {
     const database = item as DatabaseApiModel;
     return html` <database-controls
-        .envId="${0}"
-        .readonly="${!database.UserEditable}"
-        .databaseDetails="${database}"
-      >
-      </database-controls>`;
+      .envId="${0}"
+      .readonly="${!database.UserEditable}"
+      .databaseDetails="${database}"
+    >
+    </database-controls>`;
   }
 
-  private applicationTagsRenderer = (
-    item: DatabaseApiModel
-  ) => {
+  private applicationTagsRenderer = (item: DatabaseApiModel) => {
     const database = item;
     const appTags =
       database.Type !== undefined &&
@@ -571,13 +588,13 @@ export class PageDatabasesList extends ResponsiveMixin(PageElement) {
         : [];
 
     return html`
-        ${map(
-          appTags,
-          value =>
-            html` <button
-              style="border: 0px"
-              class="tag"
-              @click="${() =>
+      ${map(
+        appTags,
+        value =>
+          html` <button
+            style="border: 0px"
+            class="tag"
+            @click="${() =>
                 this.dispatchEvent(
                   new CustomEvent('filter-tags-database-list', {
                     detail: {
@@ -587,11 +604,11 @@ export class PageDatabasesList extends ResponsiveMixin(PageElement) {
                     composed: true
                   })
                 )}"
-            >
-              ${value}
-            </button>`
-        )}
-      `;
+          >
+            ${value}
+          </button>`
+      )}
+    `;
   };
 
   protected firstUpdated(_changedProperties: PropertyValues) {

@@ -7,6 +7,7 @@ import { html } from 'lit/html.js';
 import { styleMap } from 'lit/directives/style-map.js';
 import { AccessControlApiModel } from '../../apis/dorc-api';
 import '../../icons/iron-icons.js';
+import '@vaadin/tooltip';
 
 @customElement('access-control-controls')
 export class AccessControlControls extends LitElement {
@@ -34,15 +35,19 @@ export class AccessControlControls extends LitElement {
   }
 
   render() {
-    const styles = { color: this.disabled ? 'var(--dorc-bg-secondary)' : 'var(--dorc-error-color)' };
+    const styles = {
+      color: this.disabled
+        ? 'var(--dorc-bg-secondary)'
+        : 'var(--dorc-error-color)'
+    };
     return html`
       <vaadin-button
-        title="Remove Access"
         aria-label="Remove Access"
         theme="icon"
         @click="${this.removeAccess}"
         ?disabled="${this.disabled}"
       >
+        <vaadin-tooltip slot="tooltip" text="Remove Access"></vaadin-tooltip>
         <vaadin-icon
           icon="icons:delete"
           style=${styleMap(styles)}
@@ -55,7 +60,9 @@ export class AccessControlControls extends LitElement {
     // Snapshot before awaiting: this control sits in a recycled grid cell, so
     // `this.accessControl` can belong to a different row by the time the user answers.
     const accessControl = this.accessControl;
-    const answer = await confirmPrompt(`Remove Access from ${accessControl?.Name}?`);
+    const answer = await confirmPrompt(
+      `Remove Access from ${accessControl?.Name}?`
+    );
     if (answer) {
       // The row travels in the detail. The listener the parent bound into this
       // cell is rebound whenever the cell re-renders — a save response landing

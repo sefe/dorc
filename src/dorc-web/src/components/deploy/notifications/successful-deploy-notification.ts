@@ -23,13 +23,13 @@ export class SuccessfulDeployNotification extends LitElement {
   private notificationOpened = false;
 
   @property({ type: String })
-  private envName = '';
+  envName = '';
 
   @property({ type: String })
-  private selectedBuild = '';
+  selectedBuild = '';
 
   @property({ type: String })
-  private requestedDeploymentId = '';
+  requestedDeploymentId = '';
 
   static get styles() {
     return css`
@@ -84,10 +84,7 @@ export class SuccessfulDeployNotification extends LitElement {
         }}"
         theme="primary"
       >
-        <vaadin-icon
-          icon="vaadin:clipboard-pulse"
-          slot="prefix"
-        ></vaadin-icon>
+        <vaadin-icon icon="vaadin:clipboard-pulse" slot="prefix"></vaadin-icon>
         ${this.requestedDeploymentId}
       </vaadin-button>
       <vaadin-button

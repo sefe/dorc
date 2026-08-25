@@ -11,24 +11,23 @@ import '@vaadin/vertical-layout';
 
 @customElement('add-permission')
 export class AddPermission extends LitElement {
-
   private readonly maxFieldLength = 50;
 
-  @property() private displayName = '';
+  @property() displayName = '';
 
-  @property({ type: Boolean }) private displayNameValid = false;
+  @property({ type: Boolean }) displayNameValid = false;
 
-  @property() private permissionName = '';
+  @property() permissionName = '';
 
-  @property({ type: Boolean }) private permissionNameValid = false;
+  @property({ type: Boolean }) permissionNameValid = false;
 
-  @property({ type: Boolean }) private valid = false;
+  @property({ type: Boolean }) valid = false;
 
-  @property({ type: Object })
-  private permission: PermissionDto = this.getEmptyPermission();
+  @property({ type: Object }) permission: PermissionDto =
+    this.getEmptyPermission();
 
-  @property() private overlayMessage: any;
-  @property() private errorMessage: any;
+  @property() overlayMessage: any;
+  @property() errorMessage: any;
 
   static get styles() {
     return css`

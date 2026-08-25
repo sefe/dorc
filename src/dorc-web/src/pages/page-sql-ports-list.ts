@@ -16,9 +16,13 @@ import { PageElement } from '../helpers/page-element';
 import { SqlPortApiModel } from '../apis/dorc-api';
 import { RefDataSqlPortsApi } from '../apis/dorc-api';
 import GlobalCache from '../global-cache';
+import { ref } from 'lit/directives/ref.js';
+import { UnsavedChangesGuard } from '../components/unsaved-changes-guard';
 
 @customElement('page-sql-ports-list')
 export class PageSqlPortsList extends PageElement {
+  private readonly unsavedChanges = new UnsavedChangesGuard();
+
   @property({ type: Array }) sqlPorts: Array<SqlPortApiModel> = [];
 
   @property({ type: Array }) filteredSqlPorts: Array<SqlPortApiModel> = [];
@@ -27,7 +31,7 @@ export class PageSqlPortsList extends PageElement {
 
   @property({ type: Boolean }) details = false;
 
-  @property({ type: Boolean }) private isAdmin = false;
+  @property({ type: Boolean }) isAdmin = false;
 
   public userRoles!: string[];
 
@@ -63,7 +67,6 @@ export class PageSqlPortsList extends PageElement {
     this.isAdmin = this.userRoles.find(p => p === 'Admin') !== undefined;
   }
 
-  
   private getSqlPortsList() {
     const api = new RefDataSqlPortsApi();
     api.refDataSqlPortsGet().subscribe(
@@ -125,6 +128,7 @@ export class PageSqlPortsList extends PageElement {
         </vaadin-button>
       </div>
       <vaadin-dialog
+        ${ref(this.unsavedChanges.attach)}
         id="add-sqlport-dialog"
         header-title="Add SQL Port"
         draggable
@@ -135,39 +139,39 @@ export class PageSqlPortsList extends PageElement {
         ${dialogRenderer(this.renderAddSqlPort, [])}
         ${dialogFooterRenderer(this.renderAddSqlPortFooter, [])}
       ></vaadin-dialog>
-      ${this.loading
-        ? html`
-            <dorc-spinner></dorc-spinner>
-          `
-        : html`
-            <vaadin-grid
-              id="grid"
-              .items=${this.filteredSqlPorts}
-              column-reordering-allowed
-              multi-sort
-              theme="compact row-stripes no-row-borders no-border"
-            >
-              <vaadin-grid-sort-column
-                path="InstanceName"
-                header="Instance Name"
-              ></vaadin-grid-sort-column>
-              <vaadin-grid-sort-column
-                path="SqlPort"
-                header="Port"
-              ></vaadin-grid-sort-column>
-            </vaadin-grid>
-          `} `;
-  }  
+      ${
+        this.loading
+          ? html` <dorc-spinner></dorc-spinner> `
+          : html`
+              <vaadin-grid
+                id="grid"
+                .items=${this.filteredSqlPorts}
+                column-reordering-allowed
+                multi-sort
+                theme="compact row-stripes no-row-borders no-border"
+              >
+                <vaadin-grid-sort-column
+                  path="InstanceName"
+                  header="Instance Name"
+                ></vaadin-grid-sort-column>
+                <vaadin-grid-sort-column
+                  path="SqlPort"
+                  header="Port"
+                ></vaadin-grid-sort-column>
+              </vaadin-grid>
+            `
+      } `;
+  }
 
   firstUpdated(_changedProperties: PropertyValues) {
     super.firstUpdated(_changedProperties);
-  
+
     this.addEventListener(
       'sqlport-created',
       this.sqlPortCreated as EventListener
     );
   }
-  
+
   private renderAddSqlPort = () =>
     html`<add-sql-port id="add-sql-port"></add-sql-port>`;
 
@@ -191,7 +195,7 @@ export class PageSqlPortsList extends PageElement {
     const filters = value
       .trim()
       .split('|')
-      .map(filter => new RegExp(filter.replace("\\","\\\\"), 'i'));
+      .map(filter => new RegExp(filter.replace('\\', '\\\\'), 'i'));
 
     this.filteredSqlPorts = this.sqlPorts.filter(({ InstanceName, SqlPort }) =>
       filters.some(

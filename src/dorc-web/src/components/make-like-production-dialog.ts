@@ -31,7 +31,7 @@ export class MakeLikeProductionDialog extends LitElement {
 
   private _mappedProjects: string[] | undefined;
 
-  @property({ type: String }) private targetEnv: string | undefined;
+  @property({ type: String }) targetEnv: string | undefined;
 
   @state() private canSubmit = false;
 
@@ -135,7 +135,7 @@ export class MakeLikeProductionDialog extends LitElement {
     `;
   }
 
-  public closeDialog(){
+  public closeDialog() {
     this.bundleRequestDialogOpened = false;
   }
 
@@ -222,7 +222,9 @@ export class MakeLikeProductionDialog extends LitElement {
   }
 
   public propertyRemoved(propertyOverride: RequestProperty) {
-    this.propertyOverrides = this.propertyOverrides.filter((val) => val.PropertyName != propertyOverride.PropertyName);
+    this.propertyOverrides = this.propertyOverrides.filter(
+      val => val.PropertyName != propertyOverride.PropertyName
+    );
     this.propertyOverrides = JSON.parse(JSON.stringify(this.propertyOverrides));
   }
 }

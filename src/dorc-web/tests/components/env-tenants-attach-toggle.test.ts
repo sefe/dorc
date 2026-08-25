@@ -23,8 +23,7 @@ const mount = async (): Promise<EnvTenantsElement> => {
 
 const checkbox = (el: EnvTenantsElement) =>
   el.shadowRoot?.getElementById('addTenant') as
-    | (HTMLElement & { checked: boolean; disabled: boolean })
-    | undefined;
+    (HTMLElement & { checked: boolean; disabled: boolean }) | undefined;
 
 const attachForm = (el: EnvTenantsElement) =>
   el.shadowRoot?.querySelector('add-env-tenant');
@@ -34,19 +33,9 @@ describe('env-tenants ATTACH toggle', () => {
 
   beforeEach(async () => {
     el = await mount();
-    // `PageEnvBase` keeps `environment` in a MODULE-level `let`, not an
-    // instance field (page-env-base.ts:17-18), so every env-* tab in this file
-    // shares one object and it outlives `el.remove()`. Without clearing it, the
-    // child-environment test leaves `ParentEnvironment` set and `env-tenants`
-    // then renders no inline form for the rest of the file — which any test
-    // order but the declared one exposes. Cleared on the way in as well as out,
-    // so a failure mid-test cannot poison the next one.
-    el.environment = undefined;
-    await el.updateComplete;
   });
 
   afterEach(() => {
-    el.environment = undefined;
     el.remove();
   });
 
@@ -111,5 +100,15 @@ describe('env-tenants ATTACH toggle', () => {
     el.environment = { ParentEnvironment: { EnvironmentName: 'PARENT' } };
     await el.updateComplete;
     expect(checkbox(el)?.disabled).to.equal(true);
+  });
+
+  it('keeps environment state isolated between instances', async () => {
+    el.environment = { ParentEnvironment: { EnvironmentName: 'PARENT' } };
+    await el.updateComplete;
+
+    const sibling = await mount();
+    expect(sibling.environment).to.equal(undefined);
+    expect(checkbox(sibling)?.disabled).to.equal(false);
+    sibling.remove();
   });
 });

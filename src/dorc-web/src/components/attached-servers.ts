@@ -36,7 +36,7 @@ export class AttachedServers extends ResponsiveMixin(LitElement) {
   @property({ type: Number })
   envId = 0;
 
-  @property({ type: Boolean }) private readonly = true;
+  @property({ type: Boolean }) readonly = true;
 
   @property({ type: Object })
   selectedServer: ServerApiModel | undefined;
@@ -109,10 +109,10 @@ export class AttachedServers extends ResponsiveMixin(LitElement) {
         text-decoration: none;
         border-radius: 3px;
       }
-    .column-content {
-      display: block;
-      width: 100%;
-    }
+      .column-content {
+        display: block;
+        width: 100%;
+      }
       vaadin-grid-cell-content {
         white-space: normal;
         word-wrap: break-word;
@@ -158,7 +158,7 @@ export class AttachedServers extends ResponsiveMixin(LitElement) {
           this.readonly
         ])}
       ></vaadin-dialog>
-      
+
       <vaadin-grid
         id="grid"
         .items=${this.servers}
@@ -199,19 +199,16 @@ export class AttachedServers extends ResponsiveMixin(LitElement) {
     `;
   }
 
-  private applicationTagsRenderer = (
-    item: ServerApiModel
-  ) => {
+  private applicationTagsRenderer = (item: ServerApiModel) => {
     const server = item;
     const appTags = splitTags(server.ApplicationTags);
 
     return html`
-        ${map(
-          appTags,
-          value =>
-            html`<button style="border: 0px" class="tag">${value}</button>`
-        )}
-      `;
+      ${map(
+        appTags,
+        value => html`<button style="border: 0px" class="tag">${value}</button>`
+      )}
+    `;
   };
 
   serverUpdated(e: CustomEvent) {
@@ -241,54 +238,52 @@ export class AttachedServers extends ResponsiveMixin(LitElement) {
     this.tagsDialogOpened = false;
   }
 
-  _boundServersButtonsRenderer(
-    item: AttachedServers
-  ) {
+  _boundServersButtonsRenderer(item: AttachedServers) {
     const server = item as ServerApiModel;
     return html` <server-controls
-        .envId="${this.envId}"
-        .envSet="${true}"
-        .serverDetails="${server}"
-        .readonly="${this.readonly}"
-        @server-detached="${() => {
-          Notification.show('Server detached', {
-            theme: 'success',
-            position: 'bottom-start',
-            duration: 5000
-          });
-          this.dispatchEvent(
-            new CustomEvent('environment-stale', {
-              bubbles: true,
-              composed: true,
-              detail: {}
-            })
-          );
-        }}"
-        @server-deleted="${(e: CustomEvent) => {
-          Notification.show(`Server ${e.detail.server.Name} deleted`, {
-            theme: 'success',
-            position: 'bottom-start',
-            duration: 5000
-          });
-          this.dispatchEvent(
-            new CustomEvent('environment-stale', {
-              bubbles: true,
-              composed: true,
-              detail: {}
-            })
-          );
-        }}"
-        @manage-server-tags="${() => {
-          this.openEditServerTags(server);
-        }}"
-        @edit-server="${(e: CustomEvent) => {
-          this.editServer(e);
-        }}"
-        @map-daemons="${() => {
-          this.openDaemonMapping(server);
-        }}"
-      >
-      </server-controls>`;
+      .envId="${this.envId}"
+      .envSet="${true}"
+      .serverDetails="${server}"
+      .readonly="${this.readonly}"
+      @server-detached="${() => {
+        Notification.show('Server detached', {
+          theme: 'success',
+          position: 'bottom-start',
+          duration: 5000
+        });
+        this.dispatchEvent(
+          new CustomEvent('environment-stale', {
+            bubbles: true,
+            composed: true,
+            detail: {}
+          })
+        );
+      }}"
+      @server-deleted="${(e: CustomEvent) => {
+        Notification.show(`Server ${e.detail.server.Name} deleted`, {
+          theme: 'success',
+          position: 'bottom-start',
+          duration: 5000
+        });
+        this.dispatchEvent(
+          new CustomEvent('environment-stale', {
+            bubbles: true,
+            composed: true,
+            detail: {}
+          })
+        );
+      }}"
+      @manage-server-tags="${() => {
+        this.openEditServerTags(server);
+      }}"
+      @edit-server="${(e: CustomEvent) => {
+        this.editServer(e);
+      }}"
+      @map-daemons="${() => {
+        this.openDaemonMapping(server);
+      }}"
+    >
+    </server-controls>`;
   }
 
   public openEditServerTags(server: ServerApiModel) {

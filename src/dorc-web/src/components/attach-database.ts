@@ -19,28 +19,28 @@ export class AttachDatabase extends LitElement {
   public existingDatabases: Array<DatabaseApiModel> | undefined = [];
 
   @property({ type: Object })
-  private selectedDatabase: DatabaseApiModel | undefined;
+  selectedDatabase: DatabaseApiModel | undefined;
 
   @property({ type: Array })
-  private filteredDatabases: DatabaseApiModel[] | undefined;
+  filteredDatabases: DatabaseApiModel[] | undefined;
 
   @property({ type: Array })
-  private databases: DatabaseApiModel[] | undefined;
+  databases: DatabaseApiModel[] | undefined;
 
   @property({ type: Boolean })
-  private canSubmit = false;
+  canSubmit = false;
 
   @property({ type: Number })
-  private envId = 0;
+  envId = 0;
 
   @property({ type: Object })
-  private databaseMap: Map<number | undefined, DatabaseApiModel> | undefined;
-  
+  databaseMap: Map<number | undefined, DatabaseApiModel> | undefined;
+
   @property({ type: Boolean })
-  private showSameTagWarning: boolean = false;
+  showSameTagWarning: boolean = false;
 
   @property({ type: Object })
-  private existingDatabaseWithSameTag: DatabaseApiModel | undefined;
+  existingDatabaseWithSameTag: DatabaseApiModel | undefined;
 
   constructor() {
     super();
@@ -83,7 +83,7 @@ export class AttachDatabase extends LitElement {
             item-label-path="Name"
             @value-changed="${this.setSelectedDatabase}"
             .items="${this.filteredDatabases ?? this.databases}"
-            @filter-changed="${(this.filterDatabases)}"
+            @filter-changed="${this.filterDatabases}"
             ${comboBoxRenderer(this._boundDatabasesRenderer, [])}
             placeholder="Select Database"
             style="width: 300px"
@@ -111,21 +111,36 @@ export class AttachDatabase extends LitElement {
           </h3>
           <h3>
             Citrix AD Group:
-            <span style="color: var(--dorc-link-color)">${this.selectedDatabase?.AdGroup}</span>
+            <span style="color: var(--dorc-link-color)"
+              >${this.selectedDatabase?.AdGroup}</span
+            >
           </h3>
         </div>
 
-        ${this.showSameTagWarning ? html`
-          <div class="warning-box">
-            <div class="warning-title">⚠️ Warning - Duplicate Application Tag</div>
-            <div>
-              A database with the tag '<strong>${this.selectedDatabase?.Type}</strong>' is already attached to this environment:
-              <br><strong>${this.existingDatabaseWithSameTag?.Name}</strong> on ${this.existingDatabaseWithSameTag?.ServerName}
-            </div>
-          </div>
-        ` : ''}
+        ${
+          this.showSameTagWarning
+            ? html`
+                <div class="warning-box">
+                  <div class="warning-title">
+                    ⚠️ Warning - Duplicate Application Tag
+                  </div>
+                  <div>
+                    A database with the tag
+                    '<strong>${this.selectedDatabase?.Type}</strong>' is already
+                    attached to this environment:
+                    <br /><strong
+                      >${this.existingDatabaseWithSameTag?.Name}</strong
+                    >
+                    on ${this.existingDatabaseWithSameTag?.ServerName}
+                  </div>
+                </div>
+              `
+            : ''
+        }
 
-        <vaadin-button .disabled="${!this.canSubmit}" @click="${this.onAttachClick}"
+        <vaadin-button
+          .disabled="${!this.canSubmit}"
+          @click="${this.onAttachClick}"
           >Attach</vaadin-button
         >
       </div>
@@ -239,9 +254,7 @@ export class AttachDatabase extends LitElement {
 
   private setDatabases(data: DatabaseApiModel[]) {
     this.databases = data;
-    this.databaseMap = new Map(
-      this.databases.map(obj => [obj.Id, obj])
-    );
+    this.databaseMap = new Map(this.databases.map(obj => [obj.Id, obj]));
   }
 
   private processAttachDbSuccess() {
@@ -256,7 +269,9 @@ export class AttachDatabase extends LitElement {
   }
 
   private processDbAttachFailure(result: any) {
-    const errorMessage = 'Unable to attach database' + (result?.Message ? `: ${result.Message}` : '');
+    const errorMessage =
+      'Unable to attach database' +
+      (result?.Message ? `: ${result.Message}` : '');
     Notification.show(errorMessage, {
       theme: 'error',
       position: 'bottom-start',
@@ -271,9 +286,10 @@ export class AttachDatabase extends LitElement {
       this.filteredDatabases = this.databases;
       return;
     }
-    this.filteredDatabases = this.databases?.filter(db => 
-      db.Name?.toLowerCase().includes(filterValue) ||
-      db.ServerName?.toLowerCase().includes(filterValue)
+    this.filteredDatabases = this.databases?.filter(
+      db =>
+        db.Name?.toLowerCase().includes(filterValue) ||
+        db.ServerName?.toLowerCase().includes(filterValue)
     );
   }
 }

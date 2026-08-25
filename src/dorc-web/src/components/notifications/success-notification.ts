@@ -22,7 +22,7 @@ export class SuccessNotification extends LitElement {
   private notificationOpened = false;
 
   @property({ type: String })
-  private successMessage = '';
+  successMessage = '';
 
   static get styles() {
     return css``;

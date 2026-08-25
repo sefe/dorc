@@ -15,20 +15,25 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { PageElement } from '../helpers/page-element';
 import { ResponsiveMixin } from '../helpers/responsive-mixin';
-import { ConfigValueApiModel, RefDataConfigApi } from "../apis/dorc-api";
+import { ConfigValueApiModel, RefDataConfigApi } from '../apis/dorc-api';
 import { Checkbox } from '@vaadin/checkbox';
 import '../components/grid-button-groups/config-value-controls';
 import '../components/add-config-value';
 import { RefDataRolesApi } from '../apis/dorc-api';
 import '@vaadin/checkbox';
+import { ref } from 'lit/directives/ref.js';
+import { UnsavedChangesGuard } from '../components/unsaved-changes-guard';
 
 @customElement('page-config-values-list')
 export class PageConfigValuesList extends ResponsiveMixin(PageElement) {
+  private readonly unsavedChanges = new UnsavedChangesGuard();
+
   @state() addConfigValueDialogOpened = false;
 
   @property({ type: Array }) configValues: Array<ConfigValueApiModel> = [];
 
-  @property({ type: Array }) filteredConfigValues: Array<ConfigValueApiModel> = [];
+  @property({ type: Array }) filteredConfigValues: Array<ConfigValueApiModel> =
+    [];
 
   @property({ type: Array }) appConfig = [];
 
@@ -75,7 +80,9 @@ export class PageConfigValuesList extends ResponsiveMixin(PageElement) {
     const id = updated.Id;
 
     if (id == null) {
-      console.error(`Missing Id on ConfigValueApiModel; keys: ${Object.keys(updated)}`);
+      console.error(
+        `Missing Id on ConfigValueApiModel; keys: ${Object.keys(updated)}`
+      );
       return;
     }
 
@@ -156,6 +163,7 @@ export class PageConfigValuesList extends ResponsiveMixin(PageElement) {
         </vaadin-button>
       </div>
       <vaadin-dialog
+        ${ref(this.unsavedChanges.attach)}
         id="add-config-value-dialog"
         header-title="Add Config Value"
         draggable
@@ -167,51 +175,51 @@ export class PageConfigValuesList extends ResponsiveMixin(PageElement) {
         ${dialogRenderer(this.renderAddConfigValue, [])}
         ${dialogFooterRenderer(this.renderAddConfigValueFooter, [])}
       ></vaadin-dialog>
-      ${this.loading
-        ? html`
-            <dorc-spinner></dorc-spinner>
-          `
-        : html`
-            <vaadin-grid
-              id="grid"
-              .items=${this.filteredConfigValues}
-              column-reordering-allowed
-              multi-sort
-              theme="compact row-stripes no-row-borders no-border"
-            >
-              <vaadin-grid-sort-column
-                path="Key"
-                header="Config Name"
-                resizable
-                width="300px"
-                flex-grow="0"
-              ></vaadin-grid-sort-column>
-              <vaadin-grid-sort-column
-                path="Secure"
-                header="Is Secure"
-                resizable
-                width="100px"
-                flex-grow="0"
-                ${columnBodyRenderer(this.isSecuredRenderer, [this.isAdmin])}
-                ?hidden="${this._narrowScreen}"
-              ></vaadin-grid-sort-column>
-              <vaadin-grid-sort-column
-                path="IsForProd"
-                header="Is For Prod"
-                resizable
-                width="100px"
-                flex-grow="0"
-                ${columnBodyRenderer(this.isForProdRenderer, [this.isAdmin])}
-                ?hidden="${this._narrowScreen}"
-              ></vaadin-grid-sort-column>
-              <vaadin-grid-column
-                header="Config Value"
-                ${columnBodyRenderer(this.variableValueControlsRenderer, [this.isAdmin])}
-                resizable
-                flex-grow="1"
-              ></vaadin-grid-column>
-            </vaadin-grid>
-          `}
+      ${
+        this.loading
+          ? html` <dorc-spinner></dorc-spinner> `
+          : html`
+              <vaadin-grid
+                id="grid"
+                .items=${this.filteredConfigValues}
+                column-reordering-allowed
+                multi-sort
+                theme="compact row-stripes no-row-borders no-border"
+              >
+                <vaadin-grid-sort-column
+                  path="Key"
+                  header="Config Name"
+                  resizable
+                  width="300px"
+                  flex-grow="0"
+                ></vaadin-grid-sort-column>
+                <vaadin-grid-sort-column
+                  path="Secure"
+                  header="Is Secure"
+                  resizable
+                  width="100px"
+                  flex-grow="0"
+                  ${columnBodyRenderer(this.isSecuredRenderer, [this.isAdmin])}
+                  ?hidden="${this._narrowScreen}"
+                ></vaadin-grid-sort-column>
+                <vaadin-grid-sort-column
+                  path="IsForProd"
+                  header="Is For Prod"
+                  resizable
+                  width="100px"
+                  flex-grow="0"
+                  ${columnBodyRenderer(this.isForProdRenderer, [this.isAdmin])}
+                  ?hidden="${this._narrowScreen}"
+                ></vaadin-grid-sort-column>
+                <vaadin-grid-column
+                  header="Config Value"
+                  ${columnBodyRenderer(this.variableValueControlsRenderer, [this.isAdmin])}
+                  resizable
+                  flex-grow="1"
+                ></vaadin-grid-column>
+              </vaadin-grid>
+            `
+      }
     `;
   }
 

@@ -27,9 +27,13 @@ import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import { AddEditAccessControl } from '../components/add-edit-access-control';
 import '../components/add-edit-access-control';
 import { CloneEnvironment } from '../components/clone-environment';
+import { ref } from 'lit/directives/ref.js';
+import { UnsavedChangesGuard } from '../components/unsaved-changes-guard';
 
 @customElement('page-environments-list')
 export class PageEnvironmentsList extends ResponsiveMixin(PageElement) {
+  private readonly unsavedChanges = new UnsavedChangesGuard();
+
   @property({ type: Array }) environments: EnvironmentApiModel[] = [];
 
   @property({ type: Array })
@@ -43,27 +47,24 @@ export class PageEnvironmentsList extends ResponsiveMixin(PageElement) {
 
   @property({ type: String }) size = '';
 
-  @property({ type: Boolean }) private loading = true;
+  @property({ type: Boolean }) loading = true;
 
-  @property({ type: String }) private secureName = '';
+  @property({ type: String }) secureName = '';
 
-  @property({ type: Object }) private newEnvironment:
-    | EnvironmentApiModel
-    | undefined;
+  @property({ type: Object }) newEnvironment: EnvironmentApiModel | undefined;
 
   public userRoles!: string[];
 
   @property({ type: Boolean }) public userRolesLoaded = false;
 
-  @property({ type: Boolean }) private isAdmin = false;
+  @property({ type: Boolean }) isAdmin = false;
 
-  @property({ type: Boolean }) private isPowerUser = false;
+  @property({ type: Boolean }) isPowerUser = false;
 
   @state() private addEnvDialogOpened = false;
 
   /** Bumped per open so each one gets a freshly built form. */
   @state() private addEnvSeq = 0;
-
 
   @query('#clone-environment') cloneEnvironmentComponent!: CloneEnvironment;
 
@@ -86,7 +87,7 @@ export class PageEnvironmentsList extends ResponsiveMixin(PageElement) {
         background-color: var(--dorc-warning-bg);
         color: var(--dorc-warning-text);
       }
-      `;
+    `;
   }
 
   render() {
@@ -117,6 +118,7 @@ export class PageEnvironmentsList extends ResponsiveMixin(PageElement) {
       </div>
 
       <vaadin-dialog
+        ${ref(this.unsavedChanges.attach)}
         id="dialog"
         header-title="Create Environment"
         draggable
@@ -140,71 +142,73 @@ export class PageEnvironmentsList extends ResponsiveMixin(PageElement) {
         id="add-edit-access-control"
         .secureName="${this.secureName}"
       ></add-edit-access-control>
-      <div style="flex: 1; min-height: 0; display: flex; flex-direction: column;">
-        ${this.loading || !this.userRolesLoaded
-          ? html`
-              <dorc-spinner></dorc-spinner>
-            `
-          : html`
-              <vaadin-grid
-                id="grid"
-                .items="${this.filteredEnvironments}"
-                multi-sort
-                theme="compact row-stripes no-row-borders no-border"
-                .cellPartNameGenerator="${this._cellPartNameGenerator}"
-              >
-                <vaadin-grid-sort-column
-                  resizable
-                  path="EnvironmentName"
-                  header="Name"
-                  style="color:lightgray"
-                ></vaadin-grid-sort-column>
-                <vaadin-grid-sort-column
-                  resizable
-                  path="Details.EnvironmentOwner"
-                  header="Owner"
-                  ?hidden="${this._narrowScreen}"
-                ></vaadin-grid-sort-column>
-                <vaadin-grid-sort-column
-                  resizable
-                  path="Details.Description"
-                  header="Description"
-                  ?hidden="${this._narrowScreen}"
-                ></vaadin-grid-sort-column>
-                <vaadin-grid-sort-column
-                  resizable
-                  path="EnvironmentSecure"
-                  header="Secure"
-                  ${columnBodyRenderer(this._envSecureRenderer, [])}
-                  ?hidden="${this._narrowScreen}"
-                ></vaadin-grid-sort-column>
-                <vaadin-grid-sort-column
-                  resizable
-                  path="EnvironmentIsProd"
-                  header="Prod"
-                  ${columnBodyRenderer(this._envIsProdRenderer, [])}
-                  ?hidden="${this._narrowScreen}"
-                ></vaadin-grid-sort-column>
-                <vaadin-grid-sort-column
-                  resizable
-                  path="Details.FileShare"
-                  header="File Share"
-                  ?hidden="${this._narrowScreen}"
-                ></vaadin-grid-sort-column>
-                <vaadin-grid-sort-column
-                  resizable
-                  path="Details.Notes"
-                  header="Notes"
-                  ?hidden="${this._narrowScreen}"
-                ></vaadin-grid-sort-column>
-                <vaadin-grid-column
-                  ${columnBodyRenderer(this._envDetailsButtonsRenderer, [
-                    this.isAdmin,
-                    this.isPowerUser
-                  ])}
-                ></vaadin-grid-column>
-              </vaadin-grid>
-            `}
+      <div
+        style="flex: 1; min-height: 0; display: flex; flex-direction: column;"
+      >
+        ${
+          this.loading || !this.userRolesLoaded
+            ? html` <dorc-spinner></dorc-spinner> `
+            : html`
+                <vaadin-grid
+                  id="grid"
+                  .items="${this.filteredEnvironments}"
+                  multi-sort
+                  theme="compact row-stripes no-row-borders no-border"
+                  .cellPartNameGenerator="${this._cellPartNameGenerator}"
+                >
+                  <vaadin-grid-sort-column
+                    resizable
+                    path="EnvironmentName"
+                    header="Name"
+                    style="color:lightgray"
+                  ></vaadin-grid-sort-column>
+                  <vaadin-grid-sort-column
+                    resizable
+                    path="Details.EnvironmentOwner"
+                    header="Owner"
+                    ?hidden="${this._narrowScreen}"
+                  ></vaadin-grid-sort-column>
+                  <vaadin-grid-sort-column
+                    resizable
+                    path="Details.Description"
+                    header="Description"
+                    ?hidden="${this._narrowScreen}"
+                  ></vaadin-grid-sort-column>
+                  <vaadin-grid-sort-column
+                    resizable
+                    path="EnvironmentSecure"
+                    header="Secure"
+                    ${columnBodyRenderer(this._envSecureRenderer, [])}
+                    ?hidden="${this._narrowScreen}"
+                  ></vaadin-grid-sort-column>
+                  <vaadin-grid-sort-column
+                    resizable
+                    path="EnvironmentIsProd"
+                    header="Prod"
+                    ${columnBodyRenderer(this._envIsProdRenderer, [])}
+                    ?hidden="${this._narrowScreen}"
+                  ></vaadin-grid-sort-column>
+                  <vaadin-grid-sort-column
+                    resizable
+                    path="Details.FileShare"
+                    header="File Share"
+                    ?hidden="${this._narrowScreen}"
+                  ></vaadin-grid-sort-column>
+                  <vaadin-grid-sort-column
+                    resizable
+                    path="Details.Notes"
+                    header="Notes"
+                    ?hidden="${this._narrowScreen}"
+                  ></vaadin-grid-sort-column>
+                  <vaadin-grid-column
+                    ${columnBodyRenderer(this._envDetailsButtonsRenderer, [
+                      this.isAdmin,
+                      this.isPowerUser
+                    ])}
+                  ></vaadin-grid-column>
+                </vaadin-grid>
+              `
+        }
       </div>
     `;
   }
@@ -306,15 +310,13 @@ export class PageEnvironmentsList extends ResponsiveMixin(PageElement) {
     ></vaadin-checkbox>`;
   }
 
-  _envDetailsButtonsRenderer = (
-    item: EnvironmentApiModel
-  ) => {
+  _envDetailsButtonsRenderer = (item: EnvironmentApiModel) => {
     const envDetails = item as EnvironmentApiModel;
     return html` <env-controls
-        .envDetails="${envDetails}"
-        .isAdmin="${this.isAdmin}"
-        .isPowerUser="${this.isPowerUser}"
-      ></env-controls>`;
+      .envDetails="${envDetails}"
+      .isAdmin="${this.isAdmin}"
+      .isPowerUser="${this.isPowerUser}"
+    ></env-controls>`;
   };
 
   private renderAddEnvironment = () => html`

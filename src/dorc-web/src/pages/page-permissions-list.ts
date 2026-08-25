@@ -26,9 +26,13 @@ import { RefDataPermissionApi } from '../apis/dorc-api';
 import { Notification } from '@vaadin/notification';
 import { retrieveErrorMessage } from '../helpers/errorMessage-retriever.js';
 import '@vaadin/grid/vaadin-grid-column';
+import '@vaadin/tooltip';
+import { UnsavedChangesGuard } from '../components/unsaved-changes-guard';
 
 @customElement('page-permissions-list')
 export class PagePermissionsList extends ResponsiveMixin(PageElement) {
+  private readonly unsavedChanges = new UnsavedChangesGuard();
+
   @state() addPermissionDialogOpened = false;
 
   @state() editPermissionDialogOpened = false;
@@ -114,6 +118,7 @@ export class PagePermissionsList extends ResponsiveMixin(PageElement) {
         </vaadin-button>
       </div>
       <vaadin-dialog
+        ${ref(this.unsavedChanges.attach)}
         id="add-permission-dialog"
         header-title="Add SQL Role"
         draggable
@@ -125,6 +130,7 @@ export class PagePermissionsList extends ResponsiveMixin(PageElement) {
         ${dialogFooterRenderer(this.renderAddPermissionFooter, [])}
       ></vaadin-dialog>
       <vaadin-dialog
+        ${ref(this.unsavedChanges.attach)}
         id="edit-permission-dialog"
         header-title="Edit SQL Role"
         draggable
@@ -135,43 +141,43 @@ export class PagePermissionsList extends ResponsiveMixin(PageElement) {
         ${dialogRenderer(this.renderEditPermission, [this.editingPermission])}
         ${dialogFooterRenderer(this.renderEditPermissionFooter, [])}
       ></vaadin-dialog>
-      ${this.loading
-        ? html`
-            <dorc-spinner></dorc-spinner>
-          `
-        : html`
-            <vaadin-grid
-              id="grid"
-              .items=${this.filteredPermissions}
-              column-reordering-allowed
-              multi-sort
-              theme="compact row-stripes no-row-borders no-border"
-            >
-              <vaadin-grid-sort-column
-                path="DisplayName"
-                header="Display Name"
-              ></vaadin-grid-sort-column>
-              <vaadin-grid-sort-column
-                path="PermissionName"
-                header="Permission Name"
-                ?hidden="${this._narrowScreen}"
-              ></vaadin-grid-sort-column>
-              <vaadin-grid-column
-                header="Actions"
-                ${columnBodyRenderer(this.permissionActionsRenderer, [])}
-              ></vaadin-grid-column>
-            </vaadin-grid>
-          `} `;
+      ${
+        this.loading
+          ? html` <dorc-spinner></dorc-spinner> `
+          : html`
+              <vaadin-grid
+                id="grid"
+                .items=${this.filteredPermissions}
+                column-reordering-allowed
+                multi-sort
+                theme="compact row-stripes no-row-borders no-border"
+              >
+                <vaadin-grid-sort-column
+                  path="DisplayName"
+                  header="Display Name"
+                ></vaadin-grid-sort-column>
+                <vaadin-grid-sort-column
+                  path="PermissionName"
+                  header="Permission Name"
+                  ?hidden="${this._narrowScreen}"
+                ></vaadin-grid-sort-column>
+                <vaadin-grid-column
+                  header="Actions"
+                  ${columnBodyRenderer(this.permissionActionsRenderer, [])}
+                ></vaadin-grid-column>
+              </vaadin-grid>
+            `
+      } `;
   }
 
   private permissionActionsRenderer = (permission: PermissionDto) => html`
     <vaadin-button
       theme="icon"
-      title="Edit Permission"
       aria-label="Edit Permission"
       style="margin-right: 5px;"
       @click="${() => this.editPermission(permission)}"
     >
+      <vaadin-tooltip slot="tooltip" text="Edit Permission"></vaadin-tooltip>
       <vaadin-icon
         icon="lumo:edit"
         style="color: var(--dorc-link-color);"
@@ -179,10 +185,10 @@ export class PagePermissionsList extends ResponsiveMixin(PageElement) {
     </vaadin-button>
     <vaadin-button
       theme="icon"
-      title="Delete Permission"
       aria-label="Delete Permission"
       @click="${() => this.deletePermission(permission)}"
     >
+      <vaadin-tooltip slot="tooltip" text="Delete Permission"></vaadin-tooltip>
       <vaadin-icon
         icon="icons:delete"
         style="color: var(--dorc-error-color);"
@@ -213,7 +219,7 @@ export class PagePermissionsList extends ResponsiveMixin(PageElement) {
       'permission-created',
       this.permissionCreated as EventListener
     );
-    
+
     this.addEventListener(
       'permission-updated',
       this.permissionUpdated as EventListener
@@ -239,9 +245,11 @@ export class PagePermissionsList extends ResponsiveMixin(PageElement) {
       ? html`<edit-permission
           ${ref(el => {
             if (el && this.editingPermission) {
-              (el as unknown as {
-                setPermission(p: PermissionDto): void;
-              }).setPermission(this.editingPermission);
+              (
+                el as unknown as {
+                  setPermission(p: PermissionDto): void;
+                }
+              ).setPermission(this.editingPermission);
             }
           })}
         ></edit-permission>`
@@ -272,17 +280,20 @@ export class PagePermissionsList extends ResponsiveMixin(PageElement) {
     const confirmDelete = await confirmPrompt(
       `Are you sure you want to delete the role "${permission.DisplayName}"?`
     );
-    
+
     if (confirmDelete && permission.Id) {
       const api = new RefDataPermissionApi();
       api.refDataPermissionDelete({ id: permission.Id }).subscribe({
         next: () => {
           this.getPermissionsList();
-          Notification.show(`Permission "${permission.DisplayName}" deleted successfully`, {
-            theme: 'success',
-            position: 'bottom-start',
-            duration: 3000
-          });
+          Notification.show(
+            `Permission "${permission.DisplayName}" deleted successfully`,
+            {
+              theme: 'success',
+              position: 'bottom-start',
+              duration: 3000
+            }
+          );
         },
         error: (err: any) => {
           const errMessage = retrieveErrorMessage(err);

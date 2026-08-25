@@ -46,7 +46,10 @@ export class ComponentDeploymentResults extends ResponsiveMixin(LitElement) {
       this.logDialogClosed as EventListener
     );
 
-    this.addEventListener('open-terraform-plan', this.viewTerraformPlan as EventListener);
+    this.addEventListener(
+      'open-terraform-plan',
+      this.viewTerraformPlan as EventListener
+    );
 
     this.addEventListener(
       'terraform-plan-confirmed',
@@ -66,6 +69,12 @@ export class ComponentDeploymentResults extends ResponsiveMixin(LitElement) {
 
   static get styles() {
     return css`
+      :host {
+        display: block;
+        min-width: 0;
+        overflow-x: auto;
+      }
+
       vaadin-grid#grid {
         overflow: auto;
         width: calc(100% - 4px);
@@ -193,78 +202,82 @@ export class ComponentDeploymentResults extends ResponsiveMixin(LitElement) {
     `;
   }
 
-  componentNameRenderer(    item: DeploymentResultApiModel){
-
+  componentNameRenderer(item: DeploymentResultApiModel) {
     const result = item as DeploymentResultApiModel;
-    return html` <a href="scripts?search-name=${result.ComponentName}" target="_blank">${result.ComponentName}</a> `;
+    return html`
+      <a href="scripts?search-name=${result.ComponentName}" target="_blank"
+        >${result.ComponentName}</a
+      >
+    `;
   }
 
-  _logRenderer(
-    item: DeploymentResultApiModel
-  ) {
+  _logRenderer(item: DeploymentResultApiModel) {
     const result = item as DeploymentResultApiModel;
     const first100chars = result.Log?.substring(0, 100);
 
     const lines = first100chars?.split(/\r?\n/);
     return html` <table>
-        <tr>
-          <td>
-            <vaadin-button
-              theme="small"
-              style="width: 36px; min-width: 36px; padding: 0"
-              @click="${() =>
-                this.dispatchEvent(
-                  new CustomEvent('open-result-log', {
-                    detail: {
-                      result
-                    },
-                    bubbles: true,
-                    composed: true
-                  })
-                )}"
-            >
-              <vaadin-icon
-                icon="vaadin:file-text-o"
-                style="color: var(--dorc-link-color)"
-              ></vaadin-icon>
-            </vaadin-button>
-          </td>
-          <td>
-            <div style="font-family: monospace">
-              ${lines?.map(
-                element =>
-                  html`<div
-                    style="font-size: var(--lumo-font-size-xs); color: var(--lumo-secondary-text-color);"
-                  >
-                    ${element}
-                  </div>`
-              )}
-            </div>
-          </td>
-        </tr>
-      </table>`;
+      <tr>
+        <td>
+          <vaadin-button
+            theme="small"
+            style="width: 36px; min-width: 36px; padding: 0"
+            @click="${() =>
+              this.dispatchEvent(
+                new CustomEvent('open-result-log', {
+                  detail: {
+                    result
+                  },
+                  bubbles: true,
+                  composed: true
+                })
+              )}"
+          >
+            <vaadin-icon
+              icon="vaadin:file-text-o"
+              style="color: var(--dorc-link-color)"
+            ></vaadin-icon>
+          </vaadin-button>
+        </td>
+        <td>
+          <div style="font-family: monospace">
+            ${lines?.map(
+              element =>
+                html`<div
+                  style="font-size: var(--lumo-font-size-xs); color: var(--lumo-secondary-text-color);"
+                >
+                  ${element}
+                </div>`
+            )}
+          </div>
+        </td>
+      </tr>
+    </table>`;
   }
 
   private async viewLog(e: Event) {
     const customEvent = e as CustomEvent;
     const result = customEvent.detail.result as DeploymentResultApiModel;
-    
+
     // Show dialog immediately with loading state
     this.isLoadingLog = true;
     this.selectedLog = '';
     this.dialogOpened = true;
-    
+
     if (result.RequestId) {
       try {
         const api = new ResultStatusesApi();
-        const logObservable = api.resultStatusesLogGet({ requestId: result.RequestId, resultId: result.Id });
-        
+        const logObservable = api.resultStatusesLogGet({
+          requestId: result.RequestId,
+          resultId: result.Id
+        });
+
         logObservable.subscribe({
           next: (fullLog: string) => {
             this.selectedLog = fullLog;
             this.isLoadingLog = false;
           },
-          error: (error) => {
+          error: error => {
             console.error('Failed to fetch log:', error);
             // Fallback to the existing log if API call fails
             this.selectedLog = result.Log ?? 'Failed to load full log';
@@ -289,9 +302,7 @@ export class ComponentDeploymentResults extends ResponsiveMixin(LitElement) {
     this.isLoadingLog = false;
   }
 
-  private timingsRenderer = (
-    item: DeploymentResultApiModel
-  ) => {
+  private timingsRenderer = (item: DeploymentResultApiModel) => {
     const request = item as DeploymentResultApiModel;
     let sTime = '';
     let sDate = '';
@@ -321,31 +332,27 @@ export class ComponentDeploymentResults extends ResponsiveMixin(LitElement) {
     }
 
     return html`
-        <vaadin-horizontal-layout style="align-items: center;" theme="spacing">
-          <vaadin-vertical-layout
-            style="line-height: var(--lumo-line-height-s);"
+      <vaadin-horizontal-layout style="align-items: center;" theme="spacing">
+        <vaadin-vertical-layout style="line-height: var(--lumo-line-height-s);">
+          <div
+            style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
           >
-            <div
-              style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
-            >
-              ${`${sDate} ${sTime}`}
-            </div>
-            <div
-              style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
-            >
-              ${`${cDate} ${cTime}`}
-            </div>
-          </vaadin-vertical-layout>
-        </vaadin-horizontal-layout>
-      `;
+            ${`${sDate} ${sTime}`}
+          </div>
+          <div
+            style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
+          >
+            ${`${cDate} ${cTime}`}
+          </div>
+        </vaadin-vertical-layout>
+      </vaadin-horizontal-layout>
+    `;
   };
 
-  statusRenderer = (
-    item: DeploymentResultApiModel
-  ) => {
+  statusRenderer = (item: DeploymentResultApiModel) => {
     const result = item as DeploymentResultApiModel;
     const status = result.Status || '';
-    
+
     let statusClass = '';
     if (status === 'WaitingConfirmation') {
       statusClass = 'status-waiting-confirmation';
@@ -357,37 +364,30 @@ export class ComponentDeploymentResults extends ResponsiveMixin(LitElement) {
       statusClass = 'status-failed';
     }
 
-    return html`
-        <span class="status-badge ${statusClass}">
-          ${status}
-        </span>
-      `;
+    return html` <span class="status-badge ${statusClass}"> ${status} </span> `;
   };
 
-  actionsRenderer = (
-    item: DeploymentResultApiModel
-  ) => {
+  actionsRenderer = (item: DeploymentResultApiModel) => {
     const result = item as DeploymentResultApiModel;
     const status = result.Status || '';
-    const isTerraformStatus = status === 'WaitingConfirmation' || status === 'Confirmed';
+    const isTerraformStatus =
+      status === 'WaitingConfirmation' || status === 'Confirmed';
 
     if (!isTerraformStatus) {
       return html`<span>-</span>`;
     }
 
     return html`
-        <div class="terraform-actions">
-          <vaadin-button
-            class="terraform-button"
-            @click="${() => this.openTerraformPlan(result.Id!)}"
-            title="View Terraform Plan"
-          >
-            <vaadin-icon
-            icon="vaadin:file-text"
-            ></vaadin-icon>
-          </vaadin-button>
-        </div>
-      `;
+      <div class="terraform-actions">
+        <vaadin-button
+          class="terraform-button"
+          @click="${() => this.openTerraformPlan(result.Id!)}"
+          title="View Terraform Plan"
+        >
+          <vaadin-icon icon="vaadin:file-text"></vaadin-icon>
+        </vaadin-button>
+      </div>
+    `;
   };
 
   private viewTerraformPlan(e: CustomEvent) {
@@ -414,10 +414,12 @@ export class ComponentDeploymentResults extends ResponsiveMixin(LitElement) {
 
   private onTerraformPlanConfirmed(e: CustomEvent) {
     const deploymentResultId = e.detail.deploymentResultId as number;
-    
+
     // Update the status of the corresponding item in the grid
     if (this.resultItems) {
-      const item = this.resultItems.find(item => item.Id === deploymentResultId);
+      const item = this.resultItems.find(
+        item => item.Id === deploymentResultId
+      );
       if (item) {
         item.Status = 'Confirmed';
         this.requestUpdate(); // Force re-render of the grid
@@ -425,22 +427,26 @@ export class ComponentDeploymentResults extends ResponsiveMixin(LitElement) {
     }
 
     // Dispatch event to notify parent components
-    this.dispatchEvent(new CustomEvent('deployment-status-changed', {
-      detail: { 
-        deploymentResultId,
-        newStatus: 'Confirmed'
-      },
-      bubbles: true,
-      composed: true
-    }));
+    this.dispatchEvent(
+      new CustomEvent('deployment-status-changed', {
+        detail: {
+          deploymentResultId,
+          newStatus: 'Confirmed'
+        },
+        bubbles: true,
+        composed: true
+      })
+    );
   }
 
   private onTerraformPlanDeclined(e: CustomEvent) {
     const deploymentResultId = e.detail.deploymentResultId as number;
-    
+
     // Update the status of the corresponding item in the grid
     if (this.resultItems) {
-      const item = this.resultItems.find(item => item.Id === deploymentResultId);
+      const item = this.resultItems.find(
+        item => item.Id === deploymentResultId
+      );
       if (item) {
         item.Status = 'Cancelled';
         this.requestUpdate(); // Force re-render of the grid
@@ -448,13 +454,15 @@ export class ComponentDeploymentResults extends ResponsiveMixin(LitElement) {
     }
 
     // Dispatch event to notify parent components
-    this.dispatchEvent(new CustomEvent('deployment-status-changed', {
-      detail: { 
-        deploymentResultId,
-        newStatus: 'Cancelled'
-      },
-      bubbles: true,
-      composed: true
-    }));
+    this.dispatchEvent(
+      new CustomEvent('deployment-status-changed', {
+        detail: {
+          deploymentResultId,
+          newStatus: 'Cancelled'
+        },
+        bubbles: true,
+        composed: true
+      })
+    );
   }
 }

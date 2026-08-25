@@ -18,7 +18,7 @@ export enum EnvPageTabNames {
   Deployments = 'deployments',
   Tenants = 'tenants',
   Monitor = 'monitor',
-  Users = 'users',
+  Users = 'users'
 }
 
 @customElement('page-environment')
@@ -29,9 +29,9 @@ export class PageEnvironment extends PageElement {
   private tabId = -1;
   private tabNames = Object.values(EnvPageTabNames);
 
-  @property({ type: Boolean }) private loading = true;
+  @property({ type: Boolean }) loading = true;
 
-  @property({ type: Boolean }) private notFound = false;
+  @property({ type: Boolean }) notFound = false;
 
   static get styles() {
     return css`
@@ -73,13 +73,15 @@ export class PageEnvironment extends PageElement {
             <h2 style="text-align: center;">${this.environmentName}</h2>
           </td>
           <td>
-            ${this.parentName
-              ? html`<vaadin-icon
-                  icon="vaadin:child"
-                  title="Child of ${this.parentName}"
-                  style="color: grey"
-                ></vaadin-icon>`
-              : html``}
+            ${
+              this.parentName
+                ? html`<vaadin-icon
+                    icon="vaadin:child"
+                    title="Child of ${this.parentName}"
+                    style="color: grey"
+                  ></vaadin-icon>`
+                : html``
+            }
           </td>
           <td>
             ${this.loading ? html` <div class="small-loader"></div> ` : html``}
@@ -178,10 +180,7 @@ export class PageEnvironment extends PageElement {
 
   convertUriToHuman(tabName: EnvPageTabNames): TemplateResult {
     if (this.environmentName?.toLowerCase().indexOf('endur') === -1) {
-      if (
-        tabName === EnvPageTabNames.Users
-      )
-        return html``;
+      if (tabName === EnvPageTabNames.Users) return html``;
     }
 
     let newTabName: string;

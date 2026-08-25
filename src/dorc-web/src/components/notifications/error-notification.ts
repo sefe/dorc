@@ -22,7 +22,7 @@ export class ErrorNotification extends LitElement {
   private notificationOpened = false;
 
   @property({ type: String })
-  private errorMessage = '';
+  errorMessage = '';
 
   static get styles() {
     return css``;

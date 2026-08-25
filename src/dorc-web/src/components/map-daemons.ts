@@ -13,6 +13,7 @@ import { Notification } from '@vaadin/notification';
 import type { DaemonApiModel, ServerApiModel } from '../apis/dorc-api';
 import { RefDataDaemonsApi } from '../apis/dorc-api';
 import { ServerDaemonsApi } from '../apis/dorc-api/apis/ServerDaemonsApi';
+import '@vaadin/tooltip';
 
 @customElement('map-daemons')
 export class ServerDaemonMapping extends LitElement {
@@ -144,26 +145,24 @@ export class ServerDaemonMapping extends LitElement {
     `;
   }
 
-  private _detachRenderer(
-    item: DaemonApiModel
-  ) {
+  private _detachRenderer(item: DaemonApiModel) {
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore
     const daemon = item as DaemonApiModel;
     return html`
-        <vaadin-button
-          title="Unmap daemon"
-          aria-label="Unmap daemon"
-          theme="icon"
-          ?disabled="${this.readonly}"
-          @click="${() => this.detachDaemon(daemon)}"
-        >
-          <vaadin-icon
-            icon="vaadin:unlink"
-            style="color: ${this.readonly ? 'grey' : '#FF3131'}"
-          ></vaadin-icon>
-        </vaadin-button>
-      `;
+      <vaadin-button
+        aria-label="Unmap daemon"
+        theme="icon"
+        ?disabled="${this.readonly}"
+        @click="${() => this.detachDaemon(daemon)}"
+      >
+        <vaadin-tooltip slot="tooltip" text="Unmap daemon"></vaadin-tooltip>
+        <vaadin-icon
+          icon="vaadin:unlink"
+          style="color: ${this.readonly ? 'grey' : '#FF3131'}"
+        ></vaadin-icon>
+      </vaadin-button>
+    `;
   }
 
   private onDaemonSelected(e: CustomEvent) {

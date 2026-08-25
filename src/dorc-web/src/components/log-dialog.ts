@@ -22,7 +22,7 @@ export class LogDialog extends LitElement {
   isLoading = false;
 
   private editor: ace.Ace.Editor | undefined;
-  private readonly viewerHeight = 'calc(85dvh - 90px)';
+  private readonly viewerHeight = 'calc(85dvh - 170px)';
 
   static get styles() {
     return css`
@@ -101,20 +101,22 @@ export class LogDialog extends LitElement {
         icon="vaadin:close-small"
       ></vaadin-icon>
     </vaadin-button>
-    ${this.isLoading
-      ? html`
-          <div class="loading-container">
-            <div class="spinner"></div>
-            <div class="loading-text">Loading log...</div>
-          </div>
-        `
-      : html`
-          <div
-            id="logViewer"
-            style="width: 100%; height: ${this.viewerHeight};"
-            ${ref(this.attachEditor)}
-          ></div>
-        `}
+    ${
+      this.isLoading
+        ? html`
+            <div class="loading-container">
+              <div class="spinner"></div>
+              <div class="loading-text">Loading log...</div>
+            </div>
+          `
+        : html`
+            <div
+              id="logViewer"
+              style="width: 100%; height: ${this.viewerHeight};"
+              ${ref(this.attachEditor)}
+            ></div>
+          `
+    }
   `;
 
   /**
@@ -144,7 +146,9 @@ export class LogDialog extends LitElement {
       enableBasicAutocompletion: false,
       enableLiveAutocompletion: false,
       placeholder: '',
-      enableSnippets: false
+      enableSnippets: false,
+      hScrollBarAlwaysVisible: true,
+      wrap: false
     });
 
     this.showLog();
@@ -172,30 +176,30 @@ export class LogDialog extends LitElement {
   }
 
   private highlightWarningsLogs() {
-    const lines = this.editor?.getValue().split("\n");
+    const lines = this.editor?.getValue().split('\n');
     const session = this.editor?.getSession();
     const annotations: ace.Ace.Annotation[] = [];
 
     lines?.forEach((line, index) => {
-        if (line.toLowerCase().includes("error")) {
-            annotations.push({
-                row: index,
-                column: 0,
-                text: "Error log detected",
-                type: "error",
-            });
-        } else if (line.toLowerCase().includes("warn")) {
-            annotations.push({
-                row: index,
-                column: 0,
-                text: "Warning log detected",
-                type: "warning", 
-            });
-        }
+      if (line.toLowerCase().includes('error')) {
+        annotations.push({
+          row: index,
+          column: 0,
+          text: 'Error log detected',
+          type: 'error'
+        });
+      } else if (line.toLowerCase().includes('warn')) {
+        annotations.push({
+          row: index,
+          column: 0,
+          text: 'Warning log detected',
+          type: 'warning'
+        });
+      }
     });
 
     session?.setAnnotations(annotations);
-}
+  }
 
   private close() {
     this.isOpened = false;

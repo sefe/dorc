@@ -8,9 +8,14 @@ import { css, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { Notification } from '@vaadin/notification';
-import { ApiBoolResult, EnvironmentApiModel, RefDataEnvironmentsDetailsApi } from '../apis/dorc-api';
+import {
+  ApiBoolResult,
+  EnvironmentApiModel,
+  RefDataEnvironmentsDetailsApi
+} from '../apis/dorc-api';
 import { styleMap } from 'lit/directives/style-map.js';
 import { EnvPageTabNames } from '../pages/page-environment';
+import '@vaadin/tooltip';
 
 @customElement('attached-env-tenants')
 export class AttachedEnvTenants extends LitElement {
@@ -62,29 +67,32 @@ export class AttachedEnvTenants extends LitElement {
     };
 
     return html`
-        <vaadin-button
-          title="Open Environment Details for ${environment?.EnvironmentName}"
-          aria-label="Open Environment Details for ${environment?.EnvironmentName}"
-          theme="icon"
-          @click="${() => this.openEnvironmentDetails(environment)}"
-        >
-          <vaadin-icon
-            icon="hardware:developer-board"
-            style="color: var(--dorc-link-color)"
-          ></vaadin-icon>
-        </vaadin-button>
-        <vaadin-button
-          title="Detach tenant"
-          aria-label="Detach tenant"
-          theme="icon"
-          @click="${() => this.detachTenant(environment?.EnvironmentId)}"
-          ?disabled="${this.readonly}"
-        >
-          <vaadin-icon
-            icon="vaadin:unlink"
-            style=${styleMap(unlinkStyles)}
-          ></vaadin-icon>
-        </vaadin-button>
+      <vaadin-button
+        aria-label="Open Environment Details for ${environment?.EnvironmentName}"
+        theme="icon"
+        @click="${() => this.openEnvironmentDetails(environment)}"
+      >
+        <vaadin-tooltip
+          slot="tooltip"
+          text="Open Environment Details for ${environment?.EnvironmentName}"
+        ></vaadin-tooltip>
+        <vaadin-icon
+          icon="hardware:developer-board"
+          style="color: var(--dorc-link-color)"
+        ></vaadin-icon>
+      </vaadin-button>
+      <vaadin-button
+        aria-label="Detach tenant"
+        theme="icon"
+        @click="${() => this.detachTenant(environment?.EnvironmentId)}"
+        ?disabled="${this.readonly}"
+      >
+        <vaadin-tooltip slot="tooltip" text="Detach tenant"></vaadin-tooltip>
+        <vaadin-icon
+          icon="vaadin:unlink"
+          style=${styleMap(unlinkStyles)}
+        ></vaadin-icon>
+      </vaadin-button>
     `;
   };
 
@@ -92,26 +100,33 @@ export class AttachedEnvTenants extends LitElement {
     const answer = await confirmPrompt('Detach tenant?');
     if (answer && envId) {
       const api = new RefDataEnvironmentsDetailsApi();
-      api.refDataEnvironmentsDetailsSetParentForEnvironmentPut({
-        childEnvId: envId,
-        parentEnvId: undefined
-      })
+      api
+        .refDataEnvironmentsDetailsSetParentForEnvironmentPut({
+          childEnvId: envId,
+          parentEnvId: undefined
+        })
         .subscribe({
           next: (data: ApiBoolResult) => {
             if (data.Result) {
-              this.dispatchEvent(new CustomEvent('request-environment-update', {
-                bubbles: true,
-                composed: true
-              }));
+              this.dispatchEvent(
+                new CustomEvent('request-environment-update', {
+                  bubbles: true,
+                  composed: true
+                })
+              );
 
-              Notification.show(`Tenant environment with ID ${envId} has beed detached.`, {
-                theme: 'success',
-                position: 'bottom-start',
-                duration: 3000
-              });
-            }
-            else {
-              this.onError(`Detach environment with ID ${envId} from parent has failed: ${data.Message}`);
+              Notification.show(
+                `Tenant environment with ID ${envId} has beed detached.`,
+                {
+                  theme: 'success',
+                  position: 'bottom-start',
+                  duration: 3000
+                }
+              );
+            } else {
+              this.onError(
+                `Detach environment with ID ${envId} from parent has failed: ${data.Message}`
+              );
             }
           },
           error: (err: string) => {

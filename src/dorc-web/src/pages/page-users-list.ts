@@ -17,9 +17,13 @@ import { Configuration, UserApiModel } from '../apis/dorc-api';
 import { RefDataUsersApi } from '../apis/dorc-api';
 import { PageElement } from '../helpers/page-element';
 import '../icons/hardware-icons.js';
+import { ref } from 'lit/directives/ref.js';
+import { UnsavedChangesGuard } from '../components/unsaved-changes-guard';
 
 @customElement('page-users-list')
 export class PageUsersList extends PageElement {
+  private readonly unsavedChanges = new UnsavedChangesGuard();
+
   @property({ type: Array }) users: Array<UserApiModel> = [];
   @property({ type: Array }) filteredUsers: Array<UserApiModel> = [];
   @property({ type: Array }) appConfig = [];
@@ -91,6 +95,7 @@ export class PageUsersList extends PageElement {
         </vaadin-button>
       </div>
       <vaadin-dialog
+        ${ref(this.unsavedChanges.attach)}
         id="add-user-dialog"
         header-title="Add User or Group"
         draggable
@@ -103,34 +108,34 @@ export class PageUsersList extends PageElement {
         ])}
         ${dialogFooterRenderer(this.renderAddUserFooter, [])}
       ></vaadin-dialog>
-      ${this.loading
-        ? html`
-            <dorc-spinner></dorc-spinner>
-          `
-        : html`
-            <vaadin-grid
-              id="grid"
-              .items=${this.filteredUsers}
-              column-reordering-allowed
-              multi-sort
-              theme="compact row-stripes no-row-borders no-border"
-            >
-              <vaadin-grid-column
-                ${columnBodyRenderer(this.renderLoginType, [])}
-                width="50px"
-                flex-grow="0"
-              ></vaadin-grid-column>
-              <vaadin-grid-sort-column
-                path="DisplayName"
-                header="Display Name"
-                style="color:lightgray"
-              ></vaadin-grid-sort-column>
-              <vaadin-grid-sort-column
-                path="LanId"
-                header="System Id"
-              ></vaadin-grid-sort-column>
-            </vaadin-grid>
-          `} `;
+      ${
+        this.loading
+          ? html` <dorc-spinner></dorc-spinner> `
+          : html`
+              <vaadin-grid
+                id="grid"
+                .items=${this.filteredUsers}
+                column-reordering-allowed
+                multi-sort
+                theme="compact row-stripes no-row-borders no-border"
+              >
+                <vaadin-grid-column
+                  ${columnBodyRenderer(this.renderLoginType, [])}
+                  width="50px"
+                  flex-grow="0"
+                ></vaadin-grid-column>
+                <vaadin-grid-sort-column
+                  path="DisplayName"
+                  header="Display Name"
+                  style="color:lightgray"
+                ></vaadin-grid-sort-column>
+                <vaadin-grid-sort-column
+                  path="LanId"
+                  header="System Id"
+                ></vaadin-grid-sort-column>
+              </vaadin-grid>
+            `
+      } `;
   }
 
   protected firstUpdated(_changedProperties: PropertyValues) {
@@ -157,21 +162,21 @@ export class PageUsersList extends PageElement {
   renderLoginType(user: UserApiModel) {
     if (user.LoginType?.toLowerCase() === 'windows') {
       return html`<vaadin-icon
-          icon="hardware:desktop-windows"
-          style="color: var(--dorc-link-color)"
-        ></vaadin-icon>`;
+        icon="hardware:desktop-windows"
+        style="color: var(--dorc-link-color)"
+      ></vaadin-icon>`;
     }
     if (user.LoginType?.toLowerCase() === 'endur') {
       return html`<vaadin-icon
-          icon="vaadin:chart-grid"
-          style="color: var(--dorc-link-color)"
-        ></vaadin-icon>`;
+        icon="vaadin:chart-grid"
+        style="color: var(--dorc-link-color)"
+      ></vaadin-icon>`;
     }
     if (user.LoginType?.toLowerCase() === 'sql') {
       return html`<vaadin-icon
-          icon="vaadin:database"
-          style="color: var(--dorc-link-color)"
-        ></vaadin-icon>`;
+        icon="vaadin:database"
+        style="color: var(--dorc-link-color)"
+      ></vaadin-icon>`;
     }
     // Any other login type shows nothing, as it did when the imperative
     // renderer fell through without calling render().
@@ -208,8 +213,7 @@ export class PageUsersList extends PageElement {
       : nothing;
 
   private renderAddUserFooter = () => html`
-    <vaadin-button
-      @click="${() => (this.isAddUserOrGroupDialogOpened = false)}"
+    <vaadin-button @click="${() => (this.isAddUserOrGroupDialogOpened = false)}"
       >Close</vaadin-button
     >
   `;

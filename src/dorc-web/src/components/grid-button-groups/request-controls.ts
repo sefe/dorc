@@ -11,6 +11,7 @@ import { RequestApi } from '../../apis/dorc-api';
 import { ajax } from 'rxjs/ajax';
 import { appConfig } from '../../app-config';
 import { oauthServiceContainer } from '../../services/Account/OAuthService';
+import '@vaadin/tooltip';
 
 @customElement('request-controls')
 export class RequestControls extends LitElement {
@@ -66,28 +67,39 @@ export class RequestControls extends LitElement {
 
   render() {
     const cancelStyles = {
-      color: this.cancelable ? 'var(--dorc-error-color)' : 'var(--dorc-text-secondary)'
+      color: this.cancelable
+        ? 'var(--dorc-error-color)'
+        : 'var(--dorc-text-secondary)'
     };
     const restartStyles = {
-      color: this.canRestart ? 'var(--dorc-link-color)' : 'var(--dorc-text-secondary)'
+      color: this.canRestart
+        ? 'var(--dorc-link-color)'
+        : 'var(--dorc-text-secondary)'
     };
     const pauseStyles = {
-      color: this.canPause ? 'var(--dorc-badge-text)' : 'var(--dorc-text-secondary)'
+      color: this.canPause
+        ? 'var(--dorc-badge-text)'
+        : 'var(--dorc-text-secondary)'
     };
     const resumeStyles = {
-      color: this.canResume ? 'var(--dorc-success-text)' : 'var(--dorc-text-secondary)'
+      color: this.canResume
+        ? 'var(--dorc-success-text)'
+        : 'var(--dorc-text-secondary)'
     };
     return html`
       <table style="height: 36px">
         <tr>
           <td class="table-button">
             <vaadin-button
-              title="Cancel Request"
               aria-label="Cancel Request"
               theme="icon small"
               @click="${this.cancel}"
               ?disabled="${!this.cancelable}"
             >
+              <vaadin-tooltip
+                slot="tooltip"
+                text="Cancel Request"
+              ></vaadin-tooltip>
               <vaadin-icon
                 icon="av:stop"
                 style=${styleMap(cancelStyles)}
@@ -96,50 +108,61 @@ export class RequestControls extends LitElement {
           </td>
           <td class="table-button">
             <vaadin-button
-              title="Restart Request"
               aria-label="Restart Request"
               theme="icon small"
               @click="${this.restart}"
               ?disabled="${!this.canRestart}"
             >
+              <vaadin-tooltip
+                slot="tooltip"
+                text="Restart Request"
+              ></vaadin-tooltip>
               <vaadin-icon
                 icon="av:repeat"
                 style=${styleMap(restartStyles)}
               ></vaadin-icon>
             </vaadin-button>
           </td>
-          ${appConfig.pauseDeploymentEnabled
-            ? html`
-          <td class="table-button">
-            <vaadin-button
-              title="Pause Request"
-              aria-label="Pause Request"
-              theme="icon small"
-              @click="${this.pause}"
-              ?disabled="${!this.canPause}"
-            >
-              <vaadin-icon
-                icon="av:pause"
-                style=${styleMap(pauseStyles)}
-              ></vaadin-icon>
-            </vaadin-button>
-          </td>
-          <td class="table-button">
-            <vaadin-button
-              title="Resume Request"
-              aria-label="Resume Request"
-              theme="icon small"
-              @click="${this.resume}"
-              ?disabled="${!this.canResume}"
-            >
-              <vaadin-icon
-                icon="av:play-arrow"
-                style=${styleMap(resumeStyles)}
-              ></vaadin-icon>
-            </vaadin-button>
-          </td>
-            `
-            : html``}
+          ${
+            appConfig.pauseDeploymentEnabled
+              ? html`
+                  <td class="table-button">
+                    <vaadin-button
+                      aria-label="Pause Request"
+                      theme="icon small"
+                      @click="${this.pause}"
+                      ?disabled="${!this.canPause}"
+                    >
+                      <vaadin-tooltip
+                        slot="tooltip"
+                        text="Pause Request"
+                      ></vaadin-tooltip>
+                      <vaadin-icon
+                        icon="av:pause"
+                        style=${styleMap(pauseStyles)}
+                      ></vaadin-icon>
+                    </vaadin-button>
+                  </td>
+                  <td class="table-button">
+                    <vaadin-button
+                      aria-label="Resume Request"
+                      theme="icon small"
+                      @click="${this.resume}"
+                      ?disabled="${!this.canResume}"
+                    >
+                      <vaadin-tooltip
+                        slot="tooltip"
+                        text="Resume Request"
+                      ></vaadin-tooltip>
+                      <vaadin-icon
+                        icon="av:play-arrow"
+                        style=${styleMap(resumeStyles)}
+                      ></vaadin-icon>
+                    </vaadin-button>
+                  </td>
+                `
+              : html``
+          }
         </tr>
       </table>
     `;
@@ -151,7 +174,7 @@ export class RequestControls extends LitElement {
     // next row's by the time the user answers.
     const requestId = this.requestId;
     const answer = await confirmPrompt(
-      `Are you sure you want to restart the job with ID ${requestId} ?`
+      `Are you sure you want to restart the job with ID ${requestId}?`
     );
 
     if (answer) {
@@ -176,7 +199,7 @@ export class RequestControls extends LitElement {
     // next row's by the time the user answers.
     const requestId = this.requestId;
     const answer = await confirmPrompt(
-      `Are you sure you want to cancel the job with ID ${requestId} ?`
+      `Are you sure you want to cancel the job with ID ${requestId}?`
     );
 
     if (answer) {
@@ -201,14 +224,15 @@ export class RequestControls extends LitElement {
     // next row's by the time the user answers.
     const requestId = this.requestId;
     const answer = await confirmPrompt(
-      `Are you sure you want to pause the job with ID ${requestId} ? This will block subsequent deployments to this environment.`
+      `Are you sure you want to pause the job with ID ${requestId}? This will block subsequent deployments to this environment.`
     );
 
     if (answer) {
       const headers: Record<string, string> = {
         'Content-Type': 'application/json'
       };
-      const accessToken = oauthServiceContainer.service.signedInUser?.access_token;
+      const accessToken =
+        oauthServiceContainer.service.signedInUser?.access_token;
       if (accessToken) {
         headers['Authorization'] = `Bearer ${accessToken}`;
       }
@@ -238,14 +262,15 @@ export class RequestControls extends LitElement {
     // next row's by the time the user answers.
     const requestId = this.requestId;
     const answer = await confirmPrompt(
-      `Are you sure you want to resume the job with ID ${requestId} ?`
+      `Are you sure you want to resume the job with ID ${requestId}?`
     );
 
     if (answer) {
       const headers: Record<string, string> = {
         'Content-Type': 'application/json'
       };
-      const accessToken = oauthServiceContainer.service.signedInUser?.access_token;
+      const accessToken =
+        oauthServiceContainer.service.signedInUser?.access_token;
       if (accessToken) {
         headers['Authorization'] = `Bearer ${accessToken}`;
       }

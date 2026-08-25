@@ -9,10 +9,12 @@ const {
   ajaxSpy,
   aceEditSpy,
   aceDestroySpy,
-  aceSetValueSpy
+  aceSetValueSpy,
+  aceSetOptionsSpy
 } = vi.hoisted(() => {
   const aceDestroySpy = vi.fn();
   const aceSetValueSpy = vi.fn();
+  const aceSetOptionsSpy = vi.fn();
   return {
     confirmPromptSpy: vi.fn(),
     requestRestartSpy: vi.fn(() => of({})),
@@ -26,14 +28,15 @@ const {
       getSession: () => ({ setUseWorker: vi.fn(), setAnnotations: vi.fn() }),
       setReadOnly: vi.fn(),
       setHighlightActiveLine: vi.fn(),
-      setOptions: vi.fn(),
+      setOptions: aceSetOptionsSpy,
       setValue: aceSetValueSpy,
       gotoLine: vi.fn(),
       clearSelection: vi.fn(),
       getValue: () => ''
     })),
     aceDestroySpy,
-    aceSetValueSpy
+    aceSetValueSpy,
+    aceSetOptionsSpy
   };
 });
 
@@ -110,6 +113,17 @@ describe('request control row snapshots', () => {
     expect(confirmPromptSpy.mock.calls).to.have.length(2);
     expect(confirmPromptSpy.mock.calls[0][0]).to.contain('cancel');
     expect(confirmPromptSpy.mock.calls[1][0]).to.contain('restart');
+    expect(confirmPromptSpy.mock.calls[0][0]).to.not.contain(' ?');
+    expect(confirmPromptSpy.mock.calls[1][0]).to.not.contain(' ?');
+
+    for (const button of el.shadowRoot?.querySelectorAll(
+      'vaadin-button[theme~="icon"]'
+    ) ?? []) {
+      expect(button.hasAttribute('title')).to.equal(false);
+      expect(
+        button.querySelector('vaadin-tooltip')?.getAttribute('text')
+      ).to.equal(button.getAttribute('aria-label'));
+    }
   });
 
   it('restarts the row that was confirmed, not the row subsequently recycled into the cell', async () => {
@@ -227,6 +241,12 @@ describe('deployment log editor lifecycle', () => {
     expect(
       aceSetValueSpy.mock.calls.some(([value]) => value === 'first log')
     ).to.equal(true);
+    const editorOptions = aceSetOptionsSpy.mock.calls[0][0] as {
+      hScrollBarAlwaysVisible?: boolean;
+      wrap?: boolean;
+    };
+    expect(editorOptions.hScrollBarAlwaysVisible).to.equal(true);
+    expect(editorOptions.wrap).to.equal(false);
 
     (el as HTMLElement & { selectedLog: string }).selectedLog = 'second log';
     await (el as HTMLElement & { updateComplete: Promise<unknown> })

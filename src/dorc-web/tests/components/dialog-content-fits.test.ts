@@ -94,6 +94,7 @@ describe('dialog content stays inside the dialog', () => {
       scrolls(viewer),
       'the viewer scrolls, so the clipped build number can be reached'
     ).to.equal(true);
+    expect(getComputedStyle(viewer).paddingLeft).to.equal('5px');
   });
 
   it('a plain dialog does not clip it either', async () => {

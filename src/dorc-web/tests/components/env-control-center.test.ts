@@ -20,6 +20,19 @@ async function deletingEnvironment(): Promise<EnvControlCenter> {
 }
 
 describe('EnvControlCenter delete status', () => {
+  it('keeps the control-center icon aligned with its summary text', async () => {
+    const el = await fixture<EnvControlCenter>(
+      html`<env-control-center></env-control-center>`
+    );
+
+    const summaryLayout = el.shadowRoot!.querySelector(
+      'vaadin-details-summary vaadin-horizontal-layout'
+    ) as HTMLElement | null;
+
+    expect(summaryLayout).to.not.equal(null);
+    expect(summaryLayout!.style.alignItems).to.equal('center');
+  });
+
   it('shows delete in progress state on delete button', async () => {
     const el = await deletingEnvironment();
 
@@ -57,8 +70,9 @@ describe('EnvControlCenter delete status', () => {
   it('hides the in progress state once the delete finishes', async () => {
     const el = await deletingEnvironment();
 
-    (el as unknown as { isDeletingEnvironment: boolean }).isDeletingEnvironment =
-      false;
+    (
+      el as unknown as { isDeletingEnvironment: boolean }
+    ).isDeletingEnvironment = false;
     await el.updateComplete;
 
     expect(

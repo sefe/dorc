@@ -16,7 +16,13 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { PropertiesApi, RequestApi } from '../../apis/dorc-api';
 import type { RequestPostRequest } from '../../apis/dorc-api';
-import { DeployArtefactDto, DeployComponentDto, PropertyApiModel, RequestProperty, RequestStatusDto } from '../../apis/dorc-api';
+import {
+  DeployArtefactDto,
+  DeployComponentDto,
+  PropertyApiModel,
+  RequestProperty,
+  RequestStatusDto
+} from '../../apis/dorc-api';
 import type { ProjectApiModel } from '../../apis/dorc-api';
 import '@vaadin/confirm-dialog';
 import '../hegs-json-viewer';
@@ -61,11 +67,11 @@ export class DeployEnv extends LitElement {
 
   @property({ type: Array }) properties: PropertyApiModel[] | undefined;
 
-  @property({ type: Boolean }) private buildDefsLoading = false;
+  @property({ type: Boolean }) buildDefsLoading = false;
 
-  @property({ type: Boolean }) private buildsLoading = false;
+  @property({ type: Boolean }) buildsLoading = false;
 
-  @property({ type: Boolean }) private isFolderProject = false;
+  @property({ type: Boolean }) isFolderProject = false;
 
   @property({ type: String }) selectedBuildId: string | undefined;
 
@@ -76,7 +82,6 @@ export class DeployEnv extends LitElement {
   @property() ErrorMessage = '';
 
   @property({ type: Object }) req!: RequestPostRequest;
-
 
   @state()
   dialogOpened = false;
@@ -185,8 +190,10 @@ export class DeployEnv extends LitElement {
     return html`
       <vaadin-confirm-dialog
         id="dialog"
+        theme="deploy-preview"
         header="New deployment"
         confirm-text="Deploy"
+        cancel-theme="primary"
         cancel-button-visible
         .opened="${this.dialogOpened}"
         @opened-changed="${(e: CustomEvent) => {
@@ -194,67 +201,67 @@ export class DeployEnv extends LitElement {
         }}"
         @confirm="${this.startDeployment}"
       >
-        Please confirm you want to submit this deployment request?
+        <div style="margin-bottom: 5px;">
+          Please confirm you want to submit this deployment request?
+        </div>
         <hegs-json-viewer id="jsonviewer">{}</hegs-json-viewer>
       </vaadin-confirm-dialog>
-      <div
-        class="build-defs-section"
-        ?hidden="${this.isFolderProject}"
-      >
+      <div class="build-defs-section" ?hidden="${this.isFolderProject}">
         <div class="combo-row">
-            <vaadin-combo-box
-              id="build-defs"
-              style="flex: 1;"
-              @value-changed="${this._buildDefValueChanged}"
-              .items="${this.buildDefinitions}"
-              ${comboBoxRenderer(this._buildRenderer, [])}
-              placeholder="${this.isGitHubProject ? 'Select Workflow' : 'Select Build Definition'}"
-              label="${this.isGitHubProject ? 'Workflow' : 'Build Definition'}"
-              clear-button-visible
-              item-label-path="Name"
-              item-value-path="Name"
-            ></vaadin-combo-box>
-            ${this.buildDefsLoading
+          <vaadin-combo-box
+            id="build-defs"
+            style="flex: 1;"
+            @value-changed="${this._buildDefValueChanged}"
+            .items="${this.buildDefinitions}"
+            ${comboBoxRenderer(this._buildRenderer, [])}
+            placeholder="${this.isGitHubProject ? 'Select Workflow' : 'Select Build Definition'}"
+            label="${this.isGitHubProject ? 'Workflow' : 'Build Definition'}"
+            clear-button-visible
+            item-label-path="Name"
+            item-value-path="Name"
+          ></vaadin-combo-box>
+          ${
+            this.buildDefsLoading
               ? html` <div class="small-loader"></div> `
-              : html``}
+              : html``
+          }
         </div>
         <div class="combo-row">
-            <vaadin-combo-box
-              id="builds"
-              style="flex: 1;"
-              @value-changed="${this._buildValueChanged}"
-              .items="${this.builds}"
-              ${comboBoxRenderer(this._buildRenderer, [])}
-              placeholder="${this.isGitHubProject ? 'Select Workflow Run' : 'Select Build Number'}"
-              label="${this.isGitHubProject ? 'Workflow Run' : 'Build Number'}"
-              clear-button-visible
-              item-label-path="Name"
-              item-value-path="Name"
-            ></vaadin-combo-box>
-            ${this.buildsLoading
+          <vaadin-combo-box
+            id="builds"
+            style="flex: 1;"
+            @value-changed="${this._buildValueChanged}"
+            .items="${this.builds}"
+            ${comboBoxRenderer(this._buildRenderer, [])}
+            placeholder="${this.isGitHubProject ? 'Select Workflow Run' : 'Select Build Number'}"
+            label="${this.isGitHubProject ? 'Workflow Run' : 'Build Number'}"
+            clear-button-visible
+            item-label-path="Name"
+            item-value-path="Name"
+          ></vaadin-combo-box>
+          ${
+            this.buildsLoading
               ? html` <div class="small-loader"></div> `
-              : html``}
+              : html``
+          }
         </div>
       </div>
-      <div
-        class="folder-artifacts-section"
-        ?hidden="${!this.isFolderProject}"
-      >
-            <vaadin-combo-box
-              id="folders"
-              style="flex: 1;"
-              @value-changed="${this._buildValueChanged}"
-              .items="${this.builds}"
-              ${comboBoxRenderer(this._buildRenderer, [])}
-              placeholder="Select Folder"
-              label="Folder Artifacts"
-              clear-button-visible
-              item-label-path="Name"
-              item-value-path="Name"
-            ></vaadin-combo-box>
-            ${this.buildsLoading
-              ? html` <div class="small-loader"></div> `
-              : html``}
+      <div class="folder-artifacts-section" ?hidden="${!this.isFolderProject}">
+        <vaadin-combo-box
+          id="folders"
+          style="flex: 1;"
+          @value-changed="${this._buildValueChanged}"
+          .items="${this.builds}"
+          ${comboBoxRenderer(this._buildRenderer, [])}
+          placeholder="Select Folder"
+          label="Folder Artifacts"
+          clear-button-visible
+          item-label-path="Name"
+          item-value-path="Name"
+        ></vaadin-combo-box>
+        ${
+          this.buildsLoading ? html` <div class="small-loader"></div> ` : html``
+        }
       </div>
       <vaadin-details
         opened
@@ -329,32 +336,30 @@ export class DeployEnv extends LitElement {
     `;
   }
 
-  _boundPropOverridesButtonsRenderer(
-    item: RequestProperty
-  ) {
+  _boundPropOverridesButtonsRenderer(item: RequestProperty) {
     const propertyOverride = item as RequestProperty;
 
     return html`<property-override-controls
-        .propertyOverride="${propertyOverride}"
-        @property-override-removed="${(e: CustomEvent) => {
-          this.removePropertyOverride(e.detail.propertyOverride);
-        }}"
-      ></property-override-controls>`;
+      .propertyOverride="${propertyOverride}"
+      @property-override-removed="${(e: CustomEvent) => {
+        this.removePropertyOverride(e.detail.propertyOverride);
+      }}"
+    ></property-override-controls>`;
   }
 
-  _buildRenderer(
-    item: DeployArtefactDto
-  ) {
+  _buildRenderer(item: DeployArtefactDto) {
     const template = item as DeployArtefactDto;
 
     return html`
-        <vaadin-horizontal-layout>
-          ${template.Name?.replace('[PINNED]', '')}
-          ${template.Name?.includes('[PINNED]')
+      <vaadin-horizontal-layout>
+        ${template.Name?.replace('[PINNED]', '')}
+        ${
+          template.Name?.includes('[PINNED]')
             ? html`<vaadin-icon icon="vaadin:pin"></vaadin-icon>`
-            : html``}
-        </vaadin-horizontal-layout>
-      `;
+            : html``
+        }
+      </vaadin-horizontal-layout>
+    `;
   }
 
   setBuildDefinitions(projects: DeployArtefactDto[]) {
@@ -429,8 +434,7 @@ export class DeployEnv extends LitElement {
           console.error(err);
 
           const notification = new ErrorNotification();
-          const message =
-            err.response.Message ?? err.response.ExceptionMessage;
+          const message = err.response.Message ?? err.response.ExceptionMessage;
           if (message) {
             notification.setAttribute('errorMessage', message);
           } else {
@@ -715,7 +719,9 @@ export class DeployEnv extends LitElement {
             const message =
               err.response?.ExceptionMessage ??
               err.response?.Message ??
-              (typeof err.response === 'string' ? err.response : 'An unexpected error occurred');
+              (typeof err.response === 'string'
+                ? err.response
+                : 'An unexpected error occurred');
 
             const notification = new ErrorNotification();
             notification.setAttribute('errorMessage', message);

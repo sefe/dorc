@@ -15,6 +15,7 @@ import {
   RefDataServersApi,
   ServerApiModel
 } from '../../apis/dorc-api';
+import '@vaadin/tooltip';
 
 @customElement('server-controls')
 export class ServerControls extends LitElement {
@@ -26,7 +27,7 @@ export class ServerControls extends LitElement {
   @property({ type: Boolean })
   envSet = false;
 
-  @property({ type: Boolean }) private readonly = true;
+  @property({ type: Boolean }) readonly = true;
 
   static get styles() {
     return css`
@@ -45,19 +46,26 @@ export class ServerControls extends LitElement {
 
   render() {
     const unlinkStyles = {
-      color: this.readonly ? 'var(--dorc-text-secondary)' : 'var(--dorc-error-color)'
+      color: this.readonly
+        ? 'var(--dorc-text-secondary)'
+        : 'var(--dorc-error-color)'
     };
     const editStyles = {
-      color: this.readonly ? 'var(--dorc-text-secondary)' : 'var(--dorc-link-color)'
+      color: this.readonly
+        ? 'var(--dorc-text-secondary)'
+        : 'var(--dorc-link-color)'
     };
     return html`
       <vaadin-button
-        title="Edit Server Details"
         aria-label="Edit Server Details"
         theme="icon"
         @click="${this.editServer}"
         ?disabled="${this.readonly}"
       >
+        <vaadin-tooltip
+          slot="tooltip"
+          text="Edit Server Details"
+        ></vaadin-tooltip>
         <vaadin-icon
           icon="lumo:edit"
           style=${styleMap(editStyles)}
@@ -65,12 +73,15 @@ export class ServerControls extends LitElement {
       </vaadin-button>
 
       <vaadin-button
-        title="Edit Application Tags"
         aria-label="Edit Application Tags"
         theme="icon"
         @click="${this.manage}"
         ?disabled="${this.readonly}"
       >
+        <vaadin-tooltip
+          slot="tooltip"
+          text="Edit Application Tags"
+        ></vaadin-tooltip>
         <vaadin-icon
           icon="vaadin:tags"
           style=${styleMap(editStyles)}
@@ -78,47 +89,56 @@ export class ServerControls extends LitElement {
       </vaadin-button>
 
       <vaadin-button
-        title="Manage Daemons"
         aria-label="Manage Daemons"
         theme="icon"
         @click="${this.manageDaemons}"
         ?disabled="${this.readonly}"
       >
+        <vaadin-tooltip slot="tooltip" text="Manage Daemons"></vaadin-tooltip>
         <vaadin-icon
           icon="vaadin:cog"
           style=${styleMap(editStyles)}
         ></vaadin-icon>
       </vaadin-button>
 
-      ${this.envSet
-        ? html`<vaadin-button
-            title="Detach server"
-            aria-label="Detach server"
-            theme="icon"
-            @click="${this.detachServer}"
-            ?disabled="${this.readonly}"
-          >
-            <vaadin-icon
-              icon="vaadin:unlink"
-              style=${styleMap(unlinkStyles)}
-            ></vaadin-icon>
-          </vaadin-button>`
-        : html``}
-
-      ${!this.envSet
-        ? html`<vaadin-button
-        title="Delete server"
-        aria-label="Delete server"
-        theme="icon"
-        @click="${this.deleteServer}"
-        ?disabled="${this.readonly}"
-      >
-        <vaadin-icon
-          icon="icons:delete"
-          style=${styleMap(unlinkStyles)}
-        ></vaadin-icon>
-      </vaadin-button>`
-        : html``}
+      ${
+        this.envSet
+          ? html`<vaadin-button
+              aria-label="Detach server"
+              theme="icon"
+              @click="${this.detachServer}"
+              ?disabled="${this.readonly}"
+            >
+              <vaadin-tooltip
+                slot="tooltip"
+                text="Detach server"
+              ></vaadin-tooltip>
+              <vaadin-icon
+                icon="vaadin:unlink"
+                style=${styleMap(unlinkStyles)}
+              ></vaadin-icon>
+            </vaadin-button>`
+          : html``
+      }
+      ${
+        !this.envSet
+          ? html`<vaadin-button
+              aria-label="Delete server"
+              theme="icon"
+              @click="${this.deleteServer}"
+              ?disabled="${this.readonly}"
+            >
+              <vaadin-tooltip
+                slot="tooltip"
+                text="Delete server"
+              ></vaadin-tooltip>
+              <vaadin-icon
+                icon="icons:delete"
+                style=${styleMap(unlinkStyles)}
+              ></vaadin-icon>
+            </vaadin-button>`
+          : html``
+      }
     `;
   }
 

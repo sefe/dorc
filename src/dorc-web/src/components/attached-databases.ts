@@ -14,9 +14,7 @@ import { html } from 'lit/html.js';
 import '../components/edit-database-permissions';
 import './grid-button-groups/database-env-controls.ts';
 import '../components/view-database-permissions';
-import {
-  DatabaseApiModel,
-} from '../apis/dorc-api';
+import { DatabaseApiModel } from '../apis/dorc-api';
 import { EditDatabasePermissions } from './edit-database-permissions';
 import { ViewDatabasePermissions } from './view-database-permissions';
 import { map } from 'lit/directives/map.js';
@@ -34,7 +32,7 @@ export class AttachedDatabases extends ResponsiveMixin(LitElement) {
   @property({ type: Number })
   envId = 0;
 
-  @property({ type: Boolean }) private readonly = true;
+  @property({ type: Boolean }) readonly = true;
 
   @property({ type: Array })
   public databases: Array<DatabaseApiModel> | undefined = [];

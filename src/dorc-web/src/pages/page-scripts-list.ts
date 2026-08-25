@@ -88,13 +88,13 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
   // cannot drive the update they need.
   @state() public userRoles: string[] = [];
 
-  @property({ type: Boolean }) private loading = true;
+  @property({ type: Boolean }) loading = true;
 
   @property({ type: Boolean }) searching = false;
 
-  @property({ type: Boolean }) private rolesLoading = true;
+  @property({ type: Boolean }) rolesLoading = true;
 
-  @property({ type: Array }) private powerShellVersions: string[] = [];
+  @property({ type: Array }) powerShellVersions: string[] = [];
 
   @query('#grid') grid: Grid | undefined;
 
@@ -303,9 +303,9 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
                 header="PS Version"
                 resizable
                 ${columnBodyRenderer(this.psVersionRenderer, [
-                this.powerShellVersions,
-                this.userRoles
-              ])}
+                  this.powerShellVersions,
+                  this.userRoles
+                ])}
                 ?hidden="${this._narrowScreen}"
               ></vaadin-grid-column>
             </vaadin-grid>`
@@ -369,26 +369,26 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
 
     return html`
       ${map(
-            projectNames,
-            value =>
-              html` <button
-                class="project-tag"
-                @click="${() =>
-                  this.dispatchEvent(
-                    new CustomEvent('open-project-envs', {
-                      detail: {
-                        Project: {
-                          ProjectName: value
-                        }
-                      },
-                      bubbles: true,
-                      composed: true
-                    })
-                  )}"
-              >
-                ${value}
-              </button>`
-          )}
+        projectNames,
+        value =>
+          html` <button
+            class="project-tag"
+            @click="${() =>
+              this.dispatchEvent(
+                new CustomEvent('open-project-envs', {
+                  detail: {
+                    Project: {
+                      ProjectName: value
+                    }
+                  },
+                  bubbles: true,
+                  composed: true
+                })
+              )}"
+          >
+            ${value}
+          </button>`
+      )}
     `;
   };
 
@@ -512,19 +512,19 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
         theme="small"
         value="${this.variableName}"
         @input="${(e: InputEvent) => {
-            const textField = e.target as HTMLInputElement;
+          const textField = e.target as HTMLInputElement;
 
-            this.dispatchEvent(
-              new CustomEvent('searching-scripts-started', {
-                detail: {
-                  field: variableName,
-                  value: textField?.value
-                },
-                bubbles: true,
-                composed: true
-              })
-            );
-          }}"
+          this.dispatchEvent(
+            new CustomEvent('searching-scripts-started', {
+              detail: {
+                field: variableName,
+                value: textField?.value
+              },
+              bubbles: true,
+              composed: true
+            })
+          );
+        }}"
       ></vaadin-text-field>
     `;
   }
@@ -543,19 +543,19 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
         theme="small"
         value="${this.variablePath}"
         @input="${(e: InputEvent) => {
-            const textField = e.target as HTMLInputElement;
+          const textField = e.target as HTMLInputElement;
 
-            this.dispatchEvent(
-              new CustomEvent('searching-scripts-started', {
-                detail: {
-                  field: variablePath,
-                  value: textField?.value
-                },
-                bubbles: true,
-                composed: true
-              })
-            );
-          }}"
+          this.dispatchEvent(
+            new CustomEvent('searching-scripts-started', {
+              detail: {
+                field: variablePath,
+                value: textField?.value
+              },
+              bubbles: true,
+              composed: true
+            })
+          );
+        }}"
       ></vaadin-text-field>
     `;
   }
@@ -571,19 +571,19 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
           theme="small"
           value="${this.variableProjectNames}"
           @input="${(e: InputEvent) => {
-              const textField = e.target as HTMLInputElement;
+            const textField = e.target as HTMLInputElement;
 
-              this.dispatchEvent(
-                new CustomEvent('searching-scripts-started', {
-                  detail: {
-                    field: variableProjectNames,
-                    value: textField?.value
-                  },
-                  bubbles: true,
-                  composed: true
-                })
-              );
-            }}"
+            this.dispatchEvent(
+              new CustomEvent('searching-scripts-started', {
+                detail: {
+                  field: variableProjectNames,
+                  value: textField?.value
+                },
+                bubbles: true,
+                composed: true
+              })
+            );
+          }}"
         ></vaadin-text-field>
       </div>
     `;

@@ -16,6 +16,7 @@ import '@vaadin/button';
 import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
 import '@vaadin/details';
+import '@vaadin/horizontal-layout';
 import '../make-like-production-dialog';
 import '../add-edit-environment';
 import { PageEnvBase } from './page-env-base';
@@ -30,6 +31,7 @@ import { SuccessNotification } from '../notifications/success-notification';
 import { ErrorNotification } from '../notifications/error-notification';
 import { retrieveErrorMessage } from '../../helpers/errorMessage-retriever';
 import { MakeLikeProductionDialog } from '../make-like-production-dialog.ts';
+import '@vaadin/tooltip';
 
 @customElement('env-control-center')
 export class EnvControlCenter extends PageEnvBase {
@@ -87,7 +89,6 @@ export class EnvControlCenter extends PageEnvBase {
         display: none;
       }
 
-
       a {
         color: inherit; /* blue colors for links too */
         text-decoration: inherit; /* no underline */
@@ -133,7 +134,7 @@ export class EnvControlCenter extends PageEnvBase {
         style="border-top: 6px solid var(--dorc-ctrl-section-border, #ffad33) !important; background-color: var(--dorc-ctrl-section-bg, #fff5e6); padding-left: 4px; margin: 0px;"
       >
         <vaadin-details-summary slot="summary">
-          <vaadin-horizontal-layout>
+          <vaadin-horizontal-layout style="align-items: center;">
             <vaadin-icon
               icon="vaadin:automation"
               style="display: table-cell; padding-right: 5px"
@@ -164,11 +165,14 @@ export class EnvControlCenter extends PageEnvBase {
             >Environment History</vaadin-button
           >
           <vaadin-button
-            title="Access Control..."
             aria-label="Access Control..."
             theme="icon"
             @click="${this.openAccessControl}"
           >
+            <vaadin-tooltip
+              slot="tooltip"
+              text="Access Control..."
+            ></vaadin-tooltip>
             <vaadin-icon icon="vaadin:lock"></vaadin-icon>Environment
             Access...</vaadin-button
           >
@@ -193,15 +197,17 @@ export class EnvControlCenter extends PageEnvBase {
             <vaadin-icon icon="vaadin:safe" slot="prefix"></vaadin-icon>Reset
             SQL Account Password for...</vaadin-button
           >
-          ${this.isDeletingEnvironment
-            ? html`
-                <div class="delete-progress" role="status" aria-live="polite">
-                  Deleting '${this.environment?.EnvironmentName}' and its
-                  properties. This can take a minute or two for an environment
-                  with a lot of history - please leave this page open.
-                </div>
-              `
-            : nothing}
+          ${
+            this.isDeletingEnvironment
+              ? html`
+                  <div class="delete-progress" role="status" aria-live="polite">
+                    Deleting '${this.environment?.EnvironmentName}' and its
+                    properties. This can take a minute or two for an environment
+                    with a lot of history - please leave this page open.
+                  </div>
+                `
+              : nothing
+          }
         </div>
       </vaadin-details>
     `;

@@ -17,6 +17,7 @@ import {
   RefDataProjectEnvironmentMappingsApi
 } from '../apis/dorc-api';
 import { retrieveErrorMessage } from '../helpers/errorMessage-retriever';
+import '@vaadin/tooltip';
 
 @customElement('attach-environment')
 export class AttachEnvironment extends LitElement {
@@ -24,16 +25,15 @@ export class AttachEnvironment extends LitElement {
   public projectName = '';
 
   @property({ type: Array })
-  private environments: EnvironmentApiModel[] | undefined;
+  environments: EnvironmentApiModel[] | undefined;
 
   @property({ type: Array })
-  private shortlist: EnvironmentApiModel[] | undefined;
+  shortlist: EnvironmentApiModel[] | undefined;
 
   private selectedEnvironment: any;
 
   private environmentsMap:
-    | Map<number | undefined, EnvironmentApiModel>
-    | undefined;
+    Map<number | undefined, EnvironmentApiModel> | undefined;
 
   constructor() {
     super();
@@ -69,11 +69,14 @@ export class AttachEnvironment extends LitElement {
         ></vaadin-combo-box>
         <vaadin-button
           style="margin-top: 37px; margin-left: 5px"
-          title="Shortlist Environment"
           aria-label="Shortlist Environment"
           theme="icon"
           @click="${this.shortListEnv}"
         >
+          <vaadin-tooltip
+            slot="tooltip"
+            text="Shortlist Environment"
+          ></vaadin-tooltip>
           <vaadin-icon
             icon="vaadin:list-select"
             style="color: var(--dorc-link-color)"
@@ -94,11 +97,14 @@ export class AttachEnvironment extends LitElement {
         </vaadin-list-box>
         <vaadin-button
           style="margin-left: 5px; margin-top: 0"
-          title="Remove Environment"
           aria-label="Remove Environment"
           theme="icon"
           @click="${this.removeEnv}"
         >
+          <vaadin-tooltip
+            slot="tooltip"
+            text="Remove Environment"
+          ></vaadin-tooltip>
           <vaadin-icon
             icon="vaadin:close-small"
             style="color: var(--dorc-link-color)"
@@ -107,11 +113,14 @@ export class AttachEnvironment extends LitElement {
       </vaadin-horizontal-layout>
 
       <vaadin-button
-        title="Attach Environment(s)"
         aria-label="Attach Environment(s)"
         theme="icon"
         @click="${this.attachEnvironment}"
       >
+        <vaadin-tooltip
+          slot="tooltip"
+          text="Attach Environment(s)"
+        ></vaadin-tooltip>
         <vaadin-icon
           icon="vaadin:link"
           style="color: var(--dorc-link-color)"
@@ -225,9 +234,9 @@ export class AttachEnvironment extends LitElement {
         },
         error: (err: any) => {
           const notification = new ErrorNotification();
-          
+
           const errorMessage = retrieveErrorMessage(err);
-          
+
           notification.setAttribute('errorMessage', errorMessage);
           this.shadowRoot?.appendChild(notification);
           notification.open();

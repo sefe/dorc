@@ -17,6 +17,7 @@ import '../../icons/editor-icons.js';
 import '../../icons/iron-icons.js';
 import { Notification } from '@vaadin/notification';
 import '@vaadin/text-field';
+import '@vaadin/tooltip';
 
 @customElement('variable-value-controls')
 export class VariableValueControls extends LitElement {
@@ -55,46 +56,52 @@ export class VariableValueControls extends LitElement {
 
   render() {
     const editStyles = {
-      color: this.value.UserEditable ? 'var(--dorc-link-color)' : 'var(--dorc-text-secondary)'
+      color: this.value.UserEditable
+        ? 'var(--dorc-link-color)'
+        : 'var(--dorc-text-secondary)'
     };
     const deleteStyles = {
-      color: this.value.UserEditable ? 'var(--dorc-error-color)' : 'var(--dorc-text-secondary)'
+      color: this.value.UserEditable
+        ? 'var(--dorc-error-color)'
+        : 'var(--dorc-text-secondary)'
     };
     return html`
-      ${this.value?.Property?.Secure
-        ? html`<vaadin-password-field
-            id="${`propValue${this.value?.Id}`}"
-            value="Ex@mplePassw0rd"
-            reveal-button-hidden
-            ?readonly="${!this.editing}"
-            focus-target
-            @value-changed="${(e: CustomEvent) => {
-              const textField = e.detail as TextField;
-              if (this.value) this.value.Value = textField.value;
-            }}"
-            style="padding: 0px"
-          ></vaadin-password-field>`
-        : html` <vaadin-text-field
-            id="${`propValue${this.value?.Id}`}"
-            ?readonly="${!this.editing}"
-            focus-target
-            .value="${live(this.value?.Value ?? '')}"
-            @value-changed="${(e: CustomEvent) => {
-              const textField = e.detail as TextField;
-              if (this.value) this.value.Value = textField.value;
-            }}"
-            style="padding: 0px"
-          ></vaadin-text-field>`}
+      ${
+        this.value?.Property?.Secure
+          ? html`<vaadin-password-field
+              id="${`propValue${this.value?.Id}`}"
+              value="Ex@mplePassw0rd"
+              reveal-button-hidden
+              ?readonly="${!this.editing}"
+              focus-target
+              @value-changed="${(e: CustomEvent) => {
+                const textField = e.detail as TextField;
+                if (this.value) this.value.Value = textField.value;
+              }}"
+              style="padding: 0px"
+            ></vaadin-password-field>`
+          : html` <vaadin-text-field
+              id="${`propValue${this.value?.Id}`}"
+              ?readonly="${!this.editing}"
+              focus-target
+              .value="${live(this.value?.Value ?? '')}"
+              @value-changed="${(e: CustomEvent) => {
+                const textField = e.detail as TextField;
+                if (this.value) this.value.Value = textField.value;
+              }}"
+              style="padding: 0px"
+            ></vaadin-text-field>`
+      }
 
       <vaadin-button
         id="edit"
-        title="Edit"
         aria-label="Edit"
         theme="icon small"
         @click="${this._editClick}"
         ?disabled="${!this.value.UserEditable}"
         ?hidden="${this.editing}"
       >
+        <vaadin-tooltip slot="tooltip" text="Edit"></vaadin-tooltip>
         <vaadin-icon
           icon="editor:mode-edit"
           style=${styleMap(editStyles)}
@@ -115,22 +122,24 @@ export class VariableValueControls extends LitElement {
         >Cancel</vaadin-button
       >
       <vaadin-button
-        title="Delete Value"
         aria-label="Delete Value"
         theme="icon small"
         @click="${this.removePropertyValue}"
         ?disabled="${!this.value.UserEditable}"
       >
+        <vaadin-tooltip slot="tooltip" text="Delete Value"></vaadin-tooltip>
         <vaadin-icon
           icon="icons:clear"
           style=${styleMap(deleteStyles)}
         ></vaadin-icon>
       </vaadin-button>
-      ${this.additionalInformation !== ''
-        ? html`<div style="display: inline-block">
-            ${this.additionalInformation}
-          </div>`
-        : html``}
+      ${
+        this.additionalInformation !== ''
+          ? html`<div style="display: inline-block">
+              ${this.additionalInformation}
+            </div>`
+          : html``
+      }
     `;
   }
 
