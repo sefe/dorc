@@ -4,13 +4,13 @@ import '@vaadin/icon';
 import '@vaadin/button';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
-import { EnvironmentApiModel } from '../../apis/dorc-api';
+import type { EnvShortcut } from '../drawer-shortcuts';
 import { urlForName } from '../../router/router';
 import '../../icons/hardware-icons.js';
 
 @customElement('env-detail-tab')
 export class EnvDetailTab extends LitElement {
-  @property({ type: Object }) public env: EnvironmentApiModel | undefined;
+  @property({ type: Object }) public env: EnvShortcut | undefined;
 
   /**
    * Renders into light DOM (D-03). `vaadin-tab._onKeyUp` activates a shortcut by

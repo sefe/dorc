@@ -250,7 +250,10 @@ export class PageEnvironment extends PageElement {
       this.environmentName = decodeURIComponent(envName);
     }
 
-    const pathStart = `/environment/${envName}/`;
+    // D-12: raw interpolation meant an environment named e.g. "Perf 100% Load"
+    // produced a path that threw URIError when decoded for matching, and "Dev#2"
+    // routed to the wrong page entirely because #2/... was parsed as a fragment.
+    const pathStart = `/environment/${encodeURIComponent(envName)}/`;
 
     const tabName = this.tabNames[tabIdx];
     this.tabId = tabIdx;

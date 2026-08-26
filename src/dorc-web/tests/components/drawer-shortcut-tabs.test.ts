@@ -1,4 +1,5 @@
 import { expect, fixture, html } from '../_helpers';
+import { drawerShortcuts } from '../../src/components/drawer-shortcuts';
 
 // P0 regression tests for three live defects in the navigation drawer's
 // shortcut tabs, documented as D-01, D-05 and D-14 in
@@ -100,20 +101,25 @@ describe('Drawer shortcut tabs — P0 regressions', () => {
     });
 
     it('still removes the tab when the shortcut does exist', async () => {
+      drawerShortcuts.clear();
       const navbar = await mountNavbar(container);
       const env = { EnvironmentId: 1, EnvironmentName: 'Present' };
       const tabs = navbar.shadowRoot?.getElementById('tabs');
       if (!tabs) throw new Error('navbar rendered without #tabs');
 
       const before = tabs.children.length;
-      (navbar as unknown as { insertEnvTab(e: unknown): void }).insertEnvTab(env);
+      // Shortcuts now come from the store; the navbar renders it.
+      drawerShortcuts.add('environments', env);
+      await navbar.updateComplete;
       expect(tabs.children.length, 'tab was inserted').to.equal(before + 1);
 
       navbar.closeEnvDetail(
         new CustomEvent('close-env-detail', { detail: { Environment: env } })
       );
+      await navbar.updateComplete;
 
       expect(tabs.children.length, 'tab was removed again').to.equal(before);
+      drawerShortcuts.clear();
     });
   });
 

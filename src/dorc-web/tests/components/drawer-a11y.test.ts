@@ -1,3 +1,4 @@
+import { drawerShortcuts } from '../../src/components/drawer-shortcuts';
 import {
   contrastRatio,
   expect,
@@ -13,8 +14,19 @@ import {
 
 interface DrawerNavbar extends HTMLElement {
   updateComplete: Promise<unknown>;
-  insertEnvTab(env: unknown): void;
   closeEnvDetail(e: CustomEvent): void;
+}
+
+/**
+ * Shortcuts are added through the store now, not by imperative insertion — the
+ * navbar renders whatever the store holds.
+ */
+async function addEnv(
+  navbar: DrawerNavbar,
+  env: { EnvironmentId?: number; EnvironmentName: string }
+) {
+  drawerShortcuts.add('environments', env);
+  await settle(navbar);
 }
 
 async function registerRoutes(): Promise<void> {
@@ -64,6 +76,7 @@ describe('P2a: drawer shortcut accessibility', () => {
   });
 
   beforeEach(() => {
+    drawerShortcuts.clear();
     container = document.createElement('div');
     // dorc-app paints --dorc-bg-primary on its host; mirror that here so the
     // contrast helper measures against the real backdrop rather than throwing.
@@ -71,7 +84,10 @@ describe('P2a: drawer shortcut accessibility', () => {
     document.body.appendChild(container);
   });
 
-  afterEach(() => container.remove());
+  afterEach(() => {
+    container.remove();
+    drawerShortcuts.clear();
+  });
 
   // ─── D-03 ───────────────────────────────────────────────────────────────
   // vaadin-tab activates a shortcut with `this.querySelector('a')` — a DESCENDANT
@@ -81,8 +97,7 @@ describe('P2a: drawer shortcut accessibility', () => {
   describe('SC-4: keyboard activation', () => {
     it('exposes the anchor to vaadin-tab’s descendant lookup', async () => {
       const navbar = await mountNavbar(container);
-      navbar.insertEnvTab({ EnvironmentId: 1, EnvironmentName: 'PROD-EMEA' });
-      await settle(navbar);
+      await addEnv(navbar, { EnvironmentId: 1, EnvironmentName: 'PROD-EMEA' });
 
       const tab = tabsOf(navbar).querySelector('vaadin-tab:has(env-detail-tab)');
       expect(tab, 'shortcut tab exists').to.exist;
@@ -96,8 +111,7 @@ describe('P2a: drawer shortcut accessibility', () => {
     it('gives the link the full, untruncated name as its accessible name', async () => {
       const navbar = await mountNavbar(container);
       const name = 'ENDUR MARKET RISK PRODUCTION EMEA';
-      navbar.insertEnvTab({ EnvironmentId: 2, EnvironmentName: name });
-      await settle(navbar);
+      await addEnv(navbar, { EnvironmentId: 2, EnvironmentName: name });
 
       const anchor = tabsOf(navbar).querySelector(
         'env-detail-tab a'
@@ -113,8 +127,7 @@ describe('P2a: drawer shortcut accessibility', () => {
   describe('SC-4: the close control is a real, named button', () => {
     it('is a focusable button naming which shortcut it closes', async () => {
       const navbar = await mountNavbar(container);
-      navbar.insertEnvTab({ EnvironmentId: 3, EnvironmentName: 'UAT-01' });
-      await settle(navbar);
+      await addEnv(navbar, { EnvironmentId: 3, EnvironmentName: 'UAT-01' });
 
       const close = tabsOf(navbar).querySelector(
         'env-detail-tab .shortcut-close'
@@ -136,10 +149,8 @@ describe('P2a: drawer shortcut accessibility', () => {
 
     it('gives each close control a distinct accessible name', async () => {
       const navbar = await mountNavbar(container);
-      navbar.insertEnvTab({ EnvironmentId: 4, EnvironmentName: 'ALPHA' });
-      await settle(navbar);
-      navbar.insertEnvTab({ EnvironmentId: 5, EnvironmentName: 'BETA' });
-      await settle(navbar);
+      await addEnv(navbar, { EnvironmentId: 4, EnvironmentName: 'ALPHA' });
+      await addEnv(navbar, { EnvironmentId: 5, EnvironmentName: 'BETA' });
 
       const labels = Array.from(
         tabsOf(navbar).querySelectorAll('env-detail-tab .shortcut-close')
@@ -156,8 +167,7 @@ describe('P2a: drawer shortcut accessibility', () => {
     it('moves focus to a sibling rather than dropping it on <body>', async () => {
       const navbar = await mountNavbar(container);
       const env = { EnvironmentId: 6, EnvironmentName: 'GAMMA' };
-      navbar.insertEnvTab(env);
-      await settle(navbar);
+      await addEnv(navbar, env);
 
       const tab = tabsOf(navbar).querySelector(
         'vaadin-tab:has(env-detail-tab)'
@@ -168,6 +178,7 @@ describe('P2a: drawer shortcut accessibility', () => {
       navbar.closeEnvDetail(
         new CustomEvent('close-env-detail', { detail: { Environment: env } })
       );
+      await settle(navbar);
 
       const active = navbar.shadowRoot?.activeElement;
       expect(active, 'focus must land somewhere in the drawer').to.exist;
@@ -183,11 +194,10 @@ describe('P2a: drawer shortcut accessibility', () => {
   describe('SC-11: long names truncate instead of overflowing', () => {
     it('applies ellipsis to the shortcut label', async () => {
       const navbar = await mountNavbar(container);
-      navbar.insertEnvTab({
+      await addEnv(navbar, {
         EnvironmentId: 7,
         EnvironmentName: 'ENDUR MARKET RISK PRODUCTION EMEA'
       });
-      await settle(navbar);
 
       const label = tabsOf(navbar).querySelector(
         'env-detail-tab .shortcut-label'
@@ -226,8 +236,7 @@ describe('P2a: drawer shortcut accessibility', () => {
       it(`meets 1.4.11's 3:1 in ${theme} theme`, async () => {
         setTheme(theme);
         const navbar = await mountNavbar(container);
-        navbar.insertEnvTab({ EnvironmentId: 8, EnvironmentName: 'CONTRAST' });
-        await settle(navbar);
+        await addEnv(navbar, { EnvironmentId: 8, EnvironmentName: 'CONTRAST' });
 
         const close = tabsOf(navbar).querySelector(
           'env-detail-tab .shortcut-close'

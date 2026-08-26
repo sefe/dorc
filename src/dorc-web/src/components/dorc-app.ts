@@ -1,4 +1,4 @@
-import { css, PropertyValues } from 'lit';
+import { css, LitElement, PropertyValues } from 'lit';
 import { html } from 'lit/html.js';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import '@vaadin/button';
@@ -8,7 +8,19 @@ import { DorcNavbar } from './dorc-navbar.ts';
 import './theme-toggle.ts';
 import { themeManager } from '../theme/theme-manager.ts';
 import '@vaadin/vaadin-lumo-styles/icons.js';
-import { ShortcutsStore } from './shortcuts-store.ts';
+import { Router } from '@vaadin/router';
+import {
+  drawerShortcuts,
+  toEnvShortcut,
+  toProjectShortcut,
+  toResultShortcut
+} from './drawer-shortcuts.ts';
+import type {
+  DeploymentRequestApiModel,
+  EnvironmentApiModel,
+  ProjectApiModel
+} from '../apis/dorc-api';
+import { EnvPageTabNames } from '../pages/page-environment.ts';
 import { appConfig } from '../app-config.ts';
 import { OAUTH_SCHEME, oauthServiceContainer } from '../services/Account/OAuthService.ts';
 import { NARROW_BREAKPOINT } from '../helpers/responsive-mixin.ts';
@@ -36,7 +48,7 @@ function fMouseUpListener(event: MouseEvent) {
 }
 
 @customElement('dorc-app')
-export class DorcApp extends ShortcutsStore {
+export class DorcApp extends LitElement {
   static get styles() {
     return css`
       :host {
@@ -251,6 +263,10 @@ export class DorcApp extends ShortcutsStore {
     `;
   }
 
+  @property() metaData = '';
+  @state() protected dorcHelperPage = '';
+  protected dorcNavbar: DorcNavbar | undefined;
+
   @property() userEmail = '';
   @property() userRoles = '';
   @property() dorcEnv = '';
@@ -419,6 +435,7 @@ export class DorcApp extends ShortcutsStore {
 
     super.firstUpdated(_changedProperties);
 
+    this.registerShortcutEvents();
     this._applyDrawerAria();
     this._attachSplitterListener();
   }
@@ -544,6 +561,116 @@ export class DorcApp extends ShortcutsStore {
     const next =
       presets.find(w => w > this._sidebarWidth + 1) ?? presets[0];
     this.setSidebarWidth(next);
+  }
+
+
+  // ── Shortcut event hub ───────────────────────────────────────────────────
+  // Absorbed from the former ShortcutsStore base class, which was both a
+  // registered custom element that was never used as one AND the superclass of
+  // this component, while also owning shortcut state. State now lives in
+  // drawer-shortcuts; this is only the wiring between page events and the store.
+
+  private registerShortcutEvents() {
+    this.addEventListener('open-env-detail', this.openEnvDetail as EventListener);
+    this.addEventListener(
+      'open-monitor-result',
+      this.openMonitorResult as EventListener
+    );
+    this.addEventListener(
+      'open-project-envs',
+      this.openProjectEnvs as EventListener
+    );
+    this.addEventListener(
+      'open-project-components',
+      this.openProjectComponents as EventListener
+    );
+    this.addEventListener(
+      'open-project-ref-data',
+      this.openProjectRefData as EventListener
+    );
+    this.addEventListener(
+      'environment-deleted',
+      this.environmentDeleted as EventListener
+    );
+    this.addEventListener(
+      'environment-renamed',
+      this.environmentRenamed as EventListener
+    );
+    this.addEventListener(
+      'environment-not-found',
+      this.environmentNotFound as EventListener
+    );
+  }
+
+  /**
+   * SC-27: prunes a shortcut whose target no longer exists.
+   *
+   * `environment-deleted` only fires in the window that performed the delete, so
+   * a shortcut for an environment removed or renamed by someone else used to
+   * point at a 404 forever. Under cookies that self-corrected via the accidental
+   * 7-day expiry; localStorage has none, so this is now the only thing that
+   * prunes them.
+   */
+  private environmentNotFound = () => {
+    const segments = window.location.pathname.split('/');
+    if (segments[1] !== 'environment' || !segments[2]) return;
+    let name: string;
+    try {
+      name = decodeURIComponent(segments[2]);
+    } catch {
+      name = segments[2];
+    }
+    drawerShortcuts.removeEnvironmentByName(name);
+  };
+
+  private environmentDeleted = (e: CustomEvent) => {
+    this.dorcNavbar?.closeEnvDetail(e);
+    Router.go('/environments');
+  };
+
+  private environmentRenamed = (e: CustomEvent) => {
+    this.dorcNavbar?.renameEnvDetail(e);
+  };
+
+  private openEnvDetail = (e: CustomEvent) => {
+    const env = e.detail.Environment as EnvironmentApiModel;
+    const tab = (e.detail.Tab as EnvPageTabNames) ?? EnvPageTabNames.Metadata;
+    // Projection happens in the store, so the ~20 dispatch sites keep sending
+    // full API models and their objects are never mutated.
+    drawerShortcuts.add('environments', toEnvShortcut(env));
+    Router.go(
+      `/environment/${encodeURIComponent(String(env.EnvironmentName))}/${tab}`
+    );
+  };
+
+  private openProjectEnvs = (e: CustomEvent) => {
+    const project = e.detail.Project as ProjectApiModel;
+    drawerShortcuts.add('projects', toProjectShortcut(project));
+    Router.go(
+      `/project-envs/${encodeURIComponent(String(project.ProjectName))}`
+    );
+  };
+
+  private openMonitorResult = (e: CustomEvent) => {
+    const request = e.detail.request as DeploymentRequestApiModel;
+    drawerShortcuts.add('results', toResultShortcut(request));
+    // Opens in another window, so the drawer selection in THIS one is left alone.
+    window.open(`/monitor-result/${Number(request.Id)}`);
+  };
+
+  private openProjectComponents = (e: CustomEvent) => {
+    const project = e.detail.Project as ProjectApiModel;
+    Router.go(`/project-components/${project?.ProjectId}`);
+  };
+
+  private openProjectRefData = (e: CustomEvent) => {
+    const project = e.detail.Project as ProjectApiModel;
+    Router.go(`/project-ref-data/${project?.ProjectId}`);
+  };
+
+  /** Clears shortcuts on sign-out (SC-17). */
+  public static clearShortcuts() {
+    drawerShortcuts.clear();
   }
 
   private skipToContent(e: Event) {

@@ -5,13 +5,11 @@ import '@vaadin/button';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { urlForName } from '../../router/router';
-import { DeploymentRequestApiModel } from '../../apis/dorc-api';
+import type { ResultShortcut } from '../drawer-shortcuts';
 
 @customElement('monitor-result-tab')
 export class MonitorResultTab extends LitElement {
-  @property({ type: Object }) public requestStatus:
-    | DeploymentRequestApiModel
-    | undefined;
+  @property({ type: Object }) public requestStatus: ResultShortcut | undefined;
 
   /** Light DOM so `vaadin-tab._onKeyUp` can find the anchor — see env-detail-tab. */
   protected createRenderRoot() {

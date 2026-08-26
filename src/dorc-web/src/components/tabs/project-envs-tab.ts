@@ -4,12 +4,12 @@ import '@vaadin/icon';
 import '@vaadin/button';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
-import { ProjectApiModel } from '../../apis/dorc-api';
+import type { ProjectShortcut } from '../drawer-shortcuts';
 import { urlForName } from '../../router/router';
 
 @customElement('project-envs-tab')
 export class ProjectEnvsTab extends LitElement {
-  @property({ type: Object }) public project: ProjectApiModel | undefined;
+  @property({ type: Object }) public project: ProjectShortcut | undefined;
 
   /** Light DOM so `vaadin-tab._onKeyUp` can find the anchor — see env-detail-tab. */
   protected createRenderRoot() {
