@@ -287,10 +287,9 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
       },
       complete: () => {
         console.log('done loading result Statuses');
-        this.loading = false;
         this.resultsLoading = false;
       }
-    });    
+    });
   }
 
   refreshAttemptItems = () => {
