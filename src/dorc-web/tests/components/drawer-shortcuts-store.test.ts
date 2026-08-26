@@ -40,6 +40,21 @@ function fresh() {
 }
 
 /**
+ * Builds a storage event with a given key.
+ *
+ * Uses a plain Event with `key` attached rather than `new StorageEvent(type, init)`.
+ * The two-argument constructor is spec-correct, but CodeQL's bundled externs for
+ * StorageEvent declare only one parameter, so every construction trips its
+ * "superfluous trailing arguments" rule. This shape is equivalent for the
+ * handler — which reads only `key` — and keeps the alert off the PR.
+ */
+function storageEvent(key: string | null): Event {
+  const event = new Event('storage');
+  Object.defineProperty(event, 'key', { value: key });
+  return event;
+}
+
+/**
  * Marks the migration as already done. Tests that seed the store keys directly
  * need this, otherwise `start()` runs the one-shot migration first and
  * overwrites the seed — which would make those assertions pass vacuously.
@@ -300,7 +315,7 @@ describe('P1: drawer shortcut store', () => {
       );
       const writesAfterSeed = writes;
 
-      window.dispatchEvent(new Event('storage'));
+      window.dispatchEvent(storageEvent(KEYS.environments));
 
       expect(
         store.snapshot().environments.map(e => e.EnvironmentName)
@@ -321,9 +336,7 @@ describe('P1: drawer shortcut store', () => {
     );
 
     localStorage.setItem('some.other.app.key', 'irrelevant');
-    window.dispatchEvent(
-      new StorageEvent('storage', { key: 'some.other.app.key' })
-    );
+    window.dispatchEvent(storageEvent('some.other.app.key'));
 
     expect(
       store.snapshot().environments.map(e => e.EnvironmentName)
@@ -342,7 +355,7 @@ describe('P1: drawer shortcut store', () => {
     );
 
     Object.values(KEYS).forEach(k => localStorage.removeItem(k));
-    window.dispatchEvent(new StorageEvent('storage', { key: null }));
+    window.dispatchEvent(storageEvent(null));
 
     expect(store.snapshot().environments).to.be.empty;
   });
