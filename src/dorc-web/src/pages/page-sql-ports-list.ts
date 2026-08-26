@@ -17,6 +17,7 @@ import { SqlPortApiModel } from '../apis/dorc-api';
 import { RefDataSqlPortsApi } from '../apis/dorc-api';
 import GlobalCache from '../global-cache';
 import { ref } from 'lit/directives/ref.js';
+import { keyed } from 'lit/directives/keyed.js';
 import { UnsavedChangesGuard } from '../components/unsaved-changes-guard';
 
 @customElement('page-sql-ports-list')
@@ -42,6 +43,8 @@ export class PageSqlPortsList extends PageElement {
    * template is the single source of truth for whether the dialog is showing.
    */
   @state() addSqlPortDialogOpened = false;
+
+  @state() private addSqlPortSequence = 0;
 
   constructor() {
     super();
@@ -136,7 +139,8 @@ export class PageSqlPortsList extends PageElement {
         @opened-changed="${(e: DialogOpenedChangedEvent) => {
           this.addSqlPortDialogOpened = e.detail.value;
         }}"
-        ${dialogRenderer(this.renderAddSqlPort, [])}
+        @unsaved-changes-discarded="${this.resetAddSqlPort}"
+        ${dialogRenderer(this.renderAddSqlPort, [this.addSqlPortSequence])}
         ${dialogFooterRenderer(this.renderAddSqlPortFooter, [])}
       ></vaadin-dialog>
       ${
@@ -173,7 +177,14 @@ export class PageSqlPortsList extends PageElement {
   }
 
   private renderAddSqlPort = () =>
-    html`<add-sql-port id="add-sql-port"></add-sql-port>`;
+    html`${keyed(
+      this.addSqlPortSequence,
+      html`<add-sql-port id="add-sql-port"></add-sql-port>`
+    )}`;
+
+  private resetAddSqlPort = () => {
+    this.addSqlPortSequence += 1;
+  };
 
   /**
    * `dialog-confirm` was inert on `<vaadin-dialog>`, so the close path is

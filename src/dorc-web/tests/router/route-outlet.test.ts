@@ -10,12 +10,17 @@ import type {
 // through a slot, the way the real routed components do, and record the
 // onAfterEnter calls the router makes.
 const entered: string[] = [];
+const updated: string[] = [];
 
 class RoutedStub extends HTMLElement {
   location?: RouterLocation;
 
   onAfterEnter(location: RouterLocation) {
     entered.push(`${this.tagName.toLowerCase()}:${location.pathname}`);
+  }
+
+  onRouteUpdate(location: RouterLocation) {
+    updated.push(`${this.tagName.toLowerCase()}:${location.pathname}`);
   }
 
   connectedCallback() {
@@ -79,6 +84,7 @@ describe('RouteOutlet', () => {
 
   beforeEach(() => {
     entered.length = 0;
+    updated.length = 0;
     host = document.createElement('div');
     document.body.appendChild(host);
     outlet = new RouteOutlet(host);
@@ -139,9 +145,9 @@ describe('RouteOutlet', () => {
 
     expect(host.querySelector('stub-parent')).to.equal(null);
     expect(parentBefore?.isConnected).to.equal(false);
-    expect(host.firstElementChild?.firstElementChild?.tagName.toLowerCase()).to.equal(
-      'stub-a'
-    );
+    expect(
+      host.firstElementChild?.firstElementChild?.tagName.toLowerCase()
+    ).to.equal('stub-a');
   });
 
   it('refreshes the location of reused elements', () => {
@@ -165,6 +171,15 @@ describe('RouteOutlet', () => {
     render([layoutRoute, parentRoute, routeB], '/two');
     // The layout and parent are reused, so only the new leaf is entered.
     expect(entered).to.deep.equal(['stub-b:/two']);
+  });
+
+  it('notifies reused elements that their route location changed', () => {
+    render([layoutRoute, parentRoute, routeA], '/one');
+    updated.length = 0;
+
+    render([layoutRoute, parentRoute, routeB], '/two');
+
+    expect(updated).to.deep.equal(['stub-layout:/two', 'stub-parent:/two']);
   });
 
   it('has the whole chain attached before onAfterEnter fires', () => {
@@ -285,9 +300,10 @@ describe('RouteOutlet', () => {
 
     render([layoutRoute, routeA]);
 
-    expect(host.firstElementChild, 'rebuilt after external detach').to.not.equal(
-      null
-    );
+    expect(
+      host.firstElementChild,
+      'rebuilt after external detach'
+    ).to.not.equal(null);
     expect(
       host.firstElementChild?.firstElementChild?.tagName.toLowerCase()
     ).to.equal('stub-a');

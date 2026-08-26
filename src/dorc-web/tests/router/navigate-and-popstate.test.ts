@@ -1,6 +1,6 @@
 import { expect } from '../_helpers';
 import { AppRouter } from '../../src/router/router';
-import type { AppRoute } from '../../src/router/route-config';
+import type { AppRoute, RouteRedirect } from '../../src/router/route-config';
 
 // Three contracts in `router.ts` that a one-line change removed silently:
 //
@@ -127,5 +127,45 @@ describe('navigate, popstate and link default actions', () => {
       preventedAfterRouter,
       'the router cancelled the browser default, or the page reloads too'
     ).to.equal(true);
+  });
+
+  it('does not render an older navigation after a newer one completes', async () => {
+    router.disconnect();
+    window.history.replaceState(null, '', '/second');
+
+    let resolveFirst: ((outcome: RouteRedirect) => void) | undefined;
+    let firstStarted: (() => void) | undefined;
+    const started = new Promise<void>(resolve => {
+      firstStarted = resolve;
+    });
+    const delayedAction = (() => {
+      firstStarted?.();
+      return new Promise<RouteRedirect>(resolve => {
+        resolveFirst = resolve;
+      });
+    }) as unknown as AppRoute['action'];
+    const delayedRoutes: AppRoute[] = [
+      {
+        path: '',
+        component: 'div',
+        children: [
+          { path: '/first', action: delayedAction },
+          { path: '/second', component: 'div' },
+          { path: '/*notFound', name: 'not-found', component: 'div' }
+        ]
+      }
+    ];
+
+    router = new AppRouter(outlet);
+    await router.setRoutes(delayedRoutes);
+
+    const olderNavigation = router.navigate('/first');
+    await started;
+    await router.navigate('/second');
+    resolveFirst?.({ redirect: '/obsolete' });
+    await olderNavigation;
+
+    expect(window.location.pathname).to.equal('/second');
+    expect(router.location.pathname).to.equal('/second');
   });
 });

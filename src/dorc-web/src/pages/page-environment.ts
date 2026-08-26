@@ -5,6 +5,7 @@ import '../components/add-edit-access-control';
 import { navigate } from '../router/router';
 import { Tabs } from '@vaadin/tabs';
 import { PageElement } from '../helpers/page-element';
+import type { PageLocation } from '../helpers/page-element';
 import { EnvironmentApiModel } from '../apis/dorc-api';
 import { PageEnvBase } from '../components/environment-tabs/page-env-base';
 import { SuccessNotification } from '../components/notifications/success-notification';
@@ -129,14 +130,12 @@ export class PageEnvironment extends PageElement {
       this.environmentRenamed as EventListener
     );
 
-    const tabName = location.pathname.split('/')[3];
-    if (tabName) this.tabId = this.tabNames.findIndex(p => p === tabName);
-    else this.tabId = 0;
+    this.syncSelectedTab(location.pathname);
+  }
 
-    const tabs = this.shadowRoot?.getElementById('env-tabs') as unknown as Tabs;
-    if (tabs) {
-      tabs.selected = this.tabId;
-    }
+  public onRouteUpdate(location: PageLocation) {
+    this.location = location;
+    this.syncSelectedTab(location.pathname);
   }
 
   environmentLoading() {
@@ -212,5 +211,18 @@ export class PageEnvironment extends PageElement {
 
     void navigate(pathStart + tabName);
     console.log(`Telling router to go to ${tabName}`);
+  }
+
+  private syncSelectedTab(pathname: string) {
+    const tabName = pathname.split('/')[3];
+    const foundIndex = tabName
+      ? this.tabNames.findIndex(p => p === tabName)
+      : 0;
+    this.tabId = foundIndex >= 0 ? foundIndex : 0;
+
+    const tabs = this.shadowRoot?.getElementById('env-tabs') as unknown as Tabs;
+    if (tabs) {
+      tabs.selected = this.tabId;
+    }
   }
 }

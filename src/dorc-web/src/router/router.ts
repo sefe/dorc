@@ -41,6 +41,8 @@ export class AppRouter {
 
   private listening = false;
 
+  private navigationSequence = 0;
+
   /** The location of the most recently completed navigation. */
   location: RouterLocation = EMPTY_LOCATION;
 
@@ -86,6 +88,7 @@ export class AppRouter {
   disconnect(): void {
     if (!this.listening) return;
     this.listening = false;
+    this.navigationSequence += 1;
     window.removeEventListener('popstate', this.onPopState);
     document.removeEventListener('click', this.onClick);
   }
@@ -164,7 +167,8 @@ export class AppRouter {
       .composedPath()
       .find(
         (node): node is HTMLAnchorElement =>
-          node instanceof HTMLAnchorElement && Boolean(node.getAttribute('href'))
+          node instanceof HTMLAnchorElement &&
+          Boolean(node.getAttribute('href'))
       );
 
     if (
@@ -189,11 +193,15 @@ export class AppRouter {
       return;
     }
 
+    const navigationSequence = ++this.navigationSequence;
     let pathname = window.location.pathname;
     let redirectFrom: string | undefined;
 
     for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
       const outcome = await resolver.resolve(pathname);
+      if (navigationSequence !== this.navigationSequence) {
+        return;
+      }
 
       if (!isRedirect(outcome)) {
         this.location = {

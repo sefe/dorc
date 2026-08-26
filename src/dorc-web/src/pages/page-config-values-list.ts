@@ -22,6 +22,7 @@ import '../components/add-config-value';
 import { RefDataRolesApi } from '../apis/dorc-api';
 import '@vaadin/checkbox';
 import { ref } from 'lit/directives/ref.js';
+import { keyed } from 'lit/directives/keyed.js';
 import { UnsavedChangesGuard } from '../components/unsaved-changes-guard';
 
 @customElement('page-config-values-list')
@@ -29,6 +30,8 @@ export class PageConfigValuesList extends ResponsiveMixin(PageElement) {
   private readonly unsavedChanges = new UnsavedChangesGuard();
 
   @state() addConfigValueDialogOpened = false;
+
+  @state() private addConfigValueSequence = 0;
 
   @property({ type: Array }) configValues: Array<ConfigValueApiModel> = [];
 
@@ -172,7 +175,10 @@ export class PageConfigValuesList extends ResponsiveMixin(PageElement) {
         @opened-changed="${(e: DialogOpenedChangedEvent) => {
           this.addConfigValueDialogOpened = e.detail.value;
         }}"
-        ${dialogRenderer(this.renderAddConfigValue, [])}
+        @unsaved-changes-discarded="${this.resetAddConfigValue}"
+        ${dialogRenderer(this.renderAddConfigValue, [
+          this.addConfigValueSequence
+        ])}
         ${dialogFooterRenderer(this.renderAddConfigValueFooter, [])}
       ></vaadin-dialog>
       ${
@@ -239,7 +245,14 @@ export class PageConfigValuesList extends ResponsiveMixin(PageElement) {
   }
 
   private renderAddConfigValue = () =>
-    html`<add-config-value></add-config-value>`;
+    html`${keyed(
+      this.addConfigValueSequence,
+      html`<add-config-value></add-config-value>`
+    )}`;
+
+  private resetAddConfigValue = () => {
+    this.addConfigValueSequence += 1;
+  };
 
   private renderAddConfigValueFooter = () => html`
     <vaadin-button @click="${() => (this.addConfigValueDialogOpened = false)}"

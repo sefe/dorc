@@ -3,6 +3,8 @@ import { confirmPrompt } from './confirm-prompt';
 
 const dismissButtonLabels = new Set(['cancel', 'close']);
 
+export const UNSAVED_CHANGES_DISCARDED_EVENT = 'unsaved-changes-discarded';
+
 export class UnsavedChangesGuard {
   private readonly attachedDialogs = new WeakSet<Dialog>();
   private readonly dirtyDialogs = new WeakSet<Dialog>();
@@ -159,6 +161,7 @@ export class UnsavedChangesGuard {
     dirtyDialogs.delete(dialog);
     dialog.noCloseOnEsc = false;
     dialog.noCloseOnOutsideClick = false;
+    dialog.dispatchEvent(new CustomEvent(UNSAVED_CHANGES_DISCARDED_EVENT));
     dialog.opened = false;
   }
 }

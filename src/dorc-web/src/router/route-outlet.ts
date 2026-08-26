@@ -23,6 +23,7 @@ import type {
 interface RoutedElement extends HTMLElement {
   location?: RouterLocation;
   onAfterEnter?: (location: RouterLocation) => void;
+  onRouteUpdate?: (location: RouterLocation) => void;
 }
 
 interface RenderedEntry extends RouteChainEntry {
@@ -59,9 +60,8 @@ export class RouteOutlet {
       searchParams: new URLSearchParams(request.search)
     });
 
-    // Reused elements: refresh location only. Vaadin Router did not re-fire
-    // onAfterEnter for these, and re-firing would re-run entry side effects on
-    // every sibling navigation.
+    // Reused elements receive a lightweight update hook. Re-firing
+    // onAfterEnter would repeat entry side effects on every sibling navigation.
     const reused = this.rendered.slice(0, divergedAt);
     for (const entry of reused) {
       entry.element.location = locationFor(entry.route);
@@ -90,6 +90,9 @@ export class RouteOutlet {
     // own subtree sees a complete tree.
     for (const entry of added) {
       entry.element.onAfterEnter?.(entry.element.location as RouterLocation);
+    }
+    for (const entry of reused) {
+      entry.element.onRouteUpdate?.(entry.element.location as RouterLocation);
     }
   }
 

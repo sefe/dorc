@@ -30,6 +30,7 @@ import type { ServerApiModel } from '../apis/dorc-api';
 import GlobalCache from '../global-cache';
 import '@vaadin/tooltip';
 import { ref } from 'lit/directives/ref.js';
+import { keyed } from 'lit/directives/keyed.js';
 import { UnsavedChangesGuard } from '../components/unsaved-changes-guard';
 
 @customElement('page-daemons-list')
@@ -49,6 +50,8 @@ export class PageDaemonsList extends ResponsiveMixin(PageElement) {
   @state() private editingDaemon: DaemonApiModel | null = null;
 
   @state() addDaemonDialogOpened = false;
+
+  @state() private addDaemonSequence = 0;
 
   @state() editDaemonDialogOpened = false;
 
@@ -163,7 +166,8 @@ export class PageDaemonsList extends ResponsiveMixin(PageElement) {
         @opened-changed="${(e: DialogOpenedChangedEvent) => {
           this.addDaemonDialogOpened = e.detail.value;
         }}"
-        ${dialogRenderer(this.renderAddDaemon, [])}
+        @unsaved-changes-discarded="${this.resetAddDaemon}"
+        ${dialogRenderer(this.renderAddDaemon, [this.addDaemonSequence])}
         ${dialogFooterRenderer(this.renderAddDaemonFooter, [])}
       ></vaadin-dialog>
 
@@ -371,7 +375,14 @@ export class PageDaemonsList extends ResponsiveMixin(PageElement) {
   }
 
   private renderAddDaemon = () =>
-    html`<add-daemon id="add-daemon"></add-daemon>`;
+    html`${keyed(
+      this.addDaemonSequence,
+      html`<add-daemon id="add-daemon"></add-daemon>`
+    )}`;
+
+  private resetAddDaemon = () => {
+    this.addDaemonSequence += 1;
+  };
 
   private renderAddDaemonFooter = () => html`
     <vaadin-button @click="${() => (this.addDaemonDialogOpened = false)}"

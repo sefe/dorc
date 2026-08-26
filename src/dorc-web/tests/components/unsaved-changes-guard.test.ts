@@ -127,10 +127,18 @@ describe('UnsavedChangesGuard', () => {
   it('closes and clears the guard when discarding is confirmed', async () => {
     confirmPromptSpy.mockResolvedValue(true);
     const dialog = await guardedDialog();
+    let discarded = false;
+    (dialog as HTMLElement).addEventListener(
+      'unsaved-changes-discarded',
+      () => {
+        discarded = true;
+      }
+    );
 
     (dialog.querySelector('vaadin-button') as HTMLElement).click();
     await settle();
 
+    expect(discarded).to.equal(true);
     expect(dialog.opened).to.equal(false);
     expect(dialog.noCloseOnEsc).to.equal(false);
     expect(dialog.noCloseOnOutsideClick).to.equal(false);

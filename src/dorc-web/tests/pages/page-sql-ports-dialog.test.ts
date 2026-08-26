@@ -129,7 +129,7 @@ describe('page-sql-ports-list add-SQL-port dialog', () => {
     expect(el.addSqlPortDialogOpened).to.equal(false);
   });
 
-  it('reopens with its content intact', async () => {
+  it('reuses its content after a normal close', async () => {
     // <vaadin-dialog> caches its renderer root, so content persists across
     // close/reopen rather than being rebuilt. Pinned because it is the
     // opposite of what the Vaadin docs imply, and every converted dialog
@@ -147,5 +147,20 @@ describe('page-sql-ports-list add-SQL-port dialog', () => {
     expect(inDialog(dialog(), 'add-sql-port'), 'same element reused').to.equal(
       first
     );
+  });
+
+  it('rebuilds its content after unsaved changes are discarded', async () => {
+    await open();
+    const first = inDialog(dialog(), 'add-sql-port');
+    expect(first, 'content rendered').to.not.equal(null);
+
+    dialog()?.dispatchEvent(new CustomEvent('unsaved-changes-discarded'));
+    await el.updateComplete;
+    await settle();
+
+    expect(
+      inDialog(dialog(), 'add-sql-port'),
+      'discarded form replaced'
+    ).to.not.equal(first);
   });
 });

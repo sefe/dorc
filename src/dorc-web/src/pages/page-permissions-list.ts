@@ -28,12 +28,15 @@ import { retrieveErrorMessage } from '../helpers/errorMessage-retriever.js';
 import '@vaadin/grid/vaadin-grid-column';
 import '@vaadin/tooltip';
 import { UnsavedChangesGuard } from '../components/unsaved-changes-guard';
+import { keyed } from 'lit/directives/keyed.js';
 
 @customElement('page-permissions-list')
 export class PagePermissionsList extends ResponsiveMixin(PageElement) {
   private readonly unsavedChanges = new UnsavedChangesGuard();
 
   @state() addPermissionDialogOpened = false;
+
+  @state() private addPermissionSequence = 0;
 
   @state() editPermissionDialogOpened = false;
 
@@ -126,7 +129,8 @@ export class PagePermissionsList extends ResponsiveMixin(PageElement) {
         @opened-changed="${(e: DialogOpenedChangedEvent) => {
           this.addPermissionDialogOpened = e.detail.value;
         }}"
-        ${dialogRenderer(this.renderAddPermission, [])}
+        @unsaved-changes-discarded="${this.resetAddPermission}"
+        ${dialogRenderer(this.renderAddPermission, [this.addPermissionSequence])}
         ${dialogFooterRenderer(this.renderAddPermissionFooter, [])}
       ></vaadin-dialog>
       <vaadin-dialog
@@ -226,7 +230,15 @@ export class PagePermissionsList extends ResponsiveMixin(PageElement) {
     );
   }
 
-  private renderAddPermission = () => html`<add-permission></add-permission>`;
+  private renderAddPermission = () =>
+    html`${keyed(
+      this.addPermissionSequence,
+      html`<add-permission></add-permission>`
+    )}`;
+
+  private resetAddPermission = () => {
+    this.addPermissionSequence += 1;
+  };
 
   private renderAddPermissionFooter = () => html`
     <vaadin-button @click="${() => (this.addPermissionDialogOpened = false)}"
