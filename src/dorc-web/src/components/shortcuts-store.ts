@@ -14,7 +14,6 @@ import { EnvPageTabNames } from '../pages/page-environment.ts';
 export class ShortcutsStore extends LitElement {
   private monitorResultTabs = 'monitor-result-tabs';
   private envDetailTabs = 'env-detail-tabs';
-  private projectEnvsTabs = 'project-envs-tabs';
 
   @property() metaData = '';
   protected dorcNavbar: DorcNavbar | undefined;
@@ -137,29 +136,25 @@ export class ShortcutsStore extends LitElement {
 
   private openProjectEnvs(e: CustomEvent) {
     const project = e.detail.Project as ProjectApiModel;
+    const shortcut: ProjectApiModel = {
+      ProjectId: project.ProjectId,
+      ProjectName: project.ProjectName
+    };
     const existingProjs = this.dorcNavbar?.openProjTabs.find(
       value => value.ProjectName === project.ProjectName
     );
     let path: string;
     if (existingProjs === undefined) {
-      // Note: this used to blank project.ArtefactsSubPaths here, on the theory
-      // that a ';' in the value broke the cookie. setCookie percent-encodes the
-      // whole value, so ';' was never the cause. `project` is the live grid row
-      // passed by reference, so the workaround blanked the column in the grid
-      // and, for FileShare projects, PUT the empty value back to the server on
-      // the next metadata save. Removed; the real cookie-size problem is
-      // tracked as D-02.
-      this.dorcNavbar?.openProjTabs.push(project);
-      path = this.dorcNavbar?.insertProjTab(project) ?? '';
+      this.dorcNavbar?.openProjTabs.push(shortcut);
+      path = this.dorcNavbar?.insertProjTab(shortcut) ?? '';
     } else {
-      path = this.getProjectEnvsPath(project);
+      path = this.getProjectEnvsPath(shortcut);
     }
 
     Router.go(path);
 
     this.dorcNavbar?.setSelectedTab(path);
-
-    setCookie(this.projectEnvsTabs, JSON.stringify(this.dorcNavbar?.openProjTabs));
+    this.dorcNavbar?.persistProjectTabs();
   }
 
   private getProjectEnvsPath(projectAPIModel: ProjectApiModel) {

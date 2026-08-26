@@ -1,4 +1,5 @@
 import { expect, fixture, html } from '../_helpers';
+import { deleteCookie, getCookie, setCookie } from '../../src/helpers/cookies';
 
 // P0 regression tests for three live defects in the navigation drawer's
 // shortcut tabs, documented as D-01, D-05 and D-14 in
@@ -17,6 +18,8 @@ interface DrawerNavbar extends HTMLElement {
   closeEnvDetail(e: CustomEvent): void;
   closeProjectEnvs(e: CustomEvent): void;
   closeMonitorResult(e: CustomEvent): void;
+  insertEnvTab(env: unknown): void;
+  setSelectedTab(path: string): void;
 }
 
 /**
@@ -50,6 +53,7 @@ async function mountNavbar(container: HTMLDivElement): Promise<DrawerNavbar> {
 
 describe('Drawer shortcut tabs — P0 regressions', () => {
   let container: HTMLDivElement;
+  let originalUrl: string;
 
   beforeAll(async () => {
     await registerRoutes();
@@ -57,11 +61,16 @@ describe('Drawer shortcut tabs — P0 regressions', () => {
   });
 
   beforeEach(() => {
+    originalUrl =
+      window.location.pathname + window.location.search + window.location.hash;
+    deleteCookie('env-detail-tabs');
     container = document.createElement('div');
     document.body.appendChild(container);
   });
 
   afterEach(() => {
+    deleteCookie('env-detail-tabs');
+    window.history.replaceState(null, '', originalUrl);
     container.remove();
   });
 
@@ -114,6 +123,40 @@ describe('Drawer shortcut tabs — P0 regressions', () => {
       );
 
       expect(tabs.children.length, 'tab was removed again').to.equal(before);
+    });
+
+    it('preserves shortcuts added by another window when deleting a deep link', async () => {
+      const navbar = await mountNavbar(container);
+      const deleted = { EnvironmentId: 1, EnvironmentName: 'Deleted' };
+      const otherWindow = { EnvironmentId: 2, EnvironmentName: 'Other' };
+      setCookie('env-detail-tabs', JSON.stringify([deleted, otherWindow]));
+
+      navbar.closeEnvDetail(
+        new CustomEvent('close-env-detail', {
+          detail: { Environment: deleted }
+        })
+      );
+
+      expect(JSON.parse(getCookie('env-detail-tabs'))).to.deep.equal([
+        otherWindow
+      ]);
+    });
+
+    it('does not restore stale local shortcuts over an empty shared cookie', async () => {
+      const navbar = await mountNavbar(container);
+      const deleted = { EnvironmentId: 1, EnvironmentName: 'Deleted' };
+      navbar.openEnvTabs = [
+        deleted,
+        { EnvironmentId: 2, EnvironmentName: 'Stale' }
+      ];
+
+      navbar.closeEnvDetail(
+        new CustomEvent('close-env-detail', {
+          detail: { Environment: deleted }
+        })
+      );
+
+      expect(JSON.parse(getCookie('env-detail-tabs'))).to.deep.equal([]);
     });
   });
 
@@ -222,6 +265,27 @@ describe('Drawer shortcut tabs — P0 regressions', () => {
       expect(click.defaultPrevented, 'click must be defaultPrevented').to.be
         .true;
     });
+
+    it('keeps the current route selected when a preceding shortcut is removed', async () => {
+      const navbar = await mountNavbar(container);
+      const tabs = navbar.shadowRoot?.getElementById('tabs') as
+        (HTMLElement & { selected: number }) | null;
+      if (!tabs) throw new Error('navbar rendered without #tabs');
+      const env = { EnvironmentId: 1, EnvironmentName: 'Env' };
+
+      window.history.replaceState(null, '', '/servers');
+      navbar.insertEnvTab(env);
+      navbar.setSelectedTab('/servers');
+      navbar.closeEnvDetail(
+        new CustomEvent('close-env-detail', {
+          detail: { Environment: env }
+        })
+      );
+
+      const selectedLink = tabs.children[tabs.selected]?.firstElementChild as
+        HTMLAnchorElement | undefined;
+      expect(selectedLink?.pathname).to.equal('/servers');
+    });
   });
 });
 
@@ -240,11 +304,13 @@ describe('D-05: opening project environments must not mutate the caller model', 
   });
 
   beforeEach(() => {
+    deleteCookie('project-envs-tabs');
     container = document.createElement('div');
     document.body.appendChild(container);
   });
 
   afterEach(() => {
+    deleteCookie('project-envs-tabs');
     container.remove();
   });
 
@@ -270,5 +336,14 @@ describe('D-05: opening project environments must not mutate the caller model', 
     );
 
     expect(project.ArtefactsSubPaths).to.equal('drop/a;drop/b');
+    const navbar = el.shadowRoot?.getElementById(
+      'dorcNavbar'
+    ) as DrawerNavbar | null;
+    expect(navbar?.openProjTabs).to.deep.equal([
+      { ProjectId: 1, ProjectName: 'Payments' }
+    ]);
+    expect(JSON.parse(getCookie('project-envs-tabs'))).to.deep.equal([
+      { ProjectId: 1, ProjectName: 'Payments' }
+    ]);
   });
 });

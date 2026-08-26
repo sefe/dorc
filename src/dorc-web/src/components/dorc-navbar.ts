@@ -350,7 +350,7 @@ export class DorcNavbar extends LitElement {
   private syncEnvTabsFromCookie() {
     const envTabs = getCookie(this.envDetailTabs) as string;
     if (envTabs === undefined || envTabs === '') return;
-    
+
     try {
       const cookieEnvs = JSON.parse(envTabs) as EnvironmentApiModel[];
       // Find new tabs that aren't already displayed
@@ -371,7 +371,7 @@ export class DorcNavbar extends LitElement {
   private syncProjTabsFromCookie() {
     const projTabs = getCookie(this.projectEnvsTabs) as string;
     if (projTabs === undefined || projTabs === '') return;
-    
+
     try {
       const cookieProjs = JSON.parse(projTabs) as ProjectApiModel[];
       // Find new tabs that aren't already displayed
@@ -392,7 +392,7 @@ export class DorcNavbar extends LitElement {
   private syncMonitorTabsFromCookie() {
     const resultTabs = getCookie(this.monitorResultTabs) as string;
     if (resultTabs === undefined || resultTabs === '') return;
-    
+
     try {
       const cookieResults = JSON.parse(resultTabs) as DeploymentRequestApiModel[];
       // Find new tabs that aren't already displayed
@@ -493,7 +493,8 @@ export class DorcNavbar extends LitElement {
       const tabsArray = [].slice.call(tabs.children) as Tab[];
       tabs.removeChild(tabsArray[idx]);
     }
-    setCookie(this.projectEnvsTabs, JSON.stringify(this.openProjTabs));
+    this.persistProjectTabs();
+    this.setSelectedTab(window.location.pathname);
   }
 
   public closeMonitorResult(e: CustomEvent) {
@@ -513,6 +514,7 @@ export class DorcNavbar extends LitElement {
       tabs.removeChild(tabsArray[idx]);
     }
     setCookie(this.monitorResultTabs, JSON.stringify(this.openResultTabs));
+    this.setSelectedTab(window.location.pathname);
   }
 
   public closeEnvDetail(e: CustomEvent) {
@@ -533,7 +535,40 @@ export class DorcNavbar extends LitElement {
       const tabsArray = [].slice.call(tabs.children) as Tab[];
       tabs.removeChild(tabsArray[idx]);
     }
-    setCookie(this.envDetailTabs, JSON.stringify(this.openEnvTabs));
+    this.persistEnvTabsAfterRemoval(env);
+    this.setSelectedTab(window.location.pathname);
+  }
+
+  public persistProjectTabs() {
+    const shortcuts = this.openProjTabs.map(project => ({
+      ProjectId: project.ProjectId,
+      ProjectName: project.ProjectName
+    }));
+    setCookie(this.projectEnvsTabs, JSON.stringify(shortcuts));
+  }
+
+  private persistEnvTabsAfterRemoval(env: EnvironmentApiModel) {
+    let persistedTabs: EnvironmentApiModel[] = [];
+
+    try {
+      const stored = getCookie(this.envDetailTabs);
+      if (stored !== '') {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          persistedTabs = parsed as EnvironmentApiModel[];
+        } else {
+          throw new Error('Environment shortcut cookie is not an array');
+        }
+      }
+    } catch (error) {
+      console.error('Failed to merge persisted environment shortcuts', error);
+      persistedTabs = this.openEnvTabs;
+    }
+
+    const remaining = persistedTabs.filter(
+      item => item.EnvironmentId !== env.EnvironmentId
+    );
+    setCookie(this.envDetailTabs, JSON.stringify(remaining));
   }
 
   public renameEnvDetail(e: CustomEvent) {
