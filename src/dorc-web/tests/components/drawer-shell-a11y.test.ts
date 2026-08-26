@@ -130,6 +130,25 @@ describe('P3: app shell accessibility', () => {
       ).to.not.equal(before);
     });
 
+    it('does not apply the click preset after a mouse drag', async () => {
+      const app = await mountApp(container);
+      const splitter = rootOf(app).getElementById('splitter')!;
+
+      splitter.dispatchEvent(
+        new MouseEvent('mousedown', { bubbles: true, clientX: 300 })
+      );
+      document.body.dispatchEvent(
+        new MouseEvent('mousemove', { bubbles: true, clientX: 420 })
+      );
+      document.body.dispatchEvent(
+        new MouseEvent('mouseup', { bubbles: true, clientX: 420 })
+      );
+      splitter.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await app.updateComplete;
+
+      expect(splitter.getAttribute('aria-valuenow')).to.equal('420');
+    });
+
     (['light', 'dark'] as DorcTheme[]).forEach(theme => {
       it(`is visible against its neighbours in ${theme} theme`, async () => {
         setTheme(theme);
@@ -169,6 +188,27 @@ describe('P3: app shell accessibility', () => {
 
       expect(navbar.hasAttribute('inert'), 'expanded again').to.be.false;
       expect(navbar.hasAttribute('aria-hidden')).to.be.false;
+    });
+
+    it('makes a collapsed drawer reachable when the splitter resizes it', async () => {
+      const app = await mountApp(container);
+      const navbar = rootOf(app).getElementById('dorcNavbar')!;
+      const menuBtn = rootOf(app).querySelector('.menu-btn') as HTMLElement;
+      const splitter = rootOf(app).getElementById('splitter')!;
+
+      menuBtn.click();
+      await app.updateComplete;
+      expect(navbar.hasAttribute('inert'), 'precondition: collapsed').to.be
+        .true;
+
+      splitter.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true })
+      );
+      await app.updateComplete;
+
+      expect(navbar.hasAttribute('inert'), 'resized: reachable').to.be.false;
+      expect(navbar.hasAttribute('aria-hidden')).to.be.false;
+      expect(menuBtn.getAttribute('aria-expanded')).to.equal('true');
     });
   });
 

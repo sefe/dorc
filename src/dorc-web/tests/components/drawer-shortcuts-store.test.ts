@@ -358,10 +358,38 @@ describe('P1: drawer shortcut store', () => {
     window.dispatchEvent(storageEvent(null));
 
     expect(store.snapshot().environments).to.be.empty;
+    expect(localStorage.getItem(KEYS.schema), 'guard re-armed').to.equal('1');
+
+    store.add(
+      'environments',
+      toEnvShortcut({ EnvironmentId: 2, EnvironmentName: 'AFTER-CLEAR' })
+    );
+    expect(fresh().snapshot().environments).to.deep.equal([
+      { EnvironmentId: 2, EnvironmentName: 'AFTER-CLEAR' }
+    ]);
+  });
+
+  it('merges mutations made from two stores before storage events arrive', () => {
+    const first = fresh();
+    const second = fresh();
+
+    first.add(
+      'environments',
+      toEnvShortcut({ EnvironmentId: 1, EnvironmentName: 'FIRST' })
+    );
+    second.add(
+      'environments',
+      toEnvShortcut({ EnvironmentId: 2, EnvironmentName: 'SECOND' })
+    );
+
+    expect(fresh().snapshot().environments).to.deep.equal([
+      { EnvironmentId: 1, EnvironmentName: 'FIRST' },
+      { EnvironmentId: 2, EnvironmentName: 'SECOND' }
+    ]);
   });
 
   // ─── SC-17 / D-41 ───────────────────────────────────────────────────────
-  it('SC-17: clear() empties the keys but leaves the migration guard armed', () => {
+  it('SC-17: clear() removes shortcut keys but leaves the migration guard armed', () => {
     const store = fresh();
     store.add(
       'environments',
@@ -371,11 +399,41 @@ describe('P1: drawer shortcut store', () => {
     store.clear();
 
     expect(store.snapshot().environments).to.be.empty;
-    expect(localStorage.getItem(KEYS.environments)).to.equal('[]');
+    expect(localStorage.getItem(KEYS.environments)).to.equal(null);
     expect(
       localStorage.getItem(KEYS.schema),
       'clearing must not re-trigger the migration'
     ).to.not.be.null;
+  });
+
+  it('SC-17: clear() removes legacy cookies after a failed migration', () => {
+    document.cookie = 'env-detail-tabs=%E0%A4%A; path=/;';
+    const store = fresh();
+    expect(document.cookie).to.contain('env-detail-tabs=');
+
+    store.clear();
+
+    expect(document.cookie).to.not.contain('env-detail-tabs=');
+  });
+
+  it('SC-17: clear() does not depend on quota-consuming writes', () => {
+    const store = fresh();
+    store.add(
+      'environments',
+      toEnvShortcut({ EnvironmentId: 1, EnvironmentName: 'SECRET' })
+    );
+    const realSetItem = Storage.prototype.setItem;
+    Storage.prototype.setItem = () => {
+      throw new DOMException('quota', 'QuotaExceededError');
+    };
+
+    try {
+      store.clear();
+    } finally {
+      Storage.prototype.setItem = realSetItem;
+    }
+
+    expect(localStorage.getItem(KEYS.environments)).to.equal(null);
   });
 
   it('SC-27: removes a dangling environment shortcut by name', () => {

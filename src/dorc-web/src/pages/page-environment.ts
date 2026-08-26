@@ -246,8 +246,13 @@ export class PageEnvironment extends PageElement {
     const tabIdx = e.detail.value as number;
     let envName = this.environmentName;
     if (envName === '') {
-      envName = location.pathname.split('/')[2];
-      this.environmentName = decodeURIComponent(envName);
+      const segment = location.pathname.split('/')[2] ?? '';
+      try {
+        envName = decodeURIComponent(segment);
+      } catch {
+        envName = segment;
+      }
+      this.environmentName = envName;
     }
 
     // D-12: raw interpolation meant an environment named e.g. "Perf 100% Load"

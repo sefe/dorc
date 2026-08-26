@@ -613,13 +613,15 @@ export class DorcNavbar extends LitElement {
       // URIError, and because getIndexOfPath runs from updated() it re-threw on
       // every render. Paths are now built with encodeURIComponent, but a
       // hand-typed or bookmarked URL can still be malformed.
-      let pathCorrected: string;
-      try {
-        pathCorrected = decodeURIComponent(path.toLowerCase());
-      } catch {
-        pathCorrected = path.toLowerCase();
-      }
-      const childPathCorrected = childPath.toLowerCase();
+      const normalizePath = (value: string) => {
+        try {
+          return decodeURIComponent(value).toLowerCase();
+        } catch {
+          return value.toLowerCase();
+        }
+      };
+      const pathCorrected = normalizePath(path);
+      const childPathCorrected = normalizePath(childPath);
       if (pathCorrected === '/') {
         idx = 0;
         break;

@@ -195,6 +195,19 @@ export class DrawerShortcuts extends EventTarget {
     // case as well; only a *named* key belonging to something else is ignored.
     const key = e.key ?? null;
     if (key !== null && !Object.values(KEYS).includes(key)) return;
+    if (key === null) {
+      const s = storage();
+      try {
+        if (s?.getItem(SCHEMA_KEY) === null) {
+          s.setItem(SCHEMA_KEY, '1');
+        }
+      } catch {
+        this.report(
+          'unavailable',
+          'Shortcuts cannot be saved in this browser session; they will be lost on reload.'
+        );
+      }
+    }
     // Read-only reconciliation. Deliberately does NOT write: if a storage-event
     // handler persisted what it just read, two windows would echo each other's
     // events indefinitely.
@@ -249,7 +262,7 @@ export class DrawerShortcuts extends EventTarget {
 
   add<F extends Family>(family: F, item: DrawerShortcutState[F][number]): void {
     const key = KEY_OF[family] as (i: unknown) => string;
-    const list = this.state[family] as unknown[];
+    const list = this.latestFamily(family) as unknown[];
     if (list.some(existing => key(existing) === key(item))) return;
     (this.state[family] as unknown[]) = [...list, item];
     this.persist(family);
@@ -261,7 +274,7 @@ export class DrawerShortcuts extends EventTarget {
     item: DrawerShortcutState[F][number]
   ): void {
     const key = KEY_OF[family] as (i: unknown) => string;
-    const before = this.state[family] as unknown[];
+    const before = this.latestFamily(family) as unknown[];
     const after = before.filter(existing => key(existing) !== key(item));
     if (after.length === before.length) return;
     (this.state[family] as unknown[]) = after;
@@ -279,11 +292,10 @@ export class DrawerShortcuts extends EventTarget {
    * rename does not silently reorder the drawer (WCAG 3.2.3).
    */
   renameEnvironment(oldName: string, next: EnvShortcut): void {
-    const idx = this.state.environments.findIndex(
-      e => e.EnvironmentName === oldName
-    );
+    const current = this.latestFamily('environments');
+    const idx = current.findIndex(e => e.EnvironmentName === oldName);
     if (idx < 0) return;
-    const copy = [...this.state.environments];
+    const copy = [...current];
     copy[idx] = next;
     this.state.environments = dedupe(copy, envKey);
     this.persist('environments');
@@ -298,7 +310,7 @@ export class DrawerShortcuts extends EventTarget {
    * probe. The 404 path only knows the name from the URL, so it needs this.
    */
   removeEnvironmentByName(name: string): void {
-    const before = this.state.environments;
+    const before = this.latestFamily('environments');
     const after = before.filter(e => e.EnvironmentName !== name);
     if (after.length === before.length) return;
     this.state.environments = after;
@@ -309,7 +321,20 @@ export class DrawerShortcuts extends EventTarget {
   /** Clears every shortcut key, leaving the migration guard armed (see SCHEMA_KEY). */
   clear(): void {
     this.state = { environments: [], projects: [], results: [] };
-    (Object.keys(KEYS) as Family[]).forEach(f => this.persist(f));
+    const s = storage();
+    if (s) {
+      try {
+        (Object.keys(KEYS) as Family[]).forEach(f => s.removeItem(KEYS[f]));
+      } catch {
+        this.report(
+          'unavailable',
+          'Saved drawer shortcuts could not be cleared from browser storage.'
+        );
+      }
+    }
+    (Object.keys(LEGACY_COOKIES) as Family[]).forEach(f =>
+      deleteLegacyCookie(LEGACY_COOKIES[f])
+    );
     this.emit();
   }
 
@@ -321,6 +346,10 @@ export class DrawerShortcuts extends EventTarget {
       projects: this.readFamily('projects'),
       results: this.readFamily('results')
     };
+  }
+
+  private latestFamily<F extends Family>(family: F): DrawerShortcutState[F] {
+    return storage() ? this.readFamily(family) : this.state[family];
   }
 
   private readFamily<F extends Family>(family: F): DrawerShortcutState[F] {

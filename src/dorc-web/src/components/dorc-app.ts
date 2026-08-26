@@ -41,7 +41,6 @@ function fMouseMoveListener(event: MouseEvent) {
 // handler) and commits the final width.
 function fMouseUpListener(event: MouseEvent) {
   document.body.style.removeProperty('user-select');
-  document.body.removeEventListener('mousemove', fMouseMoveListener);
 
   const width = Math.max(200, Math.min(1000, event.clientX));
   dorcNavbar.style.width = width + 'px';
@@ -293,6 +292,9 @@ export class DorcApp extends LitElement {
   // clobber a tabindex anyone else may have set.
   private _drawerSetTabindex = false;
   private _splitterDragInProgress = false;
+  private _splitterDragMoved = false;
+  private _splitterDragStartX = 0;
+  private _suppressNextSplitterClick = false;
   private _pageContent: HTMLElement | null = null;
 
   private _narrowMqHandler = (e: MediaQueryListEvent) => {
@@ -314,6 +316,7 @@ export class DorcApp extends LitElement {
     }
   };
   private _routerLocationChanged = () => {
+    this.dorcNavbar?.setSelectedTab(window.location.pathname);
     if (this._narrowScreen && this._drawerOpen) {
       this._closeDrawer();
     }
@@ -442,15 +445,28 @@ export class DorcApp extends LitElement {
 
   // Splitter mousedown handler is a class field so it has a stable reference
   // across attach/detach cycles (firstUpdated only fires once per element).
-  private _splitterMouseDownHandler = () => {
+  private _splitterMouseDownHandler = (event: MouseEvent) => {
     this._splitterDragInProgress = true;
+    this._splitterDragMoved = false;
+    this._splitterDragStartX = event.clientX;
     // Suppresses the width transition for the duration of the drag (D-37).
     this.setAttribute('resizing', '');
-    document.body.addEventListener('mousemove', fMouseMoveListener, {
-      passive: true
-    });
+    document.body.addEventListener(
+      'mousemove',
+      this._splitterMouseMoveHandler,
+      {
+        passive: true
+      }
+    );
     document.body.addEventListener('mouseup', this._wrappedMouseUpListener);
     document.body.style.setProperty('user-select', 'none');
+  };
+
+  private _splitterMouseMoveHandler = (event: MouseEvent) => {
+    if (Math.abs(event.clientX - this._splitterDragStartX) > 2) {
+      this._splitterDragMoved = true;
+    }
+    fMouseMoveListener(event);
   };
 
   // Idempotent: removeEventListener with an unregistered handler is a no-op,
@@ -465,11 +481,15 @@ export class DorcApp extends LitElement {
   // disconnectedCallback can tell whether to release body styles.
   private _wrappedMouseUpListener = (event: MouseEvent) => {
     document.body.removeEventListener('mouseup', this._wrappedMouseUpListener);
+    document.body.removeEventListener(
+      'mousemove',
+      this._splitterMouseMoveHandler
+    );
+    this._suppressNextSplitterClick = this._splitterDragMoved;
     this._splitterDragInProgress = false;
     this.removeAttribute('resizing');
     fMouseUpListener(event);
-    // Keep aria-valuenow in step with what the drag committed.
-    this._sidebarWidth = Math.max(200, Math.min(1000, event.clientX));
+    this.setSidebarWidth(event.clientX);
   };
 
   disconnectedCallback() {
@@ -485,8 +505,14 @@ export class DorcApp extends LitElement {
     }
     // Only release body styles we own, so coexisting modals/drags aren't clobbered.
     if (this._splitterDragInProgress) {
-      document.body.removeEventListener('mousemove', fMouseMoveListener);
-      document.body.removeEventListener('mouseup', this._wrappedMouseUpListener);
+      document.body.removeEventListener(
+        'mousemove',
+        this._splitterMouseMoveHandler
+      );
+      document.body.removeEventListener(
+        'mouseup',
+        this._wrappedMouseUpListener
+      );
       document.body.style.removeProperty('user-select');
       this._splitterDragInProgress = false;
       this.removeAttribute('resizing');
@@ -523,6 +549,10 @@ export class DorcApp extends LitElement {
     );
     this._sidebarWidth = clamped;
     if (this.dorcNavbar) this.dorcNavbar.style.width = `${clamped}px`;
+    if (!this._narrowScreen && !this._desktopSidebarVisible) {
+      this._desktopSidebarVisible = true;
+      this._applyDrawerAria();
+    }
   }
 
   /**
@@ -557,6 +587,10 @@ export class DorcApp extends LitElement {
    */
   private cycleSidebarWidth() {
     if (this._splitterDragInProgress) return;
+    if (this._suppressNextSplitterClick) {
+      this._suppressNextSplitterClick = false;
+      return;
+    }
     const presets = DorcApp.WIDTH_PRESETS;
     const next =
       presets.find(w => w > this._sidebarWidth + 1) ?? presets[0];
@@ -611,7 +645,8 @@ export class DorcApp extends LitElement {
    * 7-day expiry; localStorage has none, so this is now the only thing that
    * prunes them.
    */
-  private environmentNotFound = () => {
+  private environmentNotFound = (e: CustomEvent) => {
+    if (!e.detail?.confirmedNotFound) return;
     const segments = window.location.pathname.split('/');
     if (segments[1] !== 'environment' || !segments[2]) return;
     let name: string;

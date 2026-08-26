@@ -1,4 +1,6 @@
 import { expect, fixture, html } from '../_helpers';
+import { Router } from '@vaadin/router';
+import { vi } from 'vitest';
 
 // P3 — the environment detail page the drawer shortcuts link into.
 
@@ -123,6 +125,35 @@ describe('P3: environment page', () => {
       );
       const src = PageEnvironment.prototype.convertUriToHuman.toString();
       expect(src, 'the endur hard-coding is gone').to.not.match(/endur/i);
+    });
+
+    it('does not double-encode the route before the environment has loaded', async () => {
+      const { PageEnvironment } =
+        await import('../../src/pages/page-environment.js');
+      const page = new PageEnvironment();
+      const originalPath =
+        window.location.pathname +
+        window.location.search +
+        window.location.hash;
+      const go = vi.spyOn(Router, 'go').mockImplementation(() => true);
+      window.history.replaceState(null, '', '/environment/My%20Env/metadata');
+
+      try {
+        (
+          page as unknown as {
+            selectedChanged(e: CustomEvent): void;
+          }
+        ).selectedChanged(
+          new CustomEvent('selected-changed', { detail: { value: 1 } })
+        );
+
+        expect(go.mock.calls).to.deep.include([
+          '/environment/My%20Env/variables'
+        ]);
+      } finally {
+        go.mockRestore();
+        window.history.replaceState(null, '', originalPath);
+      }
     });
   });
 });

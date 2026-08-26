@@ -18,6 +18,7 @@ interface DrawerNavbar extends HTMLElement {
   closeEnvDetail(e: CustomEvent): void;
   closeProjectEnvs(e: CustomEvent): void;
   closeMonitorResult(e: CustomEvent): void;
+  setSelectedTab(path: string): void;
 }
 
 /**
@@ -231,6 +232,26 @@ describe('Drawer shortcut tabs — P0 regressions', () => {
         .true;
     });
   });
+
+  it('selects shortcuts whose names require URL encoding', async () => {
+    drawerShortcuts.clear();
+    const navbar = await mountNavbar(container);
+    drawerShortcuts.add('environments', {
+      EnvironmentId: 1,
+      EnvironmentName: 'Perf 100% Load'
+    });
+    await navbar.updateComplete;
+
+    navbar.setSelectedTab('/environment/Perf%20100%25%20Load/metadata');
+
+    const tabs = navbar.shadowRoot?.getElementById('tabs') as
+      (HTMLElement & { selected: number }) | null;
+    expect(tabs?.selected).to.be.greaterThan(-1);
+    expect(
+      tabs?.children[tabs.selected]?.querySelector('env-detail-tab')
+    ).to.not.equal(null);
+    drawerShortcuts.clear();
+  });
 });
 
 // ─── D-05 ─────────────────────────────────────────────────────────────────
@@ -278,5 +299,64 @@ describe('D-05: opening project environments must not mutate the caller model', 
     );
 
     expect(project.ArtefactsSubPaths).to.equal('drop/a;drop/b');
+  });
+
+  it('only prunes an environment after a confirmed not-found response', async () => {
+    drawerShortcuts.clear();
+    const el = document.createElement('dorc-app') as HTMLElement & {
+      updateComplete: Promise<unknown>;
+    };
+    container.appendChild(el);
+    await el.updateComplete;
+    drawerShortcuts.add('environments', {
+      EnvironmentId: 1,
+      EnvironmentName: 'KEEP-ME'
+    });
+    window.history.replaceState(null, '', '/environment/KEEP-ME/metadata');
+
+    el.dispatchEvent(
+      new CustomEvent('environment-not-found', {
+        detail: { confirmedNotFound: false }
+      })
+    );
+    expect(drawerShortcuts.snapshot().environments).to.have.lengthOf(1);
+
+    el.dispatchEvent(
+      new CustomEvent('environment-not-found', {
+        detail: { confirmedNotFound: true }
+      })
+    );
+    expect(drawerShortcuts.snapshot().environments).to.be.empty;
+  });
+
+  it('synchronizes shortcut selection after router navigation', async () => {
+    drawerShortcuts.clear();
+    const el = document.createElement('dorc-app') as HTMLElement & {
+      updateComplete: Promise<unknown>;
+    };
+    container.appendChild(el);
+    await el.updateComplete;
+    drawerShortcuts.add('environments', {
+      EnvironmentId: 1,
+      EnvironmentName: 'Selected Env'
+    });
+    await el.updateComplete;
+    const navbar = el.shadowRoot?.getElementById(
+      'dorcNavbar'
+    ) as DrawerNavbar | null;
+    await navbar?.updateComplete;
+    window.history.replaceState(
+      null,
+      '',
+      '/environment/Selected%20Env/metadata'
+    );
+
+    window.dispatchEvent(new CustomEvent('vaadin-router-location-changed'));
+
+    const tabs = navbar?.shadowRoot?.getElementById('tabs') as
+      (HTMLElement & { selected: number }) | null;
+    expect(
+      tabs?.children[tabs.selected]?.querySelector('env-detail-tab')
+    ).to.not.equal(null);
   });
 });
