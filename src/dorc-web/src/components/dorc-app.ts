@@ -81,7 +81,8 @@ export class DorcApp extends ShortcutsStore {
         gap: 8px;
         padding: 0 12px;
         background: var(--dorc-bg-secondary);
-        color: var(--dorc-text-secondary);
+        /* D-23a: 4.5:1 per WCAG 1.4.3 — the plain token is 3.76:1 here. */
+        color: var(--dorc-text-secondary-strong);
         box-sizing: border-box;
       }
 
@@ -89,10 +90,16 @@ export class DorcApp extends ShortcutsStore {
         flex-shrink: 0;
       }
 
+      /* Was height:65px + 6px padding = 71px inside a 50px header with no
+         overflow, so it bled ~10px over the drawer and was clipped at the top
+         by the host's overflow:hidden (D-33). */
       #header .mascot {
-        height: 65px;
+        height: 100%;
+        max-height: calc(var(--dorc-header-height, 50px) - 6px);
+        width: auto;
         padding: 3px 0;
         flex-shrink: 0;
+        box-sizing: border-box;
       }
 
       #header .app-title {
@@ -120,7 +127,8 @@ export class DorcApp extends ShortcutsStore {
         flex-shrink: 0;
         text-align: right;
         font-size: 0.75rem;
-        color: var(--dorc-text-secondary);
+        /* D-23a: 12px text needs 4.5:1. */
+        color: var(--dorc-text-secondary-strong);
         line-height: 1.4;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -154,16 +162,46 @@ export class DorcApp extends ShortcutsStore {
         transition: width 0.2s ease;
       }
 
+      /* Was a 2px strip of --dorc-bg-secondary between two --dorc-bg-primary
+         surfaces: 1.04:1, invisible in both themes, mouse-only, and with no
+         separator semantics (D-24). Now a 12px grab area with a centred 2px line
+         in a token that clears WCAG 1.4.11's 3:1 in both themes. */
       #splitter {
-        width: 2px;
-        min-width: 2px;
+        position: relative;
+        width: 12px;
+        min-width: 12px;
         flex-shrink: 0;
         cursor: ew-resize;
-        padding: 4px 0 0;
-        top: 0;
-        right: 0;
-        bottom: 0;
-        background-color: var(--dorc-bg-secondary);
+        background-color: transparent;
+        touch-action: none;
+      }
+
+      #splitter::before {
+        content: '';
+        position: absolute;
+        inset-block: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 2px;
+        background-color: var(--dorc-text-secondary);
+      }
+
+      #splitter:hover::before,
+      #splitter:focus-visible::before {
+        width: 4px;
+        background-color: var(--dorc-link-color);
+      }
+
+      #splitter:focus-visible {
+        outline: 2px solid var(--dorc-link-color);
+        outline-offset: -2px;
+      }
+
+      /* D-37: the width transition below applies to the inline width the drag
+         writes every frame, so each frame restarted a 200ms ease and the edge
+         lagged the cursor throughout. Suppressed while dragging. */
+      :host([resizing]) #dorcNavbar {
+        transition: none;
       }
 
       #page-content {
@@ -324,7 +362,18 @@ export class DorcApp extends ShortcutsStore {
           role="navigation"
           aria-label="Primary"
         ></dorc-navbar>
-        <div id="splitter"></div>
+        <div
+          id="splitter"
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize navigation drawer"
+          aria-valuemin="200"
+          aria-valuemax="1000"
+          aria-valuenow="${this._sidebarWidth}"
+          tabindex="0"
+          @keydown="${this.onSplitterKeydown}"
+          @click="${this.cycleSidebarWidth}"
+        ></div>
         <div id="page-content" role="main" tabindex="-1">
           <slot></slot>
         </div>
@@ -378,6 +427,8 @@ export class DorcApp extends ShortcutsStore {
   // across attach/detach cycles (firstUpdated only fires once per element).
   private _splitterMouseDownHandler = () => {
     this._splitterDragInProgress = true;
+    // Suppresses the width transition for the duration of the drag (D-37).
+    this.setAttribute('resizing', '');
     document.body.addEventListener('mousemove', fMouseMoveListener, {
       passive: true
     });
@@ -398,7 +449,10 @@ export class DorcApp extends ShortcutsStore {
   private _wrappedMouseUpListener = (event: MouseEvent) => {
     document.body.removeEventListener('mouseup', this._wrappedMouseUpListener);
     this._splitterDragInProgress = false;
+    this.removeAttribute('resizing');
     fMouseUpListener(event);
+    // Keep aria-valuenow in step with what the drag committed.
+    this._sidebarWidth = Math.max(200, Math.min(1000, event.clientX));
   };
 
   disconnectedCallback() {
@@ -418,6 +472,7 @@ export class DorcApp extends ShortcutsStore {
       document.body.removeEventListener('mouseup', this._wrappedMouseUpListener);
       document.body.style.removeProperty('user-select');
       this._splitterDragInProgress = false;
+      this.removeAttribute('resizing');
     }
     if (this._drawerLockedScroll) {
       // Restore the snapshot rather than blanket-removing, so a coexisting
@@ -436,6 +491,61 @@ export class DorcApp extends ShortcutsStore {
   // The skip link's href cannot resolve across the shadow boundary, and letting
   // the browser act on it would push a #fragment into the SPA's URL. Move focus
   // directly instead — #page-content carries tabindex="-1" to receive it.
+  // Reflected into aria-valuenow so AT can read the current drawer width.
+  @state() private _sidebarWidth = 300;
+
+  private static readonly WIDTH_MIN = 200;
+  private static readonly WIDTH_MAX = 1000;
+  // Preset widths for the non-dragging pointer alternative (WCAG 2.5.7).
+  private static readonly WIDTH_PRESETS = [200, 300, 500];
+
+  private setSidebarWidth(width: number) {
+    const clamped = Math.max(
+      DorcApp.WIDTH_MIN,
+      Math.min(DorcApp.WIDTH_MAX, Math.round(width))
+    );
+    this._sidebarWidth = clamped;
+    if (this.dorcNavbar) this.dorcNavbar.style.width = `${clamped}px`;
+  }
+
+  /**
+   * Keyboard resize (WCAG 2.1.1). The splitter was mousedown/mousemove only, so
+   * a keyboard user could never change the drawer width at all.
+   */
+  private onSplitterKeydown(e: KeyboardEvent) {
+    const step = e.shiftKey ? 50 : 10;
+    let next: number | null = null;
+
+    if (e.key === 'ArrowLeft') next = this._sidebarWidth - step;
+    else if (e.key === 'ArrowRight') next = this._sidebarWidth + step;
+    else if (e.key === 'Home') next = DorcApp.WIDTH_MIN;
+    else if (e.key === 'End') next = DorcApp.WIDTH_MAX;
+    else if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      this.cycleSidebarWidth();
+      return;
+    }
+
+    if (next !== null) {
+      e.preventDefault();
+      this.setSidebarWidth(next);
+    }
+  }
+
+  /**
+   * Single-pointer, non-dragging alternative (WCAG 2.5.7, new in 2.2). Dragging
+   * is not operable for head-pointer, eye-gaze or tremor users, and a keyboard
+   * path does not discharge 2.5.7 — it requires a *pointer* alternative. Clicking
+   * the separator cycles preset widths.
+   */
+  private cycleSidebarWidth() {
+    if (this._splitterDragInProgress) return;
+    const presets = DorcApp.WIDTH_PRESETS;
+    const next =
+      presets.find(w => w > this._sidebarWidth + 1) ?? presets[0];
+    this.setSidebarWidth(next);
+  }
+
   private skipToContent(e: Event) {
     e.preventDefault();
     const content = this.shadowRoot?.getElementById('page-content');
@@ -464,6 +574,8 @@ export class DorcApp extends ShortcutsStore {
         this.dorcNavbar.style.width = '0px';
         this._desktopSidebarVisible = false;
       }
+      // Collapsed/expanded changes what must be reachable (D-39).
+      this._applyDrawerAria();
     }
   }
 
@@ -563,12 +675,22 @@ export class DorcApp extends ShortcutsStore {
         pageContent?.removeAttribute('inert');
       }
     } else {
-      this.dorcNavbar.removeAttribute('inert');
-      this.dorcNavbar.removeAttribute('aria-hidden');
       this.dorcNavbar.setAttribute('role', 'navigation');
       this.dorcNavbar.removeAttribute('aria-modal');
       this.dorcNavbar.setAttribute('aria-label', 'Primary');
       pageContent?.removeAttribute('inert');
+      // D-39: collapsing the sidebar on desktop only sets width:0 inside an
+      // overflow:hidden host — it does not remove anything from the tab order.
+      // Every nav link and shortcut stayed focusable and AT-exposed inside a
+      // zero-width clipped box, so a keyboard user tabbed through 20+ invisible
+      // stops before reaching content. Mirror the mobile treatment when collapsed.
+      if (this._desktopSidebarVisible) {
+        this.dorcNavbar.removeAttribute('inert');
+        this.dorcNavbar.removeAttribute('aria-hidden');
+      } else {
+        this.dorcNavbar.setAttribute('inert', '');
+        this.dorcNavbar.setAttribute('aria-hidden', 'true');
+      }
       // Scroll-lock ownership is released exclusively by _closeDrawer(), which
       // is always invoked before we reach the desktop state (via the toggle,
       // Escape, router navigation, or the breakpoint handler). No release here.

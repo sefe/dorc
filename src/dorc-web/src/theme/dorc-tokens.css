@@ -16,6 +16,12 @@ html {
     --dorc-bg-tertiary: #eee;
     --dorc-text-primary: #000000;
     --dorc-text-secondary: #747f8d;
+    /* #747f8d is 3.76:1 on --dorc-bg-secondary, short of WCAG 1.4.3's 4.5:1 for
+       normal-size text. Redefining it would repaint ~45 call sites with no
+       visual-regression capability to verify them, so the stronger value is a
+       NEW token used only at the in-scope call sites (D-23a). The remaining
+       sites keep --dorc-text-secondary and are tracked as D-23b. */
+    --dorc-text-secondary-strong: #5c6672;
     --dorc-border-color: #dde2e8;
     --dorc-link-color: cornflowerblue;
     /* Interactive icon affordances (e.g. shortcut close buttons). Needed because
@@ -46,6 +52,8 @@ html[theme~="dark"] {
     --dorc-bg-tertiary: #383838;
     --dorc-text-primary: #e0e0e0;
     --dorc-text-secondary: #a0a8b4;
+    /* Already 5.9:1 on the dark surface, so the strong variant is the same value. */
+    --dorc-text-secondary-strong: #a0a8b4;
     --dorc-border-color: #444444;
     --dorc-link-color: #6fa8ff;
     --dorc-icon-interactive: #8ab4f8;

@@ -133,7 +133,8 @@ export class DorcNavbar extends LitElement {
       .shortcut-sublabel {
         max-width: 100%;
         font-size: var(--lumo-font-size-s);
-        color: var(--dorc-text-secondary);
+        /* Small text needs 4.5:1 (1.4.3); the plain token does not reach it. */
+        color: var(--dorc-text-secondary-strong);
       }
 
       .shortcut-icon {
@@ -360,7 +361,7 @@ export class DorcNavbar extends LitElement {
         </vaadin-tab>
       </vaadin-tabs>
       <div
-        style="padding: var(--lumo-space-xs); text-align: center; color: var(--dorc-text-secondary); font-size: var(--lumo-font-size-xs); flex-shrink: 0;"
+        style="padding: var(--lumo-space-xs); text-align: center; color: var(--dorc-text-secondary-strong); font-size: var(--lumo-font-size-xs); flex-shrink: 0;"
       >
         ${this.metaData}
       </div>

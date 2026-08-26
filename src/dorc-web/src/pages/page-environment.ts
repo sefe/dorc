@@ -26,7 +26,22 @@ export class PageEnvironment extends PageElement {
   @property() parentName = '';
 
   private tabId = -1;
-  private tabNames = Object.values(EnvPageTabNames);
+
+  /**
+   * D-26: render and index/route mapping now derive from ONE list.
+   *
+   * Previously `tabNames` was the full enum while `convertUriToHuman` returned an
+   * empty template for `Users` on non-Endur environments — so the rendered tab
+   * count (7) and the indexed list (8) disagreed. That only lined up by accident
+   * because `Users` is declared last; any member added after it would silently
+   * shift every tab-to-route mapping. A deep link to a hidden tab also set
+   * `selected` out of range, leaving nothing highlighted.
+   *
+   * The `endur` name check itself is gone — it was an old hard-coding.
+   */
+  private get tabNames(): EnvPageTabNames[] {
+    return Object.values(EnvPageTabNames);
+  }
 
   @property({ type: Boolean }) private loading = true;
 
@@ -41,9 +56,31 @@ export class PageEnvironment extends PageElement {
         display: flex;
         flex-direction: column;
       }
+      /* D-21: was a three-cell layout <table>, which screen readers announce as
+         a data table ("table, 1 row, 3 columns") for what is a visual header. */
+      .env-header {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: var(--lumo-space-s);
+      }
+
+      .env-header h2 {
+        text-align: center;
+        margin: var(--lumo-space-s) 0;
+      }
+
+      /* D-22: the ring was hardcoded #f3f3f3/#3498db, which renders as a glaring
+         near-white circle against the dark theme's #1e1e1e, and it announced
+         nothing. Themed and given a status role below.
+
+         Deliberately NOT dorc-spinner: that component is a fixed, full-viewport
+         overlay (position:fixed, 100%x100%), so using it for a 12px indicator
+         beside a heading would cover the page. This is the plan's stated
+         fallback — tokens plus a status role — not a shortcut past it. */
       .small-loader {
-        border: 2px solid #f3f3f3; /* Light grey */
-        border-top: 2px solid #3498db; /* Blue */
+        border: 2px solid var(--dorc-border-color);
+        border-top: 2px solid var(--dorc-link-color);
         border-radius: 50%;
         width: 12px;
         height: 12px;
@@ -58,33 +95,51 @@ export class PageEnvironment extends PageElement {
           transform: rotate(360deg);
         }
       }
+
+      @media (prefers-reduced-motion: reduce) {
+        .small-loader {
+          animation: none;
+        }
+      }
     `;
   }
 
   render() {
     if (this.notFound) {
-      return html``;
+      // D-36: this used to render nothing at all — a blank pane, with the drawer
+      // still highlighting the shortcut and no indication of what happened.
+      return html`
+        <div role="alert" style="padding: var(--lumo-space-l); text-align: center;">
+          <h2>Environment not found</h2>
+          <p>
+            The environment
+            ${this.environmentName ? html`<b>${this.environmentName}</b>` : html`requested`}
+            no longer exists, or you do not have access to it.
+          </p>
+          <a class="plain" href="/environments">Back to Environments</a>
+        </div>
+      `;
     }
     return html`
-      <table style="margin-left: auto; margin-right: auto;">
-        <tr>
-          <td>
-            <h2 style="text-align: center;">${this.environmentName}</h2>
-          </td>
-          <td>
-            ${this.parentName
-              ? html`<vaadin-icon
-                  icon="vaadin:child"
-                  title="Child of ${this.parentName}"
-                  style="color: grey"
-                ></vaadin-icon>`
-              : html``}
-          </td>
-          <td>
-            ${this.loading ? html` <div class="small-loader"></div> ` : html``}
-          </td>
-        </tr>
-      </table>
+      <div class="env-header">
+        <!-- aria-live: the name is empty on first paint and only arrives when the
+             async load lands, so without this it is never announced (D-21). -->
+        <h2 aria-live="polite">${this.environmentName}</h2>
+        ${this.parentName
+          ? html`<vaadin-icon
+              icon="vaadin:child"
+              title="Child of ${this.parentName}"
+              style="color: grey"
+            ></vaadin-icon>`
+          : html``}
+        ${this.loading
+          ? html`<div
+              class="small-loader"
+              role="status"
+              aria-label="Loading environment"
+            ></div>`
+          : html``}
+      </div>
 
       <vaadin-tabs
         id="env-tabs"
@@ -176,13 +231,6 @@ export class PageEnvironment extends PageElement {
   }
 
   convertUriToHuman(tabName: EnvPageTabNames): TemplateResult {
-    if (this.environmentName?.toLowerCase().indexOf('endur') === -1) {
-      if (
-        tabName === EnvPageTabNames.Users
-      )
-        return html``;
-    }
-
     let newTabName: string;
     newTabName = tabName.replace('-', ' ');
 
