@@ -50,6 +50,29 @@ export class DorcApp extends ShortcutsStore {
         overflow: hidden;
       }
 
+      /* Skip link (WCAG 2.4.1 Bypass Blocks, Level A).
+         The drawer is 21 primary entries plus a shortcut per open environment,
+         project and monitor result — each shortcut contributing a link AND a close
+         button — so there can be well over a hundred tab stops before page content
+         on every route. Visually hidden until focused, then shown. */
+      .skip-link {
+        position: absolute;
+        left: -9999px;
+        top: 0;
+        z-index: 200;
+        padding: 8px 16px;
+        background: var(--dorc-bg-secondary);
+        color: var(--dorc-text-primary);
+        border: 1px solid var(--dorc-border-color);
+        border-radius: 4px;
+        text-decoration: none;
+      }
+
+      .skip-link:focus {
+        left: 8px;
+        top: 8px;
+      }
+
       #header {
         height: var(--dorc-header-height, 50px);
         flex-shrink: 0;
@@ -249,6 +272,9 @@ export class DorcApp extends ShortcutsStore {
 
   render() {
     return html`
+      <a class="skip-link" href="#page-content" @click="${this.skipToContent}"
+        >Skip to main content</a
+      >
       <header id="header" role="banner">
         <vaadin-button
           class="menu-btn"
@@ -299,7 +325,7 @@ export class DorcApp extends ShortcutsStore {
           aria-label="Primary"
         ></dorc-navbar>
         <div id="splitter"></div>
-        <div id="page-content">
+        <div id="page-content" role="main" tabindex="-1">
           <slot></slot>
         </div>
       </div>
@@ -405,6 +431,16 @@ export class DorcApp extends ShortcutsStore {
       this._previousBodyOverflow = '';
       this._drawerLockedScroll = false;
     }
+  }
+
+  // The skip link's href cannot resolve across the shadow boundary, and letting
+  // the browser act on it would push a #fragment into the SPA's URL. Move focus
+  // directly instead — #page-content carries tabindex="-1" to receive it.
+  private skipToContent(e: Event) {
+    e.preventDefault();
+    const content = this.shadowRoot?.getElementById('page-content');
+    content?.focus();
+    content?.scrollIntoView();
   }
 
   private toggleSideBar() {

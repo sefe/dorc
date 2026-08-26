@@ -1,10 +1,10 @@
-import { css, LitElement } from 'lit';
+import { LitElement } from 'lit';
 import '@vaadin/icons';
 import '@vaadin/icon';
+import '@vaadin/button';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { urlForName } from '../../router/router';
-import '@vaadin/horizontal-layout';
 import { DeploymentRequestApiModel } from '../../apis/dorc-api';
 
 @customElement('monitor-result-tab')
@@ -13,63 +13,47 @@ export class MonitorResultTab extends LitElement {
     | DeploymentRequestApiModel
     | undefined;
 
-  static get styles() {
-    return css`
-      a {
-        color: inherit; /* blue colors for links too */
-        text-decoration: inherit; /* no underline */
-        display: block;
-        width: 100%;
-      }
-      vaadin-icon {
-        width: var(--lumo-icon-size-s);
-        height: var(--lumo-icon-size-s);
-        font-size: var(--lumo-font-size-s);
-      }
-    `;
+  /** Light DOM so `vaadin-tab._onKeyUp` can find the anchor — see env-detail-tab. */
+  protected createRenderRoot() {
+    return this;
   }
 
   render() {
-    return html` <div style="margin-left: 20px; width: 270px">
+    const id = this.requestStatus?.Id ?? '';
+    const envName = this.requestStatus?.EnvironmentName ?? '';
+    const build = this.requestStatus?.BuildNumber ?? '';
+    const label = `${id} ${envName}`.trim();
+
+    return html`
       <a
-        style="float:left"
-        href="${urlForName('monitor-result', {
-          id: String(this.requestStatus?.Id)
-        })}"
+        class="shortcut-link shortcut-link--stacked"
+        href="${urlForName('monitor-result', { id: String(id) })}"
+        title="${label}${build ? ` — ${build}` : ''}"
       >
-        <vaadin-vertical-layout style="align-items: start;" theme="compact">
-          <vaadin-horizontal-layout
-            style="line-height: var(--lumo-line-height-m);"
-          >
-            <vaadin-icon
-              icon="vaadin:clipboard-pulse"
-              theme="small"
-            ></vaadin-icon>
-            <span
-              >${this.requestStatus?.Id}
-              ${this.requestStatus?.EnvironmentName}</span
-            >
-          </vaadin-horizontal-layout>
-          <div
-            title="${this.requestStatus?.BuildNumber ?? ''}"
-            style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
-          >
-            ${this.requestStatus?.BuildNumber}
-          </div>
-        </vaadin-vertical-layout>
+        <span class="shortcut-line">
+          <vaadin-icon
+            class="shortcut-icon"
+            icon="vaadin:clipboard-pulse"
+            theme="small"
+          ></vaadin-icon>
+          <span class="shortcut-label">${label}</span>
+        </span>
+        <span class="shortcut-sublabel">${build}</span>
       </a>
-      <vaadin-icon
-        style="color: lightblue; float: right;  position: absolute; right: 5px; top: 5px;"
-        icon="vaadin:close-small"
-        theme="small"
+      <vaadin-button
+        class="shortcut-close"
+        theme="icon small"
+        aria-label="Close deployment ${label} shortcut"
         @click="${this.removeMonitorResult}"
-      ></vaadin-icon>
-    </div>`;
+      >
+        <vaadin-icon icon="vaadin:close-small" theme="small"></vaadin-icon>
+      </vaadin-button>
+    `;
   }
 
   removeMonitorResult(e: Event) {
-    // See the note in env-detail-tab.removeEnvDetail: stops the enclosing
-    // vaadin-tabs selecting the tab this handler is about to remove.
+    // See env-detail-tab.removeEnvDetail: stops the enclosing vaadin-tabs
+    // selecting the tab this handler is about to remove.
     e.stopPropagation();
     e.preventDefault();
 

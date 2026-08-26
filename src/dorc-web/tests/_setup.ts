@@ -1,11 +1,20 @@
 // Test setup, applied to every test file via vitest.config.ts setupFiles.
 
 import { afterEach } from 'vitest';
-import { _cleanupFixtures } from './_helpers';
+import { _cleanupFixtures, resetTheme } from './_helpers';
+
+// The --dorc-* theme tokens are declared in src/theme/dorc-tokens.css, which
+// index.html links. vitest uses its own tester HTML, so without this import the
+// tokens do not exist in the test document: getPropertyValue('--dorc-bg-primary')
+// returns '', every var() falls back to transparent, and a contrast assertion
+// passes vacuously in BOTH themes while the app fails. Importing it here is what
+// makes the contrast criteria mean anything.
+import '../src/theme/dorc-tokens.css';
 
 // Remove fixture containers between tests so DOM state doesn't leak.
 afterEach(() => {
   _cleanupFixtures();
+  resetTheme();
 });
 
 // Silence known unhandled errors thrown from SUT modules that aren't fully

@@ -124,12 +124,14 @@ describe('Drawer shortcut tabs — P0 regressions', () => {
   // drawer highlighting an unrelated item. _onClick bails on defaultPrevented,
   // so preventing the event is what actually fixes it.
   describe('D-14: the close click must not reach vaadin-tabs', () => {
-    const closeIconOf = (el: Element): Element => {
-      const icon = el.shadowRoot?.querySelector(
-        'vaadin-icon[icon="vaadin:close-small"]'
-      );
-      if (!icon) throw new Error('component rendered without a close icon');
-      return icon;
+    // P2a moved these components to light DOM (D-03) and replaced the bare
+    // <vaadin-icon> close affordance with a real <vaadin-button> (D-04), so the
+    // control is now a light-DOM descendant. The behaviour asserted below is
+    // unchanged — only where the control lives has moved.
+    const closeControlOf = (el: Element): Element => {
+      const control = el.querySelector('.shortcut-close');
+      if (!control) throw new Error('component rendered without a close control');
+      return control;
     };
 
     const clickClose = async (el: Element) => {
@@ -166,7 +168,7 @@ describe('Drawer shortcut tabs — P0 regressions', () => {
         composed: true,
         cancelable: true
       });
-      closeIconOf(el).dispatchEvent(click);
+      closeControlOf(el).dispatchEvent(click);
 
       return { bubbledOut, closeEventFired, click };
     };

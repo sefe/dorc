@@ -74,6 +74,88 @@ export class DorcNavbar extends LitElement {
         padding-top: 0px;
         padding-bottom: 0px;
       }
+
+      /* Audit sub-items: was margin-left: 20px; width: 210px, which clipped below
+         ~246px of drawer width and sat 4px off the SQL sub-items' indent (D-35). */
+      .sub-item {
+        display: block;
+        padding-inline-start: var(--lumo-space-l);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      /* ── Shortcut tabs ──
+         The three shortcut components render into light DOM (D-03), so they land
+         inside this shadow root and these rules style them. One scoped stylesheet
+         beats inline styles on every element.
+
+         Replaces the previous fixed width: 270px + margin-left: 20px block,
+         which overflowed its own tab at the default 300px drawer width and put the
+         tail of every name underneath the close control (D-09). The old
+         float: right on that control was dead code — float computes to none
+         under position: absolute (D-38). */
+      .shortcut-link {
+        display: flex;
+        align-items: center;
+        gap: 0.25em;
+        flex: 1;
+        min-width: 0;
+        padding-inline-start: var(--lumo-space-l);
+        color: inherit;
+        text-decoration: inherit;
+      }
+
+      .shortcut-link--stacked {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0;
+      }
+
+      .shortcut-line {
+        display: flex;
+        align-items: center;
+        gap: 0.25em;
+        min-width: 0;
+        max-width: 100%;
+      }
+
+      /* min-width:0 is what actually allows a flex item to shrink below its
+         content width, without which ellipsis never engages. */
+      .shortcut-label,
+      .shortcut-sublabel {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .shortcut-sublabel {
+        max-width: 100%;
+        font-size: var(--lumo-font-size-s);
+        color: var(--dorc-text-secondary);
+      }
+
+      .shortcut-icon {
+        flex-shrink: 0;
+      }
+
+      .shortcut-close {
+        flex-shrink: 0;
+        margin: 0;
+        padding: 0;
+        cursor: pointer;
+        /* --dorc-link-color is 2.97:1 on white — just under 1.4.11's 3:1 for UI
+           components — so the close control gets its own token. */
+        color: var(--dorc-icon-interactive);
+      }
+
+      /* vaadin-tab is the flex container for a shortcut's link + close control. */
+      vaadin-tab:has(.shortcut-close) {
+        display: flex;
+        align-items: center;
+        gap: 0.25em;
+      }
     `;
   }
 
@@ -194,6 +276,7 @@ export class DorcNavbar extends LitElement {
         </vaadin-tab>
 
         <vaadin-tab
+          aria-expanded="${this.auditMenuExpanded ? 'true' : 'false'}"
           @click="${this._toggleAuditMenu}"
         >
           <a href="#" @click="${(e: Event) => e.preventDefault()}">
@@ -212,48 +295,48 @@ export class DorcNavbar extends LitElement {
           navigates there directly (e.g. via a bookmarked URL).
         -->
         <vaadin-tab ?hidden="${!this.auditMenuExpanded}">
-          <a href="${urlForName('scripts-audit')}">
-            <div style="margin-left: 20px; width: 210px">
+          <a href="${urlForName('scripts-audit')}" title="Scripts Audit">
+            <div class="sub-item">
               <vaadin-icon icon="inline:powershell-icon" theme="small"></vaadin-icon>
               Scripts Audit
             </div>
           </a>
         </vaadin-tab>
         <vaadin-tab ?hidden="${!this.auditMenuExpanded}">
-          <a href="${urlForName('variables-audit')}">
-            <div style="margin-left: 20px; width: 210px">
+          <a href="${urlForName('variables-audit')}" title="Variables Audit">
+            <div class="sub-item">
               <vaadin-icon icon="inline:variables-icon" theme="small"></vaadin-icon>
               Variables Audit
             </div>
           </a>
         </vaadin-tab>
         <vaadin-tab ?hidden="${!this.auditMenuExpanded}">
-          <a href="${urlForName('projects-audit')}">
-            <div style="margin-left: 20px; width: 210px">
+          <a href="${urlForName('projects-audit')}" title="Projects Audit">
+            <div class="sub-item">
               <vaadin-icon icon="vaadin:archives" theme="small"></vaadin-icon>
               Projects Audit
             </div>
           </a>
         </vaadin-tab>
         <vaadin-tab ?hidden="${!this.auditMenuExpanded}">
-          <a href="${urlForName('daemons-audit')}">
-            <div style="margin-left: 20px; width: 210px">
+          <a href="${urlForName('daemons-audit')}" title="Daemons Audit">
+            <div class="sub-item">
               <vaadin-icon icon="vaadin:cogs" theme="small"></vaadin-icon>
               Daemons Audit
             </div>
           </a>
         </vaadin-tab>
         <vaadin-tab ?hidden="${!this.auditMenuExpanded}">
-          <a href="${urlForName('databases-audit')}">
-            <div style="margin-left: 20px; width: 210px">
+          <a href="${urlForName('databases-audit')}" title="Databases Audit">
+            <div class="sub-item">
               <vaadin-icon icon="vaadin:database" theme="small"></vaadin-icon>
               Databases Audit
             </div>
           </a>
         </vaadin-tab>
         <vaadin-tab ?hidden="${!this.auditMenuExpanded}">
-          <a href="${urlForName('servers-audit')}">
-            <div style="margin-left: 20px; width: 210px">
+          <a href="${urlForName('servers-audit')}" title="Servers Audit">
+            <div class="sub-item">
               <vaadin-icon icon="vaadin:server" theme="small"></vaadin-icon>
               Servers Audit
             </div>
@@ -491,7 +574,7 @@ export class DorcNavbar extends LitElement {
     // abort the caller mid-handler (see renameEnvDetail, which already guards).
     if (idx >= 0) {
       const tabsArray = [].slice.call(tabs.children) as Tab[];
-      tabs.removeChild(tabsArray[idx]);
+      this.removeTabKeepingFocus(tabs, tabsArray[idx]);
     }
     setCookie(this.projectEnvsTabs, JSON.stringify(this.openProjTabs));
   }
@@ -510,7 +593,7 @@ export class DorcNavbar extends LitElement {
     // No matching tab — see the note in closeProjectEnvs.
     if (idx >= 0) {
       const tabsArray = [].slice.call(tabs.children) as Tab[];
-      tabs.removeChild(tabsArray[idx]);
+      this.removeTabKeepingFocus(tabs, tabsArray[idx]);
     }
     setCookie(this.monitorResultTabs, JSON.stringify(this.openResultTabs));
   }
@@ -531,9 +614,41 @@ export class DorcNavbar extends LitElement {
     // throw here leaves them on the page of an environment that no longer exists.
     if (idx >= 0) {
       const tabsArray = [].slice.call(tabs.children) as Tab[];
-      tabs.removeChild(tabsArray[idx]);
+      this.removeTabKeepingFocus(tabs, tabsArray[idx]);
     }
     setCookie(this.envDetailTabs, JSON.stringify(this.openEnvTabs));
+  }
+
+  /**
+   * Removes a shortcut tab, moving focus somewhere sensible first (SC-4a).
+   *
+   * Closing the tab destroys the element that had focus, which otherwise drops the
+   * user to `<body>` — a keyboard user closing a second shortcut would then have to
+   * traverse the whole drawer again. Focus moves to the next tab: the following
+   * shortcut, or the static tab the group is inserted before when the last one
+   * goes. Only acts when focus was actually inside the tab being removed, so a
+   * mouse click does not yank focus around.
+   */
+  private removeTabKeepingFocus(tabs: Tabs, tab: Tab) {
+    const hadFocus = tab.contains(this.deepActiveElement());
+    const next = (tab.nextElementSibling ??
+      tab.previousElementSibling) as HTMLElement | null;
+
+    tabs.removeChild(tab);
+
+    if (hadFocus && next?.isConnected) {
+      next.focus();
+    }
+  }
+
+  /** activeElement, followed down through shadow roots. */
+  private deepActiveElement(): Element | null {
+    let el: Element | null =
+      this.shadowRoot?.activeElement ?? document.activeElement;
+    while (el?.shadowRoot?.activeElement) {
+      el = el.shadowRoot.activeElement;
+    }
+    return el;
   }
 
   public renameEnvDetail(e: CustomEvent) {
