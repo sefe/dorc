@@ -300,9 +300,7 @@ describe('P1: drawer shortcut store', () => {
       );
       const writesAfterSeed = writes;
 
-      window.dispatchEvent(
-        new StorageEvent('storage', { key: KEYS.environments })
-      );
+      window.dispatchEvent(new Event('storage'));
 
       expect(
         store.snapshot().environments.map(e => e.EnvironmentName)
@@ -313,6 +311,40 @@ describe('P1: drawer shortcut store', () => {
     } finally {
       Storage.prototype.setItem = realSetItem;
     }
+  });
+
+  it('SC-8: ignores a storage event for a key that is not ours', () => {
+    const store = fresh();
+    store.add(
+      'environments',
+      toEnvShortcut({ EnvironmentId: 1, EnvironmentName: 'KEEP' })
+    );
+
+    localStorage.setItem('some.other.app.key', 'irrelevant');
+    window.dispatchEvent(
+      new StorageEvent('storage', { key: 'some.other.app.key' })
+    );
+
+    expect(
+      store.snapshot().environments.map(e => e.EnvironmentName)
+    ).to.deep.equal(['KEEP']);
+    localStorage.removeItem('some.other.app.key');
+  });
+
+  it('SC-8: reconciles when another tab clears storage entirely', () => {
+    // localStorage.clear() in another tab fires a storage event with key === null,
+    // the spec's "everything changed" signal. Treating that as "nothing to do"
+    // would leave this tab rendering shortcuts that no longer exist.
+    const store = fresh();
+    store.add(
+      'environments',
+      toEnvShortcut({ EnvironmentId: 1, EnvironmentName: 'STALE' })
+    );
+
+    Object.values(KEYS).forEach(k => localStorage.removeItem(k));
+    window.dispatchEvent(new StorageEvent('storage', { key: null }));
+
+    expect(store.snapshot().environments).to.be.empty;
   });
 
   // ─── SC-17 / D-41 ───────────────────────────────────────────────────────

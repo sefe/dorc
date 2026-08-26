@@ -190,7 +190,11 @@ export class DrawerShortcuts extends EventTarget {
   private started = false;
 
   private onStorageEvent = (e: StorageEvent) => {
-    if (!e.key || !Object.values(KEYS).includes(e.key)) return;
+    // A null key means the other tab called localStorage.clear() — the spec's
+    // signal that everything changed, not that nothing did. Reconcile in that
+    // case as well; only a *named* key belonging to something else is ignored.
+    const key = e.key ?? null;
+    if (key !== null && !Object.values(KEYS).includes(key)) return;
     // Read-only reconciliation. Deliberately does NOT write: if a storage-event
     // handler persisted what it just read, two windows would echo each other's
     // events indefinitely.
