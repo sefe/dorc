@@ -40,7 +40,24 @@ namespace Dorc.Api.WindowsWorker.Controllers
                     CurrentVersion = key.GetValue("CurrentVersion")?.ToString() ?? string.Empty
                 });
             }
-            catch (Exception ex)
+            // Expected operational failures when connecting to / reading a remote registry.
+            // Anything else is a bug in this endpoint and should surface as a 500.
+            catch (System.IO.IOException ex)
+            {
+                _logger.LogError(ex, "Failed to read remote registry for server");
+                return BadRequest(new { error = "Failed to read remote registry for server" });
+            }
+            catch (System.Security.SecurityException ex)
+            {
+                _logger.LogError(ex, "Failed to read remote registry for server");
+                return BadRequest(new { error = "Failed to read remote registry for server" });
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                _logger.LogError(ex, "Failed to read remote registry for server");
+                return BadRequest(new { error = "Failed to read remote registry for server" });
+            }
+            catch (ArgumentException ex)
             {
                 _logger.LogError(ex, "Failed to read remote registry for server");
                 return BadRequest(new { error = "Failed to read remote registry for server" });

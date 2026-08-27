@@ -150,12 +150,33 @@ namespace Dorc.Api.Tests
         {
             private readonly System.Net.HttpStatusCode _status;
             private readonly string _body;
+            private readonly List<HttpResponseMessage> _issuedResponses = new();
+
             public CannedHandler(System.Net.HttpStatusCode status, string body) { _status = status; _body = body; }
+
             protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-                => Task.FromResult(new HttpResponseMessage(_status)
+            {
+                var response = new HttpResponseMessage(_status)
                 {
                     Content = new StringContent(_body, System.Text.Encoding.UTF8, "application/json")
-                });
+                };
+                _issuedResponses.Add(response);
+                return Task.FromResult(response);
+            }
+
+            protected override void Dispose(bool disposing)
+            {
+                if (disposing)
+                {
+                    foreach (var response in _issuedResponses)
+                    {
+                        response.Dispose();
+                    }
+                    _issuedResponses.Clear();
+                }
+
+                base.Dispose(disposing);
+            }
         }
 
         private static ExceptionContext NewExceptionContext(Exception ex)
