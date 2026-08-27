@@ -13,5 +13,11 @@ namespace Dorc.Api.Exceptions
         {
             Endpoint = endpoint;
         }
+
+        public WorkerUnavailableException(string endpoint, Exception innerException)
+            : base($"Operation '{endpoint}' requires the Windows worker, which is not available on this host.", innerException)
+        {
+            Endpoint = endpoint;
+        }
     }
 }

@@ -287,14 +287,30 @@ static void AddSwaggerGen(IServiceCollection services, IConfigurationSettings co
 var workerEnabled = builder.Configuration.GetValue<bool>("WindowsWorker:Enabled");
 if (workerEnabled)
 {
+    var sharedKey = builder.Configuration["WindowsWorker:SharedKey"];
+    if (string.IsNullOrWhiteSpace(sharedKey))
+    {
+        throw new InvalidOperationException(
+            "WindowsWorker:Enabled=true but WindowsWorker:SharedKey is missing or blank.");
+    }
+
     builder.Services.AddTransient<WorkerKeyDelegatingHandler>();
     builder.Services
         .AddHttpClient<IWindowsWorkerClient, HttpWindowsWorkerClient>(client =>
         {
             var url = builder.Configuration["WindowsWorker:Url"]
                 ?? throw new InvalidOperationException("WindowsWorker:Enabled=true but WindowsWorker:Url is missing");
-            client.BaseAddress = new Uri(url);
+            var uri = new Uri(url);
+            if (!uri.IsLoopback)
+            {
+                throw new InvalidOperationException(
+                    $"WindowsWorker:Url must be a loopback address (got '{uri.Host}').");
+            }
+
+            client.BaseAddress = new Uri(uri.GetLeftPart(UriPartial.Authority) + "/");
+            client.Timeout = TimeSpan.FromSeconds(30);
         })
+        .RedactLoggedHeaders(new[] { WorkerKeyDelegatingHandler.HeaderName })
         .AddHttpMessageHandler<WorkerKeyDelegatingHandler>();
 }
 else
