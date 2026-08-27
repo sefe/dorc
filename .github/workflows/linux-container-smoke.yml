@@ -1,0 +1,91 @@
+name: Linux Container Smoke
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - 'release/**'
+      - 'feat/**'
+      - 'feature/**'
+      - 'claude/**'
+      - 'copilot/**'
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: linux-container-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  client-compatibility:
+    name: Build unchanged clients
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 8.0.x
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 20.x
+          cache: npm
+          cache-dependency-path: src/dorc-web/package-lock.json
+      - name: Build Dorc.Api.Client
+        run: dotnet build src/Dorc.Api.Client/Dorc.Api.Client.csproj --configuration Release
+      - name: Build dorc-web
+        working-directory: src/dorc-web
+        run: |
+          npm ci --loglevel=error
+          npm run build
+
+  linux-container:
+    name: Start Dorc.Api on Linux
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Build Linux image
+        run: docker build --file src/Dorc.Api/Dockerfile --tag dorc-api-linux-smoke .
+      - name: Run smoke test
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --detach --name dorc-api-linux-smoke --publish 18080:8080 \
+            --env ASPNETCORE_URLS=http://+:8080 \
+            --env AppSettings__AuthenticationScheme=OAuth \
+            --env AppSettings__OAuth2__Authority=https://login.example.invalid/tenant/v2.0 \
+            --env AppSettings__OAuth2__ApiResourceName=dorc-api-smoke \
+            --env AppSettings__OAuth2__ApiGlobalScope=dorc-api-smoke.manage \
+            --env ConnectionStrings__DOrcConnectionString='Server=127.0.0.1;Database=dorc;User Id=sa;Password=SmokeOnly-123;TrustServerCertificate=true' \
+            --env OpenSearchSettings__ConnectionUri=http://127.0.0.1:9200 \
+            --env OpenSearchSettings__UserName=smoke \
+            --env OpenSearchSettings__Password=smoke \
+            --env OpenSearchSettings__DeploymentResultIndex=smoke \
+            --env Kafka__Enabled=false \
+            --env WindowsWorker__Enabled=false \
+            dorc-api-linux-smoke
+
+          cleanup() {
+            docker logs dorc-api-linux-smoke || true
+            docker rm --force dorc-api-linux-smoke >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:18080/health/live > health.json; then
+              break
+            fi
+            sleep 2
+          done
+
+          grep --fixed-strings '"status":"ok"' health.json
+          curl --fail --silent http://127.0.0.1:18080/swagger/v1/swagger.json > swagger.json
+          grep --fixed-strings '"/RefDataServers"' swagger.json
