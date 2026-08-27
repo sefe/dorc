@@ -54,6 +54,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          smoke_password="$(openssl rand -hex 16)"
           docker run --detach --name dorc-api-linux-smoke --publish 18080:8080 \
             --env ASPNETCORE_URLS=http://+:8080 \
             --env AppSettings__AuthenticationScheme=OAuth \
@@ -61,9 +62,9 @@ jobs:
             --env AppSettings__OAuth2__ApiResourceName=dorc-api-smoke \
             --env AppSettings__OAuth2__ApiGlobalScope=dorc-api-smoke.manage \
             --env ConnectionStrings__DOrcConnectionString='Server=127.0.0.1;Database=dorc;Integrated Security=true;TrustServerCertificate=true' \
-            --env OpenSearchSettings__ConnectionUri=http://127.0.0.1:9200 \
+            --env OpenSearchSettings__ConnectionUri=https://127.0.0.1:9200 \
             --env OpenSearchSettings__UserName=smoke \
-            --env OpenSearchSettings__Password=smoke \
+            --env OpenSearchSettings__Password="$smoke_password" \
             --env OpenSearchSettings__DeploymentResultIndex=smoke \
             --env Kafka__Enabled=false \
             --env WindowsWorker__Enabled=false \
