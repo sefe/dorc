@@ -17,6 +17,12 @@ namespace Dorc.Core.Tests.Graph
     {
         private readonly List<RouteRule> _rules = new();
 
+        // Responses handed out by SendAsync. The Kiota request adapter disposes them after
+        // reading the body, but ownership is tracked here too so the handler's own Dispose
+        // deterministically releases anything the adapter never got to (double-dispose of
+        // HttpResponseMessage is safe).
+        private readonly List<HttpResponseMessage> _issuedResponses = new();
+
         public List<CapturedRequest> Captured { get; } = new();
 
         /// <summary>
@@ -94,22 +100,19 @@ namespace Dorc.Core.Tests.Graph
                 uri == null ? null : SelectOf(uri),
                 body));
 
-            // Returned HttpResponseMessage ownership transfers to the Kiota request adapter,
-            // which disposes it after reading the body. We intentionally do not dispose it here.
             var rule = _rules.FirstOrDefault(r => r.Match(request));
             if (rule != null)
             {
                 // Always emit a body, including for 404: real Graph 404s carry an OData error
                 // payload and surface as ODataError (an ApiException subclass). A bodiless 404
                 // yields a bare ApiException, so the suite would not exercise the real shape.
-                var response = new HttpResponseMessage(rule.Status)
+                return Task.FromResult(Issue(new HttpResponseMessage(rule.Status)
                 {
                     Content = new StringContent(
                         string.IsNullOrEmpty(rule.Body) ? NotFoundBody(request) : rule.Body,
                         Encoding.UTF8,
                         "application/json")
-                };
-                return Task.FromResult(response);
+                }));
             }
 
             if (ThrowOnUnmatched)
@@ -118,11 +121,30 @@ namespace Dorc.Core.Tests.Graph
                     new InvalidOperationException($"Unmocked Graph call: {request.Method} {request.RequestUri}"));
             }
 
-            var fallback = new HttpResponseMessage(HttpStatusCode.NotFound)
+            return Task.FromResult(Issue(new HttpResponseMessage(HttpStatusCode.NotFound)
             {
                 Content = new StringContent(NotFoundBody(request), Encoding.UTF8, "application/json")
-            };
-            return Task.FromResult(fallback);
+            }));
+        }
+
+        private HttpResponseMessage Issue(HttpResponseMessage response)
+        {
+            _issuedResponses.Add(response);
+            return response;
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                foreach (var response in _issuedResponses)
+                {
+                    response.Dispose();
+                }
+                _issuedResponses.Clear();
+            }
+
+            base.Dispose(disposing);
         }
 
         private static string NotFoundBody(HttpRequestMessage request) =>
