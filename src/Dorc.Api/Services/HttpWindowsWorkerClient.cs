@@ -1,6 +1,6 @@
 using System.Net;
-using System.Net.Http.Json;
 using System.Net.Sockets;
+using System.Text.Json;
 using Dorc.Api.Exceptions;
 using Dorc.Api.Interfaces;
 using Dorc.ApiModel;
@@ -8,9 +8,12 @@ using Dorc.ApiModel;
 namespace Dorc.Api.Services
 {
     // Real implementation of IWindowsWorkerClient used on Windows installs with
-    // WindowsWorker:Enabled=true. The injected HttpClient is configured via
-    // AddHttpClient<...>() in Program.cs (BaseAddress from WindowsWorker:Url +
-    // WorkerKeyDelegatingHandler attaching X-Worker-Key).
+    // WindowsWorker:Enabled=true. Concrete worker methods are added in later
+    // S-steps (S-004 registry, S-005 WMI, S-006 password reset).
+    //
+    // The injected HttpClient is configured via AddHttpClient<...>() in Program.cs:
+    // BaseAddress is set from WindowsWorker:Url and a WorkerKeyDelegatingHandler
+    // is added so every outbound call carries the X-Worker-Key header.
     public class HttpWindowsWorkerClient : IWindowsWorkerClient
     {
         private readonly HttpClient _http;
@@ -20,22 +23,31 @@ namespace Dorc.Api.Services
             _http = http;
         }
 
-        public async Task<ServerOperatingSystemApiModel> GetServerOperatingSystemAsync(string serverName, CancellationToken cancellationToken = default)
+        public Task<ServerOperatingSystemApiModel> GetServerOperatingSystemAsync(
+            string serverName,
+            CancellationToken cancellationToken = default)
         {
             const string endpoint = "remote-server/operating-system";
+            return SendAsync<ServerOperatingSystemApiModel>(
+                endpoint,
+                ct => _http.GetAsync(
+                    $"{endpoint}?serverName={Uri.EscapeDataString(serverName)}",
+                    ct),
+                cancellationToken);
+        }
 
-            HttpResponseMessage resp;
+        // Shared by every endpoint added in S-004/S-005/S-006 so transport failures and
+        // worker error envelopes have one stable contract.
+        protected async Task<T> SendAsync<T>(
+            string endpoint,
+            Func<CancellationToken, Task<HttpResponseMessage>> send,
+            CancellationToken cancellationToken = default)
+        {
+            HttpResponseMessage response;
             try
             {
-                resp = await _http.GetAsync(
-                    $"{endpoint}?serverName={Uri.EscapeDataString(serverName)}",
-                    cancellationToken);
+                response = await send(cancellationToken);
             }
-            // A worker that is configured but not running (connection refused, process
-            // crashed, host unreachable, request timed out) is "unavailable" — the same
-            // condition WorkerUnavailableClient represents. Without this it surfaced as an
-            // unhandled HttpRequestException → 500, so the documented 503 only ever fired
-            // for the config-disabled case, never for real runtime unavailability.
             catch (HttpRequestException ex)
             {
                 throw new WorkerUnavailableException(endpoint, ex);
@@ -46,61 +58,60 @@ namespace Dorc.Api.Services
             }
             catch (TaskCanceledException ex) when (!cancellationToken.IsCancellationRequested)
             {
-                // HttpClient timeout, not a caller-initiated cancellation.
                 throw new WorkerUnavailableException(endpoint, ex);
             }
 
-            using (resp)
+            using (response)
             {
-                // The worker answers 400 for genuine user-facing failures ("cannot open the
-                // target machine"). Surface that as a 400 rather than collapsing it into a
-                // 500, which is what EnsureSuccessStatusCode did.
-                if (resp.StatusCode == HttpStatusCode.BadRequest)
+                if (response.StatusCode == HttpStatusCode.BadRequest)
                 {
-                    // The worker's 400 body is already {"error":"..."}. Reading it whole and
-                    // re-wrapping in the filter produced {"error":"{\"error\":\"...\"}"} —
-                    // unwrap to the message so the client sees a single, flat envelope.
-                    var detail = await resp.Content.ReadAsStringAsync(cancellationToken);
+                    var detail = await response.Content.ReadAsStringAsync(cancellationToken);
                     throw new WorkerRequestRejectedException(ExtractErrorMessage(detail));
                 }
 
-                // 5xx from the worker means the worker itself is faulted — still unavailable
-                // from the caller's point of view.
-                if ((int)resp.StatusCode >= 500)
+                if ((int)response.StatusCode >= 500)
                 {
                     throw new WorkerUnavailableException(endpoint);
                 }
 
-                resp.EnsureSuccessStatusCode();
+                response.EnsureSuccessStatusCode();
+                var payload = await response.Content.ReadAsStringAsync(cancellationToken);
+                if (string.IsNullOrWhiteSpace(payload))
+                {
+                    throw new InvalidOperationException(
+                        $"Windows worker returned a success status with an empty body for {endpoint}.");
+                }
 
-                var body = await resp.Content.ReadFromJsonAsync<ServerOperatingSystemApiModel>(cancellationToken: cancellationToken);
-
-                // A 200 with an empty body is a worker bug, NOT unavailability. Reporting it
-                // as 503 sends operators hunting for a dead process that is running fine.
+                var body = JsonSerializer.Deserialize<T>(
+                    payload,
+                    new JsonSerializerOptions(JsonSerializerDefaults.Web));
                 return body ?? throw new InvalidOperationException(
                     $"Windows worker returned a success status with an empty body for {endpoint}.");
             }
         }
 
-        // Pulls the "error" property out of the worker's {"error":"..."} body. Falls back to
-        // the raw body when it is not that shape, so an unexpected payload is not swallowed.
         private static string ExtractErrorMessage(string? body)
         {
-            if (string.IsNullOrWhiteSpace(body)) return string.Empty;
+            if (string.IsNullOrWhiteSpace(body))
+            {
+                return string.Empty;
+            }
+
             try
             {
-                using var doc = System.Text.Json.JsonDocument.Parse(body);
-                if (doc.RootElement.ValueKind == System.Text.Json.JsonValueKind.Object
-                    && doc.RootElement.TryGetProperty("error", out var err)
-                    && err.ValueKind == System.Text.Json.JsonValueKind.String)
+                using var document = JsonDocument.Parse(body);
+                if (document.RootElement.ValueKind == JsonValueKind.Object
+                    && document.RootElement.TryGetProperty("error", out var error)
+                    && error.ValueKind == JsonValueKind.String)
                 {
-                    return err.GetString() ?? body;
+                    return error.GetString() ?? body;
                 }
             }
-            catch (System.Text.Json.JsonException)
+            catch (JsonException)
             {
-                // Not JSON — fall through and surface the raw body.
+                // Preserve a non-JSON worker response as the actionable error detail.
             }
+
             return body;
         }
     }
