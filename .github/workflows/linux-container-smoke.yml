@@ -6,10 +6,6 @@ on:
       - main
       - develop
       - 'release/**'
-      - 'feat/**'
-      - 'feature/**'
-      - 'claude/**'
-      - 'copilot/**'
   pull_request:
 
 permissions:
