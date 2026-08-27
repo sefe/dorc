@@ -304,4 +304,63 @@ Function Get-EnvSettings {
 }
 #endregion Function Get-EnvSettings
 
+#region Function Merge-DeploySettings
+function Merge-DeploySettings {
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$SourceFolder,
+        
+        [Parameter(Mandatory=$true)]
+        [string]$EnvName,
+        
+        [Parameter(Mandatory=$true)]
+        [string]$OutputPath
+    )
 
+    $commonPath = Join-Path $SourceFolder "DeploySettings.Common.json"
+    $envPath = Join-Path $SourceFolder "environments\DeploySettings.$EnvName.json"
+    
+    # Verify files exist
+    if (-not (Test-Path $commonPath)) {
+        throw "Common settings file not found: $commonPath"
+    }
+    Write-Host "  [OK] Found: DeploySettings.Common.json" -ForegroundColor Green
+    
+    if (-not (Test-Path $envPath)) {
+        throw "Environment settings file not found: $envPath (DeploySettings.$EnvName.json)"
+    }
+    Write-Host "  [OK] Found: DeploySettings.$EnvName.json" -ForegroundColor Green
+    
+    # Load JSON files
+    Write-Host "Loading and merging settings..." -ForegroundColor Yellow
+    try {
+        $common = Get-Content $commonPath -Raw -Encoding UTF8 | ConvertFrom-Json
+        $envSettings = Get-Content $envPath -Raw -Encoding UTF8 | ConvertFrom-Json
+        
+        # Validate environment settings
+        if ($null -eq $envSettings) {
+            throw "Environment settings is null after loading!"
+        }
+        
+        # Clone the common object and add environment settings
+        $merged = $common | ConvertTo-Json -Depth 100 | ConvertFrom-Json
+        $merged | Add-Member -MemberType NoteProperty -Name "Environments" -Value @($envSettings) -Force
+        
+        # Ensure output directory exists
+        $outputDir = Split-Path -Parent $OutputPath
+        if (-not [string]::IsNullOrEmpty($outputDir) -and -not (Test-Path $outputDir)) {
+            New-Item -ItemType Directory -Path $outputDir -Force | Out-Null
+        }
+        
+        # Save merged file
+        $merged | ConvertTo-Json -Depth 100 | Set-Content $OutputPath -Encoding UTF8
+        
+        return $true
+    }
+    catch {
+        Write-Error "Failed to merge settings: $_"
+        throw
+    }
+}
+
+#endregion Function Merge-DeploySettings

@@ -58,9 +58,8 @@ namespace Dorc.Api.Tests
             filter.OnException(context);
 
             Assert.IsTrue(context.ExceptionHandled);
-            var result = context.Result as ObjectResult;
-            Assert.IsNotNull(result);
-            Assert.AreEqual(StatusCodes.Status503ServiceUnavailable, result!.StatusCode);
+            var result = Assert.IsInstanceOfType<ObjectResult>(context.Result);
+            Assert.AreEqual(StatusCodes.Status503ServiceUnavailable, result.StatusCode);
 
             // Body is anonymous: {error="windows_worker_unavailable", endpoint="reset-password"}
             var body = result.Value!.GetType();
@@ -151,12 +150,33 @@ namespace Dorc.Api.Tests
         {
             private readonly System.Net.HttpStatusCode _status;
             private readonly string _body;
+            private readonly List<HttpResponseMessage> _issuedResponses = new();
+
             public CannedHandler(System.Net.HttpStatusCode status, string body) { _status = status; _body = body; }
+
             protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-                => Task.FromResult(new HttpResponseMessage(_status)
+            {
+                var response = new HttpResponseMessage(_status)
                 {
                     Content = new StringContent(_body, System.Text.Encoding.UTF8, "application/json")
-                });
+                };
+                _issuedResponses.Add(response);
+                return Task.FromResult(response);
+            }
+
+            protected override void Dispose(bool disposing)
+            {
+                if (disposing)
+                {
+                    foreach (var response in _issuedResponses)
+                    {
+                        response.Dispose();
+                    }
+                    _issuedResponses.Clear();
+                }
+
+                base.Dispose(disposing);
+            }
         }
 
         private static ExceptionContext NewExceptionContext(Exception ex)
@@ -174,12 +194,30 @@ namespace Dorc.Api.Tests
 
         private sealed class HeaderCaptureHandler : DelegatingHandler
         {
+            private readonly List<HttpResponseMessage> _issuedResponses = new();
+
             public HttpRequestMessage? LastRequest { get; private set; }
 
             protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
             {
                 LastRequest = request;
-                return Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.OK));
+                var response = new HttpResponseMessage(System.Net.HttpStatusCode.OK);
+                _issuedResponses.Add(response);
+                return Task.FromResult(response);
+            }
+
+            protected override void Dispose(bool disposing)
+            {
+                if (disposing)
+                {
+                    foreach (var response in _issuedResponses)
+                    {
+                        response.Dispose();
+                    }
+                    _issuedResponses.Clear();
+                }
+
+                base.Dispose(disposing);
             }
         }
     }
