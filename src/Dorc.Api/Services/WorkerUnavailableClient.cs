@@ -13,5 +13,14 @@ namespace Dorc.Api.Services
     {
         public Task<ServerOperatingSystemApiModel> GetServerOperatingSystemAsync(string serverName, CancellationToken cancellationToken = default)
             => throw new WorkerUnavailableException("remote-server/operating-system");
+
+        public Task<List<WorkerDaemonApiModel>> ProbeDaemonStatusesAsync(WorkerDaemonProbeRequestApiModel request, CancellationToken cancellationToken = default)
+            => throw new WorkerUnavailableException("daemons/probe");
+
+        public Task<WorkerDaemonApiModel> ChangeDaemonStateAsync(WorkerDaemonStateChangeRequestApiModel request, CancellationToken cancellationToken = default)
+            => throw new WorkerUnavailableException("daemons/change-state");
+
+        public Task RebootServerAsync(string serverName, CancellationToken cancellationToken = default)
+            => throw new WorkerUnavailableException("remote-server/reboot");
     }
 }

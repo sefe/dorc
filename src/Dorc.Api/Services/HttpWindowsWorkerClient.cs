@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Json;
 using System.Net.Sockets;
 using System.Text.Json;
 using Dorc.Api.Exceptions;
@@ -32,6 +33,42 @@ namespace Dorc.Api.Services
                 endpoint,
                 ct => _http.GetAsync(
                     $"{endpoint}?serverName={Uri.EscapeDataString(serverName)}",
+                    ct),
+                cancellationToken);
+        }
+
+        public Task<List<WorkerDaemonApiModel>> ProbeDaemonStatusesAsync(
+            WorkerDaemonProbeRequestApiModel request,
+            CancellationToken cancellationToken = default)
+        {
+            const string endpoint = "daemons/probe";
+            return SendAsync<List<WorkerDaemonApiModel>>(
+                endpoint,
+                ct => HttpClientJsonExtensions.PostAsJsonAsync(_http, endpoint, request, ct),
+                cancellationToken);
+        }
+
+        public Task<WorkerDaemonApiModel> ChangeDaemonStateAsync(
+            WorkerDaemonStateChangeRequestApiModel request,
+            CancellationToken cancellationToken = default)
+        {
+            const string endpoint = "daemons/change-state";
+            return SendAsync<WorkerDaemonApiModel>(
+                endpoint,
+                ct => HttpClientJsonExtensions.PostAsJsonAsync(_http, endpoint, request, ct),
+                cancellationToken);
+        }
+
+        public Task RebootServerAsync(
+            string serverName,
+            CancellationToken cancellationToken = default)
+        {
+            const string endpoint = "remote-server/reboot";
+            return SendAsync<ApiBoolResult>(
+                endpoint,
+                ct => _http.PostAsync(
+                    $"{endpoint}?serverName={Uri.EscapeDataString(serverName)}",
+                    content: null,
                     ct),
                 cancellationToken);
         }

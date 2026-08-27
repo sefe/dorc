@@ -20,5 +20,17 @@ namespace Dorc.Api.Interfaces
         // ProductName + CurrentVersion from its remote Windows registry. Worker-side
         // implementation lives in Dorc.Api.WindowsWorker/Controllers/RemoteServerController.cs.
         Task<ServerOperatingSystemApiModel> GetServerOperatingSystemAsync(string serverName, CancellationToken cancellationToken = default);
+
+        // S-005 (HLPS Scope D — WMI/service-control move). Probes service status for the
+        // supplied daemons, impersonated as the deploy credential when one is present.
+        // Worker-side implementation lives in Dorc.Api.WindowsWorker/Controllers/DaemonsController.cs.
+        Task<List<WorkerDaemonApiModel>> ProbeDaemonStatusesAsync(WorkerDaemonProbeRequestApiModel request, CancellationToken cancellationToken = default);
+
+        // S-005. Starts/stops/restarts a daemon (request.Daemon.Status carries the action)
+        // and returns the resulting status.
+        Task<WorkerDaemonApiModel> ChangeDaemonStateAsync(WorkerDaemonStateChangeRequestApiModel request, CancellationToken cancellationToken = default);
+
+        // S-005. Reboots the target server via WMI (moved from WmiUtil in Dorc.Api).
+        Task RebootServerAsync(string serverName, CancellationToken cancellationToken = default);
     }
 }

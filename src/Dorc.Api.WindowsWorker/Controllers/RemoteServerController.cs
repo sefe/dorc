@@ -4,8 +4,9 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Dorc.Api.WindowsWorker.Controllers
 {
-    // Windows-only remote-server probing. Currently exposes registry-based OS
-    // detection (S-004 — moved from Dorc.Api/Controllers/RefDataServersController).
+    // Windows-only remote-server operations: registry-based OS detection (S-004 — moved
+    // from Dorc.Api/Controllers/RefDataServersController) and WMI reboot (S-005 — moved
+    // from Dorc.Api/Controllers/RefDataAppServersController via WmiUtil).
     [ApiController]
     [Route("remote-server")]
     public class RemoteServerController : ControllerBase
@@ -60,6 +61,32 @@ namespace Dorc.Api.WindowsWorker.Controllers
             {
                 _logger.LogError(ex, "Failed to read remote registry for server");
                 return BadRequest(new { error = "Failed to read remote registry for server" });
+            }
+        }
+
+        /// <summary>
+        /// Reboot the target server via WMI (S-005). Pre-move behaviour preserved: when the
+        /// WMI scope fails to connect the call is a silent no-op and still answers success —
+        /// the primary's RefDataAppServersController has always responded 200 either way.
+        /// </summary>
+        [HttpPost("reboot")]
+        public ActionResult<ApiBoolResult> Reboot([FromQuery] string serverName)
+        {
+            if (string.IsNullOrWhiteSpace(serverName))
+            {
+                return BadRequest(new { error = "serverName is required" });
+            }
+
+            try
+            {
+                var wmi = new WmiUtil(serverName);
+                wmi.Reboot();
+                return Ok(new ApiBoolResult { Result = true });
+            }
+            catch (System.Management.ManagementException ex)
+            {
+                _logger.LogError(ex, "WMI reboot failed for server");
+                return BadRequest(new { error = "Failed to reboot the target server" });
             }
         }
     }

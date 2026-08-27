@@ -13,6 +13,7 @@ builder.WebHost.ConfigureKestrel(opts =>
 
 builder.Services.AddControllers();
 builder.Services.AddHealthChecks();
+builder.Services.AddSingleton<IDaemonServiceOperations, DaemonServiceOperations>();
 builder.Services.AddSingleton<IRemoteServerOperatingSystemReader, RemoteRegistryOperatingSystemReader>();
 
 builder.Services

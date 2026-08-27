@@ -1,6 +1,6 @@
 ﻿using System.Management;
 
-namespace Dorc.Api.Services
+namespace Dorc.Api.WindowsWorker.Services
 {
     public class WmiUtil
     {
@@ -34,19 +34,16 @@ namespace Dorc.Api.Services
         /// <param name="server">Server name to reboot</param>
         public void Reboot()
         {
+            // A ManagementException propagates typed since the S-005 move (the old wrapper
+            // hid it behind a bare Exception).
             if (IsConnected)
-                try
-                {
-                    var moclass = @"Win32_OperatingSystem";
-                    var path = $"{_path}:{moclass}";
-                    var mp = new ManagementPath(path);
-                    var mo = new ManagementObject(_scope, mp, null);
-                    var outResult = mo.InvokeMethod("Reboot", null, null);
-                }
-                catch (ManagementException err)
-                {
-                    throw new Exception("An error occurred while trying to execute the WMI method: " + err.Message);
-                }
+            {
+                var moclass = @"Win32_OperatingSystem";
+                var path = $"{_path}:{moclass}";
+                var mp = new ManagementPath(path);
+                var mo = new ManagementObject(_scope, mp, null);
+                var outResult = mo.InvokeMethod("Reboot", null, null);
+            }
         }
 
         public string GetComputerName()
