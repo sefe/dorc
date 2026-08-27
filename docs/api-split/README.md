@@ -66,10 +66,16 @@ permissions with tenant admin consent:
 - `User.Read.All`
 - `Group.Read.All`
 - `GroupMember.Read.All`
+- `Application.Read.All`
 
 Configure the API resource/scope and authority, then configure the UI client to request
-that scope. Existing installations whose `AccessControl.Sid` rows contain on-premises
-SIDs require Entra Connect (or equivalent synchronization) so Graph exposes
+that scope. Configure app roles named `Admin` and `PowerUser` (as applicable to the
+installation) and assign them to the relevant users/groups so access tokens contain
+the `role` claim consumed by DOrc authorization. The legacy `ActiveDirectoryRoles`
+settings are removed and no longer affect authorization.
+
+Existing installations whose `AccessControl.Sid` rows contain on-premises SIDs require
+Entra Connect (or equivalent synchronization) so Graph exposes
 `onPremisesSecurityIdentifier`.
 
 **Cohort A - synchronized identities:** existing SID-based grants continue to resolve
