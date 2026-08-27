@@ -8,6 +8,8 @@ using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
+using System.Net;
+using System.Text;
 
 namespace Dorc.Api.Tests
 {
@@ -52,7 +54,7 @@ namespace Dorc.Api.Tests
         [TestMethod]
         public void WorkerUnavailableExceptionFilter_Translates503_WithDocumentedBody()
         {
-            var filter = new WorkerUnavailableExceptionFilter(NullLogger<WorkerUnavailableExceptionFilter>.Instance);
+            var filter = NewFilter();
             var context = NewExceptionContext(new WorkerUnavailableException("reset-password"));
 
             filter.OnException(context);
@@ -70,7 +72,7 @@ namespace Dorc.Api.Tests
         [TestMethod]
         public void WorkerUnavailableExceptionFilter_IgnoresOtherExceptions()
         {
-            var filter = new WorkerUnavailableExceptionFilter(NullLogger<WorkerUnavailableExceptionFilter>.Instance);
+            var filter = NewFilter();
             var context = NewExceptionContext(new InvalidOperationException("something else"));
 
             filter.OnException(context);
@@ -80,85 +82,148 @@ namespace Dorc.Api.Tests
         }
 
         [TestMethod]
-        public async Task HttpWindowsWorkerClient_ConnectionFailure_ThrowsWorkerUnavailable()
+        public async Task Transport_ConnectionFailure_ThrowsWorkerUnavailable()
         {
-            // Worker configured (Enabled=true) but the process is not listening. Previously
-            // EnsureSuccessStatusCode/HttpRequestException escaped as a 500, so the documented
-            // 503 only ever fired for the config-disabled case.
-            var handler = new ThrowingHandler(new HttpRequestException("Connection refused"));
-            var http = new HttpClient(handler) { BaseAddress = new Uri("http://127.0.0.1:5005/") };
-            var client = new HttpWindowsWorkerClient(http);
+            using var client = NewTransportClient(new ThrowingHandler(new HttpRequestException("Connection refused")));
 
-            var ex = await Assert.ThrowsExactlyAsync<WorkerUnavailableException>(
-                () => client.GetServerOperatingSystemAsync("SERVER01"));
-            Assert.AreEqual("remote-server/operating-system", ex.Endpoint);
+            var exception = await Assert.ThrowsExactlyAsync<WorkerUnavailableException>(
+                () => client.SendTestRequestAsync("remote-server/operating-system"));
+
+            Assert.AreEqual("remote-server/operating-system", exception.Endpoint);
         }
 
         [TestMethod]
-        public async Task HttpWindowsWorkerClient_Timeout_ThrowsWorkerUnavailable()
+        public async Task Transport_Timeout_ThrowsWorkerUnavailable()
         {
-            var handler = new ThrowingHandler(new TaskCanceledException("timed out"));
-            var http = new HttpClient(handler) { BaseAddress = new Uri("http://127.0.0.1:5005/") };
-            var client = new HttpWindowsWorkerClient(http);
+            using var client = NewTransportClient(new ThrowingHandler(new TaskCanceledException("Timed out")));
 
             await Assert.ThrowsExactlyAsync<WorkerUnavailableException>(
-                () => client.GetServerOperatingSystemAsync("SERVER01"));
+                () => client.SendTestRequestAsync("daemons/probe"));
         }
 
         [TestMethod]
-        public async Task HttpWindowsWorkerClient_WorkerBadRequest_SurfacesAsRejection()
+        public async Task Transport_BadRequest_UnwrapsWorkerError()
         {
-            // The worker answers 400 for real user-facing failures; collapsing that into a
-            // 500 loses the actionable message the endpoint documents.
-            var handler = new CannedHandler(System.Net.HttpStatusCode.BadRequest,
-                "{\"error\":\"Unable to open the target machine\"}");
-            var http = new HttpClient(handler) { BaseAddress = new Uri("http://127.0.0.1:5005/") };
-            var client = new HttpWindowsWorkerClient(http);
+            using var client = NewTransportClient(new CannedHandler(
+                HttpStatusCode.BadRequest,
+                "{\"error\":\"Unable to open the target machine\"}"));
 
-            var ex = await Assert.ThrowsExactlyAsync<WorkerRequestRejectedException>(
-                () => client.GetServerOperatingSystemAsync("SERVER01"));
+            var exception = await Assert.ThrowsExactlyAsync<WorkerRequestRejectedException>(
+                () => client.SendTestRequestAsync("remote-server/operating-system"));
 
-            // The worker's body is already {"error":"..."} — the message must be the inner
-            // text, not the whole JSON, or the filter re-wraps it into
-            // {"error":"{\"error\":\"...\"}"} and the client shows escaped JSON to the user.
-            Assert.AreEqual("Unable to open the target machine", ex.Message);
+            Assert.AreEqual("Unable to open the target machine", exception.Message);
+        }
+
+        [TestMethod]
+        public async Task Transport_ServerError_ThrowsWorkerUnavailable()
+        {
+            using var client = NewTransportClient(new CannedHandler(
+                HttpStatusCode.InternalServerError,
+                "{\"error\":\"worker fault\"}"));
+
+            await Assert.ThrowsExactlyAsync<WorkerUnavailableException>(
+                () => client.SendTestRequestAsync("password-reset"));
+        }
+
+        [TestMethod]
+        public async Task Transport_EmptySuccessBody_IsContractFailure()
+        {
+            using var client = NewTransportClient(new CannedHandler(HttpStatusCode.OK, ""));
+
+            await Assert.ThrowsExactlyAsync<InvalidOperationException>(
+                () => client.SendTestRequestAsync("daemons/probe"));
         }
 
         [TestMethod]
         public void WorkerUnavailableExceptionFilter_RejectionBecomes400()
         {
-            var filter = new WorkerUnavailableExceptionFilter(NullLogger<WorkerUnavailableExceptionFilter>.Instance);
-            var context = NewExceptionContext(new WorkerRequestRejectedException("Unable to open the target machine"));
+            var filter = NewFilter();
+            var context = NewExceptionContext(
+                new WorkerRequestRejectedException("Unable to open the target machine"));
 
             filter.OnException(context);
 
             Assert.IsTrue(context.ExceptionHandled);
-            var result = context.Result as BadRequestObjectResult;
-            Assert.IsNotNull(result);
-            Assert.AreEqual(StatusCodes.Status400BadRequest, result!.StatusCode);
+            var result = Assert.IsInstanceOfType<BadRequestObjectResult>(context.Result);
+            Assert.AreEqual(StatusCodes.Status400BadRequest, result.StatusCode);
+        }
+
+        private static WorkerUnavailableExceptionFilter NewFilter()
+            => new(NullLogger<WorkerUnavailableExceptionFilter>.Instance);
+
+        private static TestHttpWindowsWorkerClient NewTransportClient(HttpMessageHandler handler)
+            => new(new HttpClient(handler) { BaseAddress = new Uri("http://127.0.0.1:5005/") });
+
+        private static ExceptionContext NewExceptionContext(Exception ex)
+        {
+            var actionContext = new ActionContext(
+                new DefaultHttpContext(),
+                new RouteData(),
+                new ActionDescriptor(),
+                new ModelStateDictionary());
+            return new ExceptionContext(actionContext, new List<IFilterMetadata>())
+            {
+                Exception = ex
+            };
+        }
+
+        private sealed class TestHttpWindowsWorkerClient : HttpWindowsWorkerClient, IDisposable
+        {
+            private readonly HttpClient _httpClient;
+
+            public TestHttpWindowsWorkerClient(HttpClient httpClient)
+                : base(httpClient)
+            {
+                _httpClient = httpClient;
+            }
+
+            public Task<TestResponse> SendTestRequestAsync(string endpoint)
+                => SendAsync<TestResponse>(
+                    endpoint,
+                    cancellationToken => _httpClient.GetAsync(endpoint, cancellationToken));
+
+            public void Dispose() => _httpClient.Dispose();
+        }
+
+        private sealed class TestResponse
+        {
+            public bool Result { get; set; }
         }
 
         private sealed class ThrowingHandler : HttpMessageHandler
         {
-            private readonly Exception _ex;
-            public ThrowingHandler(Exception ex) => _ex = ex;
-            protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-                => Task.FromException<HttpResponseMessage>(_ex);
+            private readonly Exception _exception;
+
+            public ThrowingHandler(Exception exception)
+            {
+                _exception = exception;
+            }
+
+            protected override Task<HttpResponseMessage> SendAsync(
+                HttpRequestMessage request,
+                CancellationToken cancellationToken)
+                => Task.FromException<HttpResponseMessage>(_exception);
         }
 
         private sealed class CannedHandler : HttpMessageHandler
         {
-            private readonly System.Net.HttpStatusCode _status;
+            private readonly HttpStatusCode _statusCode;
             private readonly string _body;
             private readonly List<HttpResponseMessage> _issuedResponses = new();
 
-            public CannedHandler(System.Net.HttpStatusCode status, string body) { _status = status; _body = body; }
-
-            protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+            public CannedHandler(HttpStatusCode statusCode, string body)
             {
-                var response = new HttpResponseMessage(_status)
+                _statusCode = statusCode;
+                _body = body;
+            }
+
+            protected override Task<HttpResponseMessage> SendAsync(
+                HttpRequestMessage request,
+                CancellationToken cancellationToken)
+            {
+                var response = new HttpResponseMessage(_statusCode)
                 {
-                    Content = new StringContent(_body, System.Text.Encoding.UTF8, "application/json")
+                    Content = new StringContent(_body, Encoding.UTF8, "application/json")
                 };
                 _issuedResponses.Add(response);
                 return Task.FromResult(response);
@@ -177,19 +242,6 @@ namespace Dorc.Api.Tests
 
                 base.Dispose(disposing);
             }
-        }
-
-        private static ExceptionContext NewExceptionContext(Exception ex)
-        {
-            var actionContext = new ActionContext(
-                new DefaultHttpContext(),
-                new RouteData(),
-                new ActionDescriptor(),
-                new ModelStateDictionary());
-            return new ExceptionContext(actionContext, new List<IFilterMetadata>())
-            {
-                Exception = ex
-            };
         }
 
         private sealed class HeaderCaptureHandler : DelegatingHandler

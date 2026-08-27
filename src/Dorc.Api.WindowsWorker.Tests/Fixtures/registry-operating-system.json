@@ -1,0 +1,17 @@
+{
+  "source": {
+    "commit": "2b616740",
+    "implementation": "Dorc.Api/Controllers/RefDataServersController.cs"
+  },
+  "request": {
+    "serverName": "SERVER01"
+  },
+  "registry": {
+    "productName": "Windows Server 2022 Datacenter",
+    "currentVersion": "10.0"
+  },
+  "response": {
+    "productName": "Windows Server 2022 Datacenter",
+    "currentVersion": "10.0"
+  }
+}

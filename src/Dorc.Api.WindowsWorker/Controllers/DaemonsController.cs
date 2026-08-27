@@ -12,10 +12,10 @@ namespace Dorc.Api.WindowsWorker.Controllers
     [Route("daemons")]
     public class DaemonsController : ControllerBase
     {
-        private readonly DaemonServiceOperations _operations;
+        private readonly IDaemonServiceOperations _operations;
         private readonly ILogger<DaemonsController> _logger;
 
-        public DaemonsController(DaemonServiceOperations operations, ILogger<DaemonsController> logger)
+        public DaemonsController(IDaemonServiceOperations operations, ILogger<DaemonsController> logger)
         {
             _operations = operations;
             _logger = logger;
