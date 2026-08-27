@@ -46,7 +46,8 @@ This work spans **multiple PRs**, not one. The natural cut points are S-001, the
 - **S-004 / S-005 / S-006 are mutually independent at code level** once S-003 lands — but all three also depend on S-001 (S-001 reshapes `Dorc.Core`'s csproj and DI; the WMI/registry/password-reset moves touch the same files). Authors must not ship these ahead of S-001.
 - **S-007 depends only on S-001** (the JWT/OAuth2 path becomes the sole auth scheme once AD-backed Negotiate is replaceable).
 - **S-008** can begin skeleton-only after S-002 lands and finish as worker endpoints fill in.
-- **S-010** is the closeout — depends on the substantive steps but is documentation-only.
+- **S-010** is the closeout — depends on the substantive steps and owns deployment
+  documentation, unchanged-client builds, and the positive Linux container smoke test.
 
 ### Risk shape
 - **S-001 carries the most risk** (parity gaps P-4/P-5/P-7, customer-impact via Cohort A/B, Entra Connect prerequisite). It is sequenced first as the spike: if the parity work is harder than HLPS D-2 assumes, we learn it before the worker steps are stranded.
@@ -230,7 +231,7 @@ S-001. (Graph claims path must be production-ready before Negotiate is removed.)
 ## S-008 — MSI installer wiring for the worker
 
 ### What changes
-A new MSI component is added to `Setup.Dorc/` (reference template: `Setup.Dorc/Web/RequestApi/ApiWindows.wxs` from PR #424, but rewritten against current main). The component installs `Dorc.Api.WindowsWorker`, registers it as a hosted process (see U-12 below), and provisions:
+A new MSI component is added to `Setup.Dorc/` (reference template: `Setup.Dorc/Web/RequestApi/ApiWindows.wxs` from PR #424, but rewritten against current main). The component installs `Dorc.Api.WindowsWorker`, registers it as a Windows Service (see IS-U-1 below), and provisions:
 
 - The shared secret (`X-Worker-Key` value) — generated at install time, written to both the primary's and the worker's config in a single transaction.
 - The worker's service-account credentials (for password-reset impersonation, used by S-006).
@@ -322,8 +323,11 @@ At the end of S-010, the HLPS Success Criteria SC-1..SC-10 are all satisfied. Sp
 
 Carried forward from the HLPS plus those surfaced during IS drafting / Round-1 review.
 
-- **U-12 [IS-level, IS Round-1] — Worker hosting model on Windows: Windows Service vs IIS-hosted process.** Each has security and upgrade implications. Decision must be made before S-008's SPEC drafts (it shapes the MSI component and the install-time secret-provisioning surface). If the decision forces a non-trivial change to the worker host code (e.g., IIS's `IHostBuilder` integration), revise S-002 retroactively. Recommendation pending: Windows Service (simpler, no IIS dependency, matches the existing DORC Monitor service model).
-- Other Lookahead unknowns inherited from HLPS §7 (U-4..U-11) — resolved in the SPEC step that touches them, as noted in the per-step bodies.
+- **IS-U-1 — RESOLVED: worker hosting model on Windows.** Use a Windows Service, installed
+  and configured by S-008 (#900). This avoids an IIS dependency and matches the existing DORC
+  Monitor service model.
+- Other lookahead unknowns inherited from HLPS §7 are resolved in the owning SPEC/step and
+  closed in HLPS Round 8.
 
 ---
 
