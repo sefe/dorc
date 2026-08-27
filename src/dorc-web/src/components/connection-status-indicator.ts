@@ -119,6 +119,9 @@ export class ConnectionStatusIndicator extends LitElement {
   `;
 
   private get status(): IndicatorStatus {
+    // The user's explicit pause wins over connection churn: while paused the
+    // connection is stopped deliberately, so don't show Reconnecting/Offline.
+    if (this.mode === 'toggle' && !this.autoRefresh) return 'paused';
     if (
       this.state === HubConnectionState.Connecting ||
       this.state === HubConnectionState.Reconnecting
@@ -126,7 +129,6 @@ export class ConnectionStatusIndicator extends LitElement {
       return 'reconnecting';
     }
     if (this.state !== HubConnectionState.Connected) return 'offline';
-    if (this.mode === 'toggle' && !this.autoRefresh) return 'paused';
     return 'live';
   }
 
@@ -146,15 +148,16 @@ export class ConnectionStatusIndicator extends LitElement {
   private get titleText() {
     const state = `Connection: ${this.state}`;
     if (this.mode === 'toggle') {
+      if (this.status === 'paused') {
+        return `Live updates paused (click to resume)\n${state}`;
+      }
       if (this.status === 'reconnecting') {
         return `Reconnecting - live updates will resume automatically\n${state}`;
       }
       if (this.status === 'offline') {
         return `Connection lost - live updates unavailable\n${state}`;
       }
-      return this.autoRefresh
-        ? `Live updates on (click to pause)\n${state}`
-        : `Live updates paused (click to resume)\n${state}`;
+      return `Live updates on (click to pause)\n${state}`;
     }
     return state;
   }

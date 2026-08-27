@@ -418,6 +418,32 @@ export class PageMonitorRequests
 
   private debouncedRefreshGrid = this.debounce(() => this.refreshGrid(), 500);
 
+  // Pausing stops the hub connection entirely so the client doesn't keep
+  // (re)connecting in the background; resuming starts it again. SignalR's
+  // automatic reconnect only kicks in on connection loss, not manual stop.
+  private async toggleAutoRefresh() {
+    this.autoRefresh = !this.autoRefresh;
+    if (!this.hubConnection) return;
+    if (this.autoRefresh) {
+      if (this.hubConnection.state === HubConnectionState.Disconnected) {
+        try {
+          await this.hubConnection.start();
+        } catch (err) {
+          console.error('Error starting SignalR connection:', err);
+          this.hubConnectionState = String(err);
+          return;
+        }
+      }
+      this.hubConnectionState = this.hubConnection.state;
+      this.refreshGrid();
+    } else {
+      this.hubConnection.stop().catch(err => {
+        console.error('Error stopping SignalR connection:', err);
+      });
+      this.hubConnectionState = this.hubConnection.state;
+    }
+  }
+
   onDeploymentRequestStatusChanged(): Promise<void> {
     if (this.autoRefresh) this.debouncedRefreshGrid();
     return Promise.resolve();
@@ -723,10 +749,7 @@ export class PageMonitorRequests
             .state="${this.hubConnectionState}"
             .autoRefresh="${this.autoRefresh}"
             @toggle-auto-refresh="${() => {
-              this.autoRefresh = !this.autoRefresh;
-              if (this.autoRefresh) {
-                this.refreshGrid();
-              }
+              this.toggleAutoRefresh();
               this.idHeaderRenderer(root);
             }}"
           ></connection-status-indicator>

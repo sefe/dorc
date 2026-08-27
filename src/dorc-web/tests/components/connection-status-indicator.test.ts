@@ -94,13 +94,42 @@ describe('ConnectionStatusIndicator', () => {
         <connection-status-indicator
           mode="toggle"
           .state="${HubConnectionState.Disconnected}"
-          .autoRefresh="${false}"
+          .autoRefresh="${true}"
         ></connection-status-indicator>
       `);
 
       const title = (pill(el) as HTMLButtonElement).title;
       expect(title).to.contain('unavailable');
       expect(title).to.not.contain('click to resume');
+    });
+
+    it('shows Paused, not Reconnecting, when paused during reconnection', async () => {
+      const el = await fixture<ConnectionStatusIndicator>(html`
+        <connection-status-indicator
+          mode="toggle"
+          .state="${HubConnectionState.Reconnecting}"
+          .autoRefresh="${false}"
+        ></connection-status-indicator>
+      `);
+
+      const badge = pill(el)!;
+      expect(badge.textContent).to.contain('Paused');
+      expect(badge.classList.contains('paused')).to.be.true;
+      expect((badge as HTMLButtonElement).title).to.contain('click to resume');
+    });
+
+    it('shows Paused, not Offline, when paused while disconnected', async () => {
+      const el = await fixture<ConnectionStatusIndicator>(html`
+        <connection-status-indicator
+          mode="toggle"
+          .state="${HubConnectionState.Disconnected}"
+          .autoRefresh="${false}"
+        ></connection-status-indicator>
+      `);
+
+      const badge = pill(el)!;
+      expect(badge.textContent).to.contain('Paused');
+      expect(badge.classList.contains('paused')).to.be.true;
     });
 
     it('reflects auto refresh state via aria-pressed', async () => {
