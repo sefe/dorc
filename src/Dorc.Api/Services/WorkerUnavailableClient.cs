@@ -22,5 +22,8 @@ namespace Dorc.Api.Services
 
         public Task RebootServerAsync(string serverName, CancellationToken cancellationToken = default)
             => throw new WorkerUnavailableException("remote-server/reboot");
+
+        public Task<ApiBoolResult> ResetAppPasswordAsync(WorkerPasswordResetRequestApiModel request, CancellationToken cancellationToken = default)
+            => throw new WorkerUnavailableException("password-reset");
     }
 }

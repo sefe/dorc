@@ -56,6 +56,15 @@ namespace Dorc.Api.Services
                 cancellationToken);
         }
 
+        public Task<ApiBoolResult> ResetAppPasswordAsync(WorkerPasswordResetRequestApiModel request, CancellationToken cancellationToken = default)
+        {
+            const string endpoint = "password-reset";
+            return SendAsync<ApiBoolResult>(
+                endpoint,
+                ct => System.Net.Http.Json.HttpClientJsonExtensions.PostAsJsonAsync(_http, endpoint, request, ct),
+                cancellationToken);
+        }
+
         // One send pipeline for every endpoint, so unavailability mapping, the worker's 400
         // rejection contract, and empty-body detection cannot drift between operations.
         private async Task<T> SendAsync<T>(string endpoint, Func<CancellationToken, Task<HttpResponseMessage>> send, CancellationToken cancellationToken)

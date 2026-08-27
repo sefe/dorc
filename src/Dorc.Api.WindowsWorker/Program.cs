@@ -13,6 +13,8 @@ builder.WebHost.ConfigureKestrel(opts =>
 builder.Services.AddControllers();
 builder.Services.AddHealthChecks();
 builder.Services.AddSingleton<Dorc.Api.WindowsWorker.Services.DaemonServiceOperations>();
+builder.Services.AddSingleton<Dorc.Api.WindowsWorker.Services.ServiceAccountImpersonator>();
+builder.Services.AddSingleton<Dorc.Core.Interfaces.ISqlUserPasswordReset, Dorc.Core.SqlUserPasswordReset>();
 
 builder.Services
     .AddAuthentication(WorkerKeyAuthenticationOptions.SchemeName)
