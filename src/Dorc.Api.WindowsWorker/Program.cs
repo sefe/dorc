@@ -4,6 +4,10 @@ using Dorc.Api.WindowsWorker.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// U-12 decision (S-008): the worker is hosted as a Windows Service — matching the DOrc
+// Monitor model, no IIS dependency. No-op when launched from a console.
+builder.Host.UseWindowsService(options => options.ServiceName = "DorcApiWindowsWorker");
+
 var port = builder.Configuration.GetValue<int?>("WindowsWorker:Port") ?? 5005;
 builder.WebHost.ConfigureKestrel(opts =>
 {

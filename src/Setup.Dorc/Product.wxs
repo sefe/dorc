@@ -5,11 +5,28 @@
 		<Property Id="WEB.PORT" Value="80" />
 		<Property Id="DOTNET.VERSION" Value="4.0.30319" />
 
+		<!-- S-008: Windows-worker wiring. The shared key and passwords are Hidden so the
+		     property dump in verbose MSI logs masks them (C-7). An empty shared key means
+		     GenerateWorkerSharedKey creates a per-install random one. -->
+		<Property Id="DORC.WORKER.PORT" Value="5005" />
+		<Property Id="DORC.WORKER.SHAREDKEY" Hidden="yes" Secure="yes" />
+		<Property Id="DORC.WORKER.SVC.PASSWORD" Hidden="yes" Secure="yes" />
+		<Property Id="DORC.WORKER.RESET.PASSWORD" Hidden="yes" Secure="yes" />
+
+		<!-- R5-13 (S-008 owns RequestApi.wxs): since S-007 the API refuses to start under
+		     AuthenticationScheme values WinAuth / Both / OAuth+WinAuth, but installs and
+		     upgrades used to write whatever the pipeline passed. Normalise the property so
+		     every install/upgrade writes a scheme the startup guard accepts (SC-7). -->
+		<SetProperty Id="DORC.AUTHENTICATION.SCHEME" Value="OAuth" After="AppSearch" Sequence="both" Condition="NOT DORC.AUTHENTICATION.SCHEME OR DORC.AUTHENTICATION.SCHEME = &quot;WinAuth&quot; OR DORC.AUTHENTICATION.SCHEME = &quot;Both&quot; OR DORC.AUTHENTICATION.SCHEME = &quot;OAuth+WinAuth&quot;" />
+
 		<Media Id="1" Cabinet="media1.cab" EmbedCab="yes" />
 
 		<InstallExecuteSequence>
 			<Custom Action="ReconfigureLoadUserProfileOrchestrator" Before="InstallFinalize" Condition="NOT Installed" />
 			<Custom Action="ReconfigureLoadUserProfileRequestApi" Before="InstallFinalize" Condition="NOT Installed" />
+			<!-- S-008: key first, then start — the worker reads its config at startup. -->
+			<Custom Action="GenerateWorkerSharedKey" Before="InstallFinalize" Condition="NOT Installed AND DORC.WORKER.SHAREDKEY = &quot;&quot;" />
+			<Custom Action="StartApiWindowsWorker" After="GenerateWorkerSharedKey" Condition="NOT Installed" />
 		</InstallExecuteSequence>
 
 		<SetDirectory Id="CDrive" Value="C:\" />
@@ -27,6 +44,10 @@
 				<ComponentRef Id="DOrcWebIISComponent" />
 				<ComponentRef Id="DOrcWebIISComponentProd" />
 
+			</Feature>
+			<Feature Id="Worker" Title="Windows Worker">
+				<ComponentRef Id="ApiWindowsWorkerService.exe" />
+				<ComponentGroupRef Id="ApiWindowsWorkerComGroup" />
 			</Feature>
 			<Feature Id="Monitors" Title="Monitors">
 				<ComponentRef Id="DeployMonitorServiceNonProd.exe" />

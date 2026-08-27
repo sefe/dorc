@@ -52,6 +52,7 @@
   -->
   <ItemGroup>
     <PayloadPublishProject Include="$(SrcDir)Dorc.Api\Dorc.Api.csproj" />
+    <PayloadPublishProject Include="$(SrcDir)Dorc.Api.WindowsWorker\Dorc.Api.WindowsWorker.csproj" />
     <PayloadPublishProject Include="$(SrcDir)Dorc.Monitor\Dorc.Monitor.csproj" />
     <PayloadPublishProject Include="$(SrcDir)Dorc.Runner\Dorc.Runner.csproj" />
     <PayloadPublishProject Include="$(SrcDir)Tools.DeployCopyEnvBuildCLI\Tools.DeployCopyEnvBuildCLI.csproj" />

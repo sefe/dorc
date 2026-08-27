@@ -66,14 +66,6 @@
       "DeployProperty": "DEPLOYMENTORCHESTRATOR_URIPREFIX"
     },
     {
-      "MSIParameter": "AD.ROLEPROVIDER.GROUP.POWERUSER",
-      "DeployProperty": "AD_ROLEPROVIDER_GROUP_POWERUSER"
-    },
-    {
-      "MSIParameter": "AD.ROLEPROVIDER.GROUP.ADMIN",
-      "DeployProperty": "AD_ROLEPROVIDER_GROUP_ADMIN"
-    },
-    {
       "MSIParameter": "AADADOSORGURL",
       "DeployProperty": "AADADOSORGURL"
     },
@@ -124,6 +116,34 @@
     {
       "MSIParameter": "DORC.AUTHENTICATION.SCHEME",
       "DeployProperty": "DORC_AUTHENTICATION_SCHEME"
+    },
+    {
+      "MSIParameter": "DORC.WORKER.PORT",
+      "DeployProperty": "DORC_WORKER_PORT"
+    },
+    {
+      "MSIParameter": "DORC.WORKER.SHAREDKEY",
+      "DeployProperty": "DORC_WORKER_SHAREDKEY"
+    },
+    {
+      "MSIParameter": "DORC.WORKER.SVC.ACCOUNT",
+      "DeployProperty": "DORC_WORKER_SVC_ACCOUNT"
+    },
+    {
+      "MSIParameter": "DORC.WORKER.SVC.PASSWORD",
+      "DeployProperty": "DORC_WORKER_SVC_PASSWORD"
+    },
+    {
+      "MSIParameter": "DORC.WORKER.RESET.USERNAME",
+      "DeployProperty": "DORC_WORKER_RESET_USERNAME"
+    },
+    {
+      "MSIParameter": "DORC.WORKER.RESET.DOMAIN",
+      "DeployProperty": "DORC_WORKER_RESET_DOMAIN"
+    },
+    {
+      "MSIParameter": "DORC.WORKER.RESET.PASSWORD",
+      "DeployProperty": "DORC_WORKER_RESET_PASSWORD"
     },
     {
       "MSIParameter": "DORC.OAUTH.AUTHORITY",
