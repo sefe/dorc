@@ -1,6 +1,6 @@
+using Dorc.Api.WindowsWorker.Services;
 using Dorc.ApiModel;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Win32;
 
 namespace Dorc.Api.WindowsWorker.Controllers
 {
@@ -11,9 +11,13 @@ namespace Dorc.Api.WindowsWorker.Controllers
     public class RemoteServerController : ControllerBase
     {
         private readonly ILogger<RemoteServerController> _logger;
+        private readonly IRemoteServerOperatingSystemReader _operatingSystemReader;
 
-        public RemoteServerController(ILogger<RemoteServerController> logger)
+        public RemoteServerController(
+            IRemoteServerOperatingSystemReader operatingSystemReader,
+            ILogger<RemoteServerController> logger)
         {
+            _operatingSystemReader = operatingSystemReader;
             _logger = logger;
         }
 
@@ -27,18 +31,13 @@ namespace Dorc.Api.WindowsWorker.Controllers
 
             try
             {
-                using var reg = RegistryKey.OpenRemoteBaseKey(RegistryHive.LocalMachine, serverName);
-                using var key = reg.OpenSubKey(@"Software\Microsoft\Windows NT\CurrentVersion\");
-                if (key == null)
+                var operatingSystem = _operatingSystemReader.Read(serverName);
+                if (operatingSystem == null)
                 {
                     return BadRequest(new { error = "Unable to open the target machine" });
                 }
 
-                return Ok(new ServerOperatingSystemApiModel
-                {
-                    ProductName = key.GetValue("ProductName")?.ToString() ?? string.Empty,
-                    CurrentVersion = key.GetValue("CurrentVersion")?.ToString() ?? string.Empty
-                });
+                return Ok(operatingSystem);
             }
             // Expected operational failures when connecting to / reading a remote registry.
             // Anything else is a bug in this endpoint and should surface as a 500.
