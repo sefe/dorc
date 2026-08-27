@@ -37,6 +37,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Dorc.Core\Dorc.Core.csproj" />
+    <ProjectReference Include="..\Dorc.Core.Windows\Dorc.Core.Windows.csproj" />
     <ProjectReference Include="..\Dorc.OpenSearchData\Dorc.OpenSearchData.csproj" />
     <ProjectReference Include="..\Dorc.Kafka.Client\Dorc.Kafka.Client.csproj" />
     <ProjectReference Include="..\Dorc.Kafka.Events\Dorc.Kafka.Events.csproj" />
