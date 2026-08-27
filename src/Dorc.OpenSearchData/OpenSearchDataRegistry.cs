@@ -10,7 +10,10 @@ namespace Dorc.OpenSearchData
     {
         public OpenSearchDataRegistry()
         {
-            var config = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build()
+            var config = new ConfigurationBuilder()
+                .AddJsonFile("appsettings.json")
+                .AddEnvironmentVariables()
+                .Build()
                 .GetSection("OpenSearchSettings");
             For<IOpenSearchClient>().Use(InitializeOpenSearchLogger(config));
 

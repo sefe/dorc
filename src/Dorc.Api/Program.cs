@@ -36,6 +36,7 @@ var builder = WebApplication.CreateBuilder(args);
 var configBuilder = new ConfigurationBuilder()
     .AddJsonFile("appsettings.json")
     .AddJsonFile("loggerSettings.json", optional:false, reloadOnChange: true)
+    .AddEnvironmentVariables()
     .Build();
 
 var configurationSettings = new ConfigurationSettings(configBuilder);
@@ -450,6 +451,9 @@ app.UseCors(dorcCorsRefDataPolicy);
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+app.MapGet("/health/live", () => Results.Ok(new { status = "ok" }))
+    .AllowAnonymous();
 
 // All controllers require the OAuth scope. Negotiate/WinAuth was removed in S-007.
 app.MapControllers().RequireAuthorization(apiScopeAuthorizationPolicy);

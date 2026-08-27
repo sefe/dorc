@@ -16,7 +16,10 @@ namespace Dorc.PersistentData
             For<DbContext>().Use(_ => _.GetInstance<DeploymentContext>()).Scoped();
             For<IDeploymentContext>().Use(_ => _.GetInstance<DeploymentContext>()).Scoped();
 
-            var connectionString = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build()
+            var connectionString = new ConfigurationBuilder()
+                .AddJsonFile("appsettings.json")
+                .AddEnvironmentVariables()
+                .Build()
                 .GetConnectionString("DOrcConnectionString");
             For<IDeploymentContextFactory>().Use(new DeploymentContextFactory(connectionString));
 
