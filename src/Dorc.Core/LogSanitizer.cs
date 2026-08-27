@@ -12,8 +12,12 @@ namespace Dorc.Core
 
         public static string? Sanitize(string? value)
         {
-            if (string.IsNullOrEmpty(value)) return value;
+            if (value is null) return null;
 
+            // No empty-string shortcut: `return value;` would return the caller's (tainted)
+            // reference untouched, and that pass-through is a real dataflow path — it is what
+            // kept every call site flagged by CodeQL even after sanitisation. The general path
+            // below handles "" correctly and only ever returns freshly built strings.
             var length = value.Length;
             if (length > MaxLength)
             {
