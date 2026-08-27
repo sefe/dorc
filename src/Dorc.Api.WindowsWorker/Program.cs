@@ -1,5 +1,6 @@
 using Dorc.Api.WindowsWorker;
 using Dorc.Api.WindowsWorker.Authentication;
+using Dorc.Api.WindowsWorker.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -12,7 +13,8 @@ builder.WebHost.ConfigureKestrel(opts =>
 
 builder.Services.AddControllers();
 builder.Services.AddHealthChecks();
-builder.Services.AddSingleton<Dorc.Api.WindowsWorker.Services.DaemonServiceOperations>();
+builder.Services.AddSingleton<IDaemonServiceOperations, DaemonServiceOperations>();
+builder.Services.AddSingleton<IRemoteServerOperatingSystemReader, RemoteRegistryOperatingSystemReader>();
 
 builder.Services
     .AddAuthentication(WorkerKeyAuthenticationOptions.SchemeName)

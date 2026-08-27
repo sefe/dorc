@@ -1,0 +1,27 @@
+{
+  "source": {
+    "commit": "2b616740",
+    "implementation": "Dorc.Core/DaemonStatusProbe.cs"
+  },
+  "request": {
+    "daemons": [
+      {
+        "envName": "Production",
+        "serverName": "APP01",
+        "daemonName": "DOrc Runner",
+        "serverId": 11,
+        "daemonId": 42
+      }
+    ]
+  },
+  "response": [
+    {
+      "envName": "Production",
+      "serverName": "APP01",
+      "daemonName": "DOrc Runner",
+      "status": "Running",
+      "serverId": 11,
+      "daemonId": 42
+    }
+  ]
+}

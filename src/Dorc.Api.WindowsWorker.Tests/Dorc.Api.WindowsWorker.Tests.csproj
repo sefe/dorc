@@ -18,4 +18,12 @@
   <ItemGroup>
     <ProjectReference Include="..\Dorc.Api.WindowsWorker\Dorc.Api.WindowsWorker.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <None Update="Fixtures\registry-operating-system.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Fixtures\daemon-probe.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
 </Project>

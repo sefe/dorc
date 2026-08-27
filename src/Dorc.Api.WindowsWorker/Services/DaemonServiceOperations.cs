@@ -13,7 +13,7 @@ namespace Dorc.Api.WindowsWorker.Services
     // service control, optionally impersonated (LogonUser) as the environment's deploy
     // account. No database access — the primary owns the daemon list and observation
     // recording.
-    public class DaemonServiceOperations
+    public class DaemonServiceOperations : IDaemonServiceOperations
     {
         private readonly ILogger<DaemonServiceOperations> _logger;
 
