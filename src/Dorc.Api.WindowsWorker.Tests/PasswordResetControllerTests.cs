@@ -5,6 +5,7 @@ using Dorc.ApiModel;
 using Dorc.Core.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -30,13 +31,17 @@ namespace Dorc.Api.WindowsWorker.Tests
             }
         }
 
-        private static PasswordResetController NewController(FakeReset reset)
+        private static PasswordResetController NewController(
+            FakeReset reset,
+            ILogger<PasswordResetController>? logger = null)
         {
             var emptyConfig = new ConfigurationBuilder().Build();
             var impersonator = new ServiceAccountImpersonator(
                 emptyConfig, NullLogger<ServiceAccountImpersonator>.Instance);
             return new PasswordResetController(
-                reset, impersonator, NullLogger<PasswordResetController>.Instance);
+                reset,
+                impersonator,
+                logger ?? NullLogger<PasswordResetController>.Instance);
         }
 
         [TestMethod]
@@ -58,7 +63,8 @@ namespace Dorc.Api.WindowsWorker.Tests
         {
             var fixture = LoadFixture();
             var reset = new FakeReset { Result = fixture.Response };
-            var controller = NewController(reset);
+            var logger = new CapturingLogger<PasswordResetController>();
+            var controller = NewController(reset, logger);
 
             var result = controller.Reset(fixture.Request);
 
@@ -67,6 +73,10 @@ namespace Dorc.Api.WindowsWorker.Tests
             Assert.AreEqual(fixture.Response.Result, body.Result);
             Assert.AreEqual(fixture.Request.ServerName, reset.SeenServer);
             Assert.AreEqual(fixture.Request.Username, reset.SeenUser);
+            Assert.IsTrue(logger.Messages.Any(message =>
+                message.Contains(fixture.Request.CallerIdentity, StringComparison.Ordinal)
+                && message.Contains(fixture.Request.ServerName, StringComparison.Ordinal)
+                && message.Contains(fixture.Request.Username, StringComparison.Ordinal)));
         }
 
         private static PasswordResetFixture LoadFixture()
@@ -82,6 +92,23 @@ namespace Dorc.Api.WindowsWorker.Tests
         {
             public required WorkerPasswordResetRequestApiModel Request { get; init; }
             public required ApiBoolResult Response { get; init; }
+        }
+
+        private sealed class CapturingLogger<T> : ILogger<T>
+        {
+            public List<string> Messages { get; } = [];
+
+            public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+            public bool IsEnabled(LogLevel logLevel) => true;
+
+            public void Log<TState>(
+                LogLevel logLevel,
+                EventId eventId,
+                TState state,
+                Exception? exception,
+                Func<TState, Exception?, string> formatter)
+                => Messages.Add(formatter(state, exception));
         }
     }
 }
