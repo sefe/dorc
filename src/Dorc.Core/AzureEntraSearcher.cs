@@ -13,7 +13,7 @@ using System.Text.RegularExpressions;
 
 namespace Dorc.Core
 {
-    public class AzureEntraSearcher : IActiveDirectorySearcher
+    public class AzureEntraSearcher : IActiveDirectorySearcher, IDisposable
     {
         // Matches well-formed Windows/AD SIDs (S-1-5-..., S-1-12-...). Used to decide
         // whether to fall back to onPremisesSecurityIdentifier filter queries on direct-lookup 404.
@@ -38,6 +38,7 @@ namespace Dorc.Core
         private readonly ILogger _log;
         private readonly Func<GraphServiceClient>? _graphClientFactory;
         private GraphServiceClient? _graphClient;
+        private RetryHandler? _customRetryHandler;
 
         public AzureEntraSearcher(IConfigurationSettings config, ILogger<AzureEntraSearcher> log)
         {
@@ -113,7 +114,9 @@ namespace Dorc.Core
                 {
                     handlers.Remove(defaultRetry);
                 }
-                handlers.Insert(0, new RetryHandler(retryOption));
+                _customRetryHandler?.Dispose();
+                _customRetryHandler = new RetryHandler(retryOption);
+                handlers.Insert(0, _customRetryHandler);
 
                 var httpClient = GraphClientFactory.Create(handlers);
                 _graphClient = new GraphServiceClient(httpClient, authProvider);
@@ -722,8 +725,10 @@ AppendServicePrincipals(graphClient, objectName, output);
                         .GetAsync().GetAwaiter().GetResult();
                 }
             }
-            catch (Exception ex)
+            catch (ApiException ex)
             {
+                // Deliberately non-fatal, and narrowed to the Graph request layer: a failed
+                // enrichment must not sink the whole search, but a non-Graph bug should surface.
                 _log.LogWarning(ex,
                     "Unable to search service principals; machine clients will be absent from the results. " +
                     "This usually means the app registration lacks Application.Read.All.");
@@ -783,6 +788,15 @@ AppendServicePrincipals(graphClient, objectName, output);
             }
 
             return matches[0].Id;
+        }
+
+        public void Dispose()
+        {
+            // The Graph HttpClient pipeline also disposes its handlers; HttpResponseMessage-
+            // style double disposal is safe here because DelegatingHandler.Dispose is idempotent.
+            _customRetryHandler?.Dispose();
+            _customRetryHandler = null;
+            GC.SuppressFinalize(this);
         }
     }
 }

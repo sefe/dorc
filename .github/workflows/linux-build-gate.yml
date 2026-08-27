@@ -61,6 +61,10 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
+        with:
+          # This workflow never pushes; don't leave GITHUB_TOKEN in .git/config
+          # for later steps to read.
+          persist-credentials: false
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v6

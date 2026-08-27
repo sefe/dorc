@@ -58,9 +58,8 @@ namespace Dorc.Api.Tests
             filter.OnException(context);
 
             Assert.IsTrue(context.ExceptionHandled);
-            var result = context.Result as ObjectResult;
-            Assert.IsNotNull(result);
-            Assert.AreEqual(StatusCodes.Status503ServiceUnavailable, result!.StatusCode);
+            var result = Assert.IsInstanceOfType<ObjectResult>(context.Result);
+            Assert.AreEqual(StatusCodes.Status503ServiceUnavailable, result.StatusCode);
 
             // Body is anonymous: {error="windows_worker_unavailable", endpoint="reset-password"}
             var body = result.Value!.GetType();
@@ -174,12 +173,30 @@ namespace Dorc.Api.Tests
 
         private sealed class HeaderCaptureHandler : DelegatingHandler
         {
+            private readonly List<HttpResponseMessage> _issuedResponses = new();
+
             public HttpRequestMessage? LastRequest { get; private set; }
 
             protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
             {
                 LastRequest = request;
-                return Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.OK));
+                var response = new HttpResponseMessage(System.Net.HttpStatusCode.OK);
+                _issuedResponses.Add(response);
+                return Task.FromResult(response);
+            }
+
+            protected override void Dispose(bool disposing)
+            {
+                if (disposing)
+                {
+                    foreach (var response in _issuedResponses)
+                    {
+                        response.Dispose();
+                    }
+                    _issuedResponses.Clear();
+                }
+
+                base.Dispose(disposing);
             }
         }
     }
