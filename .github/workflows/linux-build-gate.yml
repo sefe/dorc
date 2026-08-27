@@ -161,7 +161,7 @@ jobs:
           # Empty since S-005 moved WmiUtil to the worker (Program.cs came off with it —
           # its last CA1416 site went with the S-007 Negotiate removal). This list must
           # only ever shrink.
-          backlog='''
+          backlog=''
           # NOTE: `grep -vE ""` matches nothing, so an EMPTY backlog would silently turn this
           # into a permanent pass — i.e. reaching SC-1b's terminal state would DISABLE the
           # gate. Handle the empty case explicitly: with no backlog, any CA1416 is a failure.
