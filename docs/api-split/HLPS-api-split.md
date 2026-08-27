@@ -514,6 +514,19 @@ recorded and unresolved** — several need panel or owner decisions rather than 
 is exactly the failure mode that produced the premature Round 3 approval. This document should
 not be marked APPROVED until at least R5-13 has an owning step.
 
+**Round 7 amendment (S-005/S-006/S-008 landed):** R5-13's installer half is closed — **S-008
+now owns `RequestApi.wxs`**: the `AuthenticationScheme` write is normalised at install time
+(WinAuth / Both / OAuth+WinAuth and empty all coerce to `OAuth`, so the S-007 startup guard
+survives every install and upgrade), the IIS `Negotiate,NTLM` challenge is switched off, and
+the dead `ActiveDirectoryRoles` writes are removed. The worker is provisioned by the same MSI
+(new `Worker/ApiWindowsWorker.wxs`): a Windows Service (U-12 decision — Windows Service, per
+the IS recommendation; `UseWindowsService` added to the worker host), with the shared
+`X-Worker-Key` either supplied via `DORC.WORKER.SHAREDKEY` or generated cryptographically at
+install time and written to both configs by one deferred action, unique per install with no
+hard-coded default (C-7). U-16's sequencing constraint is moot as decided: #808 never merged,
+so S-008 is written against the live `Setup.Dorc/Web/RequestApi/` path. SC-3's parity
+fixtures and SC-5/SC-6 verification remain the open remainder of R5-13.
+
 ### Process note carried from the panel
 
 One reviewer observed that R5-1, and the stale-path and ID-collision findings, are cross-document

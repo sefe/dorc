@@ -322,7 +322,7 @@ At the end of S-010, the HLPS Success Criteria SC-1..SC-10 are all satisfied. Sp
 
 Carried forward from the HLPS plus those surfaced during IS drafting / Round-1 review.
 
-- **U-12 [IS-level, IS Round-1] — Worker hosting model on Windows: Windows Service vs IIS-hosted process.** Each has security and upgrade implications. Decision must be made before S-008's SPEC drafts (it shapes the MSI component and the install-time secret-provisioning surface). If the decision forces a non-trivial change to the worker host code (e.g., IIS's `IHostBuilder` integration), revise S-002 retroactively. Recommendation pending: Windows Service (simpler, no IIS dependency, matches the existing DORC Monitor service model).
+- **U-12 — RESOLVED (S-008): Windows Service**, per the recommendation below — `UseWindowsService` in the worker host, an MSI `ServiceInstall` modelled on the DOrc Monitor, no IIS dependency, no retroactive S-002 change needed. *(was)* **U-12 [IS-level, IS Round-1] — Worker hosting model on Windows: Windows Service vs IIS-hosted process.** Each has security and upgrade implications. Decision must be made before S-008's SPEC drafts (it shapes the MSI component and the install-time secret-provisioning surface). If the decision forces a non-trivial change to the worker host code (e.g., IIS's `IHostBuilder` integration), revise S-002 retroactively. Recommendation pending: Windows Service (simpler, no IIS dependency, matches the existing DORC Monitor service model).
 - Other Lookahead unknowns inherited from HLPS §7 (U-4..U-11) — resolved in the SPEC step that touches them, as noted in the per-step bodies.
 
 ---

@@ -1,0 +1,51 @@
+﻿<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+	 xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util"
+	 xmlns:Json="http://schemas.hegsie.com/wix/JsonExtension">
+	<Fragment>
+		<!-- S-008: installs Dorc.Api.WindowsWorker as a Windows Service (U-12 decision —
+		     matches the DOrc Monitor model, no IIS dependency) and wires the primary API to
+		     it: WindowsWorker.Enabled/Url/SharedKey land in the primary's config in the same
+		     install transaction that provisions the worker's own config (SC-7). -->
+		<DirectoryRef Id="ServicesFolder">
+			<Directory Id="INSTALLLOCATIONWORKER" Name="ApiWindowsWorker">
+				<Component Id="ApiWindowsWorkerService.exe" Guid="{7B7E44D2-9C46-45A0-9A0D-2E64C5B7F9A1}">
+
+					<!-- An empty DORC.WORKER.SVC.ACCOUNT installs the service as LocalSystem;
+					     the delegated reset account can instead be supplied here so the worker
+					     process itself carries it (in which case leave the
+					     WindowsWorker.PasswordReset config values empty). -->
+					<ServiceInstall Id="ApiWindowsWorkerServiceInstaller" Type="ownProcess" Vital="yes" Name="DorcApiWindowsWorker" DisplayName="DOrc API Windows Worker" Description="Executes the Windows-only operations (WMI, remote registry, service control, SQL password reset) the DOrc API delegates over loopback." Start="auto" ErrorControl="ignore" Interactive="no" Account="[DORC.WORKER.SVC.ACCOUNT]" Password="[DORC.WORKER.SVC.PASSWORD]">
+						<util:ServiceConfig FirstFailureActionType="restart" SecondFailureActionType="restart" ThirdFailureActionType="restart" />
+					</ServiceInstall>
+
+					<!-- No Start="install": StartServices runs before the config writes land, so
+					     StartApiWindowsWorker (sequenced after the shared-key write) starts it. -->
+					<ServiceControl Id="ApiWindowsWorkerStartService" Wait="yes" Remove="uninstall" Stop="both" Name="DorcApiWindowsWorker" />
+
+					<File Id="ApiWindowsWorkerExe" KeyPath="yes" Source="$(var.DorcApiWindowsWorkerDir)\Dorc.Api.WindowsWorker.exe" />
+
+					<!-- Worker-side config. -->
+					<Json:JsonFile Id="WorkerPort" ElementPath="$.WindowsWorker.Port" File="[#ApiWindowsWorkerExeConfig]" Value="[DORC.WORKER.PORT]" />
+					<Json:JsonFile Id="WorkerResetUsername" ElementPath="$.WindowsWorker.PasswordReset.Username" File="[#ApiWindowsWorkerExeConfig]" Value="[DORC.WORKER.RESET.USERNAME]" />
+					<Json:JsonFile Id="WorkerResetDomain" ElementPath="$.WindowsWorker.PasswordReset.Domain" File="[#ApiWindowsWorkerExeConfig]" Value="[DORC.WORKER.RESET.DOMAIN]" />
+					<Json:JsonFile Id="WorkerResetPassword" ElementPath="$.WindowsWorker.PasswordReset.Password" File="[#ApiWindowsWorkerExeConfig]" Value="[DORC.WORKER.RESET.PASSWORD]" />
+
+					<!-- Primary-side wiring, same transaction. The shared key itself is written
+					     by GenerateWorkerSharedKey below (both files, one script) unless the
+					     operator supplied DORC.WORKER.SHAREDKEY, in which case these do it. -->
+					<Json:JsonFile Id="PrimaryWorkerEnabled" ElementPath="$.WindowsWorker.Enabled" File="[#DeployApiWebConfig]" Value="True" />
+					<Json:JsonFile Id="PrimaryWorkerUrl" ElementPath="$.WindowsWorker.Url" File="[#DeployApiWebConfig]" Value="http://127.0.0.1:[DORC.WORKER.PORT]" />
+					<Json:JsonFile Id="PrimaryWorkerSharedKey" ElementPath="$.WindowsWorker.SharedKey" File="[#DeployApiWebConfig]" Value="[DORC.WORKER.SHAREDKEY]" />
+					<Json:JsonFile Id="WorkerSharedKey" ElementPath="$.WindowsWorker.SharedKey" File="[#ApiWindowsWorkerExeConfig]" Value="[DORC.WORKER.SHAREDKEY]" />
+				</Component>
+			</Directory>
+		</DirectoryRef>
+
+		<!-- C-7: when no key is supplied, generate a cryptographically random one at install
+		     time and write it to BOTH configs in one script — unique per install, never a
+		     hard-coded default, and never present on a command line or in the MSI log. -->
+		<CustomAction Id="StartApiWindowsWorker" Directory="INSTALLLOCATIONWORKER" Execute="deferred" Impersonate="no" Return="ignore" ExeCommand="&quot;[System64Folder]net.exe&quot; start DorcApiWindowsWorker" />
+
+		<CustomAction Id="GenerateWorkerSharedKey" Directory="INSTALLLOCATIONWORKER" Execute="deferred" Impersonate="no" Return="check" ExeCommand="&quot;[System64Folder]WindowsPowerShell\v1.0\powershell.exe&quot; -NoProfile -ExecutionPolicy Bypass -Command &quot;$ErrorActionPreference='Stop';$b=New-Object byte[] 48;(New-Object System.Security.Cryptography.RNGCryptoServiceProvider).GetBytes($b);$k=[Convert]::ToBase64String($b);foreach($f in @('[RequestApi]appsettings.json','[INSTALLLOCATIONWORKER]appsettings.json')){$j=Get-Content -LiteralPath $f -Raw|ConvertFrom-Json;if(-not $j.PSObject.Properties['WindowsWorker']){$j|Add-Member -MemberType NoteProperty -Name WindowsWorker -Value ([pscustomobject]@{})};$j.WindowsWorker|Add-Member -MemberType NoteProperty -Name SharedKey -Value $k -Force;$j|ConvertTo-Json -Depth 64|Set-Content -LiteralPath $f -Encoding UTF8}&quot;" />
+	</Fragment>
+</Wix>
