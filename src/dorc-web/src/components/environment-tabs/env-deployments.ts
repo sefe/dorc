@@ -161,9 +161,7 @@ export class EnvDeployments extends PageEnvBase {
       })
       .subscribe({
         next: (value: Array<EnvironmentContentBuildsApiModel>) => {
-          const newDeploymentsList: Array<EnvironmentContentBuildsApiModelExtended> =
-            [];
-          value.forEach(ec => {
+          this.deployments = value.map(ec => {
             const nec: EnvironmentContentBuildsApiModelExtended = {
               RequestId: ec.RequestId,
               State: ec.State,
@@ -171,15 +169,16 @@ export class EnvDeployments extends PageEnvBase {
               RequestBuildNum: ec.RequestBuildNum,
               UpdateDate: ec.UpdateDate
             };
-            newDeploymentsList.push(nec);
             this.getDate(nec);
-
-            this.deployments = newDeploymentsList;
-            this.applyingNewFilter = false;
+            return nec;
           });
         },
         error: err => {
+          this.applyingNewFilter = false;
           console.log(err);
+        },
+        complete: () => {
+          this.applyingNewFilter = false;
         }
       });
   }

@@ -49,6 +49,9 @@ export class MakeLikeProductionDialog extends LitElement {
   @state()
   private loading = false;
 
+  @state()
+  private formResetVersion = 0;
+
   static get styles() {
     return css`
       .block {
@@ -94,6 +97,7 @@ export class MakeLikeProductionDialog extends LitElement {
       id="make-like-production"
       .mappedProjects="${this.mappedProjects}"
       .dialog="${this}"
+      .resetVersion="${this.formResetVersion}"
     ></make-like-production>
   `;
 
@@ -109,7 +113,17 @@ export class MakeLikeProductionDialog extends LitElement {
   `;
 
   private close() {
+    this.reset();
     this.bundleRequestDialogOpened = false;
+  }
+
+  private reset() {
+    this.selectedDataBackup = undefined;
+    this.selectedBundleName = undefined;
+    this.propertyOverrides = [];
+    this.canSubmit = false;
+    this.loading = false;
+    this.formResetVersion++;
   }
 
   render() {
@@ -122,9 +136,16 @@ export class MakeLikeProductionDialog extends LitElement {
         resizable
         draggable
         @opened-changed="${(event: DialogOpenedChangedEvent) => {
+          const wasOpened = this.bundleRequestDialogOpened;
           this.bundleRequestDialogOpened = event.detail.value;
+          if (wasOpened && !event.detail.value) {
+            this.reset();
+          }
         }}"
-        ${dialogRenderer(this.renderDialog, [this.mappedProjects])}
+        ${dialogRenderer(this.renderDialog, [
+          this.mappedProjects,
+          this.formResetVersion
+        ])}
         ${dialogFooterRenderer(this.renderFooter, [
           this.loading,
           this.canSubmit,
@@ -136,13 +157,14 @@ export class MakeLikeProductionDialog extends LitElement {
   }
 
   public closeDialog() {
+    this.reset();
     this.bundleRequestDialogOpened = false;
   }
 
   _canSubmit() {
-    if (this.selectedDataBackup !== '' && this.selectedBundleName !== '') {
-      this.canSubmit = true;
-    }
+    this.canSubmit = Boolean(
+      this.selectedDataBackup && this.selectedBundleName
+    );
   }
 
   protected firstUpdated(_changedProperties: PropertyValues) {
@@ -198,12 +220,12 @@ export class MakeLikeProductionDialog extends LitElement {
         },
         complete: () => {
           this.loading = false;
-          this.canSubmit = true;
         }
       });
   }
 
   Open() {
+    this.reset();
     this.bundleRequestDialogOpened = true;
   }
 

@@ -42,6 +42,39 @@ const overlayOf = (el: Host) =>
   ) as HTMLElement | null;
 
 describe('access control dialog dismissal', () => {
+  it('keeps action spacing and save position stable while saving', async () => {
+    const el = await mount();
+    const dialog = dialogIn(el)!;
+    const actionBar = dialog.querySelector('.dialog-actions') as HTMLElement;
+    const saveButton = dialog.querySelector(
+      '#save-access-controls'
+    ) as HTMLElement;
+    const idlePosition = saveButton.getBoundingClientRect();
+
+    (el as unknown as { savingAccessControls: boolean }).savingAccessControls =
+      true;
+    await settle();
+
+    const savingPosition = saveButton.getBoundingClientRect();
+    const spinner = dialog.querySelector('.save-progress .small-loader') as HTMLElement;
+
+    expect(getComputedStyle(actionBar).gap).to.not.equal('normal');
+    expect(savingPosition.x).to.equal(idlePosition.x);
+    expect(savingPosition.y).to.equal(idlePosition.y);
+    expect(spinner.offsetWidth).to.equal(16);
+    expect(spinner.offsetHeight).to.equal(16);
+  });
+
+  it('ignores a repeated save while one is already in progress', async () => {
+    const el = await mount();
+    (el as unknown as { savingAccessControls: boolean }).savingAccessControls =
+      true;
+
+    expect(() =>
+      (el as unknown as { save: () => void }).save()
+    ).not.to.throw();
+  });
+
   it('opens with the work in place', async () => {
     const el = await mount();
     expect(dialogIn(el), 'dialog rendered').to.not.equal(null);

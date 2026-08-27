@@ -3,7 +3,7 @@ import { css, LitElement, PropertyValues } from 'lit';
 import '@vaadin/checkbox';
 import '@vaadin/button';
 import '@vaadin/combo-box';
-import { customElement, property } from 'lit/decorators.js';
+import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import {
   BundledRequestsApi,
@@ -16,7 +16,7 @@ import {
 import { ComboBox } from '@vaadin/combo-box';
 import { TextField } from '@vaadin/text-field';
 import './deploy/property-override-controls';
-import { MakeLikeProductionDialog } from './make-like-production-dialog.ts';
+import type { MakeLikeProductionDialog } from './make-like-production-dialog.ts';
 import '@vaadin/details';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/vertical-layout';
@@ -54,9 +54,9 @@ export class MakeLikeProduction extends LitElement {
 
   private _mappedProjects: string[] | undefined;
 
-  private selectedDataBackup: string | undefined;
+  @state() private selectedDataBackup = '';
 
-  private selectedBundleName: string | undefined;
+  @state() private selectedBundleName = '';
 
   @property({ type: Array }) propertyOverrides: RequestProperty[] = [];
 
@@ -64,9 +64,27 @@ export class MakeLikeProduction extends LitElement {
 
   @property({ type: Object }) dialog: MakeLikeProductionDialog | undefined;
 
-  private propertyName = '';
+  private _resetVersion = 0;
 
-  private propertyValue = '';
+  @property({ type: Number })
+  get resetVersion(): number {
+    return this._resetVersion;
+  }
+
+  set resetVersion(value: number) {
+    if (value === this._resetVersion) {
+      return;
+    }
+
+    this._resetVersion = value;
+    this.reset();
+  }
+
+  @state() private propertyName = '';
+
+  @state() private propertyValue = '';
+
+  private dataBackupsRequestVersion = 0;
 
   static get styles() {
     return css`
@@ -105,6 +123,7 @@ export class MakeLikeProduction extends LitElement {
           class="block"
           .items="${this.bundledRequests}"
           .itemValuePath=""
+          .value="${this.selectedBundleName}"
           style="width: 100%; max-width: 600px"
           @value-changed="${this._dataSourceBundleNameChanged}"
         ></vaadin-combo-box>
@@ -112,6 +131,7 @@ export class MakeLikeProduction extends LitElement {
           label="Data Source"
           class="block"
           .items="${this.dataBackups}"
+          .value="${this.selectedDataBackup}"
           style="width: 100%; max-width: 600px"
           @value-changed="${this._dataSourceDataBackupChanged}"
         ></vaadin-combo-box>
@@ -128,11 +148,13 @@ export class MakeLikeProduction extends LitElement {
               clear-button-visible
               item-label-path="Name"
               item-value-path="Name"
+              .value="${this.propertyName}"
               style="width: 100%; max-width: 600px"
             ></vaadin-combo-box>
             <vaadin-text-field
               required
               placeholder="Property Value"
+              .value="${this.propertyValue}"
               @value-changed="${this._propValueChanged}"
               style="width: 100%; max-width: 500px"
             ></vaadin-text-field>
@@ -190,6 +212,16 @@ export class MakeLikeProduction extends LitElement {
 
   protected firstUpdated(_changedProperties: PropertyValues) {
     super.firstUpdated(_changedProperties);
+  }
+
+  public reset() {
+    this.dataBackupsRequestVersion++;
+    this.selectedDataBackup = '';
+    this.selectedBundleName = '';
+    this.dataBackups = undefined;
+    this.propertyOverrides = [];
+    this.propertyName = '';
+    this.propertyValue = '';
   }
 
   _propNameValueChanged(data: any) {
@@ -259,12 +291,19 @@ export class MakeLikeProduction extends LitElement {
   _dataSourceBundleNameChanged(data: CustomEvent) {
     this.isLoading();
     this.selectedBundleName = data.detail.value;
+    this.selectedDataBackup = '';
+    this.dataBackups = undefined;
+    this.dialog?.backupChanged(undefined);
+    const selectedBundleName = this.selectedBundleName;
+    const requestVersion = ++this.dataBackupsRequestVersion;
 
     const selectedBundleReqs = this.bundleRequests?.filter(
-      b => b.BundleName === this.selectedBundleName
-    );
+      b => b.BundleName === selectedBundleName
+    ) ?? [];
 
     if (selectedBundleReqs.length === 0) {
+      this.dialog?.bundleChanged(undefined);
+      this.isntLoading();
       return;
     }
 
@@ -273,13 +312,29 @@ export class MakeLikeProduction extends LitElement {
     const api = new MakeLikeProdApi();
     api.makeLikeProdDataBackupsGet({ projectId: projectId }).subscribe({
       next: (data: string[]) => {
+        if (
+          requestVersion !== this.dataBackupsRequestVersion ||
+          selectedBundleName !== this.selectedBundleName
+        ) {
+          return;
+        }
         this.setDataBackups(data);
       },
-      error: (err: any) => console.error(err),
-      complete: () => console.log('done loading data backups')
+      error: (err: any) => {
+        if (requestVersion === this.dataBackupsRequestVersion) {
+          this.isntLoading();
+        }
+        console.error(err);
+      },
+      complete: () => {
+        if (requestVersion === this.dataBackupsRequestVersion) {
+          this.isntLoading();
+        }
+        console.log('done loading data backups');
+      }
     });
 
-    this.dialog?.bundleChanged(this.selectedBundleName);
+    this.dialog?.bundleChanged(selectedBundleName);
   }
 
   isLoading() {

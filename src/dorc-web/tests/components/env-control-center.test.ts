@@ -26,11 +26,14 @@ describe('EnvControlCenter delete status', () => {
     );
 
     const summaryLayout = el.shadowRoot!.querySelector(
-      'vaadin-details-summary vaadin-horizontal-layout'
+      '.control-center-summary'
     ) as HTMLElement | null;
 
     expect(summaryLayout).to.not.equal(null);
-    expect(summaryLayout!.style.alignItems).to.equal('center');
+    const summaryStyle = getComputedStyle(summaryLayout!);
+    expect(summaryStyle.display).to.equal('inline-flex');
+    expect(summaryStyle.alignItems).to.equal('center');
+    expect(summaryStyle.whiteSpace).to.equal('nowrap');
   });
 
   it('shows delete in progress state on delete button', async () => {

@@ -103,6 +103,13 @@ export class EnvControlCenter extends PageEnvBase {
         padding: 8px 0 4px 0;
         color: var(--dorc-text-secondary);
       }
+
+      .control-center-summary {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--lumo-space-xs, 0.375rem);
+        white-space: nowrap;
+      }
     `;
   }
 
@@ -134,13 +141,10 @@ export class EnvControlCenter extends PageEnvBase {
         style="border-top: 6px solid var(--dorc-ctrl-section-border, #ffad33) !important; background-color: var(--dorc-ctrl-section-bg, #fff5e6); padding-left: 4px; margin: 0px;"
       >
         <vaadin-details-summary slot="summary">
-          <vaadin-horizontal-layout style="align-items: center;">
-            <vaadin-icon
-              icon="vaadin:automation"
-              style="display: table-cell; padding-right: 5px"
-            ></vaadin-icon>
-            <span> Environment Control Center </span>
-          </vaadin-horizontal-layout>
+          <span class="control-center-summary">
+            <vaadin-icon icon="vaadin:automation"></vaadin-icon>
+            <span>Environment Control Center</span>
+          </span>
         </vaadin-details-summary>
         <div style="padding-left: 30px">
           <vaadin-button

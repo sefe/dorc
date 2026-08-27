@@ -110,6 +110,7 @@ export class AddEditAccessControl extends LitElement {
         visibility: visible;
       }
       .small-loader {
+        display: inline-block;
         border: 2px solid #f3f3f3; /* Light grey */
         border-top: 2px solid #3498db; /* Blue */
         border-radius: 50%;
@@ -125,6 +126,23 @@ export class AddEditAccessControl extends LitElement {
         100% {
           transform: rotate(360deg);
         }
+      }
+      .dialog-actions {
+        display: flex;
+        align-items: center;
+        gap: var(--lumo-space-m, 1rem);
+      }
+      .save-action {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--lumo-space-xs, 0.375rem);
+      }
+      .save-progress {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 16px;
+        height: 16px;
       }
     `;
   }
@@ -248,6 +266,10 @@ export class AddEditAccessControl extends LitElement {
   }
 
   save() {
+    if (this.savingAccessControls) {
+      return;
+    }
+
     this.savingAccessControls = true;
 
     const ac: AccessSecureApiModel = {
@@ -672,18 +694,24 @@ export class AddEditAccessControl extends LitElement {
   `;
 
   private renderAccessControlFooter = () => html`
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px;">
-          <div>
+        <div class="dialog-actions">
+          <div class="save-action">
             <vaadin-button
-              ?disabled="${!this.UserEditable}"
+              id="save-access-controls"
+              ?disabled="${!this.UserEditable || this.savingAccessControls}"
               @click="${this.save}"
               >Save</vaadin-button
             >
-            ${this.savingAccessControls
-              ? html` <div class="small-loader"></div> `
-              : html``}
+            <span class="save-progress" aria-live="polite">
+              ${this.savingAccessControls
+                ? html`<span
+                    class="small-loader"
+                    aria-label="Saving access controls"
+                  ></span>`
+                : html``}
+            </span>
           </div>
-          <vaadin-button @click="${this.close}"
+          <vaadin-button id="close-access-controls" @click="${this.close}"
             >Close</vaadin-button
           >
         </div>

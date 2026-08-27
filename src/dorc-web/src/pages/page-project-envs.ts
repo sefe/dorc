@@ -104,9 +104,12 @@ export class PageProjectEnvs extends PageElement {
 
       .card-element__text {
         color: gray;
-        word-wrap: break-word;
-        display: block;
+        display: -webkit-box;
+        overflow: hidden;
+        overflow-wrap: anywhere;
         font-size: var(--lumo-font-size-s);
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 3;
       }
 
       .card-content {
@@ -204,7 +207,9 @@ export class PageProjectEnvs extends PageElement {
                     style="font-style: italic"
                     >No Description</span
                   >`
-                : html`<span class="card-element__text"
+                : html`<span
+                    class="card-element__text"
+                    title="${this.projectData?.ProjectDescription}"
                     >${this.projectData?.ProjectDescription}</span
                   >`
             }

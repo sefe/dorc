@@ -96,25 +96,6 @@ export class PageServersList extends ResponsiveMixin(PageElement) {
 
       .tag {
         font-size: var(--lumo-font-size-s);
-        font-family: monospace;
-        background-color: var(--dorc-chip-bg);
-        color: var(--dorc-chip-text);
-        display: inline-block;
-        padding: 3px;
-        margin: 3px;
-        text-decoration: none;
-        border-radius: 3px;
-      }
-
-      .tag:hover {
-        background-color: var(--dorc-badge-bg);
-        color: var(--dorc-badge-text);
-        cursor: pointer;
-        text-decoration: none;
-      }
-
-      .env {
-        font-size: var(--lumo-font-size-s);
         border: 0;
         font-family: monospace;
         background-color: var(
@@ -129,11 +110,31 @@ export class PageServersList extends ResponsiveMixin(PageElement) {
         border-radius: 3px;
       }
 
-      .env:hover {
+      .tag:hover {
         background-color: var(
           --_lumo-button-background-color,
           var(--lumo-contrast-10pct)
         );
+        color: var(--dorc-badge-text);
+        cursor: pointer;
+        text-decoration: none;
+      }
+
+      .env {
+        font-size: var(--lumo-font-size-s);
+        border: 0;
+        font-family: monospace;
+        background-color: var(--dorc-chip-bg);
+        color: var(--dorc-chip-text);
+        display: inline-block;
+        padding: 3px;
+        margin: 3px;
+        text-decoration: none;
+        border-radius: 3px;
+      }
+
+      .env:hover {
+        background-color: var(--dorc-badge-bg);
         color: var(--dorc-badge-text);
         cursor: pointer;
         text-decoration: none;
@@ -596,7 +597,7 @@ export class PageServersList extends ResponsiveMixin(PageElement) {
                         composed: true
                       })
                     )}"
-                style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
+                style="font-size: var(--lumo-font-size-s);"
               >
                 ${i}
               </button>`
@@ -661,7 +662,6 @@ export class PageServersList extends ResponsiveMixin(PageElement) {
         appTags,
         value =>
           html` <button
-            style="border: 0"
             class="tag"
             @click="${() =>
                 this.dispatchEvent(
