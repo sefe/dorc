@@ -46,7 +46,9 @@ namespace Dorc.Core
             {
                 return call(_primary);
             }
-            catch (Exception primaryEx)
+            // Cancellation is the caller giving up, not the primary failing — retrying the
+            // same work against AD would outlive the request that asked for it.
+            catch (Exception primaryEx) when (primaryEx is not OperationCanceledException)
             {
                 _log.LogWarning(primaryEx,
                     "{Operation} failed against {Primary}; falling back to {Fallback}.",
