@@ -32,7 +32,11 @@ namespace Dorc.Core
                 buffer[write++] = IsUnsafeForLogs(c) ? '_' : c;
             }
 
-            return new string(buffer[..write]);
+            // Functionally a no-op — the loop above already replaced every control character —
+            // but String.Replace on the line terminators is the sanitizer shape taint-tracking
+            // analysers (CodeQL log-forging) recognise as a barrier; the loop alone is opaque
+            // to them and leaves every call site flagged.
+            return new string(buffer[..write]).Replace("\r", "_").Replace("\n", "_");
         }
 
         private static bool IsUnsafeForLogs(char c)
