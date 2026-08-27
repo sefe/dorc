@@ -60,7 +60,7 @@ jobs:
             --env AppSettings__OAuth2__Authority=https://login.example.invalid/tenant/v2.0 \
             --env AppSettings__OAuth2__ApiResourceName=dorc-api-smoke \
             --env AppSettings__OAuth2__ApiGlobalScope=dorc-api-smoke.manage \
-            --env ConnectionStrings__DOrcConnectionString='Server=127.0.0.1;Database=dorc;User Id=sa;Password=SmokeOnly-123;TrustServerCertificate=true' \
+            --env ConnectionStrings__DOrcConnectionString='Server=127.0.0.1;Database=dorc;Integrated Security=true;TrustServerCertificate=true' \
             --env OpenSearchSettings__ConnectionUri=http://127.0.0.1:9200 \
             --env OpenSearchSettings__UserName=smoke \
             --env OpenSearchSettings__Password=smoke \
