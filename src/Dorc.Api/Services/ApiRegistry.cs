@@ -28,6 +28,9 @@ namespace Dorc.Api.Services
             // the primary compile graph stays free of System.DirectoryServices (SC-1).
             For<IPrincipalDirectory>().Use(ctx => CreatePrincipalDirectory(ctx)).Singleton();
             For<IUserGroupReader>().Use<CachedUserGroupReader>().Singleton();
+
+            // S-005: the Windows-only half of the daemon-status path delegates to the worker.
+            For<IDaemonOperations>().Use<WorkerDaemonOperations>().Scoped();
             For<IPrincipalSearch>().Use<PrincipalSearch>().Scoped();
 
             For<IFileSystemHelper>().Use<FileSystemHelper>();

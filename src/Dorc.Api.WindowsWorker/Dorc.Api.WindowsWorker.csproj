@@ -8,6 +8,9 @@
     <AssemblyName>Dorc.Api.WindowsWorker</AssemblyName>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="System.Management" Version="9.0.10" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\Dorc.Core\Dorc.Core.csproj" />
     <ProjectReference Include="..\Dorc.ApiModel\Dorc.ApiModel.csproj" />
   </ItemGroup>

@@ -12,6 +12,7 @@ builder.WebHost.ConfigureKestrel(opts =>
 
 builder.Services.AddControllers();
 builder.Services.AddHealthChecks();
+builder.Services.AddSingleton<Dorc.Api.WindowsWorker.Services.DaemonServiceOperations>();
 
 builder.Services
     .AddAuthentication(WorkerKeyAuthenticationOptions.SchemeName)

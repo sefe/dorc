@@ -20,16 +20,50 @@ namespace Dorc.Api.Services
             _http = http;
         }
 
-        public async Task<ServerOperatingSystemApiModel> GetServerOperatingSystemAsync(string serverName, CancellationToken cancellationToken = default)
+        public Task<ServerOperatingSystemApiModel> GetServerOperatingSystemAsync(string serverName, CancellationToken cancellationToken = default)
         {
             const string endpoint = "remote-server/operating-system";
+            return SendAsync<ServerOperatingSystemApiModel>(
+                endpoint,
+                ct => _http.GetAsync($"{endpoint}?serverName={Uri.EscapeDataString(serverName)}", ct),
+                cancellationToken);
+        }
 
+        public Task<List<WorkerDaemonApiModel>> ProbeDaemonStatusesAsync(WorkerDaemonProbeRequestApiModel request, CancellationToken cancellationToken = default)
+        {
+            const string endpoint = "daemons/probe";
+            return SendAsync<List<WorkerDaemonApiModel>>(
+                endpoint,
+                ct => System.Net.Http.Json.HttpClientJsonExtensions.PostAsJsonAsync(_http, endpoint, request, ct),
+                cancellationToken);
+        }
+
+        public Task<WorkerDaemonApiModel> ChangeDaemonStateAsync(WorkerDaemonStateChangeRequestApiModel request, CancellationToken cancellationToken = default)
+        {
+            const string endpoint = "daemons/change-state";
+            return SendAsync<WorkerDaemonApiModel>(
+                endpoint,
+                ct => System.Net.Http.Json.HttpClientJsonExtensions.PostAsJsonAsync(_http, endpoint, request, ct),
+                cancellationToken);
+        }
+
+        public Task RebootServerAsync(string serverName, CancellationToken cancellationToken = default)
+        {
+            const string endpoint = "remote-server/reboot";
+            return SendAsync<ApiBoolResult>(
+                endpoint,
+                ct => _http.PostAsync($"{endpoint}?serverName={Uri.EscapeDataString(serverName)}", content: null, ct),
+                cancellationToken);
+        }
+
+        // One send pipeline for every endpoint, so unavailability mapping, the worker's 400
+        // rejection contract, and empty-body detection cannot drift between operations.
+        private async Task<T> SendAsync<T>(string endpoint, Func<CancellationToken, Task<HttpResponseMessage>> send, CancellationToken cancellationToken)
+        {
             HttpResponseMessage resp;
             try
             {
-                resp = await _http.GetAsync(
-                    $"{endpoint}?serverName={Uri.EscapeDataString(serverName)}",
-                    cancellationToken);
+                resp = await send(cancellationToken);
             }
             // A worker that is configured but not running (connection refused, process
             // crashed, host unreachable, request timed out) is "unavailable" — the same
@@ -73,7 +107,7 @@ namespace Dorc.Api.Services
 
                 resp.EnsureSuccessStatusCode();
 
-                var body = await resp.Content.ReadFromJsonAsync<ServerOperatingSystemApiModel>(cancellationToken: cancellationToken);
+                var body = await resp.Content.ReadFromJsonAsync<T>(cancellationToken: cancellationToken);
 
                 // A 200 with an empty body is a worker bug, NOT unavailability. Reporting it
                 // as 503 sends operators hunting for a dead process that is running fine.

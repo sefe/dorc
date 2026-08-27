@@ -4,19 +4,15 @@ using Dorc.Core.Interfaces;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.Extensions.Logging;
-using Microsoft.Win32.SafeHandles;
-using System.Collections.Concurrent;
-using System.Net.NetworkInformation;
-using System.Runtime.InteropServices;
-using System.Runtime.Versioning;
 using System.Security.Claims;
-using System.Security.Principal;
-using System.ServiceProcess;
 using Environment = System.Environment;
 
 namespace Dorc.Core
 {
-    [SupportedOSPlatform("windows")]
+    // Platform-neutral since S-005: the ServiceController/LogonUser half moved behind
+    // IDaemonOperations (implemented in Dorc.Api by a Windows-worker client), so this class
+    // now only orchestrates — it builds the daemon list from the database, hands probing and
+    // service control to the seam, and records observations for whatever came back.
     public class DaemonStatusProbe : IDaemonStatusProbe
     {
         private const string DORCProdDeployUsername = "DORC_ProdDeployUsername";
@@ -30,8 +26,8 @@ namespace Dorc.Core
         private readonly IServersPersistentSource _serversPersistentSource;
         private readonly IDaemonsPersistentSource _daemonsPersistentSource;
         private readonly IDaemonObservationPersistentSource _daemonObservationPersistentSource;
+        private readonly IDaemonOperations _daemonOperations;
         private readonly string _domainName;
-
 
         private readonly IDaemonAuditPersistentSource _daemonAuditPersistentSource;
         private readonly IServersAuditPersistentSource _serversAuditPersistentSource;
@@ -46,7 +42,8 @@ namespace Dorc.Core
             IConfigurationSettings configurationSettingsEngine,
             IDaemonAuditPersistentSource daemonAuditPersistentSource,
             IServersAuditPersistentSource serversAuditPersistentSource,
-            IClaimsPrincipalReader claimsPrincipalReader)
+            IClaimsPrincipalReader claimsPrincipalReader,
+            IDaemonOperations daemonOperations)
         {
             _daemonsPersistentSource = daemonsPersistentSource;
             _daemonObservationPersistentSource = daemonObservationPersistentSource;
@@ -57,6 +54,7 @@ namespace Dorc.Core
             _daemonAuditPersistentSource = daemonAuditPersistentSource;
             _serversAuditPersistentSource = serversAuditPersistentSource;
             _claimsPrincipalReader = claimsPrincipalReader;
+            _daemonOperations = daemonOperations;
 
             _domainName = configurationSettingsEngine.GetConfigurationDomainNameIntra();
         }
@@ -73,49 +71,21 @@ namespace Dorc.Core
             return GetDaemonStatusesForEnvironment(environment);
         }
 
-        [DllImport("advapi32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
-        public static extern bool LogonUser(string lpszUsername, string lpszDomain, string lpszPassword,
-            int dwLogonType, int dwLogonProvider, out SafeAccessTokenHandle phToken);
-
         private List<DaemonStatus> GetDaemonStatusesForEnvironment(EnvironmentApiModel? environment)
         {
-            GetUsernameAndPassword(environment, out var user, out var pwd);
-
-            var domainName = _domainName;
+            var credential = GetDeployCredential(environment);
 
             var servers = _serversPersistentSource.GetServersForEnvId(environment.EnvironmentId).ToList();
             var daemons = BuildDaemonList(environment, servers);
 
-            if (!string.IsNullOrWhiteSpace(user) && !string.IsNullOrWhiteSpace(pwd))
+            // Pre-S-005 behaviour, preserved: without a configured deploy credential this
+            // path does not probe at all — it returns the unprobed list (no Status values).
+            if (credential == null)
             {
-                const int logon32ProviderDefault = 0;
-                // This parameter causes LogonUser to create a primary token.
-                const int logon32LogonInteractive = 2;
-
-                bool returnValue = LogonUser(user, domainName, pwd,
-                    logon32LogonInteractive, logon32ProviderDefault,
-                    out var safeAccessTokenHandle);
-
-                if (false == returnValue)
-                {
-                    int ret = Marshal.GetLastWin32Error();
-                    Console.WriteLine("LogonUser failed with error code : {0}", ret);
-                    throw new System.ComponentModel.Win32Exception(ret);
-                }
-
-                List<DaemonStatus> probeResults = [];
-                WindowsIdentity.RunImpersonated(
-                    safeAccessTokenHandle,
-                    () =>
-                    {
-                        probeResults = ProbeDaemonStatuses(daemons);
-                    }
-                );
-
-                return probeResults;
+                return daemons;
             }
 
-            return daemons;
+            return ProbeAndRecord(credential, daemons);
         }
 
         public List<DaemonStatus> DiscoverAllDaemonsForEnvironment(string envName, ClaimsPrincipal principal)
@@ -126,45 +96,43 @@ namespace Dorc.Core
 
         private List<DaemonStatus> DiscoverAllDaemonsForEnvironmentInternal(EnvironmentApiModel? environment)
         {
-            GetUsernameAndPassword(environment, out var user, out var pwd);
-
-            var domainName = _domainName;
+            var credential = GetDeployCredential(environment);
 
             var servers = _serversPersistentSource.GetServersForEnvId(environment.EnvironmentId).ToList();
             var daemons = BuildDaemonListForDiscovery(environment, servers);
 
-            if (!string.IsNullOrWhiteSpace(user) && !string.IsNullOrWhiteSpace(pwd))
+            // Unlike GetDaemonStatuses, discovery probes either way — impersonated when a
+            // deploy credential is configured, as the process identity otherwise.
+            return ProbeAndRecord(credential, daemons);
+        }
+
+        private List<DaemonStatus> ProbeAndRecord(WorkerDaemonCredentialApiModel? credential, List<DaemonStatus> daemons)
+        {
+            var probed = _daemonOperations.ProbeStatuses(credential, daemons);
+
+            foreach (var status in probed)
             {
-                const int logon32ProviderDefault = 0;
-                const int logon32LogonInteractive = 2;
-
-                bool returnValue = LogonUser(user, domainName, pwd,
-                    logon32LogonInteractive, logon32ProviderDefault,
-                    out var safeAccessTokenHandle);
-
-                if (!returnValue)
-                {
-                    int ret = Marshal.GetLastWin32Error();
-                    _logger.LogError("LogonUser failed with error code: {ErrorCode}", ret);
-                    throw new System.ComponentModel.Win32Exception(ret);
-                }
-
-                using (safeAccessTokenHandle)
-                {
-                    List<DaemonStatus> probeResults = [];
-                    WindowsIdentity.RunImpersonated(
-                        safeAccessTokenHandle,
-                        () =>
-                        {
-                            probeResults = ProbeDaemonStatuses(daemons);
-                        }
-                    );
-
-                    return probeResults;
-                }
+                RecordObservation(status);
             }
 
-            return ProbeDaemonStatuses(daemons);
+            return probed;
+        }
+
+        private WorkerDaemonCredentialApiModel? GetDeployCredential(EnvironmentApiModel? environment)
+        {
+            GetUsernameAndPassword(environment, out var user, out var pwd);
+
+            if (string.IsNullOrWhiteSpace(user) || string.IsNullOrWhiteSpace(pwd))
+            {
+                return null;
+            }
+
+            return new WorkerDaemonCredentialApiModel
+            {
+                Username = user,
+                Domain = _domainName,
+                Password = pwd
+            };
         }
 
         private void GetUsernameAndPassword(EnvironmentApiModel? environment, out string user, out string pwd)
@@ -292,67 +260,6 @@ namespace Dorc.Core
             return iResults;
         }
 
-        private List<DaemonStatus> ProbeDaemonStatuses(List<DaemonStatus> daemons)
-        {
-            var resultsDict = new ConcurrentDictionary<int, DaemonStatus>();
-
-            try
-            {
-                Parallel.ForEach(daemons, (daemon, _, index) =>
-                {
-                    try
-                    {
-                        var ping = new Ping();
-                        var oPingReply = ping.Send(daemon.ServerName ?? string.Empty, 5000);
-                        if (oPingReply == null || oPingReply.Status != IPStatus.Success)
-                            return;
-
-                        try
-                        {
-                            _logger.LogDebug("Server is alive: " + daemon.ServerName);
-
-                            using (var serviceController = new ServiceController(daemon.DaemonName, daemon.ServerName))
-                            {
-                                var resultItem = new DaemonStatus
-                                {
-                                    EnvName = daemon.EnvName,
-                                    ServerName = daemon.ServerName,
-                                    DaemonName = daemon.DaemonName,
-                                    ServerId = daemon.ServerId,
-                                    DaemonId = daemon.DaemonId,
-                                    Status = serviceController.Status.ToString()
-                                };
-                                resultsDict.TryAdd((int)index, resultItem);
-                                RecordObservation(resultItem);
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogDebug("Error retrieving daemon info for " +
-                                         daemon.DaemonName + Environment.NewLine +
-                                         "        " + ex.Message + Environment.NewLine +
-                                         "        " + ex.InnerException);
-                            return;
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogDebug("Error, couldn't ping: " + daemon.ServerName +
-                                     Environment.NewLine + ex.Message);
-                        return;
-                    }
-                });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogInformation("Error probing daemon statuses" + Environment.NewLine + ex.Message);
-            }
-
-            return resultsDict.OrderBy(kvp => kvp.Key)
-                      .Select(kvp => kvp.Value)
-                      .ToList();
-        }
-
         /// <summary>
         /// Record a daemon-probe observation. Best-effort — failures are logged and swallowed so
         /// that observation-write errors do not alter the probe's returned status (HLPS C-03).
@@ -389,111 +296,17 @@ namespace Dorc.Core
 
             GetUsernameAndPassword(environment, out var user, out var pwd);
 
-            var domainName = _domainName;
-
-            const int logon32ProviderDefault = 0;
-            // This parameter causes LogonUser to create a primary token.
-            const int logon32LogonInteractive = 2;
-
-            bool returnValue = LogonUser(user, domainName, pwd,
-                logon32LogonInteractive, logon32ProviderDefault,
-                out var safeAccessTokenHandle);
-
-            if (false == returnValue)
+            // Pre-S-005 behaviour, preserved: state changes always impersonate the deploy
+            // account — a missing credential fails the logon rather than silently running as
+            // the process identity.
+            var credential = new WorkerDaemonCredentialApiModel
             {
-                int ret = Marshal.GetLastWin32Error();
-                Console.WriteLine("LogonUser failed with error code : {0}", ret);
-                throw new System.ComponentModel.Win32Exception(ret);
-            }
+                Username = user,
+                Domain = _domainName,
+                Password = pwd
+            };
 
-            return WindowsIdentity.RunImpersonated(
-                safeAccessTokenHandle,
-                () =>
-                {
-                    using var sc = new ServiceController(daemonStatus.DaemonName, daemonStatus.ServerName);
-                    switch (daemonStatus.Status)
-                    {
-                        case "Starting":
-                            {
-                                sc.Start();
-                                sc.WaitForStatus(ServiceControllerStatus.Running, TimeSpan.FromSeconds(30));
-                                return GetDaemonStatus(daemonStatus.EnvName, daemonStatus.ServerName, daemonStatus.DaemonName);
-                            }
-                        case "Stopping":
-                            {
-                                sc.Stop();
-                                sc.WaitForStatus(ServiceControllerStatus.Stopped, TimeSpan.FromSeconds(30));
-                                return GetDaemonStatus(daemonStatus.EnvName, daemonStatus.ServerName, daemonStatus.DaemonName);
-                            }
-                        case "Restarting":
-                            {
-                                if (sc.CanStop)
-                                {
-                                    sc.Stop();
-                                    sc.WaitForStatus(ServiceControllerStatus.Stopped, TimeSpan.FromSeconds(30));
-                                    sc.Start();
-                                    sc.WaitForStatus(ServiceControllerStatus.Running, TimeSpan.FromSeconds(30));
-                                    return GetDaemonStatus(daemonStatus.EnvName, daemonStatus.ServerName, daemonStatus.DaemonName);
-                                }
-
-                                return new DaemonStatus();
-                            }
-                        default:
-                            {
-                                return new DaemonStatus();
-                            }
-                    }
-                }
-            );
-        }
-
-        private DaemonStatus? GetDaemonStatus(string envName, string server, string daemonName)
-        {
-            try
-            {
-                using var sc = new ServiceController(daemonName, server);
-                string status;
-                switch (sc.Status)
-                {
-                    case ServiceControllerStatus.Running:
-                        status = "Running";
-                        break;
-                    case ServiceControllerStatus.Stopped:
-                        status = "Stopped";
-                        break;
-                    case ServiceControllerStatus.Paused:
-                        status = "Paused";
-                        break;
-                    case ServiceControllerStatus.StopPending:
-                        status = "Stopping";
-                        break;
-                    case ServiceControllerStatus.StartPending:
-                        status = "Starting";
-                        break;
-                    default:
-                        status = "Status Changing";
-                        break;
-                }
-
-                return new DaemonStatus
-                {
-                    EnvName = envName,
-                    ServerName = server,
-                    DaemonName = daemonName,
-                    Status = status
-                };
-            }
-            catch (Exception ex)
-            {
-                return new DaemonStatus
-                {
-                    EnvName = envName,
-                    ServerName = server,
-                    DaemonName = daemonName,
-                    Status = null,
-                    ErrorMessage = "Daemon query failed: " + ex.Message
-                };
-            }
+            return _daemonOperations.ChangeState(credential, daemonStatus);
         }
 
         public DiscoverDaemonsResult DiscoverAndMapDaemons(string envName, ClaimsPrincipal principal)

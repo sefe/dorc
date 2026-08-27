@@ -1,4 +1,4 @@
-﻿using Dorc.Api.Services;
+﻿using Dorc.Api.Interfaces;
 using Dorc.ApiModel;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -13,10 +13,13 @@ namespace Dorc.Api.Controllers
     public class RefDataAppServersController : ControllerBase
     {
         private readonly IServersPersistentSource _serversPersistentSource;
+        private readonly IWindowsWorkerClient _windowsWorkerClient;
 
-        public RefDataAppServersController(IServersPersistentSource serversPersistentSource)
+        public RefDataAppServersController(IServersPersistentSource serversPersistentSource,
+            IWindowsWorkerClient windowsWorkerClient)
         {
             _serversPersistentSource = serversPersistentSource;
+            _windowsWorkerClient = windowsWorkerClient;
         }
 
         /// <summary>
@@ -41,13 +44,14 @@ namespace Dorc.Api.Controllers
         /// <param name="server"></param>
         /// <returns></returns>
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(string))]
+        [SwaggerResponse(StatusCodes.Status503ServiceUnavailable, Type = typeof(string))]
         [HttpPut]
-        public IActionResult PutServerReboot(string server)
+        public async Task<IActionResult> PutServerReboot(string server)
         {
+            // S-005: the WMI reboot moved to the Windows worker (WmiUtil now lives there).
             if (!string.IsNullOrWhiteSpace(server))
             {
-                var wmi = new WmiUtil(server);
-                wmi.Reboot();
+                await _windowsWorkerClient.RebootServerAsync(server);
             }
 
             return StatusCode(StatusCodes.Status200OK, server);
