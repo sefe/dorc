@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Dorc.Api.WindowsWorker.Controllers;
 using Dorc.Api.WindowsWorker.Services;
 using Dorc.ApiModel;
@@ -55,21 +56,32 @@ namespace Dorc.Api.WindowsWorker.Tests
         [TestMethod]
         public void ValidRequest_RunsTheResetAgainstTheSuppliedServerAndUser()
         {
-            var reset = new FakeReset();
+            var fixture = LoadFixture();
+            var reset = new FakeReset { Result = fixture.Response };
             var controller = NewController(reset);
 
-            var result = controller.Reset(new WorkerPasswordResetRequestApiModel
-            {
-                ServerName = "SQLSRV01",
-                Username = "app_user",
-                CallerIdentity = @"CORP\alice"
-            });
+            var result = controller.Reset(fixture.Request);
 
             var ok = Assert.IsInstanceOfType<OkObjectResult>(result.Result);
             var body = Assert.IsInstanceOfType<ApiBoolResult>(ok.Value);
-            Assert.IsTrue(body.Result);
-            Assert.AreEqual("SQLSRV01", reset.SeenServer);
-            Assert.AreEqual("app_user", reset.SeenUser);
+            Assert.AreEqual(fixture.Response.Result, body.Result);
+            Assert.AreEqual(fixture.Request.ServerName, reset.SeenServer);
+            Assert.AreEqual(fixture.Request.Username, reset.SeenUser);
+        }
+
+        private static PasswordResetFixture LoadFixture()
+        {
+            var path = Path.Combine(AppContext.BaseDirectory, "Fixtures", "password-reset.json");
+            return JsonSerializer.Deserialize<PasswordResetFixture>(
+                       File.ReadAllText(path),
+                       new JsonSerializerOptions(JsonSerializerDefaults.Web))
+                   ?? throw new InvalidOperationException("Password-reset parity fixture is invalid.");
+        }
+
+        private sealed class PasswordResetFixture
+        {
+            public required WorkerPasswordResetRequestApiModel Request { get; init; }
+            public required ApiBoolResult Response { get; init; }
         }
     }
 }
