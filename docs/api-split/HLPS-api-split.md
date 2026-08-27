@@ -77,6 +77,8 @@ Specifically:
 
 Customer implication: every DORC install now requires an Entra ID tenant + app registration + Graph permissions, **and** (for any install with existing `AccessControl.Sid` rows or AD-rooted `RBAC` mappings) requires **Entra Connect (or Cloud Sync)** so on-prem SIDs are mirrored to Entra `onPremisesSecurityIdentifier`. Without Entra Connect, P-4 / P-7 in the parity matrix cannot resolve existing ACLs. Pure on-prem AD-only installs (no Entra tenant) **cannot upgrade** to this version. See U-10 (Product-owner decision).
 
+**Amendment (Round 7 — owner decision recorded on the S-001 PR, 2026-08-27):** Graph stays the default `IActiveDirectorySearcher` on every host, but the on-prem AD implementation is **retained as a Windows-only fallback** instead of deleted. `ActiveDirectorySearcher` moves to a new `Dorc.Core.Windows` project **outside the primary compile graph**, so `System.DirectoryServices*` still never appears in `Dorc.Api` / `Dorc.Core` / `Dorc.PersistentData` and SC-1 plus the Linux build gate are unchanged. `ApiRegistry` wraps the Graph searcher in a `FallbackDirectorySearcher` (Graph first; the AD searcher is consulted **only when Graph throws** — a successful empty Graph answer is final) when all of the following hold: the host is Windows (`OperatingSystem.IsWindows()` guard, no CA1416 suppression), `AppSettings:AdFallbackEnabled` is not `false` (opt-out, default enabled), and `AppSettings:DomainNameIntra` is configured and reachable. On Linux hosts behaviour is Graph-only, exactly as this section originally specified. This softens the "cannot upgrade" consequence above for **Windows** hosts only: a Windows install whose Graph configuration is absent or failing degrades to the AD path rather than hard-failing.
+
 ### D-3 — Inter-API auth: loopback-only + shared secret header (was U-3)
 The worker binds to `127.0.0.1` and rejects any request without a shared-secret header `X-Worker-Key`. Authorization decisions are made entirely in the primary (using Graph-backed claims) *before* the worker is called; the worker trusts that any call reaching it has already been authz'd. For password reset, the worker uses **its own service account** (an AD-delegated reset-password identity) — the caller's identity is forwarded in the request body for audit only, not for impersonation.
 
@@ -161,7 +163,7 @@ The matrix below is derived from the `IActiveDirectorySearcher` contract *and* i
 
 ### Out of Scope (explicitly)
 - **Bulk class renaming** to remove the words *Service / Helper / Manager / Util*. CLAUDE.md's rule is principle-first; class-by-class renames belong in their own scoped PRs only when the new name is *more* specific than the old.
-- Supporting pure on-prem AD installs without an Entra tenant. Per D-2, an Entra tenant is now a hard prerequisite.
+- Supporting pure on-prem AD installs without an Entra tenant. Per D-2, an Entra tenant is now a hard prerequisite — softened for **Windows hosts only** by the D-2 Round 7 amendment (the AD fallback keeps such an install functional when Graph is unavailable); on Linux hosts the prerequisite is unchanged.
 - Replacing WMI with SSH / PowerShell-remoting / REST agents (separate HLPS if/when desired). Worker is permanent (D-1).
 - Folder reorganisation by "function" (`Identity/`, `Build/`, `Orchestration/`) inside the existing API.
 - Changing the public Swagger/REST surface of `Dorc.Api` in shape, **except the two deltas
