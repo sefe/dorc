@@ -132,6 +132,8 @@ Result: `GetSidsForUser` returns a list whose entries collectively cover both `A
 
 Consumers (`CachedUserGroupReader`, `DirectorySearchController`, etc.) inject `IActiveDirectorySearcher` and get the Graph-backed instance.
 
+**Amendment (HLPS D-2 Round 7):** the registration is a factory lambda rather than a bare `Use<AzureEntraSearcher>()`. Graph is still the default on every host, but on Windows (`OperatingSystem.IsWindows()` guard), with `AppSettings:AdFallbackEnabled` not `false` and `DomainNameIntra` configured, the Graph searcher is wrapped in `FallbackDirectorySearcher` (new, `Dorc.Core`) whose second leg is the retained `ActiveDirectorySearcher` — moved to the new `Dorc.Core.Windows` project, not deleted (supersedes the `ActiveDirectorySearcher.cs` deletion row in §2.6). The fallback leg runs only when the Graph leg throws; a successful empty Graph answer is final. Consumers are unaffected either way.
+
 ### 2.6 Delete AD code
 
 **Files deleted** (whole files, no in-place edits):
