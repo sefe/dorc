@@ -1,5 +1,4 @@
-using System.Runtime.Versioning;
-using System.Security.Claims;
+﻿using System.Security.Claims;
 using Dorc.Api.Interfaces;
 using Dorc.Api.Model;
 using Dorc.ApiModel;
@@ -16,7 +15,6 @@ using Swashbuckle.AspNetCore.Annotations;
 namespace Dorc.Api.Controllers
 {
     [Authorize]
-    [SupportedOSPlatform("windows")]
     [ApiController]
     [Route("[controller]")]
     public class MakeLikeProdController : ControllerBase

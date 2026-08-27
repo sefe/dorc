@@ -32,5 +32,10 @@ namespace Dorc.Api.Interfaces
 
         // S-005. Reboots the target server via WMI (moved from WmiUtil in Dorc.Api).
         Task RebootServerAsync(string serverName, CancellationToken cancellationToken = default);
+
+        // S-006 (HLPS Scope D — password-reset impersonation move). Resets the SQL login's
+        // password on the target server as the worker's own service account. Worker-side
+        // implementation lives in Dorc.Api.WindowsWorker/Controllers/PasswordResetController.cs.
+        Task<ApiBoolResult> ResetAppPasswordAsync(WorkerPasswordResetRequestApiModel request, CancellationToken cancellationToken = default);
     }
 }

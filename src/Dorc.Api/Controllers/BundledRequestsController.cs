@@ -1,14 +1,12 @@
-using Dorc.ApiModel;
+﻿using Dorc.ApiModel;
 using Dorc.Core.Interfaces;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Runtime.Versioning;
 
 namespace Dorc.Api.Controllers
 {
     [Authorize]
-    [SupportedOSPlatform("windows")]
     [ApiController]
     [Route("[controller]")]
     public class BundledRequestsController : ControllerBase

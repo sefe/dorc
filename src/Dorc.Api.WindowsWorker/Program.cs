@@ -15,6 +15,8 @@ builder.Services.AddControllers();
 builder.Services.AddHealthChecks();
 builder.Services.AddSingleton<IDaemonServiceOperations, DaemonServiceOperations>();
 builder.Services.AddSingleton<IRemoteServerOperatingSystemReader, RemoteRegistryOperatingSystemReader>();
+builder.Services.AddSingleton<ServiceAccountImpersonator>();
+builder.Services.AddSingleton<Dorc.Core.Interfaces.ISqlUserPasswordReset, Dorc.Core.SqlUserPasswordReset>();
 
 builder.Services
     .AddAuthentication(WorkerKeyAuthenticationOptions.SchemeName)

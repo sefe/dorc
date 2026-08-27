@@ -4,14 +4,12 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Swashbuckle.AspNetCore.Annotations;
 using System.Net;
-using System.Runtime.Versioning;
 
 namespace Dorc.Api.Controllers
 {
     [Authorize]
     [ApiController]
     [Route("[controller]")]
-    [SupportedOSPlatform("windows")]
     public class AccountController : Controller
     {
         internal const string UserLanIdIsRequiredExplanation = "User LanId is required.";

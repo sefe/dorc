@@ -73,6 +73,17 @@ namespace Dorc.Api.Services
                 cancellationToken);
         }
 
+        public Task<ApiBoolResult> ResetAppPasswordAsync(
+            WorkerPasswordResetRequestApiModel request,
+            CancellationToken cancellationToken = default)
+        {
+            const string endpoint = "password-reset";
+            return SendAsync<ApiBoolResult>(
+                endpoint,
+                ct => HttpClientJsonExtensions.PostAsJsonAsync(_http, endpoint, request, ct),
+                cancellationToken);
+        }
+
         // Shared by every endpoint added in S-004/S-005/S-006 so transport failures and
         // worker error envelopes have one stable contract.
         protected async Task<T> SendAsync<T>(

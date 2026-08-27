@@ -126,8 +126,21 @@ jobs:
           # worker and the class is platform-neutral now.
           # CoreRegistry came off this list: its CA1416 pragma was replaced with an
           # OperatingSystem.IsWindows() guard, since removed entirely at S-005.
-          suppress_allow='AccountController\.cs|BundledRequestsController\.cs|MakeLikeProdController\.cs|ResetAppPasswordController\.cs'
-          if grep -rn -E 'SupportedOSPlatform\("windows"\)|#pragma warning disable CA1416' \
+          # Empty since S-006: ResetAppPasswordController's impersonation moved to the
+          # worker, and the AccountController / BundledRequestsController /
+          # MakeLikeProdController attributes were verified stale (no Windows-only usage)
+          # and stripped, closing U-18.
+          suppress_allow=''
+          # NOTE: `grep -vE ""` matches nothing, so an EMPTY allow-list must be handled
+          # explicitly or reaching it would silently DISABLE this check (same hazard as
+          # the CA1416 backlog below).
+          if [ -z "$suppress_allow" ]; then
+            if grep -rn -E 'SupportedOSPlatform\("windows"\)|#pragma warning disable CA1416' \
+                $roots --include='*.cs'; then
+              echo "::error::[SupportedOSPlatform(\"windows\")] or CA1416 pragma in the primary compile graph with an empty allow-list. These suppress the CA1416 gate — move the code to the worker rather than annotating it."
+              status=1
+            fi
+          elif grep -rn -E 'SupportedOSPlatform\("windows"\)|#pragma warning disable CA1416' \
               $roots --include='*.cs' | grep -vE "$suppress_allow"; then
             echo "::error::New [SupportedOSPlatform(\"windows\")] or CA1416 pragma in the primary compile graph. These suppress the CA1416 gate — move the code to the worker rather than annotating it."
             status=1
