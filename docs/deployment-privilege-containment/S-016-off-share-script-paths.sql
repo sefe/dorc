@@ -33,26 +33,42 @@ WHERE   [Key] = 'ScriptRoot';
 --    colons (which name a drive, a device, or an alternate data stream rather than a file
 --    beneath the root).
 ------------------------------------------------------------------------------------------
-WITH Classified AS (
+WITH ScriptPaths AS (
+    SELECT  s.Id,
+            s.Name,
+            s.Path AS StoredPath,
+            s.IsPathJSON,
+            CASE WHEN s.IsPathJSON = 1
+                 THEN JSON_VALUE(s.Path, '$.ScriptPath')
+                 ELSE s.Path
+            END AS EffectivePath
+    FROM    deploy.Script s
+),
+Classified AS (
     SELECT  s.Id            AS ScriptId,
             s.Name          AS ScriptName,
-            s.Path          AS StoredPath,
+            s.StoredPath,
             s.IsPathJSON,
+            s.EffectivePath,
             CASE
-                WHEN s.Path IS NULL OR LTRIM(RTRIM(s.Path)) = ''         THEN 'no script'
-                WHEN s.Path LIKE '\\%'  ESCAPE '~'                       THEN 'absolute: UNC'
-                WHEN s.Path LIKE '/%'                                    THEN 'absolute: rooted'
-                WHEN s.Path LIKE '[A-Za-z]:%'                            THEN 'absolute: drive-qualified'
-                WHEN s.Path LIKE '%..%'                                  THEN 'traversal'
-                WHEN s.Path LIKE '%:%'                                   THEN 'colon: device or data stream'
+                WHEN s.EffectivePath IS NULL OR LTRIM(RTRIM(s.EffectivePath)) = '' THEN 'no script'
+                WHEN s.EffectivePath LIKE '\\%' ESCAPE '~'                        THEN 'absolute: UNC'
+                WHEN s.EffectivePath LIKE '/%'                                     THEN 'absolute: rooted'
+                WHEN s.EffectivePath LIKE '[A-Za-z]:%'                             THEN 'absolute: drive-qualified'
+                WHEN REPLACE(s.EffectivePath, '/', '\') = '..'
+                  OR REPLACE(s.EffectivePath, '/', '\') LIKE '..\%'
+                  OR REPLACE(s.EffectivePath, '/', '\') LIKE '%\..'
+                  OR REPLACE(s.EffectivePath, '/', '\') LIKE '%\..\%'              THEN 'traversal'
+                WHEN s.EffectivePath LIKE '%:%'                                    THEN 'colon: device or data stream'
                 ELSE 'relative - acceptable'
             END AS Verdict
-    FROM    deploy.Script s
+    FROM    ScriptPaths s
 )
 SELECT      c.Verdict,
             c.ScriptId,
             c.ScriptName,
             c.StoredPath,
+            c.EffectivePath,
             c.IsPathJSON,
             STUFF((
                 SELECT  ', ' + p.Name
@@ -69,24 +85,37 @@ ORDER BY    c.Verdict, c.ScriptName;
 ------------------------------------------------------------------------------------------
 -- 2. Scale of the problem, for deciding whether to remediate before or alongside release.
 ------------------------------------------------------------------------------------------
+WITH ScriptPaths AS (
+    SELECT CASE WHEN IsPathJSON = 1
+                THEN JSON_VALUE([Path], '$.ScriptPath')
+                ELSE [Path]
+           END AS EffectivePath
+    FROM deploy.Script
+)
 SELECT      CASE
-                WHEN [Path] IS NULL OR LTRIM(RTRIM([Path])) = ''  THEN 'no script'
-                WHEN [Path] LIKE '\\%' ESCAPE '~'                 THEN 'absolute: UNC'
-                WHEN [Path] LIKE '/%'                             THEN 'absolute: rooted'
-                WHEN [Path] LIKE '[A-Za-z]:%'                     THEN 'absolute: drive-qualified'
-                WHEN [Path] LIKE '%..%'                           THEN 'traversal'
-                WHEN [Path] LIKE '%:%'                            THEN 'colon: device or data stream'
+                WHEN EffectivePath IS NULL OR LTRIM(RTRIM(EffectivePath)) = '' THEN 'no script'
+                WHEN EffectivePath LIKE '\\%' ESCAPE '~'                       THEN 'absolute: UNC'
+                WHEN EffectivePath LIKE '/%'                                    THEN 'absolute: rooted'
+                WHEN EffectivePath LIKE '[A-Za-z]:%'                            THEN 'absolute: drive-qualified'
+                WHEN REPLACE(EffectivePath, '/', '\') = '..'
+                  OR REPLACE(EffectivePath, '/', '\') LIKE '..\%'
+                  OR REPLACE(EffectivePath, '/', '\') LIKE '%\..'
+                  OR REPLACE(EffectivePath, '/', '\') LIKE '%\..\%'             THEN 'traversal'
+                WHEN EffectivePath LIKE '%:%'                                   THEN 'colon: device or data stream'
                 ELSE 'relative - acceptable'
             END AS Verdict,
             COUNT(*) AS Scripts
-FROM        deploy.Script
+FROM        ScriptPaths
 GROUP BY    CASE
-                WHEN [Path] IS NULL OR LTRIM(RTRIM([Path])) = ''  THEN 'no script'
-                WHEN [Path] LIKE '\\%' ESCAPE '~'                 THEN 'absolute: UNC'
-                WHEN [Path] LIKE '/%'                             THEN 'absolute: rooted'
-                WHEN [Path] LIKE '[A-Za-z]:%'                     THEN 'absolute: drive-qualified'
-                WHEN [Path] LIKE '%..%'                           THEN 'traversal'
-                WHEN [Path] LIKE '%:%'                            THEN 'colon: device or data stream'
+                WHEN EffectivePath IS NULL OR LTRIM(RTRIM(EffectivePath)) = '' THEN 'no script'
+                WHEN EffectivePath LIKE '\\%' ESCAPE '~'                       THEN 'absolute: UNC'
+                WHEN EffectivePath LIKE '/%'                                    THEN 'absolute: rooted'
+                WHEN EffectivePath LIKE '[A-Za-z]:%'                            THEN 'absolute: drive-qualified'
+                WHEN REPLACE(EffectivePath, '/', '\') = '..'
+                  OR REPLACE(EffectivePath, '/', '\') LIKE '..\%'
+                  OR REPLACE(EffectivePath, '/', '\') LIKE '%\..'
+                  OR REPLACE(EffectivePath, '/', '\') LIKE '%\..\%'             THEN 'traversal'
+                WHEN EffectivePath LIKE '%:%'                                   THEN 'colon: device or data stream'
                 ELSE 'relative - acceptable'
             END
 ORDER BY    Scripts DESC;
@@ -95,13 +124,13 @@ ORDER BY    Scripts DESC;
 ------------------------------------------------------------------------------------------
 -- 3. The JSON-path population, listed separately.
 --
---    A JSON script path carries the real path under "ScriptPath". These rows need the
---    embedded value inspected rather than the stored column, so they are surfaced for manual
---    review instead of being classified above.
+--    The worklist above classifies the embedded ScriptPath. This query isolates malformed JSON
+--    rows whose effective path could not be read and therefore need manual remediation.
 ------------------------------------------------------------------------------------------
 SELECT  Id, Name, [Path]
 FROM    deploy.Script
 WHERE   IsPathJSON = 1
+  AND   JSON_VALUE([Path], '$.ScriptPath') IS NULL
 ORDER BY Name;
 
 
@@ -109,17 +138,30 @@ ORDER BY Name;
 -- 4. Which off-share scripts are actually in use, so remediation can be ordered by risk.
 --    A script nothing has deployed in a year is a different problem from one deploying daily.
 ------------------------------------------------------------------------------------------
-SELECT      s.Id, s.Name, s.[Path],
+WITH ScriptPaths AS (
+    SELECT  s.Id,
+            s.Name,
+            s.Path AS StoredPath,
+            CASE WHEN s.IsPathJSON = 1
+                 THEN JSON_VALUE(s.Path, '$.ScriptPath')
+                 ELSE s.Path
+            END AS EffectivePath
+    FROM deploy.Script s
+)
+SELECT      s.Id, s.Name, s.StoredPath, s.EffectivePath,
             COUNT(DISTINCT dr.Id)   AS Deployments,
             MAX(dr.RequestedTime)   AS LastDeployed
-FROM        deploy.Script s
+FROM        ScriptPaths s
             INNER JOIN deploy.Component cm         ON cm.ScriptId = s.Id
             LEFT  JOIN deploy.DeploymentResult res ON res.ComponentId = cm.Id
             LEFT  JOIN deploy.DeploymentRequest dr ON dr.Id = res.DeploymentRequestId
-WHERE       s.[Path] LIKE '\\%' ESCAPE '~'
-         OR s.[Path] LIKE '[A-Za-z]:%'
-         OR s.[Path] LIKE '%..%'
-GROUP BY    s.Id, s.Name, s.[Path]
+WHERE       s.EffectivePath LIKE '\\%' ESCAPE '~'
+         OR s.EffectivePath LIKE '[A-Za-z]:%'
+         OR REPLACE(s.EffectivePath, '/', '\') = '..'
+         OR REPLACE(s.EffectivePath, '/', '\') LIKE '..\%'
+         OR REPLACE(s.EffectivePath, '/', '\') LIKE '%\..'
+         OR REPLACE(s.EffectivePath, '/', '\') LIKE '%\..\%'
+GROUP BY    s.Id, s.Name, s.StoredPath, s.EffectivePath
 ORDER BY    Deployments DESC;
 
 
