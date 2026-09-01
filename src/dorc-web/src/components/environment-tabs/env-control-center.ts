@@ -21,6 +21,7 @@ import '../make-like-production-dialog';
 import '../add-edit-environment';
 import { PageEnvBase } from './page-env-base';
 import { hasTag } from '../../helpers/tag-parser';
+import '../add-edit-access-control';
 import { AddEditAccessControl } from '../add-edit-access-control';
 import GlobalCache from '../../global-cache';
 import { ResetAppPasswordBehalf } from '../reset-app-password-behalf';
