@@ -223,7 +223,7 @@ builder.Services.AddTransient<IConfigurationSettings, ConfigurationSettings>();
 // before that, the Monitor could not have read a credential from the vault even if configured
 // to. Whether these hosts can reach the vault is now a deployment question with a configured
 // answer rather than an architectural dependency.
-builder.Services.AddTransient<IConfigurationSecretsReader, OnePasswordSecretsReader>();
+builder.Services.AddSingleton<IConfigurationSecretsReader, OnePasswordSecretsReader>();
 builder.Services.AddTransient<ConfigValueDeploymentCredentialSource>();
 builder.Services.AddTransient<VaultDeploymentCredentialSource>();
 builder.Services.AddTransient<IDeploymentCredentialSource>(services =>
@@ -266,4 +266,3 @@ builder.Services.AddTransient<IClaimsPrincipalReader, DirectToolClaimsPrincipalR
 
 IHost host = builder.Build();
 host.Run();
-
