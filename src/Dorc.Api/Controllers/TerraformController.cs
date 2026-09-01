@@ -201,9 +201,16 @@ namespace Dorc.Api.Controllers
                     return BadRequest($"Deployment result {deploymentResultId} is not in WaitingConfirmation status. Current status: {deploymentResult.Status}");
                 }
 
-                _requestsPersistentSource.UpdateResultStatus(
+                var transitioned = _requestsPersistentSource.UpdateResultStatus(
                     deploymentResult,
-                    DeploymentResultStatus.Cancelled);
+                    DeploymentResultStatus.Cancelled,
+                    DeploymentResultStatus.WaitingConfirmation);
+
+                if (!transitioned)
+                {
+                    _log.LogWarning($"Terraform plan decline for deployment result ID {deploymentResultId} lost a race; the result is no longer awaiting confirmation.");
+                    return Conflict($"Deployment result {deploymentResultId} is no longer awaiting confirmation. It may have been confirmed, declined, or started already.");
+                }
 
                 _requestsPersistentSource.UpdateRequestStatus(
                     deploymentResult.RequestId,
