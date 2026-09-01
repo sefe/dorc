@@ -38,6 +38,7 @@ import {
   DeploymentResultEventData,
   getHubProxyFactory
 } from '../services/ServerEvents';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 const asUndef = (t: string | null | undefined): string | undefined =>
   t ?? undefined;
@@ -233,7 +234,7 @@ export class PageMonitorResult
 
   private refreshData() {
     this.resultsLoading = true;
-    const apiRequests = new RequestStatusesApi();
+    const apiRequests = new RequestStatusesApi(dorcApiConfiguration);
     apiRequests.requestStatusesGet({ requestId: this.requestId }).subscribe({
       next: (data: DeploymentRequestApiModel) => {
         this.selectedProject = data.Project ?? '';
@@ -282,7 +283,7 @@ export class PageMonitorResult
   refreshResultItems = () => {
     this.resultsLoading = true;
 
-    const api = new ResultStatusesApi();
+    const api = new ResultStatusesApi(dorcApiConfiguration);
     api.resultStatusesGet({ requestId: this.requestId }).subscribe({
       next: (data: Array<DeploymentResultApiModel>) => {
         this.resultItems = data;
@@ -306,7 +307,7 @@ export class PageMonitorResult
   refreshAttemptItems = () => {
     this.attemptsLoading = true;
 
-    const api = new RequestApi();
+    const api = new RequestApi(dorcApiConfiguration);
     api.requestRequestIdAttemptsGet({ requestId: this.requestId }).subscribe({
       next: (data: Array<DeploymentRequestAttemptApiModel>) => {
         this.attemptItems = data;

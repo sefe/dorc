@@ -19,6 +19,7 @@ import GlobalCache from '../global-cache';
 import { ref } from 'lit/directives/ref.js';
 import { keyed } from 'lit/directives/keyed.js';
 import { UnsavedChangesGuard } from '../components/unsaved-changes-guard';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('page-sql-ports-list')
 export class PageSqlPortsList extends PageElement {
@@ -71,7 +72,7 @@ export class PageSqlPortsList extends PageElement {
   }
 
   private getSqlPortsList() {
-    const api = new RefDataSqlPortsApi();
+    const api = new RefDataSqlPortsApi(dorcApiConfiguration);
     api.refDataSqlPortsGet().subscribe(
       (data: SqlPortApiModel[]) => {
         this.setSqlPorts(data);

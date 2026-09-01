@@ -15,6 +15,7 @@ import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
 import '@vaadin/button';
 import '@vaadin/tooltip';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('view-database-permissions')
 export class ViewDatabasePermissions extends LitElement {
@@ -139,7 +140,7 @@ export class ViewDatabasePermissions extends LitElement {
     const envId = this.envId;
     const answer = await confirmPrompt('Remove permission?');
     if (answer && removeRoleId) {
-      const api = new RefDataUserPermissionsApi();
+      const api = new RefDataUserPermissionsApi(dorcApiConfiguration);
       const perm: number = removeRoleId;
       api
         .refDataUserPermissionsDelete({
@@ -164,7 +165,7 @@ export class ViewDatabasePermissions extends LitElement {
   public loadDatabaseUsers() {
     if (this.dbId > 0) {
       this.loading = true;
-      const refDataPermissionApi = new RefDataDatabaseUsersApi();
+      const refDataPermissionApi = new RefDataDatabaseUsersApi(dorcApiConfiguration);
       refDataPermissionApi
         .refDataDatabaseUsersGet({ id: this.dbId, envId: this.envId })
         .subscribe(
@@ -198,7 +199,7 @@ export class ViewDatabasePermissions extends LitElement {
   }
 
   private loadUserPerms() {
-    const api = new RefDataUserPermissionsApi();
+    const api = new RefDataUserPermissionsApi(dorcApiConfiguration);
     api
       .refDataUserPermissionsGet({
         userId: this.selectedUser?.Id || 0,

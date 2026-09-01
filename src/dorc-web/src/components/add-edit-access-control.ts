@@ -28,6 +28,7 @@ import { ErrorNotification } from './notifications/error-notification';
 import { Notification } from '@vaadin/notification';
 import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 const AC_ALLOW_WRITE = 1;
 const AC_ALLOW_READ_SECRETS = 2;
@@ -279,7 +280,7 @@ export class AddEditAccessControl extends LitElement {
       ObjectId: this.AccessControls.ObjectId
     };
 
-    const api = new AccessControlApi();
+    const api = new AccessControlApi(dorcApiConfiguration);
     api.accessControlPut({ accessSecureApiModel: ac }).subscribe({
       next: (data: AccessSecureApiModel) => {
         this.AccessControls = data;
@@ -394,7 +395,7 @@ export class AddEditAccessControl extends LitElement {
 
   searchAD() {
     this.searchingUsers = true;
-    const api = new AccessControlApi();
+    const api = new AccessControlApi(dorcApiConfiguration);
     api.accessControlSearchUsersGet({ search: this.searchADValue }).subscribe(
       (data: Array<UserElementApiModel>) => {
         this.searchResults = data;
@@ -526,7 +527,7 @@ export class AddEditAccessControl extends LitElement {
     this.loading = true;
 
     if (secureName !== '') {
-      const api = new AccessControlApi();
+      const api = new AccessControlApi(dorcApiConfiguration);
       api
         .accessControlGet({
           accessControlType: secureType,

@@ -40,6 +40,7 @@ import GlobalCache from '../global-cache';
 import '@vaadin/icons';
 import { navigate } from '../router/router';
 import '@vaadin/tooltip';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('page-variables')
 export class PageVariables extends PageElement {
@@ -618,7 +619,7 @@ export class PageVariables extends PageElement {
 
     if (existingProps && answer) {
       this.deletingVariable = true;
-      const api = new PropertiesApi();
+      const api = new PropertiesApi(dorcApiConfiguration);
       api
         .propertiesDelete({
           requestBody: [selected.Name ?? '']
@@ -671,7 +672,7 @@ export class PageVariables extends PageElement {
       IsArray: checkboxArray.checked
     };
 
-    const api = new PropertiesApi();
+    const api = new PropertiesApi(dorcApiConfiguration);
     api.propertiesPost({ propertyApiModel: [prop] }).subscribe({
       next: (data: Response[]) => {
         if (data[0].Status === 'success') {
@@ -713,7 +714,7 @@ export class PageVariables extends PageElement {
   }
 
   private getEnvironments() {
-    const api2 = new RefDataEnvironmentsApi();
+    const api2 = new RefDataEnvironmentsApi(dorcApiConfiguration);
     api2.refDataEnvironmentsGetAllEnvironmentNamesGet().subscribe({
       next: (data: string[]) => {
         this.removeExistingScopesFromSelectable();
@@ -726,7 +727,7 @@ export class PageVariables extends PageElement {
   }
 
   private getAllVariableNames() {
-    const api = new PropertiesApi();
+    const api = new PropertiesApi(dorcApiConfiguration);
     api.propertiesGet().subscribe({
       next: (data: PropertyApiModel[]) => {
         this.properties = data.sort(this.sortProperties);
@@ -788,7 +789,7 @@ export class PageVariables extends PageElement {
       }
       this.loadingScopeOptions = true;
 
-      const api = new PropertyValuesApi();
+      const api = new PropertyValuesApi(dorcApiConfiguration);
       api
         .propertyValuesScopeOptionsGet({
           propertyValueScope: this.newVariableScope
@@ -819,7 +820,7 @@ export class PageVariables extends PageElement {
   private loadVariableValues() {
     if (this.propertyName !== '') {
       this.loadingPropertyValues = true;
-      const api = new PropertyValuesApi();
+      const api = new PropertyValuesApi(dorcApiConfiguration);
       api.propertyValuesGet({ propertyName: this.propertyName }).subscribe({
         next: (data: PropertyValueDto[]) => {
           this.setVariableValues(data);
@@ -877,7 +878,7 @@ export class PageVariables extends PageElement {
         Secure: !originallySecured
       };
 
-      const api = new PropertiesApi();
+      const api = new PropertiesApi(dorcApiConfiguration);
       const requestBody = { [propertyName]: updatedProperty };
 
       api.propertiesPut({ requestBody }).subscribe({
@@ -970,7 +971,7 @@ export class PageVariables extends PageElement {
       '#newVariableValue'
     ) as unknown as TextField;
     this.addingVariableValue = true;
-    const api = new PropertyValuesApi();
+    const api = new PropertyValuesApi(dorcApiConfiguration);
     const existingProperty = this.properties?.find(
       value => value.Name === this.propertyName
     );

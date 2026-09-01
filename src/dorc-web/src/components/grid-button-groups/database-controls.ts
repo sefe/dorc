@@ -16,6 +16,7 @@ import {
 import { ErrorNotification } from '../notifications/error-notification';
 import { retrieveErrorMessage } from '../../helpers/errorMessage-retriever.js';
 import '@vaadin/tooltip';
+import { dorcApiConfiguration } from '../../services/dorc-api-configuration';
 
 @customElement('database-controls')
 export class DatabaseControls extends LitElement {
@@ -90,7 +91,7 @@ export class DatabaseControls extends LitElement {
     const database = this.databaseDetails;
     const answer = await confirmPrompt(`Delete database ${database?.Name}?`);
     if (answer && database?.Id) {
-      const api = new RefDataDatabasesApi();
+      const api = new RefDataDatabasesApi(dorcApiConfiguration);
       api
         .refDataDatabasesDelete({
           databaseId: database.Id

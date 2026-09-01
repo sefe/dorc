@@ -47,6 +47,7 @@ import {
   silentRefreshStyles
 } from '../../helpers/silent-grid-refresh';
 import '@vaadin/tooltip';
+import { dorcApiConfiguration } from '../../services/dorc-api-configuration';
 
 const username = 'Username';
 const status = 'Status';
@@ -129,7 +130,7 @@ export class EnvMonitor
         value: this.componentsFilter
       });
     }
-    const api = new RequestStatusesApi();
+    const api = new RequestStatusesApi(dorcApiConfiguration);
     this.silentRefresh.requestStarted();
     api
       .requestStatusesPut({

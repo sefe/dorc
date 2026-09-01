@@ -13,6 +13,7 @@ import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
 import '@vaadin/horizontal-layout';
 import '@vaadin/vertical-layout';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('component-previous-attempts')
 export class ComponentPreviousAttempts extends LitElement {
@@ -329,7 +330,7 @@ export class ComponentPreviousAttempts extends LitElement {
       // The original DeploymentResult rows are deleted on restart,
       // so /ResultStatuses/Log would return 404.
       try {
-        const api = new RequestApi();
+        const api = new RequestApi(dorcApiConfiguration);
         const logObservable = api.requestRequestIdAttemptsLogGet({
           requestId: this.requestId,
           deploymentResultId: result.DeploymentResultId
@@ -355,7 +356,7 @@ export class ComponentPreviousAttempts extends LitElement {
       // Fallback for older archived attempts without DeploymentResultId:
       // try the ResultStatuses/Log endpoint using the component's original result ID.
       try {
-        const api = new ResultStatusesApi();
+        const api = new ResultStatusesApi(dorcApiConfiguration);
         const logObservable = api.resultStatusesLogGet({
           requestId: this.requestId,
           resultId: result.Id
