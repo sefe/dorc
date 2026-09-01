@@ -131,7 +131,7 @@ namespace Dorc.Monitor.Tests
         }
 
         private static ConfigValueApiModel Secure(string key) =>
-            new() { Key = key, Value = "x", Secure = true };
+            new() { Key = key, Value = "x", Secure = true, VisibleToScripts = true };
 
         private static ConfigValueApiModel NotSecure(string key) =>
             new() { Key = key, Value = "x", Secure = false };
