@@ -124,6 +124,7 @@ namespace Dorc.Monitor.Tests
                     isProduction: isProduction,
                     environmentName: "SOME-ENV",
                     executionIdentityReference: null,
+                    identityAdoption: new RequestExecutionIdentityAdoption(),
                     new StringBuilder(),
                     CancellationToken.None);
             }
@@ -314,6 +315,7 @@ namespace Dorc.Monitor.Tests
                 isProduction: true,
                 environmentName: "SOME-ENV",
                 executionIdentityReference: null,
+                identityAdoption: new RequestExecutionIdentityAdoption(),
                 new StringBuilder(),
                 CancellationToken.None));
 

@@ -29,7 +29,6 @@ namespace Dorc.Monitor.RequestProcessors
         private readonly ILoggerFactory _loggerFactory;
         private readonly IGitHubArtifactDownloader _gitHubArtifactDownloader;
         private readonly IScriptScopeConfigValues _scriptScopeConfigValues;
-        private readonly IDeploymentCredentialSource _credentialSource;
 
         public PendingRequestProcessor(
             ILoggerFactory loggerFactory,
@@ -43,15 +42,13 @@ namespace Dorc.Monitor.RequestProcessors
             IPropertyEvaluator propertyEvaluator,
             IDeploymentEventsPublisher eventPublisher,
             IGitHubArtifactDownloader gitHubArtifactDownloader,
-            IScriptScopeConfigValues scriptScopeConfigValues,
-            IDeploymentCredentialSource credentialSource)
+            IScriptScopeConfigValues scriptScopeConfigValues)
         {
             _loggerFactory = loggerFactory;
             _propertyEvaluator = propertyEvaluator;
             _configValuesPersistentSource = configValuesPersistentSource;
             _gitHubArtifactDownloader = gitHubArtifactDownloader;
             _scriptScopeConfigValues = scriptScopeConfigValues;
-            _credentialSource = credentialSource;
             this.logger = _loggerFactory.CreateLogger<PendingRequestProcessor>();
 
             this.componentProcessor = componentProcessor;
@@ -70,11 +67,13 @@ namespace Dorc.Monitor.RequestProcessors
 
                 logger.LogInformation($"Attempting to deploy the request with id '{requestToExecute.Request.Id}'.");
 
-                _variableResolver = new VariableResolver(propertyValuesPersistentSource, _loggerFactory, _propertyEvaluator);
-
                 string? resolvedDropFolder = null;
+                var identityAdoption = new RequestExecutionIdentityAdoption();
                 try
                 {
+                    _variableResolver =
+                        new VariableResolver(propertyValuesPersistentSource, _loggerFactory, _propertyEvaluator);
+
                     var scriptRoot = _configValuesPersistentSource.GetConfigValue("ScriptRoot");
                     SetUpScriptRootAsProperty(scriptRoot);
 
@@ -230,6 +229,7 @@ namespace Dorc.Monitor.RequestProcessors
                                     // one. Null means the tier default, which is how every
                                     // environment behaves until it is bound.
                                     environment.ExecutionIdentityReference,
+                                    identityAdoption,
                                     scriptRoot,
                                     commonProperties,
                                     cancellationToken);
@@ -321,8 +321,6 @@ namespace Dorc.Monitor.RequestProcessors
 
                         CancelPendingDeploymentResults(requestToExecute.Request.Id, DeploymentRequestStatus.Errored);
 
-                        ReportExecutionIdentityAdoption();
-
                         requestsPersistentSource.SetRequestCompletionStatus(
                             requestToExecute.Request.Id,
                             DeploymentRequestStatus.Errored,
@@ -365,6 +363,8 @@ namespace Dorc.Monitor.RequestProcessors
                 }
                 finally
                 {
+                    ReportExecutionIdentityAdoption(identityAdoption);
+
                     // Clean up downloaded GitHub artifacts after deployment completes
                     if (resolvedDropFolder != null &&
                         _gitHubArtifactDownloader.IsGitHubArtifactUrl(requestToExecute.Details.BuildDetail.DropLocation))
@@ -556,19 +556,16 @@ namespace Dorc.Monitor.RequestProcessors
         /// is not the same claim as "the estate is bound". Reported from the count rather than
         /// from a configuration flag, so it cannot be wrong.
         /// </summary>
-        private void ReportExecutionIdentityAdoption()
+        private void ReportExecutionIdentityAdoption(RequestExecutionIdentityAdoption identityAdoption)
         {
-            var (bound, fallback) = _credentialSource.ResolutionCounts;
+            var (bound, fallback) = identityAdoption.Counts;
 
-            if (fallback > 0)
-            {
-                logger.LogInformation(
-                    "Execution identity: {Bound} resolution(s) used an environment's own identity,"
-                    + " {Fallback} fell back to the shared tier default. Every fallback shares one"
-                    + " account across its whole tier.",
-                    bound,
-                    fallback);
-            }
+            logger.LogInformation(
+                "Execution identity adoption for request: {Bound} resolution(s) used an environment's"
+                + " own identity, {Fallback} fell back to the shared tier default. Every fallback"
+                + " shares one account across its whole tier.",
+                bound,
+                fallback);
         }
 
         private void SetUpRefDataApiUrlAsProperty()

@@ -15,6 +15,7 @@ namespace Dorc.Monitor
             bool isProduction,
             string environmentName,
             string? executionIdentityReference,
+            RequestExecutionIdentityAdoption identityAdoption,
             StringBuilder resultLogBuilder,
             TerraformRunnerOperations terreformOperation,
             CancellationToken cancellationToken);
