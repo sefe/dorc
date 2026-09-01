@@ -32,6 +32,7 @@ namespace Dorc.Api.Controllers
         private readonly IProjectsPersistentSource _projectsPersistentSource;
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
         private readonly IRequestsPersistentSource _requestsPersistentSource;
+        private readonly IRequestService _requestService;
 
         public MakeLikeProdController(ILogger<MakeLikeProdController> logger,
             IDeployLibrary deployLibrary, IEnvironmentsPersistentSource environmentsPersistentSource,
@@ -40,7 +41,8 @@ namespace Dorc.Api.Controllers
             [FromKeyedServices("BundledRequestVariableResolver")] IVariableResolver variableResolver,
             IBundledRequestVariableLoader bundledRequestVariableLoader, IProjectsPersistentSource projectsPersistentSource,
             IClaimsPrincipalReader claimsPrincipalReader,
-            IRequestsPersistentSource requestsPersistentSource)
+            IRequestsPersistentSource requestsPersistentSource,
+            IRequestService requestService)
         {
             _projectsPersistentSource = projectsPersistentSource;
             _bundledRequestVariableLoader = bundledRequestVariableLoader;
@@ -53,6 +55,7 @@ namespace Dorc.Api.Controllers
             _logger = logger;
             _claimsPrincipalReader = claimsPrincipalReader;
             _requestsPersistentSource = requestsPersistentSource;
+            _requestService = requestService;
         }
 
         /// <summary>
@@ -166,8 +169,9 @@ namespace Dorc.Api.Controllers
                                 });
                             }
 
-                            var jobRequestId = _deployLibrary.SubmitRequest(job.Project, mlpRequest.TargetEnv, job.BuildUrl,
-                                job.BuildText, job.Components.ToList(), variables, User);
+                            job.Environment = mlpRequest.TargetEnv;
+                            job.RequestProperties = variables;
+                            var jobRequestId = _requestService.CreateRequest(job, User).Id;
                             reqIds.Add(jobRequestId);
                             _logger.LogInformation("Bundle '{BundleName}' Sequence {Sequence}: JobRequest for project '{Project}' created request ID {RequestId}",
                                 mlpRequest.BundleName, req.Sequence, job.Project, jobRequestId);
