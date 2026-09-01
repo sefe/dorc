@@ -5,10 +5,14 @@ import '@vaadin/details';
 import '@vaadin/dialog';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/grid/vaadin-grid-sort-column';
+import { columnBodyRenderer } from '@vaadin/grid/lit';
 import type { DialogOpenedChangedEvent } from '@vaadin/dialog';
 import { dialogRenderer } from '@vaadin/dialog/lit';
 import { Notification } from '@vaadin/notification';
-import { ApiRegistrationApiModel, RefDataApiRegistrationsApi } from '../../apis/dorc-api';
+import {
+  ApiRegistrationApiModel,
+  RefDataApiRegistrationsApi
+} from '../../apis/dorc-api';
 import '../add-edit-api-registration';
 import '../attach-api-registration';
 import { PageEnvBase } from './page-env-base';
@@ -17,7 +21,8 @@ import { PageEnvBase } from './page-env-base';
 export class EnvApis extends PageEnvBase {
   @property({ type: Boolean }) private envReadOnly = false;
 
-  @property({ type: Array }) private apiRegistrations: ApiRegistrationApiModel[] = [];
+  @property({ type: Array })
+  private apiRegistrations: ApiRegistrationApiModel[] = [];
 
   @state() private attachDialogOpened = false;
 
@@ -73,8 +78,14 @@ export class EnvApis extends PageEnvBase {
 
   protected firstUpdated(_changedProperties: PropertyValues) {
     super.firstUpdated(_changedProperties);
-    this.addEventListener('api-registration-attached', this.onMutated as EventListener);
-    this.addEventListener('api-registration-saved', this.onSaved as EventListener);
+    this.addEventListener(
+      'api-registration-attached',
+      this.onMutated as EventListener
+    );
+    this.addEventListener(
+      'api-registration-saved',
+      this.onSaved as EventListener
+    );
   }
 
   render() {
@@ -99,17 +110,33 @@ export class EnvApis extends PageEnvBase {
               >New API</vaadin-button
             >
           </div>
-          <vaadin-grid id="api-registrations-grid" .items="${this.apiRegistrations}" theme="compact row-stripes no-row-borders">
-            <vaadin-grid-sort-column path="Name" header="Name"></vaadin-grid-sort-column>
-            <vaadin-grid-sort-column path="BaseUrl" header="Base URL"></vaadin-grid-sort-column>
-            <vaadin-grid-sort-column path="Version" header="Version"></vaadin-grid-sort-column>
+          <vaadin-grid
+            id="api-registrations-grid"
+            .items="${this.apiRegistrations}"
+            theme="compact row-stripes no-row-borders"
+          >
+            <vaadin-grid-sort-column
+              path="Name"
+              header="Name"
+            ></vaadin-grid-sort-column>
+            <vaadin-grid-sort-column
+              path="BaseUrl"
+              header="Base URL"
+            ></vaadin-grid-sort-column>
+            <vaadin-grid-sort-column
+              path="Version"
+              header="Version"
+            ></vaadin-grid-sort-column>
             <vaadin-grid-sort-column
               path="HealthCheckUrl"
               header="Health Check URL"
             ></vaadin-grid-sort-column>
-            <vaadin-grid-sort-column path="Tags" header="Tags"></vaadin-grid-sort-column>
+            <vaadin-grid-sort-column
+              path="Tags"
+              header="Tags"
+            ></vaadin-grid-sort-column>
             <vaadin-grid-column
-              .renderer="${this.actionsRenderer}"
+              ${columnBodyRenderer(this.actionsRenderer, [this.envReadOnly])}
               flex-grow="0"
               width="180px"
             ></vaadin-grid-column>
@@ -124,10 +151,7 @@ export class EnvApis extends PageEnvBase {
         @opened-changed="${(e: DialogOpenedChangedEvent) => {
           this.attachDialogOpened = e.detail.value;
         }}"
-        ${dialogRenderer(
-          () => html`<attach-api-registration .envId="${this.environmentId}"></attach-api-registration>`,
-          [this.environmentId]
-        )}
+        ${dialogRenderer(this.attachDialogRenderer, [this.environmentId])}
       ></vaadin-dialog>
 
       <vaadin-dialog
@@ -137,38 +161,45 @@ export class EnvApis extends PageEnvBase {
         @opened-changed="${(e: DialogOpenedChangedEvent) => {
           this.editDialogOpened = e.detail.value;
         }}"
-        ${dialogRenderer(
-          () => html`<add-edit-api-registration .apiRegistration="${this.editing}"></add-edit-api-registration>`,
-          [this.editing]
-        )}
+        ${dialogRenderer(this.editDialogRenderer, [this.editing])}
       ></vaadin-dialog>
     `;
   }
 
-  private actionsRenderer = (
-    root: HTMLElement,
-    _column: unknown,
-    model: { item: ApiRegistrationApiModel }
-  ) => {
-    root.innerHTML = '';
-    const edit = document.createElement('vaadin-button');
-    edit.className = 'row-button';
-    edit.textContent = 'Edit';
-    edit.disabled = this.envReadOnly;
-    edit.addEventListener('click', () => this.openEditDialog(model.item));
-    const detach = document.createElement('vaadin-button');
-    detach.className = 'row-button';
-    detach.textContent = 'Detach';
-    detach.disabled = this.envReadOnly;
-    detach.addEventListener('click', () => this.detach(model.item));
-    root.append(edit, detach);
-  };
+  private attachDialogRenderer = () => html`
+    <attach-api-registration
+      .envId="${this.environmentId}"
+    ></attach-api-registration>
+  `;
+
+  private editDialogRenderer = () => html`
+    <add-edit-api-registration
+      .apiRegistration="${this.editing}"
+    ></add-edit-api-registration>
+  `;
+
+  private actionsRenderer = (item: ApiRegistrationApiModel) => html`
+    <vaadin-button
+      class="row-button"
+      ?disabled="${this.envReadOnly}"
+      @click="${() => this.openEditDialog(item)}"
+      >Edit</vaadin-button
+    >
+    <vaadin-button
+      class="row-button"
+      ?disabled="${this.envReadOnly}"
+      @click="${() => this.detach(item)}"
+      >Detach</vaadin-button
+    >
+  `;
 
   override notifyEnvironmentReady() {
     this.envReadOnly = !this.environment?.UserEditable;
     // The base class assigns `environment` (which fires this hook) before it assigns
     // `environmentId` on the cold-cache path, so derive the id from the environment.
-    this.loadApiRegistrations(this.environment?.EnvironmentId ?? this.environmentId);
+    this.loadApiRegistrations(
+      this.environment?.EnvironmentId ?? this.environmentId
+    );
   }
 
   private loadApiRegistrations(envId: number = this.environmentId) {

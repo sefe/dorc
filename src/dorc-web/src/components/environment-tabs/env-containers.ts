@@ -5,6 +5,7 @@ import '@vaadin/details';
 import '@vaadin/dialog';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/grid/vaadin-grid-sort-column';
+import { columnBodyRenderer } from '@vaadin/grid/lit';
 import type { DialogOpenedChangedEvent } from '@vaadin/dialog';
 import { dialogRenderer } from '@vaadin/dialog/lit';
 import { Notification } from '@vaadin/notification';
@@ -73,7 +74,10 @@ export class EnvContainers extends PageEnvBase {
 
   protected firstUpdated(_changedProperties: PropertyValues) {
     super.firstUpdated(_changedProperties);
-    this.addEventListener('container-attached', this.onMutated as EventListener);
+    this.addEventListener(
+      'container-attached',
+      this.onMutated as EventListener
+    );
     this.addEventListener('container-saved', this.onSaved as EventListener);
   }
 
@@ -99,17 +103,33 @@ export class EnvContainers extends PageEnvBase {
               >New Container</vaadin-button
             >
           </div>
-          <vaadin-grid id="containers-grid" .items="${this.containers}" theme="compact row-stripes no-row-borders">
-            <vaadin-grid-sort-column path="Name" header="Name"></vaadin-grid-sort-column>
-            <vaadin-grid-sort-column path="Image" header="Image"></vaadin-grid-sort-column>
-            <vaadin-grid-sort-column path="Registry" header="Registry"></vaadin-grid-sort-column>
+          <vaadin-grid
+            id="containers-grid"
+            .items="${this.containers}"
+            theme="compact row-stripes no-row-borders"
+          >
+            <vaadin-grid-sort-column
+              path="Name"
+              header="Name"
+            ></vaadin-grid-sort-column>
+            <vaadin-grid-sort-column
+              path="Image"
+              header="Image"
+            ></vaadin-grid-sort-column>
+            <vaadin-grid-sort-column
+              path="Registry"
+              header="Registry"
+            ></vaadin-grid-sort-column>
             <vaadin-grid-sort-column
               path="HostServerName"
               header="Host Server"
             ></vaadin-grid-sort-column>
-            <vaadin-grid-sort-column path="Tags" header="Tags"></vaadin-grid-sort-column>
+            <vaadin-grid-sort-column
+              path="Tags"
+              header="Tags"
+            ></vaadin-grid-sort-column>
             <vaadin-grid-column
-              .renderer="${this.actionsRenderer}"
+              ${columnBodyRenderer(this.actionsRenderer, [this.envReadOnly])}
               flex-grow="0"
               width="180px"
             ></vaadin-grid-column>
@@ -124,10 +144,7 @@ export class EnvContainers extends PageEnvBase {
         @opened-changed="${(e: DialogOpenedChangedEvent) => {
           this.attachDialogOpened = e.detail.value;
         }}"
-        ${dialogRenderer(
-          () => html`<attach-container .envId="${this.environmentId}"></attach-container>`,
-          [this.environmentId]
-        )}
+        ${dialogRenderer(this.attachDialogRenderer, [this.environmentId])}
       ></vaadin-dialog>
 
       <vaadin-dialog
@@ -137,32 +154,33 @@ export class EnvContainers extends PageEnvBase {
         @opened-changed="${(e: DialogOpenedChangedEvent) => {
           this.editDialogOpened = e.detail.value;
         }}"
-        ${dialogRenderer(
-          () => html`<add-edit-container .container="${this.editing}"></add-edit-container>`,
-          [this.editing]
-        )}
+        ${dialogRenderer(this.editDialogRenderer, [this.editing])}
       ></vaadin-dialog>
     `;
   }
 
-  private actionsRenderer = (
-    root: HTMLElement,
-    _column: unknown,
-    model: { item: ContainerApiModel }
-  ) => {
-    root.innerHTML = '';
-    const edit = document.createElement('vaadin-button');
-    edit.className = 'row-button';
-    edit.textContent = 'Edit';
-    edit.disabled = this.envReadOnly;
-    edit.addEventListener('click', () => this.openEditDialog(model.item));
-    const detach = document.createElement('vaadin-button');
-    detach.className = 'row-button';
-    detach.textContent = 'Detach';
-    detach.disabled = this.envReadOnly;
-    detach.addEventListener('click', () => this.detach(model.item));
-    root.append(edit, detach);
-  };
+  private attachDialogRenderer = () => html`
+    <attach-container .envId="${this.environmentId}"></attach-container>
+  `;
+
+  private editDialogRenderer = () => html`
+    <add-edit-container .container="${this.editing}"></add-edit-container>
+  `;
+
+  private actionsRenderer = (item: ContainerApiModel) => html`
+    <vaadin-button
+      class="row-button"
+      ?disabled="${this.envReadOnly}"
+      @click="${() => this.openEditDialog(item)}"
+      >Edit</vaadin-button
+    >
+    <vaadin-button
+      class="row-button"
+      ?disabled="${this.envReadOnly}"
+      @click="${() => this.detach(item)}"
+      >Detach</vaadin-button
+    >
+  `;
 
   override notifyEnvironmentReady() {
     this.envReadOnly = !this.environment?.UserEditable;

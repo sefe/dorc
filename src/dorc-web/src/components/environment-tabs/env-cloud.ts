@@ -5,10 +5,14 @@ import '@vaadin/details';
 import '@vaadin/dialog';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/grid/vaadin-grid-sort-column';
+import { columnBodyRenderer } from '@vaadin/grid/lit';
 import type { DialogOpenedChangedEvent } from '@vaadin/dialog';
 import { dialogRenderer } from '@vaadin/dialog/lit';
 import { Notification } from '@vaadin/notification';
-import { CloudResourceApiModel, RefDataCloudResourcesApi } from '../../apis/dorc-api';
+import {
+  CloudResourceApiModel,
+  RefDataCloudResourcesApi
+} from '../../apis/dorc-api';
 import '../add-edit-cloud-resource';
 import '../attach-cloud-resource';
 import { PageEnvBase } from './page-env-base';
@@ -17,7 +21,8 @@ import { PageEnvBase } from './page-env-base';
 export class EnvCloud extends PageEnvBase {
   @property({ type: Boolean }) private envReadOnly = false;
 
-  @property({ type: Array }) private cloudResources: CloudResourceApiModel[] = [];
+  @property({ type: Array }) private cloudResources: CloudResourceApiModel[] =
+    [];
 
   @state() private attachDialogOpened = false;
 
@@ -73,8 +78,14 @@ export class EnvCloud extends PageEnvBase {
 
   protected firstUpdated(_changedProperties: PropertyValues) {
     super.firstUpdated(_changedProperties);
-    this.addEventListener('cloud-resource-attached', this.onMutated as EventListener);
-    this.addEventListener('cloud-resource-saved', this.onSaved as EventListener);
+    this.addEventListener(
+      'cloud-resource-attached',
+      this.onMutated as EventListener
+    );
+    this.addEventListener(
+      'cloud-resource-saved',
+      this.onSaved as EventListener
+    );
   }
 
   render() {
@@ -99,9 +110,19 @@ export class EnvCloud extends PageEnvBase {
               >New Cloud Resource</vaadin-button
             >
           </div>
-          <vaadin-grid id="cloud-resources-grid" .items="${this.cloudResources}" theme="compact row-stripes no-row-borders">
-            <vaadin-grid-sort-column path="Name" header="Name"></vaadin-grid-sort-column>
-            <vaadin-grid-sort-column path="Provider" header="Provider"></vaadin-grid-sort-column>
+          <vaadin-grid
+            id="cloud-resources-grid"
+            .items="${this.cloudResources}"
+            theme="compact row-stripes no-row-borders"
+          >
+            <vaadin-grid-sort-column
+              path="Name"
+              header="Name"
+            ></vaadin-grid-sort-column>
+            <vaadin-grid-sort-column
+              path="Provider"
+              header="Provider"
+            ></vaadin-grid-sort-column>
             <vaadin-grid-sort-column
               path="ResourceType"
               header="Resource Type"
@@ -114,9 +135,12 @@ export class EnvCloud extends PageEnvBase {
               path="Subscription"
               header="Subscription"
             ></vaadin-grid-sort-column>
-            <vaadin-grid-sort-column path="Tags" header="Tags"></vaadin-grid-sort-column>
+            <vaadin-grid-sort-column
+              path="Tags"
+              header="Tags"
+            ></vaadin-grid-sort-column>
             <vaadin-grid-column
-              .renderer="${this.actionsRenderer}"
+              ${columnBodyRenderer(this.actionsRenderer, [this.envReadOnly])}
               flex-grow="0"
               width="180px"
             ></vaadin-grid-column>
@@ -131,10 +155,7 @@ export class EnvCloud extends PageEnvBase {
         @opened-changed="${(e: DialogOpenedChangedEvent) => {
           this.attachDialogOpened = e.detail.value;
         }}"
-        ${dialogRenderer(
-          () => html`<attach-cloud-resource .envId="${this.environmentId}"></attach-cloud-resource>`,
-          [this.environmentId]
-        )}
+        ${dialogRenderer(this.attachDialogRenderer, [this.environmentId])}
       ></vaadin-dialog>
 
       <vaadin-dialog
@@ -144,38 +165,45 @@ export class EnvCloud extends PageEnvBase {
         @opened-changed="${(e: DialogOpenedChangedEvent) => {
           this.editDialogOpened = e.detail.value;
         }}"
-        ${dialogRenderer(
-          () => html`<add-edit-cloud-resource .cloudResource="${this.editing}"></add-edit-cloud-resource>`,
-          [this.editing]
-        )}
+        ${dialogRenderer(this.editDialogRenderer, [this.editing])}
       ></vaadin-dialog>
     `;
   }
 
-  private actionsRenderer = (
-    root: HTMLElement,
-    _column: unknown,
-    model: { item: CloudResourceApiModel }
-  ) => {
-    root.innerHTML = '';
-    const edit = document.createElement('vaadin-button');
-    edit.className = 'row-button';
-    edit.textContent = 'Edit';
-    edit.disabled = this.envReadOnly;
-    edit.addEventListener('click', () => this.openEditDialog(model.item));
-    const detach = document.createElement('vaadin-button');
-    detach.className = 'row-button';
-    detach.textContent = 'Detach';
-    detach.disabled = this.envReadOnly;
-    detach.addEventListener('click', () => this.detach(model.item));
-    root.append(edit, detach);
-  };
+  private attachDialogRenderer = () => html`
+    <attach-cloud-resource
+      .envId="${this.environmentId}"
+    ></attach-cloud-resource>
+  `;
+
+  private editDialogRenderer = () => html`
+    <add-edit-cloud-resource
+      .cloudResource="${this.editing}"
+    ></add-edit-cloud-resource>
+  `;
+
+  private actionsRenderer = (item: CloudResourceApiModel) => html`
+    <vaadin-button
+      class="row-button"
+      ?disabled="${this.envReadOnly}"
+      @click="${() => this.openEditDialog(item)}"
+      >Edit</vaadin-button
+    >
+    <vaadin-button
+      class="row-button"
+      ?disabled="${this.envReadOnly}"
+      @click="${() => this.detach(item)}"
+      >Detach</vaadin-button
+    >
+  `;
 
   override notifyEnvironmentReady() {
     this.envReadOnly = !this.environment?.UserEditable;
     // The base class assigns `environment` (which fires this hook) before it assigns
     // `environmentId` on the cold-cache path, so derive the id from the environment.
-    this.loadCloudResources(this.environment?.EnvironmentId ?? this.environmentId);
+    this.loadCloudResources(
+      this.environment?.EnvironmentId ?? this.environmentId
+    );
   }
 
   private loadCloudResources(envId: number = this.environmentId) {
