@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using Dorc.ApiModel;
+using Microsoft.Extensions.Logging;
 
 namespace Dorc.Core.Security
 {
@@ -36,7 +37,23 @@ namespace Dorc.Core.Security
                 return ResolveTierDefault(tier);
             }
 
-            var credential = ResolveNamedIdentity(identityReference.Trim(), tier);
+            string validatedIdentityReference;
+            try
+            {
+                validatedIdentityReference =
+                    EnvironmentExecutionIdentityReference.Validate(identityReference);
+            }
+            catch (ArgumentException exception)
+            {
+                Logger.LogError(
+                    exception,
+                    "Environment identity reference '{IdentityReference}' is invalid. Refusing to"
+                    + " resolve a deployment credential.",
+                    identityReference);
+                return null;
+            }
+
+            var credential = ResolveNamedIdentity(validatedIdentityReference, tier);
 
             if (credential == null)
             {
