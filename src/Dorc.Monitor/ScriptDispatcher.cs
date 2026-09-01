@@ -59,6 +59,7 @@ namespace Dorc.Monitor
             bool isProduction,
             string environmentName,
             string? executionIdentityReference,
+            RequestExecutionIdentityAdoption identityAdoption,
             StringBuilder componentResultLogBuilder,
             CancellationToken cancellationToken)
         {
@@ -75,7 +76,8 @@ namespace Dorc.Monitor
             // Environment-keyed. An environment naming its own execution identity deploys under
             // it; one that does not falls back to the tier default and behaves exactly as before,
             // so migration proceeds environment by environment rather than as a flag day.
-            var credential = _credentialSource.Resolve(
+            var credential = identityAdoption.Resolve(
+                _credentialSource,
                 isProduction ? DeploymentTier.Production : DeploymentTier.NonProduction,
                 executionIdentityReference);
 

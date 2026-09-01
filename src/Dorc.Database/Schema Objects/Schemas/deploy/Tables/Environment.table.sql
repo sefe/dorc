@@ -20,10 +20,9 @@
     -- A reference rather than a credential. Granularity is by sensitivity tier in practice -
     -- the estate holds well over a thousand environments and an account each is not viable -
     -- but the column is per environment so the cases that warrant their own can have one.
-    [ExecutionIdentityReference] NVARCHAR (128) NULL, 
+    [ExecutionIdentityReference] NVARCHAR (128) NULL,
     CONSTRAINT [PK_Environment] PRIMARY KEY CLUSTERED ([Id] ASC), 
     CONSTRAINT [ParentId_not_itself] CHECK ([Id]!=[ParentId])
 );
-
 
 

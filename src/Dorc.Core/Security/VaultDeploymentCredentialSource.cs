@@ -43,7 +43,7 @@ namespace Dorc.Core.Security
         {
             var credential = new DeploymentCredential(
                 _secrets.GetSecret($"{identityReference}-username", $"{identityReference} deployment username"),
-                _secrets.GetSecret($"{identityReference}-password", $"{identityReference} deployment password"));
+                _secrets.GetSecureSecret($"{identityReference}-password", $"{identityReference} deployment password"));
 
             return credential.IsComplete ? credential : null;
         }

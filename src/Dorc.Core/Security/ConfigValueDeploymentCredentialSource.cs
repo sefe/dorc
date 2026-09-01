@@ -40,7 +40,7 @@ namespace Dorc.Core.Security
         /// </summary>
         protected override DeploymentCredential? ResolveNamedIdentity(string identityReference, DeploymentTier tier)
         {
-            var credential = new DeploymentCredential(
+            var credential = DeploymentCredential.FromPlainText(
                 _configValues.GetConfigValue($"DORC_Deploy_{identityReference}_Username") ?? string.Empty,
                 _configValues.GetConfigValue($"DORC_Deploy_{identityReference}_Password") ?? string.Empty);
 

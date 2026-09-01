@@ -46,6 +46,7 @@ namespace Dorc.Monitor
             bool isProductionEnvironment,
             string environmentName,
             string? executionIdentityReference,
+            RequestExecutionIdentityAdoption identityAdoption,
             string scriptRoot,
             IDictionary<string, VariableValue> commonProperties,
             CancellationToken cancellationToken)
@@ -92,6 +93,7 @@ namespace Dorc.Monitor
                             isProductionRequest,
                             environmentName,
                             executionIdentityReference,
+                            identityAdoption,
                             componentResultLogBuilder,
                             terreformOperation,
                             cancellationToken);
@@ -166,6 +168,7 @@ namespace Dorc.Monitor
                                      isProductionRequest,
                                      environmentName,
                                      executionIdentityReference,
+                                     identityAdoption,
                                      componentResultLogBuilder,
                                      cancellationToken);
 

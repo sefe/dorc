@@ -125,6 +125,7 @@ namespace Dorc.Monitor.Tests
                     isProduction: isProduction,
                     environmentName: "SOME-ENV",
                     executionIdentityReference: null,
+                    identityAdoption: new RequestExecutionIdentityAdoption(),
                     new StringBuilder(),
                     CancellationToken.None),
                 "Dispatch was expected to fail while building the Runner's security context. If it now" +
@@ -308,6 +309,7 @@ namespace Dorc.Monitor.Tests
                 isProduction: true,
                 environmentName: "SOME-ENV",
                 executionIdentityReference: null,
+                identityAdoption: new RequestExecutionIdentityAdoption(),
                 new StringBuilder(),
                 CancellationToken.None));
 
