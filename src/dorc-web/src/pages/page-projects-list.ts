@@ -24,6 +24,7 @@ import GlobalCache from '../global-cache';
 import { ErrorNotification } from '../components/notifications/error-notification';
 import { retrieveErrorMessage } from '../helpers/errorMessage-retriever';
 import { SuccessNotification } from '../components/notifications/success-notification';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('page-projects-list')
 export class PageProjectsList extends ResponsiveMixin(PageElement) {
@@ -106,7 +107,7 @@ export class PageProjectsList extends ResponsiveMixin(PageElement) {
   }
 
   private getProjects() {
-    const api = new RefDataProjectsApi();
+    const api = new RefDataProjectsApi(dorcApiConfiguration);
     api.refDataProjectsGet().subscribe(
       (data: ProjectApiModel[]) => {
         this.setProjects(data);
@@ -239,7 +240,7 @@ export class PageProjectsList extends ResponsiveMixin(PageElement) {
       'add-edit-access-control'
     ) as AddEditAccessControl;
 
-    addEditAccessControl.open(this.secureName, AccessControlType.NUMBER_0);
+    addEditAccessControl.open(this.secureName, AccessControlType.Project);
   }
 
 
@@ -412,7 +413,7 @@ export class PageProjectsList extends ResponsiveMixin(PageElement) {
   }
 
   private performDelete(projectId: number) {
-    const api = new RefDataProjectsApi();
+    const api = new RefDataProjectsApi(dorcApiConfiguration);
     api.refDataProjectsProjectIdDelete({ projectId }).subscribe(
       (response: any) => {
         const backendMessage = retrieveErrorMessage(response);

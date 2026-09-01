@@ -10,6 +10,7 @@ import { EnvironmentApiModel } from '../../apis/dorc-api';
 import { AccessControlType } from '../../apis/dorc-api';
 import { RefDataEnvironmentsApi } from '../../apis/dorc-api';
 import '@vaadin/tooltip';
+import { dorcApiConfiguration } from '../../services/dorc-api-configuration';
 
 @customElement('env-controls')
 export class EnvControls extends LitElement {
@@ -53,9 +54,9 @@ export class EnvControls extends LitElement {
       this.envDetails?.EnvironmentName
     ) {
       this.ownerCheckDone = true;
-      const api = new RefDataEnvironmentsApi();
+      const api = new RefDataEnvironmentsApi(dorcApiConfiguration);
       api
-        .refDataEnvironmentsIsEnvironmentOwnerOrDelegateGet({
+        .refDataEnvironmentsIsEnvironmentOwnerGet({
           envName: this.envDetails.EnvironmentName
         })
         .subscribe({
@@ -122,7 +123,7 @@ export class EnvControls extends LitElement {
     const event = new CustomEvent('open-access-control', {
       detail: {
         Name: this.envDetails?.EnvironmentName,
-        Type: AccessControlType.NUMBER_1
+        Type: AccessControlType.Environment
       },
       bubbles: true,
       composed: true

@@ -21,13 +21,14 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import '../components/grid-button-groups/access-control-controls';
 import { AccessSecureApiModel, UserElementApiModel } from '../apis/dorc-api';
-import { AccessControlApi } from '../apis/dorc-api';
+import { AccessControlApi, AccessControlType } from '../apis/dorc-api';
 import { AccessControlApiModel } from '../apis/dorc-api';
 import '@vaadin/notification';
 import { ErrorNotification } from './notifications/error-notification';
 import { Notification } from '@vaadin/notification';
 import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 const AC_ALLOW_WRITE = 1;
 const AC_ALLOW_READ_SECRETS = 2;
@@ -226,21 +227,19 @@ export class AddEditAccessControl extends LitElement {
     console.log(e.code);
   }
 
-  _boundACButtonsRenderer(
-    item: AccessControlApiModel
-  ) {
+  _boundACButtonsRenderer(item: AccessControlApiModel) {
     const accessControl = item as AccessControlApiModel;
 
     return html`<access-control-controls
-        .accessControl="${accessControl}"
-        .disabled="${!this.UserEditable || item.Allow === AC_ALLOW_OWNER}"
-        @access-control-removed="${(e: CustomEvent) => {
+      .accessControl="${accessControl}"
+      .disabled="${!this.UserEditable || item.Allow === AC_ALLOW_OWNER}"
+      @access-control-removed="${(e: CustomEvent) => {
           // The row comes from the event, not from this closure: the closure is
           // replaced whenever the cell re-renders, which can happen while the
           // confirmation dialog is open.
           this.removeAccessControl(e.detail.accessControl);
         }}"
-      ></access-control-controls>`;
+    ></access-control-controls>`;
   }
 
   removeItem<T>(arr: Array<T>, value: T): Array<T> {
@@ -252,10 +251,11 @@ export class AddEditAccessControl extends LitElement {
   }
 
   removeAccessControl(accessControl: AccessControlApiModel) {
-    const actual = this.Privileges?.find(value =>
-      value.Id === accessControl.Id &&
-      value.Pid === accessControl.Pid &&
-      value.Sid === accessControl.Sid
+    const actual = this.Privileges?.find(
+      value =>
+        value.Id === accessControl.Id &&
+        value.Pid === accessControl.Pid &&
+        value.Sid === accessControl.Sid
     );
 
     if (actual !== undefined) {
@@ -280,7 +280,7 @@ export class AddEditAccessControl extends LitElement {
       ObjectId: this.AccessControls.ObjectId
     };
 
-    const api = new AccessControlApi();
+    const api = new AccessControlApi(dorcApiConfiguration);
     api.accessControlPut({ accessSecureApiModel: ac }).subscribe({
       next: (data: AccessSecureApiModel) => {
         this.AccessControls = data;
@@ -324,11 +324,17 @@ export class AddEditAccessControl extends LitElement {
   }
 
   addUser() {
-    const cbSelectedUser = this.shadowRoot?.getElementById('searchResults') as ComboBox;
-    const user = cbSelectedUser.selectedItem
+    const cbSelectedUser = this.shadowRoot?.getElementById(
+      'searchResults'
+    ) as ComboBox;
+    const user = cbSelectedUser.selectedItem;
 
     if (user !== undefined) {
-      const existing = this.Privileges?.find(item => (item.Sid && item.Sid === user.Sid) || (item.Pid && item.Pid === user.Pid));
+      const existing = this.Privileges?.find(
+        item =>
+          (item.Sid && item.Sid === user.Sid) ||
+          (item.Pid && item.Pid === user.Pid)
+      );
       if (existing) {
         Notification.show(`User is already in the list`, {
           theme: 'warning',
@@ -343,16 +349,14 @@ export class AddEditAccessControl extends LitElement {
         Allow: 0,
         Deny: 0,
         Pid: user.Pid,
-        Sid: user.Sid,
+        Sid: user.Sid
       };
       this.Privileges?.push(acam);
       this.Privileges = JSON.parse(JSON.stringify(this.Privileges));
     }
   }
 
-  searchResultsRenderer = (
-    item: UserElementApiModel
-  ) => {
+  searchResultsRenderer = (item: UserElementApiModel) => {
     if (!item) {
       return html``;
     }
@@ -362,17 +366,13 @@ export class AddEditAccessControl extends LitElement {
     const username = Username ?? '';
 
     return html`
-        <vaadin-vertical-layout style="padding: 4px 0; gap: 0;">
-          <div style="${this.acStyles.displayName}">
-            ${displayName}
-          </div>
-          <div style="${this.acStyles.username}">
-            ${username}
-          </div>
-          ${this.renderUserId(item)}
-        </vaadin-vertical-layout>
-      `;
-  }
+      <vaadin-vertical-layout style="padding: 4px 0; gap: 0;">
+        <div style="${this.acStyles.displayName}">${displayName}</div>
+        <div style="${this.acStyles.username}">${username}</div>
+        ${this.renderUserId(item)}
+      </vaadin-vertical-layout>
+    `;
+  };
 
   renderUserId(item: UserElementApiModel): unknown {
     if (!item) {
@@ -385,11 +385,7 @@ export class AddEditAccessControl extends LitElement {
     const additionalId = hasAdditionalId ? pid : sid;
 
     return additionalId
-      ? html`
-          <div style="${this.acStyles.additionalId}">
-            ${additionalId}
-          </div>
-        `
+      ? html` <div style="${this.acStyles.additionalId}">${additionalId}</div> `
       : html``;
   }
 
@@ -399,7 +395,7 @@ export class AddEditAccessControl extends LitElement {
 
   searchAD() {
     this.searchingUsers = true;
-    const api = new AccessControlApi();
+    const api = new AccessControlApi(dorcApiConfiguration);
     api.accessControlSearchUsersGet({ search: this.searchADValue }).subscribe(
       (data: Array<UserElementApiModel>) => {
         this.searchResults = data;
@@ -449,9 +445,7 @@ export class AddEditAccessControl extends LitElement {
     if (!checked && isSet) item.Allow ^= bit;
   }
 
-  acNameRenderer = (
-    item: AccessControlApiModel
-  ) => {
+  acNameRenderer = (item: AccessControlApiModel) => {
     const name = item.Name ?? '';
 
     return html`
@@ -524,17 +518,16 @@ export class AddEditAccessControl extends LitElement {
     }
   }
 
-
   setTextField(id: string, value: string) {
     const textField = this.shadowRoot?.getElementById(id) as TextField;
     if (textField) textField.value = value;
   }
 
-  open(secureName: string, secureType: number) {
+  open(secureName: string, secureType: AccessControlType) {
     this.loading = true;
 
     if (secureName !== '') {
-      const api = new AccessControlApi();
+      const api = new AccessControlApi(dorcApiConfiguration);
       api
         .accessControlGet({
           accessControlType: secureType,
@@ -551,7 +544,10 @@ export class AddEditAccessControl extends LitElement {
 
             this.loading = false;
           },
-          error: (err: string) => { this.loading = false; console.error(err); },
+          error: (err: string) => {
+            this.loading = false;
+            console.error(err);
+          },
           complete: () => console.log('finished loading access controls')
         });
     }
@@ -562,159 +558,162 @@ export class AddEditAccessControl extends LitElement {
   }
 
   private renderAccessControlContent = () => html`
-
+    <table>
+      <tr>
+        <td>
+          ${
+                this.UserEditable
+                  ? html`
+                      <vaadin-icon
+                        icon="vaadin:unlock"
+                        role="img"
+                        aria-label="Editable"
+                        title="Editable"
+                        style="color: var(--dorc-link-color)"
+                      ></vaadin-icon>
+                    `
+                  : html`
+                      <vaadin-icon
+                        icon="vaadin:lock"
+                        role="img"
+                        aria-label="Read-only"
+                        title="Read-only"
+                        style="color: var(--dorc-link-color)"
+                      ></vaadin-icon>
+                    `
+              }
+        </td>
+        <td>
+          <h2>${this.secureName}</h2>
+          ${this.loading ? html` <div class="small-loader"></div> ` : html``}
+        </td>
+      </tr>
+    </table>
+    <div style="padding-left: 10px;padding-right: 10px;">
+      <vaadin-details
+        opened
+        summary="Add New User"
+        style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; width: 100%"
+      >
         <table>
           <tr>
-            <td>
-              ${this.UserEditable
-                ? html`
-                    <vaadin-icon
-                      icon="vaadin:unlock"
-                      role="img"
-                      aria-label="Editable"
-                      title="Editable"
-                      style="color: var(--dorc-link-color)"
-                    ></vaadin-icon>
-                  `
-                : html`
-                    <vaadin-icon
-                      icon="vaadin:lock"
-                      role="img"
-                      aria-label="Read-only"
-                      title="Read-only"
-                      style="color: var(--dorc-link-color)"
-                    ></vaadin-icon>
-                  `}
+            <td style="display: table-cell; vertical-align: bottom;">
+              <vaadin-text-field
+                id="search-criteria"
+                label="Search Criteria"
+                @input="${this.updateSearchCriteria}"
+                ${ref(this.wireSearchCriteria)}
+              ></vaadin-text-field>
             </td>
-            <td>
-              <h2>${this.secureName}</h2>
-              ${this.loading
-                ? html` <div class="small-loader"></div> `
-                : html``}
+            <td style="display: table-cell; vertical-align: bottom;">
+              <vaadin-button
+                @click="${this.searchAD}"
+                style="margin-bottom: 5px"
+                >Search</vaadin-button
+              >
+            </td>
+            <td style="display: table-cell; vertical-align: center;">
+              ${
+                    this.searchingUsers
+                      ? html` <div class="small-loader"></div> `
+                      : html``
+                  }
+            </td>
+          </tr>
+          <tr>
+            <td style="display: table-cell; vertical-align: bottom;">
+              <vaadin-combo-box
+                id="searchResults"
+                label="Search Results"
+                item-value-path="DisplayName"
+                item-label-path="DisplayName"
+                .items="${this.searchResults}"
+                ${comboBoxRenderer(this.searchResultsRenderer, [])}
+              ></vaadin-combo-box>
+            </td>
+            <td style="display: table-cell; vertical-align: bottom;">
+              <vaadin-button
+                @click="${this.addUser}"
+                style="margin-bottom: 5px"
+                ?disabled="${!this.UserEditable}"
+                >Add</vaadin-button
+              >
             </td>
           </tr>
         </table>
-        <div style="padding-left: 10px;padding-right: 10px;">
-          <vaadin-details
-            opened
-            summary="Add New User"
-            style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; width: 100%"
-          >
-            <table>
-              <tr>
-                <td style="display: table-cell; vertical-align: bottom;">
-                  <vaadin-text-field
-                    id="search-criteria"
-                    label="Search Criteria"
-                    @input="${this.updateSearchCriteria}"
-                    ${ref(this.wireSearchCriteria)}
-                  ></vaadin-text-field>
-                </td>
-                <td style="display: table-cell; vertical-align: bottom;">
-                  <vaadin-button
-                    @click="${this.searchAD}"
-                    style="margin-bottom: 5px"
-                    >Search</vaadin-button
-                  >
-                </td>
-                <td style="display: table-cell; vertical-align: center;">
-                  ${this.searchingUsers
-                    ? html` <div class="small-loader"></div> `
-                    : html``}
-                </td>
-              </tr>
-              <tr>
-                <td style="display: table-cell; vertical-align: bottom;">
-                  <vaadin-combo-box
-                    id="searchResults"
-                    label="Search Results"
-                    item-value-path="DisplayName"
-                    item-label-path="DisplayName"
-                    .items="${this.searchResults}"
-                    ${comboBoxRenderer(this.searchResultsRenderer, [])}
-                  ></vaadin-combo-box>
-                </td>
-                <td style="display: table-cell; vertical-align: bottom;">
-                  <vaadin-button
-                    @click="${this.addUser}"
-                    style="margin-bottom: 5px"
-                    ?disabled="${!this.UserEditable}"
-                    >Add</vaadin-button
-                  >
-                </td>
-              </tr>
-            </table>
-          </vaadin-details>
-          <vaadin-grid
-            .items="${this.Privileges}"
-            theme="compact row-stripes no-row-borders no-border"
-            style="width: 100%;"
-          >
-            <vaadin-grid-sort-column
-              header="Name"
-              ${columnBodyRenderer(this.acNameRenderer, [])}
-              flex="3"
-              resizable
-              auto-width
-            ></vaadin-grid-sort-column>
-            <vaadin-grid-column
-              header="Write"
-              ${columnBodyRenderer(this.acCanWrite, [this.UserEditable])}
-              flex="1"
-              resizable
-              auto-width
-            ></vaadin-grid-column>
-            <vaadin-grid-column
-              header="Read Secrets"
-              ${columnBodyRenderer(this.acCanReadSecrets, [this.UserEditable, this.UserCanReadSecrets])}
-              flex="1"
-              resizable
-              auto-width
-            ></vaadin-grid-column>
-            <vaadin-grid-column
-              header="Owner"
-              ${columnBodyRenderer(this.acCanOwner, [this.UserIsOwner])}
-              flex="1"
-              resizable
-              auto-width
-            ></vaadin-grid-column>
-            <vaadin-grid-column
-              header="Actions"
-              ${columnBodyRenderer(this._boundACButtonsRenderer, [
+      </vaadin-details>
+      <vaadin-grid
+        .items="${this.Privileges}"
+        theme="compact row-stripes no-row-borders no-border"
+        style="width: 100%;"
+      >
+        <vaadin-grid-sort-column
+          header="Name"
+          ${columnBodyRenderer(this.acNameRenderer, [])}
+          flex="3"
+          resizable
+          auto-width
+        ></vaadin-grid-sort-column>
+        <vaadin-grid-column
+          header="Write"
+          ${columnBodyRenderer(this.acCanWrite, [this.UserEditable])}
+          flex="1"
+          resizable
+          auto-width
+        ></vaadin-grid-column>
+        <vaadin-grid-column
+          header="Read Secrets"
+          ${columnBodyRenderer(this.acCanReadSecrets, [this.UserEditable, this.UserCanReadSecrets])}
+          flex="1"
+          resizable
+          auto-width
+        ></vaadin-grid-column>
+        <vaadin-grid-column
+          header="Owner"
+          ${columnBodyRenderer(this.acCanOwner, [this.UserIsOwner])}
+          flex="1"
+          resizable
+          auto-width
+        ></vaadin-grid-column>
+        <vaadin-grid-column
+          header="Actions"
+          ${columnBodyRenderer(this._boundACButtonsRenderer, [
                 this.UserEditable
               ])}
-              flex="1"
-              resizable
-              auto-width
-            ></vaadin-grid-column>
-          </vaadin-grid>
+          flex="1"
+          resizable
+          auto-width
+        ></vaadin-grid-column>
+      </vaadin-grid>
 
-          <div style="color: var(--dorc-error-color)">${this.ErrorMessage}</div>
-        </div>
+      <div style="color: var(--dorc-error-color)">${this.ErrorMessage}</div>
+    </div>
   `;
 
   private renderAccessControlFooter = () => html`
-        <div class="dialog-actions">
-          <div class="save-action">
-            <vaadin-button
-              id="save-access-controls"
-              ?disabled="${!this.UserEditable || this.savingAccessControls}"
-              @click="${this.save}"
-              >Save</vaadin-button
-            >
-            <span class="save-progress" aria-live="polite">
-              ${this.savingAccessControls
-                ? html`<span
-                    class="small-loader"
-                    aria-label="Saving access controls"
-                  ></span>`
-                : html``}
-            </span>
-          </div>
-          <vaadin-button id="close-access-controls" @click="${this.close}"
-            >Close</vaadin-button
-          >
-        </div>
+    <div class="dialog-actions">
+      <div class="save-action">
+        <vaadin-button
+          id="save-access-controls"
+          ?disabled="${!this.UserEditable || this.savingAccessControls}"
+          @click="${this.save}"
+          >Save</vaadin-button
+        >
+        <span class="save-progress" aria-live="polite">
+          ${
+                this.savingAccessControls
+                  ? html`<span
+                      class="small-loader"
+                      aria-label="Saving access controls"
+                    ></span>`
+                  : html``
+              }
+        </span>
+      </div>
+      <vaadin-button id="close-access-controls" @click="${this.close}"
+        >Close</vaadin-button
+      >
+    </div>
   `;
 
   close() {

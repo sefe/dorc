@@ -19,6 +19,7 @@ import {
 } from '../apis/dorc-api';
 import '@vaadin/button';
 import '@vaadin/vertical-layout';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('add-edit-database')
 export class AddEditDatabase extends LitElement {
@@ -101,7 +102,7 @@ export class AddEditDatabase extends LitElement {
   constructor() {
     super();
 
-    const api = new RefDataGroupsApi();
+    const api = new RefDataGroupsApi(dorcApiConfiguration);
     api.refDataGroupsGet().subscribe(
       (data: GroupApiModel[]) => {
         this.setADGroups(data);
@@ -234,7 +235,7 @@ export class AddEditDatabase extends LitElement {
 
   saveDatabase() {
     if (this._database.Id !== undefined && this._database.Id > 0) {
-      const api = new RefDataDatabasesApi();
+      const api = new RefDataDatabasesApi(dorcApiConfiguration);
       api
         .refDataDatabasesPut({
           id: this._database.Id ?? 0,
@@ -259,7 +260,7 @@ export class AddEditDatabase extends LitElement {
           complete: () => console.log('done adding DB')
         });
     } else {
-      const api = new RefDataDatabasesApi();
+      const api = new RefDataDatabasesApi(dorcApiConfiguration);
       api
         .refDataDatabasesPost({
           databaseApiModel: {
@@ -328,7 +329,7 @@ export class AddEditDatabase extends LitElement {
     if (id > 0) {
       if (this.attach) {
         this.dbId = id;
-        const api = new RefDataEnvironmentsDetailsApi();
+        const api = new RefDataEnvironmentsDetailsApi(dorcApiConfiguration);
         api
           .refDataEnvironmentsDetailsPut({
             action: 'attach',
@@ -388,7 +389,7 @@ export class AddEditDatabase extends LitElement {
   }
 
   private checkDBExists() {
-    const api = new RefDataDatabasesApi();
+    const api = new RefDataDatabasesApi(dorcApiConfiguration);
     api
       .refDataDatabasesGet({
         name: this.DatabaseName,

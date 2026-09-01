@@ -31,6 +31,7 @@ import { BundleEditorDialog } from '../components/bundle-editor-dialog';
 import { navigate } from '../router/router';
 import { ComboBox } from '@vaadin/combo-box';
 import '@vaadin/grid/vaadin-grid-sorter';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 /**
  * Puts a row's JSON into a `hegs-json-viewer` and expands it.
@@ -278,7 +279,7 @@ export class PageProjectBundles extends ResponsiveMixin(PageElement) {
   }
 
   private loadProjectData() {
-    const api = new RefDataProjectEnvironmentMappingsApi();
+    const api = new RefDataProjectEnvironmentMappingsApi(dorcApiConfiguration);
     if (this.project !== undefined) {
       api
         .refDataProjectEnvironmentMappingsGet({
@@ -338,7 +339,7 @@ export class PageProjectBundles extends ResponsiveMixin(PageElement) {
       );
 
       if (confirmDelete) {
-        const api = new BundledRequestsApi();
+        const api = new BundledRequestsApi(dorcApiConfiguration);
         api.bundledRequestsDelete({ id: bundle.Id }).subscribe({
           next: () => {
             this.fetchBundledRequests();
@@ -369,7 +370,7 @@ export class PageProjectBundles extends ResponsiveMixin(PageElement) {
   }
 
   private fetchBundledRequests() {
-    const api = new BundledRequestsApi();
+    const api = new BundledRequestsApi(dorcApiConfiguration);
     const projectNames = this.project ? [this.project] : [];
 
     api.bundledRequestsGet({ projectNames }).subscribe({

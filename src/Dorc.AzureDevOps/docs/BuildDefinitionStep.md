@@ -10,7 +10,7 @@ Name | Type | Description | Notes
 **ContinueOnError** | **bool** | Indicates whether the phase should continue even if this step fails. | [optional] 
 **DisplayName** | **string** | The display name for this step. | [optional] 
 **Enabled** | **bool** | Indicates whether the step is enabled. | [optional] 
-**Environment** | **Dictionary&lt;string, string&gt;** |  | [optional] 
+**VarEnvironment** | **Dictionary&lt;string, string&gt;** |  | [optional] 
 **Inputs** | **Dictionary&lt;string, string&gt;** |  | [optional] 
 **RefName** | **string** | The reference name for this step. | [optional] 
 **Task** | [**TaskDefinitionReference**](TaskDefinitionReference.md) |  | [optional] 

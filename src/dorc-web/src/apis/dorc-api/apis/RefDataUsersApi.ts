@@ -49,6 +49,16 @@ export class RefDataUsersApi extends BaseAPI {
     refDataUsersByEnvironmentIdGet({ environmentId, userAccountType }: RefDataUsersByEnvironmentIdGetRequest, opts?: OperationOpts): Observable<AjaxResponse<Array<UserApiModel>>>
     refDataUsersByEnvironmentIdGet({ environmentId, userAccountType }: RefDataUsersByEnvironmentIdGetRequest, opts?: OperationOpts): Observable<Array<UserApiModel> | AjaxResponse<Array<UserApiModel>>> {
 
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         const query: HttpQuery = {};
 
         if (environmentId != null) { query['environmentId'] = environmentId; }
@@ -57,6 +67,7 @@ export class RefDataUsersApi extends BaseAPI {
         return this.request<Array<UserApiModel>>({
             url: '/RefDataUsers/ByEnvironmentId',
             method: 'GET',
+            headers,
             query,
         }, opts?.responseOpts);
     };
@@ -67,6 +78,16 @@ export class RefDataUsersApi extends BaseAPI {
     refDataUsersByGranularityGet({ granularity }: RefDataUsersByGranularityGetRequest, opts?: OperationOpts): Observable<AjaxResponse<Array<UserApiModel>>>
     refDataUsersByGranularityGet({ granularity }: RefDataUsersByGranularityGetRequest, opts?: OperationOpts): Observable<Array<UserApiModel> | AjaxResponse<Array<UserApiModel>>> {
 
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         const query: HttpQuery = {};
 
         if (granularity != null) { query['granularity'] = granularity; }
@@ -74,6 +95,7 @@ export class RefDataUsersApi extends BaseAPI {
         return this.request<Array<UserApiModel>>({
             url: '/RefDataUsers/ByGranularity',
             method: 'GET',
+            headers,
             query,
         }, opts?.responseOpts);
     };
@@ -84,6 +106,16 @@ export class RefDataUsersApi extends BaseAPI {
     refDataUsersByNameGet({ userName }: RefDataUsersByNameGetRequest, opts?: OperationOpts): Observable<AjaxResponse<UserApiModel>>
     refDataUsersByNameGet({ userName }: RefDataUsersByNameGetRequest, opts?: OperationOpts): Observable<UserApiModel | AjaxResponse<UserApiModel>> {
 
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         const query: HttpQuery = {};
 
         if (userName != null) { query['userName'] = userName; }
@@ -91,6 +123,7 @@ export class RefDataUsersApi extends BaseAPI {
         return this.request<UserApiModel>({
             url: '/RefDataUsers/ByName',
             method: 'GET',
+            headers,
             query,
         }, opts?.responseOpts);
     };
@@ -100,9 +133,20 @@ export class RefDataUsersApi extends BaseAPI {
     refDataUsersGet(): Observable<Array<UserApiModel>>
     refDataUsersGet(opts?: OperationOpts): Observable<AjaxResponse<Array<UserApiModel>>>
     refDataUsersGet(opts?: OperationOpts): Observable<Array<UserApiModel> | AjaxResponse<Array<UserApiModel>>> {
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         return this.request<Array<UserApiModel>>({
             url: '/RefDataUsers',
             method: 'GET',
+            headers,
         }, opts?.responseOpts);
     };
 
@@ -114,6 +158,13 @@ export class RefDataUsersApi extends BaseAPI {
 
         const headers: HttpHeaders = {
             'Content-Type': 'application/json',
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
         };
 
         return this.request<UserApiModel>({

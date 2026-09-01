@@ -43,6 +43,16 @@ export class RefDataDaemonsApi extends BaseAPI {
     refDataDaemonsDelete({ id }: RefDataDaemonsDeleteRequest, opts?: OperationOpts): Observable<void | AjaxResponse<void>>
     refDataDaemonsDelete({ id }: RefDataDaemonsDeleteRequest, opts?: OperationOpts): Observable<void | AjaxResponse<void>> {
 
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         const query: HttpQuery = {};
 
         if (id != null) { query['id'] = id; }
@@ -50,6 +60,7 @@ export class RefDataDaemonsApi extends BaseAPI {
         return this.request<void>({
             url: '/RefDataDaemons',
             method: 'DELETE',
+            headers,
             query,
         }, opts?.responseOpts);
     };
@@ -59,9 +70,20 @@ export class RefDataDaemonsApi extends BaseAPI {
     refDataDaemonsGet(): Observable<Array<DaemonApiModel>>
     refDataDaemonsGet(opts?: OperationOpts): Observable<AjaxResponse<Array<DaemonApiModel>>>
     refDataDaemonsGet(opts?: OperationOpts): Observable<Array<DaemonApiModel> | AjaxResponse<Array<DaemonApiModel>>> {
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         return this.request<Array<DaemonApiModel>>({
             url: '/RefDataDaemons',
             method: 'GET',
+            headers,
         }, opts?.responseOpts);
     };
 
@@ -73,6 +95,13 @@ export class RefDataDaemonsApi extends BaseAPI {
 
         const headers: HttpHeaders = {
             'Content-Type': 'application/json',
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
         };
 
         return this.request<DaemonApiModel>({
@@ -91,6 +120,13 @@ export class RefDataDaemonsApi extends BaseAPI {
 
         const headers: HttpHeaders = {
             'Content-Type': 'application/json',
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
         };
 
         const query: HttpQuery = {};

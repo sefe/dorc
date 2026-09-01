@@ -16,8 +16,13 @@ import type { AjaxResponse } from 'rxjs/ajax';
 import { BaseAPI } from '../runtime';
 import type { OperationOpts, HttpHeaders, HttpQuery } from '../runtime';
 import type {
+    CloneEnvironmentRequest,
     EnvironmentApiModel,
 } from '../models';
+
+export interface RefDataEnvironmentsClonePostRequest {
+    cloneEnvironmentRequest?: CloneEnvironmentRequest;
+}
 
 export interface RefDataEnvironmentsDeleteRequest {
     environmentApiModel?: EnvironmentApiModel;
@@ -28,10 +33,6 @@ export interface RefDataEnvironmentsGetRequest {
 }
 
 export interface RefDataEnvironmentsIsEnvironmentOwnerGetRequest {
-    envName?: string;
-}
-
-export interface RefDataEnvironmentsIsEnvironmentOwnerOrDelegateGetRequest {
     envName?: string;
 }
 
@@ -50,12 +51,44 @@ export class RefDataEnvironmentsApi extends BaseAPI {
 
     /**
      */
+    refDataEnvironmentsClonePost({ cloneEnvironmentRequest }: RefDataEnvironmentsClonePostRequest): Observable<EnvironmentApiModel>
+    refDataEnvironmentsClonePost({ cloneEnvironmentRequest }: RefDataEnvironmentsClonePostRequest, opts?: OperationOpts): Observable<AjaxResponse<EnvironmentApiModel>>
+    refDataEnvironmentsClonePost({ cloneEnvironmentRequest }: RefDataEnvironmentsClonePostRequest, opts?: OperationOpts): Observable<EnvironmentApiModel | AjaxResponse<EnvironmentApiModel>> {
+
+        const headers: HttpHeaders = {
+            'Content-Type': 'application/json',
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
+        return this.request<EnvironmentApiModel>({
+            url: '/RefDataEnvironments/Clone',
+            method: 'POST',
+            headers,
+            body: cloneEnvironmentRequest,
+        }, opts?.responseOpts);
+    };
+
+    /**
+     */
     refDataEnvironmentsDelete({ environmentApiModel }: RefDataEnvironmentsDeleteRequest): Observable<boolean>
     refDataEnvironmentsDelete({ environmentApiModel }: RefDataEnvironmentsDeleteRequest, opts?: OperationOpts): Observable<AjaxResponse<boolean>>
     refDataEnvironmentsDelete({ environmentApiModel }: RefDataEnvironmentsDeleteRequest, opts?: OperationOpts): Observable<boolean | AjaxResponse<boolean>> {
 
         const headers: HttpHeaders = {
             'Content-Type': 'application/json',
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
         };
 
         return this.request<boolean>({
@@ -72,6 +105,16 @@ export class RefDataEnvironmentsApi extends BaseAPI {
     refDataEnvironmentsGet({ env }: RefDataEnvironmentsGetRequest, opts?: OperationOpts): Observable<AjaxResponse<Array<EnvironmentApiModel>>>
     refDataEnvironmentsGet({ env }: RefDataEnvironmentsGetRequest, opts?: OperationOpts): Observable<Array<EnvironmentApiModel> | AjaxResponse<Array<EnvironmentApiModel>>> {
 
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         const query: HttpQuery = {};
 
         if (env != null) { query['env'] = env; }
@@ -79,6 +122,7 @@ export class RefDataEnvironmentsApi extends BaseAPI {
         return this.request<Array<EnvironmentApiModel>>({
             url: '/RefDataEnvironments',
             method: 'GET',
+            headers,
             query,
         }, opts?.responseOpts);
     };
@@ -88,9 +132,20 @@ export class RefDataEnvironmentsApi extends BaseAPI {
     refDataEnvironmentsGetAllEnvironmentNamesGet(): Observable<Array<string>>
     refDataEnvironmentsGetAllEnvironmentNamesGet(opts?: OperationOpts): Observable<AjaxResponse<Array<string>>>
     refDataEnvironmentsGetAllEnvironmentNamesGet(opts?: OperationOpts): Observable<Array<string> | AjaxResponse<Array<string>>> {
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         return this.request<Array<string>>({
             url: '/RefDataEnvironments/GetAllEnvironmentNames',
             method: 'GET',
+            headers,
         }, opts?.responseOpts);
     };
 
@@ -100,6 +155,16 @@ export class RefDataEnvironmentsApi extends BaseAPI {
     refDataEnvironmentsIsEnvironmentOwnerGet({ envName }: RefDataEnvironmentsIsEnvironmentOwnerGetRequest, opts?: OperationOpts): Observable<AjaxResponse<boolean>>
     refDataEnvironmentsIsEnvironmentOwnerGet({ envName }: RefDataEnvironmentsIsEnvironmentOwnerGetRequest, opts?: OperationOpts): Observable<boolean | AjaxResponse<boolean>> {
 
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         const query: HttpQuery = {};
 
         if (envName != null) { query['envName'] = envName; }
@@ -107,23 +172,7 @@ export class RefDataEnvironmentsApi extends BaseAPI {
         return this.request<boolean>({
             url: '/RefDataEnvironments/IsEnvironmentOwner',
             method: 'GET',
-            query,
-        }, opts?.responseOpts);
-    };
-
-    /**
-     */
-    refDataEnvironmentsIsEnvironmentOwnerOrDelegateGet({ envName }: RefDataEnvironmentsIsEnvironmentOwnerOrDelegateGetRequest): Observable<boolean>
-    refDataEnvironmentsIsEnvironmentOwnerOrDelegateGet({ envName }: RefDataEnvironmentsIsEnvironmentOwnerOrDelegateGetRequest, opts?: OperationOpts): Observable<AjaxResponse<boolean>>
-    refDataEnvironmentsIsEnvironmentOwnerOrDelegateGet({ envName }: RefDataEnvironmentsIsEnvironmentOwnerOrDelegateGetRequest, opts?: OperationOpts): Observable<boolean | AjaxResponse<boolean>> {
-
-        const query: HttpQuery = {};
-
-        if (envName != null) { query['envName'] = envName; }
-
-        return this.request<boolean>({
-            url: '/RefDataEnvironments/IsEnvironmentOwnerOrDelegate',
-            method: 'GET',
+            headers,
             query,
         }, opts?.responseOpts);
     };
@@ -136,6 +185,13 @@ export class RefDataEnvironmentsApi extends BaseAPI {
 
         const headers: HttpHeaders = {
             'Content-Type': 'application/json',
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
         };
 
         return this.request<EnvironmentApiModel>({
@@ -154,6 +210,13 @@ export class RefDataEnvironmentsApi extends BaseAPI {
 
         const headers: HttpHeaders = {
             'Content-Type': 'application/json',
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
         };
 
         return this.request<EnvironmentApiModel>({

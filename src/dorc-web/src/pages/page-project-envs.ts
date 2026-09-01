@@ -35,6 +35,7 @@ import {
 import '@vaadin/tooltip';
 import { ref } from 'lit/directives/ref.js';
 import { UnsavedChangesGuard } from '../components/unsaved-changes-guard';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('page-project-envs')
 export class PageProjectEnvs extends PageElement {
@@ -352,7 +353,7 @@ export class PageProjectEnvs extends PageElement {
   }
 
   private getProjects() {
-    const api = new RefDataProjectsApi();
+    const api = new RefDataProjectsApi(dorcApiConfiguration);
     api.refDataProjectsGet().subscribe(
       (data: ProjectApiModel[]) => {
         this.setProjects(data);
@@ -408,7 +409,7 @@ export class PageProjectEnvs extends PageElement {
   }
 
   public getEnvironments() {
-    const api = new RefDataProjectEnvironmentMappingsApi();
+    const api = new RefDataProjectEnvironmentMappingsApi(dorcApiConfiguration);
     if (this.project !== undefined) {
       api
         .refDataProjectEnvironmentMappingsGet({
@@ -456,10 +457,10 @@ export class PageProjectEnvs extends PageElement {
 
   private checkProjectAccess() {
     if (this.project) {
-      const api = new AccessControlApi();
+      const api = new AccessControlApi(dorcApiConfiguration);
       api
         .accessControlGet({
-          accessControlType: AccessControlType.NUMBER_0,
+          accessControlType: AccessControlType.Project,
           accessControlName: this.project
         })
         .subscribe({
@@ -481,7 +482,7 @@ export class PageProjectEnvs extends PageElement {
 
   openAccessControl(e: CustomEvent) {
     this.secureName = e.detail.Name as string;
-    const type = e.detail.Type as number;
+    const type = e.detail.Type as AccessControlType;
 
     const addEditAccessControl = this.shadowRoot?.getElementById(
       'add-edit-access-control'

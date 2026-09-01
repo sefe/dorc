@@ -69,6 +69,7 @@ vi.mock('../../src/helpers/html-meta-manager', () => ({
 
 // DOrc API
 vi.mock('../../src/apis/dorc-api', () => ({
+  Configuration: class {},
   RequestStatusesApi: class {
     requestStatusesPut = mockRequestStatusesPut;
   }
@@ -112,6 +113,33 @@ describe('PageMonitorRequests', () => {
     el.remove();
     vi.useRealTimers();
     document.body.innerHTML = '';
+  });
+
+  // -------------------------------------------------------
+  // Pause/resume live updates
+  // -------------------------------------------------------
+  describe('toggleAutoRefresh', () => {
+    it('stops the hub connection when pausing', async () => {
+      const hub = (el as any).hubConnection;
+      expect(el.autoRefresh).toBe(true);
+
+      await (el as any).toggleAutoRefresh();
+
+      expect(el.autoRefresh).toBe(false);
+      expect(hub.stop).toHaveBeenCalled();
+    });
+
+    it('restarts the hub connection when resuming while disconnected', async () => {
+      const hub = (el as any).hubConnection;
+      hub.state = 'Disconnected';
+      el.autoRefresh = false;
+      hub.start.mockClear();
+
+      await (el as any).toggleAutoRefresh();
+
+      expect(el.autoRefresh).toBe(true);
+      expect(hub.start).toHaveBeenCalled();
+    });
   });
 
   // -------------------------------------------------------

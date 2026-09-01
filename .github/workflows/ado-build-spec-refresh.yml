@@ -1,0 +1,168 @@
+name: Refresh Azure DevOps Build spec
+
+# The C# Azure DevOps client under src/Dorc.AzureDevOps is generated from
+# build.json, whose authoritative copy lives in MicrosoftDocs/vsts-rest-api-specs.
+# Fetching it during a normal build would make every run depend on an external
+# resource: a change Microsoft publishes would regenerate a different client
+# and turn unrelated pull requests red, and the same commit would stop
+# producing the same output. So the build reads only the committed spec, and
+# this workflow owns the refresh — it pulls the official document, regenerates,
+# and opens a pull request when anything changed. Upstream stays authoritative;
+# adopting it stays a reviewable, revertible change.
+
+on:
+  schedule:
+    # Weekly, Monday morning. Deliberately off the hour: :00 is when every
+    # scheduled workflow on GitHub fires at once and gets queued behind them.
+    - cron: '23 6 * * 1'
+  workflow_dispatch:
+
+# Nothing is granted by default. The single job below asks for exactly the two
+# scopes it needs, so a job added here later starts with no access rather than
+# inheriting write permissions it never asked for.
+permissions: {}
+
+concurrency:
+  group: ado-build-spec-refresh
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: '20.x'
+  BRANCH: chore/ado-build-spec-refresh
+  # Used both as the commit subject and as the marker that identifies this
+  # workflow's own commits when deciding whether force-pushing is safe.
+  COMMIT_SUBJECT: 'Refresh Azure DevOps Build spec and regenerate client'
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+
+    # Only what the branch push and `gh pr create` at the end of this job need.
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v7
+      with:
+        # Keep the token out of .git/config. `npm ci` below executes
+        # third-party package lifecycle scripts, and anything persisted here
+        # would be readable by all of them for the rest of the job. The push
+        # step authenticates explicitly instead, once that code has run.
+        persist-credentials: false
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v7
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: src/dorc-web/package-lock.json
+
+    # openapi-generator-cli is a Java jar behind an npm wrapper.
+    - name: Setup Java
+      uses: actions/setup-java@v5
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+
+    - name: Install web dependencies
+      working-directory: src/dorc-web
+      run: npm ci --loglevel=error
+
+    # Rewrites src/Dorc.AzureDevOps/build.json only when the fetch succeeds and
+    # the document validates as the Swagger 2.0 Build spec; otherwise it warns
+    # and leaves the committed copy alone, and the regeneration below is a
+    # no-op that produces no pull request.
+    - name: Refresh spec from the official source
+      working-directory: src/dorc-web
+      run: npm run ado-build-spec-refresh
+
+    - name: Regenerate API clients
+      working-directory: src/dorc-web
+      run: npm run api-gen
+
+    - name: Detect changes
+      id: changes
+      run: |
+        if git diff --quiet -- src/dorc-web/src/apis src/Dorc.AzureDevOps \
+          && [ -z "$(git ls-files --others --exclude-standard -- src/dorc-web/src/apis src/Dorc.AzureDevOps)" ]; then
+          echo "changed=false" >> "$GITHUB_OUTPUT"
+          echo "Spec and generated clients are already up to date."
+        else
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+          git --no-pager diff --stat -- src/dorc-web/src/apis src/Dorc.AzureDevOps
+        fi
+
+    # Force-pushed to a fixed branch: each run supersedes the last, so a spec
+    # that moves twice before anyone reviews produces one current pull request
+    # rather than a pile of stale ones.
+    - name: Open or update the pull request
+      if: steps.changes.outputs.changed == 'true'
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        set -euo pipefail
+        git config user.name  'github-actions[bot]'
+        git config user.email 'github-actions[bot]@users.noreply.github.com'
+
+        # Authenticate only now, after npm ci and the generator have run, so no
+        # third-party code in this job ever saw the token (checkout above uses
+        # persist-credentials: false). Actions masks the token in logs.
+        git remote set-url origin \
+          "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+
+        # The branch will not exist on the first run, hence the || true.
+        git fetch origin "$BRANCH" || true
+
+        # Each run rebuilds this branch from the default branch and force-pushes,
+        # so that a spec which moves twice before anyone reviews leaves one
+        # current pull request rather than a pile of stale ones. That is only
+        # safe while the branch contains nothing but this job's own commits:
+        # --force-with-lease guards against a concurrent *ref* update, not
+        # against replacing history, so a reviewer's fixup pushed to this branch
+        # would otherwise be discarded without warning. Refuse instead, and say
+        # what to do about it. This is a guard against losing work by accident:
+        # it matches on author and subject, which anyone with push access could
+        # deliberately reproduce, and the bot's commits are not signed.
+        if git rev-parse --verify --quiet "refs/remotes/origin/$BRANCH" >/dev/null; then
+          tip_author=$(git log -1 --format='%an' "refs/remotes/origin/$BRANCH")
+          tip_subject=$(git log -1 --format='%s' "refs/remotes/origin/$BRANCH")
+          if [ "$tip_author" != 'github-actions[bot]' ] || [ "$tip_subject" != "$COMMIT_SUBJECT" ]; then
+            echo "::error::$BRANCH carries commits this workflow did not make (tip: '$tip_subject' by $tip_author). Refusing to force-push over them. Merge or close the open pull request, or delete the branch, then re-run."
+            exit 1
+          fi
+        fi
+
+        git checkout -B "$BRANCH"
+        git add -- src/dorc-web/src/apis src/Dorc.AzureDevOps
+        git commit -m "$COMMIT_SUBJECT"
+        git push --force-with-lease origin "$BRANCH"
+
+        if [ -z "$(gh pr list --head "$BRANCH" --state open --json number --jq '.[].number')" ]; then
+          # --base is deliberately omitted rather than interpolated: expanding
+          # a ${{ github.* }} expression into a shell command is the template
+          # injection pattern, and this job holds a token with write access.
+          # It also avoids depending on github.event.repository, which is not
+          # reliably populated for schedule events — this workflow's main
+          # trigger. gh resolves the base from the repository's default branch.
+          gh pr create \
+            --head "$BRANCH" \
+            --title 'Refresh Azure DevOps Build spec and regenerate client' \
+            --body 'The official Azure DevOps Build spec
+        ([MicrosoftDocs/vsts-rest-api-specs](https://github.com/MicrosoftDocs/vsts-rest-api-specs),
+        `specification/build/6.0/build.json`) has changed. This updates the
+        committed `src/Dorc.AzureDevOps/build.json` and regenerates the client
+        from it.
+
+        Opened automatically by the `ado-build-spec-refresh` workflow. Review the
+        regenerated client for changes that affect the `AzureDevOpsServerWebClient`
+        in `Dorc.Core` (build numbers and artifact locations)
+        before merging.
+
+        Note: pull requests opened with `GITHUB_TOKEN` do not start further
+        workflow runs. Close and reopen this pull request to run the build
+        against it.'
+        else
+          echo "An open pull request for $BRANCH already exists; pushed the update to it."
+        fi

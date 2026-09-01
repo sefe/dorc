@@ -49,32 +49,62 @@ export class DaemonStatusApi extends BaseAPI {
     daemonStatusDiscoverEnvNameGet({ envName }: DaemonStatusDiscoverEnvNameGetRequest, opts?: OperationOpts): Observable<DiscoverDaemonsResult | AjaxResponse<DiscoverDaemonsResult>> {
         throwIfNullOrUndefined(envName, 'envName', 'daemonStatusDiscoverEnvNameGet');
 
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         return this.request<DiscoverDaemonsResult>({
             url: '/DaemonStatus/discover/{envName}'.replace('{envName}', encodeURI(envName)),
             method: 'GET',
+            headers,
         }, opts?.responseOpts);
     };
 
     /**
-     * Get app servers daemon statuses for specified environment
      */
     daemonStatusEnvNameGet({ envName }: DaemonStatusEnvNameGetRequest): Observable<Array<DaemonStatusApiModel>>
     daemonStatusEnvNameGet({ envName }: DaemonStatusEnvNameGetRequest, opts?: OperationOpts): Observable<AjaxResponse<Array<DaemonStatusApiModel>>>
     daemonStatusEnvNameGet({ envName }: DaemonStatusEnvNameGetRequest, opts?: OperationOpts): Observable<Array<DaemonStatusApiModel> | AjaxResponse<Array<DaemonStatusApiModel>>> {
         throwIfNullOrUndefined(envName, 'envName', 'daemonStatusEnvNameGet');
 
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         return this.request<Array<DaemonStatusApiModel>>({
             url: '/DaemonStatus/{envName}'.replace('{envName}', encodeURI(envName)),
             method: 'GET',
+            headers,
         }, opts?.responseOpts);
     };
 
     /**
-     * Get app servers daemon statuses
      */
     daemonStatusGet({ id }: DaemonStatusGetRequest): Observable<Array<DaemonStatusApiModel>>
     daemonStatusGet({ id }: DaemonStatusGetRequest, opts?: OperationOpts): Observable<AjaxResponse<Array<DaemonStatusApiModel>>>
     daemonStatusGet({ id }: DaemonStatusGetRequest, opts?: OperationOpts): Observable<Array<DaemonStatusApiModel> | AjaxResponse<Array<DaemonStatusApiModel>>> {
+
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
 
         const query: HttpQuery = {};
 
@@ -83,12 +113,12 @@ export class DaemonStatusApi extends BaseAPI {
         return this.request<Array<DaemonStatusApiModel>>({
             url: '/DaemonStatus',
             method: 'GET',
+            headers,
             query,
         }, opts?.responseOpts);
     };
 
     /**
-     * Change daemon state. Returns new daemon status.
      */
     daemonStatusPut({ daemonStatusApiModel }: DaemonStatusPutRequest): Observable<DaemonStatusApiModel>
     daemonStatusPut({ daemonStatusApiModel }: DaemonStatusPutRequest, opts?: OperationOpts): Observable<AjaxResponse<DaemonStatusApiModel>>
@@ -96,6 +126,13 @@ export class DaemonStatusApi extends BaseAPI {
 
         const headers: HttpHeaders = {
             'Content-Type': 'application/json',
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
         };
 
         return this.request<DaemonStatusApiModel>({

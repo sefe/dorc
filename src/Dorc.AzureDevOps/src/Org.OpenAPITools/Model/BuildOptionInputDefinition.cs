@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// Represents an input for a build option.
     /// </summary>
     [DataContract(Name = "BuildOptionInputDefinition")]
-    public partial class BuildOptionInputDefinition : IEquatable<BuildOptionInputDefinition>, IValidatableObject
+    public partial class BuildOptionInputDefinition : IValidatableObject
     {
         /// <summary>
         /// Indicates the type of the input value.
@@ -80,7 +80,6 @@ namespace Org.OpenAPITools.Model
             /// </summary>
             [EnumMember(Value = "branchFilter")]
             BranchFilter = 7
-
         }
 
 
@@ -102,7 +101,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="required">Indicates whether the input is required to have a value..</param>
         /// <param name="type">Indicates the type of the input value..</param>
         /// <param name="visibleRule">The rule that is applied to determine whether the input is visible in the UI..</param>
-        public BuildOptionInputDefinition(string defaultValue = default(string), string groupName = default(string), Dictionary<string, string> help = default(Dictionary<string, string>), string label = default(string), string name = default(string), Dictionary<string, string> options = default(Dictionary<string, string>), bool required = default(bool), TypeEnum? type = default(TypeEnum?), string visibleRule = default(string))
+        public BuildOptionInputDefinition(string defaultValue = default, string groupName = default, Dictionary<string, string> help = default, string label = default, string name = default, Dictionary<string, string> options = default, bool required = default, TypeEnum? type = default, string visibleRule = default)
         {
             this.DefaultValue = defaultValue;
             this.GroupName = groupName;
@@ -200,123 +199,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as BuildOptionInputDefinition);
-        }
-
-        /// <summary>
-        /// Returns true if BuildOptionInputDefinition instances are equal
-        /// </summary>
-        /// <param name="input">Instance of BuildOptionInputDefinition to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(BuildOptionInputDefinition input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.DefaultValue == input.DefaultValue ||
-                    (this.DefaultValue != null &&
-                    this.DefaultValue.Equals(input.DefaultValue))
-                ) && 
-                (
-                    this.GroupName == input.GroupName ||
-                    (this.GroupName != null &&
-                    this.GroupName.Equals(input.GroupName))
-                ) && 
-                (
-                    this.Help == input.Help ||
-                    this.Help != null &&
-                    input.Help != null &&
-                    this.Help.SequenceEqual(input.Help)
-                ) && 
-                (
-                    this.Label == input.Label ||
-                    (this.Label != null &&
-                    this.Label.Equals(input.Label))
-                ) && 
-                (
-                    this.Name == input.Name ||
-                    (this.Name != null &&
-                    this.Name.Equals(input.Name))
-                ) && 
-                (
-                    this.Options == input.Options ||
-                    this.Options != null &&
-                    input.Options != null &&
-                    this.Options.SequenceEqual(input.Options)
-                ) && 
-                (
-                    this.Required == input.Required ||
-                    this.Required.Equals(input.Required)
-                ) && 
-                (
-                    this.Type == input.Type ||
-                    this.Type.Equals(input.Type)
-                ) && 
-                (
-                    this.VisibleRule == input.VisibleRule ||
-                    (this.VisibleRule != null &&
-                    this.VisibleRule.Equals(input.VisibleRule))
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.DefaultValue != null)
-                {
-                    hashCode = (hashCode * 59) + this.DefaultValue.GetHashCode();
-                }
-                if (this.GroupName != null)
-                {
-                    hashCode = (hashCode * 59) + this.GroupName.GetHashCode();
-                }
-                if (this.Help != null)
-                {
-                    hashCode = (hashCode * 59) + this.Help.GetHashCode();
-                }
-                if (this.Label != null)
-                {
-                    hashCode = (hashCode * 59) + this.Label.GetHashCode();
-                }
-                if (this.Name != null)
-                {
-                    hashCode = (hashCode * 59) + this.Name.GetHashCode();
-                }
-                if (this.Options != null)
-                {
-                    hashCode = (hashCode * 59) + this.Options.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.Required.GetHashCode();
-                hashCode = (hashCode * 59) + this.Type.GetHashCode();
-                if (this.VisibleRule != null)
-                {
-                    hashCode = (hashCode * 59) + this.VisibleRule.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

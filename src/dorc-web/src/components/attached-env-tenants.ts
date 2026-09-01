@@ -16,6 +16,7 @@ import {
 import { styleMap } from 'lit/directives/style-map.js';
 import { EnvPageTabNames } from '../pages/page-environment';
 import '@vaadin/tooltip';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('attached-env-tenants')
 export class AttachedEnvTenants extends LitElement {
@@ -99,7 +100,7 @@ export class AttachedEnvTenants extends LitElement {
   async detachTenant(envId: number | undefined) {
     const answer = await confirmPrompt('Detach tenant?');
     if (answer && envId) {
-      const api = new RefDataEnvironmentsDetailsApi();
+      const api = new RefDataEnvironmentsDetailsApi(dorcApiConfiguration);
       api
         .refDataEnvironmentsDetailsSetParentForEnvironmentPut({
           childEnvId: envId,
