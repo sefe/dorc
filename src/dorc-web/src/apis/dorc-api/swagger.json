@@ -1382,41 +1382,6 @@
         }
       }
     },
-    "/DaemonStatus/discover/{envName}": {
-      "get": {
-        "tags": [
-          "DaemonStatus"
-        ],
-        "summary": "Discover all daemons on environment servers and automatically create daemon-server mappings",
-        "parameters": [
-          {
-            "name": "envName",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DiscoverDaemonsResult"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DiscoverDaemonsResult"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/DeploymentV2": {
       "get": {
         "tags": [
