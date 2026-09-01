@@ -2,6 +2,7 @@
 using Dorc.PersistentData.Contexts;
 using Dorc.PersistentData.Extensions;
 using Dorc.PersistentData.Model;
+using Dorc.PersistentData.Security;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.Extensions.Logging;
 using Microsoft.EntityFrameworkCore;
@@ -126,6 +127,12 @@ namespace Dorc.PersistentData.Sources
 
         public bool UpdateScript(ScriptApiModel script, IPrincipal user)
         {
+            if (!ScriptPathConfinement.IsConfined(script.Path, out var reason))
+            {
+                throw new ArgumentOutOfRangeException(nameof(script),
+                    "Script '" + script.Name + "' has a path that cannot be accepted, because " + reason);
+            }
+
             using (var context = _contextFactory.GetContext())
             {
                 var foundScript = context.Scripts.Include(s => s.Components).ThenInclude(c => c.Projects).FirstOrDefault(s => s.Id == script.Id);
