@@ -631,6 +631,11 @@ export class DorcNavbar extends LitElement {
     for (i = 0; i < tabsArray.length; i += 1) {
       const tab = tabsArray[i] as Tab;
       let childPath = '';
+      // An environment shortcut should stay highlighted across ALL of that
+      // environment's sub-tabs, so it matches on this prefix rather than on the
+      // one exact path getEnvDetailPath happens to build. The trailing slash is
+      // what stops "/environment/Foo/" also matching "/environment/FooBar/".
+      let envPrefix = '';
       const tabChild = tab.children[0] as unknown as URL;
       // The Audit parent tab uses href="#"; HTMLAnchorElement.pathname resolves "#" against the
       // current document URL, so without this skip every audit sub-route would match the parent.
@@ -642,6 +647,9 @@ export class DorcNavbar extends LitElement {
         const envDetailTab = tab.children[0] as EnvDetailTab;
         if (envDetailTab.env !== undefined) {
           childPath = this.getEnvDetailPath(envDetailTab.env);
+          envPrefix = `/environment/${String(
+            envDetailTab.env.EnvironmentName
+          )}/`.toLowerCase();
         }
         const projectEnvsTab = tab.children[0] as ProjectEnvsTab;
         if (projectEnvsTab.project !== undefined) {
@@ -660,7 +668,10 @@ export class DorcNavbar extends LitElement {
         idx = 0;
         break;
       }
-      if (pathCorrected === childPathCorrected) {
+      if (
+        pathCorrected === childPathCorrected ||
+        (envPrefix !== '' && pathCorrected.startsWith(envPrefix))
+      ) {
         idx = tabsArray.indexOf(tab);
         break;
       }
