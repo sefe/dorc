@@ -245,6 +245,57 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
+        /// <summary>
+        /// Records a first-use baseline without giving concurrent deployments permission to
+        /// replace one another. The conditional update is one database statement; the read
+        /// afterwards deliberately returns whichever value is authoritative after that race.
+        /// </summary>
+        public string? RecordContentHashIfUnrecorded(
+            int scriptId, string contentHash, IPrincipal user)
+        {
+            var recording = contentHash?.Trim().ToLowerInvariant();
+
+            if (string.IsNullOrWhiteSpace(recording)
+                || !ScriptContentHash.IsWellFormed(recording))
+            {
+                return null;
+            }
+
+            using (var context = _contextFactory.GetContext())
+            {
+                var recorded = context.RecordScriptContentHashIfUnrecorded(
+                    scriptId, recording) == 1;
+
+                var foundScript = context.Scripts
+                    .Include(s => s.Components).ThenInclude(c => c.Projects)
+                    .FirstOrDefault(s => s.Id == scriptId);
+
+                if (foundScript == null)
+                {
+                    return null;
+                }
+
+                if (recorded)
+                {
+                    var projectNames = string.Join(", ", foundScript.Components
+                        .SelectMany(c => c.Projects)
+                        .Select(p => p.Name)
+                        .Distinct());
+
+                    _scriptsAuditPersistentSource.AddRecord(
+                        foundScript.Id,
+                        foundScript.Name,
+                        "ContentHash=(unrecorded)",
+                        $"ContentHash={recording}",
+                        _claimsPrincipalReader.GetUserFullDomainName(user),
+                        "RecordFirstContentHash",
+                        projectNames);
+                }
+
+                return foundScript.ContentHash;
+            }
+        }
+
         private static ScriptApiModel MapToScriptApiModel(Script script)
         {
             if (script == null) return null;

@@ -97,7 +97,8 @@ namespace Dorc.PersistentData.Sources
                 Path = script.Path,
                 IsPathJSON = script.IsPathJSON,
                 NonProdOnly = script.NonProdOnly,
-                PowerShellVersionNumber = script.PowerShellVersionNumber
+                PowerShellVersionNumber = script.PowerShellVersionNumber,
+                ContentHash = script.ContentHash
             };
         }
 
