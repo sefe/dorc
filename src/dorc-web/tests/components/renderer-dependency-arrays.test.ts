@@ -1,6 +1,28 @@
 import { expect } from '../_helpers';
-import '../../src/pages/page-config-values-list';
-import '../../src/components/map-daemons';
+import { NEVER } from 'rxjs';
+import { vi } from 'vitest';
+
+// The test drives the roles callback by assigning isAdmin below. Leaving the
+// real request active lets its error handler race that assignment and reset the
+// flag to false, which made the Firefox run intermittently fail.
+vi.mock('../../src/apis/dorc-api', async importOriginal => {
+  const actual = (await importOriginal()) as Record<string, unknown>;
+  return {
+    ...actual,
+    RefDataConfigApi: class {
+      refDataConfigGet = () => NEVER;
+    },
+    RefDataDaemonsApi: class {
+      refDataDaemonsGet = () => NEVER;
+    },
+    RefDataRolesApi: class {
+      refDataRolesGet = () => NEVER;
+    }
+  };
+});
+
+await import('../../src/pages/page-config-values-list');
+await import('../../src/components/map-daemons');
 
 // The dependency array is the migration's whole correctness contract:
 // LitRendererDirective returns early and never reassigns the renderer when
