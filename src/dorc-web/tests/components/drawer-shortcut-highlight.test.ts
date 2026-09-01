@@ -1,4 +1,5 @@
 import { expect } from '../_helpers';
+import { drawerShortcuts } from '../../src/components/drawer-shortcuts';
 
 // A drawer shortcut for an environment stopped being highlighted the moment you
 // opened any of that environment's sub-tabs other than Metadata.
@@ -11,7 +12,6 @@ import { expect } from '../_helpers';
 
 interface DrawerNavbar extends HTMLElement {
   updateComplete: Promise<unknown>;
-  insertEnvTab(env: unknown): void;
   setSelectedTab(path: string): void;
 }
 
@@ -34,17 +34,25 @@ describe('Drawer shortcut highlighting across environment sub-tabs', () => {
   });
 
   beforeEach(() => {
+    drawerShortcuts.clear();
     container = document.createElement('div');
     document.body.appendChild(container);
   });
 
-  afterEach(() => container.remove());
+  afterEach(() => {
+    drawerShortcuts.clear();
+    container.remove();
+  });
 
   const mountWithShortcut = async (name: string) => {
     const navbar = document.createElement('dorc-navbar') as DrawerNavbar;
     container.appendChild(navbar);
     await navbar.updateComplete;
-    navbar.insertEnvTab({ EnvironmentId: 1, EnvironmentName: name });
+    drawerShortcuts.add('environments', {
+      EnvironmentId: 1,
+      EnvironmentName: name
+    });
+    await navbar.updateComplete;
     const tabs = navbar.shadowRoot?.getElementById('tabs') as HTMLElement & {
       selected: number;
     };
