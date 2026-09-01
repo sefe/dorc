@@ -142,7 +142,7 @@ namespace Dorc.Core.AzureDevOpsServer
 
         private void RequireDefaultCredentialsPermitted(string azureEndpoint)
         {
-            if (SourceHosts.IsUnconfigured)
+            if (SourceHosts.IsArtefactSourceUnconfigured)
             {
                 _log.LogWarning(
                     "Offering default Windows credentials to '{Endpoint}' because no artefact host"

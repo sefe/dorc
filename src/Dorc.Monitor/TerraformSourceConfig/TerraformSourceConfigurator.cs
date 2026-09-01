@@ -117,7 +117,7 @@ namespace Dorc.Monitor.TerraformSourceConfig
         /// </summary>
         private bool MayReceiveSourceCredentials(string repositoryUrl)
         {
-            if (SourceHosts.IsUnconfigured)
+            if (SourceHosts.IsTerraformSourceUnconfigured)
             {
                 _logger.LogWarning(
                     "Attaching Git credentials to '{RepositoryUrl}' because no Terraform source host"

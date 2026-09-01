@@ -137,6 +137,8 @@ namespace Dorc.Api.Tests
             var allowList = Unconfigured();
 
             Assert.IsTrue(allowList.IsUnconfigured);
+            Assert.IsTrue(allowList.IsArtefactSourceUnconfigured);
+            Assert.IsTrue(allowList.IsTerraformSourceUnconfigured);
             Assert.IsTrue(allowList.IsArtefactSourceAllowed("https://anywhere.example.com/drops", out _));
             Assert.IsTrue(allowList.IsTerraformSourceAllowed(@"\\anywhere\share", out _));
         }
@@ -150,6 +152,8 @@ namespace Dorc.Api.Tests
             });
 
             Assert.IsFalse(artefactsOnly.IsUnconfigured);
+            Assert.IsFalse(artefactsOnly.IsArtefactSourceUnconfigured);
+            Assert.IsTrue(artefactsOnly.IsTerraformSourceUnconfigured);
 
             // The list that IS filled enforces; the one that is not still admits, because an
             // unfilled list confines nothing and enforcing it would be enforcing against zero
