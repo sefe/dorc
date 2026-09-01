@@ -28,6 +28,7 @@ namespace Dorc.Api.Tests.Sources
             "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08";
 
         private List<Script> _stored = null!;
+        private IDeploymentContext _context = null!;
         private IScriptsAuditPersistentSource _audit = null!;
         private ScriptsPersistentSource _source = null!;
         private IPrincipal _user = null!;
@@ -50,11 +51,26 @@ namespace Dorc.Api.Tests.Sources
             // internally, and NSubstitute cannot have that happen inside a Returns() argument.
             var scripts = DbContextMock.GetQueryableMockDbSet(_stored);
 
-            var context = Substitute.For<IDeploymentContext>();
-            context.Scripts.Returns(scripts);
+            _context = Substitute.For<IDeploymentContext>();
+            _context.Scripts.Returns(scripts);
+            _context.RecordScriptContentHashIfUnrecorded(
+                    Arg.Any<int>(), Arg.Any<string>())
+                .Returns(call =>
+                {
+                    var script = _stored.FirstOrDefault(candidate =>
+                        candidate.Id == call.ArgAt<int>(0));
+
+                    if (script == null || script.ContentHash != null)
+                    {
+                        return 0;
+                    }
+
+                    script.ContentHash = call.ArgAt<string>(1);
+                    return 1;
+                });
 
             var contextFactory = Substitute.For<IDeploymentContextFactory>();
-            contextFactory.GetContext().Returns(context);
+            contextFactory.GetContext().Returns(_context);
 
             var claimsReader = Substitute.For<IClaimsPrincipalReader>();
             claimsReader.GetUserFullDomainName(Arg.Any<IPrincipal>()).Returns(@"CORP\promoter");
@@ -66,11 +82,62 @@ namespace Dorc.Api.Tests.Sources
         }
 
         [TestMethod]
+        public void FirstUseRecordsOnlyWhileTheBaselineIsUnrecorded()
+        {
+            var authoritative =
+                _source.RecordContentHashIfUnrecorded(1, ValidHash, _user);
+
+            Assert.AreEqual(ValidHash, authoritative);
+            Assert.AreEqual(ValidHash, _stored.Single().ContentHash);
+            _audit.Received(1).AddRecord(
+                1,
+                "Deploy.ps1",
+                "ContentHash=(unrecorded)",
+                $"ContentHash={ValidHash}",
+                @"CORP\promoter",
+                "RecordFirstContentHash",
+                Arg.Any<string>());
+        }
+
+        [TestMethod]
+        public void FirstUseReturnsAConcurrentWinnersBaselineWithoutOverwritingIt()
+        {
+            const string losingCandidate =
+                "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
+            _context.RecordScriptContentHashIfUnrecorded(1, losingCandidate)
+                .Returns(_ =>
+                {
+                    _stored.Single().ContentHash = ValidHash;
+                    return 0;
+                });
+
+            var authoritative =
+                _source.RecordContentHashIfUnrecorded(1, losingCandidate, _user);
+
+            Assert.AreEqual(ValidHash, authoritative);
+            Assert.AreEqual(ValidHash, _stored.Single().ContentHash);
+            _audit.DidNotReceiveWithAnyArgs().AddRecord(
+                default, default!, default!, default!, default!, default!, default!);
+        }
+
+        [TestMethod]
         public void RecordsAHashAgainstTheScript()
         {
             Assert.IsTrue(_source.RecordContentHash(1, ValidHash, _user));
 
             Assert.AreEqual(ValidHash, _stored.Single().ContentHash);
+        }
+
+        [TestMethod]
+        public void AdministrativeRecordingCanDeliberatelyReplaceAnExistingBaseline()
+        {
+            const string replacement =
+                "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
+            _source.RecordContentHash(1, ValidHash, _user);
+
+            Assert.IsTrue(_source.RecordContentHash(1, replacement, _user));
+
+            Assert.AreEqual(replacement, _stored.Single().ContentHash);
         }
 
         /// <summary>
