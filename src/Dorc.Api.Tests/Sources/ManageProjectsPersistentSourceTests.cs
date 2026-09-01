@@ -432,6 +432,41 @@ namespace Dorc.Api.Tests.Sources
             StringAssert.Contains(refusal.Message, "not permitted");
         }
 
+        [TestMethod]
+        public void CreateComponent_RejectsATerraformSourceHostBeforePersistence()
+        {
+            _sourceHostAllowList.IsUnconfigured.Returns(false);
+            _sourceHostAllowList
+                .IsTerraformSourceAllowed(Arg.Any<string>(), out Arg.Any<string>())
+                .Returns(call => { call[1] = "its host 'attacker' is not permitted."; return false; });
+            _contextFactory.ClearReceivedCalls();
+
+            var component = OneComponent(
+                @"\\attacker\terraform\infra", ComponentType.Terraform).Single();
+
+            Assert.ThrowsExactly<ArgumentOutOfRangeException>(() =>
+                _source.CreateComponent(component, 1, null, "testuser"));
+            _contextFactory.DidNotReceive().GetContext();
+        }
+
+        [TestMethod]
+        public void UpdateComponent_RejectsATerraformSourceHostBeforePersistence()
+        {
+            _sourceHostAllowList.IsUnconfigured.Returns(false);
+            _sourceHostAllowList
+                .IsTerraformSourceAllowed(Arg.Any<string>(), out Arg.Any<string>())
+                .Returns(call => { call[1] = "its host 'attacker' is not permitted."; return false; });
+            _contextFactory.ClearReceivedCalls();
+
+            var component = OneComponent(
+                @"\\attacker\terraform\infra", ComponentType.Terraform).Single();
+            component.ComponentId = 7;
+
+            Assert.ThrowsExactly<ArgumentOutOfRangeException>(() =>
+                _source.UpdateComponent(component, 1, null, "testuser"));
+            _contextFactory.DidNotReceive().GetContext();
+        }
+
         /// <summary>
         /// With no allow-list configured the host check does not apply. Enforcing against an
         /// unfilled list would reject every project and component edit in every deployment on
