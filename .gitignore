@@ -397,6 +397,8 @@ ca.pem
 **/.secrets/
 **/.env
 **/.env.local
+src/Dorc.Api/appsettings.json
+src/Dorc.Monitor/appsettings.json
 
 # --- Agent scratch ---
 # Subagent worktrees. Ephemeral copies of this repo; committing one sweeps a
