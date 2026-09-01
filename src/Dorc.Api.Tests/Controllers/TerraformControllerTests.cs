@@ -418,6 +418,32 @@ namespace Dorc.Api.Tests.Controllers
         }
 
         [TestMethod]
+        public void DeclineTerraformPlan_WhenResultLeftWaitingConfirmationConcurrently_Returns409()
+        {
+            _requestsPersistentSource
+                .UpdateResultStatus(Arg.Any<DeploymentResultApiModel>(),
+                    Status(DeploymentResultStatus.Cancelled),
+                    Status(DeploymentResultStatus.WaitingConfirmation))
+                .Returns(false);
+
+            var response = _controller.DeclineTerraformPlan(ResultId);
+
+            Assert.IsInstanceOfType(response, typeof(ConflictObjectResult));
+            _requestsPersistentSource.DidNotReceiveWithAnyArgs().UpdateRequestStatus(default, default);
+        }
+
+        [TestMethod]
+        public void DeclineTerraformPlan_TransitionsOnlyFromWaitingConfirmation()
+        {
+            _controller.DeclineTerraformPlan(ResultId);
+
+            _requestsPersistentSource.Received(1).UpdateResultStatus(
+                Arg.Any<DeploymentResultApiModel>(),
+                Status(DeploymentResultStatus.Cancelled),
+                Status(DeploymentResultStatus.WaitingConfirmation));
+        }
+
+        [TestMethod]
         public void ConfirmTerraformPlan_WhenNotAwaitingConfirmation_ReturnsBadRequest()
         {
             GivenResult(DeploymentResultStatus.Running);
