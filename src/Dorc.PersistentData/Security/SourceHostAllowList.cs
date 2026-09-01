@@ -56,8 +56,30 @@ namespace Dorc.PersistentData.Security
 
         public bool IsUnconfigured => artefactHosts.Count == 0 && terraformHosts.Count == 0;
 
-        public bool IsArtefactSourceAllowed(string? url, out string reason) =>
-            IsAllowed(url, artefactHosts, ArtefactHostsSetting, out reason);
+        public bool IsArtefactSourceAllowed(string? url, out string reason)
+        {
+            reason = string.Empty;
+
+            if (artefactHosts.Count == 0 || string.IsNullOrWhiteSpace(url))
+            {
+                return true;
+            }
+
+            // ArtefactsUrl uses the same semicolon-delimited root format consumed by
+            // PathConfinement. Every non-empty, trimmed root is independently executable
+            // input, so permitting only the first leaves later roots as an allow-list bypass.
+            foreach (var root in url.Split(
+                         ';',
+                         StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                if (!IsAllowed(root, artefactHosts, ArtefactHostsSetting, out reason))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
 
         public bool IsTerraformSourceAllowed(string? url, out string reason) =>
             IsAllowed(url, terraformHosts, TerraformHostsSetting, out reason);

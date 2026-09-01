@@ -42,6 +42,25 @@ namespace Dorc.Api.Tests
             Assert.IsTrue(Configured().IsArtefactSourceAllowed(url, out _), url);
         }
 
+        [TestMethod]
+        public void AcceptsMultiplePermittedArtefactRootsUsingPathConfinementDelimiters()
+        {
+            var roots =
+                $" https://{ArtefactHost}/drops/one ; ; \\\\{ArtefactHost}\\drops\\two ";
+
+            Assert.IsTrue(Configured().IsArtefactSourceAllowed(roots, out _));
+        }
+
+        [TestMethod]
+        public void RejectsWhenAnySemicolonDelimitedArtefactRootIsNotPermitted()
+        {
+            var roots =
+                $"https://{ArtefactHost}/drops/one; https://attacker.net/drops/two";
+
+            Assert.IsFalse(Configured().IsArtefactSourceAllowed(roots, out var reason));
+            StringAssert.Contains(reason, "attacker.net");
+        }
+
         /// <summary>
         /// The reason the host is parsed rather than matched. Every one of these contains the
         /// permitted host as a substring and none of them is it.
