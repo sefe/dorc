@@ -123,7 +123,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/UserElementApiModel"
+                    "$ref": "#/components/schemas/DirectoryPrincipalApiModel"
                   }
                 }
               },
@@ -131,7 +131,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/UserElementApiModel"
+                    "$ref": "#/components/schemas/DirectoryPrincipalApiModel"
                   }
                 }
               }
@@ -4680,7 +4680,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/UserElementApiModel"
+                    "$ref": "#/components/schemas/DirectoryPrincipalApiModel"
                   }
                 }
               },
@@ -4688,7 +4688,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/UserElementApiModel"
+                    "$ref": "#/components/schemas/DirectoryPrincipalApiModel"
                   }
                 }
               }
@@ -10609,19 +10609,19 @@
         },
         "additionalProperties": false
       },
-      "UserElementApiModel": {
+      "DirectoryPrincipalApiModel": {
         "type": "object",
         "properties": {
           "DisplayName": {
             "type": "string",
             "nullable": true
           },
-          "Sid": {
+          "OnPremisesSid": {
             "type": "string",
             "nullable": true,
             "deprecated": true
           },
-          "Pid": {
+          "PrincipalId": {
             "type": "string",
             "nullable": true
           },
@@ -10633,6 +10633,10 @@
             "type": "boolean"
           },
           "Email": {
+            "type": "string",
+            "nullable": true
+          },
+          "SamAccountName": {
             "type": "string",
             "nullable": true
           }

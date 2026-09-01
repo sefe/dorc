@@ -4,9 +4,9 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace Dorc.Core.Tests
 {
     [TestClass]
-    public class AzureEntraSearcherTests
+    public class PrincipalDirectoryTests
     {
-        // P-1: user search by name returns a populated UserElementApiModel.
+        // P-1: user search by name returns a populated DirectoryPrincipalApiModel.
         [TestMethod]
         public void P1_Search_FindsUserByDisplayName()
         {
@@ -31,14 +31,14 @@ namespace Dorc.Core.Tests
 
             Assert.AreEqual(1, results.Count);
             Assert.AreEqual("Alice Smith", results[0].DisplayName);
-            Assert.AreEqual("11111111-1111-1111-1111-111111111111", results[0].Pid);
+            Assert.AreEqual("11111111-1111-1111-1111-111111111111", results[0].PrincipalId);
 #pragma warning disable CS0618 // intentionally exercises legacy Sid field for dual-ID parity
-            Assert.AreEqual("S-1-5-21-100-200-300-1001", results[0].Sid);
+            Assert.AreEqual("S-1-5-21-100-200-300-1001", results[0].OnPremisesSid);
 #pragma warning restore CS0618
             Assert.IsFalse(results[0].IsGroup);
         }
 
-        // P-2: group search by name returns a populated UserElementApiModel with IsGroup=true.
+        // P-2: group search by name returns a populated DirectoryPrincipalApiModel with IsGroup=true.
         [TestMethod]
         public void P2_Search_FindsGroupByDisplayName()
         {
@@ -61,13 +61,13 @@ namespace Dorc.Core.Tests
 
             Assert.AreEqual(1, results.Count);
             Assert.IsTrue(results[0].IsGroup);
-            Assert.AreEqual("22222222-2222-2222-2222-222222222222", results[0].Pid);
+            Assert.AreEqual("22222222-2222-2222-2222-222222222222", results[0].PrincipalId);
 #pragma warning disable CS0618
-            Assert.AreEqual("S-1-5-21-100-200-300-2001", results[0].Sid);
+            Assert.AreEqual("S-1-5-21-100-200-300-2001", results[0].OnPremisesSid);
 #pragma warning restore CS0618
         }
 
-        // P-3: GetUserDataById resolves an Entra object id via direct /users/{id} lookup.
+        // P-3: FindById resolves an Entra object id via direct /users/{id} lookup.
         [TestMethod]
         public void P3_GetUserDataById_ResolvesByEntraId()
         {
@@ -84,10 +84,10 @@ namespace Dorc.Core.Tests
                 """);
 
             var searcher = NewSearcher(handler);
-            var user = searcher.GetUserDataById(entraId);
+            var user = searcher.FindById(entraId);
 
             Assert.AreEqual("Bob Jones", user.DisplayName);
-            Assert.AreEqual(entraId, user.Pid);
+            Assert.AreEqual(entraId, user.PrincipalId);
             Assert.IsFalse(user.IsGroup);
         }
 
@@ -116,12 +116,12 @@ namespace Dorc.Core.Tests
                 """);
 
             var searcher = NewSearcher(handler);
-            var user = searcher.GetUserDataById(sid);
+            var user = searcher.FindById(sid);
 
             Assert.AreEqual("Carol Lee", user.DisplayName);
-            Assert.AreEqual("44444444-4444-4444-4444-444444444444", user.Pid);
+            Assert.AreEqual("44444444-4444-4444-4444-444444444444", user.PrincipalId);
 #pragma warning disable CS0618
-            Assert.AreEqual(sid, user.Sid, "Sid round-trips so legacy AccessControl rows keep matching");
+            Assert.AreEqual(sid, user.OnPremisesSid, "Sid round-trips so legacy AccessControl rows keep matching");
 #pragma warning restore CS0618
         }
 
@@ -147,7 +147,7 @@ namespace Dorc.Core.Tests
                 """);
 
             var searcher = NewSearcher(handler);
-            var result = searcher.GetUserDataById(sid);
+            var result = searcher.FindById(sid);
 
             Assert.IsTrue(result.IsGroup);
             Assert.AreEqual("Domain Admins", result.DisplayName);
@@ -178,7 +178,7 @@ namespace Dorc.Core.Tests
                 """);
 
             var searcher = NewSearcher(handler);
-            var groupId = searcher.GetGroupSidIfUserIsMemberRecursive("alice", "Admins", "contoso.com");
+            var groupId = searcher.FindGroupIfMember("alice", "Admins", "contoso.com");
 
             Assert.AreEqual("77777777-7777-7777-7777-777777777777", groupId);
         }
@@ -205,7 +205,7 @@ namespace Dorc.Core.Tests
             handler.MapPath(HttpMethod.Post, "/checkMemberGroups", """{ "value": [ "99999999-9999-9999-9999-999999999999" ] }""");
 
             var searcher = NewSearcher(handler);
-            searcher.GetGroupSidIfUserIsMemberRecursive("CONTOSO\\alice", "Admins", "contoso.com");
+            searcher.FindGroupIfMember("CONTOSO\\alice", "Admins", "contoso.com");
 
             Assert.IsNotNull(capturedFilter);
             // Filter is URL-encoded: 'alice' → %27alice%27
@@ -223,12 +223,12 @@ namespace Dorc.Core.Tests
                 .MapFilter(HttpMethod.Get, "/users", "onPremisesSamAccountName", """{ "value": [] }""");
 
             var searcher = NewSearcher(handler);
-            var result = searcher.GetGroupSidIfUserIsMemberRecursive("ghost", "Admins", "contoso.com");
+            var result = searcher.FindGroupIfMember("ghost", "Admins", "contoso.com");
 
             Assert.AreEqual(string.Empty, result, "must be empty string, not null — preserves CachedUserGroupReader cache semantics");
         }
 
-        // P-7: GetSidsForUser emits BOTH the Entra group id (Pid match) and the
+        // P-7: GetIdentifiersForUser emits BOTH the Entra group id (Pid match) and the
         // onPremisesSecurityIdentifier (Sid match) so EnvironmentsPersistentSource's
         // `ac.Pid ?? ac.Sid` resolution pattern keeps working post-migration.
         [TestMethod]
@@ -254,7 +254,7 @@ namespace Dorc.Core.Tests
                 """);
 
             var searcher = NewSearcher(handler);
-            var sids = searcher.GetSidsForUser(userId);
+            var sids = searcher.GetIdentifiersForUser(userId);
 
             CollectionAssert.Contains(sids, userId, "self id is first");
             CollectionAssert.Contains(sids, "S-1-5-21-100-200-300-USER", "self on-prem SID is appended");
@@ -263,7 +263,7 @@ namespace Dorc.Core.Tests
             CollectionAssert.Contains(sids, "cccccccc-cccc-cccc-cccc-cccccccccccc", "cloud-only group Entra id is still included");
         }
 
-        // P-8: GetUserDataById skips a disabled user but still falls through to group lookup.
+        // P-8: FindById skips a disabled user but still falls through to group lookup.
         [TestMethod]
         public void P8_GetUserDataById_DisabledUserButGroupHit_ReturnsGroup()
         {
@@ -286,7 +286,7 @@ namespace Dorc.Core.Tests
                 """);
 
             var searcher = NewSearcher(handler);
-            var result = searcher.GetUserDataById(entraId);
+            var result = searcher.FindById(entraId);
 
             Assert.IsTrue(result.IsGroup);
             Assert.AreEqual("Some Group", result.DisplayName);
@@ -307,11 +307,11 @@ namespace Dorc.Core.Tests
                 .MapPath(HttpMethod.Get, $"/groups/{entraId}", "{}", System.Net.HttpStatusCode.NotFound);
 
             var searcher = NewSearcher(handler);
-            Assert.ThrowsExactly<ArgumentException>(() => searcher.GetUserDataById(entraId), "must throw ArgumentException, not AggregateException — implies .GetAwaiter().GetResult() unwrapping");
+            Assert.ThrowsExactly<ArgumentException>(() => searcher.FindById(entraId), "must throw ArgumentException, not AggregateException — implies .GetAwaiter().GetResult() unwrapping");
         }
 
         // SC-10 acceptance: simulate an existing customer install whose AccessControl.Sid
-        // rows hold on-prem AD SIDs. GetUserDataById with the SID resolves via
+        // rows hold on-prem AD SIDs. FindById with the SID resolves via
         // onPremisesSecurityIdentifier and the returned model carries the SID back so
         // EnvironmentsPersistentSource's ac.Sid matching still works.
         [TestMethod]
@@ -334,11 +334,11 @@ namespace Dorc.Core.Tests
                 """);
 
             var searcher = NewSearcher(handler);
-            var resolved = searcher.GetUserDataById(legacyAdSid);
+            var resolved = searcher.FindById(legacyAdSid);
 
-            Assert.AreEqual("ffffffff-ffff-ffff-ffff-ffffffffffff", resolved.Pid);
+            Assert.AreEqual("ffffffff-ffff-ffff-ffff-ffffffffffff", resolved.PrincipalId);
 #pragma warning disable CS0618
-            Assert.AreEqual(legacyAdSid, resolved.Sid);
+            Assert.AreEqual(legacyAdSid, resolved.OnPremisesSid);
 #pragma warning restore CS0618
         }
 
@@ -428,13 +428,13 @@ namespace Dorc.Core.Tests
                 // Resolvable user, resolvable group, but NOT a member.
                 .MapPath(HttpMethod.Post, "/checkMemberGroups", """{ "value": [] }""");
 
-            var result = NewSearcher(handler).GetGroupSidIfUserIsMemberRecursive("alice", "Admins", "contoso.com");
+            var result = NewSearcher(handler).FindGroupIfMember("alice", "Admins", "contoso.com");
 
             Assert.AreEqual(string.Empty, result,
                 "a non-member must not receive the group id — this is the privilege-escalation guard");
         }
 
-        // P-9: GetUserData populates display name and email, including the mail fallback.
+        // P-9: FindByName populates display name and email, including the mail fallback.
         [TestMethod]
         public void P9_GetUserData_PopulatesDisplayNameAndEmail()
         {
@@ -452,11 +452,11 @@ namespace Dorc.Core.Tests
                 }
                 """);
 
-            var user = NewSearcher(handler).GetUserData("alice");
+            var user = NewSearcher(handler).FindByName("alice");
 
             Assert.AreEqual("Alice Smith", user.DisplayName);
             Assert.AreEqual("alice.smith@contoso.com", user.Email);
-            Assert.AreEqual("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", user.Pid);
+            Assert.AreEqual("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", user.PrincipalId);
         }
 
         // P-9: when Entra has no `mail`, Email falls back to the UPN rather than going null —
@@ -476,12 +476,12 @@ namespace Dorc.Core.Tests
                 }
                 """);
 
-            var user = NewSearcher(handler).GetUserData("bob");
+            var user = NewSearcher(handler).FindByName("bob");
 
             Assert.AreEqual("bob@contoso.com", user.Email);
         }
 
-        // GetSidsForUser is handed a bare sAMAccountName by WinAuthClaimsPrincipalReader.
+        // GetIdentifiersForUser is handed a bare sAMAccountName by WinAuthClaimsPrincipalReader.
         // It must resolve that to an object id before addressing Graph — a bare name as a
         // path segment yields 400 and takes down every authorization check.
         [TestMethod]
@@ -501,7 +501,7 @@ namespace Dorc.Core.Tests
                   "onPremisesSecurityIdentifier": "S-1-5-21-9-9-9-100" }
                 """);
 
-            var sids = NewSearcher(handler).GetSidsForUser("jsmith");
+            var sids = NewSearcher(handler).GetIdentifiersForUser("jsmith");
 
             CollectionAssert.Contains(sids, "dddddddd-dddd-dddd-dddd-dddddddddddd");
             CollectionAssert.Contains(sids, "S-1-5-21-9-9-9-500");
@@ -538,7 +538,7 @@ namespace Dorc.Core.Tests
                 { "id": "cccccccc-cccc-cccc-cccc-cccccccccccc" }
                 """);
 
-            var sids = NewSearcher(handler).GetSidsForUser(objectId);
+            var sids = NewSearcher(handler).GetIdentifiersForUser(objectId);
 
             CollectionAssert.Contains(sids, "10000000-0000-0000-0000-000000000001");
             CollectionAssert.Contains(sids, "20000000-0000-0000-0000-000000000002",
@@ -566,7 +566,7 @@ namespace Dorc.Core.Tests
                 { "value": [ "77777777-7777-7777-7777-777777777777" ] }
                 """);
 
-            var result = NewSearcher(handler).GetGroupSidIfUserIsMemberRecursive("alice", "Admins", "contoso.com");
+            var result = NewSearcher(handler).FindGroupIfMember("alice", "Admins", "contoso.com");
 
             Assert.AreEqual(string.Empty, result,
                 "an ambiguous sAMAccountName must not resolve to an arbitrary principal");
@@ -604,7 +604,7 @@ namespace Dorc.Core.Tests
                 }
                 """);
 
-            NewSearcher(handler).GetUserDataById(sid);
+            NewSearcher(handler).FindById(sid);
 
             var filter = handler.LastFilter("/users");
             Assert.IsNotNull(filter, "no $filter was sent for the SID lookup");
@@ -629,7 +629,7 @@ namespace Dorc.Core.Tests
                 }
                 """);
 
-            NewSearcher(handler).GetUserDataById(sid);
+            NewSearcher(handler).FindById(sid);
 
             var filter = handler.LastFilter("/groups");
             Assert.IsNotNull(filter);
@@ -652,7 +652,7 @@ namespace Dorc.Core.Tests
                 { "value": [ "77777777-7777-7777-7777-777777777777" ] }
                 """);
 
-            NewSearcher(handler).GetGroupSidIfUserIsMemberRecursive("alice", "Admins", "contoso.com");
+            NewSearcher(handler).FindGroupIfMember("alice", "Admins", "contoso.com");
 
             // /users/{id}/checkMemberGroups also contains "/users", so select the GET that
             // actually carried a $filter.
@@ -689,7 +689,7 @@ namespace Dorc.Core.Tests
 
             Assert.AreEqual(1, results.Count);
             Assert.AreEqual("dorc-ci-client", results[0].DisplayName);
-            Assert.AreEqual("bbbb2222-0000-0000-0000-000000000002", results[0].Pid,
+            Assert.AreEqual("bbbb2222-0000-0000-0000-000000000002", results[0].PrincipalId,
                 "Pid must be the appId — that is the value AccessControl.Pid holds for M2M callers");
         }
 
@@ -745,11 +745,11 @@ namespace Dorc.Core.Tests
                 "second page of user results was not drained");
         }
 
-        private static AzureEntraSearcher NewSearcher(MockHttpHandler handler)
+        private static PrincipalDirectory NewSearcher(MockHttpHandler handler)
         {
-            return new AzureEntraSearcher(
+            return new PrincipalDirectory(
                 () => GraphTestClient.Create(handler),
-                NullLogger<AzureEntraSearcher>.Instance);
+                NullLogger<PrincipalDirectory>.Instance);
         }
     }
 }

@@ -6,12 +6,12 @@ namespace Dorc.Api.Services
 {
     // Graph-backed implementation of the search surface DirectorySearchController exposes.
     // Replaces ActiveDirectorySearchService (which depended on System.DirectoryServices).
-    public class EntraDirectorySearchService : IDirectorySearchService
+    public class PrincipalSearch : IPrincipalSearch
     {
-        private readonly IActiveDirectorySearcher _searcher;
+        private readonly IPrincipalDirectory _searcher;
         private readonly string _intraDomainName;
 
-        public EntraDirectorySearchService(IActiveDirectorySearcher searcher, IConfigurationSettings config)
+        public PrincipalSearch(IPrincipalDirectory searcher, IConfigurationSettings config)
         {
             _searcher = searcher;
             _intraDomainName = config.GetConfigurationDomainNameIntra();
@@ -43,11 +43,11 @@ namespace Dorc.Api.Services
 
         public bool IsUserInGroup(string groupName, string account, string domainName)
         {
-            var groupId = _searcher.GetGroupSidIfUserIsMemberRecursive(account, groupName, domainName);
+            var groupId = _searcher.FindGroupIfMember(account, groupName, domainName);
             return !string.IsNullOrEmpty(groupId);
         }
 
-        private static string? ResolveLogonName(UserElementApiModel e)
+        private static string? ResolveLogonName(DirectoryPrincipalApiModel e)
         {
             // Prefer the synced sAMAccountName: ActiveDirectorySearchService built
             // DOMAIN\sAMAccountName, and the UPN local part is frequently different

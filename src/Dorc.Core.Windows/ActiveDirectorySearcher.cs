@@ -1,4 +1,4 @@
-using Dorc.ApiModel;
+﻿using Dorc.ApiModel;
 using Dorc.Core.Interfaces;
 using Microsoft.Extensions.Logging;
 using System.ComponentModel;
@@ -14,7 +14,7 @@ using System.Text.RegularExpressions;
 namespace Dorc.Core.Windows
 {
     [SupportedOSPlatform("windows")]
-    public class ActiveDirectorySearcher : IActiveDirectorySearcher
+    public class ActiveDirectorySearcher : IPrincipalDirectory
     {
         private readonly DirectoryEntry _activeDirectoryRoot;
         private readonly ILogger _log;
@@ -31,9 +31,9 @@ namespace Dorc.Core.Windows
             _activeDirectoryRoot = new DirectoryEntry(ldapRoot);
         }
 
-        public List<UserElementApiModel> Search(string objectName)
+        public List<DirectoryPrincipalApiModel> Search(string objectName)
         {
-            var output = new List<UserElementApiModel>();
+            var output = new List<DirectoryPrincipalApiModel>();
 
             // restrict the username and password to letters and parenthesis only
             if (!Regex.IsMatch(objectName, "^[a-zA-Z-_. ()]+$"))
@@ -114,7 +114,7 @@ namespace Dorc.Core.Windows
             return sb.ToString();
         }
 
-        private UserElementApiModel GetModelFromDirectoryEntry(DirectoryEntry de)
+        private DirectoryPrincipalApiModel GetModelFromDirectoryEntry(DirectoryEntry de)
         {
             var displayName = GetSafeString(de.Properties, "displayName");
             if (string.IsNullOrEmpty(displayName))
@@ -122,11 +122,13 @@ namespace Dorc.Core.Windows
                 displayName = GetSafeString(de.Properties, "cn");
             }
 
-            return new UserElementApiModel()
+            var samAccountName = GetSafeString(de.Properties, "SAMAccountName");
+            return new DirectoryPrincipalApiModel()
             {
-                Username = GetSafeString(de.Properties, "SAMAccountName"),
+                Username = samAccountName,
+                SamAccountName = samAccountName,
                 DisplayName = displayName,
-                Sid = GetSidString((byte[])de.Properties["objectSid"].Value),
+                OnPremisesSid = GetSidString((byte[])de.Properties["objectSid"].Value),
                 IsGroup = de.Properties["objectClass"]?.Contains("group") == true,
                 Email = de.Properties["mail"].Value != null ? de.Properties["mail"].Value?.ToString() : de.Properties["UserPrincipalName"].Value?.ToString()
             };
@@ -163,7 +165,7 @@ namespace Dorc.Core.Windows
             return sidBytes;
         }
 
-        public UserElementApiModel GetUserDataById(string sid)
+        public DirectoryPrincipalApiModel FindById(string sid)
         {
             if (string.IsNullOrEmpty(sid))
             {
@@ -195,7 +197,7 @@ namespace Dorc.Core.Windows
 
                         var entity = GetModelFromDirectoryEntry(de);
 
-                        entity.Sid = sid;
+                        entity.OnPremisesSid = sid;
 
                         return entity;
                     }
@@ -213,7 +215,7 @@ namespace Dorc.Core.Windows
             return name != null && Regex.IsMatch(name, @"^[a-zA-Z0-9'_. -]+(\(External\))?$");
         }
 
-        public UserElementApiModel GetUserData(string name)
+        public DirectoryPrincipalApiModel FindByName(string name)
         {
             if (!IsValidSearchName(name))
             {
@@ -247,7 +249,7 @@ namespace Dorc.Core.Windows
                         { continue; }
 
                         var user = GetModelFromDirectoryEntry(de);
-                        user.Sid = Sid;
+                        user.OnPremisesSid = Sid;
 
                         return user;
                     }
@@ -257,7 +259,7 @@ namespace Dorc.Core.Windows
             throw new ArgumentException("Failed to locate a valid user account for requested user!");
         }
 
-        public List<string> GetSidsForUser(string samAccountName)
+        public List<string> GetIdentifiersForUser(string samAccountName)
         {
             var result = new HashSet<string>();
             var name = samAccountName;
@@ -287,7 +289,7 @@ namespace Dorc.Core.Windows
             return sidList;
         }
 
-        public string? GetGroupSidIfUserIsMemberRecursive(string userName, string groupName, string domainName)
+        public string? FindGroupIfMember(string userName, string groupName, string domainName)
         {
             using (var context = new PrincipalContext(ContextType.Domain, null, domainName))
             {

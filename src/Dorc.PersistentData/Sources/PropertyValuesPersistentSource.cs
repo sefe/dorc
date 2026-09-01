@@ -349,7 +349,7 @@ namespace Dorc.PersistentData.Sources
             PagedDataOperators operators, EnvironmentApiModel scope, IPrincipal user)
         {
             string username = _claimsPrincipalReader.GetUserLogin(user);
-            var userSids = _claimsPrincipalReader.GetSidsForUser(user);
+            var userSids = _claimsPrincipalReader.GetIdentifiersForUser(user);
 
             PagedModel<FlatPropertyValueApiModel> output = null;
             using (var context = _contextFactory.GetContext())
@@ -520,7 +520,7 @@ namespace Dorc.PersistentData.Sources
             PagedDataOperators operators, IPrincipal user)
         {
             string username = _claimsPrincipalReader.GetUserLogin(user);
-            var userSids = _claimsPrincipalReader.GetSidsForUser(user);
+            var userSids = _claimsPrincipalReader.GetIdentifiersForUser(user);
 
             PagedModel<FlatPropertyValueApiModel> output = null;
             using (var context = _contextFactory.GetContext())

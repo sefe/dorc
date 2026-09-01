@@ -16,7 +16,7 @@ namespace Dorc.Api.Tests.Controllers
     {
         private IProjectsPersistentSource _projectsPersistentSource;
         private IAccessControlPersistentSource _accessControlPersistentSource;
-        private IActiveDirectorySearcher _activeDirectorySearcher;
+        private IPrincipalDirectory _activeDirectorySearcher;
         private IRolePrivilegesChecker _rolePrivilegesChecker;
         private ISecurityPrivilegesChecker _securityPrivilegesChecker;
         private IClaimsPrincipalReader _claimsPrincipalReader;
@@ -28,7 +28,7 @@ namespace Dorc.Api.Tests.Controllers
         {
             _projectsPersistentSource = Substitute.For<IProjectsPersistentSource>();
             _accessControlPersistentSource = Substitute.For<IAccessControlPersistentSource>();
-            _activeDirectorySearcher = Substitute.For<IActiveDirectorySearcher>();
+            _activeDirectorySearcher = Substitute.For<IPrincipalDirectory>();
             _rolePrivilegesChecker = Substitute.For<IRolePrivilegesChecker>();
             _securityPrivilegesChecker = Substitute.For<ISecurityPrivilegesChecker>();
             _claimsPrincipalReader = Substitute.For<IClaimsPrincipalReader>();

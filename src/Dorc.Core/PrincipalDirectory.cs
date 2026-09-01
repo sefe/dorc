@@ -1,4 +1,4 @@
-using Azure.Identity;
+﻿using Azure.Identity;
 using Dorc.ApiModel;
 using Dorc.Core.Configuration;
 using Dorc.Core.Interfaces;
@@ -13,7 +13,7 @@ using System.Text.RegularExpressions;
 
 namespace Dorc.Core
 {
-    public class AzureEntraSearcher : IActiveDirectorySearcher, IDisposable
+    public class PrincipalDirectory : IPrincipalDirectory, IDisposable
     {
         // Matches well-formed Windows/AD SIDs (S-1-5-..., S-1-12-...). Used to decide
         // whether to fall back to onPremisesSecurityIdentifier filter queries on direct-lookup 404.
@@ -40,7 +40,7 @@ namespace Dorc.Core
         private GraphServiceClient? _graphClient;
         private RetryHandler? _customRetryHandler;
 
-        public AzureEntraSearcher(IConfigurationSettings config, ILogger<AzureEntraSearcher> log)
+        public PrincipalDirectory(IConfigurationSettings config, ILogger<PrincipalDirectory> log)
         {
             _tenantId = config.GetAzureEntraTenantId();
             _clientId = config.GetAzureEntraClientId();
@@ -51,7 +51,7 @@ namespace Dorc.Core
 
         // Test-seam ctor: injects a pre-built GraphServiceClient so tests can drive a fake.
         // Per SPEC-S-001 §3.1 — the only way to satisfy HLPS SC-9 (integration-level Graph-fake tests).
-        internal AzureEntraSearcher(Func<GraphServiceClient> graphClientFactory, ILogger<AzureEntraSearcher> log)
+        internal PrincipalDirectory(Func<GraphServiceClient> graphClientFactory, ILogger<PrincipalDirectory> log)
         {
             _tenantId = string.Empty;
             _clientId = string.Empty;
@@ -162,9 +162,9 @@ namespace Dorc.Core
             return term != null && Regex.IsMatch(term, @"\A[\p{L}\p{N}_.'\- ()&]+\z");
         }
 
-        public List<UserElementApiModel> Search(string objectName)
+        public List<DirectoryPrincipalApiModel> Search(string objectName)
         {
-            var output = new List<UserElementApiModel>();
+            var output = new List<DirectoryPrincipalApiModel>();
 
             // Reject structurally malformed search terms rather than round-tripping them to
             // Graph. Returns empty (not throw), matching the replaced ActiveDirectorySearcher.
@@ -204,12 +204,12 @@ namespace Dorc.Core
                 {
                     foreach (var user in users.Value)
                     {
-                        output.Add(new UserElementApiModel
+                        output.Add(new DirectoryPrincipalApiModel
                         {
                             Username = user.UserPrincipalName,
                             DisplayName = user.DisplayName,
-                            Pid = user.Id,
-                            Sid = user.OnPremisesSecurityIdentifier,
+                            PrincipalId = user.Id,
+                            OnPremisesSid = user.OnPremisesSecurityIdentifier,
                             SamAccountName = user.OnPremisesSamAccountName,
                             IsGroup = false,
                             Email = user.Mail ?? user.UserPrincipalName
@@ -240,12 +240,12 @@ namespace Dorc.Core
                 {
                     foreach (var group in groups.Value)
                     {
-                        output.Add(new UserElementApiModel
+                        output.Add(new DirectoryPrincipalApiModel
                         {
                             Username = group.MailNickname,
                             DisplayName = group.DisplayName,
-                            Pid = group.Id,
-                            Sid = group.OnPremisesSecurityIdentifier,
+                            PrincipalId = group.Id,
+                            OnPremisesSid = group.OnPremisesSecurityIdentifier,
                             SamAccountName = group.OnPremisesSamAccountName,
                             IsGroup = true,
                             Email = group.Mail
@@ -284,7 +284,7 @@ AppendServicePrincipals(graphClient, objectName, output);
             return output;
         }
 
-        public UserElementApiModel GetUserDataById(string pid)
+        public DirectoryPrincipalApiModel FindById(string pid)
         {
             if (string.IsNullOrWhiteSpace(pid))
             {
@@ -309,12 +309,12 @@ AppendServicePrincipals(graphClient, objectName, output);
 
                 if (user != null && user.AccountEnabled == true)
                 {
-                    return new UserElementApiModel
+                    return new DirectoryPrincipalApiModel
                     {
                         Username = user.UserPrincipalName,
                         DisplayName = user.DisplayName,
-                        Pid = user.Id,
-                        Sid = user.OnPremisesSecurityIdentifier,
+                        PrincipalId = user.Id,
+                        OnPremisesSid = user.OnPremisesSecurityIdentifier,
                         IsGroup = false,
                         Email = user.Mail ?? user.UserPrincipalName
                     };
@@ -351,12 +351,12 @@ AppendServicePrincipals(graphClient, objectName, output);
 
                 if (group != null)
                 {
-                    return new UserElementApiModel
+                    return new DirectoryPrincipalApiModel
                     {
                         Username = group.MailNickname,
                         DisplayName = group.DisplayName,
-                        Pid = group.Id,
-                        Sid = group.OnPremisesSecurityIdentifier,
+                        PrincipalId = group.Id,
+                        OnPremisesSid = group.OnPremisesSecurityIdentifier,
                         IsGroup = true,
                         Email = group.Mail
                     };
@@ -385,7 +385,7 @@ AppendServicePrincipals(graphClient, objectName, output);
 
         // P-4 helper: resolve a synced-from-AD user via the onPremisesSecurityIdentifier filter.
         // Returns null if no enabled match is found.
-        private UserElementApiModel? FindUserByOnPremisesSid(GraphServiceClient graphClient, string sid)
+        private DirectoryPrincipalApiModel? FindUserByOnPremisesSid(GraphServiceClient graphClient, string sid)
         {
             try
             {
@@ -405,12 +405,12 @@ AppendServicePrincipals(graphClient, objectName, output);
                 var hit = users?.Value?.FirstOrDefault(u => u.AccountEnabled == true);
                 if (hit == null) return null;
 
-                return new UserElementApiModel
+                return new DirectoryPrincipalApiModel
                 {
                     Username = hit.UserPrincipalName,
                     DisplayName = hit.DisplayName,
-                    Pid = hit.Id,
-                    Sid = hit.OnPremisesSecurityIdentifier ?? sid,
+                    PrincipalId = hit.Id,
+                    OnPremisesSid = hit.OnPremisesSecurityIdentifier ?? sid,
                     IsGroup = false,
                     Email = hit.Mail ?? hit.UserPrincipalName
                 };
@@ -423,7 +423,7 @@ AppendServicePrincipals(graphClient, objectName, output);
         }
 
         // P-4 helper: resolve a synced-from-AD group via the onPremisesSecurityIdentifier filter.
-        private UserElementApiModel? FindGroupByOnPremisesSid(GraphServiceClient graphClient, string sid)
+        private DirectoryPrincipalApiModel? FindGroupByOnPremisesSid(GraphServiceClient graphClient, string sid)
         {
             try
             {
@@ -443,12 +443,12 @@ AppendServicePrincipals(graphClient, objectName, output);
                 var hit = groups?.Value?.FirstOrDefault();
                 if (hit == null) return null;
 
-                return new UserElementApiModel
+                return new DirectoryPrincipalApiModel
                 {
                     Username = hit.MailNickname,
                     DisplayName = hit.DisplayName,
-                    Pid = hit.Id,
-                    Sid = hit.OnPremisesSecurityIdentifier ?? sid,
+                    PrincipalId = hit.Id,
+                    OnPremisesSid = hit.OnPremisesSecurityIdentifier ?? sid,
                     IsGroup = true,
                     Email = hit.Mail
                 };
@@ -460,7 +460,7 @@ AppendServicePrincipals(graphClient, objectName, output);
             }
         }
 
-        public UserElementApiModel GetUserData(string username)
+        public DirectoryPrincipalApiModel FindByName(string username)
         {
             if (!IsValidSearchName(username))
             {
@@ -489,12 +489,12 @@ AppendServicePrincipals(graphClient, objectName, output);
                 var activeUser = users?.Value?.FirstOrDefault(u => u.AccountEnabled == true);
                 if (activeUser != null)
                 {
-                    return new UserElementApiModel
+                    return new DirectoryPrincipalApiModel
                     {
                         Username = activeUser.UserPrincipalName,
                         DisplayName = activeUser.DisplayName,
-                        Pid = activeUser.Id,
-                        Sid = activeUser.OnPremisesSecurityIdentifier,
+                        PrincipalId = activeUser.Id,
+                        OnPremisesSid = activeUser.OnPremisesSecurityIdentifier,
                         IsGroup = false,
                         Email = activeUser.Mail ?? activeUser.UserPrincipalName
                     };
@@ -516,7 +516,7 @@ AppendServicePrincipals(graphClient, objectName, output);
         // P-7: emits both Entra group IDs and their onPremisesSecurityIdentifier values so
         // downstream EF queries that key off either Pid or Sid (e.g. EnvironmentsPersistentSource
         // line 932 — `ac.Sid OR ac.Pid`) keep matching after the AD→Graph migration.
-        public List<string> GetSidsForUser(string userId)
+        public List<string> GetIdentifiersForUser(string userId)
         {
             if (string.IsNullOrEmpty(userId))
             {
@@ -530,7 +530,7 @@ AppendServicePrincipals(graphClient, objectName, output);
             // ClaimsPrincipalReaderFactory a sAMAccountName-or-email when
             // IsUseAdSidsForAccessControl is set). Graph only accepts an object id or a UPN
             // as a path segment and answers 400 for anything else, so resolve first —
-            // the same step GetGroupSidIfUserIsMemberRecursive already performs.
+            // the same step FindGroupIfMember already performs.
             var graphUserId = LooksLikeGraphUserIdentifier(userId)
                 ? userId
                 : ResolveUserIdFromName(graphClient, userId);
@@ -539,7 +539,7 @@ AppendServicePrincipals(graphClient, objectName, output);
             {
                 // Unresolvable caller: return the raw input only. Every consumer treats a
                 // short list as deny, so this fails closed rather than throwing a 500.
-                _log.LogWarning("Unable to resolve the requested user to an Entra object id");
+                _log.LogWarning("Unable to resolve the requested user to a directory object id");
                 return result;
             }
 
@@ -626,7 +626,7 @@ AppendServicePrincipals(graphClient, objectName, output);
         // before invoking the transitive membership check. `domainName` is intentionally
         // ignored: DORC's Entra setup is single-tenant per install, and cross-forest
         // foreign security principals are out of parity (HLPS §4).
-        public string? GetGroupSidIfUserIsMemberRecursive(string userName, string groupName, string domainName)
+        public string? FindGroupIfMember(string userName, string groupName, string domainName)
         {
             var graphClient = GetGraphClient();
 
@@ -691,7 +691,7 @@ AppendServicePrincipals(graphClient, objectName, output);
         // Deliberately non-fatal: this needs Application.Read.All, a permission existing tenants
         // have not consented to. A 403 here must degrade to "no machine clients in the results",
         // not take down user and group search with it.
-        private void AppendServicePrincipals(GraphServiceClient graphClient, string escapedName, List<UserElementApiModel> output)
+        private void AppendServicePrincipals(GraphServiceClient graphClient, string escapedName, List<DirectoryPrincipalApiModel> output)
         {
             try
             {
@@ -711,11 +711,11 @@ AppendServicePrincipals(graphClient, objectName, output);
                 {
                     foreach (var sp in principals.Value.Where(sp => sp.AccountEnabled != false))
                     {
-                        output.Add(new UserElementApiModel
+                        output.Add(new DirectoryPrincipalApiModel
                         {
                             Username = sp.AppId,
                             DisplayName = sp.DisplayName,
-                            Pid = sp.AppId,
+                            PrincipalId = sp.AppId,
                             IsGroup = false
                         });
                     }
@@ -783,7 +783,7 @@ AppendServicePrincipals(graphClient, objectName, output);
             // identity's group claims. Refuse instead of guessing.
             if (matches.Count > 1)
             {
-                _log.LogError("Directory name resolved to multiple Entra principals; refusing to guess an identity");
+                _log.LogError("Directory name resolved to multiple principals; refusing to guess an identity");
                 return null;
             }
 

@@ -26,9 +26,9 @@ namespace Dorc.Api.Services
             // SPEC-S-001 §2.5). On Windows hosts the on-prem AD searcher is retained as a
             // fallback consulted only when Graph throws; it lives in Dorc.Core.Windows so
             // the primary compile graph stays free of System.DirectoryServices (SC-1).
-            For<IActiveDirectorySearcher>().Use(ctx => CreateDirectorySearcher(ctx)).Singleton();
+            For<IPrincipalDirectory>().Use(ctx => CreatePrincipalDirectory(ctx)).Singleton();
             For<IUserGroupReader>().Use<CachedUserGroupReader>().Singleton();
-            For<IDirectorySearchService>().Use<EntraDirectorySearchService>().Scoped();
+            For<IPrincipalSearch>().Use<PrincipalSearch>().Scoped();
 
             For<IFileSystemHelper>().Use<FileSystemHelper>();
             For<IGitHubHostValidator>().Use<GitHubHostValidator>().Singleton();
@@ -41,31 +41,31 @@ namespace Dorc.Api.Services
             For<IAccountExistenceChecker>().Use<AccountExistenceChecker>().Scoped();
         }
 
-        private static IActiveDirectorySearcher CreateDirectorySearcher(IServiceContext ctx)
+        private static IPrincipalDirectory CreatePrincipalDirectory(IServiceContext ctx)
         {
             var config = ctx.GetInstance<IConfigurationSettings>();
             var loggerFactory = ctx.GetInstance<ILoggerFactory>();
-            var graphSearcher = new AzureEntraSearcher(config, loggerFactory.CreateLogger<AzureEntraSearcher>());
+            var graphDirectory = new PrincipalDirectory(config, loggerFactory.CreateLogger<PrincipalDirectory>());
 
             if (!OperatingSystem.IsWindows() || !config.GetAdFallbackEnabled())
             {
-                return graphSearcher;
+                return graphDirectory;
             }
 
-            var log = loggerFactory.CreateLogger<FallbackDirectorySearcher>();
+            var log = loggerFactory.CreateLogger<FallbackPrincipalDirectory>();
             var domainName = config.GetConfigurationDomainNameIntra();
             if (string.IsNullOrWhiteSpace(domainName))
             {
                 log.LogWarning(
                     "AD fallback is enabled but AppSettings:DomainNameIntra is not configured; running Graph-only.");
-                return graphSearcher;
+                return graphDirectory;
             }
 
             try
             {
-                var adSearcher = new ActiveDirectorySearcher(
+                var adDirectory = new ActiveDirectorySearcher(
                     domainName, loggerFactory.CreateLogger<ActiveDirectorySearcher>());
-                return new FallbackDirectorySearcher(graphSearcher, adSearcher, log);
+                return new FallbackPrincipalDirectory(graphDirectory, adDirectory, log);
             }
             catch (Exception ex)
             {
@@ -74,7 +74,7 @@ namespace Dorc.Api.Services
                 log.LogWarning(ex,
                     "Could not initialise the AD fallback searcher for domain {Domain}; running Graph-only.",
                     domainName);
-                return graphSearcher;
+                return graphDirectory;
             }
         }
     }

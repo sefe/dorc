@@ -13,13 +13,13 @@ namespace Dorc.Api.Tests.Controllers
     [TestClass]
     public class DirectorySearchControllerTests
     {
-        private IDirectorySearchService _searchService = null!;
+        private IPrincipalSearch _searchService = null!;
         private IConfigurationSettings _configSettings = null!;
 
         [TestInitialize]
         public void Setup()
         {
-            _searchService = Substitute.For<IDirectorySearchService>();
+            _searchService = Substitute.For<IPrincipalSearch>();
             _configSettings = Substitute.For<IConfigurationSettings>();
             _configSettings.GetConfigurationDomainName().Returns("DOMAIN");
         }

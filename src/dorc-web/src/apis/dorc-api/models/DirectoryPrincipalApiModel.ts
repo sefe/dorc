@@ -13,37 +13,37 @@
 
 /**
  * @export
- * @interface UserElementApiModel
+ * @interface DirectoryPrincipalApiModel
  */
-export interface UserElementApiModel {
+export interface DirectoryPrincipalApiModel {
     /**
      * @type {string}
-     * @memberof UserElementApiModel
+     * @memberof DirectoryPrincipalApiModel
      */
     DisplayName?: string | null;
     /**
      * @type {string}
-     * @memberof UserElementApiModel
+     * @memberof DirectoryPrincipalApiModel
      */
-    Sid?: string | null;
+    OnPremisesSid?: string | null;
     /**
      * @type {string}
-     * @memberof UserElementApiModel
+     * @memberof DirectoryPrincipalApiModel
      */
-    Pid?: string | null;
+    PrincipalId?: string | null;
     /**
      * @type {string}
-     * @memberof UserElementApiModel
+     * @memberof DirectoryPrincipalApiModel
      */
     Username?: string | null;
     /**
      * @type {boolean}
-     * @memberof UserElementApiModel
+     * @memberof DirectoryPrincipalApiModel
      */
     IsGroup?: boolean;
     /**
      * @type {string}
-     * @memberof UserElementApiModel
+     * @memberof DirectoryPrincipalApiModel
      */
     Email?: string | null;
 }

@@ -132,7 +132,7 @@ namespace Dorc.Api.Security
             return email[0] + new string('*', atIndex - 1) + email.Substring(atIndex);
         }
 
-        public List<string> GetSidsForUser(IPrincipal user)
+        public List<string> GetIdentifiersForUser(IPrincipal user)
         {
             var cUser = GetClaimsPrincipal(user);
             
@@ -141,7 +141,7 @@ namespace Dorc.Api.Security
                 return new List<string> { GetClientId(cUser) };
             }
 
-            var pids = new List<string>(_userGroupReader.GetSidsForUser(GetUserId(cUser)));
+            var pids = new List<string>(_userGroupReader.GetIdentifiersForUser(GetUserId(cUser)));
 
             // add samAccountName as one of pids for backward compatibility with AD
             var samAccountName = cUser?.FindFirst(SamAccountNameClaimType)?.Value;

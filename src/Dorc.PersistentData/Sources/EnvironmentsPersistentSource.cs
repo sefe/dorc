@@ -98,7 +98,7 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
         public IEnumerable<EnvironmentApiModel> GetEnvironmentsForDatabase(string databaseName, string serverName, IPrincipal user)
         {
             string username = _claimsPrincipalReader.GetUserLogin(user);
-            var userSids = _claimsPrincipalReader.GetSidsForUser(user);
+            var userSids = _claimsPrincipalReader.GetIdentifiersForUser(user);
             using (var context = contextFactory.GetContext())
             {
                 var accessibleEnvironments = _rolePrivilegesChecker.IsAdmin(user)
@@ -193,7 +193,7 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
             }
         }
 
-        public bool SetEnvironmentOwner(IPrincipal updatedBy, int envId, UserElementApiModel user)
+        public bool SetEnvironmentOwner(IPrincipal updatedBy, int envId, DirectoryPrincipalApiModel user)
         {
             if (string.IsNullOrEmpty(user.Username) || envId <= 0) return false;
 
@@ -226,7 +226,7 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
                 // Check if new owner already has an AccessControl record
                 var newOwnerAccessControl = context.AccessControls.FirstOrDefault(ac =>
                     ac.ObjectId == envDetail.ObjectId &&
-                    ((!string.IsNullOrEmpty(user.Sid) && ac.Sid == user.Sid) || (!string.IsNullOrEmpty(user.Pid) && ac.Pid == user.Pid)));
+                    ((!string.IsNullOrEmpty(user.OnPremisesSid) && ac.Sid == user.OnPremisesSid) || (!string.IsNullOrEmpty(user.PrincipalId) && ac.Pid == user.PrincipalId)));
 
                 if (newOwnerAccessControl != null)
                 {
@@ -241,8 +241,8 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
                     {
                         ObjectId = envDetail.ObjectId,
                         Name = user.DisplayName,
-                        Sid = user.Sid,
-                        Pid = user.Pid,
+                        Sid = user.OnPremisesSid,
+                        Pid = user.PrincipalId,
                         Allow = (int)AccessLevel.Owner
                     };
                     context.AccessControls.Add(newOwnerAccessControl);
@@ -365,7 +365,7 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
         public IEnumerable<EnvironmentApiModel> GetEnvironments(IPrincipal user)
         {
             string username = _claimsPrincipalReader.GetUserLogin(user);
-            var userSids = _claimsPrincipalReader.GetSidsForUser(user);
+            var userSids = _claimsPrincipalReader.GetIdentifiersForUser(user);
             using (var context = contextFactory.GetContext())
             {
                 var accessibleEnvNames = _rolePrivilegesChecker.IsAdmin(user)
@@ -384,7 +384,7 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
             string projectName, IPrincipal user, AccessLevel accessLevel)
         {
             string username = _claimsPrincipalReader.GetUserLogin(user);
-            var userSids = _claimsPrincipalReader.GetSidsForUser(user);
+            var userSids = _claimsPrincipalReader.GetIdentifiersForUser(user);
             var isAdmin = _rolePrivilegesChecker.IsAdmin(user);
 
             var output = (
@@ -434,7 +434,7 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
             if (string.IsNullOrEmpty(environmentName))
                 return null;
 
-            var userSids = _claimsPrincipalReader.GetSidsForUser(user);
+            var userSids = _claimsPrincipalReader.GetIdentifiersForUser(user);
 
             using (var context = contextFactory.GetContext())
             {
@@ -968,7 +968,7 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
         {
             using (var context = contextFactory.GetContext())
             {
-                var userSids = _claimsPrincipalReader.GetSidsForUser(user);
+                var userSids = _claimsPrincipalReader.GetIdentifiersForUser(user);
 
                 var accessLevelRequired = AccessLevel.Write | AccessLevel.Owner;
 

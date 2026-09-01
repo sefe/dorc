@@ -19,12 +19,12 @@ namespace Dorc.Api.Controllers
         private readonly IManageUsers _manageUsers;
         private readonly ISecurityPrivilegesChecker _securityService;
         private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
-        private readonly IActiveDirectorySearcher _activeDirectorySearcher;
+        private readonly IPrincipalDirectory _activeDirectorySearcher;
         private readonly IEnvironmentMapper _environmentMapper;
 
         public RefDataEnvironmentsUsersController(IManageUsers manageUsers, ISecurityPrivilegesChecker securityService,
             IEnvironmentsPersistentSource environmentsPersistentSource,
-            IActiveDirectorySearcher activeDirectorySearcher, IEnvironmentMapper environmentMapper)
+            IPrincipalDirectory activeDirectorySearcher, IEnvironmentMapper environmentMapper)
         {
             _environmentMapper = environmentMapper;
             _activeDirectorySearcher = activeDirectorySearcher;
@@ -73,7 +73,7 @@ namespace Dorc.Api.Controllers
             // DO NOT use the USERS table here!
             var ownerId = _environmentsPersistentSource.GetEnvironmentOwnerId(id);
 
-            var userIdActiveDirectory = _activeDirectorySearcher.GetUserDataById(ownerId);
+            var userIdActiveDirectory = _activeDirectorySearcher.FindById(ownerId);
 
             return StatusCode(StatusCodes.Status200OK, new EnvironmentOwnerApiModel { DisplayName = userIdActiveDirectory.DisplayName });
         }
@@ -96,7 +96,7 @@ namespace Dorc.Api.Controllers
                     new NonEnoughRightsException("User doesn't have \"Modify\" permission for this action!"));
             }
 
-            var userIdActiveDirectory = _activeDirectorySearcher.GetUserData(newOwner.DisplayName);
+            var userIdActiveDirectory = _activeDirectorySearcher.FindByName(newOwner.DisplayName);
 
             var result = _environmentsPersistentSource.SetEnvironmentOwner(User, id, userIdActiveDirectory);
             return StatusCode(StatusCodes.Status200OK, result);
@@ -107,7 +107,7 @@ namespace Dorc.Api.Controllers
         /// </summary>
         /// <param name="search"></param>
         /// <returns></returns>
-        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(List<UserElementApiModel>))]
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(List<DirectoryPrincipalApiModel>))]
         [HttpGet("SearchUsers/{search}")]
         public IActionResult SearchUsers(string search)
         {

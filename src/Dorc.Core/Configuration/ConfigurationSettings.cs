@@ -137,12 +137,6 @@ namespace Dorc.Core.Configuration
             return !bool.TryParse(value, out bool enabled) || enabled;
         }
 
-        public bool GetIsUseAdSidsForAccessControl()
-        {
-            var isUseAdSidsForAccessControlConfig = _configuration.GetSection("AppSettings")["IsUseAdSidsForAccessControl"];
-            return bool.TryParse(isUseAdSidsForAccessControlConfig, out bool isUseAdSidsForAccessControl) && isUseAdSidsForAccessControl;
-        }
-
         public string GetEnvironment(bool removeSpaces = false)
         {
             var env = _configuration.GetSection("AppSettings")["environment"] ?? "Local";

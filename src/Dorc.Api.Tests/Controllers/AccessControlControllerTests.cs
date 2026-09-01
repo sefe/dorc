@@ -15,7 +15,7 @@ namespace Dorc.Api.Tests.Controllers
     public class AccessControlControllerTests
     {
         private IAccessControlPersistentSource _accessControlPersistentSource;
-        private IActiveDirectorySearcher _adSearcher;
+        private IPrincipalDirectory _adSearcher;
         private ISecurityPrivilegesChecker _securityPrivilegesChecker;
         private AccessControlController _controller;
         private ClaimsPrincipal _user;
@@ -24,7 +24,7 @@ namespace Dorc.Api.Tests.Controllers
         public void Setup()
         {
             _accessControlPersistentSource = Substitute.For<IAccessControlPersistentSource>();
-            _adSearcher = Substitute.For<IActiveDirectorySearcher>();
+            _adSearcher = Substitute.For<IPrincipalDirectory>();
             _securityPrivilegesChecker = Substitute.For<ISecurityPrivilegesChecker>();
             _controller = new AccessControlController(_accessControlPersistentSource, _adSearcher, _securityPrivilegesChecker)
             {

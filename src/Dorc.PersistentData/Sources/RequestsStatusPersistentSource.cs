@@ -30,7 +30,7 @@ namespace Dorc.PersistentData.Sources
         public GetRequestStatusesListResponseDto GetRequestStatusesByPage(int limit, int page, PagedDataOperators operators, IPrincipal user)
         {
             string username = _claimsPrincipalReader.GetUserLogin(user);
-            var userSids = _claimsPrincipalReader.GetSidsForUser(user);
+            var userSids = _claimsPrincipalReader.GetIdentifiersForUser(user);
 
             PagedModel<DeploymentRequestApiModel> output = null;
             using (var context = _contextFactory.GetContext())

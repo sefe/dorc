@@ -19,11 +19,11 @@ namespace Dorc.Api.Controllers
         private const int AC_ALLOW_READ_SECRETS = 2;
 
         private readonly IAccessControlPersistentSource _accessControlPersistentSource;
-        private readonly IActiveDirectorySearcher _adSearcher;
+        private readonly IPrincipalDirectory _adSearcher;
         private readonly ISecurityPrivilegesChecker _securityPrivilegesChecker;
 
         public AccessControlController(IAccessControlPersistentSource accessControlPersistentSource,
-            IActiveDirectorySearcher adSearcher,
+            IPrincipalDirectory adSearcher,
             ISecurityPrivilegesChecker securityPrivilegesChecker)
         {
             _securityPrivilegesChecker = securityPrivilegesChecker;
@@ -89,7 +89,7 @@ namespace Dorc.Api.Controllers
         /// </summary>
         /// <param name="search"></param>
         /// <returns></returns>
-        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(List<UserElementApiModel>))]
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(List<DirectoryPrincipalApiModel>))]
         [Route("SearchUsers")]
         [HttpGet]
         public IActionResult SearchUsers(string search)

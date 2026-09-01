@@ -11,6 +11,6 @@ namespace Dorc.PersistentData
         string GetUserFullDomainName(IPrincipal user);
         string GetUserSafeIdentifier(IPrincipal user);
         string GetUserEmail(ClaimsPrincipal user);
-        List<string> GetSidsForUser(IPrincipal user);
+        List<string> GetIdentifiersForUser(IPrincipal user);
     }
 }

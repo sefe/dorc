@@ -7,7 +7,7 @@ namespace Dorc.Core.Tests.Graph
     // Minimal HTTP test double for Microsoft.Graph 5.x (Kiota-backed). Match incoming
     // requests by predicate; return canned status + JSON. The point is to exercise the
     // real Kiota deserialization path so the test catches payload-shape mistakes that an
-    // IActiveDirectorySearcher-boundary mock could not.
+    // IPrincipalDirectory-boundary mock could not.
     //
     // Requests are captured as immutable records (not the HttpRequestMessage itself, whose
     // content stream is consumed and disposed downstream) so tests can assert on what the
@@ -28,7 +28,7 @@ namespace Dorc.Core.Tests.Graph
         /// <summary>
         /// When true, a request matching no rule throws instead of answering 404. 404 is a
         /// meaningful status in this domain (it drives the SID fallback chain and is swallowed
-        /// by the GetSidsForUser self-lookup), so a silent 404 makes "you forgot to mock this"
+        /// by the GetIdentifiersForUser self-lookup), so a silent 404 makes "you forgot to mock this"
         /// indistinguishable from "the code correctly probed and missed".
         /// </summary>
         public bool ThrowOnUnmatched { get; set; }
