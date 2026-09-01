@@ -1,15 +1,8 @@
-import '@polymer/paper-dialog';
+import { columnBodyRenderer, columnHeaderRenderer } from '@vaadin/grid/lit';
 import '../components/dorc-spinner';
 import '@vaadin/button';
-import {
-  GridCellPartNameGenerator,
-  GridDataProviderCallback,
-  GridDataProviderParams,
-  GridItemModel,
-  GridSorterDefinition
-} from '@vaadin/grid';
+import { GridCellPartNameGenerator, GridDataProviderCallback, GridDataProviderParams, GridSorterDefinition } from '@vaadin/grid';
 import '@vaadin/grid';
-import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid-sorter';
 import '@vaadin/horizontal-layout';
@@ -17,16 +10,12 @@ import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
 import '@vaadin/text-field';
 import '@vaadin/checkbox';
-import { css, PropertyValues, render } from 'lit';
+import { css, PropertyValues } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import '../components/add-daemon';
 import { PagedDataSorting, PropertyValuesAuditApi } from '../apis/dorc-api';
-import {
-  GetPropertyValuesAuditListResponseDto,
-  PagedDataFilter,
-  PropertyValueAuditApiModel
-} from '../apis/dorc-api/models';
+import { GetPropertyValuesAuditListResponseDto, PagedDataFilter, PropertyValueAuditApiModel } from '../apis/dorc-api/models';
 import { PageElement } from '../helpers/page-element';
 import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import { getShortLogonName } from '../helpers/user-extensions';
@@ -82,11 +71,6 @@ export class PageVariablesAudit extends ResponsiveMixin(PageElement) {
       vaadin-grid#grid::part(delete-type) {
         background-color: var(--audit-row-remove-bg);
       }
-      paper-dialog.size-position {
-        top: 16px;
-        overflow: auto;
-        padding: 10px;
-      }
 
       .highlight {
         background-color: var(--audit-char-add-bg);
@@ -122,21 +106,21 @@ export class PageVariablesAudit extends ResponsiveMixin(PageElement) {
           path="PropertyName"
           header="Property Name"
           resizable
-          .headerRenderer="${this.nameHeaderRenderer}"
+          ${columnHeaderRenderer(this.nameHeaderRenderer, [])}
           auto-width
         >
         </vaadin-grid-column>
         <vaadin-grid-column
           path="EnvironmentName"
           header="Environment"
-          .headerRenderer="${this.environmentHeaderRenderer}"
+          ${columnHeaderRenderer(this.environmentHeaderRenderer, [])}
           resizable
           auto-width
         ></vaadin-grid-column>
         <vaadin-grid-column
           path="UpdatedBy"
           header="User"
-          .headerRenderer="${this.userHeaderRenderer}"
+          ${columnHeaderRenderer(this.userHeaderRenderer, [])}
           resizable
           auto-width
           ?hidden="${this._narrowScreen}"
@@ -145,15 +129,17 @@ export class PageVariablesAudit extends ResponsiveMixin(PageElement) {
           path="UpdatedDate"
           header="Updated"
           direction="desc"
-          .renderer="${this.UpdatedRenderer}"
+          ${columnBodyRenderer(this.UpdatedRenderer, [])}
           resizable
           auto-width
           ?hidden="${this._narrowScreen}"
         ></vaadin-grid-sort-column>
         <vaadin-grid-column
           header="Value"
-          .renderer="${this.valueRenderer}"
-          .headerRenderer="${this.valueHeaderRenderer}"
+          ${columnBodyRenderer(this.valueRenderer, [])}
+          ${columnHeaderRenderer(this.valueHeaderRenderer, [
+            this.useAndFilter
+          ])}
           resizable
           width="60em"
         ></vaadin-grid-column>
@@ -191,15 +177,13 @@ export class PageVariablesAudit extends ResponsiveMixin(PageElement) {
   }
 
   UpdatedRenderer(
-    root: HTMLElement,
-    _: HTMLElement,
-    model: GridItemModel<PropertyValueAuditApiModel>
+    item: PropertyValueAuditApiModel
   ) {
     let sTime = '';
     let sDate = '';
 
-    if (model.item.UpdatedDate !== undefined) {
-      const dt = new Date(model.item.UpdatedDate);
+    if (item.UpdatedDate !== undefined) {
+      const dt = new Date(item.UpdatedDate);
       sTime = dt.toLocaleTimeString('en-GB');
       sDate = dt.toLocaleDateString('en-GB', {
         day: '2-digit',
@@ -208,7 +192,7 @@ export class PageVariablesAudit extends ResponsiveMixin(PageElement) {
       });
     }
 
-    render(html` <span>${`${sDate} ${sTime}`}</span> `, root);
+    return html` <span>${`${sDate} ${sTime}`}</span> `;
   }
 
   private cellPartNameGenerator: GridCellPartNameGenerator<PropertyValueAuditApiModel> = (
@@ -229,15 +213,13 @@ export class PageVariablesAudit extends ResponsiveMixin(PageElement) {
   };
 
   valueRenderer(
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<PropertyValueAuditApiModel>
+    item: PropertyValueAuditApiModel
   ) {
-    const oldText = model.item.FromValue;
+    const oldText = item.FromValue;
     let text = '';
     let spanOpen = false;
 
-    model.item.ToValue?.split('').forEach((val, i) => {
+    item.ToValue?.split('').forEach((val, i) => {
       if (val !== oldText?.charAt(i)) {
         text += !spanOpen ? "<span class='highlight'>" : '';
         spanOpen = true;
@@ -248,26 +230,23 @@ export class PageVariablesAudit extends ResponsiveMixin(PageElement) {
       text += val;
     });
 
-    const displayFromValue = model.item.FromValue?.replace(' ', '&nbsp;');
+    const displayFromValue = item.FromValue?.replace(' ', '&nbsp;');
 
     if (text.includes('highlight')) {
-      render(
-        html` <div id="old" style="margin:0px">
+      return html` <div id="old" style="margin:0px">
             ${document
               .createRange()
               .createContextualFragment(displayFromValue ?? '')}
           </div>
           <div id="new">
             ${document.createRange().createContextualFragment(text)}
-          </div>`,
-        root
-      );
+          </div>`;
     } else {
       text = '';
       spanOpen = false;
-      const newText = model.item.ToValue;
+      const newText = item.ToValue;
 
-      model.item.FromValue?.split('').forEach((val, i) => {
+      item.FromValue?.split('').forEach((val, i) => {
         if (val !== newText?.charAt(i)) {
           text += !spanOpen ? "<span class='highlight-removed'>" : '';
           spanOpen = true;
@@ -278,19 +257,15 @@ export class PageVariablesAudit extends ResponsiveMixin(PageElement) {
         text += val;
       });
 
-      render(
-        html` <div id="old" style="margin:0px">
+      return html` <div id="old" style="margin:0px">
             ${document.createRange().createContextualFragment(text)}
           </div>
-          <div id="new">${model.item.ToValue ?? ''}</div>`,
-        root
-      );
+          <div id="new">${item.ToValue ?? ''}</div>`;
     }
   }
 
-  nameHeaderRenderer = (root: HTMLElement) => {
-    render(
-      html`
+  nameHeaderRenderer = () => {
+    return html`
         <vaadin-horizontal-layout style="align-items: center;" theme="spacing-xs">
           <vaadin-grid-sorter path="PropertyName"></vaadin-grid-sorter>
           <vaadin-text-field
@@ -306,14 +281,11 @@ export class PageVariablesAudit extends ResponsiveMixin(PageElement) {
             }}"
           ></vaadin-text-field>
         </vaadin-horizontal-layout>
-      `,
-      root
-    );
+      `;
   }
 
-  environmentHeaderRenderer = (root: HTMLElement) => {
-    render(
-      html`
+  environmentHeaderRenderer = () => {
+    return html`
         <vaadin-horizontal-layout style="align-items: center;" theme="spacing-xs">
           <vaadin-grid-sorter path="EnvironmentName"></vaadin-grid-sorter>
           <vaadin-text-field
@@ -329,14 +301,11 @@ export class PageVariablesAudit extends ResponsiveMixin(PageElement) {
             }}"
           ></vaadin-text-field>
         </vaadin-horizontal-layout>
-      `,
-      root
-    );
+      `;
   }
 
-  userHeaderRenderer = (root: HTMLElement) => {
-    render(
-      html`
+  userHeaderRenderer = () => {
+    return html`
         <vaadin-horizontal-layout style="align-items: center;" theme="spacing-xs">
           <vaadin-grid-sorter path="UpdatedBy"></vaadin-grid-sorter>
           <vaadin-text-field
@@ -352,49 +321,41 @@ export class PageVariablesAudit extends ResponsiveMixin(PageElement) {
             }}"
           ></vaadin-text-field>
         </vaadin-horizontal-layout>
-      `,
-      root
-    );
+      `;
   }
 
-  valueHeaderRenderer = (root: HTMLElement) => {
-    const labelText = this.useAndFilter ? 'Search Filter: AND' : 'Search Filter: OR';
-
-    render(
-      html`
-        <vaadin-horizontal-layout style="align-items: center;" theme="spacing-xs">
-          <vaadin-text-field
-            placeholder="Value"
-            clear-button-visible
-            focus-target
-            style="width: 100px"
-            theme="small"
-            @input="${(e: InputEvent) => {
-              const textField = e.target as HTMLInputElement;
-              this.valueFilterValue = textField?.value ?? '';
-              this.refreshGrid();
-            }}"
-          ></vaadin-text-field>
-          <vaadin-checkbox
-            id="filter-checkbox"
-            .checked="${!this.useAndFilter}"
-            .label="${labelText}"
-            title="Toggle between AND/OR filter logic"
-            style="--vaadin-checkbox-size: 14px;"
-            @change="${(e: Event) => {
-              this.useAndFilter = !(e.target as HTMLInputElement).checked;
-              const checkbox = root.querySelector('#filter-checkbox') as any;
-              if (checkbox) {
-                checkbox.label = this.useAndFilter ? 'Search Filter: AND' : 'Search Filter: OR';
-              }
-              this.refreshGrid();
-            }}"
-          ></vaadin-checkbox>
-        </vaadin-horizontal-layout>
-      `,
-      root
-    );
-  }
+  // The checkbox label used to be patched back onto the element by hand,
+  // because the imperative renderer never re-ran. `useAndFilter` is in the
+  // directive's dependency array now, so the binding keeps it current.
+  valueHeaderRenderer = () => html`
+    <vaadin-horizontal-layout style="align-items: center;" theme="spacing-xs">
+      <vaadin-text-field
+        placeholder="Value"
+        clear-button-visible
+        focus-target
+        style="width: 100px"
+        theme="small"
+        @input="${(e: InputEvent) => {
+          const textField = e.target as HTMLInputElement;
+          this.valueFilterValue = textField?.value ?? '';
+          this.refreshGrid();
+        }}"
+      ></vaadin-text-field>
+      <vaadin-checkbox
+        id="filter-checkbox"
+        .checked="${!this.useAndFilter}"
+        .label="${this.useAndFilter
+          ? 'Search Filter: AND'
+          : 'Search Filter: OR'}"
+        title="Toggle between AND/OR filter logic"
+        style="--vaadin-checkbox-size: 14px;"
+        @change="${(e: Event) => {
+          this.useAndFilter = !(e.target as HTMLInputElement).checked;
+          this.refreshGrid();
+        }}"
+      ></vaadin-checkbox>
+    </vaadin-horizontal-layout>
+  `;
 
   private refreshGrid() {
     this.dispatchEvent(

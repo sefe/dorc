@@ -1,3 +1,4 @@
+import { Notification } from '@vaadin/notification';
 import { LitElement, html, css } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import '@vaadin/text-field';
@@ -472,20 +473,14 @@ export class BundleEditorForm extends LitElement {
     return true;
   }
 
+  // Was a hand-built <vaadin-notification> with an imperative renderer, one
+  // per error, appended to document.body and never removed. Notification.show
+  // is the supported form and cleans up after itself.
   private _showError(message: string) {
-    const notification = document.createElement('vaadin-notification');
-    notification.setAttribute('theme', 'error');
-    notification.setAttribute('position', 'top-center');
-    notification.setAttribute('duration', '3000');
-    notification.renderer = (root: HTMLElement) => {
-      if (root.firstElementChild) {
-        return;
-      }
-      const div = document.createElement('div');
-      div.textContent = message;
-      root.appendChild(div);
-    };
-    document.body.appendChild(notification);
-    notification.open();
+    Notification.show(message, {
+      theme: 'error',
+      position: 'top-center',
+      duration: 3000
+    });
   }
 }

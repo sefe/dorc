@@ -1,3 +1,4 @@
+import { confirmPrompt } from './confirm-prompt';
 import '@vaadin/item';
 import '@vaadin/list-box';
 import { css, LitElement } from 'lit';
@@ -12,6 +13,8 @@ import {
 } from '../apis/dorc-api';
 import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
+import '@vaadin/button';
+import '@vaadin/tooltip';
 
 @customElement('view-database-permissions')
 export class ViewDatabasePermissions extends LitElement {
@@ -19,23 +22,23 @@ export class ViewDatabasePermissions extends LitElement {
   dbId = 0;
 
   @property({ type: Array })
-  private users: UserApiModel[] | undefined;
+  users: UserApiModel[] | undefined;
 
   @property({ type: String })
-  private StatusMessage = '';
+  StatusMessage = '';
 
   @property({ type: Array })
-  private userPermissionList: UserPermDto[] = [];
+  userPermissionList: UserPermDto[] = [];
 
   @property({ type: Object })
-  private selectedUser: UserApiModel | undefined;
+  selectedUser: UserApiModel | undefined;
 
   @property({ type: Number })
   envId = 0;
 
-  @property({ type: Boolean }) private readonly = true;
+  @property({ type: Boolean }) readonly = true;
 
-  @property({ type: Boolean }) private loading = true;
+  @property({ type: Boolean }) loading = true;
 
   static get styles() {
     return css`
@@ -64,7 +67,9 @@ export class ViewDatabasePermissions extends LitElement {
 
   render() {
     const unlinkStyles = {
-      color: this.readonly ? 'var(--dorc-text-secondary)' : 'var(--dorc-error-color)'
+      color: this.readonly
+        ? 'var(--dorc-text-secondary)'
+        : 'var(--dorc-error-color)'
     };
     return html`
       <div>            
@@ -92,11 +97,15 @@ export class ViewDatabasePermissions extends LitElement {
                   html` <vaadin-item>
                     ${userPerm.Role}
                     <vaadin-button
-                      title="Manage permissions"
+                      aria-label="Manage permissions"
                       theme="icon"
                       @click="${this._remove}"
                       ?disabled="${this.readonly}"
                     >
+                      <vaadin-tooltip
+                        slot="tooltip"
+                        text="Manage permissions"
+                      ></vaadin-tooltip>
                       <vaadin-icon
                         icon="vaadin:unlink"
                         style=${styleMap(unlinkStyles)}
@@ -120,20 +129,24 @@ export class ViewDatabasePermissions extends LitElement {
     this.dbId = dbId;
   }
 
-  _remove(e: { target: { data: UserPermDto } }) {
+  async _remove(e: { target: { data: UserPermDto } }) {
     const userPerm = e.target.data as UserPermDto;
     const removeRoleId = userPerm.Id || 0;
-    const answer = confirm('Remove permission?');
+    // Everything the delete targets is snapshotted before the await: these are
+    // component inputs the host can reassign while the confirmation is open.
+    const user: number = this?.selectedUser?.Id || 0;
+    const dbId = this.dbId;
+    const envId = this.envId;
+    const answer = await confirmPrompt('Remove permission?');
     if (answer && removeRoleId) {
       const api = new RefDataUserPermissionsApi();
       const perm: number = removeRoleId;
-      const user: number = this?.selectedUser?.Id || 0;
       api
         .refDataUserPermissionsDelete({
-          dbId: this.dbId,
+          dbId,
           permissionId: perm,
           userId: user,
-          envId: this.envId
+          envId
         })
         .subscribe(
           () => {
@@ -170,7 +183,10 @@ export class ViewDatabasePermissions extends LitElement {
   }
 
   sortUsers(a: UserApiModel, b: UserApiModel): number {
-    if (String(a.DisplayName).toLowerCase() > String(b.DisplayName).toLowerCase()) return 1;
+    if (
+      String(a.DisplayName).toLowerCase() > String(b.DisplayName).toLowerCase()
+    )
+      return 1;
 
     return -1;
   }

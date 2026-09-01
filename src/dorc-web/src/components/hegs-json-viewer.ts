@@ -3,6 +3,7 @@ import {
   css,
   html,
   LitElement,
+  nothing,
   TemplateResult
 } from 'lit';
 import { property, state } from 'lit/decorators.js';
@@ -286,6 +287,19 @@ export class HegsJsonViewer extends LitElement {
         color: var(--color);
         font-family: var(--font-family);
         font-size: var(--font-size);
+
+        /* This used to sit inside hegs-dialog, whose box was positioned
+           absolutely with no width cap, so the dialog simply grew to fit
+           whatever JSON it was given. Its replacements, vaadin-dialog and
+           vaadin-confirm-dialog, constrain the overlay width, and the
+           overlay's content part has overflow-x visible — so without this a
+           long build number or artefact path is clipped and cannot be
+           scrolled to at all. Reported from DV 02 against the deploy
+           confirmation. */
+        overflow: auto;
+        max-width: 100%;
+        padding: 5px;
+        box-sizing: border-box;
       }
 
       .preview {
@@ -410,6 +424,19 @@ export class HegsJsonViewer extends LitElement {
     this.setState(toggleNode(path));
   };
 
+  /**
+   * Keyboard equivalent of {@link handlePropertyClick}. Collapsable keys are
+   * exposed as buttons, so Enter and Space must toggle them too.
+   */
+  handlePropertyKeydown = (path: string) => (e: KeyboardEvent) => {
+    if (e.key !== 'Enter' && e.key !== ' ') {
+      return;
+    }
+    e.preventDefault();
+
+    this.setState(toggleNode(path));
+  };
+
   expand(glob: string | RegExp) {
     this.setState(expand(glob, true));
   }
@@ -484,9 +511,19 @@ export class HegsJsonViewer extends LitElement {
                   collapsable: !isPrimitive,
                   collapsableCollapsed: !this.state.expanded[nodePath]
                 })}"
-                @click="${!isPrimitive
-                  ? this.handlePropertyClick(nodePath)
-                  : null}"
+                role="${!isPrimitive ? 'button' : nothing}"
+                tabindex="${!isPrimitive ? '0' : nothing}"
+                aria-expanded="${
+                  !isPrimitive
+                    ? String(Boolean(this.state.expanded[nodePath]))
+                    : nothing
+                }"
+                @click="${
+                  !isPrimitive ? this.handlePropertyClick(nodePath) : null
+                }"
+                @keydown="${
+                  !isPrimitive ? this.handlePropertyKeydown(nodePath) : null
+                }"
               >
                 ${key}:
               </span>

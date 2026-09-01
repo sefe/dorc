@@ -2,6 +2,7 @@ import { LitElement, css, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { HubConnectionState } from '@microsoft/signalr';
+import '@vaadin/tooltip';
 
 type IndicatorStatus = 'live' | 'paused' | 'reconnecting' | 'offline';
 
@@ -20,7 +21,8 @@ type IndicatorStatus = 'live' | 'paused' | 'reconnecting' | 'offline';
  */
 @customElement('connection-status-indicator')
 export class ConnectionStatusIndicator extends LitElement {
-  @property({ type: String }) state: string | undefined = HubConnectionState.Disconnected;
+  @property({ type: String }) state: string | undefined =
+    HubConnectionState.Disconnected;
   @property({ type: Boolean }) autoRefresh: boolean = false;
   @property({ type: String }) mode: 'toggle' | 'icon' = 'icon';
   /** When mode=icon, show the pill even if Connected */
@@ -168,7 +170,9 @@ export class ConnectionStatusIndicator extends LitElement {
   }
 
   private toggle() {
-    this.dispatchEvent(new CustomEvent('toggle-auto-refresh', { bubbles: true, composed: true }));
+    this.dispatchEvent(
+      new CustomEvent('toggle-auto-refresh', { bubbles: true, composed: true })
+    );
   }
 
   render() {
@@ -185,7 +189,8 @@ export class ConnectionStatusIndicator extends LitElement {
         </button>
       `;
     }
-    if (!this.showWhenConnected && this.state === HubConnectionState.Connected) return nothing;
+    if (!this.showWhenConnected && this.state === HubConnectionState.Connected)
+      return nothing;
     return html`
       <span
         class="${this.pillClass}"
@@ -199,4 +204,8 @@ export class ConnectionStatusIndicator extends LitElement {
   }
 }
 
-declare global { interface HTMLElementTagNameMap { 'connection-status-indicator': ConnectionStatusIndicator; } }
+declare global {
+  interface HTMLElementTagNameMap {
+    'connection-status-indicator': ConnectionStatusIndicator;
+  }
+}
