@@ -14,7 +14,7 @@
 import type { Observable } from 'rxjs';
 import type { AjaxResponse } from 'rxjs/ajax';
 import { BaseAPI } from '../runtime';
-import type { OperationOpts, HttpQuery } from '../runtime';
+import type { OperationOpts, HttpHeaders, HttpQuery } from '../runtime';
 import type {
     EnvBuildsApiModel,
 } from '../models';
@@ -34,6 +34,16 @@ export class RefDataProjectBuildsApi extends BaseAPI {
     refDataProjectBuildsGet({ id }: RefDataProjectBuildsGetRequest, opts?: OperationOpts): Observable<AjaxResponse<Array<EnvBuildsApiModel>>>
     refDataProjectBuildsGet({ id }: RefDataProjectBuildsGetRequest, opts?: OperationOpts): Observable<Array<EnvBuildsApiModel> | AjaxResponse<Array<EnvBuildsApiModel>>> {
 
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         const query: HttpQuery = {};
 
         if (id != null) { query['id'] = id; }
@@ -41,6 +51,7 @@ export class RefDataProjectBuildsApi extends BaseAPI {
         return this.request<Array<EnvBuildsApiModel>>({
             url: '/RefDataProjectBuilds',
             method: 'GET',
+            headers,
             query,
         }, opts?.responseOpts);
     };

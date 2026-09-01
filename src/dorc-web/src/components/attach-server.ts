@@ -10,6 +10,8 @@ import {
 } from '../apis/dorc-api/apis';
 import { ApiBoolResult, ServerApiModel } from '../apis/dorc-api';
 import { joinTags, normaliseTags } from '../helpers/tag-parser';
+import '@vaadin/horizontal-layout';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('attach-server')
 export class AttachServer extends LitElement {
@@ -30,7 +32,7 @@ export class AttachServer extends LitElement {
   constructor() {
     super();
 
-    const api = new RefDataServersApi();
+    const api = new RefDataServersApi(dorcApiConfiguration);
     api.refDataServersGetAllGet().subscribe({
       next: (data: Array<ServerApiModel>) => {
         this.setServers(data);
@@ -109,7 +111,7 @@ export class AttachServer extends LitElement {
   }
 
   attachServer() {
-    const api = new RefDataEnvironmentsDetailsApi();
+    const api = new RefDataEnvironmentsDetailsApi(dorcApiConfiguration);
 
     api
       .refDataEnvironmentsDetailsPut({

@@ -18,6 +18,7 @@ import { GetRefDataAuditListResponseDto } from '../apis/dorc-api/models/GetRefDa
 import { PageElement } from '../helpers/page-element';
 import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import { getShortLogonName } from '../helpers/user-extensions';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('page-projects-audit')
 export class PageProjectsAudit extends ResponsiveMixin(PageElement) {
@@ -758,7 +759,7 @@ export class PageProjectsAudit extends ResponsiveMixin(PageElement) {
       filters.push({ Path: 'Action', FilterValue: this.actionFilter });
     }
 
-    const api = new RefDataProjectAuditApi();
+    const api = new RefDataProjectAuditApi(dorcApiConfiguration);
     api
       .refDataProjectAuditPut({
         projectId: this.restrictToProjectId ?? undefined,

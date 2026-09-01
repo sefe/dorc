@@ -5,10 +5,11 @@ import { appConfig } from '../app-config';
 import { ApiConfigApi, ApiConfigModel } from '../apis/dorc-api';
 import { OAUTH_SCHEME, oauthServiceContainer, OAuthServiceSettings } from '../services/Account/OAuthService';
 import { oauthSettings } from '../OAuthSettings.ts';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 const routeConfig = routes;
 
-new ApiConfigApi().apiConfigGet().subscribe({
+new ApiConfigApi(dorcApiConfiguration).apiConfigGet().subscribe({
   next: (apiConfig: ApiConfigModel) => {
     appConfig.authenticationScheme = apiConfig.AuthenticationScheme ?? 'NotSet';
     appConfig.pauseDeploymentEnabled = Boolean((apiConfig as Record<string, unknown>)['PauseDeploymentEnabled']);

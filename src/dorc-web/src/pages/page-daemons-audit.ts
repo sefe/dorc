@@ -19,6 +19,7 @@ import { GetDaemonAuditListResponseDto } from '../apis/dorc-api/models/GetDaemon
 import { PageElement } from '../helpers/page-element';
 import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import { getShortLogonName } from '../helpers/user-extensions';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('page-daemons-audit')
 export class PageDaemonsAudit extends ResponsiveMixin(PageElement) {
@@ -359,7 +360,7 @@ export class PageDaemonsAudit extends ResponsiveMixin(PageElement) {
       filters.push({ Path: 'Action', FilterValue: this.actionFilter });
     }
 
-    const api = new DaemonAuditApi();
+    const api = new DaemonAuditApi(dorcApiConfiguration);
     api
       .daemonAuditPut({
         daemonId: this.restrictToDaemonId ?? undefined,

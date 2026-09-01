@@ -45,7 +45,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="path">The path to the file to retrieve, relative to the root of the repository. (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>string</returns>
-        string SourceProvidersGetFileContents(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default(Guid?), string? repository = default(string?), string? commitOrBranch = default(string?), string? path = default(string?), int operationIndex = 0);
+        string SourceProvidersGetFileContents(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default, string? repository = default, string? commitOrBranch = default, string? path = default, int operationIndex = 0);
 
         /// <summary>
         /// 
@@ -64,7 +64,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="path">The path to the file to retrieve, relative to the root of the repository. (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>ApiResponse of string</returns>
-        ApiResponse<string> SourceProvidersGetFileContentsWithHttpInfo(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default(Guid?), string? repository = default(string?), string? commitOrBranch = default(string?), string? path = default(string?), int operationIndex = 0);
+        ApiResponse<string> SourceProvidersGetFileContentsWithHttpInfo(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default, string? repository = default, string? commitOrBranch = default, string? path = default, int operationIndex = 0);
         /// <summary>
         /// 
         /// </summary>
@@ -82,7 +82,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="path">The path contents to list, relative to the root of the repository. (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>List&lt;SourceRepositoryItem&gt;</returns>
-        List<SourceRepositoryItem> SourceProvidersGetPathContents(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default(Guid?), string? repository = default(string?), string? commitOrBranch = default(string?), string? path = default(string?), int operationIndex = 0);
+        List<SourceRepositoryItem> SourceProvidersGetPathContents(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default, string? repository = default, string? commitOrBranch = default, string? path = default, int operationIndex = 0);
 
         /// <summary>
         /// 
@@ -101,7 +101,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="path">The path contents to list, relative to the root of the repository. (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>ApiResponse of List&lt;SourceRepositoryItem&gt;</returns>
-        ApiResponse<List<SourceRepositoryItem>> SourceProvidersGetPathContentsWithHttpInfo(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default(Guid?), string? repository = default(string?), string? commitOrBranch = default(string?), string? path = default(string?), int operationIndex = 0);
+        ApiResponse<List<SourceRepositoryItem>> SourceProvidersGetPathContentsWithHttpInfo(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default, string? repository = default, string? commitOrBranch = default, string? path = default, int operationIndex = 0);
         /// <summary>
         /// 
         /// </summary>
@@ -118,7 +118,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="serviceEndpointId">If specified, the ID of the service endpoint to query. Can only be omitted for providers that do not use service endpoints, e.g. TFVC or TFGit. (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>PullRequest</returns>
-        PullRequest SourceProvidersGetPullRequest(string organization, string project, string providerName, string pullRequestId, string apiVersion, string? repositoryId = default(string?), Guid? serviceEndpointId = default(Guid?), int operationIndex = 0);
+        PullRequest SourceProvidersGetPullRequest(string organization, string project, string providerName, string pullRequestId, string apiVersion, string? repositoryId = default, Guid? serviceEndpointId = default, int operationIndex = 0);
 
         /// <summary>
         /// 
@@ -136,7 +136,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="serviceEndpointId">If specified, the ID of the service endpoint to query. Can only be omitted for providers that do not use service endpoints, e.g. TFVC or TFGit. (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>ApiResponse of PullRequest</returns>
-        ApiResponse<PullRequest> SourceProvidersGetPullRequestWithHttpInfo(string organization, string project, string providerName, string pullRequestId, string apiVersion, string? repositoryId = default(string?), Guid? serviceEndpointId = default(Guid?), int operationIndex = 0);
+        ApiResponse<PullRequest> SourceProvidersGetPullRequestWithHttpInfo(string organization, string project, string providerName, string pullRequestId, string apiVersion, string? repositoryId = default, Guid? serviceEndpointId = default, int operationIndex = 0);
         /// <summary>
         /// 
         /// </summary>
@@ -180,7 +180,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="branchName">If supplied, the name of the branch to check for specifically. (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>List&lt;string&gt;</returns>
-        List<string> SourceProvidersListBranches(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default(Guid?), string? repository = default(string?), string? branchName = default(string?), int operationIndex = 0);
+        List<string> SourceProvidersListBranches(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default, string? repository = default, string? branchName = default, int operationIndex = 0);
 
         /// <summary>
         /// 
@@ -198,7 +198,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="branchName">If supplied, the name of the branch to check for specifically. (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>ApiResponse of List&lt;string&gt;</returns>
-        ApiResponse<List<string>> SourceProvidersListBranchesWithHttpInfo(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default(Guid?), string? repository = default(string?), string? branchName = default(string?), int operationIndex = 0);
+        ApiResponse<List<string>> SourceProvidersListBranchesWithHttpInfo(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default, string? repository = default, string? branchName = default, int operationIndex = 0);
         /// <summary>
         /// 
         /// </summary>
@@ -217,7 +217,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="continuationToken">When paging results, this is a continuation token, returned by a previous call to this method, that can be used to return the next set of repositories. (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>SourceRepositories</returns>
-        SourceRepositories SourceProvidersListRepositories(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default(Guid?), string? repository = default(string?), string? resultSet = default(string?), bool? pageResults = default(bool?), string? continuationToken = default(string?), int operationIndex = 0);
+        SourceRepositories SourceProvidersListRepositories(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default, string? repository = default, string? resultSet = default, bool? pageResults = default, string? continuationToken = default, int operationIndex = 0);
 
         /// <summary>
         /// 
@@ -237,7 +237,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="continuationToken">When paging results, this is a continuation token, returned by a previous call to this method, that can be used to return the next set of repositories. (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>ApiResponse of SourceRepositories</returns>
-        ApiResponse<SourceRepositories> SourceProvidersListRepositoriesWithHttpInfo(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default(Guid?), string? repository = default(string?), string? resultSet = default(string?), bool? pageResults = default(bool?), string? continuationToken = default(string?), int operationIndex = 0);
+        ApiResponse<SourceRepositories> SourceProvidersListRepositoriesWithHttpInfo(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default, string? repository = default, string? resultSet = default, bool? pageResults = default, string? continuationToken = default, int operationIndex = 0);
         /// <summary>
         /// 
         /// </summary>
@@ -253,7 +253,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="repository">If specified, the vendor-specific identifier or the name of the repository to get webhooks. Can only be omitted for providers that do not support multiple repositories. (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>List&lt;RepositoryWebhook&gt;</returns>
-        List<RepositoryWebhook> SourceProvidersListWebhooks(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default(Guid?), string? repository = default(string?), int operationIndex = 0);
+        List<RepositoryWebhook> SourceProvidersListWebhooks(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default, string? repository = default, int operationIndex = 0);
 
         /// <summary>
         /// 
@@ -270,7 +270,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="repository">If specified, the vendor-specific identifier or the name of the repository to get webhooks. Can only be omitted for providers that do not support multiple repositories. (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>ApiResponse of List&lt;RepositoryWebhook&gt;</returns>
-        ApiResponse<List<RepositoryWebhook>> SourceProvidersListWebhooksWithHttpInfo(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default(Guid?), string? repository = default(string?), int operationIndex = 0);
+        ApiResponse<List<RepositoryWebhook>> SourceProvidersListWebhooksWithHttpInfo(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default, string? repository = default, int operationIndex = 0);
         /// <summary>
         /// 
         /// </summary>
@@ -287,7 +287,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="repository">If specified, the vendor-specific identifier or the name of the repository to get webhooks. Can only be omitted for providers that do not support multiple repositories. (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns></returns>
-        void SourceProvidersRestoreWebhooks(string organization, string project, string providerName, string apiVersion, List<string> body, Guid? serviceEndpointId = default(Guid?), string? repository = default(string?), int operationIndex = 0);
+        void SourceProvidersRestoreWebhooks(string organization, string project, string providerName, string apiVersion, List<string> body, Guid? serviceEndpointId = default, string? repository = default, int operationIndex = 0);
 
         /// <summary>
         /// 
@@ -305,7 +305,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="repository">If specified, the vendor-specific identifier or the name of the repository to get webhooks. Can only be omitted for providers that do not support multiple repositories. (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>ApiResponse of Object(void)</returns>
-        ApiResponse<Object> SourceProvidersRestoreWebhooksWithHttpInfo(string organization, string project, string providerName, string apiVersion, List<string> body, Guid? serviceEndpointId = default(Guid?), string? repository = default(string?), int operationIndex = 0);
+        ApiResponse<Object> SourceProvidersRestoreWebhooksWithHttpInfo(string organization, string project, string providerName, string apiVersion, List<string> body, Guid? serviceEndpointId = default, string? repository = default, int operationIndex = 0);
         #endregion Synchronous Operations
     }
 
@@ -333,7 +333,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of string</returns>
-        System.Threading.Tasks.Task<string> SourceProvidersGetFileContentsAsync(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default(Guid?), string? repository = default(string?), string? commitOrBranch = default(string?), string? path = default(string?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<string> SourceProvidersGetFileContentsAsync(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default, string? repository = default, string? commitOrBranch = default, string? path = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
 
         /// <summary>
         /// 
@@ -353,7 +353,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse (string)</returns>
-        System.Threading.Tasks.Task<ApiResponse<string>> SourceProvidersGetFileContentsWithHttpInfoAsync(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default(Guid?), string? repository = default(string?), string? commitOrBranch = default(string?), string? path = default(string?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ApiResponse<string>> SourceProvidersGetFileContentsWithHttpInfoAsync(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default, string? repository = default, string? commitOrBranch = default, string? path = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
         /// <summary>
         /// 
         /// </summary>
@@ -372,7 +372,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of List&lt;SourceRepositoryItem&gt;</returns>
-        System.Threading.Tasks.Task<List<SourceRepositoryItem>> SourceProvidersGetPathContentsAsync(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default(Guid?), string? repository = default(string?), string? commitOrBranch = default(string?), string? path = default(string?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<List<SourceRepositoryItem>> SourceProvidersGetPathContentsAsync(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default, string? repository = default, string? commitOrBranch = default, string? path = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
 
         /// <summary>
         /// 
@@ -392,7 +392,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse (List&lt;SourceRepositoryItem&gt;)</returns>
-        System.Threading.Tasks.Task<ApiResponse<List<SourceRepositoryItem>>> SourceProvidersGetPathContentsWithHttpInfoAsync(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default(Guid?), string? repository = default(string?), string? commitOrBranch = default(string?), string? path = default(string?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ApiResponse<List<SourceRepositoryItem>>> SourceProvidersGetPathContentsWithHttpInfoAsync(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default, string? repository = default, string? commitOrBranch = default, string? path = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
         /// <summary>
         /// 
         /// </summary>
@@ -410,7 +410,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of PullRequest</returns>
-        System.Threading.Tasks.Task<PullRequest> SourceProvidersGetPullRequestAsync(string organization, string project, string providerName, string pullRequestId, string apiVersion, string? repositoryId = default(string?), Guid? serviceEndpointId = default(Guid?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<PullRequest> SourceProvidersGetPullRequestAsync(string organization, string project, string providerName, string pullRequestId, string apiVersion, string? repositoryId = default, Guid? serviceEndpointId = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
 
         /// <summary>
         /// 
@@ -429,7 +429,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse (PullRequest)</returns>
-        System.Threading.Tasks.Task<ApiResponse<PullRequest>> SourceProvidersGetPullRequestWithHttpInfoAsync(string organization, string project, string providerName, string pullRequestId, string apiVersion, string? repositoryId = default(string?), Guid? serviceEndpointId = default(Guid?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ApiResponse<PullRequest>> SourceProvidersGetPullRequestWithHttpInfoAsync(string organization, string project, string providerName, string pullRequestId, string apiVersion, string? repositoryId = default, Guid? serviceEndpointId = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
         /// <summary>
         /// 
         /// </summary>
@@ -443,7 +443,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of List&lt;SourceProviderAttributes&gt;</returns>
-        System.Threading.Tasks.Task<List<SourceProviderAttributes>> SourceProvidersListAsync(string organization, string project, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<List<SourceProviderAttributes>> SourceProvidersListAsync(string organization, string project, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
 
         /// <summary>
         /// 
@@ -458,7 +458,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse (List&lt;SourceProviderAttributes&gt;)</returns>
-        System.Threading.Tasks.Task<ApiResponse<List<SourceProviderAttributes>>> SourceProvidersListWithHttpInfoAsync(string organization, string project, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ApiResponse<List<SourceProviderAttributes>>> SourceProvidersListWithHttpInfoAsync(string organization, string project, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
         /// <summary>
         /// 
         /// </summary>
@@ -476,7 +476,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of List&lt;string&gt;</returns>
-        System.Threading.Tasks.Task<List<string>> SourceProvidersListBranchesAsync(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default(Guid?), string? repository = default(string?), string? branchName = default(string?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<List<string>> SourceProvidersListBranchesAsync(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default, string? repository = default, string? branchName = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
 
         /// <summary>
         /// 
@@ -495,7 +495,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse (List&lt;string&gt;)</returns>
-        System.Threading.Tasks.Task<ApiResponse<List<string>>> SourceProvidersListBranchesWithHttpInfoAsync(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default(Guid?), string? repository = default(string?), string? branchName = default(string?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ApiResponse<List<string>>> SourceProvidersListBranchesWithHttpInfoAsync(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default, string? repository = default, string? branchName = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
         /// <summary>
         /// 
         /// </summary>
@@ -515,7 +515,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of SourceRepositories</returns>
-        System.Threading.Tasks.Task<SourceRepositories> SourceProvidersListRepositoriesAsync(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default(Guid?), string? repository = default(string?), string? resultSet = default(string?), bool? pageResults = default(bool?), string? continuationToken = default(string?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<SourceRepositories> SourceProvidersListRepositoriesAsync(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default, string? repository = default, string? resultSet = default, bool? pageResults = default, string? continuationToken = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
 
         /// <summary>
         /// 
@@ -536,7 +536,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse (SourceRepositories)</returns>
-        System.Threading.Tasks.Task<ApiResponse<SourceRepositories>> SourceProvidersListRepositoriesWithHttpInfoAsync(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default(Guid?), string? repository = default(string?), string? resultSet = default(string?), bool? pageResults = default(bool?), string? continuationToken = default(string?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ApiResponse<SourceRepositories>> SourceProvidersListRepositoriesWithHttpInfoAsync(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default, string? repository = default, string? resultSet = default, bool? pageResults = default, string? continuationToken = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
         /// <summary>
         /// 
         /// </summary>
@@ -553,7 +553,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of List&lt;RepositoryWebhook&gt;</returns>
-        System.Threading.Tasks.Task<List<RepositoryWebhook>> SourceProvidersListWebhooksAsync(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default(Guid?), string? repository = default(string?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<List<RepositoryWebhook>> SourceProvidersListWebhooksAsync(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default, string? repository = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
 
         /// <summary>
         /// 
@@ -571,7 +571,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse (List&lt;RepositoryWebhook&gt;)</returns>
-        System.Threading.Tasks.Task<ApiResponse<List<RepositoryWebhook>>> SourceProvidersListWebhooksWithHttpInfoAsync(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default(Guid?), string? repository = default(string?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ApiResponse<List<RepositoryWebhook>>> SourceProvidersListWebhooksWithHttpInfoAsync(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default, string? repository = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
         /// <summary>
         /// 
         /// </summary>
@@ -589,7 +589,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of void</returns>
-        System.Threading.Tasks.Task SourceProvidersRestoreWebhooksAsync(string organization, string project, string providerName, string apiVersion, List<string> body, Guid? serviceEndpointId = default(Guid?), string? repository = default(string?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task SourceProvidersRestoreWebhooksAsync(string organization, string project, string providerName, string apiVersion, List<string> body, Guid? serviceEndpointId = default, string? repository = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
 
         /// <summary>
         /// 
@@ -608,7 +608,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse</returns>
-        System.Threading.Tasks.Task<ApiResponse<Object>> SourceProvidersRestoreWebhooksWithHttpInfoAsync(string organization, string project, string providerName, string apiVersion, List<string> body, Guid? serviceEndpointId = default(Guid?), string? repository = default(string?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ApiResponse<Object>> SourceProvidersRestoreWebhooksWithHttpInfoAsync(string organization, string project, string providerName, string apiVersion, List<string> body, Guid? serviceEndpointId = default, string? repository = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
         #endregion Asynchronous Operations
     }
 
@@ -743,7 +743,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="path">The path to the file to retrieve, relative to the root of the repository. (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>string</returns>
-        public string SourceProvidersGetFileContents(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default(Guid?), string? repository = default(string?), string? commitOrBranch = default(string?), string? path = default(string?), int operationIndex = 0)
+        public string SourceProvidersGetFileContents(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default, string? repository = default, string? commitOrBranch = default, string? path = default, int operationIndex = 0)
         {
             Org.OpenAPITools.Client.ApiResponse<string> localVarResponse = SourceProvidersGetFileContentsWithHttpInfo(organization, project, providerName, apiVersion, serviceEndpointId, repository, commitOrBranch, path);
             return localVarResponse.Data;
@@ -763,7 +763,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="path">The path to the file to retrieve, relative to the root of the repository. (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>ApiResponse of string</returns>
-        public Org.OpenAPITools.Client.ApiResponse<string> SourceProvidersGetFileContentsWithHttpInfo(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default(Guid?), string? repository = default(string?), string? commitOrBranch = default(string?), string? path = default(string?), int operationIndex = 0)
+        public Org.OpenAPITools.Client.ApiResponse<string> SourceProvidersGetFileContentsWithHttpInfo(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default, string? repository = default, string? commitOrBranch = default, string? path = default, int operationIndex = 0)
         {
             // verify the required parameter 'organization' is set
             if (organization == null)
@@ -800,6 +800,7 @@ namespace Org.OpenAPITools.Api
             };
 
             var localVarContentType = Org.OpenAPITools.Client.ClientUtils.SelectHeaderContentType(_contentTypes);
+            var localVarMultipartFormData = localVarContentType == "multipart/form-data";
             if (localVarContentType != null)
             {
                 localVarRequestOptions.HeaderParameters.Add("Content-Type", localVarContentType);
@@ -871,7 +872,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of string</returns>
-        public async System.Threading.Tasks.Task<string> SourceProvidersGetFileContentsAsync(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default(Guid?), string? repository = default(string?), string? commitOrBranch = default(string?), string? path = default(string?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public async System.Threading.Tasks.Task<string> SourceProvidersGetFileContentsAsync(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default, string? repository = default, string? commitOrBranch = default, string? path = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             Org.OpenAPITools.Client.ApiResponse<string> localVarResponse = await SourceProvidersGetFileContentsWithHttpInfoAsync(organization, project, providerName, apiVersion, serviceEndpointId, repository, commitOrBranch, path, operationIndex, cancellationToken).ConfigureAwait(false);
             return localVarResponse.Data;
@@ -892,7 +893,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse (string)</returns>
-        public async System.Threading.Tasks.Task<Org.OpenAPITools.Client.ApiResponse<string>> SourceProvidersGetFileContentsWithHttpInfoAsync(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default(Guid?), string? repository = default(string?), string? commitOrBranch = default(string?), string? path = default(string?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public async System.Threading.Tasks.Task<Org.OpenAPITools.Client.ApiResponse<string>> SourceProvidersGetFileContentsWithHttpInfoAsync(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default, string? repository = default, string? commitOrBranch = default, string? path = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             // verify the required parameter 'organization' is set
             if (organization == null)
@@ -1001,7 +1002,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="path">The path contents to list, relative to the root of the repository. (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>List&lt;SourceRepositoryItem&gt;</returns>
-        public List<SourceRepositoryItem> SourceProvidersGetPathContents(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default(Guid?), string? repository = default(string?), string? commitOrBranch = default(string?), string? path = default(string?), int operationIndex = 0)
+        public List<SourceRepositoryItem> SourceProvidersGetPathContents(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default, string? repository = default, string? commitOrBranch = default, string? path = default, int operationIndex = 0)
         {
             Org.OpenAPITools.Client.ApiResponse<List<SourceRepositoryItem>> localVarResponse = SourceProvidersGetPathContentsWithHttpInfo(organization, project, providerName, apiVersion, serviceEndpointId, repository, commitOrBranch, path);
             return localVarResponse.Data;
@@ -1021,7 +1022,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="path">The path contents to list, relative to the root of the repository. (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>ApiResponse of List&lt;SourceRepositoryItem&gt;</returns>
-        public Org.OpenAPITools.Client.ApiResponse<List<SourceRepositoryItem>> SourceProvidersGetPathContentsWithHttpInfo(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default(Guid?), string? repository = default(string?), string? commitOrBranch = default(string?), string? path = default(string?), int operationIndex = 0)
+        public Org.OpenAPITools.Client.ApiResponse<List<SourceRepositoryItem>> SourceProvidersGetPathContentsWithHttpInfo(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default, string? repository = default, string? commitOrBranch = default, string? path = default, int operationIndex = 0)
         {
             // verify the required parameter 'organization' is set
             if (organization == null)
@@ -1058,6 +1059,7 @@ namespace Org.OpenAPITools.Api
             };
 
             var localVarContentType = Org.OpenAPITools.Client.ClientUtils.SelectHeaderContentType(_contentTypes);
+            var localVarMultipartFormData = localVarContentType == "multipart/form-data";
             if (localVarContentType != null)
             {
                 localVarRequestOptions.HeaderParameters.Add("Content-Type", localVarContentType);
@@ -1129,7 +1131,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of List&lt;SourceRepositoryItem&gt;</returns>
-        public async System.Threading.Tasks.Task<List<SourceRepositoryItem>> SourceProvidersGetPathContentsAsync(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default(Guid?), string? repository = default(string?), string? commitOrBranch = default(string?), string? path = default(string?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public async System.Threading.Tasks.Task<List<SourceRepositoryItem>> SourceProvidersGetPathContentsAsync(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default, string? repository = default, string? commitOrBranch = default, string? path = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             Org.OpenAPITools.Client.ApiResponse<List<SourceRepositoryItem>> localVarResponse = await SourceProvidersGetPathContentsWithHttpInfoAsync(organization, project, providerName, apiVersion, serviceEndpointId, repository, commitOrBranch, path, operationIndex, cancellationToken).ConfigureAwait(false);
             return localVarResponse.Data;
@@ -1150,7 +1152,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse (List&lt;SourceRepositoryItem&gt;)</returns>
-        public async System.Threading.Tasks.Task<Org.OpenAPITools.Client.ApiResponse<List<SourceRepositoryItem>>> SourceProvidersGetPathContentsWithHttpInfoAsync(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default(Guid?), string? repository = default(string?), string? commitOrBranch = default(string?), string? path = default(string?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public async System.Threading.Tasks.Task<Org.OpenAPITools.Client.ApiResponse<List<SourceRepositoryItem>>> SourceProvidersGetPathContentsWithHttpInfoAsync(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default, string? repository = default, string? commitOrBranch = default, string? path = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             // verify the required parameter 'organization' is set
             if (organization == null)
@@ -1258,7 +1260,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="serviceEndpointId">If specified, the ID of the service endpoint to query. Can only be omitted for providers that do not use service endpoints, e.g. TFVC or TFGit. (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>PullRequest</returns>
-        public PullRequest SourceProvidersGetPullRequest(string organization, string project, string providerName, string pullRequestId, string apiVersion, string? repositoryId = default(string?), Guid? serviceEndpointId = default(Guid?), int operationIndex = 0)
+        public PullRequest SourceProvidersGetPullRequest(string organization, string project, string providerName, string pullRequestId, string apiVersion, string? repositoryId = default, Guid? serviceEndpointId = default, int operationIndex = 0)
         {
             Org.OpenAPITools.Client.ApiResponse<PullRequest> localVarResponse = SourceProvidersGetPullRequestWithHttpInfo(organization, project, providerName, pullRequestId, apiVersion, repositoryId, serviceEndpointId);
             return localVarResponse.Data;
@@ -1277,7 +1279,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="serviceEndpointId">If specified, the ID of the service endpoint to query. Can only be omitted for providers that do not use service endpoints, e.g. TFVC or TFGit. (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>ApiResponse of PullRequest</returns>
-        public Org.OpenAPITools.Client.ApiResponse<PullRequest> SourceProvidersGetPullRequestWithHttpInfo(string organization, string project, string providerName, string pullRequestId, string apiVersion, string? repositoryId = default(string?), Guid? serviceEndpointId = default(Guid?), int operationIndex = 0)
+        public Org.OpenAPITools.Client.ApiResponse<PullRequest> SourceProvidersGetPullRequestWithHttpInfo(string organization, string project, string providerName, string pullRequestId, string apiVersion, string? repositoryId = default, Guid? serviceEndpointId = default, int operationIndex = 0)
         {
             // verify the required parameter 'organization' is set
             if (organization == null)
@@ -1320,6 +1322,7 @@ namespace Org.OpenAPITools.Api
             };
 
             var localVarContentType = Org.OpenAPITools.Client.ClientUtils.SelectHeaderContentType(_contentTypes);
+            var localVarMultipartFormData = localVarContentType == "multipart/form-data";
             if (localVarContentType != null)
             {
                 localVarRequestOptions.HeaderParameters.Add("Content-Type", localVarContentType);
@@ -1383,7 +1386,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of PullRequest</returns>
-        public async System.Threading.Tasks.Task<PullRequest> SourceProvidersGetPullRequestAsync(string organization, string project, string providerName, string pullRequestId, string apiVersion, string? repositoryId = default(string?), Guid? serviceEndpointId = default(Guid?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public async System.Threading.Tasks.Task<PullRequest> SourceProvidersGetPullRequestAsync(string organization, string project, string providerName, string pullRequestId, string apiVersion, string? repositoryId = default, Guid? serviceEndpointId = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             Org.OpenAPITools.Client.ApiResponse<PullRequest> localVarResponse = await SourceProvidersGetPullRequestWithHttpInfoAsync(organization, project, providerName, pullRequestId, apiVersion, repositoryId, serviceEndpointId, operationIndex, cancellationToken).ConfigureAwait(false);
             return localVarResponse.Data;
@@ -1403,7 +1406,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse (PullRequest)</returns>
-        public async System.Threading.Tasks.Task<Org.OpenAPITools.Client.ApiResponse<PullRequest>> SourceProvidersGetPullRequestWithHttpInfoAsync(string organization, string project, string providerName, string pullRequestId, string apiVersion, string? repositoryId = default(string?), Guid? serviceEndpointId = default(Guid?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public async System.Threading.Tasks.Task<Org.OpenAPITools.Client.ApiResponse<PullRequest>> SourceProvidersGetPullRequestWithHttpInfoAsync(string organization, string project, string providerName, string pullRequestId, string apiVersion, string? repositoryId = default, Guid? serviceEndpointId = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             // verify the required parameter 'organization' is set
             if (organization == null)
@@ -1552,6 +1555,7 @@ namespace Org.OpenAPITools.Api
             };
 
             var localVarContentType = Org.OpenAPITools.Client.ClientUtils.SelectHeaderContentType(_contentTypes);
+            var localVarMultipartFormData = localVarContentType == "multipart/form-data";
             if (localVarContentType != null)
             {
                 localVarRequestOptions.HeaderParameters.Add("Content-Type", localVarContentType);
@@ -1601,7 +1605,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of List&lt;SourceProviderAttributes&gt;</returns>
-        public async System.Threading.Tasks.Task<List<SourceProviderAttributes>> SourceProvidersListAsync(string organization, string project, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public async System.Threading.Tasks.Task<List<SourceProviderAttributes>> SourceProvidersListAsync(string organization, string project, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             Org.OpenAPITools.Client.ApiResponse<List<SourceProviderAttributes>> localVarResponse = await SourceProvidersListWithHttpInfoAsync(organization, project, apiVersion, operationIndex, cancellationToken).ConfigureAwait(false);
             return localVarResponse.Data;
@@ -1617,7 +1621,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse (List&lt;SourceProviderAttributes&gt;)</returns>
-        public async System.Threading.Tasks.Task<Org.OpenAPITools.Client.ApiResponse<List<SourceProviderAttributes>>> SourceProvidersListWithHttpInfoAsync(string organization, string project, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public async System.Threading.Tasks.Task<Org.OpenAPITools.Client.ApiResponse<List<SourceProviderAttributes>>> SourceProvidersListWithHttpInfoAsync(string organization, string project, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             // verify the required parameter 'organization' is set
             if (organization == null)
@@ -1702,7 +1706,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="branchName">If supplied, the name of the branch to check for specifically. (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>List&lt;string&gt;</returns>
-        public List<string> SourceProvidersListBranches(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default(Guid?), string? repository = default(string?), string? branchName = default(string?), int operationIndex = 0)
+        public List<string> SourceProvidersListBranches(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default, string? repository = default, string? branchName = default, int operationIndex = 0)
         {
             Org.OpenAPITools.Client.ApiResponse<List<string>> localVarResponse = SourceProvidersListBranchesWithHttpInfo(organization, project, providerName, apiVersion, serviceEndpointId, repository, branchName);
             return localVarResponse.Data;
@@ -1721,7 +1725,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="branchName">If supplied, the name of the branch to check for specifically. (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>ApiResponse of List&lt;string&gt;</returns>
-        public Org.OpenAPITools.Client.ApiResponse<List<string>> SourceProvidersListBranchesWithHttpInfo(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default(Guid?), string? repository = default(string?), string? branchName = default(string?), int operationIndex = 0)
+        public Org.OpenAPITools.Client.ApiResponse<List<string>> SourceProvidersListBranchesWithHttpInfo(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default, string? repository = default, string? branchName = default, int operationIndex = 0)
         {
             // verify the required parameter 'organization' is set
             if (organization == null)
@@ -1758,6 +1762,7 @@ namespace Org.OpenAPITools.Api
             };
 
             var localVarContentType = Org.OpenAPITools.Client.ClientUtils.SelectHeaderContentType(_contentTypes);
+            var localVarMultipartFormData = localVarContentType == "multipart/form-data";
             if (localVarContentType != null)
             {
                 localVarRequestOptions.HeaderParameters.Add("Content-Type", localVarContentType);
@@ -1824,7 +1829,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of List&lt;string&gt;</returns>
-        public async System.Threading.Tasks.Task<List<string>> SourceProvidersListBranchesAsync(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default(Guid?), string? repository = default(string?), string? branchName = default(string?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public async System.Threading.Tasks.Task<List<string>> SourceProvidersListBranchesAsync(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default, string? repository = default, string? branchName = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             Org.OpenAPITools.Client.ApiResponse<List<string>> localVarResponse = await SourceProvidersListBranchesWithHttpInfoAsync(organization, project, providerName, apiVersion, serviceEndpointId, repository, branchName, operationIndex, cancellationToken).ConfigureAwait(false);
             return localVarResponse.Data;
@@ -1844,7 +1849,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse (List&lt;string&gt;)</returns>
-        public async System.Threading.Tasks.Task<Org.OpenAPITools.Client.ApiResponse<List<string>>> SourceProvidersListBranchesWithHttpInfoAsync(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default(Guid?), string? repository = default(string?), string? branchName = default(string?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public async System.Threading.Tasks.Task<Org.OpenAPITools.Client.ApiResponse<List<string>>> SourceProvidersListBranchesWithHttpInfoAsync(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default, string? repository = default, string? branchName = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             // verify the required parameter 'organization' is set
             if (organization == null)
@@ -1950,7 +1955,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="continuationToken">When paging results, this is a continuation token, returned by a previous call to this method, that can be used to return the next set of repositories. (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>SourceRepositories</returns>
-        public SourceRepositories SourceProvidersListRepositories(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default(Guid?), string? repository = default(string?), string? resultSet = default(string?), bool? pageResults = default(bool?), string? continuationToken = default(string?), int operationIndex = 0)
+        public SourceRepositories SourceProvidersListRepositories(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default, string? repository = default, string? resultSet = default, bool? pageResults = default, string? continuationToken = default, int operationIndex = 0)
         {
             Org.OpenAPITools.Client.ApiResponse<SourceRepositories> localVarResponse = SourceProvidersListRepositoriesWithHttpInfo(organization, project, providerName, apiVersion, serviceEndpointId, repository, resultSet, pageResults, continuationToken);
             return localVarResponse.Data;
@@ -1971,7 +1976,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="continuationToken">When paging results, this is a continuation token, returned by a previous call to this method, that can be used to return the next set of repositories. (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>ApiResponse of SourceRepositories</returns>
-        public Org.OpenAPITools.Client.ApiResponse<SourceRepositories> SourceProvidersListRepositoriesWithHttpInfo(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default(Guid?), string? repository = default(string?), string? resultSet = default(string?), bool? pageResults = default(bool?), string? continuationToken = default(string?), int operationIndex = 0)
+        public Org.OpenAPITools.Client.ApiResponse<SourceRepositories> SourceProvidersListRepositoriesWithHttpInfo(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default, string? repository = default, string? resultSet = default, bool? pageResults = default, string? continuationToken = default, int operationIndex = 0)
         {
             // verify the required parameter 'organization' is set
             if (organization == null)
@@ -2008,6 +2013,7 @@ namespace Org.OpenAPITools.Api
             };
 
             var localVarContentType = Org.OpenAPITools.Client.ClientUtils.SelectHeaderContentType(_contentTypes);
+            var localVarMultipartFormData = localVarContentType == "multipart/form-data";
             if (localVarContentType != null)
             {
                 localVarRequestOptions.HeaderParameters.Add("Content-Type", localVarContentType);
@@ -2084,7 +2090,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of SourceRepositories</returns>
-        public async System.Threading.Tasks.Task<SourceRepositories> SourceProvidersListRepositoriesAsync(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default(Guid?), string? repository = default(string?), string? resultSet = default(string?), bool? pageResults = default(bool?), string? continuationToken = default(string?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public async System.Threading.Tasks.Task<SourceRepositories> SourceProvidersListRepositoriesAsync(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default, string? repository = default, string? resultSet = default, bool? pageResults = default, string? continuationToken = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             Org.OpenAPITools.Client.ApiResponse<SourceRepositories> localVarResponse = await SourceProvidersListRepositoriesWithHttpInfoAsync(organization, project, providerName, apiVersion, serviceEndpointId, repository, resultSet, pageResults, continuationToken, operationIndex, cancellationToken).ConfigureAwait(false);
             return localVarResponse.Data;
@@ -2106,7 +2112,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse (SourceRepositories)</returns>
-        public async System.Threading.Tasks.Task<Org.OpenAPITools.Client.ApiResponse<SourceRepositories>> SourceProvidersListRepositoriesWithHttpInfoAsync(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default(Guid?), string? repository = default(string?), string? resultSet = default(string?), bool? pageResults = default(bool?), string? continuationToken = default(string?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public async System.Threading.Tasks.Task<Org.OpenAPITools.Client.ApiResponse<SourceRepositories>> SourceProvidersListRepositoriesWithHttpInfoAsync(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default, string? repository = default, string? resultSet = default, bool? pageResults = default, string? continuationToken = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             // verify the required parameter 'organization' is set
             if (organization == null)
@@ -2217,7 +2223,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="repository">If specified, the vendor-specific identifier or the name of the repository to get webhooks. Can only be omitted for providers that do not support multiple repositories. (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>List&lt;RepositoryWebhook&gt;</returns>
-        public List<RepositoryWebhook> SourceProvidersListWebhooks(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default(Guid?), string? repository = default(string?), int operationIndex = 0)
+        public List<RepositoryWebhook> SourceProvidersListWebhooks(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default, string? repository = default, int operationIndex = 0)
         {
             Org.OpenAPITools.Client.ApiResponse<List<RepositoryWebhook>> localVarResponse = SourceProvidersListWebhooksWithHttpInfo(organization, project, providerName, apiVersion, serviceEndpointId, repository);
             return localVarResponse.Data;
@@ -2235,7 +2241,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="repository">If specified, the vendor-specific identifier or the name of the repository to get webhooks. Can only be omitted for providers that do not support multiple repositories. (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>ApiResponse of List&lt;RepositoryWebhook&gt;</returns>
-        public Org.OpenAPITools.Client.ApiResponse<List<RepositoryWebhook>> SourceProvidersListWebhooksWithHttpInfo(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default(Guid?), string? repository = default(string?), int operationIndex = 0)
+        public Org.OpenAPITools.Client.ApiResponse<List<RepositoryWebhook>> SourceProvidersListWebhooksWithHttpInfo(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default, string? repository = default, int operationIndex = 0)
         {
             // verify the required parameter 'organization' is set
             if (organization == null)
@@ -2272,6 +2278,7 @@ namespace Org.OpenAPITools.Api
             };
 
             var localVarContentType = Org.OpenAPITools.Client.ClientUtils.SelectHeaderContentType(_contentTypes);
+            var localVarMultipartFormData = localVarContentType == "multipart/form-data";
             if (localVarContentType != null)
             {
                 localVarRequestOptions.HeaderParameters.Add("Content-Type", localVarContentType);
@@ -2333,7 +2340,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of List&lt;RepositoryWebhook&gt;</returns>
-        public async System.Threading.Tasks.Task<List<RepositoryWebhook>> SourceProvidersListWebhooksAsync(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default(Guid?), string? repository = default(string?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public async System.Threading.Tasks.Task<List<RepositoryWebhook>> SourceProvidersListWebhooksAsync(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default, string? repository = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             Org.OpenAPITools.Client.ApiResponse<List<RepositoryWebhook>> localVarResponse = await SourceProvidersListWebhooksWithHttpInfoAsync(organization, project, providerName, apiVersion, serviceEndpointId, repository, operationIndex, cancellationToken).ConfigureAwait(false);
             return localVarResponse.Data;
@@ -2352,7 +2359,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse (List&lt;RepositoryWebhook&gt;)</returns>
-        public async System.Threading.Tasks.Task<Org.OpenAPITools.Client.ApiResponse<List<RepositoryWebhook>>> SourceProvidersListWebhooksWithHttpInfoAsync(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default(Guid?), string? repository = default(string?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public async System.Threading.Tasks.Task<Org.OpenAPITools.Client.ApiResponse<List<RepositoryWebhook>>> SourceProvidersListWebhooksWithHttpInfoAsync(string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = default, string? repository = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             // verify the required parameter 'organization' is set
             if (organization == null)
@@ -2452,7 +2459,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="repository">If specified, the vendor-specific identifier or the name of the repository to get webhooks. Can only be omitted for providers that do not support multiple repositories. (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns></returns>
-        public void SourceProvidersRestoreWebhooks(string organization, string project, string providerName, string apiVersion, List<string> body, Guid? serviceEndpointId = default(Guid?), string? repository = default(string?), int operationIndex = 0)
+        public void SourceProvidersRestoreWebhooks(string organization, string project, string providerName, string apiVersion, List<string> body, Guid? serviceEndpointId = default, string? repository = default, int operationIndex = 0)
         {
             SourceProvidersRestoreWebhooksWithHttpInfo(organization, project, providerName, apiVersion, body, serviceEndpointId, repository);
         }
@@ -2470,7 +2477,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="repository">If specified, the vendor-specific identifier or the name of the repository to get webhooks. Can only be omitted for providers that do not support multiple repositories. (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>ApiResponse of Object(void)</returns>
-        public Org.OpenAPITools.Client.ApiResponse<Object> SourceProvidersRestoreWebhooksWithHttpInfo(string organization, string project, string providerName, string apiVersion, List<string> body, Guid? serviceEndpointId = default(Guid?), string? repository = default(string?), int operationIndex = 0)
+        public Org.OpenAPITools.Client.ApiResponse<Object> SourceProvidersRestoreWebhooksWithHttpInfo(string organization, string project, string providerName, string apiVersion, List<string> body, Guid? serviceEndpointId = default, string? repository = default, int operationIndex = 0)
         {
             // verify the required parameter 'organization' is set
             if (organization == null)
@@ -2513,6 +2520,7 @@ namespace Org.OpenAPITools.Api
             };
 
             var localVarContentType = Org.OpenAPITools.Client.ClientUtils.SelectHeaderContentType(_contentTypes);
+            var localVarMultipartFormData = localVarContentType == "multipart/form-data";
             if (localVarContentType != null)
             {
                 localVarRequestOptions.HeaderParameters.Add("Content-Type", localVarContentType);
@@ -2576,7 +2584,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of void</returns>
-        public async System.Threading.Tasks.Task SourceProvidersRestoreWebhooksAsync(string organization, string project, string providerName, string apiVersion, List<string> body, Guid? serviceEndpointId = default(Guid?), string? repository = default(string?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public async System.Threading.Tasks.Task SourceProvidersRestoreWebhooksAsync(string organization, string project, string providerName, string apiVersion, List<string> body, Guid? serviceEndpointId = default, string? repository = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             await SourceProvidersRestoreWebhooksWithHttpInfoAsync(organization, project, providerName, apiVersion, body, serviceEndpointId, repository, operationIndex, cancellationToken).ConfigureAwait(false);
         }
@@ -2595,7 +2603,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse</returns>
-        public async System.Threading.Tasks.Task<Org.OpenAPITools.Client.ApiResponse<Object>> SourceProvidersRestoreWebhooksWithHttpInfoAsync(string organization, string project, string providerName, string apiVersion, List<string> body, Guid? serviceEndpointId = default(Guid?), string? repository = default(string?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public async System.Threading.Tasks.Task<Org.OpenAPITools.Client.ApiResponse<Object>> SourceProvidersRestoreWebhooksWithHttpInfoAsync(string organization, string project, string providerName, string apiVersion, List<string> body, Guid? serviceEndpointId = default, string? repository = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             // verify the required parameter 'organization' is set
             if (organization == null)

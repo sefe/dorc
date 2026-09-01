@@ -7,7 +7,7 @@ All URIs are relative to *https://dev.azure.com*
 | [**ArtifactsCreate**](ArtifactsApi.md#artifactscreate) | **POST** /{organization}/{project}/_apis/build/builds/{buildId}/artifacts |  |
 | [**ArtifactsList**](ArtifactsApi.md#artifactslist) | **GET** /{organization}/{project}/_apis/build/builds/{buildId}/artifacts |  |
 
-<a name="artifactscreate"></a>
+<a id="artifactscreate"></a>
 # **ArtifactsCreate**
 > BuildArtifact ArtifactsCreate (string organization, string project, int buildId, string apiVersion, BuildArtifact body)
 
@@ -107,7 +107,7 @@ catch (ApiException e)
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-<a name="artifactslist"></a>
+<a id="artifactslist"></a>
 # **ArtifactsList**
 > List&lt;BuildArtifact&gt; ArtifactsList (string organization, string project, int buildId, string apiVersion)
 

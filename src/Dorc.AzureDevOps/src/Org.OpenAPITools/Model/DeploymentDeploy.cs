@@ -27,33 +27,33 @@ using OpenAPIDateConverter = Org.OpenAPITools.Client.OpenAPIDateConverter;
 namespace Org.OpenAPITools.Model
 {
     /// <summary>
-    /// Deployment information for type \&quot;Deploy\&quot;
+    /// DeploymentDeploy
     /// </summary>
     [DataContract(Name = "DeploymentDeploy")]
-    public partial class DeploymentDeploy : IEquatable<DeploymentDeploy>, IValidatableObject
+    public partial class DeploymentDeploy : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="DeploymentDeploy" /> class.
         /// </summary>
-        /// <param name="message">message.</param>
         /// <param name="type">type.</param>
-        public DeploymentDeploy(string message = default(string), string type = default(string))
+        /// <param name="message">message.</param>
+        public DeploymentDeploy(string type = default, string message = default)
         {
-            this.Message = message;
             this.Type = type;
+            this.Message = message;
         }
-
-        /// <summary>
-        /// Gets or Sets Message
-        /// </summary>
-        [DataMember(Name = "message", EmitDefaultValue = false)]
-        public string Message { get; set; }
 
         /// <summary>
         /// Gets or Sets Type
         /// </summary>
         [DataMember(Name = "type", EmitDefaultValue = false)]
         public string Type { get; set; }
+
+        /// <summary>
+        /// Gets or Sets Message
+        /// </summary>
+        [DataMember(Name = "message", EmitDefaultValue = false)]
+        public string Message { get; set; }
 
         /// <summary>
         /// Returns the string presentation of the object
@@ -63,8 +63,8 @@ namespace Org.OpenAPITools.Model
         {
             StringBuilder sb = new StringBuilder();
             sb.Append("class DeploymentDeploy {\n");
-            sb.Append("  Message: ").Append(Message).Append("\n");
             sb.Append("  Type: ").Append(Type).Append("\n");
+            sb.Append("  Message: ").Append(Message).Append("\n");
             sb.Append("}\n");
             return sb.ToString();
         }
@@ -79,66 +79,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as DeploymentDeploy);
-        }
-
-        /// <summary>
-        /// Returns true if DeploymentDeploy instances are equal
-        /// </summary>
-        /// <param name="input">Instance of DeploymentDeploy to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(DeploymentDeploy input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.Message == input.Message ||
-                    (this.Message != null &&
-                    this.Message.Equals(input.Message))
-                ) && 
-                (
-                    this.Type == input.Type ||
-                    (this.Type != null &&
-                    this.Type.Equals(input.Type))
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.Message != null)
-                {
-                    hashCode = (hashCode * 59) + this.Message.GetHashCode();
-                }
-                if (this.Type != null)
-                {
-                    hashCode = (hashCode * 59) + this.Type.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

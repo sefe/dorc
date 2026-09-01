@@ -8,6 +8,8 @@ import { RefDataServersApi } from '../apis/dorc-api';
 import { ServerApiModel } from '../apis/dorc-api';
 import { splitTags, normaliseTags } from '../helpers/tag-parser';
 import { MAX_TAG_LENGTH } from '../helpers/tag-limits';
+import '@vaadin/button';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('server-tags')
 export class ServerTags extends LitElement {
@@ -63,7 +65,7 @@ export class ServerTags extends LitElement {
       }
       this._server.Tags = normalised;
 
-      const api = new RefDataServersApi();
+      const api = new RefDataServersApi(dorcApiConfiguration);
       const server: ServerApiModel = {};
       server.Tags = this._server.Tags;
       server.ServerId = this._server.ServerId;

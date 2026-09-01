@@ -46,6 +46,7 @@ import { ErrorNotification } from '../components/notifications/error-notificatio
 import { splitTags } from '../helpers/tag-parser';
 import { ref } from 'lit/directives/ref.js';
 import { UnsavedChangesGuard } from '../components/unsaved-changes-guard';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 const environmentNames = 'EnvironmentNames';
 const name = 'Name';
@@ -294,7 +295,7 @@ export class PageServersList extends ResponsiveMixin(PageElement) {
         });
       }
 
-      const api = new RefDataServersApi();
+      const api = new RefDataServersApi(dorcApiConfiguration);
       api
         .refDataServersByPagePut({
           pagedDataOperators: {
@@ -605,7 +606,7 @@ export class PageServersList extends ResponsiveMixin(PageElement) {
   };
 
   openEnvironmentDetails(event: CustomEvent) {
-    const api2 = new RefDataEnvironmentsApi();
+    const api2 = new RefDataEnvironmentsApi(dorcApiConfiguration);
     api2.refDataEnvironmentsGet({ env: event.detail.envName }).subscribe({
       next: (data: EnvironmentApiModel[]) => {
         if (data[0] !== null) {

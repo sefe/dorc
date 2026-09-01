@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// Represents the result of validating a build request.
     /// </summary>
     [DataContract(Name = "BuildRequestValidationResult")]
-    public partial class BuildRequestValidationResult : IEquatable<BuildRequestValidationResult>, IValidatableObject
+    public partial class BuildRequestValidationResult : IValidatableObject
     {
         /// <summary>
         /// The result.
@@ -56,7 +56,6 @@ namespace Org.OpenAPITools.Model
             /// </summary>
             [EnumMember(Value = "error")]
             Error = 3
-
         }
 
 
@@ -71,7 +70,7 @@ namespace Org.OpenAPITools.Model
         /// </summary>
         /// <param name="message">The message associated with the result..</param>
         /// <param name="result">The result..</param>
-        public BuildRequestValidationResult(string message = default(string), ResultEnum? result = default(ResultEnum?))
+        public BuildRequestValidationResult(string message = default, ResultEnum? result = default)
         {
             this.Message = message;
             this.Result = result;
@@ -108,62 +107,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as BuildRequestValidationResult);
-        }
-
-        /// <summary>
-        /// Returns true if BuildRequestValidationResult instances are equal
-        /// </summary>
-        /// <param name="input">Instance of BuildRequestValidationResult to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(BuildRequestValidationResult input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.Message == input.Message ||
-                    (this.Message != null &&
-                    this.Message.Equals(input.Message))
-                ) && 
-                (
-                    this.Result == input.Result ||
-                    this.Result.Equals(input.Result)
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.Message != null)
-                {
-                    hashCode = (hashCode * 59) + this.Message.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.Result.GetHashCode();
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

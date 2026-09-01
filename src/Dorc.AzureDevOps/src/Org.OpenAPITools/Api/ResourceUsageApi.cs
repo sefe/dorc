@@ -74,7 +74,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of BuildResourceUsage</returns>
-        System.Threading.Tasks.Task<BuildResourceUsage> ResourceUsageGetAsync(string organization, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<BuildResourceUsage> ResourceUsageGetAsync(string organization, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
 
         /// <summary>
         /// 
@@ -88,7 +88,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse (BuildResourceUsage)</returns>
-        System.Threading.Tasks.Task<ApiResponse<BuildResourceUsage>> ResourceUsageGetWithHttpInfoAsync(string organization, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ApiResponse<BuildResourceUsage>> ResourceUsageGetWithHttpInfoAsync(string organization, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
         #endregion Asynchronous Operations
     }
 
@@ -256,6 +256,7 @@ namespace Org.OpenAPITools.Api
             };
 
             var localVarContentType = Org.OpenAPITools.Client.ClientUtils.SelectHeaderContentType(_contentTypes);
+            var localVarMultipartFormData = localVarContentType == "multipart/form-data";
             if (localVarContentType != null)
             {
                 localVarRequestOptions.HeaderParameters.Add("Content-Type", localVarContentType);
@@ -303,7 +304,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of BuildResourceUsage</returns>
-        public async System.Threading.Tasks.Task<BuildResourceUsage> ResourceUsageGetAsync(string organization, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public async System.Threading.Tasks.Task<BuildResourceUsage> ResourceUsageGetAsync(string organization, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             Org.OpenAPITools.Client.ApiResponse<BuildResourceUsage> localVarResponse = await ResourceUsageGetWithHttpInfoAsync(organization, apiVersion, operationIndex, cancellationToken).ConfigureAwait(false);
             return localVarResponse.Data;
@@ -318,7 +319,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse (BuildResourceUsage)</returns>
-        public async System.Threading.Tasks.Task<Org.OpenAPITools.Client.ApiResponse<BuildResourceUsage>> ResourceUsageGetWithHttpInfoAsync(string organization, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public async System.Threading.Tasks.Task<Org.OpenAPITools.Client.ApiResponse<BuildResourceUsage>> ResourceUsageGetWithHttpInfoAsync(string organization, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             // verify the required parameter 'organization' is set
             if (organization == null)

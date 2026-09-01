@@ -57,6 +57,24 @@ jobs:
       working-directory: src/dorc-web
       run: npm ci --loglevel=error
 
+    # openapi-generator-cli is a thin npm wrapper around a Java jar; the
+    # runner image ships several JDKs but its default java on PATH is not
+    # guaranteed to satisfy the generator's minimum. setup-java only points
+    # env vars at a JDK already on the image, so this costs seconds.
+    - name: Setup Java (OpenAPI Generator)
+      uses: actions/setup-java@v5
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+
+    # The suite must exercise the same client code a release build ships:
+    # the generated API clients are regenerated from their committed specs
+    # before the tests run. The authoritative in-sync gate lives in the
+    # build job.
+    - name: Generate API clients
+      working-directory: src/dorc-web
+      run: npm run api-gen
+
     # The next three steps assume Windows (pwsh + the Windows cache path).
     # The whole job is windows-latest today; the `if: runner.os == 'Windows'`
     # guards align them so adding a Linux/macOS matrix entry later is a
@@ -152,7 +170,75 @@ jobs:
     - name: Install web dependencies
       working-directory: src/dorc-web
       run: npm ci --loglevel=error
-      
+
+    # See the web-tests job for why setup-java is needed before generation.
+    - name: Setup Java (OpenAPI Generator)
+      uses: actions/setup-java@v5
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+
+    # Two clients are generated code: the TypeScript dorc-api client under
+    # src/dorc-web/src/apis, and the C# Org.OpenAPITools client under
+    # src/Dorc.AzureDevOps that Dorc.Core, the Monitor and the
+    # TerraformRunner consume for build numbers and artifact locations.
+    # Each pins its generator version in its own openapitools.json.
+    # Regenerating here — before the web and solution builds — means every
+    # release is built from clients the generator actually produced, never
+    # from hand-drifted files.
+    #
+    # Generation reads only committed specs, so this step is hermetic: it
+    # fetches nothing, and the same commit always produces the same clients.
+    # Picking up a new upstream Azure DevOps spec belongs to the
+    # ado-build-spec-refresh workflow, which opens a pull request — precisely
+    # so a change Microsoft publishes can never turn an unrelated pull
+    # request red here.
+    - name: Generate API clients
+      working-directory: src/dorc-web
+      run: npm run api-gen
+
+    # The committed clients are the same files the generator just wrote, so
+    # any diff means someone edited generated code by hand or changed a spec
+    # without regenerating — either way the fix is to regenerate and commit.
+    # No generated file is hand-maintained: app concerns live
+    # outside the generated trees (the web's
+    # src/services/dorc-api-configuration.ts; the C# side's
+    # Dorc.AzureDevOps.Client project). The client csproj under
+    # src/Dorc.AzureDevOps is dependabot-owned and excluded via that tree's
+    # .openapi-generator-ignore, so it never diffs here either.
+    # Content is compared with `git diff`, not `git status`: diff applies the
+    # same eol filters to both sides, so a file that only differs in line-ending
+    # representation is correctly reported as unchanged. `git status` does not,
+    # and reported all 284 generated files as modified on the Windows runner
+    # while `git diff` showed nothing (run 32056758186). `.gitattributes` pins
+    # these trees to LF so that mismatch cannot arise in the first place; this
+    # step stays representation-independent as the second line of defence.
+    # ls-files --others covers the case diff cannot see: a brand new generated
+    # file that has never been committed.
+    - name: Fail if generated clients are out of sync
+      shell: pwsh
+      run: |
+        $paths = @('src/dorc-web/src/apis', 'src/Dorc.AzureDevOps')
+
+        git --no-pager diff --exit-code --stat -- $paths
+        $changed = $LASTEXITCODE -ne 0
+        $untracked = git ls-files --others --exclude-standard -- $paths
+
+        if ($changed -or $untracked) {
+          Write-Host "Generated API clients differ from the committed code:"
+          if ($changed) {
+            git --no-pager diff -- $paths | Select-Object -First 200
+          }
+          if ($untracked) {
+            Write-Host "Untracked generated files:"
+            $untracked | ForEach-Object { Write-Host "  $_" }
+          }
+          Write-Error ("API clients are out of sync with their specs. " +
+            "Run 'npm run api-gen' in src/dorc-web and commit the result.")
+          exit 1
+        }
+        Write-Host "Generated API clients match the committed code."
+
     - name: Build web site
       working-directory: src/dorc-web
       run: npm run build

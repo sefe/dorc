@@ -16,6 +16,7 @@ import {
   ServerApiModel
 } from '../../apis/dorc-api';
 import '@vaadin/tooltip';
+import { dorcApiConfiguration } from '../../services/dorc-api-configuration';
 
 @customElement('server-controls')
 export class ServerControls extends LitElement {
@@ -150,7 +151,7 @@ export class ServerControls extends LitElement {
     const envId = this.envId;
     const answer = await confirmPrompt(`Detach server ${server?.Name}?`);
     if (answer && server?.ServerId) {
-      const api = new RefDataEnvironmentsDetailsApi();
+      const api = new RefDataEnvironmentsDetailsApi(dorcApiConfiguration);
       api
         .refDataEnvironmentsDetailsPut({
           componentId: server.ServerId,
@@ -177,7 +178,7 @@ export class ServerControls extends LitElement {
   }
 
   private performDeleteServer(server: ServerApiModel, confirmed: boolean) {
-    const api = new RefDataServersApi();
+    const api = new RefDataServersApi(dorcApiConfiguration);
     api
       .refDataServersDelete({
         serverId: server.ServerId as number,
