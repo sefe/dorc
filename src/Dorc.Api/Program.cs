@@ -19,7 +19,6 @@ using Dorc.PersistentData.Contexts;
 using Lamar.Microsoft.DependencyInjection;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.Authentication.Negotiate;
 using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.OpenApi.Models;
 using OpenTelemetry.Logs;
@@ -115,36 +114,34 @@ builder.Services.AddCors(options =>
         });
 });
 
+// Post-S-007 (HLPS Scope E): only OAuth is supported. Legacy Negotiate / WinAuth
+// has been removed along with System.DirectoryServices (S-001). Customers must
+// migrate AuthenticationScheme to "OAuth" in appsettings.json before upgrading;
+// see docs/api-split/ for the Entra ID setup guide that S-010 publishes.
 string? authenticationScheme = configurationSettings.GetAuthenticationScheme();
-switch (authenticationScheme)
+// Accept ONLY OAuth. The previous form rejected the two known-bad literals and let
+// everything else through, so a null/blank/mis-cased value silently configured OAuth
+// with a null Authority and failed on the first request instead of at startup — the
+// very outcome this guard exists to prevent.
+if (!string.Equals(authenticationScheme, ConfigAuthScheme.OAuth, StringComparison.OrdinalIgnoreCase))
 {
-    case ConfigAuthScheme.OAuth:
-        ConfigureOAuth(builder, configurationSettings, secretsReader);
-        break;
-    case ConfigAuthScheme.WinAuth:
-        ConfigureWinAuth(builder);
-        break;
-    case ConfigAuthScheme.Both:
-        ConfigureBoth(builder, configurationSettings, secretsReader);
-        break;
-    default:
-        ConfigureWinAuth(builder);
-        break;
+    var message =
+        $"AuthenticationScheme '{authenticationScheme ?? "(not set)"}' is not supported. " +
+        "Negotiate/WinAuth was removed in S-007 of the API-split work (issue #423). " +
+        "Set AppSettings:AuthenticationScheme to 'OAuth' and configure an Entra ID app registration. " +
+        "See docs/api-split/ for migration guidance.";
+
+    // Serilog is configured above but this throws before builder.Build(), outside any
+    // handler — under ANCM in-process hosting an unlogged throw surfaces only as a
+    // generic 500.30, so the migration message never reaches the operator.
+    Log.Fatal(message);
+    Log.CloseAndFlush();
+    throw new InvalidOperationException(message);
 }
 
-static void ConfigureWinAuth(WebApplicationBuilder builder, bool registerOwnReader = true)
-{
-    if (registerOwnReader)
-    {
-        builder.Services.AddTransient<IClaimsPrincipalReader, WinAuthClaimsPrincipalReader>();
-    }
+ConfigureOAuth(builder, configurationSettings, secretsReader);
 
-    builder.Services
-        .AddSingleton<IHttpContextAccessor, HttpContextAccessor>()
-        .AddTransient<IClaimsTransformation, ClaimsTransformer>()
-        .AddAuthentication(NegotiateDefaults.AuthenticationScheme)
-        .AddNegotiate();
-}
+builder.Services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
 
 static void ConfigureOAuth(WebApplicationBuilder builder, IConfigurationSettings configurationSettings, IConfigurationSecretsReader secretsReader, bool registerOwnReader = true)
 {
@@ -212,26 +209,6 @@ static void ConfigureOAuth(WebApplicationBuilder builder, IConfigurationSettings
             policy.RequireAuthenticatedUser();
             policy.RequireClaim("scope", dorcApiGlobalScope);
         });
-    });
-}
-
-static void ConfigureBoth(WebApplicationBuilder builder, IConfigurationSettings configurationSettings, IConfigurationSecretsReader secretsReader)
-{
-    builder.Services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
-    builder.Services.AddTransient<IClaimsPrincipalReader, ClaimsPrincipalReaderFactory>();
-
-    ConfigureWinAuth(builder, false);
-    ConfigureOAuth(builder, configurationSettings, secretsReader, false);
-
-    // Add a Policy Scheme to dynamically select the authentication scheme
-    builder.Services.AddAuthentication(options =>
-    {
-        options.DefaultScheme = "DynamicScheme";
-        options.DefaultChallengeScheme = "DynamicScheme";
-    })
-    .AddPolicyScheme("DynamicScheme", "Dynamic Authentication Scheme", options =>
-    {
-        options.ForwardDefaultSelector = context => context.GetAuthenticationScheme();
     });
 }
 
@@ -473,14 +450,9 @@ app.UseCors(dorcCorsRefDataPolicy);
 
 app.UseAuthentication();
 app.UseAuthorization();
-app.UseMiddleware<WinAuthLoggingMiddleware>();
 
-var endpointConventionBuilder = app.MapControllers();
-if (authenticationScheme is ConfigAuthScheme.OAuth)
-{
-    // Enforce Authorization Policy [see constant 'apiScopeAuthorizationPolicy'] to all the Controllers
-    endpointConventionBuilder.RequireAuthorization(apiScopeAuthorizationPolicy);
-}
+// All controllers require the OAuth scope. Negotiate/WinAuth was removed in S-007.
+app.MapControllers().RequireAuthorization(apiScopeAuthorizationPolicy);
 
 // Map SignalR hub
 app.MapHub<DeploymentsHub>("/hubs/deployments");
