@@ -5,7 +5,7 @@ import {
   EnvironmentApiModel,
   ProjectApiModel
 } from '../apis/dorc-api';
-import { Router } from '@vaadin/router';
+import { navigate } from '../router/router';
 import { setCookie } from '../helpers/cookies.ts';
 import { DorcNavbar } from './dorc-navbar.ts';
 import { EnvPageTabNames } from '../pages/page-environment.ts';
@@ -57,7 +57,7 @@ export class ShortcutsStore extends LitElement {
     this.dorcNavbar?.closeEnvDetail(e);
 
     const path = '/environments';
-    Router.go(path);
+    void navigate(path);
 
     this.dorcNavbar?.setSelectedTab(path);
   }
@@ -85,7 +85,7 @@ export class ShortcutsStore extends LitElement {
 
     const path = this.getEnvDetailPath(env, tab);
 
-    Router.go(path);
+    void navigate(path);
 
     this.dorcNavbar?.setSelectedTab(this.getEnvDetailPath(env));
 
@@ -124,7 +124,7 @@ export class ShortcutsStore extends LitElement {
 
     const path = `/project-ref-data/${project?.ProjectId}`;
 
-    Router.go(path);
+    void navigate(path);
   }
 
   private openProjectComponents(e: CustomEvent) {
@@ -132,7 +132,7 @@ export class ShortcutsStore extends LitElement {
     
     const path = `/project-components/${project?.ProjectId}`;
     
-    Router.go(path);
+    void navigate(path);
   }
 
   private openProjectEnvs(e: CustomEvent) {
@@ -149,7 +149,7 @@ export class ShortcutsStore extends LitElement {
       path = this.getProjectEnvsPath(project);
     }
 
-    Router.go(path);
+    void navigate(path);
 
     this.dorcNavbar?.setSelectedTab(path);
 

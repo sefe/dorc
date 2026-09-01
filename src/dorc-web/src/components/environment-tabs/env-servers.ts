@@ -1,8 +1,7 @@
-import '@polymer/paper-toggle-button';
 import '@vaadin/details';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/grid/vaadin-grid-sort-column';
-import '@vaadin/dialog';  
+import '@vaadin/dialog';
 import type { DialogOpenedChangedEvent } from '@vaadin/dialog';
 import { css, PropertyValues } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
@@ -17,10 +16,9 @@ import { dialogFooterRenderer, dialogRenderer } from '@vaadin/dialog/lit';
 
 @customElement('env-servers')
 export class EnvServers extends PageEnvBase {
+  @property({ type: Boolean }) envReadOnly = false;
 
-  @property({ type: Boolean }) private envReadOnly = false;
-
-  @property({ type: Array }) private servers: Array<ServerApiModel> | undefined;
+  @property({ type: Array }) servers: Array<ServerApiModel> | undefined;
 
   @state()
   private attachServerDialogOpened = false;
@@ -94,20 +92,21 @@ export class EnvServers extends PageEnvBase {
             <vaadin-button
               title="Attach Server"
               @click="${this.openAttachServerDialog}"
-              .disabled="${this.envReadOnly}">
-                Attach Server
-          </vaadin-button>
-          <vaadin-dialog
-            id='attach-server-dialog'
-            header-title='Attach Server'
-            .opened='${this.attachServerDialogOpened}'
-            draggable
-            @opened-changed='${(event: DialogOpenedChangedEvent) => {
-              this.attachServerDialogOpened = event.detail.value;
-            }}'
-            ${dialogRenderer(this.renderAttachServerDialog, [])}
-            ${dialogFooterRenderer(this.renderAttachServerFooter, [])}
-          ></vaadin-dialog>
+              .disabled="${this.envReadOnly}"
+            >
+              Attach Server
+            </vaadin-button>
+            <vaadin-dialog
+              id="attach-server-dialog"
+              header-title="Attach Server"
+              .opened="${this.attachServerDialogOpened}"
+              draggable
+              @opened-changed="${(event: DialogOpenedChangedEvent) => {
+                this.attachServerDialogOpened = event.detail.value;
+              }}"
+              ${dialogRenderer(this.renderAttachServerDialog, [this.environmentId])}
+              ${dialogFooterRenderer(this.renderAttachServerFooter, [])}
+            ></vaadin-dialog>
           </div>
           <div class="servers-wrapper">
             <attached-servers
@@ -128,14 +127,13 @@ export class EnvServers extends PageEnvBase {
       .envId="${this.environmentId}"
       @server-attached="${this._serverAttached}"
     ></attach-server>
-    `;
+  `;
 
   private renderAttachServerFooter = () => html`
     <vaadin-button @click="${this.closeAttachServerDialog}"
       >Close</vaadin-button
     >
   `;
-
 
   constructor() {
     super();
@@ -157,9 +155,14 @@ export class EnvServers extends PageEnvBase {
   }
 
   private environmentStale() {
+    if (!this.environment) {
+      console.error(
+        'Cannot refresh server details before the environment loads.'
+      );
+      return;
+    }
     this.refreshEnvDetails(this.environment);
   }
-
 
   _serverAttached(e: CustomEvent) {
     this.serverAttachSuccess(e.detail.message);
@@ -190,5 +193,4 @@ export class EnvServers extends PageEnvBase {
   private closeAttachServerDialog() {
     this.attachServerDialogOpened = false;
   }
-
 }

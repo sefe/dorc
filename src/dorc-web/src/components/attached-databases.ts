@@ -1,32 +1,39 @@
 import { normaliseTags } from '../helpers/tag-parser';
-import '@polymer/paper-dialog';
-import { PaperDialogElement } from '@polymer/paper-dialog';
+import '@vaadin/dialog';
+import type { DialogOpenedChangedEvent } from '@vaadin/dialog';
+import { dialogFooterRenderer, dialogRenderer } from '@vaadin/dialog/lit';
+import { ref } from 'lit/directives/ref.js';
 import '@vaadin/button';
 import '@vaadin/grid';
-import { GridItemModel } from '@vaadin/grid';
+import { columnBodyRenderer } from '@vaadin/grid/lit';
 import '@vaadin/grid/vaadin-grid-column';
-import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
 import '@vaadin/grid/vaadin-grid-sort-column';
-import { css, LitElement, render } from 'lit';
+import { css, LitElement, nothing } from 'lit';
 import { ResponsiveMixin } from '../helpers/responsive-mixin';
-import { customElement, property } from 'lit/decorators.js';
+import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import '../components/edit-database-permissions';
 import './grid-button-groups/database-env-controls.ts';
 import '../components/view-database-permissions';
-import {
-  DatabaseApiModel,
-} from '../apis/dorc-api';
+import { DatabaseApiModel } from '../apis/dorc-api';
 import { EditDatabasePermissions } from './edit-database-permissions';
 import { ViewDatabasePermissions } from './view-database-permissions';
 import { map } from 'lit/directives/map.js';
 
 @customElement('attached-databases')
 export class AttachedDatabases extends ResponsiveMixin(LitElement) {
+  @state() private permissionsDialogOpened = false;
+
+  @state() private viewPermissionsDialogOpened = false;
+
+  @state() private editDbId: number | null = null;
+
+  @state() private viewDbId: number | null = null;
+
   @property({ type: Number })
   envId = 0;
 
-  @property({ type: Boolean }) private readonly = true;
+  @property({ type: Boolean }) readonly = true;
 
   @property({ type: Array })
   public databases: Array<DatabaseApiModel> | undefined = [];
@@ -44,10 +51,10 @@ export class AttachedDatabases extends ResponsiveMixin(LitElement) {
         vertical-align: middle;
       }
 
-      paper-dialog.size-position {
+      vaadin-dialog::part(overlay) {
         top: 16px;
         overflow: auto;
-        padding: 10px;
+        max-width: calc(100vw - 32px);
       }
 
       vaadin-grid#grid {
@@ -103,7 +110,7 @@ export class AttachedDatabases extends ResponsiveMixin(LitElement) {
           resizable
         ></vaadin-grid-column>
         <vaadin-grid-column
-          .renderer="${this.tagsRenderer}"
+          ${columnBodyRenderer(this.tagsRenderer, [])}
           resizable
           header="Tags"
           ?hidden="${this._narrowScreen}"
@@ -115,120 +122,159 @@ export class AttachedDatabases extends ResponsiveMixin(LitElement) {
           ?hidden="${this._narrowScreen}"
         ></vaadin-grid-column>
         <vaadin-grid-column
-          .renderer="${this._boundDatabasesButtonsRenderer}"
+          ${columnBodyRenderer(this.databaseControlsRenderer, [
+            this.envId,
+            this.readonly
+          ])}
           resizable
         >
         </vaadin-grid-column>
       </vaadin-grid>
 
-      <paper-dialog
-        class="size-position"
+      <vaadin-dialog
         id="permissions"
-        allow-click-through
-        modal
-      >
-        <edit-database-permissions
-          id="edit"
-          .envId="${this.envId}"
-        ></edit-database-permissions>
-        <div style="display: flex; justify-content: flex-end">
-          <vaadin-button dialog-confirm>Close</vaadin-button>
-        </div>
-      </paper-dialog>
+        header-title="Manage Database Permissions"
+        draggable
+        .opened="${this.permissionsDialogOpened}"
+        @opened-changed="${(e: DialogOpenedChangedEvent) => {
+          this.permissionsDialogOpened = e.detail.value;
+          // Clearing the id destroys the content, so the next open recreates it
+          // and re-seeds through `ref`. Without this the element persists and
+          // the stable callback would not fire for the next row.
+          if (!this.permissionsDialogOpened) this.editDbId = null;
+        }}"
+        ${dialogRenderer(this.renderEditPermissions, [this.editDbId, this.envId])}
+        ${dialogFooterRenderer(this.renderEditPermissionsFooter, [])}
+      ></vaadin-dialog>
 
-      <paper-dialog
-        class="size-position"
+      <vaadin-dialog
         id="viewPermissions"
-        allow-click-through
-        modal
-      >
-        <view-database-permissions
-          id="view"
-          .envId="${this.envId}"
-          .readonly="${this.readonly}"
-        ></view-database-permissions>
-        <div style="display: flex; justify-content: flex-end">
-          <vaadin-button dialog-confirm>Close</vaadin-button>
-        </div>
-      </paper-dialog>
+        header-title="Database Permissions"
+        draggable
+        .opened="${this.viewPermissionsDialogOpened}"
+        @opened-changed="${(e: DialogOpenedChangedEvent) => {
+          this.viewPermissionsDialogOpened = e.detail.value;
+          if (!this.viewPermissionsDialogOpened) this.viewDbId = null;
+        }}"
+        ${dialogRenderer(this.renderViewPermissions, [
+          this.viewDbId,
+          this.envId,
+          this.readonly
+        ])}
+        ${dialogFooterRenderer(this.renderViewPermissionsFooter, [])}
+      ></vaadin-dialog>
     `;
   }
 
-  private tagsRenderer = (
-    root: HTMLElement,
-    _: HTMLElement,
-    model: GridItemModel<DatabaseApiModel>
-  ) => {
-    const database = model.item;
+  private tagsRenderer = (database: DatabaseApiModel) => {
     const appTags = normaliseTags(database.Tags);
 
-    render(
-      html`
-        ${map(
-          appTags,
-          value =>
-            html` <button
-              style="border: 0px"
-              class="tag"
-              @click="${() =>
-                this.dispatchEvent(
-                  new CustomEvent('filter-tags-database-list', {
-                    detail: {
-                      value
-                    },
-                    bubbles: true,
-                    composed: true
-                  })
-                )}"
-            >
-              ${value}
-            </button>`
-        )}
-      `,
-      root
-    );
+    return html`
+      ${map(
+        appTags,
+        value =>
+          html` <button
+            style="border: 0px"
+            class="tag"
+            @click="${() =>
+              this.dispatchEvent(
+                new CustomEvent('filter-tags-database-list', {
+                  detail: {
+                    value
+                  },
+                  bubbles: true,
+                  composed: true
+                })
+              )}"
+          >
+            ${value}
+          </button>`
+      )}
+    `;
   };
 
-  _boundDatabasesButtonsRenderer = (
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<DatabaseApiModel>
-  ) => {
-    const db = model.item as DatabaseApiModel;
+  private databaseControlsRenderer = (db: DatabaseApiModel) => html`
+    <database-env-controls
+      .dbDetails="${db}"
+      .envId="${this.envId}"
+      .readonly="${this.readonly}"
+      @database-detached="${() =>
+        this.dispatchEvent(
+          new CustomEvent('database-detached', { detail: { db } })
+        )}"
+      @manage-database-perms="${() => {
+        this.editDbId = db.Id || 0;
+        this.permissionsDialogOpened = true;
+      }}"
+      @view-database-perms="${() => {
+        this.viewDbId = db.Id || 0;
+        this.viewPermissionsDialogOpened = true;
+      }}"
+    ></database-env-controls>
+  `;
 
-    render(
-      html` <database-env-controls
-        .dbDetails="${db}"
-        .envId="${this.envId}"
-        .readonly="${this.readonly}"
-        @database-detached="${() =>
-          this.dispatchEvent(
-            new CustomEvent('database-detached', { detail: { db } })
-          )
-        }"
-        @manage-database-perms="${() => {
-          const edit = this.shadowRoot?.getElementById(
-            'edit'
-          ) as EditDatabasePermissions;
-          edit.reset();
-          edit.setDbId(db.Id || 0);
-          this.openDialog('permissions');
-        }}"
-        @view-database-perms="${() => {
-          const view = this.shadowRoot?.getElementById(
-            'view'
-          ) as ViewDatabasePermissions;
-          view.setDbId(db.Id || 0);
-          view.loadDatabaseUsers();
-          this.openDialog('viewPermissions');
-        }}"
-      ></database-env-controls>`,
-      root
-    );
-  }
+  /**
+   * These two components are configured through imperative methods, and the
+   * elements do not exist until the dialog opens. `ref` fires exactly when the
+   * element is created, which removes the old configure-then-open ordering
+   * rather than trying to re-time it.
+   */
+  /**
+   * Seeds the permission dialogs, once per open.
+   *
+   * These are class fields, not arrows written inline in the renderer. Lit's
+   * `ref` compares callback identity, so a fresh arrow each render re-fires the
+   * directive on every renderer invocation — and the overlay invokes the
+   * renderer itself on open and again on header/footer changes, which meant
+   * four loads per open and four `reset()`s, the first carrying the previous
+   * row's id.
+   *
+   * Seeding is driven by the element's lifetime instead: `viewDbId`/`editDbId`
+   * are cleared on close, so the element is destroyed and recreated per open
+   * and the callback runs exactly once with the right row.
+   */
+  private seedViewPermissions = (el?: Element) => {
+    if (!el || this.viewDbId === null) return;
+    const view = el as ViewDatabasePermissions;
+    view.setDbId(this.viewDbId);
+    view.loadDatabaseUsers();
+  };
 
-  openDialog(name: string) {
-    const dialog = this.shadowRoot?.getElementById(name) as PaperDialogElement;
-    dialog.open();
-  }
+  private seedEditPermissions = (el?: Element) => {
+    if (!el || this.editDbId === null) return;
+    const edit = el as EditDatabasePermissions;
+    edit.reset();
+    edit.setDbId(this.editDbId);
+  };
+
+  private renderEditPermissions = () =>
+    this.editDbId !== null
+      ? html`<edit-database-permissions
+          id="edit"
+          .envId="${this.envId}"
+          ${ref(this.seedEditPermissions)}
+        ></edit-database-permissions>`
+      : nothing;
+
+  private renderEditPermissionsFooter = () => html`
+    <vaadin-button @click="${() => (this.permissionsDialogOpened = false)}"
+      >Close</vaadin-button
+    >
+  `;
+
+  private renderViewPermissions = () =>
+    this.viewDbId !== null
+      ? html`<view-database-permissions
+          id="view"
+          .envId="${this.envId}"
+          .readonly="${this.readonly}"
+          ${ref(this.seedViewPermissions)}
+        ></view-database-permissions>`
+      : nothing;
+
+  private renderViewPermissionsFooter = () => html`
+    <vaadin-button @click="${() => (this.viewPermissionsDialogOpened = false)}"
+      >Close</vaadin-button
+    >
+  `;
 }

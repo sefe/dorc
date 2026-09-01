@@ -1,5 +1,16 @@
 import { expect, fixture, html } from '../_helpers';
 
+// Static, because the rendered block below mounts these five elements and
+// never imports them. Registration used to come only from the `await import`
+// calls in the structural-CSS tests earlier in the file, so running the
+// rendered tests on their own — an ordinary `-t` name filter is enough —
+// mounted undefined elements and every `shadowRoot` was null.
+import '../../src/components/attached-app-users';
+import '../../src/components/attached-databases';
+import '../../src/components/attached-servers';
+import '../../src/components/component-deployment-results';
+import '../../src/components/env-deployments';
+
 // ─── mockMatchMedia helper (same pattern as grid-column-hiding.test.ts) ───
 let originalMatchMedia: typeof window.matchMedia;
 
