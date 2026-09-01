@@ -12,6 +12,7 @@ import {
 } from '../../apis/dorc-api';
 import '../../icons/social-icons.js';
 import '@vaadin/tooltip';
+import { dorcApiConfiguration } from '../../services/dorc-api-configuration';
 
 @customElement('database-env-controls')
 export class DatabaseEnvControls extends LitElement {
@@ -100,7 +101,7 @@ export class DatabaseEnvControls extends LitElement {
     const envId = this.envId;
     const answer = await confirmPrompt('Detach database?');
     if (answer && database?.Id) {
-      const api = new RefDataEnvironmentsDetailsApi();
+      const api = new RefDataEnvironmentsDetailsApi(dorcApiConfiguration);
       api
         .refDataEnvironmentsDetailsPut({
           componentId: database.Id,

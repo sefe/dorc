@@ -32,6 +32,7 @@ import {
 import { NARROW_BREAKPOINT } from '../helpers/responsive-mixin.ts';
 import { LOCATION_CHANGED_EVENT, navigate } from '../router/router.ts';
 import { dorcEnvironmentNameFromMetadata } from '../helpers/dorc-environment-name';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 let dorcNavbar: DorcNavbar;
 
@@ -888,7 +889,7 @@ export class DorcApp extends LitElement {
   }
 
   private getUserRoles() {
-    const api = new RefDataRolesApi();
+    const api = new RefDataRolesApi(dorcApiConfiguration);
     api.refDataRolesGet().subscribe({
       next: (data: string[]) => {
         this.userRoles = data.join(' | ');
@@ -898,7 +899,7 @@ export class DorcApp extends LitElement {
   }
 
   private getUserEmail() {
-    const api = new MakeLikeProdApi();
+    const api = new MakeLikeProdApi(dorcApiConfiguration);
     api.makeLikeProdNotifyEmailAddressGet().subscribe({
       next: value => {
         this.userEmail = value;
@@ -908,7 +909,7 @@ export class DorcApp extends LitElement {
   }
 
   private getDorcEnv() {
-    const api = new MetadataApi();
+    const api = new MetadataApi(dorcApiConfiguration);
     api.metadataGet().subscribe({
       next: (data: string) => {
         const environmentName = dorcEnvironmentNameFromMetadata(data);
