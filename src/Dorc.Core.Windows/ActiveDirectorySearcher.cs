@@ -11,7 +11,7 @@ using System.Security.Principal;
 using System.Text;
 using System.Text.RegularExpressions;
 
-namespace Dorc.Core
+namespace Dorc.Core.Windows
 {
     [SupportedOSPlatform("windows")]
     public class ActiveDirectorySearcher : IActiveDirectorySearcher
