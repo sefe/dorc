@@ -32,6 +32,10 @@ namespace Dorc.PersistentData.Security
         /// </summary>
         bool IsTerraformSourceAllowed(string? url, out string reason);
 
+        bool IsArtefactSourceUnconfigured { get; }
+
+        bool IsTerraformSourceUnconfigured { get; }
+
         /// <summary>
         /// True when neither list is configured, so no confinement is in force. Callers that
         /// want to report the gap can ask; the decision to leave it unenforced is deliberate
@@ -53,6 +57,10 @@ namespace Dorc.PersistentData.Security
             artefactHosts = Read(configuration, ArtefactHostsSetting);
             terraformHosts = Read(configuration, TerraformHostsSetting);
         }
+
+        public bool IsArtefactSourceUnconfigured => artefactHosts.Count == 0;
+
+        public bool IsTerraformSourceUnconfigured => terraformHosts.Count == 0;
 
         public bool IsUnconfigured => artefactHosts.Count == 0 && terraformHosts.Count == 0;
 
