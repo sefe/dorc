@@ -126,7 +126,7 @@ namespace Dorc.Api.Tests.Controllers
             var currentOwners = new List<AccessControlApiModel>(); // No current owners
             var newPrivileges = new List<AccessControlApiModel>
             {
-                new AccessControlApiModel { Id = 1, Allow = 4, Name = "NewOwner", Pid = "newowner" } // Owner flag (4)
+                new AccessControlApiModel { Id = 0, Allow = 4, Name = "NewOwner", Pid = "newowner" } // Owner flag (4)
             };
 
             var accessControl = new AccessSecureApiModel
@@ -227,6 +227,84 @@ namespace Dorc.Api.Tests.Controllers
             var objectResult = (ObjectResult)result;
             Assert.AreEqual(StatusCodes.Status400BadRequest, objectResult.StatusCode);
             _accessControlPersistentSource.DidNotReceive().AddAccessControl(Arg.Any<AccessControlApiModel>(), Arg.Any<Guid>(), Arg.Any<ClaimsPrincipal>());
+        }
+
+        [TestMethod]
+        public void Get_UsesGrantCapabilityForReadSecretsAdministration()
+        {
+            var objectId = Guid.NewGuid();
+            StubResolvedObject("EnvA", objectId);
+            _securityPrivilegesChecker.CanGrantReadSecrets(_user, "EnvA").Returns(true);
+
+            var result = (ObjectResult)_controller.Get(AccessControlType.Environment, "EnvA");
+            var model = (AccessSecureApiModel)result.Value!;
+
+            Assert.IsTrue(model.UserCanReadSecrets);
+            _securityPrivilegesChecker.Received().CanGrantReadSecrets(_user, "EnvA");
+            _securityPrivilegesChecker.DidNotReceive().CanReadSecrets(_user, "EnvA");
+        }
+
+        [TestMethod]
+        public void Put_CannotReassignAnExistingReadSecretsGrant()
+        {
+            var objectId = Guid.NewGuid();
+            var existing = new AccessControlApiModel
+            {
+                Id = 7,
+                Allow = 2,
+                Name = "Original service",
+                Pid = "original-service"
+            };
+            var submitted = new AccessControlApiModel
+            {
+                Id = 7,
+                Allow = 2,
+                Name = "Attacker service",
+                Pid = "attacker-service"
+            };
+
+            _securityPrivilegesChecker.CanModifyEnvironment(_user, "EnvA").Returns(true);
+            _securityPrivilegesChecker.CanGrantReadSecrets(_user, "EnvA").Returns(false);
+            StubResolvedObject("EnvA", objectId);
+            _accessControlPersistentSource.GetAccessControls(objectId).Returns(new[] { existing });
+
+            var result = (ObjectResult)_controller.Put(new AccessSecureApiModel
+            {
+                Type = AccessControlType.Environment,
+                Name = "EnvA",
+                ObjectId = objectId,
+                Privileges = new[] { submitted }
+            });
+
+            Assert.AreEqual(StatusCodes.Status403Forbidden, result.StatusCode);
+            _accessControlPersistentSource.DidNotReceive()
+                .UpdateAccessControl(Arg.Any<AccessControlApiModel>(), Arg.Any<Guid>(), Arg.Any<ClaimsPrincipal>());
+        }
+
+        [TestMethod]
+        public void Put_RejectsAnEntryIdFromAnotherObject()
+        {
+            var objectId = Guid.NewGuid();
+            _securityPrivilegesChecker.CanModifyEnvironment(_user, "EnvA").Returns(true);
+            _securityPrivilegesChecker.CanGrantReadSecrets(_user, "EnvA").Returns(true);
+            StubResolvedObject("EnvA", objectId);
+            _accessControlPersistentSource.GetAccessControls(objectId)
+                .Returns(new[] { new AccessControlApiModel { Id = 1, Name = "Owner", Pid = "owner", Allow = 4 } });
+
+            var result = (ObjectResult)_controller.Put(new AccessSecureApiModel
+            {
+                Type = AccessControlType.Environment,
+                Name = "EnvA",
+                ObjectId = objectId,
+                Privileges = new[]
+                {
+                    new AccessControlApiModel { Id = 99, Name = "Foreign", Pid = "foreign", Allow = 1 }
+                }
+            });
+
+            Assert.AreEqual(StatusCodes.Status400BadRequest, result.StatusCode);
+            _accessControlPersistentSource.DidNotReceive()
+                .UpdateAccessControl(Arg.Any<AccessControlApiModel>(), Arg.Any<Guid>(), Arg.Any<ClaimsPrincipal>());
         }
     }
 }

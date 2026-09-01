@@ -64,7 +64,7 @@ namespace Dorc.Api.Controllers
                                   _securityPrivilegesChecker.IsProjectOwnerOrAdmin(User, accessControlName);
 
             output.UserCanReadSecrets = accessControlType == AccessControlType.Environment &&
-                                        _securityPrivilegesChecker.CanReadSecrets(User, accessControlName) ||
+                                        _securityPrivilegesChecker.CanGrantReadSecrets(User, accessControlName) ||
                                         accessControlType == AccessControlType.Project &&
                                         _securityPrivilegesChecker.IsProjectOwnerOrAdmin(User, accessControlName);
 
@@ -138,21 +138,36 @@ namespace Dorc.Api.Controllers
                     ? _securityPrivilegesChecker.CanGrantReadSecrets(User, accessControl.Name)
                     : _securityPrivilegesChecker.IsProjectOwnerOrAdmin(User, accessControl.Name);
 
+                var existingPrivileges = _accessControlPersistentSource
+                    .GetAccessControls(accessControl.ObjectId)
+                    .ToDictionary(p => p.Id);
+
+                foreach (var privilege in accessControl.Privileges.Where(p => p.Id > 0))
+                {
+                    if (!existingPrivileges.ContainsKey(privilege.Id))
+                    {
+                        return StatusCode(StatusCodes.Status400BadRequest,
+                            "An access-control entry does not belong to the authorized object.");
+                    }
+                }
+
                 if (!requestingUserCanReadSecrets)
                 {
-                    var existingPrivileges = _accessControlPersistentSource.GetAccessControls(accessControl.ObjectId)
-                        .ToDictionary(p => p.Id);
-
                     foreach (var privilege in accessControl.Privileges)
                     {
                         var hasReadSecrets = (privilege.Allow & AC_ALLOW_READ_SECRETS) != 0;
                         var hadReadSecretsBefore = existingPrivileges.TryGetValue(privilege.Id, out var existing)
                             && (existing.Allow & AC_ALLOW_READ_SECRETS) != 0;
 
-                        if (hasReadSecrets && !hadReadSecretsBefore)
+                        var changesReadSecretsPrincipal = hadReadSecretsBefore &&
+                            (!string.Equals(privilege.Pid, existing!.Pid, StringComparison.Ordinal) ||
+                             !string.Equals(privilege.Sid, existing.Sid, StringComparison.Ordinal) ||
+                             !string.Equals(privilege.Name, existing.Name, StringComparison.Ordinal));
+
+                        if (hasReadSecrets != hadReadSecretsBefore || changesReadSecretsPrincipal)
                         {
                             return StatusCode(StatusCodes.Status403Forbidden,
-                                "You do not have permission to grant Read Secrets access.");
+                                "You do not have permission to change Read Secrets access.");
                         }
                     }
                 }
@@ -160,7 +175,7 @@ namespace Dorc.Api.Controllers
                 // For environments, ensure at least one owner remains
                 if (accessControl.Type == AccessControlType.Environment)
                 {
-                    var currentOwners = _accessControlPersistentSource.GetAccessControls(accessControl.ObjectId)
+                    var currentOwners = existingPrivileges.Values
                         .Where(p => (p.Allow & 4) != 0) // Check for Owner flag (4)
                         .ToList();
                     
@@ -183,8 +198,7 @@ namespace Dorc.Api.Controllers
                     }
                 }
 
-                var existingIds = _accessControlPersistentSource.GetAccessControls(accessControl.ObjectId).Select(p => p.Id)
-                    .ToArray();
+                var existingIds = existingPrivileges.Keys.ToArray();
                 var newIds = accessControl.Privileges.Select(p => p.Id).ToArray();
                 
                 foreach (var existingId in existingIds)
