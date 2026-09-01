@@ -5,6 +5,7 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { Notification } from '@vaadin/notification';
 import { ApiBoolResult, EnvironmentApiModel, RefDataEnvironmentsDetailsApi } from '../apis/dorc-api';
+import '@vaadin/combo-box';
 
 @customElement('add-env-tenant')
 export class AddEnvTenant extends LitElement {
