@@ -185,6 +185,8 @@ namespace Dorc.PersistentData.Sources
 
         public void InsertProject(ProjectApiModel apiProject)
         {
+            ValidateSourceHosts(apiProject);
+
             using (var context = _contextFactory.GetContext())
             {
                 var project = new Project
@@ -228,6 +230,8 @@ namespace Dorc.PersistentData.Sources
 
         public void UpdateProject(ProjectApiModel newProjectDetails)
         {
+            ValidateSourceHosts(newProjectDetails);
+
             //check if ProjectName has changed
             using (var context = _contextFactory.GetContext())
             {

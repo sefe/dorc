@@ -344,6 +344,9 @@ namespace Dorc.PersistentData.Sources
         public void CreateComponent(ComponentApiModel apiComponent, int projectId, int? parentId, string username)
         {
             if (apiComponent.ComponentId == 0)
+            {
+                ValidateTerraformSourceHost(apiComponent);
+
                 using (var context = _contextFactory.GetContext())
                 {
                     var duplicateComponent =
@@ -410,12 +413,15 @@ namespace Dorc.PersistentData.Sources
                             username, "Insert", projectName);
                     }
                 }
+            }
         }
 
         public void UpdateComponent(ComponentApiModel apiComponent, int projectId, int? parentId, string username)
         {
             if (apiComponent.ComponentId == 0)
                 return;
+
+            ValidateTerraformSourceHost(apiComponent);
 
             using (var context = _contextFactory.GetContext())
             {
