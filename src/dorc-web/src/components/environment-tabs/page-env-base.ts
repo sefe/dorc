@@ -128,7 +128,10 @@ export class PageEnvBase extends LitElement {
             new CustomEvent('environment-not-found', {
               bubbles: true,
               composed: true,
-              detail: { message: this.envNotFoundMessage }
+              detail: {
+                message: this.envNotFoundMessage,
+                confirmedNotFound: true
+              }
             })
           );
         }
@@ -150,7 +153,10 @@ export class PageEnvBase extends LitElement {
             new CustomEvent('environment-not-found', {
               bubbles: true,
               composed: true,
-              detail: { message: this.envNotFoundMessage }
+              detail: {
+                message: this.envNotFoundMessage,
+                confirmedNotFound: err.status === 404
+              }
             })
           );
         }

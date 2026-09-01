@@ -5,7 +5,8 @@ import '@vaadin/tabs';
 import { Tabs } from '@vaadin/tabs';
 import { Tab } from '@vaadin/tabs/vaadin-tab';
 import '@vaadin/vertical-layout';
-import { css, html, LitElement, PropertyValues, render } from 'lit';
+import { css, html, LitElement, PropertyValues } from 'lit';
+import { repeat } from 'lit/directives/repeat.js';
 import { customElement, property, state } from 'lit/decorators.js';
 import {
   DeploymentRequestApiModel,
@@ -13,8 +14,6 @@ import {
   MetadataApi,
   ProjectApiModel
 } from '../apis/dorc-api';
-import '../helpers/cookies';
-import { deleteCookie, getCookie, setCookie } from '../helpers/cookies';
 import { urlForName } from '../router/router';
 import './tabs/env-detail-tab';
 import { EnvDetailTab } from './tabs/env-detail-tab';
@@ -23,6 +22,19 @@ import { ProjectEnvsTab } from './tabs/project-envs-tab';
 import './tabs/monitor-result-tab';
 import { MonitorResultTab } from './tabs/monitor-result-tab';
 import GlobalCache from '../global-cache.ts';
+import {
+  drawerShortcuts,
+  toEnvShortcut,
+  toProjectShortcut,
+  toResultShortcut,
+  envKey,
+  projectKey,
+  resultKey,
+  type DrawerShortcutState,
+  type EnvShortcut,
+  type ProjectShortcut,
+  type ResultShortcut
+} from './drawer-shortcuts.ts';
 import { EnvPageTabNames } from '../pages/page-environment.ts';
 import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
@@ -75,16 +87,100 @@ export class DorcNavbar extends LitElement {
         padding-top: 0px;
         padding-bottom: 0px;
       }
+
+      /* Audit sub-items: was margin-left: 20px; width: 210px, which clipped below
+         ~246px of drawer width and sat 4px off the SQL sub-items' indent (D-35). */
+      .sub-item {
+        display: block;
+        padding-inline-start: var(--lumo-space-l);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      /* ── Shortcut tabs ──
+         The three shortcut components render into light DOM (D-03), so they land
+         inside this shadow root and these rules style them. One scoped stylesheet
+         beats inline styles on every element.
+
+         Replaces the previous fixed width: 270px + margin-left: 20px block,
+         which overflowed its own tab at the default 300px drawer width and put the
+         tail of every name underneath the close control (D-09). The old
+         float: right on that control was dead code — float computes to none
+         under position: absolute (D-38). */
+      .shortcut-link {
+        display: flex;
+        align-items: center;
+        gap: 0.25em;
+        flex: 1;
+        min-width: 0;
+        padding-inline-start: var(--lumo-space-l);
+        color: inherit;
+        text-decoration: inherit;
+      }
+
+      .shortcut-link--stacked {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0;
+      }
+
+      .shortcut-line {
+        display: flex;
+        align-items: center;
+        gap: 0.25em;
+        min-width: 0;
+        max-width: 100%;
+      }
+
+      /* min-width:0 is what actually allows a flex item to shrink below its
+         content width, without which ellipsis never engages. */
+      .shortcut-label,
+      .shortcut-sublabel {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .shortcut-sublabel {
+        max-width: 100%;
+        font-size: var(--lumo-font-size-s);
+        /* Small text needs 4.5:1 (1.4.3); the plain token does not reach it. */
+        color: var(--dorc-text-secondary-strong);
+      }
+
+      .shortcut-icon {
+        flex-shrink: 0;
+      }
+
+      .shortcut-close {
+        flex-shrink: 0;
+        margin: 0;
+        padding: 0;
+        cursor: pointer;
+        /* --dorc-link-color is 2.97:1 on white — just under 1.4.11's 3:1 for UI
+           components — so the close control gets its own token. */
+        color: var(--dorc-icon-interactive);
+      }
+
+      /* vaadin-tab is the flex container for a shortcut's link + close control. */
+      vaadin-tab:has(.shortcut-close) {
+        display: flex;
+        align-items: center;
+        gap: 0.25em;
+      }
     `;
   }
 
-  openEnvTabs: EnvironmentApiModel[] = [];
-  openProjTabs: ProjectApiModel[] = [];
-  openResultTabs: DeploymentRequestApiModel[] = [];
+  /** Rendered from the store, not mutated directly. */
+  @state() private shortcuts: DrawerShortcutState = {
+    environments: [],
+    projects: [],
+    results: []
+  };
 
-  private monitorResultTabs = 'monitor-result-tabs';
-  private envDetailTabs = 'env-detail-tabs';
-  private projectEnvsTabs = 'project-envs-tabs';
+  private unsubscribe: (() => void) | undefined;
 
   public userRoles!: string[];
 
@@ -132,18 +228,41 @@ export class DorcNavbar extends LitElement {
             Monitor
           </a>
         </vaadin-tab>
+        ${repeat(
+          this.shortcuts.results,
+          resultKey,
+          result => html`<vaadin-tab
+            ><monitor-result-tab
+              .requestStatus="${result}"
+            ></monitor-result-tab
+          ></vaadin-tab>`
+        )}
         <vaadin-tab>
           <a href="${urlForName('projects')}">
             <vaadin-icon icon="vaadin:archives" theme="small"></vaadin-icon>
             Projects
           </a>
         </vaadin-tab>
+        ${repeat(
+          this.shortcuts.projects,
+          projectKey,
+          project => html`<vaadin-tab
+            ><project-envs-tab .project="${project}"></project-envs-tab
+          ></vaadin-tab>`
+        )}
         <vaadin-tab>
           <a href="${urlForName('environments')}">
             <vaadin-icon icon="vaadin:cubes" theme="small"></vaadin-icon>
             Environments
           </a>
         </vaadin-tab>
+        ${repeat(
+          this.shortcuts.environments,
+          envKey,
+          env => html`<vaadin-tab
+            ><env-detail-tab .env="${env}"></env-detail-tab
+          ></vaadin-tab>`
+        )}
         <vaadin-tab>
           <a href="${urlForName('servers')}">
             <vaadin-icon icon="vaadin:server" theme="small"></vaadin-icon>
@@ -195,6 +314,7 @@ export class DorcNavbar extends LitElement {
         </vaadin-tab>
 
         <vaadin-tab
+          aria-expanded="${this.auditMenuExpanded ? 'true' : 'false'}"
           @click="${this._toggleAuditMenu}"
         >
           <a href="#" @click="${(e: Event) => e.preventDefault()}">
@@ -213,48 +333,48 @@ export class DorcNavbar extends LitElement {
           navigates there directly (e.g. via a bookmarked URL).
         -->
         <vaadin-tab ?hidden="${!this.auditMenuExpanded}">
-          <a href="${urlForName('scripts-audit')}">
-            <div style="margin-left: 20px; width: 210px">
+          <a href="${urlForName('scripts-audit')}" title="Scripts Audit">
+            <div class="sub-item">
               <vaadin-icon icon="inline:powershell-icon" theme="small"></vaadin-icon>
               Scripts Audit
             </div>
           </a>
         </vaadin-tab>
         <vaadin-tab ?hidden="${!this.auditMenuExpanded}">
-          <a href="${urlForName('variables-audit')}">
-            <div style="margin-left: 20px; width: 210px">
+          <a href="${urlForName('variables-audit')}" title="Variables Audit">
+            <div class="sub-item">
               <vaadin-icon icon="inline:variables-icon" theme="small"></vaadin-icon>
               Variables Audit
             </div>
           </a>
         </vaadin-tab>
         <vaadin-tab ?hidden="${!this.auditMenuExpanded}">
-          <a href="${urlForName('projects-audit')}">
-            <div style="margin-left: 20px; width: 210px">
+          <a href="${urlForName('projects-audit')}" title="Projects Audit">
+            <div class="sub-item">
               <vaadin-icon icon="vaadin:archives" theme="small"></vaadin-icon>
               Projects Audit
             </div>
           </a>
         </vaadin-tab>
         <vaadin-tab ?hidden="${!this.auditMenuExpanded}">
-          <a href="${urlForName('daemons-audit')}">
-            <div style="margin-left: 20px; width: 210px">
+          <a href="${urlForName('daemons-audit')}" title="Daemons Audit">
+            <div class="sub-item">
               <vaadin-icon icon="vaadin:cogs" theme="small"></vaadin-icon>
               Daemons Audit
             </div>
           </a>
         </vaadin-tab>
         <vaadin-tab ?hidden="${!this.auditMenuExpanded}">
-          <a href="${urlForName('databases-audit')}">
-            <div style="margin-left: 20px; width: 210px">
+          <a href="${urlForName('databases-audit')}" title="Databases Audit">
+            <div class="sub-item">
               <vaadin-icon icon="vaadin:database" theme="small"></vaadin-icon>
               Databases Audit
             </div>
           </a>
         </vaadin-tab>
         <vaadin-tab ?hidden="${!this.auditMenuExpanded}">
-          <a href="${urlForName('servers-audit')}">
-            <div style="margin-left: 20px; width: 210px">
+          <a href="${urlForName('servers-audit')}" title="Servers Audit">
+            <div class="sub-item">
               <vaadin-icon icon="vaadin:server" theme="small"></vaadin-icon>
               Servers Audit
             </div>
@@ -278,17 +398,36 @@ export class DorcNavbar extends LitElement {
         </vaadin-tab>
       </vaadin-tabs>
       <div
-        style="padding: var(--lumo-space-xs); text-align: center; color: var(--dorc-text-secondary); font-size: var(--lumo-font-size-xs); flex-shrink: 0;"
+        style="padding: var(--lumo-space-xs); text-align: center; color: var(--dorc-text-secondary-strong); font-size: var(--lumo-font-size-xs); flex-shrink: 0;"
       >
         ${this.metaData}
       </div>
     `;
   }
-
   constructor() {
     super();
     this.getUserRoles();
     this.getMetaData();
+  }
+
+  connectedCallback() {
+    super.connectedCallback();
+    drawerShortcuts.start();
+    this.shortcuts = drawerShortcuts.snapshot();
+    // The store is the single source of truth; this component renders it.
+    this.unsubscribe = drawerShortcuts.subscribe(() => {
+      this.shortcuts = drawerShortcuts.snapshot();
+    });
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    // D-27: the previous implementation registered a visibilitychange listener
+    // in firstUpdated as an anonymous arrow with no stored reference and no
+    // disconnectedCallback, so a detached navbar kept parsing cookies and
+    // inserting tabs into its orphaned shadow root forever.
+    this.unsubscribe?.();
+    this.unsubscribe = undefined;
   }
 
   private _toggleAuditMenu(event: Event) {
@@ -330,129 +469,6 @@ export class DorcNavbar extends LitElement {
       'close-project-envs',
       this.closeProjectEnvs as EventListener
     );
-    this.loadFromEnvDetailCookie();
-    this.loadFromProjEnvsCookie();
-    this.loadFromMonitorResultsCookie();
-
-    // Sync shortcuts when tab becomes visible again
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') {
-        this.syncShortcutsFromCookies();
-      }
-    });
-  }
-
-  private syncShortcutsFromCookies() {
-    this.syncEnvTabsFromCookie();
-    this.syncProjTabsFromCookie();
-    this.syncMonitorTabsFromCookie();
-  }
-
-  private syncEnvTabsFromCookie() {
-    const envTabs = getCookie(this.envDetailTabs) as string;
-    if (envTabs === undefined || envTabs === '') return;
-    
-    try {
-      const cookieEnvs = JSON.parse(envTabs) as EnvironmentApiModel[];
-      // Find new tabs that aren't already displayed
-      cookieEnvs.forEach(env => {
-        const exists = this.openEnvTabs.find(
-          e => e.EnvironmentId === env.EnvironmentId
-        );
-        if (!exists) {
-          this.openEnvTabs.push(env);
-          this.insertEnvTab(env);
-        }
-      });
-    } catch {
-      // Ignore parse errors
-    }
-  }
-
-  private syncProjTabsFromCookie() {
-    const projTabs = getCookie(this.projectEnvsTabs) as string;
-    if (projTabs === undefined || projTabs === '') return;
-    
-    try {
-      const cookieProjs = JSON.parse(projTabs) as ProjectApiModel[];
-      // Find new tabs that aren't already displayed
-      cookieProjs.forEach(proj => {
-        const exists = this.openProjTabs.find(
-          p => p.ProjectId === proj.ProjectId
-        );
-        if (!exists) {
-          this.openProjTabs.push(proj);
-          this.insertProjTab(proj);
-        }
-      });
-    } catch {
-      // Ignore parse errors
-    }
-  }
-
-  private syncMonitorTabsFromCookie() {
-    const resultTabs = getCookie(this.monitorResultTabs) as string;
-    if (resultTabs === undefined || resultTabs === '') return;
-    
-    try {
-      const cookieResults = JSON.parse(resultTabs) as DeploymentRequestApiModel[];
-      // Find new tabs that aren't already displayed
-      cookieResults.forEach(result => {
-        const exists = this.openResultTabs.find(
-          r => r.Id === result.Id
-        );
-        if (!exists) {
-          this.openResultTabs.push(result);
-          this.insertResultTab(result);
-        }
-      });
-    } catch {
-      // Ignore parse errors
-    }
-  }
-
-  loadFromEnvDetailCookie() {
-    const envTabs = getCookie(this.envDetailTabs) as string;
-    if (envTabs !== undefined) {
-      if (envTabs === '') return;
-      try {
-        this.openEnvTabs = JSON.parse(envTabs) as EnvironmentApiModel[];
-
-        this.openEnvTabs.forEach(value => this.insertEnvTab(value));
-      } catch {
-        deleteCookie(this.envDetailTabs);
-      }
-    }
-  }
-
-  loadFromProjEnvsCookie() {
-    const projTabs = getCookie(this.projectEnvsTabs) as string;
-    if (projTabs !== undefined) {
-      if (projTabs === '') return;
-      try {
-        this.openProjTabs = JSON.parse(projTabs) as ProjectApiModel[];
-
-        this.openProjTabs.forEach(value => this.insertProjTab(value));
-      } catch {
-        deleteCookie(this.projectEnvsTabs);
-      }
-    }
-  }
-
-  loadFromMonitorResultsCookie() {
-    const resultTabs = getCookie(this.monitorResultTabs) as string;
-    if (resultTabs !== undefined) {
-      if (resultTabs === '') return;
-      try {
-        this.openResultTabs = JSON.parse(
-          resultTabs
-        ) as DeploymentRequestApiModel[];
-
-        this.openResultTabs.forEach(value => this.insertResultTab(value));
-      } catch {
-        deleteCookie(this.monitorResultTabs);
-      }
-    }
   }
 
   private getMetaData() {
@@ -475,145 +491,85 @@ export class DorcNavbar extends LitElement {
     this.setSelectedTab(window.location.pathname);
   }
 
+  // ── Close handlers ───────────────────────────────────────────────────────
+  // Thin delegates. The store owns removal, de-duplication and persistence, so
+  // "close" can no longer disagree with "open" about what identity means — the
+  // disagreement that produced duplicate tabs after renames and shortcuts that
+  // resurrected on reload.
+
   public closeProjectEnvs(e: CustomEvent) {
     const proj = e.detail.Project as ProjectApiModel;
-    for (let i = 0; i < this.openProjTabs.length; i += 1) {
-      if (this.openProjTabs[i].ProjectId === proj.ProjectId) {
-        this.openProjTabs.splice(i, 1);
-      }
-    }
-
-    const tabs = this.shadowRoot?.getElementById('tabs') as Tabs;
-    const path = this.getProjectEnvsPath(proj);
-    const idx = this.getIndexOfPath(tabs, path);
-    const tabsArray = [].slice.call(tabs.children) as Tab[];
-    tabs.removeChild(tabsArray[idx]);
-    setCookie(this.projectEnvsTabs, JSON.stringify(this.openProjTabs));
+    this.withFocusKept(() =>
+      drawerShortcuts.remove('projects', toProjectShortcut(proj))
+    );
   }
 
   public closeMonitorResult(e: CustomEvent) {
     const req = e.detail.request as DeploymentRequestApiModel;
-    for (let i = 0; i < this.openResultTabs.length; i += 1) {
-      if (this.openResultTabs[i].Id === req.Id) {
-        this.openResultTabs.splice(i, 1);
-      }
-    }
-
-    const tabs = this.shadowRoot?.getElementById('tabs') as Tabs;
-    const path = this.getMonitorResultPath(req);
-    const idx = this.getIndexOfPath(tabs, path);
-    const tabsArray = [].slice.call(tabs.children) as Tab[];
-    tabs.removeChild(tabsArray[idx]);
-    setCookie(this.monitorResultTabs, JSON.stringify(this.openResultTabs));
+    this.withFocusKept(() =>
+      drawerShortcuts.remove('results', toResultShortcut(req))
+    );
   }
 
   public closeEnvDetail(e: CustomEvent) {
     const env = e.detail.Environment as EnvironmentApiModel;
-    for (let i = 0; i < this.openEnvTabs.length; i += 1) {
-      if (this.openEnvTabs[i].EnvironmentId === env.EnvironmentId) {
-        this.openEnvTabs.splice(i, 1);
-      }
-    }
-
-    const tabs = this.shadowRoot?.getElementById('tabs') as Tabs;
-    const path = this.getEnvDetailPath(env);
-    const idx = this.getIndexOfPath(tabs, path);
-    const tabsArray = [].slice.call(tabs.children) as Tab[];
-    tabs.removeChild(tabsArray[idx]);
-    setCookie(this.envDetailTabs, JSON.stringify(this.openEnvTabs));
+    this.withFocusKept(() =>
+      drawerShortcuts.remove('environments', toEnvShortcut(env))
+    );
   }
 
   public renameEnvDetail(e: CustomEvent) {
     const oldName = e.detail.oldName as string;
     const newEnv = e.detail.environment as EnvironmentApiModel;
+    drawerShortcuts.renameEnvironment(oldName, toEnvShortcut(newEnv));
+  }
 
-    // Build the old path to find the existing tab
-    const oldEnvModel: EnvironmentApiModel = { EnvironmentName: oldName };
-    const tabs = this.shadowRoot?.getElementById('tabs') as Tabs;
-    const oldPath = this.getEnvDetailPath(oldEnvModel);
-    const idx = this.getIndexOfPath(tabs, oldPath);
+  /**
+   * Runs a removal, then puts focus somewhere sensible (SC-4a).
+   *
+   * Removing the shortcut destroys the element that had focus, which otherwise
+   * drops the user on <body> — a keyboard user closing a second shortcut would
+   * have to traverse the whole drawer again. Only acts when focus was inside the
+   * tab being removed, so a mouse click does not yank focus around.
+   */
+  private withFocusKept(mutate: () => void) {
+    const active = this.deepActiveElement();
+    const tab = active?.closest('vaadin-tab') as HTMLElement | null;
+    const next = (tab?.nextElementSibling ??
+      tab?.previousElementSibling) as HTMLElement | null;
 
-    // Remove the old sidebar tab if it exists
-    if (idx >= 0) {
-      const tabsArray = [].slice.call(tabs.children) as Tab[];
-      tabs.removeChild(tabsArray[idx]);
+    mutate();
+
+    if (tab && next) {
+      // Re-render removes the tab; move focus once that has settled.
+      this.updateComplete.then(() => {
+        if (next.isConnected) next.focus();
+      });
     }
+  }
 
-    // Update the entry in openEnvTabs
-    for (let i = 0; i < this.openEnvTabs.length; i += 1) {
-      if (this.openEnvTabs[i].EnvironmentName === oldName) {
-        this.openEnvTabs[i] = newEnv;
-        break;
-      }
+  /** activeElement, followed down through shadow roots. */
+  private deepActiveElement(): Element | null {
+    let el: Element | null =
+      this.shadowRoot?.activeElement ?? document.activeElement;
+    while (el?.shadowRoot?.activeElement) {
+      el = el.shadowRoot.activeElement;
     }
-
-    // Insert a new sidebar tab with the updated name
-    this.insertEnvTab(newEnv);
-
-    // Persist to cookie
-    setCookie(this.envDetailTabs, JSON.stringify(this.openEnvTabs));
+    return el;
   }
 
-  public insertProjTab(projectAPIModel: ProjectApiModel) {
-    const tabs = this.shadowRoot?.getElementById('tabs') as Tabs;
-
-    const tab = new Tab();
-    render(
-      html` <project-envs-tab
-        .project="${projectAPIModel}"
-      ></project-envs-tab>`,
-      tab
-    );
-
-    const path = this.getProjectEnvsPath(projectAPIModel);
-    tabs.insertBefore(
-      tab,
-      tabs.children[this.getIndexOfPath(tabs, '/environments')]
-    );
-    return path;
+  private getProjectEnvsPath(project: ProjectShortcut) {
+    return `/project-envs/${encodeURIComponent(project.ProjectName)}`;
   }
 
-  private getProjectEnvsPath(projectAPIModel: ProjectApiModel) {
-    return `/project-envs/${String(projectAPIModel.ProjectName)}`;
+  private getMonitorResultPath(result: ResultShortcut) {
+    return `/monitor-result/${result.Id}`;
   }
 
-  public insertResultTab(requestStatus: DeploymentRequestApiModel) {
-    const tabs = this.shadowRoot?.getElementById('tabs') as Tabs;
-
-    const tab = new Tab();
-    render(
-      html` <monitor-result-tab
-        .requestStatus="${requestStatus}"
-      ></monitor-result-tab>`,
-      tab
-    );
-
-    const path = this.getMonitorResultPath(requestStatus);
-    tabs.insertBefore(
-      tab,
-      tabs.children[this.getIndexOfPath(tabs, '/projects')]
-    );
-    return path;
-  }
-
-  public insertEnvTab(env: EnvironmentApiModel) {
-    const tabs = this.shadowRoot?.getElementById('tabs') as Tabs;
-
-    const tab = new Tab();
-    render(html` <env-detail-tab .env="${env}"></env-detail-tab>`, tab);
-
-    tabs.insertBefore(
-      tab,
-      tabs.children[this.getIndexOfPath(tabs, '/servers')]
-    );
-  }
-
-  private getMonitorResultPath(result: DeploymentRequestApiModel) {
-    return `/monitor-result/${String(result.Id)}`;
-  }
-
-  private getEnvDetailPath(env: EnvironmentApiModel) {
-    return `/environment/${String(env.EnvironmentName)}/${EnvPageTabNames.Metadata}`;
+  private getEnvDetailPath(env: EnvShortcut) {
+    return `/environment/${encodeURIComponent(env.EnvironmentName)}/${
+      EnvPageTabNames.Metadata
+    }`;
   }
 
   public setSelectedTab(path: string) {
@@ -662,8 +618,19 @@ export class DorcNavbar extends LitElement {
       } else {
         childPath = tabChild.pathname;
       }
-      const pathCorrected = decodeURIComponent(path.toLowerCase());
-      const childPathCorrected = childPath.toLowerCase();
+      // D-12: an environment named e.g. "Perf 100% Load" made this throw
+      // URIError, and because getIndexOfPath runs from updated() it re-threw on
+      // every render. Paths are now built with encodeURIComponent, but a
+      // hand-typed or bookmarked URL can still be malformed.
+      const normalizePath = (value: string) => {
+        try {
+          return decodeURIComponent(value).toLowerCase();
+        } catch {
+          return value.toLowerCase();
+        }
+      };
+      const pathCorrected = normalizePath(path);
+      const childPathCorrected = normalizePath(childPath);
       if (pathCorrected === '/') {
         idx = 0;
         break;
