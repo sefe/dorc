@@ -15,6 +15,6 @@ namespace Dorc.ApiModel
         /// <summary>
         /// Whether this value may be resolved into deployment script scope.
         /// </summary>
-        public bool VisibleToScripts { get; set; } = true;
+        public bool VisibleToScripts { get; set; }
     }
 }

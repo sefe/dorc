@@ -62,6 +62,19 @@ namespace Dorc.Api.Tests.Sources
             Assert.IsFalse(_stored.Single().VisibleToScripts);
         }
 
+        [TestMethod]
+        public void AnOmittedVisibilityIsHiddenForANewSecureValue()
+        {
+            _source.Add(new ConfigValueApiModel
+            {
+                Key = "SecretFromAnOlderClient",
+                Value = "s3cret",
+                Secure = true
+            });
+
+            Assert.IsFalse(_stored.Single().VisibleToScripts);
+        }
+
         /// <summary>
         /// A non-secure value carries no credential, and scripts legitimately consume plenty of
         /// them. Creating those hidden would break working deployments for no gain.
