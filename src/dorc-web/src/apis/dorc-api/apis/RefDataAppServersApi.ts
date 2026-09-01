@@ -14,7 +14,7 @@
 import type { Observable } from 'rxjs';
 import type { AjaxResponse } from 'rxjs/ajax';
 import { BaseAPI, throwIfNullOrUndefined, encodeURI } from '../runtime';
-import type { OperationOpts, HttpQuery } from '../runtime';
+import type { OperationOpts, HttpHeaders, HttpQuery } from '../runtime';
 import type {
     ServerApiModel,
 } from '../models';
@@ -39,9 +39,20 @@ export class RefDataAppServersApi extends BaseAPI {
     refDataAppServersIdGet({ id }: RefDataAppServersIdGetRequest, opts?: OperationOpts): Observable<Array<ServerApiModel> | AjaxResponse<Array<ServerApiModel>>> {
         throwIfNullOrUndefined(id, 'id', 'refDataAppServersIdGet');
 
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         return this.request<Array<ServerApiModel>>({
             url: '/RefDataAppServers/{id}'.replace('{id}', encodeURI(id)),
             method: 'GET',
+            headers,
         }, opts?.responseOpts);
     };
 
@@ -51,6 +62,16 @@ export class RefDataAppServersApi extends BaseAPI {
     refDataAppServersPut({ server }: RefDataAppServersPutRequest, opts?: OperationOpts): Observable<AjaxResponse<string>>
     refDataAppServersPut({ server }: RefDataAppServersPutRequest, opts?: OperationOpts): Observable<string | AjaxResponse<string>> {
 
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         const query: HttpQuery = {};
 
         if (server != null) { query['server'] = server; }
@@ -58,6 +79,7 @@ export class RefDataAppServersApi extends BaseAPI {
         return this.request<string>({
             url: '/RefDataAppServers',
             method: 'PUT',
+            headers,
             query,
         }, opts?.responseOpts);
     };

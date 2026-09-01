@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// AggregatedRunsByOutcome
     /// </summary>
     [DataContract(Name = "AggregatedRunsByOutcome")]
-    public partial class AggregatedRunsByOutcome : IEquatable<AggregatedRunsByOutcome>, IValidatableObject
+    public partial class AggregatedRunsByOutcome : IValidatableObject
     {
         /// <summary>
         /// Defines Outcome
@@ -61,7 +61,6 @@ namespace Org.OpenAPITools.Model
             /// </summary>
             [EnumMember(Value = "others")]
             Others = 4
-
         }
 
 
@@ -75,7 +74,7 @@ namespace Org.OpenAPITools.Model
         /// </summary>
         /// <param name="outcome">outcome.</param>
         /// <param name="runsCount">runsCount.</param>
-        public AggregatedRunsByOutcome(OutcomeEnum? outcome = default(OutcomeEnum?), int runsCount = default(int))
+        public AggregatedRunsByOutcome(OutcomeEnum? outcome = default, int runsCount = default)
         {
             this.Outcome = outcome;
             this.RunsCount = runsCount;
@@ -111,58 +110,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as AggregatedRunsByOutcome);
-        }
-
-        /// <summary>
-        /// Returns true if AggregatedRunsByOutcome instances are equal
-        /// </summary>
-        /// <param name="input">Instance of AggregatedRunsByOutcome to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(AggregatedRunsByOutcome input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.Outcome == input.Outcome ||
-                    this.Outcome.Equals(input.Outcome)
-                ) && 
-                (
-                    this.RunsCount == input.RunsCount ||
-                    this.RunsCount.Equals(input.RunsCount)
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                hashCode = (hashCode * 59) + this.Outcome.GetHashCode();
-                hashCode = (hashCode * 59) + this.RunsCount.GetHashCode();
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

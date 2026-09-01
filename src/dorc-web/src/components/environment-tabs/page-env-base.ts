@@ -13,6 +13,7 @@ import type { EnvironmentApiModel } from '../../apis/dorc-api';
 import { ErrorNotification } from '../notifications/error-notification';
 import '../notifications/error-notification';
 import { EnvironmentContentBuildsApiModelExtended } from '../model-extensions/EnvironmentContentBuildsApiModelExtended';
+import { dorcApiConfiguration } from '../../services/dorc-api-configuration';
 
 @customElement('page-env-base')
 export class PageEnvBase extends LitElement {
@@ -99,7 +100,7 @@ export class PageEnvBase extends LitElement {
   }
 
   protected forceLoadEnvironmentInfo() {
-    const api2 = new RefDataEnvironmentsApi();
+    const api2 = new RefDataEnvironmentsApi(dorcApiConfiguration);
     api2.refDataEnvironmentsGet({ env: this.environmentName }).subscribe({
       next: (data: EnvironmentApiModel[]) => {
         if (data && data.length > 0 && data[0] != null) {
@@ -127,7 +128,10 @@ export class PageEnvBase extends LitElement {
             new CustomEvent('environment-not-found', {
               bubbles: true,
               composed: true,
-              detail: { message: this.envNotFoundMessage }
+              detail: {
+                message: this.envNotFoundMessage,
+                confirmedNotFound: true
+              }
             })
           );
         }
@@ -149,7 +153,10 @@ export class PageEnvBase extends LitElement {
             new CustomEvent('environment-not-found', {
               bubbles: true,
               composed: true,
-              detail: { message: this.envNotFoundMessage }
+              detail: {
+                message: this.envNotFoundMessage,
+                confirmedNotFound: err.status === 404
+              }
             })
           );
         }
@@ -167,7 +174,7 @@ export class PageEnvBase extends LitElement {
         detail: {}
       })
     );
-    const api = new RefDataEnvironmentsDetailsApi();
+    const api = new RefDataEnvironmentsDetailsApi(dorcApiConfiguration);
     api
       .refDataEnvironmentsDetailsIdGet({
         id: env.EnvironmentId ?? 0

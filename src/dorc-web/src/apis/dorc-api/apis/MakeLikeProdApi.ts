@@ -38,6 +38,16 @@ export class MakeLikeProdApi extends BaseAPI {
     makeLikeProdDataBackupsGet({ projectId }: MakeLikeProdDataBackupsGetRequest, opts?: OperationOpts): Observable<AjaxResponse<Array<string>>>
     makeLikeProdDataBackupsGet({ projectId }: MakeLikeProdDataBackupsGetRequest, opts?: OperationOpts): Observable<Array<string> | AjaxResponse<Array<string>>> {
 
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         const query: HttpQuery = {};
 
         if (projectId != null) { query['projectId'] = projectId; }
@@ -45,6 +55,7 @@ export class MakeLikeProdApi extends BaseAPI {
         return this.request<Array<string>>({
             url: '/MakeLikeProd/DataBackups',
             method: 'GET',
+            headers,
             query,
         }, opts?.responseOpts);
     };
@@ -54,9 +65,20 @@ export class MakeLikeProdApi extends BaseAPI {
     makeLikeProdNotifyEmailAddressGet(): Observable<string>
     makeLikeProdNotifyEmailAddressGet(opts?: OperationOpts): Observable<AjaxResponse<string>>
     makeLikeProdNotifyEmailAddressGet(opts?: OperationOpts): Observable<string | AjaxResponse<string>> {
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         return this.request<string>({
             url: '/MakeLikeProd/NotifyEmailAddress',
             method: 'GET',
+            headers,
         }, opts?.responseOpts);
     };
 
@@ -68,6 +90,13 @@ export class MakeLikeProdApi extends BaseAPI {
 
         const headers: HttpHeaders = {
             'Content-Type': 'application/json',
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
         };
 
         return this.request<void>({

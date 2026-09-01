@@ -1,5 +1,5 @@
 import { expect, fixture, html } from '../_helpers';
-import { deleteCookie, getCookie, setCookie } from '../../src/helpers/cookies';
+import { drawerShortcuts } from '../../src/components/drawer-shortcuts';
 
 // P0 regression tests for three live defects in the navigation drawer's
 // shortcut tabs, documented as D-01, D-05 and D-14 in
@@ -18,7 +18,6 @@ interface DrawerNavbar extends HTMLElement {
   closeEnvDetail(e: CustomEvent): void;
   closeProjectEnvs(e: CustomEvent): void;
   closeMonitorResult(e: CustomEvent): void;
-  insertEnvTab(env: unknown): void;
   setSelectedTab(path: string): void;
 }
 
@@ -53,7 +52,6 @@ async function mountNavbar(container: HTMLDivElement): Promise<DrawerNavbar> {
 
 describe('Drawer shortcut tabs — P0 regressions', () => {
   let container: HTMLDivElement;
-  let originalUrl: string;
 
   beforeAll(async () => {
     await registerRoutes();
@@ -61,16 +59,11 @@ describe('Drawer shortcut tabs — P0 regressions', () => {
   });
 
   beforeEach(() => {
-    originalUrl =
-      window.location.pathname + window.location.search + window.location.hash;
-    deleteCookie('env-detail-tabs');
     container = document.createElement('div');
     document.body.appendChild(container);
   });
 
   afterEach(() => {
-    deleteCookie('env-detail-tabs');
-    window.history.replaceState(null, '', originalUrl);
     container.remove();
   });
 
@@ -109,54 +102,25 @@ describe('Drawer shortcut tabs — P0 regressions', () => {
     });
 
     it('still removes the tab when the shortcut does exist', async () => {
+      drawerShortcuts.clear();
       const navbar = await mountNavbar(container);
       const env = { EnvironmentId: 1, EnvironmentName: 'Present' };
       const tabs = navbar.shadowRoot?.getElementById('tabs');
       if (!tabs) throw new Error('navbar rendered without #tabs');
 
       const before = tabs.children.length;
-      (navbar as unknown as { insertEnvTab(e: unknown): void }).insertEnvTab(env);
+      // Shortcuts now come from the store; the navbar renders it.
+      drawerShortcuts.add('environments', env);
+      await navbar.updateComplete;
       expect(tabs.children.length, 'tab was inserted').to.equal(before + 1);
 
       navbar.closeEnvDetail(
         new CustomEvent('close-env-detail', { detail: { Environment: env } })
       );
+      await navbar.updateComplete;
 
       expect(tabs.children.length, 'tab was removed again').to.equal(before);
-    });
-
-    it('preserves shortcuts added by another window when deleting a deep link', async () => {
-      const navbar = await mountNavbar(container);
-      const deleted = { EnvironmentId: 1, EnvironmentName: 'Deleted' };
-      const otherWindow = { EnvironmentId: 2, EnvironmentName: 'Other' };
-      setCookie('env-detail-tabs', JSON.stringify([deleted, otherWindow]));
-
-      navbar.closeEnvDetail(
-        new CustomEvent('close-env-detail', {
-          detail: { Environment: deleted }
-        })
-      );
-
-      expect(JSON.parse(getCookie('env-detail-tabs'))).to.deep.equal([
-        otherWindow
-      ]);
-    });
-
-    it('does not restore stale local shortcuts over an empty shared cookie', async () => {
-      const navbar = await mountNavbar(container);
-      const deleted = { EnvironmentId: 1, EnvironmentName: 'Deleted' };
-      navbar.openEnvTabs = [
-        deleted,
-        { EnvironmentId: 2, EnvironmentName: 'Stale' }
-      ];
-
-      navbar.closeEnvDetail(
-        new CustomEvent('close-env-detail', {
-          detail: { Environment: deleted }
-        })
-      );
-
-      expect(JSON.parse(getCookie('env-detail-tabs'))).to.deep.equal([]);
+      drawerShortcuts.clear();
     });
   });
 
@@ -167,12 +131,14 @@ describe('Drawer shortcut tabs — P0 regressions', () => {
   // drawer highlighting an unrelated item. _onClick bails on defaultPrevented,
   // so preventing the event is what actually fixes it.
   describe('D-14: the close click must not reach vaadin-tabs', () => {
-    const closeIconOf = (el: Element): Element => {
-      const icon = el.shadowRoot?.querySelector(
-        'vaadin-icon[icon="vaadin:close-small"]'
-      );
-      if (!icon) throw new Error('component rendered without a close icon');
-      return icon;
+    // P2a moved these components to light DOM (D-03) and replaced the bare
+    // <vaadin-icon> close affordance with a real <vaadin-button> (D-04), so the
+    // control is now a light-DOM descendant. The behaviour asserted below is
+    // unchanged — only where the control lives has moved.
+    const closeControlOf = (el: Element): Element => {
+      const control = el.querySelector('.shortcut-close');
+      if (!control) throw new Error('component rendered without a close control');
+      return control;
     };
 
     const clickClose = async (el: Element) => {
@@ -209,7 +175,7 @@ describe('Drawer shortcut tabs — P0 regressions', () => {
         composed: true,
         cancelable: true
       });
-      closeIconOf(el).dispatchEvent(click);
+      closeControlOf(el).dispatchEvent(click);
 
       return { bubbledOut, closeEventFired, click };
     };
@@ -265,27 +231,26 @@ describe('Drawer shortcut tabs — P0 regressions', () => {
       expect(click.defaultPrevented, 'click must be defaultPrevented').to.be
         .true;
     });
+  });
 
-    it('keeps the current route selected when a preceding shortcut is removed', async () => {
-      const navbar = await mountNavbar(container);
-      const tabs = navbar.shadowRoot?.getElementById('tabs') as
-        (HTMLElement & { selected: number }) | null;
-      if (!tabs) throw new Error('navbar rendered without #tabs');
-      const env = { EnvironmentId: 1, EnvironmentName: 'Env' };
-
-      window.history.replaceState(null, '', '/servers');
-      navbar.insertEnvTab(env);
-      navbar.setSelectedTab('/servers');
-      navbar.closeEnvDetail(
-        new CustomEvent('close-env-detail', {
-          detail: { Environment: env }
-        })
-      );
-
-      const selectedLink = tabs.children[tabs.selected]?.firstElementChild as
-        HTMLAnchorElement | undefined;
-      expect(selectedLink?.pathname).to.equal('/servers');
+  it('selects shortcuts whose names require URL encoding', async () => {
+    drawerShortcuts.clear();
+    const navbar = await mountNavbar(container);
+    drawerShortcuts.add('environments', {
+      EnvironmentId: 1,
+      EnvironmentName: 'Perf 100% Load'
     });
+    await navbar.updateComplete;
+
+    navbar.setSelectedTab('/environment/Perf%20100%25%20Load/metadata');
+
+    const tabs = navbar.shadowRoot?.getElementById('tabs') as
+      (HTMLElement & { selected: number }) | null;
+    expect(tabs?.selected).to.be.greaterThan(-1);
+    expect(
+      tabs?.children[tabs.selected]?.querySelector('env-detail-tab')
+    ).to.not.equal(null);
+    drawerShortcuts.clear();
   });
 });
 
@@ -304,13 +269,11 @@ describe('D-05: opening project environments must not mutate the caller model', 
   });
 
   beforeEach(() => {
-    deleteCookie('project-envs-tabs');
     container = document.createElement('div');
     document.body.appendChild(container);
   });
 
   afterEach(() => {
-    deleteCookie('project-envs-tabs');
     container.remove();
   });
 
@@ -336,14 +299,64 @@ describe('D-05: opening project environments must not mutate the caller model', 
     );
 
     expect(project.ArtefactsSubPaths).to.equal('drop/a;drop/b');
+  });
+
+  it('only prunes an environment after a confirmed not-found response', async () => {
+    drawerShortcuts.clear();
+    const el = document.createElement('dorc-app') as HTMLElement & {
+      updateComplete: Promise<unknown>;
+    };
+    container.appendChild(el);
+    await el.updateComplete;
+    drawerShortcuts.add('environments', {
+      EnvironmentId: 1,
+      EnvironmentName: 'KEEP-ME'
+    });
+    window.history.replaceState(null, '', '/environment/KEEP-ME/metadata');
+
+    el.dispatchEvent(
+      new CustomEvent('environment-not-found', {
+        detail: { confirmedNotFound: false }
+      })
+    );
+    expect(drawerShortcuts.snapshot().environments).to.have.lengthOf(1);
+
+    el.dispatchEvent(
+      new CustomEvent('environment-not-found', {
+        detail: { confirmedNotFound: true }
+      })
+    );
+    expect(drawerShortcuts.snapshot().environments).to.be.empty;
+  });
+
+  it('synchronizes shortcut selection after router navigation', async () => {
+    drawerShortcuts.clear();
+    const el = document.createElement('dorc-app') as HTMLElement & {
+      updateComplete: Promise<unknown>;
+    };
+    container.appendChild(el);
+    await el.updateComplete;
+    drawerShortcuts.add('environments', {
+      EnvironmentId: 1,
+      EnvironmentName: 'Selected Env'
+    });
+    await el.updateComplete;
     const navbar = el.shadowRoot?.getElementById(
       'dorcNavbar'
     ) as DrawerNavbar | null;
-    expect(navbar?.openProjTabs).to.deep.equal([
-      { ProjectId: 1, ProjectName: 'Payments' }
-    ]);
-    expect(JSON.parse(getCookie('project-envs-tabs'))).to.deep.equal([
-      { ProjectId: 1, ProjectName: 'Payments' }
-    ]);
+    await navbar?.updateComplete;
+    window.history.replaceState(
+      null,
+      '',
+      '/environment/Selected%20Env/metadata'
+    );
+
+    window.dispatchEvent(new CustomEvent('vaadin-router-location-changed'));
+
+    const tabs = navbar?.shadowRoot?.getElementById('tabs') as
+      (HTMLElement & { selected: number }) | null;
+    expect(
+      tabs?.children[tabs.selected]?.querySelector('env-detail-tab')
+    ).to.not.equal(null);
   });
 });

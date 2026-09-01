@@ -27,10 +27,10 @@ using OpenAPIDateConverter = Org.OpenAPITools.Client.OpenAPIDateConverter;
 namespace Org.OpenAPITools.Model
 {
     /// <summary>
-    /// Represents a pull request trigger.
+    /// PullRequestTrigger
     /// </summary>
     [DataContract(Name = "PullRequestTrigger")]
-    public partial class PullRequestTrigger : IEquatable<PullRequestTrigger>, IValidatableObject
+    public partial class PullRequestTrigger : IValidatableObject
     {
         /// <summary>
         /// The type of the trigger.
@@ -92,7 +92,6 @@ namespace Org.OpenAPITools.Model
             /// </summary>
             [EnumMember(Value = "all")]
             All = 9
-
         }
 
 
@@ -105,6 +104,7 @@ namespace Org.OpenAPITools.Model
         /// <summary>
         /// Initializes a new instance of the <see cref="PullRequestTrigger" /> class.
         /// </summary>
+        /// <param name="triggerType">The type of the trigger..</param>
         /// <param name="autoCancel">Indicates if an update to a PR should delete current in-progress builds..</param>
         /// <param name="branchFilters">branchFilters.</param>
         /// <param name="forks">forks.</param>
@@ -112,9 +112,9 @@ namespace Org.OpenAPITools.Model
         /// <param name="pathFilters">pathFilters.</param>
         /// <param name="requireCommentsForNonTeamMembersOnly">requireCommentsForNonTeamMembersOnly.</param>
         /// <param name="settingsSourceType">settingsSourceType.</param>
-        /// <param name="triggerType">The type of the trigger..</param>
-        public PullRequestTrigger(bool autoCancel = default(bool), List<string> branchFilters = default(List<string>), Forks forks = default(Forks), bool isCommentRequiredForPullRequest = default(bool), List<string> pathFilters = default(List<string>), bool requireCommentsForNonTeamMembersOnly = default(bool), int settingsSourceType = default(int), TriggerTypeEnum? triggerType = default(TriggerTypeEnum?))
+        public PullRequestTrigger(TriggerTypeEnum? triggerType = default, bool autoCancel = default, List<string> branchFilters = default, Forks forks = default, bool isCommentRequiredForPullRequest = default, List<string> pathFilters = default, bool requireCommentsForNonTeamMembersOnly = default, int settingsSourceType = default)
         {
+            this.TriggerType = triggerType;
             this.AutoCancel = autoCancel;
             this.BranchFilters = branchFilters;
             this.Forks = forks;
@@ -122,7 +122,6 @@ namespace Org.OpenAPITools.Model
             this.PathFilters = pathFilters;
             this.RequireCommentsForNonTeamMembersOnly = requireCommentsForNonTeamMembersOnly;
             this.SettingsSourceType = settingsSourceType;
-            this.TriggerType = triggerType;
         }
 
         /// <summary>
@@ -176,6 +175,7 @@ namespace Org.OpenAPITools.Model
         {
             StringBuilder sb = new StringBuilder();
             sb.Append("class PullRequestTrigger {\n");
+            sb.Append("  TriggerType: ").Append(TriggerType).Append("\n");
             sb.Append("  AutoCancel: ").Append(AutoCancel).Append("\n");
             sb.Append("  BranchFilters: ").Append(BranchFilters).Append("\n");
             sb.Append("  Forks: ").Append(Forks).Append("\n");
@@ -183,7 +183,6 @@ namespace Org.OpenAPITools.Model
             sb.Append("  PathFilters: ").Append(PathFilters).Append("\n");
             sb.Append("  RequireCommentsForNonTeamMembersOnly: ").Append(RequireCommentsForNonTeamMembersOnly).Append("\n");
             sb.Append("  SettingsSourceType: ").Append(SettingsSourceType).Append("\n");
-            sb.Append("  TriggerType: ").Append(TriggerType).Append("\n");
             sb.Append("}\n");
             return sb.ToString();
         }
@@ -198,102 +197,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as PullRequestTrigger);
-        }
-
-        /// <summary>
-        /// Returns true if PullRequestTrigger instances are equal
-        /// </summary>
-        /// <param name="input">Instance of PullRequestTrigger to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(PullRequestTrigger input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.AutoCancel == input.AutoCancel ||
-                    this.AutoCancel.Equals(input.AutoCancel)
-                ) && 
-                (
-                    this.BranchFilters == input.BranchFilters ||
-                    this.BranchFilters != null &&
-                    input.BranchFilters != null &&
-                    this.BranchFilters.SequenceEqual(input.BranchFilters)
-                ) && 
-                (
-                    this.Forks == input.Forks ||
-                    (this.Forks != null &&
-                    this.Forks.Equals(input.Forks))
-                ) && 
-                (
-                    this.IsCommentRequiredForPullRequest == input.IsCommentRequiredForPullRequest ||
-                    this.IsCommentRequiredForPullRequest.Equals(input.IsCommentRequiredForPullRequest)
-                ) && 
-                (
-                    this.PathFilters == input.PathFilters ||
-                    this.PathFilters != null &&
-                    input.PathFilters != null &&
-                    this.PathFilters.SequenceEqual(input.PathFilters)
-                ) && 
-                (
-                    this.RequireCommentsForNonTeamMembersOnly == input.RequireCommentsForNonTeamMembersOnly ||
-                    this.RequireCommentsForNonTeamMembersOnly.Equals(input.RequireCommentsForNonTeamMembersOnly)
-                ) && 
-                (
-                    this.SettingsSourceType == input.SettingsSourceType ||
-                    this.SettingsSourceType.Equals(input.SettingsSourceType)
-                ) && 
-                (
-                    this.TriggerType == input.TriggerType ||
-                    this.TriggerType.Equals(input.TriggerType)
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                hashCode = (hashCode * 59) + this.AutoCancel.GetHashCode();
-                if (this.BranchFilters != null)
-                {
-                    hashCode = (hashCode * 59) + this.BranchFilters.GetHashCode();
-                }
-                if (this.Forks != null)
-                {
-                    hashCode = (hashCode * 59) + this.Forks.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.IsCommentRequiredForPullRequest.GetHashCode();
-                if (this.PathFilters != null)
-                {
-                    hashCode = (hashCode * 59) + this.PathFilters.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.RequireCommentsForNonTeamMembersOnly.GetHashCode();
-                hashCode = (hashCode * 59) + this.SettingsSourceType.GetHashCode();
-                hashCode = (hashCode * 59) + this.TriggerType.GetHashCode();
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

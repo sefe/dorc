@@ -50,6 +50,16 @@ export class BundledRequestsApi extends BaseAPI {
     bundledRequestsDelete({ id }: BundledRequestsDeleteRequest, opts?: OperationOpts): Observable<void | AjaxResponse<void>>
     bundledRequestsDelete({ id }: BundledRequestsDeleteRequest, opts?: OperationOpts): Observable<void | AjaxResponse<void>> {
 
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         const query: HttpQuery = {};
 
         if (id != null) { query['id'] = id; }
@@ -57,6 +67,7 @@ export class BundledRequestsApi extends BaseAPI {
         return this.request<void>({
             url: '/BundledRequests',
             method: 'DELETE',
+            headers,
             query,
         }, opts?.responseOpts);
     };
@@ -67,6 +78,16 @@ export class BundledRequestsApi extends BaseAPI {
     bundledRequestsGet({ projectNames }: BundledRequestsGetRequest, opts?: OperationOpts): Observable<AjaxResponse<Array<BundledRequestsApiModel>>>
     bundledRequestsGet({ projectNames }: BundledRequestsGetRequest, opts?: OperationOpts): Observable<Array<BundledRequestsApiModel> | AjaxResponse<Array<BundledRequestsApiModel>>> {
 
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         const query: HttpQuery = {};
 
         if (projectNames != null) { query['projectNames'] = projectNames; }
@@ -74,6 +95,7 @@ export class BundledRequestsApi extends BaseAPI {
         return this.request<Array<BundledRequestsApiModel>>({
             url: '/BundledRequests',
             method: 'GET',
+            headers,
             query,
         }, opts?.responseOpts);
     };
@@ -86,6 +108,13 @@ export class BundledRequestsApi extends BaseAPI {
 
         const headers: HttpHeaders = {
             'Content-Type': 'application/json',
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
         };
 
         return this.request<void>({
@@ -104,6 +133,13 @@ export class BundledRequestsApi extends BaseAPI {
 
         const headers: HttpHeaders = {
             'Content-Type': 'application/json',
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
         };
 
         return this.request<void>({
@@ -120,6 +156,16 @@ export class BundledRequestsApi extends BaseAPI {
     bundledRequestsRequestsForBundleGet({ bundleName }: BundledRequestsRequestsForBundleGetRequest, opts?: OperationOpts): Observable<AjaxResponse<Array<BundledRequestsApiModel>>>
     bundledRequestsRequestsForBundleGet({ bundleName }: BundledRequestsRequestsForBundleGetRequest, opts?: OperationOpts): Observable<Array<BundledRequestsApiModel> | AjaxResponse<Array<BundledRequestsApiModel>>> {
 
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         const query: HttpQuery = {};
 
         if (bundleName != null) { query['bundleName'] = bundleName; }
@@ -127,6 +173,7 @@ export class BundledRequestsApi extends BaseAPI {
         return this.request<Array<BundledRequestsApiModel>>({
             url: '/BundledRequests/RequestsForBundle',
             method: 'GET',
+            headers,
             query,
         }, opts?.responseOpts);
     };

@@ -19,6 +19,7 @@ import { PageElement } from '../helpers/page-element';
 import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import '../components/grid-button-groups/variable-value-controls';
 import { PropertyValueDto } from '../apis/dorc-api';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('page-variables-value-lookup')
 export class PageVariablesValueLookup extends ResponsiveMixin(PageElement) {
@@ -259,7 +260,7 @@ export class PageVariablesValueLookup extends ResponsiveMixin(PageElement) {
       filters.push({ Path: 'PropertyValue', FilterValue: this.valueFilterValue });
     }
 
-    const api = new RefDataSearchPropertyValuesApi();
+    const api = new RefDataSearchPropertyValuesApi(dorcApiConfiguration);
     api
       .refDataSearchPropertyValuesPut({
         pagedDataOperators: {

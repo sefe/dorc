@@ -30,13 +30,13 @@ namespace Org.OpenAPITools.Model
     /// Represents a reference to a build option definition.
     /// </summary>
     [DataContract(Name = "BuildOptionDefinitionReference")]
-    public partial class BuildOptionDefinitionReference : IEquatable<BuildOptionDefinitionReference>, IValidatableObject
+    public partial class BuildOptionDefinitionReference : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="BuildOptionDefinitionReference" /> class.
         /// </summary>
         /// <param name="id">The ID of the referenced build option..</param>
-        public BuildOptionDefinitionReference(Guid id = default(Guid))
+        public BuildOptionDefinitionReference(Guid id = default)
         {
             this.Id = id;
         }
@@ -71,57 +71,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as BuildOptionDefinitionReference);
-        }
-
-        /// <summary>
-        /// Returns true if BuildOptionDefinitionReference instances are equal
-        /// </summary>
-        /// <param name="input">Instance of BuildOptionDefinitionReference to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(BuildOptionDefinitionReference input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.Id == input.Id ||
-                    (this.Id != null &&
-                    this.Id.Equals(input.Id))
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.Id != null)
-                {
-                    hashCode = (hashCode * 59) + this.Id.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

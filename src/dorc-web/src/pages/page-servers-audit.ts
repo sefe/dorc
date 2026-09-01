@@ -18,6 +18,7 @@ import { ServerAuditApiModel } from '../apis/dorc-api/models/ServerAuditApiModel
 import { GetServerAuditListResponseDto } from '../apis/dorc-api/models/GetServerAuditListResponseDto';
 import { PageElement } from '../helpers/page-element';
 import { getShortLogonName } from '../helpers/user-extensions';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('page-servers-audit')
 export class PageServersAudit extends PageElement {
@@ -332,7 +333,7 @@ export class PageServersAudit extends PageElement {
       filters.push({ Path: 'Action', FilterValue: this.actionFilter });
     }
 
-    const api = new ServerAuditApi();
+    const api = new ServerAuditApi(dorcApiConfiguration);
     api
       .serverAuditPut({
         pagedDataOperators: {

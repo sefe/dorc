@@ -20,7 +20,11 @@ import { html } from 'lit/html.js';
 import '../components/add-edit-environment';
 import '../components/clone-environment';
 import '../components/grid-button-groups/env-controls';
-import { EnvironmentApiModel, RefDataRolesApi } from '../apis/dorc-api';
+import {
+  AccessControlType,
+  EnvironmentApiModel,
+  RefDataRolesApi
+} from '../apis/dorc-api';
 import { RefDataEnvironmentsApi } from '../apis/dorc-api';
 import { PageElement } from '../helpers/page-element';
 import { ResponsiveMixin } from '../helpers/responsive-mixin';
@@ -248,7 +252,7 @@ export class PageEnvironmentsList extends ResponsiveMixin(PageElement) {
 
   openAccessControl(e: CustomEvent) {
     this.secureName = e.detail.Name as string;
-    const type = e.detail.Type as number;
+    const type = e.detail.Type as AccessControlType;
 
     const addEditAccessControl = this.shadowRoot?.getElementById(
       'add-edit-access-control'

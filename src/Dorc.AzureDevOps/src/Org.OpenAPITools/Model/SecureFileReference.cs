@@ -27,28 +27,21 @@ using OpenAPIDateConverter = Org.OpenAPITools.Client.OpenAPIDateConverter;
 namespace Org.OpenAPITools.Model
 {
     /// <summary>
-    /// Represents a reference to a secure file.
+    /// SecureFileReference
     /// </summary>
     [DataContract(Name = "SecureFileReference")]
-    public partial class SecureFileReference : IEquatable<SecureFileReference>, IValidatableObject
+    public partial class SecureFileReference : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="SecureFileReference" /> class.
         /// </summary>
-        /// <param name="id">The ID of the secure file..</param>
         /// <param name="alias">An alias to be used when referencing the resource..</param>
-        public SecureFileReference(Guid id = default(Guid), string alias = default(string))
+        /// <param name="id">The ID of the secure file..</param>
+        public SecureFileReference(string alias = default, Guid id = default)
         {
-            this.Id = id;
             this.Alias = alias;
+            this.Id = id;
         }
-
-        /// <summary>
-        /// The ID of the secure file.
-        /// </summary>
-        /// <value>The ID of the secure file.</value>
-        [DataMember(Name = "id", EmitDefaultValue = false)]
-        public Guid Id { get; set; }
 
         /// <summary>
         /// An alias to be used when referencing the resource.
@@ -58,6 +51,13 @@ namespace Org.OpenAPITools.Model
         public string Alias { get; set; }
 
         /// <summary>
+        /// The ID of the secure file.
+        /// </summary>
+        /// <value>The ID of the secure file.</value>
+        [DataMember(Name = "id", EmitDefaultValue = false)]
+        public Guid Id { get; set; }
+
+        /// <summary>
         /// Returns the string presentation of the object
         /// </summary>
         /// <returns>String presentation of the object</returns>
@@ -65,8 +65,8 @@ namespace Org.OpenAPITools.Model
         {
             StringBuilder sb = new StringBuilder();
             sb.Append("class SecureFileReference {\n");
-            sb.Append("  Id: ").Append(Id).Append("\n");
             sb.Append("  Alias: ").Append(Alias).Append("\n");
+            sb.Append("  Id: ").Append(Id).Append("\n");
             sb.Append("}\n");
             return sb.ToString();
         }
@@ -81,66 +81,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as SecureFileReference);
-        }
-
-        /// <summary>
-        /// Returns true if SecureFileReference instances are equal
-        /// </summary>
-        /// <param name="input">Instance of SecureFileReference to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(SecureFileReference input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.Id == input.Id ||
-                    (this.Id != null &&
-                    this.Id.Equals(input.Id))
-                ) && 
-                (
-                    this.Alias == input.Alias ||
-                    (this.Alias != null &&
-                    this.Alias.Equals(input.Alias))
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.Id != null)
-                {
-                    hashCode = (hashCode * 59) + this.Id.GetHashCode();
-                }
-                if (this.Alias != null)
-                {
-                    hashCode = (hashCode * 59) + this.Alias.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

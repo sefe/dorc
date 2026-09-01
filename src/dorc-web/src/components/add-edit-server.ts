@@ -16,6 +16,7 @@ import {
 import { WarningNotification } from './notifications/warning-notification';
 import { ErrorNotification } from './notifications/error-notification';
 import { retrieveErrorMessage } from '../helpers/errorMessage-retriever';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('add-edit-server')
 export class AddEditServer extends LitElement {
@@ -174,7 +175,7 @@ export class AddEditServer extends LitElement {
 
   lookupOSFromTarget() {
     this.loadingOS = true;
-    const api = new RefDataServersApi();
+    const api = new RefDataServersApi(dorcApiConfiguration);
     api
       .refDataServersGetServerOperatingFromTargetGet({
         serverName: this._srv.Name ?? ''
@@ -251,7 +252,7 @@ export class AddEditServer extends LitElement {
   }
 
   private doesServerExist() {
-    const api = new RefDataServersApi();
+    const api = new RefDataServersApi(dorcApiConfiguration);
     api.refDataServersServerGet({ server: this._srv.Name ?? '' }).subscribe(
       (data: ServerApiModel) => {
         this._checkServer([data]);
@@ -309,7 +310,7 @@ export class AddEditServer extends LitElement {
 
   save() {
     if (this._srv.ServerId !== undefined && this._srv.ServerId > 0) {
-      const api = new RefDataServersApi();
+      const api = new RefDataServersApi(dorcApiConfiguration);
       api
         .refDataServersPut({
           id: this._srv.ServerId ?? 0,
@@ -325,7 +326,7 @@ export class AddEditServer extends LitElement {
           complete: () => console.log('done updating server')
         });
     } else {
-      const api = new RefDataServersApi();
+      const api = new RefDataServersApi(dorcApiConfiguration);
       api.refDataServersPost({ serverApiModel: this._srv }).subscribe({
         next: (data: ServerApiModel) => {
           this.fireServerCreatedEvent(data);
@@ -377,7 +378,7 @@ export class AddEditServer extends LitElement {
     if (id > 0) {
       if (this.attach) {
         this.srvId = id;
-        const api = new RefDataEnvironmentsDetailsApi();
+        const api = new RefDataEnvironmentsDetailsApi(dorcApiConfiguration);
 
         api
           .refDataEnvironmentsDetailsPut({

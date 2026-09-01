@@ -183,7 +183,7 @@ export class EnvironmentCard extends LitElement {
     const event = new CustomEvent('open-access-control', {
       detail: {
         Name: this.environment?.EnvironmentName,
-        Type: AccessControlType.NUMBER_1
+        Type: AccessControlType.Environment
       },
       bubbles: true,
       composed: true

@@ -19,6 +19,7 @@ import { GetPropertyValuesAuditListResponseDto, PagedDataFilter, PropertyValueAu
 import { PageElement } from '../helpers/page-element';
 import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import { getShortLogonName } from '../helpers/user-extensions';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('page-variables-audit')
 export class PageVariablesAudit extends ResponsiveMixin(PageElement) {
@@ -388,7 +389,7 @@ export class PageVariablesAudit extends ResponsiveMixin(PageElement) {
       filters.push({ Path: 'FromValue', FilterValue: this.valueFilterValue });
     }
 
-    const api = new PropertyValuesAuditApi();
+    const api = new PropertyValuesAuditApi(dorcApiConfiguration);
     api
       .propertyValuesAuditPut({
         pagedDataOperators: {

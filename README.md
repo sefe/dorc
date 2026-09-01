@@ -150,31 +150,48 @@ The web application will be available at `http://localhost:8888`.
 
 ### Update Client Libraries
 
-The project uses OpenAPI Generator to create client libraries from API specifications.
-
-#### Regenerate DOrc API TypeScript Client
+The project uses OpenAPI Generator to create client libraries from API
+specifications. CI regenerates the TypeScript clients on every build and
+fails if the committed code differs from the generator output, so specs and
+clients must always be committed together.
 
 From the `src/dorc-web` directory:
 
 ```bash
-npm run dorc-api-gen
+npm run api-gen             # regenerate both clients from the committed specs
+npm run dorc-api-gen        # DOrc API TypeScript client (from src/apis/dorc-api/swagger.json)
+npm run ado-build-csharp-gen # Azure DevOps Build C# client (from src/Dorc.AzureDevOps/build.json)
 ```
 
-Or manually:
+When a C# controller or API model changes, update
+`src/dorc-web/src/apis/dorc-api/swagger.json` to match (a running API serves
+the document at `/swagger/v1/swagger.json`) and regenerate. Every generated
+tree is pure generator output — app concerns live alongside, not inside:
+
+- Web: base URL and OAuth tokens are supplied through the generated
+  `Configuration` class from
+  `src/dorc-web/src/services/dorc-api-configuration.ts`. See
+  [src/dorc-web/README.md](src/dorc-web/README.md).
+- C# (`src/Dorc.AzureDevOps`, consumed by `Dorc.Core`, the Monitor and the
+  TerraformRunner for build numbers and artifact locations): AAD token
+  generation and the count/value list-envelope handling live in the
+  `Dorc.AzureDevOps.Client` project, wired in through the generated
+  `Configuration`/`ApiClient` classes. The client csproj is dependabot-owned
+  and excluded from generation via that tree's `.openapi-generator-ignore`.
+
+The Azure DevOps Build spec is authoritative at
+[MicrosoftDocs/vsts-rest-api-specs](https://github.com/MicrosoftDocs/vsts-rest-api-specs)
+(`specification/build/6.0/build.json`). Generation itself reads only the
+committed `src/Dorc.AzureDevOps/build.json`, so builds are hermetic and an
+upstream change can never turn an unrelated pull request red. The
+`ado-build-spec-refresh` workflow owns adopting upstream: it runs weekly (and
+on demand), fetches the official document, regenerates, and opens a pull
+request when anything changed. To do it by hand:
 
 ```bash
-openapi-generator-cli generate -g typescript-rxjs -i ./src/apis/dorc-api/swagger.json -o ./src/apis/dorc-api/ --additional-properties=supportsES6=true,npmVersion=9.4.0,typescriptThreePlus=true --skip-validate-spec
+npm run ado-build-spec-refresh   # update the committed build.json from upstream
+npm run api-gen                  # regenerate against it
 ```
-
-#### Regenerate Azure DevOps Build Client
-
-From the appropriate directory containing `build.json`:
-
-```bash
-openapi-generator-cli generate -g csharp -i ./build.json --skip-validate-spec
-```
-
-Azure DevOps API specifications: https://github.com/MicrosoftDocs/vsts-rest-api-specs
 
 ## Project Structure
 
