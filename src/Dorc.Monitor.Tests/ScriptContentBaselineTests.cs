@@ -43,9 +43,9 @@ namespace Dorc.Monitor.Tests
             var source = Substitute.For<IDeploymentCredentialSource>();
             source.Description.Returns("test");
             source.Resolve(Arg.Any<DeploymentTier>())
-                .Returns(new DeploymentCredential("svc-dorc", "password"));
+                .Returns(DeploymentCredential.FromPlainText("svc-dorc", "password"));
             source.Resolve(Arg.Any<DeploymentTier>(), Arg.Any<string?>())
-                .Returns(new DeploymentCredential("svc-dorc", "password"));
+                .Returns(DeploymentCredential.FromPlainText("svc-dorc", "password"));
             return source;
         }
 
@@ -121,6 +121,7 @@ namespace Dorc.Monitor.Tests
                     isProduction: false,
                     environmentName: "SOME-ENV",
                     executionIdentityReference: null,
+                    new RequestExecutionIdentityAdoption(),
                     new StringBuilder(),
                     CancellationToken.None);
             }
