@@ -159,6 +159,7 @@ export class RequestStatusCard extends LitElement {
               <connection-status-indicator
                 mode="icon"
                 .state="${this.hubConnectionState}"
+                .showWhenConnected="${true}"
               ></connection-status-indicator>
             </td>
             ${
@@ -488,8 +489,6 @@ export class RequestStatusCard extends LitElement {
   }
 
   private refresh() {
-    this.deployRequest.Status = 'Refreshing...';
-    this.requestUpdate();
     this.dispatchEvent(
       new CustomEvent('refresh-monitor-result', {
         detail: {

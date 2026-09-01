@@ -265,6 +265,8 @@ export class PageMonitorResult
         this.shadowRoot?.appendChild(notification);
         notification.open();
         console.error(err);
+        this.loading = false;
+        this.resultsLoading = false;
       },
       complete: () => {
         console.log('done loading request');
@@ -287,10 +289,15 @@ export class PageMonitorResult
       },
       error: (err: any) => {
         console.error(err);
+        // 'complete' never runs after an error, so clear the results loading
+        // flag here or a failed first load spins the loader forever. The
+        // page-level 'loading' flag belongs to the request-details call,
+        // which may still be in flight - leave it alone.
+        this.resultItems = this.resultItems ?? [];
+        this.resultsLoading = false;
       },
       complete: () => {
         console.log('done loading result Statuses');
-        this.loading = false;
         this.resultsLoading = false;
       }
     });
@@ -420,37 +427,37 @@ export class PageMonitorResult
                 ></request-status-card>
                 <div class="results-section">
                   ${
-                    this.resultsLoading
-                      ? html` <div class="small-loader"></div>`
-                      : html`
-                          <vaadin-details
-                            opened
-                            summary="Deployment Component Results"
-                            style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; margin-top: 4px"
-                          >
-                            <component-deployment-results
-                              .resultItems="${this.resultItems}"
-                            ></component-deployment-results>
-                          </vaadin-details>
-                        `
-                  }
+                this.resultsLoading && !this.resultItems
+                  ? html` <div class="small-loader"></div>`
+                  : html`
+                      <vaadin-details
+                        opened
+                        summary="Deployment Component Results"
+                        style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; margin-top: 4px"
+                      >
+                        <component-deployment-results
+                          .resultItems="${this.resultItems}"
+                        ></component-deployment-results>
+                      </vaadin-details>
+                    `
+              }
                   ${
-                    !this.attemptsLoading &&
-                    this.attemptItems &&
-                    this.attemptItems.length > 0
-                      ? html`
-                          <vaadin-details
-                            summary="Previous Attempts (${this.attemptItems.length})"
-                            style="border-top: 6px solid orange; background-color: var(--dorc-bg-secondary); padding-left: 4px; margin-top: 4px"
-                          >
-                            <component-previous-attempts
-                              .attemptItems="${this.attemptItems}"
-                              .requestId="${this.requestId}"
-                            ></component-previous-attempts>
-                          </vaadin-details>
-                        `
-                      : html``
-                  }
+                !this.attemptsLoading &&
+                this.attemptItems &&
+                this.attemptItems.length > 0
+                  ? html`
+                      <vaadin-details
+                        summary="Previous Attempts (${this.attemptItems.length})"
+                        style="border-top: 6px solid orange; background-color: var(--dorc-bg-secondary); padding-left: 4px; margin-top: 4px"
+                      >
+                        <component-previous-attempts
+                          .attemptItems="${this.attemptItems}"
+                          .requestId="${this.requestId}"
+                        ></component-previous-attempts>
+                      </vaadin-details>
+                    `
+                  : html``
+              }
                 </div>
               `
       }
