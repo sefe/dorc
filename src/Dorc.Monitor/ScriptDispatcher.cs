@@ -477,7 +477,11 @@ namespace Dorc.Monitor
                 // what lands in the audit trail.
                 var engine = new GenericPrincipal(new GenericIdentity("DOrc deployment engine"), null);
 
-                if (!_scriptsPersistentSource.RecordContentHash(script.Id, baseline, engine))
+                var authoritativeBaseline =
+                    _scriptsPersistentSource.RecordContentHashIfUnrecorded(
+                        script.Id, baseline, engine);
+
+                if (string.IsNullOrWhiteSpace(authoritativeBaseline))
                 {
                     logger.LogWarning(
                         "Could not record a content baseline for script {ScriptId} ('{ScriptPath}')."
@@ -487,12 +491,23 @@ namespace Dorc.Monitor
                     return null;
                 }
 
-                logger.LogInformation(
-                    "Recorded a first-seen content baseline for script {ScriptId} ('{ScriptPath}')."
-                    + " Subsequent deployments verify against it.",
-                    script.Id, path);
+                if (ScriptContentHash.Matches(authoritativeBaseline, baseline))
+                {
+                    logger.LogInformation(
+                        "Recorded a first-seen content baseline for script {ScriptId}"
+                        + " ('{ScriptPath}'). Subsequent deployments verify against it.",
+                        script.Id, path);
+                }
+                else
+                {
+                    logger.LogInformation(
+                        "Another deployment recorded the first content baseline for script"
+                        + " {ScriptId} ('{ScriptPath}'). This deployment will verify against that"
+                        + " authoritative baseline.",
+                        script.Id, path);
+                }
 
-                return baseline;
+                return authoritativeBaseline;
             }
             catch (Exception ex)
             {

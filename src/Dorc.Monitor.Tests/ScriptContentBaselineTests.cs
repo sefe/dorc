@@ -59,8 +59,9 @@ namespace Dorc.Monitor.Tests
 
             _pipeServer = Substitute.For<IScriptGroupPipeServer>();
             _scripts = Substitute.For<IScriptsPersistentSource>();
-            _scripts.RecordContentHash(Arg.Any<int>(), Arg.Any<string?>(), Arg.Any<IPrincipal>())
-                .Returns(true);
+            _scripts.RecordContentHashIfUnrecorded(
+                    Arg.Any<int>(), Arg.Any<string>(), Arg.Any<IPrincipal>())
+                .Returns(call => call.ArgAt<string>(1));
 
             _settings = Substitute.For<IConfigurationSettings>();
             // Empty domain: the dispatch fails at the security context, which a test host cannot
@@ -171,7 +172,10 @@ namespace Dorc.Monitor.Tests
 
             var group = DispatchAndCaptureGroup(recordedBaseline: null);
 
-            _scripts.Received(1).RecordContentHash(7, expected, Arg.Any<IPrincipal>());
+            _scripts.Received(1).RecordContentHashIfUnrecorded(
+                7, expected, Arg.Any<IPrincipal>());
+            _scripts.DidNotReceiveWithAnyArgs()
+                .RecordContentHash(default, default, default!);
             Assert.AreEqual(expected, group.ScriptProperties.Single().ExpectedContentHash);
         }
 
@@ -181,7 +185,7 @@ namespace Dorc.Monitor.Tests
             DispatchAndCaptureGroup(RecordedBaseline);
 
             _scripts.DidNotReceiveWithAnyArgs()
-                .RecordContentHash(default, default, default!);
+                .RecordContentHashIfUnrecorded(default, default!, default!);
         }
 
         [TestMethod]
@@ -192,7 +196,7 @@ namespace Dorc.Monitor.Tests
             var group = DispatchAndCaptureGroup(recordedBaseline: null);
 
             _scripts.DidNotReceiveWithAnyArgs()
-                .RecordContentHash(default, default, default!);
+                .RecordContentHashIfUnrecorded(default, default!, default!);
             Assert.IsNull(group.ScriptProperties.Single().ExpectedContentHash);
         }
 
@@ -219,12 +223,39 @@ namespace Dorc.Monitor.Tests
         [TestMethod]
         public void CarriesNoBaselineWhenOneCouldNotBeRecorded()
         {
-            _scripts.RecordContentHash(Arg.Any<int>(), Arg.Any<string?>(), Arg.Any<IPrincipal>())
-                .Returns(false);
+            _scripts.RecordContentHashIfUnrecorded(
+                    Arg.Any<int>(), Arg.Any<string>(), Arg.Any<IPrincipal>())
+                .Returns((string?)null);
 
             var group = DispatchAndCaptureGroup(recordedBaseline: null);
 
             Assert.IsNull(group.ScriptProperties.Single().ExpectedContentHash);
+        }
+
+        [TestMethod]
+        public void CarriesAConcurrentWinnersBaselineInsteadOfTheLocalCandidate()
+        {
+            _settings.GetScriptContentVerificationMode()
+                .Returns(ScriptContentVerificationMode.Enforce);
+            _scripts.RecordContentHashIfUnrecorded(
+                    Arg.Any<int>(), Arg.Any<string>(), Arg.Any<IPrincipal>())
+                .Returns(RecordedBaseline);
+
+            var group = DispatchAndCaptureGroup(recordedBaseline: null);
+            var diskContent = File.ReadAllBytes(_scriptFile);
+
+            Assert.AreEqual(
+                RecordedBaseline,
+                group.ScriptProperties.Single().ExpectedContentHash);
+            Assert.IsFalse(ScriptContentGate.MayExecute(
+                group.ContentVerification,
+                group.ScriptProperties.Single().ExpectedContentHash!,
+                diskContent,
+                out var verdict,
+                out _));
+            Assert.AreEqual(ScriptContentVerdict.Mismatched, verdict);
+            _scripts.DidNotReceiveWithAnyArgs()
+                .RecordContentHash(default, default, default!);
         }
     }
 }
