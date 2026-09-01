@@ -7,8 +7,7 @@ import { OAUTH_SCHEME, oauthServiceContainer, OAuthServiceSettings } from '../se
 import { oauthSettings } from '../OAuthSettings.ts';
 import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
-// Cast needed: TS 6 hits recursion depth limit with Route<RouteMeta> generics
-const routeConfig = routes as any;
+const routeConfig = routes;
 
 new ApiConfigApi(dorcApiConfiguration).apiConfigGet().subscribe({
   next: (apiConfig: ApiConfigModel) => {
@@ -28,13 +27,13 @@ new ApiConfigApi(dorcApiConfiguration).apiConfigGet().subscribe({
           if (!user || !user.access_token) {
             oauthServiceContainer.service.signIn();
           } else {
-            router.setRoutes(routeConfig);
+            void router.setRoutes(routeConfig);
           }
         },
         error: (err) => console.error('Error getting user:', err)
       });
     } else {
-      router.setRoutes(routeConfig);
+      void router.setRoutes(routeConfig);
     }
   },
   error: (err: string) => console.error(err)

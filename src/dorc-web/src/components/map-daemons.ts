@@ -1,3 +1,5 @@
+import { columnBodyRenderer } from '@vaadin/grid/lit';
+import { confirmPrompt } from './confirm-prompt';
 import { css, LitElement } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
@@ -7,14 +9,11 @@ import '@vaadin/button';
 import '@vaadin/combo-box';
 import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
-import { GridItemModel } from '@vaadin/grid';
-import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
-import { render } from 'lit';
 import { Notification } from '@vaadin/notification';
 import type { DaemonApiModel, ServerApiModel } from '../apis/dorc-api';
 import { RefDataDaemonsApi } from '../apis/dorc-api';
 import { ServerDaemonsApi } from '../apis/dorc-api/apis/ServerDaemonsApi';
-import { dorcApiConfiguration } from '../services/dorc-api-configuration';
+import '@vaadin/tooltip';
 
 @customElement('map-daemons')
 export class ServerDaemonMapping extends LitElement {
@@ -140,38 +139,30 @@ export class ServerDaemonMapping extends LitElement {
         <vaadin-grid-column
           width="100px"
           flex-grow="0"
-          .renderer="${this._detachRenderer}"
-          .mappingControl="${this}"
+          ${columnBodyRenderer(this._detachRenderer, [this.readonly])}
         ></vaadin-grid-column>
       </vaadin-grid>
     `;
   }
 
-  private _detachRenderer(
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<DaemonApiModel>
-  ) {
+  private _detachRenderer(item: DaemonApiModel) {
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore
-    const control = _column.mappingControl as ServerDaemonMapping;
-    const daemon = model.item as DaemonApiModel;
-    render(
-      html`
-        <vaadin-button
-          title="Unmap daemon"
-          theme="icon"
-          ?disabled="${control.readonly}"
-          @click="${() => control.detachDaemon(daemon)}"
-        >
-          <vaadin-icon
-            icon="vaadin:unlink"
-            style="color: ${control.readonly ? 'grey' : '#FF3131'}"
-          ></vaadin-icon>
-        </vaadin-button>
-      `,
-      root
-    );
+    const daemon = item as DaemonApiModel;
+    return html`
+      <vaadin-button
+        aria-label="Unmap daemon"
+        theme="icon"
+        ?disabled="${this.readonly}"
+        @click="${() => this.detachDaemon(daemon)}"
+      >
+        <vaadin-tooltip slot="tooltip" text="Unmap daemon"></vaadin-tooltip>
+        <vaadin-icon
+          icon="vaadin:unlink"
+          style="color: ${this.readonly ? 'grey' : '#FF3131'}"
+        ></vaadin-icon>
+      </vaadin-button>
+    `;
   }
 
   private onDaemonSelected(e: CustomEvent) {
@@ -180,7 +171,7 @@ export class ServerDaemonMapping extends LitElement {
   }
 
   private loadAllDaemons() {
-    const api = new RefDataDaemonsApi(dorcApiConfiguration);
+    const api = new RefDataDaemonsApi();
     api.refDataDaemonsGet().subscribe({
       next: (data: DaemonApiModel[]) => {
         this.allDaemons = data;
@@ -191,7 +182,7 @@ export class ServerDaemonMapping extends LitElement {
 
   private loadMappedDaemons() {
     if (!this._server?.ServerId) return;
-    const api = new ServerDaemonsApi(dorcApiConfiguration);
+    const api = new ServerDaemonsApi();
     api
       .serverDaemonsServerIdGet({ serverId: this._server.ServerId })
       .subscribe({
@@ -204,7 +195,7 @@ export class ServerDaemonMapping extends LitElement {
 
   private attachDaemon() {
     if (!this._server?.ServerId || !this.selectedDaemonId) return;
-    const api = new ServerDaemonsApi(dorcApiConfiguration);
+    const api = new ServerDaemonsApi();
     api
       .serverDaemonsPost({
         serverId: this._server.ServerId,
@@ -225,17 +216,22 @@ export class ServerDaemonMapping extends LitElement {
       });
   }
 
-  public detachDaemon(daemon: DaemonApiModel) {
-    if (!this._server?.ServerId || !daemon.Id) return;
-    const answer = confirm(
-      `Unmap daemon "${daemon.DisplayName ?? daemon.Name}" from server "${this._server.Name}"?`
+  public async detachDaemon(daemon: DaemonApiModel) {
+    // Snapshot the server before awaiting. `server` is a settable property that
+    // reloads the mapping when it changes, so reading it again after the
+    // confirmation would unmap this daemon from whichever server had since been
+    // assigned — while the prompt named the old one.
+    const server = this._server;
+    if (!server?.ServerId || !daemon.Id) return;
+    const answer = await confirmPrompt(
+      `Unmap daemon "${daemon.DisplayName ?? daemon.Name}" from server "${server.Name}"?`
     );
     if (!answer) return;
 
-    const api = new ServerDaemonsApi(dorcApiConfiguration);
+    const api = new ServerDaemonsApi();
     api
       .serverDaemonsDelete({
-        serverId: this._server.ServerId,
+        serverId: server.ServerId,
         daemonId: daemon.Id
       })
       .subscribe({

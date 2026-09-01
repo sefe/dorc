@@ -1,6 +1,6 @@
+import { comboBoxRenderer } from '@vaadin/combo-box/lit';
 import { css, LitElement } from 'lit';
-import { ComboBoxItemModel } from '@vaadin/combo-box';
-import { ComboBox } from '@vaadin/combo-box/src/vaadin-combo-box';
+import { ComboBox } from '@vaadin/combo-box';
 import '@vaadin/number-field';
 import '@vaadin/text-field';
 import { NumberField } from '@vaadin/number-field';
@@ -10,28 +10,28 @@ import { html } from 'lit/html.js';
 import { Notification } from '@vaadin/notification';
 import type { SqlPortApiModel } from '../apis/dorc-api';
 import { RefDataDatabasesApi, RefDataSqlPortsApi } from '../apis/dorc-api';
-import { dorcApiConfiguration } from '../services/dorc-api-configuration';
+import '@vaadin/vertical-layout';
+import '@vaadin/combo-box';
 
 @customElement('add-sql-port')
 export class AddSqlPort extends LitElement {
-
   private readonly maxPortValue = 9999999999;
   private readonly maxPortLength = 10;
 
   @property({ type: Array }) databases: string[] = [];
 
-  @property() private database: string = '';
+  @property() database: string = '';
 
-  @property() private portNumber = '';
+  @property() portNumber = '';
 
-  @property({ type: Boolean }) private portNumberValid = false;
+  @property({ type: Boolean }) portNumberValid = false;
 
-  @property({ type: Boolean }) private databaseValid = false;
+  @property({ type: Boolean }) databaseValid = false;
 
-  @property({ type: Boolean }) private valid = false;
+  @property({ type: Boolean }) valid = false;
 
-  @property() private overlayMessage: any;
-  @property() private errorMessage: any;
+  @property() overlayMessage: any;
+  @property() errorMessage: any;
 
   static get styles() {
     return css`
@@ -57,7 +57,7 @@ export class AddSqlPort extends LitElement {
   constructor() {
     super();
 
-    const api = new RefDataDatabasesApi(dorcApiConfiguration);
+    const api = new RefDataDatabasesApi();
 
     api.refDataDatabasesGetDatabasServerNameslistGet().subscribe(
       (data: string[]) => {
@@ -81,7 +81,7 @@ export class AddSqlPort extends LitElement {
             id="databases-combobox"
             @value-changed="${this._databaseValueChanged}"
             .items="${this.databases}"
-            .renderer="${this._databasesRenderer}"
+            ${comboBoxRenderer(this._databasesRenderer, [])}
             placeholder="Select Database"
             label="Database"
             style="width: 100%; max-width: 600px; display: flex; padding-left: var(--lumo-space-s)"
@@ -95,7 +95,6 @@ export class AddSqlPort extends LitElement {
             max="${this.maxPortValue}"
             title="Maximum: ${this.maxPortLength} symbols"
             value=""
-            auto-validate
             error-message="Port must be 1-${this.maxPortLength} symbols"
             @input="${this._portNumberValueChanged}"
             .value="${this.portNumber}"
@@ -117,13 +116,8 @@ export class AddSqlPort extends LitElement {
     `;
   }
 
-  _databasesRenderer(
-    root: HTMLElement,
-    _comboBox: ComboBox,
-    model: ComboBoxItemModel<string>
-  ) {
-    const template = model.item as string;
-    root.innerHTML = `<div>${template}</div>`;
+  _databasesRenderer(database: string) {
+    return html`<div>${database}</div>`;
   }
 
   _databaseValueChanged(data: any) {
@@ -138,7 +132,7 @@ export class AddSqlPort extends LitElement {
     }
 
     if (this.database !== undefined) {
-      const api = new RefDataDatabasesApi(dorcApiConfiguration);
+      const api = new RefDataDatabasesApi();
       //const params = new GridDataProviderParams<DatabaseApiModel>
       api.refDataDatabasesGetDatabasServerNameslistGet().subscribe(
         (data: string[]) => {
@@ -153,7 +147,9 @@ export class AddSqlPort extends LitElement {
 
   _portNumberValueChanged(data: any) {
     this.portNumber = data.currentTarget.value;
-    this.portNumberValid = Number(this.portNumber) > 0 && Number(this.portNumber) <= this.maxPortValue;
+    this.portNumberValid =
+      Number(this.portNumber) > 0 &&
+      Number(this.portNumber) <= this.maxPortValue;
     this.validate();
   }
 
@@ -168,7 +164,7 @@ export class AddSqlPort extends LitElement {
   }
 
   _submit() {
-    const api = new RefDataSqlPortsApi(dorcApiConfiguration);
+    const api = new RefDataSqlPortsApi();
     const sqlPortModel: SqlPortApiModel = {
       InstanceName: this.database,
       SqlPort: this.portNumber

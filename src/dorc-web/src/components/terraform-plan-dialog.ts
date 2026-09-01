@@ -132,7 +132,12 @@ export class TerraformPlanDialog extends LitElement {
         resizable
         draggable
         modeless
-        ${dialogRenderer(this._renderContent, [this.plan, this.error])}
+        ${dialogRenderer(this._renderContent, [
+          this.plan,
+          this.error,
+          this.loading,
+          this.processing
+        ])}
       >
       </vaadin-dialog>
     `;

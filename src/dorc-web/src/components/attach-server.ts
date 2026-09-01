@@ -1,35 +1,27 @@
+import { comboBoxRenderer } from '@vaadin/combo-box/lit';
 import { css, LitElement } from 'lit';
-import { ComboBoxItemModel } from '@vaadin/combo-box';
 import '@vaadin/button';
 import '@vaadin/combo-box';
-import '@polymer/paper-dialog';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import {
   RefDataEnvironmentsDetailsApi,
   RefDataServersApi
 } from '../apis/dorc-api/apis';
-import {
-  ApiBoolResult,
-  ServerApiModel
-} from '../apis/dorc-api';
-import { dorcApiConfiguration } from '../services/dorc-api-configuration';
+import { ApiBoolResult, ServerApiModel } from '../apis/dorc-api';
+import '@vaadin/horizontal-layout';
 
 @customElement('attach-server')
 export class AttachServer extends LitElement {
   @property({ type: Array }) envDetails = [];
 
-  @property({ type: Array }) private servers:
-    | Array<ServerApiModel>
-    | undefined;
+  @property({ type: Array }) servers: Array<ServerApiModel> | undefined;
 
-  @property({ type: Boolean }) private canSubmit = false;
+  @property({ type: Boolean }) canSubmit = false;
 
-  @property({ type: Object }) private selectedServer:
-    | ServerApiModel
-    | undefined;
+  @property({ type: Object }) selectedServer: ServerApiModel | undefined;
 
-  @property({ type: Number }) private envId: number | undefined;
+  @property({ type: Number }) envId: number | undefined;
 
   private serversMap: Map<number | undefined, ServerApiModel> | undefined;
 
@@ -38,7 +30,7 @@ export class AttachServer extends LitElement {
   constructor() {
     super();
 
-    const api = new RefDataServersApi(dorcApiConfiguration);
+    const api = new RefDataServersApi();
     api.refDataServersGetAllGet().subscribe({
       next: (data: Array<ServerApiModel>) => {
         this.setServers(data);
@@ -63,8 +55,7 @@ export class AttachServer extends LitElement {
             item-label-path="Name"
             @value-changed="${this.setSelectedServer}"
             .items="${this.servers}"
-            filter-property="Name"
-            .renderer="${this._boundServersRenderer}"
+            ${comboBoxRenderer(this._boundServersRenderer, [])}
             placeholder="Select Server"
             style="width: 300px"
             clear-button-visible
@@ -73,11 +64,15 @@ export class AttachServer extends LitElement {
           <div>
             <h3 style="color: black">
               Server Name:
-              <span style="color: var(--dorc-link-color)">${this.selectedServer?.Name}</span>
+              <span style="color: var(--dorc-link-color)"
+                >${this.selectedServer?.Name}</span
+              >
             </h3>
             <h3 style="color: black">
               Server OS:
-              <span style="color: var(--dorc-link-color)">${this.selectedServer?.OsName}</span>
+              <span style="color: var(--dorc-link-color)"
+                >${this.selectedServer?.OsName}</span
+              >
             </h3>
             <h3 style="color: black">
               Server Applications:
@@ -87,25 +82,19 @@ export class AttachServer extends LitElement {
             </h3>
           </div>
         </div>
-          <vaadin-horizontal-layout style="margin-right: 30px">
-            <vaadin-button
-              .disabled="${!this.canSubmit}"
-              @click="${this.attachServer}"
-              >Attach</vaadin-button
-            >
-          </vaadin-horizontal-layout>
+        <vaadin-horizontal-layout style="margin-right: 30px">
+          <vaadin-button
+            .disabled="${!this.canSubmit}"
+            @click="${this.attachServer}"
+            >Attach</vaadin-button
+          >
+        </vaadin-horizontal-layout>
       </div>
     `;
   }
 
-  _boundServersRenderer(
-    root: HTMLElement,
-    _: HTMLElement,
-    { item }: ComboBoxItemModel<ServerApiModel>
-  ) {
-    // only render the checkbox once, to avoid re-creating during subsequent calls
-    const serverApiModel = item as ServerApiModel;
-    root.innerHTML = `<div>${serverApiModel.Name}</div>`;
+  _boundServersRenderer(server: ServerApiModel) {
+    return html`<div>${server.Name}</div>`;
   }
 
   setSelectedServer(data: CustomEvent) {
@@ -120,7 +109,7 @@ export class AttachServer extends LitElement {
   }
 
   attachServer() {
-    const api = new RefDataEnvironmentsDetailsApi(dorcApiConfiguration);
+    const api = new RefDataEnvironmentsDetailsApi();
 
     api
       .refDataEnvironmentsDetailsPut({

@@ -12,7 +12,7 @@ import {
 import { dialogFooterRenderer, dialogRenderer } from '@vaadin/dialog/lit';
 import { DialogOpenedChangedEvent } from '@vaadin/dialog';
 import './make-like-production';
-import { dorcApiConfiguration } from '../services/dorc-api-configuration';
+import '@vaadin/dialog';
 
 @customElement('make-like-production-dialog')
 export class MakeLikeProductionDialog extends LitElement {
@@ -31,7 +31,7 @@ export class MakeLikeProductionDialog extends LitElement {
 
   private _mappedProjects: string[] | undefined;
 
-  @property({ type: String }) private targetEnv: string | undefined;
+  @property({ type: String }) targetEnv: string | undefined;
 
   @state() private canSubmit = false;
 
@@ -48,6 +48,9 @@ export class MakeLikeProductionDialog extends LitElement {
 
   @state()
   private loading = false;
+
+  @state()
+  private formResetVersion = 0;
 
   static get styles() {
     return css`
@@ -94,6 +97,7 @@ export class MakeLikeProductionDialog extends LitElement {
       id="make-like-production"
       .mappedProjects="${this.mappedProjects}"
       .dialog="${this}"
+      .resetVersion="${this.formResetVersion}"
     ></make-like-production>
   `;
 
@@ -109,7 +113,17 @@ export class MakeLikeProductionDialog extends LitElement {
   `;
 
   private close() {
+    this.reset();
     this.bundleRequestDialogOpened = false;
+  }
+
+  private reset() {
+    this.selectedDataBackup = undefined;
+    this.selectedBundleName = undefined;
+    this.propertyOverrides = [];
+    this.canSubmit = false;
+    this.loading = false;
+    this.formResetVersion++;
   }
 
   render() {
@@ -122,25 +136,35 @@ export class MakeLikeProductionDialog extends LitElement {
         resizable
         draggable
         @opened-changed="${(event: DialogOpenedChangedEvent) => {
+          const wasOpened = this.bundleRequestDialogOpened;
           this.bundleRequestDialogOpened = event.detail.value;
+          if (wasOpened && !event.detail.value) {
+            this.reset();
+          }
         }}"
-        ${dialogRenderer(this.renderDialog, [])}
+        ${dialogRenderer(this.renderDialog, [
+          this.mappedProjects,
+          this.formResetVersion
+        ])}
         ${dialogFooterRenderer(this.renderFooter, [
           this.loading,
-          this.canSubmit
+          this.canSubmit,
+          this.targetEnv,
+          this.propertyOverrides
         ])}
       ></vaadin-dialog>
     `;
   }
 
-  public closeDialog(){
+  public closeDialog() {
+    this.reset();
     this.bundleRequestDialogOpened = false;
   }
 
   _canSubmit() {
-    if (this.selectedDataBackup !== '' && this.selectedBundleName !== '') {
-      this.canSubmit = true;
-    }
+    this.canSubmit = Boolean(
+      this.selectedDataBackup && this.selectedBundleName
+    );
   }
 
   protected firstUpdated(_changedProperties: PropertyValues) {
@@ -159,7 +183,7 @@ export class MakeLikeProductionDialog extends LitElement {
     console.log('making like prod');
     this.loading = true;
     this.canSubmit = false;
-    const api = new MakeLikeProdApi(dorcApiConfiguration);
+    const api = new MakeLikeProdApi();
     api
       .makeLikeProdPut({
         makeLikeProdRequest: {
@@ -196,12 +220,12 @@ export class MakeLikeProductionDialog extends LitElement {
         },
         complete: () => {
           this.loading = false;
-          this.canSubmit = true;
         }
       });
   }
 
   Open() {
+    this.reset();
     this.bundleRequestDialogOpened = true;
   }
 
@@ -220,7 +244,9 @@ export class MakeLikeProductionDialog extends LitElement {
   }
 
   public propertyRemoved(propertyOverride: RequestProperty) {
-    this.propertyOverrides = this.propertyOverrides.filter((val) => val.PropertyName != propertyOverride.PropertyName);
+    this.propertyOverrides = this.propertyOverrides.filter(
+      val => val.PropertyName != propertyOverride.PropertyName
+    );
     this.propertyOverrides = JSON.parse(JSON.stringify(this.propertyOverrides));
   }
 }

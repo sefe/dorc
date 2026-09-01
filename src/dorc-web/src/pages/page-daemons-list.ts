@@ -1,4 +1,4 @@
-import { css, PropertyValues, render } from 'lit';
+import { css, nothing, PropertyValues } from 'lit';
 import '../components/dorc-spinner';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid';
@@ -9,24 +9,34 @@ import '@vaadin/vaadin-lumo-styles/icons.js';
 import '../icons/iron-icons.js';
 import '@vaadin/confirm-dialog';
 import '@vaadin/text-field';
-import '@polymer/paper-dialog';
+import '@vaadin/dialog';
 import '../components/add-daemon';
 import '../components/edit-daemon';
-import type { GridItemModel } from '@vaadin/grid';
-import type { GridColumn } from '@vaadin/grid/vaadin-grid-column';
-import { PaperDialogElement } from '@polymer/paper-dialog';
-import { Router } from '@vaadin/router';
+import '@vaadin/grid/vaadin-grid-column';
+import { columnBodyRenderer } from '@vaadin/grid/lit';
+import type { DialogOpenedChangedEvent } from '@vaadin/dialog';
+import { dialogFooterRenderer, dialogRenderer } from '@vaadin/dialog/lit';
+import { navigate } from '../router/router';
 import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { PageElement } from '../helpers/page-element';
 import { ResponsiveMixin } from '../helpers/responsive-mixin';
-import { DaemonApiModel, RefDataDaemonsApi, ServerDaemonsApi } from '../apis/dorc-api';
+import {
+  DaemonApiModel,
+  RefDataDaemonsApi,
+  ServerDaemonsApi
+} from '../apis/dorc-api';
 import type { ServerApiModel } from '../apis/dorc-api';
 import GlobalCache from '../global-cache';
-import { dorcApiConfiguration } from '../services/dorc-api-configuration';
+import '@vaadin/tooltip';
+import { ref } from 'lit/directives/ref.js';
+import { keyed } from 'lit/directives/keyed.js';
+import { UnsavedChangesGuard } from '../components/unsaved-changes-guard';
 
 @customElement('page-daemons-list')
 export class PageDaemonsList extends ResponsiveMixin(PageElement) {
+  private readonly unsavedChanges = new UnsavedChangesGuard();
+
   @property({ type: Array }) daemons: Array<DaemonApiModel> = [];
 
   @property({ type: Array }) filteredDaemons: Array<DaemonApiModel> = [];
@@ -38,6 +48,12 @@ export class PageDaemonsList extends ResponsiveMixin(PageElement) {
   @property({ type: Boolean }) isPowerUser = false;
 
   @state() private editingDaemon: DaemonApiModel | null = null;
+
+  @state() addDaemonDialogOpened = false;
+
+  @state() private addDaemonSequence = 0;
+
+  @state() editDaemonDialogOpened = false;
 
   @state() private confirmDeleteOpen = false;
 
@@ -73,7 +89,7 @@ export class PageDaemonsList extends ResponsiveMixin(PageElement) {
   }
 
   private getDaemonsList() {
-    const api = new RefDataDaemonsApi(dorcApiConfiguration);
+    const api = new RefDataDaemonsApi();
     api.refDataDaemonsGet().subscribe(
       (data: DaemonApiModel[]) => {
         this.setDaemons(data);
@@ -96,13 +112,10 @@ export class PageDaemonsList extends ResponsiveMixin(PageElement) {
         flex: 1;
         min-height: 0;
       }
-      paper-dialog.size-position {
+      vaadin-dialog::part(overlay) {
         top: 16px;
         overflow: auto;
-        padding: 10px;
-        width: 560px;
         max-width: calc(100vw - 32px);
-        box-sizing: border-box;
       }
       .row-actions vaadin-button {
         padding: 0;
@@ -143,34 +156,34 @@ export class PageDaemonsList extends ResponsiveMixin(PageElement) {
         </vaadin-button>
       </div>
 
-      <paper-dialog
-        class="size-position"
+      <vaadin-dialog
+        ${ref(this.unsavedChanges.attach)}
         id="add-daemon-dialog"
-        allow-click-through
-        modal
-      >
-        <add-daemon id="add-daemon"></add-daemon>
-        <div style="display: flex; justify-content: flex-end">
-          <vaadin-button dialog-confirm>Close</vaadin-button>
-        </div>
-      </paper-dialog>
+        header-title="Add Daemon"
+        draggable
+        width="560px"
+        .opened="${this.addDaemonDialogOpened}"
+        @opened-changed="${(e: DialogOpenedChangedEvent) => {
+          this.addDaemonDialogOpened = e.detail.value;
+        }}"
+        @unsaved-changes-discarded="${this.resetAddDaemon}"
+        ${dialogRenderer(this.renderAddDaemon, [this.addDaemonSequence])}
+        ${dialogFooterRenderer(this.renderAddDaemonFooter, [])}
+      ></vaadin-dialog>
 
-      <paper-dialog
-        class="size-position"
+      <vaadin-dialog
+        ${ref(this.unsavedChanges.attach)}
         id="edit-daemon-dialog"
-        allow-click-through
-        modal
-      >
-        ${this.editingDaemon
-          ? html`<edit-daemon
-              id="edit-daemon"
-              .daemon="${this.editingDaemon}"
-            ></edit-daemon>`
-          : html``}
-        <div style="display: flex; justify-content: flex-end">
-          <vaadin-button dialog-confirm>Close</vaadin-button>
-        </div>
-      </paper-dialog>
+        header-title="Edit Daemon"
+        draggable
+        width="560px"
+        .opened="${this.editDaemonDialogOpened}"
+        @opened-changed="${(e: DialogOpenedChangedEvent) => {
+          this.editDaemonDialogOpened = e.detail.value;
+        }}"
+        ${dialogRenderer(this.renderEditDaemon, [this.editingDaemon])}
+        ${dialogFooterRenderer(this.renderEditDaemonFooter, [])}
+      ></vaadin-dialog>
 
       <vaadin-confirm-dialog
         .opened="${this.confirmDeleteOpen}"
@@ -183,89 +196,92 @@ export class PageDaemonsList extends ResponsiveMixin(PageElement) {
         cancel-button-visible
         @confirm="${this.performDelete}"
       >
-        ${this.pendingDelete
-          ? html`Delete daemon
-              <strong>${this.pendingDelete.Name}</strong>? This cannot be
-              undone.
-              ${this.pendingDeleteAttachedServers.length > 0
-                ? html`<br /><br />Currently attached to
-                    ${this.pendingDeleteAttachedServers.length} server${this.pendingDeleteAttachedServers.length === 1 ? '' : 's'}:
-                    <ul style="margin: 4px 0 0 0">
-                      ${this.pendingDeleteAttachedServers.map(
-                        name => html`<li>${name}</li>`
-                      )}
-                    </ul>
-                    Deleting will detach the daemon from all of them.`
-                : html`<br /><br />No server mappings to remove.`}`
-          : html``}
+        ${
+          this.pendingDelete
+            ? html`<div style="overflow-wrap: anywhere">
+                Delete daemon
+                <strong>${this.pendingDelete.Name}</strong>? This cannot be
+                undone.
+                ${
+                  this.pendingDeleteAttachedServers.length > 0
+                    ? html`<br /><br />Currently attached to
+                        ${this.pendingDeleteAttachedServers.length}
+                        server${this.pendingDeleteAttachedServers.length === 1 ? '' : 's'}:
+                        <ul style="margin: 4px 0 0 0">
+                          ${this.pendingDeleteAttachedServers.map(
+                            name => html`<li>${name}</li>`
+                          )}
+                        </ul>
+                        Deleting will detach the daemon from all of them.`
+                    : html`<br /><br />No server mappings to remove.`
+                }
+              </div>`
+            : html``
+        }
       </vaadin-confirm-dialog>
 
-      ${this.loading
-        ? html`
-            <dorc-spinner></dorc-spinner>
-          `
-        : html`
-            <vaadin-grid
-              id="grid"
-              .items=${this.filteredDaemons}
-              column-reordering-allowed
-              multi-sort
-              theme="compact row-stripes no-row-borders no-border"
-            >
-              <vaadin-grid-sort-column
-                path="Name"
-                header="Daemon Name"
-                resizable
-              ></vaadin-grid-sort-column>
-              <vaadin-grid-sort-column
-                path="DisplayName"
-                header="Display Name"
-                resizable
-                ?hidden="${this._narrowScreen}"
-              ></vaadin-grid-sort-column>
-              <vaadin-grid-sort-column
-                path="AccountName"
-                header="Account Name"
-                resizable
-                ?hidden="${this._narrowScreen}"
-              ></vaadin-grid-sort-column>
-              <vaadin-grid-sort-column
-                path="ServiceType"
-                header="Type"
-                resizable
-                ?hidden="${this._narrowScreen}"
-              ></vaadin-grid-sort-column>
-              <vaadin-grid-sort-column
-                path="LastSeenDate"
-                header="Last Seen"
-                resizable
-                direction="desc"
-                ?hidden="${this._narrowScreen}"
-                .renderer="${this._lastSeenRenderer}"
-              ></vaadin-grid-sort-column>
-              <vaadin-grid-column
-                header="Actions"
-                width="180px"
-                flex-grow="0"
-                .renderer="${this._rowActionsRenderer}"
-              ></vaadin-grid-column>
-            </vaadin-grid>
-          `} `;
+      ${
+        this.loading
+          ? html` <dorc-spinner></dorc-spinner> `
+          : html`
+              <vaadin-grid
+                id="grid"
+                .items=${this.filteredDaemons}
+                column-reordering-allowed
+                multi-sort
+                theme="compact row-stripes no-row-borders no-border"
+              >
+                <vaadin-grid-sort-column
+                  path="Name"
+                  header="Daemon Name"
+                  resizable
+                ></vaadin-grid-sort-column>
+                <vaadin-grid-sort-column
+                  path="DisplayName"
+                  header="Display Name"
+                  resizable
+                  ?hidden="${this._narrowScreen}"
+                ></vaadin-grid-sort-column>
+                <vaadin-grid-sort-column
+                  path="AccountName"
+                  header="Account Name"
+                  resizable
+                  ?hidden="${this._narrowScreen}"
+                ></vaadin-grid-sort-column>
+                <vaadin-grid-sort-column
+                  path="ServiceType"
+                  header="Type"
+                  resizable
+                  ?hidden="${this._narrowScreen}"
+                ></vaadin-grid-sort-column>
+                <vaadin-grid-sort-column
+                  path="LastSeenDate"
+                  header="Last Seen"
+                  resizable
+                  direction="desc"
+                  ?hidden="${this._narrowScreen}"
+                  ${columnBodyRenderer(this._lastSeenRenderer, [])}
+                ></vaadin-grid-sort-column>
+                <vaadin-grid-column
+                  header="Actions"
+                  width="180px"
+                  flex-grow="0"
+                  ${columnBodyRenderer(this._rowActionsRenderer, [
+                    this.isAdmin,
+                    this.isPowerUser
+                  ])}
+                ></vaadin-grid-column>
+              </vaadin-grid>
+            `
+      } `;
   }
 
-  private _lastSeenRenderer = (
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<DaemonApiModel>
-  ) => {
-    const daemon = model.item;
+  private _lastSeenRenderer = (daemon: DaemonApiModel) => {
     const raw = daemon.LastSeenDate;
     if (!raw) {
-      render(
-        html`<span style="color: var(--dorc-text-secondary, #888)">Never</span>`,
-        root
-      );
-      return;
+      return html`<span style="color: var(--dorc-text-secondary, #888)"
+        >Never</span
+      >`;
     }
 
     const dt = new Date(raw);
@@ -276,15 +292,14 @@ export class PageDaemonsList extends ResponsiveMixin(PageElement) {
       status === 'running'
         ? 'var(--dorc-success-bg, inherit)'
         : status === 'stopped'
-        ? 'inherit'
-        : status == null || status === ''
-        ? 'var(--dorc-error-color, inherit)'
-        : 'inherit';
+          ? 'inherit'
+          : status == null || status === ''
+            ? 'var(--dorc-error-color, inherit)'
+            : 'inherit';
 
-    render(
-      html`<span title="${tooltip}" style="color: ${color}">${relative}</span>`,
-      root
-    );
+    return html`<span title="${tooltip}" style="color: ${color}"
+      >${relative}</span
+    >`;
   };
 
   private _formatRelativeTime(date: Date): string {
@@ -304,50 +319,47 @@ export class PageDaemonsList extends ResponsiveMixin(PageElement) {
     return `${diffYear} yr${diffYear === 1 ? '' : 's'} ago`;
   }
 
-  private _rowActionsRenderer = (
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<DaemonApiModel>
-  ) => {
-    const daemon = model.item;
-    render(
-      html`<div class="row-actions">
-        <vaadin-button
-          title="View audit history"
-          theme="icon"
-          @click="${() => this.openAudit(daemon)}"
-        >
-          <vaadin-icon
-            icon="vaadin:calendar-user"
-            style="color: var(--dorc-link-color)"
-          ></vaadin-icon>
-        </vaadin-button>
-        <vaadin-button
-          title="Edit daemon"
-          theme="icon"
-          ?hidden="${!(this.isAdmin || this.isPowerUser)}"
-          @click="${() => this.openEdit(daemon)}"
-        >
-          <vaadin-icon
-            icon="lumo:edit"
-            style="color: var(--dorc-link-color)"
-          ></vaadin-icon>
-        </vaadin-button>
-        <vaadin-button
-          title="Delete daemon"
-          theme="icon"
-          ?hidden="${!this.isAdmin}"
-          @click="${() => this.requestDelete(daemon)}"
-        >
-          <vaadin-icon
-            icon="icons:delete"
-            style="color: var(--dorc-error-color)"
-          ></vaadin-icon>
-        </vaadin-button>
-      </div>`,
-      root
-    );
-  };
+  private _rowActionsRenderer = (daemon: DaemonApiModel) =>
+    html`<div class="row-actions">
+      <vaadin-button
+        aria-label="View audit history"
+        theme="icon"
+        @click="${() => this.openAudit(daemon)}"
+      >
+        <vaadin-tooltip
+          slot="tooltip"
+          text="View audit history"
+        ></vaadin-tooltip>
+        <vaadin-icon
+          icon="vaadin:calendar-user"
+          style="color: var(--dorc-link-color)"
+        ></vaadin-icon>
+      </vaadin-button>
+      <vaadin-button
+        aria-label="Edit daemon"
+        theme="icon"
+        ?hidden="${!(this.isAdmin || this.isPowerUser)}"
+        @click="${() => this.openEdit(daemon)}"
+      >
+        <vaadin-tooltip slot="tooltip" text="Edit daemon"></vaadin-tooltip>
+        <vaadin-icon
+          icon="lumo:edit"
+          style="color: var(--dorc-link-color)"
+        ></vaadin-icon>
+      </vaadin-button>
+      <vaadin-button
+        aria-label="Delete daemon"
+        theme="icon"
+        ?hidden="${!this.isAdmin}"
+        @click="${() => this.requestDelete(daemon)}"
+      >
+        <vaadin-tooltip slot="tooltip" text="Delete daemon"></vaadin-tooltip>
+        <vaadin-icon
+          icon="icons:delete"
+          style="color: var(--dorc-error-color)"
+        ></vaadin-icon>
+      </vaadin-button>
+    </div>`;
 
   firstUpdated(_changedProperties: PropertyValues) {
     super.firstUpdated(_changedProperties);
@@ -362,35 +374,57 @@ export class PageDaemonsList extends ResponsiveMixin(PageElement) {
     );
   }
 
+  private renderAddDaemon = () =>
+    html`${keyed(
+      this.addDaemonSequence,
+      html`<add-daemon id="add-daemon"></add-daemon>`
+    )}`;
+
+  private resetAddDaemon = () => {
+    this.addDaemonSequence += 1;
+  };
+
+  private renderAddDaemonFooter = () => html`
+    <vaadin-button @click="${() => (this.addDaemonDialogOpened = false)}"
+      >Close</vaadin-button
+    >
+  `;
+
+  /** Gated on `editingDaemon` so each edit gets a freshly-built form. */
+  private renderEditDaemon = () =>
+    this.editingDaemon
+      ? html`<edit-daemon
+          id="edit-daemon"
+          .daemon="${this.editingDaemon}"
+        ></edit-daemon>`
+      : nothing;
+
+  private renderEditDaemonFooter = () => html`
+    <vaadin-button @click="${() => (this.editDaemonDialogOpened = false)}"
+      >Close</vaadin-button
+    >
+  `;
+
   daemonCreated() {
     this.getDaemonsList();
-    const dialog = this.shadowRoot?.getElementById(
-      'add-daemon-dialog'
-    ) as PaperDialogElement;
-    dialog.close();
+    this.addDaemonDialogOpened = false;
   }
 
   daemonUpdated() {
     this.getDaemonsList();
-    const dialog = this.shadowRoot?.getElementById(
-      'edit-daemon-dialog'
-    ) as PaperDialogElement;
-    dialog?.close();
+    this.editDaemonDialogOpened = false;
     this.editingDaemon = null;
   }
 
   openEdit(daemon: DaemonApiModel) {
     this.editingDaemon = { ...daemon };
-    const dialog = this.shadowRoot?.getElementById(
-      'edit-daemon-dialog'
-    ) as PaperDialogElement;
-    dialog?.open();
+    this.editDaemonDialogOpened = true;
   }
 
   openAudit(daemon: DaemonApiModel) {
     const id = daemon.Id ?? 0;
     if (id <= 0) return;
-    Router.go(`/daemons/audit?daemonId=${id}`);
+    void navigate(`/daemons/audit?daemonId=${id}`);
   }
 
   requestDelete(daemon: DaemonApiModel) {
@@ -398,7 +432,7 @@ export class PageDaemonsList extends ResponsiveMixin(PageElement) {
     this.pendingDeleteAttachedServers = [];
 
     if (daemon.Id && daemon.Id > 0) {
-      const api = new ServerDaemonsApi(dorcApiConfiguration);
+      const api = new ServerDaemonsApi();
       api.serverDaemonsByDaemonDaemonIdGet({ daemonId: daemon.Id }).subscribe({
         next: (servers: ServerApiModel[]) => {
           this.pendingDeleteAttachedServers = servers
@@ -420,7 +454,7 @@ export class PageDaemonsList extends ResponsiveMixin(PageElement) {
       this.confirmDeleteOpen = false;
       return;
     }
-    const api = new RefDataDaemonsApi(dorcApiConfiguration);
+    const api = new RefDataDaemonsApi();
     api.refDataDaemonsDelete({ id: daemon.Id }).subscribe(
       () => {
         this.pendingDelete = null;
@@ -455,9 +489,6 @@ export class PageDaemonsList extends ResponsiveMixin(PageElement) {
   }
 
   addDaemon() {
-    const dialog = this.shadowRoot?.getElementById(
-      'add-daemon-dialog'
-    ) as PaperDialogElement;
-    dialog.open();
+    this.addDaemonDialogOpened = true;
   }
 }

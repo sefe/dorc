@@ -18,8 +18,8 @@ import {
   AccessControlType
 } from '../apis/dorc-api';
 import type { EnvironmentApiModel } from '../apis/dorc-api';
-import { Router } from '@vaadin/router/dist/router.js';
-import { dorcApiConfiguration } from '../services/dorc-api-configuration';
+import { navigate } from '../router/router';
+import '@vaadin/horizontal-layout';
 
 @customElement('add-edit-environment')
 export class AddEditEnvironment extends LitElement {
@@ -36,9 +36,9 @@ export class AddEditEnvironment extends LitElement {
   private readonly maxThinClientFieldLength = 50;
   private readonly maxEnvironmentNameLength = 64;
 
-  @property({ type: Boolean }) private addMode = false;
-  @property({ type: Boolean }) private readonly = true;
-  @property({ type: Boolean }) private savingMetadata = false;
+  @property({ type: Boolean }) addMode = false;
+  @property({ type: Boolean }) readonly = true;
+  @property({ type: Boolean }) savingMetadata = false;
 
   private originalEnvName: string | undefined;
 
@@ -63,7 +63,7 @@ export class AddEditEnvironment extends LitElement {
         max-height: calc(100vh - 175px);
         max-height: calc(100dvh - 175px);
       }
-      #env-owners {       
+      #env-owners {
         display: flex;
         align-items: center;
         justify-content: space-between;
@@ -178,28 +178,38 @@ export class AddEditEnvironment extends LitElement {
     this.loadOwners();
   }
 
-  @property({ type: Array }) owners: Array<{ DisplayName?: string | null; Id?: number }> = [];
+  @property({ type: Array }) owners: Array<{
+    DisplayName?: string | null;
+    Id?: number;
+  }> = [];
 
   private static readonly AC_ALLOW_OWNER = 4;
 
   loadOwners() {
     this.owners = [];
     if (!this.environment?.EnvironmentName) return;
-    const api = new AccessControlApi(dorcApiConfiguration);
-    api.accessControlGet({
-      accessControlType: AccessControlType.Environment,
-      accessControlName: this.environment.EnvironmentName
-    }).subscribe({
-      next: (data: AccessSecureApiModel) => {
-        const owners = (data.Privileges ?? []).filter(p => ((p.Allow ?? 0) & AddEditEnvironment.AC_ALLOW_OWNER) > 0);
-          this.owners = owners.map(o => ({ DisplayName: o.Name ?? null, Id: o.Id ?? 0 }));
+    const api = new AccessControlApi();
+    api
+      .accessControlGet({
+        accessControlType: AccessControlType.Environment,
+        accessControlName: this.environment.EnvironmentName
+      })
+      .subscribe({
+        next: (data: AccessSecureApiModel) => {
+          const owners = (data.Privileges ?? []).filter(
+            p => ((p.Allow ?? 0) & AddEditEnvironment.AC_ALLOW_OWNER) > 0
+          );
+          this.owners = owners.map(o => ({
+            DisplayName: o.Name ?? null,
+            Id: o.Id ?? 0
+          }));
           this.requestUpdate();
-      },
-      error: (err: any) => {
-        console.warn('Failed to load owners via AccessControlApi', err);
-        this.owners = [];
-      }
-    });
+        },
+        error: (err: any) => {
+          console.warn('Failed to load owners via AccessControlApi', err);
+          this.owners = [];
+        }
+      });
   }
 
   connectedCallback() {
@@ -222,7 +232,6 @@ export class AddEditEnvironment extends LitElement {
   render() {
     return html`
       <div id="div" ?hidden=${!!this.hidden}>
-
         <div
           style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; margin: 0px;"
         >
@@ -236,18 +245,29 @@ export class AddEditEnvironment extends LitElement {
                 style="width: var(--lumo-icon-size-s); height: var(--lumo-icon-size-s);"
               ></vaadin-icon>
 
-              ${this.owners && this.owners.length > 0
-            ? (this.owners.length === 1
-              ? html`<div style="font-weight:700">${this.owners[0].DisplayName}</div>`
-              : html`<div style="display:flex; gap:8px; flex-wrap:wrap">${this.owners.map(
-                o => html`<div style="padding:6px 8px; border-radius:4px; background:var(--dorc-bg-secondary); font-weight:600">${o.DisplayName ?? ''}</div>`
-              )}</div>`)
-            : html`<div style="color:var(--dorc-text-muted)">${this.environment?.Details?.EnvironmentOwner ?? 'Not set'}</div>`}
-
+              ${
+                this.owners && this.owners.length > 0
+                  ? this.owners.length === 1
+                    ? html`<div style="font-weight:700">
+                        ${this.owners[0].DisplayName}
+                      </div>`
+                    : html`<div style="display:flex; gap:8px; flex-wrap:wrap">
+                        ${this.owners.map(
+                          o =>
+                            html`<div
+                              style="padding:6px 8px; border-radius:4px; background:var(--dorc-bg-secondary); font-weight:600"
+                            >
+                              ${o.DisplayName ?? ''}
+                            </div>`
+                        )}
+                      </div>`
+                  : html`<div style="color:var(--dorc-text-muted)">
+                      ${this.environment?.Details?.EnvironmentOwner ?? 'Not set'}
+                    </div>`
+              }
             </vaadin-horizontal-layout>
           </div>
         </div>
-
 
         <vaadin-details
           opened
@@ -260,10 +280,9 @@ export class AddEditEnvironment extends LitElement {
             maxlength="${this.maxEnvironmentNameLength}"
             title="Maximum length: ${this.maxEnvironmentNameLength} symbols"
             required
-            auto-validate
             .value=${this.environment?.EnvironmentName ?? ''}
             @value-changed=${(e: CustomEvent<{ value: string }>) =>
-        this.handleFieldChange(this._envNameValueChanged, e)}
+              this.handleFieldChange(this._envNameValueChanged, e)}
             ?readonly=${this.readonly}
           ></vaadin-text-field>
           <table>
@@ -274,7 +293,7 @@ export class AddEditEnvironment extends LitElement {
                   style="padding-top:10px; padding-left:20px"
                   .checked=${this.environment?.EnvironmentSecure ?? false}
                   @checked-changed=${(e: CustomEvent<{ value: boolean }>) =>
-        this.handleFieldChange(this.updateSecure, e)}
+                    this.handleFieldChange(this.updateSecure, e)}
                   class="tooltip"
                   ?disabled=${this.readonly || ((this.environment?.EnvironmentIsProd ?? false) && (this.environment?.EnvironmentSecure ?? false))}
                   ><label slot="label"
@@ -289,35 +308,41 @@ export class AddEditEnvironment extends LitElement {
                   style="padding-left:20px"
                   .checked=${this.environment?.EnvironmentIsProd ?? false}
                   @checked-changed=${(e: CustomEvent<{ value: boolean }>) =>
-        this.handleFieldChange(this.updateIsProd, e)}
+                    this.handleFieldChange(this.updateIsProd, e)}
                   class="tooltip"
                   ?disabled=${this.readonly}
-                ><label slot="label"
-                  >Is Production
-                  <span class="tooltiptext"
-                    >Is Environment considered Production, uses the production
-                    deployment runner and account</span
-                  ></label>
-                </vaadin-checkbox
-              >
-             </td>
+                  ><label slot="label"
+                    >Is Production
+                    <span class="tooltiptext"
+                      >Is Environment considered Production, uses the production
+                      deployment runner and account</span
+                    ></label
+                  >
+                </vaadin-checkbox>
+              </td>
             </tr>
           </table>
-          ${!this.addMode && (this.environment?.EnvironmentIsProd ?? false) && !(this.environment?.EnvironmentSecure ?? false)
-            ? html`<div class="prod-not-secure-warning">
-                <vaadin-icon icon="vaadin:warning"></vaadin-icon>
-                <span>This environment is marked as Production but <strong>Is Secure</strong> is not set.</span>
-              </div>`
-            : html``}
+          ${
+            !this.addMode &&
+            (this.environment?.EnvironmentIsProd ?? false) &&
+            !(this.environment?.EnvironmentSecure ?? false)
+              ? html`<div class="prod-not-secure-warning">
+                  <vaadin-icon icon="vaadin:warning"></vaadin-icon>
+                  <span
+                    >This environment is marked as Production but
+                    <strong>Is Secure</strong> is not set.</span
+                  >
+                </div>`
+              : html``
+          }
           <vaadin-text-field
             id="env-desc"
             class="block"
             label="Description"
             required
-            auto-validate
             .value=${this.environment?.Details?.Description ?? ''}
             @value-changed=${(e: CustomEvent<{ value: string }>) =>
-        this.handleFieldChange(this._descriptionValueChanged, e)}
+              this.handleFieldChange(this._descriptionValueChanged, e)}
             ?readonly=${this.readonly}
           ></vaadin-text-field>
         </vaadin-details>
@@ -329,19 +354,17 @@ export class AddEditEnvironment extends LitElement {
           <vaadin-text-field
             id="opt-backup"
             label="Backup Created From"
-            auto-validate
             .value=${this.environment?.Details?.RestoredFromSourceDb ?? ''}
             @value-changed=${(e: CustomEvent<{ value: string }>) =>
-        this.handleFieldChange(this._backupValueChanged, e)}
+              this.handleFieldChange(this._backupValueChanged, e)}
             ?readonly=${this.readonly}
           ></vaadin-text-field>
           <vaadin-text-field
             id="opt-file-share"
             label="File Share"
-            auto-validate
             .value=${this.environment?.Details?.FileShare ?? ''}
             @value-changed=${(e: CustomEvent<{ value: string }>) =>
-        this.handleFieldChange(this._fileShareValueChanged, e)}
+              this.handleFieldChange(this._fileShareValueChanged, e)}
             ?readonly=${this.readonly}
           ></vaadin-text-field>
           <vaadin-text-field
@@ -349,19 +372,17 @@ export class AddEditEnvironment extends LitElement {
             label="Thin Client Server"
             maxlength="${this.maxThinClientFieldLength}"
             title="Maximum length: ${this.maxThinClientFieldLength} symbols"
-            auto-validate
             .value=${this.environment?.Details?.ThinClient ?? ''}
             @value-changed=${(e: CustomEvent<{ value: string }>) =>
-        this.handleFieldChange(this._thinClientValueChanged, e)}
+              this.handleFieldChange(this._thinClientValueChanged, e)}
             ?readonly=${this.readonly}
           ></vaadin-text-field>
           <vaadin-text-field
             id="opt-notes"
             label="Notes"
-            auto-validate
             .value=${this.environment?.Details?.Notes ?? ''}
             @value-changed=${(e: CustomEvent<{ value: string }>) =>
-        this.handleFieldChange(this._notesValueChanged, e)}
+              this.handleFieldChange(this._notesValueChanged, e)}
             ?readonly=${this.readonly}
           ></vaadin-text-field>
         </vaadin-details>
@@ -371,9 +392,11 @@ export class AddEditEnvironment extends LitElement {
             @click=${this.saveMetadata}
             >Save
           </vaadin-button>
-          ${this.savingMetadata
-        ? html` <div class="small-loader"></div> `
-        : html``}
+          ${
+            this.savingMetadata
+              ? html` <div class="small-loader"></div> `
+              : html``
+          }
         </div>
         <div style="color: var(--dorc-error-color)">${this.ErrorMessage}</div>
       </div>
@@ -392,7 +415,8 @@ export class AddEditEnvironment extends LitElement {
   }
 
   clearTextField(id: string) {
-    const textField = this.shadowRoot?.getElementById(id) as (HTMLElement & { value: string }) | null;
+    const textField = this.shadowRoot?.getElementById(id) as
+      (HTMLElement & { value: string }) | null;
     if (textField) textField.value = '';
   }
 
@@ -513,7 +537,7 @@ export class AddEditEnvironment extends LitElement {
       this.savingMetadata = true;
 
       if (this.environment?.EnvironmentId === 0) {
-        const api = new RefDataEnvironmentsApi(dorcApiConfiguration);
+        const api = new RefDataEnvironmentsApi();
         api
           .refDataEnvironmentsPost({ environmentApiModel: this.environment })
           .subscribe({
@@ -535,7 +559,7 @@ export class AddEditEnvironment extends LitElement {
             complete: () => console.log('done adding environment')
           });
       } else {
-        const api = new RefDataEnvironmentsApi(dorcApiConfiguration);
+        const api = new RefDataEnvironmentsApi();
         api
           .refDataEnvironmentsPut({ environmentApiModel: this.environment })
           .subscribe({
@@ -563,7 +587,7 @@ export class AddEditEnvironment extends LitElement {
 
                   const currentTab =
                     location.pathname.split('/')[3] || 'metadata';
-                  Router.go(
+                  void navigate(
                     `/environment/${data.EnvironmentName}/${currentTab}`
                   );
 

@@ -7,7 +7,7 @@ import { TagsInput } from './tags-input';
 import { RefDataServersApi } from '../apis/dorc-api';
 import { ServerApiModel } from '../apis/dorc-api';
 import { splitTags, joinTags } from '../helpers/tag-parser';
-import { dorcApiConfiguration } from '../services/dorc-api-configuration';
+import '@vaadin/button';
 
 @customElement('server-tags')
 export class ServerTags extends LitElement {
@@ -25,7 +25,7 @@ export class ServerTags extends LitElement {
 
   private _server: ServerApiModel | undefined;
 
-  @property({ type: Array }) private tags: string[] = [];
+  @property({ type: Array }) tags: string[] = [];
 
   @query('#tag-input')
   private tagsInput: TagsInput | undefined;
@@ -54,7 +54,7 @@ export class ServerTags extends LitElement {
       const tags = this.tagsInput?.tags;
       this._server.ApplicationTags = joinTags(tags);
 
-      const api = new RefDataServersApi(dorcApiConfiguration);
+      const api = new RefDataServersApi();
       const server: ServerApiModel = {};
       server.ApplicationTags = this._server.ApplicationTags;
       server.ServerId = this._server.ServerId;

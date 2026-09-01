@@ -1,3 +1,4 @@
+import { confirmPrompt } from '../confirm-prompt';
 import { css, LitElement } from 'lit';
 import '@vaadin/button';
 import '@vaadin/icons/vaadin-icons';
@@ -14,7 +15,7 @@ import {
   RefDataServersApi,
   ServerApiModel
 } from '../../apis/dorc-api';
-import { dorcApiConfiguration } from '../../services/dorc-api-configuration';
+import '@vaadin/tooltip';
 
 @customElement('server-controls')
 export class ServerControls extends LitElement {
@@ -26,7 +27,7 @@ export class ServerControls extends LitElement {
   @property({ type: Boolean })
   envSet = false;
 
-  @property({ type: Boolean }) private readonly = true;
+  @property({ type: Boolean }) readonly = true;
 
   static get styles() {
     return css`
@@ -45,18 +46,26 @@ export class ServerControls extends LitElement {
 
   render() {
     const unlinkStyles = {
-      color: this.readonly ? 'var(--dorc-text-secondary)' : 'var(--dorc-error-color)'
+      color: this.readonly
+        ? 'var(--dorc-text-secondary)'
+        : 'var(--dorc-error-color)'
     };
     const editStyles = {
-      color: this.readonly ? 'var(--dorc-text-secondary)' : 'var(--dorc-link-color)'
+      color: this.readonly
+        ? 'var(--dorc-text-secondary)'
+        : 'var(--dorc-link-color)'
     };
     return html`
       <vaadin-button
-        title="Edit Server Details"
+        aria-label="Edit Server Details"
         theme="icon"
         @click="${this.editServer}"
         ?disabled="${this.readonly}"
       >
+        <vaadin-tooltip
+          slot="tooltip"
+          text="Edit Server Details"
+        ></vaadin-tooltip>
         <vaadin-icon
           icon="lumo:edit"
           style=${styleMap(editStyles)}
@@ -64,11 +73,15 @@ export class ServerControls extends LitElement {
       </vaadin-button>
 
       <vaadin-button
-        title="Edit Application Tags"
+        aria-label="Edit Application Tags"
         theme="icon"
         @click="${this.manage}"
         ?disabled="${this.readonly}"
       >
+        <vaadin-tooltip
+          slot="tooltip"
+          text="Edit Application Tags"
+        ></vaadin-tooltip>
         <vaadin-icon
           icon="vaadin:tags"
           style=${styleMap(editStyles)}
@@ -76,57 +89,74 @@ export class ServerControls extends LitElement {
       </vaadin-button>
 
       <vaadin-button
-        title="Manage Daemons"
+        aria-label="Manage Daemons"
         theme="icon"
         @click="${this.manageDaemons}"
         ?disabled="${this.readonly}"
       >
+        <vaadin-tooltip slot="tooltip" text="Manage Daemons"></vaadin-tooltip>
         <vaadin-icon
           icon="vaadin:cog"
           style=${styleMap(editStyles)}
         ></vaadin-icon>
       </vaadin-button>
 
-      ${this.envSet
-        ? html`<vaadin-button
-            title="Detach server"
-            theme="icon"
-            @click="${this.detachServer}"
-            ?disabled="${this.readonly}"
-          >
-            <vaadin-icon
-              icon="vaadin:unlink"
-              style=${styleMap(unlinkStyles)}
-            ></vaadin-icon>
-          </vaadin-button>`
-        : html``}
-
-      ${!this.envSet
-        ? html`<vaadin-button
-        title="Delete server"
-        theme="icon"
-        @click="${this.deleteServer}"
-        ?disabled="${this.readonly}"
-      >
-        <vaadin-icon
-          icon="icons:delete"
-          style=${styleMap(unlinkStyles)}
-        ></vaadin-icon>
-      </vaadin-button>`
-        : html``}
+      ${
+        this.envSet
+          ? html`<vaadin-button
+              aria-label="Detach server"
+              theme="icon"
+              @click="${this.detachServer}"
+              ?disabled="${this.readonly}"
+            >
+              <vaadin-tooltip
+                slot="tooltip"
+                text="Detach server"
+              ></vaadin-tooltip>
+              <vaadin-icon
+                icon="vaadin:unlink"
+                style=${styleMap(unlinkStyles)}
+              ></vaadin-icon>
+            </vaadin-button>`
+          : html``
+      }
+      ${
+        !this.envSet
+          ? html`<vaadin-button
+              aria-label="Delete server"
+              theme="icon"
+              @click="${this.deleteServer}"
+              ?disabled="${this.readonly}"
+            >
+              <vaadin-tooltip
+                slot="tooltip"
+                text="Delete server"
+              ></vaadin-tooltip>
+              <vaadin-icon
+                icon="icons:delete"
+                style=${styleMap(unlinkStyles)}
+              ></vaadin-icon>
+            </vaadin-button>`
+          : html``
+      }
     `;
   }
 
-  detachServer() {
-    const answer = confirm(`Detach server ${this.serverDetails?.Name}?`);
-    if (answer && this.serverDetails?.ServerId) {
-      const api = new RefDataEnvironmentsDetailsApi(dorcApiConfiguration);
+  async detachServer() {
+    // Snapshot before awaiting: this control sits in a recycled grid cell, so
+    // `this.serverDetails` can belong to a different row by the time the user
+    // answers.
+    const server = this.serverDetails;
+    const envId = this.envId;
+    const answer = await confirmPrompt(`Detach server ${server?.Name}?`);
+    if (answer && server?.ServerId) {
+      const api = new RefDataEnvironmentsDetailsApi();
       api
         .refDataEnvironmentsDetailsPut({
-          componentId: this.serverDetails?.ServerId,
+          componentId: server.ServerId,
           component: 'server',
           action: 'detach',
-          envId: this.envId
+          envId
         })
         .subscribe(() => {
           this.fireServerDetachedEvent();
@@ -134,24 +164,30 @@ export class ServerControls extends LitElement {
     }
   }
 
-  deleteServer() {
-    const answer = confirm(`Delete server ${this.serverDetails?.Name}?`);
-    if (answer && this.serverDetails?.ServerId) {
-      this.performDeleteServer(this.serverDetails.ServerId, false);
+  async deleteServer() {
+    // Snapshot before awaiting: this control sits in a recycled grid cell, so
+    // `this.serverDetails` can belong to a different row by the time the user
+    // answers — and with the daemon-detach path there are now two prompts and a
+    // network round trip between the question and the delete.
+    const server = this.serverDetails;
+    const answer = await confirmPrompt(`Delete server ${server?.Name}?`);
+    if (answer && server?.ServerId) {
+      this.performDeleteServer(server, false);
     }
   }
 
-  private performDeleteServer(serverId: number, confirmed: boolean) {
-    const api = new RefDataServersApi(dorcApiConfiguration);
+  private performDeleteServer(server: ServerApiModel, confirmed: boolean) {
+    const api = new RefDataServersApi();
     api
       .refDataServersDelete({
-        serverId,
+        serverId: server.ServerId as number,
         confirmed
       })
       .subscribe({
-        next: (result: ApiBoolResult) => {
+        next: async (result: ApiBoolResult) => {
           if (result.Result === true) {
-            const server = this.serverDetails;
+            // The snapshot, not a fresh read: the cell can be recycled during
+            // the network round trip, and the delete itself refreshes the grid.
             const event = new CustomEvent('server-deleted', {
               composed: true,
               bubbles: true,
@@ -167,11 +203,11 @@ export class ServerControls extends LitElement {
             !confirmed && result.RequiresConfirmation === true;
 
           if (isDaemonWarning) {
-            const confirmDetach = confirm(
+            const confirmDetach = await confirmPrompt(
               `${result.Message}\n\nDo you want to detach the daemon(s) and delete the server anyway?`
             );
             if (confirmDetach) {
-              this.performDeleteServer(serverId, true);
+              this.performDeleteServer(server, true);
             }
             return;
           }

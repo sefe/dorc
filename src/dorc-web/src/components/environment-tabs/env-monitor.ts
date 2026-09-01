@@ -1,4 +1,5 @@
-import type { Grid, GridItemModel } from '@vaadin/grid';
+import { columnBodyRenderer, columnHeaderRenderer } from '@vaadin/grid/lit';
+import type { Grid } from '@vaadin/grid';
 import '../dorc-spinner';
 import {
   GridDataProviderCallback,
@@ -13,7 +14,7 @@ import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid-sorter';
 import '@vaadin/icons/vaadin-icons';
 import '@vaadin/text-field';
-import { css, PropertyValueMap, render } from 'lit';
+import { css, PropertyValueMap } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import '../../components/grid-button-groups/request-controls';
@@ -33,7 +34,7 @@ import '../../components/connection-status-indicator';
 import {
   DeploymentHub,
   getReceiverRegister,
-  IDeploymentsEventsClient,
+  IDeploymentsEventsClient
 } from '../../services/ServerEvents';
 import { HubConnection, HubConnectionState } from '@microsoft/signalr';
 import { retrieveErrorMessage } from '../../helpers/errorMessage-retriever.js';
@@ -41,7 +42,7 @@ import type { PropertyValues } from 'lit';
 import type { PageLocation } from '../../helpers/page-element';
 import { PageEnvBase } from './page-env-base';
 import { ResponsiveMixin } from '../../helpers/responsive-mixin';
-import { dorcApiConfiguration } from '../../services/dorc-api-configuration';
+import '@vaadin/tooltip';
 
 const username = 'Username';
 const status = 'Status';
@@ -50,7 +51,10 @@ const details = 'Details';
 const id = 'Id';
 
 @customElement('env-monitor')
-export class EnvMonitor extends ResponsiveMixin(PageEnvBase) implements IDeploymentsEventsClient{
+export class EnvMonitor
+  extends ResponsiveMixin(PageEnvBase)
+  implements IDeploymentsEventsClient
+{
   @query('#grid') grid: Grid | undefined;
 
   // since grid is being refreshed with multiple requests (pages) in non-deterministic way,
@@ -65,7 +69,8 @@ export class EnvMonitor extends ResponsiveMixin(PageEnvBase) implements IDeploym
 
   @property({ type: Boolean }) autoRefresh = true;
 
-  @property({ type: String }) hubConnectionState: string | undefined = HubConnectionState.Disconnected;
+  @property({ type: String }) hubConnectionState: string | undefined =
+    HubConnectionState.Disconnected;
 
   @state() noResults = false;
 
@@ -75,13 +80,112 @@ export class EnvMonitor extends ResponsiveMixin(PageEnvBase) implements IDeploym
   // properties (e.g. hubConnectionState, autoRefresh) change. Vaadin's
   // headerRenderer is only invoked when the cell is first created, so Lit's
   // normal re-render cycle does not update the header automatically.
-  private _idHeaderRoot?: HTMLElement;
-
   userFilter: string = '';
   statusFilter: string = '';
   componentsFilter: string = '';
   idFilter: string = '';
   detailsFilter: string = '';
+
+  private monitorDataProvider = (
+    params: GridDataProviderParams<DeploymentRequestApiModel>,
+    callback: GridDataProviderCallback<DeploymentRequestApiModel>
+  ) => {
+    if (params.sortOrders !== undefined && params.sortOrders.length > 1) {
+      return;
+    }
+
+    if (this.environmentName) {
+      params.filters.push({
+        path: 'EnvironmentNameExact',
+        value: this.environmentName
+      });
+    }
+
+    if (this.detailsFilter !== '' && this.detailsFilter !== undefined) {
+      params.filters.push({ path: 'Project', value: this.detailsFilter });
+      params.filters.push({
+        path: 'BuildNumber',
+        value: this.detailsFilter
+      });
+    }
+
+    if (this.idFilter !== '' && this.idFilter !== undefined) {
+      params.filters.push({ path: 'Id', value: this.idFilter });
+    }
+
+    if (this.userFilter !== '' && this.userFilter !== undefined) {
+      params.filters.push({ path: 'UserName', value: this.userFilter });
+    }
+
+    if (this.statusFilter !== '' && this.statusFilter !== undefined) {
+      params.filters.push({ path: 'Status', value: this.statusFilter });
+    }
+
+    if (this.componentsFilter !== '' && this.componentsFilter !== undefined) {
+      params.filters.push({
+        path: 'Components',
+        value: this.componentsFilter
+      });
+    }
+    const api = new RequestStatusesApi();
+    api
+      .requestStatusesPut({
+        pagedDataOperators: {
+          Filters: params.filters.map(
+            (f: GridFilterDefinition): PagedDataFilter => ({
+              Path: f.path,
+              FilterValue: f.value
+            })
+          ),
+          SortOrders: params.sortOrders.map(
+            (s: GridSorterDefinition): PagedDataSorting => ({
+              Path: s.path,
+              Direction: s.direction?.toString()
+            })
+          )
+        },
+        limit: params.pageSize,
+        page: params.page + 1
+      })
+      .subscribe({
+        next: (data: GetRequestStatusesListResponseDto) => {
+          data.Items?.map(
+            item => (item.UserName = getShortLogonName(item.UserName))
+          );
+          callback(
+            data.Items ?? [],
+            Math.max(this.maxCountBeforeRefresh ?? 0, data.TotalItems ?? 0)
+          );
+
+          this.dispatchEvent(
+            new CustomEvent('searching-requests-finished', {
+              detail: data,
+              bubbles: true,
+              composed: true
+            })
+          );
+        },
+        error: (err: any) => {
+          const errMessage = retrieveErrorMessage(err);
+          const notification = new ErrorNotification();
+          notification.setAttribute('errorMessage', errMessage);
+          this.shadowRoot?.appendChild(notification);
+          notification.open();
+          console.error(errMessage, err);
+          callback([], 0);
+          this.dispatchEvent(
+            new CustomEvent('searching-requests-finished', {
+              detail: { TotalItems: 0 },
+              bubbles: true,
+              composed: true
+            })
+          );
+        },
+        complete: () => {
+          this.monitorRequestsLoaded();
+        }
+      });
+  };
 
   constructor() {
     super();
@@ -139,8 +243,10 @@ export class EnvMonitor extends ResponsiveMixin(PageEnvBase) implements IDeploym
 
   render() {
     return html`
-      <dorc-spinner ?hidden="${!this.isLoading && !this.isSearching}"></dorc-spinner>
-      
+      <dorc-spinner
+        ?hidden="${!this.isLoading && !this.isSearching}"
+      ></dorc-spinner>
+
       <vaadin-grid
         id="grid"
         column-reordering-allowed
@@ -148,141 +254,38 @@ export class EnvMonitor extends ResponsiveMixin(PageEnvBase) implements IDeploym
         .size=${200}
         theme="compact row-stripes no-row-borders no-border hover-highlight"
         @active-item-changed="${this.onRowClick}"
-        .dataProvider=${(
-          params: GridDataProviderParams<DeploymentRequestApiModel>,
-          callback: GridDataProviderCallback<DeploymentRequestApiModel>
-        ) => {
-        if (
-          params.sortOrders !== undefined &&
-          params.sortOrders.length > 1
-        ) {
-          return;
-        }
-
-        // Always filter by the current environment name
-        if (this.environmentName) {
-          params.filters.push({
-            path: 'EnvironmentNameExact',
-            value: this.environmentName
-          });
-        }
-
-        if (this.detailsFilter !== '' && this.detailsFilter !== undefined) {
-          params.filters.push({ path: 'Project', value: this.detailsFilter });
-          params.filters.push({
-            path: 'BuildNumber',
-            value: this.detailsFilter
-          });
-        }
-
-        if (this.idFilter !== '' && this.idFilter !== undefined) {
-          params.filters.push({ path: 'Id', value: this.idFilter });
-        }
-
-        if (this.userFilter !== '' && this.userFilter !== undefined) {
-          params.filters.push({ path: 'UserName', value: this.userFilter });
-        }
-
-        if (this.statusFilter !== '' && this.statusFilter !== undefined) {
-          params.filters.push({ path: 'Status', value: this.statusFilter });
-        }
-
-        if (
-          this.componentsFilter !== '' &&
-          this.componentsFilter !== undefined
-        ) {
-          params.filters.push({
-            path: 'Components',
-            value: this.componentsFilter
-          });
-        }
-        const api = new RequestStatusesApi(dorcApiConfiguration);
-        api
-          .requestStatusesPut({
-            pagedDataOperators: {
-              Filters: params.filters.map(
-                (f: GridFilterDefinition): PagedDataFilter => ({
-                  Path: f.path,
-                  FilterValue: f.value
-                })
-              ),
-              SortOrders: params.sortOrders.map(
-                (s: GridSorterDefinition): PagedDataSorting => ({
-                  Path: s.path,
-                  Direction: s.direction?.toString()
-                })
-              )
-            },
-            limit: params.pageSize,
-            page: params.page + 1
-          })
-          .subscribe({
-            next: (data: GetRequestStatusesListResponseDto) => {
-              data.Items?.map(
-                item => (item.UserName = getShortLogonName(item.UserName))
-              );
-              callback(data.Items ?? [], Math.max(this.maxCountBeforeRefresh ?? 0, data.TotalItems ?? 0));
-
-              this.dispatchEvent(
-                new CustomEvent('searching-requests-finished', {
-                  detail: data,
-                  bubbles: true,
-                  composed: true
-                })
-              );
-            },
-            error: (err: any) => {
-              const errMessage = retrieveErrorMessage(err);
-              const notification = new ErrorNotification();
-              notification.setAttribute(
-                'errorMessage',
-                errMessage
-              );
-              this.shadowRoot?.appendChild(notification);
-              notification.open();
-              console.error(errMessage, err);
-              callback([], 0);
-              this.dispatchEvent(
-                new CustomEvent('searching-requests-finished', {
-                  detail: { TotalItems: 0 },
-                  bubbles: true,
-                  composed: true
-                })
-              );
-            },
-            complete: () => {
-              this.monitorRequestsLoaded();
-            }
-          });
-  }}
+        .dataProvider=${this.monitorDataProvider}
         style="z-index: 1"
       >
         <vaadin-grid-column
           path="Id"
           resizable
           auto-width
-          .headerRenderer="${this.idHeaderRenderer}"
-          .renderer="${this.idRenderer}"
+          ${columnHeaderRenderer(this.idHeaderRenderer, [
+            this.hubConnectionState,
+            this.autoRefresh
+          ])}
+          ${columnBodyRenderer(this.idRenderer, [])}
         ></vaadin-grid-column>
         <vaadin-grid-column
           header="Details"
           resizable
           auto-width
-          .headerRenderer="${this.detailsHeaderRenderer}"
-          .renderer="${this.detailsRenderer}"
+          ${columnHeaderRenderer(this.detailsHeaderRenderer, [])}
+          ${columnBodyRenderer(this.detailsRenderer, [])}
         >
         </vaadin-grid-column>
         <vaadin-grid-column
           resizable
-          .renderer="${this.timingsRenderer}"
+          ${columnBodyRenderer(this.timingsRenderer, [])}
           header="Timings"
           auto-width
           ?hidden="${this._narrowScreen}"
         ></vaadin-grid-column>
         <vaadin-grid-column
           header="User"
-          .headerRenderer="${this.usersHeaderRenderer}"
-          .renderer="${this.usernameRenderer}"
+          ${columnHeaderRenderer(this.usersHeaderRenderer, [])}
+          ${columnBodyRenderer(this.usernameRenderer, [])}
           resizable
           auto-width
           ?hidden="${this._narrowScreen}"
@@ -291,21 +294,21 @@ export class EnvMonitor extends ResponsiveMixin(PageEnvBase) implements IDeploym
         <vaadin-grid-column
           path="Status"
           header="Status"
-          .headerRenderer="${this.statusHeaderRenderer}"
+          ${columnHeaderRenderer(this.statusHeaderRenderer, [])}
           resizable
           auto-width
         >
         </vaadin-grid-column>
         <vaadin-grid-column
-          .renderer="${this._requestControlsRenderer}"
+          ${columnBodyRenderer(this._requestControlsRenderer, [])}
           resizable
           width="100px"
         >
         </vaadin-grid-column>
         <vaadin-grid-column
           header="Components"
-          .headerRenderer="${this.componentsHeaderRenderer}"
-          .renderer="${this.componentsRenderer}"
+          ${columnHeaderRenderer(this.componentsHeaderRenderer, [])}
+          ${columnBodyRenderer(this.componentsRenderer, [])}
           resizable
           auto-width
           ?hidden="${this._narrowScreen}"
@@ -323,9 +326,9 @@ export class EnvMonitor extends ResponsiveMixin(PageEnvBase) implements IDeploym
   }
 
   protected async firstUpdated(
-  _changedProperties: PropertyValues
+    _changedProperties: PropertyValues
   ): Promise<void> {
-      super.firstUpdated(_changedProperties);
+    super.firstUpdated(_changedProperties);
 
     // Initialize SignalR connection for real-time updates
     await this.initializeSignalR();
@@ -351,17 +354,11 @@ export class EnvMonitor extends ResponsiveMixin(PageEnvBase) implements IDeploym
 
   updated(changed: PropertyValueMap<any>) {
     super.updated(changed);
-    if (changed.has('hubConnectionState') || changed.has('autoRefresh')) {
-      if (this._idHeaderRoot) {
-        // Re-render header to reflect state changes
-        this.idHeaderRenderer(this._idHeaderRoot);
-      }
-    }
   }
 
-   // Router lifecycle: feed location to PageElement -> html-meta-manager updates title/description
+  // Router lifecycle: feed location to PageElement -> html-meta-manager updates title/description
   public onAfterEnter(location: PageLocation) {
-  this.location = location;
+    this.location = location;
   }
 
   connectedCallback(): void {
@@ -373,7 +370,7 @@ export class EnvMonitor extends ResponsiveMixin(PageEnvBase) implements IDeploym
     super.disconnectedCallback();
     this.removeEventListener('keydown', this._onHostKeyDown);
     if (this.hubConnection) {
-      this.hubConnection.stop().catch((err) => {
+      this.hubConnection.stop().catch(err => {
         console.error('Error stopping SignalR connection:', err);
       });
     }
@@ -382,8 +379,10 @@ export class EnvMonitor extends ResponsiveMixin(PageEnvBase) implements IDeploym
   private async initializeSignalR() {
     this.hubConnection = DeploymentHub.getConnection();
 
-    getReceiverRegister('IDeploymentsEventsClient')
-      .register(this.hubConnection, this);
+    getReceiverRegister('IDeploymentsEventsClient').register(
+      this.hubConnection,
+      this
+    );
 
     this.hubConnection.onclose(async () => {
       this.hubConnectionState = this.hubConnection?.state;
@@ -394,14 +393,17 @@ export class EnvMonitor extends ResponsiveMixin(PageEnvBase) implements IDeploym
     this.hubConnection.onreconnected(() => {
       this.hubConnectionState = this.hubConnection?.state;
     });
-    
+
     if (this.hubConnection.state === HubConnectionState.Disconnected) {
-      await this.hubConnection.start().then(() => {
-        this.hubConnectionState = this.hubConnection?.state;
-      }).catch((err) => {
-        console.error('Error starting SignalR connection:', err);
-        this.hubConnectionState = err.toString();
-      });
+      await this.hubConnection
+        .start()
+        .then(() => {
+          this.hubConnectionState = this.hubConnection?.state;
+        })
+        .catch(err => {
+          console.error('Error starting SignalR connection:', err);
+          this.hubConnectionState = err.toString();
+        });
     }
   }
 
@@ -507,61 +509,51 @@ export class EnvMonitor extends ResponsiveMixin(PageEnvBase) implements IDeploym
     });
   }
 
-  private componentsRenderer(root: HTMLElement,
-    _: HTMLElement,
-    model: GridItemModel<DeploymentRequestApiModel>) {
-
-    const request = model.item as DeploymentRequestApiModel;
+  private componentsRenderer(item: DeploymentRequestApiModel) {
+    const request = item as DeploymentRequestApiModel;
     const elements = request.Components?.split('|');
 
-    render(html`
+    return html`
       <vaadin-vertical-layout>
         ${elements?.map(
-      element => html`<div style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);">${element}</div>`
-    )}
-      </vaadin-vertical-layout>
-    `, root);
-
-  }
-
-  private usernameRenderer(root: HTMLElement,
-    _: HTMLElement,
-    model: GridItemModel<DeploymentRequestApiModel>) {
-    const request = model.item as DeploymentRequestApiModel;
-    render(html`
-      <div style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);">${request.UserName}</div>`, root);
-
-  }
-
-  private detailsRenderer = (
-    root: HTMLElement,
-    _: HTMLElement,
-    model: GridItemModel<DeploymentRequestApiModel>
-  ) => {
-    const request = model.item;
-    render(
-      html`
-        <vaadin-horizontal-layout style="align-items: center;" theme="spacing">
-          <vaadin-vertical-layout>
-            <div>${request.Project} - ${request.EnvironmentName}</div>
-            <div
+          element =>
+            html`<div
               style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
             >
-              ${request.BuildNumber}
-            </div>
-          </vaadin-vertical-layout>
-        </vaadin-horizontal-layout>
-      `,
-      root
-    );
+              ${element}
+            </div>`
+        )}
+      </vaadin-vertical-layout>
+    `;
+  }
+
+  private usernameRenderer(item: DeploymentRequestApiModel) {
+    const request = item as DeploymentRequestApiModel;
+    return html` <div
+      style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
+    >
+      ${request.UserName}
+    </div>`;
+  }
+
+  private detailsRenderer = (item: DeploymentRequestApiModel) => {
+    const request = item;
+    return html`
+      <vaadin-horizontal-layout style="align-items: center;" theme="spacing">
+        <vaadin-vertical-layout>
+          <div>${request.Project} - ${request.EnvironmentName}</div>
+          <div
+            style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
+          >
+            ${request.BuildNumber}
+          </div>
+        </vaadin-vertical-layout>
+      </vaadin-horizontal-layout>
+    `;
   };
 
-  private timingsRenderer = (
-    root: HTMLElement,
-    _: HTMLElement,
-    model: GridItemModel<DeploymentRequestApiModel>
-  ) => {
-    const request = model.item as DeploymentRequestApiModel;
+  private timingsRenderer = (item: DeploymentRequestApiModel) => {
+    const request = item as DeploymentRequestApiModel;
     let sTime = '';
     let sDate = '';
     let cTime = '';
@@ -589,33 +581,33 @@ export class EnvMonitor extends ResponsiveMixin(PageEnvBase) implements IDeploym
       );
     }
 
-    render(
-      html`
-        <vaadin-horizontal-layout style="align-items: center;" theme="spacing">
-          <vaadin-vertical-layout
-            style="line-height: var(--lumo-line-height-s);"
+    return html`
+      <vaadin-horizontal-layout style="align-items: center;" theme="spacing">
+        <vaadin-vertical-layout style="line-height: var(--lumo-line-height-s);">
+          <div
+            style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
           >
-            <div style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);">${`${sDate} ${sTime}`}</div>
-            <div style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);">${`${cDate} ${cTime}`}</div>
-          </vaadin-vertical-layout>
-        </vaadin-horizontal-layout>
-      `,
-      root
-    );
+            ${`${sDate} ${sTime}`}
+          </div>
+          <div
+            style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
+          >
+            ${`${cDate} ${cTime}`}
+          </div>
+        </vaadin-vertical-layout>
+      </vaadin-horizontal-layout>
+    `;
   };
 
-  private idRenderer = (
-    root: HTMLElement,
-    _: HTMLElement,
-    model: GridItemModel<DeploymentRequestApiModel>
-  ) => {
-    const request = model.item;
-    render(
-      html`
-        <span style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"> ${request.Id} </span>
-      `,
-      root
-    );
+  private idRenderer = (item: DeploymentRequestApiModel) => {
+    const request = item;
+    return html`
+      <span
+        style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
+      >
+        ${request.Id}
+      </span>
+    `;
   };
 
   private onRowClick = (e: CustomEvent) => {
@@ -646,95 +638,97 @@ export class EnvMonitor extends ResponsiveMixin(PageEnvBase) implements IDeploym
     const grid = this.shadowRoot?.getElementById('grid') as Grid | null;
     if (!grid || grid.hasAttribute('interacting')) return;
 
-    const row = e.composedPath().find(
-      (el): el is HTMLElement =>
-        el instanceof HTMLElement &&
-        el.localName === 'tr' &&
-        el.getAttribute('role') === 'row'
-    );
+    const row = e
+      .composedPath()
+      .find(
+        (el): el is HTMLElement =>
+          el instanceof HTMLElement &&
+          el.localName === 'tr' &&
+          el.getAttribute('role') === 'row'
+      );
     if (!row) return;
 
-    const item = (row as unknown as { _item?: DeploymentRequestApiModel })._item;
+    const item = (row as unknown as { _item?: DeploymentRequestApiModel })
+      ._item;
     if (!item) return;
 
     e.preventDefault();
     grid.activeItem = item;
   };
 
-  _requestControlsRenderer(
-    root: HTMLElement,
-    _: HTMLElement,
-    { item }: GridItemModel<DeploymentRequestApiModel>
-  ) {
-    render(
-      html` <request-controls
-        .requestId=${item.Id ?? 0}
-        .cancelable=${!!item.UserEditable &&
+  _requestControlsRenderer(item: DeploymentRequestApiModel) {
+    return html` <request-controls
+      .requestId=${item.Id ?? 0}
+      .cancelable=${
+        !!item.UserEditable &&
         (item.Status === 'Running' ||
           item.Status === 'Requesting' ||
           item.Status === 'Pending' ||
-          item.Status === 'Restarting')}
-        .canRestart=${!!item.UserEditable && item.Status !== 'Pending'}
-      ></request-controls>`,
-      root
-    );
+          item.Status === 'Restarting')
+      }
+      .canRestart=${!!item.UserEditable && item.Status !== 'Pending'}
+    ></request-controls>`;
   }
 
-  idHeaderRenderer = (root: HTMLElement) => {
-  // Store root for future manual re-renders
-  this._idHeaderRoot = root;
-    render(
-      html`
-      <vaadin-horizontal-layout style="align-items:center; gap:2px;" theme="spacing-xs">
-        <connection-status-indicator
-          mode="toggle"
-          .state="${this.hubConnectionState}"
-          .autoRefresh="${this.autoRefresh}"
-          @toggle-auto-refresh="${() => {
-            this.autoRefresh = !this.autoRefresh;
-            if (this.autoRefresh) {
-              this.refreshGrid();
-            }
-            this.idHeaderRenderer(root);
-          }}"
-        ></connection-status-indicator>
+  idHeaderRenderer = () => html`
+    <vaadin-horizontal-layout
+      style="align-items:center; gap:2px;"
+      theme="spacing-xs"
+    >
+      <connection-status-indicator
+        mode="toggle"
+        .state="${this.hubConnectionState}"
+        .autoRefresh="${this.autoRefresh}"
+        @toggle-auto-refresh="${() => {
+          this.autoRefresh = !this.autoRefresh;
+          if (this.autoRefresh) {
+            this.refreshGrid();
+          }
+        }}"
+      ></connection-status-indicator>
 
-        ${!this.autoRefresh
+      ${
+        !this.autoRefresh
           ? html`
-          <vaadin-button
-            theme="icon small"
-            style="padding:0;margin:0"
-            title="Manual refresh"
-            @click="${() => {
-              const event = new CustomEvent('refresh-requests', {
-                detail: {},
-                bubbles: true,
-                composed: true
-              });
-              this.dispatchEvent(event);
-            }}"
-          >
-            <vaadin-icon
-            icon="icons:refresh"
-            style="color: cornflowerblue"
-            ></vaadin-icon>
-          </vaadin-button>
-          `
-          : null}
+              <vaadin-button
+                theme="icon small"
+                style="padding:0;margin:0"
+                aria-label="Manual refresh"
+                @click="${() => {
+                    const event = new CustomEvent('refresh-requests', {
+                      detail: {},
+                      bubbles: true,
+                      composed: true
+                    });
+                    this.dispatchEvent(event);
+                  }}"
+              >
+                <vaadin-tooltip
+                  slot="tooltip"
+                  text="Manual refresh"
+                ></vaadin-tooltip>
+                <vaadin-icon
+                  icon="icons:refresh"
+                  style="color: cornflowerblue"
+                ></vaadin-icon>
+              </vaadin-button>
+            `
+          : null
+      }
 
-        <vaadin-grid-sorter
-          path="Id"
-          direction="desc"
-          style="align-items: normal"
-        ></vaadin-grid-sorter>
+      <vaadin-grid-sorter
+        path="Id"
+        direction="desc"
+        style="align-items: normal"
+      ></vaadin-grid-sorter>
 
-        <vaadin-text-field
-          placeholder="Id"
-          clear-button-visible
-          focus-target
-          style="width: 100px"
-          theme="small"
-          @input="${(e: InputEvent) => {
+      <vaadin-text-field
+        placeholder="Id"
+        clear-button-visible
+        focus-target
+        style="width: 100px"
+        theme="small"
+        @input="${(e: InputEvent) => {
           const textField = e.target as any;
           this.dispatchEvent(
             new CustomEvent('searching-requests-started', {
@@ -747,24 +741,20 @@ export class EnvMonitor extends ResponsiveMixin(PageEnvBase) implements IDeploym
             })
           );
         }}"
-        ></vaadin-text-field>
-      </vaadin-horizontal-layout>
-      `,
-      root
-    );
-  }
+      ></vaadin-text-field>
+    </vaadin-horizontal-layout>
+  `;
 
-  detailsHeaderRenderer = (root: HTMLElement) => {
-    render(
-      html`
-        <vaadin-text-field
-          placeholder="Project / Build"
-          title="Project starts with the entered text, or Build contains it"
-          clear-button-visible
-          focus-target
-          style="width: 110px"
-          theme="small"
-          @input="${(e: InputEvent) => {
+  detailsHeaderRenderer = () => {
+    return html`
+      <vaadin-text-field
+        placeholder="Project / Build"
+        title="Project starts with the entered text, or Build contains it"
+        clear-button-visible
+        focus-target
+        style="width: 110px"
+        theme="small"
+        @input="${(e: InputEvent) => {
           const textField = e.target as any;
           this.dispatchEvent(
             new CustomEvent('searching-requests-started', {
@@ -777,22 +767,19 @@ export class EnvMonitor extends ResponsiveMixin(PageEnvBase) implements IDeploym
             })
           );
         }}"
-        ></vaadin-text-field>
-      `,
-      root
-    );
-  }
+      ></vaadin-text-field>
+    `;
+  };
 
-  usersHeaderRenderer = (root: HTMLElement) => {
-    render(
-      html`
-        <vaadin-text-field
-          placeholder="Username"
-          clear-button-visible
-          focus-target
-          style="width: 100px"
-          theme="small"
-          @input="${(e: InputEvent) => {
+  usersHeaderRenderer = () => {
+    return html`
+      <vaadin-text-field
+        placeholder="Username"
+        clear-button-visible
+        focus-target
+        style="width: 100px"
+        theme="small"
+        @input="${(e: InputEvent) => {
           const textField = e.target as any;
 
           this.dispatchEvent(
@@ -806,22 +793,19 @@ export class EnvMonitor extends ResponsiveMixin(PageEnvBase) implements IDeploym
             })
           );
         }}"
-        ></vaadin-text-field>
-      `,
-      root
-    );
-  }
+      ></vaadin-text-field>
+    `;
+  };
 
-  statusHeaderRenderer = (root: HTMLElement) => {
-    render(
-      html`
-        <vaadin-text-field
-          placeholder="Status"
-          clear-button-visible
-          focus-target
-          style="width: 100px"
-          theme="small"
-          @input="${(e: InputEvent) => {
+  statusHeaderRenderer = () => {
+    return html`
+      <vaadin-text-field
+        placeholder="Status"
+        clear-button-visible
+        focus-target
+        style="width: 100px"
+        theme="small"
+        @input="${(e: InputEvent) => {
           const textField = e.target as any;
 
           this.dispatchEvent(
@@ -835,22 +819,19 @@ export class EnvMonitor extends ResponsiveMixin(PageEnvBase) implements IDeploym
             })
           );
         }}"
-        ></vaadin-text-field>
-      `,
-      root
-    );
-  }
+      ></vaadin-text-field>
+    `;
+  };
 
-  componentsHeaderRenderer = (root: HTMLElement) => {
-    render(
-      html`
-        <vaadin-text-field
-          placeholder="Components"
-          clear-button-visible
-          focus-target
-          style="width: 110px"
-          theme="small"
-          @input="${(e: InputEvent) => {
+  componentsHeaderRenderer = () => {
+    return html`
+      <vaadin-text-field
+        placeholder="Components"
+        clear-button-visible
+        focus-target
+        style="width: 110px"
+        theme="small"
+        @input="${(e: InputEvent) => {
           const textField = e.target as any;
           this.dispatchEvent(
             new CustomEvent('searching-requests-started', {
@@ -863,9 +844,7 @@ export class EnvMonitor extends ResponsiveMixin(PageEnvBase) implements IDeploym
             })
           );
         }}"
-        ></vaadin-text-field>
-      `,
-      root
-    );
-  }
+      ></vaadin-text-field>
+    `;
+  };
 }

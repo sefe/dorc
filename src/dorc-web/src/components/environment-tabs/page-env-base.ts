@@ -15,50 +15,50 @@ import '../notifications/error-notification';
 import { EnvironmentContentBuildsApiModelExtended } from '../model-extensions/EnvironmentContentBuildsApiModelExtended';
 import { dorcApiConfiguration } from '../../services/dorc-api-configuration';
 
-let _envContent: EnvironmentContentApiModel | undefined;
-let _environment: EnvironmentApiModel;
-
 @customElement('page-env-base')
 export class PageEnvBase extends LitElement {
-  @property({ type: Boolean }) protected envLoaded = false;
+  private _envContent: EnvironmentContentApiModel | undefined;
+  private _environment: EnvironmentApiModel | undefined;
 
-  @property({ type: Boolean }) protected slotLoaded = false;
+  @property({ type: Boolean }) envLoaded = false;
 
-  @property({ type: Boolean }) protected envNotFound = false;
+  @property({ type: Boolean }) slotLoaded = false;
 
-  @property({ type: String }) protected envNotFoundMessage = '';
+  @property({ type: Boolean }) envNotFound = false;
+
+  @property({ type: String }) envNotFoundMessage = '';
 
   protected environmentName = '';
 
   @property({ type: Object })
-  protected get environment(): EnvironmentApiModel {
-    return _environment;
+  get environment(): EnvironmentApiModel | undefined {
+    return this._environment;
   }
 
-  protected set environment(value: EnvironmentApiModel) {
-    const oldValue = _environment;
-    _environment = value;
+  set environment(value: EnvironmentApiModel | undefined) {
+    const oldValue = this._environment;
+    this._environment = value;
     this.notifyEnvironmentReady();
     this.requestUpdate('environment', oldValue);
   }
 
   @property({ type: Object })
-  protected get envContent(): EnvironmentContentApiModel | undefined {
-    return <EnvironmentContentApiModel>_envContent;
+  get envContent(): EnvironmentContentApiModel | undefined {
+    return this._envContent;
   }
 
-  protected set envContent(value: EnvironmentContentApiModel | undefined) {
-    const oldValue = _envContent;
-    _envContent = value;
+  set envContent(value: EnvironmentContentApiModel | undefined) {
+    const oldValue = this._envContent;
+    this._envContent = value;
     this.notifyEnvironmentContentReady();
     this.requestUpdate('envContent', oldValue);
   }
 
-  @property({ type: String }) protected envFilter: string | undefined;
+  @property({ type: String }) envFilter: string | undefined;
 
-  @property({ type: Boolean }) protected isEndur = false;
+  @property({ type: Boolean }) isEndur = false;
 
-  @property({ type: Number }) protected environmentId = -1;
+  @property({ type: Number }) environmentId = -1;
 
   public loadEnvironmentInfo() {
     const envName = location.pathname.split('/')[2];

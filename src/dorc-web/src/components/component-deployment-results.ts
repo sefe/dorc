@@ -1,11 +1,9 @@
-import '@polymer/paper-dialog';
+import { columnBodyRenderer } from '@vaadin/grid/lit';
 import '@vaadin/button';
 import '@vaadin/grid';
-import { GridItemModel } from '@vaadin/grid';
 import '@vaadin/grid/vaadin-grid-column';
-import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
 import '@vaadin/grid/vaadin-grid-sort-column';
-import { css, LitElement, render } from 'lit';
+import { LitElement, css } from 'lit';
 import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
@@ -17,7 +15,6 @@ import './terraform-plan-dialog';
 import { DeploymentResultApiModel, ResultStatusesApi } from '../apis/dorc-api';
 import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
-import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('component-deployment-results')
 export class ComponentDeploymentResults extends ResponsiveMixin(LitElement) {
@@ -49,7 +46,10 @@ export class ComponentDeploymentResults extends ResponsiveMixin(LitElement) {
       this.logDialogClosed as EventListener
     );
 
-    this.addEventListener('open-terraform-plan', this.viewTerraformPlan as EventListener);
+    this.addEventListener(
+      'open-terraform-plan',
+      this.viewTerraformPlan as EventListener
+    );
 
     this.addEventListener(
       'terraform-plan-confirmed',
@@ -69,6 +69,12 @@ export class ComponentDeploymentResults extends ResponsiveMixin(LitElement) {
 
   static get styles() {
     return css`
+      :host {
+        display: block;
+        min-width: 0;
+        overflow-x: auto;
+      }
+
       vaadin-grid#grid {
         overflow: auto;
         width: calc(100% - 4px);
@@ -160,26 +166,26 @@ export class ComponentDeploymentResults extends ResponsiveMixin(LitElement) {
         .items="${this.resultItems}"
       >
         <vaadin-grid-column
-          .renderer="${this.componentNameRenderer}"
+          ${columnBodyRenderer(this.componentNameRenderer, [])}
           header="Component Name"
           resizable
           auto-width
         ></vaadin-grid-column>
         <vaadin-grid-column
           resizable
-          .renderer="${this.timingsRenderer}"
+          ${columnBodyRenderer(this.timingsRenderer, [])}
           header="Timings"
           auto-width
           ?hidden="${this._narrowScreen}"
         ></vaadin-grid-column>
         <vaadin-grid-column
-          .renderer="${this.statusRenderer}"
+          ${columnBodyRenderer(this.statusRenderer, [])}
           header="Status"
           resizable
           auto-width
         ></vaadin-grid-column>
         <vaadin-grid-column
-          .renderer="${this.actionsRenderer}"
+          ${columnBodyRenderer(this.actionsRenderer, [])}
           header="Actions"
           resizable
           auto-width
@@ -189,92 +195,89 @@ export class ComponentDeploymentResults extends ResponsiveMixin(LitElement) {
           header="Log"
           resizable
           auto-width
-          .renderer="${this._logRenderer}"
+          ${columnBodyRenderer(this._logRenderer, [])}
           ?hidden="${this._narrowScreen}"
         ></vaadin-grid-column>
       </vaadin-grid>
     `;
   }
 
-  componentNameRenderer(    root: HTMLElement,
-                            _column: GridColumn,
-                            model: GridItemModel<DeploymentResultApiModel>){
-
-    const result = model.item as DeploymentResultApiModel;
-    render(html` <a href="scripts?search-name=${result.ComponentName}" target="_blank">${result.ComponentName}</a> `, root);
+  componentNameRenderer(item: DeploymentResultApiModel) {
+    const result = item as DeploymentResultApiModel;
+    return html`
+      <a href="scripts?search-name=${result.ComponentName}" target="_blank"
+        >${result.ComponentName}</a
+      >
+    `;
   }
 
-  _logRenderer(
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<DeploymentResultApiModel>
-  ) {
-    const result = model.item as DeploymentResultApiModel;
+  _logRenderer(item: DeploymentResultApiModel) {
+    const result = item as DeploymentResultApiModel;
     const first100chars = result.Log?.substring(0, 100);
 
     const lines = first100chars?.split(/\r?\n/);
-    render(
-      html` <table>
-        <tr>
-          <td>
-            <vaadin-button
-              theme="small"
-              style="width: 36px; min-width: 36px; padding: 0"
-              @click="${() =>
-                this.dispatchEvent(
-                  new CustomEvent('open-result-log', {
-                    detail: {
-                      result
-                    },
-                    bubbles: true,
-                    composed: true
-                  })
-                )}"
-            >
-              <vaadin-icon
-                icon="vaadin:file-text-o"
-                style="color: var(--dorc-link-color)"
-              ></vaadin-icon>
-            </vaadin-button>
-          </td>
-          <td>
-            <div style="font-family: monospace">
-              ${lines?.map(
-                element =>
-                  html`<div
-                    style="font-size: var(--lumo-font-size-xs); color: var(--lumo-secondary-text-color);"
-                  >
-                    ${element}
-                  </div>`
-              )}
-            </div>
-          </td>
-        </tr>
-      </table>`,
-      root
-    );
+    return html` <table>
+      <tr>
+        <td>
+          <vaadin-button
+            theme="small"
+            style="width: 36px; min-width: 36px; padding: 0"
+            @click="${() =>
+              this.dispatchEvent(
+                new CustomEvent('open-result-log', {
+                  detail: {
+                    result
+                  },
+                  bubbles: true,
+                  composed: true
+                })
+              )}"
+          >
+            <vaadin-icon
+              icon="vaadin:file-text-o"
+              style="color: var(--dorc-link-color)"
+            ></vaadin-icon>
+          </vaadin-button>
+        </td>
+        <td>
+          <div style="font-family: monospace">
+            ${lines?.map(
+              element =>
+                html`<div
+                  style="font-size: var(--lumo-font-size-xs); color: var(--lumo-secondary-text-color);"
+                >
+                  ${element}
+                </div>`
+            )}
+          </div>
+        </td>
+      </tr>
+    </table>`;
   }
 
   private async viewLog(e: Event) {
     const customEvent = e as CustomEvent;
     const result = customEvent.detail.result as DeploymentResultApiModel;
-    
+
     // Show dialog immediately with loading state
     this.isLoadingLog = true;
     this.selectedLog = '';
     this.dialogOpened = true;
-    
+
     if (result.RequestId) {
       try {
-        const api = new ResultStatusesApi(dorcApiConfiguration);
-        const logObservable = api.resultStatusesLogGet({ requestId: result.RequestId, resultId: result.Id });
-        
+        const api = new ResultStatusesApi();
+        const logObservable = api.resultStatusesLogGet({
+          requestId: result.RequestId,
+          resultId: result.Id
+        });
+
         logObservable.subscribe({
           next: (fullLog: string) => {
             this.selectedLog = fullLog;
             this.isLoadingLog = false;
           },
-          error: (error) => {
+          error: error => {
             console.error('Failed to fetch log:', error);
             // Fallback to the existing log if API call fails
             this.selectedLog = result.Log ?? 'Failed to load full log';
@@ -299,12 +302,8 @@ export class ComponentDeploymentResults extends ResponsiveMixin(LitElement) {
     this.isLoadingLog = false;
   }
 
-  private timingsRenderer = (
-    root: HTMLElement,
-    _: HTMLElement,
-    model: GridItemModel<DeploymentResultApiModel>
-  ) => {
-    const request = model.item as DeploymentResultApiModel;
+  private timingsRenderer = (item: DeploymentResultApiModel) => {
+    const request = item as DeploymentResultApiModel;
     let sTime = '';
     let sDate = '';
     let cTime = '';
@@ -332,37 +331,28 @@ export class ComponentDeploymentResults extends ResponsiveMixin(LitElement) {
       );
     }
 
-    render(
-      html`
-        <vaadin-horizontal-layout style="align-items: center;" theme="spacing">
-          <vaadin-vertical-layout
-            style="line-height: var(--lumo-line-height-s);"
+    return html`
+      <vaadin-horizontal-layout style="align-items: center;" theme="spacing">
+        <vaadin-vertical-layout style="line-height: var(--lumo-line-height-s);">
+          <div
+            style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
           >
-            <div
-              style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
-            >
-              ${`${sDate} ${sTime}`}
-            </div>
-            <div
-              style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
-            >
-              ${`${cDate} ${cTime}`}
-            </div>
-          </vaadin-vertical-layout>
-        </vaadin-horizontal-layout>
-      `,
-      root
-    );
+            ${`${sDate} ${sTime}`}
+          </div>
+          <div
+            style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
+          >
+            ${`${cDate} ${cTime}`}
+          </div>
+        </vaadin-vertical-layout>
+      </vaadin-horizontal-layout>
+    `;
   };
 
-  statusRenderer = (
-    root: HTMLElement,
-    _: HTMLElement,
-    model: GridItemModel<DeploymentResultApiModel>
-  ) => {
-    const result = model.item as DeploymentResultApiModel;
+  statusRenderer = (item: DeploymentResultApiModel) => {
+    const result = item as DeploymentResultApiModel;
     const status = result.Status || '';
-    
+
     let statusClass = '';
     if (status === 'WaitingConfirmation') {
       statusClass = 'status-waiting-confirmation';
@@ -374,46 +364,30 @@ export class ComponentDeploymentResults extends ResponsiveMixin(LitElement) {
       statusClass = 'status-failed';
     }
 
-    render(
-      html`
-        <span class="status-badge ${statusClass}">
-          ${status}
-        </span>
-      `,
-      root
-    );
+    return html` <span class="status-badge ${statusClass}"> ${status} </span> `;
   };
 
-  actionsRenderer = (
-    root: HTMLElement,
-    _: HTMLElement,
-    model: GridItemModel<DeploymentResultApiModel>
-  ) => {
-    const result = model.item as DeploymentResultApiModel;
+  actionsRenderer = (item: DeploymentResultApiModel) => {
+    const result = item as DeploymentResultApiModel;
     const status = result.Status || '';
-    const isTerraformStatus = status === 'WaitingConfirmation' || status === 'Confirmed';
+    const isTerraformStatus =
+      status === 'WaitingConfirmation' || status === 'Confirmed';
 
     if (!isTerraformStatus) {
-      render(html`<span>-</span>`, root);
-      return;
+      return html`<span>-</span>`;
     }
 
-    render(
-      html`
-        <div class="terraform-actions">
-          <vaadin-button
-            class="terraform-button"
-            @click="${() => this.openTerraformPlan(result.Id!)}"
-            title="View Terraform Plan"
-          >
-            <vaadin-icon
-            icon="vaadin:file-text"
-            ></vaadin-icon>
-          </vaadin-button>
-        </div>
-      `,
-      root
-    );
+    return html`
+      <div class="terraform-actions">
+        <vaadin-button
+          class="terraform-button"
+          @click="${() => this.openTerraformPlan(result.Id!)}"
+          title="View Terraform Plan"
+        >
+          <vaadin-icon icon="vaadin:file-text"></vaadin-icon>
+        </vaadin-button>
+      </div>
+    `;
   };
 
   private viewTerraformPlan(e: CustomEvent) {
@@ -440,10 +414,12 @@ export class ComponentDeploymentResults extends ResponsiveMixin(LitElement) {
 
   private onTerraformPlanConfirmed(e: CustomEvent) {
     const deploymentResultId = e.detail.deploymentResultId as number;
-    
+
     // Update the status of the corresponding item in the grid
     if (this.resultItems) {
-      const item = this.resultItems.find(item => item.Id === deploymentResultId);
+      const item = this.resultItems.find(
+        item => item.Id === deploymentResultId
+      );
       if (item) {
         item.Status = 'Confirmed';
         this.requestUpdate(); // Force re-render of the grid
@@ -451,22 +427,26 @@ export class ComponentDeploymentResults extends ResponsiveMixin(LitElement) {
     }
 
     // Dispatch event to notify parent components
-    this.dispatchEvent(new CustomEvent('deployment-status-changed', {
-      detail: { 
-        deploymentResultId,
-        newStatus: 'Confirmed'
-      },
-      bubbles: true,
-      composed: true
-    }));
+    this.dispatchEvent(
+      new CustomEvent('deployment-status-changed', {
+        detail: {
+          deploymentResultId,
+          newStatus: 'Confirmed'
+        },
+        bubbles: true,
+        composed: true
+      })
+    );
   }
 
   private onTerraformPlanDeclined(e: CustomEvent) {
     const deploymentResultId = e.detail.deploymentResultId as number;
-    
+
     // Update the status of the corresponding item in the grid
     if (this.resultItems) {
-      const item = this.resultItems.find(item => item.Id === deploymentResultId);
+      const item = this.resultItems.find(
+        item => item.Id === deploymentResultId
+      );
       if (item) {
         item.Status = 'Cancelled';
         this.requestUpdate(); // Force re-render of the grid
@@ -474,13 +454,15 @@ export class ComponentDeploymentResults extends ResponsiveMixin(LitElement) {
     }
 
     // Dispatch event to notify parent components
-    this.dispatchEvent(new CustomEvent('deployment-status-changed', {
-      detail: { 
-        deploymentResultId,
-        newStatus: 'Cancelled'
-      },
-      bubbles: true,
-      composed: true
-    }));
+    this.dispatchEvent(
+      new CustomEvent('deployment-status-changed', {
+        detail: {
+          deploymentResultId,
+          newStatus: 'Cancelled'
+        },
+        bubbles: true,
+        composed: true
+      })
+    );
   }
 }

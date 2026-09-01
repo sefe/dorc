@@ -5,7 +5,7 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import type { DaemonApiModel } from '../apis/dorc-api';
 import { RefDataDaemonsApi } from '../apis/dorc-api';
-import { dorcApiConfiguration } from '../services/dorc-api-configuration';
+import '@vaadin/vertical-layout';
 
 @customElement('edit-daemon')
 export class EditDaemon extends LitElement {
@@ -19,8 +19,8 @@ export class EditDaemon extends LitElement {
   @state() private accountName = '';
   @state() private serviceType = '';
 
-  @property({ type: Boolean }) private isBusy = false;
-  @property() private overlayMessage: any = '';
+  @property({ type: Boolean }) isBusy = false;
+  @property() overlayMessage: any = '';
 
   static get styles() {
     return css`
@@ -46,7 +46,9 @@ export class EditDaemon extends LitElement {
 
   render() {
     return html`
-      <div style="padding: var(--lumo-space-s); width: min(500px, calc(100vw - 64px)); box-sizing: border-box;">
+      <div
+        style="padding: var(--lumo-space-s); width: min(500px, calc(100vw - 64px)); box-sizing: border-box;"
+      >
         <vaadin-vertical-layout>
           <vaadin-text-field
             class="block"
@@ -55,7 +57,9 @@ export class EditDaemon extends LitElement {
             maxlength="${this.maxFieldLength}"
             title="Maximum length: ${this.maxFieldLength} symbols"
             required
-            @input="${(e: any) => { this.daemonName = e.currentTarget.value; }}"
+            @input="${(e: any) => {
+              this.daemonName = e.currentTarget.value;
+            }}"
             .value="${this.daemonName}"
           ></vaadin-text-field>
           <vaadin-text-field
@@ -65,7 +69,9 @@ export class EditDaemon extends LitElement {
             maxlength="${this.maxFieldLength}"
             title="Maximum length: ${this.maxFieldLength} symbols"
             required
-            @input="${(e: any) => { this.displayName = e.currentTarget.value; }}"
+            @input="${(e: any) => {
+              this.displayName = e.currentTarget.value;
+            }}"
             .value="${this.displayName}"
           ></vaadin-text-field>
           <vaadin-text-field
@@ -75,7 +81,9 @@ export class EditDaemon extends LitElement {
             maxlength="${this.maxFieldLength}"
             title="Maximum length: ${this.maxFieldLength} symbols"
             required
-            @input="${(e: any) => { this.accountName = e.currentTarget.value; }}"
+            @input="${(e: any) => {
+              this.accountName = e.currentTarget.value;
+            }}"
             .value="${this.accountName}"
           ></vaadin-text-field>
           <vaadin-text-field
@@ -85,15 +93,16 @@ export class EditDaemon extends LitElement {
             maxlength="${this.maxFieldLength}"
             title="Maximum length: ${this.maxFieldLength} symbols"
             required
-            @input="${(e: any) => { this.serviceType = e.currentTarget.value; }}"
+            @input="${(e: any) => {
+              this.serviceType = e.currentTarget.value;
+            }}"
             .value="${this.serviceType}"
           ></vaadin-text-field>
         </vaadin-vertical-layout>
         <div>
-          <vaadin-button
-            .disabled="${this.isBusy}"
-            @click="${this._submit}"
-          >Save</vaadin-button>
+          <vaadin-button .disabled="${this.isBusy}" @click="${this._submit}"
+            >Save</vaadin-button
+          >
         </div>
         <span style="color: darkred">${this.overlayMessage}</span>
       </div>
@@ -116,27 +125,33 @@ export class EditDaemon extends LitElement {
       ServiceType: this.serviceType
     };
 
-    const api = new RefDataDaemonsApi(dorcApiConfiguration);
-    api.refDataDaemonsPut({ id: this.daemon.Id, daemonApiModel: payload }).subscribe(
-      (data: DaemonApiModel) => {
-        this.isBusy = false;
-        this.dispatchEvent(new CustomEvent('daemon-updated', {
-          detail: { daemon: data },
-          bubbles: true,
-          composed: true
-        }));
-      },
-      (err: any) => {
-        this.isBusy = false;
-        this.overlayMessage = this._extractErrorMessage(err) ?? 'Error updating daemon';
-      }
-    );
+    const api = new RefDataDaemonsApi();
+    api
+      .refDataDaemonsPut({ id: this.daemon.Id, daemonApiModel: payload })
+      .subscribe(
+        (data: DaemonApiModel) => {
+          this.isBusy = false;
+          this.dispatchEvent(
+            new CustomEvent('daemon-updated', {
+              detail: { daemon: data },
+              bubbles: true,
+              composed: true
+            })
+          );
+        },
+        (err: any) => {
+          this.isBusy = false;
+          this.overlayMessage =
+            this._extractErrorMessage(err) ?? 'Error updating daemon';
+        }
+      );
   }
 
   private _extractErrorMessage(err: any): string | null {
     if (err?.response) {
       if (typeof err.response === 'string') return err.response;
-      if (typeof err.response.ExceptionMessage === 'string') return err.response.ExceptionMessage;
+      if (typeof err.response.ExceptionMessage === 'string')
+        return err.response.ExceptionMessage;
       if (typeof err.response.message === 'string') return err.response.message;
     }
     if (err?.message) return err.message;

@@ -2,7 +2,11 @@ import { css, PropertyValues } from 'lit';
 import { html } from 'lit/html.js';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import '@vaadin/button';
-import { MakeLikeProdApi, RefDataRolesApi, MetadataApi } from '../apis/dorc-api';
+import {
+  MakeLikeProdApi,
+  RefDataRolesApi,
+  MetadataApi
+} from '../apis/dorc-api';
 import './dorc-navbar.ts';
 import { DorcNavbar } from './dorc-navbar.ts';
 import './theme-toggle.ts';
@@ -10,9 +14,13 @@ import { themeManager } from '../theme/theme-manager.ts';
 import '@vaadin/vaadin-lumo-styles/icons.js';
 import { ShortcutsStore } from './shortcuts-store.ts';
 import { appConfig } from '../app-config.ts';
-import { OAUTH_SCHEME, oauthServiceContainer } from '../services/Account/OAuthService.ts';
+import {
+  OAUTH_SCHEME,
+  oauthServiceContainer
+} from '../services/Account/OAuthService.ts';
 import { NARROW_BREAKPOINT } from '../helpers/responsive-mixin.ts';
-import { dorcApiConfiguration } from '../services/dorc-api-configuration';
+import { LOCATION_CHANGED_EVENT } from '../router/router.ts';
+import { dorcEnvironmentNameFromMetadata } from '../helpers/dorc-environment-name';
 
 let dorcNavbar: DorcNavbar;
 
@@ -165,7 +173,10 @@ export class DorcApp extends ShortcutsStore {
           visibility: hidden;
           pointer-events: none;
           transform: translateX(-100%);
-          transition: transform 0.2s ease, width 0.2s ease, visibility 0s linear 0.2s;
+          transition:
+            transform 0.2s ease,
+            width 0.2s ease,
+            visibility 0s linear 0.2s;
         }
 
         #dorcNavbar.open {
@@ -173,7 +184,10 @@ export class DorcApp extends ShortcutsStore {
           visibility: visible;
           pointer-events: auto;
           transform: translateX(0);
-          transition: transform 0.2s ease, width 0.2s ease, visibility 0s;
+          transition:
+            transform 0.2s ease,
+            width 0.2s ease,
+            visibility 0s;
         }
 
         #splitter {
@@ -266,11 +280,15 @@ export class DorcApp extends ShortcutsStore {
           src="/hegsie_white_background_cartoon_dork_code_markdown_simple_icon__ef4f70a2-200b-4a67-82ba-73b12eb495d3.png"
           alt="DOrc mascot"
         />
-        ${appConfig.isProduction
-          ? html`<span class="app-title" title="DevOps Orchestrator">DOrc</span>`
-          : html`<span class="env-warning" title="DevOps Orchestrator"
-              >${this.dorcEnv} - Non-Prod Instance</span
-            >`}
+        ${
+          appConfig.isProduction
+            ? html`<span class="app-title" title="DevOps Orchestrator"
+                >DOrc</span
+              >`
+            : html`<span class="env-warning" title="DevOps Orchestrator"
+                >${this.dorcEnv} - Non-Prod Instance</span
+              >`
+        }
         <div class="spacer"></div>
         <div class="user-info">
           <div>${this.userEmail}</div>
@@ -322,7 +340,7 @@ export class DorcApp extends ShortcutsStore {
     this._narrowScreen = this._narrowMq.matches;
     this._narrowMq.addEventListener('change', this._narrowMqHandler);
     window.addEventListener(
-      'vaadin-router-location-changed',
+      LOCATION_CHANGED_EVENT,
       this._routerLocationChanged
     );
     document.addEventListener('keydown', this._keydownHandler);
@@ -332,7 +350,9 @@ export class DorcApp extends ShortcutsStore {
     // (render errors) so they're surfaced rather than swallowed silently.
     this.updateComplete
       .then(() => this._attachSplitterListener())
-      .catch(err => console.error('dorc-app deferred splitter attach failed:', err));
+      .catch(err =>
+        console.error('dorc-app deferred splitter attach failed:', err)
+      );
   }
 
   protected firstUpdated(_changedProperties: PropertyValues) {
@@ -364,7 +384,10 @@ export class DorcApp extends ShortcutsStore {
   // so calling this from both firstUpdated and connectedCallback is safe.
   private _attachSplitterListener() {
     if (!this.splitter) return;
-    this.splitter.removeEventListener('mousedown', this._splitterMouseDownHandler);
+    this.splitter.removeEventListener(
+      'mousedown',
+      this._splitterMouseDownHandler
+    );
     this.splitter.addEventListener('mousedown', this._splitterMouseDownHandler);
   }
 
@@ -380,17 +403,23 @@ export class DorcApp extends ShortcutsStore {
     super.disconnectedCallback();
     this._narrowMq?.removeEventListener('change', this._narrowMqHandler);
     window.removeEventListener(
-      'vaadin-router-location-changed',
+      LOCATION_CHANGED_EVENT,
       this._routerLocationChanged
     );
     document.removeEventListener('keydown', this._keydownHandler);
     if (this.splitter) {
-      this.splitter.removeEventListener('mousedown', this._splitterMouseDownHandler);
+      this.splitter.removeEventListener(
+        'mousedown',
+        this._splitterMouseDownHandler
+      );
     }
     // Only release body styles we own, so coexisting modals/drags aren't clobbered.
     if (this._splitterDragInProgress) {
       document.body.removeEventListener('mousemove', fMouseMoveListener);
-      document.body.removeEventListener('mouseup', this._wrappedMouseUpListener);
+      document.body.removeEventListener(
+        'mouseup',
+        this._wrappedMouseUpListener
+      );
       document.body.style.removeProperty('user-select');
       this._splitterDragInProgress = false;
     }
@@ -420,8 +449,9 @@ export class DorcApp extends ShortcutsStore {
       }
     } else {
       const sidebarWidth =
-        getComputedStyle(this).getPropertyValue('--dorc-sidebar-width').trim() ||
-        '300px';
+        getComputedStyle(this)
+          .getPropertyValue('--dorc-sidebar-width')
+          .trim() || '300px';
       if (this.dorcNavbar.style.width === '0px') {
         this.dorcNavbar.style.width = sidebarWidth;
         this._desktopSidebarVisible = true;
@@ -541,7 +571,7 @@ export class DorcApp extends ShortcutsStore {
   }
 
   private getUserRoles() {
-    const api = new RefDataRolesApi(dorcApiConfiguration);
+    const api = new RefDataRolesApi();
     api.refDataRolesGet().subscribe({
       next: (data: string[]) => {
         this.userRoles = data.join(' | ');
@@ -551,26 +581,33 @@ export class DorcApp extends ShortcutsStore {
   }
 
   private getUserEmail() {
-    const api = new MakeLikeProdApi(dorcApiConfiguration);
+    const api = new MakeLikeProdApi();
     api.makeLikeProdNotifyEmailAddressGet().subscribe({
       next: value => {
         this.userEmail = value;
-      },
-      error: (err: string) => console.error(err),
-    });
-  }
-
-  private getDorcEnv() {
-    const api = new MetadataApi(dorcApiConfiguration);
-    api.metadataGet().subscribe({
-      next: (data: string) => {
-        this.dorcEnv = data.split('-')[0].trim();
       },
       error: (err: string) => console.error(err)
     });
   }
 
-  @property({ type: Boolean }) showSignOutButton = appConfig.authenticationScheme == OAUTH_SCHEME;
+  private getDorcEnv() {
+    const api = new MetadataApi();
+    api.metadataGet().subscribe({
+      next: (data: string) => {
+        const environmentName = dorcEnvironmentNameFromMetadata(data);
+        if (environmentName === undefined) {
+          console.error('Metadata API returned a non-string environment name.');
+          this.dorcEnv = '';
+          return;
+        }
+        this.dorcEnv = environmentName;
+      },
+      error: (err: string) => console.error(err)
+    });
+  }
+
+  @property({ type: Boolean }) showSignOutButton =
+    appConfig.authenticationScheme == OAUTH_SCHEME;
 
   private signOut() {
     oauthServiceContainer.service.signOut();

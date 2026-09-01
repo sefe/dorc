@@ -2,6 +2,13 @@ import globals from 'globals';
 import pluginJs from '@eslint/js';
 import tseslint from 'typescript-eslint';
 import eslintConfigPrettier from 'eslint-config-prettier';
+import pluginLit from 'eslint-plugin-lit';
+import pluginWc from 'eslint-plugin-wc';
+import pluginLitA11y from 'eslint-plugin-lit-a11y';
+
+// eslint-plugin-lit-a11y ships an eslintrc-style config only, so its
+// recommended rule set is applied through a flat config block here.
+const litA11yRecommended = pluginLitA11y.configs.recommended.rules;
 
 export default [
   { files: ['**/*.{js,mjs,cjs,ts}'] },
@@ -9,20 +16,24 @@ export default [
   { ignores: ['src/apis', 'node_modules', 'dist', 'public'] },
   pluginJs.configs.recommended,
   ...tseslint.configs.recommended,
+  pluginWc.configs['flat/recommended'],
+  pluginLit.configs['flat/recommended'],
+  {
+    files: ['src/**/*.ts', 'tests/**/*.ts'],
+    plugins: { 'lit-a11y': pluginLitA11y },
+    rules: litA11yRecommended
+  },
   eslintConfigPrettier,
   { rules: { '@typescript-eslint/no-explicit-any': 0 } },
   {
-    // Build tooling under scripts/ runs in Node and needs process. Flat
-    // config merges globals across matching blocks rather than replacing
-    // them, so these files end up with the browser globals from the block
-    // above as well — this widens what is allowed, it does not restrict it.
-    files: ['scripts/**/*.{js,mjs}'],
-    languageOptions: { globals: globals.node },
+    // Build/analysis scripts run under Node, not the browser.
+    files: ['tools/**/*.mjs', 'scripts/**/*.mjs', '*.config.js', '*.config.ts'],
+    languageOptions: { globals: globals.node }
   },
   {
     files: ['tests/**/*.ts'],
     rules: {
-      '@typescript-eslint/no-unused-expressions': 0,
-    },
-  },
+      '@typescript-eslint/no-unused-expressions': 0
+    }
+  }
 ];
