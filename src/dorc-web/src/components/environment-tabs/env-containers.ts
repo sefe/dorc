@@ -12,6 +12,7 @@ import { Notification } from '@vaadin/notification';
 import { ContainerApiModel, RefDataContainersApi } from '../../apis/dorc-api';
 import '../add-edit-container';
 import '../attach-container';
+import { dorcApiConfiguration } from '../../services/dorc-api-configuration';
 import { PageEnvBase } from './page-env-base';
 
 @customElement('env-containers')
@@ -191,7 +192,7 @@ export class EnvContainers extends PageEnvBase {
 
   private loadContainers(envId: number = this.environmentId) {
     if (envId <= 0) return;
-    new RefDataContainersApi()
+    new RefDataContainersApi(dorcApiConfiguration)
       .refDataContainersByEnvIdEnvIdGet({ envId })
       .subscribe({
         next: (data: ContainerApiModel[]) => {
@@ -213,7 +214,7 @@ export class EnvContainers extends PageEnvBase {
 
   private detach(item: ContainerApiModel) {
     if (!item.Id) return;
-    new RefDataContainersApi()
+    new RefDataContainersApi(dorcApiConfiguration)
       .refDataContainersIdEnvironmentsEnvIdDelete({
         id: item.Id,
         envId: this.environmentId

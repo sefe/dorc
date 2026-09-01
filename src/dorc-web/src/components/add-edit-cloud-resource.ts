@@ -5,6 +5,7 @@ import '@vaadin/text-field';
 import '@vaadin/button';
 import { Notification } from '@vaadin/notification';
 import { CloudResourceApiModel, RefDataCloudResourcesApi } from '../apis/dorc-api';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 /**
  * Create/edit form for a cloud resource definition. Fires `cloud-resource-saved`.
@@ -108,7 +109,7 @@ export class AddEditCloudResource extends LitElement {
       return;
     }
 
-    const api = new RefDataCloudResourcesApi();
+    const api = new RefDataCloudResourcesApi(dorcApiConfiguration);
     const request = this._cloudResource.Id
       ? api.refDataCloudResourcesIdPut({
           id: this._cloudResource.Id,

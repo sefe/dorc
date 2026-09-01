@@ -15,6 +15,7 @@ import {
 } from '../../apis/dorc-api';
 import '../add-edit-cloud-resource';
 import '../attach-cloud-resource';
+import { dorcApiConfiguration } from '../../services/dorc-api-configuration';
 import { PageEnvBase } from './page-env-base';
 
 @customElement('env-cloud')
@@ -208,7 +209,7 @@ export class EnvCloud extends PageEnvBase {
 
   private loadCloudResources(envId: number = this.environmentId) {
     if (envId <= 0) return;
-    new RefDataCloudResourcesApi()
+    new RefDataCloudResourcesApi(dorcApiConfiguration)
       .refDataCloudResourcesByEnvIdEnvIdGet({ envId })
       .subscribe({
         next: (data: CloudResourceApiModel[]) => {
@@ -230,7 +231,7 @@ export class EnvCloud extends PageEnvBase {
 
   private detach(item: CloudResourceApiModel) {
     if (!item.Id) return;
-    new RefDataCloudResourcesApi()
+    new RefDataCloudResourcesApi(dorcApiConfiguration)
       .refDataCloudResourcesIdEnvironmentsEnvIdDelete({
         id: item.Id,
         envId: this.environmentId

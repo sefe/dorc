@@ -5,6 +5,7 @@ import '@vaadin/text-field';
 import '@vaadin/button';
 import { Notification } from '@vaadin/notification';
 import { ContainerApiModel, RefDataContainersApi } from '../apis/dorc-api';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 /**
  * Create/edit form for a container definition. Fires `container-saved` on success.
@@ -96,7 +97,7 @@ export class AddEditContainer extends LitElement {
       return;
     }
 
-    const api = new RefDataContainersApi();
+    const api = new RefDataContainersApi(dorcApiConfiguration);
     const request = this._container.Id
       ? api.refDataContainersIdPut({
           id: this._container.Id,

@@ -5,6 +5,7 @@ import '@vaadin/text-field';
 import '@vaadin/button';
 import { Notification } from '@vaadin/notification';
 import { ApiRegistrationApiModel, RefDataApiRegistrationsApi } from '../apis/dorc-api';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 /**
  * Create/edit form for an API registration. Fires `api-registration-saved`.
@@ -97,7 +98,7 @@ export class AddEditApiRegistration extends LitElement {
       return;
     }
 
-    const api = new RefDataApiRegistrationsApi();
+    const api = new RefDataApiRegistrationsApi(dorcApiConfiguration);
     const request = this._apiRegistration.Id
       ? api.refDataApiRegistrationsIdPut({
           id: this._apiRegistration.Id,

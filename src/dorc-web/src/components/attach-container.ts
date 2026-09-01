@@ -5,6 +5,7 @@ import '@vaadin/combo-box';
 import '@vaadin/button';
 import { Notification } from '@vaadin/notification';
 import { ContainerApiModel, RefDataContainersApi } from '../apis/dorc-api';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 /**
  * Attach an existing container to the environment. Fires `container-attached`.
@@ -31,7 +32,9 @@ export class AttachContainer extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
-    new RefDataContainersApi().refDataContainersGet().subscribe({
+    new RefDataContainersApi(dorcApiConfiguration)
+      .refDataContainersGet()
+      .subscribe({
       next: (data: ContainerApiModel[]) => {
         this.containers = data;
       },
@@ -71,7 +74,7 @@ export class AttachContainer extends LitElement {
       return;
     }
 
-    new RefDataContainersApi()
+    new RefDataContainersApi(dorcApiConfiguration)
       .refDataContainersIdEnvironmentsEnvIdPut({
         id: this.selected.Id,
         envId: this.envId

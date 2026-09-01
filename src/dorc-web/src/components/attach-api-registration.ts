@@ -5,6 +5,7 @@ import '@vaadin/combo-box';
 import '@vaadin/button';
 import { Notification } from '@vaadin/notification';
 import { ApiRegistrationApiModel, RefDataApiRegistrationsApi } from '../apis/dorc-api';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 /**
  * Attach an existing API registration to the environment. Fires `api-registration-attached`.
@@ -31,7 +32,9 @@ export class AttachApiRegistration extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
-    new RefDataApiRegistrationsApi().refDataApiRegistrationsGet().subscribe({
+    new RefDataApiRegistrationsApi(
+      dorcApiConfiguration
+    ).refDataApiRegistrationsGet().subscribe({
       next: (data: ApiRegistrationApiModel[]) => {
         this.apiRegistrations = data;
       },
@@ -71,7 +74,7 @@ export class AttachApiRegistration extends LitElement {
       return;
     }
 
-    new RefDataApiRegistrationsApi()
+    new RefDataApiRegistrationsApi(dorcApiConfiguration)
       .refDataApiRegistrationsIdEnvironmentsEnvIdPut({
         id: this.selected.Id,
         envId: this.envId

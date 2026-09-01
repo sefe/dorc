@@ -5,6 +5,7 @@ import '@vaadin/combo-box';
 import '@vaadin/button';
 import { Notification } from '@vaadin/notification';
 import { CloudResourceApiModel, RefDataCloudResourcesApi } from '../apis/dorc-api';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 /**
  * Attach an existing cloud resource to the environment. Fires `cloud-resource-attached`.
@@ -31,7 +32,9 @@ export class AttachCloudResource extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
-    new RefDataCloudResourcesApi().refDataCloudResourcesGet().subscribe({
+    new RefDataCloudResourcesApi(
+      dorcApiConfiguration
+    ).refDataCloudResourcesGet().subscribe({
       next: (data: CloudResourceApiModel[]) => {
         this.cloudResources = data;
       },
@@ -71,7 +74,7 @@ export class AttachCloudResource extends LitElement {
       return;
     }
 
-    new RefDataCloudResourcesApi()
+    new RefDataCloudResourcesApi(dorcApiConfiguration)
       .refDataCloudResourcesIdEnvironmentsEnvIdPut({
         id: this.selected.Id,
         envId: this.envId

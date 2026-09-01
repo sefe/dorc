@@ -15,6 +15,7 @@ import {
 } from '../../apis/dorc-api';
 import '../add-edit-api-registration';
 import '../attach-api-registration';
+import { dorcApiConfiguration } from '../../services/dorc-api-configuration';
 import { PageEnvBase } from './page-env-base';
 
 @customElement('env-apis')
@@ -204,7 +205,7 @@ export class EnvApis extends PageEnvBase {
 
   private loadApiRegistrations(envId: number = this.environmentId) {
     if (envId <= 0) return;
-    new RefDataApiRegistrationsApi()
+    new RefDataApiRegistrationsApi(dorcApiConfiguration)
       .refDataApiRegistrationsByEnvIdEnvIdGet({ envId })
       .subscribe({
         next: (data: ApiRegistrationApiModel[]) => {
@@ -226,7 +227,7 @@ export class EnvApis extends PageEnvBase {
 
   private detach(item: ApiRegistrationApiModel) {
     if (!item.Id) return;
-    new RefDataApiRegistrationsApi()
+    new RefDataApiRegistrationsApi(dorcApiConfiguration)
       .refDataApiRegistrationsIdEnvironmentsEnvIdDelete({
         id: item.Id,
         envId: this.environmentId
