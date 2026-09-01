@@ -4,11 +4,12 @@ import '@vaadin/icon';
 import '@vaadin/icons';
 import '@vaadin/vaadin-lumo-styles/icons.js';
 import '../../icons/iron-icons.js';
-import { Router } from '@vaadin/router';
+import { navigate } from '../../router/router';
 import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { ProjectApiModel } from '../../apis/dorc-api';
 import { ResponsiveMixin } from '../../helpers/responsive-mixin';
+import '@vaadin/tooltip';
 
 interface ActionMenuItem {
   text: string;
@@ -28,7 +29,10 @@ export class ProjectControls extends ResponsiveMixin(LitElement) {
 
   private _outsideClickHandler = (e: MouseEvent) => {
     const dropdown = this._getDropdownEl();
-    if (!this.contains(e.target as Node) && !dropdown?.contains(e.target as Node)) {
+    if (
+      !this.contains(e.target as Node) &&
+      !dropdown?.contains(e.target as Node)
+    ) {
       this._close();
     }
   };
@@ -114,16 +118,17 @@ export class ProjectControls extends ResponsiveMixin(LitElement) {
   // Find the document tabbable elements that immediately precede and follow
   // the trigger in tab order, walking through shadow roots to locate the
   // trigger that lives inside this component's shadow DOM.
-  private _findTabbableSiblings(
-    trigger: HTMLElement | null
-  ): { prev: HTMLElement | null; next: HTMLElement | null } {
+  private _findTabbableSiblings(trigger: HTMLElement | null): {
+    prev: HTMLElement | null;
+    next: HTMLElement | null;
+  } {
     if (!trigger) return { prev: null, next: null };
     const all = this._collectTabbables(document);
     const idx = all.indexOf(trigger);
     if (idx < 0) return { prev: null, next: null };
     return {
       prev: idx > 0 ? all[idx - 1] : null,
-      next: idx < all.length - 1 ? all[idx + 1] : null,
+      next: idx < all.length - 1 ? all[idx + 1] : null
     };
   }
 
@@ -136,7 +141,7 @@ export class ProjectControls extends ResponsiveMixin(LitElement) {
   private _collectTabbables(root: Document | ShadowRoot): HTMLElement[] {
     const result: HTMLElement[] = [];
     const walk = (n: ParentNode) => {
-      n.querySelectorAll<HTMLElement>('*').forEach((el) => {
+      n.querySelectorAll<HTMLElement>('*').forEach(el => {
         if (
           el instanceof HTMLElement &&
           el.tabIndex >= 0 &&
@@ -252,12 +257,15 @@ export class ProjectControls extends ResponsiveMixin(LitElement) {
           id="${this._triggerId}"
           theme="icon small"
           aria-label="Project actions"
-          title="Project actions"
           aria-haspopup="menu"
           aria-expanded="${this._open ? 'true' : 'false'}"
           aria-controls="${this._dropdownId}"
           @click="${this._toggle}"
         >
+          <vaadin-tooltip
+            slot="tooltip"
+            text="Project actions"
+          ></vaadin-tooltip>
           <vaadin-icon
             icon="vaadin:ellipsis-dots-h"
             aria-hidden="true"
@@ -271,19 +279,24 @@ export class ProjectControls extends ResponsiveMixin(LitElement) {
         action => html`
           <vaadin-button
             theme="icon small"
-            title="${action.text}"
             aria-label="${action.text}"
             @click="${(e: Event) => {
               e.stopPropagation();
               this._selectAction(action);
             }}"
           >
+            <vaadin-tooltip
+              slot="tooltip"
+              text="${action.text}"
+            ></vaadin-tooltip>
             <vaadin-icon
               icon="${action.icon}"
               aria-hidden="true"
-              style="${action.isDelete
-                ? 'color: var(--dorc-error-color);'
-                : 'color: var(--dorc-link-color);'}"
+              style="${
+                action.isDelete
+                  ? 'color: var(--dorc-error-color);'
+                  : 'color: var(--dorc-link-color);'
+              }"
             ></vaadin-icon>
           </vaadin-button>
         `
@@ -343,7 +356,7 @@ export class ProjectControls extends ResponsiveMixin(LitElement) {
       borderRadius: 'var(--lumo-border-radius-m)',
       boxShadow: 'var(--lumo-box-shadow-m)',
       padding: '4px 0',
-      fontFamily: 'var(--lumo-font-family)',
+      fontFamily: 'var(--lumo-font-family)'
     });
 
     // Focus-visible indicator (WCAG 2.4.7) — scoped to this overlay's id so
@@ -371,7 +384,7 @@ export class ProjectControls extends ResponsiveMixin(LitElement) {
         padding: '8px 16px',
         cursor: 'pointer',
         color: 'var(--lumo-body-text-color)',
-        fontSize: 'var(--lumo-font-size-s)',
+        fontSize: 'var(--lumo-font-size-s)'
       });
 
       if (action.isDelete) {
@@ -386,7 +399,7 @@ export class ProjectControls extends ResponsiveMixin(LitElement) {
       item.addEventListener('mouseleave', () => {
         item.style.backgroundColor = '';
       });
-      item.addEventListener('click', (e) => {
+      item.addEventListener('click', e => {
         e.stopPropagation();
         this._selectAction(action);
       });
@@ -445,7 +458,7 @@ export class ProjectControls extends ResponsiveMixin(LitElement) {
     this._open = false;
     if (action.eventName === 'open-project-audit-data') {
       const id = this.project?.ProjectId;
-      if (id) Router.go(`/projects/audit?projectId=${id}`);
+      if (id) void navigate(`/projects/audit?projectId=${id}`);
       return;
     }
     this.dispatchEvent(

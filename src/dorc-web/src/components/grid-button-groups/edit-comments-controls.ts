@@ -9,6 +9,7 @@ import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { RefDataEnvironmentsHistoryApi } from '../../apis/dorc-api/apis';
 import { EnvironmentHistoryApiModel } from '../../apis/dorc-api/models';
+import '@vaadin/button';
 
 @customElement('edit-comments-controls')
 export class EditCommentsControls extends LitElement {

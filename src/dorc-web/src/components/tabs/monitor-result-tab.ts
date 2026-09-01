@@ -6,6 +6,7 @@ import { html } from 'lit/html.js';
 import { urlForName } from '../../router/router';
 import '@vaadin/horizontal-layout';
 import { DeploymentRequestApiModel } from '../../apis/dorc-api';
+import '@vaadin/vertical-layout';
 
 @customElement('monitor-result-tab')
 export class MonitorResultTab extends LitElement {

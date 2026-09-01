@@ -1,26 +1,26 @@
-import '@polymer/paper-dialog';
-import { PaperDialogElement } from '@polymer/paper-dialog';
+import { live } from 'lit/directives/live.js';
+import { columnBodyRenderer } from '@vaadin/grid/lit';
+import { comboBoxRenderer } from '@vaadin/combo-box/lit';
+import '@vaadin/dialog';
+import type { DialogOpenedChangedEvent } from '@vaadin/dialog';
+import { dialogFooterRenderer, dialogRenderer } from '@vaadin/dialog/lit';
+import { ref } from 'lit/directives/ref.js';
 import '@vaadin/button';
 import '@vaadin/checkbox';
 import { Checkbox } from '@vaadin/checkbox';
 import '@vaadin/combo-box';
-import { ComboBox, ComboBoxItemModel } from '@vaadin/combo-box';
+import { ComboBox } from '@vaadin/combo-box';
 import '@vaadin/details';
 import '@vaadin/grid/vaadin-grid';
-import { GridItemModel } from '@vaadin/grid';
-import { GridColumn } from '@vaadin/grid/vaadin-grid-column.js';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/text-field';
 import { TextField } from '@vaadin/text-field';
 import '@vaadin/vertical-layout';
-import { css, LitElement, render } from 'lit';
+import { LitElement, css } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import '../components/grid-button-groups/access-control-controls';
-import {
-  AccessSecureApiModel,
-  UserElementApiModel
-} from '../apis/dorc-api';
+import { AccessSecureApiModel, UserElementApiModel } from '../apis/dorc-api';
 import { AccessControlApi } from '../apis/dorc-api';
 import { AccessControlApiModel } from '../apis/dorc-api';
 import '@vaadin/notification';
@@ -35,6 +35,8 @@ const AC_ALLOW_OWNER = 4;
 
 @customElement('add-edit-access-control')
 export class AddEditAccessControl extends LitElement {
+  @state() private dialogOpened = false;
+
   @property({ type: String }) secureName = '';
 
   @property({ type: Boolean })
@@ -71,7 +73,7 @@ export class AddEditAccessControl extends LitElement {
 
   static get styles() {
     return css`
-      paper-dialog.size-position {
+      vaadin-dialog::part(overlay) {
         overflow: auto;
         width: min(90vw, 650px);
       }
@@ -108,6 +110,7 @@ export class AddEditAccessControl extends LitElement {
         visibility: visible;
       }
       .small-loader {
+        display: inline-block;
         border: 2px solid #f3f3f3; /* Light grey */
         border-top: 2px solid #3498db; /* Blue */
         border-radius: 50%;
@@ -123,6 +126,23 @@ export class AddEditAccessControl extends LitElement {
         100% {
           transform: rotate(360deg);
         }
+      }
+      .dialog-actions {
+        display: flex;
+        align-items: center;
+        gap: var(--lumo-space-m, 1rem);
+      }
+      .save-action {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--lumo-space-xs, 0.375rem);
+      }
+      .save-progress {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 16px;
+        height: 16px;
       }
     `;
   }
@@ -141,169 +161,56 @@ export class AddEditAccessControl extends LitElement {
 
   render() {
     return html`
-      <paper-dialog
-        class="size-position"
+      <vaadin-dialog
         id="add-access-control-dialog"
-        allow-click-through
-        modal
-      >
-        <table>
-          <tr>
-            <td>
-              ${this.UserEditable
-                ? html`
-                    <vaadin-button theme="icon">
-                      <vaadin-icon
-                        icon="vaadin:unlock"
-                        style="color: var(--dorc-link-color)"
-                      ></vaadin-icon>
-                    </vaadin-button>
-                  `
-                : html`
-                    <vaadin-button theme="icon">
-                      <vaadin-icon
-                        icon="vaadin:lock"
-                        style="color: var(--dorc-link-color)"
-                      ></vaadin-icon>
-                    </vaadin-button>
-                  `}
-            </td>
-            <td>
-              <h2>${this.secureName}</h2>
-              ${this.loading
-                ? html` <div class="small-loader"></div> `
-                : html``}
-            </td>
-          </tr>
-        </table>
-        <div style="padding-left: 10px;padding-right: 10px;">
-          <vaadin-details
-            opened
-            summary="Add New User"
-            style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; width: 100%"
-          >
-            <table>
-              <tr>
-                <td style="display: table-cell; vertical-align: bottom;">
-                  <vaadin-text-field
-                    id="search-criteria"
-                    label="Search Criteria"
-                    @input="${this.updateSearchCriteria}"
-                  ></vaadin-text-field>
-                </td>
-                <td style="display: table-cell; vertical-align: bottom;">
-                  <vaadin-button
-                    @click="${this.searchAD}"
-                    style="margin-bottom: 5px"
-                    >Search</vaadin-button
-                  >
-                </td>
-                <td style="display: table-cell; vertical-align: center;">
-                  ${this.searchingUsers
-                    ? html` <div class="small-loader"></div> `
-                    : html``}
-                </td>
-              </tr>
-              <tr>
-                <td style="display: table-cell; vertical-align: bottom;">
-                  <vaadin-combo-box
-                    id="searchResults"
-                    label="Search Results"
-                    item-value-path="DisplayName"
-                    item-label-path="DisplayName"
-                    .items="${this.searchResults}"
-                    .renderer="${this.searchResultsRenderer}"
-                  ></vaadin-combo-box>
-                </td>
-                <td style="display: table-cell; vertical-align: bottom;">
-                  <vaadin-button
-                    @click="${this.addUser}"
-                    style="margin-bottom: 5px"
-                    ?disabled="${!this.UserEditable}"
-                    >Add</vaadin-button
-                  >
-                </td>
-              </tr>
-            </table>
-          </vaadin-details>
-          <vaadin-grid
-            .items="${this.Privileges}"
-            theme="compact row-stripes no-row-borders no-border"
-            style="width: 100%;"
-          >
-            <vaadin-grid-sort-column
-              header="Name"
-              .renderer="${this.acNameRenderer}"
-              flex="3"
-              resizable
-              auto-width
-            ></vaadin-grid-sort-column>
-            <vaadin-grid-column
-              header="Write"
-              .renderer="${this.acCanWrite}"
-              .altThis="${this}"
-              flex="1"
-              resizable
-              auto-width
-            ></vaadin-grid-column>
-            <vaadin-grid-column
-              header="Read Secrets"
-              .renderer="${this.acCanReadSecrets}"
-              .altThis="${this}"
-              flex="1"
-              resizable
-              auto-width
-            ></vaadin-grid-column>
-            <vaadin-grid-column
-              header="Owner"
-              .renderer="${this.acCanOwner}"
-              .altThis="${this}"
-              flex="1"
-              resizable
-              auto-width
-            ></vaadin-grid-column>
-            <vaadin-grid-column
-              header="Actions"
-              .renderer="${this._boundACButtonsRenderer}"
-              .ACControl="${this}"
-              flex="1"
-              resizable
-              auto-width
-            ></vaadin-grid-column>
-          </vaadin-grid>
-
-          <div style="color: var(--dorc-error-color)">${this.ErrorMessage}</div>
-        </div>
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px;">
-          <div>
-            <vaadin-button
-              ?disabled="${!this.UserEditable}"
-              @click="${this.save}"
-              >Save</vaadin-button
-            >
-            ${this.savingAccessControls
-              ? html` <div class="small-loader"></div> `
-              : html``}
-          </div>
-          <vaadin-button dialog-confirm @click="${this.close}"
-            >Close</vaadin-button
-          >
-        </div>
-      </paper-dialog>
+        header-title="Access Control"
+        draggable
+        no-close-on-esc
+        no-close-on-outside-click
+        .opened="${this.dialogOpened}"
+        @opened-changed="${(e: DialogOpenedChangedEvent) => {
+          this.dialogOpened = e.detail.value;
+          if (!this.dialogOpened) this.resetDialogState();
+        }}"
+        ${dialogRenderer(this.renderAccessControlContent, [
+          // All three permission flags belong here, not just UserEditable: the
+          // grid's column directives are nested inside this template, and they
+          // only re-run when Lit re-renders it.
+          this.UserEditable,
+          this.UserIsOwner,
+          this.UserCanReadSecrets,
+          this.secureName,
+          this.loading,
+          this.Privileges,
+          this.ErrorMessage,
+          this.savingAccessControls,
+          this.searchResults,
+          this.searchingUsers
+        ])}
+        ${dialogFooterRenderer(this.renderAccessControlFooter, [
+          this.UserEditable,
+          this.savingAccessControls,
+          this.Privileges
+        ])}
+      ></vaadin-dialog>
     `;
   }
 
   protected override firstUpdated(): void {
-    const field = this.shadowRoot?.getElementById(
-      'search-criteria'
-    ) as TextField;
-    field.addEventListener('keydown', this.isCriteriaReady as EventListener);
-
+    // The search field lives inside the dialog renderer now, so it does not
+    // exist until the dialog opens. Its keydown listener is attached by
+    // `wireSearchCriteria` via `ref` when the field is created.
     this.addEventListener(
       'access-control-search-criteria-ready',
       this.searchAD as EventListener
     );
   }
+
+  private wireSearchCriteria = (el?: Element) => {
+    if (!el) return;
+    el.removeEventListener('keydown', this.isCriteriaReady as EventListener);
+    el.addEventListener('keydown', this.isCriteriaReady as EventListener);
+  };
 
   private isCriteriaReady(e: KeyboardEvent) {
     if (e.code === 'Enter') {
@@ -320,26 +227,20 @@ export class AddEditAccessControl extends LitElement {
   }
 
   _boundACButtonsRenderer(
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<AccessControlApiModel>
+    item: AccessControlApiModel
   ) {
-    const accessControl = model.item as AccessControlApiModel;
+    const accessControl = item as AccessControlApiModel;
 
-    // The below line has a horrible hack
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore
-    const altThis = _column.ACControl as AddEditAccessControl;
-    render(
-      html`<access-control-controls
+    return html`<access-control-controls
         .accessControl="${accessControl}"
-        .disabled="${!altThis.UserEditable || model.item.Allow === AC_ALLOW_OWNER}"
-        @access-control-removed="${() => {
-          altThis.removeAccessControl(accessControl);
+        .disabled="${!this.UserEditable || item.Allow === AC_ALLOW_OWNER}"
+        @access-control-removed="${(e: CustomEvent) => {
+          // The row comes from the event, not from this closure: the closure is
+          // replaced whenever the cell re-renders, which can happen while the
+          // confirmation dialog is open.
+          this.removeAccessControl(e.detail.accessControl);
         }}"
-      ></access-control-controls>`,
-      root
-    );
+      ></access-control-controls>`;
   }
 
   removeItem<T>(arr: Array<T>, value: T): Array<T> {
@@ -365,6 +266,10 @@ export class AddEditAccessControl extends LitElement {
   }
 
   save() {
+    if (this.savingAccessControls) {
+      return;
+    }
+
     this.savingAccessControls = true;
 
     const ac: AccessSecureApiModel = {
@@ -446,21 +351,17 @@ export class AddEditAccessControl extends LitElement {
   }
 
   searchResultsRenderer = (
-    root: HTMLElement,
-    _comboBox: ComboBox,
-    model: ComboBoxItemModel<UserElementApiModel>
+    item: UserElementApiModel
   ) => {
-    if (!model.item) {
-      render(html``, root);
-      return;
+    if (!item) {
+      return html``;
     }
 
-    const { DisplayName, Username } = model.item;
+    const { DisplayName, Username } = item;
     const displayName = DisplayName ?? '';
     const username = Username ?? '';
 
-    render(
-      html`
+    return html`
         <vaadin-vertical-layout style="padding: 4px 0; gap: 0;">
           <div style="${this.acStyles.displayName}">
             ${displayName}
@@ -468,11 +369,9 @@ export class AddEditAccessControl extends LitElement {
           <div style="${this.acStyles.username}">
             ${username}
           </div>
-          ${this.renderUserId(model.item)}
+          ${this.renderUserId(item)}
         </vaadin-vertical-layout>
-      `,
-      root
-    );
+      `;
   }
 
   renderUserId(item: UserElementApiModel): unknown {
@@ -515,162 +414,114 @@ export class AddEditAccessControl extends LitElement {
     );
   }
 
-  acCanReadSecrets(
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<AccessControlApiModel>
+  // `change` rather than `checked-changed`, which is a notify event that also
+  // fires when Lit commits the property. Cells are recycled, so committing the
+  // next row's value fires it into the previous row's listener — and these
+  // handlers mutate the privilege the dialog saves. `change` is gesture-only.
+  acCanReadSecrets(item: AccessControlApiModel) {
+    return html`<vaadin-checkbox
+      ?disabled="${!this.UserEditable || !this.UserCanReadSecrets}"
+      .checked="${live(((item.Allow ?? 0) & AC_ALLOW_READ_SECRETS) > 0)}"
+      @change="${(e: Event) =>
+        this.togglePrivilege(
+          item,
+          AC_ALLOW_READ_SECRETS,
+          (e.currentTarget as Checkbox).checked
+        )}"
+    ></vaadin-checkbox>`;
+  }
+
+  /**
+   * Flips one permission bit on the row's model in place.
+   *
+   * The grid's items are edited directly and read back on save, so this
+   * deliberately mutates rather than replacing the item — the same thing the
+   * imperative renderers did through their `checked-changed` listeners.
+   */
+  private togglePrivilege(
+    item: AccessControlApiModel,
+    bit: number,
+    checked: boolean
   ) {
-    // The below line has a horrible hack
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore
-    const addEditAccessControl = _column.altThis as AddEditAccessControl;
-
-    const canReadSecrets =
-      ((model.item.Allow ?? 0) & AC_ALLOW_READ_SECRETS) > 0;
-
-    render(
-      html`<vaadin-checkbox
-        ?disabled="${!addEditAccessControl.UserEditable || !addEditAccessControl.UserCanReadSecrets}"
-        .checked="${canReadSecrets}"
-      ></vaadin-checkbox>`,
-      root
-    );
-
-    const checkbox: Checkbox = root.querySelector(
-      'vaadin-checkbox'
-    ) as Checkbox;
-
-    checkbox.addEventListener('checked-changed', (e: CustomEvent) => {
-      const canReadSecretsLocal =
-        ((model.item.Allow ?? 0) & AC_ALLOW_READ_SECRETS) > 0;
-
-      const checked = e.detail.value as boolean;
-      if (checked && !canReadSecretsLocal) {
-        if (model.item.Allow !== undefined) {
-          model.item.Allow |= AC_ALLOW_READ_SECRETS;
-        }
-      }
-      if (!checked && canReadSecretsLocal) {
-        if (model.item.Allow !== undefined) {
-          model.item.Allow ^= AC_ALLOW_READ_SECRETS;
-        }
-      }
-      console.log(`for ${model.item.Name} setting to ${model.item.Allow}`);
-    });
+    if (item.Allow === undefined) return;
+    const isSet = (item.Allow & bit) > 0;
+    if (checked && !isSet) item.Allow |= bit;
+    if (!checked && isSet) item.Allow ^= bit;
   }
 
   acNameRenderer = (
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<AccessControlApiModel>
+    item: AccessControlApiModel
   ) => {
-    const name = model.item.Name ?? '';
+    const name = item.Name ?? '';
 
-    render(html`
+    return html`
       <div style="padding: 4px 0;">
         <div style="${this.acStyles.displayName}">${name}</div>
-        ${this.renderUserId(model.item)}
+        ${this.renderUserId(item)}
       </div>
-    `, root);
+    `;
   };
 
-  acCanWrite(
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<AccessControlApiModel>
-  ) {
-    // The below line has a horrible hack
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore
-    const addEditAccessControl = _column.altThis as AddEditAccessControl;
-
-    const canWriteRender = ((model.item.Allow ?? 0) & AC_ALLOW_WRITE) > 0;
-
-    render(
-      html`<vaadin-checkbox
-        ?disabled="${!addEditAccessControl.UserEditable}"
-        ?checked="${canWriteRender}"
-      ></vaadin-checkbox>`,
-      root
-    );
-
-    const checkbox: Checkbox = root.querySelector(
-      'vaadin-checkbox'
-    ) as Checkbox;
-
-    checkbox.addEventListener('checked-changed', (e: any) => {
-      const canWrite = ((model.item.Allow ?? 0) & AC_ALLOW_WRITE) > 0;
-
-      const checked = e.detail.value as boolean;
-      if (checked && !canWrite) {
-        if (model.item.Allow !== undefined) {
-          model.item.Allow |= AC_ALLOW_WRITE;
-        }
-      }
-      if (!checked && canWrite) {
-        if (model.item.Allow !== undefined) {
-          model.item.Allow ^= AC_ALLOW_WRITE;
-        }
-      }
-      console.log(`for ${model.item.Name} setting to ${model.item.Allow}`);
-    });
+  acCanWrite(item: AccessControlApiModel) {
+    return html`<vaadin-checkbox
+      ?disabled="${!this.UserEditable}"
+      .checked="${live(((item.Allow ?? 0) & AC_ALLOW_WRITE) > 0)}"
+      @change="${(e: Event) =>
+        this.togglePrivilege(
+          item,
+          AC_ALLOW_WRITE,
+          (e.currentTarget as Checkbox).checked
+        )}"
+    ></vaadin-checkbox>`;
   }
 
-  acCanOwner(
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<AccessControlApiModel>
+  acCanOwner(item: AccessControlApiModel) {
+    return html`<vaadin-checkbox
+      ?disabled="${!this.UserIsOwner}"
+      .checked="${live(((item.Allow ?? 0) & AC_ALLOW_OWNER) > 0)}"
+      @change="${(e: Event) =>
+        this.toggleOwner(
+          e.currentTarget as Checkbox,
+          item,
+          (e.currentTarget as Checkbox).checked
+        )}"
+    ></vaadin-checkbox>`;
+  }
+
+  /** Owner is capped at two per environment, so it cannot use togglePrivilege. */
+  private toggleOwner(
+    checkbox: Checkbox,
+    item: AccessControlApiModel,
+    checked: boolean
   ) {
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore
-    const addEditAccessControl = _column.altThis as AddEditAccessControl;
+    if (item.Allow === undefined) return;
+    const isOwner = (item.Allow & AC_ALLOW_OWNER) > 0;
 
-    const canOwnerRender = ((model.item.Allow ?? 0) & AC_ALLOW_OWNER) > 0;
-
-    render(
-      html`<vaadin-checkbox
-        ?disabled="${!addEditAccessControl.UserIsOwner}"
-        ?checked="${canOwnerRender}"
-      ></vaadin-checkbox>`,
-      root
-    );
-
-    const checkbox: Checkbox = root.querySelector(
-      'vaadin-checkbox'
-    ) as Checkbox;
-
-    checkbox.addEventListener('checked-changed', (e: CustomEvent) => {
-      const canOwner =
-        ((model.item.Allow ?? 0) & AC_ALLOW_OWNER) > 0;
-
-      const checked = e.detail.value as boolean;
-      if (checked && !canOwner) {
-        const ownerCount = addEditAccessControl.Privileges?.filter(
-          p => ((p.Allow ?? 0) & AC_ALLOW_OWNER) > 0
-        ).length ?? 0;
-        if (ownerCount >= 2) {
-          checkbox.checked = false;
-          if (!addEditAccessControl._ownerLimitNotified) {
-            addEditAccessControl._ownerLimitNotified = true;
-            Promise.resolve().then(() => { addEditAccessControl._ownerLimitNotified = false; });
-            Notification.show(`Maximum of 2 owners allowed per environment`, {
-              theme: 'warning',
-              position: 'bottom-start',
-              duration: 3000
-            });
-          }
-          return;
+    if (checked && !isOwner) {
+      const ownerCount =
+        this.Privileges?.filter(p => ((p.Allow ?? 0) & AC_ALLOW_OWNER) > 0)
+          .length ?? 0;
+      if (ownerCount >= 2) {
+        checkbox.checked = false;
+        if (!this._ownerLimitNotified) {
+          this._ownerLimitNotified = true;
+          Promise.resolve().then(() => {
+            this._ownerLimitNotified = false;
+          });
+          Notification.show('Maximum of 2 owners allowed per environment', {
+            theme: 'warning',
+            position: 'bottom-start',
+            duration: 3000
+          });
         }
-        if (model.item.Allow !== undefined) {
-          model.item.Allow |= AC_ALLOW_OWNER;
-        }
+        return;
       }
-      if (!checked && canOwner) {
-        if (model.item.Allow !== undefined) {
-          model.item.Allow ^= AC_ALLOW_OWNER;
-        }
-      }
-    });
+      item.Allow |= AC_ALLOW_OWNER;
+    }
+
+    if (!checked && isOwner) {
+      item.Allow ^= AC_ALLOW_OWNER;
+    }
   }
 
 
@@ -680,9 +531,6 @@ export class AddEditAccessControl extends LitElement {
   }
 
   open(secureName: string, secureType: number) {
-    const dialog = this.shadowRoot?.getElementById(
-      'add-access-control-dialog'
-    ) as PaperDialogElement;
     this.loading = true;
 
     if (secureName !== '') {
@@ -709,15 +557,184 @@ export class AddEditAccessControl extends LitElement {
     }
     this.secureName = secureName;
 
-    dialog.open();
+    this.dialogOpened = true;
     this.ErrorMessage = '';
   }
 
+  private renderAccessControlContent = () => html`
+
+        <table>
+          <tr>
+            <td>
+              ${this.UserEditable
+                ? html`
+                    <vaadin-icon
+                      icon="vaadin:unlock"
+                      role="img"
+                      aria-label="Editable"
+                      title="Editable"
+                      style="color: var(--dorc-link-color)"
+                    ></vaadin-icon>
+                  `
+                : html`
+                    <vaadin-icon
+                      icon="vaadin:lock"
+                      role="img"
+                      aria-label="Read-only"
+                      title="Read-only"
+                      style="color: var(--dorc-link-color)"
+                    ></vaadin-icon>
+                  `}
+            </td>
+            <td>
+              <h2>${this.secureName}</h2>
+              ${this.loading
+                ? html` <div class="small-loader"></div> `
+                : html``}
+            </td>
+          </tr>
+        </table>
+        <div style="padding-left: 10px;padding-right: 10px;">
+          <vaadin-details
+            opened
+            summary="Add New User"
+            style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; width: 100%"
+          >
+            <table>
+              <tr>
+                <td style="display: table-cell; vertical-align: bottom;">
+                  <vaadin-text-field
+                    id="search-criteria"
+                    label="Search Criteria"
+                    @input="${this.updateSearchCriteria}"
+                    ${ref(this.wireSearchCriteria)}
+                  ></vaadin-text-field>
+                </td>
+                <td style="display: table-cell; vertical-align: bottom;">
+                  <vaadin-button
+                    @click="${this.searchAD}"
+                    style="margin-bottom: 5px"
+                    >Search</vaadin-button
+                  >
+                </td>
+                <td style="display: table-cell; vertical-align: center;">
+                  ${this.searchingUsers
+                    ? html` <div class="small-loader"></div> `
+                    : html``}
+                </td>
+              </tr>
+              <tr>
+                <td style="display: table-cell; vertical-align: bottom;">
+                  <vaadin-combo-box
+                    id="searchResults"
+                    label="Search Results"
+                    item-value-path="DisplayName"
+                    item-label-path="DisplayName"
+                    .items="${this.searchResults}"
+                    ${comboBoxRenderer(this.searchResultsRenderer, [])}
+                  ></vaadin-combo-box>
+                </td>
+                <td style="display: table-cell; vertical-align: bottom;">
+                  <vaadin-button
+                    @click="${this.addUser}"
+                    style="margin-bottom: 5px"
+                    ?disabled="${!this.UserEditable}"
+                    >Add</vaadin-button
+                  >
+                </td>
+              </tr>
+            </table>
+          </vaadin-details>
+          <vaadin-grid
+            .items="${this.Privileges}"
+            theme="compact row-stripes no-row-borders no-border"
+            style="width: 100%;"
+          >
+            <vaadin-grid-sort-column
+              header="Name"
+              ${columnBodyRenderer(this.acNameRenderer, [])}
+              flex="3"
+              resizable
+              auto-width
+            ></vaadin-grid-sort-column>
+            <vaadin-grid-column
+              header="Write"
+              ${columnBodyRenderer(this.acCanWrite, [this.UserEditable])}
+              flex="1"
+              resizable
+              auto-width
+            ></vaadin-grid-column>
+            <vaadin-grid-column
+              header="Read Secrets"
+              ${columnBodyRenderer(this.acCanReadSecrets, [this.UserEditable, this.UserCanReadSecrets])}
+              flex="1"
+              resizable
+              auto-width
+            ></vaadin-grid-column>
+            <vaadin-grid-column
+              header="Owner"
+              ${columnBodyRenderer(this.acCanOwner, [this.UserIsOwner])}
+              flex="1"
+              resizable
+              auto-width
+            ></vaadin-grid-column>
+            <vaadin-grid-column
+              header="Actions"
+              ${columnBodyRenderer(this._boundACButtonsRenderer, [
+                this.UserEditable
+              ])}
+              flex="1"
+              resizable
+              auto-width
+            ></vaadin-grid-column>
+          </vaadin-grid>
+
+          <div style="color: var(--dorc-error-color)">${this.ErrorMessage}</div>
+        </div>
+  `;
+
+  private renderAccessControlFooter = () => html`
+        <div class="dialog-actions">
+          <div class="save-action">
+            <vaadin-button
+              id="save-access-controls"
+              ?disabled="${!this.UserEditable || this.savingAccessControls}"
+              @click="${this.save}"
+              >Save</vaadin-button
+            >
+            <span class="save-progress" aria-live="polite">
+              ${this.savingAccessControls
+                ? html`<span
+                    class="small-loader"
+                    aria-label="Saving access controls"
+                  ></span>`
+                : html``}
+            </span>
+          </div>
+          <vaadin-button id="close-access-controls" @click="${this.close}"
+            >Close</vaadin-button
+          >
+        </div>
+  `;
+
   close() {
-    const dialog = this.shadowRoot?.getElementById(
-      'add-access-control-dialog'
-    ) as PaperDialogElement;
-    dialog.close();
+    this.dialogOpened = false;
+  }
+
+  /**
+   * Clears the form. Only reachable through the Close button, because the
+   * dialog opts out of Escape and outside-click dismissal.
+   *
+   * That opt-out is deliberate and restores what this dialog had as a
+   * `<paper-dialog modal>`: `modal` implies `noCancelOnOutsideClick` and
+   * `noCancelOnEscKey` (paper-dialog-behavior.js), so neither gesture could
+   * close it. Every other converted dialog dismisses freely, but this one holds
+   * work that exists nowhere else until Save — AD users added to `Privileges`
+   * and the permission bits ticked on them — and this method throws it away.
+   * Deferring the reset would not help: `open()` refetches from the API and
+   * overwrites `Privileges`, so a stray click would still lose the edits.
+   */
+  private resetDialogState() {
     this.Privileges = [];
     this.ErrorMessage = '';
     this.setTextField('search-criteria', '');
