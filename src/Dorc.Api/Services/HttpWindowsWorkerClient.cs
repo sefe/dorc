@@ -3,6 +3,7 @@ using System.Net.Sockets;
 using System.Text.Json;
 using Dorc.Api.Exceptions;
 using Dorc.Api.Interfaces;
+using Dorc.ApiModel;
 
 namespace Dorc.Api.Services
 {
@@ -20,6 +21,19 @@ namespace Dorc.Api.Services
         public HttpWindowsWorkerClient(HttpClient http)
         {
             _http = http;
+        }
+
+        public Task<ServerOperatingSystemApiModel> GetServerOperatingSystemAsync(
+            string serverName,
+            CancellationToken cancellationToken = default)
+        {
+            const string endpoint = "remote-server/operating-system";
+            return SendAsync<ServerOperatingSystemApiModel>(
+                endpoint,
+                ct => _http.GetAsync(
+                    $"{endpoint}?serverName={Uri.EscapeDataString(serverName)}",
+                    ct),
+                cancellationToken);
         }
 
         // Shared by every endpoint added in S-004/S-005/S-006 so transport failures and

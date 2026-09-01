@@ -1,11 +1,11 @@
-﻿using Dorc.ApiModel;
+﻿using Dorc.Api.Interfaces;
+using Dorc.ApiModel;
 using Dorc.Core.Interfaces;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Model;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Win32;
 using Swashbuckle.AspNetCore.Annotations;
 using System.Net;
 using System.Text.Json;
@@ -23,6 +23,7 @@ namespace Dorc.Api.Controllers
         private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
         private readonly IDaemonsPersistentSource _daemonsPersistentSource;
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
+        private readonly IWindowsWorkerClient _windowsWorkerClient;
 
         public RefDataServersController(
             ISecurityPrivilegesChecker securityPrivilegesChecker,
@@ -30,7 +31,8 @@ namespace Dorc.Api.Controllers
             IServersAuditPersistentSource serversAuditPersistentSource,
             IEnvironmentsPersistentSource environmentsPersistentSource,
             IDaemonsPersistentSource daemonsPersistentSource,
-            IClaimsPrincipalReader claimsPrincipalReader)
+            IClaimsPrincipalReader claimsPrincipalReader,
+            IWindowsWorkerClient windowsWorkerClient)
         {
             _environmentsPersistentSource = environmentsPersistentSource;
             _serversPersistentSource = serversPersistentSource;
@@ -38,6 +40,7 @@ namespace Dorc.Api.Controllers
             _securityPrivilegesChecker = securityPrivilegesChecker;
             _daemonsPersistentSource = daemonsPersistentSource;
             _claimsPrincipalReader = claimsPrincipalReader;
+            _windowsWorkerClient = windowsWorkerClient;
         }
 
         /// <summary>
@@ -182,21 +185,18 @@ namespace Dorc.Api.Controllers
         /// <param name="serverName"></param>
         /// <returns></returns>
         [HttpGet]
-        [SwaggerResponse(StatusCodes.Status400BadRequest, Type = typeof(string))]
+        // Body is { "error": "<message>" } — reshaped from a bare string when the probe moved
+        // to the worker. Carved out of Out of Scope under HLPS U-20.
+        [SwaggerResponse(StatusCodes.Status400BadRequest, Type = typeof(object), Description = "Target machine could not be read")]
+        [SwaggerResponse(StatusCodes.Status503ServiceUnavailable, Type = typeof(object), Description = "Windows worker unavailable (Linux install, or worker not running)")]
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(ServerOperatingSystemApiModel))]
         [Route("GetServerOperatingFromTarget")]
-        public IActionResult GetServerOperatingFromTarget(string serverName)
+        public async Task<IActionResult> GetServerOperatingFromTarget(string serverName, CancellationToken cancellationToken)
         {
-            var output = new ServerOperatingSystemApiModel();
-            using (var reg = RegistryKey.OpenRemoteBaseKey(RegistryHive.LocalMachine, serverName))
-            using (var key = reg.OpenSubKey(@"Software\Microsoft\Windows NT\CurrentVersion\"))
-            {
-                if (key == null)
-                    return BadRequest("Unable to open the target machine");
-
-                output.ProductName = key.GetValue("ProductName").ToString();
-                output.CurrentVersion = key.GetValue("CurrentVersion").ToString();
-            }
+            // Delegated to Dorc.Api.WindowsWorker per HLPS Scope D / SPEC-S-004.
+            // On Linux installs the WorkerUnavailableClient throws and the global
+            // WorkerUnavailableExceptionFilter renders a 503 with the documented body.
+            var output = await _windowsWorkerClient.GetServerOperatingSystemAsync(serverName, cancellationToken);
             return Ok(output);
         }
 
