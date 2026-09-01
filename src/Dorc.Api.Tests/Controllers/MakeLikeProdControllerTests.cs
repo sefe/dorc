@@ -125,6 +125,43 @@ namespace Dorc.Api.Tests.Controllers
         }
 
         [TestMethod]
+        public void Put_MarksAllRequestDerivedVariablesAsRequestSupplied()
+        {
+            var request = new MakeLikeProdRequest
+            {
+                TargetEnv = "TestEnv",
+                DataBackup = "Live Snap",
+                BundleName = "TestBundle",
+                BundleProperties = new List<RequestProperty>
+                {
+                    new() { PropertyName = "RequestedProperty", PropertyValue = "request value" }
+                }
+            };
+
+            _securityPrivilegesChecker.IsEnvironmentOwnerOrAdmin(_user, request.TargetEnv).Returns(true);
+            _environmentsPersistentSource.GetEnvironment(request.TargetEnv)
+                .Returns(new EnvironmentApiModel { EnvironmentIsProd = false });
+            _bundledRequestsPersistentSource.GetRequestsForBundle(request.BundleName)
+                .Returns(Array.Empty<BundledRequestsApiModel>());
+            _claimsPrincipalReader.GetUserEmail(_user).Returns("testuser@example.com");
+
+            _controller.Put(request);
+
+            _variableResolver.Received(1)
+                .SetRequestSuppliedPropertyValue("DataBackup", request.DataBackup);
+            _variableResolver.Received(1)
+                .SetRequestSuppliedPropertyValue("TargetEnvironmentName", request.TargetEnv);
+            _variableResolver.Received(1)
+                .SetRequestSuppliedPropertyValue("RequestedProperty", "request value");
+            _variableResolver.DidNotReceive()
+                .SetPropertyValue("DataBackup", Arg.Any<string>());
+            _variableResolver.DidNotReceive()
+                .SetPropertyValue("TargetEnvironmentName", Arg.Any<string>());
+            _variableResolver.DidNotReceive()
+                .SetPropertyValue("RequestedProperty", Arg.Any<string>());
+        }
+
+        [TestMethod]
         public void Put_SetsAllRequestIdsVariable_WithMultipleRequests()
         {
             // Arrange

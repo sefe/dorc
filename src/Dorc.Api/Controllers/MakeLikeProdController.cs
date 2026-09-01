@@ -131,12 +131,14 @@ namespace Dorc.Api.Controllers
                 var requestsForBundle = _bundledRequestsPersistentSource.GetRequestsForBundle(mlpRequest.BundleName).OrderBy(br => br.Sequence);
 
                 _variableResolver.SetPropertyValue("CreatedByUserEmail", this.GetUserEmail(User));
-                _variableResolver.SetPropertyValue("DataBackup", mlpRequest.DataBackup);
-                _variableResolver.SetPropertyValue("TargetEnvironmentName", mlpRequest.TargetEnv);
+                _variableResolver.SetRequestSuppliedPropertyValue("DataBackup", mlpRequest.DataBackup);
+                _variableResolver.SetRequestSuppliedPropertyValue("TargetEnvironmentName", mlpRequest.TargetEnv);
 
                 foreach (var mlpRequestBundleProperty in mlpRequest.BundleProperties)
                 {
-                    _variableResolver.SetPropertyValue(mlpRequestBundleProperty.PropertyName, mlpRequestBundleProperty.PropertyValue);
+                    _variableResolver.SetRequestSuppliedPropertyValue(
+                        mlpRequestBundleProperty.PropertyName,
+                        mlpRequestBundleProperty.PropertyValue);
                 }
 
                 var initialRequestIdNotSet = true;
