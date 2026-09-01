@@ -2,12 +2,14 @@ import { css, PropertyValueMap, TemplateResult } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import '../components/add-edit-access-control';
-import { Router } from '@vaadin/router';
+import { navigate } from '../router/router';
 import { Tabs } from '@vaadin/tabs';
 import { PageElement } from '../helpers/page-element';
+import type { PageLocation } from '../helpers/page-element';
 import { EnvironmentApiModel } from '../apis/dorc-api';
 import { PageEnvBase } from '../components/environment-tabs/page-env-base';
 import { SuccessNotification } from '../components/notifications/success-notification';
+import '@vaadin/tabs/vaadin-tab';
 
 export enum EnvPageTabNames {
   Metadata = 'metadata',
@@ -17,7 +19,7 @@ export enum EnvPageTabNames {
   Deployments = 'deployments',
   Tenants = 'tenants',
   Monitor = 'monitor',
-  Users = 'users',
+  Users = 'users'
 }
 
 @customElement('page-environment')
@@ -28,9 +30,9 @@ export class PageEnvironment extends PageElement {
   private tabId = -1;
   private tabNames = Object.values(EnvPageTabNames);
 
-  @property({ type: Boolean }) private loading = true;
+  @property({ type: Boolean }) loading = true;
 
-  @property({ type: Boolean }) private notFound = false;
+  @property({ type: Boolean }) notFound = false;
 
   static get styles() {
     return css`
@@ -72,13 +74,15 @@ export class PageEnvironment extends PageElement {
             <h2 style="text-align: center;">${this.environmentName}</h2>
           </td>
           <td>
-            ${this.parentName
-              ? html`<vaadin-icon
-                  icon="vaadin:child"
-                  title="Child of ${this.parentName}"
-                  style="color: grey"
-                ></vaadin-icon>`
-              : html``}
+            ${
+              this.parentName
+                ? html`<vaadin-icon
+                    icon="vaadin:child"
+                    title="Child of ${this.parentName}"
+                    style="color: grey"
+                  ></vaadin-icon>`
+                : html``
+            }
           </td>
           <td>
             ${this.loading ? html` <div class="small-loader"></div> ` : html``}
@@ -126,14 +130,12 @@ export class PageEnvironment extends PageElement {
       this.environmentRenamed as EventListener
     );
 
-    const tabName = location.pathname.split('/')[3];
-    if (tabName) this.tabId = this.tabNames.findIndex(p => p === tabName);
-    else this.tabId = 0;
+    this.syncSelectedTab(location.pathname);
+  }
 
-    const tabs = this.shadowRoot?.getElementById('env-tabs') as unknown as Tabs;
-    if (tabs) {
-      tabs.selected = this.tabId;
-    }
+  public onRouteUpdate(location: PageLocation) {
+    this.location = location;
+    this.syncSelectedTab(location.pathname);
   }
 
   environmentLoading() {
@@ -177,10 +179,7 @@ export class PageEnvironment extends PageElement {
 
   convertUriToHuman(tabName: EnvPageTabNames): TemplateResult {
     if (this.environmentName?.toLowerCase().indexOf('endur') === -1) {
-      if (
-        tabName === EnvPageTabNames.Users
-      )
-        return html``;
+      if (tabName === EnvPageTabNames.Users) return html``;
     }
 
     let newTabName: string;
@@ -210,7 +209,20 @@ export class PageEnvironment extends PageElement {
       return;
     }
 
-    Router.go(pathStart + tabName);
+    void navigate(pathStart + tabName);
     console.log(`Telling router to go to ${tabName}`);
+  }
+
+  private syncSelectedTab(pathname: string) {
+    const tabName = pathname.split('/')[3];
+    const foundIndex = tabName
+      ? this.tabNames.findIndex(p => p === tabName)
+      : 0;
+    this.tabId = foundIndex >= 0 ? foundIndex : 0;
+
+    const tabs = this.shadowRoot?.getElementById('env-tabs') as unknown as Tabs;
+    if (tabs) {
+      tabs.selected = this.tabId;
+    }
   }
 }

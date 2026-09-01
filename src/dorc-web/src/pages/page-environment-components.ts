@@ -1,10 +1,11 @@
 import { css, PropertyValueMap, TemplateResult } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
-import { Router } from '@vaadin/router';
+import { navigate } from '../router/router';
 import { Tabs } from '@vaadin/tabs';
 import { PageElement, PageLocation } from '../helpers/page-element';
 import { PageEnvBase } from '../components/environment-tabs/page-env-base';
+import '@vaadin/tabs/vaadin-tab';
 
 export enum EnvComponentTabNames {
   Servers = 'servers',
@@ -62,12 +63,40 @@ export class PageEnvironmentComponents extends PageElement {
       this.environmentName = this.safeDecodeURI(envName);
     }
 
-    const componentTabName = pathParts[4];
-    if (componentTabName) {
-      const foundIndex = this.tabNames.findIndex(p => p === componentTabName);
-      this.tabId = foundIndex >= 0 ? foundIndex : 0;
-    } else {
-      this.tabId = 0;
+    this.syncSelectedTab(location.pathname);
+  }
+
+  public slotChangeComplete() {
+    // No-op — required by page-environment's handleSlotChange
+  }
+
+  public onAfterEnter(location: PageLocation) {
+    this.location = location;
+    this.syncFromLocation(location);
+  }
+
+  public onRouteUpdate(location: PageLocation) {
+    this.location = location;
+    this.syncFromLocation(location);
+  }
+
+  private syncFromLocation(location: PageLocation) {
+    const pathParts = location.pathname.split('/');
+    const envName = pathParts[2];
+    if (envName) {
+      this.environmentName = this.safeDecodeURI(envName);
+    }
+    this.syncSelectedTab(location.pathname);
+  }
+
+  private syncSelectedTab(pathname: string) {
+    const componentTabName = pathname.split('/')[4];
+    const foundIndex = componentTabName
+      ? this.tabNames.findIndex(p => p === componentTabName)
+      : 0;
+    const nextTabId = foundIndex >= 0 ? foundIndex : 0;
+    if (nextTabId !== this.tabId) {
+      this.tabId = nextTabId;
     }
 
     const tabs = this.shadowRoot?.getElementById(
@@ -78,42 +107,11 @@ export class PageEnvironmentComponents extends PageElement {
     }
   }
 
-  public slotChangeComplete() {
-    // No-op — required by page-environment's handleSlotChange
-  }
-
-  public onAfterEnter(location: PageLocation) {
-    this.location = location;
-
-    const pathParts = location.pathname.split('/');
-    const envName = pathParts[2];
-    if (envName) {
-      this.environmentName = this.safeDecodeURI(envName);
-    }
-    const componentTabName = pathParts[4];
-
-    if (componentTabName) {
-      const foundIndex = this.tabNames.findIndex(p => p === componentTabName);
-      if (foundIndex >= 0 && foundIndex !== this.tabId) {
-        this.tabId = foundIndex;
-        const tabs = this.shadowRoot?.getElementById(
-          'component-tabs'
-        ) as unknown as Tabs;
-        if (tabs) {
-          tabs.selected = this.tabId;
-        }
-      }
-    }
-  }
-
   handleSlotChange(e: Event) {
     const slot = e.target as HTMLSlotElement;
     const childNodes: Node[] = slot?.assignedNodes({ flatten: true });
     childNodes.forEach(node => {
-      if (
-        node instanceof HTMLElement &&
-        'slotChangeComplete' in node
-      ) {
+      if (node instanceof HTMLElement && 'slotChangeComplete' in node) {
         (node as PageEnvBase).slotChangeComplete();
       }
     });
@@ -124,8 +122,7 @@ export class PageEnvironmentComponents extends PageElement {
   };
 
   convertUriToHuman(tabName: EnvComponentTabNames): TemplateResult {
-    const override =
-      PageEnvironmentComponents.displayNames[tabName];
+    const override = PageEnvironmentComponents.displayNames[tabName];
     if (override) return html`<vaadin-tab>${override}</vaadin-tab>`;
     let newTabName: string = tabName.replace('-', ' ');
     const re = /(\b[a-z](?!\s))/g;
@@ -150,7 +147,7 @@ export class PageEnvironmentComponents extends PageElement {
       return;
     }
 
-    Router.go(`/environment/${envName}/components/${tabName}`);
+    void navigate(`/environment/${envName}/components/${tabName}`);
   }
 
   private safeDecodeURI(value: string): string {

@@ -8,11 +8,15 @@ import '@vaadin/horizontal-layout';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { DialogOpenedChangedEvent } from '@vaadin/dialog';
-import { Router } from '@vaadin/router';
+import { navigate } from '../router/router';
 import { dialogFooterRenderer, dialogRenderer } from '@vaadin/dialog/lit';
 import { Notification } from '@vaadin/notification';
 import { RefDataProjectsApi } from '../apis/dorc-api/apis';
-import { AccessControlApi, AccessSecureApiModel, AccessControlType } from '../apis/dorc-api';
+import {
+  AccessControlApi,
+  AccessSecureApiModel,
+  AccessControlType
+} from '../apis/dorc-api';
 import '../components/attach-environment';
 import '../components/environment-card.ts';
 import { EnvironmentApiModel, ProjectApiModel } from '../apis/dorc-api';
@@ -23,13 +27,19 @@ import GlobalCache from '../global-cache';
 import '@vaadin/vaadin-lumo-styles/icons.js';
 import { AddEditProject } from '../components/add-edit-project';
 import '../components/add-edit-project';
+import '@vaadin/dialog';
 import {
   EnvironmentApiModelTemplateApiModel,
   RefDataProjectEnvironmentMappingsApi
 } from '../apis/dorc-api';
+import '@vaadin/tooltip';
+import { ref } from 'lit/directives/ref.js';
+import { UnsavedChangesGuard } from '../components/unsaved-changes-guard';
 
 @customElement('page-project-envs')
 export class PageProjectEnvs extends PageElement {
+  private readonly unsavedChanges = new UnsavedChangesGuard();
+
   @property({ type: String })
   project: string | undefined;
 
@@ -41,7 +51,7 @@ export class PageProjectEnvs extends PageElement {
   @property({ type: String }) secureName = '';
 
   @property({ type: Object })
-  private projectData: ProjectApiModel | undefined;
+  projectData: ProjectApiModel | undefined;
 
   @property({ type: Boolean }) isAdmin = false;
 
@@ -94,9 +104,12 @@ export class PageProjectEnvs extends PageElement {
 
       .card-element__text {
         color: gray;
-        word-wrap: break-word;
-        display: block;
+        display: -webkit-box;
+        overflow: hidden;
+        overflow-wrap: anywhere;
         font-size: var(--lumo-font-size-s);
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 3;
       }
 
       .card-content {
@@ -185,37 +198,48 @@ export class PageProjectEnvs extends PageElement {
             <h3 class="card-element__heading" style="margin: 0px">
               ${this.project}
             </h3>
-            ${this.projectData?.ProjectDescription === '' ||
-            this.projectData?.ProjectDescription === null ||
-            this.projectData?.ProjectDescription === undefined
-              ? html`<span class="card-element__text" style="font-style: italic"
-                  >No Description</span
-                >`
-              : html`<span class="card-element__text"
-                  >${this.projectData?.ProjectDescription}</span
-                >`}
+            ${
+              this.projectData?.ProjectDescription === '' ||
+              this.projectData?.ProjectDescription === null ||
+              this.projectData?.ProjectDescription === undefined
+                ? html`<span
+                    class="card-element__text"
+                    style="font-style: italic"
+                    >No Description</span
+                  >`
+                : html`<span
+                    class="card-element__text"
+                    title="${this.projectData?.ProjectDescription}"
+                    >${this.projectData?.ProjectDescription}</span
+                  >`
+            }
           </div>
 
           <div class="card-actions">
             <vaadin-horizontal-layout style="gap: 4px;">
               <vaadin-button
-                title="Attach Environment"
+                aria-label="Attach Environment"
                 theme="icon"
                 @click="${this.openAttachEnv}"
                 style="margin: 0;"
               >
+                <vaadin-tooltip
+                  slot="tooltip"
+                  text="Attach Environment"
+                ></vaadin-tooltip>
                 <vaadin-icon
                   icon="icons:link"
                   style="color: var(--dorc-link-color)"
                 ></vaadin-icon>
               </vaadin-button>
               <vaadin-button
-                title="Bundles"
+                aria-label="Bundles"
                 theme="icon"
                 @click="${this.openBundles}"
                 style="margin: 0;"
                 ?hidden="${!this.projectUserEditable}"
               >
+                <vaadin-tooltip slot="tooltip" text="Bundles"></vaadin-tooltip>
                 <vaadin-icon
                   icon="vaadin:package"
                   style="color: var(--dorc-link-color)"
@@ -224,22 +248,30 @@ export class PageProjectEnvs extends PageElement {
             </vaadin-horizontal-layout>
             <vaadin-horizontal-layout style="gap: 4px;">
               <vaadin-button
-                title="Reference Data"
+                aria-label="Reference Data"
                 theme="icon"
                 @click="${this.openRefData}"
                 style="margin: 0;"
               >
+                <vaadin-tooltip
+                  slot="tooltip"
+                  text="Reference Data"
+                ></vaadin-tooltip>
                 <vaadin-icon
                   icon="vaadin:curly-brackets"
                   style="color: var(--dorc-link-color)"
                 ></vaadin-icon>
               </vaadin-button>
               <vaadin-button
-                title="Edit Metadata..."
+                aria-label="Edit Metadata..."
                 theme="icon"
                 @click="${this.openProjectMetadata}"
                 style="margin: 0;"
               >
+                <vaadin-tooltip
+                  slot="tooltip"
+                  text="Edit Metadata..."
+                ></vaadin-tooltip>
                 <vaadin-icon
                   icon="lumo:edit"
                   style="color: var(--dorc-link-color)"
@@ -258,12 +290,14 @@ export class PageProjectEnvs extends PageElement {
         )}
       </div>
       <vaadin-dialog
+        ${ref(this.unsavedChanges.attach)}
         header-title="Map Environment to Project"
+        draggable
         .opened="${this.mapEnvDialogOpened}"
         @opened-changed="${(event: DialogOpenedChangedEvent) => {
           this.mapEnvDialogOpened = event.detail.value;
         }}"
-        ${dialogRenderer(this.renderMapEnvDialog, [])}
+        ${dialogRenderer(this.renderMapEnvDialog, [this.project])}
         ${dialogFooterRenderer(this.renderMapEnvFooter, [])}
       ></vaadin-dialog>
     `;
@@ -291,7 +325,8 @@ export class PageProjectEnvs extends PageElement {
   private setUserRoles(userRoles: string[]) {
     this.userRoles = userRoles;
     this.isAdmin = this.userRoles.find(p => p === 'Admin') !== undefined;
-    this.isPowerUser = this.userRoles.find(p => p === 'PowerUser') !== undefined;
+    this.isPowerUser =
+      this.userRoles.find(p => p === 'PowerUser') !== undefined;
   }
 
   private openProjectMetadata() {
@@ -310,7 +345,9 @@ export class PageProjectEnvs extends PageElement {
     });
     if (this.addEditProject) {
       this.addEditProject.close();
-      Router.go(`project-envs/${this.addEditProject?.project?.ProjectName}`);
+      void navigate(
+        `project-envs/${this.addEditProject?.project?.ProjectName}`
+      );
     }
   }
 
@@ -342,7 +379,7 @@ export class PageProjectEnvs extends PageElement {
   }
 
   openBundles() {
-    Router.go(`project-envs/${this.project}/bundles`);
+    void navigate(`project-envs/${this.project}/bundles`);
   }
 
   private renderMapEnvDialog = () => html`
@@ -384,7 +421,7 @@ export class PageProjectEnvs extends PageElement {
           },
           (err: any) => {
             console.error(err);
-            Router.go('not-found');
+            void navigate('not-found');
           },
           () => {
             console.log('done loading environments');
