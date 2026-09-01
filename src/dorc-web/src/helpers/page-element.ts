@@ -1,18 +1,14 @@
 import type { PropertyValues } from 'lit';
 import { LitElement } from 'lit';
-import type { Route } from '@vaadin/router';
 import { state } from 'lit/decorators.js';
 import { updateMetadata } from './html-meta-manager';
-import {RouteMeta} from "../router/routes.ts";
+import type { AppRoute, RouteMetadata } from '../router/route-config';
 
-interface PageMetadata {
-  title: string;
-  description: string;
-}
+type PageMetadata = RouteMetadata;
 
-// Simplified location type to avoid TS 6 deep recursion with RouterLocation<RouteMeta>
+/** The subset of the router location that routed pages actually read. */
 export interface PageLocation {
-  route?: Route<RouteMeta> | null;
+  route?: AppRoute | null;
   pathname: string;
 }
 
@@ -26,8 +22,8 @@ export class PageElement extends LitElement {
     this.updateMetadata();
   }
 
-  protected metadata(route: Route<RouteMeta>): PageMetadata | undefined {
-    return route.metadata as PageMetadata | undefined;
+  protected metadata(route: AppRoute): PageMetadata | undefined {
+    return route.metadata;
   }
 
   private updateMetadata() {

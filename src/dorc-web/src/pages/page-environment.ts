@@ -2,12 +2,14 @@ import { css, PropertyValueMap, TemplateResult } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import '../components/add-edit-access-control';
-import { Router } from '@vaadin/router';
+import { navigate } from '../router/router';
 import { Tabs } from '@vaadin/tabs';
 import { PageElement } from '../helpers/page-element';
+import type { PageLocation } from '../helpers/page-element';
 import { EnvironmentApiModel } from '../apis/dorc-api';
 import { PageEnvBase } from '../components/environment-tabs/page-env-base';
 import { SuccessNotification } from '../components/notifications/success-notification';
+import '@vaadin/tabs/vaadin-tab';
 
 export enum EnvPageTabNames {
   Metadata = 'metadata',
@@ -17,7 +19,7 @@ export enum EnvPageTabNames {
   Deployments = 'deployments',
   Tenants = 'tenants',
   Monitor = 'monitor',
-  Users = 'users',
+  Users = 'users'
 }
 
 @customElement('page-environment')
@@ -43,9 +45,9 @@ export class PageEnvironment extends PageElement {
     return Object.values(EnvPageTabNames);
   }
 
-  @property({ type: Boolean }) private loading = true;
+  @property({ type: Boolean }) loading = true;
 
-  @property({ type: Boolean }) private notFound = false;
+  @property({ type: Boolean }) notFound = false;
 
   static get styles() {
     return css`
@@ -109,7 +111,10 @@ export class PageEnvironment extends PageElement {
       // D-36: this used to render nothing at all — a blank pane, with the drawer
       // still highlighting the shortcut and no indication of what happened.
       return html`
-        <div role="alert" style="padding: var(--lumo-space-l); text-align: center;">
+        <div
+          role="alert"
+          style="padding: var(--lumo-space-l); text-align: center;"
+        >
           <h2>Environment not found</h2>
           <p>
             The environment
@@ -125,20 +130,24 @@ export class PageEnvironment extends PageElement {
         <!-- aria-live: the name is empty on first paint and only arrives when the
              async load lands, so without this it is never announced (D-21). -->
         <h2 aria-live="polite">${this.environmentName}</h2>
-        ${this.parentName
-          ? html`<vaadin-icon
-              icon="vaadin:child"
-              title="Child of ${this.parentName}"
-              style="color: grey"
-            ></vaadin-icon>`
-          : html``}
-        ${this.loading
-          ? html`<div
-              class="small-loader"
-              role="status"
-              aria-label="Loading environment"
-            ></div>`
-          : html``}
+        ${
+          this.parentName
+            ? html`<vaadin-icon
+                icon="vaadin:child"
+                title="Child of ${this.parentName}"
+                style="color: grey"
+              ></vaadin-icon>`
+            : html``
+        }
+        ${
+          this.loading
+            ? html`<div
+                class="small-loader"
+                role="status"
+                aria-label="Loading environment"
+              ></div>`
+            : html``
+        }
       </div>
 
       <vaadin-tabs
@@ -181,14 +190,12 @@ export class PageEnvironment extends PageElement {
       this.environmentRenamed as EventListener
     );
 
-    const tabName = location.pathname.split('/')[3];
-    if (tabName) this.tabId = this.tabNames.findIndex(p => p === tabName);
-    else this.tabId = 0;
+    this.syncSelectedTab(location.pathname);
+  }
 
-    const tabs = this.shadowRoot?.getElementById('env-tabs') as unknown as Tabs;
-    if (tabs) {
-      tabs.selected = this.tabId;
-    }
+  public onRouteUpdate(location: PageLocation) {
+    this.location = location;
+    this.syncSelectedTab(location.pathname);
   }
 
   environmentLoading() {
@@ -266,7 +273,20 @@ export class PageEnvironment extends PageElement {
       return;
     }
 
-    Router.go(pathStart + tabName);
+    void navigate(pathStart + tabName);
     console.log(`Telling router to go to ${tabName}`);
+  }
+
+  private syncSelectedTab(pathname: string) {
+    const tabName = pathname.split('/')[3];
+    const foundIndex = tabName
+      ? this.tabNames.findIndex(p => p === tabName)
+      : 0;
+    this.tabId = foundIndex >= 0 ? foundIndex : 0;
+
+    const tabs = this.shadowRoot?.getElementById('env-tabs') as unknown as Tabs;
+    if (tabs) {
+      tabs.selected = this.tabId;
+    }
   }
 }

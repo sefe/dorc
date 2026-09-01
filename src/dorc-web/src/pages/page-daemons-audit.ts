@@ -1,21 +1,15 @@
+import { columnBodyRenderer, columnHeaderRenderer } from '@vaadin/grid/lit';
 import '@vaadin/button';
 import '../components/dorc-spinner';
-import {
-  GridCellPartNameGenerator,
-  GridDataProviderCallback,
-  GridDataProviderParams,
-  GridItemModel,
-  GridSorterDefinition
-} from '@vaadin/grid';
+import { GridCellPartNameGenerator, GridDataProviderCallback, GridDataProviderParams, GridSorterDefinition } from '@vaadin/grid';
 import '@vaadin/grid';
-import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid-sorter';
 import '@vaadin/horizontal-layout';
 import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
 import '@vaadin/text-field';
-import { css, PropertyValues, render } from 'lit';
+import { PropertyValues, css, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { DaemonAuditApi, PagedDataSorting } from '../apis/dorc-api';
@@ -108,7 +102,7 @@ export class PageDaemonsAudit extends ResponsiveMixin(PageElement) {
         <vaadin-grid-column
           path="DaemonName"
           header="Daemon"
-          .renderer="${this.daemonNameRenderer}"
+          ${columnBodyRenderer(this.daemonNameRenderer, [])}
           resizable
           auto-width
           flex-grow="0"
@@ -116,7 +110,7 @@ export class PageDaemonsAudit extends ResponsiveMixin(PageElement) {
         <vaadin-grid-column
           path="Username"
           header="User"
-          .headerRenderer="${this.userHeaderRenderer}"
+          ${columnHeaderRenderer(this.userHeaderRenderer, [])}
           resizable
           auto-width
           flex-grow="0"
@@ -124,7 +118,7 @@ export class PageDaemonsAudit extends ResponsiveMixin(PageElement) {
         <vaadin-grid-column
           path="Action"
           header="Action"
-          .headerRenderer="${this.actionHeaderRenderer}"
+          ${columnHeaderRenderer(this.actionHeaderRenderer, [])}
           resizable
           auto-width
           flex-grow="0"
@@ -133,7 +127,7 @@ export class PageDaemonsAudit extends ResponsiveMixin(PageElement) {
           path="Date"
           header="Date"
           direction="desc"
-          .renderer="${this.dateRenderer}"
+          ${columnBodyRenderer(this.dateRenderer, [])}
           resizable
           auto-width
           flex-grow="0"
@@ -141,7 +135,7 @@ export class PageDaemonsAudit extends ResponsiveMixin(PageElement) {
         <vaadin-grid-column
           path="FromValue"
           header="From"
-          .renderer="${this.valueRenderer('FromValue')}"
+          ${columnBodyRenderer(this.valueRenderer('FromValue'), [])}
           resizable
           flex-grow="1"
           ?hidden="${this._narrowScreen}"
@@ -149,7 +143,7 @@ export class PageDaemonsAudit extends ResponsiveMixin(PageElement) {
         <vaadin-grid-column
           path="ToValue"
           header="To"
-          .renderer="${this.valueRenderer('ToValue')}"
+          ${columnBodyRenderer(this.valueRenderer('ToValue'), [])}
           resizable
           flex-grow="1"
           ?hidden="${this._narrowScreen}"
@@ -199,84 +193,57 @@ export class PageDaemonsAudit extends ResponsiveMixin(PageElement) {
   };
 
   private daemonNameRenderer = (
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<DaemonAuditApiModel>
+    item: DaemonAuditApiModel
   ) => {
-    const name = model.item.DaemonName;
+    const name = item.DaemonName;
     if (!name) {
-      render(html`<span class="muted">(deleted)</span>`, root);
-      return;
+      return html`<span class="muted">(deleted)</span>`;
     }
-    render(html`<span>${name}</span>`, root);
+    return html`<span>${name}</span>`;
   };
 
-  private dateRenderer = (
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<DaemonAuditApiModel>
-  ) => {
-    const raw = model.item?.Date;
-    if (!raw) {
-      // Clear via DOM rather than render(html``, root) — the empty-template
-      // form trips Aikido's tainted-render rule (false positive, lit-html).
-      root.replaceChildren();
-      return;
-    }
+  private dateRenderer = (item: DaemonAuditApiModel) => {
+    const raw = item?.Date;
+    if (!raw) return nothing;
     const dt = new Date(raw);
-    const formatted = `${dt.toLocaleDateString('en-GB')} ${dt.toLocaleTimeString('en-GB')}`;
-    render(html`<span>${formatted}</span>`, root);
+    return html`<span
+      >${dt.toLocaleDateString('en-GB')} ${dt.toLocaleTimeString('en-GB')}</span
+    >`;
   };
 
   private valueRenderer(fieldName: 'FromValue' | 'ToValue') {
-    return (
-      root: HTMLElement,
-      _column: GridColumn,
-      model: GridItemModel<DaemonAuditApiModel>
-    ) => {
-      const raw = model.item?.[fieldName];
+    return (item: DaemonAuditApiModel) => {
+      const raw = item?.[fieldName];
       if (!raw) {
-        render(html`<span class="muted">—</span>`, root);
-        return;
+        return html`<span class="muted">—</span>`;
       }
 
-      const oldStr = model.item?.FromValue ?? '';
-      const newStr = model.item?.ToValue ?? '';
+      const oldStr = item?.FromValue ?? '';
+      const newStr = item?.ToValue ?? '';
       const isCreate = !oldStr && !!newStr;
       const isDelete = !!oldStr && !newStr;
 
       // Whole-string highlight on Create/Delete; per-character diff on Update.
       if (isCreate && fieldName === 'ToValue') {
-        render(html`<pre class="value"><span class="highlight">${raw}</span></pre>`, root);
-        return;
+        return html`<pre class="value"><span class="highlight">${raw}</span></pre>`;
       }
       if (isDelete && fieldName === 'FromValue') {
-        render(html`<pre class="value"><span class="highlight-removed">${raw}</span></pre>`, root);
-        return;
+        return html`<pre class="value"><span class="highlight-removed">${raw}</span></pre>`;
       }
       if (oldStr === newStr) {
-        render(html`<pre class="value">${raw}</pre>`, root);
-        return;
+        return html`<pre class="value">${raw}</pre>`;
       }
 
-      const ops = this.computeDiff(oldStr, newStr);
-      if (fieldName === 'FromValue') {
-        const parts = ops.map(op => {
-          if (op.type === 'keep') return html`${op.value}`;
-          if (op.type === 'delete')
-            return html`<span class="highlight-removed">${op.value}</span>`;
-          return html``;
-        });
-        render(html`<pre class="value">${parts}</pre>`, root);
-      } else {
-        const parts = ops.map(op => {
-          if (op.type === 'keep') return html`${op.value}`;
-          if (op.type === 'insert')
-            return html`<span class="highlight">${op.value}</span>`;
-          return html``;
-        });
-        render(html`<pre class="value">${parts}</pre>`, root);
-      }
+      const removing = fieldName === 'FromValue';
+      const parts = this.computeDiff(oldStr, newStr).map(op => {
+        if (op.type === 'keep') return html`${op.value}`;
+        if (removing && op.type === 'delete')
+          return html`<span class="highlight-removed">${op.value}</span>`;
+        if (!removing && op.type === 'insert')
+          return html`<span class="highlight">${op.value}</span>`;
+        return html``;
+      });
+      return html`<pre class="value">${parts}</pre>`;
     };
   }
 
@@ -329,9 +296,8 @@ export class PageDaemonsAudit extends ResponsiveMixin(PageElement) {
     return merged;
   }
 
-  userHeaderRenderer = (root: HTMLElement) => {
-    render(
-      html`
+  userHeaderRenderer = () => {
+    return html`
         <vaadin-horizontal-layout style="align-items: center;" theme="spacing-xs">
           <vaadin-grid-sorter path="Username">User</vaadin-grid-sorter>
           <vaadin-text-field
@@ -347,14 +313,11 @@ export class PageDaemonsAudit extends ResponsiveMixin(PageElement) {
             }}"
           ></vaadin-text-field>
         </vaadin-horizontal-layout>
-      `,
-      root
-    );
+      `;
   };
 
-  actionHeaderRenderer = (root: HTMLElement) => {
-    render(
-      html`
+  actionHeaderRenderer = () => {
+    return html`
         <vaadin-horizontal-layout style="align-items: center;" theme="spacing-xs">
           <vaadin-grid-sorter path="Action">Action</vaadin-grid-sorter>
           <vaadin-text-field
@@ -370,9 +333,7 @@ export class PageDaemonsAudit extends ResponsiveMixin(PageElement) {
             }}"
           ></vaadin-text-field>
         </vaadin-horizontal-layout>
-      `,
-      root
-    );
+      `;
   };
 
   private refreshGrid() {

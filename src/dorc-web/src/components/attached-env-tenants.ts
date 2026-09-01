@@ -1,15 +1,21 @@
+import { confirmPrompt } from './confirm-prompt';
 import '@vaadin/button';
 import '@vaadin/grid';
 import '@vaadin/grid/vaadin-grid-column';
 import '@vaadin/grid/vaadin-grid-sort-column';
-import { css, LitElement, render } from 'lit';
+import { columnBodyRenderer } from '@vaadin/grid/lit';
+import { css, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
-import '@polymer/paper-dialog';
 import { Notification } from '@vaadin/notification';
-import { ApiBoolResult, EnvironmentApiModel, RefDataEnvironmentsDetailsApi } from '../apis/dorc-api';
+import {
+  ApiBoolResult,
+  EnvironmentApiModel,
+  RefDataEnvironmentsDetailsApi
+} from '../apis/dorc-api';
 import { styleMap } from 'lit/directives/style-map.js';
 import { EnvPageTabNames } from '../pages/page-environment';
+import '@vaadin/tooltip';
 
 @customElement('attached-env-tenants')
 export class AttachedEnvTenants extends LitElement {
@@ -41,70 +47,86 @@ export class AttachedEnvTenants extends LitElement {
         ></vaadin-grid-column>
         <vaadin-grid-column
           header="Actions"
-          .renderer="${this.environmentActionsRenderer}"
+          ${columnBodyRenderer(this.environmentActionsRenderer, [this.readonly])}
         ></vaadin-grid-column>
       </vaadin-grid>
     `;
   }
 
-  private environmentActionsRenderer = (root: HTMLElement, _: HTMLElement, model: { item: EnvironmentApiModel }) => {
+  /**
+   * Reads `readonly`, so it is declared as a dependency. Under the old plain
+   * `.renderer` binding the function reference never changed, so Grid had no
+   * way to know the closure had gone stale and the Detach button stayed
+   * enabled after the environment resolved as read-only.
+   */
+  private environmentActionsRenderer = (environment: EnvironmentApiModel) => {
     const unlinkStyles = {
-      color: this.readonly ? 'var(--dorc-text-secondary)' : 'var(--dorc-error-color)'
+      color: this.readonly
+        ? 'var(--dorc-text-secondary)'
+        : 'var(--dorc-error-color)'
     };
-    const environment = model.item;
 
-    render(
-      html`
-        <vaadin-button
-          title="Open Environment Details for ${environment?.EnvironmentName}"
-          theme="icon"
-          @click="${() => this.openEnvironmentDetails(environment)}"
-        >
-          <vaadin-icon
-            icon="hardware:developer-board"
-            style="color: var(--dorc-link-color)"
-          ></vaadin-icon>
-        </vaadin-button>
-        <vaadin-button
-          title="Detach tenant"
-          theme="icon"
-          @click="${() => this.detachTenant(environment?.EnvironmentId)}"
-          ?disabled="${this.readonly}"
-        >
-          <vaadin-icon
-            icon="vaadin:unlink"
-            style=${styleMap(unlinkStyles)}
-          ></vaadin-icon>
-        </vaadin-button>
-      `,
-      root
-    );
+    return html`
+      <vaadin-button
+        aria-label="Open Environment Details for ${environment?.EnvironmentName}"
+        theme="icon"
+        @click="${() => this.openEnvironmentDetails(environment)}"
+      >
+        <vaadin-tooltip
+          slot="tooltip"
+          text="Open Environment Details for ${environment?.EnvironmentName}"
+        ></vaadin-tooltip>
+        <vaadin-icon
+          icon="hardware:developer-board"
+          style="color: var(--dorc-link-color)"
+        ></vaadin-icon>
+      </vaadin-button>
+      <vaadin-button
+        aria-label="Detach tenant"
+        theme="icon"
+        @click="${() => this.detachTenant(environment?.EnvironmentId)}"
+        ?disabled="${this.readonly}"
+      >
+        <vaadin-tooltip slot="tooltip" text="Detach tenant"></vaadin-tooltip>
+        <vaadin-icon
+          icon="vaadin:unlink"
+          style=${styleMap(unlinkStyles)}
+        ></vaadin-icon>
+      </vaadin-button>
+    `;
   };
 
-  detachTenant(envId: number | undefined) {
-    const answer = confirm('Detach tenant?');
+  async detachTenant(envId: number | undefined) {
+    const answer = await confirmPrompt('Detach tenant?');
     if (answer && envId) {
       const api = new RefDataEnvironmentsDetailsApi();
-      api.refDataEnvironmentsDetailsSetParentForEnvironmentPut({
-        childEnvId: envId,
-        parentEnvId: undefined
-      })
+      api
+        .refDataEnvironmentsDetailsSetParentForEnvironmentPut({
+          childEnvId: envId,
+          parentEnvId: undefined
+        })
         .subscribe({
           next: (data: ApiBoolResult) => {
             if (data.Result) {
-              this.dispatchEvent(new CustomEvent('request-environment-update', {
-                bubbles: true,
-                composed: true
-              }));
+              this.dispatchEvent(
+                new CustomEvent('request-environment-update', {
+                  bubbles: true,
+                  composed: true
+                })
+              );
 
-              Notification.show(`Tenant environment with ID ${envId} has beed detached.`, {
-                theme: 'success',
-                position: 'bottom-start',
-                duration: 3000
-              });
-            }
-            else {
-              this.onError(`Detach environment with ID ${envId} from parent has failed: ${data.Message}`);
+              Notification.show(
+                `Tenant environment with ID ${envId} has beed detached.`,
+                {
+                  theme: 'success',
+                  position: 'bottom-start',
+                  duration: 3000
+                }
+              );
+            } else {
+              this.onError(
+                `Detach environment with ID ${envId} from parent has failed: ${data.Message}`
+              );
             }
           },
           error: (err: string) => {

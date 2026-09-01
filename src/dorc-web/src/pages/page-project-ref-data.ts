@@ -6,11 +6,15 @@ import '../icons/iron-icons';
 import { Notification } from '@vaadin/notification';
 import { ErrorNotification } from '../components/notifications/error-notification';
 import { PageElement } from '../helpers/page-element';
-import { RefDataApi, RefDataApiModel, ComponentApiModel } from '../apis/dorc-api';
+import {
+  RefDataApi,
+  RefDataApiModel,
+  ComponentApiModel
+} from '../apis/dorc-api';
 import { retrieveErrorMessage } from '../helpers/errorMessage-retriever';
 
 const ALLOWED_COMPONENT_NAME_REGEX = new RegExp(
-  "^[a-zA-Z0-9 ,./?|:;'\"<>()\\[\\]{}_*&$#@!\\-=+]+$"
+  '^[a-zA-Z0-9 ,./?|:;\'"<>()\\[\\]{}_*&$#@!\\-=+]+$'
 );
 
 let editorValue: string | undefined = '';
@@ -74,7 +78,7 @@ export class PageProjectRefData extends PageElement {
   private projectId: number | undefined;
 
   @property({ type: Boolean })
-  private refDataLoading = false;
+  refDataLoading = false;
 
   render() {
     return html`
@@ -152,7 +156,7 @@ export class PageProjectRefData extends PageElement {
       if (invalidNames.length > 0) {
         this.errorAlert(
           `Component name(s) contain invalid characters: ${invalidNames.join(', ')}. ` +
-          `Only alphanumeric characters, spaces, and these symbols are allowed: ,./?|:;'"<>()[]{}*&$#@!-_=+`
+            `Only alphanumeric characters, spaces, and these symbols are allowed: ,./?|:;'"<>()[]{}*&$#@!-_=+`
         );
         this.refDataLoading = false;
         return;
@@ -197,9 +201,7 @@ export class PageProjectRefData extends PageElement {
     notification.open();
   }
 
-  private findInvalidComponentNames(
-    components: ComponentApiModel[]
-  ): string[] {
+  private findInvalidComponentNames(components: ComponentApiModel[]): string[] {
     const invalid: string[] = [];
     for (const component of components) {
       if (

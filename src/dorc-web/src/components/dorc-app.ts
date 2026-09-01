@@ -2,13 +2,16 @@ import { css, LitElement, PropertyValues } from 'lit';
 import { html } from 'lit/html.js';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import '@vaadin/button';
-import { MakeLikeProdApi, RefDataRolesApi, MetadataApi } from '../apis/dorc-api';
+import {
+  MakeLikeProdApi,
+  RefDataRolesApi,
+  MetadataApi
+} from '../apis/dorc-api';
 import './dorc-navbar.ts';
 import { DorcNavbar } from './dorc-navbar.ts';
 import './theme-toggle.ts';
 import { themeManager } from '../theme/theme-manager.ts';
 import '@vaadin/vaadin-lumo-styles/icons.js';
-import { Router } from '@vaadin/router';
 import {
   drawerShortcuts,
   toEnvShortcut,
@@ -22,8 +25,13 @@ import type {
 } from '../apis/dorc-api';
 import { EnvPageTabNames } from '../pages/page-environment.ts';
 import { appConfig } from '../app-config.ts';
-import { OAUTH_SCHEME, oauthServiceContainer } from '../services/Account/OAuthService.ts';
+import {
+  OAUTH_SCHEME,
+  oauthServiceContainer
+} from '../services/Account/OAuthService.ts';
 import { NARROW_BREAKPOINT } from '../helpers/responsive-mixin.ts';
+import { LOCATION_CHANGED_EVENT, navigate } from '../router/router.ts';
+import { dorcEnvironmentNameFromMetadata } from '../helpers/dorc-environment-name';
 
 let dorcNavbar: DorcNavbar;
 
@@ -236,7 +244,10 @@ export class DorcApp extends LitElement {
           visibility: hidden;
           pointer-events: none;
           transform: translateX(-100%);
-          transition: transform 0.2s ease, width 0.2s ease, visibility 0s linear 0.2s;
+          transition:
+            transform 0.2s ease,
+            width 0.2s ease,
+            visibility 0s linear 0.2s;
         }
 
         #dorcNavbar.open {
@@ -244,7 +255,10 @@ export class DorcApp extends LitElement {
           visibility: visible;
           pointer-events: auto;
           transform: translateX(0);
-          transition: transform 0.2s ease, width 0.2s ease, visibility 0s;
+          transition:
+            transform 0.2s ease,
+            width 0.2s ease,
+            visibility 0s;
         }
 
         #splitter {
@@ -348,11 +362,15 @@ export class DorcApp extends LitElement {
           src="/hegsie_white_background_cartoon_dork_code_markdown_simple_icon__ef4f70a2-200b-4a67-82ba-73b12eb495d3.png"
           alt="DOrc mascot"
         />
-        ${appConfig.isProduction
-          ? html`<span class="app-title" title="DevOps Orchestrator">DOrc</span>`
-          : html`<span class="env-warning" title="DevOps Orchestrator"
-              >${this.dorcEnv} - Non-Prod Instance</span
-            >`}
+        ${
+          appConfig.isProduction
+            ? html`<span class="app-title" title="DevOps Orchestrator"
+                >DOrc</span
+              >`
+            : html`<span class="env-warning" title="DevOps Orchestrator"
+                >${this.dorcEnv} - Non-Prod Instance</span
+              >`
+        }
         <div class="spacer"></div>
         <div class="user-info">
           <div>${this.userEmail}</div>
@@ -415,7 +433,7 @@ export class DorcApp extends LitElement {
     this._narrowScreen = this._narrowMq.matches;
     this._narrowMq.addEventListener('change', this._narrowMqHandler);
     window.addEventListener(
-      'vaadin-router-location-changed',
+      LOCATION_CHANGED_EVENT,
       this._routerLocationChanged
     );
     document.addEventListener('keydown', this._keydownHandler);
@@ -425,7 +443,9 @@ export class DorcApp extends LitElement {
     // (render errors) so they're surfaced rather than swallowed silently.
     this.updateComplete
       .then(() => this._attachSplitterListener())
-      .catch(err => console.error('dorc-app deferred splitter attach failed:', err));
+      .catch(err =>
+        console.error('dorc-app deferred splitter attach failed:', err)
+      );
   }
 
   protected firstUpdated(_changedProperties: PropertyValues) {
@@ -473,7 +493,10 @@ export class DorcApp extends LitElement {
   // so calling this from both firstUpdated and connectedCallback is safe.
   private _attachSplitterListener() {
     if (!this.splitter) return;
-    this.splitter.removeEventListener('mousedown', this._splitterMouseDownHandler);
+    this.splitter.removeEventListener(
+      'mousedown',
+      this._splitterMouseDownHandler
+    );
     this.splitter.addEventListener('mousedown', this._splitterMouseDownHandler);
   }
 
@@ -496,12 +519,15 @@ export class DorcApp extends LitElement {
     super.disconnectedCallback();
     this._narrowMq?.removeEventListener('change', this._narrowMqHandler);
     window.removeEventListener(
-      'vaadin-router-location-changed',
+      LOCATION_CHANGED_EVENT,
       this._routerLocationChanged
     );
     document.removeEventListener('keydown', this._keydownHandler);
     if (this.splitter) {
-      this.splitter.removeEventListener('mousedown', this._splitterMouseDownHandler);
+      this.splitter.removeEventListener(
+        'mousedown',
+        this._splitterMouseDownHandler
+      );
     }
     // Only release body styles we own, so coexisting modals/drags aren't clobbered.
     if (this._splitterDragInProgress) {
@@ -592,11 +618,9 @@ export class DorcApp extends LitElement {
       return;
     }
     const presets = DorcApp.WIDTH_PRESETS;
-    const next =
-      presets.find(w => w > this._sidebarWidth + 1) ?? presets[0];
+    const next = presets.find(w => w > this._sidebarWidth + 1) ?? presets[0];
     this.setSidebarWidth(next);
   }
-
 
   // ── Shortcut event hub ───────────────────────────────────────────────────
   // Absorbed from the former ShortcutsStore base class, which was both a
@@ -605,7 +629,10 @@ export class DorcApp extends LitElement {
   // drawer-shortcuts; this is only the wiring between page events and the store.
 
   private registerShortcutEvents() {
-    this.addEventListener('open-env-detail', this.openEnvDetail as EventListener);
+    this.addEventListener(
+      'open-env-detail',
+      this.openEnvDetail as EventListener
+    );
     this.addEventListener(
       'open-monitor-result',
       this.openMonitorResult as EventListener
@@ -660,7 +687,7 @@ export class DorcApp extends LitElement {
 
   private environmentDeleted = (e: CustomEvent) => {
     this.dorcNavbar?.closeEnvDetail(e);
-    Router.go('/environments');
+    void navigate('/environments');
   };
 
   private environmentRenamed = (e: CustomEvent) => {
@@ -673,7 +700,7 @@ export class DorcApp extends LitElement {
     // Projection happens in the store, so the ~20 dispatch sites keep sending
     // full API models and their objects are never mutated.
     drawerShortcuts.add('environments', toEnvShortcut(env));
-    Router.go(
+    void navigate(
       `/environment/${encodeURIComponent(String(env.EnvironmentName))}/${tab}`
     );
   };
@@ -681,7 +708,7 @@ export class DorcApp extends LitElement {
   private openProjectEnvs = (e: CustomEvent) => {
     const project = e.detail.Project as ProjectApiModel;
     drawerShortcuts.add('projects', toProjectShortcut(project));
-    Router.go(
+    void navigate(
       `/project-envs/${encodeURIComponent(String(project.ProjectName))}`
     );
   };
@@ -695,12 +722,12 @@ export class DorcApp extends LitElement {
 
   private openProjectComponents = (e: CustomEvent) => {
     const project = e.detail.Project as ProjectApiModel;
-    Router.go(`/project-components/${project?.ProjectId}`);
+    void navigate(`/project-components/${project?.ProjectId}`);
   };
 
   private openProjectRefData = (e: CustomEvent) => {
     const project = e.detail.Project as ProjectApiModel;
-    Router.go(`/project-ref-data/${project?.ProjectId}`);
+    void navigate(`/project-ref-data/${project?.ProjectId}`);
   };
 
   /** Clears shortcuts on sign-out (SC-17). */
@@ -727,8 +754,9 @@ export class DorcApp extends LitElement {
       }
     } else {
       const sidebarWidth =
-        getComputedStyle(this).getPropertyValue('--dorc-sidebar-width').trim() ||
-        '300px';
+        getComputedStyle(this)
+          .getPropertyValue('--dorc-sidebar-width')
+          .trim() || '300px';
       if (this.dorcNavbar.style.width === '0px') {
         this.dorcNavbar.style.width = sidebarWidth;
         this._desktopSidebarVisible = true;
@@ -875,7 +903,7 @@ export class DorcApp extends LitElement {
       next: value => {
         this.userEmail = value;
       },
-      error: (err: string) => console.error(err),
+      error: (err: string) => console.error(err)
     });
   }
 
@@ -883,13 +911,20 @@ export class DorcApp extends LitElement {
     const api = new MetadataApi();
     api.metadataGet().subscribe({
       next: (data: string) => {
-        this.dorcEnv = data.split('-')[0].trim();
+        const environmentName = dorcEnvironmentNameFromMetadata(data);
+        if (environmentName === undefined) {
+          console.error('Metadata API returned a non-string environment name.');
+          this.dorcEnv = '';
+          return;
+        }
+        this.dorcEnv = environmentName;
       },
       error: (err: string) => console.error(err)
     });
   }
 
-  @property({ type: Boolean }) showSignOutButton = appConfig.authenticationScheme == OAUTH_SCHEME;
+  @property({ type: Boolean }) showSignOutButton =
+    appConfig.authenticationScheme == OAUTH_SCHEME;
 
   private signOut() {
     oauthServiceContainer.service.signOut();

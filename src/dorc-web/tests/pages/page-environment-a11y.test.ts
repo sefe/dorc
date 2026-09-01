@@ -1,5 +1,4 @@
 import { expect, fixture, html } from '../_helpers';
-import { Router } from '@vaadin/router';
 import { vi } from 'vitest';
 
 // P3 — the environment detail page the drawer shortcuts link into.
@@ -62,9 +61,8 @@ describe('P3: environment page', () => {
   // ─── D-22 ───────────────────────────────────────────────────────────────
   describe('SC-21: the loader is themed', () => {
     it('uses theme tokens rather than hardcoded greys', async () => {
-      const { PageEnvironment } = await import(
-        '../../src/pages/page-environment.js'
-      );
+      const { PageEnvironment } =
+        await import('../../src/pages/page-environment.js');
       const css = (
         PageEnvironment as unknown as {
           styles: { cssText: string } | Array<{ cssText: string }>;
@@ -120,9 +118,8 @@ describe('P3: environment page', () => {
     });
 
     it('no longer gates a tab on the environment name containing "endur"', async () => {
-      const { PageEnvironment } = await import(
-        '../../src/pages/page-environment.js'
-      );
+      const { PageEnvironment } =
+        await import('../../src/pages/page-environment.js');
       const src = PageEnvironment.prototype.convertUriToHuman.toString();
       expect(src, 'the endur hard-coding is gone').to.not.match(/endur/i);
     });
@@ -135,7 +132,8 @@ describe('P3: environment page', () => {
         window.location.pathname +
         window.location.search +
         window.location.hash;
-      const go = vi.spyOn(Router, 'go').mockImplementation(() => true);
+      const { router } = await import('../../src/router/router.js');
+      const go = vi.spyOn(router, 'navigate').mockResolvedValue();
       window.history.replaceState(null, '', '/environment/My%20Env/metadata');
 
       try {

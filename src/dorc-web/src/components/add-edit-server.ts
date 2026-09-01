@@ -1,5 +1,4 @@
-import '@polymer/paper-toggle-button';
-import { ComboBox } from '@vaadin/combo-box/src/vaadin-combo-box';
+import { ComboBox } from '@vaadin/combo-box';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/combo-box';
@@ -142,7 +141,6 @@ export class AddEditServer extends LitElement {
             title="Maximum length: ${this.maxServerNameLength} symbols"
             class="block"
             required
-            auto-validate
             .value="${this.serverName}"
             @value-changed="${this._serverNameValueChanged}"
             helper-text="${this.serverInfoHelp}"

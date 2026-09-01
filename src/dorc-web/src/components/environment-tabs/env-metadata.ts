@@ -19,13 +19,17 @@ export class EnvMetadata extends PageEnvBase {
         width: 100%;
         overflow-y: auto;
       }
-      `;
+    `;
   }
 
   render() {
     return html`
       <dorc-spinner ?hidden="${!this.loading}"></dorc-spinner>
-      <env-control-center ?hidden="${this.loading}"></env-control-center>
+      <env-control-center
+        ?hidden="${this.loading}"
+        .environment="${this.environment}"
+        .envContent="${this.envContent}"
+      ></env-control-center>
       <add-edit-environment
         .readonly="${!this.environment?.UserEditable}"
         ?hidden="${this.loading}"
