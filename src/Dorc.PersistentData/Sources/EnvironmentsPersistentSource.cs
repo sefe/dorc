@@ -609,6 +609,54 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
             }
         }
 
+        public EnvironmentApiModel SetExecutionIdentityReference(
+            int environmentId,
+            string? executionIdentityReference,
+            IPrincipal user)
+        {
+            if (!_rolePrivilegesChecker.IsAdmin(user))
+            {
+                throw new UnauthorizedAccessException(
+                    "Only administrators can change an environment's execution identity.");
+            }
+
+            var normalizedReference = EnvironmentExecutionIdentityReference.Validate(executionIdentityReference);
+
+            using (var context = contextFactory.GetContext())
+            {
+                var environment = context.Environments.SingleOrDefault(e => e.Id == environmentId);
+                if (environment == null)
+                {
+                    throw new KeyNotFoundException($"Environment with ID {environmentId} was not found.");
+                }
+
+                var oldReference = environment.ExecutionIdentityReference;
+                if (string.Equals(oldReference, normalizedReference, StringComparison.Ordinal))
+                {
+                    return MapToEnvironmentApiModel(environment);
+                }
+
+                var username = _claimsPrincipalReader.GetUserFullDomainName(user);
+                var summary = normalizedReference == null
+                    ? $"Execution identity reference cleared from environment '{environment.Name}'."
+                    : $"Execution identity reference for environment '{environment.Name}' set to '{normalizedReference}'.";
+
+                EnvironmentHistoryPersistentSource.AddHistoryAction(
+                    environment,
+                    oldReference ?? string.Empty,
+                    normalizedReference ?? string.Empty,
+                    username,
+                    "Execution Identity Update",
+                    summary,
+                    context);
+
+                environment.ExecutionIdentityReference = normalizedReference;
+                context.SaveChanges();
+
+                return MapToEnvironmentApiModel(environment);
+            }
+        }
+
         public bool DeleteEnvironment(EnvironmentApiModel env, IPrincipal principal)
         {
             using (var context = contextFactory.GetContext())

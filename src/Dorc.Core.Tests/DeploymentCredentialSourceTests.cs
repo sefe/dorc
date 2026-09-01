@@ -224,6 +224,15 @@ namespace Dorc.Core.Tests
             Assert.IsNull(_source.Resolve(DeploymentTier.NonProduction, "no-such-identity"));
         }
 
+        [TestMethod]
+        public void AnInvalidPersistedIdentityReferenceIsRefusedBeforeCredentialLookup()
+        {
+            Assert.IsNull(_source.Resolve(DeploymentTier.NonProduction, "../secret"));
+
+            _configValues.DidNotReceive().GetConfigValue("DORC_Deploy_../secret_Username");
+            _configValues.DidNotReceive().GetConfigValue("DORC_Deploy_../secret_Password");
+        }
+
         /// <summary>
         /// "We have started binding identities" is not the same claim as "the estate is bound".
         /// Reported from the count rather than from a configuration flag, so it cannot be wrong.

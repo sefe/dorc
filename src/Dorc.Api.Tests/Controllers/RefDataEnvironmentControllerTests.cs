@@ -179,5 +179,111 @@ namespace Dorc.Api.Tests.Controllers
             Assert.AreEqual(StatusCodes.Status200OK, result.StatusCode);
             Assert.AreEqual(true, result.Value);
         }
+
+        [TestMethod]
+        public void NonAdminCannotChangeExecutionIdentity()
+        {
+            _rolePrivilegesChecker.IsAdmin(_user).Returns(false);
+
+            var result = _controller.PutExecutionIdentity(
+                12,
+                new EnvironmentExecutionIdentityApiModel
+                {
+                    ExecutionIdentityReference = "payments-prod"
+                }) as ObjectResult;
+
+            Assert.IsNotNull(result);
+            Assert.AreEqual(StatusCodes.Status403Forbidden, result.StatusCode);
+            _environmentsPersistentSource.DidNotReceive().SetExecutionIdentityReference(
+                Arg.Any<int>(),
+                Arg.Any<string>(),
+                Arg.Any<IPrincipal>());
+        }
+
+        [TestMethod]
+        public void GenericEnvironmentUpdateDoesNotUseExecutionIdentityPersistencePath()
+        {
+            var model = new EnvironmentApiModel
+            {
+                EnvironmentId = 12,
+                EnvironmentName = "Payments",
+                ExecutionIdentityReference = "attempted-bypass"
+            };
+            _securityPrivilegesChecker.CanModifyEnvironment(_user, "Payments").Returns(true);
+            _environmentsPersistentSource.UpdateEnvironment(model, _user).Returns(model);
+
+            var result = _controller.Put(model) as ObjectResult;
+
+            Assert.IsNotNull(result);
+            Assert.AreEqual(StatusCodes.Status200OK, result.StatusCode);
+            _environmentsPersistentSource.Received(1).UpdateEnvironment(model, _user);
+            _environmentsPersistentSource.DidNotReceive().SetExecutionIdentityReference(
+                Arg.Any<int>(),
+                Arg.Any<string?>(),
+                Arg.Any<IPrincipal>());
+        }
+
+        [TestMethod]
+        public void AdminCanChangeExecutionIdentityThroughDedicatedEndpoint()
+        {
+            var updated = new EnvironmentApiModel
+            {
+                EnvironmentId = 12,
+                EnvironmentName = "Payments",
+                ExecutionIdentityReference = "payments-prod"
+            };
+            _rolePrivilegesChecker.IsAdmin(_user).Returns(true);
+            _environmentsPersistentSource.SetExecutionIdentityReference(12, "payments-prod", _user)
+                .Returns(updated);
+
+            var result = _controller.PutExecutionIdentity(
+                12,
+                new EnvironmentExecutionIdentityApiModel
+                {
+                    ExecutionIdentityReference = "payments-prod"
+                }) as ObjectResult;
+
+            Assert.IsNotNull(result);
+            Assert.AreEqual(StatusCodes.Status200OK, result.StatusCode);
+            Assert.AreSame(updated, result.Value);
+        }
+
+        [TestMethod]
+        public void InvalidExecutionIdentityReferenceReturnsBadRequest()
+        {
+            _rolePrivilegesChecker.IsAdmin(_user).Returns(true);
+            _environmentsPersistentSource
+                .When(source => source.SetExecutionIdentityReference(12, "../secret", _user))
+                .Do(_ => throw new ArgumentException("Invalid execution identity reference."));
+
+            var result = _controller.PutExecutionIdentity(
+                12,
+                new EnvironmentExecutionIdentityApiModel
+                {
+                    ExecutionIdentityReference = "../secret"
+                }) as ObjectResult;
+
+            Assert.IsNotNull(result);
+            Assert.AreEqual(StatusCodes.Status400BadRequest, result.StatusCode);
+        }
+
+        [TestMethod]
+        public void MissingEnvironmentForExecutionIdentityReturnsNotFound()
+        {
+            _rolePrivilegesChecker.IsAdmin(_user).Returns(true);
+            _environmentsPersistentSource
+                .When(source => source.SetExecutionIdentityReference(404, "payments-prod", _user))
+                .Do(_ => throw new KeyNotFoundException("Environment with ID 404 was not found."));
+
+            var result = _controller.PutExecutionIdentity(
+                404,
+                new EnvironmentExecutionIdentityApiModel
+                {
+                    ExecutionIdentityReference = "payments-prod"
+                }) as ObjectResult;
+
+            Assert.IsNotNull(result);
+            Assert.AreEqual(StatusCodes.Status404NotFound, result.StatusCode);
+        }
     }
 }

@@ -52,6 +52,7 @@ namespace Dorc.Api.Tests
 
             _contextFactory.GetContext().Returns(_context);
             _claimsPrincipalReader.GetUserFullDomainName(_user).Returns("testuser@domain.com");
+            _rolePrivilegesChecker.IsAdmin(_user).Returns(true);
         }
 
         private class TestEnvironment
@@ -211,5 +212,106 @@ namespace Dorc.Api.Tests
             Assert.IsTrue(result);
             AssertOwnerChange(testEnv, oldOwnerSid, newOwnerSid, null, AccessLevel.Owner | AccessLevel.Write);
         }
+
+        [TestMethod]
+        public void SetExecutionIdentityReference_UpdatesEnvironmentAndRecordsHistory()
+        {
+            var environment = new Environment
+            {
+                Id = 7,
+                Name = "Payments",
+                ExecutionIdentityReference = "shared-prod"
+            };
+            var environments = new List<Environment> { environment };
+            var histories = new List<EnvironmentHistory>();
+            var environmentsDbSet = DbContextMock.GetQueryableMockDbSet(environments);
+            var historiesDbSet = DbContextMock.GetQueryableMockDbSet(histories);
+            _context.Environments.Returns(environmentsDbSet);
+            _context.EnvironmentHistories.Returns(historiesDbSet);
+
+            var result = _environmentsPersistentSource.SetExecutionIdentityReference(
+                7,
+                "payments-prod",
+                _user);
+
+            Assert.AreEqual("payments-prod", environment.ExecutionIdentityReference);
+            Assert.AreEqual("payments-prod", result.ExecutionIdentityReference);
+            Assert.AreEqual(1, histories.Count);
+            Assert.AreEqual("shared-prod", histories[0].FromValue);
+            Assert.AreEqual("payments-prod", histories[0].ToValue);
+            Assert.AreEqual("Execution Identity Update", histories[0].UpdateType);
+            Assert.AreEqual("testuser@domain.com", histories[0].UpdatedBy);
+            _context.Received(1).SaveChanges();
+        }
+
+        [TestMethod]
+        public void SetExecutionIdentityReference_EmptyReferenceClearsAndAudits()
+        {
+            var environment = new Environment
+            {
+                Id = 7,
+                Name = "Payments",
+                ExecutionIdentityReference = "payments-prod"
+            };
+            var histories = new List<EnvironmentHistory>();
+            var environmentsDbSet =
+                DbContextMock.GetQueryableMockDbSet(new List<Environment> { environment });
+            var historiesDbSet = DbContextMock.GetQueryableMockDbSet(histories);
+            _context.Environments.Returns(environmentsDbSet);
+            _context.EnvironmentHistories.Returns(historiesDbSet);
+
+            _environmentsPersistentSource.SetExecutionIdentityReference(7, string.Empty, _user);
+
+            Assert.IsNull(environment.ExecutionIdentityReference);
+            Assert.AreEqual("payments-prod", histories.Single().FromValue);
+            Assert.AreEqual(string.Empty, histories.Single().ToValue);
+            StringAssert.Contains(histories.Single().Details, "cleared");
+        }
+
+        [TestMethod]
+        [DataRow(" ")]
+        [DataRow("../secret")]
+        [DataRow("contains/slash")]
+        [DataRow("contains space")]
+        public void SetExecutionIdentityReference_RejectsInvalidReference(string reference)
+        {
+            Assert.ThrowsExactly<ArgumentException>(() =>
+                _environmentsPersistentSource.SetExecutionIdentityReference(7, reference, _user));
+
+            _context.DidNotReceive().SaveChanges();
+        }
+
+        [TestMethod]
+        public void SetExecutionIdentityReference_RejectsReferenceLongerThanDatabaseColumn()
+        {
+            Assert.ThrowsExactly<ArgumentException>(() =>
+                _environmentsPersistentSource.SetExecutionIdentityReference(
+                    7,
+                    new string('a', 129),
+                    _user));
+        }
+
+        [TestMethod]
+        public void SetExecutionIdentityReference_RejectsMissingEnvironment()
+        {
+            var environmentsDbSet =
+                DbContextMock.GetQueryableMockDbSet(new List<Environment>());
+            _context.Environments.Returns(environmentsDbSet);
+
+            Assert.ThrowsExactly<KeyNotFoundException>(() =>
+                _environmentsPersistentSource.SetExecutionIdentityReference(404, "payments-prod", _user));
+        }
+
+        [TestMethod]
+        public void SetExecutionIdentityReference_RejectsNonAdministrator()
+        {
+            _rolePrivilegesChecker.IsAdmin(_user).Returns(false);
+            _contextFactory.ClearReceivedCalls();
+
+            Assert.ThrowsExactly<UnauthorizedAccessException>(() =>
+                _environmentsPersistentSource.SetExecutionIdentityReference(7, "payments-prod", _user));
+
+            _contextFactory.DidNotReceive().GetContext();
+        }
     }
-} 
+}
