@@ -9,6 +9,7 @@ import '../../icons/hardware-icons.js';
 import { EnvironmentApiModel } from '../../apis/dorc-api';
 import { AccessControlType } from '../../apis/dorc-api';
 import { RefDataEnvironmentsApi } from '../../apis/dorc-api';
+import '@vaadin/tooltip';
 
 @customElement('env-controls')
 export class EnvControls extends LitElement {
@@ -69,32 +70,46 @@ export class EnvControls extends LitElement {
   render() {
     return html`
       <vaadin-button
-        title="Environment Access..."
+        aria-label="Environment Access..."
         theme="icon"
         @click="${this.openAccessControl}"
       >
+        <vaadin-tooltip
+          slot="tooltip"
+          text="Environment Access..."
+        ></vaadin-tooltip>
         <vaadin-icon
           icon="vaadin:lock"
           style="color: var(--dorc-link-color)"
         ></vaadin-icon>
       </vaadin-button>
-      ${this.isAdmin || this.isPowerUser || this.isOwner
-        ? html`<vaadin-button
-            title="Clone Environment..."
-            theme="icon"
-            @click="${this.cloneEnvironment}"
-          >
-            <vaadin-icon
-              icon="vaadin:copy-o"
-              style="color: var(--dorc-link-color)"
-            ></vaadin-icon>
-          </vaadin-button>`
-        : html``}
+      ${
+        this.isAdmin || this.isPowerUser || this.isOwner
+          ? html`<vaadin-button
+              aria-label="Clone Environment..."
+              theme="icon"
+              @click="${this.cloneEnvironment}"
+            >
+              <vaadin-tooltip
+                slot="tooltip"
+                text="Clone Environment..."
+              ></vaadin-tooltip>
+              <vaadin-icon
+                icon="vaadin:copy-o"
+                style="color: var(--dorc-link-color)"
+              ></vaadin-icon>
+            </vaadin-button>`
+          : html``
+      }
       <vaadin-button
-        title="Environment Details"
+        aria-label="Environment Details"
         theme="icon"
         @click="${this.openEnvironmentDetails}"
       >
+        <vaadin-tooltip
+          slot="tooltip"
+          text="Environment Details"
+        ></vaadin-tooltip>
         <vaadin-icon
           icon="hardware:developer-board"
           style="color: var(--dorc-link-color)"

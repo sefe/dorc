@@ -1,9 +1,8 @@
-import { css, LitElement, PropertyValues, render } from 'lit';
+import { columnBodyRenderer } from '@vaadin/grid/lit';
+import { css, LitElement, PropertyValues } from 'lit';
 import '@vaadin/grid/vaadin-grid-column';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid';
-import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
-import { GridItemModel } from '@vaadin/grid';
 import './grid-button-groups/daemon-controls';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
@@ -14,15 +13,15 @@ import { Notification } from '@vaadin/notification';
 
 @customElement('application-daemons')
 export class ApplicationDaemons extends LitElement {
-  @property({ type: String })
-  _envName = '';
+  private _envName = '';
 
   @property({ type: Array })
-  private daemonsAndStatuses: DaemonStatusApiModel[] | undefined;
+  daemonsAndStatuses: DaemonStatusApiModel[] | undefined;
 
   @property({ type: Boolean })
   public userEditable = false;
 
+  @property({ type: String })
   get envName() {
     return this._envName;
   }
@@ -34,13 +33,13 @@ export class ApplicationDaemons extends LitElement {
 
   static get styles() {
     return css`
-        :host {
-            height: 100%;
-            display: flex;
-        }
+      :host {
+        height: 100%;
+        display: flex;
+      }
       vaadin-grid#grid {
         overflow: hidden;
-        height: 100%
+        height: 100%;
       }
       vaadin-button {
         padding: 0px;
@@ -79,62 +78,44 @@ export class ApplicationDaemons extends LitElement {
           resizable
           width="100px"
           flex-grow="0"
-          .renderer="${this._daemonStatusRenderer}"
+          ${columnBodyRenderer(this._daemonStatusRenderer, [])}
         >
         </vaadin-grid-sort-column>
         <vaadin-grid-column
-          .renderer="${this._boundDaemonsButtonsRenderer}"
-          .attachedAppDaemonControl="${this}"
+          ${columnBodyRenderer(this._boundDaemonsButtonsRenderer, [
+            this.userEditable
+          ])}
         >
         </vaadin-grid-column>
       </vaadin-grid>
     `;
   }
 
-  _daemonStatusRenderer(
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<DaemonStatusApiModel>
-  ) {
-    const daemon = model.item as DaemonStatusApiModel;
-    const status = daemon?.Status?.toLowerCase();
+  // The colour was set on the cell root; it lives on the span now, which is
+  // the only thing a returned template can style.
+  _daemonStatusRenderer(daemon: DaemonStatusApiModel) {
     const errorMessage = daemon?.ErrorMessage;
-    if (errorMessage) {
-      root.style.color = 'var(--dorc-error-color)';
-    } else if (status === 'running') {
-      root.style.color = 'var(--dorc-success-text)';
-    } else if (status === 'stopped') {
-      root.style.color = 'var(--dorc-text-primary)';
-    } else {
-      root.style.color = 'var(--dorc-error-color)';
-    }
-    if (errorMessage) {
-      render(
-        html`<span title="${errorMessage}">⚠ ${daemon?.Status ?? 'unreachable'}</span>`,
-        root
-      );
-    } else {
-      render(
-        html`<span>${daemon?.Status}</span>`,
-        root
-      );
-    }
+    const status = daemon?.Status?.toLowerCase();
+    const colour =
+      !errorMessage && status === 'running'
+        ? 'var(--dorc-success-text)'
+        : !errorMessage && status === 'stopped'
+          ? 'var(--dorc-text-primary)'
+          : 'var(--dorc-error-color)';
+
+    return errorMessage
+      ? html`<span style="color: ${colour}" title="${errorMessage}"
+          >⚠ ${daemon?.Status ?? 'unreachable'}</span
+        >`
+      : html`<span style="color: ${colour}">${daemon?.Status}</span>`;
   }
 
-  _boundDaemonsButtonsRenderer(
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<DaemonStatusApiModel>
-  ) {
-    // The below line has a horrible hack
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore
-    const applicationDaemons = _column.attachedAppDaemonControl as ApplicationDaemons;
-    const daemon = model.item as DaemonStatusApiModel;
-    render(
-      html`<daemon-controls .daemonDetails="${daemon}" .userEditable="${applicationDaemons.userEditable}"></daemon-controls>`,
-      root
-    );
+  _boundDaemonsButtonsRenderer(item: DaemonStatusApiModel) {
+    const daemon = item as DaemonStatusApiModel;
+    return html`<daemon-controls
+      .daemonDetails="${daemon}"
+      .userEditable="${this.userEditable}"
+    ></daemon-controls>`;
   }
 
   public loadDaemons() {
@@ -144,8 +125,8 @@ export class ApplicationDaemons extends LitElement {
         this.setDaemonStatuses(data);
       },
       error: (err: any) => console.error(err),
-      complete: () => console.log('done loading daemon statuses')}
-    );
+      complete: () => console.log('done loading daemon statuses')
+    });
   }
 
   public discoverDaemons() {
@@ -160,7 +141,7 @@ export class ApplicationDaemons extends LitElement {
 
     const api = new DaemonStatusApi();
     api.daemonStatusDiscoverEnvNameGet({ envName: this.envName }).subscribe({
-      next: (result) => {
+      next: result => {
         if (result.Success) {
           let message = `Discovery complete: ${result.MappingsCreated} new mapping(s) created`;
           if (result.DaemonsDiscovered && result.DaemonsDiscovered > 0) {
@@ -194,7 +175,9 @@ export class ApplicationDaemons extends LitElement {
             }
           );
 
-          this.dispatchEvent(new CustomEvent('daemons-loaded', { detail: { message: '' } }));
+          this.dispatchEvent(
+            new CustomEvent('daemons-loaded', { detail: { message: '' } })
+          );
         }
       },
       error: (err: any) => {
@@ -208,7 +191,9 @@ export class ApplicationDaemons extends LitElement {
           }
         );
 
-        this.dispatchEvent(new CustomEvent('daemons-loaded', { detail: { message: '' } }));
+        this.dispatchEvent(
+          new CustomEvent('daemons-loaded', { detail: { message: '' } })
+        );
       },
       complete: () => {
         console.log('done discovering daemons');
@@ -222,7 +207,9 @@ export class ApplicationDaemons extends LitElement {
     });
   }
 
-  private getDaemonStatusesFromDiscovery(result: DiscoverDaemonsResult): DaemonStatusApiModel[] | undefined {
+  private getDaemonStatusesFromDiscovery(
+    result: DiscoverDaemonsResult
+  ): DaemonStatusApiModel[] | undefined {
     if (Array.isArray(result.DiscoveredDaemons)) {
       return result.DiscoveredDaemons;
     }
@@ -247,11 +234,12 @@ export class ApplicationDaemons extends LitElement {
     );
   }
 
-  daemonStatusUpdated(event: CustomEvent<DaemonStatusApiModel>)
-  {
+  daemonStatusUpdated(event: CustomEvent<DaemonStatusApiModel>) {
     const daemonData = event.detail as DaemonStatusApiModel;
     const index = this.daemonsAndStatuses?.findIndex(
-      (daemon) => daemon.DaemonName === daemonData.DaemonName && daemon.ServerName === daemonData.ServerName
+      daemon =>
+        daemon.DaemonName === daemonData.DaemonName &&
+        daemon.ServerName === daemonData.ServerName
     );
     if (index !== undefined && index > -1) {
       const updatedDaemons = [...this.daemonsAndStatuses!];
