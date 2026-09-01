@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// TestResultsContext
     /// </summary>
     [DataContract(Name = "TestResultsContext")]
-    public partial class TestResultsContext : IEquatable<TestResultsContext>, IValidatableObject
+    public partial class TestResultsContext : IValidatableObject
     {
         /// <summary>
         /// Defines ContextType
@@ -55,7 +55,6 @@ namespace Org.OpenAPITools.Model
             /// </summary>
             [EnumMember(Value = "pipeline")]
             Pipeline = 3
-
         }
 
 
@@ -71,7 +70,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="contextType">contextType.</param>
         /// <param name="pipelineReference">pipelineReference.</param>
         /// <param name="release">release.</param>
-        public TestResultsContext(BuildReference build = default(BuildReference), ContextTypeEnum? contextType = default(ContextTypeEnum?), PipelineReference pipelineReference = default(PipelineReference), ReleaseReference release = default(ReleaseReference))
+        public TestResultsContext(BuildReference build = default, ContextTypeEnum? contextType = default, PipelineReference pipelineReference = default, ReleaseReference release = default)
         {
             this.Build = build;
             this.ContextType = contextType;
@@ -123,80 +122,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as TestResultsContext);
-        }
-
-        /// <summary>
-        /// Returns true if TestResultsContext instances are equal
-        /// </summary>
-        /// <param name="input">Instance of TestResultsContext to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(TestResultsContext input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.Build == input.Build ||
-                    (this.Build != null &&
-                    this.Build.Equals(input.Build))
-                ) && 
-                (
-                    this.ContextType == input.ContextType ||
-                    this.ContextType.Equals(input.ContextType)
-                ) && 
-                (
-                    this.PipelineReference == input.PipelineReference ||
-                    (this.PipelineReference != null &&
-                    this.PipelineReference.Equals(input.PipelineReference))
-                ) && 
-                (
-                    this.Release == input.Release ||
-                    (this.Release != null &&
-                    this.Release.Equals(input.Release))
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.Build != null)
-                {
-                    hashCode = (hashCode * 59) + this.Build.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.ContextType.GetHashCode();
-                if (this.PipelineReference != null)
-                {
-                    hashCode = (hashCode * 59) + this.PipelineReference.GetHashCode();
-                }
-                if (this.Release != null)
-                {
-                    hashCode = (hashCode * 59) + this.Release.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

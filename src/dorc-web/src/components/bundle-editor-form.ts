@@ -16,6 +16,7 @@ import {
 import { BundleEditorDialog } from './bundle-editor-dialog';
 import * as ace from 'ace-builds';
 import { ComboBox } from '@vaadin/combo-box';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('bundle-editor-form')
 export class BundleEditorForm extends LitElement {
@@ -324,7 +325,7 @@ export class BundleEditorForm extends LitElement {
       return;
     }
 
-    const api = new BundledRequestsApi();
+    const api = new BundledRequestsApi(dorcApiConfiguration);
 
     const loadingChangeEvent = 'loading-changed';
     this.dispatchEvent(

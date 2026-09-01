@@ -69,6 +69,7 @@ vi.mock('../../src/helpers/html-meta-manager', () => ({
 
 // DOrc API
 vi.mock('../../src/apis/dorc-api', () => ({
+  Configuration: class {},
   RequestStatusesApi: class {
     requestStatusesPut = mockRequestStatusesPut;
   }

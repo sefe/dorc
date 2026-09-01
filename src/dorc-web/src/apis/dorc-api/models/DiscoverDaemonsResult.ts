@@ -11,7 +11,9 @@
  * Do not edit the class manually.
  */
 
-import type { DaemonStatusApiModel } from './DaemonStatusApiModel';
+import type {
+    DaemonStatusApiModel,
+} from './';
 
 /**
  * @export
@@ -37,7 +39,7 @@ export interface DiscoverDaemonsResult {
      * @type {Array<string>}
      * @memberof DiscoverDaemonsResult
      */
-    Errors?: Array<string>;
+    Errors?: Array<string> | null;
     /**
      * @type {boolean}
      * @memberof DiscoverDaemonsResult
@@ -48,5 +50,5 @@ export interface DiscoverDaemonsResult {
      * @type {Array<DaemonStatusApiModel>}
      * @memberof DiscoverDaemonsResult
      */
-    DiscoveredDaemons?: Array<DaemonStatusApiModel>;
+    DiscoveredDaemons?: Array<DaemonStatusApiModel> | null;
 }

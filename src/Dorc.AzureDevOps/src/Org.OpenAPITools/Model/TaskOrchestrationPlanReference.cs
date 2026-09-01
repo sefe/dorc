@@ -30,14 +30,14 @@ namespace Org.OpenAPITools.Model
     /// Represents a reference to an orchestration plan.
     /// </summary>
     [DataContract(Name = "TaskOrchestrationPlanReference")]
-    public partial class TaskOrchestrationPlanReference : IEquatable<TaskOrchestrationPlanReference>, IValidatableObject
+    public partial class TaskOrchestrationPlanReference : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="TaskOrchestrationPlanReference" /> class.
         /// </summary>
         /// <param name="orchestrationType">The type of the plan..</param>
         /// <param name="planId">The ID of the plan..</param>
-        public TaskOrchestrationPlanReference(int orchestrationType = default(int), Guid planId = default(Guid))
+        public TaskOrchestrationPlanReference(int orchestrationType = default, Guid planId = default)
         {
             this.OrchestrationType = orchestrationType;
             this.PlanId = planId;
@@ -81,62 +81,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as TaskOrchestrationPlanReference);
-        }
-
-        /// <summary>
-        /// Returns true if TaskOrchestrationPlanReference instances are equal
-        /// </summary>
-        /// <param name="input">Instance of TaskOrchestrationPlanReference to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(TaskOrchestrationPlanReference input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.OrchestrationType == input.OrchestrationType ||
-                    this.OrchestrationType.Equals(input.OrchestrationType)
-                ) && 
-                (
-                    this.PlanId == input.PlanId ||
-                    (this.PlanId != null &&
-                    this.PlanId.Equals(input.PlanId))
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                hashCode = (hashCode * 59) + this.OrchestrationType.GetHashCode();
-                if (this.PlanId != null)
-                {
-                    hashCode = (hashCode * 59) + this.PlanId.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

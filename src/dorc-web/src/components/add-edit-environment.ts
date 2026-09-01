@@ -191,7 +191,7 @@ export class AddEditEnvironment extends LitElement {
     const api = new AccessControlApi();
     api
       .accessControlGet({
-        accessControlType: AccessControlType.NUMBER_1,
+        accessControlType: AccessControlType.Environment,
         accessControlName: this.environment.EnvironmentName
       })
       .subscribe({

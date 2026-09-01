@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// Pipeline reference
     /// </summary>
     [DataContract(Name = "PipelineReference")]
-    public partial class PipelineReference : IEquatable<PipelineReference>, IValidatableObject
+    public partial class PipelineReference : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="PipelineReference" /> class.
@@ -39,7 +39,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="phaseReference">phaseReference.</param>
         /// <param name="pipelineId">Reference of the pipeline with which this pipeline instance is related..</param>
         /// <param name="stageReference">stageReference.</param>
-        public PipelineReference(JobReference jobReference = default(JobReference), PhaseReference phaseReference = default(PhaseReference), int pipelineId = default(int), StageReference stageReference = default(StageReference))
+        public PipelineReference(JobReference jobReference = default, PhaseReference phaseReference = default, int pipelineId = default, StageReference stageReference = default)
         {
             this.JobReference = jobReference;
             this.PhaseReference = phaseReference;
@@ -98,80 +98,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as PipelineReference);
-        }
-
-        /// <summary>
-        /// Returns true if PipelineReference instances are equal
-        /// </summary>
-        /// <param name="input">Instance of PipelineReference to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(PipelineReference input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.JobReference == input.JobReference ||
-                    (this.JobReference != null &&
-                    this.JobReference.Equals(input.JobReference))
-                ) && 
-                (
-                    this.PhaseReference == input.PhaseReference ||
-                    (this.PhaseReference != null &&
-                    this.PhaseReference.Equals(input.PhaseReference))
-                ) && 
-                (
-                    this.PipelineId == input.PipelineId ||
-                    this.PipelineId.Equals(input.PipelineId)
-                ) && 
-                (
-                    this.StageReference == input.StageReference ||
-                    (this.StageReference != null &&
-                    this.StageReference.Equals(input.StageReference))
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.JobReference != null)
-                {
-                    hashCode = (hashCode * 59) + this.JobReference.GetHashCode();
-                }
-                if (this.PhaseReference != null)
-                {
-                    hashCode = (hashCode * 59) + this.PhaseReference.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.PipelineId.GetHashCode();
-                if (this.StageReference != null)
-                {
-                    hashCode = (hashCode * 59) + this.StageReference.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

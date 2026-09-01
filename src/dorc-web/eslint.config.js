@@ -21,19 +21,19 @@ export default [
   {
     files: ['src/**/*.ts', 'tests/**/*.ts'],
     plugins: { 'lit-a11y': pluginLitA11y },
-    rules: litA11yRecommended,
+    rules: litA11yRecommended
   },
   eslintConfigPrettier,
   { rules: { '@typescript-eslint/no-explicit-any': 0 } },
   {
     // Build/analysis scripts run under Node, not the browser.
-    files: ['tools/**/*.mjs', '*.config.js', '*.config.ts'],
-    languageOptions: { globals: globals.node },
+    files: ['tools/**/*.mjs', 'scripts/**/*.mjs', '*.config.js', '*.config.ts'],
+    languageOptions: { globals: globals.node }
   },
   {
     files: ['tests/**/*.ts'],
     rules: {
-      '@typescript-eslint/no-unused-expressions': 0,
-    },
-  },
+      '@typescript-eslint/no-unused-expressions': 0
+    }
+  }
 ];

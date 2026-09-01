@@ -11,6 +11,7 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { TerraformPlanApiModel } from '../apis/dorc-api/models/index';
 import { TerraformApi } from '../apis/dorc-api/apis/TerraformApi';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('terraform-plan-dialog')
 export class TerraformPlanDialog extends LitElement {
@@ -32,7 +33,7 @@ export class TerraformPlanDialog extends LitElement {
   @state()
   private processing: boolean = false;
 
-  private terraformApi = new TerraformApi();
+  private terraformApi = new TerraformApi(dorcApiConfiguration);
 
   static get styles() {
     return css`

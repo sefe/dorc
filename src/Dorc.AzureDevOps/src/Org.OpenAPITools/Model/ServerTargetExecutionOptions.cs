@@ -30,13 +30,13 @@ namespace Org.OpenAPITools.Model
     /// Represents options for running a phase on the server.
     /// </summary>
     [DataContract(Name = "ServerTargetExecutionOptions")]
-    public partial class ServerTargetExecutionOptions : IEquatable<ServerTargetExecutionOptions>, IValidatableObject
+    public partial class ServerTargetExecutionOptions : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="ServerTargetExecutionOptions" /> class.
         /// </summary>
         /// <param name="type">The type..</param>
-        public ServerTargetExecutionOptions(int type = default(int))
+        public ServerTargetExecutionOptions(int type = default)
         {
             this.Type = type;
         }
@@ -71,53 +71,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as ServerTargetExecutionOptions);
-        }
-
-        /// <summary>
-        /// Returns true if ServerTargetExecutionOptions instances are equal
-        /// </summary>
-        /// <param name="input">Instance of ServerTargetExecutionOptions to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(ServerTargetExecutionOptions input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.Type == input.Type ||
-                    this.Type.Equals(input.Type)
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                hashCode = (hashCode * 59) + this.Type.GetHashCode();
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

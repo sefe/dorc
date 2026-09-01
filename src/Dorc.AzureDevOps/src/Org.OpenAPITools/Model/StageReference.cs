@@ -30,14 +30,14 @@ namespace Org.OpenAPITools.Model
     /// Stage in pipeline
     /// </summary>
     [DataContract(Name = "StageReference")]
-    public partial class StageReference : IEquatable<StageReference>, IValidatableObject
+    public partial class StageReference : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="StageReference" /> class.
         /// </summary>
         /// <param name="attempt">Attempt number of stage.</param>
         /// <param name="stageName">Name of the stage. Maximum supported length for name is 256 character..</param>
-        public StageReference(int attempt = default(int), string stageName = default(string))
+        public StageReference(int attempt = default, string stageName = default)
         {
             this.Attempt = attempt;
             this.StageName = stageName;
@@ -81,62 +81,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as StageReference);
-        }
-
-        /// <summary>
-        /// Returns true if StageReference instances are equal
-        /// </summary>
-        /// <param name="input">Instance of StageReference to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(StageReference input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.Attempt == input.Attempt ||
-                    this.Attempt.Equals(input.Attempt)
-                ) && 
-                (
-                    this.StageName == input.StageName ||
-                    (this.StageName != null &&
-                    this.StageName.Equals(input.StageName))
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                hashCode = (hashCode * 59) + this.Attempt.GetHashCode();
-                if (this.StageName != null)
-                {
-                    hashCode = (hashCode * 59) + this.StageName.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

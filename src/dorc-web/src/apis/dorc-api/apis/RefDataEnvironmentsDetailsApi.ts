@@ -14,7 +14,7 @@
 import type { Observable } from 'rxjs';
 import type { AjaxResponse } from 'rxjs/ajax';
 import { BaseAPI, throwIfNullOrUndefined, encodeURI } from '../runtime';
-import type { OperationOpts, HttpQuery } from '../runtime';
+import type { OperationOpts, HttpHeaders, HttpQuery } from '../runtime';
 import type {
     ApiBoolResult,
     DatabaseApiModelEnvironmentComponentsDto,
@@ -69,6 +69,16 @@ export class RefDataEnvironmentsDetailsApi extends BaseAPI {
     refDataEnvironmentsDetailsGet({ id, type }: RefDataEnvironmentsDetailsGetRequest, opts?: OperationOpts): Observable<AjaxResponse<DatabaseApiModelEnvironmentComponentsDto>>
     refDataEnvironmentsDetailsGet({ id, type }: RefDataEnvironmentsDetailsGetRequest, opts?: OperationOpts): Observable<DatabaseApiModelEnvironmentComponentsDto | AjaxResponse<DatabaseApiModelEnvironmentComponentsDto>> {
 
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         const query: HttpQuery = {};
 
         if (id != null) { query['id'] = id; }
@@ -77,6 +87,7 @@ export class RefDataEnvironmentsDetailsApi extends BaseAPI {
         return this.request<DatabaseApiModelEnvironmentComponentsDto>({
             url: '/RefDataEnvironmentsDetails',
             method: 'GET',
+            headers,
             query,
         }, opts?.responseOpts);
     };
@@ -87,6 +98,16 @@ export class RefDataEnvironmentsDetailsApi extends BaseAPI {
     refDataEnvironmentsDetailsGetComponentStatuesGet({ envName, cutoffDateTime }: RefDataEnvironmentsDetailsGetComponentStatuesGetRequest, opts?: OperationOpts): Observable<AjaxResponse<Array<EnvironmentContentBuildsApiModel>>>
     refDataEnvironmentsDetailsGetComponentStatuesGet({ envName, cutoffDateTime }: RefDataEnvironmentsDetailsGetComponentStatuesGetRequest, opts?: OperationOpts): Observable<Array<EnvironmentContentBuildsApiModel> | AjaxResponse<Array<EnvironmentContentBuildsApiModel>>> {
 
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         const query: HttpQuery = {};
 
         if (envName != null) { query['envName'] = envName; }
@@ -95,6 +116,7 @@ export class RefDataEnvironmentsDetailsApi extends BaseAPI {
         return this.request<Array<EnvironmentContentBuildsApiModel>>({
             url: '/RefDataEnvironmentsDetails/GetComponentStatues',
             method: 'GET',
+            headers,
             query,
         }, opts?.responseOpts);
     };
@@ -105,6 +127,16 @@ export class RefDataEnvironmentsDetailsApi extends BaseAPI {
     refDataEnvironmentsDetailsGetEnvironmentsForDatabaseGet({ serverName, databaseName }: RefDataEnvironmentsDetailsGetEnvironmentsForDatabaseGetRequest, opts?: OperationOpts): Observable<AjaxResponse<Array<EnvironmentApiModel>>>
     refDataEnvironmentsDetailsGetEnvironmentsForDatabaseGet({ serverName, databaseName }: RefDataEnvironmentsDetailsGetEnvironmentsForDatabaseGetRequest, opts?: OperationOpts): Observable<Array<EnvironmentApiModel> | AjaxResponse<Array<EnvironmentApiModel>>> {
 
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         const query: HttpQuery = {};
 
         if (serverName != null) { query['serverName'] = serverName; }
@@ -113,6 +145,7 @@ export class RefDataEnvironmentsDetailsApi extends BaseAPI {
         return this.request<Array<EnvironmentApiModel>>({
             url: '/RefDataEnvironmentsDetails/GetEnvironmentsForDatabase',
             method: 'GET',
+            headers,
             query,
         }, opts?.responseOpts);
     };
@@ -123,6 +156,16 @@ export class RefDataEnvironmentsDetailsApi extends BaseAPI {
     refDataEnvironmentsDetailsGetPossibleEnvironmentChildrenGet({ id }: RefDataEnvironmentsDetailsGetPossibleEnvironmentChildrenGetRequest, opts?: OperationOpts): Observable<AjaxResponse<Array<EnvironmentApiModel>>>
     refDataEnvironmentsDetailsGetPossibleEnvironmentChildrenGet({ id }: RefDataEnvironmentsDetailsGetPossibleEnvironmentChildrenGetRequest, opts?: OperationOpts): Observable<Array<EnvironmentApiModel> | AjaxResponse<Array<EnvironmentApiModel>>> {
 
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         const query: HttpQuery = {};
 
         if (id != null) { query['id'] = id; }
@@ -130,6 +173,7 @@ export class RefDataEnvironmentsDetailsApi extends BaseAPI {
         return this.request<Array<EnvironmentApiModel>>({
             url: '/RefDataEnvironmentsDetails/GetPossibleEnvironmentChildren',
             method: 'GET',
+            headers,
             query,
         }, opts?.responseOpts);
     };
@@ -141,9 +185,20 @@ export class RefDataEnvironmentsDetailsApi extends BaseAPI {
     refDataEnvironmentsDetailsIdGet({ id }: RefDataEnvironmentsDetailsIdGetRequest, opts?: OperationOpts): Observable<EnvironmentContentApiModel | AjaxResponse<EnvironmentContentApiModel>> {
         throwIfNullOrUndefined(id, 'id', 'refDataEnvironmentsDetailsIdGet');
 
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         return this.request<EnvironmentContentApiModel>({
             url: '/RefDataEnvironmentsDetails/{id}'.replace('{id}', encodeURI(id)),
             method: 'GET',
+            headers,
         }, opts?.responseOpts);
     };
 
@@ -152,6 +207,16 @@ export class RefDataEnvironmentsDetailsApi extends BaseAPI {
     refDataEnvironmentsDetailsPut({ envId, componentId, action, component }: RefDataEnvironmentsDetailsPutRequest): Observable<ApiBoolResult>
     refDataEnvironmentsDetailsPut({ envId, componentId, action, component }: RefDataEnvironmentsDetailsPutRequest, opts?: OperationOpts): Observable<AjaxResponse<ApiBoolResult>>
     refDataEnvironmentsDetailsPut({ envId, componentId, action, component }: RefDataEnvironmentsDetailsPutRequest, opts?: OperationOpts): Observable<ApiBoolResult | AjaxResponse<ApiBoolResult>> {
+
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
 
         const query: HttpQuery = {};
 
@@ -163,6 +228,7 @@ export class RefDataEnvironmentsDetailsApi extends BaseAPI {
         return this.request<ApiBoolResult>({
             url: '/RefDataEnvironmentsDetails',
             method: 'PUT',
+            headers,
             query,
         }, opts?.responseOpts);
     };
@@ -173,6 +239,16 @@ export class RefDataEnvironmentsDetailsApi extends BaseAPI {
     refDataEnvironmentsDetailsSetParentForEnvironmentPut({ parentEnvId, childEnvId }: RefDataEnvironmentsDetailsSetParentForEnvironmentPutRequest, opts?: OperationOpts): Observable<AjaxResponse<ApiBoolResult>>
     refDataEnvironmentsDetailsSetParentForEnvironmentPut({ parentEnvId, childEnvId }: RefDataEnvironmentsDetailsSetParentForEnvironmentPutRequest, opts?: OperationOpts): Observable<ApiBoolResult | AjaxResponse<ApiBoolResult>> {
 
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         const query: HttpQuery = {};
 
         if (parentEnvId != null) { query['parentEnvId'] = parentEnvId; }
@@ -181,6 +257,7 @@ export class RefDataEnvironmentsDetailsApi extends BaseAPI {
         return this.request<ApiBoolResult>({
             url: '/RefDataEnvironmentsDetails/SetParentForEnvironment',
             method: 'PUT',
+            headers,
             query,
         }, opts?.responseOpts);
     };

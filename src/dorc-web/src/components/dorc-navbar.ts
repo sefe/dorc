@@ -24,6 +24,7 @@ import './tabs/monitor-result-tab';
 import { MonitorResultTab } from './tabs/monitor-result-tab';
 import GlobalCache from '../global-cache.ts';
 import { EnvPageTabNames } from '../pages/page-environment.ts';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('dorc-navbar')
 export class DorcNavbar extends LitElement {
@@ -455,7 +456,7 @@ export class DorcNavbar extends LitElement {
   }
 
   private getMetaData() {
-    const api = new MetadataApi();
+    const api = new MetadataApi(dorcApiConfiguration);
     api.metadataGet().subscribe({
       next: (data: string) => {
         this.metaData = data;

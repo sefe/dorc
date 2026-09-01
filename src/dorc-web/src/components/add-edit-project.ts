@@ -14,6 +14,7 @@ import '@vaadin/horizontal-layout';
 import { TextField } from '@vaadin/text-field';
 import { RefDataProjectsApi } from '../apis/dorc-api';
 import type { ProjectApiModel } from '../apis/dorc-api';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 
 @customElement('add-edit-project')
@@ -506,7 +507,7 @@ export class AddEditProject extends LitElement {
   _submit() {
     this._setBusy();
     if (this._project.ProjectId === 0) {
-      const api = new RefDataProjectsApi();
+      const api = new RefDataProjectsApi(dorcApiConfiguration);
       api.refDataProjectsPost({ projectApiModel: this._project }).subscribe({
         next: () => {
           this.projAdded();
@@ -522,7 +523,7 @@ export class AddEditProject extends LitElement {
         }
       });
     } else {
-      const api = new RefDataProjectsApi();
+      const api = new RefDataProjectsApi(dorcApiConfiguration);
       api.refDataProjectsPut({ projectApiModel: this._project }).subscribe({
         next: (data: ProjectApiModel) => {
           if (data !== null) {

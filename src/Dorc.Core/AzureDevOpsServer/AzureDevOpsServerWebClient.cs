@@ -3,7 +3,9 @@ using Dorc.Core.Models;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
 using Org.OpenAPITools.Api;
-using Org.OpenAPITools.Client.Auth;
+using Org.OpenAPITools.Client;
+using Dorc.AzureDevOps.Client;
+using Dorc.AzureDevOps.Client.Auth;
 using Org.OpenAPITools.Model;
 
 namespace Dorc.Core.AzureDevOpsServer
@@ -13,6 +15,14 @@ namespace Dorc.Core.AzureDevOpsServer
         private readonly string _serverUrl;
         private readonly ILogger _log;
         private const string ApiVersion = "6.0";
+
+        // Build-filtering patterns come from project configuration
+        // (ArtefactsBuildRegex and the caller-supplied filter list), so a
+        // catastrophically backtracking pattern is a misconfiguration rather
+        // than an attack — but without a bound it still pins a request thread
+        // indefinitely against a large build list. Matching fails fast and
+        // diagnosably instead.
+        private static readonly TimeSpan RegexMatchTimeout = TimeSpan.FromSeconds(5);
         private readonly IAuthTokenGenerator _authTokenGenerator;
         private static readonly IConfigurationSection AppSettings = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build().GetSection("AppSettings");
 
@@ -40,26 +50,8 @@ namespace Dorc.Core.AzureDevOpsServer
         {
             var coll = GetAzureOrgAndUrl(collection, out var azureEndpoint);
 
-            Org.OpenAPITools.Client.Configuration config;
-
-            if (azureEndpoint.Contains(azureEndpointUrl))
-            {
-                config = new Org.OpenAPITools.Client.Configuration
-                {
-                    BasePath = azureEndpoint,
-                    AccessToken = _authTokenGenerator.GetToken()
-                };
-            }
-            else
-            {
-                config = new Org.OpenAPITools.Client.Configuration
-                {
-                    BasePath = azureEndpoint,
-                    UseDefaultCredentials = true,
-                };
-            }
-
-            var instance = new DefinitionsApi(config);
+            var (config, apiClient) = ConnectTo(azureEndpoint);
+            var instance = new DefinitionsApi(apiClient, apiClient, config);
 
             var projects = adosProjects.Split(new[] { ";" }, StringSplitOptions.RemoveEmptyEntries);
             var output = new List<BuildDefinitionReference>();
@@ -86,13 +78,38 @@ namespace Dorc.Core.AzureDevOpsServer
 
                 } while (!string.IsNullOrEmpty(continuationToken));
 
-                var regexs = new Regex(projectRegex, RegexOptions.IgnoreCase);
+                var regexs = new Regex(projectRegex, RegexOptions.IgnoreCase, RegexMatchTimeout);
 
                 output.AddRange(buildDefinitions.Where(x => regexs.IsMatch(x.Name)));
                 buildDefinitions.Clear();
             }
 
             return output;
+        }
+
+        /// <summary>
+        /// Builds the configuration and API client for one Azure DevOps
+        /// endpoint. Azure DevOps Services authenticates with an AAD token;
+        /// an on-premises Azure DevOps Server takes the process's Windows
+        /// credentials instead. The client carries the converter that unwraps
+        /// Azure DevOps's count/value list envelope, so every API must be
+        /// constructed from it.
+        /// </summary>
+        private (Org.OpenAPITools.Client.Configuration Configuration, ApiClient Client) ConnectTo(string azureEndpoint)
+        {
+            var configuration = azureEndpoint.Contains(azureEndpointUrl)
+                ? new Org.OpenAPITools.Client.Configuration
+                {
+                    BasePath = azureEndpoint,
+                    AccessToken = _authTokenGenerator.GetToken()
+                }
+                : new Org.OpenAPITools.Client.Configuration
+                {
+                    BasePath = azureEndpoint,
+                    UseDefaultCredentials = true
+                };
+
+            return (configuration, AzureDevOpsApiClientFactory.Create(configuration.BasePath));
         }
 
         private static bool IsBuildDefinitionCompletedSuccessfully(BuildDefinitionReference buildDefinition)
@@ -121,26 +138,8 @@ namespace Dorc.Core.AzureDevOpsServer
         {
             var coll = GetAzureOrgAndUrl(collection, out var azureEndpoint);
 
-            Org.OpenAPITools.Client.Configuration config;
-
-            if (azureEndpoint.Contains(azureEndpointUrl))
-            {
-                config = new Org.OpenAPITools.Client.Configuration
-                {
-                    BasePath = azureEndpoint,
-                    AccessToken = _authTokenGenerator.GetToken()
-                };
-            }
-            else
-            {
-                config = new Org.OpenAPITools.Client.Configuration
-                {
-                    BasePath = azureEndpoint,
-                    UseDefaultCredentials = true,
-                };
-            }
-
-            var instance = new BuildsApi(config);
+            var (config, apiClient) = ConnectTo(azureEndpoint);
+            var instance = new BuildsApi(apiClient, apiClient, config);
 
             var projects = buildDefinitions.Select(def => def.Project.Name).Distinct().ToList();
 
@@ -179,26 +178,8 @@ namespace Dorc.Core.AzureDevOpsServer
         {
             var coll = GetAzureOrgAndUrl(collection, out var azureEndpoint);
 
-            Org.OpenAPITools.Client.Configuration config;
-
-            if (azureEndpoint.Contains(azureEndpointUrl))
-            {
-                config = new Org.OpenAPITools.Client.Configuration
-                {
-                    BasePath = azureEndpoint,
-                    AccessToken = _authTokenGenerator.GetToken()
-                };
-            }
-            else
-            {
-                config = new Org.OpenAPITools.Client.Configuration
-                {
-                    BasePath = azureEndpoint,
-                    UseDefaultCredentials = true,
-                };
-            }
-
-            var instance = new BuildsApi(config);
+            var (config, apiClient) = ConnectTo(azureEndpoint);
+            var instance = new BuildsApi(apiClient, apiClient, config);
 
             var builds = new List<Build>();
 
@@ -238,7 +219,7 @@ namespace Dorc.Core.AzureDevOpsServer
 
         public List<Build> FilterBuildsByRegex(List<string> regexList, List<Build> buildsForProject)
         {
-            var regexes = regexList.Select(x => new Regex(x)).ToArray();
+            var regexes = regexList.Select(x => new Regex(x, RegexOptions.None, RegexMatchTimeout)).ToArray();
 
             var buildNames = buildsForProject.Select(x => x.BuildNumber).Where(x => regexes.Any(r => r.IsMatch(x)));
 
@@ -256,26 +237,8 @@ namespace Dorc.Core.AzureDevOpsServer
         public List<BuildArtifact> GetBuildArtifacts(string collection, string project, int buildId)
         {
             var coll = GetAzureOrgAndUrl(collection, out var azureEndpoint);
-            Org.OpenAPITools.Client.Configuration config;
-
-            if (azureEndpoint.Contains(azureEndpointUrl))
-            {
-                config = new Org.OpenAPITools.Client.Configuration
-                {
-                    BasePath = azureEndpoint,
-                    AccessToken = _authTokenGenerator.GetToken()
-                };
-            }
-            else
-            {
-                config = new Org.OpenAPITools.Client.Configuration
-                {
-                    BasePath = azureEndpoint,
-                    UseDefaultCredentials = true,
-                };
-            }
-
-            var instance = new ArtifactsApi(config);
+            var (config, apiClient) = ConnectTo(azureEndpoint);
+            var instance = new ArtifactsApi(apiClient, apiClient, config);
 
             string apiVersion = ApiVersion;
             return instance.ArtifactsList(coll, project, buildId, apiVersion);

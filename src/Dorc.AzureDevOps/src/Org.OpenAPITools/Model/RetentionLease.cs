@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// A valid retention lease prevents automated systems from deleting a pipeline run.
     /// </summary>
     [DataContract(Name = "RetentionLease")]
-    public partial class RetentionLease : IEquatable<RetentionLease>, IValidatableObject
+    public partial class RetentionLease : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="RetentionLease" /> class.
@@ -41,7 +41,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="ownerId">Non-unique string that identifies the owner of a retention lease..</param>
         /// <param name="runId">The pipeline run protected by this lease..</param>
         /// <param name="validUntil">The last day the lease is considered valid..</param>
-        public RetentionLease(DateTime createdOn = default(DateTime), int definitionId = default(int), int leaseId = default(int), string ownerId = default(string), int runId = default(int), DateTime validUntil = default(DateTime))
+        public RetentionLease(DateTime createdOn = default, int definitionId = default, int leaseId = default, string ownerId = default, int runId = default, DateTime validUntil = default)
         {
             this.CreatedOn = createdOn;
             this.DefinitionId = definitionId;
@@ -121,90 +121,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as RetentionLease);
-        }
-
-        /// <summary>
-        /// Returns true if RetentionLease instances are equal
-        /// </summary>
-        /// <param name="input">Instance of RetentionLease to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(RetentionLease input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.CreatedOn == input.CreatedOn ||
-                    (this.CreatedOn != null &&
-                    this.CreatedOn.Equals(input.CreatedOn))
-                ) && 
-                (
-                    this.DefinitionId == input.DefinitionId ||
-                    this.DefinitionId.Equals(input.DefinitionId)
-                ) && 
-                (
-                    this.LeaseId == input.LeaseId ||
-                    this.LeaseId.Equals(input.LeaseId)
-                ) && 
-                (
-                    this.OwnerId == input.OwnerId ||
-                    (this.OwnerId != null &&
-                    this.OwnerId.Equals(input.OwnerId))
-                ) && 
-                (
-                    this.RunId == input.RunId ||
-                    this.RunId.Equals(input.RunId)
-                ) && 
-                (
-                    this.ValidUntil == input.ValidUntil ||
-                    (this.ValidUntil != null &&
-                    this.ValidUntil.Equals(input.ValidUntil))
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.CreatedOn != null)
-                {
-                    hashCode = (hashCode * 59) + this.CreatedOn.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.DefinitionId.GetHashCode();
-                hashCode = (hashCode * 59) + this.LeaseId.GetHashCode();
-                if (this.OwnerId != null)
-                {
-                    hashCode = (hashCode * 59) + this.OwnerId.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.RunId.GetHashCode();
-                if (this.ValidUntil != null)
-                {
-                    hashCode = (hashCode * 59) + this.ValidUntil.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

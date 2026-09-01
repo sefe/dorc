@@ -271,7 +271,7 @@ export class EnvControlCenter extends PageEnvBase {
       'add-edit-access-control'
     ) as AddEditAccessControl;
 
-    addEditAccessControl.open(this.secureName, AccessControlType.NUMBER_1);
+    addEditAccessControl.open(this.secureName, AccessControlType.Environment);
   }
 
   closeMlpDialog() {

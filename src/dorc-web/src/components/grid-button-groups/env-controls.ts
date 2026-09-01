@@ -55,7 +55,7 @@ export class EnvControls extends LitElement {
       this.ownerCheckDone = true;
       const api = new RefDataEnvironmentsApi();
       api
-        .refDataEnvironmentsIsEnvironmentOwnerOrDelegateGet({
+        .refDataEnvironmentsIsEnvironmentOwnerGet({
           envName: this.envDetails.EnvironmentName
         })
         .subscribe({
@@ -122,7 +122,7 @@ export class EnvControls extends LitElement {
     const event = new CustomEvent('open-access-control', {
       detail: {
         Name: this.envDetails?.EnvironmentName,
-        Type: AccessControlType.NUMBER_1
+        Type: AccessControlType.Environment
       },
       bubbles: true,
       composed: true
