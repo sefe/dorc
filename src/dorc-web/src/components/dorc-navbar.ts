@@ -164,11 +164,16 @@ export class DorcNavbar extends LitElement {
         color: var(--dorc-icon-interactive);
       }
 
-      /* vaadin-tab is the flex container for a shortcut's link + close control. */
-      vaadin-tab:has(.shortcut-close) {
+      /* The light-DOM link and close control are children of these custom
+         elements, not direct children of vaadin-tab. */
+      env-detail-tab,
+      project-envs-tab,
+      monitor-result-tab {
         display: flex;
         align-items: center;
         gap: 0.25em;
+        width: 100%;
+        min-width: 0;
       }
     `;
   }
