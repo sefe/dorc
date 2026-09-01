@@ -10594,42 +10594,6 @@
         },
         "additionalProperties": false
       },
-      "DiscoverDaemonsResult": {
-        "type": "object",
-        "properties": {
-          "MappingsCreated": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "ServersProcessed": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "DaemonsDiscovered": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "Errors": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "nullable": true
-          },
-          "Success": {
-            "type": "boolean"
-          },
-          "DiscoveredDaemons": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/DaemonStatusApiModel"
-            },
-            "nullable": true,
-            "description": "List of discovered daemon statuses to display in UI"
-          }
-        },
-        "additionalProperties": false
-      },
       "SqlPortApiModel": {
         "type": "object",
         "properties": {
