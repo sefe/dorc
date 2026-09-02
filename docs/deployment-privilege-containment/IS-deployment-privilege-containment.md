@@ -49,7 +49,7 @@ Four rules determine the order below. They are stated up front because several a
 | S-018 | Verify script content at the point of read | SD-5, W-5, SC-05 | S-017, U-14; **lockstep release** |
 | S-019 | Introduce config-value visibility classification | SD-3b, W-4 | **Server side DONE**; web UI outstanding, see the step |
 | S-020 | Introduce the credential provider abstraction | SD-4 | **DONE** |
-| S-021 | Bind execution identity to the environment | SD-4, W-6, W-15, SC-07 | S-020; revisits S-007, S-008, S-009 |
+| S-021 | Bind execution identity to the environment | SD-4, W-6, W-15, SC-07 | **Binding DONE** — opt-in per environment; W-8a follows |
 | S-022 | Record attribution reached and not reached | SD-8, W-9 | S-021 |
 | S-023 | Replace the expression compiler with a fixed grammar | SD-1b, W-1 | **DONE** |
 
@@ -456,6 +456,20 @@ Binding granularity is by sensitivity tier rather than per environment: the esta
 **Also picks up W-8a**, deferred out of S-007: the local Terraform plan directory is shared across deployments, so restricting it needs the environment-dependent identity this step introduces, and its retention question is entangled with the plan/apply blob handshake rather than being housekeeping.
 
 **Verification intent.** An environment with a configured identity deploys under it on both dispatch paths and both API-side sites. An environment without one deploys exactly as before. No resolution site returns a credential for an environment it is not bound to. The fallback count is reportable.
+
+**Nothing changes until an operator names an identity.** The environment's identity reference is nullable and null on every existing row, and a null reference resolves the tier default by exactly the path it did before. That is what makes this shippable without a migration event: the estate holds well over a thousand environments and they move one at a time, on whatever schedule the target-server access control lists allow (**U-9**).
+
+**An unresolvable named identity refuses rather than falling back.** If an environment names an identity and that identity cannot be resolved — the configuration keys are absent, or the vault item is not there — the resolution returns nothing and the deployment fails with a named reason. Falling back to the shared account would be the worst of both worlds: the operator would believe the environment was bound while it was in fact still deploying under the credential the binding exists to stop using, and the fallback count would report progress that had not happened.
+
+**Where the count is reported.** Once per request, from the Monitor's request processor, as bound-versus-fallback resolutions. A refused identity counts as neither, deliberately — it is a failure, not a migration state, and folding it into either number would make an outage look like progress or like regression.
+
+The two dispatchers accumulate into one request-owned counter passed down by the request processor. The processor reports it from its `finally` path, including zero-resolution requests, so successful, failed, cancelled, and early-return requests each produce exactly one adoption report.
+
+**How an identity is bound.** Only the administrator-only `PUT /RefDataEnvironments/{environmentId}/ExecutionIdentity` endpoint can set or clear the reference. The persistence method repeats the administrator check, accepts null/empty only for clearing, validates the shared 128-character identifier grammar, and records the old and new references in environment history. Generic create, update, and clone paths do not assign the reference.
+
+**The password reset controller is bound by identity but not by tier.** It resolves the environment's identity reference like every other site, so an environment that names one resets passwords under it. Its hard-coded non-production tier is left exactly as it was: correcting it would begin making production logons from the API process where none were made before, which is a change of behaviour for whoever owns that endpoint to make, not a side effect of this step. Both halves are now visible at one call site.
+
+**The Terraform gate insertion point was not established.** This step recorded that the Terraform component branch has no equivalent of the PowerShell branch's production-only gate, and that its insertion point must be found before identity gating can be applied uniformly. It has not been found. What this step delivers on the Terraform branch is identity *binding*, not identity *gating* — the Terraform dispatcher resolves the environment's identity exactly as the PowerShell one does, but there is still no place on that branch where a component is refused for being production-bound. That is unchanged from before this step and is not made worse by it; it is recorded here rather than closed.
 
 ### S-022 — Record attribution reached and not reached
 

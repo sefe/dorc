@@ -22,6 +22,7 @@ namespace Dorc.Api.Controllers
     public class ResetAppPasswordController : ControllerBase
     {
         private readonly IDatabasesPersistentSource _databasesPersistentSource;
+        private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
         private readonly IDeploymentCredentialSource _credentialSource;
         private readonly ISqlUserPasswordReset _sqlUserPasswordReset;
         private readonly IConfigValuesPersistentSource _configValuesPersistentSource;
@@ -37,8 +38,10 @@ namespace Dorc.Api.Controllers
             ISecurityPrivilegesChecker securityPrivilegesChecker,
             IConfigurationSettings configurationSettingsEngine,
             IClaimsPrincipalReader claimsPrincipalReader,
+            IEnvironmentsPersistentSource environmentsPersistentSource,
             IDeploymentCredentialSource credentialSource)
         {
+            _environmentsPersistentSource = environmentsPersistentSource;
             _credentialSource = credentialSource;
             _securityPrivilegesChecker = securityPrivilegesChecker;
             _logger = logger;
@@ -79,7 +82,15 @@ namespace Dorc.Api.Controllers
                     return Ok(new ApiBoolResult
                     { Message = $"No application database found for environment '{envName}' with users of login type '{envFilter}'", Result = false });
 
-                return Ok(ResetSqlServerPasswordForUser(username, db.ServerName));
+                // The environment is read for its execution identity, not for authorization -
+                // that has already been decided by the caller. A name that resolves to nothing
+                // leaves the identity unset, which is the same as an environment that names none.
+                var environment = _environmentsPersistentSource.GetEnvironment(envName, User);
+
+                return Ok(ResetSqlServerPasswordForUser(
+                    username,
+                    db.ServerName,
+                    environment?.ExecutionIdentityReference));
             }
             catch (Exception e)
             {
@@ -88,14 +99,22 @@ namespace Dorc.Api.Controllers
             }
         }
 
-        private ApiBoolResult ResetSqlServerPasswordForUser(string username, string serverName)
+        private ApiBoolResult ResetSqlServerPasswordForUser(
+            string username, string serverName, string? executionIdentityReference)
         {
-            // The fourth resolution site, and the one whose hard-coded tier is worth noting: it
+            // Environment-keyed, like every other resolution site: an environment naming its own
+            // execution identity resets passwords under it, and one naming none behaves exactly as
+            // before.
+            //
+            // The hard-coded TIER is still preserved rather than quietly corrected. This site
             // resolves the NON-PRODUCTION credential regardless of the server it is resetting a
-            // password on. That is preserved here rather than quietly changed - whether it is
-            // deliberate or a latent defect is a question for whoever owns this endpoint, and
-            // making it environment-keyed is the next step's business.
-            var credential = _credentialSource.Resolve(DeploymentTier.NonProduction);
+            // password on; whether that is deliberate or a latent defect is a question for
+            // whoever owns this endpoint, and changing it would start making production logons
+            // where none were made before. Naming an identity on the environment is opt-in and
+            // reversible, so it is the safe half of the binding to apply here.
+            var credential = _credentialSource.Resolve(
+                DeploymentTier.NonProduction,
+                executionIdentityReference);
 
             var domainName = _configurationSettingsEngine.GetConfigurationDomainNameIntra();
 

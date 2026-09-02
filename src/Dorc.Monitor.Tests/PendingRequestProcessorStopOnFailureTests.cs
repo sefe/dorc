@@ -5,6 +5,7 @@ using Dorc.Core.Events;
 using Dorc.Core.Interfaces;
 using Dorc.Core.VariableResolution;
 using Dorc.Monitor.RequestProcessors;
+using Dorc.Core.Security;
 using Dorc.PersistentData.Security;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.Extensions.Logging;
@@ -26,6 +27,7 @@ namespace Dorc.Monitor.Tests
         private IPropertyEvaluator mockPropertyEvaluator = null!;
         private IDeploymentEventsPublisher mockEventsPublisher = null!;
         private IGitHubArtifactDownloader mockGitHubArtifactDownloader = null!;
+        private ILogger mockLogger = null!;
 
         private PendingRequestProcessor sut = null!;
 
@@ -33,7 +35,8 @@ namespace Dorc.Monitor.Tests
         public void Setup()
         {
             mockLoggerFactory = Substitute.For<ILoggerFactory>();
-            mockLoggerFactory.CreateLogger(Arg.Any<string>()).Returns(Substitute.For<ILogger>());
+            mockLogger = Substitute.For<ILogger>();
+            mockLoggerFactory.CreateLogger(Arg.Any<string>()).Returns(mockLogger);
 
             mockComponentProcessor = Substitute.For<IComponentProcessor>();
             mockVariableScopeOptionsResolver = Substitute.For<IVariableScopeOptionsResolver>();
@@ -130,6 +133,73 @@ namespace Dorc.Monitor.Tests
                 .Returns(results);
         }
 
+        private List<string> ExecutionIdentityAdoptionReports()
+        {
+            return mockLogger.ReceivedCalls()
+                .Where(call => call.GetMethodInfo().Name == nameof(ILogger.Log))
+                .Select(call => call.GetArguments()[2]?.ToString())
+                .Where(message => message?.Contains("Execution identity adoption for request") == true)
+                .Cast<string>()
+                .ToList();
+        }
+
+        [TestMethod]
+        public void Execute_SuccessWithoutCredentialResolution_ReportsAdoptionOnce()
+        {
+            var dto = CreateRequest([]);
+            SetupOrderedComponents([]);
+
+            sut.Execute(dto, CancellationToken.None);
+
+            var report = ExecutionIdentityAdoptionReports().Single();
+            StringAssert.Contains(report, "0 resolution(s)");
+            StringAssert.Contains(report, "0 fell back");
+        }
+
+        [TestMethod]
+        public void Execute_ReportsCountsAccumulatedByTheDispatchPath()
+        {
+            var component = new ComponentApiModel
+            {
+                ComponentId = 1,
+                ComponentName = "Comp1",
+                IsEnabled = true
+            };
+            var dto = CreateRequest([component]);
+            SetupOrderedComponents([component]);
+
+            var credentialSource = Substitute.For<IDeploymentCredentialSource>();
+            credentialSource.Resolve(DeploymentTier.NonProduction, null)
+                .Returns(new DeploymentCredential("shared", "password"));
+            credentialSource.Resolve(DeploymentTier.NonProduction, "payments")
+                .Returns(new DeploymentCredential("payments", "password"));
+
+            mockComponentProcessor.DeployComponent(
+                    component,
+                    Arg.Any<DeploymentResultApiModel>(),
+                    Arg.Any<int>(),
+                    Arg.Any<bool>(),
+                    Arg.Any<int>(),
+                    Arg.Any<bool>(),
+                    Arg.Any<string>(),
+                    Arg.Any<string?>(),
+                    Arg.Do<RequestExecutionIdentityAdoption>(adoption =>
+                    {
+                        adoption.Resolve(credentialSource, DeploymentTier.NonProduction, null);
+                        adoption.Resolve(credentialSource, DeploymentTier.NonProduction, "payments");
+                    }),
+                    Arg.Any<string>(),
+                    Arg.Any<IDictionary<string, VariableValue>>(),
+                    Arg.Any<CancellationToken>())
+                .Returns(true);
+
+            sut.Execute(dto, CancellationToken.None);
+
+            var report = ExecutionIdentityAdoptionReports().Single();
+            StringAssert.Contains(report, "1 resolution(s)");
+            StringAssert.Contains(report, "1 fell back");
+        }
+
         [TestMethod]
         public void Execute_ComponentFailsWithStopOnFailure_StopsRemainingComponents()
         {
@@ -145,7 +215,7 @@ namespace Dorc.Monitor.Tests
             mockComponentProcessor.DeployComponent(
                 comp1, Arg.Any<DeploymentResultApiModel>(),
                 Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<int>(), Arg.Any<bool>(),
-                Arg.Any<string>(), Arg.Any<string>(),
+                Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<RequestExecutionIdentityAdoption>(), Arg.Any<string>(),
                 Arg.Any<IDictionary<string, VariableValue>>(), Arg.Any<CancellationToken>())
                 .Returns(false);
 
@@ -153,7 +223,7 @@ namespace Dorc.Monitor.Tests
             mockComponentProcessor.DeployComponent(
                 comp2, Arg.Any<DeploymentResultApiModel>(),
                 Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<int>(), Arg.Any<bool>(),
-                Arg.Any<string>(), Arg.Any<string>(),
+                Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<RequestExecutionIdentityAdoption>(), Arg.Any<string>(),
                 Arg.Any<IDictionary<string, VariableValue>>(), Arg.Any<CancellationToken>())
                 .Returns(true);
 
@@ -164,7 +234,7 @@ namespace Dorc.Monitor.Tests
             mockComponentProcessor.DidNotReceive().DeployComponent(
                 comp2, Arg.Any<DeploymentResultApiModel>(),
                 Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<int>(), Arg.Any<bool>(),
-                Arg.Any<string>(), Arg.Any<string>(),
+                Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<RequestExecutionIdentityAdoption>(), Arg.Any<string>(),
                 Arg.Any<IDictionary<string, VariableValue>>(), Arg.Any<CancellationToken>());
 
             // Assert - request marked as Failed
@@ -190,14 +260,14 @@ namespace Dorc.Monitor.Tests
             mockComponentProcessor.DeployComponent(
                 comp1, Arg.Any<DeploymentResultApiModel>(),
                 Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<int>(), Arg.Any<bool>(),
-                Arg.Any<string>(), Arg.Any<string>(),
+                Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<RequestExecutionIdentityAdoption>(), Arg.Any<string>(),
                 Arg.Any<IDictionary<string, VariableValue>>(), Arg.Any<CancellationToken>())
                 .Returns(false);
 
             mockComponentProcessor.DeployComponent(
                 comp2, Arg.Any<DeploymentResultApiModel>(),
                 Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<int>(), Arg.Any<bool>(),
-                Arg.Any<string>(), Arg.Any<string>(),
+                Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<RequestExecutionIdentityAdoption>(), Arg.Any<string>(),
                 Arg.Any<IDictionary<string, VariableValue>>(), Arg.Any<CancellationToken>())
                 .Returns(true);
 
@@ -208,7 +278,7 @@ namespace Dorc.Monitor.Tests
             mockComponentProcessor.Received().DeployComponent(
                 comp2, Arg.Any<DeploymentResultApiModel>(),
                 Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<int>(), Arg.Any<bool>(),
-                Arg.Any<string>(), Arg.Any<string>(),
+                Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<RequestExecutionIdentityAdoption>(), Arg.Any<string>(),
                 Arg.Any<IDictionary<string, VariableValue>>(), Arg.Any<CancellationToken>());
         }
 
@@ -239,7 +309,7 @@ namespace Dorc.Monitor.Tests
             mockComponentProcessor.DeployComponent(
                 comp1, Arg.Any<DeploymentResultApiModel>(),
                 Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<int>(), Arg.Any<bool>(),
-                Arg.Any<string>(), Arg.Any<string>(),
+                Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<RequestExecutionIdentityAdoption>(), Arg.Any<string>(),
                 Arg.Any<IDictionary<string, VariableValue>>(), Arg.Any<CancellationToken>())
                 .Returns(false);
 
@@ -267,7 +337,7 @@ namespace Dorc.Monitor.Tests
             mockComponentProcessor.DeployComponent(
                 comp1, Arg.Any<DeploymentResultApiModel>(),
                 Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<int>(), Arg.Any<bool>(),
-                Arg.Any<string>(), Arg.Any<string>(),
+                Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<RequestExecutionIdentityAdoption>(), Arg.Any<string>(),
                 Arg.Any<IDictionary<string, VariableValue>>(), Arg.Any<CancellationToken>())
                 .Returns(x => throw new InvalidOperationException("Script failed"));
 
@@ -278,7 +348,7 @@ namespace Dorc.Monitor.Tests
             mockComponentProcessor.DidNotReceive().DeployComponent(
                 comp2, Arg.Any<DeploymentResultApiModel>(),
                 Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<int>(), Arg.Any<bool>(),
-                Arg.Any<string>(), Arg.Any<string>(),
+                Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<RequestExecutionIdentityAdoption>(), Arg.Any<string>(),
                 Arg.Any<IDictionary<string, VariableValue>>(), Arg.Any<CancellationToken>());
         }
 
@@ -300,7 +370,7 @@ namespace Dorc.Monitor.Tests
             mockComponentProcessor.DeployComponent(
                 comp1, Arg.Any<DeploymentResultApiModel>(),
                 Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<int>(), Arg.Any<bool>(),
-                Arg.Any<string>(), Arg.Any<string>(),
+                Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<RequestExecutionIdentityAdoption>(), Arg.Any<string>(),
                 Arg.Any<IDictionary<string, VariableValue>>(), Arg.Any<CancellationToken>())
                 .Returns(true);
 
@@ -347,7 +417,7 @@ namespace Dorc.Monitor.Tests
             mockComponentProcessor.DeployComponent(
                 comp1, Arg.Any<DeploymentResultApiModel>(),
                 Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<int>(), Arg.Any<bool>(),
-                Arg.Any<string>(), Arg.Any<string>(),
+                Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<RequestExecutionIdentityAdoption>(), Arg.Any<string>(),
                 Arg.Any<IDictionary<string, VariableValue>>(), Arg.Any<CancellationToken>())
                 .Returns(x => throw new InvalidOperationException("deployment blew up"));
 
@@ -383,7 +453,7 @@ namespace Dorc.Monitor.Tests
             mockComponentProcessor.DeployComponent(
                 comp1, Arg.Any<DeploymentResultApiModel>(),
                 Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<int>(), Arg.Any<bool>(),
-                Arg.Any<string>(), Arg.Any<string>(),
+                Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<RequestExecutionIdentityAdoption>(), Arg.Any<string>(),
                 Arg.Any<IDictionary<string, VariableValue>>(), Arg.Any<CancellationToken>())
                 .Returns(true);
 
