@@ -202,14 +202,15 @@ export class DorcApp extends LitElement {
         inset-block: 0;
         left: 50%;
         transform: translateX(-50%);
-        width: 2px;
-        background-color: var(--dorc-text-secondary);
+        width: 4px;
+        background-color: var(--dorc-bg-secondary);
       }
 
       #splitter:hover::before,
-      #splitter:focus-visible::before {
+      #splitter:focus-visible::before,
+      :host([resizing]) #splitter::before {
         width: 4px;
-        background-color: var(--dorc-link-color);
+        background-color: var(--dorc-icon-interactive);
       }
 
       #splitter:focus-visible {
