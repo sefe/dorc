@@ -54,7 +54,10 @@ export function retrieveErrorMessage(
   if (typeof err === 'string') {
     return normalizeTransportMessage(err);
   }
-  if (typeof err !== 'object' || err === null) {
+  if (err === null) {
+    return errorMessage;
+  }
+  if (typeof err !== 'object') {
     return errorMessage;
   }
 
