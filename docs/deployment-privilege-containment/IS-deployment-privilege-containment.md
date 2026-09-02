@@ -37,7 +37,7 @@ Four rules determine the order below. They are stated up front because several a
 | S-007 | Expire execution artefacts | SD-7, W-8, W-12, SC-08, SC-08a | **DONE** (W-8a deferred to S-021) |
 | S-008 | Replace the null process security descriptor | SD-2, W-2, SC-04 | **DONE** — see the W-2 correction |
 | S-009 | Authenticate the script-group transport | SD-2, W-3, SC-04 | **DONE** — must ship in lockstep, see the step |
-| S-010 | Validate script paths at the write path | SD-5, W-5 | — |
+| S-010 | Validate script paths at the write path | SD-5, W-5 | **DONE** (W-5a recorded, deferred to S-011) |
 | S-011 | Validate source URLs at the write path | SD-9, W-11, W-16 | — |
 | S-012 | Bind source credentials to validated hosts | SD-9, W-11, W-16, SC-05b | S-011 |
 | ⚙ S-013 | Migrate the three `DORC_NonProdDeployPassword` consumers | SD-3a precondition | **U-12 CLOSED** |
@@ -226,7 +226,13 @@ If an unpredictable pipe name is adopted as defence in depth, it must be generat
 
 **Verification intent.** A component update supplying a rooted path outside the script root is rejected with a clear message. A relative path within the root succeeds. Traversal sequences are rejected. Existing components are untouched — this step deliberately does not validate stored data.
 
+**Implemented as a rule over the stored value, not the joined result.** A path that is relative and free of traversal cannot resolve outside whatever root it is later joined to, so the check is exactly equivalent to canonicalising against the root and comparing — and needs no knowledge of the root. That matters: the write path lives in `Dorc.PersistentData`, which has no reason to know where scripts live and no access to `Dorc.Core`'s existing path helper, since the dependency runs the other way. Both stored forms are covered, the plain path and the JSON document carrying one under `ScriptPath`; checking only the plain form would have left the JSON form as an open door to the identical escape.
+
+**Scoped to PowerShell components, and this is load-bearing rather than incidental.** A Terraform component's `ScriptPath` is not a script relative to the root: for the `SharedFolder` source type it *is* the location, and is legitimately an absolute UNC path. Applying a relativity rule to it would reject every Terraform component on that source type. Confining it needs a host allow-list rather than a relativity rule — a different control, recorded as **W-5a**.
+
 ### S-011 — Validate source URLs at the write path
+
+**Also picks up W-5a**, deferred out of S-010: a Terraform component's `ScriptPath` under the `SharedFolder` source type is an absolute UNC location rather than a path relative to the script root, and belongs against the same host allow-list as the two project URLs.
 
 **What changes.** Project validation is extended to check both the Terraform repository URL and the artefacts URL against a host allow-list. Neither is inspected today: project validation runs five checks, none of which examines a URL's host, and the artefacts URL is accepted on a bare scheme-prefix test.
 
