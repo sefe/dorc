@@ -139,6 +139,7 @@ describe('P2a: drawer shortcut accessibility', () => {
       expect(close.getAttribute('aria-label')).to.equal(
         'Close UAT-01 shortcut'
       );
+      expect(close.getAttribute('theme')).to.contain('drawer-shortcut-close');
 
       close.focus();
       expect(
@@ -190,12 +191,20 @@ describe('P2a: drawer shortcut accessibility', () => {
 
       expect(rect.width).to.equal(24);
       expect(rect.height).to.equal(24);
+      expect(getComputedStyle(close).marginLeft).to.equal('-4px');
+      expect(getComputedStyle(close).marginRight).to.equal('-14px');
       expect(getComputedStyle(close).backgroundColor).to.equal(
         'rgba(0, 0, 0, 0)'
       );
       expect(
         getComputedStyle(close.querySelector('vaadin-icon')!).padding
       ).to.equal('0px');
+      const iconRect = close
+        .querySelector('vaadin-icon')!
+        .getBoundingClientRect();
+      expect(iconRect.width).to.equal(14);
+      expect(iconRect.height).to.equal(14);
+      expect(getComputedStyle(close).color).to.equal('rgb(95, 145, 163)');
     });
   });
 
