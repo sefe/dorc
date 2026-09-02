@@ -166,15 +166,13 @@ export class DorcNavbar extends LitElement {
         background-color: transparent;
         box-shadow: none;
         cursor: pointer;
-        color: var(--dorc-text-secondary);
-        opacity: 0.65;
+        color: #5f91a3;
       }
 
       .shortcut-close:hover,
       .shortcut-close:focus-visible {
         background-color: var(--lumo-contrast-10pct);
         color: var(--dorc-icon-interactive);
-        opacity: 1;
       }
 
       .shortcut-close vaadin-icon {

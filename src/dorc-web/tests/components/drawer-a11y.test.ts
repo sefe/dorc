@@ -202,7 +202,7 @@ describe('P2a: drawer shortcut accessibility', () => {
         .getBoundingClientRect();
       expect(iconRect.width).to.equal(14);
       expect(iconRect.height).to.equal(14);
-      expect(getComputedStyle(close).opacity).to.equal('0.65');
+      expect(getComputedStyle(close).color).to.equal('rgb(95, 145, 163)');
     });
   });
 
