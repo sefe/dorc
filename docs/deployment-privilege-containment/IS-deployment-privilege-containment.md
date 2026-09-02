@@ -41,7 +41,7 @@ Four rules determine the order below. They are stated up front because several a
 | S-011 | Validate source URLs at the write path | SD-9, W-11, W-16, W-5a | **DONE** — unenforced until configured, see the step |
 | S-012 | Bind source credentials to validated hosts | SD-9, W-11, W-16, SC-05b | **DONE** — partly inert until S-011 is configured |
 | ⚙ S-013 | Migrate the three `DORC_NonProdDeployPassword` consumers | SD-3a precondition | **U-12 CLOSED** |
-| S-014 | Denylist the operator-only secret keys | SD-3a, W-4, SC-03 | S-006, S-013 |
+| S-014 | Classify config values: reserved-key denylist | SD-3a, W-4, SC-03 | **DONE for the three zero-consumer keys**; the rest still gated on S-013 |
 | S-014a | Restrict `CanReadSecrets` to service principals | W-19 | Usage decision (see step) |
 | ⚙ S-015 | Rotate the deployment credentials | SD-3, W-4 | **S-004 and S-014** |
 | ⚙ S-016 | Remediate off-share script paths | SD-5 precondition | S-010 |
@@ -300,6 +300,16 @@ One of the three sits in the production script folder and consumes the *non-prod
 **Dependencies.** S-006 (or same release), S-013, U-12.
 
 **Verification intent.** No denylisted key appears in the serialized script group for any environment, asserted as an invariant over the classified set rather than a fixed list. Username keys remain present. The scripts migrated in S-013 continue to deploy. Coverage sits at script-group serialization and at variable assignment in the runner, not only at dispatch.
+
+**Delivered against the evidence, which does not permit the step as originally written.** "Password and secret keys are denylisted unconditionally, the list derived by enumerating secure configuration values" would withhold `DeploymentServiceAccountPassword` — roughly eighty call sites, and the mechanism by which scripts reach target servers at all — along with `ProgetAccountPassword` and `DorcCliSecret`. That is not a denylist, it is an outage. U-12's scan is what makes the difference, and it reversed this half of the design.
+
+So the withheld set is the three keys the scan showed have **zero** consumers: `DORC_ProdDeployPassword`, `DORC_WebDeployPassword`, `DorcApiAccessPassword`. Those are a drop-in, and they include the credential behind the live incident. The remaining secure keys stay published until S-013 migrates their consumers; the list is configurable so that migration extends it without a code change.
+
+**The derivation survives as reporting rather than as enforcement.** Enumerating secure values and subtracting the withheld set gives the set still reaching script scope, which the Monitor logs on every deployment. That keeps S-013's backlog measured against the estate rather than against a list in code, and surfaces a secure value added after this was written — without that derivation being able to break a deployment.
+
+**Two gates, as required.** Configuration values are excluded where they become properties, and the script group is filtered again as it is assembled. The second is not redundant: a property reaching the set by another route — an environment property, or a request-supplied value bearing the same name — would otherwise carry an operating credential across the process boundary into a Runner.
+
+**Not closed by this step:** W-4 remains open for the four secure keys that are still published, and S-015's rotation still depends on S-013 completing first.
 
 ### S-014a — Restrict `CanReadSecrets` to service principals
 

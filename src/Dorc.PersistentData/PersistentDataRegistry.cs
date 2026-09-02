@@ -25,6 +25,7 @@ namespace Dorc.PersistentData
             // IConfiguration, so the allow-list resolves identically in every process that
             // loads this registry. Settings do not change at runtime, so one instance serves.
             For<ISourceHostAllowList>().Use(new SourceHostAllowList(configuration)).Singleton();
+            For<IScriptScopeConfigValues>().Use(new ScriptScopeConfigValues(configuration)).Singleton();
 
             For<IAccessControlPersistentSource>().Use<AccessControlPersistentSource>().Scoped();
             For<IAccountPersistentSource>().Use<AccountPersistentSource>().Scoped();

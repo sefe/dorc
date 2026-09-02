@@ -1,9 +1,10 @@
-using Dorc.ApiModel;
+﻿using Dorc.ApiModel;
 using Dorc.ApiModel.MonitorRunnerApi;
 using Dorc.Core;
 using Dorc.Core.Events;
 using Dorc.Core.Interfaces;
 using Dorc.Core.VariableResolution;
+using Dorc.PersistentData.Security;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -26,6 +27,7 @@ namespace Dorc.Monitor.RequestProcessors
         private readonly IPropertyEvaluator _propertyEvaluator;
         private readonly ILoggerFactory _loggerFactory;
         private readonly IGitHubArtifactDownloader _gitHubArtifactDownloader;
+        private readonly IScriptScopeConfigValues _scriptScopeConfigValues;
 
         public PendingRequestProcessor(
             ILoggerFactory loggerFactory,
@@ -38,12 +40,14 @@ namespace Dorc.Monitor.RequestProcessors
             IConfigValuesPersistentSource configValuesPersistentSource,
             IPropertyEvaluator propertyEvaluator,
             IDeploymentEventsPublisher eventPublisher,
-            IGitHubArtifactDownloader gitHubArtifactDownloader)
+            IGitHubArtifactDownloader gitHubArtifactDownloader,
+            IScriptScopeConfigValues scriptScopeConfigValues)
         {
             _loggerFactory = loggerFactory;
             _propertyEvaluator = propertyEvaluator;
             _configValuesPersistentSource = configValuesPersistentSource;
             _gitHubArtifactDownloader = gitHubArtifactDownloader;
+            _scriptScopeConfigValues = scriptScopeConfigValues;
             this.logger = _loggerFactory.CreateLogger<PendingRequestProcessor>();
 
             this.componentProcessor = componentProcessor;
@@ -481,9 +485,22 @@ namespace Dorc.Monitor.RequestProcessors
 
         private void SetUpConfigValuesAsProperties(EnvironmentApiModel environment)
         {
+            var configValues = _configValuesPersistentSource.GetAllConfigValues(true).ToList();
+
+            ReportSecureConfigValuesStillReachingScripts(configValues);
+
             // attempt to add any other properties that don't need defaults
-            foreach (var configValue in _configValuesPersistentSource.GetAllConfigValues(true))
+            foreach (var configValue in configValues)
             {
+                if (_scriptScopeConfigValues.IsWithheld(configValue.Key))
+                {
+                    // DOrc's own operating credentials. Every secure value was previously
+                    // decrypted and injected subject only to a coarse production flag, so these
+                    // were delivered in cleartext, as ordinary PowerShell variables, to the
+                    // deployment scripts of every environment the flag admitted.
+                    continue;
+                }
+
                 if (_variableResolver.GetPropertyValue(configValue.Key) == null)
                 {
                     var needToSetConfigForEnv = !configValue.IsForProd.HasValue
@@ -493,6 +510,30 @@ namespace Dorc.Monitor.RequestProcessors
                     if (needToSetConfigForEnv)
                         _variableResolver.SetPropertyValue(configValue.Key, configValue.Value);
                 }
+            }
+        }
+
+        /// <summary>
+        /// Records which secure values a deployment still receives.
+        ///
+        /// The withheld set is the three keys a production share scan showed no script
+        /// consumes. The rest stay published because scripts genuinely depend on them - one of
+        /// them is how scripts reach target servers at all - and they cannot be withheld until
+        /// their consumers are migrated. Reporting what is derived from the estate, rather than
+        /// from a list in code, keeps that backlog visible and catches a secure value added
+        /// after this was written.
+        /// </summary>
+        private void ReportSecureConfigValuesStillReachingScripts(IEnumerable<ConfigValueApiModel> configValues)
+        {
+            var stillPublished = _scriptScopeConfigValues.StillPublishedSecureKeys(configValues);
+
+            if (stillPublished.Count > 0)
+            {
+                logger.LogWarning(
+                    "{Count} secure configuration value(s) are still published into deployment script"
+                    + " scope: {Keys}. Each is readable by any script the deployment runs.",
+                    stillPublished.Count,
+                    string.Join(", ", stillPublished));
             }
         }
 

@@ -1,8 +1,9 @@
-using Dorc.ApiModel;
+﻿using Dorc.ApiModel;
 using Dorc.ApiModel.MonitorRunnerApi;
 using Dorc.Core.Configuration;
 using Dorc.Monitor;
 using Dorc.Monitor.Pipes;
+using Dorc.PersistentData.Security;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
@@ -33,6 +34,7 @@ namespace Dorc.Monitor.Tests
         private IScriptGroupPipeServer _pipeServer = null!;
         private IConfigValuesPersistentSource _configValues = null!;
         private IConfigurationSettings _configurationSettings = null!;
+        private IScriptScopeConfigValues _scriptScopeConfigValues = null!;
 
         [TestInitialize]
         public void Setup()
@@ -46,6 +48,7 @@ namespace Dorc.Monitor.Tests
             _configValues.GetConfigValue("DORC_NonProdDeployPassword").Returns("nonprod-password");
 
             _configurationSettings = Substitute.For<IConfigurationSettings>();
+            _scriptScopeConfigValues = Substitute.For<IScriptScopeConfigValues>();
             _configurationSettings.GetConfigurationDomainNameIntra().Returns(Domain);
         }
 
@@ -56,7 +59,8 @@ namespace Dorc.Monitor.Tests
                 Substitute.For<ILogger<ScriptDispatcher>>(),
                 _pipeServer,
                 _configurationSettings,
-                Substitute.For<IRequestsPersistentSource>());
+                Substitute.For<IRequestsPersistentSource>(),
+                _scriptScopeConfigValues);
 
         /// <summary>
         /// Dispatch is driven to the point where the Runner's security context is built and no
@@ -195,6 +199,71 @@ namespace Dorc.Monitor.Tests
         public void RefusesToNameNoAccountAtAll(string? userName)
         {
             Assert.ThrowsExactly<ArgumentException>(() => new ScriptGroupReaderIdentity("CORP", userName!));
+        }
+    }
+    /// <summary>
+    /// The withheld keys are already excluded where configuration values become properties.
+    /// This is the second gate: the script group is the artefact that crosses the process
+    /// boundary into a Runner, so the invariant has to hold there rather than be assumed to
+    /// have held upstream. A property reaching the set by another route - an environment
+    /// property, or a request-supplied value bearing the same name - would otherwise carry
+    /// DOrc's own operating credential into script scope after all.
+    /// </summary>
+    [TestClass]
+    public class WithheldKeysAreNotDispatchedTests
+    {
+        private const string Withheld = "DORC_ProdDeployPassword";
+
+        [TestMethod]
+        public void TheDispatchedScriptGroupCarriesNoWithheldKey()
+        {
+            var pipeServer = Substitute.For<IScriptGroupPipeServer>();
+
+            var configValues = Substitute.For<IConfigValuesPersistentSource>();
+            configValues.GetConfigValue("DORC_ProdDeployUsername").Returns("svc-dorc");
+            configValues.GetConfigValue("DORC_ProdDeployPassword").Returns("password");
+
+            var settings = Substitute.For<IConfigurationSettings>();
+            settings.GetConfigurationDomainNameIntra().Returns(string.Empty);
+
+            var scopeValues = Substitute.For<IScriptScopeConfigValues>();
+            scopeValues.IsWithheld(Withheld).Returns(true);
+
+            var dispatcher = new ScriptDispatcher(
+                Substitute.For<IDeploymentRequestProcessesPersistentSource>(),
+                configValues,
+                Substitute.For<ILogger<ScriptDispatcher>>(),
+                pipeServer,
+                settings,
+                Substitute.For<IRequestsPersistentSource>(),
+                scopeValues);
+
+            var properties = new Dictionary<string, VariableValue>
+            {
+                [Withheld] = new() { Value = "the-credential", Type = typeof(string) },
+                ["EnvironmentName"] = new() { Value = "SOME-ENV", Type = typeof(string) }
+            };
+
+            // Fails once it reaches the security context, which a test host cannot build. The
+            // script group has been published by then, which is what is under test.
+            Assert.ThrowsExactly<Exception>(() => dispatcher.Dispatch(
+                @"\\host\share\Scripts",
+                new ScriptApiModel { Path = "Deploy.ps1", PowerShellVersionNumber = "7.4" },
+                properties,
+                requestId: 42,
+                deploymentRequestId: 42,
+                isProduction: true,
+                environmentName: "SOME-ENV",
+                new StringBuilder(),
+                CancellationToken.None));
+
+            pipeServer.Received(1).Start(
+                Arg.Any<string>(),
+                Arg.Is<ScriptGroup>(group =>
+                    !group.CommonProperties.ContainsKey(Withheld)
+                    && group.CommonProperties.ContainsKey("EnvironmentName")),
+                Arg.Any<ScriptGroupReaderIdentity>(),
+                Arg.Any<CancellationToken>());
         }
     }
 }
