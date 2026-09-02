@@ -160,6 +160,43 @@ describe('P2a: drawer shortcut accessibility', () => {
         labels.length
       );
     });
+
+    it('keeps the close control on the same row as the shortcut link', async () => {
+      const navbar = await mountNavbar(container);
+      await addEnv(navbar, { EnvironmentId: 6, EnvironmentName: 'GAMMA' });
+
+      const shortcut = tabsOf(navbar).querySelector(
+        'env-detail-tab'
+      ) as HTMLElement;
+      const link = shortcut.querySelector('.shortcut-link') as HTMLElement;
+      const close = shortcut.querySelector('.shortcut-close') as HTMLElement;
+
+      expect(getComputedStyle(shortcut).display).to.equal('flex');
+      const linkRect = link.getBoundingClientRect();
+      const closeRect = close.getBoundingClientRect();
+      expect(closeRect.top + closeRect.height / 2).to.equal(
+        linkRect.top + linkRect.height / 2
+      );
+    });
+
+    it('keeps the close control compact', async () => {
+      const navbar = await mountNavbar(container);
+      await addEnv(navbar, { EnvironmentId: 9, EnvironmentName: 'COMPACT' });
+
+      const close = tabsOf(navbar).querySelector(
+        'env-detail-tab .shortcut-close'
+      ) as HTMLElement;
+      const rect = close.getBoundingClientRect();
+
+      expect(rect.width).to.equal(24);
+      expect(rect.height).to.equal(24);
+      expect(getComputedStyle(close).backgroundColor).to.equal(
+        'rgba(0, 0, 0, 0)'
+      );
+      expect(
+        getComputedStyle(close.querySelector('vaadin-icon')!).padding
+      ).to.equal('0px');
+    });
   });
 
   // ─── SC-4a ──────────────────────────────────────────────────────────────
