@@ -178,6 +178,25 @@ describe('P2a: drawer shortcut accessibility', () => {
         linkRect.top + linkRect.height / 2
       );
     });
+
+    it('keeps the close control compact', async () => {
+      const navbar = await mountNavbar(container);
+      await addEnv(navbar, { EnvironmentId: 9, EnvironmentName: 'COMPACT' });
+
+      const close = tabsOf(navbar).querySelector(
+        'env-detail-tab .shortcut-close'
+      ) as HTMLElement;
+      const rect = close.getBoundingClientRect();
+
+      expect(rect.width).to.equal(24);
+      expect(rect.height).to.equal(24);
+      expect(getComputedStyle(close).backgroundColor).to.equal(
+        'rgba(0, 0, 0, 0)'
+      );
+      expect(
+        getComputedStyle(close.querySelector('vaadin-icon')!).padding
+      ).to.equal('0px');
+    });
   });
 
   // ─── SC-4a ──────────────────────────────────────────────────────────────
