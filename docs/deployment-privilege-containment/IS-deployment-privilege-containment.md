@@ -35,7 +35,7 @@ Four rules determine the order below. They are stated up front because several a
 | S-005 | Confine the build drop location | W-14, SC-05 | **DONE** |
 | S-006 | Remove resolved property values from runner logging | SD-6, W-7, SC-06 | **DONE** |
 | S-007 | Expire execution artefacts | SD-7, W-8, W-12, SC-08, SC-08a | **DONE** (W-8a deferred to S-021) |
-| S-008 | Replace the null process security descriptor | SD-2, W-2, SC-04 | — |
+| S-008 | Replace the null process security descriptor | SD-2, W-2, SC-04 | **DONE** — see the W-2 correction |
 | S-009 | Authenticate the script-group transport | SD-2, W-3, SC-04 | **DONE** — must ship in lockstep, see the step |
 | S-010 | Validate script paths at the write path | SD-5, W-5 | — |
 | S-011 | Validate source URLs at the write path | SD-9, W-11, W-16 | — |
@@ -180,6 +180,13 @@ The bundle directory's privileged-identity set is corrected to grant the deploym
 **Why it changes.** W-2. Any local principal can currently open a runner process for full access — reading the decrypted property bag from its memory or injecting code to execute as the deployment account. This also bounds what S-009 can achieve: transport confidentiality is worth little when the consuming process object is world-writable.
 
 **Dependencies.** None. Derive the principal from the credential resolution point.
+
+**Corrected during implementation.** The NULL access list this step was written to replace never reached `CreateProcessAsUser`: the interop modified a managed copy of the descriptor while the pointer that was passed addressed a separate unmanaged buffer with no access list *present*, which makes Windows apply the token's default instead. See the correction under W-2. The step still lands, and matters more for it — the defect was one routine tidy-up away from becoming the exposure it was mistaken for. The hand-rolled descriptor interop is deleted rather than repaired, and the descriptor is built in managed code from the logon token's own user, so it needs no directory lookup and cannot fail a deployment over a transient one.
+
+Two leaks are closed alongside it: the `LogonUser` token, which was never closed because only its duplicate was returned and disposed, and the unmanaged descriptor buffer, which was allocated per script group and never freed. Both accrued for the life of the service.
+
+The cleartext logon type is reassessed and retained. Deployment scripts reach target servers and script shares over the network as this account, which needs a logon that keeps the credential available for outbound authentication; the alternatives either drop it or require the interactive logon right on every Monitor host. The credential's residence in a non-zeroable managed string stays recorded against S-020.
+
 
 **Verification intent.** A local principal that is neither the Monitor service account nor system cannot open a runner process for write access. The runner still starts, runs and exits normally under the deployment identity. No handle is leaked across a deployment cycle.
 
