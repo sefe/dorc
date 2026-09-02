@@ -5,6 +5,7 @@ using Dorc.PersistentData.Sources.Interfaces;
 using Dorc.PersistentData.Sources;
 using Dorc.PersistentData.Repositories;
 using Dorc.PersistentData.Contexts;
+using Dorc.PersistentData.Security;
 
 namespace Dorc.PersistentData
 {
@@ -16,9 +17,14 @@ namespace Dorc.PersistentData
             For<DbContext>().Use(_ => _.GetInstance<DeploymentContext>()).Scoped();
             For<IDeploymentContext>().Use(_ => _.GetInstance<DeploymentContext>()).Scoped();
 
-            var connectionString = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build()
-                .GetConnectionString("DOrcConnectionString");
+            var configuration = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build();
+            var connectionString = configuration.GetConnectionString("DOrcConnectionString");
             For<IDeploymentContextFactory>().Use(new DeploymentContextFactory(connectionString));
+
+            // Read the same way as the connection string above rather than through the host's
+            // IConfiguration, so the allow-list resolves identically in every process that
+            // loads this registry. Settings do not change at runtime, so one instance serves.
+            For<ISourceHostAllowList>().Use(new SourceHostAllowList(configuration)).Singleton();
 
             For<IAccessControlPersistentSource>().Use<AccessControlPersistentSource>().Scoped();
             For<IAccountPersistentSource>().Use<AccountPersistentSource>().Scoped();
