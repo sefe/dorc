@@ -15,9 +15,12 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { NotificationOpenedChangedEvent } from '@vaadin/notification';
 import { notificationRenderer } from '@vaadin/notification/lit';
+import { retrieveErrorMessage } from '../../helpers/errorMessage-retriever';
 
 @customElement('error-notification')
 export class ErrorNotification extends LitElement {
+  private static activeNotification: ErrorNotification | undefined;
+
   @state()
   private notificationOpened = false;
 
@@ -38,6 +41,12 @@ export class ErrorNotification extends LitElement {
         .opened="${this.notificationOpened}"
         @opened-changed="${(e: NotificationOpenedChangedEvent) => {
           this.notificationOpened = e.detail.value;
+          if (
+            !e.detail.value &&
+            ErrorNotification.activeNotification === this
+          ) {
+            ErrorNotification.activeNotification = undefined;
+          }
         }}"
         ${notificationRenderer(this.errorNotificationRenderer, [this.errorMessage])}
       ></vaadin-notification>
@@ -46,10 +55,10 @@ export class ErrorNotification extends LitElement {
 
   private readonly errorNotificationRenderer = () => html`
     <vaadin-horizontal-layout theme="spacing" style="align-items: start;">
-      <div>${this.errorMessage}</div>
+      <div>${retrieveErrorMessage(this.errorMessage)}</div>
       <vaadin-button
         theme="tertiary-inline"
-        @click="${() => (this.notificationOpened = false)}"
+        @click="${() => this.close()}"
         aria-label="Close"
       >
         <vaadin-icon icon="lumo:cross"></vaadin-icon>
@@ -58,6 +67,32 @@ export class ErrorNotification extends LitElement {
   `;
 
   public open() {
+    if (
+      ErrorNotification.activeNotification &&
+      ErrorNotification.activeNotification !== this &&
+      ErrorNotification.activeNotification.isConnected
+    ) {
+      ErrorNotification.activeNotification.errorMessage = this.errorMessage;
+      ErrorNotification.activeNotification.notificationOpened = true;
+      this.remove();
+      return;
+    }
+
+    ErrorNotification.activeNotification = this;
     this.notificationOpened = true;
+  }
+
+  disconnectedCallback(): void {
+    super.disconnectedCallback();
+    if (ErrorNotification.activeNotification === this) {
+      ErrorNotification.activeNotification = undefined;
+    }
+  }
+
+  private close() {
+    this.notificationOpened = false;
+    if (ErrorNotification.activeNotification === this) {
+      ErrorNotification.activeNotification = undefined;
+    }
   }
 }

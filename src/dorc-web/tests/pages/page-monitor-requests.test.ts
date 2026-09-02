@@ -31,7 +31,15 @@ vi.mock('../../src/components/grid-button-groups/request-controls', () => ({}));
 vi.mock('../../src/icons/iron-icons.js', () => ({}));
 vi.mock('../../src/icons/custom-icons.js', () => ({}));
 vi.mock('../../src/components/notifications/error-notification', () => ({
-  ErrorNotification: class {}
+  ErrorNotification: class {
+    constructor() {
+      const element = document.createElement('div') as HTMLDivElement & {
+        open: ReturnType<typeof vi.fn>;
+      };
+      element.open = vi.fn();
+      return element;
+    }
+  }
 }));
 vi.mock('../../src/components/connection-status-indicator', () => ({}));
 
@@ -139,6 +147,59 @@ describe('PageMonitorRequests', () => {
 
       expect(el.autoRefresh).toBe(true);
       expect(hub.start).toHaveBeenCalled();
+    });
+
+    it('waits for an in-flight stop before resuming', async () => {
+      const hub = (el as any).hubConnection;
+      let finishStop: (() => void) | undefined;
+      hub.stop.mockImplementationOnce(
+        () =>
+          new Promise<void>(resolve => {
+            hub.state = 'Disconnecting';
+            finishStop = () => {
+              hub.state = 'Disconnected';
+              resolve();
+            };
+          })
+      );
+      hub.start.mockClear();
+
+      (el as any).pauseAutoRefreshAfterConnectionFailure({ status: 0 });
+      const resume = (el as any).toggleAutoRefresh();
+
+      expect(el.autoRefresh).toBe(true);
+      expect(hub.start).not.toHaveBeenCalled();
+
+      finishStop?.();
+      await resume;
+
+      expect(hub.start).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not reconnect when paused again during an in-flight stop', async () => {
+      const hub = (el as any).hubConnection;
+      let finishStop: (() => void) | undefined;
+      hub.stop.mockImplementationOnce(
+        () =>
+          new Promise<void>(resolve => {
+            hub.state = 'Disconnecting';
+            finishStop = () => {
+              hub.state = 'Disconnected';
+              resolve();
+            };
+          })
+      );
+      hub.start.mockClear();
+
+      (el as any).pauseAutoRefreshAfterConnectionFailure({ status: 0 });
+      const staleResume = (el as any).toggleAutoRefresh();
+      await (el as any).toggleAutoRefresh();
+
+      finishStop?.();
+      await staleResume;
+
+      expect(el.autoRefresh).toBe(false);
+      expect(hub.start).not.toHaveBeenCalled();
     });
   });
 
@@ -395,6 +456,50 @@ describe('PageMonitorRequests', () => {
       expect(sortOrders).toContainEqual(
         expect.objectContaining({ Path: 'BuildNumber', Direction: 'asc' })
       );
+    });
+  });
+
+  describe('dataProvider errors', () => {
+    function callDataProviderWithError(error: unknown) {
+      mockSubscribe.mockImplementationOnce((handlers: any) => {
+        handlers.error?.(error);
+      });
+
+      const grid = el.shadowRoot?.querySelector('#grid') as any;
+      const callback = vi.fn();
+      grid.dataProvider(
+        {
+          page: 0,
+          pageSize: 50,
+          filters: [],
+          sortOrders: []
+        },
+        callback
+      );
+      return callback;
+    }
+
+    it.each([0, 401])(
+      'pauses automatic refresh after request status %s',
+      status => {
+        const hub = (el as any).hubConnection;
+        hub.stop.mockClear();
+
+        callDataProviderWithError({ status, message: `ajax error ${status}` });
+
+        expect(el.autoRefresh).toBe(false);
+        expect(hub.stop).toHaveBeenCalledTimes(1);
+      }
+    );
+
+    it('keeps automatic refresh enabled for an API validation error', () => {
+      const hub = (el as any).hubConnection;
+      hub.stop.mockClear();
+
+      callDataProviderWithError({ status: 400, response: 'Invalid filter' });
+
+      expect(el.autoRefresh).toBe(true);
+      expect(hub.stop).not.toHaveBeenCalled();
     });
   });
 

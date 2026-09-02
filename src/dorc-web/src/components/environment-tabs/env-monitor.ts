@@ -430,7 +430,7 @@ export class EnvMonitor
           await this.hubConnection.start();
         } catch (err) {
           console.error('Error starting SignalR connection:', err);
-          this.hubConnectionState = String(err);
+          this.hubConnectionState = retrieveErrorMessage(err);
           return;
         }
       }
