@@ -40,4 +40,11 @@
     </Content>
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Referenced by the TEST project only, so the differential test can evaluate every
+         inventoried expression under the compiler this step removes as well as under the
+         grammar that replaces it. Production code must not carry this dependency: a compiler
+         reachable from deployment data is the weakness being closed. -->
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Scripting" Version="4.14.0" />
+  </ItemGroup>
 </Project>
