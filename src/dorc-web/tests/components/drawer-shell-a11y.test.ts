@@ -154,9 +154,13 @@ describe('P3: app shell accessibility', () => {
       const app = await mountApp(container);
       const splitter = rootOf(app).getElementById('splitter')!;
       const line = getComputedStyle(splitter, '::before');
+      const dragTarget = getComputedStyle(splitter, '::after');
 
-      expect(line.width).to.equal('4px');
+      expect(getComputedStyle(splitter).width).to.equal('2px');
+      expect(line.width).to.equal('2px');
       expect(line.backgroundColor).to.equal('rgb(245, 246, 248)');
+      expect(dragTarget.width).to.equal('12px');
+      expect(dragTarget.left).to.equal('-5px');
     });
 
     (['light', 'dark'] as DorcTheme[]).forEach(theme => {
