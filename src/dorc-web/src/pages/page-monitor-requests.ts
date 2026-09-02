@@ -225,6 +225,7 @@ export class PageMonitorRequests
         console.error('Error stopping SignalR connection:', err);
       })
       .finally(() => {
+        this.hubConnectionState = this.hubConnection?.state;
         if (this.hubStopPromise === stopPromise) {
           this.hubStopPromise = undefined;
         }
@@ -452,7 +453,7 @@ export class PageMonitorRequests
         })
         .catch(err => {
           console.error('Error starting SignalR connection:', err);
-          this.hubConnectionState = err.toString();
+          this.hubConnectionState = retrieveErrorMessage(err);
         });
     }
   }
@@ -474,10 +475,17 @@ export class PageMonitorRequests
         try {
           await this.hubConnection.start();
         } catch (err) {
+          if (!this.autoRefresh) {
+            return;
+          }
           console.error('Error starting SignalR connection:', err);
           this.hubConnectionState = retrieveErrorMessage(err);
           return;
         }
+      }
+      if (!this.autoRefresh) {
+        await this.stopHubConnection();
+        return;
       }
       this.hubConnectionState = this.hubConnection.state;
       this.refreshGrid();

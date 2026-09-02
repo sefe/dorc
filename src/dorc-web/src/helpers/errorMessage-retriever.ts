@@ -6,7 +6,7 @@ type ErrorResponse = {
   Message?: string;
   ExceptionMessage?: string;
   message?: string;
-  errors?: string[] | Record<string, unknown>;
+  errors?: string | string[] | Record<string, unknown>;
   title?: string;
 };
 
@@ -54,9 +54,6 @@ export function retrieveErrorMessage(
   if (typeof err === 'string') {
     return normalizeTransportMessage(err);
   }
-  if (err === null) {
-    return errorMessage;
-  }
   if (typeof err !== 'object') {
     return errorMessage;
   }
@@ -82,13 +79,23 @@ export function retrieveErrorMessage(
       error.response.errors.length > 0
     ) {
       errMessages = error.response.errors.join('; ');
+    } else if (typeof error.response.errors === 'string') {
+      errMessages = error.response.errors;
     } else if (typeof error.response.errors === 'object') {
       errMessages = Object.values(error.response.errors).flat().join('; ');
     }
-    errorMessage =
-      `${error.message ?? 'Request failed'}, ` +
-      `${error.response.title ?? ''} ${errMessages}`.trim();
-  } else if (typeof error.response === 'string') {
+    errorMessage = [error.response.title, errMessages]
+      .filter(message => Boolean(message))
+      .join(' ');
+    if (!errorMessage) {
+      errorMessage = error.status
+        ? `Request failed with status ${error.status}.`
+        : 'Request failed.';
+    }
+  } else if (
+    typeof error.response === 'string' &&
+    error.response.trim().length > 0
+  ) {
     errorMessage = normalizeTransportMessage(error.response);
   } else if (error.status) {
     errorMessage = `Request failed with status ${error.status}.`;

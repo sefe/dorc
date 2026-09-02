@@ -35,6 +35,31 @@ describe('retrieveErrorMessage', () => {
     ).toBe('Daemon already exists');
   });
 
+  it('formats validation problem details without the transport message', () => {
+    expect(
+      retrieveErrorMessage({
+        status: 400,
+        message: 'ajax error 400',
+        response: {
+          title: 'One or more validation errors occurred.',
+          errors: { Name: ['The Name field is required.'] }
+        }
+      })
+    ).toBe(
+      'One or more validation errors occurred. The Name field is required.'
+    );
+  });
+
+  it('falls back to the HTTP status for an empty response body', () => {
+    expect(
+      retrieveErrorMessage({
+        status: 503,
+        message: 'ajax error 503',
+        response: ''
+      })
+    ).toBe('Request failed with status 503.');
+  });
+
   it.each([
     ['ajax error 401', 'Session has expired, please refresh the page.'],
     [

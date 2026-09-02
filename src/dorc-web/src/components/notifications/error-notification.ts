@@ -67,15 +67,20 @@ export class ErrorNotification extends LitElement {
   `;
 
   public open() {
+    const activeNotification = ErrorNotification.activeNotification;
     if (
-      ErrorNotification.activeNotification &&
-      ErrorNotification.activeNotification !== this &&
-      ErrorNotification.activeNotification.isConnected
+      activeNotification &&
+      activeNotification !== this &&
+      activeNotification.isConnected
     ) {
-      ErrorNotification.activeNotification.errorMessage = this.errorMessage;
-      ErrorNotification.activeNotification.notificationOpened = true;
-      this.remove();
-      return;
+      const activeMessage = retrieveErrorMessage(
+        activeNotification.errorMessage
+      );
+      const incomingMessage = retrieveErrorMessage(this.errorMessage);
+      if (activeMessage === incomingMessage) {
+        this.remove();
+        return;
+      }
     }
 
     ErrorNotification.activeNotification = this;

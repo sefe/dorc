@@ -64,12 +64,12 @@ describe('notification toasts', () => {
     });
   });
 
-  it('reuses the active error notification for repeated failures', async () => {
+  it('deduplicates repeated identical error notifications', async () => {
     const host = (await fixture(html`<div></div>`)) as unknown as HTMLElement;
     const first = document.createElement('error-notification') as Toast;
     const second = document.createElement('error-notification') as Toast;
-    first.setAttribute('errorMessage', 'First problem');
-    second.setAttribute('errorMessage', 'Latest problem');
+    first.setAttribute('errorMessage', 'Repeated problem');
+    second.setAttribute('errorMessage', 'Repeated problem');
     host.append(first, second);
     await settle();
 
@@ -79,8 +79,27 @@ describe('notification toasts', () => {
 
     expect(first.isConnected).to.equal(true);
     expect(second.isConnected).to.equal(false);
-    expect(cardText(first)).to.contain('Latest problem');
+    expect(cardText(first)).to.contain('Repeated problem');
     expect(host.querySelectorAll('error-notification')).to.have.length(1);
+  });
+
+  it('preserves distinct simultaneous error notifications', async () => {
+    const host = (await fixture(html`<div></div>`)) as unknown as HTMLElement;
+    const first = document.createElement('error-notification') as Toast;
+    const second = document.createElement('error-notification') as Toast;
+    first.setAttribute('errorMessage', 'First problem');
+    second.setAttribute('errorMessage', 'Second problem');
+    host.append(first, second);
+    await settle();
+
+    first.open();
+    second.open();
+    await settle();
+
+    expect(first.isConnected).to.equal(true);
+    expect(second.isConnected).to.equal(true);
+    expect(cardText(first)).to.contain('First problem');
+    expect(cardText(second)).to.contain('Second problem');
   });
 
   it('normalizes a raw AjaxError message at the notification boundary', async () => {
