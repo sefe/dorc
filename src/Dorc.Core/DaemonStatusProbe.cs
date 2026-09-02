@@ -1,4 +1,4 @@
-using Dorc.ApiModel;
+﻿using Dorc.ApiModel;
 using Dorc.Core.Configuration;
 using Dorc.Core.Interfaces;
 using Dorc.PersistentData;
@@ -14,16 +14,13 @@ using System.Security.Principal;
 using System.ServiceProcess;
 using Environment = System.Environment;
 
+using Dorc.Core.Security;
+
 namespace Dorc.Core
 {
     [SupportedOSPlatform("windows")]
     public class DaemonStatusProbe : IDaemonStatusProbe
     {
-        private const string DORCProdDeployUsername = "DORC_ProdDeployUsername";
-        private const string DORCProdDeployPassword = "DORC_ProdDeployPassword";
-        private const string DORCNonProdDeployUsername = "DORC_NonProdDeployUsername";
-        private const string DORCNonProdDeployPassword = "DORC_NonProdDeployPassword";
-
         private readonly ILogger _logger;
         private readonly IConfigValuesPersistentSource _configValuesPersistentSource;
         private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
@@ -36,6 +33,7 @@ namespace Dorc.Core
         private readonly IDaemonAuditPersistentSource _daemonAuditPersistentSource;
         private readonly IServersAuditPersistentSource _serversAuditPersistentSource;
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
+        private readonly IDeploymentCredentialSource _credentialSource;
 
         public DaemonStatusProbe(IConfigValuesPersistentSource configValuesPersistentSource,
             ILogger<DaemonStatusProbe> logger,
@@ -46,7 +44,8 @@ namespace Dorc.Core
             IConfigurationSettings configurationSettingsEngine,
             IDaemonAuditPersistentSource daemonAuditPersistentSource,
             IServersAuditPersistentSource serversAuditPersistentSource,
-            IClaimsPrincipalReader claimsPrincipalReader)
+            IClaimsPrincipalReader claimsPrincipalReader,
+            IDeploymentCredentialSource credentialSource)
         {
             _daemonsPersistentSource = daemonsPersistentSource;
             _daemonObservationPersistentSource = daemonObservationPersistentSource;
@@ -57,6 +56,7 @@ namespace Dorc.Core
             _daemonAuditPersistentSource = daemonAuditPersistentSource;
             _serversAuditPersistentSource = serversAuditPersistentSource;
             _claimsPrincipalReader = claimsPrincipalReader;
+            _credentialSource = credentialSource;
 
             _domainName = configurationSettingsEngine.GetConfigurationDomainNameIntra();
         }
@@ -167,20 +167,25 @@ namespace Dorc.Core
             return ProbeDaemonStatuses(daemons);
         }
 
+        /// <summary>
+        /// Resolves the credential this probe logs on with, through the same source the
+        /// dispatchers use. This site had its own copy of the four key names and the same
+        /// production boolean; it is also the site that could be reached without authorization
+        /// while the dispatchers could not, which is what four copies of a security decision
+        /// buys.
+        /// </summary>
         private void GetUsernameAndPassword(EnvironmentApiModel? environment, out string user, out string pwd)
         {
-            if (environment.EnvironmentIsProd)
-            {
-                user = _configValuesPersistentSource.GetConfigValue(DORCProdDeployUsername);
-                pwd = _configValuesPersistentSource.GetConfigValue(DORCProdDeployPassword);
-            }
-            else
-            {
-                user = _configValuesPersistentSource
-                    .GetConfigValue(DORCNonProdDeployUsername);
-                pwd = _configValuesPersistentSource
-                    .GetConfigValue(DORCNonProdDeployPassword);
-            }
+            var credential = _credentialSource.Resolve(
+                environment?.EnvironmentIsProd == true
+                    ? DeploymentTier.Production
+                    : DeploymentTier.NonProduction);
+
+            // Empty rather than a substitute. The caller performs a LogonUser with these; an
+            // empty pair fails that call, where a fallback would authenticate as whatever the
+            // API process is running as.
+            user = credential?.UserName ?? string.Empty;
+            pwd = credential?.Password ?? string.Empty;
         }
 
         private List<DaemonStatus> BuildDaemonList(EnvironmentApiModel? environment,
