@@ -18,7 +18,6 @@ type ConnectionHarness = {
     stop: ReturnType<typeof vi.fn>;
   };
   hubConnectionState: string | undefined;
-  hubStopPromise: Promise<void> | undefined;
   refreshGrid: ReturnType<typeof vi.fn>;
   stopHubConnection(): Promise<void>;
 };
@@ -34,7 +33,6 @@ function createHarness(): ConnectionHarness {
     autoRefresh: true,
     hubConnection,
     hubConnectionState: hubConnection.state,
-    hubStopPromise: undefined,
     refreshGrid: vi.fn(),
     stopHubConnection() {
       return methods.stopHubConnection.call(this);

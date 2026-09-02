@@ -40,6 +40,10 @@ import {
 } from '../services/ServerEvents';
 import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 import { retrieveErrorMessage } from '../helpers/errorMessage-retriever';
+import {
+  stopMonitorHub,
+  waitForMonitorHubStop
+} from '../helpers/monitor-hub-connection';
 
 const asUndef = (t: string | null | undefined): string | undefined =>
   t ?? undefined;
@@ -182,7 +186,10 @@ export class PageMonitorResult
       this.hubConnection &&
       this.hubConnection.state !== HubConnectionState.Disconnected
     ) {
-      this.hubConnection.stop().catch(() => {});
+      void stopMonitorHub(
+        this.hubConnection,
+        state => (this.hubConnectionState = state)
+      );
     }
   }
 
@@ -326,6 +333,10 @@ export class PageMonitorResult
 
   private async initializeSignalR() {
     if (!this.hubConnection) this.hubConnection = DeploymentHub.getConnection();
+    await waitForMonitorHubStop(this.hubConnection);
+    if (!this.isConnected) {
+      return;
+    }
 
     getReceiverRegister('IDeploymentsEventsClient').register(
       this.hubConnection,
