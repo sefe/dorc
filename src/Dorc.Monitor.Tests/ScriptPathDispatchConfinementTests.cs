@@ -78,7 +78,8 @@ namespace Dorc.Monitor.Tests
                 _settings,
                 Substitute.For<IRequestsPersistentSource>(),
                 Substitute.For<IScriptScopeConfigValues>(),
-                _credentialSource);
+                _credentialSource,
+                Substitute.For<IScriptsPersistentSource>());
 
         private bool Dispatch(string storedScriptPath)
         {

@@ -4,6 +4,7 @@ using System.IO;
 using System.Management.Automation;
 using System.Management.Automation.Host;
 using System.Management.Automation.Runspaces;
+using Dorc.ApiModel;
 using Dorc.ApiModel.MonitorRunnerApi;
 using Dorc.Runner.Logger;
 using Newtonsoft.Json;
@@ -25,13 +26,35 @@ namespace Dorc.NetFramework.PowerShell
         }
 
         public void Run(string scriptsLocation,
-            IEnumerable<(string, IDictionary<string, VariableValue>)> scripts,
-            IDictionary<string, VariableValue> commonProperties)
+            IEnumerable<(string, IDictionary<string, VariableValue>, string)> scripts,
+            IDictionary<string, VariableValue> commonProperties,
+            ScriptContentVerificationMode contentVerification)
         {
-            foreach ((string, IDictionary<string, VariableValue>) script in scripts)
+            foreach ((string, IDictionary<string, VariableValue>, string) script in scripts)
             {
                 string scriptName = script.Item1;
                 logger.FileLogger.LogInformation("\tStarting execution of script '" + scriptName + "'.");
+
+                // Read once. The content that is hashed is the content that is executed -
+                // re-reading the file to verify it would reopen the very window this closes,
+                // because between the two reads anyone with write access to the share can
+                // substitute the file.
+                byte[] content = File.ReadAllBytes(scriptName);
+
+                ScriptContentVerdict verdict;
+                string explanation;
+                if (!ScriptContentGate.MayExecute(
+                        contentVerification, script.Item3, content, out verdict, out explanation))
+                {
+                    logger.FileLogger.LogError("{0} Script: '{1}'.", explanation, scriptName);
+                    throw new ScriptContentVerificationException(
+                        "Refusing to execute '" + scriptName + "'. " + explanation);
+                }
+
+                if (verdict != ScriptContentVerdict.Matched)
+                {
+                    logger.FileLogger.LogWarning("{0} Script: '{1}'.", explanation, scriptName);
+                }
 
                 IDictionary<string, VariableValue> scriptProperties = script.Item2;
                 IDictionary<string, VariableValue> combinedProperties = this.CombineProperties(scriptProperties, commonProperties);
@@ -59,7 +82,7 @@ namespace Dorc.NetFramework.PowerShell
                                 powerShell.AddCommand("Set-Location").AddParameter("Path", scriptsLocation);
                             }
 
-                            powerShell.AddScript(File.ReadAllText(scriptName));
+                            powerShell.AddScript(ScriptText.Decode(content));
                             logger.FileLogger.LogInformation($"Adding Script for execution '{scriptName}'.");
 
                             // create a data collection for standard output

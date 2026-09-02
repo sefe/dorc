@@ -1,3 +1,4 @@
+using Dorc.ApiModel;
 using Dorc.ApiModel.MonitorRunnerApi;
 using Dorc.Runner.Logger;
 using Newtonsoft.Json;
@@ -19,9 +20,30 @@ namespace Dorc.PowerShell
         public int Run(string scriptsLocation,
             string scriptName,
             IDictionary<string, VariableValue> scriptProperties,
-            IDictionary<string, VariableValue> commonProperties)
+            IDictionary<string, VariableValue> commonProperties,
+            ScriptContentVerificationMode contentVerification,
+            string? expectedContentHash)
         {
             logger.FileLogger.LogInformation("Starting execution of script '{0}'", scriptName);
+
+            // Read once. The content that is hashed is the content that is executed - re-reading
+            // the file to verify it would reopen the very window this closes, because between
+            // the two reads anyone with write access to the share can substitute the file.
+            var content = File.ReadAllBytes(scriptName);
+
+            if (!ScriptContentGate.MayExecute(
+                    contentVerification, expectedContentHash!, content,
+                    out var verdict, out var explanation))
+            {
+                logger.FileLogger.LogError("{0} Script: '{1}'.", explanation, scriptName);
+                throw new ScriptContentVerificationException(
+                    $"Refusing to execute '{scriptName}'. {explanation}");
+            }
+
+            if (verdict != ScriptContentVerdict.Matched)
+            {
+                logger.FileLogger.LogWarning("{0} Script: '{1}'.", explanation, scriptName);
+            }
 
             IDictionary<string, VariableValue> combinedProperties = CombineProperties(scriptProperties, commonProperties);
 
@@ -43,7 +65,7 @@ namespace Dorc.PowerShell
                             powerShell.AddCommand("Set-Location").AddParameter("Path", scriptsLocation);
                         }
 
-                        powerShell.AddScript(File.ReadAllText(scriptName));
+                        powerShell.AddScript(ScriptText.Decode(content));
 
                         var outputCollection = new PSDataCollection<string>();
                         outputCollection.DataAdded += (sender, e) =>
