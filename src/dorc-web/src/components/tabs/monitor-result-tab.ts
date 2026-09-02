@@ -40,7 +40,7 @@ export class MonitorResultTab extends LitElement {
       </a>
       <vaadin-button
         class="shortcut-close"
-        theme="icon small"
+        theme="icon small drawer-shortcut-close"
         aria-label="Close deployment ${label} shortcut"
         @click="${this.removeMonitorResult}"
       >

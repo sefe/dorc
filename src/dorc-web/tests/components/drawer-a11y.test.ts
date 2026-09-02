@@ -139,6 +139,7 @@ describe('P2a: drawer shortcut accessibility', () => {
       expect(close.getAttribute('aria-label')).to.equal(
         'Close UAT-01 shortcut'
       );
+      expect(close.getAttribute('theme')).to.contain('drawer-shortcut-close');
 
       close.focus();
       expect(
