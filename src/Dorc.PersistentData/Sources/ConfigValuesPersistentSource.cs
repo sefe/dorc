@@ -116,7 +116,16 @@ namespace Dorc.PersistentData.Sources
                 configValue.IsForProd = model.IsForProd;
             }
 
-            // 3) Else if Value changed update (encrypt if Secure)
+            // 3) Else if the script visibility changed, update the classification. Ordered with
+            // the other single-property branches because the caller changes one thing per
+            // request; placed before Value so that toggling visibility on a value whose text is
+            // unchanged is not mistaken for a no-op.
+            else if (configValue.VisibleToScripts != model.VisibleToScripts)
+            {
+                configValue.VisibleToScripts = model.VisibleToScripts;
+            }
+
+            // 4) Else if Value changed update (encrypt if Secure)
             else if (model.Value != null && !string.Equals(model.Value, oldPlain, StringComparison.Ordinal))
             {
                 configValue.Value = configValue.Secure
@@ -147,7 +156,13 @@ namespace Dorc.PersistentData.Sources
                 Key = model.Key,
                 Value = model.Value,
                 Secure = model.Secure,
-                IsForProd = model.IsForProd
+                IsForProd = model.IsForProd,
+
+                // A new secure value is hidden from scripts unless its creator says otherwise.
+                // Existing values default the other way, in the column default, so that adding
+                // the classification changes no deployment's behaviour - the asymmetry is the
+                // point, and it is what lets this ship without an estate-wide inventory first.
+                VisibleToScripts = model.Secure ? model.VisibleToScripts : true
             };
 
             if (model.Secure)
@@ -168,7 +183,8 @@ namespace Dorc.PersistentData.Sources
                 Key = configValue.Key,
                 Value = configValue.Value,
                 Secure = configValue.Secure,
-                IsForProd = configValue.IsForProd
+                IsForProd = configValue.IsForProd,
+                VisibleToScripts = configValue.VisibleToScripts
             };
         }
     }
