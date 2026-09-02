@@ -107,7 +107,21 @@ export class DorcApp extends LitElement {
       }
 
       #header .menu-btn {
+        --lumo-button-size: 32px;
         flex-shrink: 0;
+        width: 32px;
+        min-width: 32px;
+        height: 32px;
+        min-height: 32px;
+        margin: 0;
+        padding: 0;
+        background-color: transparent;
+        box-shadow: none;
+      }
+
+      #header .menu-btn:hover,
+      #header .menu-btn:focus-visible {
+        background-color: var(--lumo-contrast-10pct);
       }
 
       /* Was height:65px + 6px padding = 71px inside a 50px header with no
@@ -182,10 +196,8 @@ export class DorcApp extends LitElement {
         transition: width 0.2s ease;
       }
 
-      /* Was a 2px strip of --dorc-bg-secondary between two --dorc-bg-primary
-         surfaces: 1.04:1, invisible in both themes, mouse-only, and with no
-         separator semantics (D-24). Now a 12px grab area with a centred 2px line
-         in a token that clears WCAG 1.4.11's 3:1 in both themes. */
+      /* Keep the full grab area without presenting a permanent scrollbar-like
+         line. The resize affordance appears when the splitter is in use. */
       #splitter {
         position: relative;
         width: 12px;
@@ -203,13 +215,14 @@ export class DorcApp extends LitElement {
         left: 50%;
         transform: translateX(-50%);
         width: 2px;
-        background-color: var(--dorc-text-secondary);
+        background-color: transparent;
       }
 
       #splitter:hover::before,
-      #splitter:focus-visible::before {
+      #splitter:focus-visible::before,
+      :host([resizing]) #splitter::before {
         width: 4px;
-        background-color: var(--dorc-link-color);
+        background-color: var(--dorc-icon-interactive);
       }
 
       #splitter:focus-visible {

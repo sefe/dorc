@@ -197,6 +197,12 @@ describe('P2a: drawer shortcut accessibility', () => {
       expect(
         getComputedStyle(close.querySelector('vaadin-icon')!).padding
       ).to.equal('0px');
+      const iconRect = close
+        .querySelector('vaadin-icon')!
+        .getBoundingClientRect();
+      expect(iconRect.width).to.equal(14);
+      expect(iconRect.height).to.equal(14);
+      expect(getComputedStyle(close).opacity).to.equal('0.65');
     });
   });
 

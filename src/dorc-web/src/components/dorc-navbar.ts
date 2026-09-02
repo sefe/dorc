@@ -166,18 +166,21 @@ export class DorcNavbar extends LitElement {
         background-color: transparent;
         box-shadow: none;
         cursor: pointer;
-        /* --dorc-link-color is 2.97:1 on white — just under 1.4.11's 3:1 for UI
-           components — so the close control gets its own token. */
-        color: var(--dorc-icon-interactive);
+        color: var(--dorc-text-secondary);
+        opacity: 0.65;
       }
 
       .shortcut-close:hover,
       .shortcut-close:focus-visible {
         background-color: var(--lumo-contrast-10pct);
+        color: var(--dorc-icon-interactive);
+        opacity: 1;
       }
 
       .shortcut-close vaadin-icon {
         padding: 0;
+        width: 14px;
+        height: 14px;
       }
 
       /* The light-DOM link and close control are children of these custom
