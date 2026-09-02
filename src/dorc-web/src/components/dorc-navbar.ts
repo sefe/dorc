@@ -161,7 +161,7 @@ export class DorcNavbar extends LitElement {
         min-width: 24px;
         height: 24px;
         min-height: 24px;
-        margin: 0;
+        margin: 0 -4px;
         padding: 0;
         background-color: transparent;
         box-shadow: none;

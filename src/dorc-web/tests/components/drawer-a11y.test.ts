@@ -191,6 +191,8 @@ describe('P2a: drawer shortcut accessibility', () => {
 
       expect(rect.width).to.equal(24);
       expect(rect.height).to.equal(24);
+      expect(getComputedStyle(close).marginLeft).to.equal('-4px');
+      expect(getComputedStyle(close).marginRight).to.equal('-4px');
       expect(getComputedStyle(close).backgroundColor).to.equal(
         'rgba(0, 0, 0, 0)'
       );
