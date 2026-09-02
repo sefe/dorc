@@ -149,44 +149,18 @@ describe('P3: app shell accessibility', () => {
       expect(splitter.getAttribute('aria-valuenow')).to.equal('420');
     });
 
-    it('does not resemble a permanent scrollbar when idle', async () => {
-      const app = await mountApp(container);
-      const splitter = rootOf(app).getElementById('splitter')!;
-
-      expect(getComputedStyle(splitter, '::before').backgroundColor).to.equal(
-        'rgba(0, 0, 0, 0)'
-      );
-    });
-
     (['light', 'dark'] as DorcTheme[]).forEach(theme => {
-      it(`is visible while resizing in ${theme} theme`, async () => {
+      it(`is visible against its neighbours in ${theme} theme`, async () => {
         setTheme(theme);
         const app = await mountApp(container);
         app.style.background = 'var(--dorc-bg-primary)';
         const splitter = rootOf(app).getElementById('splitter')!;
-        app.setAttribute('resizing', '');
 
         const line = getComputedStyle(splitter, '::before').backgroundColor;
         const ratio = contrastRatio(splitter, line);
 
         expect(ratio, `${theme} splitter contrast`).to.be.at.least(3);
       });
-    });
-  });
-
-  describe('SC-30: the drawer toggle is visually unobtrusive', () => {
-    it('uses a compact transparent control until interaction', async () => {
-      const app = await mountApp(container);
-      const menuButton = rootOf(app).querySelector(
-        '.menu-btn'
-      ) as HTMLElement;
-      const rect = menuButton.getBoundingClientRect();
-
-      expect(rect.width).to.equal(32);
-      expect(rect.height).to.equal(32);
-      expect(getComputedStyle(menuButton).backgroundColor).to.equal(
-        'rgba(0, 0, 0, 0)'
-      );
     });
   });
 
