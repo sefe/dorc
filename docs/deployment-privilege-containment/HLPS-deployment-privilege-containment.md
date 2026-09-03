@@ -46,7 +46,7 @@ Ranked by what an attacker must already have, not by subsystem. Identifiers are 
 | 9 | W-13 | Same as W-3 / W-8 | Three first-class secrets on the wire that config-value classification cannot reach |
 | 10 | W-7 | Read the Runner log share | Same values as W-4, through further channels |
 | 11 | W-8 | Read the Monitor host filesystem | Historic bundles, indefinitely retained — **Debug builds only**, see the scope note under W-8 |
-| 11= | W-8a | Read the deployment host filesystem | Historic Terraform plan content, indefinitely retained |
+| 11= | W-8a | Read the deployment host filesystem | Historic Terraform plan content, indefinitely retained — directory now restricted, see W-8a |
 | 12 | W-6 | Already hold the shared account | Blast radius across the whole estate — a property, not an entry point |
 | 13 | W-9 | None | Absence of attribution, not a vulnerability |
 
@@ -209,7 +209,9 @@ The hardening also has a construction defect: `PrivilegedIdentities()` (`ScriptG
 
 Found while implementing S-007, and recorded rather than folded into it. The Monitor creates `%ProgramData%\dorc\terraform-plans` with `Directory.CreateDirectory` — inherited permissions — and both the binary plan and the rendered plan content are written into it and never removed (`TerraformDispatcher.cs:146-152`). The rendered content lists variable values, so the disclosure is the same as W-12's variables file; the retention is the same as W-8's.
 
-It is distinct from W-8 in what closing it costs. The local plan is the only copy if the blob upload failed, so deletion is entangled with the plan/apply handshake rather than being pure housekeeping; and the directory is shared across deployments, so restricting it needs the environment-dependent deployment identity rather than a constant. Both point at **S-021**, not S-007.
+**Reduced during S-007 review.** The disclosure half is closed: the directory is now created and re-asserted under the same protected access control list as the Terraform working directory, additionally admitting the deployment account the Runner writes the plan as, taken from the credential resolution point. What remains of W-8a is retention alone — the plans still survive indefinitely, for anyone who is admitted to the directory or to the host as an administrator. That half is entangled with the plan/apply blob handshake, since the local copy is the only one if the upload failed, and stays with **S-021**.
+
+Its distinctness from W-8 was in what closing it costs. The local plan is the only copy if the blob upload failed, so deletion is entangled with the plan/apply handshake rather than being pure housekeeping; and the directory is shared across deployments, so restricting it needs the environment-dependent deployment identity rather than a constant. The second of those turned out to be answerable now — the same per-deployment principal the bundle grant uses serves here — leaving only the first at **S-021**.
 
 ### W-10 — The Terraform approval gate has no authorization at all
 

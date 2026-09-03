@@ -175,9 +175,25 @@ namespace Dorc.Monitor
                                             {
                                                 process.Kill();
                                             }
-                                            catch (Exception ex)
+                                            catch (InvalidOperationException ex)
                                             {
-                                                logger.LogDebug(ex, "Failed to terminate Runner process (may have already exited).");
+                                                logger.LogDebug(ex, "Failed to terminate Runner process (it has already exited).");
+                                            }
+                                            catch (System.ComponentModel.Win32Exception ex)
+                                            {
+                                                logger.LogDebug(ex, "Failed to terminate Runner process (the operating system refused the termination).");
+                                            }
+                                            catch (NotSupportedException ex)
+                                            {
+                                                logger.LogDebug(ex, "Failed to terminate Runner process (termination is not supported for it).");
+                                            }
+                                            catch (SystemException ex)
+                                            {
+                                                // This runs on a dedicated thread: anything that escapes it
+                                                // terminates the Monitor. The three cases above are what
+                                                // Process.Kill documents; this is the backstop that keeps an
+                                                // undocumented one from taking the service down with it.
+                                                logger.LogWarning(ex, "Failed to terminate Runner process.");
                                             }
                                         })
                                         {

@@ -7,6 +7,7 @@ using Dorc.Core.Configuration;
 using Dorc.Monitor.Pipes;
 using Dorc.Monitor.RunnerProcess;
 using Dorc.Monitor.RunnerProcess.Interop.Windows.Kernel32;
+using Dorc.Monitor.Security;
 using Dorc.Monitor.TerraformSourceConfig;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.Extensions.Configuration;
@@ -152,9 +153,14 @@ namespace Dorc.Monitor
 
                     _requestsPersistentSource.UpdateUncLogPath(requestId, uncLogPath);
 
-                    var planStorageDir = Path.Join(DorcProgramData.Root, "terraform-plans");
-                    if (!Directory.Exists(planStorageDir))
-                        Directory.CreateDirectory(planStorageDir);
+                    // The plan and its human-readable rendering carry the variable values the
+                    // configuration was rendered with. They are staged in a directory that
+                    // admits the Monitor, SYSTEM, Administrators and the account the Runner
+                    // will write them as - and nobody else on the host.
+                    var planStorageDir = TerraformPlanStorage.EnsureRestricted(
+                        DorcProgramData.Root,
+                        readerIdentity,
+                        logger);
                     var terraformPlanFileName = deploymentResult.Id.CreateTerraformPlanBlobName();
                     var terraformPlanFilePath = Path.Combine(planStorageDir, terraformPlanFileName);
                     var terraformPlanContentFileName = deploymentResult.Id.CreateTerraformPlanContentBlobName();
