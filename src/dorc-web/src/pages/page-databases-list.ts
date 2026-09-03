@@ -198,6 +198,13 @@ export class PageDatabasesList extends ResponsiveMixin(PageElement) {
           ?hidden='${this._narrowScreen}'
         ></vaadin-grid-column>
         <vaadin-grid-column
+          width='120px'
+          flex-grow='0'
+          ${columnBodyRenderer(this.connectivityStatusRenderer, [])}
+          resizable
+          header='Status'
+        ></vaadin-grid-column>
+        <vaadin-grid-column
           width='200px'
           flex-grow='0'
           resizable
@@ -514,15 +521,15 @@ export class PageDatabasesList extends ResponsiveMixin(PageElement) {
               html` <button
                 class="env"
                 @click="${() =>
-                    this.dispatchEvent(
-                      new CustomEvent('open-environment-details', {
-                        detail: {
-                          envName: i
-                        },
-                        bubbles: true,
-                        composed: true
-                      })
-                    )}"
+                  this.dispatchEvent(
+                    new CustomEvent('open-environment-details', {
+                      detail: {
+                        envName: i
+                      },
+                      bubbles: true,
+                      composed: true
+                    })
+                  )}"
                 style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
               >
                 ${i}
@@ -596,20 +603,67 @@ export class PageDatabasesList extends ResponsiveMixin(PageElement) {
             style="border: 0px"
             class="tag"
             @click="${() =>
-                this.dispatchEvent(
-                  new CustomEvent('filter-tags-database-list', {
-                    detail: {
-                      value
-                    },
-                    bubbles: true,
-                    composed: true
-                  })
-                )}"
+              this.dispatchEvent(
+                new CustomEvent('filter-tags-database-list', {
+                  detail: {
+                    value
+                  },
+                  bubbles: true,
+                  composed: true
+                })
+              )}"
           >
             ${value}
           </button>`
       )}
     `;
+  };
+
+  private connectivityStatusRenderer = (database: DatabaseApiModel) => {
+    const isReachable = database.IsReachable;
+    const lastChecked = database.LastChecked
+      ? new Date(database.LastChecked)
+      : null;
+    const unreachableSince = database.UnreachableSince
+      ? new Date(database.UnreachableSince)
+      : null;
+    const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+    let statusHtml;
+    let title: string;
+
+    if (lastChecked === null) {
+      statusHtml = html`<span style="color: gray;">Not checked</span>`;
+      title = 'Connectivity has not been checked yet';
+    } else if (isReachable === true) {
+      statusHtml = html`<vaadin-icon
+          icon="vaadin:check-circle"
+          style="color: green;"
+        ></vaadin-icon>
+        <span>Online</span>`;
+      title = `Last checked: ${lastChecked.toLocaleString()}`;
+    } else if (unreachableSince !== null && unreachableSince < oneWeekAgo) {
+      statusHtml = html`<vaadin-icon
+          icon="vaadin:warning"
+          style="color: orange;"
+        ></vaadin-icon>
+        <span>Unreachable (7+ days)</span>`;
+      title = `Unreachable since: ${unreachableSince.toLocaleString()}`;
+    } else {
+      statusHtml = html`<vaadin-icon
+          icon="vaadin:exclamation-circle"
+          style="color: #d4a017;"
+        ></vaadin-icon>
+        <span>Unreachable</span>`;
+      title = `Unreachable since: ${unreachableSince ? unreachableSince.toLocaleString() : lastChecked.toLocaleString()}`;
+    }
+
+    return html`<div
+      title="${title}"
+      style="display: flex; align-items: center; gap: 4px;"
+    >
+      ${statusHtml}
+    </div>`;
   };
 
   protected firstUpdated(_changedProperties: PropertyValues) {

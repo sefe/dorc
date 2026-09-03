@@ -16,6 +16,12 @@ namespace Dorc.PersistentData.Model
         public string? ArrayName { get; set; }
         public int? GroupId { get; set; }
 
+        public DateTime? LastChecked { get; set; }
+
+        public bool? IsReachable { get; set; }
+
+        public DateTime? UnreachableSince { get; set; }
+
         public virtual AdGroup Group { get; set; }
 
         public ICollection<Environment> Environments { get; set; } = null!;
