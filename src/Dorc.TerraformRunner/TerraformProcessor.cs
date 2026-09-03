@@ -349,14 +349,16 @@ namespace Dorc.TerraformRunner
             {
                 DirectoryHelper.SafeRemoveDirectory(folderPath);
             }
-            catch (Exception ex)
-            {
-                // Invoked from a finally block. A directory that will not delete is worth
-                // recording - it is deployment properties left on disk - but it must not
-                // displace the exception that caused the deployment to fail.
-                logger.Error(ex, $"Failed to remove the Terraform working directory '{folderPath}': {ex.Message}");
-            }
+            // Invoked from a finally block. A directory that will not delete is worth
+            // recording - it is deployment properties left on disk - but it must not displace
+            // the exception that caused the deployment to fail. SafeRemoveDirectory has
+            // already retried and wrapped whatever it could not delete in an IOException.
+            catch (IOException ex) { LogUndeletedWorkingDirectory(ex, folderPath); }
+            catch (UnauthorizedAccessException ex) { LogUndeletedWorkingDirectory(ex, folderPath); }
         }
+
+        private void LogUndeletedWorkingDirectory(Exception ex, string folderPath) =>
+            logger.Error(ex, $"Failed to remove the Terraform working directory '{folderPath}': {ex.Message}");
 
         private class TerraformExecutionResult
         {

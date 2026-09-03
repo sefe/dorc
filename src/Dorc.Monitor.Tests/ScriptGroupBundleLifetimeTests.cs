@@ -67,13 +67,14 @@ namespace Dorc.Monitor.Tests
         /// The exception TYPE is not asserted on purpose. Which one surfaces depends on how
         /// far the host gets before refusing, and on what ProcessSecurityContextBuilder
         /// happens to throw today; pinning it would make these tests fail for reasons that
-        /// have nothing to do with the bundle lifetime they exist to cover.
+        /// have nothing to do with the bundle lifetime they exist to cover. Assert.Throws
+        /// accepts any derived type, so the indifference is expressed without a catch-all
+        /// clause that would swallow an assertion failure with it.
         /// </summary>
         private static Exception DispatchExpectingFailure(ScriptDispatcher dispatcher, bool isProduction)
         {
-            try
-            {
-                dispatcher.Dispatch(
+            return Assert.Throws<Exception>(
+                () => dispatcher.Dispatch(
                     @"\\host\share\Scripts",
                     new ScriptApiModel { Path = "Deploy.ps1", PowerShellVersionNumber = "7.4" },
                     new Dictionary<string, VariableValue>(),
@@ -82,14 +83,7 @@ namespace Dorc.Monitor.Tests
                     isProduction: isProduction,
                     environmentName: "SOME-ENV",
                     new StringBuilder(),
-                    CancellationToken.None);
-            }
-            catch (Exception dispatchFailure)
-            {
-                return dispatchFailure;
-            }
-
-            throw new AssertFailedException(
+                    CancellationToken.None),
                 "Dispatch was expected to fail while building the Runner's security context. If it now" +
                 " succeeds on this host, these tests are no longer observing what they claim to.");
         }

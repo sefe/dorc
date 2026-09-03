@@ -1,7 +1,9 @@
 using Dorc.ApiModel;
 using Dorc.ApiModel.Constants;
+using Dorc.Monitor.Security;
 using Microsoft.Extensions.Logging;
 using System.Runtime.Versioning;
+using System.Security;
 using System.Security.AccessControl;
 using System.Security.Principal;
 using System.Text.Json;
@@ -89,25 +91,79 @@ namespace Dorc.Monitor.Pipes
         /// </summary>
         public void Expire(string pipeName)
         {
-            string filename = BundlePath(pipeName);
+            string filename;
+            try
+            {
+                filename = BundlePath(pipeName);
+            }
+            catch (ArgumentException ex)
+            {
+                logger.LogError(ex, "A script group bundle that does not name a file in the bundle directory cannot be expired.");
+                return;
+            }
+
             try
             {
                 if (File.Exists(filename))
                 {
                     File.Delete(filename);
-                    logger.LogDebug($"Script group bundle '{filename}' has been removed.");
+                    logger.LogDebug("Script group bundle '{BundlePath}' has been removed.", filename);
                 }
             }
-            catch (Exception ex)
-            {
-                // Called from a finally block on the deployment path. Failing to delete is
-                // worth knowing about but must not replace the deployment's own outcome.
-                logger.LogError($"Failed to remove script group bundle '{filename}'. Exception: {ex}");
-            }
+            // Called from a finally block on the deployment path. Failing to delete is worth
+            // knowing about but must not replace the deployment's own outcome.
+            catch (IOException ex) { LogFailedRemoval(ex, filename); }
+            catch (UnauthorizedAccessException ex) { LogFailedRemoval(ex, filename); }
+            catch (SecurityException ex) { LogFailedRemoval(ex, filename); }
+            catch (NotSupportedException ex) { LogFailedRemoval(ex, filename); }
         }
 
-        private static string BundlePath(string pipeName) =>
-            $"{RunnerConstants.ScriptGroupFilesPath}{pipeName}.json";
+        private void LogFailedRemoval(Exception ex, string filename) =>
+            logger.LogError(ex, "Failed to remove script group bundle '{BundlePath}'.", filename);
+
+        /// <summary>
+        /// Resolves the bundle path, and refuses anything that is not a plain file name
+        /// directly inside the bundle directory.
+        ///
+        /// The pipe name is composed by the dispatchers from <c>HostInstanceId</c> and a
+        /// request id, and <c>HostInstanceId</c> can be set from the environment
+        /// (<c>DORC_REPLICA_ID</c>), so it is not a literal. Nothing that reaches here today
+        /// carries a separator - but the value is written to, and DELETED from, a directory
+        /// holding deployment secrets, and "the caller happens to be trusted" is not a
+        /// property this method can check. So it checks the only thing it can: that the name
+        /// names one file, in the directory it is supposed to name it in.
+        ///
+        /// Both halves are needed. Rejecting the invalid characters catches the separators and
+        /// the traversal segments at the input; comparing the fully-resolved path against the
+        /// fully-resolved root catches whatever the file system would still have re-interpreted
+        /// afterwards - a trailing dot or space, an 8.3 alias, a reparse point in the root
+        /// itself.
+        /// </summary>
+        private static string BundlePath(string pipeName)
+        {
+            if (string.IsNullOrWhiteSpace(pipeName)
+                || pipeName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0
+                || pipeName.Contains("..", StringComparison.Ordinal)
+                || Path.GetFileName(pipeName) != pipeName)
+            {
+                throw new ArgumentException(
+                    "A script group bundle name must be a single file name within the bundle directory.",
+                    nameof(pipeName));
+            }
+
+            var root = Path.TrimEndingDirectorySeparator(
+                Path.GetFullPath(RunnerConstants.ScriptGroupFilesPath));
+            var bundle = Path.GetFullPath(Path.Combine(root, pipeName + ".json"));
+
+            if (Path.GetDirectoryName(bundle) != root)
+            {
+                throw new ArgumentException(
+                    $"A script group bundle must resolve inside '{root}'.",
+                    nameof(pipeName));
+            }
+
+            return bundle;
+        }
 
         /// <summary>
         /// Adds the Runner's own principal to the bundle's ACL.
@@ -143,16 +199,18 @@ namespace Dorc.Monitor.Pipes
             {
                 var reader = (SecurityIdentifier)new NTAccount(account).Translate(typeof(SecurityIdentifier));
 
-                if (IsTooBroadToHoldASecret(reader))
+                if (DeploymentPrincipal.IsTooBroadToHoldASecret(reader))
                 {
                     // A misconfigured account name that resolves to a broad group would
                     // publish the bundle to it. The deployment will fail moments later when
                     // the logon is attempted with the same name, and the bundle is expired on
                     // that path - but not granting it in the first place is free.
                     logger.LogError(
-                        $"The configured deployment account '{account}' resolves to '{reader}', which is a" +
-                        " group broad enough that granting it access to the script group bundle would" +
-                        " disclose it. No access has been granted.");
+                        "The configured deployment account '{Account}' resolves to '{Sid}', which is a group" +
+                        " broad enough that granting it access to the script group bundle would disclose it." +
+                        " No access has been granted.",
+                        DeploymentPrincipal.SanitizeForLog(account),
+                        reader.Value);
                     return;
                 }
 
@@ -164,32 +222,29 @@ namespace Dorc.Monitor.Pipes
                     AccessControlType.Allow));
                 fileInfo.SetAccessControl(security);
             }
-            catch (Exception ex)
+            catch (PrivilegeNotHeldException ex) { LogFailedGrant(ex, account, filename); }
+            catch (UnauthorizedAccessException ex) { LogFailedGrant(ex, account, filename); }
+            catch (IdentityNotMappedException ex) { LogFailedGrant(ex, account, filename); }
+            catch (SecurityException ex) { LogFailedGrant(ex, account, filename); }
+            catch (IOException ex) { LogFailedGrant(ex, account, filename); }
+            catch (SystemException ex) when (ex is not OutOfMemoryException)
             {
-                logger.LogError(
-                    $"The deployment account '{account}' could not be granted access to the script group" +
-                    $" bundle '{filename}'. The Runner will be unable to read it unless it runs as an" +
-                    $" account the directory already admits. Exception: {ex}");
+                // NTAccount.Translate surfaces directory-service failures as SystemException
+                // itself - a plain 'new SystemException' from the SID lookup - so the typed
+                // catches above do not cover the case this method exists to survive: an
+                // unreachable domain controller must not fail a deployment.
+                LogFailedGrant(ex, account, filename);
             }
         }
 
-        /// <summary>
-        /// Refuses the principals whose membership is effectively "anyone on the host". This is
-        /// a denylist of the catastrophic cases, not a general test for whether a SID names a
-        /// group — that needs the account's SID_NAME_USE, which has no managed API. A narrower
-        /// group slipping through still only reaches one bundle, for the seconds before the
-        /// logon fails on the same misconfigured name and the bundle is expired.
-        /// </summary>
-        private static bool IsTooBroadToHoldASecret(SecurityIdentifier sid)
-        {
-            return sid.IsWellKnown(WellKnownSidType.WorldSid)
-                || sid.IsWellKnown(WellKnownSidType.AuthenticatedUserSid)
-                || sid.IsWellKnown(WellKnownSidType.BuiltinUsersSid)
-                || sid.IsWellKnown(WellKnownSidType.BuiltinGuestsSid)
-                || sid.IsWellKnown(WellKnownSidType.InteractiveSid)
-                || sid.IsWellKnown(WellKnownSidType.NetworkSid)
-                || sid.IsWellKnown(WellKnownSidType.AnonymousSid);
-        }
+        private void LogFailedGrant(Exception ex, string account, string filename) =>
+            logger.LogError(
+                ex,
+                "The deployment account '{Account}' could not be granted access to the script group bundle" +
+                " '{BundlePath}'. The Runner will be unable to read it unless it runs as an account the" +
+                " directory already admits.",
+                DeploymentPrincipal.SanitizeForLog(account),
+                filename);
 
         /// <summary>
         /// Removes bundles that outlived the deployment that wrote them. Expiry on the
@@ -216,69 +271,32 @@ namespace Dorc.Monitor.Pipes
                         File.Delete(bundle);
                         removed++;
                     }
-                    catch (Exception ex)
-                    {
-                        logger.LogWarning($"Failed to remove orphaned script group bundle '{bundle}'. Exception: {ex}");
-                    }
+                    catch (UnauthorizedAccessException ex) { LogOrphanNotRemoved(ex, bundle); }
+                    catch (SecurityException ex) { LogOrphanNotRemoved(ex, bundle); }
+                    catch (NotSupportedException ex) { LogOrphanNotRemoved(ex, bundle); }
+                    catch (IOException ex) { LogOrphanNotRemoved(ex, bundle); }
                 }
 
                 if (removed > 0)
                 {
-                    logger.LogInformation($"Removed {removed} orphaned script group bundle(s) from '{path}'.");
+                    logger.LogInformation(
+                        "Removed {RemovedCount} orphaned script group bundle(s) from '{BundleDirectory}'.",
+                        removed,
+                        path);
                 }
             }
-            catch (Exception ex)
-            {
-                // Housekeeping. Never let it stop a deployment.
-                logger.LogWarning($"Failed to enumerate script group bundles in '{path}'. Exception: {ex}");
-            }
+            // Housekeeping. Never let it stop a deployment.
+            catch (UnauthorizedAccessException ex) { LogSweepAbandoned(ex, path); }
+            catch (SecurityException ex) { LogSweepAbandoned(ex, path); }
+            catch (IOException ex) { LogSweepAbandoned(ex, path); }
         }
 
-        private static void EnsureRestrictedDirectory(string path)
-        {
-            var security = BuildRestrictedDirectorySecurity();
-            if (!Directory.Exists(path))
-            {
-                // FileSystemAclExtensions: creates the directory with the supplied DACL atomically,
-                // so the secrets folder never exists with the default Users-readable ACL.
-                security.CreateDirectory(path);
-                return;
-            }
+        private void LogOrphanNotRemoved(Exception ex, string bundle) =>
+            logger.LogWarning(ex, "Failed to remove orphaned script group bundle '{BundlePath}'.", bundle);
 
-            // Re-apply the restricted DACL on every start. If an admin manually deletes and
-            // re-creates the folder with default permissions (or restores from backup with
-            // looser ACLs), skipping this would leave subsequent secret files readable by
-            // any local authenticated user. The reapply is a single SetAccessControl call.
-            new DirectoryInfo(path).SetAccessControl(security);
-        }
+        private void LogSweepAbandoned(Exception ex, string path) =>
+            logger.LogWarning(ex, "Failed to enumerate script group bundles in '{BundleDirectory}'.", path);
 
-        private static DirectorySecurity BuildRestrictedDirectorySecurity()
-        {
-            var security = new DirectorySecurity();
-            security.SetAccessRuleProtection(isProtected: true, preserveInheritance: false);
-            foreach (var sid in PrivilegedIdentities())
-            {
-                security.AddAccessRule(new FileSystemAccessRule(
-                    sid,
-                    FileSystemRights.FullControl,
-                    InheritanceFlags.ContainerInherit | InheritanceFlags.ObjectInherit,
-                    PropagationFlags.None,
-                    AccessControlType.Allow));
-            }
-            return security;
-        }
-
-        private static IEnumerable<IdentityReference> PrivilegedIdentities()
-        {
-            // Only the service account writing the file plus SYSTEM and BUILTIN\Administrators
-            // retain access to the directory. Everything else — including authenticated
-            // interactive users on the Monitor host — is denied by the absence of an inherited
-            // Users ACE. The account that READS a bundle is granted on the bundle itself, by
-            // GrantReadAccessToRunner, because it is a per-deployment principal rather than a
-            // property of the directory.
-            yield return WindowsIdentity.GetCurrent().User!;
-            yield return new SecurityIdentifier(WellKnownSidType.LocalSystemSid, null);
-            yield return new SecurityIdentifier(WellKnownSidType.BuiltinAdministratorsSid, null);
-        }
+        private static void EnsureRestrictedDirectory(string path) => RestrictedDirectory.Ensure(path);
     }
 }
