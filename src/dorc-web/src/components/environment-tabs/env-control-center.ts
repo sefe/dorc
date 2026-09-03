@@ -32,6 +32,7 @@ import { ErrorNotification } from '../notifications/error-notification';
 import { retrieveErrorMessage } from '../../helpers/errorMessage-retriever';
 import { MakeLikeProductionDialog } from '../make-like-production-dialog.ts';
 import '@vaadin/tooltip';
+import { dorcApiConfiguration } from '../../services/dorc-api-configuration';
 
 @customElement('env-control-center')
 export class EnvControlCenter extends PageEnvBase {
@@ -246,7 +247,7 @@ export class EnvControlCenter extends PageEnvBase {
   }
 
   isEnvironmentOwner() {
-    const api = new RefDataEnvironmentsApi();
+    const api = new RefDataEnvironmentsApi(dorcApiConfiguration);
     api
       .refDataEnvironmentsIsEnvironmentOwnerGet({
         envName: this.environment?.EnvironmentName ?? ''
@@ -299,7 +300,7 @@ export class EnvControlCenter extends PageEnvBase {
     );
     if (answer) {
       if (environment !== undefined) {
-        const api = new RefDataEnvironmentsApi();
+        const api = new RefDataEnvironmentsApi(dorcApiConfiguration);
         this.isDeletingEnvironment = true;
         api
           .refDataEnvironmentsDelete({ environmentApiModel: environment })

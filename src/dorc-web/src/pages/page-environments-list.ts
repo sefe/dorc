@@ -33,6 +33,7 @@ import '../components/add-edit-access-control';
 import { CloneEnvironment } from '../components/clone-environment';
 import { ref } from 'lit/directives/ref.js';
 import { UnsavedChangesGuard } from '../components/unsaved-changes-guard';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('page-environments-list')
 export class PageEnvironmentsList extends ResponsiveMixin(PageElement) {
@@ -234,7 +235,7 @@ export class PageEnvironmentsList extends ResponsiveMixin(PageElement) {
   constructor() {
     super();
 
-    const refDataRolesApi = new RefDataRolesApi();
+    const refDataRolesApi = new RefDataRolesApi(dorcApiConfiguration);
     refDataRolesApi.refDataRolesGet().subscribe({
       next: (data: string[]) => {
         this.userRoles = data;
@@ -395,7 +396,7 @@ export class PageEnvironmentsList extends ResponsiveMixin(PageElement) {
     if (this.environments === undefined || this.environments.length === 0) {
       this.loading = true;
 
-      const api = new RefDataEnvironmentsApi();
+      const api = new RefDataEnvironmentsApi(dorcApiConfiguration);
       api.refDataEnvironmentsGet({ env: '' }).subscribe(
         (data: EnvironmentApiModel[]) => {
           this.setEnvironments(data);

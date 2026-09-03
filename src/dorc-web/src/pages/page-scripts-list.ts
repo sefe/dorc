@@ -38,6 +38,7 @@ import GlobalCache from '../global-cache';
 import '../components/hegs-json-viewer';
 import { HegsJsonViewer } from '../components/hegs-json-viewer';
 import '@vaadin/grid/vaadin-grid-sorter';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 const variableName = 'Name';
 const variablePath = 'Path';
@@ -187,7 +188,7 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
       });
     }
 
-    const api = new RefDataScriptsApi();
+    const api = new RefDataScriptsApi(dorcApiConfiguration);
     api
       .refDataScriptsPut({
         pagedDataOperators: {
@@ -439,7 +440,7 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
   }
 
   private saveScript(script: ScriptApiModel, what: string) {
-    new RefDataScriptsApi()
+    new RefDataScriptsApi(dorcApiConfiguration)
       .refDataScriptsEditPut({ scriptApiModel: script })
       .subscribe({
         next: (data: boolean) =>
@@ -594,7 +595,7 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
   }
 
   private loadPowerShellVersions() {
-    const api = new PowerShellVersionsApi();
+    const api = new PowerShellVersionsApi(dorcApiConfiguration);
     api.powerShellVersionsGet().subscribe({
       next: (versions: PowerShellVersionDto[]) => {
         this.powerShellVersions = versions

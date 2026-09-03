@@ -31,6 +31,7 @@ import {
 import './connection-status-indicator';
 import { HubConnectionState } from '@microsoft/signalr';
 import '@vaadin/tooltip';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('request-status-card')
 export class RequestStatusCard extends LitElement {
@@ -159,6 +160,7 @@ export class RequestStatusCard extends LitElement {
               <connection-status-indicator
                 mode="icon"
                 .state="${this.hubConnectionState}"
+                .showWhenConnected="${true}"
               ></connection-status-indicator>
             </td>
             ${
@@ -369,7 +371,7 @@ export class RequestStatusCard extends LitElement {
   }
 
   openEnvironmentDetails() {
-    const api2 = new RefDataEnvironmentsApi();
+    const api2 = new RefDataEnvironmentsApi(dorcApiConfiguration);
     api2
       .refDataEnvironmentsGet({
         env:
@@ -470,7 +472,7 @@ export class RequestStatusCard extends LitElement {
   protected firstUpdated(_changedProperties: PropertyValues) {
     super.firstUpdated(_changedProperties);
 
-    const projectsApi = new RefDataProjectsApi();
+    const projectsApi = new RefDataProjectsApi(dorcApiConfiguration);
     projectsApi
       .refDataProjectsProjectNameGet({
         projectName: this.deployRequest.Project ?? ''
@@ -488,8 +490,6 @@ export class RequestStatusCard extends LitElement {
   }
 
   private refresh() {
-    this.deployRequest.Status = 'Refreshing...';
-    this.requestUpdate();
     this.dispatchEvent(
       new CustomEvent('refresh-monitor-result', {
         detail: {

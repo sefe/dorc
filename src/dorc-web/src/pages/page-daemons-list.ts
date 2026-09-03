@@ -32,6 +32,7 @@ import '@vaadin/tooltip';
 import { ref } from 'lit/directives/ref.js';
 import { keyed } from 'lit/directives/keyed.js';
 import { UnsavedChangesGuard } from '../components/unsaved-changes-guard';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('page-daemons-list')
 export class PageDaemonsList extends ResponsiveMixin(PageElement) {
@@ -89,7 +90,7 @@ export class PageDaemonsList extends ResponsiveMixin(PageElement) {
   }
 
   private getDaemonsList() {
-    const api = new RefDataDaemonsApi();
+    const api = new RefDataDaemonsApi(dorcApiConfiguration);
     api.refDataDaemonsGet().subscribe(
       (data: DaemonApiModel[]) => {
         this.setDaemons(data);
@@ -432,7 +433,7 @@ export class PageDaemonsList extends ResponsiveMixin(PageElement) {
     this.pendingDeleteAttachedServers = [];
 
     if (daemon.Id && daemon.Id > 0) {
-      const api = new ServerDaemonsApi();
+      const api = new ServerDaemonsApi(dorcApiConfiguration);
       api.serverDaemonsByDaemonDaemonIdGet({ daemonId: daemon.Id }).subscribe({
         next: (servers: ServerApiModel[]) => {
           this.pendingDeleteAttachedServers = servers
@@ -454,7 +455,7 @@ export class PageDaemonsList extends ResponsiveMixin(PageElement) {
       this.confirmDeleteOpen = false;
       return;
     }
-    const api = new RefDataDaemonsApi();
+    const api = new RefDataDaemonsApi(dorcApiConfiguration);
     api.refDataDaemonsDelete({ id: daemon.Id }).subscribe(
       () => {
         this.pendingDelete = null;

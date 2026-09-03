@@ -185,14 +185,15 @@ namespace Dorc.Api.Tests.Controllers
         {
             _rolePrivilegesChecker.IsAdmin(_user).Returns(false);
 
-            var result = _controller.PutExecutionIdentity(
+            var actionResult = _controller.PutExecutionIdentity(
                 12,
                 new EnvironmentExecutionIdentityApiModel
                 {
                     ExecutionIdentityReference = "payments-prod"
-                }) as ObjectResult;
+                });
 
-            Assert.IsNotNull(result);
+            Assert.IsInstanceOfType(actionResult, typeof(ObjectResult));
+            var result = (ObjectResult)actionResult;
             Assert.AreEqual(StatusCodes.Status403Forbidden, result.StatusCode);
             _environmentsPersistentSource.DidNotReceive().SetExecutionIdentityReference(
                 Arg.Any<int>(),
@@ -212,9 +213,10 @@ namespace Dorc.Api.Tests.Controllers
             _securityPrivilegesChecker.CanModifyEnvironment(_user, "Payments").Returns(true);
             _environmentsPersistentSource.UpdateEnvironment(model, _user).Returns(model);
 
-            var result = _controller.Put(model) as ObjectResult;
+            var actionResult = _controller.Put(model);
 
-            Assert.IsNotNull(result);
+            Assert.IsInstanceOfType(actionResult, typeof(ObjectResult));
+            var result = (ObjectResult)actionResult;
             Assert.AreEqual(StatusCodes.Status200OK, result.StatusCode);
             _environmentsPersistentSource.Received(1).UpdateEnvironment(model, _user);
             _environmentsPersistentSource.DidNotReceive().SetExecutionIdentityReference(
@@ -236,14 +238,15 @@ namespace Dorc.Api.Tests.Controllers
             _environmentsPersistentSource.SetExecutionIdentityReference(12, "payments-prod", _user)
                 .Returns(updated);
 
-            var result = _controller.PutExecutionIdentity(
+            var actionResult = _controller.PutExecutionIdentity(
                 12,
                 new EnvironmentExecutionIdentityApiModel
                 {
                     ExecutionIdentityReference = "payments-prod"
-                }) as ObjectResult;
+                });
 
-            Assert.IsNotNull(result);
+            Assert.IsInstanceOfType(actionResult, typeof(ObjectResult));
+            var result = (ObjectResult)actionResult;
             Assert.AreEqual(StatusCodes.Status200OK, result.StatusCode);
             Assert.AreSame(updated, result.Value);
         }
@@ -256,14 +259,15 @@ namespace Dorc.Api.Tests.Controllers
                 .When(source => source.SetExecutionIdentityReference(12, "../secret", _user))
                 .Do(_ => throw new ArgumentException("Invalid execution identity reference."));
 
-            var result = _controller.PutExecutionIdentity(
+            var actionResult = _controller.PutExecutionIdentity(
                 12,
                 new EnvironmentExecutionIdentityApiModel
                 {
                     ExecutionIdentityReference = "../secret"
-                }) as ObjectResult;
+                });
 
-            Assert.IsNotNull(result);
+            Assert.IsInstanceOfType(actionResult, typeof(ObjectResult));
+            var result = (ObjectResult)actionResult;
             Assert.AreEqual(StatusCodes.Status400BadRequest, result.StatusCode);
         }
 
@@ -275,14 +279,15 @@ namespace Dorc.Api.Tests.Controllers
                 .When(source => source.SetExecutionIdentityReference(404, "payments-prod", _user))
                 .Do(_ => throw new KeyNotFoundException("Environment with ID 404 was not found."));
 
-            var result = _controller.PutExecutionIdentity(
+            var actionResult = _controller.PutExecutionIdentity(
                 404,
                 new EnvironmentExecutionIdentityApiModel
                 {
                     ExecutionIdentityReference = "payments-prod"
-                }) as ObjectResult;
+                });
 
-            Assert.IsNotNull(result);
+            Assert.IsInstanceOfType(actionResult, typeof(ObjectResult));
+            var result = (ObjectResult)actionResult;
             Assert.AreEqual(StatusCodes.Status404NotFound, result.StatusCode);
         }
     }

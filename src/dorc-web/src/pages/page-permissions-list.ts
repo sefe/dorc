@@ -29,6 +29,7 @@ import '@vaadin/grid/vaadin-grid-column';
 import '@vaadin/tooltip';
 import { UnsavedChangesGuard } from '../components/unsaved-changes-guard';
 import { keyed } from 'lit/directives/keyed.js';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('page-permissions-list')
 export class PagePermissionsList extends ResponsiveMixin(PageElement) {
@@ -58,7 +59,7 @@ export class PagePermissionsList extends ResponsiveMixin(PageElement) {
   }
 
   private getPermissionsList() {
-    const api = new RefDataPermissionApi();
+    const api = new RefDataPermissionApi(dorcApiConfiguration);
     api.refDataPermissionGet().subscribe(
       (data: PermissionDto[]) => {
         this.setPermissions(data);
@@ -294,7 +295,7 @@ export class PagePermissionsList extends ResponsiveMixin(PageElement) {
     );
 
     if (confirmDelete && permission.Id) {
-      const api = new RefDataPermissionApi();
+      const api = new RefDataPermissionApi(dorcApiConfiguration);
       api.refDataPermissionDelete({ id: permission.Id }).subscribe({
         next: () => {
           this.getPermissionsList();

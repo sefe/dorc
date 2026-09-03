@@ -20,6 +20,7 @@ namespace Dorc.Monitor.Tests
         private IRequestsPersistentSource mockRequestsPersistentSource = null!;
         private IDeploymentEventsPublisher mockEventPublisher = null!;
         private IDistributedLockService mockDistributedLockService = null!;
+        private ILoggerFactory mockLoggerFactory = null!;
 
         private DeploymentRequestStateProcessor sut = null!;
         private ConcurrentBag<Task> publishTasks = null!;
@@ -33,6 +34,7 @@ namespace Dorc.Monitor.Tests
             mockRequestsPersistentSource = Substitute.For<IRequestsPersistentSource>();
             mockEventPublisher = Substitute.For<IDeploymentEventsPublisher>();
             mockDistributedLockService = Substitute.For<IDistributedLockService>();
+            mockLoggerFactory = Substitute.For<ILoggerFactory>();
 
             mockEventPublisher.PublishRequestStatusChangedAsync(Arg.Any<DeploymentRequestEventData>())
                 .Returns(Task.CompletedTask);
@@ -45,7 +47,8 @@ namespace Dorc.Monitor.Tests
                 mockProcessesPersistentSource,
                 mockRequestsPersistentSource,
                 mockEventPublisher,
-                mockDistributedLockService);
+                mockDistributedLockService,
+                mockLoggerFactory);
             sut.OnPublishTaskCreated = t => publishTasks.Add(t);
         }
 
@@ -456,7 +459,8 @@ namespace Dorc.Monitor.Tests
                 mockProcessesPersistentSource,
                 mockRequestsPersistentSource,
                 mockEventPublisher,
-                mockDistributedLockService);
+                mockDistributedLockService,
+                mockLoggerFactory);
 
             mockDistributedLockService
                 .TryAcquireLockAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
@@ -1259,7 +1263,10 @@ namespace Dorc.Monitor.Tests
             CancellationToken capturedToken = default;
             var mockPendingProcessor = Substitute.For<IPendingRequestProcessor>();
             mockPendingProcessor
-                .When(p => p.Execute(Arg.Any<RequestToProcessDto>(), Arg.Any<CancellationToken>()))
+                .When(p => p.Execute(
+                    Arg.Any<RequestToProcessDto>(),
+                    Arg.Any<CancellationToken>(),
+                    Arg.Any<ILoggerFactory>()))
                 .Do(ci => capturedToken = ci.Arg<CancellationToken>());
             mockServiceProvider.GetService(typeof(IPendingRequestProcessor)).Returns(mockPendingProcessor);
 
@@ -1299,7 +1306,10 @@ namespace Dorc.Monitor.Tests
             CancellationToken capturedToken = default;
             var mockPendingProcessor = Substitute.For<IPendingRequestProcessor>();
             mockPendingProcessor
-                .When(p => p.Execute(Arg.Any<RequestToProcessDto>(), Arg.Any<CancellationToken>()))
+                .When(p => p.Execute(
+                    Arg.Any<RequestToProcessDto>(),
+                    Arg.Any<CancellationToken>(),
+                    Arg.Any<ILoggerFactory>()))
                 .Do(ci => capturedToken = ci.Arg<CancellationToken>());
             mockServiceProvider.GetService(typeof(IPendingRequestProcessor)).Returns(mockPendingProcessor);
 
@@ -1341,7 +1351,10 @@ namespace Dorc.Monitor.Tests
 
             var mockPendingProcessor = Substitute.For<IPendingRequestProcessor>();
             mockPendingProcessor
-                .When(p => p.Execute(Arg.Any<RequestToProcessDto>(), Arg.Any<CancellationToken>()))
+                .When(p => p.Execute(
+                    Arg.Any<RequestToProcessDto>(),
+                    Arg.Any<CancellationToken>(),
+                    Arg.Any<ILoggerFactory>()))
                 .Do(ci =>
                 {
                     capturedToken = ci.Arg<CancellationToken>();
@@ -1399,7 +1412,10 @@ namespace Dorc.Monitor.Tests
 
             // Assert - the guard prevented Execute from being called
             mockPendingProcessor.DidNotReceive()
-                .Execute(Arg.Any<RequestToProcessDto>(), Arg.Any<CancellationToken>());
+                .Execute(
+                    Arg.Any<RequestToProcessDto>(),
+                    Arg.Any<CancellationToken>(),
+                    Arg.Any<ILoggerFactory>());
         }
 
         // =====================================================================
