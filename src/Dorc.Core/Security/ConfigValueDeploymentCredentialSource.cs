@@ -1,5 +1,6 @@
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.Extensions.Logging;
+using System.Security;
 
 namespace Dorc.Core.Security
 {
@@ -41,9 +42,16 @@ namespace Dorc.Core.Security
                 ? ProductionPasswordKey
                 : NonProductionPasswordKey;
 
-            var credential = DeploymentCredential.FromPlainText(
+            var password = new SecureString();
+            foreach (var character in _configValues.GetConfigValue(passwordKey) ?? string.Empty)
+            {
+                password.AppendChar(character);
+            }
+
+            password.MakeReadOnly();
+            var credential = new DeploymentCredential(
                 _configValues.GetConfigValue(userNameKey) ?? string.Empty,
-                _configValues.GetConfigValue(passwordKey) ?? string.Empty);
+                password);
 
             if (!credential.IsComplete)
             {
