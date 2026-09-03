@@ -87,7 +87,6 @@ namespace Dorc.Monitor
             }
 
             var processAccountName = credential.UserName;
-            var processAccountPassword = credential.Password;
 
             IList<ScriptGroup> scriptGroups = GetScriptsGroupedByPowerShellVersion(
                 script,
@@ -128,11 +127,10 @@ namespace Dorc.Monitor
                         var contextBuilder = new ProcessSecurityContextBuilder(logger)
                         {
                             UserName = processAccountName,
-                            Domain = domainName,
-                            Password = processAccountPassword
+                            Domain = domainName
                         };
 
-                        using (var securityContext = contextBuilder.Build())
+                        using (var securityContext = contextBuilder.Build(credential.Password))
                         {
                             var runnerLogPathSetting = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build()
                             .GetSection("AppSettings")["RunnerLogPath"]!;

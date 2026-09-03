@@ -104,7 +104,6 @@ namespace Dorc.Monitor
             }
 
             var processAccountName = credential.UserName;
-            var processAccountPassword = credential.Password;
 
             // Get request and project information for Terraform source configuration
             var request = _requestsPersistentSource.GetRequest(requestId);
@@ -133,12 +132,11 @@ namespace Dorc.Monitor
             var contextBuilder = new ProcessSecurityContextBuilder(logger)
             {
                 UserName = processAccountName,
-                Domain = domainName,
-                Password = processAccountPassword
+                Domain = domainName
             };
 
             using (var pipeCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
-            using (var securityContext = contextBuilder.Build())
+            using (var securityContext = contextBuilder.Build(credential.Password))
             {
                 var startedScriptGroupPipeName = $"DOrcMonitor-{HostInstanceId.Value}-{requestId}";
 

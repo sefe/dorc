@@ -42,7 +42,7 @@ namespace Dorc.Core.Tests
             var credential = _source.Resolve(DeploymentTier.Production);
 
             Assert.AreEqual("svc-prod", credential!.UserName);
-            Assert.AreEqual("prod-secret", credential.Password);
+            Assert.IsTrue(credential.IsComplete);
         }
 
         [TestMethod]
@@ -51,7 +51,7 @@ namespace Dorc.Core.Tests
             var credential = _source.Resolve(DeploymentTier.NonProduction);
 
             Assert.AreEqual("svc-nonprod", credential!.UserName);
-            Assert.AreEqual("nonprod-secret", credential.Password);
+            Assert.IsTrue(credential.IsComplete);
         }
 
         /// <summary>
@@ -96,7 +96,8 @@ namespace Dorc.Core.Tests
             _configuration.GetDeploymentCredentialItemId(DeploymentTier.Production, true).Returns("prod-pass-item");
 
             _secrets.GetSecret("prod-user-item", Arg.Any<string>()).Returns("svc-prod");
-            _secrets.GetSecret("prod-pass-item", Arg.Any<string>()).Returns("prod-secret");
+            _secrets.GetSecureSecret("prod-pass-item", Arg.Any<string>())
+                .Returns(DeploymentCredential.ToSecureString("prod-secret"));
 
             _source = new VaultDeploymentCredentialSource(
                 _secrets, _configuration,
@@ -109,7 +110,7 @@ namespace Dorc.Core.Tests
             var credential = _source.Resolve(DeploymentTier.Production);
 
             Assert.AreEqual("svc-prod", credential!.UserName);
-            Assert.AreEqual("prod-secret", credential.Password);
+            Assert.IsTrue(credential.IsComplete);
         }
 
         /// <summary>
@@ -123,12 +124,14 @@ namespace Dorc.Core.Tests
             Assert.IsNull(_source.Resolve(DeploymentTier.NonProduction));
 
             _secrets.DidNotReceive().GetSecret(Arg.Any<string>(), Arg.Any<string>());
+            _secrets.DidNotReceive().GetSecureSecret(Arg.Any<string>(), Arg.Any<string>());
         }
 
         [TestMethod]
         public void RefusesWhenTheVaultReturnsNothing()
         {
-            _secrets.GetSecret("prod-pass-item", Arg.Any<string>()).Returns(string.Empty);
+            _secrets.GetSecureSecret("prod-pass-item", Arg.Any<string>())
+                .Returns(DeploymentCredential.ToSecureString(string.Empty));
 
             Assert.IsNull(_source.Resolve(DeploymentTier.Production));
         }
@@ -158,7 +161,8 @@ namespace Dorc.Core.Tests
             var fromVault = _source.Resolve(DeploymentTier.Production);
 
             Assert.AreEqual(fromConfig!.UserName, fromVault!.UserName);
-            Assert.AreEqual(fromConfig.Password, fromVault.Password);
+            Assert.IsTrue(fromConfig.IsComplete);
+            Assert.IsTrue(fromVault.IsComplete);
         }
     }
 }

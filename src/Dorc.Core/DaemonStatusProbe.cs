@@ -74,25 +74,25 @@ namespace Dorc.Core
         }
 
         [DllImport("advapi32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
-        public static extern bool LogonUser(string lpszUsername, string lpszDomain, string lpszPassword,
+        public static extern bool LogonUser(string lpszUsername, string lpszDomain, IntPtr lpszPassword,
             int dwLogonType, int dwLogonProvider, out SafeAccessTokenHandle phToken);
 
         private List<DaemonStatus> GetDaemonStatusesForEnvironment(EnvironmentApiModel? environment)
         {
-            GetUsernameAndPassword(environment, out var user, out var pwd);
+            var credential = GetCredential(environment);
 
             var domainName = _domainName;
 
             var servers = _serversPersistentSource.GetServersForEnvId(environment.EnvironmentId).ToList();
             var daemons = BuildDaemonList(environment, servers);
 
-            if (!string.IsNullOrWhiteSpace(user) && !string.IsNullOrWhiteSpace(pwd))
+            if (credential != null)
             {
                 const int logon32ProviderDefault = 0;
                 // This parameter causes LogonUser to create a primary token.
                 const int logon32LogonInteractive = 2;
 
-                bool returnValue = LogonUser(user, domainName, pwd,
+                bool returnValue = Logon(credential, domainName,
                     logon32LogonInteractive, logon32ProviderDefault,
                     out var safeAccessTokenHandle);
 
@@ -126,19 +126,19 @@ namespace Dorc.Core
 
         private List<DaemonStatus> DiscoverAllDaemonsForEnvironmentInternal(EnvironmentApiModel? environment)
         {
-            GetUsernameAndPassword(environment, out var user, out var pwd);
+            var credential = GetCredential(environment);
 
             var domainName = _domainName;
 
             var servers = _serversPersistentSource.GetServersForEnvId(environment.EnvironmentId).ToList();
             var daemons = BuildDaemonListForDiscovery(environment, servers);
 
-            if (!string.IsNullOrWhiteSpace(user) && !string.IsNullOrWhiteSpace(pwd))
+            if (credential != null)
             {
                 const int logon32ProviderDefault = 0;
                 const int logon32LogonInteractive = 2;
 
-                bool returnValue = LogonUser(user, domainName, pwd,
+                bool returnValue = Logon(credential, domainName,
                     logon32LogonInteractive, logon32ProviderDefault,
                     out var safeAccessTokenHandle);
 
@@ -174,18 +174,36 @@ namespace Dorc.Core
         /// while the dispatchers could not, which is what four copies of a security decision
         /// buys.
         /// </summary>
-        private void GetUsernameAndPassword(EnvironmentApiModel? environment, out string user, out string pwd)
+        private DeploymentCredential? GetCredential(EnvironmentApiModel? environment)
         {
-            var credential = _credentialSource.Resolve(
+            return _credentialSource.Resolve(
                 environment?.EnvironmentIsProd == true
                     ? DeploymentTier.Production
                     : DeploymentTier.NonProduction);
+        }
 
-            // Empty rather than a substitute. The caller performs a LogonUser with these; an
-            // empty pair fails that call, where a fallback would authenticate as whatever the
-            // API process is running as.
-            user = credential?.UserName ?? string.Empty;
-            pwd = credential?.Password ?? string.Empty;
+        private static bool Logon(
+            DeploymentCredential credential,
+            string domainName,
+            int logonType,
+            int logonProvider,
+            out SafeAccessTokenHandle token)
+        {
+            var passwordPointer = Marshal.SecureStringToGlobalAllocUnicode(credential.Password);
+            try
+            {
+                return LogonUser(
+                    credential.UserName,
+                    domainName,
+                    passwordPointer,
+                    logonType,
+                    logonProvider,
+                    out token);
+            }
+            finally
+            {
+                Marshal.ZeroFreeGlobalAllocUnicode(passwordPointer);
+            }
         }
 
         private List<DaemonStatus> BuildDaemonList(EnvironmentApiModel? environment,
@@ -392,7 +410,13 @@ namespace Dorc.Core
             var environment =
                 _environmentsPersistentSource.GetEnvironment(daemonStatus.EnvName, principal);
 
-            GetUsernameAndPassword(environment, out var user, out var pwd);
+            var credential = GetCredential(environment);
+
+            if (credential == null)
+            {
+                _logger.LogError("No deployment credential is available for daemon action.");
+                return null;
+            }
 
             var domainName = _domainName;
 
@@ -400,7 +424,7 @@ namespace Dorc.Core
             // This parameter causes LogonUser to create a primary token.
             const int logon32LogonInteractive = 2;
 
-            bool returnValue = LogonUser(user, domainName, pwd,
+            bool returnValue = Logon(credential, domainName,
                 logon32LogonInteractive, logon32ProviderDefault,
                 out var safeAccessTokenHandle);
 

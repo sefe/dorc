@@ -41,7 +41,7 @@ namespace Dorc.Core.Security
                 ? ProductionPasswordKey
                 : NonProductionPasswordKey;
 
-            var credential = new DeploymentCredential(
+            var credential = DeploymentCredential.FromPlainText(
                 _configValues.GetConfigValue(userNameKey) ?? string.Empty,
                 _configValues.GetConfigValue(passwordKey) ?? string.Empty);
 
@@ -59,7 +59,7 @@ namespace Dorc.Core.Security
                     userNameKey,
                     string.IsNullOrEmpty(credential.UserName) ? "empty" : "set",
                     passwordKey,
-                    string.IsNullOrEmpty(credential.Password) ? "empty" : "set");
+                    credential.Password.Length == 0 ? "empty" : "set");
 
                 return null;
             }
