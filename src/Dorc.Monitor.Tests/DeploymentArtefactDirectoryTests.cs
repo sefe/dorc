@@ -36,7 +36,7 @@ namespace Dorc.Monitor.Tests
 
             // Under the test output rather than the machine's temp directory, so a failed run
             // leaves its evidence with the run that produced it.
-            _scratch = Path.Combine(AppContext.BaseDirectory, "artefact-acl-tests", Guid.NewGuid().ToString("N"));
+            _scratch = Path.Join(AppContext.BaseDirectory, "artefact-acl-tests", Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(_scratch);
         }
 
@@ -69,7 +69,7 @@ namespace Dorc.Monitor.Tests
         [TestMethod]
         public void ARestrictedDirectoryInheritsNothingFromProgramData()
         {
-            var path = Path.Combine(_scratch, "created");
+            var path = Path.Join(_scratch, "created");
 
             RestrictedDirectory.Ensure(path);
 
@@ -87,7 +87,7 @@ namespace Dorc.Monitor.Tests
         [TestMethod]
         public void TheRestrictionIsInheritedByTheArtefactsWrittenIntoIt()
         {
-            var path = Path.Combine(_scratch, "inheritable");
+            var path = Path.Join(_scratch, "inheritable");
 
             RestrictedDirectory.Ensure(path);
 
@@ -97,7 +97,7 @@ namespace Dorc.Monitor.Tests
                 writer.InheritanceFlags);
             Assert.AreEqual(FileSystemRights.FullControl, writer.FileSystemRights & FileSystemRights.FullControl);
 
-            var artefact = Path.Combine(path, "artefact.json");
+            var artefact = Path.Join(path, "artefact.json");
             File.WriteAllText(artefact, "{}");
 
             var artefactRules = new FileInfo(artefact)

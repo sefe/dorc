@@ -162,9 +162,9 @@ namespace Dorc.Monitor
                         readerIdentity,
                         logger);
                     var terraformPlanFileName = deploymentResult.Id.CreateTerraformPlanBlobName();
-                    var terraformPlanFilePath = Path.Combine(planStorageDir, terraformPlanFileName);
+                    var terraformPlanFilePath = Path.Join(planStorageDir, terraformPlanFileName);
                     var terraformPlanContentFileName = deploymentResult.Id.CreateTerraformPlanContentBlobName();
-                    var terraformPlanContentFilePath = Path.Combine(planStorageDir, terraformPlanContentFileName);
+                    var terraformPlanContentFilePath = Path.Join(planStorageDir, terraformPlanContentFileName);
                     if (terreformOperation == TerraformRunnerOperations.ApplyPlan)
                     {
                         _azureStorageAccountWorker.DownloadFileFromBlobs(terraformPlanFileName, terraformPlanFilePath);
