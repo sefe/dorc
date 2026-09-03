@@ -68,7 +68,7 @@ namespace Dorc.Api.Controllers
         }
 
         [DllImport("advapi32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
-        public static extern bool LogonUser(string lpszUsername, string lpszDomain, string lpszPassword,
+        public static extern bool LogonUser(string lpszUsername, string lpszDomain, IntPtr lpszPassword,
             int dwLogonType, int dwLogonProvider, out SafeAccessTokenHandle phToken);
         private IActionResult ResetPassword(string envFilter, string envName, string username)
         {
@@ -103,15 +103,24 @@ namespace Dorc.Api.Controllers
                 return new ApiBoolResult { Message = "Unable to retrieve DOrc Login details", Result = false };
 
             var user = credential.UserName;
-            var pwd = credential.Password;
 
             const int logon32ProviderDefault = 0;
             //This parameter causes LogonUser to create a primary token.   
             const int logon32LogonInteractive = 2;
 
-            bool returnValue = LogonUser(user, domainName, pwd,
-                logon32LogonInteractive, logon32ProviderDefault,
-                out var safeAccessTokenHandle);
+            var passwordPointer = Marshal.SecureStringToGlobalAllocUnicode(credential.Password);
+            bool returnValue;
+            SafeAccessTokenHandle safeAccessTokenHandle;
+            try
+            {
+                returnValue = LogonUser(user, domainName, passwordPointer,
+                    logon32LogonInteractive, logon32ProviderDefault,
+                    out safeAccessTokenHandle);
+            }
+            finally
+            {
+                Marshal.ZeroFreeGlobalAllocUnicode(passwordPointer);
+            }
 
             if (false == returnValue)
             {

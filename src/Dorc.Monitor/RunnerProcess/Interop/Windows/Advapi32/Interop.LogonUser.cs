@@ -6,11 +6,11 @@ internal static partial class Interop
 {
     internal static partial class Advapi32
     {
-        [DllImport(Windows.Interop.Libraries.Advapi32, SetLastError = true)]
+        [DllImport(Windows.Interop.Libraries.Advapi32, SetLastError = true, CharSet = CharSet.Unicode)]
         internal static extern bool LogonUser(
             string lpszUsername,
             string lpszDomain,
-            string lpszPassword,
+            IntPtr lpszPassword,
             int dwLogonType,
             int dwLogonProvider,
             out IntPtr phToken

@@ -57,7 +57,7 @@ namespace Dorc.Core.Security
 
             var credential = new DeploymentCredential(
                 _secrets.GetSecret(userNameItem, $"{tier} deployment username"),
-                _secrets.GetSecret(passwordItem, $"{tier} deployment password"));
+                _secrets.GetSecureSecret(passwordItem, $"{tier} deployment password"));
 
             if (!credential.IsComplete)
             {
@@ -68,7 +68,7 @@ namespace Dorc.Core.Security
                     tier,
                     Description,
                     string.IsNullOrEmpty(credential.UserName) ? "nothing" : "a value",
-                    string.IsNullOrEmpty(credential.Password) ? "nothing" : "a value");
+                    credential.Password.Length == 0 ? "nothing" : "a value");
 
                 return null;
             }

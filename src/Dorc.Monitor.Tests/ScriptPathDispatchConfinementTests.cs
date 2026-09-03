@@ -43,7 +43,7 @@ namespace Dorc.Monitor.Tests
             var source = Substitute.For<IDeploymentCredentialSource>();
             source.Description.Returns("test");
             source.Resolve(Arg.Any<DeploymentTier>())
-                .Returns(new DeploymentCredential(userName, password));
+                .Returns(DeploymentCredential.FromPlainText(userName, password));
             return source;
         }
 

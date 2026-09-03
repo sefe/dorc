@@ -48,7 +48,7 @@ namespace Dorc.Monitor.Tests
             var source = Substitute.For<IDeploymentCredentialSource>();
             source.Description.Returns("test");
             source.Resolve(Arg.Any<DeploymentTier>())
-                .Returns(new DeploymentCredential(userName, password));
+                .Returns(DeploymentCredential.FromPlainText(userName, password));
             return source;
         }
 
@@ -63,9 +63,9 @@ namespace Dorc.Monitor.Tests
             var source = Substitute.For<IDeploymentCredentialSource>();
             source.Description.Returns("test");
             source.Resolve(DeploymentTier.Production)
-                .Returns(new DeploymentCredential(ProdAccount, "prod-password"));
+                .Returns(DeploymentCredential.FromPlainText(ProdAccount, "prod-password"));
             source.Resolve(DeploymentTier.NonProduction)
-                .Returns(new DeploymentCredential(NonProdAccount, "nonprod-password"));
+                .Returns(DeploymentCredential.FromPlainText(NonProdAccount, "nonprod-password"));
             return source;
         }
 
@@ -257,7 +257,7 @@ namespace Dorc.Monitor.Tests
             var source = Substitute.For<IDeploymentCredentialSource>();
             source.Description.Returns("test");
             source.Resolve(Arg.Any<DeploymentTier>())
-                .Returns(new DeploymentCredential(userName, password));
+                .Returns(DeploymentCredential.FromPlainText(userName, password));
             return source;
         }
 

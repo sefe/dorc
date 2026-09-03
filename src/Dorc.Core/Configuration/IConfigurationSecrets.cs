@@ -1,4 +1,5 @@
-﻿using System.Threading.Tasks;
+﻿using System.Security;
+using System.Threading.Tasks;
 
 namespace Dorc.Core.Configuration
 {
@@ -32,5 +33,11 @@ namespace Dorc.Core.Configuration
         /// the answer is to refuse rather than to authenticate as the host account.
         /// </remarks>
         string GetSecret(string itemId, string humanizedName);
+
+        /// <summary>
+        /// Gets a secret intended for password authentication without retaining its value in a
+        /// managed string.
+        /// </summary>
+        SecureString GetSecureSecret(string itemId, string humanizedName);
     }
 } 

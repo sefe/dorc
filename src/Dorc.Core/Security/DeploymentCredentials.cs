@@ -1,3 +1,5 @@
+using System.Security;
+
 namespace Dorc.Core.Security
 {
     /// <summary>
@@ -18,27 +20,37 @@ namespace Dorc.Core.Security
     /// <summary>
     /// The account a deployment executes as.
     /// </summary>
-    /// <remarks>
-    /// The password is a plain string, which is a known weakness rather than an oversight: it
-    /// cannot be zeroed and the garbage collector may copy it. Fixing that belongs at the
-    /// storage layer, where the value is decrypted, and is recorded against the credential
-    /// storage step. Introducing a different representation here without changing the layer
-    /// underneath would move the copies around rather than remove them.
-    /// </remarks>
     public sealed class DeploymentCredential
     {
-        public DeploymentCredential(string userName, string password)
+        public DeploymentCredential(string userName, SecureString password)
         {
             UserName = userName;
             Password = password;
         }
 
+        public static DeploymentCredential FromPlainText(string userName, string password)
+        {
+            return new DeploymentCredential(userName, ToSecureString(password));
+        }
+
+        public static SecureString ToSecureString(string value)
+        {
+            var secret = new SecureString();
+            foreach (var character in value)
+            {
+                secret.AppendChar(character);
+            }
+
+            secret.MakeReadOnly();
+            return secret;
+        }
+
         public string UserName { get; }
 
-        public string Password { get; }
+        public SecureString Password { get; }
 
         public bool IsComplete =>
-            !string.IsNullOrEmpty(UserName) && !string.IsNullOrEmpty(Password);
+            !string.IsNullOrEmpty(UserName) && Password.Length > 0;
     }
 
     /// <summary>

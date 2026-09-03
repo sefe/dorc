@@ -1,5 +1,7 @@
 ﻿using Dorc.Core.Configuration;
+using Dorc.Core.Security;
 using Microsoft.Extensions.Logging;
+using System.Security;
 using Dorc.Core.Secrets.OnePassword;
 
 namespace Dorc.Core.Secrets
@@ -53,6 +55,12 @@ namespace Dorc.Core.Secrets
 
         public string GetSecret(string itemId, string humanizedName) =>
             GetSecretByItemId(itemId, humanizedName);
+
+        public SecureString GetSecureSecret(string itemId, string humanizedName)
+        {
+            var value = GetSecretByItemId(itemId, humanizedName);
+            return DeploymentCredential.ToSecureString(value);
+        }
 
         private string GetSecretByItemId(string itemId, string humanizedName)
         {
