@@ -15,6 +15,7 @@ import './terraform-plan-dialog';
 import { DeploymentResultApiModel, ResultStatusesApi } from '../apis/dorc-api';
 import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('component-deployment-results')
 export class ComponentDeploymentResults extends ResponsiveMixin(LitElement) {
@@ -266,7 +267,7 @@ export class ComponentDeploymentResults extends ResponsiveMixin(LitElement) {
 
     if (result.RequestId) {
       try {
-        const api = new ResultStatusesApi();
+        const api = new ResultStatusesApi(dorcApiConfiguration);
         const logObservable = api.resultStatusesLogGet({
           requestId: result.RequestId,
           resultId: result.Id

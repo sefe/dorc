@@ -18,6 +18,7 @@ import {
 } from '../apis/dorc-api';
 import { retrieveErrorMessage } from '../helpers/errorMessage-retriever';
 import '@vaadin/tooltip';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('attach-environment')
 export class AttachEnvironment extends LitElement {
@@ -38,7 +39,7 @@ export class AttachEnvironment extends LitElement {
   constructor() {
     super();
 
-    const api = new RefDataEnvironmentsApi();
+    const api = new RefDataEnvironmentsApi(dorcApiConfiguration);
     api.refDataEnvironmentsGet({ env: '' }).subscribe(
       (data: EnvironmentApiModel[]) => {
         this.setEnvironmentDetails(data);
@@ -214,7 +215,7 @@ export class AttachEnvironment extends LitElement {
           return env.EnvironmentName;
         })
         .join(';') || '';
-    const api = new RefDataProjectEnvironmentMappingsApi();
+    const api = new RefDataProjectEnvironmentMappingsApi(dorcApiConfiguration);
     api
       .refDataProjectEnvironmentMappingsPost({
         project: this.projectName,

@@ -24,6 +24,7 @@ import '@vaadin/checkbox';
 import { ref } from 'lit/directives/ref.js';
 import { keyed } from 'lit/directives/keyed.js';
 import { UnsavedChangesGuard } from '../components/unsaved-changes-guard';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('page-config-values-list')
 export class PageConfigValuesList extends ResponsiveMixin(PageElement) {
@@ -52,7 +53,7 @@ export class PageConfigValuesList extends ResponsiveMixin(PageElement) {
   }
 
   private getConfigValuesList() {
-    const api = new RefDataConfigApi();
+    const api = new RefDataConfigApi(dorcApiConfiguration);
     api.refDataConfigGet().subscribe({
       next: (data: ConfigValueApiModel[]) => {
         this.setConfigValues(data);
@@ -66,7 +67,7 @@ export class PageConfigValuesList extends ResponsiveMixin(PageElement) {
   // arrays, so setting it is enough — the manual grid.requestContentUpdate()
   // this used to need is what the directive does.
   private loadRoles(): void {
-    const api = new RefDataRolesApi();
+    const api = new RefDataRolesApi(dorcApiConfiguration);
     api.refDataRolesGet().subscribe({
       next: (roles: string[]) => {
         this.isAdmin = roles.find(p => p === 'Admin') !== undefined;
@@ -79,7 +80,7 @@ export class PageConfigValuesList extends ResponsiveMixin(PageElement) {
   }
 
   private updateConfigItem(updated: ConfigValueApiModel): void {
-    const api = new RefDataConfigApi();
+    const api = new RefDataConfigApi(dorcApiConfiguration);
     const id = updated.Id;
 
     if (id == null) {

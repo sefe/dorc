@@ -14,6 +14,7 @@ import '../../icons/editor-icons.js';
 import '../../icons/iron-icons.js';
 import '@vaadin/text-field';
 import '@vaadin/tooltip';
+import { dorcApiConfiguration } from '../../services/dorc-api-configuration';
 
 @customElement('config-value-controls')
 export class ConfigValueControls extends LitElement {
@@ -134,7 +135,7 @@ export class ConfigValueControls extends LitElement {
       }`
     );
     if (answer && configValue?.Id) {
-      const api = new RefDataConfigApi();
+      const api = new RefDataConfigApi(dorcApiConfiguration);
       api
         .refDataConfigDelete({
           id: configValue.Id
@@ -190,7 +191,7 @@ export class ConfigValueControls extends LitElement {
   }
 
   _saveClick() {
-    const api = new RefDataConfigApi();
+    const api = new RefDataConfigApi(dorcApiConfiguration);
     api
       .refDataConfigPut({
         id: this.value.Id,
