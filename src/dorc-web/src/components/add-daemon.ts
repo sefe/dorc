@@ -7,6 +7,7 @@ import { html } from 'lit/html.js';
 import type { DaemonApiModel } from '../apis/dorc-api';
 import { RefDataDaemonsApi } from '../apis/dorc-api';
 import '@vaadin/vertical-layout';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('add-daemon')
 export class AddDaemon extends LitElement {
@@ -170,7 +171,7 @@ export class AddDaemon extends LitElement {
 
   _submit() {
     this.isBusy = true;
-    const api = new RefDataDaemonsApi();
+    const api = new RefDataDaemonsApi(dorcApiConfiguration);
 
     this.daemon.AccountName = this.accountName;
     this.daemon.DisplayName = this.displayName;

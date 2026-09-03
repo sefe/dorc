@@ -8,6 +8,7 @@ import type { PermissionDto } from '../apis/dorc-api';
 import { Notification } from '@vaadin/notification';
 import { RefDataPermissionApi } from '../apis/dorc-api';
 import '@vaadin/vertical-layout';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('edit-permission')
 export class EditPermission extends LitElement {
@@ -121,7 +122,7 @@ export class EditPermission extends LitElement {
   }
 
   _submit() {
-    const api = new RefDataPermissionApi();
+    const api = new RefDataPermissionApi(dorcApiConfiguration);
 
     this.permission.DisplayName = this.displayName.trim();
     this.permission.PermissionName = this.permissionName.trim();

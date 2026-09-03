@@ -22,6 +22,7 @@ import {
 } from '../apis/dorc-api';
 import { retrieveErrorMessage } from '../helpers/errorMessage-retriever';
 import '@vaadin/grid/vaadin-grid-column';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 interface ComponentDeploymentInfo extends ComponentApiModel {
   Children?: ComponentDeploymentInfo[];
@@ -317,7 +318,7 @@ export class PageProjectComponents extends ResponsiveMixin(PageElement) {
 
   private getProjectName(projId: number): Promise<void> {
     return new Promise((resolve, reject) => {
-      const api = new RefDataProjectsApi();
+      const api = new RefDataProjectsApi(dorcApiConfiguration);
       api.refDataProjectsGet().subscribe({
         next: projects => {
           const project = projects.find(p => p.ProjectId === projId);
@@ -340,7 +341,7 @@ export class PageProjectComponents extends ResponsiveMixin(PageElement) {
 
   private getProjectComponents(projectName: string): Promise<void> {
     return new Promise((resolve, reject) => {
-      const api = new RefDataComponentsApi();
+      const api = new RefDataComponentsApi(dorcApiConfiguration);
       api.refDataComponentsGet({ id: projectName }).subscribe({
         next: value => {
           this.components = value.Items || [];
@@ -365,7 +366,7 @@ export class PageProjectComponents extends ResponsiveMixin(PageElement) {
       }
 
       this.environmentsLoading = true;
-      const api = new RefDataProjectEnvironmentMappingsApi();
+      const api = new RefDataProjectEnvironmentMappingsApi(dorcApiConfiguration);
       api
         .refDataProjectEnvironmentMappingsGet({
           project: this.projectName,
@@ -406,7 +407,7 @@ export class PageProjectComponents extends ResponsiveMixin(PageElement) {
 
   private loadBuildsForEnvironment(envName: string): Promise<void> {
     return new Promise(resolve => {
-      const api = new RefDataProjectBuildsApi();
+      const api = new RefDataProjectBuildsApi(dorcApiConfiguration);
       api.refDataProjectBuildsGet({ id: envName }).subscribe({
         next: (builds: EnvironmentContentBuildsApiModel[]) => {
           this.envBuildsMap.set(envName, builds);
