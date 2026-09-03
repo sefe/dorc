@@ -126,7 +126,7 @@ namespace Dorc.Api.Tests.Controllers
             var currentOwners = new List<AccessControlApiModel>(); // No current owners
             var newPrivileges = new List<AccessControlApiModel>
             {
-                new AccessControlApiModel { Id = 1, Allow = 4, Name = "NewOwner", Pid = "newowner" } // Owner flag (4)
+                new AccessControlApiModel { Id = 0, Allow = 4, Name = "NewOwner", Pid = "newowner" } // Owner flag (4)
             };
 
             var accessControl = new AccessSecureApiModel
@@ -227,6 +227,92 @@ namespace Dorc.Api.Tests.Controllers
             var objectResult = (ObjectResult)result;
             Assert.AreEqual(StatusCodes.Status400BadRequest, objectResult.StatusCode);
             _accessControlPersistentSource.DidNotReceive().AddAccessControl(Arg.Any<AccessControlApiModel>(), Arg.Any<Guid>(), Arg.Any<ClaimsPrincipal>());
+        }
+
+        [TestMethod]
+        public void Put_PrivilegeFromAnotherObject_ReturnsBadRequest()
+        {
+            var objectId = Guid.NewGuid();
+            _securityPrivilegesChecker.CanModifyEnvironment(_user, "EnvA").Returns(true);
+            _securityPrivilegesChecker.CanReadSecrets(_user, "EnvA").Returns(true);
+            StubResolvedObject("EnvA", objectId);
+            _accessControlPersistentSource.GetAccessControls(objectId).Returns(
+                new[]
+                {
+                    new AccessControlApiModel
+                    {
+                        Id = 1,
+                        Allow = 4,
+                        Name = "Owner",
+                        Pid = "owner"
+                    }
+                });
+
+            var result = _controller.Put(new AccessSecureApiModel
+            {
+                Type = AccessControlType.Environment,
+                Name = "EnvA",
+                Privileges =
+                [
+                    new AccessControlApiModel
+                    {
+                        Id = 99,
+                        Allow = 4,
+                        Name = "Attacker",
+                        Pid = "attacker"
+                    }
+                ]
+            });
+
+            var objectResult = Assert.IsInstanceOfType<ObjectResult>(result);
+            Assert.AreEqual(StatusCodes.Status400BadRequest, objectResult.StatusCode);
+            _accessControlPersistentSource.DidNotReceive().UpdateAccessControl(
+                Arg.Any<AccessControlApiModel>(),
+                Arg.Any<Guid>(),
+                Arg.Any<ClaimsPrincipal>());
+        }
+
+        [TestMethod]
+        public void Put_ReadSecretsPrivilegeCannotBeRepointedToAnotherPrincipal()
+        {
+            var objectId = Guid.NewGuid();
+            _securityPrivilegesChecker.CanModifyEnvironment(_user, "EnvA").Returns(true);
+            _securityPrivilegesChecker.CanReadSecrets(_user, "EnvA").Returns(false);
+            StubResolvedObject("EnvA", objectId);
+            _accessControlPersistentSource.GetAccessControls(objectId).Returns(
+                new[]
+                {
+                    new AccessControlApiModel
+                    {
+                        Id = 1,
+                        Allow = 2,
+                        Name = "Existing reader",
+                        Pid = "existing-reader"
+                    }
+                });
+
+            var result = _controller.Put(new AccessSecureApiModel
+            {
+                Type = AccessControlType.Environment,
+                Name = "EnvA",
+                Privileges =
+                [
+                    new AccessControlApiModel
+                    {
+                        Id = 1,
+                        Allow = 2,
+                        Name = "Attacker",
+                        Pid = "attacker"
+                    }
+                ]
+            });
+
+            var objectResult = Assert.IsInstanceOfType<ObjectResult>(result);
+            Assert.AreEqual(StatusCodes.Status403Forbidden, objectResult.StatusCode);
+            _accessControlPersistentSource.DidNotReceive().UpdateAccessControl(
+                Arg.Any<AccessControlApiModel>(),
+                Arg.Any<Guid>(),
+                Arg.Any<ClaimsPrincipal>());
         }
     }
 }

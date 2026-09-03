@@ -167,12 +167,10 @@ namespace Dorc.Api.Controllers
 
                 if (!canReadSecrets)
                 {
-                    foreach (var pv in propertyValues)
+                    foreach (var pv in propertyValues.Where(
+                                 propertyValue => propertyValue?.Property?.Secure == true))
                     {
-                        if (pv?.Property?.Secure == true)
-                        {
-                            pv.Value = null;
-                        }
+                        pv.Value = null;
                     }
                 }
 

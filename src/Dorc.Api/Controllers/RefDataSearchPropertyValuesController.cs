@@ -49,19 +49,18 @@ namespace Dorc.Api.Controllers
             {
                 var scopeName = item.PropertyValueScope ?? string.Empty;
 
-                bool canReadSecrets = false;
-                if (!string.IsNullOrWhiteSpace(scopeName))
+                var canReadSecrets = false;
+                if (!string.IsNullOrWhiteSpace(scopeName) &&
+                    !canReadCache.TryGetValue(scopeName, out canReadSecrets))
                 {
-                    if (!canReadCache.TryGetValue(scopeName, out canReadSecrets))
-                    {
-                        canReadSecrets = _securityPrivilegesChecker.CanReadSecrets(User, scopeName);
-                        canReadCache[scopeName] = canReadSecrets;
-                    }
+                    canReadSecrets = _securityPrivilegesChecker.CanReadSecrets(User, scopeName);
+                    canReadCache[scopeName] = canReadSecrets;
                 }
 
-                if (item.Secure == true && !canReadSecrets)
+                if (item.Secure && !canReadSecrets)
                 {
                     item.PropertyValue = null;
+                    item.PropertyArrayValue = null;
                 }
             }
 
