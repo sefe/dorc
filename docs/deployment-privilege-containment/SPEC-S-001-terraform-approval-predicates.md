@@ -2,7 +2,7 @@
 
 | Field       | Value                                                        |
 |-------------|--------------------------------------------------------------|
-| **Status**  | DRAFT                                                        |
+| **Status**  | IMPLEMENTED — 22 controller tests + 9 canonicaliser tests green |
 | **Step**    | S-001                                                        |
 | **Author**  | Agent                                                        |
 | **Date**    | 2026-08-10                                                   |
@@ -10,7 +10,7 @@
 | **HLPS**    | HLPS-deployment-privilege-containment.md (APPROVED)          |
 | **Addresses** | SD-10, W-10 (rank 1), SC-05a                               |
 | **Folder**  | docs/deployment-privilege-containment/                       |
-| **Branch**  | `feat/dpc-s001-terraform-approval-predicates`                |
+| **Branch**  | `claude/system-criticism-vgguyu` (session-designated; supersedes the name proposed here) |
 | **Governing constraints** | C-07 (naming), C-08 (no secrets in logs or error messages) |
 
 ---
