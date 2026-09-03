@@ -7,7 +7,7 @@ All URIs are relative to *https://dev.azure.com*
 | [**BadgeGet**](BadgeApi.md#badgeget) | **GET** /{organization}/_apis/public/build/definitions/{project}/{definitionId}/badge |  |
 | [**BadgeGetBuildBadgeData**](BadgeApi.md#badgegetbuildbadgedata) | **GET** /{organization}/{project}/_apis/build/repos/{repoType}/badge |  |
 
-<a name="badgeget"></a>
+<a id="badgeget"></a>
 # **BadgeGet**
 > string BadgeGet (string organization, Guid project, int definitionId, string apiVersion, string? branchName = null)
 
@@ -108,7 +108,7 @@ catch (ApiException e)
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-<a name="badgegetbuildbadgedata"></a>
+<a id="badgegetbuildbadgedata"></a>
 # **BadgeGetBuildBadgeData**
 > string BadgeGetBuildBadgeData (string organization, string project, string repoType, string apiVersion, string? repoId = null, string? branchName = null)
 

@@ -30,6 +30,8 @@ import {
 } from '../apis/dorc-api';
 import './connection-status-indicator';
 import { HubConnectionState } from '@microsoft/signalr';
+import '@vaadin/tooltip';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('request-status-card')
 export class RequestStatusCard extends LitElement {
@@ -39,7 +41,8 @@ export class RequestStatusCard extends LitElement {
   @property({ type: String })
   selectedProject = '';
 
-  @property({ type: String }) hubConnectionState: string | undefined = HubConnectionState.Disconnected;
+  @property({ type: String }) hubConnectionState: string | undefined =
+    HubConnectionState.Disconnected;
 
   @state()
   buildNumberHref = '';
@@ -139,10 +142,14 @@ export class RequestStatusCard extends LitElement {
             </td>
             <td style="vertical-align: middle">
               <vaadin-button
-                title="Refresh Page"
+                aria-label="Refresh Page"
                 theme="icon"
                 @click="${this.refresh}"
               >
+                <vaadin-tooltip
+                  slot="tooltip"
+                  text="Refresh Page"
+                ></vaadin-tooltip>
                 <vaadin-icon
                   icon="icons:refresh"
                   style="color: var(--dorc-link-color)"
@@ -153,22 +160,29 @@ export class RequestStatusCard extends LitElement {
               <connection-status-indicator
                 mode="icon"
                 .state="${this.hubConnectionState}"
+                .showWhenConnected="${true}"
               ></connection-status-indicator>
             </td>
-            ${this.deployRequest.Log !== null && this.deployRequest.Log !== '0'
-              ? html` <td style="vertical-align: middle">
-                  <vaadin-button
-                    title="View Log"
-                    theme="icon"
-                    @click="${this.viewLog}"
-                  >
-                    <vaadin-icon
-                      icon="notification:sms-failed"
-                      style="color: var(--dorc-error-color)"
-                    ></vaadin-icon>
-                  </vaadin-button>
-                </td>`
-              : html``}
+            ${
+              this.deployRequest.Log !== null && this.deployRequest.Log !== '0'
+                ? html` <td style="vertical-align: middle">
+                    <vaadin-button
+                      aria-label="View Log"
+                      theme="icon"
+                      @click="${this.viewLog}"
+                    >
+                      <vaadin-tooltip
+                        slot="tooltip"
+                        text="View Log"
+                      ></vaadin-tooltip>
+                      <vaadin-icon
+                        icon="notification:sms-failed"
+                        style="color: var(--dorc-error-color)"
+                      ></vaadin-icon>
+                    </vaadin-button>
+                  </td>`
+                : html``
+            }
           </tr>
         </table>
         <table>
@@ -183,11 +197,18 @@ export class RequestStatusCard extends LitElement {
               <h4 class="card-element__text">
                 ${this.deployRequest?.EnvironmentName}
                 <vaadin-button
-                  title="Open Environment Details for ${this.deployRequest
-                    ?.EnvironmentName}"
+                  aria-label="Open Environment Details for ${
+                    this.deployRequest?.EnvironmentName
+                  }"
                   theme="icon"
                   @click="${this.openEnvironmentDetails}"
                 >
+                  <vaadin-tooltip
+                    slot="tooltip"
+                    text="Open Environment Details for ${
+                      this.deployRequest?.EnvironmentName
+                    }"
+                  ></vaadin-tooltip>
                   <vaadin-icon
                     icon="hardware:developer-board"
                     style="color: var(--dorc-link-color)"
@@ -208,11 +229,13 @@ export class RequestStatusCard extends LitElement {
             <td class="requested-titles card-element__text">Build Number:</td>
             <td>
               <h4 class="card-element__text">
-                ${this.buildNumberHref === ''
-                  ? html`${this.deployRequest?.BuildNumber}`
-                  : html` <a href="${this.buildNumberHref}" target="_blank"
-                      >${this.deployRequest?.BuildNumber}</a
-                    >`}
+                ${
+                  this.buildNumberHref === ''
+                    ? html`${this.deployRequest?.BuildNumber}`
+                    : html` <a href="${this.buildNumberHref}" target="_blank"
+                        >${this.deployRequest?.BuildNumber}</a
+                      >`
+                }
               </h4>
             </td>
           </tr>
@@ -260,72 +283,95 @@ export class RequestStatusCard extends LitElement {
               </h4>
             </td>
           </tr>
-          ${this.deployRequest?.Status == 'Cancelled' || this.deployRequest?.Status == 'Cancelling'
-            ? html` <tr>
-                <td class="requested-titles card-element__text">Cancelled by:</td>
-                <td>
-                  <h4 class="card-element__text">
-                    ${this.deployRequest?.CancelledBy}
-              </h4>
-            </td>
-          </tr>
-          <tr>
-            <td class="requested-titles card-element__text">Cancelled Time:</td>
-            <td>
-              <h4 class="card-element__text">
-                ${this.convertToDate(
-                  this.deployRequest?.CancelledTime !== null
-                    ? this.deployRequest?.CancelledTime
-                    : undefined
-                )}
-              </h4>
-            </td>
-          </tr>
-        `: html``}
-          ${this.deployRequest?.UncLogPath !== null
-            ? html` <tr>
-                <td class="requested-titles card-element__text">Raw Log:</td>
-                <td>
-                  <h4 class="card-element__text">
-                    ${this.deployRequest?.UncLogPath}
-                    <vaadin-button
-                      title="Copy Path"
-                      theme="icon"
-                      @click="${this.copyRawLog}"
-                    >
-                      <vaadin-icon
-                        icon="icons:content-copy"
-                        style="color: var(--dorc-link-color)"
-                      ></vaadin-icon>
-                    </vaadin-button>
-                  </h4>
-                </td>
-              </tr>`
-            : html``}
+          ${
+            this.deployRequest?.Status == 'Cancelled' ||
+            this.deployRequest?.Status == 'Cancelling'
+              ? html`
+                  <tr>
+                    <td class="requested-titles card-element__text">
+                      Cancelled by:
+                    </td>
+                    <td>
+                      <h4 class="card-element__text">
+                        ${this.deployRequest?.CancelledBy}
+                      </h4>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="requested-titles card-element__text">
+                      Cancelled Time:
+                    </td>
+                    <td>
+                      <h4 class="card-element__text">
+                        ${this.convertToDate(
+                          this.deployRequest?.CancelledTime !== null
+                            ? this.deployRequest?.CancelledTime
+                            : undefined
+                        )}
+                      </h4>
+                    </td>
+                  </tr>
+                `
+              : html``
+          }
+          ${
+            this.deployRequest?.UncLogPath !== null
+              ? html` <tr>
+                  <td class="requested-titles card-element__text">Raw Log:</td>
+                  <td>
+                    <h4 class="card-element__text">
+                      ${this.deployRequest?.UncLogPath}
+                      <vaadin-button
+                        aria-label="Copy Path"
+                        theme="icon"
+                        @click="${this.copyRawLog}"
+                      >
+                        <vaadin-tooltip
+                          slot="tooltip"
+                          text="Copy Path"
+                        ></vaadin-tooltip>
+                        <vaadin-icon
+                          icon="icons:content-copy"
+                          style="color: var(--dorc-link-color)"
+                        ></vaadin-icon>
+                      </vaadin-button>
+                    </h4>
+                  </td>
+                </tr>`
+              : html``
+          }
         </table>
         <request-controls
           style="position: absolute; right: 15px; top: 65px;"
           .requestId="${this.deployRequest.Id ?? 0}"
-          .cancelable="${!!this.deployRequest.UserEditable &&
-          (this.deployRequest.Status === 'Running' ||
-            this.deployRequest.Status === 'Requesting' ||
-            this.deployRequest.Status === 'Pending' ||
-            this.deployRequest.Status === 'Restarting' ||
-            this.deployRequest.Status === 'Paused')}"
-          .canRestart="${!!this.deployRequest.UserEditable &&
-          this.deployRequest.Status !== 'Pending' &&
-          this.deployRequest.Status !== 'Paused'}"
-          .canPause="${!!this.deployRequest.UserEditable &&
-          this.deployRequest.Status === 'Pending'}"
-          .canResume="${!!this.deployRequest.UserEditable &&
-          this.deployRequest.Status === 'Paused'}"
+          .cancelable="${
+            !!this.deployRequest.UserEditable &&
+            (this.deployRequest.Status === 'Running' ||
+              this.deployRequest.Status === 'Requesting' ||
+              this.deployRequest.Status === 'Pending' ||
+              this.deployRequest.Status === 'Restarting' ||
+              this.deployRequest.Status === 'Paused')
+          }"
+          .canRestart="${
+            !!this.deployRequest.UserEditable &&
+            this.deployRequest.Status !== 'Pending' &&
+            this.deployRequest.Status !== 'Paused'
+          }"
+          .canPause="${
+            !!this.deployRequest.UserEditable &&
+            this.deployRequest.Status === 'Pending'
+          }"
+          .canResume="${
+            !!this.deployRequest.UserEditable &&
+            this.deployRequest.Status === 'Paused'
+          }"
         ></request-controls>
       </div>
     `;
   }
 
   openEnvironmentDetails() {
-    const api2 = new RefDataEnvironmentsApi();
+    const api2 = new RefDataEnvironmentsApi(dorcApiConfiguration);
     api2
       .refDataEnvironmentsGet({
         env:
@@ -426,9 +472,11 @@ export class RequestStatusCard extends LitElement {
   protected firstUpdated(_changedProperties: PropertyValues) {
     super.firstUpdated(_changedProperties);
 
-    const projectsApi = new RefDataProjectsApi();
+    const projectsApi = new RefDataProjectsApi(dorcApiConfiguration);
     projectsApi
-      .refDataProjectsProjectNameGet({ projectName: this.deployRequest.Project ?? '' })
+      .refDataProjectsProjectNameGet({
+        projectName: this.deployRequest.Project ?? ''
+      })
       .subscribe({
         next: (project: ProjectApiModel) => {
           const org = project.ArtefactsUrl?.split('/')[3] ?? '';
@@ -436,16 +484,12 @@ export class RequestStatusCard extends LitElement {
           const buildId = this.deployRequest?.BuildUri?.split('/').pop() ?? '';
           this.buildNumberHref = `https://dev.azure.com/${
             org + '/' + adProject
-          }/_build/results?buildId=${
-            buildId
-          }&view=results`;
+          }/_build/results?buildId=${buildId}&view=results`;
         }
       });
   }
 
   private refresh() {
-    this.deployRequest.Status = 'Refreshing...';
-    this.requestUpdate();
     this.dispatchEvent(
       new CustomEvent('refresh-monitor-result', {
         detail: {

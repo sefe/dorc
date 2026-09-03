@@ -14,7 +14,7 @@
 import type { Observable } from 'rxjs';
 import type { AjaxResponse } from 'rxjs/ajax';
 import { BaseAPI } from '../runtime';
-import type { OperationOpts, HttpQuery } from '../runtime';
+import type { OperationOpts, HttpHeaders, HttpQuery } from '../runtime';
 import type {
     ComponentApiModelTemplateApiModel,
 } from '../models';
@@ -34,6 +34,16 @@ export class RefDataComponentsApi extends BaseAPI {
     refDataComponentsGet({ id }: RefDataComponentsGetRequest, opts?: OperationOpts): Observable<AjaxResponse<ComponentApiModelTemplateApiModel>>
     refDataComponentsGet({ id }: RefDataComponentsGetRequest, opts?: OperationOpts): Observable<ComponentApiModelTemplateApiModel | AjaxResponse<ComponentApiModelTemplateApiModel>> {
 
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         const query: HttpQuery = {};
 
         if (id != null) { query['id'] = id; }
@@ -41,6 +51,7 @@ export class RefDataComponentsApi extends BaseAPI {
         return this.request<ComponentApiModelTemplateApiModel>({
             url: '/RefDataComponents',
             method: 'GET',
+            headers,
             query,
         }, opts?.responseOpts);
     };

@@ -23,17 +23,6 @@ class ThemeManager {
       html.removeAttribute('theme');
     }
 
-    // Propagate theme to any Vaadin overlay containers already in the DOM
-    document
-      .querySelectorAll('vaadin-dialog-overlay, vaadin-overlay')
-      .forEach(el => {
-        if (theme === 'dark') {
-          el.setAttribute('theme', 'dark');
-        } else {
-          el.removeAttribute('theme');
-        }
-      });
-
     this.listeners.forEach(fn => fn(theme));
   }
 
@@ -64,22 +53,11 @@ class ThemeManager {
         }
       });
 
-    // Watch for dynamically created Vaadin overlays and propagate theme
-    const observer = new MutationObserver(mutations => {
-      const theme = this.current;
-      if (theme !== 'dark') return;
-      for (const m of mutations) {
-        m.addedNodes.forEach(node => {
-          if (node instanceof HTMLElement) {
-            const tag = node.tagName?.toLowerCase() ?? '';
-            if (tag.includes('overlay')) {
-              node.setAttribute('theme', 'dark');
-            }
-          }
-        });
-      }
-    });
-    observer.observe(document.body, { childList: true });
+    // NB: no overlay theme propagation is needed. Vaadin 25 nests a dialog's
+    // overlay inside the <vaadin-dialog> element's own shadow root rather than
+    // appending it to document.body, so a document-level query could never
+    // reach one — verified against the running app. Lumo custom properties
+    // inherit through shadow boundaries, so dark mode reaches overlays anyway.
   }
 }
 

@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// Represents a change associated with a build.
     /// </summary>
     [DataContract(Name = "Change")]
-    public partial class Change : IEquatable<Change>, IValidatableObject
+    public partial class Change : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="Change" /> class.
@@ -44,7 +44,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="pusher">The person or process that pushed the change..</param>
         /// <param name="timestamp">The timestamp for the change..</param>
         /// <param name="type">The type of change. \&quot;commit\&quot;, \&quot;changeset\&quot;, etc..</param>
-        public Change(IdentityRef author = default(IdentityRef), string displayUri = default(string), string id = default(string), string location = default(string), string message = default(string), bool messageTruncated = default(bool), string pusher = default(string), DateTime timestamp = default(DateTime), string type = default(string))
+        public Change(IdentityRef author = default, string displayUri = default, string id = default, string location = default, string message = default, bool messageTruncated = default, string pusher = default, DateTime timestamp = default, string type = default)
         {
             this.Author = author;
             this.DisplayUri = displayUri;
@@ -150,125 +150,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as Change);
-        }
-
-        /// <summary>
-        /// Returns true if Change instances are equal
-        /// </summary>
-        /// <param name="input">Instance of Change to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(Change input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.Author == input.Author ||
-                    (this.Author != null &&
-                    this.Author.Equals(input.Author))
-                ) && 
-                (
-                    this.DisplayUri == input.DisplayUri ||
-                    (this.DisplayUri != null &&
-                    this.DisplayUri.Equals(input.DisplayUri))
-                ) && 
-                (
-                    this.Id == input.Id ||
-                    (this.Id != null &&
-                    this.Id.Equals(input.Id))
-                ) && 
-                (
-                    this.Location == input.Location ||
-                    (this.Location != null &&
-                    this.Location.Equals(input.Location))
-                ) && 
-                (
-                    this.Message == input.Message ||
-                    (this.Message != null &&
-                    this.Message.Equals(input.Message))
-                ) && 
-                (
-                    this.MessageTruncated == input.MessageTruncated ||
-                    this.MessageTruncated.Equals(input.MessageTruncated)
-                ) && 
-                (
-                    this.Pusher == input.Pusher ||
-                    (this.Pusher != null &&
-                    this.Pusher.Equals(input.Pusher))
-                ) && 
-                (
-                    this.Timestamp == input.Timestamp ||
-                    (this.Timestamp != null &&
-                    this.Timestamp.Equals(input.Timestamp))
-                ) && 
-                (
-                    this.Type == input.Type ||
-                    (this.Type != null &&
-                    this.Type.Equals(input.Type))
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.Author != null)
-                {
-                    hashCode = (hashCode * 59) + this.Author.GetHashCode();
-                }
-                if (this.DisplayUri != null)
-                {
-                    hashCode = (hashCode * 59) + this.DisplayUri.GetHashCode();
-                }
-                if (this.Id != null)
-                {
-                    hashCode = (hashCode * 59) + this.Id.GetHashCode();
-                }
-                if (this.Location != null)
-                {
-                    hashCode = (hashCode * 59) + this.Location.GetHashCode();
-                }
-                if (this.Message != null)
-                {
-                    hashCode = (hashCode * 59) + this.Message.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.MessageTruncated.GetHashCode();
-                if (this.Pusher != null)
-                {
-                    hashCode = (hashCode * 59) + this.Pusher.GetHashCode();
-                }
-                if (this.Timestamp != null)
-                {
-                    hashCode = (hashCode * 59) + this.Timestamp.GetHashCode();
-                }
-                if (this.Type != null)
-                {
-                    hashCode = (hashCode * 59) + this.Type.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

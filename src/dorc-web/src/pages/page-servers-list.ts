@@ -1,4 +1,6 @@
+import { columnBodyRenderer, columnHeaderRenderer } from '@vaadin/grid/lit';
 import '@vaadin/button';
+import '../components/dorc-spinner';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/grid/vaadin-grid-column';
 import '@vaadin/grid/vaadin-grid-sort-column';
@@ -6,7 +8,7 @@ import '@vaadin/icons/vaadin-icons';
 import '@vaadin/grid/vaadin-grid-filter';
 import '@vaadin/icon';
 import '@vaadin/text-field';
-import { css, PropertyValues, render } from 'lit';
+import { css, PropertyValues } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import '../components/add-edit-server';
@@ -17,13 +19,11 @@ import { dialogFooterRenderer, dialogRenderer } from '@vaadin/dialog/lit';
 import { map } from 'lit/directives/map.js';
 import { Notification } from '@vaadin/notification';
 import { TextField } from '@vaadin/text-field';
-import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
 import {
   Grid,
   GridDataProviderCallback,
   GridDataProviderParams,
   GridFilterDefinition,
-  GridItemModel,
   GridSorterDefinition
 } from '@vaadin/grid';
 import {
@@ -44,6 +44,9 @@ import '../components/server-tags';
 import '@vaadin/grid/vaadin-grid-sorter';
 import { ErrorNotification } from '../components/notifications/error-notification';
 import { splitTags } from '../helpers/tag-parser';
+import { ref } from 'lit/directives/ref.js';
+import { UnsavedChangesGuard } from '../components/unsaved-changes-guard';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 const environmentNames = 'EnvironmentNames';
 const name = 'Name';
@@ -52,6 +55,8 @@ const applicationTags = 'ApplicationTags';
 
 @customElement('page-servers-list')
 export class PageServersList extends ResponsiveMixin(PageElement) {
+  private readonly unsavedChanges = new UnsavedChangesGuard();
+
   @property({ type: Boolean }) loading = true;
   @property({ type: Boolean }) searching = false;
   @query('#grid') grid: Grid | undefined;
@@ -90,63 +95,7 @@ export class PageServersList extends ResponsiveMixin(PageElement) {
         margin: 0;
       }
 
-      .overlay {
-        width: 100%;
-        height: 100%;
-        position: fixed;
-      }
-
-      .overlay__inner {
-        width: 100%;
-        height: 100%;
-        position: absolute;
-      }
-
-      .overlay__content {
-        left: 20%;
-        position: absolute;
-        top: 20%;
-        transform: translate(-50%, -50%);
-      }
-
-      .spinner {
-        width: 75px;
-        height: 75px;
-        display: inline-block;
-        border-width: 2px;
-        border-color: var(--dorc-border-color);
-        border-top-color: var(--dorc-link-color);
-        animation: spin 1s infinite linear;
-        border-radius: 100%;
-        border-style: solid;
-      }
-
-      @keyframes spin {
-        100% {
-          transform: rotate(360deg);
-        }
-      }
-
       .tag {
-        font-size: var(--lumo-font-size-s);
-        font-family: monospace;
-        background-color: var(--dorc-chip-bg);
-        color: var(--dorc-chip-text);
-        display: inline-block;
-        padding: 3px;
-        margin: 3px;
-        text-decoration: none;
-        border-radius: 3px;
-      }
-
-      .tag:hover {
-        background-color: var(--dorc-badge-bg);
-        color: var(--dorc-badge-text);
-        cursor: pointer;
-        text-decoration: none;
-      }
-
-      .env {
         font-size: var(--lumo-font-size-s);
         border: 0;
         font-family: monospace;
@@ -162,11 +111,31 @@ export class PageServersList extends ResponsiveMixin(PageElement) {
         border-radius: 3px;
       }
 
-      .env:hover {
+      .tag:hover {
         background-color: var(
           --_lumo-button-background-color,
           var(--lumo-contrast-10pct)
         );
+        color: var(--dorc-badge-text);
+        cursor: pointer;
+        text-decoration: none;
+      }
+
+      .env {
+        font-size: var(--lumo-font-size-s);
+        border: 0;
+        font-family: monospace;
+        background-color: var(--dorc-chip-bg);
+        color: var(--dorc-chip-text);
+        display: inline-block;
+        padding: 3px;
+        margin: 3px;
+        text-decoration: none;
+        border-radius: 3px;
+      }
+
+      .env:hover {
+        background-color: var(--dorc-badge-bg);
         color: var(--dorc-badge-text);
         cursor: pointer;
         text-decoration: none;
@@ -184,8 +153,9 @@ export class PageServersList extends ResponsiveMixin(PageElement) {
   render() {
     return html`
         <vaadin-dialog
+        ${ref(this.unsavedChanges.attach)}
         id="daemon-mapping-dialog"
-        title="Manage Daemon Mappings for ${this.selectedServer?.Name}"
+        header-title="Manage Daemon Mappings for ${this.selectedServer?.Name}"
         .opened="${this.manageDaemonMappingsDialogOpened}"
         draggable
         @opened-changed="${(event: DialogOpenedChangedEvent) => {
@@ -198,6 +168,7 @@ export class PageServersList extends ResponsiveMixin(PageElement) {
         ${dialogFooterRenderer(this.renderManageDaemonMappingsFooter, [])}
       ></vaadin-dialog>
       <vaadin-dialog
+        ${ref(this.unsavedChanges.attach)}
         id='add-edit-server-dialog'
         header-title='Add/Edit Server'
         .opened='${this.addEditServerDialogOpened}'
@@ -212,6 +183,7 @@ export class PageServersList extends ResponsiveMixin(PageElement) {
         ${dialogFooterRenderer(this.renderAddEditServerFooter, [])}
       ></vaadin-dialog>
       <vaadin-dialog
+        ${ref(this.unsavedChanges.attach)}
         id='tags-dialog'
         header-title='Edit Server Tags for ${this.selectedServer?.Name}'
         .opened='${this.editTagsDialogOpened}'
@@ -222,17 +194,7 @@ export class PageServersList extends ResponsiveMixin(PageElement) {
         ${dialogRenderer(this.renderEditTagsDialog, [this.selectedServer])}
         ${dialogFooterRenderer(this.renderEditTagsFooter, [])}
       ></vaadin-dialog>
-      <div
-        class='overlay'
-        style='z-index: 2'
-        ?hidden='${!(this.loading || this.searching)}'
-      >
-        <div class='overlay__inner'>
-          <div class='overlay__content'>
-            <span class='spinner'></span>
-          </div>
-        </div>
-      </div>
+      <dorc-spinner ?hidden="${!(this.loading || this.searching)}"></dorc-spinner>
       <vaadin-grid
         id='grid'
         .dataProvider='${this.debouncedDataProvider}'
@@ -245,7 +207,7 @@ export class PageServersList extends ResponsiveMixin(PageElement) {
         <vaadin-grid-column
           path='Name'
           resizable
-          .headerRenderer='${this.nameHeaderRenderer}'
+          ${columnHeaderRenderer(this.nameHeaderRenderer, [])}
           style='color:var(--dorc-text-secondary)'
           auto-width
           flex-grow='0'
@@ -253,22 +215,22 @@ export class PageServersList extends ResponsiveMixin(PageElement) {
         <vaadin-grid-column
           path='OsName'
           resizable
-          .headerRenderer='${this.osHeaderRenderer}'
+          ${columnHeaderRenderer(this.osHeaderRenderer, [])}
           auto-width
           flex-grow='0'
           ?hidden='${this._narrowScreen}'
         ></vaadin-grid-column>
         <vaadin-grid-column
-          .renderer='${this.applicationTagsRenderer}'
+          ${columnBodyRenderer(this.applicationTagsRenderer, [])}
           resizable
-          .headerRenderer='${this.appTagsHeaderRenderer}'
+          ${columnHeaderRenderer(this.appTagsHeaderRenderer, [])}
           ?hidden='${this._narrowScreen}'
         ></vaadin-grid-column>
         <vaadin-grid-column
           width='300px'
           flex-grow='0'
-          .renderer='${this.environmentNamesRenderer}'
-          .headerRenderer='${this.environmentNamesHeaderRenderer}'
+          ${columnBodyRenderer(this.environmentNamesRenderer, [])}
+          ${columnHeaderRenderer(this.environmentNamesHeaderRenderer, [])}
           resizable
           header='Mapped Environments'
           ?hidden='${this._narrowScreen}'
@@ -277,8 +239,8 @@ export class PageServersList extends ResponsiveMixin(PageElement) {
           width='200px'
           flex-grow='0'
           resizable
-          .renderer='${this._boundServersButtonsRenderer}'
-          .headerRenderer='${this.buttonsHeaderRenderer}'
+          ${columnBodyRenderer(this._boundServersButtonsRenderer, [])}
+          ${columnHeaderRenderer(this.buttonsHeaderRenderer, [])}
         >
       </vaadin-grid>
       <img
@@ -336,7 +298,7 @@ export class PageServersList extends ResponsiveMixin(PageElement) {
         });
       }
 
-      const api = new RefDataServersApi();
+      const api = new RefDataServersApi(dorcApiConfiguration);
       api
         .refDataServersByPagePut({
           pagedDataOperators: {
@@ -419,7 +381,7 @@ export class PageServersList extends ResponsiveMixin(PageElement) {
     <vaadin-button @click="${this.closeEditTagsDialog}">Close</vaadin-button>
   `;
 
-    private renderManageDaemonMappingsDialog = () => html`
+  private renderManageDaemonMappingsDialog = () => html`
     <map-daemons
       id="map-daemons"
       .server="${this.selectedServer}"
@@ -431,7 +393,6 @@ export class PageServersList extends ResponsiveMixin(PageElement) {
       >Close</vaadin-button
     >
   `;
-
 
   private renderAddEditServerDialog = () => html`
     <add-edit-server
@@ -451,7 +412,6 @@ export class PageServersList extends ResponsiveMixin(PageElement) {
   private closeManageDaemonMappingsDialog() {
     this.manageDaemonMappingsDialogOpened = false;
   }
-
 
   private closeAddEditServerDialog() {
     this.addEditServerDialogOpened = false;
@@ -485,196 +445,171 @@ export class PageServersList extends ResponsiveMixin(PageElement) {
     }
   }
 
-  buttonsHeaderRenderer(root: HTMLElement) {
-    render(
-      html`
-        <vaadin-button
-          title="Add Server"
-          theme="small"
-          @click="${() => {
-            const event = new CustomEvent('open-add-edit-server-dialog', {
-              detail: {},
+  buttonsHeaderRenderer() {
+    return html`
+      <vaadin-button
+        title="Add Server"
+        theme="small"
+        @click="${() => {
+          const event = new CustomEvent('open-add-edit-server-dialog', {
+            detail: {},
+            bubbles: true,
+            composed: true
+          });
+          this.dispatchEvent(event);
+        }}"
+      >
+        <vaadin-icon
+          icon="vaadin:server"
+          style="color: var(--dorc-link-color)"
+        ></vaadin-icon>
+        Add Server...
+      </vaadin-button>
+    `;
+  }
+
+  environmentNamesHeaderRenderer() {
+    return html`
+      <vaadin-text-field
+        placeholder="Environments"
+        clear-button-visible
+        focus-target
+        style="width: 120px"
+        theme="small"
+        @input="${(e: InputEvent) => {
+          const textField = e.target as TextField;
+          this.dispatchEvent(
+            new CustomEvent('searching-servers-started', {
+              detail: {
+                field: environmentNames,
+                value: textField?.value
+              },
               bubbles: true,
               composed: true
-            });
-            this.dispatchEvent(event);
-          }}"
-        >
-          <vaadin-icon
-            icon="vaadin:server"
-            style="color: var(--dorc-link-color)"
-          ></vaadin-icon>
-          Add Server...
-        </vaadin-button>
-      `,
-      root
-    );
+            })
+          );
+        }}"
+      ></vaadin-text-field>
+    `;
   }
 
-  environmentNamesHeaderRenderer(root: HTMLElement) {
-    render(
-      html`
-        <vaadin-text-field
-          placeholder="Environments"
-          clear-button-visible
-          focus-target
-          style="width: 120px"
-          theme="small"
-          @input="${(e: InputEvent) => {
-            const textField = e.target as TextField;
-            this.dispatchEvent(
-              new CustomEvent('searching-servers-started', {
-                detail: {
-                  field: environmentNames,
-                  value: textField?.value
-                },
-                bubbles: true,
-                composed: true
-              })
-            );
-          }}"
-        ></vaadin-text-field>
-      `,
-      root
-    );
+  nameHeaderRenderer() {
+    return html`<vaadin-grid-sorter
+        direction="asc"
+        path="Name"
+        style="align-items: normal"
+      ></vaadin-grid-sorter>
+      <vaadin-text-field
+        placeholder="Name"
+        clear-button-visible
+        focus-target
+        style="width: 120px"
+        theme="small"
+        @input="${(e: InputEvent) => {
+          const textField = e.target as TextField;
+          this.dispatchEvent(
+            new CustomEvent('searching-servers-started', {
+              detail: {
+                field: name,
+                value: textField?.value
+              },
+              bubbles: true,
+              composed: true
+            })
+          );
+        }}"
+      ></vaadin-text-field> `;
   }
 
-  nameHeaderRenderer(root: HTMLElement) {
-    render(
-      html`<vaadin-grid-sorter
-          direction="asc"
-          path="Name"
-          style="align-items: normal"
-        ></vaadin-grid-sorter>
-        <vaadin-text-field
-          placeholder="Name"
-          clear-button-visible
-          focus-target
-          style="width: 120px"
-          theme="small"
-          @input="${(e: InputEvent) => {
-            const textField = e.target as TextField;
-            this.dispatchEvent(
-              new CustomEvent('searching-servers-started', {
-                detail: {
-                  field: name,
-                  value: textField?.value
-                },
-                bubbles: true,
-                composed: true
-              })
-            );
-          }}"
-        ></vaadin-text-field> `,
-      root
-    );
+  osHeaderRenderer() {
+    return html`<vaadin-grid-sorter
+        path="OsName"
+        style="align-items: normal"
+      ></vaadin-grid-sorter>
+      <vaadin-text-field
+        placeholder="Operating System"
+        clear-button-visible
+        focus-target
+        style="width: 200px"
+        theme="small"
+        @input="${(e: InputEvent) => {
+          const textField = e.target as TextField;
+          this.dispatchEvent(
+            new CustomEvent('searching-servers-started', {
+              detail: {
+                field: osName,
+                value: textField?.value
+              },
+              bubbles: true,
+              composed: true
+            })
+          );
+        }}"
+      ></vaadin-text-field> `;
   }
 
-  osHeaderRenderer(root: HTMLElement) {
-    render(
-      html`<vaadin-grid-sorter
-          path="OsName"
-          style="align-items: normal"
-        ></vaadin-grid-sorter>
-        <vaadin-text-field
-          placeholder="Operating System"
-          clear-button-visible
-          focus-target
-          style="width: 200px"
-          theme="small"
-          @input="${(e: InputEvent) => {
-            const textField = e.target as TextField;
-            this.dispatchEvent(
-              new CustomEvent('searching-servers-started', {
-                detail: {
-                  field: osName,
-                  value: textField?.value
-                },
-                bubbles: true,
-                composed: true
-              })
-            );
-          }}"
-        ></vaadin-text-field> `,
-      root
-    );
+  appTagsHeaderRenderer() {
+    return html`<vaadin-grid-sorter
+        path="ApplicationTags"
+        style="align-items: normal"
+      ></vaadin-grid-sorter>
+      <vaadin-text-field
+        id="tags-search"
+        placeholder="Application Tags"
+        clear-button-visible
+        focus-target
+        style="width: 200px"
+        theme="small"
+        @value-changed="${(e: CustomEvent) => {
+          const textField = e.target as TextField;
+          this.dispatchEvent(
+            new CustomEvent('searching-servers-started', {
+              detail: {
+                field: applicationTags,
+                value: textField?.value
+              },
+              bubbles: true,
+              composed: true
+            })
+          );
+        }}"
+      ></vaadin-text-field> `;
   }
 
-  appTagsHeaderRenderer(root: HTMLElement) {
-    render(
-      html`<vaadin-grid-sorter
-          path="ApplicationTags"
-          style="align-items: normal"
-        ></vaadin-grid-sorter>
-        <vaadin-text-field
-          id="tags-search"
-          placeholder="Application Tags"
-          clear-button-visible
-          focus-target
-          style="width: 200px"
-          theme="small"
-          @value-changed="${(e: CustomEvent) => {
-            const textField = e.target as TextField;
-            this.dispatchEvent(
-              new CustomEvent('searching-servers-started', {
-                detail: {
-                  field: applicationTags,
-                  value: textField?.value
-                },
-                bubbles: true,
-                composed: true
-              })
-            );
-          }}"
-        ></vaadin-text-field> `,
-      root
-    );
-  }
-
-  private environmentNamesRenderer = (
-    root: HTMLElement,
-    _column: HTMLElement,
-    model: GridItemModel<ServerApiModel>
-  ) => {
-    const server = model.item;
+  private environmentNamesRenderer = (item: ServerApiModel) => {
+    const server = item;
     const envNames = server.EnvironmentNames?.sort();
 
-    render(
-      html`
-        <vaadin-horizontal-layout style="align-items: center;" theme="spacing">
-          <vaadin-vertical-layout
-            style="line-height: var(--lumo-line-height-s);"
-          >
-            ${map(
-              envNames,
-              (i: string) =>
-                html` <button
-                  class="env"
-                  @click="${() =>
-                          this.dispatchEvent(
-                                  new CustomEvent('open-environment-details', {
-                                      detail: {
-                                          envName: i
-                                      },
-                                      bubbles: true,
-                                      composed: true
-                                  })
-                          )
-              }"
-                  style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
-                >
-                  ${i}
-                </button>`
-            )}
-          </vaadin-vertical-layout>
-        </vaadin-horizontal-layout>
-      `,
-      root
-    );
+    return html`
+      <vaadin-horizontal-layout style="align-items: center;" theme="spacing">
+        <vaadin-vertical-layout style="line-height: var(--lumo-line-height-s);">
+          ${map(
+            envNames,
+            (i: string) =>
+              html` <button
+                class="env"
+                @click="${() =>
+                    this.dispatchEvent(
+                      new CustomEvent('open-environment-details', {
+                        detail: {
+                          envName: i
+                        },
+                        bubbles: true,
+                        composed: true
+                      })
+                    )}"
+                style="font-size: var(--lumo-font-size-s);"
+              >
+                ${i}
+              </button>`
+          )}
+        </vaadin-vertical-layout>
+      </vaadin-horizontal-layout>
+    `;
   };
 
   openEnvironmentDetails(event: CustomEvent) {
-    const api2 = new RefDataEnvironmentsApi();
+    const api2 = new RefDataEnvironmentsApi(dorcApiConfiguration);
     api2.refDataEnvironmentsGet({ env: event.detail.envName }).subscribe({
       next: (data: EnvironmentApiModel[]) => {
         if (data[0] !== null) {
@@ -709,40 +644,27 @@ export class PageServersList extends ResponsiveMixin(PageElement) {
     });
   }
 
-  _boundServersButtonsRenderer(
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<AttachedServers>
-  ) {
-    const server = model.item as ServerApiModel;
-    render(
-      html` <server-controls
-        .envId="${0}"
-        .readonly="${!server.UserEditable}"
-        .serverDetails="${server}"
-      >
-      </server-controls>`,
-      root
-    );
+  _boundServersButtonsRenderer(item: AttachedServers) {
+    const server = item as ServerApiModel;
+    return html` <server-controls
+      .envId="${0}"
+      .readonly="${!server.UserEditable}"
+      .serverDetails="${server}"
+    >
+    </server-controls>`;
   }
 
-  private applicationTagsRenderer = (
-    root: HTMLElement,
-    _: HTMLElement,
-    model: GridItemModel<ServerApiModel>
-  ) => {
-    const server = model.item;
+  private applicationTagsRenderer = (item: ServerApiModel) => {
+    const server = item;
     const appTags = splitTags(server.ApplicationTags);
 
-    render(
-      html`
-        ${map(
-          appTags,
-          value =>
-            html` <button
-              style="border: 0"
-              class="tag"
-              @click="${() =>
+    return html`
+      ${map(
+        appTags,
+        value =>
+          html` <button
+            class="tag"
+            @click="${() =>
                 this.dispatchEvent(
                   new CustomEvent('filter-tags-server-list', {
                     detail: {
@@ -752,13 +674,11 @@ export class PageServersList extends ResponsiveMixin(PageElement) {
                     composed: true
                   })
                 )}"
-            >
-              ${value}
-            </button>`
-        )}
-      `,
-      root
-    );
+          >
+            ${value}
+          </button>`
+      )}
+    `;
   };
 
   protected firstUpdated(_changedProperties: PropertyValues) {

@@ -7,7 +7,7 @@ All URIs are relative to *https://dev.azure.com*
 | [**RetentionGet**](RetentionApi.md#retentionget) | **GET** /{organization}/{project}/_apis/build/retention |  |
 | [**RetentionUpdate**](RetentionApi.md#retentionupdate) | **PATCH** /{organization}/{project}/_apis/build/retention |  |
 
-<a name="retentionget"></a>
+<a id="retentionget"></a>
 # **RetentionGet**
 > ProjectRetentionSetting RetentionGet (string organization, string project, string apiVersion)
 
@@ -104,7 +104,7 @@ catch (ApiException e)
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-<a name="retentionupdate"></a>
+<a id="retentionupdate"></a>
 # **RetentionUpdate**
 > ProjectRetentionSetting RetentionUpdate (string organization, string project, string apiVersion, UpdateProjectRetentionSettingModel body)
 

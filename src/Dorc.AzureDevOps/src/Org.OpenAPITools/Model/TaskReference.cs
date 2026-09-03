@@ -30,19 +30,19 @@ namespace Org.OpenAPITools.Model
     /// Represents a reference to a task.
     /// </summary>
     [DataContract(Name = "TaskReference")]
-    public partial class TaskReference : IEquatable<TaskReference>, IValidatableObject
+    public partial class TaskReference : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="TaskReference" /> class.
         /// </summary>
         /// <param name="id">The ID of the task definition..</param>
         /// <param name="name">The name of the task definition..</param>
-        /// <param name="version">The version of the task definition..</param>
-        public TaskReference(Guid id = default(Guid), string name = default(string), string version = default(string))
+        /// <param name="varVersion">The version of the task definition..</param>
+        public TaskReference(Guid id = default, string name = default, string varVersion = default)
         {
             this.Id = id;
             this.Name = name;
-            this._Version = version;
+            this.VarVersion = varVersion;
         }
 
         /// <summary>
@@ -64,7 +64,7 @@ namespace Org.OpenAPITools.Model
         /// </summary>
         /// <value>The version of the task definition.</value>
         [DataMember(Name = "version", EmitDefaultValue = false)]
-        public string _Version { get; set; }
+        public string VarVersion { get; set; }
 
         /// <summary>
         /// Returns the string presentation of the object
@@ -76,7 +76,7 @@ namespace Org.OpenAPITools.Model
             sb.Append("class TaskReference {\n");
             sb.Append("  Id: ").Append(Id).Append("\n");
             sb.Append("  Name: ").Append(Name).Append("\n");
-            sb.Append("  _Version: ").Append(_Version).Append("\n");
+            sb.Append("  VarVersion: ").Append(VarVersion).Append("\n");
             sb.Append("}\n");
             return sb.ToString();
         }
@@ -91,75 +91,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as TaskReference);
-        }
-
-        /// <summary>
-        /// Returns true if TaskReference instances are equal
-        /// </summary>
-        /// <param name="input">Instance of TaskReference to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(TaskReference input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.Id == input.Id ||
-                    (this.Id != null &&
-                    this.Id.Equals(input.Id))
-                ) && 
-                (
-                    this.Name == input.Name ||
-                    (this.Name != null &&
-                    this.Name.Equals(input.Name))
-                ) && 
-                (
-                    this._Version == input._Version ||
-                    (this._Version != null &&
-                    this._Version.Equals(input._Version))
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.Id != null)
-                {
-                    hashCode = (hashCode * 59) + this.Id.GetHashCode();
-                }
-                if (this.Name != null)
-                {
-                    hashCode = (hashCode * 59) + this.Name.GetHashCode();
-                }
-                if (this._Version != null)
-                {
-                    hashCode = (hashCode * 59) + this._Version.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

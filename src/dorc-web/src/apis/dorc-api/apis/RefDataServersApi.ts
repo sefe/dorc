@@ -39,6 +39,7 @@ export interface RefDataServersByPagePutRequest {
 
 export interface RefDataServersDeleteRequest {
     serverId?: number;
+    confirmed?: boolean;
 }
 
 export interface RefDataServersGetServerOperatingFromTargetGetRequest {
@@ -148,9 +149,9 @@ export class RefDataServersApi extends BaseAPI {
 
     /**
      */
-    refDataServersDelete({ serverId }: RefDataServersDeleteRequest): Observable<ApiBoolResult>
-    refDataServersDelete({ serverId }: RefDataServersDeleteRequest, opts?: OperationOpts): Observable<AjaxResponse<ApiBoolResult>>
-    refDataServersDelete({ serverId }: RefDataServersDeleteRequest, opts?: OperationOpts): Observable<ApiBoolResult | AjaxResponse<ApiBoolResult>> {
+    refDataServersDelete({ serverId, confirmed }: RefDataServersDeleteRequest): Observable<ApiBoolResult>
+    refDataServersDelete({ serverId, confirmed }: RefDataServersDeleteRequest, opts?: OperationOpts): Observable<AjaxResponse<ApiBoolResult>>
+    refDataServersDelete({ serverId, confirmed }: RefDataServersDeleteRequest, opts?: OperationOpts): Observable<ApiBoolResult | AjaxResponse<ApiBoolResult>> {
 
         const headers: HttpHeaders = {
             // oauth required
@@ -165,6 +166,7 @@ export class RefDataServersApi extends BaseAPI {
         const query: HttpQuery = {};
 
         if (serverId != null) { query['serverId'] = serverId; }
+        if (confirmed != null) { query['confirmed'] = confirmed; }
 
         return this.request<ApiBoolResult>({
             url: '/RefDataServers',

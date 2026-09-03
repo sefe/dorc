@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using Dorc.Core.Events;
+using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
 
 namespace Dorc.Monitor
@@ -17,6 +18,7 @@ namespace Dorc.Monitor
         private readonly ILogger logger;
         private readonly IDeploymentRequestStateProcessor deploymentRequestStateProcessor;
         private readonly IMonitorConfiguration configuration;
+        private readonly IRequestPollSignal pollSignal;
         /// <summary>
         /// Tracks in-flight deployment tasks. Only accessed from the single ProcessDeploymentRequestsAsync
         /// loop (no concurrent callers), so a plain List is safe here - no synchronization needed.
@@ -26,12 +28,14 @@ namespace Dorc.Monitor
         public DeploymentEngine(
             ILogger<DeploymentEngine> logger,
             IDeploymentRequestStateProcessor deploymentRequestStateProcessor,
-            IMonitorConfiguration configuration
+            IMonitorConfiguration configuration,
+            IRequestPollSignal pollSignal
             )
         {
             this.logger = logger;
             this.deploymentRequestStateProcessor = deploymentRequestStateProcessor;
             this.configuration = configuration;
+            this.pollSignal = pollSignal;
         }
 
         public async Task ProcessDeploymentRequestsAsync(
@@ -94,7 +98,14 @@ namespace Dorc.Monitor
 
                 // Manual garbage collecting between deployment requests necessary to unload stored resources that remains after Roslyn
                 GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced);
-                await Task.Delay(iterationDelayMs);
+                // Wait on the request-poll signal capped at the configured
+                // iteration delay. The Kafka request-lifecycle consumer raises
+                // the signal on incoming events so this wait short-circuits.
+                try
+                {
+                    await pollSignal.WaitAsync(TimeSpan.FromMilliseconds(iterationDelayMs), monitorCancellationToken);
+                }
+                catch (OperationCanceledException) { /* shutdown — handled by while-loop check */ }
             }
 
             // Graceful shutdown: wait for all in-flight deployments to complete.

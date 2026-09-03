@@ -9,6 +9,8 @@ import '../../icons/hardware-icons.js';
 import { EnvironmentApiModel } from '../../apis/dorc-api';
 import { AccessControlType } from '../../apis/dorc-api';
 import { RefDataEnvironmentsApi } from '../../apis/dorc-api';
+import '@vaadin/tooltip';
+import { dorcApiConfiguration } from '../../services/dorc-api-configuration';
 
 @customElement('env-controls')
 export class EnvControls extends LitElement {
@@ -28,6 +30,7 @@ export class EnvControls extends LitElement {
         display: inline-flex;
         align-items: center;
         flex-wrap: nowrap;
+        gap: var(--lumo-space-xs);
       }
       vaadin-button {
         padding: 0px;
@@ -51,9 +54,9 @@ export class EnvControls extends LitElement {
       this.envDetails?.EnvironmentName
     ) {
       this.ownerCheckDone = true;
-      const api = new RefDataEnvironmentsApi();
+      const api = new RefDataEnvironmentsApi(dorcApiConfiguration);
       api
-        .refDataEnvironmentsIsEnvironmentOwnerOrDelegateGet({
+        .refDataEnvironmentsIsEnvironmentOwnerGet({
           envName: this.envDetails.EnvironmentName
         })
         .subscribe({
@@ -68,32 +71,46 @@ export class EnvControls extends LitElement {
   render() {
     return html`
       <vaadin-button
-        title="Environment Access..."
+        aria-label="Environment Access..."
         theme="icon"
         @click="${this.openAccessControl}"
       >
+        <vaadin-tooltip
+          slot="tooltip"
+          text="Environment Access..."
+        ></vaadin-tooltip>
         <vaadin-icon
           icon="vaadin:lock"
           style="color: var(--dorc-link-color)"
         ></vaadin-icon>
       </vaadin-button>
-      ${this.isAdmin || this.isPowerUser || this.isOwner
-        ? html`<vaadin-button
-            title="Clone Environment..."
-            theme="icon"
-            @click="${this.cloneEnvironment}"
-          >
-            <vaadin-icon
-              icon="vaadin:copy-o"
-              style="color: var(--dorc-link-color)"
-            ></vaadin-icon>
-          </vaadin-button>`
-        : html``}
+      ${
+        this.isAdmin || this.isPowerUser || this.isOwner
+          ? html`<vaadin-button
+              aria-label="Clone Environment..."
+              theme="icon"
+              @click="${this.cloneEnvironment}"
+            >
+              <vaadin-tooltip
+                slot="tooltip"
+                text="Clone Environment..."
+              ></vaadin-tooltip>
+              <vaadin-icon
+                icon="vaadin:copy-o"
+                style="color: var(--dorc-link-color)"
+              ></vaadin-icon>
+            </vaadin-button>`
+          : html``
+      }
       <vaadin-button
-        title="Environment Details"
+        aria-label="Environment Details"
         theme="icon"
         @click="${this.openEnvironmentDetails}"
       >
+        <vaadin-tooltip
+          slot="tooltip"
+          text="Environment Details"
+        ></vaadin-tooltip>
         <vaadin-icon
           icon="hardware:developer-board"
           style="color: var(--dorc-link-color)"
@@ -106,7 +123,7 @@ export class EnvControls extends LitElement {
     const event = new CustomEvent('open-access-control', {
       detail: {
         Name: this.envDetails?.EnvironmentName,
-        Type: AccessControlType.NUMBER_1
+        Type: AccessControlType.Environment
       },
       bubbles: true,
       composed: true

@@ -78,7 +78,26 @@
     <ProjectReference Include="..\Tools.RequestCLI\Tools.RequestCLI.csproj" />
     <ProjectReference Include="..\Tools.EncryptionMigrationCLI\Tools.EncryptionMigrationCLI.csproj" />
   </ItemGroup>
-  <Target Name="PublishProjects" AfterTargets="BeforeResolveReferences">
+  <!--
+    Local-build fallback only. CI runs src\InstallerPayload.proj as an explicit
+    stage first and then passes DorcPayloadPrepublished=true, which skips this
+    target entirely.
+
+    These <Exec> calls spawn child processes the parent MSBuild cannot see,
+    schedule or deduplicate. Under a parallel solution build this wixproj and
+    Setup.Acceptance run their chains concurrently and race the outer build for
+    the same intermediate outputs (CS2012 on
+    Dorc.NetFramework.PowerShell\obj\Release\*.dll). That is why the solution
+    build was pinned to a single node.
+
+    Kept for the inner loop so that building the solution in Visual Studio still
+    produces a working MSI without a separate step. It carries the same race
+    risk it always has; if you hit CS2012 locally, run
+    `msbuild src\InstallerPayload.proj` first and then build with
+    /p:DorcPayloadPrepublished=true.
+  -->
+  <Target Name="PublishProjects" AfterTargets="BeforeResolveReferences"
+          Condition="'$(DorcPayloadPrepublished)' != 'true'">
     <Exec Command="dotnet publish &quot;$(SolutionDir)Dorc.Api\Dorc.Api.csproj&quot; -c $(Configuration)" />
     <Exec Command="dotnet publish &quot;$(SolutionDir)Dorc.Monitor\Dorc.Monitor.csproj&quot; -c $(Configuration)" />
     <Exec Command="dotnet publish &quot;$(SolutionDir)Dorc.Runner\Dorc.Runner.csproj&quot; -c $(Configuration)" />
