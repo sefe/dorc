@@ -2,6 +2,7 @@
 using Dorc.ApiModel.MonitorRunnerApi;
 using Dorc.Core;
 using Dorc.Core.Configuration;
+using Dorc.Core.Security;
 using Dorc.Monitor.Pipes;
 using Dorc.PersistentData.Security;
 using Dorc.PersistentData.Sources.Interfaces;
@@ -85,6 +86,12 @@ namespace Dorc.Monitor
                 scriptsLocation,
                 properties,
                 deploymentRequestId);
+
+            if (!ScriptPathsAreConfined(script, scriptGroups, scriptsLocation))
+            {
+                isScriptExecutionSuccessful = false;
+                return isScriptExecutionSuccessful;
+            }
 
             foreach (ScriptGroup scriptGroup in scriptGroups)
             {
@@ -308,6 +315,88 @@ namespace Dorc.Monitor
                 .Where(property => !_scriptScopeConfigValues.IsWithheld(property.Key))
                 .ToDictionary(property => property.Key, property => property.Value);
         }
+
+        /// <summary>
+        /// Refuses, or reports, a script path that resolves outside the script root.
+        ///
+        /// This is the dispatch half of the confinement the write path already applies. Both are
+        /// needed for different reasons: the write path stops new components being registered
+        /// off-share, and this stops the ones already stored from executing.
+        ///
+        /// The primary check is on the STORED path, using the same rule the write path uses, so
+        /// a validator and its enforcer cannot disagree about what is acceptable. It is also the
+        /// only check that answers identically everywhere: Path.Combine is platform-dependent -
+        /// it discards the root given a rooted second argument on Windows, and merely
+        /// concatenates on other hosts - so a check applied to the JOINED result would pass on a
+        /// non-Windows build host and refuse in production, or the reverse. The joined result is
+        /// checked too, as a second gate, but nothing rests on it alone.
+        ///
+        /// Reporting is the default and enforcement is opt-in. Existing components hold paths
+        /// that were never validated; enforcing on the day this ships would fail every
+        /// deployment of an off-share component at once, which is the flag day the sequencing
+        /// rules exist to prevent. The report identifies the population to remediate, and
+        /// enforcement is turned on once the estate is clean.
+        ///
+        /// The path is logged. It names a script location rather than carrying a value, and the
+        /// whole point of the report is that an operator can act on it.
+        /// </summary>
+        private bool ScriptPathsAreConfined(
+            ScriptApiModel script, IEnumerable<ScriptGroup> scriptGroups, string scriptsLocation)
+        {
+            var enforcing = configurationSettingsEngine.GetScriptPathEnforcementEnabled();
+            var confined = true;
+
+            if (!ScriptPathConfinement.IsConfined(script.Path, out var reason))
+            {
+                confined = false;
+                Report(enforcing, script.Path, scriptsLocation, reason);
+            }
+
+            foreach (var scriptGroup in scriptGroups)
+            {
+                foreach (var scriptProperties in scriptGroup.ScriptProperties)
+                {
+                    if (PathConfinement.IsWithin(scriptProperties.ScriptPath, scriptsLocation))
+                    {
+                        continue;
+                    }
+
+                    confined = false;
+                    Report(enforcing, scriptProperties.ScriptPath, scriptsLocation,
+                        "the resolved path does not lie beneath the script root.");
+                }
+            }
+
+            // Reporting mode reports and proceeds. Only enforcement stops the deployment.
+            return confined || !enforcing;
+        }
+
+        private void Report(bool enforcing, string? scriptPath, string scriptsLocation, string reason)
+        {
+            var safeScriptPath = SingleLine(scriptPath);
+            var safeScriptRoot = SingleLine(scriptsLocation);
+            var safeReason = SingleLine(reason);
+
+            if (enforcing)
+            {
+                logger.LogError(
+                    "Refusing to execute '{ScriptPath}' against script root '{ScriptRoot}', because"
+                    + " {Reason} Register the script beneath the root, or correct the component's"
+                    + " stored path.",
+                    safeScriptPath, safeScriptRoot, safeReason);
+            }
+            else
+            {
+                logger.LogWarning(
+                    "Script path '{ScriptPath}' would be refused once confinement is enforced,"
+                    + " because {Reason} Executing it because 'EnforceScriptPathConfinement' is not"
+                    + " enabled. Script root: '{ScriptRoot}'.",
+                    safeScriptPath, safeReason, safeScriptRoot);
+            }
+        }
+
+        private static string SingleLine(string? value) =>
+            value?.Replace("\r", string.Empty).Replace("\n", string.Empty) ?? string.Empty;
 
         private (string, string) GetProcessCredentials(bool isProduction, string environmentName)
         {
