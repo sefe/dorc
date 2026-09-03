@@ -12,9 +12,9 @@ import '../../src/components/notifications/warning-notification';
 type Toast = HTMLElement & { open(): void };
 
 const cardText = (toast: HTMLElement) => {
-  const notification = toast.shadowRoot?.querySelector('vaadin-notification') as
-    | (HTMLElement & { _card?: HTMLElement })
-    | null;
+  const notification = toast.shadowRoot?.querySelector(
+    'vaadin-notification'
+  ) as (HTMLElement & { _card?: HTMLElement }) | null;
   return notification?._card?.textContent?.replace(/\s+/g, ' ').trim() ?? '';
 };
 

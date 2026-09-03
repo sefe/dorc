@@ -1,8 +1,6 @@
 import { EnvironmentContentBuildsApiModel } from '../../apis/dorc-api';
 
-export class EnvironmentContentBuildsApiModelExtended
-  implements EnvironmentContentBuildsApiModel
-{
+export class EnvironmentContentBuildsApiModelExtended implements EnvironmentContentBuildsApiModel {
   ComponentName?: string | null;
 
   RequestBuildNum?: string | null;

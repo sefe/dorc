@@ -36,7 +36,7 @@ function mockMatchMedia(matches: boolean) {
     },
     addListener: () => {},
     removeListener: () => {},
-    dispatchEvent: () => true,
+    dispatchEvent: () => true
   };
   window.matchMedia = () => mql;
   return { mql, listeners };
@@ -107,8 +107,12 @@ describe('Responsive grid CSS (structural)', () => {
   });
 
   it('component-deployment-results CSS contains responsive cell wrapping', async () => {
-    const mod = await import('../../src/components/component-deployment-results.js');
-    assertResponsiveCss(mod.ComponentDeploymentResults, 'component-deployment-results');
+    const mod =
+      await import('../../src/components/component-deployment-results.js');
+    assertResponsiveCss(
+      mod.ComponentDeploymentResults,
+      'component-deployment-results'
+    );
   });
 
   it('env-deployments CSS contains responsive cell wrapping', async () => {
@@ -117,7 +121,8 @@ describe('Responsive grid CSS (structural)', () => {
   });
 
   it('env-variables CSS contains responsive cell wrapping', async () => {
-    const mod = await import('../../src/components/environment-tabs/env-variables.js');
+    const mod =
+      await import('../../src/components/environment-tabs/env-variables.js');
     assertResponsiveCss(mod.EnvVariables, 'env-variables');
   });
 
@@ -154,7 +159,10 @@ describe('Responsive grid CSS (structural)', () => {
 
   it('page-variables-value-lookup CSS contains responsive cell wrapping', async () => {
     const mod = await import('../../src/pages/page-variables-value-lookup.js');
-    assertResponsiveCss(mod.PageVariablesValueLookup, 'page-variables-value-lookup');
+    assertResponsiveCss(
+      mod.PageVariablesValueLookup,
+      'page-variables-value-lookup'
+    );
   });
 
   it('page-daemons-audit CSS contains responsive cell wrapping', async () => {
@@ -178,7 +186,8 @@ describe('Responsive grid CSS (structural)', () => {
   });
 
   it('env-monitor CSS contains responsive cell wrapping', async () => {
-    const mod = await import('../../src/components/environment-tabs/env-monitor.js');
+    const mod =
+      await import('../../src/components/environment-tabs/env-monitor.js');
     assertResponsiveCss(mod.EnvMonitor, 'env-monitor');
   });
 });
@@ -201,8 +210,8 @@ describe('Responsive grid column hiding (rendered)', () => {
         LoginType: 'AD',
         LanId: 'lan1',
         LanIdType: 'Domain',
-        Team: 'TeamA',
-      },
+        Team: 'TeamA'
+      }
     ];
 
     it('hides secondary columns on narrow screens', async () => {
@@ -216,21 +225,41 @@ describe('Responsive grid column hiding (rendered)', () => {
 
       // Always visible
       expect(
-        (sr.querySelector('vaadin-grid-sort-column[path="DisplayName"]') as HTMLElement).hidden
+        (
+          sr.querySelector(
+            'vaadin-grid-sort-column[path="DisplayName"]'
+          ) as HTMLElement
+        ).hidden
       ).to.equal(false, 'DisplayName should be visible');
       expect(
-        (sr.querySelector('vaadin-grid-sort-column[path="LoginId"]') as HTMLElement).hidden
+        (
+          sr.querySelector(
+            'vaadin-grid-sort-column[path="LoginId"]'
+          ) as HTMLElement
+        ).hidden
       ).to.equal(false, 'LoginId should be visible');
 
       // Hidden on narrow
       expect(
-        (sr.querySelector('vaadin-grid-sort-column[path="LoginType"]') as HTMLElement).hidden
+        (
+          sr.querySelector(
+            'vaadin-grid-sort-column[path="LoginType"]'
+          ) as HTMLElement
+        ).hidden
       ).to.equal(true, 'LoginType should be hidden');
       expect(
-        (sr.querySelector('vaadin-grid-sort-column[path="LanIdType"]') as HTMLElement).hidden
+        (
+          sr.querySelector(
+            'vaadin-grid-sort-column[path="LanIdType"]'
+          ) as HTMLElement
+        ).hidden
       ).to.equal(true, 'LanIdType should be hidden');
       expect(
-        (sr.querySelector('vaadin-grid-sort-column[path="Team"]') as HTMLElement).hidden
+        (
+          sr.querySelector(
+            'vaadin-grid-sort-column[path="Team"]'
+          ) as HTMLElement
+        ).hidden
       ).to.equal(true, 'Team should be hidden');
     });
 
@@ -260,8 +289,8 @@ describe('Responsive grid column hiding (rendered)', () => {
         Name: 'db1',
         Type: 'Tag1',
         ArrayName: 'arr1',
-        Id: 1,
-      },
+        Id: 1
+      }
     ];
 
     it('hides secondary columns on narrow screens', async () => {
@@ -275,18 +304,31 @@ describe('Responsive grid column hiding (rendered)', () => {
 
       // Always visible
       expect(
-        (sr.querySelector('vaadin-grid-column[path="ServerName"]') as HTMLElement).hidden
+        (
+          sr.querySelector(
+            'vaadin-grid-column[path="ServerName"]'
+          ) as HTMLElement
+        ).hidden
       ).to.equal(false, 'ServerName should be visible');
       expect(
-        (sr.querySelector('vaadin-grid-column[path="Name"]') as HTMLElement).hidden
+        (sr.querySelector('vaadin-grid-column[path="Name"]') as HTMLElement)
+          .hidden
       ).to.equal(false, 'Name should be visible');
 
       // Hidden on narrow — Application Tag has no path, select by header
       expect(
-        (sr.querySelector('vaadin-grid-column[header="Application Tag"]') as HTMLElement).hidden
+        (
+          sr.querySelector(
+            'vaadin-grid-column[header="Application Tag"]'
+          ) as HTMLElement
+        ).hidden
       ).to.equal(true, 'Application Tag should be hidden');
       expect(
-        (sr.querySelector('vaadin-grid-column[path="ArrayName"]') as HTMLElement).hidden
+        (
+          sr.querySelector(
+            'vaadin-grid-column[path="ArrayName"]'
+          ) as HTMLElement
+        ).hidden
       ).to.equal(true, 'ArrayName should be hidden');
     });
   });
@@ -294,7 +336,7 @@ describe('Responsive grid column hiding (rendered)', () => {
   // ── attached-servers ──
   describe('attached-servers', () => {
     const mockServers = [
-      { Name: 'srv1', OsName: 'Windows', ApplicationTags: 'tag1;tag2', Id: 1 },
+      { Name: 'srv1', OsName: 'Windows', ApplicationTags: 'tag1;tag2', Id: 1 }
     ];
 
     it('hides secondary columns on narrow screens', async () => {
@@ -308,15 +350,21 @@ describe('Responsive grid column hiding (rendered)', () => {
 
       // Always visible
       expect(
-        (sr.querySelector('vaadin-grid-column[path="Name"]') as HTMLElement).hidden
+        (sr.querySelector('vaadin-grid-column[path="Name"]') as HTMLElement)
+          .hidden
       ).to.equal(false, 'Name should be visible');
 
       // Hidden on narrow
       expect(
-        (sr.querySelector('vaadin-grid-column[path="OsName"]') as HTMLElement).hidden
+        (sr.querySelector('vaadin-grid-column[path="OsName"]') as HTMLElement)
+          .hidden
       ).to.equal(true, 'OsName should be hidden');
       expect(
-        (sr.querySelector('vaadin-grid-column[header="Application Tags"]') as HTMLElement).hidden
+        (
+          sr.querySelector(
+            'vaadin-grid-column[header="Application Tags"]'
+          ) as HTMLElement
+        ).hidden
       ).to.equal(true, 'Application Tags should be hidden');
     });
   });
@@ -328,8 +376,8 @@ describe('Responsive grid column hiding (rendered)', () => {
         ComponentName: 'comp1',
         RequestDetails: 'req1',
         UpdateDate: '2024-01-01',
-        State: 'Complete',
-      },
+        State: 'Complete'
+      }
     ];
 
     it('hides secondary columns on narrow screens', async () => {
@@ -343,18 +391,34 @@ describe('Responsive grid column hiding (rendered)', () => {
 
       // Always visible
       expect(
-        (sr.querySelector('vaadin-grid-sort-column[path="ComponentName"]') as HTMLElement).hidden
+        (
+          sr.querySelector(
+            'vaadin-grid-sort-column[path="ComponentName"]'
+          ) as HTMLElement
+        ).hidden
       ).to.equal(false, 'ComponentName should be visible');
       expect(
-        (sr.querySelector('vaadin-grid-sort-column[path="State"]') as HTMLElement).hidden
+        (
+          sr.querySelector(
+            'vaadin-grid-sort-column[path="State"]'
+          ) as HTMLElement
+        ).hidden
       ).to.equal(false, 'State should be visible');
 
       // Hidden on narrow
       expect(
-        (sr.querySelector('vaadin-grid-sort-column[path="RequestDetails"]') as HTMLElement).hidden
+        (
+          sr.querySelector(
+            'vaadin-grid-sort-column[path="RequestDetails"]'
+          ) as HTMLElement
+        ).hidden
       ).to.equal(true, 'RequestDetails should be hidden');
       expect(
-        (sr.querySelector('vaadin-grid-sort-column[path="UpdateDate"]') as HTMLElement).hidden
+        (
+          sr.querySelector(
+            'vaadin-grid-sort-column[path="UpdateDate"]'
+          ) as HTMLElement
+        ).hidden
       ).to.equal(true, 'UpdateDate should be hidden');
     });
   });
@@ -368,8 +432,8 @@ describe('Responsive grid column hiding (rendered)', () => {
         Log: 'some log',
         StartedTime: '2024-01-01T10:00:00',
         CompletedTime: '2024-01-01T10:05:00',
-        Id: 1,
-      },
+        Id: 1
+      }
     ];
 
     it('hides secondary columns on narrow screens', async () => {
@@ -385,20 +449,29 @@ describe('Responsive grid column hiding (rendered)', () => {
 
       // Always visible
       expect(
-        (sr.querySelector('vaadin-grid-column[header="Component Name"]') as HTMLElement).hidden
+        (
+          sr.querySelector(
+            'vaadin-grid-column[header="Component Name"]'
+          ) as HTMLElement
+        ).hidden
       ).to.equal(false, 'Component Name should be visible');
       expect(
-        (sr.querySelector('vaadin-grid-column[header="Status"]') as HTMLElement).hidden
+        (sr.querySelector('vaadin-grid-column[header="Status"]') as HTMLElement)
+          .hidden
       ).to.equal(false, 'Status should be visible');
 
       // Hidden on narrow
       expect(
-        (sr.querySelector('vaadin-grid-column[header="Timings"]') as HTMLElement).hidden
+        (
+          sr.querySelector(
+            'vaadin-grid-column[header="Timings"]'
+          ) as HTMLElement
+        ).hidden
       ).to.equal(true, 'Timings should be hidden');
       expect(
-        (sr.querySelector('vaadin-grid-column[header="Log"]') as HTMLElement).hidden
+        (sr.querySelector('vaadin-grid-column[header="Log"]') as HTMLElement)
+          .hidden
       ).to.equal(true, 'Log should be hidden');
     });
   });
-
 });

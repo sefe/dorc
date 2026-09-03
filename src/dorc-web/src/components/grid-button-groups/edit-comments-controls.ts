@@ -15,8 +15,7 @@ import { dorcApiConfiguration } from '../../services/dorc-api-configuration';
 @customElement('edit-comments-controls')
 export class EditCommentsControls extends LitElement {
   @property({ type: Object }) model:
-    | GridItemModel<EnvironmentHistoryApiModel>
-    | undefined;
+    GridItemModel<EnvironmentHistoryApiModel> | undefined;
 
   @property({ type: Boolean }) editHidden = false;
 

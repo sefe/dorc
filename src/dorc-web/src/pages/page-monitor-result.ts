@@ -428,37 +428,37 @@ export class PageMonitorResult
                 ></request-status-card>
                 <div class="results-section">
                   ${
-                this.resultsLoading && !this.resultItems
-                  ? html` <div class="small-loader"></div>`
-                  : html`
-                      <vaadin-details
-                        opened
-                        summary="Deployment Component Results"
-                        style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; margin-top: 4px"
-                      >
-                        <component-deployment-results
-                          .resultItems="${this.resultItems}"
-                        ></component-deployment-results>
-                      </vaadin-details>
-                    `
-              }
+                    this.resultsLoading && !this.resultItems
+                      ? html` <div class="small-loader"></div>`
+                      : html`
+                          <vaadin-details
+                            opened
+                            summary="Deployment Component Results"
+                            style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; margin-top: 4px"
+                          >
+                            <component-deployment-results
+                              .resultItems="${this.resultItems}"
+                            ></component-deployment-results>
+                          </vaadin-details>
+                        `
+                  }
                   ${
-                !this.attemptsLoading &&
-                this.attemptItems &&
-                this.attemptItems.length > 0
-                  ? html`
-                      <vaadin-details
-                        summary="Previous Attempts (${this.attemptItems.length})"
-                        style="border-top: 6px solid orange; background-color: var(--dorc-bg-secondary); padding-left: 4px; margin-top: 4px"
-                      >
-                        <component-previous-attempts
-                          .attemptItems="${this.attemptItems}"
-                          .requestId="${this.requestId}"
-                        ></component-previous-attempts>
-                      </vaadin-details>
-                    `
-                  : html``
-              }
+                    !this.attemptsLoading &&
+                    this.attemptItems &&
+                    this.attemptItems.length > 0
+                      ? html`
+                          <vaadin-details
+                            summary="Previous Attempts (${this.attemptItems.length})"
+                            style="border-top: 6px solid orange; background-color: var(--dorc-bg-secondary); padding-left: 4px; margin-top: 4px"
+                          >
+                            <component-previous-attempts
+                              .attemptItems="${this.attemptItems}"
+                              .requestId="${this.requestId}"
+                            ></component-previous-attempts>
+                          </vaadin-details>
+                        `
+                      : html``
+                  }
                 </div>
               `
       }

@@ -189,6 +189,7 @@ namespace Dorc.PersistentData.Sources
                     Description = apiProject.ProjectDescription,
                     ObjectId = Guid.NewGuid(),
                     TerraformGitRepoUrl = apiProject.TerraformGitRepoUrl,
+                    NotificationEmail = apiProject.NotificationEmail,
                     LeanIXUrl = apiProject.LeanIXUrl,
                     SourceControlType = apiProject.SourceControlType,
                 };
@@ -234,6 +235,7 @@ namespace Dorc.PersistentData.Sources
 
                 currentProj.Description = newProjectDetails.ProjectDescription;
                 currentProj.TerraformGitRepoUrl = newProjectDetails.TerraformGitRepoUrl;
+                currentProj.NotificationEmail = newProjectDetails.NotificationEmail;
                 currentProj.LeanIXUrl = newProjectDetails.LeanIXUrl;
                 currentProj.SourceControlType = newProjectDetails.SourceControlType;
 
@@ -420,6 +422,7 @@ namespace Dorc.PersistentData.Sources
                 ArtefactsUrl = project.ArtefactsUrl,
                 ArtefactsBuildRegex = project.ArtefactsBuildRegex,
                 TerraformGitRepoUrl = project.TerraformGitRepoUrl,
+                NotificationEmail = project.NotificationEmail,
                 LeanIXUrl = project.LeanIXUrl,
                 SourceDatabase = project.SourceDatabase != null ? DatabasesPersistentSource.MapToDatabaseApiModel(project.SourceDatabase) : null,
                 SourceControlType = project.SourceControlType

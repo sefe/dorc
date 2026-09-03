@@ -126,7 +126,9 @@ export class SilentGridRefresher {
     if (this.listenersAttached) return;
     this.listenersAttached = true;
     grid.addEventListener('wheel', this.onUserInteraction, { passive: true });
-    grid.addEventListener('touchstart', this.onUserInteraction, { passive: true });
+    grid.addEventListener('touchstart', this.onUserInteraction, {
+      passive: true
+    });
     grid.addEventListener('mousedown', this.onUserInteraction);
     grid.addEventListener('keydown', this.onUserInteraction);
   }

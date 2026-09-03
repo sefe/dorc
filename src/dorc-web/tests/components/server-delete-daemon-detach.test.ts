@@ -11,7 +11,8 @@ import { of } from 'rxjs';
 // `this.serverDetails`, which the recycled cell may have repointed by then.
 
 const { deleteSpy, confirmSpy } = vi.hoisted(() => ({
-  deleteSpy: vi.fn<(args: { serverId: number; confirmed: boolean }) => unknown>(),
+  deleteSpy:
+    vi.fn<(args: { serverId: number; confirmed: boolean }) => unknown>(),
   confirmSpy: vi.fn<(message: string) => Promise<boolean>>(() =>
     Promise.resolve(true)
   )

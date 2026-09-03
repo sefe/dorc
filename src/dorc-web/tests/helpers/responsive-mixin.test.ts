@@ -7,8 +7,12 @@ import { ResponsiveMixin } from '../../src/helpers/responsive-mixin.js';
 @customElement('test-responsive-element')
 class TestResponsiveElement extends ResponsiveMixin(LitElement) {
   static override styles = css`
-    :host { display: block; }
-    .wide-only { display: block; }
+    :host {
+      display: block;
+    }
+    .wide-only {
+      display: block;
+    }
   `;
 
   override render() {
@@ -45,7 +49,7 @@ describe('ResponsiveMixin', () => {
       },
       addListener: () => {},
       removeListener: () => {},
-      dispatchEvent: () => true,
+      dispatchEvent: () => true
     };
 
     window.matchMedia = () => mql;
@@ -58,7 +62,7 @@ describe('ResponsiveMixin', () => {
         listeners.forEach(fn =>
           fn({ matches: newMatches, media: mql.media } as MediaQueryListEvent)
         );
-      },
+      }
     };
   }
 
@@ -148,7 +152,9 @@ describe('ResponsiveMixin', () => {
       html`<test-responsive-element></test-responsive-element>`
     );
     await elWide.updateComplete;
-    const alwaysWide = elWide.shadowRoot!.querySelector('#always-visible') as HTMLElement;
+    const alwaysWide = elWide.shadowRoot!.querySelector(
+      '#always-visible'
+    ) as HTMLElement;
     expect(alwaysWide.hidden).to.equal(false);
 
     // Narrow screen
@@ -157,7 +163,9 @@ describe('ResponsiveMixin', () => {
       html`<test-responsive-element></test-responsive-element>`
     );
     await elNarrow.updateComplete;
-    const alwaysNarrow = elNarrow.shadowRoot!.querySelector('#always-visible') as HTMLElement;
+    const alwaysNarrow = elNarrow.shadowRoot!.querySelector(
+      '#always-visible'
+    ) as HTMLElement;
     expect(alwaysNarrow.hidden).to.equal(false);
   });
 });

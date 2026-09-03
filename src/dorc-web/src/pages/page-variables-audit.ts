@@ -1,7 +1,12 @@
 import { columnBodyRenderer, columnHeaderRenderer } from '@vaadin/grid/lit';
 import '../components/dorc-spinner';
 import '@vaadin/button';
-import { GridCellPartNameGenerator, GridDataProviderCallback, GridDataProviderParams, GridSorterDefinition } from '@vaadin/grid';
+import {
+  GridCellPartNameGenerator,
+  GridDataProviderCallback,
+  GridDataProviderParams,
+  GridSorterDefinition
+} from '@vaadin/grid';
 import '@vaadin/grid';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid-sorter';
@@ -15,7 +20,11 @@ import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import '../components/add-daemon';
 import { PagedDataSorting, PropertyValuesAuditApi } from '../apis/dorc-api';
-import { GetPropertyValuesAuditListResponseDto, PagedDataFilter, PropertyValueAuditApiModel } from '../apis/dorc-api/models';
+import {
+  GetPropertyValuesAuditListResponseDto,
+  PagedDataFilter,
+  PropertyValueAuditApiModel
+} from '../apis/dorc-api/models';
 import { PageElement } from '../helpers/page-element';
 import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import { getShortLogonName } from '../helpers/user-extensions';
@@ -55,8 +64,16 @@ export class PageVariablesAudit extends ResponsiveMixin(PageElement) {
            tokens, so light/dark switching is automatic. Whole-row tints
            are a 35% wash of the success/failure colour over the page bg
            (subtle); char-level tints use the saturated tokens directly. */
-        --audit-row-add-bg: color-mix(in srgb, var(--dorc-success-bg) 35%, var(--dorc-bg-primary));
-        --audit-row-remove-bg: color-mix(in srgb, var(--dorc-failure-bg) 35%, var(--dorc-bg-primary));
+        --audit-row-add-bg: color-mix(
+          in srgb,
+          var(--dorc-success-bg) 35%,
+          var(--dorc-bg-primary)
+        );
+        --audit-row-remove-bg: color-mix(
+          in srgb,
+          var(--dorc-failure-bg) 35%,
+          var(--dorc-bg-primary)
+        );
         --audit-char-add-bg: var(--dorc-success-bg);
         --audit-char-remove-bg: var(--dorc-failure-bg);
       }
@@ -92,7 +109,9 @@ export class PageVariablesAudit extends ResponsiveMixin(PageElement) {
 
   render() {
     return html`
-      <dorc-spinner ?hidden="${!(this.loading || this.searching)}"></dorc-spinner>
+      <dorc-spinner
+        ?hidden="${!(this.loading || this.searching)}"
+      ></dorc-spinner>
       <vaadin-grid
         id="grid"
         column-reordering-allowed
@@ -138,9 +157,7 @@ export class PageVariablesAudit extends ResponsiveMixin(PageElement) {
         <vaadin-grid-column
           header="Value"
           ${columnBodyRenderer(this.valueRenderer, [])}
-          ${columnHeaderRenderer(this.valueHeaderRenderer, [
-            this.useAndFilter
-          ])}
+          ${columnHeaderRenderer(this.valueHeaderRenderer, [this.useAndFilter])}
           resizable
           width="60em"
         ></vaadin-grid-column>
@@ -177,9 +194,7 @@ export class PageVariablesAudit extends ResponsiveMixin(PageElement) {
     this.loading = false;
   }
 
-  UpdatedRenderer(
-    item: PropertyValueAuditApiModel
-  ) {
+  UpdatedRenderer(item: PropertyValueAuditApiModel) {
     let sTime = '';
     let sDate = '';
 
@@ -196,26 +211,22 @@ export class PageVariablesAudit extends ResponsiveMixin(PageElement) {
     return html` <span>${`${sDate} ${sTime}`}</span> `;
   }
 
-  private cellPartNameGenerator: GridCellPartNameGenerator<PropertyValueAuditApiModel> = (
-    _column,
-    model
-  ) => {
-    const { item } = model;
-    let parts = '';
+  private cellPartNameGenerator: GridCellPartNameGenerator<PropertyValueAuditApiModel> =
+    (_column, model) => {
+      const { item } = model;
+      let parts = '';
 
-    if (item.Type === 'Insert') {
-      parts += ' insert-type';
-    }
+      if (item.Type === 'Insert') {
+        parts += ' insert-type';
+      }
 
-    if (item.Type === 'Delete') {
-      parts += ' delete-type';
-    }
-    return parts;
-  };
+      if (item.Type === 'Delete') {
+        parts += ' delete-type';
+      }
+      return parts;
+    };
 
-  valueRenderer(
-    item: PropertyValueAuditApiModel
-  ) {
+  valueRenderer(item: PropertyValueAuditApiModel) {
     const oldText = item.FromValue;
     let text = '';
     let spanOpen = false;
@@ -235,13 +246,13 @@ export class PageVariablesAudit extends ResponsiveMixin(PageElement) {
 
     if (text.includes('highlight')) {
       return html` <div id="old" style="margin:0px">
-            ${document
+          ${document
               .createRange()
               .createContextualFragment(displayFromValue ?? '')}
-          </div>
-          <div id="new">
-            ${document.createRange().createContextualFragment(text)}
-          </div>`;
+        </div>
+        <div id="new">
+          ${document.createRange().createContextualFragment(text)}
+        </div>`;
     } else {
       text = '';
       spanOpen = false;
@@ -259,71 +270,71 @@ export class PageVariablesAudit extends ResponsiveMixin(PageElement) {
       });
 
       return html` <div id="old" style="margin:0px">
-            ${document.createRange().createContextualFragment(text)}
-          </div>
-          <div id="new">${item.ToValue ?? ''}</div>`;
+          ${document.createRange().createContextualFragment(text)}
+        </div>
+        <div id="new">${item.ToValue ?? ''}</div>`;
     }
   }
 
   nameHeaderRenderer = () => {
     return html`
-        <vaadin-horizontal-layout style="align-items: center;" theme="spacing-xs">
-          <vaadin-grid-sorter path="PropertyName"></vaadin-grid-sorter>
-          <vaadin-text-field
-            placeholder="Name"
-            clear-button-visible
-            focus-target
-            style="width: 100px"
-            theme="small"
-            @input="${(e: InputEvent) => {
+      <vaadin-horizontal-layout style="align-items: center;" theme="spacing-xs">
+        <vaadin-grid-sorter path="PropertyName"></vaadin-grid-sorter>
+        <vaadin-text-field
+          placeholder="Name"
+          clear-button-visible
+          focus-target
+          style="width: 100px"
+          theme="small"
+          @input="${(e: InputEvent) => {
               const textField = e.target as HTMLInputElement;
               this.nameFilterValue = textField?.value ?? '';
               this.refreshGrid();
             }}"
-          ></vaadin-text-field>
-        </vaadin-horizontal-layout>
-      `;
-  }
+        ></vaadin-text-field>
+      </vaadin-horizontal-layout>
+    `;
+  };
 
   environmentHeaderRenderer = () => {
     return html`
-        <vaadin-horizontal-layout style="align-items: center;" theme="spacing-xs">
-          <vaadin-grid-sorter path="EnvironmentName"></vaadin-grid-sorter>
-          <vaadin-text-field
-            placeholder="Environment"
-            clear-button-visible
-            focus-target
-            style="width: 100px"
-            theme="small"
-            @input="${(e: InputEvent) => {
+      <vaadin-horizontal-layout style="align-items: center;" theme="spacing-xs">
+        <vaadin-grid-sorter path="EnvironmentName"></vaadin-grid-sorter>
+        <vaadin-text-field
+          placeholder="Environment"
+          clear-button-visible
+          focus-target
+          style="width: 100px"
+          theme="small"
+          @input="${(e: InputEvent) => {
               const textField = e.target as HTMLInputElement;
               this.environmentFilterValue = textField?.value ?? '';
               this.refreshGrid();
             }}"
-          ></vaadin-text-field>
-        </vaadin-horizontal-layout>
-      `;
-  }
+        ></vaadin-text-field>
+      </vaadin-horizontal-layout>
+    `;
+  };
 
   userHeaderRenderer = () => {
     return html`
-        <vaadin-horizontal-layout style="align-items: center;" theme="spacing-xs">
-          <vaadin-grid-sorter path="UpdatedBy"></vaadin-grid-sorter>
-          <vaadin-text-field
-            placeholder="User"
-            clear-button-visible
-            focus-target
-            style="width: 100px"
-            theme="small"
-            @input="${(e: InputEvent) => {
+      <vaadin-horizontal-layout style="align-items: center;" theme="spacing-xs">
+        <vaadin-grid-sorter path="UpdatedBy"></vaadin-grid-sorter>
+        <vaadin-text-field
+          placeholder="User"
+          clear-button-visible
+          focus-target
+          style="width: 100px"
+          theme="small"
+          @input="${(e: InputEvent) => {
               const textField = e.target as HTMLInputElement;
               this.userFilterValue = textField?.value ?? '';
               this.refreshGrid();
             }}"
-          ></vaadin-text-field>
-        </vaadin-horizontal-layout>
-      `;
-  }
+        ></vaadin-text-field>
+      </vaadin-horizontal-layout>
+    `;
+  };
 
   // The checkbox label used to be patched back onto the element by hand,
   // because the imperative renderer never re-ran. `useAndFilter` is in the
@@ -345,9 +356,9 @@ export class PageVariablesAudit extends ResponsiveMixin(PageElement) {
       <vaadin-checkbox
         id="filter-checkbox"
         .checked="${!this.useAndFilter}"
-        .label="${this.useAndFilter
-          ? 'Search Filter: AND'
-          : 'Search Filter: OR'}"
+        .label="${
+          this.useAndFilter ? 'Search Filter: AND' : 'Search Filter: OR'
+        }"
         title="Toggle between AND/OR filter logic"
         style="--vaadin-checkbox-size: 14px;"
         @change="${(e: Event) => {
@@ -371,7 +382,7 @@ export class PageVariablesAudit extends ResponsiveMixin(PageElement) {
 
   getPropertyValuesAudit = (
     params: GridDataProviderParams<PropertyValueAuditApiModel>,
-    callback: GridDataProviderCallback<PropertyValueAuditApiModel>,
+    callback: GridDataProviderCallback<PropertyValueAuditApiModel>
   ) => {
     const filters: PagedDataFilter[] = [];
 
@@ -379,7 +390,10 @@ export class PageVariablesAudit extends ResponsiveMixin(PageElement) {
       filters.push({ Path: 'PropertyName', FilterValue: this.nameFilterValue });
     }
     if (this.environmentFilterValue) {
-      filters.push({ Path: 'EnvironmentName', FilterValue: this.environmentFilterValue });
+      filters.push({
+        Path: 'EnvironmentName',
+        FilterValue: this.environmentFilterValue
+      });
     }
     if (this.userFilterValue) {
       filters.push({ Path: 'UpdatedBy', FilterValue: this.userFilterValue });
@@ -433,5 +447,5 @@ export class PageVariablesAudit extends ResponsiveMixin(PageElement) {
           );
         }
       });
-  }
+  };
 }

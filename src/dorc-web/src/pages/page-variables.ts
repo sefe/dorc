@@ -392,8 +392,8 @@ export class PageVariables extends PageElement {
                       theme="compact row-stripes no-row-borders no-border"
                       all-rows-visible
                       ?disabled="${
-                      this.deletingVariable || !this.existingPropertySelected
-                    }"
+                        this.deletingVariable || !this.existingPropertySelected
+                      }"
                       .cellPartNameGenerator="${this.cellPartNameGenerator}"
                     >
                       <vaadin-grid-column
@@ -411,9 +411,9 @@ export class PageVariables extends PageElement {
                         flex-grow="1"
                         width="20rem"
                         ${columnBodyRenderer(
-                        this.variableValueControlsRenderer,
-                        [this._editingValueId]
-                      )}
+                          this.variableValueControlsRenderer,
+                          [this._editingValueId]
+                        )}
                         ${columnHeaderRenderer(this.valueHeaderRenderer, [])}
                       ></vaadin-grid-column>
                     </vaadin-grid>`

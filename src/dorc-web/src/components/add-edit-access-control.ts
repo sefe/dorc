@@ -234,11 +234,11 @@ export class AddEditAccessControl extends LitElement {
       .accessControl="${accessControl}"
       .disabled="${!this.UserEditable || item.Allow === AC_ALLOW_OWNER}"
       @access-control-removed="${(e: CustomEvent) => {
-          // The row comes from the event, not from this closure: the closure is
-          // replaced whenever the cell re-renders, which can happen while the
-          // confirmation dialog is open.
-          this.removeAccessControl(e.detail.accessControl);
-        }}"
+        // The row comes from the event, not from this closure: the closure is
+        // replaced whenever the cell re-renders, which can happen while the
+        // confirmation dialog is open.
+        this.removeAccessControl(e.detail.accessControl);
+      }}"
     ></access-control-controls>`;
   }
 
@@ -562,26 +562,26 @@ export class AddEditAccessControl extends LitElement {
       <tr>
         <td>
           ${
-                this.UserEditable
-                  ? html`
-                      <vaadin-icon
-                        icon="vaadin:unlock"
-                        role="img"
-                        aria-label="Editable"
-                        title="Editable"
-                        style="color: var(--dorc-link-color)"
-                      ></vaadin-icon>
-                    `
-                  : html`
-                      <vaadin-icon
-                        icon="vaadin:lock"
-                        role="img"
-                        aria-label="Read-only"
-                        title="Read-only"
-                        style="color: var(--dorc-link-color)"
-                      ></vaadin-icon>
-                    `
-              }
+            this.UserEditable
+              ? html`
+                  <vaadin-icon
+                    icon="vaadin:unlock"
+                    role="img"
+                    aria-label="Editable"
+                    title="Editable"
+                    style="color: var(--dorc-link-color)"
+                  ></vaadin-icon>
+                `
+              : html`
+                  <vaadin-icon
+                    icon="vaadin:lock"
+                    role="img"
+                    aria-label="Read-only"
+                    title="Read-only"
+                    style="color: var(--dorc-link-color)"
+                  ></vaadin-icon>
+                `
+          }
         </td>
         <td>
           <h2>${this.secureName}</h2>
@@ -614,10 +614,10 @@ export class AddEditAccessControl extends LitElement {
             </td>
             <td style="display: table-cell; vertical-align: center;">
               ${
-                    this.searchingUsers
-                      ? html` <div class="small-loader"></div> `
-                      : html``
-                  }
+                this.searchingUsers
+                  ? html` <div class="small-loader"></div> `
+                  : html``
+              }
             </td>
           </tr>
           <tr>
@@ -678,8 +678,8 @@ export class AddEditAccessControl extends LitElement {
         <vaadin-grid-column
           header="Actions"
           ${columnBodyRenderer(this._boundACButtonsRenderer, [
-                this.UserEditable
-              ])}
+            this.UserEditable
+          ])}
           flex="1"
           resizable
           auto-width
@@ -701,13 +701,13 @@ export class AddEditAccessControl extends LitElement {
         >
         <span class="save-progress" aria-live="polite">
           ${
-                this.savingAccessControls
-                  ? html`<span
-                      class="small-loader"
-                      aria-label="Saving access controls"
-                    ></span>`
-                  : html``
-              }
+            this.savingAccessControls
+              ? html`<span
+                  class="small-loader"
+                  aria-label="Saving access controls"
+                ></span>`
+              : html``
+          }
         </span>
       </div>
       <vaadin-button id="close-access-controls" @click="${this.close}"

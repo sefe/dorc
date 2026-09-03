@@ -311,7 +311,9 @@ describe('P1: drawer shortcut store', () => {
     try {
       localStorage.setItem(
         KEYS.environments,
-        JSON.stringify([{ EnvironmentId: 9, EnvironmentName: 'FROM-OTHER-TAB' }])
+        JSON.stringify([
+          { EnvironmentId: 9, EnvironmentName: 'FROM-OTHER-TAB' }
+        ])
       );
       const writesAfterSeed = writes;
 
@@ -459,7 +461,8 @@ describe('P1: drawer shortcut store', () => {
     try {
       const store = new DrawerShortcuts();
       expect(() => store.start()).to.not.throw();
-      expect(store.isPersistent, 'reports itself as non-persistent').to.be.false;
+      expect(store.isPersistent, 'reports itself as non-persistent').to.be
+        .false;
       expect(() =>
         store.add(
           'environments',

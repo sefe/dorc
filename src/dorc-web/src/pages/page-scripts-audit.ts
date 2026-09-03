@@ -1,7 +1,12 @@
 import { columnBodyRenderer, columnHeaderRenderer } from '@vaadin/grid/lit';
 import '../components/dorc-spinner';
 import '@vaadin/button';
-import { GridCellPartNameGenerator, GridDataProviderCallback, GridDataProviderParams, GridSorterDefinition } from '@vaadin/grid';
+import {
+  GridCellPartNameGenerator,
+  GridDataProviderCallback,
+  GridDataProviderParams,
+  GridSorterDefinition
+} from '@vaadin/grid';
 import '@vaadin/grid';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid-sorter';
@@ -39,15 +44,23 @@ export class PageScriptsAudit extends ResponsiveMixin(PageElement) {
 
   private projectNamesFilterValue = '';
 
-    static get styles() {
-        return css`
+  static get styles() {
+    return css`
       :host {
         display: flex;
         flex-direction: column;
         height: 100%;
         min-height: 0;
-        --audit-row-add-bg: color-mix(in srgb, var(--dorc-success-bg) 35%, var(--dorc-bg-primary));
-        --audit-row-remove-bg: color-mix(in srgb, var(--dorc-failure-bg) 35%, var(--dorc-bg-primary));
+        --audit-row-add-bg: color-mix(
+          in srgb,
+          var(--dorc-success-bg) 35%,
+          var(--dorc-bg-primary)
+        );
+        --audit-row-remove-bg: color-mix(
+          in srgb,
+          var(--dorc-failure-bg) 35%,
+          var(--dorc-bg-primary)
+        );
         --audit-char-add-bg: var(--dorc-success-bg);
         --audit-char-remove-bg: var(--dorc-failure-bg);
       }
@@ -80,11 +93,13 @@ export class PageScriptsAudit extends ResponsiveMixin(PageElement) {
         }
       }
     `;
-    }
+  }
 
   render() {
     return html`
-      <dorc-spinner ?hidden="${!(this.loading || this.searching)}"></dorc-spinner>
+      <dorc-spinner
+        ?hidden="${!(this.loading || this.searching)}"
+      ></dorc-spinner>
       <vaadin-grid
         id="grid"
         column-reordering-allowed
@@ -127,9 +142,7 @@ export class PageScriptsAudit extends ResponsiveMixin(PageElement) {
         <vaadin-grid-column
           header="Value"
           ${columnBodyRenderer(this.valueRenderer, [])}
-          ${columnHeaderRenderer(this.valueHeaderRenderer, [
-            this.useAndFilter
-          ])}
+          ${columnHeaderRenderer(this.valueHeaderRenderer, [this.useAndFilter])}
           resizable
           auto-width
           flex-grow="0"
@@ -168,9 +181,7 @@ export class PageScriptsAudit extends ResponsiveMixin(PageElement) {
     this.loading = false;
   }
 
-  updatedRenderer = (
-    item: ScriptAuditApiModel
-  ) => {
+  updatedRenderer = (item: ScriptAuditApiModel) => {
     let sTime = '';
     let sDate = '';
 
@@ -185,37 +196,37 @@ export class PageScriptsAudit extends ResponsiveMixin(PageElement) {
     }
 
     return html` <span>${`${sDate} ${sTime}`}</span> `;
-  }
-
-  private cellPartNameGenerator: GridCellPartNameGenerator<ScriptAuditApiModel> = (
-    _column,
-    model
-  ) => {
-    const { item } = model;
-    let parts = '';
-
-    if (item.Type === 'Insert') {
-      parts += ' insert-type';
-    }
-
-    if (item.Type === 'Delete') {
-      parts += ' delete-type';
-    }
-    return parts;
   };
 
-  valueRenderer = (
-    item: ScriptAuditApiModel
-  ) => {
+  private cellPartNameGenerator: GridCellPartNameGenerator<ScriptAuditApiModel> =
+    (_column, model) => {
+      const { item } = model;
+      let parts = '';
+
+      if (item.Type === 'Insert') {
+        parts += ' insert-type';
+      }
+
+      if (item.Type === 'Delete') {
+        parts += ' delete-type';
+      }
+      return parts;
+    };
+
+  valueRenderer = (item: ScriptAuditApiModel) => {
     const oldStr = item.FromValue ?? '';
     const newStr = item.ToValue ?? '';
 
     if (item.Type === 'Insert' || (item.Type === 'Update' && oldStr === '')) {
-      return html`<div class="value-line"><span class="highlight">${newStr}</span></div>`;
+      return html`<div class="value-line">
+        <span class="highlight">${newStr}</span>
+      </div>`;
     }
 
     if (item.Type === 'Delete' || (item.Type === 'Update' && newStr === '')) {
-      return html`<div class="value-line"><span class="highlight-removed">${oldStr}</span></div>`;
+      return html`<div class="value-line">
+        <span class="highlight-removed">${oldStr}</span>
+      </div>`;
     }
 
     if (oldStr === newStr) {
@@ -226,23 +237,28 @@ export class PageScriptsAudit extends ResponsiveMixin(PageElement) {
 
     const oldParts = ops.map(op => {
       if (op.type === 'keep') return html`${op.value}`;
-      if (op.type === 'delete') return html`<span class="highlight-removed">${op.value}</span>`;
+      if (op.type === 'delete')
+        return html`<span class="highlight-removed">${op.value}</span>`;
       return html``;
     });
 
     const newParts = ops.map(op => {
       if (op.type === 'keep') return html`${op.value}`;
-      if (op.type === 'insert') return html`<span class="highlight">${op.value}</span>`;
+      if (op.type === 'insert')
+        return html`<span class="highlight">${op.value}</span>`;
       return html``;
     });
 
     return html`
-        <div class="value-line">${oldParts}</div>
-        <div class="value-line">${newParts}</div>
-      `;
-  }
+      <div class="value-line">${oldParts}</div>
+      <div class="value-line">${newParts}</div>
+    `;
+  };
 
-  private computeDiff(oldStr: string, newStr: string): { type: 'keep' | 'insert' | 'delete'; value: string }[] {
+  private computeDiff(
+    oldStr: string,
+    newStr: string
+  ): { type: 'keep' | 'insert' | 'delete'; value: string }[] {
     const oldLen = oldStr.length;
     const newLen = newStr.length;
     const dp: number[][] = Array.from({ length: oldLen + 1 }, () =>
@@ -292,63 +308,63 @@ export class PageScriptsAudit extends ResponsiveMixin(PageElement) {
 
   nameHeaderRenderer = () => {
     return html`
-        <vaadin-horizontal-layout style="align-items: center;" theme="spacing-xs">
-          <vaadin-grid-sorter path="ScriptName"></vaadin-grid-sorter>
-          <vaadin-text-field
-            placeholder="Name"
-            clear-button-visible
-            focus-target
-            style="width: 100px"
-            theme="small"
-            @input="${(e: InputEvent) => {
+      <vaadin-horizontal-layout style="align-items: center;" theme="spacing-xs">
+        <vaadin-grid-sorter path="ScriptName"></vaadin-grid-sorter>
+        <vaadin-text-field
+          placeholder="Name"
+          clear-button-visible
+          focus-target
+          style="width: 100px"
+          theme="small"
+          @input="${(e: InputEvent) => {
               const textField = e.target as HTMLInputElement;
               this.nameFilterValue = textField?.value ?? '';
               this.refreshGrid();
             }}"
-          ></vaadin-text-field>
-        </vaadin-horizontal-layout>
-      `;
-  }
+        ></vaadin-text-field>
+      </vaadin-horizontal-layout>
+    `;
+  };
 
   projectNamesHeaderRenderer = () => {
     return html`
-        <vaadin-horizontal-layout style="align-items: center;" theme="spacing-xs">
-          <vaadin-grid-sorter path="ProjectNames"></vaadin-grid-sorter>
-          <vaadin-text-field
-            placeholder="Projects"
-            clear-button-visible
-            focus-target
-            style="width: 100px"
-            theme="small"
-            @input="${(e: InputEvent) => {
+      <vaadin-horizontal-layout style="align-items: center;" theme="spacing-xs">
+        <vaadin-grid-sorter path="ProjectNames"></vaadin-grid-sorter>
+        <vaadin-text-field
+          placeholder="Projects"
+          clear-button-visible
+          focus-target
+          style="width: 100px"
+          theme="small"
+          @input="${(e: InputEvent) => {
               const textField = e.target as HTMLInputElement;
               this.projectNamesFilterValue = textField?.value ?? '';
               this.refreshGrid();
             }}"
-          ></vaadin-text-field>
-        </vaadin-horizontal-layout>
-      `;
-  }
+        ></vaadin-text-field>
+      </vaadin-horizontal-layout>
+    `;
+  };
 
   userHeaderRenderer = () => {
     return html`
-        <vaadin-horizontal-layout style="align-items: center;" theme="spacing-xs">
-          <vaadin-grid-sorter path="UpdatedBy"></vaadin-grid-sorter>
-          <vaadin-text-field
-            placeholder="User"
-            clear-button-visible
-            focus-target
-            style="width: 100px"
-            theme="small"
-            @input="${(e: InputEvent) => {
+      <vaadin-horizontal-layout style="align-items: center;" theme="spacing-xs">
+        <vaadin-grid-sorter path="UpdatedBy"></vaadin-grid-sorter>
+        <vaadin-text-field
+          placeholder="User"
+          clear-button-visible
+          focus-target
+          style="width: 100px"
+          theme="small"
+          @input="${(e: InputEvent) => {
               const textField = e.target as HTMLInputElement;
               this.userFilterValue = textField?.value ?? '';
               this.refreshGrid();
             }}"
-          ></vaadin-text-field>
-        </vaadin-horizontal-layout>
-      `;
-  }
+        ></vaadin-text-field>
+      </vaadin-horizontal-layout>
+    `;
+  };
 
   // The checkbox label used to be patched back onto the element by hand,
   // because the imperative renderer never re-ran. `useAndFilter` is in the
@@ -370,9 +386,9 @@ export class PageScriptsAudit extends ResponsiveMixin(PageElement) {
       <vaadin-checkbox
         id="filter-checkbox"
         .checked="${!this.useAndFilter}"
-        .label="${this.useAndFilter
-          ? 'Search Filter: AND'
-          : 'Search Filter: OR'}"
+        .label="${
+          this.useAndFilter ? 'Search Filter: AND' : 'Search Filter: OR'
+        }"
         title="Toggle between AND/OR filter logic"
         style="--vaadin-checkbox-size: 14px;"
         @change="${(e: Event) => {
@@ -396,7 +412,7 @@ export class PageScriptsAudit extends ResponsiveMixin(PageElement) {
 
   getScriptsAudit = (
     params: GridDataProviderParams<ScriptAuditApiModel>,
-    callback: GridDataProviderCallback<ScriptAuditApiModel>,
+    callback: GridDataProviderCallback<ScriptAuditApiModel>
   ) => {
     const filters: PagedDataFilter[] = [];
 
@@ -404,7 +420,10 @@ export class PageScriptsAudit extends ResponsiveMixin(PageElement) {
       filters.push({ Path: 'ScriptName', FilterValue: this.nameFilterValue });
     }
     if (this.projectNamesFilterValue) {
-      filters.push({ Path: 'ProjectNames', FilterValue: this.projectNamesFilterValue });
+      filters.push({
+        Path: 'ProjectNames',
+        FilterValue: this.projectNamesFilterValue
+      });
     }
     if (this.userFilterValue) {
       filters.push({ Path: 'UpdatedBy', FilterValue: this.userFilterValue });
@@ -458,5 +477,5 @@ export class PageScriptsAudit extends ResponsiveMixin(PageElement) {
           );
         }
       });
-  }
+  };
 }

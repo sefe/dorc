@@ -30,8 +30,7 @@ type Host = HTMLElement & {
 
 const comboIn = (el: Host) =>
   el.shadowRoot?.getElementById('proj-source-control') as
-    | (HTMLElement & { value: string })
-    | null;
+    (HTMLElement & { value: string }) | null;
 
 const openWith = async (el: Host, project: Project) => {
   // The call site's ordering: assign, then open, in one tick.

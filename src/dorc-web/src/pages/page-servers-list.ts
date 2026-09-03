@@ -589,15 +589,15 @@ export class PageServersList extends ResponsiveMixin(PageElement) {
               html` <button
                 class="env"
                 @click="${() =>
-                    this.dispatchEvent(
-                      new CustomEvent('open-environment-details', {
-                        detail: {
-                          envName: i
-                        },
-                        bubbles: true,
-                        composed: true
-                      })
-                    )}"
+                  this.dispatchEvent(
+                    new CustomEvent('open-environment-details', {
+                      detail: {
+                        envName: i
+                      },
+                      bubbles: true,
+                      composed: true
+                    })
+                  )}"
                 style="font-size: var(--lumo-font-size-s);"
               >
                 ${i}
@@ -665,15 +665,15 @@ export class PageServersList extends ResponsiveMixin(PageElement) {
           html` <button
             class="tag"
             @click="${() =>
-                this.dispatchEvent(
-                  new CustomEvent('filter-tags-server-list', {
-                    detail: {
-                      value
-                    },
-                    bubbles: true,
-                    composed: true
-                  })
-                )}"
+              this.dispatchEvent(
+                new CustomEvent('filter-tags-server-list', {
+                  detail: {
+                    value
+                  },
+                  bubbles: true,
+                  composed: true
+                })
+              )}"
           >
             ${value}
           </button>`

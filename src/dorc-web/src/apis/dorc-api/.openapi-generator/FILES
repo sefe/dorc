@@ -5,6 +5,7 @@ apis/AnalyticsApi.ts
 apis/ApiConfigApi.ts
 apis/ApiRootApi.ts
 apis/BundledRequestsApi.ts
+apis/ChangeRequestApi.ts
 apis/ConfigValuesApi.ts
 apis/CopyEnvBuildApi.ts
 apis/DaemonAuditApi.ts
@@ -78,6 +79,7 @@ models/ApiConfigModel.ts
 models/ApiEndpoints.ts
 models/BundledRequestType.ts
 models/BundledRequestsApiModel.ts
+models/ChangeRequestValidationResult.ts
 models/CloneEnvironmentRequest.ts
 models/ComponentApiModel.ts
 models/ComponentApiModelTemplateApiModel.ts
@@ -85,6 +87,8 @@ models/ComponentType.ts
 models/ConfigValueApiModel.ts
 models/CopyEnvBuildDto.ts
 models/CopyEnvBuildResponseDto.ts
+models/CreateChangeRequestInput.ts
+models/CreateChangeRequestResult.ts
 models/DaemonApiModel.ts
 models/DaemonAuditApiModel.ts
 models/DaemonObservationApiModel.ts

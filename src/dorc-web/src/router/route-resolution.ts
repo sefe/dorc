@@ -35,7 +35,11 @@ const chainFor = (
   matchedPaths: Map<AppRoute, string>
 ): RouteChainEntry[] => {
   const chain: RouteChainEntry[] = [];
-  for (let current: AppRoute | null | undefined = route; current; current = current.parent) {
+  for (
+    let current: AppRoute | null | undefined = route;
+    current;
+    current = current.parent
+  ) {
     if (current.component) {
       chain.unshift({
         route: current,
@@ -53,7 +57,6 @@ export class RouteResolver {
   private readonly urlBuilder: (name: string, params?: RouteParams) => string;
 
   private readonly notFound: AppRoute | undefined;
-
 
   constructor(routes: AppRoute[]) {
     // universal-router sets `parent` lazily as it traverses, so a route that
@@ -82,7 +85,10 @@ export class RouteResolver {
         };
         const matchedPaths =
           matched.matchedPaths ?? new Map<AppRoute, string>();
-        matchedPaths.set(route, `${matched.baseUrl ?? ''}${matched.path ?? ''}`);
+        matchedPaths.set(
+          route,
+          `${matched.baseUrl ?? ''}${matched.path ?? ''}`
+        );
 
         if (typeof route.action === 'function') {
           const result = route.action({

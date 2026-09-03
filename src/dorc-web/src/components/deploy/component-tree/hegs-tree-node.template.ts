@@ -29,19 +29,20 @@ export function addHegsTreeNodeTemplate(this: HegsTreeNode) {
 
         <label for="checkbox">${this.data?.name}</label>
 
-        ${this.actions && this.actions.length > 0
-          ? html`
-              <paper-menu-button id="actions">
-                <paper-icon-button
-                  style="color: var(--dorc-text-secondary);"
-                  class="giant"
-                  icon="lumo:edit"
-                  noink
-                  slot="dropdown-trigger"
-                ></paper-icon-button>
+        ${
+          this.actions && this.actions.length > 0
+            ? html`
+                <paper-menu-button id="actions">
+                  <paper-icon-button
+                    style="color: var(--dorc-text-secondary);"
+                    class="giant"
+                    icon="lumo:edit"
+                    noink
+                    slot="dropdown-trigger"
+                  ></paper-icon-button>
 
-                <paper-listbox slot="dropdown-content">
-                  ${this.actions.map(
+                  <paper-listbox slot="dropdown-content">
+                    ${this.actions.map(
                     (action: any) => html`
                       <paper-item
                         @click="${this._actionClicked}"
@@ -50,15 +51,17 @@ export function addHegsTreeNodeTemplate(this: HegsTreeNode) {
                       </paper-item>
                     `
                   )}
-                </paper-listbox>
-              </paper-menu-button>
-            `
-          : html``}
+                  </paper-listbox>
+                </paper-menu-button>
+              `
+            : html``
+        }
       </div>
-      ${this.open
-        ? html`
-            <ul>
-              ${this.data.children.map(
+      ${
+        this.open
+          ? html`
+              <ul>
+                ${this.data.children.map(
                 (child: TreeNode) =>
                   html` <li>
                     <hegs-tree-node
@@ -70,9 +73,10 @@ export function addHegsTreeNodeTemplate(this: HegsTreeNode) {
                     ></hegs-tree-node>
                   </li>`
               )}
-            </ul>
-          `
-        : html``}
+              </ul>
+            `
+          : html``
+      }
     </div>
   `;
 }

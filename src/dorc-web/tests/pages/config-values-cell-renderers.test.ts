@@ -16,7 +16,12 @@ import '../../src/pages/page-config-values-list';
 // The renderers are called directly: connectedCallback would drive the page's
 // data provider at the API, and `isAdmin` is all these two need.
 
-type ConfigValue = { Id?: number; Key?: string; Secure?: boolean; IsForProd?: boolean };
+type ConfigValue = {
+  Id?: number;
+  Key?: string;
+  Secure?: boolean;
+  IsForProd?: boolean;
+};
 
 type Page = HTMLElement & {
   isAdmin: boolean;
@@ -77,14 +82,17 @@ describe('page-config-values-list editable cell renderers', () => {
   it('does not persist when Secure is set programmatically', async () => {
     // A recycled cell sets the property; only a gesture may reach the API.
     const updated: ConfigValue[] = [];
-    (page as unknown as { updateConfigItem(v: ConfigValue): void }).updateConfigItem =
-      v => updated.push(v);
+    (
+      page as unknown as { updateConfigItem(v: ConfigValue): void }
+    ).updateConfigItem = v => updated.push(v);
 
     render(page.isSecuredRenderer({ Id: 1, Key: 'first' }) as never, host);
     await settle();
-    (host.querySelector('vaadin-checkbox') as HTMLElement & {
-      checked: boolean;
-    }).checked = true;
+    (
+      host.querySelector('vaadin-checkbox') as HTMLElement & {
+        checked: boolean;
+      }
+    ).checked = true;
     await settle();
 
     expect(updated, 'no update from a non-gesture change').to.deep.equal([]);
@@ -96,14 +104,17 @@ describe('page-config-values-list editable cell renderers', () => {
     // whole suite green, and that regression would PUT a config value to
     // production because a recycled cell committed the next row's flag.
     const updated: ConfigValue[] = [];
-    (page as unknown as { updateConfigItem(v: ConfigValue): void }).updateConfigItem =
-      v => updated.push(v);
+    (
+      page as unknown as { updateConfigItem(v: ConfigValue): void }
+    ).updateConfigItem = v => updated.push(v);
 
     render(page.isForProdRenderer({ Id: 1, Key: 'first' }) as never, host);
     await settle();
-    (host.querySelector('vaadin-checkbox') as HTMLElement & {
-      checked: boolean;
-    }).checked = true;
+    (
+      host.querySelector('vaadin-checkbox') as HTMLElement & {
+        checked: boolean;
+      }
+    ).checked = true;
     await settle();
 
     expect(updated, 'no update from a non-gesture change').to.deep.equal([]);
@@ -111,15 +122,15 @@ describe('page-config-values-list editable cell renderers', () => {
 
   it('persists a real click on IsForProd', async () => {
     const updated: ConfigValue[] = [];
-    (page as unknown as { updateConfigItem(v: ConfigValue): void }).updateConfigItem =
-      v => updated.push(v);
+    (
+      page as unknown as { updateConfigItem(v: ConfigValue): void }
+    ).updateConfigItem = v => updated.push(v);
 
     render(page.isForProdRenderer({ Id: 1, Key: 'first' }) as never, host);
     await settle();
     (
       host.querySelector('vaadin-checkbox')?.querySelector('input') as
-        | HTMLInputElement
-        | undefined
+        HTMLInputElement | undefined
     )?.click();
     await settle();
 
@@ -129,15 +140,15 @@ describe('page-config-values-list editable cell renderers', () => {
 
   it('persists a real click on Secure', async () => {
     const updated: ConfigValue[] = [];
-    (page as unknown as { updateConfigItem(v: ConfigValue): void }).updateConfigItem =
-      v => updated.push(v);
+    (
+      page as unknown as { updateConfigItem(v: ConfigValue): void }
+    ).updateConfigItem = v => updated.push(v);
 
     render(page.isSecuredRenderer({ Id: 1, Key: 'first' }) as never, host);
     await settle();
     (
       host.querySelector('vaadin-checkbox')?.querySelector('input') as
-        | HTMLInputElement
-        | undefined
+        HTMLInputElement | undefined
     )?.click();
     await settle();
 

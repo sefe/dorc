@@ -69,7 +69,9 @@ const LEGACY_COOKIES: Record<Family, string> = {
 
 /** Identity for de-duplication. Id when present, otherwise the name. */
 export const envKey = (e: EnvShortcut) =>
-  e.EnvironmentId != null ? `id:${e.EnvironmentId}` : `name:${e.EnvironmentName}`;
+  e.EnvironmentId != null
+    ? `id:${e.EnvironmentId}`
+    : `name:${e.EnvironmentName}`;
 export const projectKey = (p: ProjectShortcut) =>
   p.ProjectId != null ? `id:${p.ProjectId}` : `name:${p.ProjectName}`;
 export const resultKey = (r: ResultShortcut) => `id:${r.Id}`;
@@ -282,7 +284,10 @@ export class DrawerShortcuts extends EventTarget {
     this.emit();
   }
 
-  has<F extends Family>(family: F, item: DrawerShortcutState[F][number]): boolean {
+  has<F extends Family>(
+    family: F,
+    item: DrawerShortcutState[F][number]
+  ): boolean {
     const key = KEY_OF[family] as (i: unknown) => string;
     return (this.state[family] as unknown[]).some(e => key(e) === key(item));
   }
@@ -466,7 +471,8 @@ export class DrawerShortcuts extends EventTarget {
     const raw = readLegacyCookie(LEGACY_COOKIES[family]);
     if (raw === '') return [];
     const parsed: unknown = JSON.parse(raw);
-    if (!Array.isArray(parsed)) throw new Error('legacy cookie was not an array');
+    if (!Array.isArray(parsed))
+      throw new Error('legacy cookie was not an array');
     return parsed as unknown[];
   }
 

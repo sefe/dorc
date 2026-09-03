@@ -56,7 +56,9 @@ describe('dependency arrays that replaced an imperative repaint', () => {
     // first paint, so the grid renders with isAdmin false; without the
     // dependency the Secure and Is-For-Prod columns stay disabled forever and
     // the page is silently read-only for administrators.
-    const el = document.createElement('page-config-values-list') as HTMLElement & {
+    const el = document.createElement(
+      'page-config-values-list'
+    ) as HTMLElement & {
       isAdmin: boolean;
       updateComplete: Promise<unknown>;
     };
@@ -87,9 +89,9 @@ describe('dependency arrays that replaced an imperative repaint', () => {
 
     const checkboxes = () =>
       Array.from(
-        el.shadowRoot?.querySelector('vaadin-grid')?.querySelectorAll(
-          'vaadin-checkbox'
-        ) ?? []
+        el.shadowRoot
+          ?.querySelector('vaadin-grid')
+          ?.querySelectorAll('vaadin-checkbox') ?? []
       ) as (HTMLElement & { disabled: boolean })[];
 
     expect(checkboxes().length, 'checkbox cells rendered').to.be.greaterThan(0);
@@ -130,12 +132,14 @@ describe('dependency arrays that replaced an imperative repaint', () => {
 
     const unmapButtons = () =>
       Array.from(
-        el.shadowRoot?.querySelector('vaadin-grid')?.querySelectorAll(
-          'vaadin-button'
-        ) ?? []
+        el.shadowRoot
+          ?.querySelector('vaadin-grid')
+          ?.querySelectorAll('vaadin-button') ?? []
       ) as (HTMLElement & { disabled: boolean })[];
 
-    expect(unmapButtons().length, 'unmap buttons rendered').to.be.greaterThan(0);
+    expect(unmapButtons().length, 'unmap buttons rendered').to.be.greaterThan(
+      0
+    );
     expect(
       unmapButtons().every(b => !b.disabled),
       'enabled while editable'

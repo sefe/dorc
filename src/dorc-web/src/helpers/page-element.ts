@@ -38,7 +38,7 @@ export class PageElement extends LitElement {
     if (metadata) {
       const defaultMetadata = {
         url: window.location.href,
-        description: metadata.description,
+        description: metadata.description
       };
 
       updateMetadata({

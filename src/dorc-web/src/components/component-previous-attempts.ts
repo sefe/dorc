@@ -8,7 +8,12 @@ import { css, LitElement } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import './log-dialog';
-import { DeploymentRequestAttemptApiModel, DeploymentResultAttemptApiModel, RequestApi, ResultStatusesApi } from '../apis/dorc-api';
+import {
+  DeploymentRequestAttemptApiModel,
+  DeploymentResultAttemptApiModel,
+  RequestApi,
+  ResultStatusesApi
+} from '../apis/dorc-api';
 import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
 import '@vaadin/horizontal-layout';
@@ -128,14 +133,32 @@ export class ComponentPreviousAttempts extends LitElement {
   }
 
   private renderAttempt(attempt: DeploymentRequestAttemptApiModel) {
-    const sDate = attempt.StartedTime ? new Date(attempt.StartedTime).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '';
-    const sTime = attempt.StartedTime ? new Date(attempt.StartedTime).toLocaleTimeString('en-GB') : '';
-    const cDate = attempt.CompletedTime ? new Date(attempt.CompletedTime).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '';
-    const cTime = attempt.CompletedTime ? new Date(attempt.CompletedTime).toLocaleTimeString('en-GB') : '';
+    const sDate = attempt.StartedTime
+      ? new Date(attempt.StartedTime).toLocaleDateString('en-GB', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric'
+        })
+      : '';
+    const sTime = attempt.StartedTime
+      ? new Date(attempt.StartedTime).toLocaleTimeString('en-GB')
+      : '';
+    const cDate = attempt.CompletedTime
+      ? new Date(attempt.CompletedTime).toLocaleDateString('en-GB', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric'
+        })
+      : '';
+    const cTime = attempt.CompletedTime
+      ? new Date(attempt.CompletedTime).toLocaleTimeString('en-GB')
+      : '';
 
     return html`
       <div class="attempt-container">
-        <vaadin-details summary="Attempt # ${attempt.AttemptNumber} - ${attempt.Status}">
+        <vaadin-details
+          summary="Attempt # ${attempt.AttemptNumber} - ${attempt.Status}"
+        >
           <div class="attempt-header">
             <div class="attempt-header-item">
               <span class="attempt-header-label">Started:</span>
@@ -149,55 +172,63 @@ export class ComponentPreviousAttempts extends LitElement {
               <span class="attempt-header-label">User:</span>
               <span>${attempt.UserName}</span>
             </div>
-            ${attempt.Log ? html`
-              <vaadin-button
-                theme="small"
-                style="min-width: 36px; padding: 0"
-                @click="${() => this.viewLog(attempt)}"
-                title="View Request Log"
-              >
-                <vaadin-icon
-                  icon="vaadin:file-text-o"
-                  style="color: cornflowerblue"
-                ></vaadin-icon>
-              </vaadin-button>
-            ` : html``}
+            ${
+              attempt.Log
+                ? html`
+                    <vaadin-button
+                      theme="small"
+                      style="min-width: 36px; padding: 0"
+                      @click="${() => this.viewLog(attempt)}"
+                      title="View Request Log"
+                    >
+                      <vaadin-icon
+                        icon="vaadin:file-text-o"
+                        style="color: cornflowerblue"
+                      ></vaadin-icon>
+                    </vaadin-button>
+                  `
+                : html``
+            }
           </div>
           <div class="component-results-grid">
-            ${attempt.ComponentResults && attempt.ComponentResults.length > 0
-              ? html`
-                  <vaadin-grid
-                    theme="compact row-stripes no-row-borders no-border"
-                    .items="${attempt.ComponentResults}"
-                    all-rows-visible
-                  >
-                    <vaadin-grid-column
-                      ${columnBodyRenderer(this.componentNameRenderer, [])}
-                      header="Component Name"
-                      resizable
-                      auto-width
-                    ></vaadin-grid-column>
-                    <vaadin-grid-column
-                      ${columnBodyRenderer(this.componentTimingsRenderer, [])}
-                      header="Timings"
-                      resizable
-                      auto-width
-                    ></vaadin-grid-column>
-                    <vaadin-grid-column
-                      ${columnBodyRenderer(this.componentStatusRenderer, [])}
-                      header="Status"
-                      resizable
-                      auto-width
-                    ></vaadin-grid-column>
-                    <vaadin-grid-column
-                      ${columnBodyRenderer(this.componentLogRenderer, [])}
-                      header="Log"
-                      resizable
-                      auto-width
-                    ></vaadin-grid-column>
-                  </vaadin-grid>
-                `
-              : html`<span style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);">No component results archived for this attempt.</span>`
+            ${
+              attempt.ComponentResults && attempt.ComponentResults.length > 0
+                ? html`
+                    <vaadin-grid
+                      theme="compact row-stripes no-row-borders no-border"
+                      .items="${attempt.ComponentResults}"
+                      all-rows-visible
+                    >
+                      <vaadin-grid-column
+                        ${columnBodyRenderer(this.componentNameRenderer, [])}
+                        header="Component Name"
+                        resizable
+                        auto-width
+                      ></vaadin-grid-column>
+                      <vaadin-grid-column
+                        ${columnBodyRenderer(this.componentTimingsRenderer, [])}
+                        header="Timings"
+                        resizable
+                        auto-width
+                      ></vaadin-grid-column>
+                      <vaadin-grid-column
+                        ${columnBodyRenderer(this.componentStatusRenderer, [])}
+                        header="Status"
+                        resizable
+                        auto-width
+                      ></vaadin-grid-column>
+                      <vaadin-grid-column
+                        ${columnBodyRenderer(this.componentLogRenderer, [])}
+                        header="Log"
+                        resizable
+                        auto-width
+                      ></vaadin-grid-column>
+                    </vaadin-grid>
+                  `
+                : html`<span
+                    style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
+                    >No component results archived for this attempt.</span
+                  >`
             }
           </div>
         </vaadin-details>
@@ -205,29 +236,23 @@ export class ComponentPreviousAttempts extends LitElement {
     `;
   }
 
-  componentNameRenderer(
-    item: DeploymentResultAttemptApiModel
-  ) {
+  componentNameRenderer(item: DeploymentResultAttemptApiModel) {
     const result = item as DeploymentResultAttemptApiModel;
-    return html` <a href="scripts?search-name=${result.ComponentName}" target="_blank">${result.ComponentName}</a> `;
+    return html`
+      <a href="scripts?search-name=${result.ComponentName}" target="_blank"
+        >${result.ComponentName}</a
+      >
+    `;
   }
 
-  componentStatusRenderer = (
-    item: DeploymentResultAttemptApiModel
-  ) => {
+  componentStatusRenderer = (item: DeploymentResultAttemptApiModel) => {
     const result = item as DeploymentResultAttemptApiModel;
     const status = result.Status || '';
 
-    return html`
-        <span class="status-badge">
-          ${status}
-        </span>
-      `;
+    return html` <span class="status-badge"> ${status} </span> `;
   };
 
-  componentTimingsRenderer = (
-    item: DeploymentResultAttemptApiModel
-  ) => {
+  componentTimingsRenderer = (item: DeploymentResultAttemptApiModel) => {
     const result = item as DeploymentResultAttemptApiModel;
     let sTime = '';
     let sDate = '';
@@ -252,49 +277,45 @@ export class ComponentPreviousAttempts extends LitElement {
     }
 
     return html`
-        <vaadin-horizontal-layout style="align-items: center;" theme="spacing">
-          <vaadin-vertical-layout
-            style="line-height: var(--lumo-line-height-s);"
+      <vaadin-horizontal-layout style="align-items: center;" theme="spacing">
+        <vaadin-vertical-layout style="line-height: var(--lumo-line-height-s);">
+          <div
+            style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
           >
-            <div
-              style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
-            >
-              ${`${sDate} ${sTime}`}
-            </div>
-            <div
-              style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
-            >
-              ${`${cDate} ${cTime}`}
-            </div>
-          </vaadin-vertical-layout>
-        </vaadin-horizontal-layout>
-      `;
+            ${`${sDate} ${sTime}`}
+          </div>
+          <div
+            style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
+          >
+            ${`${cDate} ${cTime}`}
+          </div>
+        </vaadin-vertical-layout>
+      </vaadin-horizontal-layout>
+    `;
   };
 
-  componentLogRenderer = (
-    item: DeploymentResultAttemptApiModel
-  ) => {
+  componentLogRenderer = (item: DeploymentResultAttemptApiModel) => {
     const result = item as DeploymentResultAttemptApiModel;
     const first100chars = result.Log?.substring(0, 100);
     const lines = first100chars?.split(/\r?\n/);
 
     return html` <table>
-        <tr>
-          <td>
-            <vaadin-button
-              theme="small"
-              style="width: 36px; min-width: 36px; padding: 0"
-              @click="${() => this.viewComponentLog(result)}"
-            >
-              <vaadin-icon
-                icon="vaadin:file-text-o"
-                style="color: cornflowerblue"
-              ></vaadin-icon>
-            </vaadin-button>
-          </td>
-          <td>
-            <div style="font-family: monospace">
-              ${lines?.map(
+      <tr>
+        <td>
+          <vaadin-button
+            theme="small"
+            style="width: 36px; min-width: 36px; padding: 0"
+            @click="${() => this.viewComponentLog(result)}"
+          >
+            <vaadin-icon
+              icon="vaadin:file-text-o"
+              style="color: cornflowerblue"
+            ></vaadin-icon>
+          </vaadin-button>
+        </td>
+        <td>
+          <div style="font-family: monospace">
+            ${lines?.map(
                 element =>
                   html`<div
                     style="font-size: var(--lumo-font-size-xs); color: var(--lumo-secondary-text-color);"
@@ -302,10 +323,10 @@ export class ComponentPreviousAttempts extends LitElement {
                     ${element}
                   </div>`
               )}
-            </div>
-          </td>
-        </tr>
-      </table>`;
+          </div>
+        </td>
+      </tr>
+    </table>`;
   };
 
   private viewLog(attempt: DeploymentRequestAttemptApiModel) {
@@ -369,13 +390,15 @@ export class ComponentPreviousAttempts extends LitElement {
           },
           error: (error: any) => {
             console.error('Failed to fetch log from ResultStatuses:', error);
-            this.selectedLog = result.Log ?? 'No full log available for this archived attempt';
+            this.selectedLog =
+              result.Log ?? 'No full log available for this archived attempt';
             this.isLoadingLog = false;
           }
         });
       } catch (error) {
         console.error('Failed to create ResultStatusesApi instance:', error);
-        this.selectedLog = result.Log ?? 'No full log available for this archived attempt';
+        this.selectedLog =
+          result.Log ?? 'No full log available for this archived attempt';
         this.isLoadingLog = false;
       }
     }

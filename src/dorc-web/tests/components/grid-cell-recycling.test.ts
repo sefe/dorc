@@ -95,9 +95,11 @@ describe('recycled grid cells', () => {
       <vaadin-checkbox
         .checked="${live(row.enabled)}"
         @change="${(e: Event) => {
-          const checked = (e.currentTarget as HTMLElement & {
-            checked: boolean;
-          }).checked;
+          const checked = (
+            e.currentTarget as HTMLElement & {
+              checked: boolean;
+            }
+          ).checked;
           if (row.enabled === checked) return;
           row.enabled = checked;
           saved.push(`${row.id}=${row.enabled}`);
@@ -123,9 +125,11 @@ describe('recycled grid cells', () => {
       html`<vaadin-checkbox
         .checked="${live(row.enabled)}"
         @change="${(e: Event) => {
-          row.enabled = (e.currentTarget as HTMLElement & {
-            checked: boolean;
-          }).checked;
+          row.enabled = (
+            e.currentTarget as HTMLElement & {
+              checked: boolean;
+            }
+          ).checked;
           saved.push(`${row.id}=${row.enabled}`);
         }}"
       ></vaadin-checkbox>`,
@@ -135,8 +139,7 @@ describe('recycled grid cells', () => {
 
     (
       host.querySelector('vaadin-checkbox')?.querySelector('input') as
-        | HTMLInputElement
-        | undefined
+        HTMLInputElement | undefined
     )?.click();
     await settle();
 
@@ -155,9 +158,11 @@ describe('recycled grid cells', () => {
         readonly
         .value="${history.Comment ?? ''}"
         @change="${(e: Event) => {
-          history.Comment = (e.currentTarget as HTMLElement & {
-            value: string;
-          }).value;
+          history.Comment = (
+            e.currentTarget as HTMLElement & {
+              value: string;
+            }
+          ).value;
         }}"
       ></vaadin-text-field>
     `;

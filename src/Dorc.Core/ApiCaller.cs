@@ -145,6 +145,7 @@ namespace Dorc.Core
             { Endpoints.Properties, "Properties" },
             { Endpoints.PropertyValues, "PropertyValues" },
             { Endpoints.Request, "Request" },
+            { Endpoints.ChangeRequestCreate, "ChangeRequest/create" },
             { Endpoints.ConfigValues, "ConfigValues" },
             { Endpoints.CopyEnvBuild, "CopyEnvBuild" },
             { Endpoints.RefDataEnvironments, "RefDataEnvironments" },

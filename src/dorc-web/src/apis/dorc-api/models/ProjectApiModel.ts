@@ -60,6 +60,11 @@ export interface ProjectApiModel {
      * @type {string}
      * @memberof ProjectApiModel
      */
+    NotificationEmail?: string | null;
+    /**
+     * @type {string}
+     * @memberof ProjectApiModel
+     */
     LeanIXUrl?: string | null;
     /**
      * @type {DatabaseApiModel}

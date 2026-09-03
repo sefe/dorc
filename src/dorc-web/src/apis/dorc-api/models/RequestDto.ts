@@ -65,4 +65,14 @@ export interface RequestDto {
      * @memberof RequestDto
      */
     VstsUrl?: string | null;
+    /**
+     * @type {string}
+     * @memberof RequestDto
+     */
+    ChangeRequestNumber?: string | null;
+    /**
+     * @type {boolean}
+     * @memberof RequestDto
+     */
+    OverrideCr?: boolean;
 }

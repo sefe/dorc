@@ -298,9 +298,9 @@ export class MakeLikeProduction extends LitElement {
     const selectedBundleName = this.selectedBundleName;
     const requestVersion = ++this.dataBackupsRequestVersion;
 
-    const selectedBundleReqs = this.bundleRequests?.filter(
-      b => b.BundleName === selectedBundleName
-    ) ?? [];
+    const selectedBundleReqs =
+      this.bundleRequests?.filter(b => b.BundleName === selectedBundleName) ??
+      [];
 
     if (selectedBundleReqs.length === 0) {
       this.dialog?.bundleChanged(undefined);

@@ -54,7 +54,9 @@ async function mountNavbar(container: HTMLElement): Promise<DrawerNavbar> {
 async function settle(navbar: DrawerNavbar): Promise<void> {
   await navbar.updateComplete;
   const parts = Array.from(
-    tabsOf(navbar).querySelectorAll('env-detail-tab, project-envs-tab, monitor-result-tab')
+    tabsOf(navbar).querySelectorAll(
+      'env-detail-tab, project-envs-tab, monitor-result-tab'
+    )
   ) as Array<Element & { updateComplete?: Promise<unknown> }>;
   await Promise.all(parts.map(p => p.updateComplete));
 }
@@ -99,12 +101,16 @@ describe('P2a: drawer shortcut accessibility', () => {
       const navbar = await mountNavbar(container);
       await addEnv(navbar, { EnvironmentId: 1, EnvironmentName: 'PROD-EMEA' });
 
-      const tab = tabsOf(navbar).querySelector('vaadin-tab:has(env-detail-tab)');
+      const tab = tabsOf(navbar).querySelector(
+        'vaadin-tab:has(env-detail-tab)'
+      );
       expect(tab, 'shortcut tab exists').to.exist;
 
       const anchor = tab!.querySelector('a');
-      expect(anchor, 'vaadin-tab.querySelector("a") must find the shortcut link')
-        .to.exist;
+      expect(
+        anchor,
+        'vaadin-tab.querySelector("a") must find the shortcut link'
+      ).to.exist;
       expect(anchor!.getAttribute('href')).to.contain('PROD-EMEA');
     });
 
@@ -117,9 +123,10 @@ describe('P2a: drawer shortcut accessibility', () => {
         'env-detail-tab a'
       ) as HTMLElement;
       expect(anchor.textContent?.trim()).to.equal(name);
-      expect(anchor.getAttribute('title'), 'title carries the full name').to.equal(
-        name
-      );
+      expect(
+        anchor.getAttribute('title'),
+        'title carries the full name'
+      ).to.equal(name);
     });
   });
 
@@ -157,9 +164,10 @@ describe('P2a: drawer shortcut accessibility', () => {
         tabsOf(navbar).querySelectorAll('env-detail-tab .shortcut-close')
       ).map(c => c.getAttribute('aria-label'));
 
-      expect(new Set(labels).size, 'names must be unique in the drawer').to.equal(
-        labels.length
-      );
+      expect(
+        new Set(labels).size,
+        'names must be unique in the drawer'
+      ).to.equal(labels.length);
     });
 
     it('keeps the close control on the same row as the shortcut link', async () => {
@@ -346,16 +354,19 @@ describe('SC-28: bypass blocks', () => {
 
     // It must come before the drawer in the tab order, or it bypasses nothing.
     const focusables = Array.from(
-      root.querySelectorAll<HTMLElement>('a[href], button, vaadin-button, [tabindex]')
+      root.querySelectorAll<HTMLElement>(
+        'a[href], button, vaadin-button, [tabindex]'
+      )
     ).filter(el => !el.hasAttribute('disabled') && el.tabIndex !== -1);
     expect(focusables[0], 'skip link must be first in the tab order').to.equal(
       skip
     );
 
     const content = root.getElementById('page-content')!;
-    expect(content.getAttribute('role'), 'skip target is a main landmark').to.equal(
-      'main'
-    );
+    expect(
+      content.getAttribute('role'),
+      'skip target is a main landmark'
+    ).to.equal('main');
 
     skip.click();
     expect(root.activeElement, 'skip link moves focus to content').to.equal(

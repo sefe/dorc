@@ -1,7 +1,12 @@
 import { columnBodyRenderer, columnHeaderRenderer } from '@vaadin/grid/lit';
 import '@vaadin/button';
 import '../components/dorc-spinner';
-import { GridCellPartNameGenerator, GridDataProviderCallback, GridDataProviderParams, GridSorterDefinition } from '@vaadin/grid';
+import {
+  GridCellPartNameGenerator,
+  GridDataProviderCallback,
+  GridDataProviderParams,
+  GridSorterDefinition
+} from '@vaadin/grid';
 import '@vaadin/grid';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid-sorter';
@@ -37,8 +42,16 @@ export class PageServersAudit extends PageElement {
         flex-direction: column;
         height: 100%;
         min-height: 0;
-        --audit-row-add-bg: color-mix(in srgb, var(--dorc-success-bg) 35%, var(--dorc-bg-primary));
-        --audit-row-remove-bg: color-mix(in srgb, var(--dorc-failure-bg) 35%, var(--dorc-bg-primary));
+        --audit-row-add-bg: color-mix(
+          in srgb,
+          var(--dorc-success-bg) 35%,
+          var(--dorc-bg-primary)
+        );
+        --audit-row-remove-bg: color-mix(
+          in srgb,
+          var(--dorc-failure-bg) 35%,
+          var(--dorc-bg-primary)
+        );
         --audit-char-add-bg: var(--dorc-success-bg);
         --audit-char-remove-bg: var(--dorc-failure-bg);
       }
@@ -74,7 +87,9 @@ export class PageServersAudit extends PageElement {
 
   render() {
     return html`
-      <dorc-spinner ?hidden="${!(this.loading || this.searching)}"></dorc-spinner>
+      <dorc-spinner
+        ?hidden="${!(this.loading || this.searching)}"
+      ></dorc-spinner>
       <vaadin-grid
         id="grid"
         column-reordering-allowed
@@ -139,9 +154,18 @@ export class PageServersAudit extends PageElement {
   protected firstUpdated(_changedProperties: PropertyValues) {
     super.firstUpdated(_changedProperties);
 
-    this.addEventListener('server-audit-loaded', this.auditLoaded as EventListener);
-    this.addEventListener('searching-server-audit-started', this.searchingStarted as EventListener);
-    this.addEventListener('searching-server-audit-finished', this.searchingFinished as EventListener);
+    this.addEventListener(
+      'server-audit-loaded',
+      this.auditLoaded as EventListener
+    );
+    this.addEventListener(
+      'searching-server-audit-started',
+      this.searchingStarted as EventListener
+    );
+    this.addEventListener(
+      'searching-server-audit-finished',
+      this.searchingFinished as EventListener
+    );
   }
 
   private searchingStarted() {
@@ -156,19 +180,15 @@ export class PageServersAudit extends PageElement {
     this.loading = false;
   }
 
-  private cellPartNameGenerator: GridCellPartNameGenerator<ServerAuditApiModel> = (
-    _column,
-    model
-  ) => {
-    const action = model.item?.Action;
-    if (action === 'Create') return 'create-type';
-    if (action === 'Delete') return 'delete-type';
-    return '';
-  };
+  private cellPartNameGenerator: GridCellPartNameGenerator<ServerAuditApiModel> =
+    (_column, model) => {
+      const action = model.item?.Action;
+      if (action === 'Create') return 'create-type';
+      if (action === 'Delete') return 'delete-type';
+      return '';
+    };
 
-  private serverNameRenderer = (
-    item: ServerAuditApiModel
-  ) => {
+  private serverNameRenderer = (item: ServerAuditApiModel) => {
     const name = item.ServerName;
     if (!name) {
       return html`<span class="muted">(deleted)</span>`;
@@ -199,10 +219,14 @@ export class PageServersAudit extends PageElement {
 
       // Whole-string highlight on Create/Delete; per-character diff on Update.
       if (isCreate && fieldName === 'ToValue') {
-        return html`<pre class="value"><span class="highlight">${raw}</span></pre>`;
+        return html`<pre
+          class="value"
+        ><span class="highlight">${raw}</span></pre>`;
       }
       if (isDelete && fieldName === 'FromValue') {
-        return html`<pre class="value"><span class="highlight-removed">${raw}</span></pre>`;
+        return html`<pre
+          class="value"
+        ><span class="highlight-removed">${raw}</span></pre>`;
       }
       if (oldStr === newStr) {
         return html`<pre class="value">${raw}</pre>`;
@@ -272,42 +296,42 @@ export class PageServersAudit extends PageElement {
 
   userHeaderRenderer = () => {
     return html`
-        <vaadin-horizontal-layout style="align-items: center;" theme="spacing-xs">
-          <vaadin-grid-sorter path="Username">User</vaadin-grid-sorter>
-          <vaadin-text-field
-            placeholder="User"
-            clear-button-visible
-            focus-target
-            style="width: 100px"
-            theme="small"
-            @input="${(e: InputEvent) => {
+      <vaadin-horizontal-layout style="align-items: center;" theme="spacing-xs">
+        <vaadin-grid-sorter path="Username">User</vaadin-grid-sorter>
+        <vaadin-text-field
+          placeholder="User"
+          clear-button-visible
+          focus-target
+          style="width: 100px"
+          theme="small"
+          @input="${(e: InputEvent) => {
               const tf = e.target as HTMLInputElement;
               this.userFilter = tf?.value ?? '';
               this.refreshGrid();
             }}"
-          ></vaadin-text-field>
-        </vaadin-horizontal-layout>
-      `;
+        ></vaadin-text-field>
+      </vaadin-horizontal-layout>
+    `;
   };
 
   actionHeaderRenderer = () => {
     return html`
-        <vaadin-horizontal-layout style="align-items: center;" theme="spacing-xs">
-          <vaadin-grid-sorter path="Action">Action</vaadin-grid-sorter>
-          <vaadin-text-field
-            placeholder="Action"
-            clear-button-visible
-            focus-target
-            style="width: 80px"
-            theme="small"
-            @input="${(e: InputEvent) => {
+      <vaadin-horizontal-layout style="align-items: center;" theme="spacing-xs">
+        <vaadin-grid-sorter path="Action">Action</vaadin-grid-sorter>
+        <vaadin-text-field
+          placeholder="Action"
+          clear-button-visible
+          focus-target
+          style="width: 80px"
+          theme="small"
+          @input="${(e: InputEvent) => {
               const tf = e.target as HTMLInputElement;
               this.actionFilter = tf?.value ?? '';
               this.refreshGrid();
             }}"
-          ></vaadin-text-field>
-        </vaadin-horizontal-layout>
-      `;
+        ></vaadin-text-field>
+      </vaadin-horizontal-layout>
+    `;
   };
 
   private refreshGrid() {

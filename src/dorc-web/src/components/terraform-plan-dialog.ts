@@ -112,11 +112,11 @@ export class TerraformPlanDialog extends LitElement {
         padding: 20px;
       }
 
-      vaadin-button[theme~="primary"] {
+      vaadin-button[theme~='primary'] {
         background-color: var(--lumo-success-color);
       }
 
-      vaadin-button[theme~="error"] {
+      vaadin-button[theme~='error'] {
         background-color: var(--lumo-error-color);
       }
     `;
@@ -147,7 +147,10 @@ export class TerraformPlanDialog extends LitElement {
     if (this.loading) {
       return html`
         <div class="loading-indicator">
-          <vaadin-icon icon="vaadin:spinner" style="animation: spin 1s linear infinite;"></vaadin-icon>
+          <vaadin-icon
+            icon="vaadin:spinner"
+            style="animation: spin 1s linear infinite;"
+          ></vaadin-icon>
           <p>Loading Terraform plan...</p>
         </div>
       `;
@@ -155,9 +158,7 @@ export class TerraformPlanDialog extends LitElement {
 
     if (this.error) {
       return html`
-        <div class="error-message">
-          <strong>Error:</strong> ${this.error}
-        </div>
+        <div class="error-message"><strong>Error:</strong> ${this.error}</div>
         <div class="actions">
           <vaadin-button @click="${this._close}">Close</vaadin-button>
         </div>
@@ -166,9 +167,7 @@ export class TerraformPlanDialog extends LitElement {
 
     if (!this.plan) {
       return html`
-        <div class="error-message">
-          No plan data available.
-        </div>
+        <div class="error-message">No plan data available.</div>
         <div class="actions">
           <vaadin-button @click="${this._close}">Close</vaadin-button>
         </div>
@@ -179,7 +178,8 @@ export class TerraformPlanDialog extends LitElement {
       <div class="plan-header">
         <h3>Deployment Result ID: ${this.plan.DeploymentResultId}</h3>
         <p>
-          Created: ${this.plan.CreatedAt ? new Date(this.plan.CreatedAt).toLocaleString() : 'Unknown'}
+          Created:
+          ${this.plan.CreatedAt ? new Date(this.plan.CreatedAt).toLocaleString() : 'Unknown'}
           <span class="status-badge ${this._getStatusClass(this.plan.Status)}">
             ${this.plan.Status}
           </span>
@@ -187,42 +187,48 @@ export class TerraformPlanDialog extends LitElement {
       </div>
 
       <div class="plan-content">
-        <pre class="plan-text">${this.plan.PlanContent || 'No plan content available'}</pre>
+        <pre class="plan-text">
+${this.plan.PlanContent || 'No plan content available'}</pre>
       </div>
 
-      <div class="actions">
-        ${this._renderActionButtons()}
-      </div>
+      <div class="actions">${this._renderActionButtons()}</div>
     `;
-  }
+  };
 
   private _renderActionButtons() {
     const canConfirm = this.plan?.Status === 'WaitingConfirmation';
     const canDecline = this.plan?.Status === 'WaitingConfirmation';
 
     return html`
-      ${canConfirm ? html`
-        <vaadin-button
-          theme="primary success"
-          @click="${this._confirmPlan}"
-          .disabled="${this.processing}"
-        >
-          <vaadin-icon icon="vaadin:check" slot="prefix"></vaadin-icon>
-          Confirm & Execute
-        </vaadin-button>
-      ` : ''}
-      
-      ${canDecline ? html`
-        <vaadin-button
-          theme="error"
-          @click="${this._declinePlan}"
-          .disabled="${this.processing}"
-        >
-          <vaadin-icon icon="vaadin:close" slot="prefix"></vaadin-icon>
-          Decline
-        </vaadin-button>
-      ` : ''}
-      
+      ${
+        canConfirm
+          ? html`
+              <vaadin-button
+                theme="primary success"
+                @click="${this._confirmPlan}"
+                .disabled="${this.processing}"
+              >
+                <vaadin-icon icon="vaadin:check" slot="prefix"></vaadin-icon>
+                Confirm & Execute
+              </vaadin-button>
+            `
+          : ''
+      }
+      ${
+        canDecline
+          ? html`
+              <vaadin-button
+                theme="error"
+                @click="${this._declinePlan}"
+                .disabled="${this.processing}"
+              >
+                <vaadin-icon icon="vaadin:close" slot="prefix"></vaadin-icon>
+                Decline
+              </vaadin-button>
+            `
+          : ''
+      }
+
       <vaadin-button @click="${this._close}">Close</vaadin-button>
     `;
   }
@@ -252,42 +258,52 @@ export class TerraformPlanDialog extends LitElement {
     this.error = null;
     this.plan = null;
 
-    this.terraformApi.terraformPlanDeploymentResultIdGet({ deploymentResultId: this.deploymentResultId }).subscribe({
-      next: (data: TerraformPlanApiModel) => {
-        this.plan = data;
-        this.loading = false;
-      },
-      error: (err: any) => {
-        console.error(err);
-        this.loading = false;
-      },
-      complete: () => console.log('done loading result Statuses')
-    });
+    this.terraformApi
+      .terraformPlanDeploymentResultIdGet({
+        deploymentResultId: this.deploymentResultId
+      })
+      .subscribe({
+        next: (data: TerraformPlanApiModel) => {
+          this.plan = data;
+          this.loading = false;
+        },
+        error: (err: any) => {
+          console.error(err);
+          this.loading = false;
+        },
+        complete: () => console.log('done loading result Statuses')
+      });
   }
 
   private async _confirmPlan() {
     if (!this.plan) return;
 
-    this.processing = true;      
+    this.processing = true;
 
-    this.terraformApi.terraformPlanDeploymentResultIdConfirmPost({ deploymentResultId: this.deploymentResultId }).subscribe({
-      error: (err: any) => {
-        console.error(err);
-      },
-      complete: () => console.log('done confirming the Terraform plan')
-    });
-      
+    this.terraformApi
+      .terraformPlanDeploymentResultIdConfirmPost({
+        deploymentResultId: this.deploymentResultId
+      })
+      .subscribe({
+        error: (err: any) => {
+          console.error(err);
+        },
+        complete: () => console.log('done confirming the Terraform plan')
+      });
+
     // Update the plan status
     this.plan = { ...this.plan, Status: 'Confirmed' };
-     
+
     // Dispatch custom event to notify parent component
-    this.dispatchEvent(new CustomEvent('terraform-plan-confirmed', {
-      detail: { 
-        deploymentResultId: this.plan.DeploymentResultId
-      },
-      bubbles: true,
-      composed: true
-    }));
+    this.dispatchEvent(
+      new CustomEvent('terraform-plan-confirmed', {
+        detail: {
+          deploymentResultId: this.plan.DeploymentResultId
+        },
+        bubbles: true,
+        composed: true
+      })
+    );
     this.processing = false;
 
     // Close dialog after confirm
@@ -299,23 +315,29 @@ export class TerraformPlanDialog extends LitElement {
 
     this.processing = true;
 
-    this.terraformApi.terraformPlanDeploymentResultIdDeclinePost({ deploymentResultId: this.deploymentResultId }).subscribe({
-      error: (err: any) => {
-        console.error(err);
-      },
-      complete: () => console.log('done confirming the Terraform plan')
-    });
+    this.terraformApi
+      .terraformPlanDeploymentResultIdDeclinePost({
+        deploymentResultId: this.deploymentResultId
+      })
+      .subscribe({
+        error: (err: any) => {
+          console.error(err);
+        },
+        complete: () => console.log('done confirming the Terraform plan')
+      });
     // Update the plan status
     this.plan = { ...this.plan, Status: 'Cancelled' };
-      
+
     // Dispatch custom event to notify parent component
-    this.dispatchEvent(new CustomEvent('terraform-plan-declined', {
-      detail: { 
-        deploymentResultId: this.plan.DeploymentResultId
-      },
-      bubbles: true,
-      composed: true
-    }));
+    this.dispatchEvent(
+      new CustomEvent('terraform-plan-declined', {
+        detail: {
+          deploymentResultId: this.plan.DeploymentResultId
+        },
+        bubbles: true,
+        composed: true
+      })
+    );
 
     // Close dialog after decline
     this._close();
@@ -331,14 +353,16 @@ export class TerraformPlanDialog extends LitElement {
     this.opened = true;
   }
 
-  private _sendCloseDialogEvent(){
+  private _sendCloseDialogEvent() {
     // Dispatch custom event to notify parent component
-    this.dispatchEvent(new CustomEvent('close-terraform-plan', {
-      detail: { 
-        value: false
-      },
-      bubbles: true,
-      composed: true
-    }));
+    this.dispatchEvent(
+      new CustomEvent('close-terraform-plan', {
+        detail: {
+          value: false
+        },
+        bubbles: true,
+        composed: true
+      })
+    );
   }
 }

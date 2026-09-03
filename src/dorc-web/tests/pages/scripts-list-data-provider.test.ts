@@ -42,8 +42,7 @@ const settle = () => new Promise(r => setTimeout(r, 200));
 const providerOf = (el: HTMLElement) =>
   (
     el.shadowRoot?.querySelector('vaadin-grid') as
-      | (HTMLElement & { dataProvider?: unknown })
-      | null
+      (HTMLElement & { dataProvider?: unknown }) | null
   )?.dataProvider;
 
 describe('page-scripts-list keeps its data provider', () => {

@@ -1,4 +1,4 @@
-import {ECharts, EChartsOption} from 'echarts';
+import { ECharts, EChartsOption } from 'echarts';
 import * as echarts from 'echarts';
 import { css, LitElement, PropertyValues } from 'lit';
 import { customElement } from 'lit/decorators.js';
@@ -38,7 +38,9 @@ export class DorcChart extends LitElement {
   }
 
   private isDarkMode(): boolean {
-    return document.documentElement.getAttribute('theme')?.includes('dark') ?? false;
+    return (
+      document.documentElement.getAttribute('theme')?.includes('dark') ?? false
+    );
   }
 
   protected firstUpdated(_changedProperties: PropertyValues) {
@@ -62,7 +64,10 @@ export class DorcChart extends LitElement {
       '#container'
     ) as HTMLDivElement | null;
     if (!container || this.chart) return;
-    this.chart = echarts.init(container, this.isDarkMode() ? 'dark' : undefined);
+    this.chart = echarts.init(
+      container,
+      this.isDarkMode() ? 'dark' : undefined
+    );
     this.updateChart();
 
     this._resizeObserver = new ResizeObserver(() => {
