@@ -144,13 +144,9 @@ namespace Dorc.Core.AzureDevOpsServer
         {
             if (SourceHosts.IsArtefactSourceUnconfigured)
             {
-                _log.LogWarning(
-                    "Offering default Windows credentials to '{Endpoint}' because no artefact host"
-                    + " allow-list is configured ('{Setting}'). This presents the service account's"
-                    + " own identity to a host named by project configuration.",
-                    azureEndpoint,
-                    SourceHostAllowList.ArtefactHostsSetting);
-                return;
+                throw new InvalidOperationException(
+                    $"Refusing to present default Windows credentials because no artefact host "
+                    + $"allow-list is configured ('{SourceHostAllowList.ArtefactHostsSetting}').");
             }
 
             if (!SourceHosts.IsArtefactSourceAllowed(azureEndpoint, out var reason))
