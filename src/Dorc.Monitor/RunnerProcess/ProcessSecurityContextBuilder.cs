@@ -115,7 +115,7 @@ namespace Dorc.Monitor.RunnerProcess
                     throw new Exception($"Cannot process request under account {userName}");
                 }
 
-                this.logger.LogInformation($"Logon as {userName} succeeded");
+                this.logger.LogInformation("Logon succeeded.");
 
                 return token;
             }
