@@ -84,7 +84,12 @@ namespace Dorc.Api.Services
             {
                 throw;
             }
-            catch (Exception ex)
+            catch (HttpRequestException ex)
+            {
+                _logger.LogError(ex, "Error fetching cr-inputs.json for project '{ProjectName}'", safeName);
+                return null;
+            }
+            catch (InvalidOperationException ex)
             {
                 _logger.LogError(ex, "Error fetching cr-inputs.json for project '{ProjectName}'", safeName);
                 return null;
@@ -143,11 +148,6 @@ namespace Dorc.Api.Services
                 return model;
             }
             catch (JsonException ex)
-            {
-                _logger.LogError(ex, "Failed to parse cr-inputs.json for project '{ProjectName}'", safeProjectName);
-                return null;
-            }
-            catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to parse cr-inputs.json for project '{ProjectName}'", safeProjectName);
                 return null;

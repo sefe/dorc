@@ -100,11 +100,6 @@ namespace Dorc.Api.Services
                 _logger.LogError(ex, "JSON parse error validating CR {CrNumber}", normalizedCr);
                 return ValidationError("Received invalid response format from ServiceNow.", normalizedCr);
             }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error validating CR {CrNumber}", normalizedCr);
-                return ValidationError("An unexpected error occurred while validating the Change Request. Please try again later or contact support.", normalizedCr);
-            }
         }
 
         private ChangeRequestValidationResult? CheckServiceNowAvailability(string crNumber)
@@ -308,7 +303,7 @@ namespace Dorc.Api.Services
                 _logger.LogError(ex, "JSON parse error creating AutoCR for project {Project}", safeProject);
                 return CreateError("Received invalid response format from ServiceNow when creating Change Request.");
             }
-            catch (Exception ex)
+            catch (InvalidOperationException ex)
             {
                 _logger.LogError(ex, "Error creating AutoCR for project {Project}", safeProject);
                 return CreateError("An unexpected error occurred while creating the Change Request. Please try again later or contact support.");
@@ -448,7 +443,7 @@ namespace Dorc.Api.Services
                 _logger.LogWarning(ex, "JSON parsing error advancing CR {SysId} to state {State}", sysId, targetState);
                 return false;
             }
-            catch (Exception ex)
+            catch (InvalidOperationException ex)
             {
                 _logger.LogError(ex, "Error advancing CR {SysId} to state {State}", sysId, targetState);
                 return false;

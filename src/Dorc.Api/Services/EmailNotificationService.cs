@@ -81,7 +81,7 @@ namespace Dorc.Api.Services
 
                 if (recipientList.Count == 0)
                 {
-                    _logger.LogWarning("No valid recipients found in notification email '{NotificationEmail}'.", SanitizeForLog(notificationEmail));
+                    _logger.LogWarning("No valid recipients found in the configured notification email.");
                     return;
                 }
 
@@ -138,10 +138,17 @@ namespace Dorc.Api.Services
             {
                 throw;
             }
-            catch (Exception ex)
+            catch (HttpRequestException ex)
             {
                 _logger.LogError(ex, "Failed to send CR override notification via Graph API");
-                // Don't throw - email failure shouldn't block deployment
+            }
+            catch (JsonException ex)
+            {
+                _logger.LogError(ex, "Failed to serialize CR override notification for Graph API");
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogError(ex, "Failed to send CR override notification via Graph API");
             }
         }
 
@@ -158,7 +165,11 @@ namespace Dorc.Api.Services
                 var address = new MailAddress(email);
                 return address.Address == email;
             }
-            catch
+            catch (FormatException)
+            {
+                return false;
+            }
+            catch (ArgumentException)
             {
                 return false;
             }

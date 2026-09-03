@@ -34,26 +34,13 @@ namespace Dorc.Api.Controllers
         [HttpGet("validate")]
         public async Task<IActionResult> ValidateChangeRequest([FromQuery] string crNumber)
         {
-            try
-            {
-                if (string.IsNullOrWhiteSpace(crNumber))
-                    return BadRequest("Change Request number is required");
+            if (string.IsNullOrWhiteSpace(crNumber))
+                return BadRequest("Change Request number is required");
 
-                _logger.LogInformation("Validating CR {CrNumber} for user {User}",
-                    Sanitize(crNumber), User.Identity?.Name ?? "Unknown");
+            _logger.LogInformation("Validating CR {CrNumber} for user {User}",
+                Sanitize(crNumber), User.Identity?.Name ?? "Unknown");
 
-                return Ok(await _serviceNowService.ValidateChangeRequestAsync(crNumber));
-            }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error validating CR {CrNumber}: {Message}", Sanitize(crNumber), ex.Message);
-                return StatusCode(StatusCodes.Status500InternalServerError,
-                    "An unexpected error occurred while validating the Change Request. Please try again later or contact support.");
-            }
+            return Ok(await _serviceNowService.ValidateChangeRequestAsync(crNumber));
         }
 
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(CreateChangeRequestResult))]
@@ -61,63 +48,37 @@ namespace Dorc.Api.Controllers
         [HttpPost("create")]
         public async Task<IActionResult> CreateChangeRequest([FromBody] CreateChangeRequestInput input)
         {
-            try
-            {
-                if (input == null)
-                    return BadRequest("Request body is required");
+            if (input == null)
+                return BadRequest("Request body is required");
 
-                if (string.IsNullOrEmpty(input.RequestedBy))
-                    input.RequestedBy = User.Identity?.Name ?? "Unknown";
+            if (string.IsNullOrEmpty(input.RequestedBy))
+                input.RequestedBy = User.Identity?.Name ?? "Unknown";
 
-                _logger.LogInformation("AutoCR requested by {User} for project {Project} to {Environment}",
-                    User.Identity?.Name ?? "Unknown", Sanitize(input.ProjectName), Sanitize(input.Environment));
+            _logger.LogInformation("AutoCR requested by {User} for project {Project} to {Environment}",
+                User.Identity?.Name ?? "Unknown", Sanitize(input.ProjectName), Sanitize(input.Environment));
 
-                // Auto-fetch cr-inputs.json from the project's Azure DevOps repo
-                await TryMergeCrInputsAsync(input);
+            await TryMergeCrInputsAsync(input);
 
-                var result = await _serviceNowService.CreateChangeRequestAsync(input);
-                return result.Success ? Ok(result) : BadRequest(result);
-            }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error creating AutoCR");
-                return StatusCode(StatusCodes.Status500InternalServerError,
-                    "An unexpected error occurred while creating the Change Request. Please try again later or contact support.");
-            }
+            var result = await _serviceNowService.CreateChangeRequestAsync(input);
+            return result.Success ? Ok(result) : BadRequest(result);
         }
 
         private async Task TryMergeCrInputsAsync(CreateChangeRequestInput input)
         {
             if (string.IsNullOrEmpty(input.ProjectName)) return;
 
-            try
+            var crInputs = await _crInputsProvider.GetCrInputsAsync(input.ProjectName);
+            if (crInputs == null)
             {
-                var crInputs = await _crInputsProvider.GetCrInputsAsync(input.ProjectName);
-                if (crInputs == null)
-                {
-                    _logger.LogInformation("cr-inputs.json not found for project '{Project}'. Using defaults.",
-                        Sanitize(input.ProjectName));
-                    return;
-                }
-
-                MergeCrInputs(input, crInputs);
-                input.CrInputsFetched = true;
-                _logger.LogInformation("Auto-fetched cr-inputs.json for project '{Project}': group='{Group}', service='{Service}'",
-                    Sanitize(input.ProjectName), Sanitize(input.AssignmentGroup), Sanitize(input.BusinessService));
-            }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to auto-fetch cr-inputs.json for project '{Project}'. Using defaults.",
+                _logger.LogInformation("cr-inputs.json not found for project '{Project}'. Using defaults.",
                     Sanitize(input.ProjectName));
+                return;
             }
+
+            MergeCrInputs(input, crInputs);
+            input.CrInputsFetched = true;
+            _logger.LogInformation("Auto-fetched cr-inputs.json for project '{Project}': group='{Group}', service='{Service}'",
+                Sanitize(input.ProjectName), Sanitize(input.AssignmentGroup), Sanitize(input.BusinessService));
         }
 
         private static void MergeCrInputs(CreateChangeRequestInput input, CrInputsModel crInputs)

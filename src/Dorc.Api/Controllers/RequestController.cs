@@ -1,4 +1,5 @@
 ﻿using Dorc.Api.Interfaces;
+using Dorc.Api.Services;
 using Dorc.ApiModel;
 using Dorc.Core.Configuration;
 using Dorc.Core.Events;
@@ -604,7 +605,7 @@ namespace Dorc.Api.Controllers
                 var canModifyEnv = _apiSecurityService.CanModifyEnvironment(User, requestDto.Environment);
                 if (!canModifyEnv)
                 {
-                    var safeEnv = (requestDto.Environment ?? string.Empty)
+                    var safeEnv = requestDto.Environment
                         .Replace("\r", string.Empty)
                         .Replace("\n", string.Empty);
                     _log.LogInformation("Forbidden deployment request to {Environment}", safeEnv);
@@ -644,39 +645,33 @@ namespace Dorc.Api.Controllers
                     // Send email notification when deploying to prod with CR override
                     if (isProd && requestDto.OverrideCr)
                     {
-                        try
-                        {
-                            var projectModel = _projectsPersistentSource.GetProject(requestDto.Project);
-                            var notificationEmail = projectModel?.NotificationEmail;
-                            string username = _claimsPrincipalReader.GetUserFullDomainName(User);
-                            await _emailNotificationService.SendCrOverrideNotificationAsync(
-                                username,
-                                requestDto.Environment,
-                                requestDto.Project,
-                                requestDto.BuildNum ?? requestDto.BuildText ?? string.Empty,
-                                notificationEmail ?? string.Empty);
-                        }
-                        catch (Exception ex)
-                        {
-                            _log.LogError(ex, "Failed to send CR override email notification for request {RequestId}", result.Id);
-                            // Don't fail the deployment because of email failure
-                        }
+                        var projectModel = _projectsPersistentSource.GetProject(requestDto.Project);
+                        var notificationEmail = projectModel?.NotificationEmail;
+                        string username = _claimsPrincipalReader.GetUserFullDomainName(User);
+                        await _emailNotificationService.SendCrOverrideNotificationAsync(
+                            username,
+                            requestDto.Environment,
+                            requestDto.Project,
+                            requestDto.BuildNum ?? requestDto.BuildText ?? string.Empty,
+                            notificationEmail ?? string.Empty);
                     }
 
                     StoreEnvironmentOwnerEmail(result.Id, requestDto.Environment);
 
                     return Ok(result);
                 }
-                catch (Exception e)
+                catch (WrongBuildTypeException e)
                 {
-                    _log.LogError(e.Message);
-                    return BadRequest(e.Message);
+                    _log.LogWarning(e, "Deployment request build validation failed");
+                    return BadRequest("Unable to create deployment request because the build details are invalid.");
                 }
             }
             catch (Exception e)
             {
                 _log.LogError(e, "api/Request/post");
-                var result = StatusCode(StatusCodes.Status500InternalServerError, e);
+                var result = StatusCode(
+                    StatusCodes.Status500InternalServerError,
+                    "An unexpected error occurred while creating the deployment request.");
                 return result;
             }
         }

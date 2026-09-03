@@ -1378,13 +1378,6 @@
         }
       }
     },
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/DaemonStatus": {
       "get": {
         "tags": [
@@ -9288,10 +9281,6 @@
           "Message": {
             "type": "string",
             "nullable": true
-          }
-        },
-        "additionalProperties": false
-      },
           }
         },
         "additionalProperties": false

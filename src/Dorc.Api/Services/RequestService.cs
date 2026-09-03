@@ -26,7 +26,9 @@ namespace Dorc.Api.Services
             var build = _deployableBuildFactory.CreateInstance(request);
             if (build == null)
             {
-                _log.LogError("Wrong build type: {Request}", request);
+                _log.LogError(
+                    "Wrong build type for project {Project}",
+                    SanitizeForLog(request.Project));
                 throw new WrongBuildTypeException($"Wrong build type. BuildUrl should start with 'http', 'file', or be a numeric run ID (GitHub), but got {request.BuildUrl}");
             }
 
@@ -53,6 +55,11 @@ namespace Dorc.Api.Services
                 throw new Exception($"Unable to locate a project with the name '{projectName}'");
             }
             request.BuildUrl = project.ArtefactsUrl.Split(';')[0];
+        }
+
+        private static string? SanitizeForLog(string? value)
+        {
+            return value?.Replace("\r", string.Empty).Replace("\n", string.Empty);
         }
     }
 }
