@@ -9,6 +9,7 @@ using Microsoft.Extensions.Logging;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using System.Collections.Concurrent;
+using System.Linq;
 
 namespace Dorc.Monitor.Tests
 {
@@ -337,16 +338,15 @@ namespace Dorc.Monitor.Tests
             // Act
             sut.CancelRequests(false, cancellationSources, CancellationToken.None);
 
-            // Assert - one notification per cancelled request, carrying the full request model
-            mockNotificationSink.ReceivedWithAnyArgs(2).NotifyRequestCompletedAsync(default!, default!, default, default);
-            foreach (var request in requests)
-            {
-                mockNotificationSink.Received(1).NotifyRequestCompletedAsync(
-                    request,
-                    DeploymentRequestStatus.Cancelled.ToString(),
-                    Arg.Any<DateTimeOffset>(),
-                    Arg.Any<DateTimeOffset>());
-            }
+            // Assert - a single batch covering both cancelled requests, not one DM each.
+            // The sink groups the batch per requester before sending.
+            mockNotificationSink.DidNotReceiveWithAnyArgs().NotifyRequestCompletedAsync(default!, default!, default, default);
+            mockNotificationSink.ReceivedWithAnyArgs(1).NotifyRequestsCompletedAsync(default!, default!, default);
+            mockNotificationSink.Received(1).NotifyRequestsCompletedAsync(
+                Arg.Is<IReadOnlyCollection<DeploymentRequestApiModel>>(batch =>
+                    batch.Count == 2 && requests.All(r => batch.Contains(r))),
+                DeploymentRequestStatus.Cancelled.ToString(),
+                Arg.Any<DateTimeOffset>());
         }
 
         [TestMethod]
@@ -370,8 +370,9 @@ namespace Dorc.Monitor.Tests
             // Act
             sut.CancelRequests(false, cancellationSources, CancellationToken.None);
 
-            // Assert
+            // Assert - nothing was transitioned by this monitor, so the empty batch is not dispatched
             mockNotificationSink.DidNotReceiveWithAnyArgs().NotifyRequestCompletedAsync(default!, default!, default, default);
+            mockNotificationSink.DidNotReceiveWithAnyArgs().NotifyRequestsCompletedAsync(default!, default!, default);
         }
 
         [TestMethod]
@@ -398,11 +399,11 @@ namespace Dorc.Monitor.Tests
             sut.AbandonRequests(false, cancellationSources, CancellationToken.None);
 
             // Assert
-            mockNotificationSink.ReceivedWithAnyArgs(1).NotifyRequestCompletedAsync(default!, default!, default, default);
-            mockNotificationSink.Received(1).NotifyRequestCompletedAsync(
-                requests[0],
+            mockNotificationSink.ReceivedWithAnyArgs(1).NotifyRequestsCompletedAsync(default!, default!, default);
+            mockNotificationSink.Received(1).NotifyRequestsCompletedAsync(
+                Arg.Is<IReadOnlyCollection<DeploymentRequestApiModel>>(batch =>
+                    batch.Count == 1 && batch.Contains(requests[0])),
                 DeploymentRequestStatus.Abandoned.ToString(),
-                Arg.Any<DateTimeOffset>(),
                 Arg.Any<DateTimeOffset>());
         }
 
@@ -435,12 +436,13 @@ namespace Dorc.Monitor.Tests
             // Act
             sut.CancelRequests(false, cancellationSources, CancellationToken.None);
 
-            // Assert - only the request this monitor transitioned is notified (and published)
-            mockNotificationSink.ReceivedWithAnyArgs(1).NotifyRequestCompletedAsync(default!, default!, default, default);
-            mockNotificationSink.Received(1).NotifyRequestCompletedAsync(
-                requests[0],
+            // Assert - the batch carries only the request this monitor transitioned; the one
+            // another monitor already handled must not appear, or it would be DMed twice.
+            mockNotificationSink.ReceivedWithAnyArgs(1).NotifyRequestsCompletedAsync(default!, default!, default);
+            mockNotificationSink.Received(1).NotifyRequestsCompletedAsync(
+                Arg.Is<IReadOnlyCollection<DeploymentRequestApiModel>>(batch =>
+                    batch.Count == 1 && batch.Contains(requests[0])),
                 DeploymentRequestStatus.Cancelled.ToString(),
-                Arg.Any<DateTimeOffset>(),
                 Arg.Any<DateTimeOffset>());
         }
 
@@ -482,12 +484,12 @@ namespace Dorc.Monitor.Tests
             sut.CancelStaleRequests(false);
             await Task.WhenAll(publishTasks);
 
-            // Assert - exactly one notification: the cancelled stale request, not the resumed one
-            mockNotificationSink.ReceivedWithAnyArgs(1).NotifyRequestCompletedAsync(default!, default!, default, default);
-            mockNotificationSink.Received(1).NotifyRequestCompletedAsync(
-                staleRequesting[0],
+            // Assert - exactly one batch: the cancelled stale request, not the resumed one
+            mockNotificationSink.ReceivedWithAnyArgs(1).NotifyRequestsCompletedAsync(default!, default!, default);
+            mockNotificationSink.Received(1).NotifyRequestsCompletedAsync(
+                Arg.Is<IReadOnlyCollection<DeploymentRequestApiModel>>(batch =>
+                    batch.Count == 1 && batch.Contains(staleRequesting[0])),
                 DeploymentRequestStatus.Cancelled.ToString(),
-                Arg.Any<DateTimeOffset>(),
                 Arg.Any<DateTimeOffset>());
         }
 

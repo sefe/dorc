@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Dorc.ApiModel;
+using System.Linq;
 using Dorc.Monitor.Notifications.Teams;
 using Microsoft.Extensions.Options;
 
@@ -124,5 +125,75 @@ namespace Dorc.Monitor.Tests.Notifications
             Assert.AreEqual("—", facts["Environment"]);
             Assert.AreEqual("—", facts["Build"]);
         }
+        // ---- Batch summary card ----
+
+        private static List<DeploymentRequestApiModel> CreateBatch(int count, int firstId = 1)
+        {
+            return Enumerable.Range(firstId, count)
+                .Select(id => new DeploymentRequestApiModel
+                {
+                    Id = id,
+                    UserName = "jane.doe@example.com",
+                    Project = "TestProject",
+                    EnvironmentName = "TestEnv"
+                })
+                .ToList();
+        }
+
+        [TestMethod]
+        public void BuildBatch_ListsEveryRequestWhenFewEnough()
+        {
+            var json = CreateBuilder().BuildBatch(CreateBatch(3), "Cancelled", StartedTime);
+
+            StringAssert.Contains(json, "3 deployments Cancelled");
+            foreach (var id in new[] { 1, 2, 3 })
+                StringAssert.Contains(json, $"#{id}");
+            Assert.IsFalse(json.Contains("and 0 more"));
+        }
+
+        [TestMethod]
+        public void BuildBatch_TruncatesLongListAndSaysHowManyRemain()
+        {
+            var json = CreateBuilder().BuildBatch(CreateBatch(14), "Cancelled", StartedTime);
+
+            StringAssert.Contains(json, "14 deployments Cancelled");
+            StringAssert.Contains(json, "#10");      // last listed
+            StringAssert.Contains(json, "and 4 more");
+            Assert.IsFalse(json.Contains("#11 "), "Requests past the cap should be summarised, not listed.");
+        }
+
+        [TestMethod]
+        public void BuildBatch_DeepLinksToTheRequestListNotASingleResult()
+        {
+            var json = CreateBuilder("http://dorc.example.com").BuildBatch(CreateBatch(2), "Cancelled", StartedTime);
+
+            StringAssert.Contains(json, "http://dorc.example.com/monitor-requests");
+            Assert.IsFalse(json.Contains("monitor-result"), "A batch card cannot deep-link to one result.");
+        }
+
+        [TestMethod]
+        public void BuildBatch_WithoutBaseUrl_OmitsActions()
+        {
+            var json = CreateBuilder().BuildBatch(CreateBatch(2), "Cancelled", StartedTime);
+
+            Assert.IsFalse(json.Contains("actions"));
+        }
+
+        [TestMethod]
+        public void BuildBatch_CarriesFallbackTextForClientsThatCannotRenderCards()
+        {
+            var json = CreateBuilder().BuildBatch(CreateBatch(5), "Errored", StartedTime);
+
+            StringAssert.Contains(json, "fallbackText");
+            StringAssert.Contains(json, "5 deployments Errored");
+        }
+
+        [TestMethod]
+        public void BuildBatch_EmptyBatch_Throws()
+        {
+            Assert.ThrowsExactly<ArgumentException>(() =>
+                CreateBuilder().BuildBatch(new List<DeploymentRequestApiModel>(), "Cancelled", StartedTime));
+        }
+
     }
 }

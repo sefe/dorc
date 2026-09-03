@@ -91,6 +91,14 @@ namespace Dorc.Monitor
             DeploymentNotificationDispatch.FireAndForget(this.notificationSink, this.logger, request, finalStatus, startedTime, completedTime);
         }
 
+        private void FireBatchNotification(
+            IReadOnlyCollection<DeploymentRequestApiModel> requests,
+            string finalStatus,
+            DateTimeOffset completedTime)
+        {
+            DeploymentNotificationDispatch.FireAndForgetBatch(this.notificationSink, this.logger, requests, finalStatus, completedTime);
+        }
+
         // NOTE: AbandonRequests handles truly stale requests (>24 hours in Running state).
         // In a dual-node HA scenario where BOTH monitors crash simultaneously, requests
         // will remain in Running state until this 24-hour threshold is reached. This is a
@@ -239,8 +247,11 @@ namespace Dorc.Monitor
                             CompletedTime: null,
                             Timestamp: DateTimeOffset.UtcNow
                         ));
-                        FireNotification(request, DeploymentRequestStatus.Cancelled.ToString(), request.StartedTime ?? request.RequestedTime ?? cancelledTime, cancelledTime);
                     }
+
+                    // One notification for the whole sweep: a restart can cancel many requests at
+                    // once, and the sink groups them per requester so nobody gets a burst of DMs.
+                    FireBatchNotification(cancelledRequests, DeploymentRequestStatus.Cancelled.ToString(), cancelledTime);
 
                     this.logger.LogWarning(
                         "Cancelled {CancelledCount} of {FoundCount} stale Requesting request(s). Cancelled IDs [{Ids}]",
@@ -273,6 +284,7 @@ namespace Dorc.Monitor
 
                 var updatedRequestCount = 0;
                 var updatedIds = new List<int>();
+                var switchedRequests = new List<DeploymentRequestApiModel>();
 
                 var switchedTime = DateTimeOffset.Now;
 
@@ -301,11 +313,15 @@ namespace Dorc.Monitor
                             CompletedTime: null,
                             Timestamp: DateTimeOffset.UtcNow
                         ));
-                        // Notify only for the transition this monitor instance won, so a
+                        // Collect only the transitions this monitor instance won, so a
                         // concurrent monitor cannot DM the same requester twice.
-                        FireNotification(request, toStatus.ToString(), request.StartedTime ?? request.RequestedTime ?? switchedTime, switchedTime);
+                        switchedRequests.Add(request);
                     }
                 }
+
+                // One notification for the whole sweep rather than one per request; the sink
+                // groups by requester so a bulk cancel or abandon is a single DM per person.
+                FireBatchNotification(switchedRequests, toStatus.ToString(), switchedTime);
 
                 if (updatedRequestCount == requestToSwitchCount)
                 {

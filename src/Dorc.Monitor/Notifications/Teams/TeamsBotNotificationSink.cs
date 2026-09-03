@@ -99,6 +99,80 @@ namespace Dorc.Monitor.Notifications.Teams
             }
         }
 
+        public async Task NotifyRequestsCompletedAsync(
+            IReadOnlyCollection<DeploymentRequestApiModel> requests,
+            string finalStatus,
+            DateTimeOffset completedTime)
+        {
+            if (!_options.Enabled || requests.Count == 0)
+                return;
+
+            if (!_notifyOnStatuses.Contains(finalStatus))
+            {
+                _logger.LogDebug(
+                    "Skipping Teams notification for {Count} request(s): status '{Status}' is not in NotifyOnStatuses.",
+                    requests.Count, finalStatus);
+                return;
+            }
+
+            foreach (var orphan in requests.Where(r => string.IsNullOrWhiteSpace(r.UserName)))
+            {
+                _logger.LogWarning(
+                    "Cannot send Teams notification for request {RequestId}: UserName is empty.",
+                    orphan.Id);
+            }
+
+            var byRequester = requests
+                .Where(r => !string.IsNullOrWhiteSpace(r.UserName))
+                .GroupBy(r => r.UserName!, StringComparer.OrdinalIgnoreCase);
+
+            // One message per requester. Each recipient is isolated: an unresolvable user or a
+            // Bot Connector failure for one person must not stop the others being told.
+            foreach (var group in byRequester)
+            {
+                var userName = group.Key;
+                var forUser = group.ToList();
+
+                try
+                {
+                    var aadObjectId = ResolveAadObjectId(userName);
+                    if (aadObjectId is null)
+                    {
+                        _logger.LogWarning(
+                            "Cannot send Teams notification for requests [{RequestIds}]: could not resolve AAD object ID for user '{UserName}'.",
+                            string.Join(",", forUser.Select(r => r.Id)), userName);
+                        continue;
+                    }
+
+                    if (forUser.Count == 1)
+                    {
+                        // A batch of one is just the normal card - no reason to degrade it to a summary.
+                        var only = forUser[0];
+                        await DispatchAdaptiveCardAsync(
+                            only,
+                            finalStatus,
+                            only.StartedTime ?? only.RequestedTime ?? completedTime,
+                            completedTime,
+                            aadObjectId);
+                    }
+                    else
+                    {
+                        await DispatchBatchCardAsync(forUser, finalStatus, completedTime, aadObjectId);
+                    }
+
+                    _logger.LogInformation(
+                        "Teams notification sent to user '{UserName}' covering {Count} request(s) (status: {Status}).",
+                        userName, forUser.Count, finalStatus);
+                }
+                catch (Exception ex) when (!FatalExceptions.Is(ex))
+                {
+                    _logger.LogError(ex,
+                        "Failed to send Teams notification to user '{UserName}' for requests [{RequestIds}].",
+                        userName, string.Join(",", forUser.Select(r => r.Id)));
+                }
+            }
+        }
+
         private string? ResolveAadObjectId(string userName)
         {
             try
@@ -126,7 +200,7 @@ namespace Dorc.Monitor.Notifications.Teams
             DateTimeOffset completedTime,
             string aadObjectId)
         {
-            var policy = BuildResiliencePolicy(request.Id);
+            var policy = BuildResiliencePolicy($"request {request.Id}");
 
             var conversationId = await policy.ExecuteAsync(
                 ct => _conversationClient.CreateConversationAsync(aadObjectId, ct),
@@ -144,7 +218,28 @@ namespace Dorc.Monitor.Notifications.Teams
             _logger.LogDebug("Adaptive card message sent to conversation {ConversationId}", conversationId);
         }
 
-        private AsyncPolicy BuildResiliencePolicy(int requestId)
+        private async Task DispatchBatchCardAsync(
+            IReadOnlyCollection<DeploymentRequestApiModel> requests,
+            string finalStatus,
+            DateTimeOffset completedTime,
+            string aadObjectId)
+        {
+            var policy = BuildResiliencePolicy($"{requests.Count} requests");
+
+            var conversationId = await policy.ExecuteAsync(
+                ct => _conversationClient.CreateConversationAsync(aadObjectId, ct),
+                CancellationToken.None);
+
+            var cardJson = _cardBuilder.BuildBatch(requests, finalStatus, completedTime);
+
+            await policy.ExecuteAsync(
+                ct => _conversationClient.SendCardAsync(conversationId, cardJson, ct),
+                CancellationToken.None);
+
+            _logger.LogDebug("Batch adaptive card sent to conversation {ConversationId}", conversationId);
+        }
+
+        private AsyncPolicy BuildResiliencePolicy(string context)
         {
             AsyncTimeoutPolicy timeoutPolicy = Policy
                 .TimeoutAsync(TimeSpan.FromSeconds(10), TimeoutStrategy.Optimistic);
@@ -157,8 +252,8 @@ namespace Dorc.Monitor.Notifications.Teams
                     onRetry: (ex, ts, attempt, _) =>
                     {
                         _logger.LogWarning(ex,
-                            "Retry {Attempt} sending Teams notification for request {RequestId}. Waiting {Delay}.",
-                            attempt, requestId, ts);
+                            "Retry {Attempt} sending Teams notification for {Context}. Waiting {Delay}.",
+                            attempt, context, ts);
                     });
 
             return Policy.WrapAsync(retryPolicy, timeoutPolicy);

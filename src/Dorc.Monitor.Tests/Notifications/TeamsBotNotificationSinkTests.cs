@@ -233,5 +233,198 @@ namespace Dorc.Monitor.Tests.Notifications
 
             await mockConversationClient.Received(1).CreateConversationAsync(AadObjectId, Arg.Any<CancellationToken>());
         }
+        // ---- Batch (bulk sweep) grouping ----
+
+        private const string OtherUserName = "john.smith@example.com";
+        private const string OtherAadObjectId = "aad-object-id-2";
+        private const string OtherConversationId = "conversation-2";
+
+        private void ArrangeOtherUser()
+        {
+            mockSearcher.Search(OtherUserName).Returns(new List<UserElementApiModel>
+            {
+                new() { Username = OtherUserName, DisplayName = "John Smith", Email = OtherUserName, IsGroup = false, Pid = OtherAadObjectId }
+            });
+            mockConversationClient.CreateConversationAsync(OtherAadObjectId, Arg.Any<CancellationToken>()).Returns(OtherConversationId);
+        }
+
+        private static DeploymentRequestApiModel CreateRequest(int id, string? userName)
+        {
+            return new DeploymentRequestApiModel
+            {
+                Id = id,
+                UserName = userName,
+                Project = "TestProject",
+                EnvironmentName = "TestEnv",
+                BuildNumber = "1.2.3"
+            };
+        }
+
+        [TestMethod]
+        public async Task NotifyBatch_SameRequester_SendsOneCardNotOnePerRequest()
+        {
+            var sink = CreateSink();
+            var requests = new[] { CreateRequest(1, UserName), CreateRequest(2, UserName), CreateRequest(3, UserName) };
+
+            await sink.NotifyRequestsCompletedAsync(requests, "Errored", CompletedTime);
+
+            // One conversation, one card - not three of each.
+            await mockConversationClient.Received(1).CreateConversationAsync(AadObjectId, Arg.Any<CancellationToken>());
+            await mockConversationClient.Received(1).SendCardAsync(ConversationId, Arg.Any<string>(), Arg.Any<CancellationToken>());
+        }
+
+        [TestMethod]
+        public async Task NotifyBatch_SameRequester_CardSummarisesEveryRequest()
+        {
+            var sink = CreateSink();
+            string? sent = null;
+            await mockConversationClient.SendCardAsync(
+                Arg.Any<string>(),
+                Arg.Do<string>(json => sent = json),
+                Arg.Any<CancellationToken>());
+
+            var requests = new[] { CreateRequest(11, UserName), CreateRequest(12, UserName) };
+            await sink.NotifyRequestsCompletedAsync(requests, "Errored", CompletedTime);
+
+            Assert.IsNotNull(sent);
+            StringAssert.Contains(sent, "2 deployments Errored");
+            StringAssert.Contains(sent, "#11");
+            StringAssert.Contains(sent, "#12");
+        }
+
+        [TestMethod]
+        public async Task NotifyBatch_DifferentRequesters_SendsOneCardEach()
+        {
+            ArrangeOtherUser();
+            var sink = CreateSink();
+            var requests = new[]
+            {
+                CreateRequest(1, UserName),
+                CreateRequest(2, UserName),
+                CreateRequest(3, OtherUserName)
+            };
+
+            await sink.NotifyRequestsCompletedAsync(requests, "Errored", CompletedTime);
+
+            await mockConversationClient.Received(1).CreateConversationAsync(AadObjectId, Arg.Any<CancellationToken>());
+            await mockConversationClient.Received(1).CreateConversationAsync(OtherAadObjectId, Arg.Any<CancellationToken>());
+            await mockConversationClient.Received(1).SendCardAsync(ConversationId, Arg.Any<string>(), Arg.Any<CancellationToken>());
+            await mockConversationClient.Received(1).SendCardAsync(OtherConversationId, Arg.Any<string>(), Arg.Any<CancellationToken>());
+        }
+
+        [TestMethod]
+        public async Task NotifyBatch_RequesterCasingDiffers_StillGroupsAsOnePerson()
+        {
+            var sink = CreateSink();
+            mockSearcher.Search(Arg.Any<string>()).Returns(new List<UserElementApiModel>
+            {
+                new() { Username = UserName, Email = UserName, IsGroup = false, Pid = AadObjectId }
+            });
+
+            var requests = new[] { CreateRequest(1, UserName), CreateRequest(2, UserName.ToUpperInvariant()) };
+            await sink.NotifyRequestsCompletedAsync(requests, "Errored", CompletedTime);
+
+            await mockConversationClient.Received(1).CreateConversationAsync(AadObjectId, Arg.Any<CancellationToken>());
+        }
+
+        [TestMethod]
+        public async Task NotifyBatch_SingleRequest_UsesTheNormalCard()
+        {
+            var sink = CreateSink();
+            string? sent = null;
+            await mockConversationClient.SendCardAsync(
+                Arg.Any<string>(),
+                Arg.Do<string>(json => sent = json),
+                Arg.Any<CancellationToken>());
+
+            await sink.NotifyRequestsCompletedAsync(new[] { CreateRequest(7, UserName) }, "Errored", CompletedTime);
+
+            Assert.IsNotNull(sent);
+            // The single-request card, not the "N deployments" summary.
+            StringAssert.Contains(sent, "Request #7");
+            Assert.IsFalse(sent!.Contains("1 deployments"), "A batch of one should not degrade to a summary card.");
+        }
+
+        [TestMethod]
+        public async Task NotifyBatch_WhenDisabled_DoesNothing()
+        {
+            var sink = CreateSink(enabled: false);
+
+            await sink.NotifyRequestsCompletedAsync(new[] { CreateRequest(1, UserName) }, "Errored", CompletedTime);
+
+            mockSearcher.DidNotReceiveWithAnyArgs().Search(default!);
+            await mockConversationClient.DidNotReceiveWithAnyArgs().CreateConversationAsync(default!, default);
+        }
+
+        [TestMethod]
+        public async Task NotifyBatch_StatusNotInNotifyOnStatuses_DoesNothing()
+        {
+            var sink = CreateSink();
+
+            await sink.NotifyRequestsCompletedAsync(new[] { CreateRequest(1, UserName) }, "Cancelled", CompletedTime);
+
+            mockSearcher.DidNotReceiveWithAnyArgs().Search(default!);
+            await mockConversationClient.DidNotReceiveWithAnyArgs().CreateConversationAsync(default!, default);
+        }
+
+        [TestMethod]
+        public async Task NotifyBatch_EmptyBatch_DoesNothing()
+        {
+            var sink = CreateSink();
+
+            await sink.NotifyRequestsCompletedAsync(Array.Empty<DeploymentRequestApiModel>(), "Errored", CompletedTime);
+
+            mockSearcher.DidNotReceiveWithAnyArgs().Search(default!);
+            await mockConversationClient.DidNotReceiveWithAnyArgs().CreateConversationAsync(default!, default);
+        }
+
+        [TestMethod]
+        public async Task NotifyBatch_OneRequesterUnresolvable_StillNotifiesTheOthers()
+        {
+            ArrangeOtherUser();
+            mockSearcher.Search("ghost@example.com").Returns(new List<UserElementApiModel>());
+
+            var sink = CreateSink();
+            var requests = new[]
+            {
+                CreateRequest(1, "ghost@example.com"),
+                CreateRequest(2, OtherUserName)
+            };
+
+            await sink.NotifyRequestsCompletedAsync(requests, "Errored", CompletedTime);
+
+            await mockConversationClient.Received(1).SendCardAsync(OtherConversationId, Arg.Any<string>(), Arg.Any<CancellationToken>());
+            await mockConversationClient.Received(1).CreateConversationAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+        }
+
+        [TestMethod]
+        public async Task NotifyBatch_OneRequesterDispatchThrows_StillNotifiesTheOthers()
+        {
+            ArrangeOtherUser();
+            mockConversationClient
+                .CreateConversationAsync(AadObjectId, Arg.Any<CancellationToken>())
+                .Throws(new ArgumentException("no conversation for this user"));
+
+            var sink = CreateSink();
+            var requests = new[] { CreateRequest(1, UserName), CreateRequest(2, OtherUserName) };
+
+            await sink.NotifyRequestsCompletedAsync(requests, "Errored", CompletedTime);
+
+            // The failing recipient must not stop the other person being told.
+            await mockConversationClient.Received(1).SendCardAsync(OtherConversationId, Arg.Any<string>(), Arg.Any<CancellationToken>());
+        }
+
+        [TestMethod]
+        public async Task NotifyBatch_RequestWithoutUserName_IsSkippedButOthersAreSent()
+        {
+            var sink = CreateSink();
+            var requests = new[] { CreateRequest(1, null), CreateRequest(2, UserName) };
+
+            await sink.NotifyRequestsCompletedAsync(requests, "Errored", CompletedTime);
+
+            await mockConversationClient.Received(1).CreateConversationAsync(AadObjectId, Arg.Any<CancellationToken>());
+            await mockConversationClient.Received(1).SendCardAsync(ConversationId, Arg.Any<string>(), Arg.Any<CancellationToken>());
+        }
+
     }
 }

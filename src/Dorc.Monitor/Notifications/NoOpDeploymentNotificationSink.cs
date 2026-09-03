@@ -21,5 +21,16 @@ namespace Dorc.Monitor.Notifications
             _logger.LogDebug("Teams notifications are disabled; skipping notification for request {RequestId}.", request.Id);
             return Task.CompletedTask;
         }
+
+        public Task NotifyRequestsCompletedAsync(
+            IReadOnlyCollection<DeploymentRequestApiModel> requests,
+            string finalStatus,
+            DateTimeOffset completedTime)
+        {
+            _logger.LogDebug(
+                "Teams notifications are disabled; skipping batch notification for {Count} request(s).",
+                requests.Count);
+            return Task.CompletedTask;
+        }
     }
 }
