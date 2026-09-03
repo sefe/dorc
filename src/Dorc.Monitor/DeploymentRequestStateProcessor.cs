@@ -3,6 +3,7 @@ using Dorc.Core;
 using Dorc.Core.Events;
 using Dorc.Core.Interfaces;
 using Dorc.Core.HighAvailability;
+using Dorc.Monitor.Notifications;
 using Dorc.Monitor.RequestProcessors;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.Extensions.Logging;
@@ -18,6 +19,7 @@ namespace Dorc.Monitor
         private readonly IRequestsPersistentSource requestsPersistentSource;
         private readonly IDeploymentEventsPublisher eventPublisher;
         private readonly IDistributedLockService distributedLockService;
+        private readonly IDeploymentNotificationSink notificationSink;
         private readonly ILoggerFactory loggerFactory;
 
         private DeploymentRequestDetailSerializer serializer = new DeploymentRequestDetailSerializer();
@@ -47,6 +49,7 @@ namespace Dorc.Monitor
             IRequestsPersistentSource requestsPersistentSource,
             IDeploymentEventsPublisher eventPublisher,
             IDistributedLockService distributedLockService,
+            IDeploymentNotificationSink notificationSink,
             ILoggerFactory loggerFactory)
         {
             this.logger = logger;
@@ -55,6 +58,7 @@ namespace Dorc.Monitor
             this.requestsPersistentSource = requestsPersistentSource;
             this.eventPublisher = eventPublisher;
             this.distributedLockService = distributedLockService;
+            this.notificationSink = notificationSink;
             this.loggerFactory = loggerFactory;
         }
 
@@ -76,6 +80,23 @@ namespace Dorc.Monitor
                 }
             });
             OnPublishTaskCreated?.Invoke(task);
+        }
+
+        private void FireNotification(
+            DeploymentRequestApiModel request,
+            string finalStatus,
+            DateTimeOffset startedTime,
+            DateTimeOffset completedTime)
+        {
+            DeploymentNotificationDispatch.FireAndForget(this.notificationSink, this.logger, request, finalStatus, startedTime, completedTime);
+        }
+
+        private void FireBatchNotification(
+            IReadOnlyCollection<DeploymentRequestApiModel> requests,
+            string finalStatus,
+            DateTimeOffset completedTime)
+        {
+            DeploymentNotificationDispatch.FireAndForgetBatch(this.notificationSink, this.logger, requests, finalStatus, completedTime);
         }
 
         // NOTE: AbandonRequests handles truly stale requests (>24 hours in Running state).
@@ -198,24 +219,29 @@ namespace Dorc.Monitor
                     "Found {Count} stale requests in 'Requesting' state from a previous instance. Cancelling IDs [{Ids}]",
                     requestingRequests.Count, requestingIdsString);
 
-                int cancelledCount = this.requestsPersistentSource.SwitchDeploymentRequestStatuses(
-                    requestingRequests,
-                    DeploymentRequestStatus.Requesting,
-                    DeploymentRequestStatus.Cancelled,
-                    DateTimeOffset.Now);
+                // Per-request transitions, as for the Running->Pending resume above (AC-7:
+                // event/notification per transition this instance won, not per attempt).
+                var cancelledTime = DateTimeOffset.Now;
+                var cancelledRequests = requestingRequests
+                    .Where(request => this.requestsPersistentSource.SwitchDeploymentRequestStatuses(
+                        new List<DeploymentRequestApiModel> { request },
+                        DeploymentRequestStatus.Requesting,
+                        DeploymentRequestStatus.Cancelled,
+                        cancelledTime) > 0)
+                    .ToList();
 
-                if (cancelledCount > 0)
+                if (cancelledRequests.Count > 0)
                 {
                     this.requestsPersistentSource.SwitchDeploymentResultsStatuses(
-                        requestingRequests,
+                        cancelledRequests,
                         DeploymentResultStatus.Pending,
                         DeploymentResultStatus.Cancelled);
 
-                    foreach (var id in requestingIds)
+                    foreach (var request in cancelledRequests)
                     {
-                        TerminateRunnerProcesses(id);
+                        TerminateRunnerProcesses(request.Id);
                         PublishRequestStatusChangedSafe(new DeploymentRequestEventData(
-                            RequestId: id,
+                            RequestId: request.Id,
                             Status: DeploymentRequestStatus.Cancelled.ToString(),
                             StartedTime: null,
                             CompletedTime: null,
@@ -223,9 +249,13 @@ namespace Dorc.Monitor
                         ));
                     }
 
+                    // One notification for the whole sweep: a restart can cancel many requests at
+                    // once, and the sink groups them per requester so nobody gets a burst of DMs.
+                    FireBatchNotification(cancelledRequests, DeploymentRequestStatus.Cancelled.ToString(), cancelledTime);
+
                     this.logger.LogWarning(
-                        "Cancelled {CancelledCount} stale Requesting request(s). IDs [{Ids}]",
-                        cancelledCount, requestingIdsString);
+                        "Cancelled {CancelledCount} of {FoundCount} stale Requesting request(s). Cancelled IDs [{Ids}]",
+                        cancelledRequests.Count, requestingRequests.Count, string.Join(',', cancelledRequests.Select(r => r.Id)));
                 }
             }
         }
@@ -254,6 +284,9 @@ namespace Dorc.Monitor
 
                 var updatedRequestCount = 0;
                 var updatedIds = new List<int>();
+                var switchedRequests = new List<DeploymentRequestApiModel>();
+
+                var switchedTime = DateTimeOffset.Now;
 
                 foreach (var request in requests)
                 {
@@ -266,7 +299,7 @@ namespace Dorc.Monitor
                         new List<DeploymentRequestApiModel> { request },
                         fromStatus,
                         toStatus,
-                        DateTimeOffset.Now);
+                        switchedTime);
 
                     if (switched > 0)
                     {
@@ -280,8 +313,15 @@ namespace Dorc.Monitor
                             CompletedTime: null,
                             Timestamp: DateTimeOffset.UtcNow
                         ));
+                        // Collect only the transitions this monitor instance won, so a
+                        // concurrent monitor cannot DM the same requester twice.
+                        switchedRequests.Add(request);
                     }
                 }
+
+                // One notification for the whole sweep rather than one per request; the sink
+                // groups by requester so a bulk cancel or abandon is a single DM per person.
+                FireBatchNotification(switchedRequests, toStatus.ToString(), switchedTime);
 
                 if (updatedRequestCount == requestToSwitchCount)
                 {
@@ -635,17 +675,22 @@ namespace Dorc.Monitor
                 // Requesting until the next monitor restart triggers CancelStaleRequests.
                 try
                 {
+                    var erroredTime = DateTimeOffset.Now;
+
                     this.requestsPersistentSource.UpdateRequestStatus(
                         requestToExecute.Request.Id,
                         DeploymentRequestStatus.Errored,
-                        DateTimeOffset.Now,
+                        erroredTime,
                         exception.ToString());
 
                     PublishRequestStatusChangedSafe(new DeploymentRequestEventData(requestToExecute.Request)
                     {
                         Status = DeploymentRequestStatus.Errored.ToString(),
-                        CompletedTime = DateTimeOffset.Now,
+                        CompletedTime = erroredTime,
                     });
+
+                    FireNotification(requestToExecute.Request, DeploymentRequestStatus.Errored.ToString(),
+                        requestToExecute.Request.StartedTime ?? requestToExecute.Request.RequestedTime ?? erroredTime, erroredTime);
                 }
                 catch (Exception statusUpdateException)
                 {
