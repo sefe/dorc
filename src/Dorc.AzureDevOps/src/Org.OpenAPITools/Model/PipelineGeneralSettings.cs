@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// Contains pipeline general settings.
     /// </summary>
     [DataContract(Name = "PipelineGeneralSettings")]
-    public partial class PipelineGeneralSettings : IEquatable<PipelineGeneralSettings>, IValidatableObject
+    public partial class PipelineGeneralSettings : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="PipelineGeneralSettings" /> class.
@@ -40,7 +40,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="enforceSettableVar">If enabled, only those variables that are explicitly marked as \&quot;Settable at queue time\&quot; can be set at queue time..</param>
         /// <param name="publishPipelineMetadata">Allows pipelines to record metadata..</param>
         /// <param name="statusBadgesArePrivate">Anonymous users can access the status badge API for all pipelines unless this option is enabled..</param>
-        public PipelineGeneralSettings(bool enforceJobAuthScope = default(bool), bool enforceReferencedRepoScopedToken = default(bool), bool enforceSettableVar = default(bool), bool publishPipelineMetadata = default(bool), bool statusBadgesArePrivate = default(bool))
+        public PipelineGeneralSettings(bool enforceJobAuthScope = default, bool enforceReferencedRepoScopedToken = default, bool enforceSettableVar = default, bool publishPipelineMetadata = default, bool statusBadgesArePrivate = default)
         {
             this.EnforceJobAuthScope = enforceJobAuthScope;
             this.EnforceReferencedRepoScopedToken = enforceReferencedRepoScopedToken;
@@ -111,73 +111,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as PipelineGeneralSettings);
-        }
-
-        /// <summary>
-        /// Returns true if PipelineGeneralSettings instances are equal
-        /// </summary>
-        /// <param name="input">Instance of PipelineGeneralSettings to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(PipelineGeneralSettings input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.EnforceJobAuthScope == input.EnforceJobAuthScope ||
-                    this.EnforceJobAuthScope.Equals(input.EnforceJobAuthScope)
-                ) && 
-                (
-                    this.EnforceReferencedRepoScopedToken == input.EnforceReferencedRepoScopedToken ||
-                    this.EnforceReferencedRepoScopedToken.Equals(input.EnforceReferencedRepoScopedToken)
-                ) && 
-                (
-                    this.EnforceSettableVar == input.EnforceSettableVar ||
-                    this.EnforceSettableVar.Equals(input.EnforceSettableVar)
-                ) && 
-                (
-                    this.PublishPipelineMetadata == input.PublishPipelineMetadata ||
-                    this.PublishPipelineMetadata.Equals(input.PublishPipelineMetadata)
-                ) && 
-                (
-                    this.StatusBadgesArePrivate == input.StatusBadgesArePrivate ||
-                    this.StatusBadgesArePrivate.Equals(input.StatusBadgesArePrivate)
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                hashCode = (hashCode * 59) + this.EnforceJobAuthScope.GetHashCode();
-                hashCode = (hashCode * 59) + this.EnforceReferencedRepoScopedToken.GetHashCode();
-                hashCode = (hashCode * 59) + this.EnforceSettableVar.GetHashCode();
-                hashCode = (hashCode * 59) + this.PublishPipelineMetadata.GetHashCode();
-                hashCode = (hashCode * 59) + this.StatusBadgesArePrivate.GetHashCode();
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// Represents a reference to an agent pool.
     /// </summary>
     [DataContract(Name = "TaskAgentPoolReference")]
-    public partial class TaskAgentPoolReference : IEquatable<TaskAgentPoolReference>, IValidatableObject
+    public partial class TaskAgentPoolReference : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="TaskAgentPoolReference" /> class.
@@ -38,7 +38,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="id">The pool ID..</param>
         /// <param name="isHosted">A value indicating whether or not this pool is managed by the service..</param>
         /// <param name="name">The pool name..</param>
-        public TaskAgentPoolReference(int id = default(int), bool isHosted = default(bool), string name = default(string))
+        public TaskAgentPoolReference(int id = default, bool isHosted = default, string name = default)
         {
             this.Id = id;
             this.IsHosted = isHosted;
@@ -91,67 +91,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as TaskAgentPoolReference);
-        }
-
-        /// <summary>
-        /// Returns true if TaskAgentPoolReference instances are equal
-        /// </summary>
-        /// <param name="input">Instance of TaskAgentPoolReference to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(TaskAgentPoolReference input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.Id == input.Id ||
-                    this.Id.Equals(input.Id)
-                ) && 
-                (
-                    this.IsHosted == input.IsHosted ||
-                    this.IsHosted.Equals(input.IsHosted)
-                ) && 
-                (
-                    this.Name == input.Name ||
-                    (this.Name != null &&
-                    this.Name.Equals(input.Name))
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                hashCode = (hashCode * 59) + this.Id.GetHashCode();
-                hashCode = (hashCode * 59) + this.IsHosted.GetHashCode();
-                if (this.Name != null)
-                {
-                    hashCode = (hashCode * 59) + this.Name.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

@@ -7,7 +7,7 @@ All URIs are relative to *https://dev.azure.com*
 | [**GeneralSettingsGet**](GeneralSettingsApi.md#generalsettingsget) | **GET** /{organization}/{project}/_apis/build/generalsettings |  |
 | [**GeneralSettingsUpdate**](GeneralSettingsApi.md#generalsettingsupdate) | **PATCH** /{organization}/{project}/_apis/build/generalsettings |  |
 
-<a name="generalsettingsget"></a>
+<a id="generalsettingsget"></a>
 # **GeneralSettingsGet**
 > PipelineGeneralSettings GeneralSettingsGet (string organization, string project, string apiVersion)
 
@@ -104,7 +104,7 @@ catch (ApiException e)
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-<a name="generalsettingsupdate"></a>
+<a id="generalsettingsupdate"></a>
 # **GeneralSettingsUpdate**
 > PipelineGeneralSettings GeneralSettingsUpdate (string organization, string project, string apiVersion, PipelineGeneralSettings body)
 

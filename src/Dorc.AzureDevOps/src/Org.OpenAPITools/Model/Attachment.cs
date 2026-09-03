@@ -30,14 +30,14 @@ namespace Org.OpenAPITools.Model
     /// Represents an attachment to a build.
     /// </summary>
     [DataContract(Name = "Attachment")]
-    public partial class Attachment : IEquatable<Attachment>, IValidatableObject
+    public partial class Attachment : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="Attachment" /> class.
         /// </summary>
         /// <param name="links">links.</param>
         /// <param name="name">The name of the attachment..</param>
-        public Attachment(ReferenceLinks links = default(ReferenceLinks), string name = default(string))
+        public Attachment(ReferenceLinks links = default, string name = default)
         {
             this.Links = links;
             this.Name = name;
@@ -80,66 +80,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as Attachment);
-        }
-
-        /// <summary>
-        /// Returns true if Attachment instances are equal
-        /// </summary>
-        /// <param name="input">Instance of Attachment to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(Attachment input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.Links == input.Links ||
-                    (this.Links != null &&
-                    this.Links.Equals(input.Links))
-                ) && 
-                (
-                    this.Name == input.Name ||
-                    (this.Name != null &&
-                    this.Name.Equals(input.Name))
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.Links != null)
-                {
-                    hashCode = (hashCode * 59) + this.Links.GetHashCode();
-                }
-                if (this.Name != null)
-                {
-                    hashCode = (hashCode * 59) + this.Name.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

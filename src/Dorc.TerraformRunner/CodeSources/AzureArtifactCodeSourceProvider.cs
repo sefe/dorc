@@ -1,4 +1,5 @@
 using Dorc.ApiModel;
+using Dorc.AzureDevOps.Client;
 using Dorc.Runner.Logger;
 using Microsoft.Extensions.Logging;
 using Org.OpenAPITools.Api;
@@ -79,7 +80,8 @@ namespace Dorc.TerraformRunner.CodeSources
                 AccessToken = scriptGroup.AzureBearerToken
             };
 
-            var artifactsApi = new ArtifactsApi(config);
+            var apiClient = AzureDevOpsApiClientFactory.Create(config.BasePath);
+            var artifactsApi = new ArtifactsApi(apiClient, apiClient, config);
             var apiVersion = "6.0";
 
             foreach (var projName in projectNames)

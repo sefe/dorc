@@ -8,6 +8,7 @@ using Dorc.Monitor.Notifications;
 using Dorc.Monitor.RequestProcessors;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 
 namespace Dorc.Monitor.Tests.Notifications
@@ -137,7 +138,7 @@ namespace Dorc.Monitor.Tests.Notifications
             SetupOrderedComponents(components);
             SetupDeployResult(comp, succeeds: true);
 
-            sut.Execute(dto, CancellationToken.None);
+            sut.Execute(dto, CancellationToken.None, NullLoggerFactory.Instance);
 
             mockNotificationSink.ReceivedWithAnyArgs(1).NotifyRequestCompletedAsync(default!, default!, default, default);
             mockNotificationSink.Received(1).NotifyRequestCompletedAsync(
@@ -156,7 +157,7 @@ namespace Dorc.Monitor.Tests.Notifications
             SetupOrderedComponents(components);
             SetupDeployResult(comp, succeeds: false);
 
-            sut.Execute(dto, CancellationToken.None);
+            sut.Execute(dto, CancellationToken.None, NullLoggerFactory.Instance);
 
             mockNotificationSink.ReceivedWithAnyArgs(1).NotifyRequestCompletedAsync(default!, default!, default, default);
             mockNotificationSink.Received(1).NotifyRequestCompletedAsync(
@@ -172,7 +173,7 @@ namespace Dorc.Monitor.Tests.Notifications
             var dto = CreateRequest(new List<ComponentApiModel>());
             SetupOrderedComponents(new List<ComponentApiModel>());
 
-            sut.Execute(dto, CancellationToken.None);
+            sut.Execute(dto, CancellationToken.None, NullLoggerFactory.Instance);
 
             mockNotificationSink.ReceivedWithAnyArgs(1).NotifyRequestCompletedAsync(default!, default!, default, default);
             mockNotificationSink.Received(1).NotifyRequestCompletedAsync(
@@ -211,7 +212,7 @@ namespace Dorc.Monitor.Tests.Notifications
             SetupOrderedComponents(components);
             SetupCancelledDeployment(comp, switchResult: 1);
 
-            sut.Execute(dto, CancellationToken.None);
+            sut.Execute(dto, CancellationToken.None, NullLoggerFactory.Instance);
 
             mockNotificationSink.ReceivedWithAnyArgs(1).NotifyRequestCompletedAsync(default!, default!, default, default);
             mockNotificationSink.Received(1).NotifyRequestCompletedAsync(
@@ -232,7 +233,7 @@ namespace Dorc.Monitor.Tests.Notifications
             SetupOrderedComponents(components);
             SetupCancelledDeployment(comp, switchResult: 0);
 
-            sut.Execute(dto, CancellationToken.None);
+            sut.Execute(dto, CancellationToken.None, NullLoggerFactory.Instance);
 
             mockNotificationSink.DidNotReceiveWithAnyArgs().NotifyRequestCompletedAsync(default!, default!, default, default);
         }
@@ -249,7 +250,7 @@ namespace Dorc.Monitor.Tests.Notifications
             mockNotificationSink.NotifyRequestCompletedAsync(default!, default!, default, default)
                 .ReturnsForAnyArgs(Task.FromException(new InvalidOperationException("async sink failure")));
 
-            sut.Execute(dto, CancellationToken.None);
+            sut.Execute(dto, CancellationToken.None, NullLoggerFactory.Instance);
 
             mockRequestsPersistentSource.Received(1).SetRequestCompletionStatus(
                 100,
@@ -269,7 +270,7 @@ namespace Dorc.Monitor.Tests.Notifications
             mockNotificationSink.NotifyRequestCompletedAsync(default!, default!, default, default)
                 .ReturnsForAnyArgs(_ => throw new InvalidOperationException("sink blew up"));
 
-            sut.Execute(dto, CancellationToken.None);
+            sut.Execute(dto, CancellationToken.None, NullLoggerFactory.Instance);
 
             mockRequestsPersistentSource.Received(1).SetRequestCompletionStatus(
                 100,

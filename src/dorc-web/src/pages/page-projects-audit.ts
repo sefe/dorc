@@ -1,21 +1,15 @@
+import { columnBodyRenderer, columnHeaderRenderer, gridRowDetailsRenderer } from '@vaadin/grid/lit';
 import '@vaadin/button';
 import '../components/dorc-spinner';
-import {
-  GridCellPartNameGenerator,
-  GridDataProviderCallback,
-  GridDataProviderParams,
-  GridItemModel,
-  GridSorterDefinition
-} from '@vaadin/grid';
+import { GridCellPartNameGenerator, GridDataProviderCallback, GridDataProviderParams, GridSorterDefinition } from '@vaadin/grid';
 import '@vaadin/grid';
-import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid-sorter';
 import '@vaadin/horizontal-layout';
 import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
 import '@vaadin/text-field';
-import { css, PropertyValues, render } from 'lit';
+import { PropertyValues, css } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { PagedDataSorting, RefDataProjectAuditApi } from '../apis/dorc-api';
@@ -24,6 +18,7 @@ import { GetRefDataAuditListResponseDto } from '../apis/dorc-api/models/GetRefDa
 import { PageElement } from '../helpers/page-element';
 import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import { getShortLogonName } from '../helpers/user-extensions';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('page-projects-audit')
 export class PageProjectsAudit extends ResponsiveMixin(PageElement) {
@@ -198,14 +193,14 @@ export class PageProjectsAudit extends ResponsiveMixin(PageElement) {
         .dataProvider="${this.getProjectAudit}"
         .cellPartNameGenerator="${this.cellPartNameGenerator}"
         .detailsOpenedItems="${this.openedItems}"
-        .rowDetailsRenderer="${this.detailsRenderer}"
+        ${gridRowDetailsRenderer(this.detailsRenderer, [])}
         @active-item-changed="${this.onActiveItemChanged}"
         style="width: 100%; z-index: 1"
         ?hidden="${this.loading}"
       >
         <vaadin-grid-column
           header=""
-          .renderer="${this.chevronRenderer}"
+          ${columnBodyRenderer(this.chevronRenderer, [this.openedItems])}
           width="40px"
           flex-grow="0"
           frozen
@@ -214,7 +209,7 @@ export class PageProjectsAudit extends ResponsiveMixin(PageElement) {
         <vaadin-grid-column
           path="Project.ProjectName"
           header="Project"
-          .renderer="${this.projectNameRenderer}"
+          ${columnBodyRenderer(this.projectNameRenderer, [])}
           resizable
           auto-width
           flex-grow="0"
@@ -222,7 +217,7 @@ export class PageProjectsAudit extends ResponsiveMixin(PageElement) {
         <vaadin-grid-column
           path="Username"
           header="User"
-          .headerRenderer="${this.userHeaderRenderer}"
+          ${columnHeaderRenderer(this.userHeaderRenderer, [])}
           resizable
           auto-width
           flex-grow="0"
@@ -230,7 +225,7 @@ export class PageProjectsAudit extends ResponsiveMixin(PageElement) {
         <vaadin-grid-column
           path="Action"
           header="Action"
-          .headerRenderer="${this.actionHeaderRenderer}"
+          ${columnHeaderRenderer(this.actionHeaderRenderer, [])}
           resizable
           auto-width
           flex-grow="0"
@@ -239,14 +234,14 @@ export class PageProjectsAudit extends ResponsiveMixin(PageElement) {
           path="Date"
           header="Date"
           direction="desc"
-          .renderer="${this.dateRenderer}"
+          ${columnBodyRenderer(this.dateRenderer, [])}
           resizable
           auto-width
           flex-grow="0"
         ></vaadin-grid-sort-column>
         <vaadin-grid-column
           header="Value"
-          .renderer="${this.valueRenderer}"
+          ${columnBodyRenderer(this.valueRenderer, [])}
           resizable
           flex-grow="1"
           ?hidden="${this._narrowScreen}"
@@ -296,59 +291,48 @@ export class PageProjectsAudit extends ResponsiveMixin(PageElement) {
   };
 
   private projectNameRenderer = (
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<RefDataAuditApiModel>
+    item: RefDataAuditApiModel
   ) => {
-    const name = model.item.Project?.ProjectName;
+    const name = item.Project?.ProjectName;
     if (!name) {
-      render(html`<span class="muted">(deleted)</span>`, root);
-      return;
+      return html`<span class="muted">(deleted)</span>`;
     }
-    render(html`<span>${name}</span>`, root);
+    return html`<span>${name}</span>`;
   };
 
   private dateRenderer = (
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<RefDataAuditApiModel>
+    item: RefDataAuditApiModel
   ) => {
-    const raw = model.item?.Date;
+    const raw = item?.Date;
     if (!raw) {
-      render(html``, root);
-      return;
+      return html``;
     }
     const dt = new Date(raw);
     const formatted = `${dt.toLocaleDateString('en-GB')} ${dt.toLocaleTimeString('en-GB')}`;
-    render(html`<span>${formatted}</span>`, root);
+    return html`<span>${formatted}</span>`;
   };
 
   // Value-cell shows a compact summary only — line counts and a few changed
   // section names. The full unified diff lives in the row-details slot
   // (detailsRenderer below) and is opened by clicking the row's chevron.
   private valueRenderer = (
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<RefDataAuditApiModel>
+    item: RefDataAuditApiModel
   ) => {
-    const raw = model.item?.Json;
+    const raw = item?.Json;
     if (!raw) {
-      render(html`<span class="muted">—</span>`, root);
-      return;
+      return html`<span class="muted">—</span>`;
     }
 
-    const priorRaw = model.item.PriorJson;
+    const priorRaw = item.PriorJson;
     if (!priorRaw) {
-      render(html`<span class="muted">first audit · no prior version</span>`, root);
-      return;
+      return html`<span class="muted">first audit · no prior version</span>`;
     }
 
     const curr = this.prettyJson(raw);
     const prev = this.prettyJson(priorRaw);
 
     if (prev === curr) {
-      render(html`<span class="muted">no changes</span>`, root);
-      return;
+      return html`<span class="muted">no changes</span>`;
     }
 
     const ops = this.computeLineDiff(prev, curr);
@@ -362,8 +346,7 @@ export class PageProjectsAudit extends ResponsiveMixin(PageElement) {
     const visibleSections = sections.slice(0, 3);
     const overflow = sectionCount - visibleSections.length;
 
-    render(
-      html`
+    return html`
         <div class="summary-counts">
           <span class="added">+${insertCount}</span>
           <span class="removed">-${deleteCount}</span>
@@ -376,9 +359,7 @@ export class PageProjectsAudit extends ResponsiveMixin(PageElement) {
               ${visibleSections.join(', ')}${overflow > 0 ? ` +${overflow} more` : ''}
             </div>`
           : ''}
-      `,
-      root
-    );
+      `;
   };
 
   // Walk the line-LCS ops and infer a section name for each insert/delete.
@@ -485,25 +466,20 @@ export class PageProjectsAudit extends ResponsiveMixin(PageElement) {
   // surrounding details-pane has its own internal scroll (CSS), so the grid
   // row metadata above stays visible while the user scrolls the diff content.
   private detailsRenderer = (
-    root: HTMLElement,
-    _grid: HTMLElement,
-    model: GridItemModel<RefDataAuditApiModel>
+    item: RefDataAuditApiModel
   ) => {
-    const raw = model.item?.Json;
+    const raw = item?.Json;
     if (!raw) {
-      render(html`<div class="details-pane muted">—</div>`, root);
-      return;
+      return html`<div class="details-pane muted">—</div>`;
     }
-    const priorRaw = model.item.PriorJson;
+    const priorRaw = item.PriorJson;
     const curr = this.prettyJson(raw);
     if (!priorRaw) {
-      render(html`<div class="details-pane"><pre class="value">${curr}</pre></div>`, root);
-      return;
+      return html`<div class="details-pane"><pre class="value">${curr}</pre></div>`;
     }
     const prev = this.prettyJson(priorRaw);
     if (prev === curr) {
-      render(html`<div class="details-pane"><pre class="value">${curr}</pre></div>`, root);
-      return;
+      return html`<div class="details-pane"><pre class="value">${curr}</pre></div>`;
     }
     const ops = this.computeLineDiff(prev, curr);
     const rows = this.buildSideBySide(ops);
@@ -537,8 +513,7 @@ export class PageProjectsAudit extends ResponsiveMixin(PageElement) {
         cells.push(html`<div class="${rightCls}">${r.right ?? ''}</div>`);
       }
     }
-    render(
-      html`
+    return html`
         <div class="details-pane">
           <div class="diff-header">
             <div>Before</div>
@@ -548,9 +523,7 @@ export class PageProjectsAudit extends ResponsiveMixin(PageElement) {
             <div class="diff-grid">${cells}</div>
           </div>
         </div>
-      `,
-      root
-    );
+      `;
   };
 
   // Convert the line-LCS ops into a side-by-side row stream. Within each run
@@ -592,13 +565,11 @@ export class PageProjectsAudit extends ResponsiveMixin(PageElement) {
   }
 
   private chevronRenderer = (
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<RefDataAuditApiModel>
+    item: RefDataAuditApiModel
   ) => {
-    const isOpen = this.openedItems.indexOf(model.item) !== -1;
+    const isOpen = this.openedItems.indexOf(item) !== -1;
     const icon = isOpen ? 'vaadin:chevron-down' : 'vaadin:chevron-right';
-    render(html`<vaadin-icon class="chevron" icon="${icon}"></vaadin-icon>`, root);
+    return html`<vaadin-icon class="chevron" icon="${icon}"></vaadin-icon>`;
   };
 
   // Vaadin grid fires active-item-changed when a row body is clicked. Toggle
@@ -617,12 +588,9 @@ export class PageProjectsAudit extends ResponsiveMixin(PageElement) {
         ...this.openedItems.slice(idx + 1)
       ];
     }
-    const grid = e.currentTarget as { activeItem?: unknown; requestContentUpdate?: () => void } | null;
-    if (grid) {
-      grid.activeItem = null;
-      // Re-render the chevron column so the icon flips.
-      grid.requestContentUpdate?.();
-    }
+    const grid = e.currentTarget as { activeItem?: unknown } | null;
+    // The chevron column depends on openedItems, so it flips on its own.
+    if (grid) grid.activeItem = null;
   };
 
   private prettyJson(raw: string): string {
@@ -726,9 +694,8 @@ export class PageProjectsAudit extends ResponsiveMixin(PageElement) {
     return ops;
   }
 
-  userHeaderRenderer = (root: HTMLElement) => {
-    render(
-      html`
+  userHeaderRenderer = () => {
+    return html`
         <vaadin-horizontal-layout style="align-items: center;" theme="spacing-xs">
           <vaadin-grid-sorter path="Username">User</vaadin-grid-sorter>
           <vaadin-text-field
@@ -744,14 +711,11 @@ export class PageProjectsAudit extends ResponsiveMixin(PageElement) {
             }}"
           ></vaadin-text-field>
         </vaadin-horizontal-layout>
-      `,
-      root
-    );
+      `;
   };
 
-  actionHeaderRenderer = (root: HTMLElement) => {
-    render(
-      html`
+  actionHeaderRenderer = () => {
+    return html`
         <vaadin-horizontal-layout style="align-items: center;" theme="spacing-xs">
           <vaadin-grid-sorter path="Action">Action</vaadin-grid-sorter>
           <vaadin-text-field
@@ -767,9 +731,7 @@ export class PageProjectsAudit extends ResponsiveMixin(PageElement) {
             }}"
           ></vaadin-text-field>
         </vaadin-horizontal-layout>
-      `,
-      root
-    );
+      `;
   };
 
   private refreshGrid() {
@@ -797,7 +759,7 @@ export class PageProjectsAudit extends ResponsiveMixin(PageElement) {
       filters.push({ Path: 'Action', FilterValue: this.actionFilter });
     }
 
-    const api = new RefDataProjectAuditApi();
+    const api = new RefDataProjectAuditApi(dorcApiConfiguration);
     api
       .refDataProjectAuditPut({
         projectId: this.restrictToProjectId ?? undefined,

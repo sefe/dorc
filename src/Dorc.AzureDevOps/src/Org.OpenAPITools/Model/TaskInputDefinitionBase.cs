@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// TaskInputDefinitionBase
     /// </summary>
     [DataContract(Name = "TaskInputDefinitionBase")]
-    public partial class TaskInputDefinitionBase : IEquatable<TaskInputDefinitionBase>, IValidatableObject
+    public partial class TaskInputDefinitionBase : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="TaskInputDefinitionBase" /> class.
@@ -47,7 +47,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="type">type.</param>
         /// <param name="validation">validation.</param>
         /// <param name="visibleRule">visibleRule.</param>
-        public TaskInputDefinitionBase(List<string> aliases = default(List<string>), string defaultValue = default(string), string groupName = default(string), string helpMarkDown = default(string), string label = default(string), string name = default(string), Dictionary<string, string> options = default(Dictionary<string, string>), Dictionary<string, string> properties = default(Dictionary<string, string>), bool required = default(bool), string type = default(string), TaskInputValidation validation = default(TaskInputValidation), string visibleRule = default(string))
+        public TaskInputDefinitionBase(List<string> aliases = default, string defaultValue = default, string groupName = default, string helpMarkDown = default, string label = default, string name = default, Dictionary<string, string> options = default, Dictionary<string, string> properties = default, bool required = default, string type = default, TaskInputValidation validation = default, string visibleRule = default)
         {
             this.Aliases = aliases;
             this.DefaultValue = defaultValue;
@@ -169,155 +169,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as TaskInputDefinitionBase);
-        }
-
-        /// <summary>
-        /// Returns true if TaskInputDefinitionBase instances are equal
-        /// </summary>
-        /// <param name="input">Instance of TaskInputDefinitionBase to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(TaskInputDefinitionBase input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.Aliases == input.Aliases ||
-                    this.Aliases != null &&
-                    input.Aliases != null &&
-                    this.Aliases.SequenceEqual(input.Aliases)
-                ) && 
-                (
-                    this.DefaultValue == input.DefaultValue ||
-                    (this.DefaultValue != null &&
-                    this.DefaultValue.Equals(input.DefaultValue))
-                ) && 
-                (
-                    this.GroupName == input.GroupName ||
-                    (this.GroupName != null &&
-                    this.GroupName.Equals(input.GroupName))
-                ) && 
-                (
-                    this.HelpMarkDown == input.HelpMarkDown ||
-                    (this.HelpMarkDown != null &&
-                    this.HelpMarkDown.Equals(input.HelpMarkDown))
-                ) && 
-                (
-                    this.Label == input.Label ||
-                    (this.Label != null &&
-                    this.Label.Equals(input.Label))
-                ) && 
-                (
-                    this.Name == input.Name ||
-                    (this.Name != null &&
-                    this.Name.Equals(input.Name))
-                ) && 
-                (
-                    this.Options == input.Options ||
-                    this.Options != null &&
-                    input.Options != null &&
-                    this.Options.SequenceEqual(input.Options)
-                ) && 
-                (
-                    this.Properties == input.Properties ||
-                    this.Properties != null &&
-                    input.Properties != null &&
-                    this.Properties.SequenceEqual(input.Properties)
-                ) && 
-                (
-                    this.Required == input.Required ||
-                    this.Required.Equals(input.Required)
-                ) && 
-                (
-                    this.Type == input.Type ||
-                    (this.Type != null &&
-                    this.Type.Equals(input.Type))
-                ) && 
-                (
-                    this.Validation == input.Validation ||
-                    (this.Validation != null &&
-                    this.Validation.Equals(input.Validation))
-                ) && 
-                (
-                    this.VisibleRule == input.VisibleRule ||
-                    (this.VisibleRule != null &&
-                    this.VisibleRule.Equals(input.VisibleRule))
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.Aliases != null)
-                {
-                    hashCode = (hashCode * 59) + this.Aliases.GetHashCode();
-                }
-                if (this.DefaultValue != null)
-                {
-                    hashCode = (hashCode * 59) + this.DefaultValue.GetHashCode();
-                }
-                if (this.GroupName != null)
-                {
-                    hashCode = (hashCode * 59) + this.GroupName.GetHashCode();
-                }
-                if (this.HelpMarkDown != null)
-                {
-                    hashCode = (hashCode * 59) + this.HelpMarkDown.GetHashCode();
-                }
-                if (this.Label != null)
-                {
-                    hashCode = (hashCode * 59) + this.Label.GetHashCode();
-                }
-                if (this.Name != null)
-                {
-                    hashCode = (hashCode * 59) + this.Name.GetHashCode();
-                }
-                if (this.Options != null)
-                {
-                    hashCode = (hashCode * 59) + this.Options.GetHashCode();
-                }
-                if (this.Properties != null)
-                {
-                    hashCode = (hashCode * 59) + this.Properties.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.Required.GetHashCode();
-                if (this.Type != null)
-                {
-                    hashCode = (hashCode * 59) + this.Type.GetHashCode();
-                }
-                if (this.Validation != null)
-                {
-                    hashCode = (hashCode * 59) + this.Validation.GetHashCode();
-                }
-                if (this.VisibleRule != null)
-                {
-                    hashCode = (hashCode * 59) + this.VisibleRule.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

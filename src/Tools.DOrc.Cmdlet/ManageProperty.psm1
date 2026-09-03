@@ -15,8 +15,12 @@ Class ManageProperty
     {
         if ($name)
         {
-            $queryString = "id=" + $name
-            $property = [ApiCaller]::InvokeGet($this.Connection.Property, $queryString)
+            # The API exposes single-property lookup as a path segment route
+            # (GET /Properties/id={id}); passing "id=" as a query string instead
+            # hits GET /Properties (get-all), which ignores the filter and returns
+            # every property with HTTP 200 - making PropertyExists always true.
+            $path = $this.Connection.Property + "/id=" + [uri]::EscapeDataString($name)
+            $property = [ApiCaller]::InvokeGet($path, "")
         }
         else
         {

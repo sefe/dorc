@@ -15,10 +15,8 @@ import { of } from 'rxjs';
 import type { Observable } from 'rxjs';
 import { ajax } from 'rxjs/ajax';
 import type { AjaxConfig, AjaxResponse } from 'rxjs/ajax';
-import { map, concatMap, catchError } from 'rxjs/operators';
+import { map, concatMap } from 'rxjs/operators';
 import { servers } from './servers';
-import { OAUTH_SCHEME, oauthServiceContainer } from '../../services/Account/OAuthService';
-import { appConfig } from '../../app-config';
 
 export const BASE_PATH = servers[0].getUrl();
 
@@ -32,12 +30,7 @@ export interface ConfigurationParameters {
 }
 
 export class Configuration {
-    constructor(
-        private configuration: ConfigurationParameters = {}) {
-        if (oauthServiceContainer.service.signedInUser) {
-            configuration.accessToken = 'Bearer ' + oauthServiceContainer.service.signedInUser?.access_token;
-        }
-    }
+    constructor(private configuration: ConfigurationParameters = {}) {}
 
     get basePath(): string {
         return this.configuration.basePath ?? BASE_PATH;
@@ -63,10 +56,6 @@ export class Configuration {
     get accessToken(): ((name: string, scopes?: string[]) => string) | undefined {
         const { accessToken } = this.configuration;
         return accessToken ? (typeof accessToken === 'string' ? () => accessToken : accessToken) : undefined;
-    }
-
-    get authenticationScheme(): string | undefined {
-        return appConfig.authenticationScheme;
     }
 }
 
@@ -102,20 +91,8 @@ export class BaseAPI {
                     return responseOpts?.response === 'raw' ? res : response;
                 }
                 throw res;
-            }),
-            catchError(error => {
-                if (this.configuration.authenticationScheme == OAUTH_SCHEME) {
-                    if (error.status == 401) {
-                        this.handleUnauthorized();
-                    }
-                }
-                throw error;
             })
         );
-    }
-
-    private handleUnauthorized() {
-        location.assign("/signin.html");
     }
 
     private createRequestArgs = ({ url: baseUrl, query, method, headers, body, responseType }: RequestOpts): AjaxConfig => {
@@ -123,14 +100,6 @@ export class BaseAPI {
         // this is done to avoid urls ending with a '?' character which buggy webservers
         // do not handle correctly sometimes.
         const url = `${this.configuration.basePath}${baseUrl}${query && Object.keys(query).length ? `?${queryString(query)}`: ''}`;
-        if (this.configuration.authenticationScheme == OAUTH_SCHEME) {
-            if (this.configuration.accessToken) {
-                headers = {
-                    ...headers,
-                    Authorization: this.configuration.accessToken("Dorc.Api")
-                }
-            }
-        }
 
         return {
             url,
@@ -138,9 +107,8 @@ export class BaseAPI {
             headers,
             body: body instanceof FormData ? body : JSON.stringify(body),
             responseType: responseType ?? 'json',
-            withCredentials: true
         };
-    };
+    }
 
     private rxjsRequest = <T>(params: AjaxConfig): Observable<AjaxResponse<T>> =>
         of(params).pipe(
@@ -182,26 +150,26 @@ export const COLLECTION_FORMATS = {
 };
 
 export type Json = any;
-export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'OPTIONS' | 'HEAD';
+export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'OPTIONS' | 'HEAD';
 export type HttpHeaders = { [key: string]: string };
 export type HttpQuery = Partial<{ [key: string]: string | number | null | boolean | Array<string | number | null | boolean> }>; // partial is needed for strict mode
 export type HttpBody = Json | FormData;
 
 export interface RequestOpts extends AjaxConfig {
-  // TODO: replace custom 'query' prop with 'queryParams'
-  query?: HttpQuery; // additional prop
-  // the following props have improved types over AjaxRequest
-  method: HttpMethod;
-  headers?: HttpHeaders;
-  body?: HttpBody;
+    // TODO: replace custom 'query' prop with 'queryParams'
+    query?: HttpQuery; // additional prop
+    // the following props have improved types over AjaxRequest
+    method: HttpMethod;
+    headers?: HttpHeaders;
+    body?: HttpBody;
 }
 
 export interface ResponseOpts {
-  response?: 'raw';
+    response?: 'raw';
 }
 
 export interface OperationOpts {
-  responseOpts?: ResponseOpts;
+    responseOpts?: ResponseOpts;
 }
 
 export const encodeURI = (value: any) => encodeURIComponent(`${value}`);
@@ -220,6 +188,6 @@ export const throwIfNullOrUndefined = (value: any, paramName: string, nickname: 
 };
 
 export interface Middleware {
-  pre?(request: AjaxConfig): AjaxConfig;
-  post?(response: AjaxResponse<any>): AjaxResponse<any>;
+    pre?(request: AjaxConfig): AjaxConfig;
+    post?(response: AjaxResponse<any>): AjaxResponse<any>;
 }

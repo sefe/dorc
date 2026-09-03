@@ -30,14 +30,14 @@ namespace Org.OpenAPITools.Model
     /// Represents a reference to a variable group.
     /// </summary>
     [DataContract(Name = "VariableGroupReference")]
-    public partial class VariableGroupReference : IEquatable<VariableGroupReference>, IValidatableObject
+    public partial class VariableGroupReference : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="VariableGroupReference" /> class.
         /// </summary>
         /// <param name="alias">The Name of the variable group..</param>
         /// <param name="id">The ID of the variable group..</param>
-        public VariableGroupReference(string alias = default(string), int id = default(int))
+        public VariableGroupReference(string alias = default, int id = default)
         {
             this.Alias = alias;
             this.Id = id;
@@ -81,62 +81,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as VariableGroupReference);
-        }
-
-        /// <summary>
-        /// Returns true if VariableGroupReference instances are equal
-        /// </summary>
-        /// <param name="input">Instance of VariableGroupReference to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(VariableGroupReference input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.Alias == input.Alias ||
-                    (this.Alias != null &&
-                    this.Alias.Equals(input.Alias))
-                ) && 
-                (
-                    this.Id == input.Id ||
-                    this.Id.Equals(input.Id)
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.Alias != null)
-                {
-                    hashCode = (hashCode * 59) + this.Alias.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.Id.GetHashCode();
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

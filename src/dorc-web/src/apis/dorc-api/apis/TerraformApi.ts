@@ -14,7 +14,7 @@
 import type { Observable } from 'rxjs';
 import type { AjaxResponse } from 'rxjs/ajax';
 import { BaseAPI, throwIfNullOrUndefined, encodeURI } from '../runtime';
-import type { OperationOpts } from '../runtime';
+import type { OperationOpts, HttpHeaders } from '../runtime';
 import type {
     TerraformPlanApiModel,
 } from '../models';
@@ -43,9 +43,20 @@ export class TerraformApi extends BaseAPI {
     terraformPlanDeploymentResultIdConfirmPost({ deploymentResultId }: TerraformPlanDeploymentResultIdConfirmPostRequest, opts?: OperationOpts): Observable<void | AjaxResponse<void>> {
         throwIfNullOrUndefined(deploymentResultId, 'deploymentResultId', 'terraformPlanDeploymentResultIdConfirmPost');
 
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         return this.request<void>({
             url: '/Terraform/plan/{deploymentResultId}/confirm'.replace('{deploymentResultId}', encodeURI(deploymentResultId)),
             method: 'POST',
+            headers,
         }, opts?.responseOpts);
     };
 
@@ -56,9 +67,20 @@ export class TerraformApi extends BaseAPI {
     terraformPlanDeploymentResultIdDeclinePost({ deploymentResultId }: TerraformPlanDeploymentResultIdDeclinePostRequest, opts?: OperationOpts): Observable<void | AjaxResponse<void>> {
         throwIfNullOrUndefined(deploymentResultId, 'deploymentResultId', 'terraformPlanDeploymentResultIdDeclinePost');
 
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         return this.request<void>({
             url: '/Terraform/plan/{deploymentResultId}/decline'.replace('{deploymentResultId}', encodeURI(deploymentResultId)),
             method: 'POST',
+            headers,
         }, opts?.responseOpts);
     };
 
@@ -69,9 +91,20 @@ export class TerraformApi extends BaseAPI {
     terraformPlanDeploymentResultIdGet({ deploymentResultId }: TerraformPlanDeploymentResultIdGetRequest, opts?: OperationOpts): Observable<TerraformPlanApiModel | AjaxResponse<TerraformPlanApiModel>> {
         throwIfNullOrUndefined(deploymentResultId, 'deploymentResultId', 'terraformPlanDeploymentResultIdGet');
 
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         return this.request<TerraformPlanApiModel>({
             url: '/Terraform/plan/{deploymentResultId}'.replace('{deploymentResultId}', encodeURI(deploymentResultId)),
             method: 'GET',
+            headers,
         }, opts?.responseOpts);
     };
 
