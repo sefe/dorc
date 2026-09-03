@@ -358,7 +358,7 @@ namespace Dorc.PersistentData.Sources
                     + " is fetched and executed from these locations.",
                     SourceHostAllowList.ArtefactHostsSetting,
                     SourceHostAllowList.TerraformHostsSetting,
-                    apiProject.ProjectName);
+                    SanitizeForLog(apiProject.ProjectName));
                 return;
             }
 
@@ -373,6 +373,11 @@ namespace Dorc.PersistentData.Sources
                 throw new ArgumentOutOfRangeException(nameof(apiProject),
                     "Project Terraform repository URL cannot be accepted, because " + terraformReason);
             }
+        }
+
+        private static string? SanitizeForLog(string? value)
+        {
+            return value?.Replace("\r", string.Empty).Replace("\n", string.Empty);
         }
 
         public bool ProjectArtifactsUriFileValid(ProjectApiModel apiProject)
