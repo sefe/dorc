@@ -82,33 +82,16 @@ namespace Dorc.Core.Tests
         }
 
         [TestMethod]
-        public void LoadProperties_SkipsBadExpressionsAndLoadsGoodOnes()
+        public void GetPropertyValue_InvalidExpressionFailsResolution()
         {
-            // prop1: 'abc', prop2: 'fn:bad(' (bad expression), prop3: '$prop1$_xyz' (should be 'abc_xyz')
-            var prop1 = "prop1";
-            var prop2 = "prop2";
-            var prop3 = "prop3";
-            var value1 = new PropertyValueDto { Value = "abc" };
-            var value2 = new PropertyValueDto { Value = "fn:bad(" };
-            var value3 = new PropertyValueDto { Value = "$prop1$_xyz" };
-            var properties = new Dictionary<string, PropertyValueDto>
-            {
-                { prop1, value1 },
-                { prop2, value2 },
-                { prop3, value3 }
-            };
-            _propertyValuesPersistentSource.LoadAllPropertiesIntoCache().Returns(properties);
-            _propertyValuesPersistentSource.IsCachedPropertySecure(Arg.Any<string>()).Returns(false);
+            const string property = "invalidExpression";
+            _resolver.SetPropertyValue(
+                property,
+                new VariableValue { Value = "fn:bad(", Type = typeof(string) });
+            _propertyValuesPersistentSource.IsCachedPropertySecure(property).Returns(false);
 
-            // Act
-            IDictionary<string, VariableValue> result = null;
-            result = _resolver.LoadProperties();
-            
-            Assert.IsNotNull(result, "LoadProperties should not throw, but return a dictionary");
-            Assert.IsTrue(result.ContainsKey(prop1), "prop1 should be loaded");
-            Assert.IsTrue(result.ContainsKey(prop3), "prop3 should be loaded");
-            Assert.IsFalse(result.ContainsKey(prop2), "Bad expression property should be skipped");
-            Assert.AreEqual("abc_xyz", result[prop3].Value);
+            Assert.ThrowsExactly<PropertyExpressionEvaluationException>(
+                () => _resolver.GetPropertyValue(property));
         }
     }
 } 
