@@ -117,7 +117,7 @@ namespace Dorc.Monitor.Tests
         [TestMethod]
         public void AnExistingDirectoryIsRestrictedAgainRatherThanLeftAsFound()
         {
-            var path = Path.Combine(_scratch, "loosened");
+            var path = Path.Join(_scratch, "loosened");
             Directory.CreateDirectory(path);
 
             var loosened = new DirectoryInfo(path).GetAccessControl();
@@ -145,7 +145,7 @@ namespace Dorc.Monitor.Tests
         [TestMethod]
         public void AnAdmittedDeploymentAccountGetsModifyAndNotOwnershipOfTheAcl()
         {
-            var path = Path.Combine(_scratch, "admitted");
+            var path = Path.Join(_scratch, "admitted");
             var deploymentAccount = new SecurityIdentifier(WellKnownSidType.NetworkServiceSid, null);
 
             RestrictedDirectory.Ensure(path, deploymentAccount);
