@@ -19,8 +19,16 @@ namespace Dorc.Monitor.Pipes
             this.logger = logger;
         }
 
-        public Task Start(string pipeName, ScriptGroup scriptGroup, CancellationToken cancellationToken)
+        public Task Start(
+            string pipeName,
+            ScriptGroup scriptGroup,
+            ScriptGroupReaderIdentity readerIdentity,
+            CancellationToken cancellationToken)
         {
+            // readerIdentity is not yet applied here: this pipe is created with a null
+            // security descriptor and performs no client authentication, which is a separate
+            // weakness with its own step. When that is closed the identity resolved here is
+            // what the PipeSecurity must name.
             var pipeServerConfiguration = (pipeName, scriptGroup);
             Task scriptGroupPipeTask = Task.Factory.StartNew((object? pipeServerConfiguration) =>
             {
@@ -99,6 +107,15 @@ namespace Dorc.Monitor.Pipes
             pipeServerConfiguration, cancellationToken);
 
             return scriptGroupPipeTask;
+        }
+
+        /// <summary>
+        /// Nothing to withdraw: the pipe carries the script group in memory and is torn down
+        /// when the server stream is disposed, so there is no artefact left on disk. The
+        /// method exists because the file-backed implementation does have one.
+        /// </summary>
+        public void Expire(string pipeName)
+        {
         }
     }
 }
