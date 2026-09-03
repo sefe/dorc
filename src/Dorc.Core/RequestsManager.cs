@@ -91,12 +91,12 @@ namespace Dorc.Core
                 if (project == null)
                     return new List<DeployableArtefact>();
 
-                if (!project.ArtefactsUrl.StartsWith("http"))
+                if (!IsBuildServerProject(project))
                     return
                         new List<DeployableArtefact> { new() { Id = project.ArtefactsUrl, Name = "Not a CI/CD Server Project" } };
 
                 var buildClient = _buildServerClientFactory.Create(project.SourceControlType);
-                return buildClient.GetBuildDefinitions(project.ArtefactsUrl,
+                return buildClient.GetDefinitions(project.ArtefactsUrl,
                     project.ArtefactsSubPaths, project.ArtefactsBuildRegex);
             }
             catch (Exception ex)
@@ -118,8 +118,10 @@ namespace Dorc.Core
                 if (string.IsNullOrEmpty(buildDefinitionName)) return Enumerable.Empty<DeployableArtefact>();
 
                 var project = _projectsPersistentSource.GetProject(projectId.Value);
+                if (project == null)
+                    return Enumerable.Empty<DeployableArtefact>();
 
-                if (project.ArtefactsUrl.StartsWith("http"))
+                if (IsBuildServerProject(project))
                 {
                     var filterOnlyPinned = !string.IsNullOrEmpty(environment) &&
                                            (_environmentsPersistentSource.EnvironmentIsProd(environment) ||
@@ -131,7 +133,7 @@ namespace Dorc.Core
                         buildDefinitionName, filterOnlyPinned, cancellationToken);
                     output = builds.ToList();
                 }
-                else if (project.ArtefactsUrl.StartsWith("file"))
+                else if (IsFileShareProject(project))
                     output = GetFolderBuilds(project).ToList();
                 else
                     output = new List<DeployableArtefact>();
@@ -187,7 +189,7 @@ namespace Dorc.Core
                 return result;
             }
 
-            if (project.ArtefactsUrl.StartsWith("http"))
+            if (IsBuildServerProject(project))
             {
                 var buildClient = _buildServerClientFactory.Create(project.SourceControlType);
 
@@ -204,9 +206,20 @@ namespace Dorc.Core
                     var matchedBuild = builds.FirstOrDefault(b =>
                         (b.Name ?? "").Replace(" [PINNED]", "").Equals(buildItem.Key));
 
+                    // Fail fast with a clear message when the bundle references a build the
+                    // CI/CD server no longer surfaces. Passing a null BuildUrl downstream
+                    // produced a confusing "Unknown build type" or null-deref far from the
+                    // root cause; surfacing it here points the operator at the real problem.
+                    if (matchedBuild == null)
+                        throw new InvalidOperationException(
+                            $"Build '{buildItem.Key}' (definition '{buildDefinitionName}') was not " +
+                            $"found in {project.SourceControlType} for project '{createRequest.Project}'. " +
+                            "The build may have been deleted, retention-purged, or the bundle " +
+                            "may have been created against a different project/source-control type.");
+
                     var request = new CreateRequest
                     {
-                        BuildUrl = matchedBuild?.Id,
+                        BuildUrl = matchedBuild.Id,
                         BuildDefinitionName = buildDefinitionName,
                         Environment = createRequest.Environment,
                         Project = createRequest.Project,
@@ -215,11 +228,11 @@ namespace Dorc.Core
                     };
                     foreach (var item in buildItem) request.Components.Add(item.Component);
 
-                    var detail = RequestDetail(request);
+                    var detail = await RequestDetailAsync(request, cancellationToken);
                     result.Add(detail);
                 }
             }
-            else if (project.ArtefactsUrl.StartsWith("file"))
+            else if (IsFileShareProject(project))
             {
                 foreach (var buildItem in bundle.Items.GroupBy(i => i.Build))
                 {
@@ -231,7 +244,7 @@ namespace Dorc.Core
                         Components = new List<string>()
                     };
                     foreach (var item in buildItem) request.Components.Add(item.Component);
-                    var detail = RequestDetail(request);
+                    var detail = await RequestDetailAsync(request, cancellationToken);
                     result.Add(detail);
                 }
             }
@@ -239,19 +252,18 @@ namespace Dorc.Core
             return result;
         }
 
-        public DeploymentRequestDetail RequestDetail(CreateRequest createRequest)
+        public async Task<DeploymentRequestDetail> RequestDetailAsync(CreateRequest createRequest, CancellationToken cancellationToken = default)
         {
             var project = _projectsPersistentSource.GetProject(createRequest.Project);
             if (project == null)
                 throw new InvalidOperationException($"Project '{createRequest.Project}' not found.");
 
             var buildDetail = new BuildDetail();
-            if (!string.IsNullOrEmpty(project.ArtefactsUrl) && project.ArtefactsUrl.StartsWith("http") &&
-                !string.IsNullOrEmpty(project.ArtefactsSubPaths))
+            if (IsBuildServerProject(project) && !string.IsNullOrEmpty(project.ArtefactsSubPaths))
             {
-                buildDetail = BuildServerDetailAsync(createRequest, project).ConfigureAwait(false).GetAwaiter().GetResult();
+                buildDetail = await BuildServerDetailAsync(createRequest, project, cancellationToken);
             }
-            else if (!string.IsNullOrEmpty(project.ArtefactsUrl) && project.ArtefactsUrl.StartsWith("file"))
+            else if (IsFileShareProject(project))
                 buildDetail = ShareDetail(createRequest);
             else
                 buildDetail.DropLocation = createRequest.DropFolder;
@@ -281,6 +293,11 @@ namespace Dorc.Core
                 requestDetail.Properties.Add(new PropertyPair(requestProperty.PropertyName,
                     requestProperty.PropertyValue));
             return requestDetail;
+        }
+
+        public DeploymentRequestDetail RequestDetail(CreateRequest createRequest)
+        {
+            return RequestDetailAsync(createRequest).ConfigureAwait(false).GetAwaiter().GetResult();
         }
 
         private async Task<BuildDetail> BuildServerDetailAsync(CreateRequest createRequest, ProjectApiModel project, CancellationToken cancellationToken = default)
@@ -325,6 +342,35 @@ namespace Dorc.Core
                 componentNames.Add(component.ComponentName);
 
             foreach (var child in component.Children) AddComponent(componentNames, child);
+        }
+
+        private static bool IsFileBasedUrl(string? url)
+            => !string.IsNullOrEmpty(url) && (url.StartsWith("file") || url.StartsWith(@"\\"));
+
+        // Project classification routes by SourceControlType primarily, falling back to URL shape
+        // only when the type is the legacy AzureDevOps default (0). Routing by URL alone would
+        // mis-classify a FileShare project with an accidentally http:// ArtefactsUrl and crash
+        // inside the factory (which has no build-server client for FileShare).
+        private static bool IsBuildServerProject(ProjectApiModel project)
+        {
+            if (project.SourceControlType == SourceControlType.GitHub)
+                return true;
+            if (project.SourceControlType == SourceControlType.FileShare)
+                return false;
+            // AzureDevOps (the default value) — original URL-shape gate preserved for backwards
+            // compatibility with unmigrated projects whose URL might be http or file://.
+            return !string.IsNullOrEmpty(project.ArtefactsUrl) &&
+                   project.ArtefactsUrl.StartsWith("http");
+        }
+
+        private static bool IsFileShareProject(ProjectApiModel project)
+        {
+            if (project.SourceControlType == SourceControlType.FileShare)
+                return true;
+            if (project.SourceControlType == SourceControlType.GitHub)
+                return false;
+            // AzureDevOps default — fall back to URL shape for unmigrated rows.
+            return IsFileBasedUrl(project.ArtefactsUrl);
         }
     }
 }

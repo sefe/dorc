@@ -1,17 +1,19 @@
+import { columnBodyRenderer } from '@vaadin/grid/lit';
 import '@vaadin/button';
 import '@vaadin/grid';
 import '@vaadin/details';
-import { GridItemModel } from '@vaadin/grid';
 import '@vaadin/grid/vaadin-grid-column';
-import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
 import '@vaadin/grid/vaadin-grid-sort-column';
-import { css, LitElement, render } from 'lit';
+import { css, LitElement } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import './log-dialog';
 import { DeploymentRequestAttemptApiModel, DeploymentResultAttemptApiModel, RequestApi, ResultStatusesApi } from '../apis/dorc-api';
 import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
+import '@vaadin/horizontal-layout';
+import '@vaadin/vertical-layout';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('component-previous-attempts')
 export class ComponentPreviousAttempts extends LitElement {
@@ -170,25 +172,25 @@ export class ComponentPreviousAttempts extends LitElement {
                     all-rows-visible
                   >
                     <vaadin-grid-column
-                      .renderer="${this.componentNameRenderer}"
+                      ${columnBodyRenderer(this.componentNameRenderer, [])}
                       header="Component Name"
                       resizable
                       auto-width
                     ></vaadin-grid-column>
                     <vaadin-grid-column
-                      .renderer="${this.componentTimingsRenderer}"
+                      ${columnBodyRenderer(this.componentTimingsRenderer, [])}
                       header="Timings"
                       resizable
                       auto-width
                     ></vaadin-grid-column>
                     <vaadin-grid-column
-                      .renderer="${this.componentStatusRenderer}"
+                      ${columnBodyRenderer(this.componentStatusRenderer, [])}
                       header="Status"
                       resizable
                       auto-width
                     ></vaadin-grid-column>
                     <vaadin-grid-column
-                      .renderer="${this.componentLogRenderer}"
+                      ${columnBodyRenderer(this.componentLogRenderer, [])}
                       header="Log"
                       resizable
                       auto-width
@@ -204,41 +206,29 @@ export class ComponentPreviousAttempts extends LitElement {
   }
 
   componentNameRenderer(
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<DeploymentResultAttemptApiModel>
+    item: DeploymentResultAttemptApiModel
   ) {
-    const result = model.item as DeploymentResultAttemptApiModel;
-    render(
-      html` <a href="scripts?search-name=${result.ComponentName}" target="_blank">${result.ComponentName}</a> `,
-      root
-    );
+    const result = item as DeploymentResultAttemptApiModel;
+    return html` <a href="scripts?search-name=${result.ComponentName}" target="_blank">${result.ComponentName}</a> `;
   }
 
   componentStatusRenderer = (
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<DeploymentResultAttemptApiModel>
+    item: DeploymentResultAttemptApiModel
   ) => {
-    const result = model.item as DeploymentResultAttemptApiModel;
+    const result = item as DeploymentResultAttemptApiModel;
     const status = result.Status || '';
 
-    render(
-      html`
+    return html`
         <span class="status-badge">
           ${status}
         </span>
-      `,
-      root
-    );
+      `;
   };
 
   componentTimingsRenderer = (
-    root: HTMLElement,
-    _: HTMLElement,
-    model: GridItemModel<DeploymentResultAttemptApiModel>
+    item: DeploymentResultAttemptApiModel
   ) => {
-    const result = model.item as DeploymentResultAttemptApiModel;
+    const result = item as DeploymentResultAttemptApiModel;
     let sTime = '';
     let sDate = '';
     let cTime = '';
@@ -261,8 +251,7 @@ export class ComponentPreviousAttempts extends LitElement {
       });
     }
 
-    render(
-      html`
+    return html`
         <vaadin-horizontal-layout style="align-items: center;" theme="spacing">
           <vaadin-vertical-layout
             style="line-height: var(--lumo-line-height-s);"
@@ -279,22 +268,17 @@ export class ComponentPreviousAttempts extends LitElement {
             </div>
           </vaadin-vertical-layout>
         </vaadin-horizontal-layout>
-      `,
-      root
-    );
+      `;
   };
 
   componentLogRenderer = (
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<DeploymentResultAttemptApiModel>
+    item: DeploymentResultAttemptApiModel
   ) => {
-    const result = model.item as DeploymentResultAttemptApiModel;
+    const result = item as DeploymentResultAttemptApiModel;
     const first100chars = result.Log?.substring(0, 100);
     const lines = first100chars?.split(/\r?\n/);
 
-    render(
-      html` <table>
+    return html` <table>
         <tr>
           <td>
             <vaadin-button
@@ -303,7 +287,7 @@ export class ComponentPreviousAttempts extends LitElement {
               @click="${() => this.viewComponentLog(result)}"
             >
               <vaadin-icon
-                icon="vaadin:ellipsis-dots-h"
+                icon="vaadin:file-text-o"
                 style="color: cornflowerblue"
               ></vaadin-icon>
             </vaadin-button>
@@ -321,9 +305,7 @@ export class ComponentPreviousAttempts extends LitElement {
             </div>
           </td>
         </tr>
-      </table>`,
-      root
-    );
+      </table>`;
   };
 
   private viewLog(attempt: DeploymentRequestAttemptApiModel) {
@@ -348,7 +330,7 @@ export class ComponentPreviousAttempts extends LitElement {
       // The original DeploymentResult rows are deleted on restart,
       // so /ResultStatuses/Log would return 404.
       try {
-        const api = new RequestApi();
+        const api = new RequestApi(dorcApiConfiguration);
         const logObservable = api.requestRequestIdAttemptsLogGet({
           requestId: this.requestId,
           deploymentResultId: result.DeploymentResultId
@@ -374,7 +356,7 @@ export class ComponentPreviousAttempts extends LitElement {
       // Fallback for older archived attempts without DeploymentResultId:
       // try the ResultStatuses/Log endpoint using the component's original result ID.
       try {
-        const api = new ResultStatusesApi();
+        const api = new ResultStatusesApi(dorcApiConfiguration);
         const logObservable = api.resultStatusesLogGet({
           requestId: this.requestId,
           resultId: result.Id

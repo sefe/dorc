@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// Represents resources used by a build process.
     /// </summary>
     [DataContract(Name = "BuildProcessResources")]
-    public partial class BuildProcessResources : IEquatable<BuildProcessResources>, IValidatableObject
+    public partial class BuildProcessResources : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="BuildProcessResources" /> class.
@@ -39,7 +39,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="files">files.</param>
         /// <param name="queues">queues.</param>
         /// <param name="variableGroups">variableGroups.</param>
-        public BuildProcessResources(List<ServiceEndpointReference> endpoints = default(List<ServiceEndpointReference>), List<SecureFileReference> files = default(List<SecureFileReference>), List<AgentPoolQueueReference> queues = default(List<AgentPoolQueueReference>), List<VariableGroupReference> variableGroups = default(List<VariableGroupReference>))
+        public BuildProcessResources(List<ServiceEndpointReference> endpoints = default, List<SecureFileReference> files = default, List<AgentPoolQueueReference> queues = default, List<VariableGroupReference> variableGroups = default)
         {
             this.Endpoints = endpoints;
             this.Files = files;
@@ -97,88 +97,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as BuildProcessResources);
-        }
-
-        /// <summary>
-        /// Returns true if BuildProcessResources instances are equal
-        /// </summary>
-        /// <param name="input">Instance of BuildProcessResources to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(BuildProcessResources input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.Endpoints == input.Endpoints ||
-                    this.Endpoints != null &&
-                    input.Endpoints != null &&
-                    this.Endpoints.SequenceEqual(input.Endpoints)
-                ) && 
-                (
-                    this.Files == input.Files ||
-                    this.Files != null &&
-                    input.Files != null &&
-                    this.Files.SequenceEqual(input.Files)
-                ) && 
-                (
-                    this.Queues == input.Queues ||
-                    this.Queues != null &&
-                    input.Queues != null &&
-                    this.Queues.SequenceEqual(input.Queues)
-                ) && 
-                (
-                    this.VariableGroups == input.VariableGroups ||
-                    this.VariableGroups != null &&
-                    input.VariableGroups != null &&
-                    this.VariableGroups.SequenceEqual(input.VariableGroups)
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.Endpoints != null)
-                {
-                    hashCode = (hashCode * 59) + this.Endpoints.GetHashCode();
-                }
-                if (this.Files != null)
-                {
-                    hashCode = (hashCode * 59) + this.Files.GetHashCode();
-                }
-                if (this.Queues != null)
-                {
-                    hashCode = (hashCode * 59) + this.Queues.GetHashCode();
-                }
-                if (this.VariableGroups != null)
-                {
-                    hashCode = (hashCode * 59) + this.VariableGroups.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

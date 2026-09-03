@@ -12,6 +12,7 @@ namespace Dorc.Api.Tests
     public class GitHubBuildTests
     {
         private IBuildServerClient _mockedBuildServerClient = null!;
+        private IBuildServerClientFactory _mockedBuildServerClientFactory = null!;
         private IProjectsPersistentSource _mockedProjectsPds = null!;
         private IDeployLibrary _mockedDeployLibrary = null!;
         private IRequestsPersistentSource _mockedReqPs = null!;
@@ -21,6 +22,8 @@ namespace Dorc.Api.Tests
         public void Setup()
         {
             _mockedBuildServerClient = Substitute.For<IBuildServerClient>();
+            _mockedBuildServerClientFactory = Substitute.For<IBuildServerClientFactory>();
+            _mockedBuildServerClientFactory.Create(SourceControlType.GitHub).Returns(_mockedBuildServerClient);
             _mockedProjectsPds = Substitute.For<IProjectsPersistentSource>();
             _mockedDeployLibrary = Substitute.For<IDeployLibrary>();
             _mockedReqPs = Substitute.For<IRequestsPersistentSource>();
@@ -39,7 +42,7 @@ namespace Dorc.Api.Tests
 
         private GitHubDeployableBuild CreateSut()
         {
-            return new GitHubDeployableBuild(_mockedBuildServerClient, _mockedLog,
+            return new GitHubDeployableBuild(_mockedBuildServerClientFactory, _mockedLog,
                 _mockedProjectsPds, _mockedDeployLibrary, _mockedReqPs);
         }
 

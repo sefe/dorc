@@ -15,5 +15,8 @@
 
         public string ServiceType { get; set; }
         public string ServerName { get; set; }
+
+        public System.DateTime? LastSeenDate { get; set; }
+        public string LastSeenStatus { get; set; }
     }
 }

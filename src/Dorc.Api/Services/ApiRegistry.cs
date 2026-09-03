@@ -25,6 +25,8 @@ namespace Dorc.Api.Services
             For<IRequestService>().Use<RequestService>();
 
             For<IDeployableBuildFactory>().Use<DeployableBuildFactory>();
+            For<GitHubDeployableBuild>().Use<GitHubDeployableBuild>().Transient();
+            For<Func<GitHubDeployableBuild>>().Use(ctx => () => ctx.GetInstance<GitHubDeployableBuild>());
             For<IDirectorySearchService>().Use(serviceContext =>
             {
                 var directoryEntry = new DirectoryEntry();

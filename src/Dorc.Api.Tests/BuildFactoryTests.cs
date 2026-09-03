@@ -1,5 +1,6 @@
 using Dorc.Api.Interfaces;
 using Dorc.Api.Services;
+using Dorc.Api.Tests.Mocks;
 using Dorc.ApiModel;
 using Dorc.Core.BuildServer;
 using Dorc.Core.Interfaces;
@@ -18,6 +19,7 @@ namespace Dorc.Api.Tests
         private ILoggerFactory _mockedLoggerFactory = null!;
         private IRequestsPersistentSource _mockedReqPs = null!;
         private IBuildServerClientFactory _mockedBuildServerClientFactory = null!;
+        private Func<GitHubDeployableBuild> _mockedGitHubDeployableBuildFactory = null!;
 
         [TestInitialize]
         public void Setup()
@@ -30,12 +32,17 @@ namespace Dorc.Api.Tests
             _mockedBuildServerClientFactory = Substitute.For<IBuildServerClientFactory>();
             _mockedBuildServerClientFactory.Create(SourceControlType.GitHub)
                 .Returns(Substitute.For<IBuildServerClient>());
+
+            var mockedLog = new MockedLog<GitHubDeployableBuild>();
+            _mockedGitHubDeployableBuildFactory = () => new GitHubDeployableBuild(
+                _mockedBuildServerClientFactory, mockedLog,
+                _mockedProjectsPds, _mockedDeployLibrary, _mockedReqPs);
         }
 
         private DeployableBuildFactory CreateFactory()
         {
             return new DeployableBuildFactory(_mockedFileSystemHelper, _mockedLoggerFactory,
-                _mockedProjectsPds, _mockedDeployLibrary, _mockedReqPs, _mockedBuildServerClientFactory);
+                _mockedProjectsPds, _mockedDeployLibrary, _mockedReqPs, _mockedGitHubDeployableBuildFactory);
         }
 
         [TestMethod]

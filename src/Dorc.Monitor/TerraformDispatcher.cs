@@ -1,5 +1,6 @@
 using Dorc.ApiModel;
 using Dorc.ApiModel.MonitorRunnerApi;
+using Dorc.Core;
 using Dorc.Core.AzureStorageAccount;
 using Dorc.Core.BuildServer;
 using Dorc.Core.Configuration;
@@ -13,6 +14,7 @@ using Microsoft.Extensions.Logging;
 using System.ComponentModel;
 using System.Runtime.InteropServices;
 using System.Text;
+using Dorc.Kafka.Events.Publisher;
 
 namespace Dorc.Monitor
 {
@@ -127,7 +129,7 @@ namespace Dorc.Monitor
             using (var pipeCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
             using (var securityContext = contextBuilder.Build())
             {
-                var startedScriptGroupPipeName = "DOrcMonitor-" + requestId;
+                var startedScriptGroupPipeName = $"DOrcMonitor-{HostInstanceId.Value}-{requestId}";
                 Task scriptGroupPipeTask = _scriptGroupPipeServer.Start(
                         startedScriptGroupPipeName,
                         scriptGroup,
@@ -141,7 +143,7 @@ namespace Dorc.Monitor
 
                 _requestsPersistentSource.UpdateUncLogPath(requestId, uncLogPath);
 
-                var planStorageDir = Path.Combine(Path.GetTempPath(), "terraform-plans");
+                var planStorageDir = Path.Join(DorcProgramData.Root, "terraform-plans");
                 if (!Directory.Exists(planStorageDir))
                     Directory.CreateDirectory(planStorageDir);
                 var terraformPlanFileName = deploymentResult.Id.CreateTerraformPlanBlobName();

@@ -38,7 +38,6 @@ namespace Dorc.PersistentData.Sources
                 context.SaveChanges();
 
                 var apiServer = MapToServerApiModel(newServer);
-                apiServer.UserEditable = server.UserEditable;
                 return apiServer;
             }
         }
@@ -49,18 +48,23 @@ namespace Dorc.PersistentData.Sources
             {
                 var server = context.Servers
                     .Include(s => s.Environments)
+                    .Include(s => s.Daemons)
                     .FirstOrDefault(s => s.Id == serverId);
 
                 if (server != null)
                 {
                     foreach (var environmentDetail in server.Environments.ToList())
                     {
-                        server.Environments.Remove(environmentDetail);   
+                        server.Environments.Remove(environmentDetail);
                     }
-                    foreach (var daemon in server.Services.ToList())
+                    foreach (var daemon in server.Daemons.ToList())
                     {
-                        server.Services.Remove(daemon);   
+                        server.Daemons.Remove(daemon);
                     }
+
+                    var daemonObservations = context.DaemonObservations
+                        .Where(d => d.ServerId == serverId);
+                    context.DaemonObservations.RemoveRange(daemonObservations);
                 }
 
                 context.Servers.Remove(server);

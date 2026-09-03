@@ -47,6 +47,11 @@ export interface AccessSecureApiModel {
      */
     UserIsOwner?: boolean;
     /**
+     * @type {boolean}
+     * @memberof AccessSecureApiModel
+     */
+    UserCanReadSecrets?: boolean;
+    /**
      * @type {Array<AccessControlApiModel>}
      * @memberof AccessSecureApiModel
      */

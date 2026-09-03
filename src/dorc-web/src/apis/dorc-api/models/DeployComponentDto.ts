@@ -45,5 +45,5 @@ export interface DeployComponentDto {
      * @type {boolean}
      * @memberof DeployComponentDto
      */
-    IsEnabled?: boolean | null;
+    IsEnabled?: boolean;
 }

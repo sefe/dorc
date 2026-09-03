@@ -4,13 +4,20 @@ using Microsoft.Extensions.Logging;
 namespace Dorc.Core.BuildServer
 {
     /// <summary>
-    /// DelegatingHandler that retries GitHub API requests on transient failures (429, 502, 503)
-    /// with exponential backoff. Respects GitHub's Retry-After header for rate limiting.
+    /// DelegatingHandler that retries GitHub API requests on transient failures
+    /// (429, 502, 503, 504) with exponential backoff. Respects GitHub's Retry-After
+    /// header for rate limiting.
     /// </summary>
     public class GitHubRetryHandler : DelegatingHandler
     {
         private const int MaxRetries = 3;
         private static readonly TimeSpan BaseDelay = TimeSpan.FromSeconds(1);
+
+        // Cap Retry-After honoring so a hostile or misconfigured server can't stall a Monitor
+        // worker thread for hours by replying with `Retry-After: 86400`. GitHub's secondary
+        // rate limit can return multi-minute values; a one-minute cap is well within typical
+        // backoff budgets while preventing DoS via the retry path.
+        private static readonly TimeSpan MaxRetryDelay = TimeSpan.FromSeconds(60);
 
         private readonly ILogger<GitHubRetryHandler> _logger;
 
@@ -28,7 +35,10 @@ namespace Dorc.Core.BuildServer
 
             for (var attempt = 0; attempt <= MaxRetries; attempt++)
             {
-                var response = await base.SendAsync(request, cancellationToken);
+                // HttpRequestMessage cannot be sent more than once — sending the same instance
+                // twice throws InvalidOperationException. Clone for each attempt.
+                using var attemptRequest = CloneRequest(request);
+                var response = await base.SendAsync(attemptRequest, cancellationToken);
 
                 if (!IsTransientFailure(response.StatusCode) || attempt == MaxRetries)
                     return response;
@@ -42,7 +52,26 @@ namespace Dorc.Core.BuildServer
             }
 
             // Unreachable, but satisfies compiler
-            return await base.SendAsync(request, cancellationToken);
+            using var fallbackRequest = CloneRequest(request);
+            return await base.SendAsync(fallbackRequest, cancellationToken);
+        }
+
+        private static HttpRequestMessage CloneRequest(HttpRequestMessage original)
+        {
+            var clone = new HttpRequestMessage(original.Method, original.RequestUri)
+            {
+                Version = original.Version,
+                VersionPolicy = original.VersionPolicy
+            };
+            foreach (var header in original.Headers)
+            {
+                clone.Headers.TryAddWithoutValidation(header.Key, header.Value);
+            }
+            foreach (var option in original.Options)
+            {
+                ((IDictionary<string, object?>)clone.Options)[option.Key] = option.Value;
+            }
+            return clone;
         }
 
         private static bool IsTransientFailure(HttpStatusCode statusCode)
@@ -55,15 +84,16 @@ namespace Dorc.Core.BuildServer
 
         private static TimeSpan GetRetryDelay(HttpResponseMessage response, int attempt)
         {
-            // Respect Retry-After header if present (GitHub sends this with 429)
+            // Respect Retry-After header if present (GitHub sends this with 429), but clamp
+            // to MaxRetryDelay so a server can't stall the worker thread for hours.
             if (response.Headers.RetryAfter?.Delta is { } retryAfter)
-                return retryAfter;
+                return retryAfter < MaxRetryDelay ? retryAfter : MaxRetryDelay;
 
             if (response.Headers.RetryAfter?.Date is { } retryDate)
             {
                 var delay = retryDate - DateTimeOffset.UtcNow;
                 if (delay > TimeSpan.Zero)
-                    return delay;
+                    return delay < MaxRetryDelay ? delay : MaxRetryDelay;
             }
 
             // Exponential backoff: 1s, 2s, 4s

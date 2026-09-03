@@ -19,16 +19,17 @@ namespace Dorc.Api.Controllers
         }
 
         /// <summary>
-        /// Get project audit list
+        /// Get project audit list. Returns audit history for a single project when
+        /// <paramref name="projectId"/> is supplied, otherwise returns the cross-record feed
+        /// across all projects.
         /// </summary>
-        /// <param name="projectId"></param>
-        /// <returns></returns>
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(GetRefDataAuditListResponseDto))]
         [HttpPut]
-        public IActionResult Put(int projectId, [FromBody] PagedDataOperators operators, int page = 1, int limit = 50)
+        public IActionResult Put([FromBody] PagedDataOperators operators, int? projectId = null, int page = 1, int limit = 50)
         {
-            var projectAuditDto = _manageProjectsPersistentSource.GetRefDataAuditByProjectId(projectId, limit,
-                page, operators);
+            var projectAuditDto = projectId.HasValue
+                ? _manageProjectsPersistentSource.GetRefDataAuditByProjectId(projectId.Value, limit, page, operators)
+                : _manageProjectsPersistentSource.GetRefDataAudit(limit, page, operators);
 
             return StatusCode(StatusCodes.Status200OK, projectAuditDto);
         }

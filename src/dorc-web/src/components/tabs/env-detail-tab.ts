@@ -1,58 +1,66 @@
-import { css, LitElement } from 'lit';
+import { LitElement } from 'lit';
 import '@vaadin/icons';
 import '@vaadin/icon';
+import '@vaadin/button';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
-import { EnvironmentApiModel } from '../../apis/dorc-api';
+import type { EnvShortcut } from '../drawer-shortcuts';
 import { urlForName } from '../../router/router';
 import '../../icons/hardware-icons.js';
 
 @customElement('env-detail-tab')
 export class EnvDetailTab extends LitElement {
-  @property({ type: Object }) public env: EnvironmentApiModel | undefined;
+  @property({ type: Object }) public env: EnvShortcut | undefined;
 
-  static get styles() {
-    return css`
-      a {
-        color: inherit; /* blue colors for links too */
-        text-decoration: inherit; /* no underline */
-        display: block;
-        width: 100%;
-      }
-      vaadin-icon {
-        width: var(--lumo-icon-size-s);
-        height: var(--lumo-icon-size-s);
-        font-size: var(--lumo-font-size-s);
-      }
-    `;
+  /**
+   * Renders into light DOM (D-03). `vaadin-tab._onKeyUp` activates a shortcut by
+   * calling `this.querySelector('a')` — a *descendant* query — so an anchor inside
+   * this component's shadow root is invisible to it and Enter selects the tab
+   * without ever navigating. Moving the anchor into light DOM makes it a
+   * descendant of the tab and restores keyboard activation.
+   *
+   * Consequence: `static styles` no longer applies. Shortcut styling lives in
+   * `dorc-navbar`'s stylesheet (`.shortcut-*`), whose shadow root now contains
+   * these elements — one scoped stylesheet rather than inline style soup.
+   */
+  protected createRenderRoot() {
+    return this;
   }
 
   render() {
-    return html` <div>
-      <div style="margin-left: 20px; width: 270px">
-        <a
-          style="float:left"
-          href="${urlForName('environment', {
-            id: String(this.env?.EnvironmentName)
-          })}"
-        >
-          <vaadin-icon
-            icon="hardware:developer-board"
-            theme="small"
-          ></vaadin-icon>
-          ${this.env?.EnvironmentName}
-        </a>
+    const name = this.env?.EnvironmentName ?? '';
+    return html`
+      <a
+        class="shortcut-link"
+        href="${urlForName('environment', { id: String(name) })}"
+        title="${name}"
+      >
         <vaadin-icon
-          style="color: lightblue; float: right;  position: absolute; right: 5px; top: 5px;"
-          icon="vaadin:close-small"
+          class="shortcut-icon"
+          icon="hardware:developer-board"
           theme="small"
-          @click="${this.removeEnvDetail}"
         ></vaadin-icon>
-      </div>
-    </div>`;
+        <span class="shortcut-label">${name}</span>
+      </a>
+      <vaadin-button
+        class="shortcut-close"
+        theme="icon small drawer-shortcut-close"
+        aria-label="Close ${name} shortcut"
+        @click="${this.removeEnvDetail}"
+      >
+        <vaadin-icon icon="vaadin:close-small" theme="small"></vaadin-icon>
+      </vaadin-button>
+    `;
   }
 
-  removeEnvDetail() {
+  removeEnvDetail(e: Event) {
+    // Keep the click away from the enclosing vaadin-tabs: ListMixin._onClick
+    // reads composedPath() and would select the tab this handler is about to
+    // remove, leaving the drawer highlighting an unrelated item. _onClick bails
+    // on defaultPrevented, so both calls are needed.
+    e.stopPropagation();
+    e.preventDefault();
+
     const event = new CustomEvent('close-env-detail', {
       detail: {
         Environment: this.env

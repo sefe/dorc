@@ -13,56 +13,61 @@ import type { EnvironmentApiModel } from '../../apis/dorc-api';
 import { ErrorNotification } from '../notifications/error-notification';
 import '../notifications/error-notification';
 import { EnvironmentContentBuildsApiModelExtended } from '../model-extensions/EnvironmentContentBuildsApiModelExtended';
-
-let _envContent: EnvironmentContentApiModel | undefined;
-let _environment: EnvironmentApiModel;
+import { dorcApiConfiguration } from '../../services/dorc-api-configuration';
 
 @customElement('page-env-base')
 export class PageEnvBase extends LitElement {
-  @property({ type: Boolean }) protected envLoaded = false;
+  private _envContent: EnvironmentContentApiModel | undefined;
+  private _environment: EnvironmentApiModel | undefined;
 
-  @property({ type: Boolean }) protected slotLoaded = false;
+  @property({ type: Boolean }) envLoaded = false;
 
-  @property({ type: Boolean }) protected envNotFound = false;
+  @property({ type: Boolean }) slotLoaded = false;
 
-  @property({ type: String }) protected envNotFoundMessage = '';
+  @property({ type: Boolean }) envNotFound = false;
+
+  @property({ type: String }) envNotFoundMessage = '';
 
   protected environmentName = '';
 
   @property({ type: Object })
-  protected get environment(): EnvironmentApiModel {
-    return _environment;
+  get environment(): EnvironmentApiModel | undefined {
+    return this._environment;
   }
 
-  protected set environment(value: EnvironmentApiModel) {
-    const oldValue = _environment;
-    _environment = value;
+  set environment(value: EnvironmentApiModel | undefined) {
+    const oldValue = this._environment;
+    this._environment = value;
     this.notifyEnvironmentReady();
     this.requestUpdate('environment', oldValue);
   }
 
   @property({ type: Object })
-  protected get envContent(): EnvironmentContentApiModel | undefined {
-    return <EnvironmentContentApiModel>_envContent;
+  get envContent(): EnvironmentContentApiModel | undefined {
+    return this._envContent;
   }
 
-  protected set envContent(value: EnvironmentContentApiModel | undefined) {
-    const oldValue = _envContent;
-    _envContent = value;
+  set envContent(value: EnvironmentContentApiModel | undefined) {
+    const oldValue = this._envContent;
+    this._envContent = value;
     this.notifyEnvironmentContentReady();
     this.requestUpdate('envContent', oldValue);
   }
 
-  @property({ type: String }) protected envFilter: string | undefined;
+  @property({ type: String }) envFilter: string | undefined;
 
-  @property({ type: Boolean }) protected isEndur = false;
+  @property({ type: Boolean }) isEndur = false;
 
-  @property({ type: Number }) protected environmentId = -1;
+  @property({ type: Number }) environmentId = -1;
 
   public loadEnvironmentInfo() {
     const envName = location.pathname.split('/')[2];
     console.log(`Browser Location.pathname: ${location.pathname}`);
-    this.environmentName = decodeURIComponent(envName);
+    try {
+      this.environmentName = decodeURIComponent(envName);
+    } catch {
+      this.environmentName = envName;
+    }
 
     if (
       this.environment !== undefined &&
@@ -95,7 +100,7 @@ export class PageEnvBase extends LitElement {
   }
 
   protected forceLoadEnvironmentInfo() {
-    const api2 = new RefDataEnvironmentsApi();
+    const api2 = new RefDataEnvironmentsApi(dorcApiConfiguration);
     api2.refDataEnvironmentsGet({ env: this.environmentName }).subscribe({
       next: (data: EnvironmentApiModel[]) => {
         if (data && data.length > 0 && data[0] != null) {
@@ -123,7 +128,10 @@ export class PageEnvBase extends LitElement {
             new CustomEvent('environment-not-found', {
               bubbles: true,
               composed: true,
-              detail: { message: this.envNotFoundMessage }
+              detail: {
+                message: this.envNotFoundMessage,
+                confirmedNotFound: true
+              }
             })
           );
         }
@@ -145,7 +153,10 @@ export class PageEnvBase extends LitElement {
             new CustomEvent('environment-not-found', {
               bubbles: true,
               composed: true,
-              detail: { message: this.envNotFoundMessage }
+              detail: {
+                message: this.envNotFoundMessage,
+                confirmedNotFound: err.status === 404
+              }
             })
           );
         }
@@ -163,7 +174,7 @@ export class PageEnvBase extends LitElement {
         detail: {}
       })
     );
-    const api = new RefDataEnvironmentsDetailsApi();
+    const api = new RefDataEnvironmentsDetailsApi(dorcApiConfiguration);
     api
       .refDataEnvironmentsDetailsIdGet({
         id: env.EnvironmentId ?? 0
@@ -225,7 +236,7 @@ export class PageEnvBase extends LitElement {
   protected onErrorAlert(event: CustomEvent) {
     const notification = new ErrorNotification();
 
-    let msg = '';
+    let msg: string;
     if (event && event.detail) {
       if (
         event.detail.result &&

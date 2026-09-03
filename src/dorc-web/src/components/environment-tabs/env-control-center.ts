@@ -1,4 +1,5 @@
-import { css, PropertyValues } from 'lit';
+import { confirmPrompt } from '../confirm-prompt';
+import { css, nothing, PropertyValues } from 'lit';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/vaadin-lumo-styles/icons.js';
@@ -8,23 +9,30 @@ import { Notification } from '@vaadin/notification';
 import {
   AccessControlType,
   DatabaseApiModel,
+  EnvironmentApiModel,
   RefDataEnvironmentsApi
 } from '../../apis/dorc-api';
 import '@vaadin/button';
 import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
 import '@vaadin/details';
+import '@vaadin/horizontal-layout';
 import '../make-like-production-dialog';
-import '@polymer/paper-dialog';
 import '../add-edit-environment';
 import { PageEnvBase } from './page-env-base';
+import '../add-edit-access-control';
 import { AddEditAccessControl } from '../add-edit-access-control';
 import GlobalCache from '../../global-cache';
 import { ResetAppPasswordBehalf } from '../reset-app-password-behalf';
 import '../reset-app-password-behalf';
 import '../../icons/iron-icons.js';
+import '../dorc-spinner';
 import { SuccessNotification } from '../notifications/success-notification';
+import { ErrorNotification } from '../notifications/error-notification';
+import { retrieveErrorMessage } from '../../helpers/errorMessage-retriever';
 import { MakeLikeProductionDialog } from '../make-like-production-dialog.ts';
+import '@vaadin/tooltip';
+import { dorcApiConfiguration } from '../../services/dorc-api-configuration';
 
 @customElement('env-control-center')
 export class EnvControlCenter extends PageEnvBase {
@@ -55,6 +63,9 @@ export class EnvControlCenter extends PageEnvBase {
   @state()
   private isAdmin = false;
 
+  @state()
+  private isDeletingEnvironment = false;
+
   private appDbServer: DatabaseApiModel | undefined;
 
   static get styles() {
@@ -79,11 +90,6 @@ export class EnvControlCenter extends PageEnvBase {
         display: none;
       }
 
-      paper-dialog.size-position {
-        top: 8px;
-        padding: 10px;
-      }
-
       a {
         color: inherit; /* blue colors for links too */
         text-decoration: inherit; /* no underline */
@@ -93,11 +99,27 @@ export class EnvControlCenter extends PageEnvBase {
         text-decoration: underline;
         color: var(--dorc-link-color);
       }
+
+      .delete-progress {
+        padding: 8px 0 4px 0;
+        color: var(--dorc-text-secondary);
+      }
+
+      .control-center-summary {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--lumo-space-xs, 0.375rem);
+        white-space: nowrap;
+      }
     `;
   }
 
   render() {
     return html`
+      <dorc-spinner
+        style="--dorc-spinner-z-index: 1000"
+        ?hidden="${!this.isDeletingEnvironment}"
+      ></dorc-spinner>
       <reset-app-password-behalf
         id="reset-app-password-behalf"
         .appUsers="${this.envContent?.EndurUsers ?? []}"
@@ -120,53 +142,77 @@ export class EnvControlCenter extends PageEnvBase {
         style="border-top: 6px solid var(--dorc-ctrl-section-border, #ffad33) !important; background-color: var(--dorc-ctrl-section-bg, #fff5e6); padding-left: 4px; margin: 0px;"
       >
         <vaadin-details-summary slot="summary">
-          <vaadin-horizontal-layout>
-            <vaadin-icon
-              icon="vaadin:automation"
-              style="display: table-cell; padding-right: 5px"
-            ></vaadin-icon>
-            <span> Environment Control Center </span>
-          </vaadin-horizontal-layout>
+          <span class="control-center-summary">
+            <vaadin-icon icon="vaadin:automation"></vaadin-icon>
+            <span>Environment Control Center</span>
+          </span>
         </vaadin-details-summary>
         <div style="padding-left: 30px">
           <vaadin-button
             title="Delete Environment &amp; Properties"
             @click="${this.deleteEnvironment}"
-            ?disabled="${!(this.isAdmin || this.isEnvOwner)}"
+            ?disabled="${
+              !(this.isAdmin || this.isEnvOwner) || this.isDeletingEnvironment
+            }"
           >
-            <vaadin-icon icon="icons:delete" slot="prefix"></vaadin-icon
-            >Delete Environment...</vaadin-button>
+            <vaadin-icon icon="icons:delete" slot="prefix"></vaadin-icon>${
+              this.isDeletingEnvironment
+                ? 'Deleting Environment...'
+                : 'Delete Environment...'
+            }</vaadin-button
+          >
           <vaadin-button
             title="Environment History"
             ?disabled="${this.environment === undefined}"
             @click="${this.openEnvHistory}"
           >
             <vaadin-icon slot="prefix" icon="icons:history"></vaadin-icon
-            >Environment History</vaadin-button>
+            >Environment History</vaadin-button
+          >
           <vaadin-button
-            title="Access Control..."
+            aria-label="Access Control..."
             theme="icon"
             @click="${this.openAccessControl}"
           >
-            <vaadin-icon icon="vaadin:lock"></vaadin-icon
-            >Environment Access...</vaadin-button>
+            <vaadin-tooltip
+              slot="tooltip"
+              text="Access Control..."
+            ></vaadin-tooltip>
+            <vaadin-icon icon="vaadin:lock"></vaadin-icon>Environment
+            Access...</vaadin-button
+          >
           <vaadin-button
             id="mlp"
             title="Configure with predefined suite of requests"
             @click="${this.makeLikeProd}"
           >
             <vaadin-icon icon="vaadin:compile" slot="prefix"></vaadin-icon
-            >Bundle Request...</vaadin-button>
+            >Bundle Request...</vaadin-button
+          >
           <vaadin-button
             id="reset-others-password"
             title="Reset SQL Account Password for another user for Database with '${this.environment?.Details?.ThinClient}' tag"
             @click="${this.resetAppPasswordBehalf}"
             ?hidden="${!this.isEndur}"
-            .disabled="${this.environment?.EnvironmentIsProd ||
-            !(this.isEnvOwner || this.isAdmin)}"
+            .disabled="${
+              this.environment?.EnvironmentIsProd ||
+              !(this.isEnvOwner || this.isAdmin)
+            }"
           >
-            <vaadin-icon icon="vaadin:safe" slot="prefix"></vaadin-icon
-            >Reset SQL Account Password for...</vaadin-button>
+            <vaadin-icon icon="vaadin:safe" slot="prefix"></vaadin-icon>Reset
+            SQL Account Password for...</vaadin-button
+          >
+          ${
+            this.isDeletingEnvironment
+              ? html`
+                  <div class="delete-progress" role="status" aria-live="polite">
+                    Deleting '${this.environment?.EnvironmentName}' and its
+                    properties. This can take a minute or two for an environment
+                    with a lot of history - please leave this page open.
+                  </div>
+                `
+              : nothing
+          }
         </div>
       </vaadin-details>
     `;
@@ -175,7 +221,11 @@ export class EnvControlCenter extends PageEnvBase {
   constructor() {
     super();
 
-    super.loadEnvironmentInfo();
+    this.addEventListener(
+      'close-mlp-dialog',
+      this.closeMlpDialog as EventListener
+    );
+
     const gc = GlobalCache.getInstance();
     if (gc.userRoles === undefined) {
       gc.allRolesResp?.subscribe({
@@ -197,7 +247,7 @@ export class EnvControlCenter extends PageEnvBase {
   }
 
   isEnvironmentOwner() {
-    const api = new RefDataEnvironmentsApi();
+    const api = new RefDataEnvironmentsApi(dorcApiConfiguration);
     api
       .refDataEnvironmentsIsEnvironmentOwnerGet({
         envName: this.environment?.EnvironmentName ?? ''
@@ -208,16 +258,14 @@ export class EnvControlCenter extends PageEnvBase {
   }
 
   notifyEnvironmentReady() {
+    if (!this.environment?.EnvironmentName) {
+      return;
+    }
     this.isEnvironmentOwner();
   }
 
   firstUpdated(_changedProperties: PropertyValues) {
     super.firstUpdated(_changedProperties);
-
-    this.addEventListener(
-      'close-mlp-dialog',
-      this.closeMlpDialog as EventListener
-    );
   }
 
   openAccessControl() {
@@ -227,7 +275,7 @@ export class EnvControlCenter extends PageEnvBase {
       'add-edit-access-control'
     ) as AddEditAccessControl;
 
-    addEditAccessControl.open(this.secureName, AccessControlType.NUMBER_1);
+    addEditAccessControl.open(this.secureName, AccessControlType.Environment);
   }
 
   closeMlpDialog() {
@@ -242,20 +290,28 @@ export class EnvControlCenter extends PageEnvBase {
     });
   }
 
-  deleteEnvironment() {
-    const answer = confirm(
+  async deleteEnvironment() {
+    if (this.isDeletingEnvironment) {
+      return;
+    }
+
+    // Snapshot before awaiting, so the environment deleted and the one named in
+    // the success notification are the one the user was asked about.
+    const environment = this.environment;
+    const answer = await confirmPrompt(
       'Are you sure you want to delete your environment and properties?'
     );
     if (answer) {
-      if (this.environment !== undefined) {
-        const api = new RefDataEnvironmentsApi();
+      if (environment !== undefined) {
+        const api = new RefDataEnvironmentsApi(dorcApiConfiguration);
+        this.isDeletingEnvironment = true;
         api
-          .refDataEnvironmentsDelete({ environmentApiModel: this.environment })
-          .subscribe(
-            (data: boolean) => {
+          .refDataEnvironmentsDelete({ environmentApiModel: environment })
+          .subscribe({
+            next: (data: boolean) => {
               if (data) {
                 const message = `The Environment ${
-                  this.environment?.EnvironmentName
+                  environment?.EnvironmentName
                 } has been deleted from DOrc`;
 
                 const notification = new SuccessNotification();
@@ -265,22 +321,50 @@ export class EnvControlCenter extends PageEnvBase {
 
                 const event = new CustomEvent('environment-deleted', {
                   detail: {
-                    Environment: this.environment
+                    Environment: environment
                   },
                   bubbles: true,
                   composed: true
                 });
                 this.dispatchEvent(event);
               } else {
-                alert('Failed to delete your environment');
+                this.showDeleteError(
+                  environment,
+                  'The server reported that the environment was not deleted.'
+                );
               }
             },
-            () => {
-              alert('Failed to delete your environment');
+            error: (err: any) => {
+              this.showDeleteError(environment, err);
+              this.isDeletingEnvironment = false;
+            },
+            complete: () => {
+              this.isDeletingEnvironment = false;
             }
-          );
+          });
       }
     }
+  }
+
+  private showDeleteError(
+    environment: EnvironmentApiModel | undefined,
+    err: any
+  ) {
+    // The reason lives in the response the API sends back - a timeout, a privilege problem and an
+    // environment that has already gone all need different things from the user, and the previous
+    // 'Failed to delete your environment' alert told them apart from none of them.
+    // The snapshot, not a fresh read: this runs after the confirmation and a
+    // network round trip, so naming `this.environment` could report a failure
+    // against whichever environment is loaded by then.
+    const message = `Failed to delete environment '${
+      environment?.EnvironmentName
+    }'. ${retrieveErrorMessage(err)}`;
+
+    const notification = new ErrorNotification();
+    notification.setAttribute('errorMessage', message);
+    this.shadowRoot?.appendChild(notification);
+    notification.open();
+    console.error(err);
   }
 
   resetAppPasswordBehalf() {
@@ -307,11 +391,18 @@ export class EnvControlCenter extends PageEnvBase {
       this.isEndur = false;
     }
 
+    this.envFilter =
+      this.environment?.Details?.ThinClient !== null
+        ? this.environment?.Details?.ThinClient
+        : undefined;
+
     this.mappedProjects = this.envContent?.MappedProjects?.map(
       p => p.ProjectName ?? ''
     );
 
     // since ThinClient is a DB tag and DB type and environment filter, we can use it to find the app database server
-    this.appDbServer = this.envContent?.DbServers?.find(s => s.Type === this.environment?.Details?.ThinClient);
+    this.appDbServer = this.envContent?.DbServers?.find(
+      s => s.Type === this.environment?.Details?.ThinClient
+    );
   }
 }

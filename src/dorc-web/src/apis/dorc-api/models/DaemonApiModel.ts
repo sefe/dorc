@@ -46,4 +46,14 @@ export interface DaemonApiModel {
      * @memberof DaemonApiModel
      */
     ServerName?: string | null;
+    /**
+     * @type {string}
+     * @memberof DaemonApiModel
+     */
+    LastSeenDate?: string | null;
+    /**
+     * @type {string}
+     * @memberof DaemonApiModel
+     */
+    LastSeenStatus?: string | null;
 }

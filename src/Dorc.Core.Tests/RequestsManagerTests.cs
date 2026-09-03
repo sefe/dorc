@@ -73,7 +73,7 @@ namespace Dorc.Core.Tests
                 SourceControlType = SourceControlType.AzureDevOps
             };
 
-            _mockBuildClient.GetBuildDefinitions(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>())
+            _mockBuildClient.GetDefinitions(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>())
                 .Returns(new List<DeployableArtefact> { new() { Id = "1", Name = "Build1" } });
 
             var sut = CreateSut();
@@ -95,7 +95,7 @@ namespace Dorc.Core.Tests
                 SourceControlType = SourceControlType.GitHub
             };
 
-            _mockBuildClient.GetBuildDefinitions(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>())
+            _mockBuildClient.GetDefinitions(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>())
                 .Returns(new List<DeployableArtefact> { new() { Id = "42", Name = "CI Workflow" } });
 
             var sut = CreateSut();
@@ -267,6 +267,107 @@ namespace Dorc.Core.Tests
             Assert.AreEqual(2, result.Count);
             Assert.AreEqual("CompA", result[0].Name);
             Assert.AreEqual("CompB", result[1].Name);
+        }
+
+        // --- RequestDetailAsync & BundleRequestDetailAsync ---
+
+        [TestMethod]
+        public async Task RequestDetailAsync_BuildServerProject_PropagatesCancellationToken()
+        {
+            var project = new ProjectApiModel
+            {
+                ProjectName = "MyProject",
+                ArtefactsUrl = "https://dev.azure.com/org",
+                ArtefactsSubPaths = "MyProject",
+                ArtefactsBuildRegex = ".*",
+                SourceControlType = SourceControlType.AzureDevOps
+            };
+            _projectsPds.GetProject("MyProject").Returns(project);
+
+            var createRequest = new CreateRequest
+            {
+                Project = "MyProject",
+                Environment = "dev",
+                BuildDefinitionName = "MyProject; MyDef",
+                BuildUrl = "https://dev.azure.com/org/build/123",
+                Components = new List<string>()
+            };
+
+            _mockBuildClient.ValidateBuildAsync(
+                    Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(),
+                    Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<bool>(),
+                    Arg.Any<CancellationToken>())
+                .Returns(new BuildServerBuildInfo
+                {
+                    BuildId = 123,
+                    BuildNumber = "1.0.0",
+                    BuildUri = "vstfs:///123",
+                    DefinitionName = "MyDef",
+                    ProjectName = "MyProject"
+                });
+
+            _mockBuildClient.GetBuildArtifactDownloadUrlAsync(
+                    Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(),
+                    Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+                .Returns("https://dev.azure.com/org/artifacts/drop.zip");
+
+            using var cts = new CancellationTokenSource();
+            var token = cts.Token;
+
+            var sut = CreateSut();
+            var detail = await sut.RequestDetailAsync(createRequest, token);
+
+            Assert.AreEqual("https://dev.azure.com/org/artifacts/drop.zip", detail.BuildDetail.DropLocation);
+            Assert.AreEqual("1.0.0", detail.BuildDetail.BuildNumber);
+
+            await _mockBuildClient.Received(1).ValidateBuildAsync(
+                "https://dev.azure.com/org", "MyProject", ".*",
+                "MyProject; MyDef", null, "https://dev.azure.com/org/build/123", false, token);
+
+            await _mockBuildClient.Received(1).GetBuildArtifactDownloadUrlAsync(
+                "https://dev.azure.com/org", "MyProject", ".*",
+                "MyProject; MyDef", "https://dev.azure.com/org/build/123", token);
+        }
+
+        [TestMethod]
+        public async Task RequestDetailAsync_CancelledToken_ThrowsOperationCanceledException()
+        {
+            var project = new ProjectApiModel
+            {
+                ProjectName = "MyProject",
+                ArtefactsUrl = "https://dev.azure.com/org",
+                ArtefactsSubPaths = "MyProject",
+                ArtefactsBuildRegex = ".*",
+                SourceControlType = SourceControlType.AzureDevOps
+            };
+            _projectsPds.GetProject("MyProject").Returns(project);
+
+            var createRequest = new CreateRequest
+            {
+                Project = "MyProject",
+                Environment = "dev",
+                BuildDefinitionName = "MyProject; MyDef",
+                BuildUrl = "https://dev.azure.com/org/build/123",
+                Components = new List<string>()
+            };
+
+            _mockBuildClient.ValidateBuildAsync(
+                    Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(),
+                    Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<bool>(),
+                    Arg.Any<CancellationToken>())
+                .Returns(callInfo =>
+                {
+                    var ct = callInfo.Arg<CancellationToken>();
+                    ct.ThrowIfCancellationRequested();
+                    return (BuildServerBuildInfo?)null;
+                });
+
+            using var cts = new CancellationTokenSource();
+            cts.Cancel();
+
+            var sut = CreateSut();
+            await Assert.ThrowsAsync<OperationCanceledException>(
+                () => sut.RequestDetailAsync(createRequest, cts.Token));
         }
     }
 }

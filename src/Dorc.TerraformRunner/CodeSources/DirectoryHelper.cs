@@ -13,7 +13,7 @@
             }
 
             // Create a new temp directory to hold the extracted subpath contents
-            var tempExtractDir = Path.Combine(Path.GetTempPath(), $"terraform-extract-{Guid.NewGuid()}");
+            var tempExtractDir = Path.Join(DorcProgramData.Root, $"terraform-extract-{Guid.NewGuid()}");
             Directory.CreateDirectory(tempExtractDir);
 
             try

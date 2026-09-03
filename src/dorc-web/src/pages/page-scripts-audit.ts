@@ -1,14 +1,8 @@
-import '@polymer/paper-dialog';
+import { columnBodyRenderer, columnHeaderRenderer } from '@vaadin/grid/lit';
+import '../components/dorc-spinner';
 import '@vaadin/button';
-import {
-  GridCellPartNameGenerator,
-  GridDataProviderCallback,
-  GridDataProviderParams,
-  GridItemModel,
-  GridSorterDefinition
-} from '@vaadin/grid';
+import { GridCellPartNameGenerator, GridDataProviderCallback, GridDataProviderParams, GridSorterDefinition } from '@vaadin/grid';
 import '@vaadin/grid';
-import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid-sorter';
 import '@vaadin/horizontal-layout';
@@ -16,21 +10,21 @@ import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
 import '@vaadin/text-field';
 import '@vaadin/checkbox';
-import { css, PropertyValues, render } from 'lit';
+import { PropertyValues, css } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { PagedDataSorting } from '../apis/dorc-api';
-import {
-  PagedDataFilter,
-} from '../apis/dorc-api/models';
+import { PagedDataFilter } from '../apis/dorc-api/models';
 import { ScriptAuditApiModel } from '../apis/dorc-api/models/ScriptAuditApiModel';
 import { GetScriptsAuditListResponseDto } from '../apis/dorc-api/models/GetScriptsAuditListResponseDto';
 import { ScriptsAuditApi } from '../apis/dorc-api/apis/ScriptsAuditApi';
 import { PageElement } from '../helpers/page-element';
+import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import { getShortLogonName } from '../helpers/user-extensions';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('page-scripts-audit')
-export class PageScriptsAudit extends PageElement {
+export class PageScriptsAudit extends ResponsiveMixin(PageElement) {
   @property({ type: Boolean }) loading = true;
 
   @property({ type: Boolean }) searching = false;
@@ -47,74 +41,50 @@ export class PageScriptsAudit extends PageElement {
 
     static get styles() {
         return css`
+      :host {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        min-height: 0;
+        --audit-row-add-bg: color-mix(in srgb, var(--dorc-success-bg) 35%, var(--dorc-bg-primary));
+        --audit-row-remove-bg: color-mix(in srgb, var(--dorc-failure-bg) 35%, var(--dorc-bg-primary));
+        --audit-char-add-bg: var(--dorc-success-bg);
+        --audit-char-remove-bg: var(--dorc-failure-bg);
+      }
       vaadin-grid#grid {
+        flex: 1 1 auto;
+        min-height: 0;
         overflow: auto;
-        height: calc(100vh - 96px);
-        --divider-color: rgb(223, 232, 239);
+        --divider-color: var(--dorc-border-color);
       }
       vaadin-grid#grid::part(insert-type) {
-        background-color: #b1ffb7;
+        background-color: var(--audit-row-add-bg);
       }
       vaadin-grid#grid::part(delete-type) {
-        background-color: #ffd9d9;
-      }
-      .overlay {
-        width: 100%;
-        height: 100%;
-        position: fixed;
-      }
-      .overlay__inner {
-        width: 100%;
-        height: 100%;
-        position: absolute;
-      }
-      .overlay__content {
-        left: 20%;
-        position: absolute;
-        top: 20%;
-        transform: translate(-50%, -50%);
-      }
-      .spinner {
-        width: 75px;
-        height: 75px;
-        display: inline-block;
-        border-width: 2px;
-        border-color: rgba(255, 255, 255, 0.05);
-        border-top-color: cornflowerblue;
-        animation: spin 1s infinite linear;
-        border-radius: 100%;
-        border-style: solid;
-      }
-      @keyframes spin {
-        100% {
-          transform: rotate(360deg);
-        }
+        background-color: var(--audit-row-remove-bg);
       }
       .highlight {
-        background-color: #b4d5ff;
+        background-color: var(--audit-char-add-bg);
       }
       .highlight-removed {
-        background-color: #ffb4c2;
+        background-color: var(--audit-char-remove-bg);
       }
       .value-line {
         white-space: nowrap;
+      }
+      @media (max-width: 768px) {
+        vaadin-grid-cell-content {
+          white-space: normal;
+          word-wrap: break-word;
+          overflow-wrap: break-word;
+        }
       }
     `;
     }
 
   render() {
     return html`
-      <div
-        class="overlay"
-        style="z-index: 2"
-        ?hidden="${!(this.loading || this.searching)}"
-      >
-        <div class="overlay__inner">
-          <div class="overlay__content">
-            <span class="spinner"></span>
-          </div>
-        </div>
-      </div>
+      <dorc-spinner ?hidden="${!(this.loading || this.searching)}"></dorc-spinner>
       <vaadin-grid
         id="grid"
         column-reordering-allowed
@@ -129,20 +99,20 @@ export class PageScriptsAudit extends PageElement {
           path="ScriptName"
           header="Script Name"
           resizable
-          .headerRenderer="${this.nameHeaderRenderer}"
+          ${columnHeaderRenderer(this.nameHeaderRenderer, [])}
           auto-width
         ></vaadin-grid-column>
         <vaadin-grid-column
           path="ProjectNames"
           header="Projects"
           resizable
-          .headerRenderer="${this.projectNamesHeaderRenderer}"
+          ${columnHeaderRenderer(this.projectNamesHeaderRenderer, [])}
           auto-width
         ></vaadin-grid-column>
         <vaadin-grid-column
           path="UpdatedBy"
           header="User"
-          .headerRenderer="${this.userHeaderRenderer}"
+          ${columnHeaderRenderer(this.userHeaderRenderer, [])}
           resizable
           auto-width
         ></vaadin-grid-column>
@@ -150,17 +120,20 @@ export class PageScriptsAudit extends PageElement {
           path="UpdatedDate"
           header="Updated"
           direction="desc"
-          .renderer="${this.updatedRenderer}"
+          ${columnBodyRenderer(this.updatedRenderer, [])}
           resizable
           auto-width
         ></vaadin-grid-sort-column>
         <vaadin-grid-column
           header="Value"
-          .renderer="${this.valueRenderer}"
-          .headerRenderer="${this.valueHeaderRenderer}"
+          ${columnBodyRenderer(this.valueRenderer, [])}
+          ${columnHeaderRenderer(this.valueHeaderRenderer, [
+            this.useAndFilter
+          ])}
           resizable
           auto-width
           flex-grow="0"
+          ?hidden="${this._narrowScreen}"
         ></vaadin-grid-column>
       </vaadin-grid>
     `;
@@ -196,15 +169,13 @@ export class PageScriptsAudit extends PageElement {
   }
 
   updatedRenderer = (
-    root: HTMLElement,
-    _: HTMLElement,
-    model: GridItemModel<ScriptAuditApiModel>
+    item: ScriptAuditApiModel
   ) => {
     let sTime = '';
     let sDate = '';
 
-    if (model.item.UpdatedDate !== undefined) {
-      const dt = new Date(model.item.UpdatedDate);
+    if (item.UpdatedDate !== undefined) {
+      const dt = new Date(item.UpdatedDate);
       sTime = dt.toLocaleTimeString('en-GB');
       sDate = dt.toLocaleDateString('en-GB', {
         day: '2-digit',
@@ -213,7 +184,7 @@ export class PageScriptsAudit extends PageElement {
       });
     }
 
-    render(html` <span>${`${sDate} ${sTime}`}</span> `, root);
+    return html` <span>${`${sDate} ${sTime}`}</span> `;
   }
 
   private cellPartNameGenerator: GridCellPartNameGenerator<ScriptAuditApiModel> = (
@@ -234,35 +205,21 @@ export class PageScriptsAudit extends PageElement {
   };
 
   valueRenderer = (
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<ScriptAuditApiModel>
+    item: ScriptAuditApiModel
   ) => {
-    const oldStr = model.item.FromValue ?? '';
-    const newStr = model.item.ToValue ?? '';
+    const oldStr = item.FromValue ?? '';
+    const newStr = item.ToValue ?? '';
 
-    if (model.item.Type === 'Insert' || (model.item.Type === 'Update' && oldStr === '')) {
-      render(
-        html`<div class="value-line"><span class="highlight">${newStr}</span></div>`,
-        root
-      );
-      return;
+    if (item.Type === 'Insert' || (item.Type === 'Update' && oldStr === '')) {
+      return html`<div class="value-line"><span class="highlight">${newStr}</span></div>`;
     }
 
-    if (model.item.Type === 'Delete' || (model.item.Type === 'Update' && newStr === '')) {
-      render(
-        html`<div class="value-line"><span class="highlight-removed">${oldStr}</span></div>`,
-        root
-      );
-      return;
+    if (item.Type === 'Delete' || (item.Type === 'Update' && newStr === '')) {
+      return html`<div class="value-line"><span class="highlight-removed">${oldStr}</span></div>`;
     }
 
     if (oldStr === newStr) {
-      render(
-        html`<div class="value-line">${newStr}</div>`,
-        root
-      );
-      return;
+      return html`<div class="value-line">${newStr}</div>`;
     }
 
     const ops = this.computeDiff(oldStr, newStr);
@@ -279,13 +236,10 @@ export class PageScriptsAudit extends PageElement {
       return html``;
     });
 
-    render(
-      html`
+    return html`
         <div class="value-line">${oldParts}</div>
         <div class="value-line">${newParts}</div>
-      `,
-      root
-    );
+      `;
   }
 
   private computeDiff(oldStr: string, newStr: string): { type: 'keep' | 'insert' | 'delete'; value: string }[] {
@@ -336,9 +290,8 @@ export class PageScriptsAudit extends PageElement {
     return merged;
   }
 
-  nameHeaderRenderer = (root: HTMLElement) => {
-    render(
-      html`
+  nameHeaderRenderer = () => {
+    return html`
         <vaadin-horizontal-layout style="align-items: center;" theme="spacing-xs">
           <vaadin-grid-sorter path="ScriptName"></vaadin-grid-sorter>
           <vaadin-text-field
@@ -354,14 +307,11 @@ export class PageScriptsAudit extends PageElement {
             }}"
           ></vaadin-text-field>
         </vaadin-horizontal-layout>
-      `,
-      root
-    );
+      `;
   }
 
-  projectNamesHeaderRenderer = (root: HTMLElement) => {
-    render(
-      html`
+  projectNamesHeaderRenderer = () => {
+    return html`
         <vaadin-horizontal-layout style="align-items: center;" theme="spacing-xs">
           <vaadin-grid-sorter path="ProjectNames"></vaadin-grid-sorter>
           <vaadin-text-field
@@ -377,14 +327,11 @@ export class PageScriptsAudit extends PageElement {
             }}"
           ></vaadin-text-field>
         </vaadin-horizontal-layout>
-      `,
-      root
-    );
+      `;
   }
 
-  userHeaderRenderer = (root: HTMLElement) => {
-    render(
-      html`
+  userHeaderRenderer = () => {
+    return html`
         <vaadin-horizontal-layout style="align-items: center;" theme="spacing-xs">
           <vaadin-grid-sorter path="UpdatedBy"></vaadin-grid-sorter>
           <vaadin-text-field
@@ -400,49 +347,41 @@ export class PageScriptsAudit extends PageElement {
             }}"
           ></vaadin-text-field>
         </vaadin-horizontal-layout>
-      `,
-      root
-    );
+      `;
   }
 
-  valueHeaderRenderer = (root: HTMLElement) => {
-    const labelText = this.useAndFilter ? 'Search Filter: AND' : 'Search Filter: OR';
-
-    render(
-      html`
-        <vaadin-horizontal-layout style="align-items: center;" theme="spacing-xs">
-          <vaadin-text-field
-            placeholder="Value"
-            clear-button-visible
-            focus-target
-            style="width: 100px"
-            theme="small"
-            @input="${(e: InputEvent) => {
-              const textField = e.target as HTMLInputElement;
-              this.valueFilterValue = textField?.value ?? '';
-              this.refreshGrid();
-            }}"
-          ></vaadin-text-field>
-          <vaadin-checkbox
-            id="filter-checkbox"
-            .checked="${!this.useAndFilter}"
-            .label="${labelText}"
-            title="Toggle between AND/OR filter logic"
-            style="--vaadin-checkbox-size: 14px;"
-            @change="${(e: Event) => {
-              this.useAndFilter = !(e.target as HTMLInputElement).checked;
-              const checkbox = root.querySelector('#filter-checkbox') as any;
-              if (checkbox) {
-                checkbox.label = this.useAndFilter ? 'Search Filter: AND' : 'Search Filter: OR';
-              }
-              this.refreshGrid();
-            }}"
-          ></vaadin-checkbox>
-        </vaadin-horizontal-layout>
-      `,
-      root
-    );
-  }
+  // The checkbox label used to be patched back onto the element by hand,
+  // because the imperative renderer never re-ran. `useAndFilter` is in the
+  // directive's dependency array now, so the binding keeps it current.
+  valueHeaderRenderer = () => html`
+    <vaadin-horizontal-layout style="align-items: center;" theme="spacing-xs">
+      <vaadin-text-field
+        placeholder="Value"
+        clear-button-visible
+        focus-target
+        style="width: 100px"
+        theme="small"
+        @input="${(e: InputEvent) => {
+          const textField = e.target as HTMLInputElement;
+          this.valueFilterValue = textField?.value ?? '';
+          this.refreshGrid();
+        }}"
+      ></vaadin-text-field>
+      <vaadin-checkbox
+        id="filter-checkbox"
+        .checked="${!this.useAndFilter}"
+        .label="${this.useAndFilter
+          ? 'Search Filter: AND'
+          : 'Search Filter: OR'}"
+        title="Toggle between AND/OR filter logic"
+        style="--vaadin-checkbox-size: 14px;"
+        @change="${(e: Event) => {
+          this.useAndFilter = !(e.target as HTMLInputElement).checked;
+          this.refreshGrid();
+        }}"
+      ></vaadin-checkbox>
+    </vaadin-horizontal-layout>
+  `;
 
   private refreshGrid() {
     this.dispatchEvent(
@@ -475,7 +414,7 @@ export class PageScriptsAudit extends PageElement {
       filters.push({ Path: 'FromValue', FilterValue: this.valueFilterValue });
     }
 
-    const api = new ScriptsAuditApi();
+    const api = new ScriptsAuditApi(dorcApiConfiguration);
     api
       .scriptsAuditPut({
         pagedDataOperators: {

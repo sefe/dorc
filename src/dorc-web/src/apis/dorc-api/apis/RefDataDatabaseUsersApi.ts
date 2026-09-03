@@ -14,7 +14,7 @@
 import type { Observable } from 'rxjs';
 import type { AjaxResponse } from 'rxjs/ajax';
 import { BaseAPI } from '../runtime';
-import type { OperationOpts, HttpQuery } from '../runtime';
+import type { OperationOpts, HttpHeaders, HttpQuery } from '../runtime';
 import type {
     UserApiModel,
     UserDbPermissionApiModel,
@@ -42,6 +42,16 @@ export class RefDataDatabaseUsersApi extends BaseAPI {
     refDataDatabaseUsersGet({ id, envId }: RefDataDatabaseUsersGetRequest, opts?: OperationOpts): Observable<AjaxResponse<Array<UserApiModel>>>
     refDataDatabaseUsersGet({ id, envId }: RefDataDatabaseUsersGetRequest, opts?: OperationOpts): Observable<Array<UserApiModel> | AjaxResponse<Array<UserApiModel>>> {
 
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         const query: HttpQuery = {};
 
         if (id != null) { query['id'] = id; }
@@ -50,6 +60,7 @@ export class RefDataDatabaseUsersApi extends BaseAPI {
         return this.request<Array<UserApiModel>>({
             url: '/RefDataDatabaseUsers',
             method: 'GET',
+            headers,
             query,
         }, opts?.responseOpts);
     };
@@ -60,6 +71,16 @@ export class RefDataDatabaseUsersApi extends BaseAPI {
     refDataDatabaseUsersGetDbUsersPermissionsGet({ serverName, databaseName, dbType }: RefDataDatabaseUsersGetDbUsersPermissionsGetRequest, opts?: OperationOpts): Observable<AjaxResponse<Array<UserDbPermissionApiModel>>>
     refDataDatabaseUsersGetDbUsersPermissionsGet({ serverName, databaseName, dbType }: RefDataDatabaseUsersGetDbUsersPermissionsGetRequest, opts?: OperationOpts): Observable<Array<UserDbPermissionApiModel> | AjaxResponse<Array<UserDbPermissionApiModel>>> {
 
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         const query: HttpQuery = {};
 
         if (serverName != null) { query['serverName'] = serverName; }
@@ -69,6 +90,7 @@ export class RefDataDatabaseUsersApi extends BaseAPI {
         return this.request<Array<UserDbPermissionApiModel>>({
             url: '/RefDataDatabaseUsers/GetDbUsersPermissions',
             method: 'GET',
+            headers,
             query,
         }, opts?.responseOpts);
     };

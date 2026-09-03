@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// Mapping for a workspace
     /// </summary>
     [DataContract(Name = "WorkspaceMapping")]
-    public partial class WorkspaceMapping : IEquatable<WorkspaceMapping>, IValidatableObject
+    public partial class WorkspaceMapping : IValidatableObject
     {
         /// <summary>
         /// type of workspace mapping
@@ -50,7 +50,6 @@ namespace Org.OpenAPITools.Model
             /// </summary>
             [EnumMember(Value = "cloak")]
             Cloak = 2
-
         }
 
 
@@ -69,7 +68,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="mappingType">type of workspace mapping.</param>
         /// <param name="serverItem">Server location of the definition.</param>
         /// <param name="workspaceId">Id of the workspace.</param>
-        public WorkspaceMapping(string definitionUri = default(string), int depth = default(int), string localItem = default(string), MappingTypeEnum? mappingType = default(MappingTypeEnum?), string serverItem = default(string), int workspaceId = default(int))
+        public WorkspaceMapping(string definitionUri = default, int depth = default, string localItem = default, MappingTypeEnum? mappingType = default, string serverItem = default, int workspaceId = default)
         {
             this.DefinitionUri = definitionUri;
             this.Depth = depth;
@@ -142,90 +141,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as WorkspaceMapping);
-        }
-
-        /// <summary>
-        /// Returns true if WorkspaceMapping instances are equal
-        /// </summary>
-        /// <param name="input">Instance of WorkspaceMapping to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(WorkspaceMapping input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.DefinitionUri == input.DefinitionUri ||
-                    (this.DefinitionUri != null &&
-                    this.DefinitionUri.Equals(input.DefinitionUri))
-                ) && 
-                (
-                    this.Depth == input.Depth ||
-                    this.Depth.Equals(input.Depth)
-                ) && 
-                (
-                    this.LocalItem == input.LocalItem ||
-                    (this.LocalItem != null &&
-                    this.LocalItem.Equals(input.LocalItem))
-                ) && 
-                (
-                    this.MappingType == input.MappingType ||
-                    this.MappingType.Equals(input.MappingType)
-                ) && 
-                (
-                    this.ServerItem == input.ServerItem ||
-                    (this.ServerItem != null &&
-                    this.ServerItem.Equals(input.ServerItem))
-                ) && 
-                (
-                    this.WorkspaceId == input.WorkspaceId ||
-                    this.WorkspaceId.Equals(input.WorkspaceId)
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.DefinitionUri != null)
-                {
-                    hashCode = (hashCode * 59) + this.DefinitionUri.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.Depth.GetHashCode();
-                if (this.LocalItem != null)
-                {
-                    hashCode = (hashCode * 59) + this.LocalItem.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.MappingType.GetHashCode();
-                if (this.ServerItem != null)
-                {
-                    hashCode = (hashCode * 59) + this.ServerItem.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.WorkspaceId.GetHashCode();
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

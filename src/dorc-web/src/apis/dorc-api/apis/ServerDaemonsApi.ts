@@ -17,7 +17,12 @@ import { BaseAPI, throwIfNullOrUndefined, encodeURI } from '../runtime';
 import type { OperationOpts, HttpHeaders, HttpQuery } from '../runtime';
 import type {
     DaemonApiModel,
+    ServerApiModel,
 } from '../models';
+
+export interface ServerDaemonsByDaemonDaemonIdGetRequest {
+    daemonId: number;
+}
 
 export interface ServerDaemonsDeleteRequest {
     serverId?: number;
@@ -37,6 +42,30 @@ export interface ServerDaemonsServerIdGetRequest {
  * no description
  */
 export class ServerDaemonsApi extends BaseAPI {
+
+    /**
+     */
+    serverDaemonsByDaemonDaemonIdGet({ daemonId }: ServerDaemonsByDaemonDaemonIdGetRequest): Observable<Array<ServerApiModel>>
+    serverDaemonsByDaemonDaemonIdGet({ daemonId }: ServerDaemonsByDaemonDaemonIdGetRequest, opts?: OperationOpts): Observable<AjaxResponse<Array<ServerApiModel>>>
+    serverDaemonsByDaemonDaemonIdGet({ daemonId }: ServerDaemonsByDaemonDaemonIdGetRequest, opts?: OperationOpts): Observable<Array<ServerApiModel> | AjaxResponse<Array<ServerApiModel>>> {
+        throwIfNullOrUndefined(daemonId, 'daemonId', 'serverDaemonsByDaemonDaemonIdGet');
+
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
+        return this.request<Array<ServerApiModel>>({
+            url: '/ServerDaemons/by-daemon/{daemonId}'.replace('{daemonId}', encodeURI(daemonId)),
+            method: 'GET',
+            headers,
+        }, opts?.responseOpts);
+    };
 
     /**
      */

@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// BuildServer
     /// </summary>
     [DataContract(Name = "BuildServer")]
-    public partial class BuildServer : IEquatable<BuildServer>, IValidatableObject
+    public partial class BuildServer : IValidatableObject
     {
         /// <summary>
         /// Defines Status
@@ -49,7 +49,6 @@ namespace Org.OpenAPITools.Model
             /// </summary>
             [EnumMember(Value = "offline")]
             Offline = 2
-
         }
 
 
@@ -72,8 +71,8 @@ namespace Org.OpenAPITools.Model
         /// <param name="statusChangedDate">statusChangedDate.</param>
         /// <param name="uri">uri.</param>
         /// <param name="url">url.</param>
-        /// <param name="version">version.</param>
-        public BuildServer(List<BuildAgentReference> agents = default(List<BuildAgentReference>), XamlBuildControllerReference controller = default(XamlBuildControllerReference), int id = default(int), bool isVirtual = default(bool), string messageQueueUrl = default(string), string name = default(string), bool requireClientCertificates = default(bool), StatusEnum? status = default(StatusEnum?), DateTime statusChangedDate = default(DateTime), string uri = default(string), string url = default(string), int version = default(int))
+        /// <param name="varVersion">varVersion.</param>
+        public BuildServer(List<BuildAgentReference> agents = default, XamlBuildControllerReference controller = default, int id = default, bool isVirtual = default, string messageQueueUrl = default, string name = default, bool requireClientCertificates = default, StatusEnum? status = default, DateTime statusChangedDate = default, string uri = default, string url = default, int varVersion = default)
         {
             this.Agents = agents;
             this.Controller = controller;
@@ -86,7 +85,7 @@ namespace Org.OpenAPITools.Model
             this.StatusChangedDate = statusChangedDate;
             this.Uri = uri;
             this.Url = url;
-            this._Version = version;
+            this.VarVersion = varVersion;
         }
 
         /// <summary>
@@ -150,10 +149,10 @@ namespace Org.OpenAPITools.Model
         public string Url { get; set; }
 
         /// <summary>
-        /// Gets or Sets _Version
+        /// Gets or Sets VarVersion
         /// </summary>
         [DataMember(Name = "version", EmitDefaultValue = false)]
-        public int _Version { get; set; }
+        public int VarVersion { get; set; }
 
         /// <summary>
         /// Returns the string presentation of the object
@@ -174,7 +173,7 @@ namespace Org.OpenAPITools.Model
             sb.Append("  StatusChangedDate: ").Append(StatusChangedDate).Append("\n");
             sb.Append("  Uri: ").Append(Uri).Append("\n");
             sb.Append("  Url: ").Append(Url).Append("\n");
-            sb.Append("  _Version: ").Append(_Version).Append("\n");
+            sb.Append("  VarVersion: ").Append(VarVersion).Append("\n");
             sb.Append("}\n");
             return sb.ToString();
         }
@@ -189,137 +188,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as BuildServer);
-        }
-
-        /// <summary>
-        /// Returns true if BuildServer instances are equal
-        /// </summary>
-        /// <param name="input">Instance of BuildServer to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(BuildServer input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.Agents == input.Agents ||
-                    this.Agents != null &&
-                    input.Agents != null &&
-                    this.Agents.SequenceEqual(input.Agents)
-                ) && 
-                (
-                    this.Controller == input.Controller ||
-                    (this.Controller != null &&
-                    this.Controller.Equals(input.Controller))
-                ) && 
-                (
-                    this.Id == input.Id ||
-                    this.Id.Equals(input.Id)
-                ) && 
-                (
-                    this.IsVirtual == input.IsVirtual ||
-                    this.IsVirtual.Equals(input.IsVirtual)
-                ) && 
-                (
-                    this.MessageQueueUrl == input.MessageQueueUrl ||
-                    (this.MessageQueueUrl != null &&
-                    this.MessageQueueUrl.Equals(input.MessageQueueUrl))
-                ) && 
-                (
-                    this.Name == input.Name ||
-                    (this.Name != null &&
-                    this.Name.Equals(input.Name))
-                ) && 
-                (
-                    this.RequireClientCertificates == input.RequireClientCertificates ||
-                    this.RequireClientCertificates.Equals(input.RequireClientCertificates)
-                ) && 
-                (
-                    this.Status == input.Status ||
-                    this.Status.Equals(input.Status)
-                ) && 
-                (
-                    this.StatusChangedDate == input.StatusChangedDate ||
-                    (this.StatusChangedDate != null &&
-                    this.StatusChangedDate.Equals(input.StatusChangedDate))
-                ) && 
-                (
-                    this.Uri == input.Uri ||
-                    (this.Uri != null &&
-                    this.Uri.Equals(input.Uri))
-                ) && 
-                (
-                    this.Url == input.Url ||
-                    (this.Url != null &&
-                    this.Url.Equals(input.Url))
-                ) && 
-                (
-                    this._Version == input._Version ||
-                    this._Version.Equals(input._Version)
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.Agents != null)
-                {
-                    hashCode = (hashCode * 59) + this.Agents.GetHashCode();
-                }
-                if (this.Controller != null)
-                {
-                    hashCode = (hashCode * 59) + this.Controller.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.Id.GetHashCode();
-                hashCode = (hashCode * 59) + this.IsVirtual.GetHashCode();
-                if (this.MessageQueueUrl != null)
-                {
-                    hashCode = (hashCode * 59) + this.MessageQueueUrl.GetHashCode();
-                }
-                if (this.Name != null)
-                {
-                    hashCode = (hashCode * 59) + this.Name.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.RequireClientCertificates.GetHashCode();
-                hashCode = (hashCode * 59) + this.Status.GetHashCode();
-                if (this.StatusChangedDate != null)
-                {
-                    hashCode = (hashCode * 59) + this.StatusChangedDate.GetHashCode();
-                }
-                if (this.Uri != null)
-                {
-                    hashCode = (hashCode * 59) + this.Uri.GetHashCode();
-                }
-                if (this.Url != null)
-                {
-                    hashCode = (hashCode * 59) + this.Url.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this._Version.GetHashCode();
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

@@ -6,11 +6,12 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import type { DaemonApiModel } from '../apis/dorc-api';
 import { RefDataDaemonsApi } from '../apis/dorc-api';
+import '@vaadin/vertical-layout';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('add-daemon')
 export class AddDaemon extends LitElement {
-
-  private readonly maxFieldLength = 50;
+  private readonly maxFieldLength = 250;
 
   @state() private displayName = '';
 
@@ -20,22 +21,21 @@ export class AddDaemon extends LitElement {
 
   @state() private daemonNameValid = false;
 
-  @property() private accountName = this.getEmptyDaemon().AccountName;
+  @property() accountName = this.getEmptyDaemon().AccountName;
 
-  @property({ type: Boolean }) private accountNameValid = true;
+  @property({ type: Boolean }) accountNameValid = true;
 
-  @property() private serviceType = this.getEmptyDaemon().ServiceType;
+  @property() serviceType = this.getEmptyDaemon().ServiceType;
 
-  @property({ type: Boolean }) private serviceTypeValid = true;
+  @property({ type: Boolean }) serviceTypeValid = true;
 
-  @property({ type: Boolean }) private valid = false;
+  @property({ type: Boolean }) valid = false;
 
-  @property({ type: Boolean }) private isBusy = false;
+  @property({ type: Boolean }) isBusy = false;
 
-  @property({ type: Object })
-  private daemon: DaemonApiModel = this.getEmptyDaemon();
+  @property({ type: Object }) daemon: DaemonApiModel = this.getEmptyDaemon();
 
-  @property() private overlayMessage: any;
+  @property() overlayMessage: any;
 
   static get styles() {
     return css`
@@ -43,7 +43,8 @@ export class AddDaemon extends LitElement {
         display: flex;
         align-items: center;
         justify-content: center;
-        width: 500px;
+        width: 100%;
+        max-width: 500px;
       }
       .small-loader {
         border: 2px solid #f3f3f3; /* Light grey */
@@ -66,7 +67,9 @@ export class AddDaemon extends LitElement {
 
   render() {
     return html`
-      <div style="width:50%;">
+      <div
+        style="padding: var(--lumo-space-s); width: min(500px, calc(100vw - 64px)); box-sizing: border-box;"
+      >
         <vaadin-vertical-layout>
           <vaadin-text-field
             class="block"
@@ -75,7 +78,6 @@ export class AddDaemon extends LitElement {
             maxlength="${this.maxFieldLength}"
             title="Maximum length: ${this.maxFieldLength} symbols"
             required
-            auto-validate
             @input="${this._daemonNameValueChanged}"
             .value="${this.daemonName}"
           ></vaadin-text-field>
@@ -86,7 +88,6 @@ export class AddDaemon extends LitElement {
             maxlength="${this.maxFieldLength}"
             title="Maximum length: ${this.maxFieldLength} symbols"
             required
-            auto-validate
             @input="${this._displayNameValueChanged}"
             .value="${this.displayName}"
           ></vaadin-text-field>
@@ -97,10 +98,8 @@ export class AddDaemon extends LitElement {
             maxlength="${this.maxFieldLength}"
             title="Maximum length: ${this.maxFieldLength} symbols"
             required
-            auto-validate
             @input="${this._accountNameValueChanged}"
             .value="${this.accountName ?? ''}"
-            .readonly="${true}"
           ></vaadin-text-field>
           <vaadin-text-field
             class="block"
@@ -109,10 +108,8 @@ export class AddDaemon extends LitElement {
             title="Maximum length: ${this.maxFieldLength} symbols"
             label="Type"
             required
-            auto-validate
             @input="${this._serviceTypeValueChanged}"
             .value="${this.serviceType ?? ''}"
-            .readonly="${true}"
           >
           </vaadin-text-field>
         </vaadin-vertical-layout>
@@ -120,7 +117,8 @@ export class AddDaemon extends LitElement {
           <vaadin-button
             .disabled="${!this.valid || this.isBusy}"
             @click="${this._submit}"
-          >Save</vaadin-button>
+            >Save</vaadin-button
+          >
           <vaadin-button @click="${this.reset}">Clear</vaadin-button>
         </div>
         <span style="color: darkred">${this.overlayMessage}</span>
@@ -173,7 +171,7 @@ export class AddDaemon extends LitElement {
 
   _submit() {
     this.isBusy = true;
-    const api = new RefDataDaemonsApi();
+    const api = new RefDataDaemonsApi(dorcApiConfiguration);
 
     this.daemon.AccountName = this.accountName;
     this.daemon.DisplayName = this.displayName;
@@ -186,7 +184,8 @@ export class AddDaemon extends LitElement {
       },
       (err: any) => {
         this.isBusy = false;
-        this.overlayMessage = 'Error creating daemon!';
+        this.overlayMessage =
+          this._extractErrorMessage(err) ?? 'Error creating daemon!';
         console.error(err);
       },
       () => {
@@ -194,6 +193,17 @@ export class AddDaemon extends LitElement {
         this.reset();
       }
     );
+  }
+
+  private _extractErrorMessage(err: any): string | null {
+    if (err?.response) {
+      if (typeof err.response === 'string') return err.response;
+      if (typeof err.response.ExceptionMessage === 'string')
+        return err.response.ExceptionMessage;
+      if (typeof err.response.message === 'string') return err.response.message;
+    }
+    if (err?.message) return err.message;
+    return null;
   }
 
   _addDaemon(data: DaemonApiModel) {

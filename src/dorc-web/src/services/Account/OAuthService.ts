@@ -1,6 +1,7 @@
 import { UserManagerSettings, UserManager, User } from 'oidc-client-ts';
 import { OAuthConfigurableSettings, oauthSettings } from '../../OAuthSettings';
 import { catchError, from, Observable, tap } from 'rxjs';
+import { drawerShortcuts } from '../../components/drawer-shortcuts';
 
 export const OAUTH_SCHEME = 'OAuth';
 
@@ -103,6 +104,10 @@ export class OAuthService {
    */
   public signOut(): Observable<void> {
     this.saveConfigurableSettings();
+    // Both sign-out paths clear shortcuts: this one, and signOutCallback below
+    // for the return leg. Neither covers a browser close or a silent session
+    // expiry — see SC-17, which states that limit rather than implying coverage.
+    drawerShortcuts.clear();
     return from(this._mgr.signoutRedirect()).pipe(
       tap(() => {
         console.log('signed out');
@@ -124,6 +129,11 @@ export class OAuthService {
       .then(() => {
         console.log('signout callback response success');
         localStorage.removeItem("idsrv.oauthsettings");
+        // SC-17: shortcuts used to live in a cookie with an accidental 7-day TTL,
+        // which was the only thing that ever pruned them. localStorage has no
+        // expiry, so without this they would outlive the session indefinitely.
+        // Cleared to empty rather than removed, so the migration guard stays armed.
+        drawerShortcuts.clear();
         location.assign('/');
       })
       .catch(err => console.error(err));

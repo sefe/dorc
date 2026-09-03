@@ -1,0 +1,160 @@
+import { css, PropertyValueMap, TemplateResult } from 'lit';
+import { customElement, property } from 'lit/decorators.js';
+import { html } from 'lit/html.js';
+import { navigate } from '../router/router';
+import { Tabs } from '@vaadin/tabs';
+import { PageElement, PageLocation } from '../helpers/page-element';
+import { PageEnvBase } from '../components/environment-tabs/page-env-base';
+import '@vaadin/tabs/vaadin-tab';
+
+export enum EnvComponentTabNames {
+  Servers = 'servers',
+  Databases = 'databases',
+  Daemons = 'daemons',
+  Containers = 'containers',
+  Cloud = 'cloud',
+  APIs = 'apis'
+}
+
+@customElement('page-environment-components')
+export class PageEnvironmentComponents extends PageElement {
+  @property() environmentName = '';
+
+  private tabId = -1;
+
+  private tabNames = Object.values(EnvComponentTabNames);
+
+  static get styles() {
+    return css`
+      :host {
+        height: 100%;
+        width: 100%;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+      }
+    `;
+  }
+
+  render() {
+    return html`
+      <vaadin-tabs
+        id="component-tabs"
+        theme="centered"
+        selected="${this.tabId}"
+        @selected-changed="${this.selectedChanged}"
+      >
+        ${this.tabNames.map(tabName => this.convertUriToHuman(tabName))}
+      </vaadin-tabs>
+      <vaadin-vertical-layout style="padding: 0px; height: 100%">
+        <slot @slotchange=${this.handleSlotChange}></slot>
+      </vaadin-vertical-layout>
+    `;
+  }
+
+  protected firstUpdated(
+    _changedProperties: PropertyValueMap<any> | Map<PropertyKey, unknown>
+  ): void {
+    super.firstUpdated(_changedProperties);
+
+    const pathParts = location.pathname.split('/');
+    const envName = pathParts[2];
+    if (envName) {
+      this.environmentName = this.safeDecodeURI(envName);
+    }
+
+    this.syncSelectedTab(location.pathname);
+  }
+
+  public slotChangeComplete() {
+    // No-op — required by page-environment's handleSlotChange
+  }
+
+  public onAfterEnter(location: PageLocation) {
+    this.location = location;
+    this.syncFromLocation(location);
+  }
+
+  public onRouteUpdate(location: PageLocation) {
+    this.location = location;
+    this.syncFromLocation(location);
+  }
+
+  private syncFromLocation(location: PageLocation) {
+    const pathParts = location.pathname.split('/');
+    const envName = pathParts[2];
+    if (envName) {
+      this.environmentName = this.safeDecodeURI(envName);
+    }
+    this.syncSelectedTab(location.pathname);
+  }
+
+  private syncSelectedTab(pathname: string) {
+    const componentTabName = pathname.split('/')[4];
+    const foundIndex = componentTabName
+      ? this.tabNames.findIndex(p => p === componentTabName)
+      : 0;
+    const nextTabId = foundIndex >= 0 ? foundIndex : 0;
+    if (nextTabId !== this.tabId) {
+      this.tabId = nextTabId;
+    }
+
+    const tabs = this.shadowRoot?.getElementById(
+      'component-tabs'
+    ) as unknown as Tabs;
+    if (tabs) {
+      tabs.selected = this.tabId;
+    }
+  }
+
+  handleSlotChange(e: Event) {
+    const slot = e.target as HTMLSlotElement;
+    const childNodes: Node[] = slot?.assignedNodes({ flatten: true });
+    childNodes.forEach(node => {
+      if (node instanceof HTMLElement && 'slotChangeComplete' in node) {
+        (node as PageEnvBase).slotChangeComplete();
+      }
+    });
+  }
+
+  private static readonly displayNames: Record<string, string> = {
+    apis: 'APIs'
+  };
+
+  convertUriToHuman(tabName: EnvComponentTabNames): TemplateResult {
+    const override = PageEnvironmentComponents.displayNames[tabName];
+    if (override) return html`<vaadin-tab>${override}</vaadin-tab>`;
+    let newTabName: string = tabName.replace('-', ' ');
+    const re = /(\b[a-z](?!\s))/g;
+    newTabName = newTabName.replace(re, x => x.toUpperCase());
+    return html`<vaadin-tab>${newTabName}</vaadin-tab>`;
+  }
+
+  selectedChanged(e: CustomEvent) {
+    if (e.detail.value < 0) return;
+
+    const tabIdx = e.detail.value as number;
+    let envName = this.environmentName;
+    if (envName === '') {
+      envName = location.pathname.split('/')[2];
+      this.environmentName = this.safeDecodeURI(envName);
+    }
+
+    const tabName = this.tabNames[tabIdx];
+    this.tabId = tabIdx;
+
+    if (tabName === location.pathname.split('/')[4]) {
+      return;
+    }
+
+    void navigate(`/environment/${envName}/components/${tabName}`);
+  }
+
+  private safeDecodeURI(value: string): string {
+    try {
+      return decodeURIComponent(value);
+    } catch {
+      return value;
+    }
+  }
+}
