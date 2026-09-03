@@ -23,15 +23,17 @@ namespace Dorc.Monitor.TerraformSourceConfig
         // Read directly rather than injected: this type is constructed with `new` by both
         // dispatchers, and the allow-list is process-wide configuration rather than per-request
         // state.
-        private static readonly ISourceHostAllowList SourceHosts = new SourceHostAllowList(
-            new ConfigurationBuilder().AddJsonFile("appsettings.json").Build());
+        private readonly ISourceHostAllowList _sourceHosts;
 
         public TerraformSourceConfigurator(ILogger logger, IConfigurationSettings configurationSettings,
-            IGitHubHostValidator gitHubHostValidator)
+            IGitHubHostValidator gitHubHostValidator,
+            ISourceHostAllowList? sourceHosts = null)
         {
             _logger = logger;
             _configurationSettings = configurationSettings;
             _gitHubHostValidator = gitHubHostValidator;
+            _sourceHosts = sourceHosts ?? new SourceHostAllowList(
+                new ConfigurationBuilder().AddJsonFile("appsettings.json").Build());
         }
 
         public void ConfigureScriptGroup(
@@ -80,17 +82,16 @@ namespace Dorc.Monitor.TerraformSourceConfig
                 return;
             }
 
-            scriptGroup.TerraformGitRepoUrl = project.TerraformGitRepoUrl;
+            var repositoryUrl = project.TerraformGitRepoUrl;
 
-            if (!MayReceiveSourceCredentials(scriptGroup.TerraformGitRepoUrl))
+            if (!MayReceiveSourceCredentials(repositoryUrl))
             {
-                // No credential is attached, so the clone either succeeds anonymously against a
-                // public repository or fails. Either is better than handing a token to a host
-                // nobody vouched for.
                 return;
             }
 
-            if (IsAzureDevOpsRepository(scriptGroup.TerraformGitRepoUrl))
+            scriptGroup.TerraformGitRepoUrl = repositoryUrl;
+
+            if (IsAzureDevOpsRepository(repositoryUrl))
             {
                 scriptGroup.AzureBearerToken = GetAzureBearerToken();
             }
@@ -117,27 +118,29 @@ namespace Dorc.Monitor.TerraformSourceConfig
         /// </summary>
         private bool MayReceiveSourceCredentials(string repositoryUrl)
         {
-            if (SourceHosts.IsTerraformSourceUnconfigured)
+            if (_sourceHosts.IsTerraformSourceUnconfigured)
             {
-                _logger.LogWarning(
-                    "Attaching Git credentials to '{RepositoryUrl}' because no Terraform source host"
-                    + " allow-list is configured ('{Setting}').",
-                    repositoryUrl,
+                _logger.LogError(
+                    "Refusing Terraform Git source because no source host allow-list is configured"
+                    + " ('{Setting}').",
                     SourceHostAllowList.TerraformHostsSetting);
-                return true;
+                return false;
             }
 
-            if (SourceHosts.IsTerraformSourceAllowed(repositoryUrl, out var reason))
+            if (_sourceHosts.IsTerraformSourceAllowed(repositoryUrl, out var reason))
             {
                 return true;
             }
 
             _logger.LogError(
                 "Withholding Git credentials from '{RepositoryUrl}', because {Reason}",
-                repositoryUrl,
-                reason);
+                SingleLine(repositoryUrl),
+                SingleLine(reason));
             return false;
         }
+
+        private static string SingleLine(string? value) =>
+            value?.Replace("\r", string.Empty).Replace("\n", string.Empty) ?? string.Empty;
 
         /// <summary>
         /// Compared on the parsed host, not by substring. A test for "dev.azure.com" anywhere in
