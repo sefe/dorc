@@ -27,6 +27,19 @@ PendingRequestProcessor / DeploymentRequestStateProcessor reach a terminal statu
   not retried.
 - When `TeamsNotification.Enabled` is `false`, a no-op sink is registered instead.
 
+### How many messages a user gets
+
+- **One card per request**, never per component — a 50-component request sends one card
+  when the request reaches its terminal status.
+- **Bulk sweeps are grouped.** A monitor restart or a mass cancel/abandon switches many
+  requests in one pass; those are dispatched as a batch and the sink groups them by
+  requester, so one person gets one summary card ("3 deployments Cancelled") rather than
+  one DM per request. A batch containing a single request still sends the normal card.
+- **Requests completing over time are not grouped** — each sends its own card as it
+  finishes. Collapsing those would need a debounce window per requester, which trades
+  away prompt delivery; tracked separately on issue #657.
+- `NotifyOnStatuses` is the per-environment volume control if a tier is still too noisy.
+
 Components live in `src/Dorc.Monitor/Notifications/` (`Dorc.Monitor.Notifications[.Teams]`).
 
 ## Azure prerequisites (once per tenant)
