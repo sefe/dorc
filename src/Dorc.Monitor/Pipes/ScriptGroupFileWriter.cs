@@ -153,7 +153,7 @@ namespace Dorc.Monitor.Pipes
 
             var root = Path.TrimEndingDirectorySeparator(
                 Path.GetFullPath(RunnerConstants.ScriptGroupFilesPath));
-            var bundle = Path.GetFullPath(Path.Combine(root, pipeName + ".json"));
+            var bundle = Path.GetFullPath(Path.Join(root, pipeName + ".json"));
 
             if (Path.GetDirectoryName(bundle) != root)
             {
