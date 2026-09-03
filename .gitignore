@@ -397,3 +397,5 @@ ca.pem
 **/.secrets/
 **/.env
 **/.env.local
+
+dorc-notifications.zip

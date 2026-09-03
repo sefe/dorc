@@ -83,16 +83,39 @@ as `AADTENANT` / `AADCLIENTID` / `AADSECRET`).
 
 `teams-app/` contains the app manifest template:
 
-- `manifest.json` — replace both `__BOT_APP_ID__` placeholders with the bot's AAD app id
-  before packaging. The bot is declared `personal` scope and `isNotificationOnly`.
+- `manifest.json` — carries a `__BOT_APP_ID__` placeholder in **two** places (`id` and
+  `bots[0].botId`). Both must be substituted before the package will validate. The bot is
+  declared `personal` scope and `isNotificationOnly`.
 - `color.png` (192×192) / `outline.png` (32×32) — placeholder icons; replace with real
   branding before tenant-wide rollout.
+- `package.ps1` — substitutes the app id and produces the zip.
 
-Package by zipping the three files (flat, no folder):
+### Where the app id comes from
+
+It is the **Application (client) ID** GUID of the bot's Azure AD app registration
+(Azure Portal → App registrations → the DOrc notification bot → Overview). It is not a
+secret and is not stored in this repository. It is the same value already configured as
+`TeamsNotification:BotAppId` (MSI parameter `TEAMS.BOT.APP.ID`) on a Monitor that has
+notifications enabled, so an existing environment's config is the quickest place to read
+it back from.
+
+### Packaging
+
+```powershell
+cd teams-app
+./package.ps1 -BotAppId <application-client-id-guid>
+```
+
+The script validates that the id is a GUID, substitutes both placeholders into a staging
+copy (the checked-in `manifest.json` keeps its placeholder), and writes a flat
+`dorc-notifications.zip`. Equivalent by hand, if you'd rather:
 
 ```
 cd teams-app && zip dorc-notifications.zip manifest.json color.png outline.png
 ```
+
+— but edit both `__BOT_APP_ID__` occurrences first, and don't commit the substituted
+manifest.
 
 Distribute via the tenant app catalog (Teams admin center → Teams apps → Manage apps →
 Upload new app). Sideloading works for dev-tenant testing if the tenant allows it.
