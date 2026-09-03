@@ -34,6 +34,12 @@ namespace Dorc.Monitor.Tests
         public void Setup()
         {
             _pipeServer = Substitute.For<IScriptGroupPipeServer>();
+            _pipeServer.Start(
+                    Arg.Any<string>(),
+                    Arg.Any<ScriptGroup>(),
+                    Arg.Any<ScriptGroupReaderIdentity>(),
+                    Arg.Any<CancellationToken>())
+                .Returns(_ => throw new DispatchAcceptedException());
 
             var configValues = Substitute.For<IConfigValuesPersistentSource>();
             configValues.GetConfigValue("DORC_NonProdDeployUsername").Returns("svc-dorc");
@@ -73,12 +79,15 @@ namespace Dorc.Monitor.Tests
                     new StringBuilder(),
                     CancellationToken.None);
             }
-            catch (Exception)
+            catch (DispatchAcceptedException)
             {
-                // Reached the security context, which means the path was accepted. The refusal
-                // path returns false without ever getting there.
+                // Reaching the pipe proves the path passed both confinement gates.
                 return true;
             }
+        }
+
+        private sealed class DispatchAcceptedException : Exception
+        {
         }
 
         /// <summary>

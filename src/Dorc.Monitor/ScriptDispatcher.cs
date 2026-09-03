@@ -373,13 +373,17 @@ namespace Dorc.Monitor
 
         private void Report(bool enforcing, string? scriptPath, string scriptsLocation, string reason)
         {
+            var safeScriptPath = SingleLine(scriptPath);
+            var safeScriptRoot = SingleLine(scriptsLocation);
+            var safeReason = SingleLine(reason);
+
             if (enforcing)
             {
                 logger.LogError(
                     "Refusing to execute '{ScriptPath}' against script root '{ScriptRoot}', because"
                     + " {Reason} Register the script beneath the root, or correct the component's"
                     + " stored path.",
-                    scriptPath, scriptsLocation, reason);
+                    safeScriptPath, safeScriptRoot, safeReason);
             }
             else
             {
@@ -387,9 +391,12 @@ namespace Dorc.Monitor
                     "Script path '{ScriptPath}' would be refused once confinement is enforced,"
                     + " because {Reason} Executing it because 'EnforceScriptPathConfinement' is not"
                     + " enabled. Script root: '{ScriptRoot}'.",
-                    scriptPath, reason, scriptsLocation);
+                    safeScriptPath, safeReason, safeScriptRoot);
             }
         }
+
+        private static string SingleLine(string? value) =>
+            value?.Replace("\r", string.Empty).Replace("\n", string.Empty) ?? string.Empty;
 
         private (string, string) GetProcessCredentials(bool isProduction, string environmentName)
         {
