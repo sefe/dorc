@@ -58,7 +58,7 @@ namespace Dorc.PowerShell
                         powerShell.Streams.Warning.DataAdded += Powershell_Warning_DataAdded;
                         powerShell.Streams.Verbose.DataAdded += Powershell_Verbose_DataAdded;
                         powerShell.Streams.Error.DataAdded += Powershell_Error_DataAdded;
-                        powerShell.Streams.Progress.DataAdded += Powershell_Information_DataAdded;
+                        powerShell.Streams.Progress.DataAdded += Powershell_Progress_DataAdded;
 
                         try
                         {
@@ -176,6 +176,13 @@ namespace Dorc.PowerShell
             var data = (PSDataCollection<ErrorRecord>)sender;
             var msg = GetErrorRecordData(data[e.Index]);
             logMessage(msg, MessageType.Error);
+        }
+
+        void Powershell_Progress_DataAdded(object sender, DataAddedEventArgs e)
+        {
+            var data = (PSDataCollection<ProgressRecord>)sender;
+            var msg = data[e.Index]?.StatusDescription;
+            logMessage(msg, MessageType.Info);
         }
 
         private IDictionary<string, VariableValue> CombineProperties(
