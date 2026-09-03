@@ -76,39 +76,25 @@ namespace Dorc.Core.VariableResolution
                 return false;
             }
 
-            foreach (var referenced in ReferencedProperties(raw))
-            {
-                if (IsInfluenced(referenced, rawValueLookup, visited))
-                {
-                    return true;
-                }
-            }
-
-            return false;
+            return ReferencedProperties(raw)
+                .Any(referenced => IsInfluenced(referenced, rawValueLookup, visited));
         }
 
         private IEnumerable<string> ReferencedProperties(string raw)
         {
-            var referenced = new List<string>();
-
             try
             {
-                foreach (var token in _parser.Parse(raw))
-                {
-                    if (token is PropertyToken)
-                    {
-                        referenced.Add(token.Value);
-                    }
-                }
+                return _parser.Parse(raw)
+                    .OfType<PropertyToken>()
+                    .Select(token => token.Value)
+                    .ToList();
             }
-            catch
+            catch (InvalidOperationException)
             {
                 // A value that cannot be parsed cannot be shown to be free of
                 // request-supplied references. Report one so evaluation is withheld.
                 return new[] { string.Empty };
             }
-
-            return referenced;
         }
     }
 }
