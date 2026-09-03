@@ -29,6 +29,12 @@ namespace Dorc.PersistentData
             For<IConfigValuesPersistentSource>().Use<ConfigValuesPersistentSource>().Scoped();
             For<IDaemonsPersistentSource>().Use<DaemonsPersistentSource>().Scoped();
             For<IDaemonAuditPersistentSource>().Use<DaemonAuditPersistentSource>().Scoped();
+            For<IContainersPersistentSource>().Use<ContainersPersistentSource>().Scoped();
+            For<IContainerAuditPersistentSource>().Use<ContainerAuditPersistentSource>().Scoped();
+            For<ICloudResourcesPersistentSource>().Use<CloudResourcesPersistentSource>().Scoped();
+            For<ICloudResourceAuditPersistentSource>().Use<CloudResourceAuditPersistentSource>().Scoped();
+            For<IApiRegistrationsPersistentSource>().Use<ApiRegistrationsPersistentSource>().Scoped();
+            For<IApiRegistrationAuditPersistentSource>().Use<ApiRegistrationAuditPersistentSource>().Scoped();
             For<IDaemonObservationPersistentSource>().Use<DaemonObservationPersistentSource>().Scoped();
             For<IDatabasesAuditPersistentSource>().Use<DatabasesAuditPersistentSource>().Scoped();
             For<IServersAuditPersistentSource>().Use<ServersAuditPersistentSource>().Scoped();

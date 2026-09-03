@@ -665,6 +665,15 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
                                 .Where(ecs => EF.Property<int>(ecs, "EnvironmentId") == environment.Id)
                                 .ExecuteDelete();
 
+                            context.Database.ExecuteSqlInterpolated(
+                                $"DELETE FROM [deploy].[EnvironmentContainer] WHERE [EnvId] = {environment.Id}");
+
+                            context.Database.ExecuteSqlInterpolated(
+                                $"DELETE FROM [deploy].[EnvironmentCloudResource] WHERE [EnvId] = {environment.Id}");
+
+                            context.Database.ExecuteSqlInterpolated(
+                                $"DELETE FROM [deploy].[EnvironmentApiRegistration] WHERE [EnvId] = {environment.Id}");
+
                             DetachChildEnvironments(environment, username, context);
 
                             context.Environments.Remove(environment);
