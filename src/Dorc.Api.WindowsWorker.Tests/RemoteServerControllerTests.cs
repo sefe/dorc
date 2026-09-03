@@ -41,6 +41,20 @@ namespace Dorc.Api.WindowsWorker.Tests
             Assert.IsInstanceOfType<BadRequestObjectResult>(result.Result);
         }
 
+        [TestMethod]
+        public void OperatingSystem_InvalidServerNameDoesNotReachRegistryReader()
+        {
+            var reader = new CannedReader(new ServerOperatingSystemApiModel());
+            var controller = new RemoteServerController(
+                reader,
+                NullLogger<RemoteServerController>.Instance);
+
+            var result = controller.GetOperatingSystem(@"\\attacker\share");
+
+            Assert.IsInstanceOfType<BadRequestObjectResult>(result.Result);
+            Assert.AreEqual(0, reader.ReadCount);
+        }
+
         private static RegistryFixture LoadFixture()
         {
             var path = Path.Join(AppContext.BaseDirectory, "Fixtures", "registry-operating-system.json");
@@ -53,13 +67,18 @@ namespace Dorc.Api.WindowsWorker.Tests
         private sealed class CannedReader : IRemoteServerOperatingSystemReader
         {
             private readonly ServerOperatingSystemApiModel? _result;
+            public int ReadCount { get; private set; }
 
             public CannedReader(ServerOperatingSystemApiModel? result)
             {
                 _result = result;
             }
 
-            public ServerOperatingSystemApiModel? Read(string serverName) => _result;
+            public ServerOperatingSystemApiModel? Read(string serverName)
+            {
+                ReadCount++;
+                return _result;
+            }
         }
 
         private sealed class RegistryFixture

@@ -1,11 +1,13 @@
 using Dorc.Api.WindowsWorker.Services;
 using Dorc.ApiModel;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Dorc.Api.WindowsWorker.Controllers
 {
     // Windows-only remote-server probing. Currently exposes registry-based OS
     // detection (S-004 — moved from Dorc.Api/Controllers/RefDataServersController).
+    [Authorize(WorkerKeyAuthorizationPolicies.FromPrimary)]
     [ApiController]
     [Route("remote-server")]
     public class RemoteServerController : ControllerBase
@@ -27,6 +29,14 @@ namespace Dorc.Api.WindowsWorker.Controllers
             if (string.IsNullOrWhiteSpace(serverName))
             {
                 return BadRequest(new { error = "serverName is required" });
+            }
+
+            if (serverName.Length > 255 ||
+                serverName.Any(character =>
+                    !char.IsLetterOrDigit(character) &&
+                    character is not '.' and not '-' and not '_'))
+            {
+                return BadRequest(new { error = "serverName is invalid" });
             }
 
             try

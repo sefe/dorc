@@ -193,10 +193,18 @@ namespace Dorc.Api.Controllers
         [Route("GetServerOperatingFromTarget")]
         public async Task<IActionResult> GetServerOperatingFromTarget(string serverName, CancellationToken cancellationToken)
         {
+            var registeredServer = _serversPersistentSource.GetServer(serverName, User);
+            if (registeredServer == null)
+            {
+                return NotFound("Server is not registered or is not visible to the current user.");
+            }
+
             // Delegated to Dorc.Api.WindowsWorker per HLPS Scope D / SPEC-S-004.
             // On Linux installs the WorkerUnavailableClient throws and the global
             // WorkerUnavailableExceptionFilter renders a 503 with the documented body.
-            var output = await _windowsWorkerClient.GetServerOperatingSystemAsync(serverName, cancellationToken);
+            var output = await _windowsWorkerClient.GetServerOperatingSystemAsync(
+                registeredServer.Name,
+                cancellationToken);
             return Ok(output);
         }
 
