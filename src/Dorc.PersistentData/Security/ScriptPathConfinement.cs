@@ -56,7 +56,13 @@ namespace Dorc.PersistentData.Security
             {
                 embedded = JsonNode.Parse(scriptPath)?["ScriptPath"]?.GetValue<string>();
             }
-            catch (Exception)
+            catch (JsonException)
+            {
+                reason = "it is a JSON script path whose ScriptPath cannot be read, so it cannot be"
+                    + " shown to resolve beneath the script root.";
+                return false;
+            }
+            catch (InvalidOperationException)
             {
                 // It announced itself as JSON and then would not yield a path - malformed, or
                 // ScriptPath present but not a string. Its confinement cannot be established,
