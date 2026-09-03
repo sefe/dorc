@@ -8,6 +8,8 @@ using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Swashbuckle.AspNetCore.Annotations;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace Dorc.Api.Controllers
 {
@@ -287,11 +289,11 @@ namespace Dorc.Api.Controllers
 
             if (!_apiSecurityService.CanModifyEnvironment(User, deploymentRequest.EnvironmentName))
             {
-                var userIdentifier = _claimsPrincipalReader.GetUserSafeIdentifier(User);
+                var userIdentifier = CreateLogIdentifier(
+                    _claimsPrincipalReader.GetUserSafeIdentifier(User));
                 _log.LogInformation(
-                    "Forbidden Terraform plan access to deployment result {DeploymentResultId} on environment '{EnvironmentName}' from {UserIdentifier}",
+                    "Forbidden Terraform plan access to deployment result {DeploymentResultId} from user {UserIdentifier}",
                     deploymentResultId,
-                    deploymentRequest.EnvironmentName,
                     userIdentifier);
                 return AuthorizationOutcome.Refused(
                     StatusCode(StatusCodes.Status403Forbidden, NoEnvironmentAuthorityMessage));
@@ -336,7 +338,8 @@ namespace Dorc.Api.Controllers
             if (UserIdentityCanonicaliser.SamePrincipal(submitter, approverFullDomainName) ||
                 UserIdentityCanonicaliser.SamePrincipal(submitter, approverLogin))
             {
-                var approverIdentifier = _claimsPrincipalReader.GetUserSafeIdentifier(User);
+                var approverIdentifier = CreateLogIdentifier(
+                    _claimsPrincipalReader.GetUserSafeIdentifier(User));
                 _log.LogInformation(
                     "Refused self-approval of request {RequestId} by {ApproverIdentifier}.",
                     deploymentRequest.Id,
@@ -345,6 +348,17 @@ namespace Dorc.Api.Controllers
             }
 
             return null;
+        }
+
+        private static string CreateLogIdentifier(string? safeIdentifier)
+        {
+            if (string.IsNullOrWhiteSpace(safeIdentifier))
+            {
+                return "unavailable";
+            }
+
+            var hash = SHA256.HashData(Encoding.UTF8.GetBytes(safeIdentifier));
+            return Convert.ToHexString(hash.AsSpan(0, 8));
         }
 
         /// <summary>
