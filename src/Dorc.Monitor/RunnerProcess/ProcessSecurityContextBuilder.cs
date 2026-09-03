@@ -114,9 +114,14 @@ namespace Dorc.Monitor.RunnerProcess
                 throw new Exception($"Cannot process request under account {userName}");
             }
 
-            this.logger.LogInformation($"Logon as {userName} succeeded");
+            this.logger.LogInformation("Logon as {UserName} succeeded", SanitizeForLog(userName));
 
             return token;
+        }
+
+        private static string SanitizeForLog(string value)
+        {
+            return value.Replace("\r", string.Empty).Replace("\n", string.Empty);
         }
 
         private IntPtr DuplicateAsPrimaryToken(IntPtr logonToken)
