@@ -361,13 +361,29 @@ namespace Dorc.Core.AzureDevOpsServer
                                     safePath, itemResponse.StatusCode);
                             }
                         }
-                        catch (Exception ex)
+                        catch (HttpRequestException ex)
+                        {
+                            _log.LogDebug(ex, "Error searching tree for repo {RepoName}", safeRepoName);
+                        }
+                        catch (TaskCanceledException ex)
+                        {
+                            _log.LogDebug(ex, "Error searching tree for repo {RepoName}", safeRepoName);
+                        }
+                        catch (JsonException ex)
                         {
                             _log.LogDebug(ex, "Error searching tree for repo {RepoName}", safeRepoName);
                         }
                     }
                 }
-                catch (Exception ex)
+                catch (HttpRequestException ex)
+                {
+                    _log.LogWarning(ex, "Error searching for files in ADO project {Project}", safeProject);
+                }
+                catch (TaskCanceledException ex)
+                {
+                    _log.LogWarning(ex, "Error searching for files in ADO project {Project}", safeProject);
+                }
+                catch (JsonException ex)
                 {
                     _log.LogWarning(ex, "Error searching for files in ADO project {Project}", safeProject);
                 }
