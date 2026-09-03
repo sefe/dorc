@@ -2,6 +2,7 @@
 using Dorc.Api.Interfaces;
 using Dorc.Api.Model;
 using Dorc.ApiModel;
+using Dorc.Core;
 using Dorc.PersistentData.Sources.Interfaces;
 
 namespace Dorc.Api.Services
@@ -26,7 +27,8 @@ namespace Dorc.Api.Services
             var build = _deployableBuildFactory.CreateInstance(request);
             if (build == null)
             {
-                _log.LogError($"Wrong build type: {request}");
+                _log.LogError("Wrong build type for project {Project} with build URL {BuildUrl}",
+                    LogSanitizer.Sanitize(request?.Project), LogSanitizer.Sanitize(request?.BuildUrl));
                 throw new WrongBuildTypeException($"Wrong build type. BuildUrl should start with 'http', 'file', or be a numeric run ID (GitHub), but got {request.BuildUrl}");
             }
 
@@ -38,7 +40,7 @@ namespace Dorc.Api.Services
             if (build.IsValid(new BuildDetails(request, sourceControlType)))
                 return build.Process(request, user);
 
-            _log.LogError("Build validation failed. {ValidationResult}", build.ValidationResult);
+            _log.LogError("Build validation failed. {ValidationResult}", LogSanitizer.Sanitize(build.ValidationResult));
             throw new WrongBuildTypeException($"Build validation failed. {build.ValidationResult}");
         }
 
@@ -49,9 +51,8 @@ namespace Dorc.Api.Services
             var project = _projectsPersistentSource.GetProject(projectName);
             if (project == null)
             {
-                var msg = $"Unable to locate a project with the name '{projectName}'";
-                _log.LogError(msg);
-                throw new Exception(msg);
+                _log.LogError("Unable to locate a project with the name {ProjectName}", LogSanitizer.Sanitize(projectName));
+                throw new Exception($"Unable to locate a project with the name '{projectName}'");
             }
             request.BuildUrl = project.ArtefactsUrl.Split(';')[0];
         }

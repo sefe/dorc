@@ -220,7 +220,11 @@ namespace Dorc.Api.Controllers
             }
             catch (Exception e)
             {
-                _logger.LogError(e, "An error occurred while processing MakeLikeProd request for TargetEnv: {TargetEnv}. Request: {@Request}", mlpRequest?.TargetEnv, mlpRequest);
+                // Serialize-then-sanitize rather than destructure: {@Request} would hand the
+                // raw user-controlled strings inside the DTO straight to the sink.
+                _logger.LogError(e, "An error occurred while processing MakeLikeProd request for TargetEnv: {TargetEnv}. Request: {Request}",
+                    LogSanitizer.Sanitize(mlpRequest?.TargetEnv),
+                    LogSanitizer.Sanitize(mlpRequest == null ? null : System.Text.Json.JsonSerializer.Serialize(mlpRequest)));
                 return StatusCode(StatusCodes.Status500InternalServerError, e);
             }
         }
