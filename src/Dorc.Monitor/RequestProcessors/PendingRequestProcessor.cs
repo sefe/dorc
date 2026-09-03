@@ -5,8 +5,8 @@ using Dorc.Core.Events;
 using Dorc.Core.Interfaces;
 using Dorc.Core.VariableResolution;
 using Dorc.PersistentData.Sources.Interfaces;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using System.Text;
 
 namespace Dorc.Monitor.RequestProcessors
@@ -35,7 +35,7 @@ namespace Dorc.Monitor.RequestProcessors
             IPropertyValuesPersistentSource propertyValuesPersistentSource,
             IEnvironmentsPersistentSource environmentsPersistentSource,
             IManageProjectsPersistentSource manageProjectsPersistentSource,
-            IConfigValuesPersistentSource configValuesPersistentSource, 
+            IConfigValuesPersistentSource configValuesPersistentSource,
             IPropertyEvaluator propertyEvaluator,
             IDeploymentEventsPublisher eventPublisher,
             IGitHubArtifactDownloader gitHubArtifactDownloader)
@@ -55,12 +55,24 @@ namespace Dorc.Monitor.RequestProcessors
             this.eventsPublisher = eventPublisher;
         }
 
-        public void Execute(RequestToProcessDto requestToExecute, CancellationToken cancellationToken)
+        public void Execute(RequestToProcessDto requestToExecute, CancellationToken cancellationToken, ILoggerFactory loggerFactory)
         {
             using (logger.BeginScope(new Dictionary<string, object> { ["RequestId"] = requestToExecute.Request.Id }))
             {
 
                 logger.LogInformation($"Attempting to deploy the request with id '{requestToExecute.Request.Id}'.");
+
+                using var statusPoller = new RequestStatusPoller(
+                    requestsPersistentSource,
+                    loggerFactory.CreateLogger<RequestStatusPoller>(),
+                    pollInterval: TimeSpan.FromSeconds(10));
+
+                using var compositeCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+
+                statusPoller.StartMonitoring(
+                    requestToExecute.Request.Id,
+                    compositeCts,
+                    cancellationToken);
 
                 _variableResolver = new VariableResolver(propertyValuesPersistentSource, _loggerFactory, _propertyEvaluator);
 
@@ -131,7 +143,9 @@ namespace Dorc.Monitor.RequestProcessors
                             {
                                 Status = deploymentRequestStatus.ToString(),
                                 CompletedTime = DateTimeOffset.Now,
-                            });
+                            }).ContinueWith(t => logger.LogWarning(t.Exception!.InnerException,
+                                "fire-and-forget publish failed for requestId={RequestId}", requestToExecute.Request.Id),
+                                TaskContinuationOptions.OnlyOnFaulted);
 
                             return;
                         }
@@ -179,7 +193,9 @@ namespace Dorc.Monitor.RequestProcessors
                             {
                                 Status = deploymentRequestStatus.ToString(),
                                 CompletedTime = DateTimeOffset.Now,
-                            });
+                            }).ContinueWith(t => logger.LogWarning(t.Exception!.InnerException,
+                                "fire-and-forget publish failed for requestId={RequestId}", requestToExecute.Request.Id),
+                                TaskContinuationOptions.OnlyOnFaulted);
 
                             return;
                         }
@@ -191,7 +207,17 @@ namespace Dorc.Monitor.RequestProcessors
                         {
                             try
                             {
-                                cancellationToken.ThrowIfCancellationRequested();
+                                compositeCts.Token.ThrowIfCancellationRequested();
+
+                                if (IsRequestCancelledByAnotherNode(requestToExecute.Request.Id))
+                                {
+                                    deploymentRequestStatus = DeploymentRequestStatus.Cancelled;
+
+                                    logger.LogInformation(
+                                        "Request {RequestId} was cancelled by another node; aborting deployment of remaining components.",
+                                        requestToExecute.Request.Id);
+                                    break;
+                                }
 
                                 var componentId = enabledNonSkippedComponent.ComponentId!.Value;
                                 var deploymentResult = deploymentResults[componentId];
@@ -206,7 +232,7 @@ namespace Dorc.Monitor.RequestProcessors
                                     environmentName,
                                     scriptRoot,
                                     commonProperties,
-                                    cancellationToken);
+                                    compositeCts.Token);
 
                                 if (!isSuccessful)
                                 {
@@ -271,7 +297,9 @@ namespace Dorc.Monitor.RequestProcessors
                         {
                             Status = deploymentRequestStatus.ToString(),
                             CompletedTime = DateTimeOffset.Now,
-                        });
+                        }).ContinueWith(t => logger.LogWarning(t.Exception!.InnerException,
+                            "fire-and-forget publish failed for requestId={RequestId}", requestToExecute.Request.Id),
+                            TaskContinuationOptions.OnlyOnFaulted);
                     }
                     catch (Exception ex)
                     {
@@ -303,7 +331,9 @@ namespace Dorc.Monitor.RequestProcessors
                         {
                             Status = DeploymentRequestStatus.Errored.ToString(),
                             CompletedTime = DateTimeOffset.Now,
-                        });
+                        }).ContinueWith(t => logger.LogWarning(t.Exception!.InnerException,
+                            "fire-and-forget publish failed for requestId={RequestId}", requestToExecute.Request.Id),
+                            TaskContinuationOptions.OnlyOnFaulted);
                     }
                 }
                 catch (Exception e)
@@ -325,7 +355,9 @@ namespace Dorc.Monitor.RequestProcessors
                     {
                         Status = DeploymentRequestStatus.Errored.ToString(),
                         CompletedTime = DateTimeOffset.Now,
-                    });
+                    }).ContinueWith(t => logger.LogWarning(t.Exception!.InnerException,
+                        "fire-and-forget publish failed for requestId={RequestId}", requestToExecute.Request.Id),
+                        TaskContinuationOptions.OnlyOnFaulted);
 
                     return;
                 }
@@ -364,7 +396,8 @@ namespace Dorc.Monitor.RequestProcessors
                     eventsPublisher.PublishResultStatusChangedAsync(new DeploymentResultEventData(pendingResult)
                     {
                         Status = DeploymentResultStatus.Cancelled.ToString()
-                    });
+                    }).ContinueWith(t => logger.LogWarning(t.Exception!.InnerException,
+                        "fire-and-forget publish failed for result"), TaskContinuationOptions.OnlyOnFaulted);
                 }
 
                 logger.LogInformation(
@@ -391,7 +424,9 @@ namespace Dorc.Monitor.RequestProcessors
             {
                 Status = DeploymentRequestStatus.Running.ToString(),
                 StartedTime = DateTimeOffset.Now,
-            });
+            }).ContinueWith(t => logger.LogWarning(t.Exception!.InnerException,
+                "fire-and-forget publish failed for requestId={RequestId}", request.Id),
+                TaskContinuationOptions.OnlyOnFaulted);
         }
 
         private IList<ComponentApiModel> GetOrderedNonSkippedComponents(
@@ -556,6 +591,25 @@ namespace Dorc.Monitor.RequestProcessors
             {
                 logger.LogWarning("EnvironmentOwnerEmails is not set on request {RequestId}, EnvOwnerEmails property will not be available.",
                     request.Id);
+            }
+        }
+
+        private bool IsRequestCancelledByAnotherNode(int requestId)
+        {
+            try
+            {
+                var currentDbStatus = requestsPersistentSource.GetRequestStatus(requestId).Status;
+
+                return currentDbStatus == DeploymentRequestStatus.Cancelled.ToString()
+                    || currentDbStatus == DeploymentRequestStatus.Cancelling.ToString();
+            }
+            catch (Exception ex)
+            {
+                // If we can't verify the status, err on the side of continuing so that
+                // a transient DB error doesn't unnecessarily abort an in-progress deployment.
+                logger.LogWarning(ex,
+                    "Failed to verify cancellation status for request {RequestId} from another node.", requestId);
+                return false;
             }
         }
     }

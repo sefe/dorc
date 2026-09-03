@@ -76,6 +76,13 @@ export class PropertyValuesApi extends BaseAPI {
 
         const headers: HttpHeaders = {
             'Content-Type': 'application/json',
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
         };
 
         return this.request<Array<Response>>({
@@ -92,6 +99,16 @@ export class PropertyValuesApi extends BaseAPI {
     apiPropertyValuesGet({ propertyName, environmentName }: ApiPropertyValuesGetRequest, opts?: OperationOpts): Observable<AjaxResponse<Array<PropertyValueDto>>>
     apiPropertyValuesGet({ propertyName, environmentName }: ApiPropertyValuesGetRequest, opts?: OperationOpts): Observable<Array<PropertyValueDto> | AjaxResponse<Array<PropertyValueDto>>> {
 
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         const query: HttpQuery = {};
 
         if (propertyName != null) { query['propertyName'] = propertyName; }
@@ -100,6 +117,7 @@ export class PropertyValuesApi extends BaseAPI {
         return this.request<Array<PropertyValueDto>>({
             url: '/api/PropertyValues',
             method: 'GET',
+            headers,
             query,
         }, opts?.responseOpts);
     };
@@ -112,6 +130,13 @@ export class PropertyValuesApi extends BaseAPI {
 
         const headers: HttpHeaders = {
             'Content-Type': 'application/json',
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
         };
 
         return this.request<Array<Response>>({
@@ -130,6 +155,13 @@ export class PropertyValuesApi extends BaseAPI {
 
         const headers: HttpHeaders = {
             'Content-Type': 'application/json',
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
         };
 
         return this.request<Array<Response>>({
@@ -146,6 +178,16 @@ export class PropertyValuesApi extends BaseAPI {
     apiPropertyValuesScopeOptionsGet({ propertyValueScope }: ApiPropertyValuesScopeOptionsGetRequest, opts?: OperationOpts): Observable<AjaxResponse<Array<PropertyValueScopeOptionApiModel>>>
     apiPropertyValuesScopeOptionsGet({ propertyValueScope }: ApiPropertyValuesScopeOptionsGetRequest, opts?: OperationOpts): Observable<Array<PropertyValueScopeOptionApiModel> | AjaxResponse<Array<PropertyValueScopeOptionApiModel>>> {
 
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         const query: HttpQuery = {};
 
         if (propertyValueScope != null) { query['propertyValueScope'] = propertyValueScope; }
@@ -153,6 +195,7 @@ export class PropertyValuesApi extends BaseAPI {
         return this.request<Array<PropertyValueScopeOptionApiModel>>({
             url: '/api/PropertyValues/ScopeOptions',
             method: 'GET',
+            headers,
             query,
         }, opts?.responseOpts);
     };
@@ -165,6 +208,13 @@ export class PropertyValuesApi extends BaseAPI {
 
         const headers: HttpHeaders = {
             'Content-Type': 'application/json',
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
         };
 
         return this.request<Array<Response>>({
@@ -181,6 +231,16 @@ export class PropertyValuesApi extends BaseAPI {
     propertyValuesGet({ propertyName, environmentName }: PropertyValuesGetRequest, opts?: OperationOpts): Observable<AjaxResponse<Array<PropertyValueDto>>>
     propertyValuesGet({ propertyName, environmentName }: PropertyValuesGetRequest, opts?: OperationOpts): Observable<Array<PropertyValueDto> | AjaxResponse<Array<PropertyValueDto>>> {
 
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         const query: HttpQuery = {};
 
         if (propertyName != null) { query['propertyName'] = propertyName; }
@@ -189,6 +249,7 @@ export class PropertyValuesApi extends BaseAPI {
         return this.request<Array<PropertyValueDto>>({
             url: '/PropertyValues',
             method: 'GET',
+            headers,
             query,
         }, opts?.responseOpts);
     };
@@ -201,6 +262,13 @@ export class PropertyValuesApi extends BaseAPI {
 
         const headers: HttpHeaders = {
             'Content-Type': 'application/json',
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
         };
 
         return this.request<Array<Response>>({
@@ -219,6 +287,13 @@ export class PropertyValuesApi extends BaseAPI {
 
         const headers: HttpHeaders = {
             'Content-Type': 'application/json',
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
         };
 
         return this.request<Array<Response>>({
@@ -235,6 +310,16 @@ export class PropertyValuesApi extends BaseAPI {
     propertyValuesScopeOptionsGet({ propertyValueScope }: PropertyValuesScopeOptionsGetRequest, opts?: OperationOpts): Observable<AjaxResponse<Array<PropertyValueScopeOptionApiModel>>>
     propertyValuesScopeOptionsGet({ propertyValueScope }: PropertyValuesScopeOptionsGetRequest, opts?: OperationOpts): Observable<Array<PropertyValueScopeOptionApiModel> | AjaxResponse<Array<PropertyValueScopeOptionApiModel>>> {
 
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         const query: HttpQuery = {};
 
         if (propertyValueScope != null) { query['propertyValueScope'] = propertyValueScope; }
@@ -242,6 +327,7 @@ export class PropertyValuesApi extends BaseAPI {
         return this.request<Array<PropertyValueScopeOptionApiModel>>({
             url: '/PropertyValues/ScopeOptions',
             method: 'GET',
+            headers,
             query,
         }, opts?.responseOpts);
     };

@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// Represents a folder that contains build definitions.
     /// </summary>
     [DataContract(Name = "Folder")]
-    public partial class Folder : IEquatable<Folder>, IValidatableObject
+    public partial class Folder : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="Folder" /> class.
@@ -42,7 +42,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="lastChangedDate">The date the folder was last changed..</param>
         /// <param name="path">The full path..</param>
         /// <param name="project">project.</param>
-        public Folder(IdentityRef createdBy = default(IdentityRef), DateTime createdOn = default(DateTime), string description = default(string), IdentityRef lastChangedBy = default(IdentityRef), DateTime lastChangedDate = default(DateTime), string path = default(string), TeamProjectReference project = default(TeamProjectReference))
+        public Folder(IdentityRef createdBy = default, DateTime createdOn = default, string description = default, IdentityRef lastChangedBy = default, DateTime lastChangedDate = default, string path = default, TeamProjectReference project = default)
         {
             this.CreatedBy = createdBy;
             this.CreatedOn = createdOn;
@@ -128,111 +128,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as Folder);
-        }
-
-        /// <summary>
-        /// Returns true if Folder instances are equal
-        /// </summary>
-        /// <param name="input">Instance of Folder to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(Folder input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.CreatedBy == input.CreatedBy ||
-                    (this.CreatedBy != null &&
-                    this.CreatedBy.Equals(input.CreatedBy))
-                ) && 
-                (
-                    this.CreatedOn == input.CreatedOn ||
-                    (this.CreatedOn != null &&
-                    this.CreatedOn.Equals(input.CreatedOn))
-                ) && 
-                (
-                    this.Description == input.Description ||
-                    (this.Description != null &&
-                    this.Description.Equals(input.Description))
-                ) && 
-                (
-                    this.LastChangedBy == input.LastChangedBy ||
-                    (this.LastChangedBy != null &&
-                    this.LastChangedBy.Equals(input.LastChangedBy))
-                ) && 
-                (
-                    this.LastChangedDate == input.LastChangedDate ||
-                    (this.LastChangedDate != null &&
-                    this.LastChangedDate.Equals(input.LastChangedDate))
-                ) && 
-                (
-                    this.Path == input.Path ||
-                    (this.Path != null &&
-                    this.Path.Equals(input.Path))
-                ) && 
-                (
-                    this.Project == input.Project ||
-                    (this.Project != null &&
-                    this.Project.Equals(input.Project))
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.CreatedBy != null)
-                {
-                    hashCode = (hashCode * 59) + this.CreatedBy.GetHashCode();
-                }
-                if (this.CreatedOn != null)
-                {
-                    hashCode = (hashCode * 59) + this.CreatedOn.GetHashCode();
-                }
-                if (this.Description != null)
-                {
-                    hashCode = (hashCode * 59) + this.Description.GetHashCode();
-                }
-                if (this.LastChangedBy != null)
-                {
-                    hashCode = (hashCode * 59) + this.LastChangedBy.GetHashCode();
-                }
-                if (this.LastChangedDate != null)
-                {
-                    hashCode = (hashCode * 59) + this.LastChangedDate.GetHashCode();
-                }
-                if (this.Path != null)
-                {
-                    hashCode = (hashCode * 59) + this.Path.GetHashCode();
-                }
-                if (this.Project != null)
-                {
-                    hashCode = (hashCode * 59) + this.Project.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

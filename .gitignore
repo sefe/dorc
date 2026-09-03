@@ -384,3 +384,22 @@ GitExtensions.settings.backup
 src/.NCrunch_Dorc/
 .idea
 /src/dorc/src/Tests.Acceptance/Features/*.cs 
+
+# --- Secrets / credentials / local-only config (NEVER commit) ---
+# Aiven & other CA certs
+ca.pem
+**/ca.pem
+*.pem
+# Local developer overrides that may contain secrets
+**/appsettings.local.json
+**/appsettings.Local.json
+**/aiven-creds*
+**/.secrets/
+**/.env
+**/.env.local
+
+# --- Agent scratch ---
+# Subagent worktrees. Ephemeral copies of this repo; committing one sweeps a
+# reviewer's deliberate mutation onto the branch, which is how three commits
+# on this branch were corrupted.
+.claude/worktrees/

@@ -190,7 +190,6 @@ docs/XamlBuildServerReference.md
 docs/XamlDefinitionReference.md
 docs/YamlProcess.md
 git_push.sh
-src/Org.OpenAPITools.Test/Org.OpenAPITools.Test.csproj
 src/Org.OpenAPITools/Api/ArtifactsApi.cs
 src/Org.OpenAPITools/Api/AttachmentsApi.cs
 src/Org.OpenAPITools/Api/AuthorizedresourcesApi.cs
@@ -397,4 +396,3 @@ src/Org.OpenAPITools/Model/XamlBuildReference.cs
 src/Org.OpenAPITools/Model/XamlBuildServerReference.cs
 src/Org.OpenAPITools/Model/XamlDefinitionReference.cs
 src/Org.OpenAPITools/Model/YamlProcess.cs
-src/Org.OpenAPITools/Org.OpenAPITools.csproj

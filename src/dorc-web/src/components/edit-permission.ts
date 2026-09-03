@@ -7,27 +7,28 @@ import { html } from 'lit/html.js';
 import type { PermissionDto } from '../apis/dorc-api';
 import { Notification } from '@vaadin/notification';
 import { RefDataPermissionApi } from '../apis/dorc-api';
+import '@vaadin/vertical-layout';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('edit-permission')
 export class EditPermission extends LitElement {
-
   private readonly maxFieldLength = 50;
 
-  @property() private displayName = '';
+  @property() displayName = '';
 
-  @property({ type: Boolean }) private displayNameValid = false;
+  @property({ type: Boolean }) displayNameValid = false;
 
-  @property() private permissionName = '';
+  @property() permissionName = '';
 
-  @property({ type: Boolean }) private permissionNameValid = false;
+  @property({ type: Boolean }) permissionNameValid = false;
 
-  @property({ type: Boolean }) private valid = false;
+  @property({ type: Boolean }) valid = false;
 
   @property({ type: Object })
-  private permission: PermissionDto = this.getEmptyPermission();
+  permission: PermissionDto = this.getEmptyPermission();
 
-  @property() private overlayMessage: any;
-  @property() private errorMessage: any;
+  @property() overlayMessage: any;
+  @property() errorMessage: any;
 
   static get styles() {
     return css`
@@ -68,7 +69,6 @@ export class EditPermission extends LitElement {
             maxlength="${this.maxFieldLength}"
             title="Maximum length: ${this.maxFieldLength} symbols"
             required
-            auto-validate
             @input="${this._displayNameValueChanged}"
             .value="${this.displayName}"
           ></vaadin-text-field>
@@ -79,7 +79,6 @@ export class EditPermission extends LitElement {
             maxlength="${this.maxFieldLength}"
             title="Maximum length: ${this.maxFieldLength} symbols"
             required
-            auto-validate
             @input="${this._permissionNameValueChanged}"
             .value="${this.permissionName}"
           ></vaadin-text-field>
@@ -123,30 +122,34 @@ export class EditPermission extends LitElement {
   }
 
   _submit() {
-    const api = new RefDataPermissionApi();
+    const api = new RefDataPermissionApi(dorcApiConfiguration);
 
     this.permission.DisplayName = this.displayName.trim();
     this.permission.PermissionName = this.permissionName.trim();
 
-    api.refDataPermissionPut({ id: this.permission.Id, permissionDto: this.permission }).subscribe({
-      next: () => {
-        this._updatePermission(this.permission);
-      },
-      error: (err: any) => {
-        this.overlayMessage = 'Error updating permission!';
-        if (err?.response)
-          this.errorMessage = err.response;
-        console.error(err);
-      },
-      complete: () => {
-        console.log('done updating permission');
-        Notification.show(`Permission updated successfully`, {
-          theme: 'success',
-          position: 'bottom-start',
-          duration: 3000
-        });
-      }
-    });
+    api
+      .refDataPermissionPut({
+        id: this.permission.Id,
+        permissionDto: this.permission
+      })
+      .subscribe({
+        next: () => {
+          this._updatePermission(this.permission);
+        },
+        error: (err: any) => {
+          this.overlayMessage = 'Error updating permission!';
+          if (err?.response) this.errorMessage = err.response;
+          console.error(err);
+        },
+        complete: () => {
+          console.log('done updating permission');
+          Notification.show(`Permission updated successfully`, {
+            theme: 'success',
+            position: 'bottom-start',
+            duration: 3000
+          });
+        }
+      });
   }
 
   _updatePermission(data: PermissionDto) {

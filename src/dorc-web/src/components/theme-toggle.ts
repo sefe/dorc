@@ -4,6 +4,7 @@ import '@vaadin/button';
 import '@vaadin/icon';
 import '@vaadin/icons/vaadin-icons';
 import { themeManager, Theme } from '../theme/theme-manager.ts';
+import '@vaadin/tooltip';
 
 @customElement('theme-toggle')
 export class ThemeToggle extends LitElement {
@@ -45,9 +46,9 @@ export class ThemeToggle extends LitElement {
       <vaadin-button
         theme="icon tertiary"
         aria-label="${label}"
-        title="${label}"
         @click="${this.toggle}"
       >
+        <vaadin-tooltip slot="tooltip" text="${label}"></vaadin-tooltip>
         <vaadin-icon icon="${icon}"></vaadin-icon>
       </vaadin-button>
     `;

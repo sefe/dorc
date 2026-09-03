@@ -9,7 +9,7 @@ All URIs are relative to *https://dev.azure.com*
 | [**TemplatesList**](TemplatesApi.md#templateslist) | **GET** /{organization}/{project}/_apis/build/definitions/templates |  |
 | [**TemplatesSaveTemplate**](TemplatesApi.md#templatessavetemplate) | **PUT** /{organization}/{project}/_apis/build/definitions/templates/{templateId} |  |
 
-<a name="templatesdelete"></a>
+<a id="templatesdelete"></a>
 # **TemplatesDelete**
 > void TemplatesDelete (string organization, string project, string templateId, string apiVersion)
 
@@ -103,7 +103,7 @@ void (empty response body)
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-<a name="templatesget"></a>
+<a id="templatesget"></a>
 # **TemplatesGet**
 > BuildDefinitionTemplate TemplatesGet (string organization, string project, string templateId, string apiVersion)
 
@@ -201,7 +201,7 @@ catch (ApiException e)
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-<a name="templateslist"></a>
+<a id="templateslist"></a>
 # **TemplatesList**
 > List&lt;BuildDefinitionTemplate&gt; TemplatesList (string organization, string project, string apiVersion)
 
@@ -297,7 +297,7 @@ catch (ApiException e)
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-<a name="templatessavetemplate"></a>
+<a id="templatessavetemplate"></a>
 # **TemplatesSaveTemplate**
 > BuildDefinitionTemplate TemplatesSaveTemplate (string organization, string project, string templateId, string apiVersion, BuildDefinitionTemplate body)
 

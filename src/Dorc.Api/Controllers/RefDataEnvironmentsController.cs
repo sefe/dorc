@@ -111,11 +111,24 @@ namespace Dorc.Api.Controllers
         /// </summary>
         /// <param name="content"></param>
         /// <returns></returns>
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(bool))]
+        [SwaggerResponse(StatusCodes.Status403Forbidden, Type = typeof(string))]
+        [SwaggerResponse(StatusCodes.Status404NotFound, Type = typeof(string))]
         [HttpDelete]
-        public bool Delete([FromBody] EnvironmentApiModel content)
+        public IActionResult Delete([FromBody] EnvironmentApiModel content)
         {
-            return _securityPrivilegesChecker.IsEnvironmentOwnerOrAdmin(User, content.EnvironmentName) &&
-                   environmentsPersistentSource.DeleteEnvironment(content, User);
+            // Returning a bare 'false' for both of these told the caller only that the delete had
+            // not happened, leaving the user to guess whether they lacked the rights, mistyped the
+            // environment or hit a genuine failure.
+            if (!_securityPrivilegesChecker.IsEnvironmentOwnerOrAdmin(User, content.EnvironmentName))
+                return StatusCode(StatusCodes.Status403Forbidden,
+                    $"Only the owner of environment '{content.EnvironmentName}' or an administrator can delete it.");
+
+            if (!environmentsPersistentSource.DeleteEnvironment(content, User))
+                return StatusCode(StatusCodes.Status404NotFound,
+                    $"Environment '{content.EnvironmentName}' no longer exists, so there was nothing to delete.");
+
+            return StatusCode(StatusCodes.Status200OK, true);
         }
 
         /// <summary>

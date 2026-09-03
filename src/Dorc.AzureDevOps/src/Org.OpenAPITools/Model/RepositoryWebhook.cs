@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// Represents a repository&#39;s webhook returned from a source provider.
     /// </summary>
     [DataContract(Name = "RepositoryWebhook")]
-    public partial class RepositoryWebhook : IEquatable<RepositoryWebhook>, IValidatableObject
+    public partial class RepositoryWebhook : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="RepositoryWebhook" /> class.
@@ -38,7 +38,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="name">The friendly name of the repository..</param>
         /// <param name="types">types.</param>
         /// <param name="url">The URL of the repository..</param>
-        public RepositoryWebhook(string name = default(string), List<Object> types = default(List<Object>), string url = default(string))
+        public RepositoryWebhook(string name = default, List<Object> types = default, string url = default)
         {
             this.Name = name;
             this.Types = types;
@@ -90,76 +90,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as RepositoryWebhook);
-        }
-
-        /// <summary>
-        /// Returns true if RepositoryWebhook instances are equal
-        /// </summary>
-        /// <param name="input">Instance of RepositoryWebhook to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(RepositoryWebhook input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.Name == input.Name ||
-                    (this.Name != null &&
-                    this.Name.Equals(input.Name))
-                ) && 
-                (
-                    this.Types == input.Types ||
-                    this.Types != null &&
-                    input.Types != null &&
-                    this.Types.SequenceEqual(input.Types)
-                ) && 
-                (
-                    this.Url == input.Url ||
-                    (this.Url != null &&
-                    this.Url.Equals(input.Url))
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.Name != null)
-                {
-                    hashCode = (hashCode * 59) + this.Name.GetHashCode();
-                }
-                if (this.Types != null)
-                {
-                    hashCode = (hashCode * 59) + this.Types.GetHashCode();
-                }
-                if (this.Url != null)
-                {
-                    hashCode = (hashCode * 59) + this.Url.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

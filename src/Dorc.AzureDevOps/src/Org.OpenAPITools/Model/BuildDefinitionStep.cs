@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// Represents a step in a build phase.
     /// </summary>
     [DataContract(Name = "BuildDefinitionStep")]
-    public partial class BuildDefinitionStep : IEquatable<BuildDefinitionStep>, IValidatableObject
+    public partial class BuildDefinitionStep : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="BuildDefinitionStep" /> class.
@@ -40,19 +40,19 @@ namespace Org.OpenAPITools.Model
         /// <param name="continueOnError">Indicates whether the phase should continue even if this step fails..</param>
         /// <param name="displayName">The display name for this step..</param>
         /// <param name="enabled">Indicates whether the step is enabled..</param>
-        /// <param name="environment">environment.</param>
+        /// <param name="varEnvironment">varEnvironment.</param>
         /// <param name="inputs">inputs.</param>
         /// <param name="refName">The reference name for this step..</param>
         /// <param name="task">task.</param>
         /// <param name="timeoutInMinutes">The time, in minutes, that this step is allowed to run..</param>
-        public BuildDefinitionStep(bool alwaysRun = default(bool), string condition = default(string), bool continueOnError = default(bool), string displayName = default(string), bool enabled = default(bool), Dictionary<string, string> environment = default(Dictionary<string, string>), Dictionary<string, string> inputs = default(Dictionary<string, string>), string refName = default(string), TaskDefinitionReference task = default(TaskDefinitionReference), int timeoutInMinutes = default(int))
+        public BuildDefinitionStep(bool alwaysRun = default, string condition = default, bool continueOnError = default, string displayName = default, bool enabled = default, Dictionary<string, string> varEnvironment = default, Dictionary<string, string> inputs = default, string refName = default, TaskDefinitionReference task = default, int timeoutInMinutes = default)
         {
             this.AlwaysRun = alwaysRun;
             this.Condition = condition;
             this.ContinueOnError = continueOnError;
             this.DisplayName = displayName;
             this.Enabled = enabled;
-            this.Environment = environment;
+            this.VarEnvironment = varEnvironment;
             this.Inputs = inputs;
             this.RefName = refName;
             this.Task = task;
@@ -95,10 +95,10 @@ namespace Org.OpenAPITools.Model
         public bool Enabled { get; set; }
 
         /// <summary>
-        /// Gets or Sets Environment
+        /// Gets or Sets VarEnvironment
         /// </summary>
         [DataMember(Name = "environment", EmitDefaultValue = false)]
-        public Dictionary<string, string> Environment { get; set; }
+        public Dictionary<string, string> VarEnvironment { get; set; }
 
         /// <summary>
         /// Gets or Sets Inputs
@@ -139,7 +139,7 @@ namespace Org.OpenAPITools.Model
             sb.Append("  ContinueOnError: ").Append(ContinueOnError).Append("\n");
             sb.Append("  DisplayName: ").Append(DisplayName).Append("\n");
             sb.Append("  Enabled: ").Append(Enabled).Append("\n");
-            sb.Append("  Environment: ").Append(Environment).Append("\n");
+            sb.Append("  VarEnvironment: ").Append(VarEnvironment).Append("\n");
             sb.Append("  Inputs: ").Append(Inputs).Append("\n");
             sb.Append("  RefName: ").Append(RefName).Append("\n");
             sb.Append("  Task: ").Append(Task).Append("\n");
@@ -158,124 +158,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as BuildDefinitionStep);
-        }
-
-        /// <summary>
-        /// Returns true if BuildDefinitionStep instances are equal
-        /// </summary>
-        /// <param name="input">Instance of BuildDefinitionStep to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(BuildDefinitionStep input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.AlwaysRun == input.AlwaysRun ||
-                    this.AlwaysRun.Equals(input.AlwaysRun)
-                ) && 
-                (
-                    this.Condition == input.Condition ||
-                    (this.Condition != null &&
-                    this.Condition.Equals(input.Condition))
-                ) && 
-                (
-                    this.ContinueOnError == input.ContinueOnError ||
-                    this.ContinueOnError.Equals(input.ContinueOnError)
-                ) && 
-                (
-                    this.DisplayName == input.DisplayName ||
-                    (this.DisplayName != null &&
-                    this.DisplayName.Equals(input.DisplayName))
-                ) && 
-                (
-                    this.Enabled == input.Enabled ||
-                    this.Enabled.Equals(input.Enabled)
-                ) && 
-                (
-                    this.Environment == input.Environment ||
-                    this.Environment != null &&
-                    input.Environment != null &&
-                    this.Environment.SequenceEqual(input.Environment)
-                ) && 
-                (
-                    this.Inputs == input.Inputs ||
-                    this.Inputs != null &&
-                    input.Inputs != null &&
-                    this.Inputs.SequenceEqual(input.Inputs)
-                ) && 
-                (
-                    this.RefName == input.RefName ||
-                    (this.RefName != null &&
-                    this.RefName.Equals(input.RefName))
-                ) && 
-                (
-                    this.Task == input.Task ||
-                    (this.Task != null &&
-                    this.Task.Equals(input.Task))
-                ) && 
-                (
-                    this.TimeoutInMinutes == input.TimeoutInMinutes ||
-                    this.TimeoutInMinutes.Equals(input.TimeoutInMinutes)
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                hashCode = (hashCode * 59) + this.AlwaysRun.GetHashCode();
-                if (this.Condition != null)
-                {
-                    hashCode = (hashCode * 59) + this.Condition.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.ContinueOnError.GetHashCode();
-                if (this.DisplayName != null)
-                {
-                    hashCode = (hashCode * 59) + this.DisplayName.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.Enabled.GetHashCode();
-                if (this.Environment != null)
-                {
-                    hashCode = (hashCode * 59) + this.Environment.GetHashCode();
-                }
-                if (this.Inputs != null)
-                {
-                    hashCode = (hashCode * 59) + this.Inputs.GetHashCode();
-                }
-                if (this.RefName != null)
-                {
-                    hashCode = (hashCode * 59) + this.RefName.GetHashCode();
-                }
-                if (this.Task != null)
-                {
-                    hashCode = (hashCode * 59) + this.Task.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.TimeoutInMinutes.GetHashCode();
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

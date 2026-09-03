@@ -4,6 +4,8 @@ import '@vaadin/icons/vaadin-icons';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { DaemonStatusApi, DaemonStatusApiModel } from '../../apis/dorc-api';
+import '@vaadin/tooltip';
+import { dorcApiConfiguration } from '../../services/dorc-api-configuration';
 
 @customElement('daemon-controls')
 export class DaemonControls extends LitElement {
@@ -13,10 +15,10 @@ export class DaemonControls extends LitElement {
   envId = 0;
 
   @property({ type: String })
-  private error = '';
+  error = '';
 
   @property({ type: Boolean })
-  private userEditable = false;
+  userEditable = false;
 
   static get styles() {
     return css`
@@ -24,6 +26,7 @@ export class DaemonControls extends LitElement {
         display: inline-flex;
         align-items: center;
         flex-wrap: nowrap;
+        gap: var(--lumo-space-xs);
       }
       vaadin-button {
         padding: 0px;
@@ -37,40 +40,47 @@ export class DaemonControls extends LitElement {
       <div>
         <vaadin-button
           id="start"
-          title="Start"
+          aria-label="Start"
           theme="icon"
           ?disabled="${this.startDisabled}"
           @click="${this.serviceStart}"
         >
+          <vaadin-tooltip slot="tooltip" text="Start"></vaadin-tooltip>
           <vaadin-icon
             icon="vaadin:play"
-            style="color: ${this.startDisabled
-              ? 'var(--dorc-text-secondary)'
-              : 'var(--dorc-link-color)'}"
+            style="color: ${
+              this.startDisabled
+                ? 'var(--dorc-text-secondary)'
+                : 'var(--dorc-link-color)'
+            }"
           ></vaadin-icon>
         </vaadin-button>
         <vaadin-button
-          title="Stop"
+          aria-label="Stop"
           theme="icon"
           ?disabled="${this.stopDisabled}"
           @click="${this.serviceStop}"
         >
+          <vaadin-tooltip slot="tooltip" text="Stop"></vaadin-tooltip>
           <vaadin-icon
             icon="vaadin:stop"
             style="color: ${this.stopDisabled ? 'var(--dorc-text-secondary)' : 'var(--dorc-link-color)'}"
           ></vaadin-icon>
         </vaadin-button>
         <vaadin-button
-          title="Restart"
+          aria-label="Restart"
           theme="icon"
           ?disabled="${this.restartDisabled}"
           @click="${this.serviceRestart}"
         >
+          <vaadin-tooltip slot="tooltip" text="Restart"></vaadin-tooltip>
           <vaadin-icon
             icon="vaadin:refresh"
-            style="color: ${this.restartDisabled
-              ? 'var(--dorc-text-secondary)'
-              : 'var(--dorc-link-color)'}"
+            style="color: ${
+              this.restartDisabled
+                ? 'var(--dorc-text-secondary)'
+                : 'var(--dorc-link-color)'
+            }"
           ></vaadin-icon>
         </vaadin-button>
         <span style="color: darkred">${this.error}</span>
@@ -79,15 +89,24 @@ export class DaemonControls extends LitElement {
   }
 
   get startDisabled() {
-    return this.daemonDetails?.Status?.toLowerCase() === 'running' || this.userEditable !== true;
+    return (
+      this.daemonDetails?.Status?.toLowerCase() === 'running' ||
+      this.userEditable !== true
+    );
   }
 
   get stopDisabled() {
-    return this.daemonDetails?.Status?.toLowerCase() === 'stopped' || this.userEditable !== true; 
+    return (
+      this.daemonDetails?.Status?.toLowerCase() === 'stopped' ||
+      this.userEditable !== true
+    );
   }
 
   get restartDisabled() {
-    return this.daemonDetails?.Status?.toLowerCase() === 'stopped' || this.userEditable !== true;
+    return (
+      this.daemonDetails?.Status?.toLowerCase() === 'stopped' ||
+      this.userEditable !== true
+    );
   }
 
   serviceStart() {
@@ -104,8 +123,8 @@ export class DaemonControls extends LitElement {
 
   requestChange(requestedChange: string) {
     if (this.daemonDetails !== undefined) {
-      const api = new DaemonStatusApi();
-      
+      const api = new DaemonStatusApi(dorcApiConfiguration);
+
       this.daemonDetails.Status = requestedChange;
       this.updateParentWith(this.daemonDetails);
       api

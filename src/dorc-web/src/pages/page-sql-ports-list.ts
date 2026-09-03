@@ -1,22 +1,30 @@
 import { css, PropertyValues } from 'lit';
+import '../components/dorc-spinner';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/button';
 import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
 import '../components/add-sql-port';
-import '@polymer/paper-dialog';
-import { PaperDialogElement } from '@polymer/paper-dialog';
+import '@vaadin/dialog';
+import type { DialogOpenedChangedEvent } from '@vaadin/dialog';
+import { dialogFooterRenderer, dialogRenderer } from '@vaadin/dialog/lit';
 import '@vaadin/text-field';
-import { customElement, property } from 'lit/decorators.js';
+import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { PageElement } from '../helpers/page-element';
 import { SqlPortApiModel } from '../apis/dorc-api';
 import { RefDataSqlPortsApi } from '../apis/dorc-api';
 import GlobalCache from '../global-cache';
+import { ref } from 'lit/directives/ref.js';
+import { keyed } from 'lit/directives/keyed.js';
+import { UnsavedChangesGuard } from '../components/unsaved-changes-guard';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('page-sql-ports-list')
 export class PageSqlPortsList extends PageElement {
+  private readonly unsavedChanges = new UnsavedChangesGuard();
+
   @property({ type: Array }) sqlPorts: Array<SqlPortApiModel> = [];
 
   @property({ type: Array }) filteredSqlPorts: Array<SqlPortApiModel> = [];
@@ -25,11 +33,19 @@ export class PageSqlPortsList extends PageElement {
 
   @property({ type: Boolean }) details = false;
 
-  @property({ type: Boolean }) private isAdmin = false;
+  @property({ type: Boolean }) isAdmin = false;
 
   public userRoles!: string[];
 
   private loading = true;
+
+  /**
+   * Dialog visibility. Reactive rather than an imperative handle, so the
+   * template is the single source of truth for whether the dialog is showing.
+   */
+  @state() addSqlPortDialogOpened = false;
+
+  @state() private addSqlPortSequence = 0;
 
   constructor() {
     super();
@@ -55,9 +71,8 @@ export class PageSqlPortsList extends PageElement {
     this.isAdmin = this.userRoles.find(p => p === 'Admin') !== undefined;
   }
 
-  
   private getSqlPortsList() {
-    const api = new RefDataSqlPortsApi();
+    const api = new RefDataSqlPortsApi(dorcApiConfiguration);
     api.refDataSqlPortsGet().subscribe(
       (data: SqlPortApiModel[]) => {
         this.setSqlPorts(data);
@@ -81,42 +96,13 @@ export class PageSqlPortsList extends PageElement {
         flex: 1;
         min-height: 0;
       }
-      .overlay {
-        width: 100%;
-        height: 100%;
-        position: fixed;
-      }
-      .overlay__inner {
-        width: 100%;
-        height: 100%;
-        position: absolute;
-      }
-      .overlay__content {
-        left: 20%;
-        position: absolute;
-        top: 20%;
-        transform: translate(-50%, -50%);
-      }
-      .spinner {
-        width: 75px;
-        height: 75px;
-        display: inline-block;
-        border-width: 2px;
-        border-color: var(--dorc-border-color);
-        border-top-color: var(--dorc-link-color);
-        animation: spin 1s infinite linear;
-        border-radius: 100%;
-        border-style: solid;
-      }
-      @keyframes spin {
-        100% {
-          transform: rotate(360deg);
-        }
-      }
-      paper-dialog.size-position {
+      /* Carries over the old paper-dialog.size-position rule. Reachable
+         because the dialog's renderer root is appended to the <vaadin-dialog>
+         element, which lives in this shadow root. */
+      vaadin-dialog::part(overlay) {
         top: 16px;
         overflow: auto;
-        padding: 10px;
+        max-width: calc(100vw - 32px);
       }
     `;
   }
@@ -145,63 +131,75 @@ export class PageSqlPortsList extends PageElement {
           >Add SQL Port...
         </vaadin-button>
       </div>
-      <paper-dialog
-        class="size-position"
+      <vaadin-dialog
+        ${ref(this.unsavedChanges.attach)}
         id="add-sqlport-dialog"
-        allow-click-through
-        modal
-      >
-        <add-sql-port id="add-sql-port"></add-sql-port>
-        <div style="display: flex; justify-content: flex-end">
-          <vaadin-button dialog-confirm>Close</vaadin-button>
-        </div>
-      </paper-dialog>
-      ${this.loading
-        ? html`
-            <div class="overlay" style="z-index: 2">
-              <div class="overlay__inner">
-                <div class="overlay__content">
-                  <span class="spinner"></span>
-                </div>
-              </div>
-            </div>
-          `
-        : html`
-            <vaadin-grid
-              id="grid"
-              .items=${this.filteredSqlPorts}
-              column-reordering-allowed
-              multi-sort
-              theme="compact row-stripes no-row-borders no-border"
-            >
-              <vaadin-grid-sort-column
-                path="InstanceName"
-                header="Instance Name"
-              ></vaadin-grid-sort-column>
-              <vaadin-grid-sort-column
-                path="SqlPort"
-                header="Port"
-              ></vaadin-grid-sort-column>
-            </vaadin-grid>
-          `} `;
-  }  
+        header-title="Add SQL Port"
+        draggable
+        .opened="${this.addSqlPortDialogOpened}"
+        @opened-changed="${(e: DialogOpenedChangedEvent) => {
+          this.addSqlPortDialogOpened = e.detail.value;
+        }}"
+        @unsaved-changes-discarded="${this.resetAddSqlPort}"
+        ${dialogRenderer(this.renderAddSqlPort, [this.addSqlPortSequence])}
+        ${dialogFooterRenderer(this.renderAddSqlPortFooter, [])}
+      ></vaadin-dialog>
+      ${
+        this.loading
+          ? html` <dorc-spinner></dorc-spinner> `
+          : html`
+              <vaadin-grid
+                id="grid"
+                .items=${this.filteredSqlPorts}
+                column-reordering-allowed
+                multi-sort
+                theme="compact row-stripes no-row-borders no-border"
+              >
+                <vaadin-grid-sort-column
+                  path="InstanceName"
+                  header="Instance Name"
+                ></vaadin-grid-sort-column>
+                <vaadin-grid-sort-column
+                  path="SqlPort"
+                  header="Port"
+                ></vaadin-grid-sort-column>
+              </vaadin-grid>
+            `
+      } `;
+  }
 
   firstUpdated(_changedProperties: PropertyValues) {
     super.firstUpdated(_changedProperties);
-  
+
     this.addEventListener(
       'sqlport-created',
       this.sqlPortCreated as EventListener
     );
   }
-  
+
+  private renderAddSqlPort = () =>
+    html`${keyed(
+      this.addSqlPortSequence,
+      html`<add-sql-port id="add-sql-port"></add-sql-port>`
+    )}`;
+
+  private resetAddSqlPort = () => {
+    this.addSqlPortSequence += 1;
+  };
+
+  /**
+   * `dialog-confirm` was inert on `<vaadin-dialog>`, so the close path is
+   * explicit. Escape and outside-click also close, via `opened-changed`.
+   */
+  private renderAddSqlPortFooter = () => html`
+    <vaadin-button @click="${() => (this.addSqlPortDialogOpened = false)}"
+      >Close</vaadin-button
+    >
+  `;
+
   sqlPortCreated() {
     this.getSqlPortsList();
-  
-    const dialog = this.shadowRoot?.getElementById(
-      'add-sqlport-dialog'
-    ) as PaperDialogElement;
-    dialog.close();
+    this.addSqlPortDialogOpened = false;
   }
 
   updateSearch(e: CustomEvent) {
@@ -209,7 +207,7 @@ export class PageSqlPortsList extends PageElement {
     const filters = value
       .trim()
       .split('|')
-      .map(filter => new RegExp(filter.replace("\\","\\\\"), 'i'));
+      .map(filter => new RegExp(filter.replace('\\', '\\\\'), 'i'));
 
     this.filteredSqlPorts = this.sqlPorts.filter(({ InstanceName, SqlPort }) =>
       filters.some(
@@ -225,7 +223,6 @@ export class PageSqlPortsList extends PageElement {
   }
 
   addSqlPort() {
-    const dialog = this.shadowRoot?.getElementById('add-sqlport-dialog') as PaperDialogElement;
-    dialog.open();
+    this.addSqlPortDialogOpened = true;
   }
 }

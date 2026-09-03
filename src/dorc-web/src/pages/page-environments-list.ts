@@ -1,5 +1,9 @@
+import { keyed } from 'lit/directives/keyed.js';
+import '@vaadin/checkbox';
+import { columnBodyRenderer } from '@vaadin/grid/lit';
 import '@vaadin/button';
-import { Grid, GridItemModel } from '@vaadin/grid';
+import '../components/dorc-spinner';
+import { GridItemModel } from '@vaadin/grid';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/grid/vaadin-grid-column';
 import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
@@ -7,26 +11,34 @@ import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
 import '@vaadin/text-field';
-import { Checkbox } from '@vaadin/checkbox';
-import { css, render } from 'lit';
-import { customElement, property, query } from 'lit/decorators.js';
+import '@vaadin/dialog';
+import type { DialogOpenedChangedEvent } from '@vaadin/dialog';
+import { dialogRenderer } from '@vaadin/dialog/lit';
+import { css } from 'lit';
+import { customElement, property, query, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import '../components/add-edit-environment';
 import '../components/clone-environment';
 import '../components/grid-button-groups/env-controls';
-import { EnvironmentApiModel, RefDataRolesApi } from '../apis/dorc-api';
+import {
+  AccessControlType,
+  EnvironmentApiModel,
+  RefDataRolesApi
+} from '../apis/dorc-api';
 import { RefDataEnvironmentsApi } from '../apis/dorc-api';
 import { PageElement } from '../helpers/page-element';
 import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import { AddEditAccessControl } from '../components/add-edit-access-control';
 import '../components/add-edit-access-control';
-import '../components/hegs-dialog';
-import { HegsDialog } from '../components/hegs-dialog';
-import { AddEditEnvironment } from '../components/add-edit-environment';
 import { CloneEnvironment } from '../components/clone-environment';
+import { ref } from 'lit/directives/ref.js';
+import { UnsavedChangesGuard } from '../components/unsaved-changes-guard';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('page-environments-list')
 export class PageEnvironmentsList extends ResponsiveMixin(PageElement) {
+  private readonly unsavedChanges = new UnsavedChangesGuard();
+
   @property({ type: Array }) environments: EnvironmentApiModel[] = [];
 
   @property({ type: Array })
@@ -40,25 +52,24 @@ export class PageEnvironmentsList extends ResponsiveMixin(PageElement) {
 
   @property({ type: String }) size = '';
 
-  @property({ type: Boolean }) private loading = true;
+  @property({ type: Boolean }) loading = true;
 
-  @property({ type: String }) private secureName = '';
+  @property({ type: String }) secureName = '';
 
-  @property({ type: Object }) private newEnvironment:
-    | EnvironmentApiModel
-    | undefined;
+  @property({ type: Object }) newEnvironment: EnvironmentApiModel | undefined;
 
   public userRoles!: string[];
 
   @property({ type: Boolean }) public userRolesLoaded = false;
 
-  @property({ type: Boolean }) private isAdmin = false;
+  @property({ type: Boolean }) isAdmin = false;
 
-  @property({ type: Boolean }) private isPowerUser = false;
+  @property({ type: Boolean }) isPowerUser = false;
 
-  @query('#dialog') dialog!: HegsDialog;
+  @state() private addEnvDialogOpened = false;
 
-  @query('#add-environment') addEditEnvironment!: AddEditEnvironment;
+  /** Bumped per open so each one gets a freshly built form. */
+  @state() private addEnvSeq = 0;
 
   @query('#clone-environment') cloneEnvironmentComponent!: CloneEnvironment;
 
@@ -80,38 +91,6 @@ export class PageEnvironmentsList extends ResponsiveMixin(PageElement) {
       vaadin-grid#grid::part(prod-not-secure) {
         background-color: var(--dorc-warning-bg);
         color: var(--dorc-warning-text);
-      }
-      .overlay {
-        width: 100%;
-        height: 100%;
-        position: fixed;
-      }
-      .overlay__inner {
-        width: 100%;
-        height: 100%;
-        position: absolute;
-      }
-      .overlay__content {
-        left: 20%;
-        position: absolute;
-        top: 20%;
-        transform: translate(-50%, -50%);
-      }
-      .spinner {
-        width: 75px;
-        height: 75px;
-        display: inline-block;
-        border-width: 2px;
-        border-color: var(--dorc-border-color);
-        border-top-color: var(--dorc-link-color);
-        animation: spin 1s infinite linear;
-        border-radius: 100%;
-        border-style: solid;
-      }
-      @keyframes spin {
-        100% {
-          transform: rotate(360deg);
-        }
       }
     `;
   }
@@ -143,15 +122,21 @@ export class PageEnvironmentsList extends ResponsiveMixin(PageElement) {
         </vaadin-horizontal-layout>
       </div>
 
-      <hegs-dialog id="dialog" title="Create Environment">
-        <add-edit-environment
-          id="add-environment"
-          .addMode="${true}"
-          .readonly="${false}"
-          @environment-added="${this.closeAddEnv}"
-          .environment="${this.newEnvironment}"
-        ></add-edit-environment>
-      </hegs-dialog>
+      <vaadin-dialog
+        ${ref(this.unsavedChanges.attach)}
+        id="dialog"
+        header-title="Create Environment"
+        draggable
+        .opened="${this.addEnvDialogOpened}"
+        @opened-changed="${(e: DialogOpenedChangedEvent) => {
+          this.addEnvDialogOpened = e.detail.value;
+        }}"
+        ${dialogRenderer(this.renderAddEnvironment, [
+          this.newEnvironment,
+          this.environments,
+          this.addEnvSeq
+        ])}
+      ></vaadin-dialog>
 
       <clone-environment
         id="clone-environment"
@@ -162,74 +147,73 @@ export class PageEnvironmentsList extends ResponsiveMixin(PageElement) {
         id="add-edit-access-control"
         .secureName="${this.secureName}"
       ></add-edit-access-control>
-      <div style="flex: 1; min-height: 0; display: flex; flex-direction: column;">
-        ${this.loading || !this.userRolesLoaded
-          ? html`
-              <div class="overlay" style="z-index: 2">
-                <div class="overlay__inner">
-                  <div class="overlay__content">
-                    <span class="spinner"></span>
-                  </div>
-                </div>
-              </div>
-            `
-          : html`
-              <vaadin-grid
-                id="grid"
-                .items="${this.filteredEnvironments}"
-                multi-sort
-                theme="compact row-stripes no-row-borders no-border"
-                .cellPartNameGenerator="${this._cellPartNameGenerator}"
-              >
-                <vaadin-grid-sort-column
-                  resizable
-                  path="EnvironmentName"
-                  header="Name"
-                  style="color:lightgray"
-                ></vaadin-grid-sort-column>
-                <vaadin-grid-sort-column
-                  resizable
-                  path="Details.EnvironmentOwner"
-                  header="Owner"
-                  ?hidden="${this._narrowScreen}"
-                ></vaadin-grid-sort-column>
-                <vaadin-grid-sort-column
-                  resizable
-                  path="Details.Description"
-                  header="Description"
-                  ?hidden="${this._narrowScreen}"
-                ></vaadin-grid-sort-column>
-                <vaadin-grid-sort-column
-                  resizable
-                  path="EnvironmentSecure"
-                  header="Secure"
-                  .renderer="${this._envSecureRenderer}"
-                  ?hidden="${this._narrowScreen}"
-                ></vaadin-grid-sort-column>
-                <vaadin-grid-sort-column
-                  resizable
-                  path="EnvironmentIsProd"
-                  header="Prod"
-                  .renderer="${this._envIsProdRenderer}"
-                  ?hidden="${this._narrowScreen}"
-                ></vaadin-grid-sort-column>
-                <vaadin-grid-sort-column
-                  resizable
-                  path="Details.FileShare"
-                  header="File Share"
-                  ?hidden="${this._narrowScreen}"
-                ></vaadin-grid-sort-column>
-                <vaadin-grid-sort-column
-                  resizable
-                  path="Details.Notes"
-                  header="Notes"
-                  ?hidden="${this._narrowScreen}"
-                ></vaadin-grid-sort-column>
-                <vaadin-grid-column
-                  .renderer="${this._envDetailsButtonsRenderer}"
-                ></vaadin-grid-column>
-              </vaadin-grid>
-            `}
+      <div
+        style="flex: 1; min-height: 0; display: flex; flex-direction: column;"
+      >
+        ${
+          this.loading || !this.userRolesLoaded
+            ? html` <dorc-spinner></dorc-spinner> `
+            : html`
+                <vaadin-grid
+                  id="grid"
+                  .items="${this.filteredEnvironments}"
+                  multi-sort
+                  theme="compact row-stripes no-row-borders no-border"
+                  .cellPartNameGenerator="${this._cellPartNameGenerator}"
+                >
+                  <vaadin-grid-sort-column
+                    resizable
+                    path="EnvironmentName"
+                    header="Name"
+                    style="color:lightgray"
+                  ></vaadin-grid-sort-column>
+                  <vaadin-grid-sort-column
+                    resizable
+                    path="Details.EnvironmentOwner"
+                    header="Owner"
+                    ?hidden="${this._narrowScreen}"
+                  ></vaadin-grid-sort-column>
+                  <vaadin-grid-sort-column
+                    resizable
+                    path="Details.Description"
+                    header="Description"
+                    ?hidden="${this._narrowScreen}"
+                  ></vaadin-grid-sort-column>
+                  <vaadin-grid-sort-column
+                    resizable
+                    path="EnvironmentSecure"
+                    header="Secure"
+                    ${columnBodyRenderer(this._envSecureRenderer, [])}
+                    ?hidden="${this._narrowScreen}"
+                  ></vaadin-grid-sort-column>
+                  <vaadin-grid-sort-column
+                    resizable
+                    path="EnvironmentIsProd"
+                    header="Prod"
+                    ${columnBodyRenderer(this._envIsProdRenderer, [])}
+                    ?hidden="${this._narrowScreen}"
+                  ></vaadin-grid-sort-column>
+                  <vaadin-grid-sort-column
+                    resizable
+                    path="Details.FileShare"
+                    header="File Share"
+                    ?hidden="${this._narrowScreen}"
+                  ></vaadin-grid-sort-column>
+                  <vaadin-grid-sort-column
+                    resizable
+                    path="Details.Notes"
+                    header="Notes"
+                    ?hidden="${this._narrowScreen}"
+                  ></vaadin-grid-sort-column>
+                  <vaadin-grid-column
+                    ${columnBodyRenderer(this._envDetailsButtonsRenderer, [
+                      this.isAdmin,
+                      this.isPowerUser
+                    ])}
+                  ></vaadin-grid-column>
+                </vaadin-grid>
+              `
+        }
       </div>
     `;
   }
@@ -251,15 +235,13 @@ export class PageEnvironmentsList extends ResponsiveMixin(PageElement) {
   constructor() {
     super();
 
-    const refDataRolesApi = new RefDataRolesApi();
+    const refDataRolesApi = new RefDataRolesApi(dorcApiConfiguration);
     refDataRolesApi.refDataRolesGet().subscribe({
       next: (data: string[]) => {
         this.userRoles = data;
         this.isAdmin = this.userRoles.find(p => p === 'Admin') !== undefined;
         this.isPowerUser =
           this.userRoles.find(p => p === 'PowerUser') !== undefined;
-        const grid = this.shadowRoot?.getElementById('grid') as Grid;
-        grid?.requestContentUpdate();
       },
       error: (err: string) => console.error(err),
       complete: () => {
@@ -271,7 +253,7 @@ export class PageEnvironmentsList extends ResponsiveMixin(PageElement) {
 
   openAccessControl(e: CustomEvent) {
     this.secureName = e.detail.Name as string;
-    const type = e.detail.Type as number;
+    const type = e.detail.Type as AccessControlType;
 
     const addEditAccessControl = this.shadowRoot?.getElementById(
       'add-edit-access-control'
@@ -307,63 +289,55 @@ export class PageEnvironmentsList extends ResponsiveMixin(PageElement) {
     return '';
   };
 
-  _envSecureRenderer(
-    root: HTMLElement,
-    _column: GridColumn,
-    { item }: GridItemModel<EnvironmentApiModel>
-  ) {
-    const envDetails = item as EnvironmentApiModel;
-    const checkbox = new Checkbox();
-
-    checkbox.checked = envDetails.EnvironmentSecure ?? false;
-    checkbox.disabled = true;
+  _envSecureRenderer(envDetails: EnvironmentApiModel) {
+    const checkbox = html`<vaadin-checkbox
+      disabled
+      .checked="${envDetails.EnvironmentSecure ?? false}"
+    ></vaadin-checkbox>`;
 
     if (envDetails.EnvironmentIsProd && !envDetails.EnvironmentSecure) {
-      render(
-        html`<div style="display:flex;align-items:center;gap:4px">
-          ${checkbox}
-          <vaadin-icon
-            icon="vaadin:warning"
-            title="Production environment without Secure flag"
-            style="color:var(--dorc-warning-text);width:var(--lumo-icon-size-s);height:var(--lumo-icon-size-s)"
-          ></vaadin-icon>
-        </div>`,
-        root
-      );
-    } else {
-      render(checkbox, root);
+      return html`<div style="display:flex;align-items:center;gap:4px">
+        ${checkbox}
+        <vaadin-icon
+          icon="vaadin:warning"
+          title="Production environment without Secure flag"
+          style="color:var(--dorc-warning-text);width:var(--lumo-icon-size-s);height:var(--lumo-icon-size-s)"
+        ></vaadin-icon>
+      </div>`;
     }
+    return checkbox;
   }
 
-  _envIsProdRenderer(
-    root: HTMLElement,
-    _column: GridColumn,
-    { item }: GridItemModel<EnvironmentApiModel>
-  ) {
-    const envDetails = item as EnvironmentApiModel;
-    const checkbox = new Checkbox();
-
-    checkbox.checked = envDetails.EnvironmentIsProd ?? false;
-    checkbox.disabled = true;
-
-    render(checkbox, root);
+  _envIsProdRenderer(envDetails: EnvironmentApiModel) {
+    return html`<vaadin-checkbox
+      disabled
+      .checked="${envDetails.EnvironmentIsProd ?? false}"
+    ></vaadin-checkbox>`;
   }
 
-  _envDetailsButtonsRenderer = (
-    root: HTMLElement,
-    _column: GridColumn,
-    { item }: GridItemModel<EnvironmentApiModel>
-  ) => {
+  _envDetailsButtonsRenderer = (item: EnvironmentApiModel) => {
     const envDetails = item as EnvironmentApiModel;
-    render(
-      html` <env-controls
-        .envDetails="${envDetails}"
-        .isAdmin="${this.isAdmin}"
-        .isPowerUser="${this.isPowerUser}"
-      ></env-controls>`,
-      root
-    );
+    return html` <env-controls
+      .envDetails="${envDetails}"
+      .isAdmin="${this.isAdmin}"
+      .isPowerUser="${this.isPowerUser}"
+    ></env-controls>`;
   };
+
+  private renderAddEnvironment = () => html`
+    ${keyed(
+      this.addEnvSeq,
+      html`
+        <add-edit-environment
+          id="add-environment"
+          .addMode="${true}"
+          .readonly="${false}"
+          @environment-added="${this.closeAddEnv}"
+          .environment="${this.newEnvironment}"
+        ></add-edit-environment>
+      `
+    )}
+  `;
 
   closeAddEnv(e: CustomEvent) {
     const env = e.detail.environment as EnvironmentApiModel;
@@ -375,7 +349,7 @@ export class PageEnvironmentsList extends ResponsiveMixin(PageElement) {
 
     this.setEnvironments(model);
 
-    this.dialog.close();
+    this.addEnvDialogOpened = false;
   }
 
   setEnvironments(environmentDetailsApiModels: EnvironmentApiModel[]) {
@@ -409,15 +383,20 @@ export class PageEnvironmentsList extends ResponsiveMixin(PageElement) {
   }
 
   addEnvironment() {
-    this.addEditEnvironment.clearAllFields();
-    this.dialog.open = true;
+    // The form lives inside the dialog renderer, so it does not exist until
+    // the dialog has opened at least once. Reaching for it through @query and
+    // calling clearAllFields() threw, which ran *before* the line that opens
+    // the dialog — so the button did nothing at all. Bumping the key rebuilds
+    // the element instead, and its own connectedCallback resets it in addMode.
+    this.addEnvSeq += 1;
+    this.addEnvDialogOpened = true;
   }
 
   private getEnvs() {
     if (this.environments === undefined || this.environments.length === 0) {
       this.loading = true;
 
-      const api = new RefDataEnvironmentsApi();
+      const api = new RefDataEnvironmentsApi(dorcApiConfiguration);
       api.refDataEnvironmentsGet({ env: '' }).subscribe(
         (data: EnvironmentApiModel[]) => {
           this.setEnvironments(data);

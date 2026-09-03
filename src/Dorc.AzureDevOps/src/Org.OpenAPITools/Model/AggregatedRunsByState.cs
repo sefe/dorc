@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// AggregatedRunsByState
     /// </summary>
     [DataContract(Name = "AggregatedRunsByState")]
-    public partial class AggregatedRunsByState : IEquatable<AggregatedRunsByState>, IValidatableObject
+    public partial class AggregatedRunsByState : IValidatableObject
     {
         /// <summary>
         /// Defines State
@@ -79,7 +79,6 @@ namespace Org.OpenAPITools.Model
             /// </summary>
             [EnumMember(Value = "needsInvestigation")]
             NeedsInvestigation = 7
-
         }
 
 
@@ -94,7 +93,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="resultsByOutcome">resultsByOutcome.</param>
         /// <param name="runsCount">runsCount.</param>
         /// <param name="state">state.</param>
-        public AggregatedRunsByState(Dictionary<string, AggregatedResultsByOutcome> resultsByOutcome = default(Dictionary<string, AggregatedResultsByOutcome>), int runsCount = default(int), StateEnum? state = default(StateEnum?))
+        public AggregatedRunsByState(Dictionary<string, AggregatedResultsByOutcome> resultsByOutcome = default, int runsCount = default, StateEnum? state = default)
         {
             this.ResultsByOutcome = resultsByOutcome;
             this.RunsCount = runsCount;
@@ -138,68 +137,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as AggregatedRunsByState);
-        }
-
-        /// <summary>
-        /// Returns true if AggregatedRunsByState instances are equal
-        /// </summary>
-        /// <param name="input">Instance of AggregatedRunsByState to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(AggregatedRunsByState input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.ResultsByOutcome == input.ResultsByOutcome ||
-                    this.ResultsByOutcome != null &&
-                    input.ResultsByOutcome != null &&
-                    this.ResultsByOutcome.SequenceEqual(input.ResultsByOutcome)
-                ) && 
-                (
-                    this.RunsCount == input.RunsCount ||
-                    this.RunsCount.Equals(input.RunsCount)
-                ) && 
-                (
-                    this.State == input.State ||
-                    this.State.Equals(input.State)
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.ResultsByOutcome != null)
-                {
-                    hashCode = (hashCode * 59) + this.ResultsByOutcome.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.RunsCount.GetHashCode();
-                hashCode = (hashCode * 59) + this.State.GetHashCode();
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

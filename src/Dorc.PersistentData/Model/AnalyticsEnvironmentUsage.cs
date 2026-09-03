@@ -7,5 +7,6 @@ namespace Dorc.PersistentData.Model
         public int TotalDeployments { get; set; }
         public int SuccessCount { get; set; }
         public int FailCount { get; set; }
+        public DateTimeOffset? LastSuccessfulDeployment { get; set; }
     }
 }

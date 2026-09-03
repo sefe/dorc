@@ -51,6 +51,11 @@ namespace Dorc.PersistentData.Contexts
         public DbSet<AnalyticsTimePattern> AnalyticsTimePattern { get; set; }
         public DbSet<AnalyticsComponentUsage> AnalyticsComponentUsage { get; set; }
         public DbSet<AnalyticsDuration> AnalyticsDuration { get; set; }
+        public DbSet<AnalyticsMonthlyOutcome> AnalyticsMonthlyOutcome { get; set; }
+        public DbSet<AnalyticsEnvironmentWait> AnalyticsEnvironmentWait { get; set; }
+        public DbSet<AnalyticsProjectDuration> AnalyticsProjectDuration { get; set; }
+        public DbSet<AnalyticsComponentReliability> AnalyticsComponentReliability { get; set; }
+        public DbSet<AnalyticsRecoveryTime> AnalyticsRecoveryTime { get; set; }
         public DbSet<Environment> Environments { get; set; }
         public DbSet<EnvironmentComponentStatus> EnvironmentComponentStatuses { get; set; }
         public DbSet<EnvironmentHistory> EnvironmentHistories { get; set; }
@@ -142,6 +147,26 @@ namespace Dorc.PersistentData.Contexts
 
             modelBuilder.Entity<AnalyticsDuration>()
                 .ToTable("AnalyticsDuration", "deploy")
+                .HasKey(x => x.Id);
+
+            modelBuilder.Entity<AnalyticsMonthlyOutcome>()
+                .ToTable("AnalyticsMonthlyOutcome", "deploy")
+                .HasKey(x => x.Id);
+
+            modelBuilder.Entity<AnalyticsEnvironmentWait>()
+                .ToTable("AnalyticsEnvironmentWait", "deploy")
+                .HasKey(x => x.Id);
+
+            modelBuilder.Entity<AnalyticsProjectDuration>()
+                .ToTable("AnalyticsProjectDuration", "deploy")
+                .HasKey(x => x.Id);
+
+            modelBuilder.Entity<AnalyticsComponentReliability>()
+                .ToTable("AnalyticsComponentReliability", "deploy")
+                .HasKey(x => x.Id);
+
+            modelBuilder.Entity<AnalyticsRecoveryTime>()
+                .ToTable("AnalyticsRecoveryTime", "deploy")
                 .HasKey(x => x.Id);
 
             new AdGroupEntityTypeConfiguration().Configure(modelBuilder.Entity<AdGroup>());

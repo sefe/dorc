@@ -1,29 +1,43 @@
-import { css, PropertyValues, render } from 'lit';
+import { live } from 'lit/directives/live.js';
+import { columnBodyRenderer } from '@vaadin/grid/lit';
+import { css, PropertyValues } from 'lit';
+import '../components/dorc-spinner';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/button';
 import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
-import '@polymer/paper-dialog';
+import '@vaadin/dialog';
 import '@vaadin/text-field';
-import { PaperDialogElement } from '@polymer/paper-dialog';
-import { customElement, property } from 'lit/decorators.js';
+import type { DialogOpenedChangedEvent } from '@vaadin/dialog';
+import { dialogFooterRenderer, dialogRenderer } from '@vaadin/dialog/lit';
+import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { PageElement } from '../helpers/page-element';
 import { ResponsiveMixin } from '../helpers/responsive-mixin';
-import { ConfigValueApiModel, RefDataConfigApi } from "../apis/dorc-api";
-import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
-import { GridItemModel } from '@vaadin/grid';
+import { ConfigValueApiModel, RefDataConfigApi } from '../apis/dorc-api';
 import { Checkbox } from '@vaadin/checkbox';
 import '../components/grid-button-groups/config-value-controls';
 import '../components/add-config-value';
 import { RefDataRolesApi } from '../apis/dorc-api';
+import '@vaadin/checkbox';
+import { ref } from 'lit/directives/ref.js';
+import { keyed } from 'lit/directives/keyed.js';
+import { UnsavedChangesGuard } from '../components/unsaved-changes-guard';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('page-config-values-list')
 export class PageConfigValuesList extends ResponsiveMixin(PageElement) {
+  private readonly unsavedChanges = new UnsavedChangesGuard();
+
+  @state() addConfigValueDialogOpened = false;
+
+  @state() private addConfigValueSequence = 0;
+
   @property({ type: Array }) configValues: Array<ConfigValueApiModel> = [];
 
-  @property({ type: Array }) filteredConfigValues: Array<ConfigValueApiModel> = [];
+  @property({ type: Array }) filteredConfigValues: Array<ConfigValueApiModel> =
+    [];
 
   @property({ type: Array }) appConfig = [];
 
@@ -36,12 +50,10 @@ export class PageConfigValuesList extends ResponsiveMixin(PageElement) {
   constructor() {
     super();
     this.getConfigValuesList();
-    this.isSecuredRenderer = this.isSecuredRenderer.bind(this);
-    this.isForProdRenderer = this.isForProdRenderer.bind(this);
   }
 
   private getConfigValuesList() {
-    const api = new RefDataConfigApi();
+    const api = new RefDataConfigApi(dorcApiConfiguration);
     api.refDataConfigGet().subscribe({
       next: (data: ConfigValueApiModel[]) => {
         this.setConfigValues(data);
@@ -51,31 +63,30 @@ export class PageConfigValuesList extends ResponsiveMixin(PageElement) {
     });
   }
 
+  // `isAdmin` gates the two checkbox columns and is in their dependency
+  // arrays, so setting it is enough — the manual grid.requestContentUpdate()
+  // this used to need is what the directive does.
   private loadRoles(): void {
-    const api = new RefDataRolesApi();
+    const api = new RefDataRolesApi(dorcApiConfiguration);
     api.refDataRolesGet().subscribe({
       next: (roles: string[]) => {
         this.isAdmin = roles.find(p => p === 'Admin') !== undefined;
-        const grid = this.shadowRoot?.getElementById('grid') as any;
-        grid?.requestContentUpdate?.();
-        this.requestUpdate();
       },
       error: err => {
         console.error('Failed to load roles', err);
         this.isAdmin = false;
-        const grid = this.shadowRoot?.getElementById('grid') as any;
-        grid?.requestContentUpdate?.();
-        this.requestUpdate();
       }
     });
   }
 
   private updateConfigItem(updated: ConfigValueApiModel): void {
-    const api = new RefDataConfigApi();
+    const api = new RefDataConfigApi(dorcApiConfiguration);
     const id = updated.Id;
 
     if (id == null) {
-      console.error(`Missing Id on ConfigValueApiModel; keys: ${Object.keys(updated)}`);
+      console.error(
+        `Missing Id on ConfigValueApiModel; keys: ${Object.keys(updated)}`
+      );
       return;
     }
 
@@ -116,56 +127,10 @@ export class PageConfigValuesList extends ResponsiveMixin(PageElement) {
         margin: 0px;
       }
 
-      .overlay {
-        width: 100%;
-        height: 100%;
-        position: fixed;
-      }
-
-      .overlay__inner {
-        width: 100%;
-        height: 100%;
-        position: absolute;
-      }
-
-      .overlay__content {
-        left: 20%;
-        position: absolute;
-        top: 20%;
-        transform: translate(-50%, -50%);
-      }
-
-      .spinner {
-        width: 75px;
-        height: 75px;
-        display: inline-block;
-        border-width: 2px;
-        border-color: var(--dorc-border-color);
-        border-top-color: var(--dorc-link-color);
-        animation: spin 1s infinite linear;
-        border-radius: 100%;
-        border-style: solid;
-      }
-
-      @keyframes spin {
-        100% {
-          transform: rotate(360deg);
-        }
-      }
-
-      @keyframes spin {
-        0% {
-          transform: rotate(0deg);
-        }
-        100% {
-          transform: rotate(360deg);
-        }
-      }
-
-      paper-dialog.size-position {
+      vaadin-dialog::part(overlay) {
         top: 16px;
         overflow: auto;
-        padding: 10px;
+        max-width: calc(100vw - 32px);
       }
       @media (max-width: 768px) {
         vaadin-grid-cell-content {
@@ -201,68 +166,67 @@ export class PageConfigValuesList extends ResponsiveMixin(PageElement) {
           Add Config Value...
         </vaadin-button>
       </div>
-      <paper-dialog
-        class="size-position"
+      <vaadin-dialog
+        ${ref(this.unsavedChanges.attach)}
         id="add-config-value-dialog"
-        allow-click-through
-        modal
-      >
-        <add-config-value></add-config-value>
-        <div style="display: flex; justify-content: flex-end">
-          <vaadin-button dialog-confirm>Close</vaadin-button>
-        </div>
-      </paper-dialog>
-      ${this.loading
-        ? html`
-            <div class="overlay" style="z-index: 2">
-              <div class="overlay__inner">
-                <div class="overlay__content">
-                  <span class="spinner"></span>
-                </div>
-              </div>
-            </div>
-          `
-        : html`
-            <vaadin-grid
-              id="grid"
-              .items=${this.filteredConfigValues}
-              column-reordering-allowed
-              multi-sort
-              theme="compact row-stripes no-row-borders no-border"
-            >
-              <vaadin-grid-sort-column
-                path="Key"
-                header="Config Name"
-                resizable
-                width="300px"
-                flex-grow="0"
-              ></vaadin-grid-sort-column>
-              <vaadin-grid-sort-column
-                path="Secure"
-                header="Is Secure"
-                resizable
-                width="100px"
-                flex-grow="0"
-                .renderer=${this.isSecuredRenderer}
-                ?hidden="${this._narrowScreen}"
-              ></vaadin-grid-sort-column>
-              <vaadin-grid-sort-column
-                path="IsForProd"
-                header="Is For Prod"
-                resizable
-                width="100px"
-                flex-grow="0"
-                .renderer=${this.isForProdRenderer}
-                ?hidden="${this._narrowScreen}"
-              ></vaadin-grid-sort-column>
-              <vaadin-grid-column
-                header="Config Value"
-                .renderer=${this.variableValueControlsRenderer}
-                resizable
-                flex-grow="1"
-              ></vaadin-grid-column>
-            </vaadin-grid>
-          `}
+        header-title="Add Config Value"
+        draggable
+        width="560px"
+        .opened="${this.addConfigValueDialogOpened}"
+        @opened-changed="${(e: DialogOpenedChangedEvent) => {
+          this.addConfigValueDialogOpened = e.detail.value;
+        }}"
+        @unsaved-changes-discarded="${this.resetAddConfigValue}"
+        ${dialogRenderer(this.renderAddConfigValue, [
+          this.addConfigValueSequence
+        ])}
+        ${dialogFooterRenderer(this.renderAddConfigValueFooter, [])}
+      ></vaadin-dialog>
+      ${
+        this.loading
+          ? html` <dorc-spinner></dorc-spinner> `
+          : html`
+              <vaadin-grid
+                id="grid"
+                .items=${this.filteredConfigValues}
+                column-reordering-allowed
+                multi-sort
+                theme="compact row-stripes no-row-borders no-border"
+              >
+                <vaadin-grid-sort-column
+                  path="Key"
+                  header="Config Name"
+                  resizable
+                  width="300px"
+                  flex-grow="0"
+                ></vaadin-grid-sort-column>
+                <vaadin-grid-sort-column
+                  path="Secure"
+                  header="Is Secure"
+                  resizable
+                  width="100px"
+                  flex-grow="0"
+                  ${columnBodyRenderer(this.isSecuredRenderer, [this.isAdmin])}
+                  ?hidden="${this._narrowScreen}"
+                ></vaadin-grid-sort-column>
+                <vaadin-grid-sort-column
+                  path="IsForProd"
+                  header="Is For Prod"
+                  resizable
+                  width="100px"
+                  flex-grow="0"
+                  ${columnBodyRenderer(this.isForProdRenderer, [this.isAdmin])}
+                  ?hidden="${this._narrowScreen}"
+                ></vaadin-grid-sort-column>
+                <vaadin-grid-column
+                  header="Config Value"
+                  ${columnBodyRenderer(this.variableValueControlsRenderer, [this.isAdmin])}
+                  resizable
+                  flex-grow="1"
+                ></vaadin-grid-column>
+              </vaadin-grid>
+            `
+      }
     `;
   }
 
@@ -281,65 +245,55 @@ export class PageConfigValuesList extends ResponsiveMixin(PageElement) {
     );
   }
 
+  private renderAddConfigValue = () =>
+    html`${keyed(
+      this.addConfigValueSequence,
+      html`<add-config-value></add-config-value>`
+    )}`;
+
+  private resetAddConfigValue = () => {
+    this.addConfigValueSequence += 1;
+  };
+
+  private renderAddConfigValueFooter = () => html`
+    <vaadin-button @click="${() => (this.addConfigValueDialogOpened = false)}"
+      >Close</vaadin-button
+    >
+  `;
+
   configValueCreated() {
     this.getConfigValuesList();
-
-    const dialog = this.shadowRoot?.getElementById(
-      'add-config-value-dialog'
-    ) as PaperDialogElement;
-    dialog.close();
+    this.addConfigValueDialogOpened = false;
   }
 
-  variableValueControlsRenderer(
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<ConfigValueApiModel>
-  ) {
-    render(
-      html` <config-value-controls .value="${model.item}">
-      </config-value-controls>`,
-      root
-    );
+  variableValueControlsRenderer(configValue: ConfigValueApiModel) {
+    return html`<config-value-controls
+      .value="${configValue}"
+    ></config-value-controls>`;
   }
 
-  isSecuredRenderer(
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<ConfigValueApiModel>
-  ) {
-    const configValueApiModel = model.item as ConfigValueApiModel;
-
-    const checkbox = new Checkbox();
-
-    checkbox.checked = configValueApiModel.Secure as boolean;
-    checkbox.disabled = !this.isAdmin;
-
-    checkbox.addEventListener('change', async () => {
-      await this.updateConfigItem({...configValueApiModel, Secure: checkbox.checked
-      });
-    });
-
-    render(checkbox, root);
+  isSecuredRenderer(configValue: ConfigValueApiModel) {
+    return html`<vaadin-checkbox
+      ?disabled="${!this.isAdmin}"
+      .checked="${live(configValue.Secure as boolean)}"
+      @change="${(e: Event) =>
+        this.updateConfigItem({
+          ...configValue,
+          Secure: (e.currentTarget as Checkbox).checked
+        })}"
+    ></vaadin-checkbox>`;
   }
 
-  isForProdRenderer(
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<ConfigValueApiModel>
-  ) {
-    const configValueApiModel = model.item as ConfigValueApiModel;
-
-    const checkbox = new Checkbox();
-
-    checkbox.checked = configValueApiModel.IsForProd as boolean;
-    checkbox.disabled = !this.isAdmin;
-
-    checkbox.addEventListener('change', async () => {
-      await this.updateConfigItem({...configValueApiModel, IsForProd: checkbox.checked
-      });
-    });
-
-    render(checkbox, root);
+  isForProdRenderer(configValue: ConfigValueApiModel) {
+    return html`<vaadin-checkbox
+      ?disabled="${!this.isAdmin}"
+      .checked="${live(configValue.IsForProd as boolean)}"
+      @change="${(e: Event) =>
+        this.updateConfigItem({
+          ...configValue,
+          IsForProd: (e.currentTarget as Checkbox).checked
+        })}"
+    ></vaadin-checkbox>`;
   }
 
   updateSearch(e: CustomEvent) {
@@ -361,9 +315,6 @@ export class PageConfigValuesList extends ResponsiveMixin(PageElement) {
   }
 
   addConfigValue() {
-    const paperDialogElement = this.shadowRoot?.getElementById(
-      'add-config-value-dialog'
-    ) as PaperDialogElement;
-    paperDialogElement.open();
+    this.addConfigValueDialogOpened = true;
   }
 }
