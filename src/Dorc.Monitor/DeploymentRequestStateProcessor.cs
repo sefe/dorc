@@ -18,6 +18,7 @@ namespace Dorc.Monitor
         private readonly IRequestsPersistentSource requestsPersistentSource;
         private readonly IDeploymentEventsPublisher eventPublisher;
         private readonly IDistributedLockService distributedLockService;
+        private readonly ILoggerFactory loggerFactory;
 
         private DeploymentRequestDetailSerializer serializer = new DeploymentRequestDetailSerializer();
 
@@ -45,7 +46,8 @@ namespace Dorc.Monitor
             IDeploymentRequestProcessesPersistentSource processesPersistentSource,
             IRequestsPersistentSource requestsPersistentSource,
             IDeploymentEventsPublisher eventPublisher,
-            IDistributedLockService distributedLockService)
+            IDistributedLockService distributedLockService,
+            ILoggerFactory loggerFactory)
         {
             this.logger = logger;
             this.serviceProvider = serviceProvider;
@@ -53,6 +55,7 @@ namespace Dorc.Monitor
             this.requestsPersistentSource = requestsPersistentSource;
             this.eventPublisher = eventPublisher;
             this.distributedLockService = distributedLockService;
+            this.loggerFactory = loggerFactory;
         }
 
         /// <summary>
@@ -621,7 +624,7 @@ namespace Dorc.Monitor
                 var pendingRequestProcessor = this.serviceProvider.GetService(typeof(IPendingRequestProcessor)) as IPendingRequestProcessor;
                 if (pendingRequestProcessor == null)
                     throw new ArgumentNullException(nameof(pendingRequestProcessor));
-                pendingRequestProcessor.Execute(requestToExecute, requestCancellationToken);
+                pendingRequestProcessor.Execute(requestToExecute, requestCancellationToken, loggerFactory);
             }
             catch (Exception exception)
             {

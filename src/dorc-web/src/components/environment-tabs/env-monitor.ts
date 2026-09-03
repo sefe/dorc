@@ -42,7 +42,12 @@ import type { PropertyValues } from 'lit';
 import type { PageLocation } from '../../helpers/page-element';
 import { PageEnvBase } from './page-env-base';
 import { ResponsiveMixin } from '../../helpers/responsive-mixin';
+import {
+  SilentGridRefresher,
+  silentRefreshStyles
+} from '../../helpers/silent-grid-refresh';
 import '@vaadin/tooltip';
+import { dorcApiConfiguration } from '../../services/dorc-api-configuration';
 
 const username = 'Username';
 const status = 'Status';
@@ -57,9 +62,7 @@ export class EnvMonitor
 {
   @query('#grid') grid: Grid | undefined;
 
-  // since grid is being refreshed with multiple requests (pages) in non-deterministic way,
-  // we need to store the max count of items before refresh to keep grid's cache size
-  maxCountBeforeRefresh: number | undefined;
+  private silentRefresh = new SilentGridRefresher(() => this.grid);
 
   private hubConnection: HubConnection | undefined;
 
@@ -127,7 +130,8 @@ export class EnvMonitor
         value: this.componentsFilter
       });
     }
-    const api = new RequestStatusesApi();
+    const api = new RequestStatusesApi(dorcApiConfiguration);
+    this.silentRefresh.requestStarted();
     api
       .requestStatusesPut({
         pagedDataOperators: {
@@ -154,7 +158,7 @@ export class EnvMonitor
           );
           callback(
             data.Items ?? [],
-            Math.max(this.maxCountBeforeRefresh ?? 0, data.TotalItems ?? 0)
+            this.silentRefresh.reportedSize(data.TotalItems)
           );
 
           this.dispatchEvent(
@@ -173,6 +177,7 @@ export class EnvMonitor
           notification.open();
           console.error(errMessage, err);
           callback([], 0);
+          this.silentRefresh.requestFinished();
           this.dispatchEvent(
             new CustomEvent('searching-requests-finished', {
               detail: { TotalItems: 0 },
@@ -182,6 +187,7 @@ export class EnvMonitor
           );
         },
         complete: () => {
+          this.silentRefresh.requestFinished();
           this.monitorRequestsLoaded();
         }
       });
@@ -194,51 +200,54 @@ export class EnvMonitor
   }
 
   static get styles() {
-    return css`
-      :host {
-        display: flex;
-        flex-direction: column;
-        width: 100%;
-        height: 100%;
-        overflow: hidden;
-      }
-
-      vaadin-grid {
-        overflow: hidden;
-        height: 100%;
-        --divider-color: rgb(223, 232, 239);
-      }
-
-      vaadin-text-field {
-        padding: 0;
-        margin: 0;
-      }
-
-      vaadin-grid-cell-content {
-        padding-top: 0px;
-        padding-bottom: 0px;
-        margin: 0px;
-      }
-
-      vaadin-grid::part(row) {
-        cursor: pointer;
-      }
-
-      .cover {
-        object-fit: cover;
-        position: fixed;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-      }
-      @media (max-width: 768px) {
-        vaadin-grid-cell-content {
-          white-space: normal;
-          word-wrap: break-word;
-          overflow-wrap: break-word;
+    return [
+      silentRefreshStyles,
+      css`
+        :host {
+          display: flex;
+          flex-direction: column;
+          width: 100%;
+          height: 100%;
+          overflow: hidden;
         }
-      }
-    `;
+
+        vaadin-grid {
+          overflow: hidden;
+          height: 100%;
+          --divider-color: rgb(223, 232, 239);
+        }
+
+        vaadin-text-field {
+          padding: 0;
+          margin: 0;
+        }
+
+        vaadin-grid-cell-content {
+          padding-top: 0px;
+          padding-bottom: 0px;
+          margin: 0px;
+        }
+
+        vaadin-grid::part(row) {
+          cursor: pointer;
+        }
+
+        .cover {
+          object-fit: cover;
+          position: fixed;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+        }
+        @media (max-width: 768px) {
+          vaadin-grid-cell-content {
+            white-space: normal;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+          }
+        }
+      `
+    ];
   }
 
   render() {
@@ -409,6 +418,32 @@ export class EnvMonitor
 
   private debouncedRefreshGrid = this.debounce(() => this.refreshGrid(), 500);
 
+  // Pausing stops the hub connection entirely so the client doesn't keep
+  // (re)connecting in the background; resuming starts it again. SignalR's
+  // automatic reconnect only kicks in on connection loss, not manual stop.
+  private async toggleAutoRefresh() {
+    this.autoRefresh = !this.autoRefresh;
+    if (!this.hubConnection) return;
+    if (this.autoRefresh) {
+      if (this.hubConnection.state === HubConnectionState.Disconnected) {
+        try {
+          await this.hubConnection.start();
+        } catch (err) {
+          console.error('Error starting SignalR connection:', err);
+          this.hubConnectionState = String(err);
+          return;
+        }
+      }
+      this.hubConnectionState = this.hubConnection.state;
+      this.refreshGrid();
+    } else {
+      this.hubConnection.stop().catch(err => {
+        console.error('Error stopping SignalR connection:', err);
+      });
+      this.hubConnectionState = this.hubConnection.state;
+    }
+  }
+
   onDeploymentRequestStatusChanged(): Promise<void> {
     if (this.autoRefresh) this.debouncedRefreshGrid();
     return Promise.resolve();
@@ -423,9 +458,7 @@ export class EnvMonitor
   }
 
   private refreshGrid() {
-    // Avoid toggling loading overlays; simply invalidate cache
-    this.maxCountBeforeRefresh = 0;
-    this.grid?.clearCache();
+    this.silentRefresh.refresh();
   }
 
   private searchingRequestsStarted(event: CustomEvent) {
@@ -455,7 +488,6 @@ export class EnvMonitor
         default:
           break;
       }
-      this.maxCountBeforeRefresh = 0;
       this.grid?.clearCache();
       this.isSearching = true;
     },
@@ -487,8 +519,7 @@ export class EnvMonitor
 
   updateGrid() {
     if (this.grid) {
-      this.maxCountBeforeRefresh = (this.grid as any).__data?._flatSize; // there is no good way to get size of loaded items in vaadin grid(!)
-      this.grid.clearCache();
+      this.silentRefresh.refreshWithLoadingUi();
       this.isLoading = true;
     }
   }
@@ -680,10 +711,7 @@ export class EnvMonitor
         .state="${this.hubConnectionState}"
         .autoRefresh="${this.autoRefresh}"
         @toggle-auto-refresh="${() => {
-          this.autoRefresh = !this.autoRefresh;
-          if (this.autoRefresh) {
-            this.refreshGrid();
-          }
+          void this.toggleAutoRefresh();
         }}"
       ></connection-status-indicator>
 
@@ -695,13 +723,13 @@ export class EnvMonitor
                 style="padding:0;margin:0"
                 aria-label="Manual refresh"
                 @click="${() => {
-                    const event = new CustomEvent('refresh-requests', {
-                      detail: {},
-                      bubbles: true,
-                      composed: true
-                    });
-                    this.dispatchEvent(event);
-                  }}"
+                  const event = new CustomEvent('refresh-requests', {
+                    detail: {},
+                    bubbles: true,
+                    composed: true
+                  });
+                  this.dispatchEvent(event);
+                }}"
               >
                 <vaadin-tooltip
                   slot="tooltip"

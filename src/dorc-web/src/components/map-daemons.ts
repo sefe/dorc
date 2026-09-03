@@ -14,6 +14,7 @@ import type { DaemonApiModel, ServerApiModel } from '../apis/dorc-api';
 import { RefDataDaemonsApi } from '../apis/dorc-api';
 import { ServerDaemonsApi } from '../apis/dorc-api/apis/ServerDaemonsApi';
 import '@vaadin/tooltip';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('map-daemons')
 export class ServerDaemonMapping extends LitElement {
@@ -171,7 +172,7 @@ export class ServerDaemonMapping extends LitElement {
   }
 
   private loadAllDaemons() {
-    const api = new RefDataDaemonsApi();
+    const api = new RefDataDaemonsApi(dorcApiConfiguration);
     api.refDataDaemonsGet().subscribe({
       next: (data: DaemonApiModel[]) => {
         this.allDaemons = data;
@@ -182,7 +183,7 @@ export class ServerDaemonMapping extends LitElement {
 
   private loadMappedDaemons() {
     if (!this._server?.ServerId) return;
-    const api = new ServerDaemonsApi();
+    const api = new ServerDaemonsApi(dorcApiConfiguration);
     api
       .serverDaemonsServerIdGet({ serverId: this._server.ServerId })
       .subscribe({
@@ -195,7 +196,7 @@ export class ServerDaemonMapping extends LitElement {
 
   private attachDaemon() {
     if (!this._server?.ServerId || !this.selectedDaemonId) return;
-    const api = new ServerDaemonsApi();
+    const api = new ServerDaemonsApi(dorcApiConfiguration);
     api
       .serverDaemonsPost({
         serverId: this._server.ServerId,
@@ -228,7 +229,7 @@ export class ServerDaemonMapping extends LitElement {
     );
     if (!answer) return;
 
-    const api = new ServerDaemonsApi();
+    const api = new ServerDaemonsApi(dorcApiConfiguration);
     api
       .serverDaemonsDelete({
         serverId: server.ServerId,

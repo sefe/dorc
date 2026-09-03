@@ -55,12 +55,24 @@ namespace Dorc.Monitor.RequestProcessors
             this.eventsPublisher = eventPublisher;
         }
 
-        public void Execute(RequestToProcessDto requestToExecute, CancellationToken cancellationToken)
+        public void Execute(RequestToProcessDto requestToExecute, CancellationToken cancellationToken, ILoggerFactory loggerFactory)
         {
             using (logger.BeginScope(new Dictionary<string, object> { ["RequestId"] = requestToExecute.Request.Id }))
             {
 
                 logger.LogInformation($"Attempting to deploy the request with id '{requestToExecute.Request.Id}'.");
+
+                using var statusPoller = new RequestStatusPoller(
+                    requestsPersistentSource,
+                    loggerFactory.CreateLogger<RequestStatusPoller>(),
+                    pollInterval: TimeSpan.FromSeconds(10));
+
+                using var compositeCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+
+                statusPoller.StartMonitoring(
+                    requestToExecute.Request.Id,
+                    compositeCts,
+                    cancellationToken);
 
                 _variableResolver = new VariableResolver(propertyValuesPersistentSource, _loggerFactory, _propertyEvaluator);
 
@@ -195,7 +207,7 @@ namespace Dorc.Monitor.RequestProcessors
                         {
                             try
                             {
-                                cancellationToken.ThrowIfCancellationRequested();
+                                compositeCts.Token.ThrowIfCancellationRequested();
 
                                 if (IsRequestCancelledByAnotherNode(requestToExecute.Request.Id))
                                 {
@@ -220,7 +232,7 @@ namespace Dorc.Monitor.RequestProcessors
                                     environmentName,
                                     scriptRoot,
                                     commonProperties,
-                                    cancellationToken);
+                                    compositeCts.Token);
 
                                 if (!isSuccessful)
                                 {
