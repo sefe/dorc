@@ -3,6 +3,7 @@ using Dorc.ApiModel.MonitorRunnerApi;
 using Dorc.Core;
 using Dorc.Core.Configuration;
 using Dorc.Monitor.Pipes;
+using Dorc.PersistentData.Security;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
@@ -27,6 +28,7 @@ namespace Dorc.Monitor
         private readonly IScriptGroupPipeServer scriptGroupPipeServer;
         private readonly IConfigurationSettings configurationSettingsEngine;
         private readonly IRequestsPersistentSource requestsPersistentSource;
+        private readonly IScriptScopeConfigValues _scriptScopeConfigValues;
 
         private bool isScriptExecutionSuccessful; // This field is needed to be instance-wide since Runner process errors are processed as instance-wide events.
 
@@ -38,7 +40,8 @@ namespace Dorc.Monitor
             ILogger<ScriptDispatcher> logger,
             IScriptGroupPipeServer scriptGroupPipeServer,
             IConfigurationSettings configurationSettingsEngine,
-            IRequestsPersistentSource requestsPersistentSource)
+            IRequestsPersistentSource requestsPersistentSource,
+            IScriptScopeConfigValues scriptScopeConfigValues)
         {
             this.processesPersistentSource = processesPersistentSource;
             this._configValuesPersistentSource = configValuesPersistentSource;
@@ -46,6 +49,7 @@ namespace Dorc.Monitor
             this.scriptGroupPipeServer = scriptGroupPipeServer;
             this.configurationSettingsEngine = configurationSettingsEngine;
             this.requestsPersistentSource = requestsPersistentSource;
+            this._scriptScopeConfigValues = scriptScopeConfigValues;
         }
 
         public bool Dispatch(string scriptsLocation,
@@ -256,7 +260,7 @@ namespace Dorc.Monitor
                         DeployResultId = deploymentResultId,
                         PowerShellVersionNumber = scriptApiModel.PowerShellVersionNumber,
                         ScriptsLocation = scriptsLocation,
-                        CommonProperties = properties,
+                        CommonProperties = WithheldKeysRemoved(properties),
                         ScriptProperties = new List<ScriptProperties>()
                     };
 
@@ -272,6 +276,37 @@ namespace Dorc.Monitor
             }
 
             return scriptGroups;
+        }
+
+        /// <summary>
+        /// The second place the withheld keys are excluded, and deliberately not the only one.
+        ///
+        /// They are already excluded where configuration values become properties. This catches
+        /// anything that reached the property set by another route - an environment property or
+        /// a request-supplied value bearing the same name - before it is serialised into the
+        /// script group and handed to a Runner. The script group is the artefact that crosses
+        /// the process boundary, so it is the right place for the invariant to hold rather than
+        /// be assumed.
+        /// </summary>
+        private IDictionary<string, VariableValue> WithheldKeysRemoved(
+            IDictionary<string, VariableValue> properties)
+        {
+            var withheld = properties.Keys.Where(_scriptScopeConfigValues.IsWithheld).ToList();
+
+            if (withheld.Count == 0)
+            {
+                return properties;
+            }
+
+            logger.LogWarning(
+                "Removed {Count} withheld key(s) from the script group before dispatch: {Keys}."
+                + " These reached the property set by a route other than configuration values.",
+                withheld.Count,
+                string.Join(", ", withheld));
+
+            return properties
+                .Where(property => !_scriptScopeConfigValues.IsWithheld(property.Key))
+                .ToDictionary(property => property.Key, property => property.Value);
         }
 
         private (string, string) GetProcessCredentials(bool isProduction, string environmentName)
