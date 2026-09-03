@@ -24,10 +24,6 @@ namespace Dorc.PersistentData.Sources
         {
             try
             {
-                _logger.LogInformation(
-                    $"Updating the Environment and EnvironmentHistory tables for environment {envName}");
-                _logger.LogInformation("Here...");
-
                 using (var context = _contextFactory.GetContext())
                 {
                     AddHistory(envName, backupFile, comment, updatedBy, updateType, context);
@@ -38,8 +34,7 @@ namespace Dorc.PersistentData.Sources
             }
             catch (Exception ex)
             {
-                _logger.LogInformation($"Error occurred updating the Env Mgt database for environment {envName}");
-                _logger.LogInformation($"Error message:  {ex.Message}. ");
+                _logger.LogError(ex, "Error occurred updating the Env Mgt database");
                 return false;
             }
         }
@@ -108,6 +103,26 @@ namespace Dorc.PersistentData.Sources
             };
             context.EnvironmentHistories.Add(newHistory);
             environment.LastUpdate = newHistory.UpdateDate;
+        }
+
+        /// <summary>
+        /// Records an action against an environment identified by id, for callers that never loaded
+        /// the environment itself - typically because they changed it with a set-based update.
+        /// </summary>
+        internal static void AddHistoryAction(int envId, string oldValue, string newValue, string updatedBy, string updateType, string summary,
+             IDeploymentContext context)
+        {
+            var newHistory = new EnvironmentHistory
+            {
+                EnvId = envId,
+                UpdateDate = DateTime.Now,
+                UpdateType = updateType,
+                UpdatedBy = updatedBy,
+                FromValue = oldValue,
+                ToValue = newValue,
+                Details = summary
+            };
+            context.EnvironmentHistories.Add(newHistory);
         }
 
         internal static void AddDeletionHistory(string newVersion, string updatedBy, string updateType,

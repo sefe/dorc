@@ -1,26 +1,26 @@
+import { columnBodyRenderer } from '@vaadin/grid/lit';
 import { Grid, GridItemModel } from '@vaadin/grid';
 import '@vaadin/grid/vaadin-grid';
-import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/icons/vaadin-icons';
 import '@vaadin/text-field';
 import { TextField } from '@vaadin/text-field';
 import '@vaadin/vaadin-lumo-styles/icons.js';
-import { css, PropertyValues, render } from 'lit';
+import { css, PropertyValues } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
-import AppConfig from '../app-config';
+import { live } from 'lit/directives/live.js';
 import '../components/grid-button-groups/edit-comments-controls';
-import { Configuration, EnvironmentHistoryApiModel } from '../apis/dorc-api';
+import { EnvironmentHistoryApiModel } from '../apis/dorc-api';
 import { RefDataEnvironmentsHistoryApi } from '../apis/dorc-api/apis';
-import { PageElement } from '../helpers/page-element';
+import { PageElement, PageLocation } from '../helpers/page-element';
+import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import { router } from '../router/router';
 import { EnvironmentHistoryApiModelExtended } from '../components/model-extensions/environment-history-api-model-extended';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('page-env-history')
-export class PageEnvironmentHistory extends PageElement {
-  @property({ type: Object }) location = router.location;
-
+export class PageEnvironmentHistory extends ResponsiveMixin(PageElement) {
   @property({ type: Array })
   envHistory: EnvironmentHistoryApiModelExtended[] = [];
 
@@ -28,11 +28,9 @@ export class PageEnvironmentHistory extends PageElement {
 
   constructor() {
     super();
+    this.location = router.location as PageLocation;
 
-    const appConfig = new Configuration({
-      basePath: new AppConfig().dorcApi
-    });
-    const api = new RefDataEnvironmentsHistoryApi(appConfig);
+    const api = new RefDataEnvironmentsHistoryApi(dorcApiConfiguration);
 
     const envId = parseInt(new URLSearchParams(location.search).get('id')!, 10);
 
@@ -47,10 +45,16 @@ export class PageEnvironmentHistory extends PageElement {
 
   static get styles() {
     return css`
-      vaadin-grid#grid {
+      :host {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
         overflow: hidden;
-        height: calc(100vh - 65px);
         --divider-color: var(--dorc-border-color);
+      }
+      vaadin-grid#grid {
+        flex: 1;
+        min-height: 0;
       }
       vaadin-button {
         padding: 0px;
@@ -85,7 +89,7 @@ export class PageEnvironmentHistory extends PageElement {
         <vaadin-grid-sort-column
           resizable
           path="UpdatedDate"
-          .renderer="${this._dateRenderer}"
+          ${columnBodyRenderer(this._dateRenderer, [])}
           header="Updated Date"
           width="170px"
         ></vaadin-grid-sort-column>
@@ -93,38 +97,43 @@ export class PageEnvironmentHistory extends PageElement {
           resizable
           path="UpdatedBy"
           header="Updated By"
+          ?hidden="${this._narrowScreen}"
         ></vaadin-grid-sort-column>
         <vaadin-grid-sort-column
           resizable
           path="UpdateType"
           header="Update Type"
+          ?hidden="${this._narrowScreen}"
         ></vaadin-grid-sort-column>
         <vaadin-grid-sort-column
           resizable
           path="FromValue"
           header="Old Version"
           width="170px"
+          ?hidden="${this._narrowScreen}"
         ></vaadin-grid-sort-column>
         <vaadin-grid-sort-column
           resizable
           path="ToValue"
           header="New Version"
           width="170px"
+          ?hidden="${this._narrowScreen}"
         ></vaadin-grid-sort-column>
         <vaadin-grid-sort-column
           resizable
           path="Details"
           header="Details"
+          ?hidden="${this._narrowScreen}"
         ></vaadin-grid-sort-column>
         <vaadin-grid-column
           resizable
           header="Comment"
-          .renderer="${this._commentRenderer}"
+          ${columnBodyRenderer(this._commentRenderer, [])}
           .attachedPageEnvironmentHistory="${this}"
           width="270px"
         ></vaadin-grid-column>
         <vaadin-grid-column
-          .renderer="${this._editButtonsRenderer}"
+          ${columnBodyRenderer(this._editButtonsRenderer, [])}
           width="14em"
         ></vaadin-grid-column>
       </vaadin-grid>
@@ -163,55 +172,48 @@ export class PageEnvironmentHistory extends PageElement {
   }
 
   _dateRenderer(
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<EnvironmentHistoryApiModelExtended>
+    item: EnvironmentHistoryApiModelExtended
   ) {
-    const history = model.item as EnvironmentHistoryApiModelExtended;
+    const history = item as EnvironmentHistoryApiModelExtended;
     const time = history.UpdatedDate?.toLocaleTimeString('en-GB');
     const date = history.UpdatedDate?.toLocaleDateString('en-GB', {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric'
     });
-    render(html`<div>${`${date} ${time}`}</div>`, root);
+    return html`<div>${`${date} ${time}`}</div>`;
   }
 
+  // `change`, not `value-changed`: the latter is a notify event that fires
+  // when Lit commits `.value` too. Grid cells are recycled, so committing the
+  // next row's comment fires it into the previous row's listener, which writes
+  // it into that row's model — and edit-comments-controls saves that same
+  // object. `change` only fires when the user commits an edit.
   _commentRenderer(
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<EnvironmentHistoryApiModel>
+    item: EnvironmentHistoryApiModel, model: GridItemModel<EnvironmentHistoryApiModel>
   ) {
-    const history = model.item as EnvironmentHistoryApiModel;
-    render(
-      html`<vaadin-text-field
+    const history = item as EnvironmentHistoryApiModel;
+    return html`<vaadin-text-field
         style="width: 270px"
         id="${`comments${model.index}`}"
         readonly
         focus-target
-        .value="${history.Comment ?? ''}"
+        .value="${live(history.Comment ?? '')}"
         .history="${history}"
-        @value-changed="${(e: CustomEvent) => {
-          const textField = e.detail as TextField;
-          history.Comment = textField.value;
+        @change="${(e: Event) => {
+          history.Comment = (e.currentTarget as TextField).value;
         }}"
       >
-      </vaadin-text-field>`,
-      root
-    );
+      </vaadin-text-field>`;
   }
 
   _editButtonsRenderer(
-    root: HTMLElement,
-    _column: GridColumn,
+    _item: EnvironmentHistoryApiModelExtended,
     model: GridItemModel<EnvironmentHistoryApiModelExtended>
   ) {
-    render(
-      html`
-        <edit-comments-controls .model="${model}"> </edit-comments-controls>
-      `,
-      root
-    );
+    return html`
+      <edit-comments-controls .model="${model}"></edit-comments-controls>
+    `;
   }
 
   _editClick(e: CustomEvent) {

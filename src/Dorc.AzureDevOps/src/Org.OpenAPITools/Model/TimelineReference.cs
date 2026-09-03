@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// Represents a reference to a timeline.
     /// </summary>
     [DataContract(Name = "TimelineReference")]
-    public partial class TimelineReference : IEquatable<TimelineReference>, IValidatableObject
+    public partial class TimelineReference : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="TimelineReference" /> class.
@@ -38,7 +38,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="changeId">The change ID..</param>
         /// <param name="id">The ID of the timeline..</param>
         /// <param name="url">The REST URL of the timeline..</param>
-        public TimelineReference(int changeId = default(int), Guid id = default(Guid), string url = default(string))
+        public TimelineReference(int changeId = default, Guid id = default, string url = default)
         {
             this.ChangeId = changeId;
             this.Id = id;
@@ -91,71 +91,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as TimelineReference);
-        }
-
-        /// <summary>
-        /// Returns true if TimelineReference instances are equal
-        /// </summary>
-        /// <param name="input">Instance of TimelineReference to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(TimelineReference input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.ChangeId == input.ChangeId ||
-                    this.ChangeId.Equals(input.ChangeId)
-                ) && 
-                (
-                    this.Id == input.Id ||
-                    (this.Id != null &&
-                    this.Id.Equals(input.Id))
-                ) && 
-                (
-                    this.Url == input.Url ||
-                    (this.Url != null &&
-                    this.Url.Equals(input.Url))
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                hashCode = (hashCode * 59) + this.ChangeId.GetHashCode();
-                if (this.Id != null)
-                {
-                    hashCode = (hashCode * 59) + this.Id.GetHashCode();
-                }
-                if (this.Url != null)
-                {
-                    hashCode = (hashCode * 59) + this.Url.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

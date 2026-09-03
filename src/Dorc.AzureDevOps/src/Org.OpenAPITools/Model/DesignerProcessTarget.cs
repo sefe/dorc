@@ -30,13 +30,13 @@ namespace Org.OpenAPITools.Model
     /// Represents the target for the build process.
     /// </summary>
     [DataContract(Name = "DesignerProcessTarget")]
-    public partial class DesignerProcessTarget : IEquatable<DesignerProcessTarget>, IValidatableObject
+    public partial class DesignerProcessTarget : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="DesignerProcessTarget" /> class.
         /// </summary>
         /// <param name="agentSpecification">agentSpecification.</param>
-        public DesignerProcessTarget(AgentSpecification agentSpecification = default(AgentSpecification))
+        public DesignerProcessTarget(AgentSpecification agentSpecification = default)
         {
             this.AgentSpecification = agentSpecification;
         }
@@ -70,57 +70,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as DesignerProcessTarget);
-        }
-
-        /// <summary>
-        /// Returns true if DesignerProcessTarget instances are equal
-        /// </summary>
-        /// <param name="input">Instance of DesignerProcessTarget to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(DesignerProcessTarget input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.AgentSpecification == input.AgentSpecification ||
-                    (this.AgentSpecification != null &&
-                    this.AgentSpecification.Equals(input.AgentSpecification))
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.AgentSpecification != null)
-                {
-                    hashCode = (hashCode * 59) + this.AgentSpecification.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

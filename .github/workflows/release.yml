@@ -1,43 +1,149 @@
 name: DOrc Build
 
 on:
+  # Topic branches (feature/**, fix/**, copilot/**, claude/** …) are covered by
+  # the pull_request trigger below. Listing them here as well fired the entire
+  # pipeline twice for every push to a branch with an open PR — two ~12 minute
+  # Windows runs for a single change. Long-lived branches keep a push trigger
+  # because their runs publish the artifacts consumed downstream.
   push:
     branches:
       - main
       - develop
       - 'release/**'
-      - 'feature/**'
-      - 'fix/**'
-      - 'hotfix/**'
-      - 'migration/**'
-      - 'copilot/**'
   pull_request:
     branches:
       - main
       - develop
+  workflow_dispatch:
+    inputs:
+      capture_binlog:
+        description: 'Capture an MSBuild binary log as an artifact (for build-time analysis)'
+        type: boolean
+        default: false
+
+# Supersede in-flight runs for the same PR or branch — only the newest commit
+# needs a green build. main and release/** are exempt from cancellation so a
+# run that publishes artifacts is never killed part-way through.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' && !startsWith(github.ref, 'refs/heads/release/') }}
 
 env:
   BUILD_PLATFORM: 'Any CPU'
   BUILD_CONFIGURATION: 'Release'
   SOLUTION_PATH: 'src/Dorc.sln'
-  DOTNET_VERSION: '8.0.x'
   NODE_VERSION: '20.x'
 
 jobs:
-  build:
+  # The web suite gates nothing downstream — the MSI harvests dorc-web\dist,
+  # which the build job produces itself — so running it alongside the .NET
+  # build takes it off the critical path entirely.
+  web-tests:
     runs-on: windows-latest
-    
+
     steps:
     - name: Checkout code
-      uses: actions/checkout@v6
-      
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v5
-      with:
-        dotnet-version: ${{ env.DOTNET_VERSION }}
-        
+      uses: actions/checkout@v7
+
     - name: Setup Node.js
-      uses: actions/setup-node@v6
+      uses: actions/setup-node@v7
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: src/dorc-web/package-lock.json
+
+    - name: Install web dependencies
+      working-directory: src/dorc-web
+      run: npm ci --loglevel=error
+
+    # openapi-generator-cli is a thin npm wrapper around a Java jar; the
+    # runner image ships several JDKs but its default java on PATH is not
+    # guaranteed to satisfy the generator's minimum. setup-java only points
+    # env vars at a JDK already on the image, so this costs seconds.
+    - name: Setup Java (OpenAPI Generator)
+      uses: actions/setup-java@v5
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+
+    # The suite must exercise the same client code a release build ships:
+    # the generated API clients are regenerated from their committed specs
+    # before the tests run. The authoritative in-sync gate lives in the
+    # build job.
+    - name: Generate API clients
+      working-directory: src/dorc-web
+      run: npm run api-gen
+
+    # The next three steps assume Windows (pwsh + the Windows cache path).
+    # The whole job is windows-latest today; the `if: runner.os == 'Windows'`
+    # guards align them so adding a Linux/macOS matrix entry later is a
+    # localised change here rather than a silent CI mis-fire.
+    - name: Get installed Playwright version
+      id: playwright-version
+      if: runner.os == 'Windows'
+      working-directory: src/dorc-web
+      shell: pwsh
+      run: |
+        $version = (npm ls @playwright/test --json 2>$null `
+          | ConvertFrom-Json).dependencies.'@playwright/test'.version
+        if (-not $version) {
+          $version = (npm ls playwright --json 2>$null `
+            | ConvertFrom-Json).dependencies.playwright.version
+        }
+        if (-not $version) {
+          # Refuse to write an empty cache key — would produce
+          # `playwright-Windows-` and silently match every run forever.
+          Write-Error "Could not determine installed Playwright version"
+          exit 1
+        }
+        echo "version=$version" >> $env:GITHUB_OUTPUT
+
+    # Every engine is installed on every run, so the Playwright version alone
+    # identifies the cache contents. Do not reintroduce a per-branch browser
+    # subset without putting that subset back into the key — a chromium-only
+    # cache entry must never satisfy a run that needs all three.
+    - name: Cache Playwright browsers
+      id: playwright-cache
+      if: runner.os == 'Windows'
+      uses: actions/cache@v6
+      with:
+        path: ~\AppData\Local\ms-playwright
+        key: playwright-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
+
+    - name: Install Playwright browsers
+      if: runner.os == 'Windows' && steps.playwright-cache.outputs.cache-hit != 'true'
+      working-directory: src/dorc-web
+      run: npx playwright install chromium firefox webkit
+
+    # VITEST_BROWSERS is deliberately not set: the suite runs its full default
+    # matrix on every build, on every branch. Varying it per branch meant PRs
+    # exercised a different configuration from main, which is precisely how the
+    # comma-in-cache-key bug reached main green.
+    - name: Run web tests
+      if: runner.os == 'Windows'
+      working-directory: src/dorc-web
+      run: npm test
+
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v7
+
+    # actions/setup-dotnet is deliberately absent: the windows-latest image
+    # already ships the .NET SDK, and installing a second copy cost ~38s of
+    # every run. This step is near-free and makes a toolchain regression on the
+    # runner image obvious in the log rather than a confusing build failure.
+    - name: Report .NET toolchain
+      shell: pwsh
+      run: |
+        dotnet --list-sdks
+        dotnet --list-runtimes
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v7
       with:
         node-version: ${{ env.NODE_VERSION }}
         cache: 'npm'
@@ -64,11 +170,79 @@ jobs:
     - name: Install web dependencies
       working-directory: src/dorc-web
       run: npm ci --loglevel=error
-      
+
+    # See the web-tests job for why setup-java is needed before generation.
+    - name: Setup Java (OpenAPI Generator)
+      uses: actions/setup-java@v5
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+
+    # Two clients are generated code: the TypeScript dorc-api client under
+    # src/dorc-web/src/apis, and the C# Org.OpenAPITools client under
+    # src/Dorc.AzureDevOps that Dorc.Core, the Monitor and the
+    # TerraformRunner consume for build numbers and artifact locations.
+    # Each pins its generator version in its own openapitools.json.
+    # Regenerating here — before the web and solution builds — means every
+    # release is built from clients the generator actually produced, never
+    # from hand-drifted files.
+    #
+    # Generation reads only committed specs, so this step is hermetic: it
+    # fetches nothing, and the same commit always produces the same clients.
+    # Picking up a new upstream Azure DevOps spec belongs to the
+    # ado-build-spec-refresh workflow, which opens a pull request — precisely
+    # so a change Microsoft publishes can never turn an unrelated pull
+    # request red here.
+    - name: Generate API clients
+      working-directory: src/dorc-web
+      run: npm run api-gen
+
+    # The committed clients are the same files the generator just wrote, so
+    # any diff means someone edited generated code by hand or changed a spec
+    # without regenerating — either way the fix is to regenerate and commit.
+    # No generated file is hand-maintained: app concerns live
+    # outside the generated trees (the web's
+    # src/services/dorc-api-configuration.ts; the C# side's
+    # Dorc.AzureDevOps.Client project). The client csproj under
+    # src/Dorc.AzureDevOps is dependabot-owned and excluded via that tree's
+    # .openapi-generator-ignore, so it never diffs here either.
+    # Content is compared with `git diff`, not `git status`: diff applies the
+    # same eol filters to both sides, so a file that only differs in line-ending
+    # representation is correctly reported as unchanged. `git status` does not,
+    # and reported all 284 generated files as modified on the Windows runner
+    # while `git diff` showed nothing (run 32056758186). `.gitattributes` pins
+    # these trees to LF so that mismatch cannot arise in the first place; this
+    # step stays representation-independent as the second line of defence.
+    # ls-files --others covers the case diff cannot see: a brand new generated
+    # file that has never been committed.
+    - name: Fail if generated clients are out of sync
+      shell: pwsh
+      run: |
+        $paths = @('src/dorc-web/src/apis', 'src/Dorc.AzureDevOps')
+
+        git --no-pager diff --exit-code --stat -- $paths
+        $changed = $LASTEXITCODE -ne 0
+        $untracked = git ls-files --others --exclude-standard -- $paths
+
+        if ($changed -or $untracked) {
+          Write-Host "Generated API clients differ from the committed code:"
+          if ($changed) {
+            git --no-pager diff -- $paths | Select-Object -First 200
+          }
+          if ($untracked) {
+            Write-Host "Untracked generated files:"
+            $untracked | ForEach-Object { Write-Host "  $_" }
+          }
+          Write-Error ("API clients are out of sync with their specs. " +
+            "Run 'npm run api-gen' in src/dorc-web and commit the result.")
+          exit 1
+        }
+        Write-Host "Generated API clients match the committed code."
+
     - name: Build web site
       working-directory: src/dorc-web
       run: npm run build
-      
+
     - name: Version AssemblyInfo files
       shell: pwsh
       env:
@@ -119,22 +293,63 @@ jobs:
           Write-Host "UpdateVersion.ps1 not found, skipping cmdlet versioning"
         }
       
+    # #797 removed this cache on the argument that it cost more than it saved:
+    # 1m04s to restore plus 10s to save, against a 27s warm restore. The
+    # measurement that mattered was the one not taken — how long an uncached
+    # restore takes. It is 2m04s (run 30751703601) to 2m41s (run 30794820988),
+    # so removing the cache cost 25-100s per build rather than saving 40s.
+    # Restored on that evidence.
     - name: Cache NuGet packages
-      uses: actions/cache@v5
+      uses: actions/cache@v6
       with:
         path: ~/.nuget/packages
         key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json', '**/*.csproj') }}
         restore-keys: |
           ${{ runner.os }}-nuget-
-      
+
+    # Every project in the solution is SDK-style (csproj / wixproj / sqlproj)
+    # and there is no packages.config anywhere in the tree, so the `nuget
+    # restore` pass that used to run first was pure duplication of the work
+    # `dotnet restore` does on the same solution.
     - name: Restore packages
-      run: |
-        nuget restore ${{ env.SOLUTION_PATH }} -ConfigFile pipelines/NuGet.config
-        dotnet restore ${{ env.SOLUTION_PATH }} --configfile pipelines/NuGet.config
-      
+      run: dotnet restore ${{ env.SOLUTION_PATH }} --configfile pipelines/NuGet.config
+
+    # Materialise the directories the installers harvest, before anything else
+    # builds. SDK-style projects are not directly packageable — the deployable
+    # layout only exists after Publish has run, and for Dorc.Api that includes
+    # web.config, which IIS needs and which does not exist in source.
+    #
+    # This used to happen inside the wixprojs via <Exec>, spawning child
+    # processes the parent MSBuild could not see or deduplicate; under /m the
+    # two wixprojs ran their chains concurrently and raced the outer build for
+    # the same intermediate outputs (CS2012). Running it here, as one MSBuild
+    # invocation over the whole payload list, means a single engine owns the
+    # graph and the shared dependencies are built exactly once.
+    - name: Publish installer payload
+      run: msbuild src/InstallerPayload.proj /p:Configuration=${{ env.BUILD_CONFIGURATION }} /m /clp:ErrorsOnly /nologo
+
+    # /m is safe here only because the payload above is already on disk and
+    # DorcPayloadPrepublished=true switches off the wixprojs' in-build Exec
+    # chains. Removing either of those brings back the CS2012 race that took
+    # main red on run 30812109885 — do not enable /m without both.
+    #
+    # /bl is opt-in via workflow_dispatch rather than always-on: a binary log
+    # is the tool for asking which targets dominate the remaining build time,
+    # but it is not free to write and there is no reason to pay for it on every
+    # run. `inputs` is empty for push/pull_request, so the flag expands to
+    # nothing there.
     - name: Build solution
-      run: msbuild ${{ env.SOLUTION_PATH }} /p:Configuration=${{ env.BUILD_CONFIGURATION }} /p:Platform="${{ env.BUILD_PLATFORM }}" /p:RunWixToolsOutOfProc=true /p:Version=${{ steps.version.outputs.VERSION }} /p:UseSharedCompilation=false /p:BuildInParallel=false /m:1 /clp:ErrorsOnly /nologo
-      
+      id: build
+      run: msbuild ${{ env.SOLUTION_PATH }} /p:Configuration=${{ env.BUILD_CONFIGURATION }} /p:Platform="${{ env.BUILD_PLATFORM }}" /p:RunWixToolsOutOfProc=true /p:Version=${{ steps.version.outputs.VERSION }} /p:DorcPayloadPrepublished=true /m ${{ inputs.capture_binlog && '/bl:build.binlog' || '' }} /clp:ErrorsOnly /nologo
+
+    - name: Upload MSBuild binary log
+      if: ${{ inputs.capture_binlog }}
+      uses: actions/upload-artifact@v7
+      with:
+        name: build-binlog-${{ steps.version.outputs.VERSION }}
+        path: build.binlog
+        retention-days: 7
+
     - name: Run tests
       shell: pwsh
       run: |
@@ -144,42 +359,48 @@ jobs:
           New-Item -ItemType Directory -Force -Path $resultsDir | Out-Null
         }
         
-        # Find test assemblies. Only the plural "*Tests.dll" suffix — the singular
-        # "*Test.dll" picks up non-test projects (Tools.RabbitMqOAuthTest is a console
-        # exe with no testhost, Org.OpenAPITools.Test is an empty auto-generated client),
-        # which crashed VSTest's parallel manager with "Could not find testhost".
+        # Find test projects (plural *Tests.csproj only — singular *Test.csproj
+        # picks up non-test projects like auto-generated client stubs).
         # IntegrationTests and Acceptance are excluded — they need external resources.
-        $testAssemblies = Get-ChildItem -Path "${{ github.workspace }}\src" -Recurse -Include "*Tests.dll" |
+        $testProjects = Get-ChildItem -Path "${{ github.workspace }}\src" -Recurse -Include "*Tests.csproj" |
           Where-Object {
-            $_.FullName -notmatch "\\obj\\" -and
             $_.FullName -notmatch "IntegrationTests" -and
             $_.FullName -notmatch "Acceptance"
           }
         
-        if ($testAssemblies.Count -gt 0) {
-          Write-Host "Found $($testAssemblies.Count) test assemblies (excluding integration/acceptance tests):"
-          $testAssemblies | ForEach-Object { Write-Host "  - $($_.FullName)" }
+        if ($testProjects.Count -gt 0) {
+          Write-Host "Found $($testProjects.Count) test projects (excluding integration/acceptance tests):"
+          $testProjects | ForEach-Object { Write-Host "  - $($_.FullName)" }
           
-          # Use full path to vstest.console.exe
-          $vstestPath = "${env:ProgramFiles}\Microsoft Visual Studio\2022\Enterprise\Common7\IDE\CommonExtensions\Microsoft\TestWindow\vstest.console.exe"
-          if (-not (Test-Path $vstestPath)) {
-            # Try Community edition
-            $vstestPath = "${env:ProgramFiles}\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\TestWindow\vstest.console.exe"
-          }
-          if (-not (Test-Path $vstestPath)) {
-            Write-Host "VSTest not found at expected locations, trying PATH..."
-            $vstestPath = "vstest.console.exe"
+          $failedProjects = @()
+          foreach ($proj in $testProjects) {
+            Write-Host "`nRunning tests for: $($proj.Name)"
+            dotnet test $proj.FullName --configuration ${{ env.BUILD_CONFIGURATION }} --no-build --logger "trx" --results-directory $resultsDir
+            # A non-zero exit covers both test failures and projects that never
+            # ran (e.g. not built by the solution, so --no-build has no output).
+            # Record these so the failure-check step cannot miss them when no
+            # .trx was produced.
+            if ($LASTEXITCODE -ne 0) {
+              Write-Host "::warning::dotnet test returned exit code $LASTEXITCODE for $($proj.Name)"
+              $failedProjects += $proj.Name
+            }
           }
           
-          Write-Host "Using VSTest from: $vstestPath"
-          & $vstestPath $testAssemblies.FullName /Parallel /Logger:trx /ResultsDirectory:$resultsDir
+          if ($failedProjects.Count -gt 0) {
+            Set-Content -Path (Join-Path $resultsDir "failed-projects.txt") -Value ($failedProjects -join "`n")
+          }
         } else {
-          Write-Host "No test assemblies found"
+          Write-Host "No test projects found"
         }
       continue-on-error: true
       
-    - name: Fail workflow if tests failed (main/release branches)
-      if: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/') }}
+    # Runs on every branch. Restricting this to main/release meant a pull
+    # request with failing .NET tests was green, and the failure was only
+    # discovered once it had already been merged — the wrong end of the process
+    # to find out. Gated on the build having succeeded so a compile failure is
+    # not also reported as a test failure.
+    - name: Fail workflow if tests failed
+      if: always() && steps.build.outcome == 'success'
       shell: pwsh
       run: |
         $resultsDir = "${{ github.workspace }}\TestResults"
@@ -188,13 +409,29 @@ jobs:
           exit 0
         }
         
+        $failed = $false
+
+        # Projects whose `dotnet test` exited non-zero (test failures, or
+        # projects that failed to run/build and produced no .trx).
+        $sentinel = Join-Path $resultsDir "failed-projects.txt"
+        if (Test-Path $sentinel) {
+          $failedProjects = Get-Content $sentinel | Where-Object { $_ -ne "" }
+          if ($failedProjects) {
+            Write-Host "Test run reported non-zero exit for: $($failedProjects -join ', ')"
+            $failed = $true
+          }
+        }
+
         $trxFiles = Get-ChildItem -Path $resultsDir -Recurse -Include *.trx -ErrorAction SilentlyContinue
         if (-not $trxFiles) {
+          if ($failed) {
+            Write-Error "Test run reported failures but no .trx files were produced. Failing workflow."
+            exit 1
+          }
           Write-Host "No test result files found, skipping test failure check"
           exit 0
         }
         
-        $failed = $false
         foreach ($file in $trxFiles) {
           [xml]$xml = Get-Content $file.FullName
           $failCount = ($xml.TestRun.Results.UnitTestResult | Where-Object { $_.outcome -eq "Failed" }).Count
@@ -209,12 +446,41 @@ jobs:
         } else {
           Write-Host "No test failures detected."
         }
+    # Only meaningful when the solution built. With `if: always()` this ran
+    # after a failed build too, found no .trx (there were no test assemblies to
+    # produce them), and emitted
+    # "##[warning]Could not find any files for TestResults/**/*.trx" — which
+    # then became the most prominent line in the log of a job whose actual
+    # failure was a compile error. See run 30812109885.
+    #
+    # Previously EnricoMi/publish-unit-test-result-action/windows@v2, which is
+    # Python-based and spent most of its runtime building an environment rather
+    # than reporting. Measured on run 30812109885:
+    #
+    #   create virtualenv   26s   <- not cached, and it first tries virtualenv,
+    #                                fails, then falls back to python -m venv
+    #   pip install          6s   <- packages are cached, the venv is not
+    #   publish results      9s   <- the actual work
+    #
+    # dorny/test-reporter is JavaScript, so it runs on the node already present
+    # on the runner with no environment to construct. reporter: dotnet-trx
+    # consumes the same .trx files unchanged.
+    #
+    # fail-on-error stays off deliberately: the 'Fail workflow if tests failed'
+    # step above is the gate, and it reads the .trx directly. This step only
+    # reports.
+    # Pinned to a commit hash, not a tag: 'v2' is a moving major-version ref, so
+    # whoever controls the action could change what this runs. Matches how
+    # kafka-integration.yml pins its actions. Dependabot updates both the hash
+    # and the trailing version comment.
     - name: Publish test results
-      uses: EnricoMi/publish-unit-test-result-action/windows@v2
-      if: always()
+      uses: dorny/test-reporter@a43b3a5f7366b97d083190328d2c652e1a8b6aa2 # v3.0.0
+      if: always() && steps.build.outcome == 'success'
       with:
-        files: |
-          TestResults/**/*.trx
+        name: Test Results
+        path: 'TestResults/**/*.trx'
+        reporter: dotnet-trx
+        fail-on-error: false
       continue-on-error: true
       
     - name: Collect build artifacts
@@ -270,7 +536,9 @@ jobs:
       id: set_retention
       shell: pwsh
       run: |
-        $ref = "${{ github.ref }}"
+        # Same reasoning as 'Select browser matrix': read the ref from the
+        # environment instead of interpolating it into the script body.
+        $ref = $env:GITHUB_REF
         if ($ref -eq "refs/heads/main" -or $ref -like "refs/heads/release/*") {
           echo "RETENTION_DAYS=400" >> $env:GITHUB_ENV
         } else {

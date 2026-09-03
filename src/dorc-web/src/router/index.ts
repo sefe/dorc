@@ -5,8 +5,11 @@ import { appConfig } from '../app-config';
 import { ApiConfigApi, ApiConfigModel } from '../apis/dorc-api';
 import { OAUTH_SCHEME, oauthServiceContainer, OAuthServiceSettings } from '../services/Account/OAuthService';
 import { oauthSettings } from '../OAuthSettings.ts';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
-new ApiConfigApi().apiConfigGet().subscribe({
+const routeConfig = routes;
+
+new ApiConfigApi(dorcApiConfiguration).apiConfigGet().subscribe({
   next: (apiConfig: ApiConfigModel) => {
     appConfig.authenticationScheme = apiConfig.AuthenticationScheme ?? 'NotSet';
     appConfig.pauseDeploymentEnabled = Boolean((apiConfig as Record<string, unknown>)['PauseDeploymentEnabled']);
@@ -24,13 +27,13 @@ new ApiConfigApi().apiConfigGet().subscribe({
           if (!user || !user.access_token) {
             oauthServiceContainer.service.signIn();
           } else {
-            router.setRoutes(routes);
+            void router.setRoutes(routeConfig);
           }
         },
         error: (err) => console.error('Error getting user:', err)
       });
     } else {
-      router.setRoutes(routes);
+      void router.setRoutes(routeConfig);
     }
   },
   error: (err: string) => console.error(err)

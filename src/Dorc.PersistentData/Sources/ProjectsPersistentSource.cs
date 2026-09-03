@@ -1,11 +1,11 @@
-﻿using Microsoft.EntityFrameworkCore;
-using System.Security.Principal;
-using Microsoft.Extensions.Logging;
-using Environment = Dorc.PersistentData.Model.Environment;
-using Dorc.ApiModel;
-using Dorc.PersistentData.Sources.Interfaces;
-using Dorc.PersistentData.Model;
+﻿using Dorc.ApiModel;
 using Dorc.PersistentData.Contexts;
+using Dorc.PersistentData.Model;
+using Dorc.PersistentData.Sources.Interfaces;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using System.Security.Principal;
+using Environment = Dorc.PersistentData.Model.Environment;
 
 namespace Dorc.PersistentData.Sources
 {
@@ -101,7 +101,7 @@ namespace Dorc.PersistentData.Sources
             using (var context = _contextFactory.GetContext())
             {
                 var single = context.Projects
-                    
+
                     .First(project => project.Name.Equals(projectName));
                 return single;
             }
@@ -112,7 +112,7 @@ namespace Dorc.PersistentData.Sources
             using (var context = _contextFactory.GetContext())
             {
                 var single = context.Projects
-                    
+
                     .First(project => project.Id.Equals(projectId));
                 return single;
             }
@@ -123,7 +123,7 @@ namespace Dorc.PersistentData.Sources
             using (var context = _contextFactory.GetContext())
             {
                 var single = context.Projects
-                    
+
                     .Single(project => project.Id == projectId);
 
                 if (single.SourceDatabaseId != null && single.SourceDatabaseId != 0)
@@ -189,6 +189,8 @@ namespace Dorc.PersistentData.Sources
                     Description = apiProject.ProjectDescription,
                     ObjectId = Guid.NewGuid(),
                     TerraformGitRepoUrl = apiProject.TerraformGitRepoUrl,
+                    LeanIXUrl = apiProject.LeanIXUrl,
+                    SourceControlType = apiProject.SourceControlType,
                 };
 
                 if (ProjectArtifactsUriHttpValid(apiProject))
@@ -232,6 +234,8 @@ namespace Dorc.PersistentData.Sources
 
                 currentProj.Description = newProjectDetails.ProjectDescription;
                 currentProj.TerraformGitRepoUrl = newProjectDetails.TerraformGitRepoUrl;
+                currentProj.LeanIXUrl = newProjectDetails.LeanIXUrl;
+                currentProj.SourceControlType = newProjectDetails.SourceControlType;
 
                 if (ProjectArtifactsUriHttpValid(newProjectDetails) || ProjectArtifactsUriFileValid(newProjectDetails))
                 {
@@ -344,7 +348,7 @@ namespace Dorc.PersistentData.Sources
             if (ProjectArtifactsUriHttpValid(apiProject))
             {
                 if (string.IsNullOrEmpty(apiProject.ArtefactsSubPaths))
-                    throw new ArgumentOutOfRangeException(nameof(apiProject), "Azure DevOps Server URL / File Path can not be null or empty");
+                    throw new ArgumentOutOfRangeException(nameof(apiProject), "CI/CD Server Project / Workflow paths can not be null or empty");
                 if (apiProject.ArtefactsBuildRegex == null)
                     throw new ArgumentOutOfRangeException(nameof(apiProject), "Build Definition Regex can not be empty"); // can it be empty and not null?
             }
@@ -365,8 +369,8 @@ namespace Dorc.PersistentData.Sources
 
             if (ProjectArtifactsUriHttpValid(apiProject))
                 if (apiProject.ArtefactsSubPaths.Length > 512)
-                    throw new ArgumentOutOfRangeException(nameof(apiProject), "Azure DevOps Project '" + apiProject.ArtefactsSubPaths +
-                                        "' must be no longer than 64 characters");
+                    throw new ArgumentOutOfRangeException(nameof(apiProject), "CI/CD Project path '" + apiProject.ArtefactsSubPaths +
+                                        "' must be no longer than 512 characters");
         }
 
         private void ValidateProjectIdExists(ProjectApiModel apiProject, HttpRequestType httpRequestType)
@@ -416,7 +420,9 @@ namespace Dorc.PersistentData.Sources
                 ArtefactsUrl = project.ArtefactsUrl,
                 ArtefactsBuildRegex = project.ArtefactsBuildRegex,
                 TerraformGitRepoUrl = project.TerraformGitRepoUrl,
-                SourceDatabase = project.SourceDatabase != null ? DatabasesPersistentSource.MapToDatabaseApiModel(project.SourceDatabase) : null
+                LeanIXUrl = project.LeanIXUrl,
+                SourceDatabase = project.SourceDatabase != null ? DatabasesPersistentSource.MapToDatabaseApiModel(project.SourceDatabase) : null,
+                SourceControlType = project.SourceControlType
             };
         }
 

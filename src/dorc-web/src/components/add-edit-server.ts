@@ -1,5 +1,4 @@
-import '@polymer/paper-toggle-button';
-import { ComboBox } from '@vaadin/combo-box/src/vaadin-combo-box';
+import { ComboBox } from '@vaadin/combo-box';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/combo-box';
@@ -17,6 +16,7 @@ import {
 import { WarningNotification } from './notifications/warning-notification';
 import { ErrorNotification } from './notifications/error-notification';
 import { retrieveErrorMessage } from '../helpers/errorMessage-retriever';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('add-edit-server')
 export class AddEditServer extends LitElement {
@@ -100,7 +100,8 @@ export class AddEditServer extends LitElement {
         display: flex;
         align-items: center;
         justify-content: center;
-        width: 500px;
+        width: 100%;
+        max-width: 500px;
       }
 
       .small-loader {
@@ -132,7 +133,7 @@ export class AddEditServer extends LitElement {
 
   render() {
     return html`
-      <div style="padding: 10px; width:500px">
+      <div style="padding: var(--lumo-space-s); width: 100%; max-width: 500px; box-sizing: border-box;">
         <vaadin-vertical-layout>
           <vaadin-text-field
             id="serverName"
@@ -141,7 +142,6 @@ export class AddEditServer extends LitElement {
             title="Maximum length: ${this.maxServerNameLength} symbols"
             class="block"
             required
-            auto-validate
             .value="${this.serverName}"
             @value-changed="${this._serverNameValueChanged}"
             helper-text="${this.serverInfoHelp}"
@@ -175,7 +175,7 @@ export class AddEditServer extends LitElement {
 
   lookupOSFromTarget() {
     this.loadingOS = true;
-    const api = new RefDataServersApi();
+    const api = new RefDataServersApi(dorcApiConfiguration);
     api
       .refDataServersGetServerOperatingFromTargetGet({
         serverName: this._srv.Name ?? ''
@@ -252,7 +252,7 @@ export class AddEditServer extends LitElement {
   }
 
   private doesServerExist() {
-    const api = new RefDataServersApi();
+    const api = new RefDataServersApi(dorcApiConfiguration);
     api.refDataServersServerGet({ server: this._srv.Name ?? '' }).subscribe(
       (data: ServerApiModel) => {
         this._checkServer([data]);
@@ -310,7 +310,7 @@ export class AddEditServer extends LitElement {
 
   save() {
     if (this._srv.ServerId !== undefined && this._srv.ServerId > 0) {
-      const api = new RefDataServersApi();
+      const api = new RefDataServersApi(dorcApiConfiguration);
       api
         .refDataServersPut({
           id: this._srv.ServerId ?? 0,
@@ -326,7 +326,7 @@ export class AddEditServer extends LitElement {
           complete: () => console.log('done updating server')
         });
     } else {
-      const api = new RefDataServersApi();
+      const api = new RefDataServersApi(dorcApiConfiguration);
       api.refDataServersPost({ serverApiModel: this._srv }).subscribe({
         next: (data: ServerApiModel) => {
           this.fireServerCreatedEvent(data);
@@ -378,7 +378,7 @@ export class AddEditServer extends LitElement {
     if (id > 0) {
       if (this.attach) {
         this.srvId = id;
-        const api = new RefDataEnvironmentsDetailsApi();
+        const api = new RefDataEnvironmentsDetailsApi(dorcApiConfiguration);
 
         api
           .refDataEnvironmentsDetailsPut({

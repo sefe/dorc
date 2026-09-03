@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// Represents an artifact produced by a build.
     /// </summary>
     [DataContract(Name = "BuildArtifact")]
-    public partial class BuildArtifact : IEquatable<BuildArtifact>, IValidatableObject
+    public partial class BuildArtifact : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="BuildArtifact" /> class.
@@ -39,7 +39,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="name">The name of the artifact..</param>
         /// <param name="resource">resource.</param>
         /// <param name="source">The artifact source, which will be the ID of the job that produced this artifact. If an artifact is associated with multiple sources, this points to the first source..</param>
-        public BuildArtifact(int id = default(int), string name = default(string), ArtifactResource resource = default(ArtifactResource), string source = default(string))
+        public BuildArtifact(int id = default, string name = default, ArtifactResource resource = default, string source = default)
         {
             this.Id = id;
             this.Name = name;
@@ -100,80 +100,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as BuildArtifact);
-        }
-
-        /// <summary>
-        /// Returns true if BuildArtifact instances are equal
-        /// </summary>
-        /// <param name="input">Instance of BuildArtifact to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(BuildArtifact input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.Id == input.Id ||
-                    this.Id.Equals(input.Id)
-                ) && 
-                (
-                    this.Name == input.Name ||
-                    (this.Name != null &&
-                    this.Name.Equals(input.Name))
-                ) && 
-                (
-                    this.Resource == input.Resource ||
-                    (this.Resource != null &&
-                    this.Resource.Equals(input.Resource))
-                ) && 
-                (
-                    this.Source == input.Source ||
-                    (this.Source != null &&
-                    this.Source.Equals(input.Source))
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                hashCode = (hashCode * 59) + this.Id.GetHashCode();
-                if (this.Name != null)
-                {
-                    hashCode = (hashCode * 59) + this.Name.GetHashCode();
-                }
-                if (this.Resource != null)
-                {
-                    hashCode = (hashCode * 59) + this.Resource.GetHashCode();
-                }
-                if (this.Source != null)
-                {
-                    hashCode = (hashCode * 59) + this.Source.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

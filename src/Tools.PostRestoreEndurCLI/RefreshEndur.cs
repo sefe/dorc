@@ -1,34 +1,74 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using Dorc.PersistentData.Repositories;
-using Dorc.PersistentData.Sources.Interfaces;
+using System.Text.Json;
+using Dorc.ApiModel;
+using Dorc.Core;
 using Microsoft.Extensions.Logging;
 using Microsoft.Data.SqlClient;
+using RestSharp;
 
 namespace Tools.PostRestoreEndurCLI
 {
     public class RefreshEndur
     {
         private readonly ILogger _logger;
-        private readonly ISqlPortsPersistentSource _sqlPortsPersistentSource;
-        private readonly IDatabasesPersistentSource _databasesPersistentSource;
-        private readonly IServersPersistentSource _serversPersistentSource;
+        private readonly IApiCaller _apiCaller;
 
-        public RefreshEndur(ILogger logger, ISqlPortsPersistentSource sqlPortsPersistentSource, IDatabasesPersistentSource databasesPersistentSource, IServersPersistentSource serversPersistentSource)
+        public RefreshEndur(ILogger logger, IApiCaller apiCaller)
         {
-            _serversPersistentSource = serversPersistentSource;
-            _databasesPersistentSource = databasesPersistentSource;
-            _sqlPortsPersistentSource = sqlPortsPersistentSource;
             _logger = logger;
+            _apiCaller = apiCaller;
+        }
+
+        private DatabaseApiModel GetEndurDatabase(string envName)
+        {
+            var result = _apiCaller.Call<DatabaseApiModel>(
+                Endpoints.RefDataDatabasesByType,
+                Method.Get,
+                new Dictionary<string, string> { { "envName", envName }, { "type", "Endur" } },
+                null);
+
+            if (!result.IsModelValid || result.Value == null)
+                throw new Exception($"Failed to get Endur database for environment '{envName}': {result.ErrorMessage}");
+
+            return result.Value;
+        }
+
+        private List<ServerApiModel> GetAppServers(string envName)
+        {
+            var result = _apiCaller.Call<List<ServerApiModel>>(
+                Endpoints.RefDataServersAppServersByEnvName,
+                Method.Get,
+                new Dictionary<string, string> { { "envName", envName } },
+                null);
+
+            if (!result.IsModelValid || result.Value == null)
+                throw new Exception($"Failed to get app servers for environment '{envName}': {result.ErrorMessage}");
+
+            return result.Value;
+        }
+
+        private string GetSqlPort(string instanceName)
+        {
+            var result = _apiCaller.Call<string>(
+                Endpoints.RefDataSqlPortsByInstance,
+                Method.Get,
+                new Dictionary<string, string> { { "instanceName", instanceName } },
+                null);
+
+            if (!result.IsModelValid || result.Value == null)
+                throw new Exception($"Failed to get SQL port for instance '{instanceName}': {result.ErrorMessage}");
+
+            return result.Value.TrimEnd();
         }
 
         public bool UpdateAppServerDetails(string envName, string strSVCAccount)
         {
             try
             {
-                var endurAppServers = _serversPersistentSource.GetAppServerDetails(envName);
-                var targetDB = _databasesPersistentSource.GetDatabaseByType(envName, "Endur");
+                var endurAppServers = GetAppServers(envName);
+                var targetDB = GetEndurDatabase(envName);
 
                 var SQLConStr = new SqlConnectionStringBuilder
                 {
@@ -126,7 +166,7 @@ namespace Tools.PostRestoreEndurCLI
         {
             try
             {
-                var targetDB = _databasesPersistentSource.GetDatabaseByType(envName, "Endur");
+                var targetDB = GetEndurDatabase(envName);
 
                 var SQLConStr = new SqlConnectionStringBuilder
                 {
@@ -170,8 +210,9 @@ namespace Tools.PostRestoreEndurCLI
         {
             try
             {
-                var targetDBName = _databasesPersistentSource.GetDatabaseByType(envName, "Endur").Name;
-                var targetDBServer = _databasesPersistentSource.GetDatabaseByType(envName, "Endur").ServerName;
+                var targetDB = GetEndurDatabase(envName);
+                var targetDBName = targetDB.Name;
+                var targetDBServer = targetDB.ServerName;
 
                 var SQLConStr = new SqlConnectionStringBuilder
                 {
@@ -227,7 +268,7 @@ namespace Tools.PostRestoreEndurCLI
         {
             try
             {
-                var targetDB = _databasesPersistentSource.GetDatabaseByType(envName, "Endur");
+                var targetDB = GetEndurDatabase(envName);
 
                 var SQLConStr = new SqlConnectionStringBuilder
                 {
@@ -252,7 +293,7 @@ namespace Tools.PostRestoreEndurCLI
                     var constExtraValueID = 20593;
                     var intStartIndex = targetDB.ServerName.IndexOf(@"\") + 1;
                     var strDBInstanceShortName = targetDB.ServerName.Substring(0, intStartIndex - 1);
-                    var strSQLPort = _sqlPortsPersistentSource.GetSqlPort(targetDB.ServerName).TrimEnd();
+                    var strSQLPort = GetSqlPort(targetDB.ServerName);
                     strPropValue = @"jdbc:jtds:sqlserver://" + strDBInstanceShortName + @":" + strSQLPort + @"/" +
                                    targetDB.Name;
                     var strSQL =
@@ -287,7 +328,7 @@ namespace Tools.PostRestoreEndurCLI
                     var constExtraValueID = 20637;
                     var intStartIndex = targetDB.ServerName.IndexOf(@"\") + 1;
                     var strDBInstanceShortName = targetDB.ServerName.Substring(0, intStartIndex - 1);
-                    var strSQLPort = _sqlPortsPersistentSource.GetSqlPort(targetDB.ServerName).TrimEnd();
+                    var strSQLPort = GetSqlPort(targetDB.ServerName);
                     strPropValue = @"jdbc:jtds:sqlserver://" + strDBInstanceShortName + @":" + strSQLPort + @"/" +
                                    targetDB.Name;
                     var strSQL =
@@ -389,7 +430,7 @@ namespace Tools.PostRestoreEndurCLI
             try
             {
                 Output($"Folding down runsites for Environment: {envName}");
-                var targetDB = _databasesPersistentSource.GetDatabaseByType(envName, "Endur");
+                var targetDB = GetEndurDatabase(envName);
                 int appserver01RunsiteID;
                 int appserver02RunsiteID;
                 int appserver04RunsiteID;
@@ -614,7 +655,7 @@ namespace Tools.PostRestoreEndurCLI
             Output("Resetting user password date for: " + envName);
             try
             {
-                var targetDB = _databasesPersistentSource.GetDatabaseByType(envName, "Endur");
+                var targetDB = GetEndurDatabase(envName);
 
                 var SQLConStr = new SqlConnectionStringBuilder
                 {
@@ -660,6 +701,29 @@ namespace Tools.PostRestoreEndurCLI
                 Output("Error occurred updating Password Expiry Dates within Endur");
                 Output($"Error message:  {ex.Message}. ");
                 return false;
+            }
+        }
+
+        public void UpdateEnvironmentHistory(string envName, string backupFile, string comment, string emailAddress, string updateType)
+        {
+            var request = new UpdateEnvironmentHistoryRequest
+            {
+                EnvName = envName,
+                BackupFile = backupFile,
+                Comment = comment,
+                UpdatedBy = emailAddress,
+                UpdateType = updateType
+            };
+            var body = JsonSerializer.Serialize(request);
+            var result = _apiCaller.Call<ApiBoolResult>(
+                Endpoints.RefDataEnvironmentsHistory,
+                Method.Post,
+                null,
+                body);
+
+            if (!result.IsModelValid || result.Value == null || !result.Value.Result)
+            {
+                Output($"Failed to update environment history: {result.ErrorMessage}");
             }
         }
 

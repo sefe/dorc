@@ -6,7 +6,7 @@ All URIs are relative to *https://dev.azure.com*
 |--------|--------------|-------------|
 | [**StagesUpdate**](StagesApi.md#stagesupdate) | **PATCH** /{organization}/{project}/_apis/build/builds/{buildId}/stages/{stageRefName} |  |
 
-<a name="stagesupdate"></a>
+<a id="stagesupdate"></a>
 # **StagesUpdate**
 > void StagesUpdate (string organization, int buildId, string stageRefName, string project, string apiVersion, UpdateStageParameters body)
 

@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Security.Claims;
 using Dorc.ApiModel;
 using Dorc.Core.AzureDevOpsServer;
+using Dorc.Core.BuildServer;
 using Dorc.Core.Events;
 using Dorc.Core.Exceptions;
 using Dorc.Core.Interfaces;
@@ -24,6 +25,7 @@ namespace Dorc.Core
         private readonly IRequestsPersistentSource _requestsPersistentSource;
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
         private readonly IDeploymentEventsPublisher _deploymentEventsPublisher;
+        private readonly IBuildServerClientFactory _buildServerClientFactory;
 
         public DeployLibrary(IProjectsPersistentSource projectsPersistentSource,
             IComponentsPersistentSource componentsPersistentSource,
@@ -32,7 +34,8 @@ namespace Dorc.Core
             ILoggerFactory loggerFactory,
             IRequestsPersistentSource requestsPersistentSource,
             IClaimsPrincipalReader claimsPrincipalReader,
-            IDeploymentEventsPublisher deploymentEventsPublisher
+            IDeploymentEventsPublisher deploymentEventsPublisher,
+            IBuildServerClientFactory buildServerClientFactory
             )
         {
             _requestsPersistentSource = requestsPersistentSource;
@@ -43,6 +46,7 @@ namespace Dorc.Core
             _projectsPersistentSource = projectsPersistentSource;
             _claimsPrincipalReader = claimsPrincipalReader;
             _deploymentEventsPublisher = deploymentEventsPublisher;
+            _buildServerClientFactory = buildServerClientFactory;
         }
 
         public int SubmitRequest(string projectName, string environmentName, string uri,
@@ -195,7 +199,21 @@ namespace Dorc.Core
                 Project = createRequest.Project
             };
 
-            if (!string.IsNullOrEmpty(project.ArtefactsUrl) && project.ArtefactsUrl.StartsWith("http") &&
+            if (project.SourceControlType == SourceControlType.GitHub &&
+                !string.IsNullOrEmpty(project.ArtefactsUrl) && project.ArtefactsUrl.StartsWith("http"))
+            {
+                // GitHub Actions: resolve artifact download URL via the GitHub API
+                var gitHubClient = _buildServerClientFactory.Create(SourceControlType.GitHub);
+                var artifactUrl = await gitHubClient.GetBuildArtifactDownloadUrlAsync(
+                    project.ArtefactsUrl, project.ArtefactsSubPaths, project.ArtefactsBuildRegex,
+                    createRequest.BuildDefinitionName, createRequest.BuildUrl).ConfigureAwait(false);
+
+                buildDetail.DropLocation = artifactUrl;
+                buildDetail.BuildNumber = createRequest.BuildUrl; // run ID
+                buildDetail.Uri = createRequest.BuildUrl;
+                buildDetail.Project = project.ProjectName;
+            }
+            else if (!string.IsNullOrEmpty(project.ArtefactsUrl) && project.ArtefactsUrl.StartsWith("http") &&
                 !string.IsNullOrEmpty(project.ArtefactsSubPaths))
             {
                 var azureDevOpsServerWebClient = new AzureDevOpsServerWebClient(project.ArtefactsUrl, _loggerFactory.CreateLogger<AzureDevOpsServer.AzureDevOpsServerWebClient>());
@@ -243,7 +261,8 @@ namespace Dorc.Core
                     buildDetail.Project = project.ProjectName;
                 }
             }
-            else if (!string.IsNullOrEmpty(project.ArtefactsUrl) && project.ArtefactsUrl.StartsWith("file"))
+            else if (!string.IsNullOrEmpty(project.ArtefactsUrl) &&
+                     (project.ArtefactsUrl.StartsWith("file") || project.ArtefactsUrl.StartsWith(@"\\")))
             {
                 buildDetail.DropLocation = new Uri(createRequest.BuildUrl).LocalPath;
                 buildDetail.BuildNumber = Path.GetFileName(buildDetail.DropLocation);
@@ -290,14 +309,22 @@ namespace Dorc.Core
             _componentsPersistentSource.LoadChildren(component);
             foreach (var child in component.Children)
             {
-                if (child.IsEnabled != false)
+                if (child.IsEnabled)
                 {
                     AddComponent(componentNames, child);
+                    continue;
+                }
+
+                _componentsPersistentSource.LoadChildren(child);
+                if (child.Children.Count == 0 && !componentNames.Contains(child.ComponentName))
+                {
+                    componentNames.Add(child.ComponentName);
                 }
             }
 
-            // adding only enabled leaf components
-            if (component.IsEnabled && component.Children.Count == 0 && !componentNames.Contains(component.ComponentName))
+            // Disabled leaves must be persisted so deployment results can show
+            // that they were deliberately skipped. Execution filters them later.
+            if (component.Children.Count == 0 && !componentNames.Contains(component.ComponentName))
             {
                 componentNames.Add(component.ComponentName);
             }

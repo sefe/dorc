@@ -12,6 +12,7 @@
  */
 
 import type {
+    ComponentType,
     TerraformSourceType,
 } from './';
 
@@ -54,17 +55,17 @@ export interface ComponentApiModel {
      * @type {boolean}
      * @memberof ComponentApiModel
      */
-    IsEnabled?: boolean | null;
+    IsEnabled?: boolean;
     /**
      * @type {string}
      * @memberof ComponentApiModel
      */
     PSVersion?: string | null;
     /**
-     * @type {number}
+     * @type {ComponentType}
      * @memberof ComponentApiModel
      */
-    ComponentType?: number;
+    ComponentType?: ComponentType;
     /**
      * @type {TerraformSourceType}
      * @memberof ComponentApiModel
@@ -81,3 +82,5 @@ export interface ComponentApiModel {
      */
     TerraformSubPath?: string | null;
 }
+
+

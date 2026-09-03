@@ -1,3 +1,5 @@
+import { comboBoxRenderer } from '@vaadin/combo-box/lit';
+import { confirmPrompt } from './confirm-prompt';
 import { css, LitElement } from 'lit';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid';
@@ -5,7 +7,7 @@ import '@vaadin/combo-box';
 import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
 import '@vaadin/button';
-import { ComboBox, ComboBoxItemModel } from '@vaadin/combo-box';
+import { ComboBox } from '@vaadin/combo-box';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import {
@@ -16,6 +18,7 @@ import {
   UserApiModel,
   UserPermDto
 } from '../apis/dorc-api';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('edit-database-permissions')
 export class EditDatabasePermissions extends LitElement {
@@ -23,29 +26,29 @@ export class EditDatabasePermissions extends LitElement {
   dbId = 0;
 
   @property({ type: Array })
-  private permissions: PermissionDto[] | undefined;
+  permissions: PermissionDto[] | undefined;
 
   @property({ type: Array })
-  private users: UserApiModel[] | undefined;
+  users: UserApiModel[] | undefined;
 
   private permissionsMap: Map<number | undefined, PermissionDto> | undefined;
 
   private usersMap: Map<number | undefined, UserApiModel> | undefined;
 
   @property({ type: Object })
-  private selectedUser: UserApiModel | undefined;
+  selectedUser: UserApiModel | undefined;
 
   @property({ type: Object })
-  private selectedPermission: PermissionDto | undefined;
+  selectedPermission: PermissionDto | undefined;
 
   @property({ type: Boolean })
-  private canSubmit = false;
+  canSubmit = false;
 
   @property({ type: Array })
-  private userPermissionList: UserPermDto[] = [];
+  userPermissionList: UserPermDto[] = [];
 
   @property({ type: String })
-  private StatusMessage = '';
+  StatusMessage = '';
 
   @property({ type: Number })
   envId = 0;
@@ -53,7 +56,7 @@ export class EditDatabasePermissions extends LitElement {
   constructor() {
     super();
 
-    const refDataPermissionApi = new RefDataPermissionApi();
+    const refDataPermissionApi = new RefDataPermissionApi(dorcApiConfiguration);
     refDataPermissionApi.refDataPermissionGet().subscribe(
       (data: PermissionDto[]) => {
         this.setPermissions(data);
@@ -62,7 +65,7 @@ export class EditDatabasePermissions extends LitElement {
       () => console.log('done loading permissions')
     );
 
-    const api = new RefDataUsersApi();
+    const api = new RefDataUsersApi(dorcApiConfiguration);
     api.refDataUsersGet().subscribe(
       (data: UserApiModel[]) => {
         this.setUsers(data);
@@ -87,8 +90,7 @@ export class EditDatabasePermissions extends LitElement {
             item-label-path="DisplayName"
             @value-changed="${this.setSelectedUser}"
             .items="${this.users}"
-            filter-property="DisplayName"
-            .renderer="${this._boundUsersRenderer}"
+            ${comboBoxRenderer(this._boundUsersRenderer, [])}
             placeholder="Select User"
             style="width: 300px"
             clear-button-visible
@@ -101,8 +103,7 @@ export class EditDatabasePermissions extends LitElement {
             item-label-path="DisplayName"
             @value-changed="${this.setSelectedPermission}"
             .items="${this.permissions}"
-            filter-property="DisplayName"
-            .renderer="${this._boundPermissionsRenderer}"
+            ${comboBoxRenderer(this._boundPermissionsRenderer, [])}
             placeholder="Select Permission"
             style="width: 300px"
             clear-button-visible
@@ -116,11 +117,13 @@ export class EditDatabasePermissions extends LitElement {
           >
         </div>
         <div style="background: aliceblue">
-          ${this.selectedUser !== undefined
-            ? html`<span
-                >Current permissions for ${this.selectedUser?.DisplayName}
-              </span>`
-            : html``}
+          ${
+            this.selectedUser !== undefined
+              ? html`<span
+                  >Current permissions for ${this.selectedUser?.DisplayName}
+                </span>`
+              : html``
+          }
           <paper-listbox>
             ${this.userPermissionList.map(
               userPerm => html`
@@ -193,24 +196,12 @@ export class EditDatabasePermissions extends LitElement {
     }
   }
 
-  _boundUsersRenderer(
-    root: HTMLElement,
-    _: HTMLElement,
-    { item }: ComboBoxItemModel<UserApiModel>
-  ) {
-    // only render the checkbox once, to avoid re-creating during subsequent calls
-    const user = item as UserApiModel;
-    root.innerHTML = `<div>${user.DisplayName} - ${user.LoginType}</div>`;
+  _boundUsersRenderer(user: UserApiModel) {
+    return html`<div>${user.DisplayName} - ${user.LoginType}</div>`;
   }
 
-  _boundPermissionsRenderer(
-    root: HTMLElement,
-    _: HTMLElement,
-    { item }: ComboBoxItemModel<PermissionDto>
-  ) {
-    // only render the checkbox once, to avoid re-creating during subsequent calls
-    const permissionDto = item as PermissionDto;
-    root.innerHTML = `<div>${permissionDto.DisplayName}</div>`;
+  _boundPermissionsRenderer(permission: PermissionDto) {
+    return html`<div>${permission.DisplayName}</div>`;
   }
 
   _canSubmit() {
@@ -218,20 +209,24 @@ export class EditDatabasePermissions extends LitElement {
       this.selectedUser !== undefined && this.selectedPermission !== undefined;
   }
 
-  _remove(e: { target: { data: UserPermDto } }) {
+  async _remove(e: { target: { data: UserPermDto } }) {
     const userPerm = e.target.data as UserPermDto;
     const removeRoleId = userPerm.Id || 0;
-    const answer = confirm('Remove permission?');
+    // Everything the delete targets is snapshotted before the await: these are
+    // component inputs the host can reassign while the confirmation is open.
+    const user: number = this?.selectedUser?.Id || 0;
+    const dbId = this.dbId;
+    const envId = this.envId;
+    const answer = await confirmPrompt('Remove permission?');
     if (answer && removeRoleId) {
-      const api = new RefDataUserPermissionsApi();
+      const api = new RefDataUserPermissionsApi(dorcApiConfiguration);
       const perm: number = removeRoleId;
-      const user: number = this?.selectedUser?.Id || 0;
       api
         .refDataUserPermissionsDelete({
-          dbId: this.dbId,
+          dbId,
           permissionId: perm,
           userId: user,
-          envId: this.envId
+          envId
         })
         .subscribe(
           () => {
@@ -261,7 +256,7 @@ export class EditDatabasePermissions extends LitElement {
 
   _addPermissionForUser() {
     this.StatusMessage = '';
-    const api = new RefDataUserPermissionsApi();
+    const api = new RefDataUserPermissionsApi(dorcApiConfiguration);
     const perm: number = this?.selectedPermission?.Id || 0;
     const user: number = this?.selectedUser?.Id || 0;
     api
@@ -294,7 +289,7 @@ export class EditDatabasePermissions extends LitElement {
       const userId = this.selectedUser?.Id;
 
       if (userId !== undefined && userId > 0) {
-        const api = new RefDataUserPermissionsApi();
+        const api = new RefDataUserPermissionsApi(dorcApiConfiguration);
         api
           .refDataUserPermissionsGet({
             userId,

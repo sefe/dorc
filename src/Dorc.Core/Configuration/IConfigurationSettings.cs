@@ -26,6 +26,8 @@
         string GetAzureEntraClientId();
         string GetAzureEntraClientSecret();
 
+        string? GetGitHubToken();
+
         string GetAzureStorageAccountTenantId();
         string GetAzureStorageAccountClientId();
         string GetAzureStorageAccountClientSecret();

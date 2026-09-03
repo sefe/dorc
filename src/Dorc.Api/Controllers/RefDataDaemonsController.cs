@@ -43,21 +43,7 @@ namespace Dorc.Api.Controllers
         [HttpGet]
         public IActionResult Get()
         {
-            var output = _daemonsPersistentSource
-                .GetDaemons()
-                .Select(service =>
-                    new DaemonApiModel
-                    {
-                        Id = service.Id,
-                        AccountName = service.AccountName,
-                        DisplayName = service.DisplayName,
-                        Name = service.Name,
-                        ServiceType = service.ServiceType
-                    }
-                )
-                .ToList();
-
-            return Ok(output);
+            return Ok(_daemonsPersistentSource.GetDaemons().ToList());
         }
 
         /// <summary>

@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// BuildDefinitionSourceProvider
     /// </summary>
     [DataContract(Name = "BuildDefinitionSourceProvider")]
-    public partial class BuildDefinitionSourceProvider : IEquatable<BuildDefinitionSourceProvider>, IValidatableObject
+    public partial class BuildDefinitionSourceProvider : IValidatableObject
     {
         /// <summary>
         /// Which trigger types are supported by this definition source provider
@@ -92,7 +92,6 @@ namespace Org.OpenAPITools.Model
             /// </summary>
             [EnumMember(Value = "all")]
             All = 9
-
         }
 
 
@@ -111,7 +110,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="lastModified">The lst time this source provider was modified.</param>
         /// <param name="name">Name of the source provider.</param>
         /// <param name="supportedTriggerTypes">Which trigger types are supported by this definition source provider.</param>
-        public BuildDefinitionSourceProvider(string definitionUri = default(string), Dictionary<string, string> fields = default(Dictionary<string, string>), int id = default(int), DateTime lastModified = default(DateTime), string name = default(string), SupportedTriggerTypesEnum? supportedTriggerTypes = default(SupportedTriggerTypesEnum?))
+        public BuildDefinitionSourceProvider(string definitionUri = default, Dictionary<string, string> fields = default, int id = default, DateTime lastModified = default, string name = default, SupportedTriggerTypesEnum? supportedTriggerTypes = default)
         {
             this.DefinitionUri = definitionUri;
             this.Fields = fields;
@@ -184,95 +183,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as BuildDefinitionSourceProvider);
-        }
-
-        /// <summary>
-        /// Returns true if BuildDefinitionSourceProvider instances are equal
-        /// </summary>
-        /// <param name="input">Instance of BuildDefinitionSourceProvider to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(BuildDefinitionSourceProvider input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.DefinitionUri == input.DefinitionUri ||
-                    (this.DefinitionUri != null &&
-                    this.DefinitionUri.Equals(input.DefinitionUri))
-                ) && 
-                (
-                    this.Fields == input.Fields ||
-                    this.Fields != null &&
-                    input.Fields != null &&
-                    this.Fields.SequenceEqual(input.Fields)
-                ) && 
-                (
-                    this.Id == input.Id ||
-                    this.Id.Equals(input.Id)
-                ) && 
-                (
-                    this.LastModified == input.LastModified ||
-                    (this.LastModified != null &&
-                    this.LastModified.Equals(input.LastModified))
-                ) && 
-                (
-                    this.Name == input.Name ||
-                    (this.Name != null &&
-                    this.Name.Equals(input.Name))
-                ) && 
-                (
-                    this.SupportedTriggerTypes == input.SupportedTriggerTypes ||
-                    this.SupportedTriggerTypes.Equals(input.SupportedTriggerTypes)
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.DefinitionUri != null)
-                {
-                    hashCode = (hashCode * 59) + this.DefinitionUri.GetHashCode();
-                }
-                if (this.Fields != null)
-                {
-                    hashCode = (hashCode * 59) + this.Fields.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.Id.GetHashCode();
-                if (this.LastModified != null)
-                {
-                    hashCode = (hashCode * 59) + this.LastModified.GetHashCode();
-                }
-                if (this.Name != null)
-                {
-                    hashCode = (hashCode * 59) + this.Name.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.SupportedTriggerTypes.GetHashCode();
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }
