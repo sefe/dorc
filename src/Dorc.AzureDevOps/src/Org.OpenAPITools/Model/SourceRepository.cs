@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// Represents a repository returned from a source provider.
     /// </summary>
     [DataContract(Name = "SourceRepository")]
-    public partial class SourceRepository : IEquatable<SourceRepository>, IValidatableObject
+    public partial class SourceRepository : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="SourceRepository" /> class.
@@ -42,7 +42,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="properties">properties.</param>
         /// <param name="sourceProviderName">The name of the source provider the repository is from..</param>
         /// <param name="url">The URL of the repository..</param>
-        public SourceRepository(string defaultBranch = default(string), string fullName = default(string), string id = default(string), string name = default(string), Dictionary<string, string> properties = default(Dictionary<string, string>), string sourceProviderName = default(string), string url = default(string))
+        public SourceRepository(string defaultBranch = default, string fullName = default, string id = default, string name = default, Dictionary<string, string> properties = default, string sourceProviderName = default, string url = default)
         {
             this.DefaultBranch = defaultBranch;
             this.FullName = fullName;
@@ -130,112 +130,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as SourceRepository);
-        }
-
-        /// <summary>
-        /// Returns true if SourceRepository instances are equal
-        /// </summary>
-        /// <param name="input">Instance of SourceRepository to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(SourceRepository input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.DefaultBranch == input.DefaultBranch ||
-                    (this.DefaultBranch != null &&
-                    this.DefaultBranch.Equals(input.DefaultBranch))
-                ) && 
-                (
-                    this.FullName == input.FullName ||
-                    (this.FullName != null &&
-                    this.FullName.Equals(input.FullName))
-                ) && 
-                (
-                    this.Id == input.Id ||
-                    (this.Id != null &&
-                    this.Id.Equals(input.Id))
-                ) && 
-                (
-                    this.Name == input.Name ||
-                    (this.Name != null &&
-                    this.Name.Equals(input.Name))
-                ) && 
-                (
-                    this.Properties == input.Properties ||
-                    this.Properties != null &&
-                    input.Properties != null &&
-                    this.Properties.SequenceEqual(input.Properties)
-                ) && 
-                (
-                    this.SourceProviderName == input.SourceProviderName ||
-                    (this.SourceProviderName != null &&
-                    this.SourceProviderName.Equals(input.SourceProviderName))
-                ) && 
-                (
-                    this.Url == input.Url ||
-                    (this.Url != null &&
-                    this.Url.Equals(input.Url))
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.DefaultBranch != null)
-                {
-                    hashCode = (hashCode * 59) + this.DefaultBranch.GetHashCode();
-                }
-                if (this.FullName != null)
-                {
-                    hashCode = (hashCode * 59) + this.FullName.GetHashCode();
-                }
-                if (this.Id != null)
-                {
-                    hashCode = (hashCode * 59) + this.Id.GetHashCode();
-                }
-                if (this.Name != null)
-                {
-                    hashCode = (hashCode * 59) + this.Name.GetHashCode();
-                }
-                if (this.Properties != null)
-                {
-                    hashCode = (hashCode * 59) + this.Properties.GetHashCode();
-                }
-                if (this.SourceProviderName != null)
-                {
-                    hashCode = (hashCode * 59) + this.SourceProviderName.GetHashCode();
-                }
-                if (this.Url != null)
-                {
-                    hashCode = (hashCode * 59) + this.Url.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

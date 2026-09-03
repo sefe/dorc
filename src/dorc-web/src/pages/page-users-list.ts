@@ -1,25 +1,29 @@
-import '@polymer/paper-dialog';
+import { columnBodyRenderer } from '@vaadin/grid/lit';
+import '@vaadin/dialog';
 import '../components/dorc-spinner';
-import { PaperDialogElement } from '@polymer/paper-dialog';
-import { GridItemModel } from '@vaadin/grid';
+import type { DialogOpenedChangedEvent } from '@vaadin/dialog';
+import { dialogFooterRenderer, dialogRenderer } from '@vaadin/dialog/lit';
 import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
 import '@vaadin/grid/vaadin-grid';
-import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/text-field';
-import { css, PropertyValues, render, nothing } from 'lit';
+import { css, PropertyValues, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
-import AppConfig from '../app-config';
 import '../components/add-user-or-group/add-user-or-group';
-import { Configuration, UserApiModel } from '../apis/dorc-api';
+import { UserApiModel } from '../apis/dorc-api';
 import { RefDataUsersApi } from '../apis/dorc-api';
 import { PageElement } from '../helpers/page-element';
 import '../icons/hardware-icons.js';
+import { ref } from 'lit/directives/ref.js';
+import { UnsavedChangesGuard } from '../components/unsaved-changes-guard';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('page-users-list')
 export class PageUsersList extends PageElement {
+  private readonly unsavedChanges = new UnsavedChangesGuard();
+
   @property({ type: Array }) users: Array<UserApiModel> = [];
   @property({ type: Array }) filteredUsers: Array<UserApiModel> = [];
   @property({ type: Array }) appConfig = [];
@@ -32,10 +36,7 @@ export class PageUsersList extends PageElement {
   constructor() {
     super();
 
-    const appConfig = new Configuration({
-      basePath: new AppConfig().dorcApi
-    });
-    const api = new RefDataUsersApi(appConfig);
+    const api = new RefDataUsersApi(dorcApiConfiguration);
     api.refDataUsersGet().subscribe(
       (data: Array<UserApiModel>) => {
         this.setUsers(data);
@@ -59,10 +60,10 @@ export class PageUsersList extends PageElement {
         flex: 1;
         min-height: 0;
       }
-      paper-dialog.size-position {
+      vaadin-dialog::part(overlay) {
         top: 16px;
         overflow: auto;
-        padding: 10px;
+        max-width: calc(100vw - 32px);
       }
     `;
   }
@@ -90,56 +91,59 @@ export class PageUsersList extends PageElement {
           >Add User or Group...
         </vaadin-button>
       </div>
-      <paper-dialog
-        class="size-position"
+      <vaadin-dialog
+        ${ref(this.unsavedChanges.attach)}
         id="add-user-dialog"
-        allow-click-through
-        modal
-      >
-        ${this.isAddUserOrGroupDialogOpened
-          ? html`<add-user-or-group id="add-user-or-group"></add-user-or-group>`
-          : html`${nothing}`}
-        <div style="display: flex; justify-content: flex-end">
-          <vaadin-button
-            dialog-confirm
-            @click="${this.addUserOrGroupDialogClosed}"
-            >Close</vaadin-button
-          >
-        </div>
-      </paper-dialog>
-      ${this.loading
-        ? html`
-            <dorc-spinner></dorc-spinner>
-          `
-        : html`
-            <vaadin-grid
-              id="grid"
-              .items=${this.filteredUsers}
-              column-reordering-allowed
-              multi-sort
-              theme="compact row-stripes no-row-borders no-border"
-            >
-              <vaadin-grid-column
-                .renderer="${this.renderLoginType}"
-                width="50px"
-                flex-grow="0"
-              ></vaadin-grid-column>
-              <vaadin-grid-sort-column
-                path="DisplayName"
-                header="Display Name"
-                style="color:lightgray"
-              ></vaadin-grid-sort-column>
-              <vaadin-grid-sort-column
-                path="LanId"
-                header="System Id"
-              ></vaadin-grid-sort-column>
-            </vaadin-grid>
-          `} `;
+        header-title="Add User or Group"
+        draggable
+        .opened="${this.isAddUserOrGroupDialogOpened}"
+        @opened-changed="${(e: DialogOpenedChangedEvent) => {
+          this.isAddUserOrGroupDialogOpened = e.detail.value;
+        }}"
+        ${dialogRenderer(this.renderAddUser, [
+          this.isAddUserOrGroupDialogOpened
+        ])}
+        ${dialogFooterRenderer(this.renderAddUserFooter, [])}
+      ></vaadin-dialog>
+      ${
+        this.loading
+          ? html` <dorc-spinner></dorc-spinner> `
+          : html`
+              <vaadin-grid
+                id="grid"
+                .items=${this.filteredUsers}
+                column-reordering-allowed
+                multi-sort
+                theme="compact row-stripes no-row-borders no-border"
+              >
+                <vaadin-grid-column
+                  ${columnBodyRenderer(this.renderLoginType, [])}
+                  width="50px"
+                  flex-grow="0"
+                ></vaadin-grid-column>
+                <vaadin-grid-sort-column
+                  path="DisplayName"
+                  header="Display Name"
+                  style="color:lightgray"
+                ></vaadin-grid-sort-column>
+                <vaadin-grid-sort-column
+                  path="LanId"
+                  header="System Id"
+                ></vaadin-grid-sort-column>
+              </vaadin-grid>
+            `
+      } `;
   }
 
   protected firstUpdated(_changedProperties: PropertyValues) {
     super.firstUpdated(_changedProperties);
 
+    // KNOWN DEFECT (pre-existing): `add-user-or-group` dispatches
+    // `user-or-group-created` with `composed: true` but no `bubbles`, so this
+    // listener never fires and `closeAddUser` is dead code. Adding `bubbles`
+    // activates it, and `closeAddUser` then dereferences `e.detail.user`
+    // unconditionally — which fails. Fixing it needs its own change with its
+    // own tests; it is deliberately NOT bundled into the dialog conversion.
     this.addEventListener(
       'user-or-group-created',
       this.closeAddUser as EventListener
@@ -152,39 +156,28 @@ export class PageUsersList extends PageElement {
     this.loading = false;
   }
 
-  renderLoginType(
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<UserApiModel>
-  ) {
-    const user = model.item as UserApiModel;
+  renderLoginType(user: UserApiModel) {
     if (user.LoginType?.toLowerCase() === 'windows') {
-      render(
-        html`<vaadin-icon
-          icon="hardware:desktop-windows"
-          style="color: var(--dorc-link-color)"
-        ></vaadin-icon>`,
-        root
-      );
+      return html`<vaadin-icon
+        icon="hardware:desktop-windows"
+        style="color: var(--dorc-link-color)"
+      ></vaadin-icon>`;
     }
     if (user.LoginType?.toLowerCase() === 'endur') {
-      render(
-        html`<vaadin-icon
-          icon="vaadin:chart-grid"
-          style="color: var(--dorc-link-color)"
-        ></vaadin-icon>`,
-        root
-      );
+      return html`<vaadin-icon
+        icon="vaadin:chart-grid"
+        style="color: var(--dorc-link-color)"
+      ></vaadin-icon>`;
     }
     if (user.LoginType?.toLowerCase() === 'sql') {
-      render(
-        html`<vaadin-icon
-          icon="vaadin:database"
-          style="color: var(--dorc-link-color)"
-        ></vaadin-icon>`,
-        root
-      );
+      return html`<vaadin-icon
+        icon="vaadin:database"
+        style="color: var(--dorc-link-color)"
+      ></vaadin-icon>`;
     }
+    // Any other login type shows nothing, as it did when the imperative
+    // renderer fell through without calling render().
+    return nothing;
   }
 
   updateSearch(e: CustomEvent) {
@@ -205,19 +198,28 @@ export class PageUsersList extends PageElement {
     );
   }
 
+  /**
+   * The open flag also gates the content, so `<add-user-or-group>` is torn down
+   * and rebuilt on each open — a fresh, empty form. Vaadin caches the renderer
+   * root, so without this gate (and the flag in the dependency array) the
+   * previous form state would persist across reopen.
+   */
+  private renderAddUser = () =>
+    this.isAddUserOrGroupDialogOpened
+      ? html`<add-user-or-group id="add-user-or-group"></add-user-or-group>`
+      : nothing;
+
+  private renderAddUserFooter = () => html`
+    <vaadin-button @click="${() => (this.isAddUserOrGroupDialogOpened = false)}"
+      >Close</vaadin-button
+    >
+  `;
+
   addUser() {
-    const attachEnv = this.shadowRoot?.getElementById(
-      'add-user-dialog'
-    ) as PaperDialogElement;
-    attachEnv.open();
     this.isAddUserOrGroupDialogOpened = true;
   }
 
   closeAddUser(e: CustomEvent) {
-    const dialog = this.shadowRoot?.getElementById(
-      'add-user-dialog'
-    ) as PaperDialogElement;
-    dialog.close();
     this.isAddUserOrGroupDialogOpened = false;
 
     const user = e.detail.user as UserApiModel;

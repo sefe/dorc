@@ -20,6 +20,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Dorc.ApiModel\Dorc.ApiModel.csproj" />
     <ProjectReference Include="..\Dorc.Runner.Logger\Dorc.Runner.Logger.csproj" />
+    <ProjectReference Include="..\Dorc.AzureDevOps.Client\Dorc.AzureDevOps.Client.csproj" />
     <ProjectReference Include="..\Dorc.AzureDevOps\src\Org.OpenAPITools\Org.OpenAPITools.csproj" />
     <ProjectReference Include="..\Dorc.Terraform.Catalog\Dorc.Terraform.Catalog.csproj" />
   </ItemGroup>

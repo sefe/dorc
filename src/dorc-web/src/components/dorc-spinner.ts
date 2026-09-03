@@ -65,6 +65,23 @@ export class DorcSpinner extends LitElement {
           transform: rotate(360deg);
         }
       }
+
+      /* WCAG 2.3.3 Animation from Interactions (AAA, voluntary). Honouring the
+         OS-level preference costs nothing and covers every call site at once.
+
+         On WCAG 2.2.2 Pause, Stop, Hide (Level A): this does NOT discharge it —
+         a media query is a preference, not a mechanism, and most users never set
+         it. 2.2.2 is discharged instead by its own exceptions: the motion is
+         *essential* (an indeterminate spinner's only job is to convey that work
+         is in progress — freezing it would destroy the information it carries),
+         and it is not "presented in parallel with other content" because the
+         overlay covers the content it is loading. Recorded here so the argument
+         is on the record rather than assumed. */
+      @media (prefers-reduced-motion: reduce) {
+        .spinner {
+          animation: none;
+        }
+      }
     `;
   }
 

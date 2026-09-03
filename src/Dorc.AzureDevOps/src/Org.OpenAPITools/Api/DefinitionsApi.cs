@@ -43,7 +43,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="definitionToCloneRevision"> (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>BuildDefinition</returns>
-        BuildDefinition DefinitionsCreate(string organization, string project, string apiVersion, BuildDefinition body, int? definitionToCloneId = default(int?), int? definitionToCloneRevision = default(int?), int operationIndex = 0);
+        BuildDefinition DefinitionsCreate(string organization, string project, string apiVersion, BuildDefinition body, int? definitionToCloneId = default, int? definitionToCloneRevision = default, int operationIndex = 0);
 
         /// <summary>
         /// 
@@ -60,7 +60,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="definitionToCloneRevision"> (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>ApiResponse of BuildDefinition</returns>
-        ApiResponse<BuildDefinition> DefinitionsCreateWithHttpInfo(string organization, string project, string apiVersion, BuildDefinition body, int? definitionToCloneId = default(int?), int? definitionToCloneRevision = default(int?), int operationIndex = 0);
+        ApiResponse<BuildDefinition> DefinitionsCreateWithHttpInfo(string organization, string project, string apiVersion, BuildDefinition body, int? definitionToCloneId = default, int? definitionToCloneRevision = default, int operationIndex = 0);
         /// <summary>
         /// 
         /// </summary>
@@ -107,7 +107,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="includeLatestBuilds"> (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>BuildDefinition</returns>
-        BuildDefinition DefinitionsGet(string organization, string project, int definitionId, string apiVersion, int? revision = default(int?), DateTime? minMetricsTime = default(DateTime?), string? propertyFilters = default(string?), bool? includeLatestBuilds = default(bool?), int operationIndex = 0);
+        BuildDefinition DefinitionsGet(string organization, string project, int definitionId, string apiVersion, int? revision = default, DateTime? minMetricsTime = default, string? propertyFilters = default, bool? includeLatestBuilds = default, int operationIndex = 0);
 
         /// <summary>
         /// 
@@ -126,7 +126,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="includeLatestBuilds"> (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>ApiResponse of BuildDefinition</returns>
-        ApiResponse<BuildDefinition> DefinitionsGetWithHttpInfo(string organization, string project, int definitionId, string apiVersion, int? revision = default(int?), DateTime? minMetricsTime = default(DateTime?), string? propertyFilters = default(string?), bool? includeLatestBuilds = default(bool?), int operationIndex = 0);
+        ApiResponse<BuildDefinition> DefinitionsGetWithHttpInfo(string organization, string project, int definitionId, string apiVersion, int? revision = default, DateTime? minMetricsTime = default, string? propertyFilters = default, bool? includeLatestBuilds = default, int operationIndex = 0);
         /// <summary>
         /// 
         /// </summary>
@@ -184,7 +184,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="yamlFilename">If specified, filters to YAML definitions that match the given filename. (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>List&lt;BuildDefinitionReference&gt;</returns>
-        List<BuildDefinitionReference> DefinitionsList(string organization, string project, string apiVersion, string? name = default(string?), string? repositoryId = default(string?), string? repositoryType = default(string?), string? queryOrder = default(string?), int? top = default(int?), string? continuationToken = default(string?), DateTime? minMetricsTime = default(DateTime?), string? definitionIds = default(string?), string? path = default(string?), DateTime? builtAfter = default(DateTime?), DateTime? notBuiltAfter = default(DateTime?), bool? includeAllProperties = default(bool?), bool? includeLatestBuilds = default(bool?), Guid? taskIdFilter = default(Guid?), int? processType = default(int?), string? yamlFilename = default(string?), int operationIndex = 0);
+        List<BuildDefinitionReference> DefinitionsList(string organization, string project, string apiVersion, string? name = default, string? repositoryId = default, string? repositoryType = default, string? queryOrder = default, int? top = default, string? continuationToken = default, DateTime? minMetricsTime = default, string? definitionIds = default, string? path = default, DateTime? builtAfter = default, DateTime? notBuiltAfter = default, bool? includeAllProperties = default, bool? includeLatestBuilds = default, Guid? taskIdFilter = default, int? processType = default, string? yamlFilename = default, int operationIndex = 0);
 
         /// <summary>
         /// 
@@ -214,7 +214,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="yamlFilename">If specified, filters to YAML definitions that match the given filename. (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>ApiResponse of List&lt;BuildDefinitionReference&gt;</returns>
-        ApiResponse<List<BuildDefinitionReference>> DefinitionsListWithHttpInfo(string organization, string project, string apiVersion, string? name = default(string?), string? repositoryId = default(string?), string? repositoryType = default(string?), string? queryOrder = default(string?), int? top = default(int?), string? continuationToken = default(string?), DateTime? minMetricsTime = default(DateTime?), string? definitionIds = default(string?), string? path = default(string?), DateTime? builtAfter = default(DateTime?), DateTime? notBuiltAfter = default(DateTime?), bool? includeAllProperties = default(bool?), bool? includeLatestBuilds = default(bool?), Guid? taskIdFilter = default(Guid?), int? processType = default(int?), string? yamlFilename = default(string?), int operationIndex = 0);
+        ApiResponse<List<BuildDefinitionReference>> DefinitionsListWithHttpInfo(string organization, string project, string apiVersion, string? name = default, string? repositoryId = default, string? repositoryType = default, string? queryOrder = default, int? top = default, string? continuationToken = default, DateTime? minMetricsTime = default, string? definitionIds = default, string? path = default, DateTime? builtAfter = default, DateTime? notBuiltAfter = default, bool? includeAllProperties = default, bool? includeLatestBuilds = default, Guid? taskIdFilter = default, int? processType = default, string? yamlFilename = default, int operationIndex = 0);
         /// <summary>
         /// 
         /// </summary>
@@ -262,7 +262,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="secretsSourceDefinitionRevision"> (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>BuildDefinition</returns>
-        BuildDefinition DefinitionsUpdate(string organization, string project, int definitionId, string apiVersion, BuildDefinition body, int? secretsSourceDefinitionId = default(int?), int? secretsSourceDefinitionRevision = default(int?), int operationIndex = 0);
+        BuildDefinition DefinitionsUpdate(string organization, string project, int definitionId, string apiVersion, BuildDefinition body, int? secretsSourceDefinitionId = default, int? secretsSourceDefinitionRevision = default, int operationIndex = 0);
 
         /// <summary>
         /// 
@@ -280,7 +280,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="secretsSourceDefinitionRevision"> (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>ApiResponse of BuildDefinition</returns>
-        ApiResponse<BuildDefinition> DefinitionsUpdateWithHttpInfo(string organization, string project, int definitionId, string apiVersion, BuildDefinition body, int? secretsSourceDefinitionId = default(int?), int? secretsSourceDefinitionRevision = default(int?), int operationIndex = 0);
+        ApiResponse<BuildDefinition> DefinitionsUpdateWithHttpInfo(string organization, string project, int definitionId, string apiVersion, BuildDefinition body, int? secretsSourceDefinitionId = default, int? secretsSourceDefinitionRevision = default, int operationIndex = 0);
         #endregion Synchronous Operations
     }
 
@@ -306,7 +306,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of BuildDefinition</returns>
-        System.Threading.Tasks.Task<BuildDefinition> DefinitionsCreateAsync(string organization, string project, string apiVersion, BuildDefinition body, int? definitionToCloneId = default(int?), int? definitionToCloneRevision = default(int?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<BuildDefinition> DefinitionsCreateAsync(string organization, string project, string apiVersion, BuildDefinition body, int? definitionToCloneId = default, int? definitionToCloneRevision = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
 
         /// <summary>
         /// 
@@ -324,7 +324,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse (BuildDefinition)</returns>
-        System.Threading.Tasks.Task<ApiResponse<BuildDefinition>> DefinitionsCreateWithHttpInfoAsync(string organization, string project, string apiVersion, BuildDefinition body, int? definitionToCloneId = default(int?), int? definitionToCloneRevision = default(int?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ApiResponse<BuildDefinition>> DefinitionsCreateWithHttpInfoAsync(string organization, string project, string apiVersion, BuildDefinition body, int? definitionToCloneId = default, int? definitionToCloneRevision = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
         /// <summary>
         /// 
         /// </summary>
@@ -339,7 +339,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of void</returns>
-        System.Threading.Tasks.Task DefinitionsDeleteAsync(string organization, string project, int definitionId, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task DefinitionsDeleteAsync(string organization, string project, int definitionId, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
 
         /// <summary>
         /// 
@@ -355,7 +355,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse</returns>
-        System.Threading.Tasks.Task<ApiResponse<Object>> DefinitionsDeleteWithHttpInfoAsync(string organization, string project, int definitionId, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ApiResponse<Object>> DefinitionsDeleteWithHttpInfoAsync(string organization, string project, int definitionId, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
         /// <summary>
         /// 
         /// </summary>
@@ -374,7 +374,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of BuildDefinition</returns>
-        System.Threading.Tasks.Task<BuildDefinition> DefinitionsGetAsync(string organization, string project, int definitionId, string apiVersion, int? revision = default(int?), DateTime? minMetricsTime = default(DateTime?), string? propertyFilters = default(string?), bool? includeLatestBuilds = default(bool?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<BuildDefinition> DefinitionsGetAsync(string organization, string project, int definitionId, string apiVersion, int? revision = default, DateTime? minMetricsTime = default, string? propertyFilters = default, bool? includeLatestBuilds = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
 
         /// <summary>
         /// 
@@ -394,7 +394,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse (BuildDefinition)</returns>
-        System.Threading.Tasks.Task<ApiResponse<BuildDefinition>> DefinitionsGetWithHttpInfoAsync(string organization, string project, int definitionId, string apiVersion, int? revision = default(int?), DateTime? minMetricsTime = default(DateTime?), string? propertyFilters = default(string?), bool? includeLatestBuilds = default(bool?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ApiResponse<BuildDefinition>> DefinitionsGetWithHttpInfoAsync(string organization, string project, int definitionId, string apiVersion, int? revision = default, DateTime? minMetricsTime = default, string? propertyFilters = default, bool? includeLatestBuilds = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
         /// <summary>
         /// 
         /// </summary>
@@ -409,7 +409,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of List&lt;BuildDefinitionRevision&gt;</returns>
-        System.Threading.Tasks.Task<List<BuildDefinitionRevision>> DefinitionsGetDefinitionRevisionsAsync(string organization, string project, int definitionId, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<List<BuildDefinitionRevision>> DefinitionsGetDefinitionRevisionsAsync(string organization, string project, int definitionId, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
 
         /// <summary>
         /// 
@@ -425,7 +425,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse (List&lt;BuildDefinitionRevision&gt;)</returns>
-        System.Threading.Tasks.Task<ApiResponse<List<BuildDefinitionRevision>>> DefinitionsGetDefinitionRevisionsWithHttpInfoAsync(string organization, string project, int definitionId, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ApiResponse<List<BuildDefinitionRevision>>> DefinitionsGetDefinitionRevisionsWithHttpInfoAsync(string organization, string project, int definitionId, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
         /// <summary>
         /// 
         /// </summary>
@@ -455,7 +455,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of List&lt;BuildDefinitionReference&gt;</returns>
-        System.Threading.Tasks.Task<List<BuildDefinitionReference>> DefinitionsListAsync(string organization, string project, string apiVersion, string? name = default(string?), string? repositoryId = default(string?), string? repositoryType = default(string?), string? queryOrder = default(string?), int? top = default(int?), string? continuationToken = default(string?), DateTime? minMetricsTime = default(DateTime?), string? definitionIds = default(string?), string? path = default(string?), DateTime? builtAfter = default(DateTime?), DateTime? notBuiltAfter = default(DateTime?), bool? includeAllProperties = default(bool?), bool? includeLatestBuilds = default(bool?), Guid? taskIdFilter = default(Guid?), int? processType = default(int?), string? yamlFilename = default(string?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<List<BuildDefinitionReference>> DefinitionsListAsync(string organization, string project, string apiVersion, string? name = default, string? repositoryId = default, string? repositoryType = default, string? queryOrder = default, int? top = default, string? continuationToken = default, DateTime? minMetricsTime = default, string? definitionIds = default, string? path = default, DateTime? builtAfter = default, DateTime? notBuiltAfter = default, bool? includeAllProperties = default, bool? includeLatestBuilds = default, Guid? taskIdFilter = default, int? processType = default, string? yamlFilename = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
 
         /// <summary>
         /// 
@@ -486,7 +486,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse (List&lt;BuildDefinitionReference&gt;)</returns>
-        System.Threading.Tasks.Task<ApiResponse<List<BuildDefinitionReference>>> DefinitionsListWithHttpInfoAsync(string organization, string project, string apiVersion, string? name = default(string?), string? repositoryId = default(string?), string? repositoryType = default(string?), string? queryOrder = default(string?), int? top = default(int?), string? continuationToken = default(string?), DateTime? minMetricsTime = default(DateTime?), string? definitionIds = default(string?), string? path = default(string?), DateTime? builtAfter = default(DateTime?), DateTime? notBuiltAfter = default(DateTime?), bool? includeAllProperties = default(bool?), bool? includeLatestBuilds = default(bool?), Guid? taskIdFilter = default(Guid?), int? processType = default(int?), string? yamlFilename = default(string?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ApiResponse<List<BuildDefinitionReference>>> DefinitionsListWithHttpInfoAsync(string organization, string project, string apiVersion, string? name = default, string? repositoryId = default, string? repositoryType = default, string? queryOrder = default, int? top = default, string? continuationToken = default, DateTime? minMetricsTime = default, string? definitionIds = default, string? path = default, DateTime? builtAfter = default, DateTime? notBuiltAfter = default, bool? includeAllProperties = default, bool? includeLatestBuilds = default, Guid? taskIdFilter = default, int? processType = default, string? yamlFilename = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
         /// <summary>
         /// 
         /// </summary>
@@ -502,7 +502,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of BuildDefinition</returns>
-        System.Threading.Tasks.Task<BuildDefinition> DefinitionsRestoreDefinitionAsync(string organization, string project, int definitionId, bool deleted, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<BuildDefinition> DefinitionsRestoreDefinitionAsync(string organization, string project, int definitionId, bool deleted, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
 
         /// <summary>
         /// 
@@ -519,7 +519,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse (BuildDefinition)</returns>
-        System.Threading.Tasks.Task<ApiResponse<BuildDefinition>> DefinitionsRestoreDefinitionWithHttpInfoAsync(string organization, string project, int definitionId, bool deleted, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ApiResponse<BuildDefinition>> DefinitionsRestoreDefinitionWithHttpInfoAsync(string organization, string project, int definitionId, bool deleted, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
         /// <summary>
         /// 
         /// </summary>
@@ -537,7 +537,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of BuildDefinition</returns>
-        System.Threading.Tasks.Task<BuildDefinition> DefinitionsUpdateAsync(string organization, string project, int definitionId, string apiVersion, BuildDefinition body, int? secretsSourceDefinitionId = default(int?), int? secretsSourceDefinitionRevision = default(int?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<BuildDefinition> DefinitionsUpdateAsync(string organization, string project, int definitionId, string apiVersion, BuildDefinition body, int? secretsSourceDefinitionId = default, int? secretsSourceDefinitionRevision = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
 
         /// <summary>
         /// 
@@ -556,7 +556,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse (BuildDefinition)</returns>
-        System.Threading.Tasks.Task<ApiResponse<BuildDefinition>> DefinitionsUpdateWithHttpInfoAsync(string organization, string project, int definitionId, string apiVersion, BuildDefinition body, int? secretsSourceDefinitionId = default(int?), int? secretsSourceDefinitionRevision = default(int?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ApiResponse<BuildDefinition>> DefinitionsUpdateWithHttpInfoAsync(string organization, string project, int definitionId, string apiVersion, BuildDefinition body, int? secretsSourceDefinitionId = default, int? secretsSourceDefinitionRevision = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
         #endregion Asynchronous Operations
     }
 
@@ -689,7 +689,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="definitionToCloneRevision"> (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>BuildDefinition</returns>
-        public BuildDefinition DefinitionsCreate(string organization, string project, string apiVersion, BuildDefinition body, int? definitionToCloneId = default(int?), int? definitionToCloneRevision = default(int?), int operationIndex = 0)
+        public BuildDefinition DefinitionsCreate(string organization, string project, string apiVersion, BuildDefinition body, int? definitionToCloneId = default, int? definitionToCloneRevision = default, int operationIndex = 0)
         {
             Org.OpenAPITools.Client.ApiResponse<BuildDefinition> localVarResponse = DefinitionsCreateWithHttpInfo(organization, project, apiVersion, body, definitionToCloneId, definitionToCloneRevision);
             return localVarResponse.Data;
@@ -707,7 +707,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="definitionToCloneRevision"> (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>ApiResponse of BuildDefinition</returns>
-        public Org.OpenAPITools.Client.ApiResponse<BuildDefinition> DefinitionsCreateWithHttpInfo(string organization, string project, string apiVersion, BuildDefinition body, int? definitionToCloneId = default(int?), int? definitionToCloneRevision = default(int?), int operationIndex = 0)
+        public Org.OpenAPITools.Client.ApiResponse<BuildDefinition> DefinitionsCreateWithHttpInfo(string organization, string project, string apiVersion, BuildDefinition body, int? definitionToCloneId = default, int? definitionToCloneRevision = default, int operationIndex = 0)
         {
             // verify the required parameter 'organization' is set
             if (organization == null)
@@ -745,6 +745,7 @@ namespace Org.OpenAPITools.Api
             };
 
             var localVarContentType = Org.OpenAPITools.Client.ClientUtils.SelectHeaderContentType(_contentTypes);
+            var localVarMultipartFormData = localVarContentType == "multipart/form-data";
             if (localVarContentType != null)
             {
                 localVarRequestOptions.HeaderParameters.Add("Content-Type", localVarContentType);
@@ -816,7 +817,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of BuildDefinition</returns>
-        public async System.Threading.Tasks.Task<BuildDefinition> DefinitionsCreateAsync(string organization, string project, string apiVersion, BuildDefinition body, int? definitionToCloneId = default(int?), int? definitionToCloneRevision = default(int?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public async System.Threading.Tasks.Task<BuildDefinition> DefinitionsCreateAsync(string organization, string project, string apiVersion, BuildDefinition body, int? definitionToCloneId = default, int? definitionToCloneRevision = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             Org.OpenAPITools.Client.ApiResponse<BuildDefinition> localVarResponse = await DefinitionsCreateWithHttpInfoAsync(organization, project, apiVersion, body, definitionToCloneId, definitionToCloneRevision, operationIndex, cancellationToken).ConfigureAwait(false);
             return localVarResponse.Data;
@@ -835,7 +836,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse (BuildDefinition)</returns>
-        public async System.Threading.Tasks.Task<Org.OpenAPITools.Client.ApiResponse<BuildDefinition>> DefinitionsCreateWithHttpInfoAsync(string organization, string project, string apiVersion, BuildDefinition body, int? definitionToCloneId = default(int?), int? definitionToCloneRevision = default(int?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public async System.Threading.Tasks.Task<Org.OpenAPITools.Client.ApiResponse<BuildDefinition>> DefinitionsCreateWithHttpInfoAsync(string organization, string project, string apiVersion, BuildDefinition body, int? definitionToCloneId = default, int? definitionToCloneRevision = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             // verify the required parameter 'organization' is set
             if (organization == null)
@@ -988,6 +989,7 @@ namespace Org.OpenAPITools.Api
             };
 
             var localVarContentType = Org.OpenAPITools.Client.ClientUtils.SelectHeaderContentType(_contentTypes);
+            var localVarMultipartFormData = localVarContentType == "multipart/form-data";
             if (localVarContentType != null)
             {
                 localVarRequestOptions.HeaderParameters.Add("Content-Type", localVarContentType);
@@ -1049,7 +1051,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of void</returns>
-        public async System.Threading.Tasks.Task DefinitionsDeleteAsync(string organization, string project, int definitionId, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public async System.Threading.Tasks.Task DefinitionsDeleteAsync(string organization, string project, int definitionId, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             await DefinitionsDeleteWithHttpInfoAsync(organization, project, definitionId, apiVersion, operationIndex, cancellationToken).ConfigureAwait(false);
         }
@@ -1065,7 +1067,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse</returns>
-        public async System.Threading.Tasks.Task<Org.OpenAPITools.Client.ApiResponse<Object>> DefinitionsDeleteWithHttpInfoAsync(string organization, string project, int definitionId, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public async System.Threading.Tasks.Task<Org.OpenAPITools.Client.ApiResponse<Object>> DefinitionsDeleteWithHttpInfoAsync(string organization, string project, int definitionId, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             // verify the required parameter 'organization' is set
             if (organization == null)
@@ -1161,7 +1163,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="includeLatestBuilds"> (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>BuildDefinition</returns>
-        public BuildDefinition DefinitionsGet(string organization, string project, int definitionId, string apiVersion, int? revision = default(int?), DateTime? minMetricsTime = default(DateTime?), string? propertyFilters = default(string?), bool? includeLatestBuilds = default(bool?), int operationIndex = 0)
+        public BuildDefinition DefinitionsGet(string organization, string project, int definitionId, string apiVersion, int? revision = default, DateTime? minMetricsTime = default, string? propertyFilters = default, bool? includeLatestBuilds = default, int operationIndex = 0)
         {
             Org.OpenAPITools.Client.ApiResponse<BuildDefinition> localVarResponse = DefinitionsGetWithHttpInfo(organization, project, definitionId, apiVersion, revision, minMetricsTime, propertyFilters, includeLatestBuilds);
             return localVarResponse.Data;
@@ -1181,7 +1183,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="includeLatestBuilds"> (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>ApiResponse of BuildDefinition</returns>
-        public Org.OpenAPITools.Client.ApiResponse<BuildDefinition> DefinitionsGetWithHttpInfo(string organization, string project, int definitionId, string apiVersion, int? revision = default(int?), DateTime? minMetricsTime = default(DateTime?), string? propertyFilters = default(string?), bool? includeLatestBuilds = default(bool?), int operationIndex = 0)
+        public Org.OpenAPITools.Client.ApiResponse<BuildDefinition> DefinitionsGetWithHttpInfo(string organization, string project, int definitionId, string apiVersion, int? revision = default, DateTime? minMetricsTime = default, string? propertyFilters = default, bool? includeLatestBuilds = default, int operationIndex = 0)
         {
             // verify the required parameter 'organization' is set
             if (organization == null)
@@ -1212,6 +1214,7 @@ namespace Org.OpenAPITools.Api
             };
 
             var localVarContentType = Org.OpenAPITools.Client.ClientUtils.SelectHeaderContentType(_contentTypes);
+            var localVarMultipartFormData = localVarContentType == "multipart/form-data";
             if (localVarContentType != null)
             {
                 localVarRequestOptions.HeaderParameters.Add("Content-Type", localVarContentType);
@@ -1293,7 +1296,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of BuildDefinition</returns>
-        public async System.Threading.Tasks.Task<BuildDefinition> DefinitionsGetAsync(string organization, string project, int definitionId, string apiVersion, int? revision = default(int?), DateTime? minMetricsTime = default(DateTime?), string? propertyFilters = default(string?), bool? includeLatestBuilds = default(bool?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public async System.Threading.Tasks.Task<BuildDefinition> DefinitionsGetAsync(string organization, string project, int definitionId, string apiVersion, int? revision = default, DateTime? minMetricsTime = default, string? propertyFilters = default, bool? includeLatestBuilds = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             Org.OpenAPITools.Client.ApiResponse<BuildDefinition> localVarResponse = await DefinitionsGetWithHttpInfoAsync(organization, project, definitionId, apiVersion, revision, minMetricsTime, propertyFilters, includeLatestBuilds, operationIndex, cancellationToken).ConfigureAwait(false);
             return localVarResponse.Data;
@@ -1314,7 +1317,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse (BuildDefinition)</returns>
-        public async System.Threading.Tasks.Task<Org.OpenAPITools.Client.ApiResponse<BuildDefinition>> DefinitionsGetWithHttpInfoAsync(string organization, string project, int definitionId, string apiVersion, int? revision = default(int?), DateTime? minMetricsTime = default(DateTime?), string? propertyFilters = default(string?), bool? includeLatestBuilds = default(bool?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public async System.Threading.Tasks.Task<Org.OpenAPITools.Client.ApiResponse<BuildDefinition>> DefinitionsGetWithHttpInfoAsync(string organization, string project, int definitionId, string apiVersion, int? revision = default, DateTime? minMetricsTime = default, string? propertyFilters = default, bool? includeLatestBuilds = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             // verify the required parameter 'organization' is set
             if (organization == null)
@@ -1470,6 +1473,7 @@ namespace Org.OpenAPITools.Api
             };
 
             var localVarContentType = Org.OpenAPITools.Client.ClientUtils.SelectHeaderContentType(_contentTypes);
+            var localVarMultipartFormData = localVarContentType == "multipart/form-data";
             if (localVarContentType != null)
             {
                 localVarRequestOptions.HeaderParameters.Add("Content-Type", localVarContentType);
@@ -1531,7 +1535,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of List&lt;BuildDefinitionRevision&gt;</returns>
-        public async System.Threading.Tasks.Task<List<BuildDefinitionRevision>> DefinitionsGetDefinitionRevisionsAsync(string organization, string project, int definitionId, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public async System.Threading.Tasks.Task<List<BuildDefinitionRevision>> DefinitionsGetDefinitionRevisionsAsync(string organization, string project, int definitionId, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             Org.OpenAPITools.Client.ApiResponse<List<BuildDefinitionRevision>> localVarResponse = await DefinitionsGetDefinitionRevisionsWithHttpInfoAsync(organization, project, definitionId, apiVersion, operationIndex, cancellationToken).ConfigureAwait(false);
             return localVarResponse.Data;
@@ -1548,7 +1552,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse (List&lt;BuildDefinitionRevision&gt;)</returns>
-        public async System.Threading.Tasks.Task<Org.OpenAPITools.Client.ApiResponse<List<BuildDefinitionRevision>>> DefinitionsGetDefinitionRevisionsWithHttpInfoAsync(string organization, string project, int definitionId, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public async System.Threading.Tasks.Task<Org.OpenAPITools.Client.ApiResponse<List<BuildDefinitionRevision>>> DefinitionsGetDefinitionRevisionsWithHttpInfoAsync(string organization, string project, int definitionId, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             // verify the required parameter 'organization' is set
             if (organization == null)
@@ -1656,7 +1660,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="yamlFilename">If specified, filters to YAML definitions that match the given filename. (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>List&lt;BuildDefinitionReference&gt;</returns>
-        public List<BuildDefinitionReference> DefinitionsList(string organization, string project, string apiVersion, string? name = default(string?), string? repositoryId = default(string?), string? repositoryType = default(string?), string? queryOrder = default(string?), int? top = default(int?), string? continuationToken = default(string?), DateTime? minMetricsTime = default(DateTime?), string? definitionIds = default(string?), string? path = default(string?), DateTime? builtAfter = default(DateTime?), DateTime? notBuiltAfter = default(DateTime?), bool? includeAllProperties = default(bool?), bool? includeLatestBuilds = default(bool?), Guid? taskIdFilter = default(Guid?), int? processType = default(int?), string? yamlFilename = default(string?), int operationIndex = 0)
+        public List<BuildDefinitionReference> DefinitionsList(string organization, string project, string apiVersion, string? name = default, string? repositoryId = default, string? repositoryType = default, string? queryOrder = default, int? top = default, string? continuationToken = default, DateTime? minMetricsTime = default, string? definitionIds = default, string? path = default, DateTime? builtAfter = default, DateTime? notBuiltAfter = default, bool? includeAllProperties = default, bool? includeLatestBuilds = default, Guid? taskIdFilter = default, int? processType = default, string? yamlFilename = default, int operationIndex = 0)
         {
             Org.OpenAPITools.Client.ApiResponse<List<BuildDefinitionReference>> localVarResponse = DefinitionsListWithHttpInfo(organization, project, apiVersion, name, repositoryId, repositoryType, queryOrder, top, continuationToken, minMetricsTime, definitionIds, path, builtAfter, notBuiltAfter, includeAllProperties, includeLatestBuilds, taskIdFilter, processType, yamlFilename);
             return localVarResponse.Data;
@@ -1687,7 +1691,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="yamlFilename">If specified, filters to YAML definitions that match the given filename. (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>ApiResponse of List&lt;BuildDefinitionReference&gt;</returns>
-        public Org.OpenAPITools.Client.ApiResponse<List<BuildDefinitionReference>> DefinitionsListWithHttpInfo(string organization, string project, string apiVersion, string? name = default(string?), string? repositoryId = default(string?), string? repositoryType = default(string?), string? queryOrder = default(string?), int? top = default(int?), string? continuationToken = default(string?), DateTime? minMetricsTime = default(DateTime?), string? definitionIds = default(string?), string? path = default(string?), DateTime? builtAfter = default(DateTime?), DateTime? notBuiltAfter = default(DateTime?), bool? includeAllProperties = default(bool?), bool? includeLatestBuilds = default(bool?), Guid? taskIdFilter = default(Guid?), int? processType = default(int?), string? yamlFilename = default(string?), int operationIndex = 0)
+        public Org.OpenAPITools.Client.ApiResponse<List<BuildDefinitionReference>> DefinitionsListWithHttpInfo(string organization, string project, string apiVersion, string? name = default, string? repositoryId = default, string? repositoryType = default, string? queryOrder = default, int? top = default, string? continuationToken = default, DateTime? minMetricsTime = default, string? definitionIds = default, string? path = default, DateTime? builtAfter = default, DateTime? notBuiltAfter = default, bool? includeAllProperties = default, bool? includeLatestBuilds = default, Guid? taskIdFilter = default, int? processType = default, string? yamlFilename = default, int operationIndex = 0)
         {
             // verify the required parameter 'organization' is set
             if (organization == null)
@@ -1718,6 +1722,7 @@ namespace Org.OpenAPITools.Api
             };
 
             var localVarContentType = Org.OpenAPITools.Client.ClientUtils.SelectHeaderContentType(_contentTypes);
+            var localVarMultipartFormData = localVarContentType == "multipart/form-data";
             if (localVarContentType != null)
             {
                 localVarRequestOptions.HeaderParameters.Add("Content-Type", localVarContentType);
@@ -1857,7 +1862,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of List&lt;BuildDefinitionReference&gt;</returns>
-        public async System.Threading.Tasks.Task<List<BuildDefinitionReference>> DefinitionsListAsync(string organization, string project, string apiVersion, string? name = default(string?), string? repositoryId = default(string?), string? repositoryType = default(string?), string? queryOrder = default(string?), int? top = default(int?), string? continuationToken = default(string?), DateTime? minMetricsTime = default(DateTime?), string? definitionIds = default(string?), string? path = default(string?), DateTime? builtAfter = default(DateTime?), DateTime? notBuiltAfter = default(DateTime?), bool? includeAllProperties = default(bool?), bool? includeLatestBuilds = default(bool?), Guid? taskIdFilter = default(Guid?), int? processType = default(int?), string? yamlFilename = default(string?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public async System.Threading.Tasks.Task<List<BuildDefinitionReference>> DefinitionsListAsync(string organization, string project, string apiVersion, string? name = default, string? repositoryId = default, string? repositoryType = default, string? queryOrder = default, int? top = default, string? continuationToken = default, DateTime? minMetricsTime = default, string? definitionIds = default, string? path = default, DateTime? builtAfter = default, DateTime? notBuiltAfter = default, bool? includeAllProperties = default, bool? includeLatestBuilds = default, Guid? taskIdFilter = default, int? processType = default, string? yamlFilename = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             Org.OpenAPITools.Client.ApiResponse<List<BuildDefinitionReference>> localVarResponse = await DefinitionsListWithHttpInfoAsync(organization, project, apiVersion, name, repositoryId, repositoryType, queryOrder, top, continuationToken, minMetricsTime, definitionIds, path, builtAfter, notBuiltAfter, includeAllProperties, includeLatestBuilds, taskIdFilter, processType, yamlFilename, operationIndex, cancellationToken).ConfigureAwait(false);
             return localVarResponse.Data;
@@ -1889,7 +1894,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse (List&lt;BuildDefinitionReference&gt;)</returns>
-        public async System.Threading.Tasks.Task<Org.OpenAPITools.Client.ApiResponse<List<BuildDefinitionReference>>> DefinitionsListWithHttpInfoAsync(string organization, string project, string apiVersion, string? name = default(string?), string? repositoryId = default(string?), string? repositoryType = default(string?), string? queryOrder = default(string?), int? top = default(int?), string? continuationToken = default(string?), DateTime? minMetricsTime = default(DateTime?), string? definitionIds = default(string?), string? path = default(string?), DateTime? builtAfter = default(DateTime?), DateTime? notBuiltAfter = default(DateTime?), bool? includeAllProperties = default(bool?), bool? includeLatestBuilds = default(bool?), Guid? taskIdFilter = default(Guid?), int? processType = default(int?), string? yamlFilename = default(string?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public async System.Threading.Tasks.Task<Org.OpenAPITools.Client.ApiResponse<List<BuildDefinitionReference>>> DefinitionsListWithHttpInfoAsync(string organization, string project, string apiVersion, string? name = default, string? repositoryId = default, string? repositoryType = default, string? queryOrder = default, int? top = default, string? continuationToken = default, DateTime? minMetricsTime = default, string? definitionIds = default, string? path = default, DateTime? builtAfter = default, DateTime? notBuiltAfter = default, bool? includeAllProperties = default, bool? includeLatestBuilds = default, Guid? taskIdFilter = default, int? processType = default, string? yamlFilename = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             // verify the required parameter 'organization' is set
             if (organization == null)
@@ -2094,6 +2099,7 @@ namespace Org.OpenAPITools.Api
             };
 
             var localVarContentType = Org.OpenAPITools.Client.ClientUtils.SelectHeaderContentType(_contentTypes);
+            var localVarMultipartFormData = localVarContentType == "multipart/form-data";
             if (localVarContentType != null)
             {
                 localVarRequestOptions.HeaderParameters.Add("Content-Type", localVarContentType);
@@ -2157,7 +2163,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of BuildDefinition</returns>
-        public async System.Threading.Tasks.Task<BuildDefinition> DefinitionsRestoreDefinitionAsync(string organization, string project, int definitionId, bool deleted, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public async System.Threading.Tasks.Task<BuildDefinition> DefinitionsRestoreDefinitionAsync(string organization, string project, int definitionId, bool deleted, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             Org.OpenAPITools.Client.ApiResponse<BuildDefinition> localVarResponse = await DefinitionsRestoreDefinitionWithHttpInfoAsync(organization, project, definitionId, deleted, apiVersion, operationIndex, cancellationToken).ConfigureAwait(false);
             return localVarResponse.Data;
@@ -2175,7 +2181,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse (BuildDefinition)</returns>
-        public async System.Threading.Tasks.Task<Org.OpenAPITools.Client.ApiResponse<BuildDefinition>> DefinitionsRestoreDefinitionWithHttpInfoAsync(string organization, string project, int definitionId, bool deleted, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public async System.Threading.Tasks.Task<Org.OpenAPITools.Client.ApiResponse<BuildDefinition>> DefinitionsRestoreDefinitionWithHttpInfoAsync(string organization, string project, int definitionId, bool deleted, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             // verify the required parameter 'organization' is set
             if (organization == null)
@@ -2272,7 +2278,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="secretsSourceDefinitionRevision"> (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>BuildDefinition</returns>
-        public BuildDefinition DefinitionsUpdate(string organization, string project, int definitionId, string apiVersion, BuildDefinition body, int? secretsSourceDefinitionId = default(int?), int? secretsSourceDefinitionRevision = default(int?), int operationIndex = 0)
+        public BuildDefinition DefinitionsUpdate(string organization, string project, int definitionId, string apiVersion, BuildDefinition body, int? secretsSourceDefinitionId = default, int? secretsSourceDefinitionRevision = default, int operationIndex = 0)
         {
             Org.OpenAPITools.Client.ApiResponse<BuildDefinition> localVarResponse = DefinitionsUpdateWithHttpInfo(organization, project, definitionId, apiVersion, body, secretsSourceDefinitionId, secretsSourceDefinitionRevision);
             return localVarResponse.Data;
@@ -2291,7 +2297,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="secretsSourceDefinitionRevision"> (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>ApiResponse of BuildDefinition</returns>
-        public Org.OpenAPITools.Client.ApiResponse<BuildDefinition> DefinitionsUpdateWithHttpInfo(string organization, string project, int definitionId, string apiVersion, BuildDefinition body, int? secretsSourceDefinitionId = default(int?), int? secretsSourceDefinitionRevision = default(int?), int operationIndex = 0)
+        public Org.OpenAPITools.Client.ApiResponse<BuildDefinition> DefinitionsUpdateWithHttpInfo(string organization, string project, int definitionId, string apiVersion, BuildDefinition body, int? secretsSourceDefinitionId = default, int? secretsSourceDefinitionRevision = default, int operationIndex = 0)
         {
             // verify the required parameter 'organization' is set
             if (organization == null)
@@ -2329,6 +2335,7 @@ namespace Org.OpenAPITools.Api
             };
 
             var localVarContentType = Org.OpenAPITools.Client.ClientUtils.SelectHeaderContentType(_contentTypes);
+            var localVarMultipartFormData = localVarContentType == "multipart/form-data";
             if (localVarContentType != null)
             {
                 localVarRequestOptions.HeaderParameters.Add("Content-Type", localVarContentType);
@@ -2402,7 +2409,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of BuildDefinition</returns>
-        public async System.Threading.Tasks.Task<BuildDefinition> DefinitionsUpdateAsync(string organization, string project, int definitionId, string apiVersion, BuildDefinition body, int? secretsSourceDefinitionId = default(int?), int? secretsSourceDefinitionRevision = default(int?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public async System.Threading.Tasks.Task<BuildDefinition> DefinitionsUpdateAsync(string organization, string project, int definitionId, string apiVersion, BuildDefinition body, int? secretsSourceDefinitionId = default, int? secretsSourceDefinitionRevision = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             Org.OpenAPITools.Client.ApiResponse<BuildDefinition> localVarResponse = await DefinitionsUpdateWithHttpInfoAsync(organization, project, definitionId, apiVersion, body, secretsSourceDefinitionId, secretsSourceDefinitionRevision, operationIndex, cancellationToken).ConfigureAwait(false);
             return localVarResponse.Data;
@@ -2422,7 +2429,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse (BuildDefinition)</returns>
-        public async System.Threading.Tasks.Task<Org.OpenAPITools.Client.ApiResponse<BuildDefinition>> DefinitionsUpdateWithHttpInfoAsync(string organization, string project, int definitionId, string apiVersion, BuildDefinition body, int? secretsSourceDefinitionId = default(int?), int? secretsSourceDefinitionRevision = default(int?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public async System.Threading.Tasks.Task<Org.OpenAPITools.Client.ApiResponse<BuildDefinition>> DefinitionsUpdateWithHttpInfoAsync(string organization, string project, int definitionId, string apiVersion, BuildDefinition body, int? secretsSourceDefinitionId = default, int? secretsSourceDefinitionRevision = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             // verify the required parameter 'organization' is set
             if (organization == null)

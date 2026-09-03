@@ -42,7 +42,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="filter">A comma-delimited list of properties. If specified, filters to these specific properties. (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>PropertiesCollection</returns>
-        PropertiesCollection PropertiesGetBuildProperties(string organization, string project, int buildId, string apiVersion, string? filter = default(string?), int operationIndex = 0);
+        PropertiesCollection PropertiesGetBuildProperties(string organization, string project, int buildId, string apiVersion, string? filter = default, int operationIndex = 0);
 
         /// <summary>
         /// 
@@ -58,7 +58,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="filter">A comma-delimited list of properties. If specified, filters to these specific properties. (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>ApiResponse of PropertiesCollection</returns>
-        ApiResponse<PropertiesCollection> PropertiesGetBuildPropertiesWithHttpInfo(string organization, string project, int buildId, string apiVersion, string? filter = default(string?), int operationIndex = 0);
+        ApiResponse<PropertiesCollection> PropertiesGetBuildPropertiesWithHttpInfo(string organization, string project, int buildId, string apiVersion, string? filter = default, int operationIndex = 0);
         /// <summary>
         /// 
         /// </summary>
@@ -73,7 +73,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="filter">A comma-delimited list of properties. If specified, filters to these specific properties. (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>PropertiesCollection</returns>
-        PropertiesCollection PropertiesGetDefinitionProperties(string organization, string project, int definitionId, string apiVersion, string? filter = default(string?), int operationIndex = 0);
+        PropertiesCollection PropertiesGetDefinitionProperties(string organization, string project, int definitionId, string apiVersion, string? filter = default, int operationIndex = 0);
 
         /// <summary>
         /// 
@@ -89,7 +89,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="filter">A comma-delimited list of properties. If specified, filters to these specific properties. (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>ApiResponse of PropertiesCollection</returns>
-        ApiResponse<PropertiesCollection> PropertiesGetDefinitionPropertiesWithHttpInfo(string organization, string project, int definitionId, string apiVersion, string? filter = default(string?), int operationIndex = 0);
+        ApiResponse<PropertiesCollection> PropertiesGetDefinitionPropertiesWithHttpInfo(string organization, string project, int definitionId, string apiVersion, string? filter = default, int operationIndex = 0);
         /// <summary>
         /// 
         /// </summary>
@@ -176,7 +176,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of PropertiesCollection</returns>
-        System.Threading.Tasks.Task<PropertiesCollection> PropertiesGetBuildPropertiesAsync(string organization, string project, int buildId, string apiVersion, string? filter = default(string?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<PropertiesCollection> PropertiesGetBuildPropertiesAsync(string organization, string project, int buildId, string apiVersion, string? filter = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
 
         /// <summary>
         /// 
@@ -193,7 +193,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse (PropertiesCollection)</returns>
-        System.Threading.Tasks.Task<ApiResponse<PropertiesCollection>> PropertiesGetBuildPropertiesWithHttpInfoAsync(string organization, string project, int buildId, string apiVersion, string? filter = default(string?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ApiResponse<PropertiesCollection>> PropertiesGetBuildPropertiesWithHttpInfoAsync(string organization, string project, int buildId, string apiVersion, string? filter = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
         /// <summary>
         /// 
         /// </summary>
@@ -209,7 +209,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of PropertiesCollection</returns>
-        System.Threading.Tasks.Task<PropertiesCollection> PropertiesGetDefinitionPropertiesAsync(string organization, string project, int definitionId, string apiVersion, string? filter = default(string?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<PropertiesCollection> PropertiesGetDefinitionPropertiesAsync(string organization, string project, int definitionId, string apiVersion, string? filter = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
 
         /// <summary>
         /// 
@@ -226,7 +226,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse (PropertiesCollection)</returns>
-        System.Threading.Tasks.Task<ApiResponse<PropertiesCollection>> PropertiesGetDefinitionPropertiesWithHttpInfoAsync(string organization, string project, int definitionId, string apiVersion, string? filter = default(string?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ApiResponse<PropertiesCollection>> PropertiesGetDefinitionPropertiesWithHttpInfoAsync(string organization, string project, int definitionId, string apiVersion, string? filter = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
         /// <summary>
         /// 
         /// </summary>
@@ -242,7 +242,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of PropertiesCollection</returns>
-        System.Threading.Tasks.Task<PropertiesCollection> PropertiesUpdateBuildPropertiesAsync(string organization, string project, int buildId, string apiVersion, JsonPatchDocument body, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<PropertiesCollection> PropertiesUpdateBuildPropertiesAsync(string organization, string project, int buildId, string apiVersion, JsonPatchDocument body, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
 
         /// <summary>
         /// 
@@ -259,7 +259,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse (PropertiesCollection)</returns>
-        System.Threading.Tasks.Task<ApiResponse<PropertiesCollection>> PropertiesUpdateBuildPropertiesWithHttpInfoAsync(string organization, string project, int buildId, string apiVersion, JsonPatchDocument body, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ApiResponse<PropertiesCollection>> PropertiesUpdateBuildPropertiesWithHttpInfoAsync(string organization, string project, int buildId, string apiVersion, JsonPatchDocument body, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
         /// <summary>
         /// 
         /// </summary>
@@ -275,7 +275,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of PropertiesCollection</returns>
-        System.Threading.Tasks.Task<PropertiesCollection> PropertiesUpdateDefinitionPropertiesAsync(string organization, string project, int definitionId, string apiVersion, JsonPatchDocument body, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<PropertiesCollection> PropertiesUpdateDefinitionPropertiesAsync(string organization, string project, int definitionId, string apiVersion, JsonPatchDocument body, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
 
         /// <summary>
         /// 
@@ -292,7 +292,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse (PropertiesCollection)</returns>
-        System.Threading.Tasks.Task<ApiResponse<PropertiesCollection>> PropertiesUpdateDefinitionPropertiesWithHttpInfoAsync(string organization, string project, int definitionId, string apiVersion, JsonPatchDocument body, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ApiResponse<PropertiesCollection>> PropertiesUpdateDefinitionPropertiesWithHttpInfoAsync(string organization, string project, int definitionId, string apiVersion, JsonPatchDocument body, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
         #endregion Asynchronous Operations
     }
 
@@ -424,7 +424,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="filter">A comma-delimited list of properties. If specified, filters to these specific properties. (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>PropertiesCollection</returns>
-        public PropertiesCollection PropertiesGetBuildProperties(string organization, string project, int buildId, string apiVersion, string? filter = default(string?), int operationIndex = 0)
+        public PropertiesCollection PropertiesGetBuildProperties(string organization, string project, int buildId, string apiVersion, string? filter = default, int operationIndex = 0)
         {
             Org.OpenAPITools.Client.ApiResponse<PropertiesCollection> localVarResponse = PropertiesGetBuildPropertiesWithHttpInfo(organization, project, buildId, apiVersion, filter);
             return localVarResponse.Data;
@@ -441,7 +441,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="filter">A comma-delimited list of properties. If specified, filters to these specific properties. (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>ApiResponse of PropertiesCollection</returns>
-        public Org.OpenAPITools.Client.ApiResponse<PropertiesCollection> PropertiesGetBuildPropertiesWithHttpInfo(string organization, string project, int buildId, string apiVersion, string? filter = default(string?), int operationIndex = 0)
+        public Org.OpenAPITools.Client.ApiResponse<PropertiesCollection> PropertiesGetBuildPropertiesWithHttpInfo(string organization, string project, int buildId, string apiVersion, string? filter = default, int operationIndex = 0)
         {
             // verify the required parameter 'organization' is set
             if (organization == null)
@@ -472,6 +472,7 @@ namespace Org.OpenAPITools.Api
             };
 
             var localVarContentType = Org.OpenAPITools.Client.ClientUtils.SelectHeaderContentType(_contentTypes);
+            var localVarMultipartFormData = localVarContentType == "multipart/form-data";
             if (localVarContentType != null)
             {
                 localVarRequestOptions.HeaderParameters.Add("Content-Type", localVarContentType);
@@ -538,7 +539,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of PropertiesCollection</returns>
-        public async System.Threading.Tasks.Task<PropertiesCollection> PropertiesGetBuildPropertiesAsync(string organization, string project, int buildId, string apiVersion, string? filter = default(string?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public async System.Threading.Tasks.Task<PropertiesCollection> PropertiesGetBuildPropertiesAsync(string organization, string project, int buildId, string apiVersion, string? filter = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             Org.OpenAPITools.Client.ApiResponse<PropertiesCollection> localVarResponse = await PropertiesGetBuildPropertiesWithHttpInfoAsync(organization, project, buildId, apiVersion, filter, operationIndex, cancellationToken).ConfigureAwait(false);
             return localVarResponse.Data;
@@ -556,7 +557,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse (PropertiesCollection)</returns>
-        public async System.Threading.Tasks.Task<Org.OpenAPITools.Client.ApiResponse<PropertiesCollection>> PropertiesGetBuildPropertiesWithHttpInfoAsync(string organization, string project, int buildId, string apiVersion, string? filter = default(string?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public async System.Threading.Tasks.Task<Org.OpenAPITools.Client.ApiResponse<PropertiesCollection>> PropertiesGetBuildPropertiesWithHttpInfoAsync(string organization, string project, int buildId, string apiVersion, string? filter = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             // verify the required parameter 'organization' is set
             if (organization == null)
@@ -654,7 +655,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="filter">A comma-delimited list of properties. If specified, filters to these specific properties. (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>PropertiesCollection</returns>
-        public PropertiesCollection PropertiesGetDefinitionProperties(string organization, string project, int definitionId, string apiVersion, string? filter = default(string?), int operationIndex = 0)
+        public PropertiesCollection PropertiesGetDefinitionProperties(string organization, string project, int definitionId, string apiVersion, string? filter = default, int operationIndex = 0)
         {
             Org.OpenAPITools.Client.ApiResponse<PropertiesCollection> localVarResponse = PropertiesGetDefinitionPropertiesWithHttpInfo(organization, project, definitionId, apiVersion, filter);
             return localVarResponse.Data;
@@ -671,7 +672,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="filter">A comma-delimited list of properties. If specified, filters to these specific properties. (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>ApiResponse of PropertiesCollection</returns>
-        public Org.OpenAPITools.Client.ApiResponse<PropertiesCollection> PropertiesGetDefinitionPropertiesWithHttpInfo(string organization, string project, int definitionId, string apiVersion, string? filter = default(string?), int operationIndex = 0)
+        public Org.OpenAPITools.Client.ApiResponse<PropertiesCollection> PropertiesGetDefinitionPropertiesWithHttpInfo(string organization, string project, int definitionId, string apiVersion, string? filter = default, int operationIndex = 0)
         {
             // verify the required parameter 'organization' is set
             if (organization == null)
@@ -702,6 +703,7 @@ namespace Org.OpenAPITools.Api
             };
 
             var localVarContentType = Org.OpenAPITools.Client.ClientUtils.SelectHeaderContentType(_contentTypes);
+            var localVarMultipartFormData = localVarContentType == "multipart/form-data";
             if (localVarContentType != null)
             {
                 localVarRequestOptions.HeaderParameters.Add("Content-Type", localVarContentType);
@@ -768,7 +770,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of PropertiesCollection</returns>
-        public async System.Threading.Tasks.Task<PropertiesCollection> PropertiesGetDefinitionPropertiesAsync(string organization, string project, int definitionId, string apiVersion, string? filter = default(string?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public async System.Threading.Tasks.Task<PropertiesCollection> PropertiesGetDefinitionPropertiesAsync(string organization, string project, int definitionId, string apiVersion, string? filter = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             Org.OpenAPITools.Client.ApiResponse<PropertiesCollection> localVarResponse = await PropertiesGetDefinitionPropertiesWithHttpInfoAsync(organization, project, definitionId, apiVersion, filter, operationIndex, cancellationToken).ConfigureAwait(false);
             return localVarResponse.Data;
@@ -786,7 +788,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse (PropertiesCollection)</returns>
-        public async System.Threading.Tasks.Task<Org.OpenAPITools.Client.ApiResponse<PropertiesCollection>> PropertiesGetDefinitionPropertiesWithHttpInfoAsync(string organization, string project, int definitionId, string apiVersion, string? filter = default(string?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public async System.Threading.Tasks.Task<Org.OpenAPITools.Client.ApiResponse<PropertiesCollection>> PropertiesGetDefinitionPropertiesWithHttpInfoAsync(string organization, string project, int definitionId, string apiVersion, string? filter = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             // verify the required parameter 'organization' is set
             if (organization == null)
@@ -939,6 +941,7 @@ namespace Org.OpenAPITools.Api
             };
 
             var localVarContentType = Org.OpenAPITools.Client.ClientUtils.SelectHeaderContentType(_contentTypes);
+            var localVarMultipartFormData = localVarContentType == "multipart/form-data";
             if (localVarContentType != null)
             {
                 localVarRequestOptions.HeaderParameters.Add("Content-Type", localVarContentType);
@@ -1002,7 +1005,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of PropertiesCollection</returns>
-        public async System.Threading.Tasks.Task<PropertiesCollection> PropertiesUpdateBuildPropertiesAsync(string organization, string project, int buildId, string apiVersion, JsonPatchDocument body, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public async System.Threading.Tasks.Task<PropertiesCollection> PropertiesUpdateBuildPropertiesAsync(string organization, string project, int buildId, string apiVersion, JsonPatchDocument body, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             Org.OpenAPITools.Client.ApiResponse<PropertiesCollection> localVarResponse = await PropertiesUpdateBuildPropertiesWithHttpInfoAsync(organization, project, buildId, apiVersion, body, operationIndex, cancellationToken).ConfigureAwait(false);
             return localVarResponse.Data;
@@ -1020,7 +1023,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse (PropertiesCollection)</returns>
-        public async System.Threading.Tasks.Task<Org.OpenAPITools.Client.ApiResponse<PropertiesCollection>> PropertiesUpdateBuildPropertiesWithHttpInfoAsync(string organization, string project, int buildId, string apiVersion, JsonPatchDocument body, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public async System.Threading.Tasks.Task<Org.OpenAPITools.Client.ApiResponse<PropertiesCollection>> PropertiesUpdateBuildPropertiesWithHttpInfoAsync(string organization, string project, int buildId, string apiVersion, JsonPatchDocument body, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             // verify the required parameter 'organization' is set
             if (organization == null)
@@ -1177,6 +1180,7 @@ namespace Org.OpenAPITools.Api
             };
 
             var localVarContentType = Org.OpenAPITools.Client.ClientUtils.SelectHeaderContentType(_contentTypes);
+            var localVarMultipartFormData = localVarContentType == "multipart/form-data";
             if (localVarContentType != null)
             {
                 localVarRequestOptions.HeaderParameters.Add("Content-Type", localVarContentType);
@@ -1240,7 +1244,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of PropertiesCollection</returns>
-        public async System.Threading.Tasks.Task<PropertiesCollection> PropertiesUpdateDefinitionPropertiesAsync(string organization, string project, int definitionId, string apiVersion, JsonPatchDocument body, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public async System.Threading.Tasks.Task<PropertiesCollection> PropertiesUpdateDefinitionPropertiesAsync(string organization, string project, int definitionId, string apiVersion, JsonPatchDocument body, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             Org.OpenAPITools.Client.ApiResponse<PropertiesCollection> localVarResponse = await PropertiesUpdateDefinitionPropertiesWithHttpInfoAsync(organization, project, definitionId, apiVersion, body, operationIndex, cancellationToken).ConfigureAwait(false);
             return localVarResponse.Data;
@@ -1258,7 +1262,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse (PropertiesCollection)</returns>
-        public async System.Threading.Tasks.Task<Org.OpenAPITools.Client.ApiResponse<PropertiesCollection>> PropertiesUpdateDefinitionPropertiesWithHttpInfoAsync(string organization, string project, int definitionId, string apiVersion, JsonPatchDocument body, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public async System.Threading.Tasks.Task<Org.OpenAPITools.Client.ApiResponse<PropertiesCollection>> PropertiesUpdateDefinitionPropertiesWithHttpInfoAsync(string organization, string project, int definitionId, string apiVersion, JsonPatchDocument body, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             // verify the required parameter 'organization' is set
             if (organization == null)

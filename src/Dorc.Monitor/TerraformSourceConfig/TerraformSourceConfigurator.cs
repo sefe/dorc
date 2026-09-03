@@ -4,7 +4,7 @@ using Dorc.Core.BuildServer;
 using Dorc.Core.Configuration;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using Org.OpenAPITools.Client.Auth;
+using Dorc.AzureDevOps.Client.Auth;
 
 namespace Dorc.Monitor.TerraformSourceConfig
 {

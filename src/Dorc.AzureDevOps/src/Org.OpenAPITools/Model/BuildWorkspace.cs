@@ -30,13 +30,13 @@ namespace Org.OpenAPITools.Model
     /// Represents a workspace mapping.
     /// </summary>
     [DataContract(Name = "BuildWorkspace")]
-    public partial class BuildWorkspace : IEquatable<BuildWorkspace>, IValidatableObject
+    public partial class BuildWorkspace : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="BuildWorkspace" /> class.
         /// </summary>
         /// <param name="mappings">mappings.</param>
-        public BuildWorkspace(List<MappingDetails> mappings = default(List<MappingDetails>))
+        public BuildWorkspace(List<MappingDetails> mappings = default)
         {
             this.Mappings = mappings;
         }
@@ -70,58 +70,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as BuildWorkspace);
-        }
-
-        /// <summary>
-        /// Returns true if BuildWorkspace instances are equal
-        /// </summary>
-        /// <param name="input">Instance of BuildWorkspace to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(BuildWorkspace input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.Mappings == input.Mappings ||
-                    this.Mappings != null &&
-                    input.Mappings != null &&
-                    this.Mappings.SequenceEqual(input.Mappings)
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.Mappings != null)
-                {
-                    hashCode = (hashCode * 59) + this.Mappings.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

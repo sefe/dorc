@@ -34,41 +34,20 @@ vi.mock('@vaadin/combo-box', () => ({}));
 
 // --- Mock the DOrc API surface used by the page ---
 vi.mock('../../src/apis/dorc-api', () => ({
-  AnalyticsDeploymentsMonthApi: class {
+  Configuration: class {},
+  AnalyticsApi: class {
     analyticsDeploymentsMonthGet = () => syncObservable(monthHolder.value);
-  },
-  AnalyticsDeploymentSummaryApi: class {
     analyticsDeploymentSummaryGet = () =>
       syncObservable(summaryHolder.value, summaryHolder.mode);
-  },
-  AnalyticsEnvironmentUsageApi: class {
     analyticsEnvironmentUsageGet = () => syncObservable([]);
-  },
-  AnalyticsUserActivityApi: class {
     analyticsUserActivityGet = () => syncObservable([]);
-  },
-  AnalyticsTimePatternApi: class {
     analyticsTimePatternGet = () => syncObservable([]);
-  },
-  AnalyticsComponentUsageApi: class {
     analyticsComponentUsageGet = () => syncObservable([]);
-  },
-  AnalyticsDurationApi: class {
     analyticsDurationGet = () => syncObservable({});
-  },
-  AnalyticsMonthlyOutcomeApi: class {
     analyticsMonthlyOutcomeGet = () => syncObservable(outcomeHolder.value);
-  },
-  AnalyticsEnvironmentWaitApi: class {
     analyticsEnvironmentWaitGet = () => syncObservable([]);
-  },
-  AnalyticsProjectDurationApi: class {
     analyticsProjectDurationGet = () => syncObservable([]);
-  },
-  AnalyticsComponentReliabilityApi: class {
     analyticsComponentReliabilityGet = () => syncObservable([]);
-  },
-  AnalyticsRecoveryTimeApi: class {
     analyticsRecoveryTimeGet = () => syncObservable([]);
   }
 }));

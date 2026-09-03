@@ -1302,6 +1302,41 @@
         }
       }
     },
+    "/DaemonStatus/discover/{envName}": {
+      "get": {
+        "tags": [
+          "DaemonStatus"
+        ],
+        "summary": "Discover all daemons on environment servers and automatically create daemon-server mappings",
+        "parameters": [
+          {
+            "name": "envName",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscoverDaemonsResult"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscoverDaemonsResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/DeploymentV2": {
       "get": {
         "tags": [
@@ -5964,6 +5999,15 @@
               "type": "integer",
               "format": "int32"
             }
+          },
+          {
+            "name": "confirmed",
+            "in": "query",
+            "description": "Set to true to confirm deletion despite linked daemons",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
           }
         ],
         "responses": {
@@ -8628,6 +8672,10 @@
           "Message": {
             "type": "string",
             "nullable": true
+          },
+          "RequiresConfirmation": {
+            "type": "boolean",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -9338,6 +9386,42 @@
           },
           "Log": {
             "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "DiscoverDaemonsResult": {
+        "type": "object",
+        "properties": {
+          "MappingsCreated": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "ServersProcessed": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "DaemonsDiscovered": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "Errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "Success": {
+            "type": "boolean"
+          },
+          "DiscoveredDaemons": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DaemonStatusApiModel"
+            },
+            "description": "List of discovered daemon statuses to display in UI",
             "nullable": true
           }
         },
@@ -10094,6 +10178,10 @@
             "nullable": true
           },
           "TerraformGitRepoUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "LeanIXUrl": {
             "type": "string",
             "nullable": true
           },

@@ -1,11 +1,43 @@
 // Test setup, applied to every test file via vitest.config.ts setupFiles.
 
 import { afterEach } from 'vitest';
-import { _cleanupFixtures } from './_helpers';
+import { _cleanupFixtures, resetTheme } from './_helpers';
+
+// The --dorc-* theme tokens are declared in src/theme/dorc-tokens.css, which
+// index.html links. vitest uses its own tester HTML, so without this import the
+// tokens do not exist in the test document: getPropertyValue('--dorc-bg-primary')
+// returns '', every var() falls back to transparent, and a contrast assertion
+// passes vacuously in BOTH themes while the app fails. Importing it here is what
+// makes the contrast criteria mean anything.
+import '../src/theme/dorc-tokens.css';
 
 // Remove fixture containers between tests so DOM state doesn't leak.
+//
+// Vaadin 25 dialog overlays live inside the <vaadin-dialog> element's own
+// shadow root rather than being appended to document.body, so removing the
+// host removes them too. Two things do NOT follow that rule and were leaking
+// past this hook:
+//
+//  - Notifications. `Notification.show` mounts a
+//    <vaadin-notification-container> on document.body and leaves it there.
+//    Three files end with a card still in it, which is exactly the "next test
+//    finds the wrong element" shape.
+//  - `document.body.style.pointerEvents`. A dialog's `_enterModalState()` sets
+//    it to 'none' and only `opened = false` clears it, so a test that ends
+//    with a dialog open leaves the page inert. Harmless today only because
+//    nothing in the suite uses real browser input — every click is `el.click()`
+//    or a dispatched event, neither of which pointer-events blocks. The first
+//    `userEvent.click` added would inherit a dead page.
+const BODY_LEVEL_LEFTOVERS =
+  'vaadin-notification, vaadin-notification-container, vaadin-confirm-dialog';
+
 afterEach(() => {
   _cleanupFixtures();
+  resetTheme();
+  for (const node of document.body.querySelectorAll(BODY_LEVEL_LEFTOVERS)) {
+    node.remove();
+  }
+  document.body.style.pointerEvents = '';
 });
 
 // Silence known unhandled errors thrown from SUT modules that aren't fully
@@ -22,11 +54,12 @@ const SUPPRESS_PATTERNS: RegExp[] = [
   // form ("AjaxError: ajax error").
   /^ajax error\b/,
   /^AjaxError(?::|\s|$)/,
-  // Vaadin Router throws this from urlForName when no routes are registered.
+  // The router throws this from urlForName when a link renders before the
+  // route table is installed.
   /^Route "[^"]+" not found$/,
   // Tagify is loaded via a CDN <script> in index.html and isn't available in
   // the test runner; tags-input's firstUpdated calls `new window.Tagify(...)`.
-  /^window\.Tagify is not a constructor$/,
+  /^window\.Tagify is not a constructor$/
 ];
 
 const matches = (msg: unknown): boolean =>

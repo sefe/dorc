@@ -1,4 +1,4 @@
-import type { Commands, RouteContext } from '@vaadin/router';
+import type { AppRoute, RouteRedirect, RouteResolveContext } from './route-config';
 import {appConfig} from '../app-config';
 
 import '../components/dorc-app.ts'
@@ -55,7 +55,7 @@ export type RouteMeta = Readonly<{
   };
 }>;
 
-export const routes = [
+export const routes: AppRoute[] = [
   {
     path: '',
     component: 'dorc-app',
@@ -103,8 +103,7 @@ export const routes = [
       {
         path: '/about',
         name: 'about',
-        action: (_context: RouteContext, commands: Commands) =>
-          commands.redirect('/analytics'),
+        action: (): RouteRedirect => ({ redirect: '/analytics' }),
         metadata: {
           title: 'Analytics',
           description: 'Deployment analytics and statistics'
@@ -352,9 +351,13 @@ export const routes = [
             },
             children: [
               {
-                path: '/',
-                action: (_context: RouteContext, commands: Commands) =>
-                  commands.redirect(_context.pathname + '/servers'),
+                // Empty, not '/': under path-to-regexp v8 a '/' path only
+                // matches when the URL has a trailing slash, and the tab
+                // navigation produces '/environment/:id/components'.
+                path: '',
+                action: (context: RouteResolveContext): RouteRedirect => ({
+                  redirect: `${context.pathname.replace(/\/+$/, '')}/servers`
+                }),
                 metadata: { title: 'Components', description: 'Default redirect' }
               },
               {
@@ -467,7 +470,9 @@ export const routes = [
         }
       },
       {
-        path: '(.*)',
+        // path-to-regexp v8 (used by universal-router) requires named
+        // wildcards; this is the v8 spelling of Vaadin Router's `(.*)`.
+        path: '/*notFound',
         name: 'not-found',
         component: 'page-not-found',
         metadata: {

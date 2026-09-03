@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// Schedule
     /// </summary>
     [DataContract(Name = "Schedule")]
-    public partial class Schedule : IEquatable<Schedule>, IValidatableObject
+    public partial class Schedule : IValidatableObject
     {
         /// <summary>
         /// Days for a build (flags enum for days of the week)
@@ -92,7 +92,6 @@ namespace Org.OpenAPITools.Model
             /// </summary>
             [EnumMember(Value = "all")]
             All = 9
-
         }
 
 
@@ -112,7 +111,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="startHours">Local timezone hour to start.</param>
         /// <param name="startMinutes">Local timezone minute to start.</param>
         /// <param name="timeZoneId">Time zone of the build schedule (String representation of the time zone ID).</param>
-        public Schedule(List<string> branchFilters = default(List<string>), DaysToBuildEnum? daysToBuild = default(DaysToBuildEnum?), Guid scheduleJobId = default(Guid), bool scheduleOnlyWithChanges = default(bool), int startHours = default(int), int startMinutes = default(int), string timeZoneId = default(string))
+        public Schedule(List<string> branchFilters = default, DaysToBuildEnum? daysToBuild = default, Guid scheduleJobId = default, bool scheduleOnlyWithChanges = default, int startHours = default, int startMinutes = default, string timeZoneId = default)
         {
             this.BranchFilters = branchFilters;
             this.DaysToBuild = daysToBuild;
@@ -193,96 +192,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as Schedule);
-        }
-
-        /// <summary>
-        /// Returns true if Schedule instances are equal
-        /// </summary>
-        /// <param name="input">Instance of Schedule to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(Schedule input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.BranchFilters == input.BranchFilters ||
-                    this.BranchFilters != null &&
-                    input.BranchFilters != null &&
-                    this.BranchFilters.SequenceEqual(input.BranchFilters)
-                ) && 
-                (
-                    this.DaysToBuild == input.DaysToBuild ||
-                    this.DaysToBuild.Equals(input.DaysToBuild)
-                ) && 
-                (
-                    this.ScheduleJobId == input.ScheduleJobId ||
-                    (this.ScheduleJobId != null &&
-                    this.ScheduleJobId.Equals(input.ScheduleJobId))
-                ) && 
-                (
-                    this.ScheduleOnlyWithChanges == input.ScheduleOnlyWithChanges ||
-                    this.ScheduleOnlyWithChanges.Equals(input.ScheduleOnlyWithChanges)
-                ) && 
-                (
-                    this.StartHours == input.StartHours ||
-                    this.StartHours.Equals(input.StartHours)
-                ) && 
-                (
-                    this.StartMinutes == input.StartMinutes ||
-                    this.StartMinutes.Equals(input.StartMinutes)
-                ) && 
-                (
-                    this.TimeZoneId == input.TimeZoneId ||
-                    (this.TimeZoneId != null &&
-                    this.TimeZoneId.Equals(input.TimeZoneId))
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.BranchFilters != null)
-                {
-                    hashCode = (hashCode * 59) + this.BranchFilters.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.DaysToBuild.GetHashCode();
-                if (this.ScheduleJobId != null)
-                {
-                    hashCode = (hashCode * 59) + this.ScheduleJobId.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.ScheduleOnlyWithChanges.GetHashCode();
-                hashCode = (hashCode * 59) + this.StartHours.GetHashCode();
-                hashCode = (hashCode * 59) + this.StartMinutes.GetHashCode();
-                if (this.TimeZoneId != null)
-                {
-                    hashCode = (hashCode * 59) + this.TimeZoneId.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

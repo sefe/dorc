@@ -318,14 +318,22 @@ namespace Dorc.Core
             _componentsPersistentSource.LoadChildren(component);
             foreach (var child in component.Children)
             {
-                if (child.IsEnabled != false)
+                if (child.IsEnabled)
                 {
                     AddComponent(componentNames, child);
+                    continue;
+                }
+
+                _componentsPersistentSource.LoadChildren(child);
+                if (child.Children.Count == 0 && !componentNames.Contains(child.ComponentName))
+                {
+                    componentNames.Add(child.ComponentName);
                 }
             }
 
-            // adding only enabled leaf components
-            if (component.IsEnabled && component.Children.Count == 0 && !componentNames.Contains(component.ComponentName))
+            // Disabled leaves must be persisted so deployment results can show
+            // that they were deliberately skipped. Execution filters them later.
+            if (component.Children.Count == 0 && !componentNames.Contains(component.ComponentName))
             {
                 componentNames.Add(component.ComponentName);
             }

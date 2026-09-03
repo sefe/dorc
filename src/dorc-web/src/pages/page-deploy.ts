@@ -1,6 +1,6 @@
+import { comboBoxRenderer } from '@vaadin/combo-box/lit';
 import '@vaadin/combo-box';
-import { ComboBoxItemModel } from '@vaadin/combo-box';
-import { ComboBox } from '@vaadin/combo-box/src/vaadin-combo-box';
+import { ComboBox } from '@vaadin/combo-box';
 import { css } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
@@ -17,6 +17,7 @@ import {
 } from '../apis/dorc-api';
 import type { ProjectApiModel } from '../apis/dorc-api';
 import { PageElement } from '../helpers/page-element';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('page-deploy')
 export class PageDeploy extends PageElement {
@@ -24,17 +25,16 @@ export class PageDeploy extends PageElement {
 
   @property({ type: Array }) buildDefinitions: DeployArtefactDto[] = [];
 
-  @property({ type: Object }) private project!: ProjectApiModel;
+  @property({ type: Object }) project!: ProjectApiModel;
 
   @property({ type: Array }) environments:
-    | Array<EnvironmentApiModel>
-    | undefined = [];
+    Array<EnvironmentApiModel> | undefined = [];
 
-  @property({ type: Boolean }) private projectsLoading = true;
+  @property({ type: Boolean }) projectsLoading = true;
 
-  @property({ type: Boolean }) private envsLoading = false;
+  @property({ type: Boolean }) envsLoading = false;
 
-  @property({ type: String }) private selectedEnvironmentName = '';
+  @property({ type: String }) selectedEnvironmentName = '';
 
   private environment: EnvironmentApiModel | undefined;
 
@@ -74,7 +74,7 @@ export class PageDeploy extends PageElement {
   constructor() {
     super();
 
-    const api = new RefDataProjectsApi();
+    const api = new RefDataProjectsApi(dorcApiConfiguration);
     api.refDataProjectsGet().subscribe(
       (data: ProjectApiModel[]) => {
         this.setProjects(data);
@@ -104,38 +104,48 @@ export class PageDeploy extends PageElement {
   render() {
     return html`
       <div class="scroller">
-        <div style="display: flex; flex-direction: column; gap: var(--lumo-space-xs); width: 100%; max-width: 600px; padding-left: var(--lumo-space-s);">
-          <div style="display: flex; align-items: center; gap: var(--lumo-space-s);">
-              <vaadin-combo-box
-                style="flex: 1;"
-                @value-changed="${this._projectValueChanged}"
-                .items="${this.projects}"
-                .renderer="${this._projectsRenderer}"
-                placeholder="Select Project"
-                label="Project"
-                item-label-path="ProjectName"
-                item-value-path="ProjectId"
-                clear-button-visible
-              ></vaadin-combo-box>
-              ${this.projectsLoading
+        <div
+          style="display: flex; flex-direction: column; gap: var(--lumo-space-xs); width: 100%; max-width: 600px; padding-left: var(--lumo-space-s);"
+        >
+          <div
+            style="display: flex; align-items: center; gap: var(--lumo-space-s);"
+          >
+            <vaadin-combo-box
+              style="flex: 1;"
+              @value-changed="${this._projectValueChanged}"
+              .items="${this.projects}"
+              ${comboBoxRenderer(this._projectsRenderer, [])}
+              placeholder="Select Project"
+              label="Project"
+              item-label-path="ProjectName"
+              item-value-path="ProjectId"
+              clear-button-visible
+            ></vaadin-combo-box>
+            ${
+              this.projectsLoading
                 ? html` <div class="small-loader"></div> `
-                : html``}
+                : html``
+            }
           </div>
-          <div style="display: flex; align-items: center; gap: var(--lumo-space-s);">
-              <vaadin-combo-box
-                id="environments"
-                style="flex: 1;"
-                @value-changed="${this._environmentValueChanged}"
-                .items="${this.environments}"
-                placeholder="Select Environment"
-                label="Environment"
-                clear-button-visible
-                item-label-path="EnvironmentName"
-                item-value-path="EnvironmentId"
-              ></vaadin-combo-box>
-              ${this.envsLoading
+          <div
+            style="display: flex; align-items: center; gap: var(--lumo-space-s);"
+          >
+            <vaadin-combo-box
+              id="environments"
+              style="flex: 1;"
+              @value-changed="${this._environmentValueChanged}"
+              .items="${this.environments}"
+              placeholder="Select Environment"
+              label="Environment"
+              clear-button-visible
+              item-label-path="EnvironmentName"
+              item-value-path="EnvironmentId"
+            ></vaadin-combo-box>
+            ${
+              this.envsLoading
                 ? html` <div class="small-loader"></div> `
-                : html``}
+                : html``
+            }
           </div>
         </div>
         <deploy-env
@@ -148,13 +158,8 @@ export class PageDeploy extends PageElement {
     `;
   }
 
-  _projectsRenderer(
-    root: HTMLElement,
-    _comboBox: ComboBox,
-    model: ComboBoxItemModel<ProjectApiModel>
-  ) {
-    const template = model.item as ProjectApiModel;
-    root.innerHTML = `<div>${template.ProjectName}</div>`;
+  _projectsRenderer(project: ProjectApiModel) {
+    return html`<div>${project.ProjectName}</div>`;
   }
 
   _projectValueChanged(data: any) {
@@ -166,7 +171,7 @@ export class PageDeploy extends PageElement {
 
     if (this.project !== undefined) {
       this.envsLoading = true;
-      const api = new RefDataProjectEnvironmentMappingsApi();
+      const api = new RefDataProjectEnvironmentMappingsApi(dorcApiConfiguration);
       api
         .refDataProjectEnvironmentMappingsGet({
           project: this.project?.ProjectName ?? '',
@@ -194,9 +199,7 @@ export class PageDeploy extends PageElement {
       value => value.EnvironmentId === envId
     );
     this.selectedEnvironmentName = this.environment?.EnvironmentName ?? '';
-    const deployEnv = this.shadowRoot?.getElementById(
-      'deployEnv'
-    ) as DeployEnv;
+    const deployEnv = this.shadowRoot?.getElementById('deployEnv') as DeployEnv;
     deployEnv.EnvironmentChange(this.selectedEnvironmentName);
   }
 

@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// ContinuousDeploymentDefinition
     /// </summary>
     [DataContract(Name = "ContinuousDeploymentDefinition")]
-    public partial class ContinuousDeploymentDefinition : IEquatable<ContinuousDeploymentDefinition>, IValidatableObject
+    public partial class ContinuousDeploymentDefinition : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="ContinuousDeploymentDefinition" /> class.
@@ -45,7 +45,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="subscriptionId">subscriptionId.</param>
         /// <param name="website">website.</param>
         /// <param name="webspace">webspace.</param>
-        public ContinuousDeploymentDefinition(WebApiConnectedServiceRef connectedService = default(WebApiConnectedServiceRef), XamlDefinitionReference definition = default(XamlDefinitionReference), string gitBranch = default(string), string hostedServiceName = default(string), TeamProjectReference project = default(TeamProjectReference), string repositoryId = default(string), string storageAccountName = default(string), string subscriptionId = default(string), string website = default(string), string webspace = default(string))
+        public ContinuousDeploymentDefinition(WebApiConnectedServiceRef connectedService = default, XamlDefinitionReference definition = default, string gitBranch = default, string hostedServiceName = default, TeamProjectReference project = default, string repositoryId = default, string storageAccountName = default, string subscriptionId = default, string website = default, string webspace = default)
         {
             this.ConnectedService = connectedService;
             this.Definition = definition;
@@ -151,138 +151,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as ContinuousDeploymentDefinition);
-        }
-
-        /// <summary>
-        /// Returns true if ContinuousDeploymentDefinition instances are equal
-        /// </summary>
-        /// <param name="input">Instance of ContinuousDeploymentDefinition to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(ContinuousDeploymentDefinition input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.ConnectedService == input.ConnectedService ||
-                    (this.ConnectedService != null &&
-                    this.ConnectedService.Equals(input.ConnectedService))
-                ) && 
-                (
-                    this.Definition == input.Definition ||
-                    (this.Definition != null &&
-                    this.Definition.Equals(input.Definition))
-                ) && 
-                (
-                    this.GitBranch == input.GitBranch ||
-                    (this.GitBranch != null &&
-                    this.GitBranch.Equals(input.GitBranch))
-                ) && 
-                (
-                    this.HostedServiceName == input.HostedServiceName ||
-                    (this.HostedServiceName != null &&
-                    this.HostedServiceName.Equals(input.HostedServiceName))
-                ) && 
-                (
-                    this.Project == input.Project ||
-                    (this.Project != null &&
-                    this.Project.Equals(input.Project))
-                ) && 
-                (
-                    this.RepositoryId == input.RepositoryId ||
-                    (this.RepositoryId != null &&
-                    this.RepositoryId.Equals(input.RepositoryId))
-                ) && 
-                (
-                    this.StorageAccountName == input.StorageAccountName ||
-                    (this.StorageAccountName != null &&
-                    this.StorageAccountName.Equals(input.StorageAccountName))
-                ) && 
-                (
-                    this.SubscriptionId == input.SubscriptionId ||
-                    (this.SubscriptionId != null &&
-                    this.SubscriptionId.Equals(input.SubscriptionId))
-                ) && 
-                (
-                    this.Website == input.Website ||
-                    (this.Website != null &&
-                    this.Website.Equals(input.Website))
-                ) && 
-                (
-                    this.Webspace == input.Webspace ||
-                    (this.Webspace != null &&
-                    this.Webspace.Equals(input.Webspace))
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.ConnectedService != null)
-                {
-                    hashCode = (hashCode * 59) + this.ConnectedService.GetHashCode();
-                }
-                if (this.Definition != null)
-                {
-                    hashCode = (hashCode * 59) + this.Definition.GetHashCode();
-                }
-                if (this.GitBranch != null)
-                {
-                    hashCode = (hashCode * 59) + this.GitBranch.GetHashCode();
-                }
-                if (this.HostedServiceName != null)
-                {
-                    hashCode = (hashCode * 59) + this.HostedServiceName.GetHashCode();
-                }
-                if (this.Project != null)
-                {
-                    hashCode = (hashCode * 59) + this.Project.GetHashCode();
-                }
-                if (this.RepositoryId != null)
-                {
-                    hashCode = (hashCode * 59) + this.RepositoryId.GetHashCode();
-                }
-                if (this.StorageAccountName != null)
-                {
-                    hashCode = (hashCode * 59) + this.StorageAccountName.GetHashCode();
-                }
-                if (this.SubscriptionId != null)
-                {
-                    hashCode = (hashCode * 59) + this.SubscriptionId.GetHashCode();
-                }
-                if (this.Website != null)
-                {
-                    hashCode = (hashCode * 59) + this.Website.GetHashCode();
-                }
-                if (this.Webspace != null)
-                {
-                    hashCode = (hashCode * 59) + this.Webspace.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }
