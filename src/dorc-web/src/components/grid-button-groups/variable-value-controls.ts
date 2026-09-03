@@ -18,6 +18,7 @@ import '../../icons/iron-icons.js';
 import { Notification } from '@vaadin/notification';
 import '@vaadin/text-field';
 import '@vaadin/tooltip';
+import { dorcApiConfiguration } from '../../services/dorc-api-configuration';
 
 @customElement('variable-value-controls')
 export class VariableValueControls extends LitElement {
@@ -157,7 +158,7 @@ export class VariableValueControls extends LitElement {
         propertyValue.PropertyValueFilter = undefined;
         propertyValue.DefaultValue = true;
       }
-      const api = new PropertyValuesApi();
+      const api = new PropertyValuesApi(dorcApiConfiguration);
       api
         .propertyValuesDelete({
           propertyValueDto: [propertyValue]
@@ -218,7 +219,7 @@ export class VariableValueControls extends LitElement {
   }
 
   _saveClick() {
-    const api = new PropertyValuesApi();
+    const api = new PropertyValuesApi(dorcApiConfiguration);
     api
       .propertyValuesPut({
         propertyValueDto: [this.value]

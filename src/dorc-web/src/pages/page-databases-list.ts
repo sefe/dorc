@@ -42,6 +42,7 @@ import '@vaadin/grid/vaadin-grid-sorter';
 import { ErrorNotification } from '../components/notifications/error-notification';
 import { ref } from 'lit/directives/ref.js';
 import { UnsavedChangesGuard } from '../components/unsaved-changes-guard';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 const name = 'Name';
 const type = 'Type';
@@ -256,7 +257,7 @@ export class PageDatabasesList extends ResponsiveMixin(PageElement) {
         });
       }
 
-      const api = new RefDataDatabasesApi();
+      const api = new RefDataDatabasesApi(dorcApiConfiguration);
       api
         .refDataDatabasesByPagePut({
           pagedDataOperators: {
@@ -533,7 +534,7 @@ export class PageDatabasesList extends ResponsiveMixin(PageElement) {
   };
 
   openEnvironmentDetails(event: CustomEvent) {
-    const api2 = new RefDataEnvironmentsApi();
+    const api2 = new RefDataEnvironmentsApi(dorcApiConfiguration);
     api2.refDataEnvironmentsGet({ env: event.detail.envName }).subscribe({
       next: (data: EnvironmentApiModel[]) => {
         if (data[0] !== null) {

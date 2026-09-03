@@ -38,6 +38,7 @@ import {
   DeploymentResultEventData,
   getHubProxyFactory
 } from '../services/ServerEvents';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 const asUndef = (t: string | null | undefined): string | undefined =>
   t ?? undefined;
@@ -233,7 +234,7 @@ export class PageMonitorResult
 
   private refreshData() {
     this.resultsLoading = true;
-    const apiRequests = new RequestStatusesApi();
+    const apiRequests = new RequestStatusesApi(dorcApiConfiguration);
     apiRequests.requestStatusesGet({ requestId: this.requestId }).subscribe({
       next: (data: DeploymentRequestApiModel) => {
         this.selectedProject = data.Project ?? '';
@@ -265,6 +266,8 @@ export class PageMonitorResult
         this.shadowRoot?.appendChild(notification);
         notification.open();
         console.error(err);
+        this.loading = false;
+        this.resultsLoading = false;
       },
       complete: () => {
         console.log('done loading request');
@@ -280,17 +283,22 @@ export class PageMonitorResult
   refreshResultItems = () => {
     this.resultsLoading = true;
 
-    const api = new ResultStatusesApi();
+    const api = new ResultStatusesApi(dorcApiConfiguration);
     api.resultStatusesGet({ requestId: this.requestId }).subscribe({
       next: (data: Array<DeploymentResultApiModel>) => {
         this.resultItems = data;
       },
       error: (err: any) => {
         console.error(err);
+        // 'complete' never runs after an error, so clear the results loading
+        // flag here or a failed first load spins the loader forever. The
+        // page-level 'loading' flag belongs to the request-details call,
+        // which may still be in flight - leave it alone.
+        this.resultItems = this.resultItems ?? [];
+        this.resultsLoading = false;
       },
       complete: () => {
         console.log('done loading result Statuses');
-        this.loading = false;
         this.resultsLoading = false;
       }
     });
@@ -299,7 +307,7 @@ export class PageMonitorResult
   refreshAttemptItems = () => {
     this.attemptsLoading = true;
 
-    const api = new RequestApi();
+    const api = new RequestApi(dorcApiConfiguration);
     api.requestRequestIdAttemptsGet({ requestId: this.requestId }).subscribe({
       next: (data: Array<DeploymentRequestAttemptApiModel>) => {
         this.attemptItems = data;
@@ -420,37 +428,37 @@ export class PageMonitorResult
                 ></request-status-card>
                 <div class="results-section">
                   ${
-                    this.resultsLoading
-                      ? html` <div class="small-loader"></div>`
-                      : html`
-                          <vaadin-details
-                            opened
-                            summary="Deployment Component Results"
-                            style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; margin-top: 4px"
-                          >
-                            <component-deployment-results
-                              .resultItems="${this.resultItems}"
-                            ></component-deployment-results>
-                          </vaadin-details>
-                        `
-                  }
+                this.resultsLoading && !this.resultItems
+                  ? html` <div class="small-loader"></div>`
+                  : html`
+                      <vaadin-details
+                        opened
+                        summary="Deployment Component Results"
+                        style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; margin-top: 4px"
+                      >
+                        <component-deployment-results
+                          .resultItems="${this.resultItems}"
+                        ></component-deployment-results>
+                      </vaadin-details>
+                    `
+              }
                   ${
-                    !this.attemptsLoading &&
-                    this.attemptItems &&
-                    this.attemptItems.length > 0
-                      ? html`
-                          <vaadin-details
-                            summary="Previous Attempts (${this.attemptItems.length})"
-                            style="border-top: 6px solid orange; background-color: var(--dorc-bg-secondary); padding-left: 4px; margin-top: 4px"
-                          >
-                            <component-previous-attempts
-                              .attemptItems="${this.attemptItems}"
-                              .requestId="${this.requestId}"
-                            ></component-previous-attempts>
-                          </vaadin-details>
-                        `
-                      : html``
-                  }
+                !this.attemptsLoading &&
+                this.attemptItems &&
+                this.attemptItems.length > 0
+                  ? html`
+                      <vaadin-details
+                        summary="Previous Attempts (${this.attemptItems.length})"
+                        style="border-top: 6px solid orange; background-color: var(--dorc-bg-secondary); padding-left: 4px; margin-top: 4px"
+                      >
+                        <component-previous-attempts
+                          .attemptItems="${this.attemptItems}"
+                          .requestId="${this.requestId}"
+                        ></component-previous-attempts>
+                      </vaadin-details>
+                    `
+                  : html``
+              }
                 </div>
               `
       }

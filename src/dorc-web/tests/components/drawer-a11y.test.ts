@@ -139,6 +139,7 @@ describe('P2a: drawer shortcut accessibility', () => {
       expect(close.getAttribute('aria-label')).to.equal(
         'Close UAT-01 shortcut'
       );
+      expect(close.getAttribute('theme')).to.contain('drawer-shortcut-close');
 
       close.focus();
       expect(
@@ -159,6 +160,51 @@ describe('P2a: drawer shortcut accessibility', () => {
       expect(new Set(labels).size, 'names must be unique in the drawer').to.equal(
         labels.length
       );
+    });
+
+    it('keeps the close control on the same row as the shortcut link', async () => {
+      const navbar = await mountNavbar(container);
+      await addEnv(navbar, { EnvironmentId: 6, EnvironmentName: 'GAMMA' });
+
+      const shortcut = tabsOf(navbar).querySelector(
+        'env-detail-tab'
+      ) as HTMLElement;
+      const link = shortcut.querySelector('.shortcut-link') as HTMLElement;
+      const close = shortcut.querySelector('.shortcut-close') as HTMLElement;
+
+      expect(getComputedStyle(shortcut).display).to.equal('flex');
+      const linkRect = link.getBoundingClientRect();
+      const closeRect = close.getBoundingClientRect();
+      expect(closeRect.top + closeRect.height / 2).to.equal(
+        linkRect.top + linkRect.height / 2
+      );
+    });
+
+    it('keeps the close control compact', async () => {
+      const navbar = await mountNavbar(container);
+      await addEnv(navbar, { EnvironmentId: 9, EnvironmentName: 'COMPACT' });
+
+      const close = tabsOf(navbar).querySelector(
+        'env-detail-tab .shortcut-close'
+      ) as HTMLElement;
+      const rect = close.getBoundingClientRect();
+
+      expect(rect.width).to.equal(24);
+      expect(rect.height).to.equal(24);
+      expect(getComputedStyle(close).marginLeft).to.equal('-4px');
+      expect(getComputedStyle(close).marginRight).to.equal('-14px');
+      expect(getComputedStyle(close).backgroundColor).to.equal(
+        'rgba(0, 0, 0, 0)'
+      );
+      expect(
+        getComputedStyle(close.querySelector('vaadin-icon')!).padding
+      ).to.equal('0px');
+      const iconRect = close
+        .querySelector('vaadin-icon')!
+        .getBoundingClientRect();
+      expect(iconRect.width).to.equal(14);
+      expect(iconRect.height).to.equal(14);
+      expect(getComputedStyle(close).color).to.equal('rgb(95, 145, 163)');
     });
   });
 

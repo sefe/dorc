@@ -97,7 +97,7 @@ registerStyles(
   'vaadin-button',
   css`
     @media (max-width: 768px) {
-      :host([theme~='icon']) {
+      :host([theme~='icon']:not([theme~='drawer-shortcut-close'])) {
         min-width: 44px;
         min-height: 44px;
       }

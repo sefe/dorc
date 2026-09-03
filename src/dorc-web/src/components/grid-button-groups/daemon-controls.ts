@@ -5,6 +5,7 @@ import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { DaemonStatusApi, DaemonStatusApiModel } from '../../apis/dorc-api';
 import '@vaadin/tooltip';
+import { dorcApiConfiguration } from '../../services/dorc-api-configuration';
 
 @customElement('daemon-controls')
 export class DaemonControls extends LitElement {
@@ -122,7 +123,7 @@ export class DaemonControls extends LitElement {
 
   requestChange(requestedChange: string) {
     if (this.daemonDetails !== undefined) {
-      const api = new DaemonStatusApi();
+      const api = new DaemonStatusApi(dorcApiConfiguration);
 
       this.daemonDetails.Status = requestedChange;
       this.updateParentWith(this.daemonDetails);

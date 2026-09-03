@@ -20,6 +20,23 @@ async function deletingEnvironment(): Promise<EnvControlCenter> {
 }
 
 describe('EnvControlCenter delete status', () => {
+  it('does not check ownership until the environment name is available', async () => {
+    const el = await fixture<EnvControlCenter>(
+      html`<env-control-center></env-control-center>`
+    );
+    let ownershipChecks = 0;
+    el.isEnvironmentOwner = () => {
+      ownershipChecks += 1;
+    };
+
+    el.notifyEnvironmentReady();
+    expect(ownershipChecks).to.equal(0);
+
+    el.environment = { EnvironmentName: 'ADS IT 01' };
+    await el.updateComplete;
+    expect(ownershipChecks).to.equal(1);
+  });
+
   it('keeps the control-center icon aligned with its summary text', async () => {
     const el = await fixture<EnvControlCenter>(
       html`<env-control-center></env-control-center>`
