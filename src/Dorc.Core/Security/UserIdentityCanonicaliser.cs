@@ -12,10 +12,11 @@ namespace Dorc.Core.Security
     /// other is recorded under two different strings.
     ///
     /// Comparing those strings directly would report two identities as different when they
-    /// are the same person. Where the comparison guards a segregation-of-duties rule, that
-    /// failure permits the very self-approval the rule exists to prevent — so the
-    /// canonicalisation here deliberately errs toward reporting identities as the *same*:
-    /// an over-match refuses an action, an under-match allows one.
+    /// are the same person. Canonicalisation can bridge equivalent account-name forms, but
+    /// cannot infer that an email local part such as john.smith belongs to SAM account
+    /// jsmith. Callers with access to the live principal must therefore also compare its
+    /// scheme-independent login. Where the comparison guards a segregation-of-duties rule,
+    /// an over-match refuses an action while an under-match allows one.
     /// </summary>
     public static class UserIdentityCanonicaliser
     {

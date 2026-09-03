@@ -3,6 +3,7 @@ using Dorc.ApiModel;
 using Dorc.Core.AzureStorageAccount;
 using Dorc.Core.Configuration;
 using Dorc.Core.Interfaces;
+using Dorc.Core.Security;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.AspNetCore.Http;
@@ -90,9 +91,15 @@ namespace Dorc.Api.Tests.Controllers
                 UserName = submitter!
             });
 
-        private void GivenCaller(string fullDomainName) =>
+        private void GivenCaller(string fullDomainName, string? login = null, string? safeIdentifier = null)
+        {
             _claimsPrincipalReader.GetUserFullDomainName(Arg.Any<System.Security.Principal.IPrincipal>())
                 .Returns(fullDomainName);
+            _claimsPrincipalReader.GetUserLogin(Arg.Any<System.Security.Principal.IPrincipal>())
+                .Returns(login ?? UserIdentityCanonicaliser.Canonicalise(fullDomainName));
+            _claimsPrincipalReader.GetUserSafeIdentifier(Arg.Any<System.Security.Principal.IPrincipal>())
+                .Returns(safeIdentifier ?? "test-user");
+        }
 
         private void GivenRestartedBy(string restarter, string originalSubmitter)
         {
@@ -288,6 +295,26 @@ namespace Dorc.Api.Tests.Controllers
         }
 
         /// <summary>
+        /// An OAuth email local part is not guaranteed to be the user's SAM account name.
+        /// The scheme-independent login must also be checked or this same human is treated
+        /// as a separate approver.
+        /// </summary>
+        [TestMethod]
+        public void ConfirmTerraformPlan_WhenEmailLocalPartDiffersFromSamAccount_Returns403()
+        {
+            GivenRequest(Environment, isProd: true, submitter: @"CORP\jsmith");
+            GivenCaller(
+                fullDomainName: "john.smith@corp.example.com",
+                login: "jsmith",
+                safeIdentifier: "user-123");
+
+            var response = _controller.ConfirmTerraformPlan(ResultId);
+
+            Assert.AreEqual(StatusCodes.Status403Forbidden, StatusOf(response));
+            AssertNoStateChanged();
+        }
+
+        /// <summary>
         /// AC-11. Restart overwrites the request's user name with the restarter's, so
         /// comparing against it would let the original author approve their own change
         /// once anyone else restarted it.
@@ -320,6 +347,30 @@ namespace Dorc.Api.Tests.Controllers
         {
             GivenRequest(Environment, isProd: true, submitter: "   ");
             GivenCaller(@"CORP\bob");
+
+            var response = _controller.ConfirmTerraformPlan(ResultId);
+
+            Assert.AreEqual(StatusCodes.Status403Forbidden, StatusOf(response));
+            AssertNoStateChanged();
+        }
+
+        [TestMethod]
+        public void ConfirmTerraformPlan_WhenApproverFullDomainIdentityCannotBeEstablished_Returns403()
+        {
+            GivenRequest(Environment, isProd: true, submitter: @"CORP\alice");
+            GivenCaller(fullDomainName: "   ", login: "bob");
+
+            var response = _controller.ConfirmTerraformPlan(ResultId);
+
+            Assert.AreEqual(StatusCodes.Status403Forbidden, StatusOf(response));
+            AssertNoStateChanged();
+        }
+
+        [TestMethod]
+        public void ConfirmTerraformPlan_WhenApproverLoginCannotBeEstablished_Returns403()
+        {
+            GivenRequest(Environment, isProd: true, submitter: @"CORP\alice");
+            GivenCaller(fullDomainName: "bob@corp.example.com", login: "   ");
 
             var response = _controller.ConfirmTerraformPlan(ResultId);
 
