@@ -28,6 +28,11 @@ namespace Dorc.PersistentData
                 return true;
             }
 
+            return HasPrivilegeStrict(securityObject, user, accessLevel);
+        }
+
+        public bool HasPrivilegeStrict<T>(T securityObject, IPrincipal user, AccessLevel accessLevel) where T : SecurityObject
+        {
             var userAccessControls = GetUserAccessControls(securityObject, user);
 
             var allowed = 0;
