@@ -1,10 +1,10 @@
 # Org.OpenAPITools.Model.PullRequestTrigger
-Represents a pull request trigger.
 
 ## Properties
 
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
+**TriggerType** | **string** | The type of the trigger. | [optional] 
 **AutoCancel** | **bool** | Indicates if an update to a PR should delete current in-progress builds. | [optional] 
 **BranchFilters** | **List&lt;string&gt;** |  | [optional] 
 **Forks** | [**Forks**](Forks.md) |  | [optional] 
@@ -12,7 +12,6 @@ Name | Type | Description | Notes
 **PathFilters** | **List&lt;string&gt;** |  | [optional] 
 **RequireCommentsForNonTeamMembersOnly** | **bool** |  | [optional] 
 **SettingsSourceType** | **int** |  | [optional] 
-**TriggerType** | **string** | The type of the trigger. | [optional] 
 
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
 

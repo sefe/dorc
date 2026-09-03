@@ -25,9 +25,9 @@ registerStyles(
 registerStyles(
   'vaadin-tab',
   css`
-      :host([orientation^='vertical']) {
-          min-height: var(--lumo-size-s);
-      }
+    :host([orientation^='vertical']) {
+      min-height: var(--lumo-size-s);
+    }
   `
 );
 
@@ -48,6 +48,11 @@ registerStyles(
      */
     :host([theme~='log-viewer']) [part='overlay'] {
       width: min(95vw, 1400px);
+      overflow: hidden;
+    }
+
+    :host([theme~='log-viewer']) [part='content'] {
+      overflow: hidden;
     }
 
     /*
@@ -57,6 +62,15 @@ registerStyles(
      */
     :host([theme~='wide']) [part='overlay'] {
       width: min(95vw, 1100px);
+    }
+  `
+);
+
+registerStyles(
+  'vaadin-confirm-dialog-overlay',
+  css`
+    :host([theme~='deploy-preview']) [part='overlay'] {
+      width: min(95vw, 900px);
     }
   `
 );
@@ -83,7 +97,7 @@ registerStyles(
   'vaadin-button',
   css`
     @media (max-width: 768px) {
-      :host([theme~='icon']) {
+      :host([theme~='icon']:not([theme~='drawer-shortcut-close'])) {
         min-width: 44px;
         min-height: 44px;
       }

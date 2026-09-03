@@ -65,6 +65,13 @@ export class PropertiesApi extends BaseAPI {
 
         const headers: HttpHeaders = {
             'Content-Type': 'application/json',
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
         };
 
         return this.request<Array<Response>>({
@@ -80,9 +87,20 @@ export class PropertiesApi extends BaseAPI {
     apiPropertiesGet(): Observable<Array<PropertyApiModel>>
     apiPropertiesGet(opts?: OperationOpts): Observable<AjaxResponse<Array<PropertyApiModel>>>
     apiPropertiesGet(opts?: OperationOpts): Observable<Array<PropertyApiModel> | AjaxResponse<Array<PropertyApiModel>>> {
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         return this.request<Array<PropertyApiModel>>({
             url: '/api/Properties',
             method: 'GET',
+            headers,
         }, opts?.responseOpts);
     };
 
@@ -93,9 +111,20 @@ export class PropertiesApi extends BaseAPI {
     apiPropertiesIdidGet({ id }: ApiPropertiesIdidGetRequest, opts?: OperationOpts): Observable<PropertyApiModel | AjaxResponse<PropertyApiModel>> {
         throwIfNullOrUndefined(id, 'id', 'apiPropertiesIdidGet');
 
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         return this.request<PropertyApiModel>({
             url: '/api/Properties/id={id}'.replace('{id}', encodeURI(id)),
             method: 'GET',
+            headers,
         }, opts?.responseOpts);
     };
 
@@ -107,6 +136,13 @@ export class PropertiesApi extends BaseAPI {
 
         const headers: HttpHeaders = {
             'Content-Type': 'application/json',
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
         };
 
         return this.request<Array<Response>>({
@@ -125,6 +161,13 @@ export class PropertiesApi extends BaseAPI {
 
         const headers: HttpHeaders = {
             'Content-Type': 'application/json',
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
         };
 
         return this.request<Array<Response>>({
@@ -143,6 +186,13 @@ export class PropertiesApi extends BaseAPI {
 
         const headers: HttpHeaders = {
             'Content-Type': 'application/json',
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
         };
 
         return this.request<Array<Response>>({
@@ -158,9 +208,20 @@ export class PropertiesApi extends BaseAPI {
     propertiesGet(): Observable<Array<PropertyApiModel>>
     propertiesGet(opts?: OperationOpts): Observable<AjaxResponse<Array<PropertyApiModel>>>
     propertiesGet(opts?: OperationOpts): Observable<Array<PropertyApiModel> | AjaxResponse<Array<PropertyApiModel>>> {
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         return this.request<Array<PropertyApiModel>>({
             url: '/Properties',
             method: 'GET',
+            headers,
         }, opts?.responseOpts);
     };
 
@@ -171,9 +232,20 @@ export class PropertiesApi extends BaseAPI {
     propertiesIdidGet({ id }: PropertiesIdidGetRequest, opts?: OperationOpts): Observable<PropertyApiModel | AjaxResponse<PropertyApiModel>> {
         throwIfNullOrUndefined(id, 'id', 'propertiesIdidGet');
 
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         return this.request<PropertyApiModel>({
             url: '/Properties/id={id}'.replace('{id}', encodeURI(id)),
             method: 'GET',
+            headers,
         }, opts?.responseOpts);
     };
 
@@ -185,6 +257,13 @@ export class PropertiesApi extends BaseAPI {
 
         const headers: HttpHeaders = {
             'Content-Type': 'application/json',
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
         };
 
         return this.request<Array<Response>>({
@@ -203,6 +282,13 @@ export class PropertiesApi extends BaseAPI {
 
         const headers: HttpHeaders = {
             'Content-Type': 'application/json',
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
         };
 
         return this.request<Array<Response>>({

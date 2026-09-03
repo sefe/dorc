@@ -6,6 +6,9 @@
     // or test compilation will silently lose those globals.
     "types": ["vitest/globals", "chai"]
   },
-  "include": ["tests/**/*.ts"],
+  // src/typings.d.ts carries `declare module '*.css'`, which tests/_setup.ts needs
+  // for its side-effect import of the theme tokens. Ambient declarations are not
+  // pulled in transitively, so the file has to be included explicitly.
+  "include": ["tests/**/*.ts", "src/typings.d.ts"],
   "exclude": ["node_modules/**"]
 }

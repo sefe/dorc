@@ -6,7 +6,7 @@ All URIs are relative to *https://dev.azure.com*
 |--------|--------------|-------------|
 | [**LatestGet**](LatestApi.md#latestget) | **GET** /{organization}/{project}/_apis/build/latest/{definition} |  |
 
-<a name="latestget"></a>
+<a id="latestget"></a>
 # **LatestGet**
 > Build LatestGet (string organization, string project, string definition, string apiVersion, string? branchName = null)
 

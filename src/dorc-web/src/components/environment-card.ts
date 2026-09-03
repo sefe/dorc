@@ -10,6 +10,10 @@ import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
 import '../icons/iron-icons.js';
 import { AccessControlType } from '../apis/dorc-api';
+import '@vaadin/button';
+import '@vaadin/horizontal-layout';
+import '@vaadin/tooltip';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('environment-card')
 export class EnvironmentCard extends LitElement {
@@ -22,11 +26,17 @@ export class EnvironmentCard extends LitElement {
 
   static get styles() {
     return css`
+      :host {
+        display: block;
+        height: 100%;
+      }
+
       .card-element {
         padding: 10px;
         box-shadow: 1px 2px 3px rgba(0, 0, 0, 0.2);
         width: 300px;
-        min-height: 100px;
+        min-height: 110px;
+        height: 100%;
         display: flex;
         justify-content: space-between;
         gap: var(--lumo-space-s);
@@ -64,8 +74,9 @@ export class EnvironmentCard extends LitElement {
         flex-wrap: wrap;
       }
       .statistics-cards__item {
-        margin: 5px;
+        margin: 0;
         flex-shrink: 0;
+        height: 100%;
       }
       a {
         color: var(--dorc-link-color);
@@ -94,23 +105,31 @@ export class EnvironmentCard extends LitElement {
         <div class="card-actions">
           <vaadin-horizontal-layout style="gap: 4px;">
             <vaadin-button
-              title="Environment Details"
+              aria-label="Environment Details"
               theme="icon"
               @click="${this.openEnvironmentDetails}"
               style="margin: 0;"
             >
+              <vaadin-tooltip
+                slot="tooltip"
+                text="Environment Details"
+              ></vaadin-tooltip>
               <vaadin-icon
                 icon="hardware:developer-board"
                 style="color: var(--dorc-link-color)"
               ></vaadin-icon>
             </vaadin-button>
             <vaadin-button
-              title="Environment History"
+              aria-label="Environment History"
               theme="icon"
               ?disabled="${this.environment === undefined}"
               @click="${this.openEnvHistory}"
               style="margin: 0;"
             >
+              <vaadin-tooltip
+                slot="tooltip"
+                text="Environment History"
+              ></vaadin-tooltip>
               <vaadin-icon
                 icon="icons:history"
                 style="color: var(--dorc-link-color)"
@@ -119,23 +138,31 @@ export class EnvironmentCard extends LitElement {
           </vaadin-horizontal-layout>
           <vaadin-horizontal-layout style="gap: 4px;">
             <vaadin-button
-              title="Detach Environment"
+              aria-label="Detach Environment"
               theme="icon"
               @click="${this.removeMapping}"
               .env="${this.environment}"
               style="margin: 0;"
             >
+              <vaadin-tooltip
+                slot="tooltip"
+                text="Detach Environment"
+              ></vaadin-tooltip>
               <vaadin-icon
                 icon="vaadin:unlink"
                 style="color: var(--dorc-error-color)"
               ></vaadin-icon>
             </vaadin-button>
             <vaadin-button
-              title="Access Control..."
+              aria-label="Access Control..."
               theme="icon"
               @click="${this.openAccessControl}"
               style="margin: 0;"
             >
+              <vaadin-tooltip
+                slot="tooltip"
+                text="Access Control..."
+              ></vaadin-tooltip>
               <vaadin-icon
                 icon="vaadin:lock"
                 style="color: var(--dorc-link-color)"
@@ -157,7 +184,7 @@ export class EnvironmentCard extends LitElement {
     const event = new CustomEvent('open-access-control', {
       detail: {
         Name: this.environment?.EnvironmentName,
-        Type: AccessControlType.NUMBER_1
+        Type: AccessControlType.Environment
       },
       bubbles: true,
       composed: true
@@ -179,7 +206,7 @@ export class EnvironmentCard extends LitElement {
   removeMapping(data: any) {
     const env = data.currentTarget.env as EnvironmentApiModel;
 
-    const api = new RefDataProjectEnvironmentMappingsApi();
+    const api = new RefDataProjectEnvironmentMappingsApi(dorcApiConfiguration);
     api
       .refDataProjectEnvironmentMappingsDelete({
         environment: env.EnvironmentName || '',

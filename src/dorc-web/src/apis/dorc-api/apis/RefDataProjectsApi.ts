@@ -51,9 +51,20 @@ export class RefDataProjectsApi extends BaseAPI {
     refDataProjectsByIdValueGet({ value }: RefDataProjectsByIdValueGetRequest, opts?: OperationOpts): Observable<ProjectApiModel | AjaxResponse<ProjectApiModel>> {
         throwIfNullOrUndefined(value, 'value', 'refDataProjectsByIdValueGet');
 
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         return this.request<ProjectApiModel>({
             url: '/RefDataProjects/ById/{value}'.replace('{value}', encodeURI(value)),
             method: 'GET',
+            headers,
         }, opts?.responseOpts);
     };
 
@@ -62,9 +73,20 @@ export class RefDataProjectsApi extends BaseAPI {
     refDataProjectsGet(): Observable<Array<ProjectApiModel>>
     refDataProjectsGet(opts?: OperationOpts): Observable<AjaxResponse<Array<ProjectApiModel>>>
     refDataProjectsGet(opts?: OperationOpts): Observable<Array<ProjectApiModel> | AjaxResponse<Array<ProjectApiModel>>> {
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         return this.request<Array<ProjectApiModel>>({
             url: '/RefDataProjects',
             method: 'GET',
+            headers,
         }, opts?.responseOpts);
     };
 
@@ -76,6 +98,13 @@ export class RefDataProjectsApi extends BaseAPI {
 
         const headers: HttpHeaders = {
             'Content-Type': 'application/json',
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
         };
 
         return this.request<ProjectApiModel>({
@@ -88,14 +117,25 @@ export class RefDataProjectsApi extends BaseAPI {
 
     /**
      */
-    refDataProjectsProjectIdDelete({ projectId }: RefDataProjectsProjectIdDeleteRequest): Observable<void>
-    refDataProjectsProjectIdDelete({ projectId }: RefDataProjectsProjectIdDeleteRequest, opts?: OperationOpts): Observable<void | AjaxResponse<void>>
-    refDataProjectsProjectIdDelete({ projectId }: RefDataProjectsProjectIdDeleteRequest, opts?: OperationOpts): Observable<void | AjaxResponse<void>> {
+    refDataProjectsProjectIdDelete({ projectId }: RefDataProjectsProjectIdDeleteRequest): Observable<string>
+    refDataProjectsProjectIdDelete({ projectId }: RefDataProjectsProjectIdDeleteRequest, opts?: OperationOpts): Observable<AjaxResponse<string>>
+    refDataProjectsProjectIdDelete({ projectId }: RefDataProjectsProjectIdDeleteRequest, opts?: OperationOpts): Observable<string | AjaxResponse<string>> {
         throwIfNullOrUndefined(projectId, 'projectId', 'refDataProjectsProjectIdDelete');
 
-        return this.request<void>({
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
+        return this.request<string>({
             url: '/RefDataProjects/{projectId}'.replace('{projectId}', encodeURI(projectId)),
             method: 'DELETE',
+            headers,
         }, opts?.responseOpts);
     };
 
@@ -106,9 +146,20 @@ export class RefDataProjectsApi extends BaseAPI {
     refDataProjectsProjectNameGet({ projectName }: RefDataProjectsProjectNameGetRequest, opts?: OperationOpts): Observable<ProjectApiModel | AjaxResponse<ProjectApiModel>> {
         throwIfNullOrUndefined(projectName, 'projectName', 'refDataProjectsProjectNameGet');
 
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         return this.request<ProjectApiModel>({
             url: '/RefDataProjects/{projectName}'.replace('{projectName}', encodeURI(projectName)),
             method: 'GET',
+            headers,
         }, opts?.responseOpts);
     };
 
@@ -120,6 +171,13 @@ export class RefDataProjectsApi extends BaseAPI {
 
         const headers: HttpHeaders = {
             'Content-Type': 'application/json',
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
         };
 
         return this.request<ProjectApiModel>({

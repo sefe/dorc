@@ -1,4 +1,4 @@
-import type { Commands, RouteContext } from '@vaadin/router';
+import type { AppRoute, RouteRedirect, RouteResolveContext } from './route-config';
 import {appConfig} from '../app-config';
 
 import '../components/dorc-app.ts'
@@ -16,7 +16,7 @@ import '../components/environment-tabs/env-monitor.ts'
 import '../components/environment-tabs/env-containers.ts'
 import '../components/environment-tabs/env-cloud.ts'
 import '../components/environment-tabs/env-apis.ts'
-import '../pages/page-about.ts'
+import '../pages/page-analytics.ts'
 import '../pages/page-config-values-list.ts'
 import '../pages/page-daemons-audit.ts'
 import '../pages/page-daemons-list.ts'
@@ -54,7 +54,7 @@ export type RouteMeta = Readonly<{
   };
 }>;
 
-export const routes = [
+export const routes: AppRoute[] = [
   {
     path: '',
     component: 'dorc-app',
@@ -91,12 +91,21 @@ export const routes = [
         }
       },
       {
+        path: '/analytics',
+        name: 'analytics',
+        component: 'page-analytics',
+        metadata: {
+          title: 'Analytics',
+          description: 'Deployment analytics and statistics'
+        }
+      },
+      {
         path: '/about',
         name: 'about',
-        component: 'page-about',
+        action: (): RouteRedirect => ({ redirect: '/analytics' }),
         metadata: {
-          title: 'About',
-          description: 'About page description'
+          title: 'Analytics',
+          description: 'Deployment analytics and statistics'
         }
       },
       {
@@ -332,9 +341,13 @@ export const routes = [
             },
             children: [
               {
-                path: '/',
-                action: (_context: RouteContext, commands: Commands) =>
-                  commands.redirect(_context.pathname + '/servers'),
+                // Empty, not '/': under path-to-regexp v8 a '/' path only
+                // matches when the URL has a trailing slash, and the tab
+                // navigation produces '/environment/:id/components'.
+                path: '',
+                action: (context: RouteResolveContext): RouteRedirect => ({
+                  redirect: `${context.pathname.replace(/\/+$/, '')}/servers`
+                }),
                 metadata: { title: 'Components', description: 'Default redirect' }
               },
               {
@@ -447,7 +460,9 @@ export const routes = [
         }
       },
       {
-        path: '(.*)',
+        // path-to-regexp v8 (used by universal-router) requires named
+        // wildcards; this is the v8 spelling of Vaadin Router's `(.*)`.
+        path: '/*notFound',
         name: 'not-found',
         component: 'page-not-found',
         metadata: {

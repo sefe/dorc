@@ -1,5 +1,6 @@
 import { expect, fixture, html } from '../_helpers';
 import '../../src/components/project-card.js';
+import { PageProjectEnvs } from '../../src/pages/page-project-envs.js';
 import type { ProjectCard } from '../../src/components/project-card.js';
 
 describe('ProjectCard responsive layout', () => {
@@ -107,5 +108,12 @@ describe('ProjectCard responsive layout', () => {
 
     const buttons = el.shadowRoot!.querySelectorAll('vaadin-button');
     expect(buttons.length).to.equal(1);
+  });
+
+  it('clamps the project page description inside its summary card', () => {
+    const styles = PageProjectEnvs.styles.toString();
+
+    expect(styles).to.include('-webkit-line-clamp: 3');
+    expect(styles).to.include('overflow-wrap: anywhere');
   });
 });

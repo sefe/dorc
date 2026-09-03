@@ -1,4 +1,3 @@
-import '@polymer/paper-toggle-button';
 import '@vaadin/details';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/grid/vaadin-grid-sort-column';
@@ -11,7 +10,8 @@ import { PageEnvBase } from './page-env-base';
 
 @customElement('env-daemons')
 export class EnvDaemons extends PageEnvBase {
-  @property({ type: Boolean }) private daemonsLoading = false;
+  @property({ type: Boolean }) daemonsLoading = false;
+  @property({ type: Boolean }) discovering = false;
 
   static get styles() {
     return css`
@@ -62,6 +62,19 @@ export class EnvDaemons extends PageEnvBase {
           transform: rotate(360deg);
         }
       }
+
+      .button-container {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        width: 100%;
+      }
+
+      .left-buttons {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
     `;
   }
 
@@ -70,31 +83,38 @@ export class EnvDaemons extends PageEnvBase {
       <vaadin-details
         opened
         summary="Application Daemon Details"
-        style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; margin: 0px;"
+        style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; padding-right: 4px; margin: 0px; box-sizing: border-box;"
       >
-        <table>
-          <tr>
-            <td>
-              <vaadin-button
-                @click="${this.loadDaemons}"
-                .disabled="${!this.environment?.UserEditable}"
-                >Load Daemons
-              </vaadin-button>
-            </td>
-            <td>
-              ${this.daemonsLoading
+        <div class="button-container">
+          <div class="left-buttons">
+            <vaadin-button
+              @click="${this.loadDaemons}"
+              .disabled="${!this.environment?.UserEditable || this.daemonsLoading || this.discovering}"
+              title="Load status of mapped daemons for this environment"
+            >
+              Load Daemons
+            </vaadin-button>
+            ${
+              this.daemonsLoading || this.discovering
                 ? html`
-                    <div style="padding-left: 5px" class="lds-ring">
+                    <div class="lds-ring">
                       <div></div>
                       <div></div>
                       <div></div>
                       <div></div>
                     </div>
                   `
-                : html``}
-            </td>
-          </tr>
-        </table>
+                : html``
+            }
+          </div>
+          <vaadin-button
+            @click="${this.discoverDaemons}"
+            .disabled="${!this.environment?.UserEditable || this.daemonsLoading || this.discovering}"
+            title="Scan all servers and automatically create daemon-server mappings for discovered services"
+          >
+            Discover Daemons
+          </vaadin-button>
+        </div>
       </vaadin-details>
       <application-daemons
         id="app-daemons"
@@ -108,12 +128,12 @@ export class EnvDaemons extends PageEnvBase {
 
   constructor() {
     super();
-
     super.loadEnvironmentInfo();
   }
 
   daemonsLoaded() {
     this.daemonsLoading = false;
+    this.discovering = false;
   }
 
   loadDaemons() {
@@ -121,8 +141,18 @@ export class EnvDaemons extends PageEnvBase {
       'app-daemons'
     ) as ApplicationDaemons;
     appDaemons.envName = this.envContent?.EnvironmentName || '';
-    this.daemonsLoading = false;
-    appDaemons.loadDaemons();
     this.daemonsLoading = true;
+    this.discovering = false;
+    appDaemons.loadDaemons();
+  }
+
+  discoverDaemons() {
+    const appDaemons = this.shadowRoot?.getElementById(
+      'app-daemons'
+    ) as ApplicationDaemons;
+    appDaemons.envName = this.envContent?.EnvironmentName || '';
+    this.discovering = true;
+    this.daemonsLoading = false;
+    appDaemons.discoverDaemons();
   }
 }

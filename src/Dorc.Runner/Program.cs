@@ -55,7 +55,9 @@ namespace Dorc.Runner
 
                 _runnerLogger = loggerRegistry.InitializeLogger(options.LogPath, config);
 
-                var requestId = int.Parse(options.PipeName.Substring(options.PipeName.IndexOf("-", StringComparison.Ordinal) + 1));
+                // Parse requestId from pipe name. Format: DOrcMonitor-{HostInstanceId}-{RequestId}
+                // HostInstanceId may contain hyphens, so we take the last segment after the final hyphen.
+                var requestId = int.Parse(options.PipeName.Substring(options.PipeName.LastIndexOf("-", StringComparison.Ordinal) + 1));
                 var uncDorcPath = loggerRegistry.LogFileName.Replace("c:", @"\\" + Environment.GetEnvironmentVariable("COMPUTERNAME"));
                 _runnerLogger.Information("Runner Started for pipename {0}: formatted path to logs {1}", options.PipeName, uncDorcPath);
 

@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// Represents an entry in a workspace mapping.
     /// </summary>
     [DataContract(Name = "MappingDetails")]
-    public partial class MappingDetails : IEquatable<MappingDetails>, IValidatableObject
+    public partial class MappingDetails : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="MappingDetails" /> class.
@@ -38,7 +38,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="localPath">The local path..</param>
         /// <param name="mappingType">The mapping type..</param>
         /// <param name="serverPath">The server path..</param>
-        public MappingDetails(string localPath = default(string), string mappingType = default(string), string serverPath = default(string))
+        public MappingDetails(string localPath = default, string mappingType = default, string serverPath = default)
         {
             this.LocalPath = localPath;
             this.MappingType = mappingType;
@@ -91,75 +91,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as MappingDetails);
-        }
-
-        /// <summary>
-        /// Returns true if MappingDetails instances are equal
-        /// </summary>
-        /// <param name="input">Instance of MappingDetails to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(MappingDetails input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.LocalPath == input.LocalPath ||
-                    (this.LocalPath != null &&
-                    this.LocalPath.Equals(input.LocalPath))
-                ) && 
-                (
-                    this.MappingType == input.MappingType ||
-                    (this.MappingType != null &&
-                    this.MappingType.Equals(input.MappingType))
-                ) && 
-                (
-                    this.ServerPath == input.ServerPath ||
-                    (this.ServerPath != null &&
-                    this.ServerPath.Equals(input.ServerPath))
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.LocalPath != null)
-                {
-                    hashCode = (hashCode * 59) + this.LocalPath.GetHashCode();
-                }
-                if (this.MappingType != null)
-                {
-                    hashCode = (hashCode * 59) + this.MappingType.GetHashCode();
-                }
-                if (this.ServerPath != null)
-                {
-                    hashCode = (hashCode * 59) + this.ServerPath.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

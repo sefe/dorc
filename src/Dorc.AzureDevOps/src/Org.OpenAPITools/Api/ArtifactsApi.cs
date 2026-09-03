@@ -112,7 +112,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of BuildArtifact</returns>
-        System.Threading.Tasks.Task<BuildArtifact> ArtifactsCreateAsync(string organization, string project, int buildId, string apiVersion, BuildArtifact body, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<BuildArtifact> ArtifactsCreateAsync(string organization, string project, int buildId, string apiVersion, BuildArtifact body, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
 
         /// <summary>
         /// 
@@ -129,7 +129,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse (BuildArtifact)</returns>
-        System.Threading.Tasks.Task<ApiResponse<BuildArtifact>> ArtifactsCreateWithHttpInfoAsync(string organization, string project, int buildId, string apiVersion, BuildArtifact body, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ApiResponse<BuildArtifact>> ArtifactsCreateWithHttpInfoAsync(string organization, string project, int buildId, string apiVersion, BuildArtifact body, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
         /// <summary>
         /// 
         /// </summary>
@@ -144,7 +144,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of List&lt;BuildArtifact&gt;</returns>
-        System.Threading.Tasks.Task<List<BuildArtifact>> ArtifactsListAsync(string organization, string project, int buildId, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<List<BuildArtifact>> ArtifactsListAsync(string organization, string project, int buildId, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
 
         /// <summary>
         /// 
@@ -160,7 +160,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse (List&lt;BuildArtifact&gt;)</returns>
-        System.Threading.Tasks.Task<ApiResponse<List<BuildArtifact>>> ArtifactsListWithHttpInfoAsync(string organization, string project, int buildId, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ApiResponse<List<BuildArtifact>>> ArtifactsListWithHttpInfoAsync(string organization, string project, int buildId, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
         #endregion Asynchronous Operations
     }
 
@@ -347,6 +347,7 @@ namespace Org.OpenAPITools.Api
             };
 
             var localVarContentType = Org.OpenAPITools.Client.ClientUtils.SelectHeaderContentType(_contentTypes);
+            var localVarMultipartFormData = localVarContentType == "multipart/form-data";
             if (localVarContentType != null)
             {
                 localVarRequestOptions.HeaderParameters.Add("Content-Type", localVarContentType);
@@ -410,7 +411,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of BuildArtifact</returns>
-        public async System.Threading.Tasks.Task<BuildArtifact> ArtifactsCreateAsync(string organization, string project, int buildId, string apiVersion, BuildArtifact body, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public async System.Threading.Tasks.Task<BuildArtifact> ArtifactsCreateAsync(string organization, string project, int buildId, string apiVersion, BuildArtifact body, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             Org.OpenAPITools.Client.ApiResponse<BuildArtifact> localVarResponse = await ArtifactsCreateWithHttpInfoAsync(organization, project, buildId, apiVersion, body, operationIndex, cancellationToken).ConfigureAwait(false);
             return localVarResponse.Data;
@@ -428,7 +429,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse (BuildArtifact)</returns>
-        public async System.Threading.Tasks.Task<Org.OpenAPITools.Client.ApiResponse<BuildArtifact>> ArtifactsCreateWithHttpInfoAsync(string organization, string project, int buildId, string apiVersion, BuildArtifact body, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public async System.Threading.Tasks.Task<Org.OpenAPITools.Client.ApiResponse<BuildArtifact>> ArtifactsCreateWithHttpInfoAsync(string organization, string project, int buildId, string apiVersion, BuildArtifact body, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             // verify the required parameter 'organization' is set
             if (organization == null)
@@ -576,6 +577,7 @@ namespace Org.OpenAPITools.Api
             };
 
             var localVarContentType = Org.OpenAPITools.Client.ClientUtils.SelectHeaderContentType(_contentTypes);
+            var localVarMultipartFormData = localVarContentType == "multipart/form-data";
             if (localVarContentType != null)
             {
                 localVarRequestOptions.HeaderParameters.Add("Content-Type", localVarContentType);
@@ -613,7 +615,7 @@ namespace Org.OpenAPITools.Api
             }
 
             // make the HTTP request
-            var localVarResponse = this.Client.Get<List<BuildArtifact>>($"/{organization}/{project}/_apis/build/builds/{buildId}/artifacts", localVarRequestOptions, this.Configuration);
+            var localVarResponse = this.Client.Get<List<BuildArtifact>>("/{organization}/{project}/_apis/build/builds/{buildId}/artifacts", localVarRequestOptions, this.Configuration);
             if (this.ExceptionFactory != null)
             {
                 Exception _exception = this.ExceptionFactory("ArtifactsList", localVarResponse);
@@ -637,7 +639,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of List&lt;BuildArtifact&gt;</returns>
-        public async System.Threading.Tasks.Task<List<BuildArtifact>> ArtifactsListAsync(string organization, string project, int buildId, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public async System.Threading.Tasks.Task<List<BuildArtifact>> ArtifactsListAsync(string organization, string project, int buildId, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             Org.OpenAPITools.Client.ApiResponse<List<BuildArtifact>> localVarResponse = await ArtifactsListWithHttpInfoAsync(organization, project, buildId, apiVersion, operationIndex, cancellationToken).ConfigureAwait(false);
             return localVarResponse.Data;
@@ -654,7 +656,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse (List&lt;BuildArtifact&gt;)</returns>
-        public async System.Threading.Tasks.Task<Org.OpenAPITools.Client.ApiResponse<List<BuildArtifact>>> ArtifactsListWithHttpInfoAsync(string organization, string project, int buildId, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public async System.Threading.Tasks.Task<Org.OpenAPITools.Client.ApiResponse<List<BuildArtifact>>> ArtifactsListWithHttpInfoAsync(string organization, string project, int buildId, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             // verify the required parameter 'organization' is set
             if (organization == null)
