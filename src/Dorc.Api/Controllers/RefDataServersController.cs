@@ -1,11 +1,14 @@
 ﻿using Dorc.ApiModel;
 using Dorc.Core.Interfaces;
+using Dorc.PersistentData;
+using Dorc.PersistentData.Model;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Win32;
 using Swashbuckle.AspNetCore.Annotations;
 using System.Net;
+using System.Text.Json;
 
 namespace Dorc.Api.Controllers
 {
@@ -16,14 +19,25 @@ namespace Dorc.Api.Controllers
     {
         private readonly ISecurityPrivilegesChecker _securityPrivilegesChecker;
         private readonly IServersPersistentSource _serversPersistentSource;
+        private readonly IServersAuditPersistentSource _serversAuditPersistentSource;
         private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
+        private readonly IDaemonsPersistentSource _daemonsPersistentSource;
+        private readonly IClaimsPrincipalReader _claimsPrincipalReader;
 
-        public RefDataServersController(ISecurityPrivilegesChecker securityPrivilegesChecker,
-            IServersPersistentSource serversPersistentSource, IEnvironmentsPersistentSource environmentsPersistentSource)
+        public RefDataServersController(
+            ISecurityPrivilegesChecker securityPrivilegesChecker,
+            IServersPersistentSource serversPersistentSource,
+            IServersAuditPersistentSource serversAuditPersistentSource,
+            IEnvironmentsPersistentSource environmentsPersistentSource,
+            IDaemonsPersistentSource daemonsPersistentSource,
+            IClaimsPrincipalReader claimsPrincipalReader)
         {
             _environmentsPersistentSource = environmentsPersistentSource;
             _serversPersistentSource = serversPersistentSource;
+            _serversAuditPersistentSource = serversAuditPersistentSource;
             _securityPrivilegesChecker = securityPrivilegesChecker;
+            _daemonsPersistentSource = daemonsPersistentSource;
+            _claimsPrincipalReader = claimsPrincipalReader;
         }
 
         /// <summary>
@@ -80,6 +94,27 @@ namespace Dorc.Api.Controllers
         }
 
         /// <summary>
+        ///     Returns app servers for an environment by environment name, filtered to those with "appserv" in ApplicationTags
+        /// </summary>
+        /// <param name="envName">Environment name</param>
+        /// <returns>List of ServerApiModel</returns>
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(List<ServerApiModel>))]
+        [HttpGet]
+        [Route("AppServersByEnvName")]
+        public IActionResult GetAppServersByEnvName([FromQuery] string envName)
+        {
+            var servers = _serversPersistentSource.GetAppServerDetails(envName);
+            var result = servers.Select(s => new ServerApiModel
+            {
+                ServerId = s.Id,
+                Name = s.Name ?? string.Empty,
+                OsName = s.OsName ?? string.Empty,
+                ApplicationTags = s.ApplicationTags ?? string.Empty
+            }).ToList();
+            return Ok(result);
+        }
+
+        /// <summary>
         /// Edit server entry
         /// </summary>
         /// <param name="id"></param>
@@ -99,7 +134,7 @@ namespace Dorc.Api.Controllers
                 if (env == null)
                 {
                     return BadRequest(
-                       "Error while checking permissions, probably Environment missing in Deployment database" );
+                       "Error while checking permissions, probably Environment missing in Deployment database");
                 }
                 if (!_securityPrivilegesChecker.CanModifyEnvironment(User, env.EnvironmentName))
                 {
@@ -108,19 +143,37 @@ namespace Dorc.Api.Controllers
             }
 
             if (id != server.ServerId)
-                return BadRequest("'id' must be the same as server.ServerId" );
+                return BadRequest("'id' must be the same as server.ServerId");
 
             if (id <= 0)
-                return BadRequest( "'id' cannot be 0" );
+                return BadRequest("'id' cannot be 0");
 
             var serverApiModel = _serversPersistentSource.GetServer(server.Name, User);
             if (serverApiModel != null && serverApiModel.ServerId != id)
                 return BadRequest("Cannot set the server name to the same as one that already exists!");
 
+            // Capture before-state for the audit row
+            var beforeServer = _serversPersistentSource.GetServer(id, User);
+            var beforeJson = beforeServer != null
+                ? JsonSerializer.Serialize(beforeServer, new JsonSerializerOptions { WriteIndented = true })
+                : null;
+
             var result = _serversPersistentSource.UpdateServer(id, server, User);
-            return result != null
-                ? Ok(result)
-                : NotFound("Error updating entry" );
+            if (result == null)
+                return NotFound("Error updating entry");
+
+            var afterServer = _serversPersistentSource.GetServer(id, User);
+
+            var afterJson = JsonSerializer.Serialize(afterServer, new JsonSerializerOptions { WriteIndented = true });
+
+            _serversAuditPersistentSource.InsertServerAudit(
+                _claimsPrincipalReader.GetUserFullDomainName(User),
+                ActionType.Update,
+                id,
+                fromValue: beforeJson,
+                toValue: afterJson);
+
+            return Ok(result);
         }
 
         /// <summary>
@@ -179,17 +232,28 @@ namespace Dorc.Api.Controllers
                 return BadRequest(
                     $"A server with the name {value.Name} already exists!");
             var response = _serversPersistentSource.AddServer(value, User);
+
+            _serversAuditPersistentSource.InsertServerAudit(
+                _claimsPrincipalReader.GetUserFullDomainName(User),
+                ActionType.Create,
+                response.ServerId,
+                fromValue: null,
+                toValue: JsonSerializer.Serialize(response, new JsonSerializerOptions { WriteIndented = true }));
+
             return Ok(response);
         }
 
         /// <summary>
         ///     Delete Server entry
+        ///     If daemons are linked to the server and <paramref name="confirmed"/> is false,
+        ///     a warning is returned and nothing is deleted. When <paramref name="confirmed"/>
+        ///     is true, all daemon links are removed first, then the server is deleted.
         /// </summary>
-        /// <param name="serverName"></param>
-        /// <param name="envId"></param>
+        /// <param name="serverId"></param>
+        /// <param name="confirmed">Set to true to confirm deletion despite linked daemons</param>
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(ApiBoolResult))]
         [HttpDelete]
-        public ApiBoolResult Delete(int serverId)
+        public ApiBoolResult Delete(int serverId, bool confirmed = false)
         {
             var environmentNamesForServerName = _serversPersistentSource.GetEnvironmentNamesForServerId(serverId);
 
@@ -201,7 +265,60 @@ namespace Dorc.Api.Controllers
                     { Result = false, Message = "User doesn't have \"Write\" permission for this action on " + environmentApiModel?.EnvironmentName + "!" };
             }
 
+            // Check for daemons linked to this server
+            var linkedDaemons = _daemonsPersistentSource.GetDaemonsForServer(serverId).ToList();
+            if (linkedDaemons.Any() && !confirmed)
+            {
+                var daemonNames = string.Join(", ", linkedDaemons.Select(d => d.Name));
+                return new ApiBoolResult
+                {
+                    Result = false,
+                    RequiresConfirmation = true,
+                    Message = $"The server has {linkedDaemons.Count} linked daemon(s): {daemonNames}. " +
+                              "Confirm deletion to remove the links and delete the server."
+                };
+            }
+
+            // Capture before-state for the audit row before deleting
+            var beforeServer = _serversPersistentSource.GetServer(serverId, User);
+            if (beforeServer == null)
+                return new ApiBoolResult { Result = false, Message = $"Server {serverId} not found." };
+            var beforeJson = JsonSerializer.Serialize(beforeServer, new JsonSerializerOptions { WriteIndented = true });
+
+            var username = _claimsPrincipalReader.GetUserFullDomainName(User);
+
+            // Deletion confirmed: detach all linked daemons first
+            foreach (var daemon in linkedDaemons)
+            {
+                if (!_daemonsPersistentSource.DetachDaemonFromServer(serverId, daemon.Id))
+                {
+                    return new ApiBoolResult
+                    {
+                        Result = false,
+                        Message = $"Failed to detach daemon '{daemon.Name}' (id {daemon.Id}) from server {serverId}. Server was not deleted."
+                    };
+                }
+
+                _serversAuditPersistentSource.InsertServerAudit(
+                    username,
+                    ActionType.Detach,
+                    serverId,
+                    fromValue: JsonSerializer.Serialize(new { ServerId = serverId, DaemonId = daemon.Id }),
+                    toValue: null);
+            }
+
             var result = _serversPersistentSource.DeleteServer(serverId);
+
+            if (result)
+            {
+                _serversAuditPersistentSource.InsertServerAudit(
+                    _claimsPrincipalReader.GetUserFullDomainName(User),
+                    ActionType.Delete,
+                    serverId,
+                    fromValue: beforeJson,
+                    toValue: null);
+            }
+
             return new ApiBoolResult { Result = result };
         }
     }

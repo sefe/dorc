@@ -37,8 +37,7 @@ dorc-web/
 │  └─ health/               # Health check endpoint
 ├─ src/
 │  ├─ apis/                 # Generated API clients
-│  │  ├─ dorc-api/          # DOrc API client (TypeScript)
-│  │  └─ azure-devops-build/ # Azure DevOps client
+│  │  └─ dorc-api/          # DOrc API client (TypeScript)
 │  ├─ components/           # Reusable Web Components
 │  │  ├─ add-*.ts           # Dialog components for adding entities
 │  │  ├─ attached-*.ts      # Components showing related entities
@@ -180,50 +179,57 @@ This step is automated by the [build for production command](#build-for-producti
 
 ## API Client Generation
 
-### DOrc API Client
+The TypeScript clients under `src/apis/` are generated code, and CI enforces
+that: every build regenerates both clients from their committed specs and
+fails if the result differs from what is committed (`Fail if generated
+clients are out of sync` in `.github/workflows/release.yml`). Never edit
+generated files by hand — change the spec and regenerate.
 
-The TypeScript client for the DOrc API is auto-generated from the OpenAPI/Swagger specification.
-
-#### Prerequisites
-
-Install the OpenAPI Generator CLI:
-
-```bash
-npm install @openapitools/openapi-generator-cli -g
-```
-
-#### Regenerate the Client
+Requires a Java runtime (the OpenAPI Generator CLI is installed as a dev
+dependency; each client pins its generator version in its own
+`openapitools.json`).
 
 From the `dorc-web` directory:
 
 ```bash
-npm run dorc-api-gen
+npm run api-gen             # regenerate all clients from the committed specs
+npm run dorc-api-gen        # DOrc API client only (from src/apis/dorc-api/swagger.json)
+npm run ado-build-csharp-gen # Azure DevOps Build C# client (from ../Dorc.AzureDevOps/build.json)
+npm run ado-build-spec-refresh # update ../Dorc.AzureDevOps/build.json from the official upstream spec
 ```
 
-Or manually:
+Generation never fetches: it reads only committed specs, so the same commit
+always produces the same clients. `ado-build-spec-refresh` is the separate,
+deliberate step that adopts a new upstream Azure DevOps spec — run it, then
+`api-gen`, then commit both. CI runs it on a schedule and opens a pull
+request (`.github/workflows/ado-build-spec-refresh.yml`).
 
-```bash
-openapi-generator-cli generate -g typescript-rxjs \
-  -i ./src/apis/dorc-api/swagger.json \
-  -o ./src/apis/dorc-api/ \
-  --additional-properties=supportsES6=true,npmVersion=9.4.0,typescriptThreePlus=true \
-  --skip-validate-spec
-```
+### DOrc API Client (`src/apis/dorc-api`)
 
-**Note:** The `swagger.json` file should be obtained from the running DOrc API at `/swagger/v1/swagger.json`.
+Generated from `src/apis/dorc-api/swagger.json`, which mirrors the DOrc API's
+OpenAPI document (obtainable from a running API at `/swagger/v1/swagger.json`).
+When you change a controller or API model in C#, update `swagger.json` to
+match and run `npm run dorc-api-gen`.
 
-### Azure DevOps Client
+Every file under `src/apis/dorc-api` is pure generator output. App concerns
+are wired in through the generated `Configuration` class instead of edits to
+generated files: construct every API with the shared instance from
+`src/services/dorc-api-configuration.ts`
+(`new RefDataEnvironmentsApi(dorcApiConfiguration)`), which supplies the
+base URL from `AppConfig` and, under the OAuth scheme, the Bearer token
+(redirecting to `/signin.html` when the session is missing or expired). The
+per-operation `Authorization` header handling in the generated code comes
+from the spec's `oauth2` security scheme.
 
-The Azure DevOps Build API client is also auto-generated. Azure DevOps API specifications come from: https://github.com/MicrosoftDocs/vsts-rest-api-specs
+### Azure DevOps Client (C#, `../Dorc.AzureDevOps`)
 
-To regenerate (from the appropriate location):
-
-```bash
-openapi-generator-cli generate -g typescript-rxjs \
-  -i ./build.json \
-  --skip-validate-spec \
-  --additional-properties=supportsES6=true
-```
+The web app does not use an Azure DevOps client — build information reaches
+it through the DOrc API. The C# client the backend uses is generated from
+`src/Dorc.AzureDevOps/build.json`, whose authoritative copy lives at
+https://github.com/MicrosoftDocs/vsts-rest-api-specs
+(`specification/build/6.0/build.json`). See the generation commands above:
+`ado-build-csharp-gen` regenerates from the committed spec, and
+`ado-build-spec-refresh` is what pulls a newer one down.
 
 
 ## Performance Testing with K6

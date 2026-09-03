@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// Represents an item in a repository from a source provider.
     /// </summary>
     [DataContract(Name = "SourceRepositoryItem")]
-    public partial class SourceRepositoryItem : IEquatable<SourceRepositoryItem>, IValidatableObject
+    public partial class SourceRepositoryItem : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="SourceRepositoryItem" /> class.
@@ -39,7 +39,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="path">The full path of the item, relative to the root of the repository..</param>
         /// <param name="type">The type of the item (folder, file, etc)..</param>
         /// <param name="url">The URL of the item..</param>
-        public SourceRepositoryItem(bool isContainer = default(bool), string path = default(string), string type = default(string), string url = default(string))
+        public SourceRepositoryItem(bool isContainer = default, string path = default, string type = default, string url = default)
         {
             this.IsContainer = isContainer;
             this.Path = path;
@@ -101,80 +101,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as SourceRepositoryItem);
-        }
-
-        /// <summary>
-        /// Returns true if SourceRepositoryItem instances are equal
-        /// </summary>
-        /// <param name="input">Instance of SourceRepositoryItem to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(SourceRepositoryItem input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.IsContainer == input.IsContainer ||
-                    this.IsContainer.Equals(input.IsContainer)
-                ) && 
-                (
-                    this.Path == input.Path ||
-                    (this.Path != null &&
-                    this.Path.Equals(input.Path))
-                ) && 
-                (
-                    this.Type == input.Type ||
-                    (this.Type != null &&
-                    this.Type.Equals(input.Type))
-                ) && 
-                (
-                    this.Url == input.Url ||
-                    (this.Url != null &&
-                    this.Url.Equals(input.Url))
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                hashCode = (hashCode * 59) + this.IsContainer.GetHashCode();
-                if (this.Path != null)
-                {
-                    hashCode = (hashCode * 59) + this.Path.GetHashCode();
-                }
-                if (this.Type != null)
-                {
-                    hashCode = (hashCode * 59) + this.Type.GetHashCode();
-                }
-                if (this.Url != null)
-                {
-                    hashCode = (hashCode * 59) + this.Url.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

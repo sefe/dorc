@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// GraphSubjectBase
     /// </summary>
     [DataContract(Name = "GraphSubjectBase")]
-    public partial class GraphSubjectBase : IEquatable<GraphSubjectBase>, IValidatableObject
+    public partial class GraphSubjectBase : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="GraphSubjectBase" /> class.
@@ -39,7 +39,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="descriptor">The descriptor is the primary way to reference the graph subject while the system is running. This field will uniquely identify the same graph subject across both Accounts and Organizations..</param>
         /// <param name="displayName">This is the non-unique display name of the graph subject. To change this field, you must alter its value in the source provider..</param>
         /// <param name="url">This url is the full route to the source resource of this graph subject..</param>
-        public GraphSubjectBase(ReferenceLinks links = default(ReferenceLinks), string descriptor = default(string), string displayName = default(string), string url = default(string))
+        public GraphSubjectBase(ReferenceLinks links = default, string descriptor = default, string displayName = default, string url = default)
         {
             this.Links = links;
             this.Descriptor = descriptor;
@@ -100,84 +100,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as GraphSubjectBase);
-        }
-
-        /// <summary>
-        /// Returns true if GraphSubjectBase instances are equal
-        /// </summary>
-        /// <param name="input">Instance of GraphSubjectBase to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(GraphSubjectBase input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.Links == input.Links ||
-                    (this.Links != null &&
-                    this.Links.Equals(input.Links))
-                ) && 
-                (
-                    this.Descriptor == input.Descriptor ||
-                    (this.Descriptor != null &&
-                    this.Descriptor.Equals(input.Descriptor))
-                ) && 
-                (
-                    this.DisplayName == input.DisplayName ||
-                    (this.DisplayName != null &&
-                    this.DisplayName.Equals(input.DisplayName))
-                ) && 
-                (
-                    this.Url == input.Url ||
-                    (this.Url != null &&
-                    this.Url.Equals(input.Url))
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.Links != null)
-                {
-                    hashCode = (hashCode * 59) + this.Links.GetHashCode();
-                }
-                if (this.Descriptor != null)
-                {
-                    hashCode = (hashCode * 59) + this.Descriptor.GetHashCode();
-                }
-                if (this.DisplayName != null)
-                {
-                    hashCode = (hashCode * 59) + this.DisplayName.GetHashCode();
-                }
-                if (this.Url != null)
-                {
-                    hashCode = (hashCode * 59) + this.Url.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

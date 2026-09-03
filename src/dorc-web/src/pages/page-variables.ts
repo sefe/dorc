@@ -1,12 +1,14 @@
+import { comboBoxRenderer } from '@vaadin/combo-box/lit';
+import { columnBodyRenderer, columnHeaderRenderer } from '@vaadin/grid/lit';
+import { confirmPrompt } from '../components/confirm-prompt';
 import '@vaadin/button';
 import { Checkbox } from '@vaadin/checkbox';
 import '@vaadin/combo-box';
 import '@vaadin/checkbox';
-import { ComboBox, ComboBoxRenderer } from '@vaadin/combo-box';
+import { ComboBox } from '@vaadin/combo-box';
 import '@vaadin/details';
 import '@vaadin/grid';
-import { GridCellPartNameGenerator, GridItemModel } from '@vaadin/grid';
-import { GridColumn } from '@vaadin/grid/vaadin-grid-column.js';
+import { GridCellPartNameGenerator } from '@vaadin/grid';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid-sorter';
 import '@vaadin/horizontal-layout';
@@ -17,8 +19,8 @@ import '@vaadin/radio-group';
 import '@vaadin/text-area';
 import '@vaadin/text-field';
 import { TextField } from '@vaadin/text-field';
-import { css, PropertyValueMap, render } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
+import { css, PropertyValueMap } from 'lit';
+import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import '../components/grid-button-groups/variable-value-controls';
 import { ErrorNotification } from '../components/notifications/error-notification';
@@ -36,7 +38,9 @@ import { PageElement } from '../helpers/page-element';
 import { PropertyValueDtoExtended } from '../components/model-extensions/PropertyValueDtoExtended';
 import GlobalCache from '../global-cache';
 import '@vaadin/icons';
-import {Router} from "@vaadin/router";
+import { navigate } from '../router/router';
+import '@vaadin/tooltip';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('page-variables')
 export class PageVariables extends PageElement {
@@ -66,12 +70,11 @@ export class PageVariables extends PageElement {
   @property({ type: Array }) filteredEnvironments: string[] | undefined;
 
   @property({ type: Array }) propertyValues:
-    | PropertyValueDtoExtended[]
-    | undefined;
+    PropertyValueDtoExtended[] | undefined;
 
   private allPropertyValues: PropertyValueDtoExtended[] | undefined;
 
-  private _editingValueId: number | undefined;
+  @state() private _editingValueId: number | undefined;
 
   private scopeFilterValue = '';
 
@@ -98,6 +101,12 @@ export class PageVariables extends PageElement {
 
   static get styles() {
     return css`
+      :host {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        overflow: hidden;
+      }
       .loader {
         border: 16px solid #f3f3f3; /* Light grey */
         border-top: 16px solid #3498db; /* Blue */
@@ -123,8 +132,8 @@ export class PageVariables extends PageElement {
         }
       }
       vaadin-grid#grid {
-        overflow: hidden;
-        height: calc(100vh - 390px);
+        flex: 1;
+        min-height: 200px;
       }
       vaadin-grid#grid::part(variable-value-error) {
         background-color: var(--dorc-highlight-bg);
@@ -140,6 +149,42 @@ export class PageVariables extends PageElement {
       }
       vaadin-combo-box {
         padding: 0px;
+      }
+
+      .variable-selector-table {
+        width: fit-content;
+        max-width: 100%;
+      }
+
+      .variable-selector-cell {
+        width: auto;
+      }
+
+      .variable-selector-combo {
+        width: clamp(30rem, 46vw, 52rem);
+        min-width: 30rem;
+        max-width: none;
+        margin-left: var(--lumo-space-xs);
+      }
+
+      .variable-selector-actions {
+        white-space: nowrap;
+      }
+
+      @media (max-width: 768px) {
+        .variable-selector-table {
+          width: 100%;
+        }
+
+        .variable-selector-cell {
+          width: 100%;
+        }
+
+        .variable-selector-combo {
+          width: 100%;
+          min-width: 0;
+          margin-left: 0;
+        }
       }
     `;
   }
@@ -166,229 +211,266 @@ export class PageVariables extends PageElement {
       </vaadin-radio-group>
       <vaadin-button
         theme="icon"
-        title="Value Lookup"
+        aria-label="Value Lookup"
         style="position: fixed; right: 10px"
         @click="${() => {
-          Router.go('/variables/value-lookup');
+          void navigate('/variables/value-lookup');
         }}"
+      >
+        <vaadin-tooltip slot="tooltip" text="Value Lookup"></vaadin-tooltip
         ><vaadin-icon
           icon="vaadin:search"
           style="color: var(--dorc-link-color)"
         ></vaadin-icon
       ></vaadin-button>
-      ${this.radioValue === 'existing'
-        ? html`
-            <vaadin-details
-              opened
-              summary="Select Variable Name"
-              style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; padding-left: 10px"
-            >
-              <table>
-                <tr>
-                  <td style="vertical-align: center; min-width: 20px">
-                    ${this.loadingProperties
-                      ? html`<div
-                          style="vertical-align: center"
-                          class="small-loader"
-                        ></div> `
-                      : html``}
-                  </td>
-                  <td style="vertical-align: center;">
-                    <vaadin-combo-box
-                      id="properties"
-                      @value-changed="${this._propNameValueChanged}"
-                      .items="${this.properties}"
-                      label="Existing Variable Name"
-                      placeholder="Select Variable Name"
-                      clear-button-visible
-                      item-label-path="Name"
-                      item-value-path="Name"
-                      helper-text="${this.propertyValues
-                        ? `Property contains ${this.propertyValues?.length} value(s)`
-                        : 'Select Variable for info'}"
-                      style="min-width: 600px; margin-left: 5px"
-                      ?disabled="${this.deletingVariable}"
-                    ></vaadin-combo-box>
-                  </td>
-                  <td style="vertical-align: center;">
-                    <vaadin-button
-                      style="--lumo-primary-text-color: var(--dorc-error-color);"
-                      ?disabled="${!this.isAdmin ||
-                      this.deletingVariable ||
-                      !this.existingPropertySelected}"
-                      @click="${this.deleteVariable}"
-                      >Delete Variable</vaadin-button
+      ${
+        this.radioValue === 'existing'
+          ? html`
+              <vaadin-details
+                opened
+                summary="Select Variable Name"
+                style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; padding-left: 10px"
+              >
+                <table class="variable-selector-table">
+                  <tr>
+                    <td style="vertical-align: center; min-width: 20px">
+                      ${
+                        this.loadingProperties
+                          ? html`<div
+                              style="vertical-align: center"
+                              class="small-loader"
+                            ></div> `
+                          : html``
+                      }
+                    </td>
+                    <td
+                      class="variable-selector-cell"
+                      style="vertical-align: center;"
                     >
-                  </td>
-                  <td style="vertical-align: center; min-width: 20px">
-                    ${this.deletingVariable
-                      ? html`<div
-                          style="vertical-align: center"
-                          class="small-loader"
-                        ></div> `
-                      : html``}
-                  </td>
-                  <td style="vertical-align: center;">
-                    <vaadin-checkbox
-                      id="is-variable-secure"
-                      label="Secure"
-                      ?disabled="${!((this.isPowerUser || this.isAdmin) && this.existingPropertySelected)}"
-                      @click="${this.updatePropertySecure}"
-                    ></vaadin-checkbox>
-                  </td>
-                </tr>
-              </table>
-            </vaadin-details>
-            <vaadin-details
-              opened
-              summary="Add Variable Value"
-              style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; padding-left: 10px"
-            >
-              <table>
-                <tr>
-                  <td style="vertical-align: center; min-width: 20px">
-                    ${this.loadingScopes
-                      ? html`<div
-                          style="vertical-align: center"
-                          class="small-loader"
-                        ></div> `
-                      : html``}
-                  </td>
-                  <td style="vertical-align: center;">
-                    <vaadin-combo-box
-                      id="envScope"
-                      @value-changed="${this._newVariableValueScopeChanged}"
-                      .items="${this.filteredEnvironments}"
-                      ?disabled="${!this.existingPropertySelected}"
-                      label="Scope"
-                      placeholder="Select Variable Scope"
-                      style="min-width: 400px; margin-left: 5px"
-                      helper-text="Select the environment scope or leave blank for default"
-                    ></vaadin-combo-box>
-                  </td>
-                  <td style="vertical-align: center; min-width: 20px">
-                    ${this.loadingScopeOptions
-                      ? html`<div
-                          style="vertical-align: center"
-                          class="small-loader"
-                        ></div> `
-                      : html``}
-                  </td>
-                  <td style="vertical-align: center;">
-                    <vaadin-combo-box
-                      allow-custom-value
-                      .items="${this.propertyValueScopeOptions}"
-                      item-label-path="ValueOption"
-                      item-value-path="ValueOption"
-                      .renderer="${this.comboboxRenderer}"
-                      id="newVariableValue"
-                      ?disabled="${!this.existingPropertySelected}"
-                      label="Value"
-                      style="min-width: 400px"
-                      helper-text="Include a resolver eg. $AnotherVariable$ or specify value directly"
-                    ></vaadin-combo-box>
-                  </td>
-                  <td style="vertical-align: center;">
-                    <vaadin-button
-                      ?disabled="${!this.existingPropertySelected}"
-                      @click="${this._addVariableValueClick}"
-                      >Add Variable Value</vaadin-button
+                      <vaadin-combo-box
+                        class="variable-selector-combo"
+                        id="properties"
+                        @value-changed="${this._propNameValueChanged}"
+                        .items="${this.properties}"
+                        ${comboBoxRenderer(this.propertyNameRenderer, [])}
+                        label="Existing Variable Name"
+                        placeholder="Select Variable Name"
+                        clear-button-visible
+                        item-label-path="Name"
+                        item-value-path="Name"
+                        helper-text="${
+                          this.propertyValues
+                            ? `Property contains ${this.propertyValues?.length} value(s)`
+                            : 'Select Variable for info'
+                        }"
+                        ?disabled="${this.deletingVariable}"
+                      ></vaadin-combo-box>
+                    </td>
+                    <td
+                      class="variable-selector-actions"
+                      style="vertical-align: center;"
                     >
-                  </td>
-                  <td style="vertical-align: center; min-width: 20px">
-                    ${this.addingVariableValue
-                      ? html`<div
-                          style="vertical-align: center"
-                          class="small-loader"
-                        ></div> `
-                      : html``}
-                  </td>
-                </tr>
-              </table>
-            </vaadin-details>
-            ${this.loadingPropertyValues
-              ? html`<div
-                  style="vertical-align: center"
-                  class="small-loader"
-                ></div>`
-              : html`<vaadin-grid
-                  id="grid"
-                  .items="${this.propertyValues}"
-                  column-reordering-allowed
-                  multi-sort
-                  theme="compact row-stripes no-row-borders no-border"
-                  all-rows-visible
-                  ?disabled="${this.deletingVariable ||
-                  !this.existingPropertySelected}"
-                  .cellPartNameGenerator="${this.cellPartNameGenerator}"
-                >
-                  <vaadin-grid-column
-                    header="Scope"
-                    path="PropertyValueFilter"
-                    width="200px"
-                    flex-grow="0"
-                    resizable
-                    .headerRenderer="${this.scopeHeaderRenderer}"
-                    .renderer="${this.scopeValueRenderer}"
-                  ></vaadin-grid-column>
-                  <vaadin-grid-column
-                    header="Value"
-                    resizable
-                    auto-width
-                    .renderer="${this.variableValueControlsRenderer}"
-                    .headerRenderer="${this.valueHeaderRenderer}"
-                  ></vaadin-grid-column>
-                </vaadin-grid>`}
-          `
-        : html`
-            <vaadin-details
-              opened
-              summary="Add Variable"
-              style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; padding-left: 10px"
-            >
-              <table>
-                <tr>
-                  <td style="vertical-align: bottom;">
-                    <vaadin-text-field
-                      id="newVariable"
-                      label="New Variable Name"
-                      style="min-width: 400px"
-                      ?disabled="${!(this.isPowerUser || this.isAdmin)}"
-                      @value-changed="${this.newVariableChanged}"
-                    ></vaadin-text-field>
-                  </td>
-                  <td style="vertical-align: bottom;">
-                    <vaadin-checkbox
-                      id="variable-secure"
-                      label="Secure"
-                      ?disabled="${!(this.isPowerUser || this.isAdmin)}"
-                    ></vaadin-checkbox>
-                    <vaadin-checkbox
-                      id="variable-array"
-                      label="is Array"
-                      ?disabled="${!(this.isPowerUser || this.isAdmin)}"
-                    ></vaadin-checkbox>
-                  </td>
-                  <td style="vertical-align: bottom;">
-                    <vaadin-button
-                      style="margin: 0px"
-                      ?disabled="${this.newVariableButtonDisabled}"
-                      @click="${this.createVariable}"
-                      >Add Variable</vaadin-button
+                      <vaadin-button
+                        style="--lumo-primary-text-color: var(--dorc-error-color);"
+                        ?disabled="${
+                          !this.isAdmin ||
+                          this.deletingVariable ||
+                          !this.existingPropertySelected
+                        }"
+                        @click="${this.deleteVariable}"
+                        >Delete Variable</vaadin-button
+                      >
+                    </td>
+                    <td style="vertical-align: center; min-width: 20px">
+                      ${
+                        this.deletingVariable
+                          ? html`<div
+                              style="vertical-align: center"
+                              class="small-loader"
+                            ></div> `
+                          : html``
+                      }
+                    </td>
+                    <td
+                      class="variable-selector-actions"
+                      style="vertical-align: center;"
                     >
-                  </td>
-                  <td style="vertical-align: center;">
-                    ${this.creatingVariable
-                      ? html`<div
-                          style="vertical-align: bottom"
-                          class="small-loader"
-                        ></div>`
-                      : html``}
-                  </td>
-                </tr>
-              </table>
-            </vaadin-details>
-          `}
+                      <vaadin-checkbox
+                        id="is-variable-secure"
+                        label="Secure"
+                        ?disabled="${!((this.isPowerUser || this.isAdmin) && this.existingPropertySelected)}"
+                        @click="${this.updatePropertySecure}"
+                      ></vaadin-checkbox>
+                    </td>
+                  </tr>
+                </table>
+              </vaadin-details>
+              <vaadin-details
+                opened
+                summary="Add Variable Value"
+                style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; padding-left: 10px"
+              >
+                <table style="width: 100%">
+                  <tr>
+                    <td style="vertical-align: center; min-width: 20px">
+                      ${
+                        this.loadingScopes
+                          ? html`<div
+                              style="vertical-align: center"
+                              class="small-loader"
+                            ></div> `
+                          : html``
+                      }
+                    </td>
+                    <td style="vertical-align: center;">
+                      <vaadin-combo-box
+                        id="envScope"
+                        @value-changed="${this._newVariableValueScopeChanged}"
+                        .items="${this.filteredEnvironments}"
+                        ?disabled="${!this.existingPropertySelected}"
+                        label="Scope"
+                        placeholder="Select Variable Scope"
+                        style="min-width: 400px; margin-left: 5px"
+                        helper-text="Select the environment scope or leave blank for default"
+                      ></vaadin-combo-box>
+                    </td>
+                    <td style="vertical-align: center; min-width: 20px">
+                      ${
+                        this.loadingScopeOptions
+                          ? html`<div
+                              style="vertical-align: center"
+                              class="small-loader"
+                            ></div> `
+                          : html``
+                      }
+                    </td>
+                    <td style="vertical-align: center; width: 100%;">
+                      <vaadin-combo-box
+                        allow-custom-value
+                        .items="${this.propertyValueScopeOptions}"
+                        item-label-path="ValueOption"
+                        item-value-path="ValueOption"
+                        ${comboBoxRenderer(this.comboboxRenderer, [])}
+                        id="newVariableValue"
+                        ?disabled="${!this.existingPropertySelected}"
+                        label="Value"
+                        style="min-width: 400px; width: 100%"
+                        helper-text="Include a resolver eg. $AnotherVariable$ or specify value directly"
+                      ></vaadin-combo-box>
+                    </td>
+                    <td style="vertical-align: center;">
+                      <vaadin-button
+                        ?disabled="${!this.existingPropertySelected}"
+                        @click="${this._addVariableValueClick}"
+                        >Add Variable Value</vaadin-button
+                      >
+                    </td>
+                    <td style="vertical-align: center; min-width: 20px">
+                      ${
+                        this.addingVariableValue
+                          ? html`<div
+                              style="vertical-align: center"
+                              class="small-loader"
+                            ></div> `
+                          : html``
+                      }
+                    </td>
+                  </tr>
+                </table>
+              </vaadin-details>
+              ${
+                this.loadingPropertyValues
+                  ? html`<div
+                      style="vertical-align: center"
+                      class="small-loader"
+                    ></div>`
+                  : html`<vaadin-grid
+                      id="grid"
+                      .items="${this.propertyValues}"
+                      column-reordering-allowed
+                      multi-sort
+                      theme="compact row-stripes no-row-borders no-border"
+                      all-rows-visible
+                      ?disabled="${
+                      this.deletingVariable || !this.existingPropertySelected
+                    }"
+                      .cellPartNameGenerator="${this.cellPartNameGenerator}"
+                    >
+                      <vaadin-grid-column
+                        header="Scope"
+                        path="PropertyValueFilter"
+                        width="200px"
+                        flex-grow="0"
+                        resizable
+                        ${columnHeaderRenderer(this.scopeHeaderRenderer, [])}
+                        ${columnBodyRenderer(this.scopeValueRenderer, [])}
+                      ></vaadin-grid-column>
+                      <vaadin-grid-column
+                        header="Value"
+                        resizable
+                        flex-grow="1"
+                        width="20rem"
+                        ${columnBodyRenderer(
+                        this.variableValueControlsRenderer,
+                        [this._editingValueId]
+                      )}
+                        ${columnHeaderRenderer(this.valueHeaderRenderer, [])}
+                      ></vaadin-grid-column>
+                    </vaadin-grid>`
+              }
+            `
+          : html`
+              <vaadin-details
+                opened
+                summary="Add Variable"
+                style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; padding-left: 10px"
+              >
+                <table>
+                  <tr>
+                    <td style="vertical-align: bottom;">
+                      <vaadin-text-field
+                        id="newVariable"
+                        label="New Variable Name"
+                        style="min-width: 400px"
+                        ?disabled="${!(this.isPowerUser || this.isAdmin)}"
+                        @value-changed="${this.newVariableChanged}"
+                      ></vaadin-text-field>
+                    </td>
+                    <td style="vertical-align: bottom;">
+                      <vaadin-checkbox
+                        id="variable-secure"
+                        label="Secure"
+                        ?disabled="${!(this.isPowerUser || this.isAdmin)}"
+                      ></vaadin-checkbox>
+                      <vaadin-checkbox
+                        id="variable-array"
+                        label="is Array"
+                        ?disabled="${!(this.isPowerUser || this.isAdmin)}"
+                      ></vaadin-checkbox>
+                    </td>
+                    <td style="vertical-align: bottom;">
+                      <vaadin-button
+                        style="margin: 0px"
+                        ?disabled="${this.newVariableButtonDisabled}"
+                        @click="${this.createVariable}"
+                        >Add Variable</vaadin-button
+                      >
+                    </td>
+                    <td style="vertical-align: center;">
+                      ${
+                        this.creatingVariable
+                          ? html`<div
+                              style="vertical-align: bottom"
+                              class="small-loader"
+                            ></div>`
+                          : html``
+                      }
+                    </td>
+                  </tr>
+                </table>
+              </vaadin-details>
+            `
+      }
     `;
   }
 
@@ -413,7 +495,8 @@ export class PageVariables extends PageElement {
   private setUserRoles(userRoles: string[]) {
     this.userRoles = userRoles;
     this.isAdmin = this.userRoles.find(p => p === 'Admin') !== undefined;
-    this.isPowerUser = this.userRoles.find(p => p === 'PowerUser') !== undefined;
+    this.isPowerUser =
+      this.userRoles.find(p => p === 'PowerUser') !== undefined;
   }
 
   cellPartNameGenerator: GridCellPartNameGenerator<PropertyValueDtoExtended> = (
@@ -430,87 +513,73 @@ export class PageVariables extends PageElement {
     return parts;
   };
 
-  scopeValueRenderer(
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<PropertyValueDtoExtended>
-  ) {
-    const scope = model.item.PropertyValueFilter;
+  scopeValueRenderer(item: PropertyValueDtoExtended) {
+    const scope = item.PropertyValueFilter;
     const isDefault = !scope;
-    render(
-      html`<span style="${isDefault ? 'font-style: italic; color: var(--lumo-secondary-text-color);' : ''}">
-        ${isDefault ? '(default)' : scope}
-      </span>`,
-      root
-    );
+    return html`<span
+      style="${isDefault ? 'font-style: italic; color: var(--lumo-secondary-text-color);' : ''}"
+    >
+      ${isDefault ? '(default)' : scope}
+    </span>`;
   }
 
-  scopeHeaderRenderer = (root: HTMLElement) => {
-    render(
-      html`
-        <vaadin-horizontal-layout style="align-items: center;" theme="spacing-xs">
-          <vaadin-grid-sorter path="PropertyValueFilter"></vaadin-grid-sorter>
-          <vaadin-text-field
-            placeholder="Scope"
-            clear-button-visible
-            focus-target
-            style="width: 100px"
-            theme="small"
-            @input="${(e: InputEvent) => {
-              const textField = e.target as HTMLInputElement;
-              this.scopeFilterValue = textField?.value ?? '';
-              this.applyFilters();
-            }}"
-          ></vaadin-text-field>
-        </vaadin-horizontal-layout>
-      `,
-      root
-    );
-  }
+  scopeHeaderRenderer = () => {
+    return html`
+      <vaadin-horizontal-layout style="align-items: center;" theme="spacing-xs">
+        <vaadin-grid-sorter path="PropertyValueFilter"></vaadin-grid-sorter>
+        <vaadin-text-field
+          placeholder="Scope"
+          clear-button-visible
+          focus-target
+          style="width: 100px"
+          theme="small"
+          @input="${(e: InputEvent) => {
+            const textField = e.target as HTMLInputElement;
+            this.scopeFilterValue = textField?.value ?? '';
+            this.applyFilters();
+          }}"
+        ></vaadin-text-field>
+      </vaadin-horizontal-layout>
+    `;
+  };
 
-  valueHeaderRenderer = (root: HTMLElement) => {
-    render(
-      html`
-        <vaadin-horizontal-layout style="align-items: center;" theme="spacing-xs">
-          <vaadin-grid-sorter path="Value"></vaadin-grid-sorter>
-          <vaadin-text-field
-            placeholder="Value"
-            clear-button-visible
-            focus-target
-            style="width: 100px"
-            theme="small"
-            @input="${(e: InputEvent) => {
-              const textField = e.target as HTMLInputElement;
-              this.valueFilterValue = textField?.value ?? '';
-              this.applyFilters();
-            }}"
-          ></vaadin-text-field>
-        </vaadin-horizontal-layout>
-      `,
-      root
-    );
-  }
+  valueHeaderRenderer = () => {
+    return html`
+      <vaadin-horizontal-layout style="align-items: center;" theme="spacing-xs">
+        <vaadin-grid-sorter path="Value"></vaadin-grid-sorter>
+        <vaadin-text-field
+          placeholder="Value"
+          clear-button-visible
+          focus-target
+          style="width: 100px"
+          theme="small"
+          @input="${(e: InputEvent) => {
+            const textField = e.target as HTMLInputElement;
+            this.valueFilterValue = textField?.value ?? '';
+            this.applyFilters();
+          }}"
+        ></vaadin-text-field>
+      </vaadin-horizontal-layout>
+    `;
+  };
 
-  private comboboxRenderer: ComboBoxRenderer<PropertyValueScopeOptionApiModel> =
-    (root, _, { item: scopeOption }) => {
-      const exampleOption = JSON.stringify(scopeOption.SampleResolvedValue);
+  private comboboxRenderer = (
+    scopeOption: PropertyValueScopeOptionApiModel
+  ) => html`
+    <div style="display: flex;">
+      <div>
+        ${scopeOption.ValueOption}
+        <div
+          style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
+        >
+          ${JSON.stringify(scopeOption.SampleResolvedValue)}
+        </div>
+      </div>
+    </div>
+  `;
 
-      render(
-        html`
-          <div style="display: flex;">
-            <div>
-              ${scopeOption.ValueOption}
-              <div
-                style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
-              >
-                ${exampleOption}
-              </div>
-            </div>
-          </div>
-        `,
-        root
-      );
-    };
+  private propertyNameRenderer = (property: PropertyApiModel) =>
+    html`<div title="${property.Name}">${property.Name}</div>`;
 
   validateNewVariable() {
     const textField = this.shadowRoot?.querySelector(
@@ -538,19 +607,19 @@ export class PageVariables extends PageElement {
     }
   }
 
-  deleteVariable() {
+  async deleteVariable() {
     const existingProps = this.shadowRoot?.querySelector(
       '#properties'
     ) as unknown as ComboBox;
     const selected = existingProps.selectedItem as PropertyApiModel;
 
-    const answer = confirm(
+    const answer = await confirmPrompt(
       `Are you sure you want to delete the variable ${selected.Name} and all of its ${this.propertyValues?.length} value(s)?`
     );
 
     if (existingProps && answer) {
       this.deletingVariable = true;
-      const api = new PropertiesApi();
+      const api = new PropertiesApi(dorcApiConfiguration);
       api
         .propertiesDelete({
           requestBody: [selected.Name ?? '']
@@ -603,7 +672,7 @@ export class PageVariables extends PageElement {
       IsArray: checkboxArray.checked
     };
 
-    const api = new PropertiesApi();
+    const api = new PropertiesApi(dorcApiConfiguration);
     api.propertiesPost({ propertyApiModel: [prop] }).subscribe({
       next: (data: Response[]) => {
         if (data[0].Status === 'success') {
@@ -636,20 +705,16 @@ export class PageVariables extends PageElement {
     );
     this.addEventListener('editing-started', ((e: CustomEvent) => {
       this._editingValueId = e.detail.id;
-      const grid = this.shadowRoot?.getElementById('grid') as any;
-      grid?.requestContentUpdate?.();
     }) as EventListener);
     this.addEventListener('editing-cancelled', (() => {
       this._editingValueId = undefined;
-      const grid = this.shadowRoot?.getElementById('grid') as any;
-      grid?.requestContentUpdate?.();
     }) as EventListener);
     this.getAllVariableNames();
     this.getEnvironments();
   }
 
   private getEnvironments() {
-    const api2 = new RefDataEnvironmentsApi();
+    const api2 = new RefDataEnvironmentsApi(dorcApiConfiguration);
     api2.refDataEnvironmentsGetAllEnvironmentNamesGet().subscribe({
       next: (data: string[]) => {
         this.removeExistingScopesFromSelectable();
@@ -662,7 +727,7 @@ export class PageVariables extends PageElement {
   }
 
   private getAllVariableNames() {
-    const api = new PropertiesApi();
+    const api = new PropertiesApi(dorcApiConfiguration);
     api.propertiesGet().subscribe({
       next: (data: PropertyApiModel[]) => {
         this.properties = data.sort(this.sortProperties);
@@ -682,6 +747,7 @@ export class PageVariables extends PageElement {
     if (data) {
       const combo = data.target as ComboBox;
       this.propertyName = combo.value;
+      combo.title = this.propertyName;
 
       if (this.newVariableName !== '') {
         const newfoundProp = this.properties?.find(
@@ -689,6 +755,7 @@ export class PageVariables extends PageElement {
         );
         if (combo) {
           combo.selectedItem = newfoundProp;
+          combo.title = combo.value;
           this.newVariableName = '';
         }
       }
@@ -717,13 +784,12 @@ export class PageVariables extends PageElement {
     if (data) {
       const combo = data.target as ComboBox;
       this.newVariableScope = combo.value;
-      if (!this.newVariableScope)
-      {
+      if (!this.newVariableScope) {
         return;
       }
       this.loadingScopeOptions = true;
 
-      const api = new PropertyValuesApi();
+      const api = new PropertyValuesApi(dorcApiConfiguration);
       api
         .propertyValuesScopeOptionsGet({
           propertyValueScope: this.newVariableScope
@@ -754,7 +820,7 @@ export class PageVariables extends PageElement {
   private loadVariableValues() {
     if (this.propertyName !== '') {
       this.loadingPropertyValues = true;
-      const api = new PropertyValuesApi();
+      const api = new PropertyValuesApi(dorcApiConfiguration);
       api.propertyValuesGet({ propertyName: this.propertyName }).subscribe({
         next: (data: PropertyValueDto[]) => {
           this.setVariableValues(data);
@@ -770,30 +836,39 @@ export class PageVariables extends PageElement {
     }
   }
 
-  updatePropertySecure(event: Event) {
-    const checkbox = event.target as Checkbox;
+  async updatePropertySecure(event: Event) {
+    // currentTarget, not target: the click originates on the light-DOM <input>
+    // inside vaadin-checkbox, so `event.target` is that input and writing
+    // `.checked` to it leaves the host — and the visible tick — unchanged.
+    const checkbox = event.currentTarget as Checkbox;
+    // Snapshot the property name: it is reassigned by the selector combo, and
+    // the PUT below runs after the confirmation. Reading it again would key the
+    // request by whatever is selected then, not by the property the user was
+    // asked about.
+    const propertyName = this.propertyName;
     const existingProperty = this.properties?.find(
-      value => value.Name === this.propertyName
+      value => value.Name === propertyName
     );
 
-    if (existingProperty && this.propertyName) {
+    if (existingProperty && propertyName) {
       // Store the original state for proper reverting
       const originallySecured = existingProperty.Secure ?? false;
-      
+
       let confirmMessage = '';
-      
+
       if (!originallySecured) {
-        confirmMessage = `Are you sure you want to mark property "${this.propertyName}" as secure?\n\nThis will automatically encrypt all existing property values for this property. This action cannot be undone.`;
+        confirmMessage = `Are you sure you want to mark property "${propertyName}" as secure?\n\nThis will automatically encrypt all existing property values for this property. This action cannot be undone.`;
       } else if (originallySecured) {
-        confirmMessage = `Are you sure you want to mark property "${this.propertyName}" as non-secure?\n\nThis will not decrypt existing values, but new values will be stored in plaintext.`;
+        confirmMessage = `Are you sure you want to mark property "${propertyName}" as non-secure?\n\nThis will not decrypt existing values, but new values will be stored in plaintext.`;
       }
-      
+
+      // preventDefault() is dropped: the dialog is awaited, so by the time this
+      // runs the click has long since been dispatched and it does nothing.
       const revertCheckboxState = () => {
-        event.preventDefault();
         checkbox.checked = originallySecured;
       };
 
-      if (!confirm(confirmMessage)) {
+      if (!(await confirmPrompt(confirmMessage))) {
         revertCheckboxState();
         return;
       }
@@ -803,27 +878,27 @@ export class PageVariables extends PageElement {
         Secure: !originallySecured
       };
 
-      const api = new PropertiesApi();
-      const requestBody = { [this.propertyName]: updatedProperty };
-      
+      const api = new PropertiesApi(dorcApiConfiguration);
+      const requestBody = { [propertyName]: updatedProperty };
+
       api.propertiesPut({ requestBody }).subscribe({
         next: (data: Response[]) => {
           if (data[0].Status === 'success') {
             // Update the local property object
             existingProperty.Secure = !originallySecured;
-            
-            let message = '';
+
+            let message: string;
             if (!originallySecured) {
-              message = `Property "${this.propertyName}" secured successfully. Existing property values have been automatically encrypted.`;
+              message = `Property "${propertyName}" secured successfully. Existing property values have been automatically encrypted.`;
             } else {
-              message = `Property "${this.propertyName}" unsecured successfully.`;
+              message = `Property "${propertyName}" unsecured successfully.`;
             }
-            
-            Notification.show(message, { 
-              position: 'bottom-start', 
+
+            Notification.show(message, {
+              position: 'bottom-start',
               theme: 'success'
             });
-            
+
             // Reload page data to reflect changes
             this.loadVariableValues();
           } else {
@@ -867,10 +942,18 @@ export class PageVariables extends PageElement {
     }
 
     this.propertyValues = this.allPropertyValues.filter(pv => {
-      const scopeMatch = !this.scopeFilterValue ||
-        (pv.PropertyValueFilter?.toLowerCase().includes(this.scopeFilterValue.toLowerCase()) ?? false);
-      const valueMatch = !this.valueFilterValue ||
-        (pv.Value?.toLowerCase().includes(this.valueFilterValue.toLowerCase()) ?? false);
+      const scopeMatch =
+        !this.scopeFilterValue ||
+        (pv.PropertyValueFilter?.toLowerCase().includes(
+          this.scopeFilterValue.toLowerCase()
+        ) ??
+          false);
+      const valueMatch =
+        !this.valueFilterValue ||
+        (pv.Value?.toLowerCase().includes(
+          this.valueFilterValue.toLowerCase()
+        ) ??
+          false);
       return scopeMatch && valueMatch;
     });
   }
@@ -888,7 +971,7 @@ export class PageVariables extends PageElement {
       '#newVariableValue'
     ) as unknown as TextField;
     this.addingVariableValue = true;
-    const api = new PropertyValuesApi();
+    const api = new PropertyValuesApi(dorcApiConfiguration);
     const existingProperty = this.properties?.find(
       value => value.Name === this.propertyName
     );
@@ -980,34 +1063,25 @@ export class PageVariables extends PageElement {
     }
   }
 
-  variableValueControlsRenderer = (
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<PropertyValueDtoExtended>
-  ) => {
+  variableValueControlsRenderer = (item: PropertyValueDtoExtended) => {
     let dup = '';
-    if (model.item.IsDuplicate) {
+    if (item.IsDuplicate) {
       dup = 'WARNING: duplicate value located!';
     }
 
-    render(
-      html`<variable-value-controls
-        .value="${model.item}"
-        .editing="${model.item.Id === this._editingValueId}"
-        .additionalInformation="${dup}"
-        style="min-width:150px"
-      >
-      </variable-value-controls>`,
-      root
-    );
+    return html`<variable-value-controls
+      .value="${item}"
+      .editing="${item.Id === this._editingValueId}"
+      .additionalInformation="${dup}"
+    >
+    </variable-value-controls>`;
   };
 
   errorAlert(errs: Response[]) {
     console.error(errs);
 
     errs.forEach(element => {
-      let msg = '';
-      msg = this.processError(element);
+      const msg = this.processError(element);
       if (msg !== '') {
         const notification = new ErrorNotification();
         notification.setAttribute('errorMessage', msg);

@@ -9,6 +9,12 @@ import { BundledRequestsApiModel } from '../../apis/dorc-api';
 @customElement('bundle-request-controls')
 export class BundleRequestControls extends LitElement {
   static styles = css`
+    :host {
+      display: inline-flex;
+      align-items: center;
+      flex-wrap: nowrap;
+      gap: var(--lumo-space-xs);
+    }
     vaadin-button {
       padding: 0px;
       margin: 0px;
@@ -29,6 +35,7 @@ export class BundleRequestControls extends LitElement {
     return html`
       <vaadin-horizontal-layout theme="spacing">
         <vaadin-button
+          aria-label="Edit"
           theme="icon"
           @click="${() => {
             this.dispatchEvent(
@@ -46,6 +53,7 @@ export class BundleRequestControls extends LitElement {
           <vaadin-icon icon="editor:mode-edit"></vaadin-icon>
         </vaadin-button>
         <vaadin-button
+          aria-label="Delete"
           theme="icon error"
           @click="${this._handleDeleteClick}"
           ?disabled="${this.disabled}"

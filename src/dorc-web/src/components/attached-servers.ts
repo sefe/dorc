@@ -1,13 +1,16 @@
+import { columnBodyRenderer } from '@vaadin/grid/lit';
 import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
 import '@vaadin/button';
 import '@vaadin/grid';
-import { GridItemModel } from '@vaadin/grid';
 import '@vaadin/grid/vaadin-grid-column';
-import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
 import '@vaadin/grid/vaadin-grid-sort-column';
-import { css, LitElement, render } from 'lit';
-import { customElement, property, query } from 'lit/decorators.js';
+import '@vaadin/dialog';
+import type { DialogOpenedChangedEvent } from '@vaadin/dialog';
+import { dialogRenderer } from '@vaadin/dialog/lit';
+import { css, LitElement } from 'lit';
+import { ResponsiveMixin } from '../helpers/responsive-mixin';
+import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import './grid-button-groups/database-env-controls.ts';
 import './grid-button-groups/server-controls';
@@ -18,14 +21,12 @@ import './add-edit-server';
 import '../components/map-daemons.ts';
 import { Notification } from '@vaadin/notification';
 import { map } from 'lit/directives/map.js';
-import '../components/hegs-dialog';
-import { HegsDialog } from './hegs-dialog';
 import { ServerApiModel } from '../apis/dorc-api';
 import type { EnvironmentContentApiModel } from '../apis/dorc-api';
 import { splitTags } from '../helpers/tag-parser';
 
 @customElement('attached-servers')
-export class AttachedServers extends LitElement {
+export class AttachedServers extends ResponsiveMixin(LitElement) {
   @property({ type: Object })
   envContent!: EnvironmentContentApiModel;
 
@@ -35,16 +36,39 @@ export class AttachedServers extends LitElement {
   @property({ type: Number })
   envId = 0;
 
-  @property({ type: Boolean }) private readonly = true;
+  @property({ type: Boolean }) readonly = true;
 
   @property({ type: Object })
   selectedServer: ServerApiModel | undefined;
 
-  @query('#add-edit-server-dialog') serverDialog!: HegsDialog;
+  @state() private serverDialogOpened = false;
 
-  @query('#tags-dialog') tagsDialog!: HegsDialog;
+  @state() private tagsDialogOpened = false;
 
-  @query('#daemon-mapping-dialog') daemonMappingDialog!: HegsDialog;
+  @state() private daemonMappingDialogOpened = false;
+
+  private renderAddEditServer = () => html`
+    <add-edit-server
+      id="add-edit-server"
+      .srv="${this.selectedServer}"
+      @server-updated="${this.serverUpdated}"
+    ></add-edit-server>
+  `;
+
+  private renderServerTags = () => html`
+    <server-tags
+      id="tags"
+      .server="${this.selectedServer}"
+      @server-tags-updated="${this.serverTagsUpdated}"
+    ></server-tags>
+  `;
+
+  private renderMapDaemons = () => html`
+    <map-daemons
+      .server="${this.selectedServer}"
+      .readonly="${this.readonly}"
+    ></map-daemons>
+  `;
 
   static get styles() {
     return css`
@@ -57,13 +81,16 @@ export class AttachedServers extends LitElement {
         display: inline-block;
         vertical-align: middle;
       }
-      paper-dialog.size-position {
-        top: 16px;
-        overflow: auto;
-        padding: 10px;
+      :host {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        min-height: 0;
+        height: 100%;
       }
       vaadin-grid#grid {
-        overflow: auto;
+        flex: 1;
+        min-height: 0;
         width: calc(100% - 4px);
         --divider-color: var(--dorc-border-color);
       }
@@ -72,7 +99,7 @@ export class AttachedServers extends LitElement {
         margin: 0px;
       }
       .tag {
-        font-size: 14px;
+        font-size: var(--lumo-font-size-s);
         font-family: monospace;
         background-color: var(--dorc-chip-bg);
         color: var(--dorc-chip-text);
@@ -82,55 +109,61 @@ export class AttachedServers extends LitElement {
         text-decoration: none;
         border-radius: 3px;
       }
+      .column-content {
+        display: block;
+        width: 100%;
+      }
       vaadin-grid-cell-content {
-      white-space: normal;
-      word-wrap: break-word;
-      overflow-wrap: break-word;
-    }
-    .column-content {
-      display: block;
-      width: 100%;
-    }
+        white-space: normal;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+      }
     `;
   }
 
   render() {
     return html`
-      <hegs-dialog id="add-edit-server-dialog" title="Add/Edit Server">
-        <add-edit-server
-          id="add-edit-server"
-          .srv="${this.selectedServer}"
-          @server-updated="${this.serverUpdated}"
-        ></add-edit-server>
-      </hegs-dialog>
+      <vaadin-dialog
+        id="add-edit-server-dialog"
+        header-title="Add/Edit Server"
+        draggable
+        .opened="${this.serverDialogOpened}"
+        @opened-changed="${(e: DialogOpenedChangedEvent) => {
+          this.serverDialogOpened = e.detail.value;
+        }}"
+        ${dialogRenderer(this.renderAddEditServer, [this.selectedServer])}
+      ></vaadin-dialog>
 
-      <hegs-dialog
+      <vaadin-dialog
         id="tags-dialog"
-        title="Edit Server Tags for ${this.selectedServer?.Name}"
-      >
-        <server-tags
-          id="tags"
-          .server="${this.selectedServer}"
-          @server-tags-updated="${this.serverTagsUpdated}"
-        ></server-tags>
-      </hegs-dialog>
+        header-title="Edit Server Tags for ${this.selectedServer?.Name}"
+        draggable
+        .opened="${this.tagsDialogOpened}"
+        @opened-changed="${(e: DialogOpenedChangedEvent) => {
+          this.tagsDialogOpened = e.detail.value;
+        }}"
+        ${dialogRenderer(this.renderServerTags, [this.selectedServer])}
+      ></vaadin-dialog>
 
-      <hegs-dialog
+      <vaadin-dialog
         id="daemon-mapping-dialog"
-        title="Manage Daemon Mappings for ${this.selectedServer?.Name}"
-      >
-        <map-daemons
-          .server="${this.selectedServer}"
-          .readonly="${this.readonly}"
-        ></map-daemons>
-      </hegs-dialog>
-      
+        header-title="Manage Daemon Mappings for ${this.selectedServer?.Name}"
+        draggable
+        .opened="${this.daemonMappingDialogOpened}"
+        @opened-changed="${(e: DialogOpenedChangedEvent) => {
+          this.daemonMappingDialogOpened = e.detail.value;
+        }}"
+        ${dialogRenderer(this.renderMapDaemons, [
+          this.selectedServer,
+          this.readonly
+        ])}
+      ></vaadin-dialog>
+
       <vaadin-grid
         id="grid"
         .items=${this.servers}
         theme="compact row-stripes no-row-borders no-border"
         multi-sort
-        all-rows-visible
       >
         <vaadin-grid-column
           path="Name"
@@ -145,41 +178,37 @@ export class AttachedServers extends LitElement {
           resizable
           auto-width
           flex-grow="0"
+          ?hidden="${this._narrowScreen}"
         ></vaadin-grid-column>
         <vaadin-grid-column
-          .renderer="${this.applicationTagsRenderer}"
+          ${columnBodyRenderer(this.applicationTagsRenderer, [])}
           header="Application Tags"
           resizable
+          ?hidden="${this._narrowScreen}"
         ></vaadin-grid-column>
         <vaadin-grid-column
           width="200px"
           flex-grow="0"
-          .renderer="${this._boundServersButtonsRenderer}"
-          .attachedServersControl="${this}"
+          ${columnBodyRenderer(this._boundServersButtonsRenderer, [
+            this.envId,
+            this.readonly
+          ])}
         >
         </vaadin-grid-column>
       </vaadin-grid>
     `;
   }
 
-  private applicationTagsRenderer = (
-    root: HTMLElement,
-    _: HTMLElement,
-    model: GridItemModel<ServerApiModel>
-  ) => {
-    const server = model.item;
+  private applicationTagsRenderer = (item: ServerApiModel) => {
+    const server = item;
     const appTags = splitTags(server.ApplicationTags);
 
-    render(
-      html`
-        ${map(
-          appTags,
-          value =>
-            html`<button style="border: 0px" class="tag">${value}</button>`
-        )}
-      `,
-      root
-    );
+    return html`
+      ${map(
+        appTags,
+        value => html`<button style="border: 0px" class="tag">${value}</button>`
+      )}
+    `;
   };
 
   serverUpdated(e: CustomEvent) {
@@ -195,7 +224,7 @@ export class AttachedServers extends LitElement {
       position: 'bottom-start',
       duration: 5000
     });
-    this.serverDialog.close();
+    this.serverDialogOpened = false;
   }
 
   serverTagsUpdated() {
@@ -206,80 +235,69 @@ export class AttachedServers extends LitElement {
         detail: {}
       })
     );
-    this.tagsDialog.close();
+    this.tagsDialogOpened = false;
   }
 
-  _boundServersButtonsRenderer(
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<AttachedServers>
-  ) {
-    // The below line has a horrible hack
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore
-    const altThis = _column.attachedServersControl as AttachedServers;
-    const server = model.item as ServerApiModel;
-    render(
-      html` <server-controls
-        .envId="${altThis.envId}"
-        .envSet="${true}"
-        .serverDetails="${server}"
-        .readonly="${altThis.readonly}"
-        @server-detached="${() => {
-          Notification.show('Server detached', {
-            theme: 'success',
-            position: 'bottom-start',
-            duration: 5000
-          });
-          this.dispatchEvent(
-            new CustomEvent('environment-stale', {
-              bubbles: true,
-              composed: true,
-              detail: {}
-            })
-          );
-        }}"
-        @server-deleted="${(e: CustomEvent) => {
-          Notification.show(`Server ${e.detail.server.Name} deleted`, {
-            theme: 'success',
-            position: 'bottom-start',
-            duration: 5000
-          });
-          this.dispatchEvent(
-            new CustomEvent('environment-stale', {
-              bubbles: true,
-              composed: true,
-              detail: {}
-            })
-          );
-        }}"
-        @manage-server-tags="${() => {
-          altThis.openEditServerTags(server);
-        }}"
-        @edit-server="${(e: CustomEvent) => {
-          altThis.editServer(e);
-        }}"
-        @map-daemons="${() => {
-          altThis.openDaemonMapping(server);
-        }}"
-      >
-      </server-controls>`,
-      root
-    );
+  _boundServersButtonsRenderer(item: AttachedServers) {
+    const server = item as ServerApiModel;
+    return html` <server-controls
+      .envId="${this.envId}"
+      .envSet="${true}"
+      .serverDetails="${server}"
+      .readonly="${this.readonly}"
+      @server-detached="${() => {
+        Notification.show('Server detached', {
+          theme: 'success',
+          position: 'bottom-start',
+          duration: 5000
+        });
+        this.dispatchEvent(
+          new CustomEvent('environment-stale', {
+            bubbles: true,
+            composed: true,
+            detail: {}
+          })
+        );
+      }}"
+      @server-deleted="${(e: CustomEvent) => {
+        Notification.show(`Server ${e.detail.server.Name} deleted`, {
+          theme: 'success',
+          position: 'bottom-start',
+          duration: 5000
+        });
+        this.dispatchEvent(
+          new CustomEvent('environment-stale', {
+            bubbles: true,
+            composed: true,
+            detail: {}
+          })
+        );
+      }}"
+      @manage-server-tags="${() => {
+        this.openEditServerTags(server);
+      }}"
+      @edit-server="${(e: CustomEvent) => {
+        this.editServer(e);
+      }}"
+      @map-daemons="${() => {
+        this.openDaemonMapping(server);
+      }}"
+    >
+    </server-controls>`;
   }
 
   public openEditServerTags(server: ServerApiModel) {
     this.selectedServer = server;
-    this.tagsDialog.open = true;
+    this.tagsDialogOpened = true;
   }
 
   public openDaemonMapping(server: ServerApiModel) {
     this.selectedServer = server;
-    this.daemonMappingDialog.open = true;
+    this.daemonMappingDialogOpened = true;
   }
 
   private editServer(e: CustomEvent) {
     this.selectedServer = e.detail.server;
-    this.serverDialog.open = true;
+    this.serverDialogOpened = true;
   }
 }

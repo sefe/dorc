@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// Represents an issue (error, warning) associated with a build.
     /// </summary>
     [DataContract(Name = "Issue")]
-    public partial class Issue : IEquatable<Issue>, IValidatableObject
+    public partial class Issue : IValidatableObject
     {
         /// <summary>
         /// The type (error, warning) of the issue.
@@ -50,7 +50,6 @@ namespace Org.OpenAPITools.Model
             /// </summary>
             [EnumMember(Value = "warning")]
             Warning = 2
-
         }
 
 
@@ -67,7 +66,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="data">data.</param>
         /// <param name="message">A description of the issue..</param>
         /// <param name="type">The type (error, warning) of the issue..</param>
-        public Issue(string category = default(string), Dictionary<string, string> data = default(Dictionary<string, string>), string message = default(string), TypeEnum? type = default(TypeEnum?))
+        public Issue(string category = default, Dictionary<string, string> data = default, string message = default, TypeEnum? type = default)
         {
             this.Category = category;
             this.Data = data;
@@ -121,81 +120,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as Issue);
-        }
-
-        /// <summary>
-        /// Returns true if Issue instances are equal
-        /// </summary>
-        /// <param name="input">Instance of Issue to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(Issue input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.Category == input.Category ||
-                    (this.Category != null &&
-                    this.Category.Equals(input.Category))
-                ) && 
-                (
-                    this.Data == input.Data ||
-                    this.Data != null &&
-                    input.Data != null &&
-                    this.Data.SequenceEqual(input.Data)
-                ) && 
-                (
-                    this.Message == input.Message ||
-                    (this.Message != null &&
-                    this.Message.Equals(input.Message))
-                ) && 
-                (
-                    this.Type == input.Type ||
-                    this.Type.Equals(input.Type)
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.Category != null)
-                {
-                    hashCode = (hashCode * 59) + this.Category.GetHashCode();
-                }
-                if (this.Data != null)
-                {
-                    hashCode = (hashCode * 59) + this.Data.GetHashCode();
-                }
-                if (this.Message != null)
-                {
-                    hashCode = (hashCode * 59) + this.Message.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.Type.GetHashCode();
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

@@ -1,3 +1,4 @@
+import { confirmPrompt } from '../confirm-prompt';
 import '@vaadin/button';
 import { Button } from '@vaadin/button';
 import '@vaadin/icons/vaadin-icons';
@@ -11,6 +12,9 @@ import { html } from 'lit/html.js';
 import { ConfigValueApiModel, RefDataConfigApi } from '../../apis/dorc-api';
 import '../../icons/editor-icons.js';
 import '../../icons/iron-icons.js';
+import '@vaadin/text-field';
+import '@vaadin/tooltip';
+import { dorcApiConfiguration } from '../../services/dorc-api-configuration';
 
 @customElement('config-value-controls')
 export class ConfigValueControls extends LitElement {
@@ -27,6 +31,12 @@ export class ConfigValueControls extends LitElement {
 
   static get styles() {
     return css`
+      :host {
+        display: inline-flex;
+        align-items: center;
+        flex-wrap: nowrap;
+        gap: var(--lumo-space-xs);
+      }
       vaadin-button {
         padding: 0px;
         margin: 0px;
@@ -40,38 +50,41 @@ export class ConfigValueControls extends LitElement {
 
   render() {
     return html`
-      ${this.value?.Secure
-        ? html`<vaadin-password-field
-            id="${`propValue${this.value?.Id}`}"
-            value="Ex@mplePassw0rd"
-            reveal-button-hidden
-            readonly
-            focus-target
-            @value-changed="${(e: CustomEvent) => {
-              const textField = e.detail as TextField;
-              if (this.value) this.value.Value = textField.value;
-            }}"
-            style="width: 720px"
-          ></vaadin-password-field>`
-        : html` <vaadin-text-field
-            id="${`propValue${this.value?.Id}`}"
-            readonly
-            focus-target
-            .value="${this.value?.Value ?? ''}"
-            @value-changed="${(e: CustomEvent) => {
-              const textField = e.detail as TextField;
-              if (this.value) this.value.Value = textField.value;
-            }}"
-            style="width: 720px"
-          ></vaadin-text-field>`}
+      ${
+        this.value?.Secure
+          ? html`<vaadin-password-field
+              id="${`propValue${this.value?.Id}`}"
+              value="Ex@mplePassw0rd"
+              reveal-button-hidden
+              readonly
+              focus-target
+              @value-changed="${(e: CustomEvent) => {
+                const textField = e.detail as TextField;
+                if (this.value) this.value.Value = textField.value;
+              }}"
+              style="width: 720px"
+            ></vaadin-password-field>`
+          : html` <vaadin-text-field
+              id="${`propValue${this.value?.Id}`}"
+              readonly
+              focus-target
+              .value="${this.value?.Value ?? ''}"
+              @value-changed="${(e: CustomEvent) => {
+                const textField = e.detail as TextField;
+                if (this.value) this.value.Value = textField.value;
+              }}"
+              style="width: 720px"
+            ></vaadin-text-field>`
+      }
 
       <vaadin-button
         id="edit"
-        title="Edit"
+        aria-label="Edit"
         theme="icon"
         @click="${this._editClick}"
         ?hidden="${this.editHidden}"
       >
+        <vaadin-tooltip slot="tooltip" text="Edit"></vaadin-tooltip>
         <vaadin-icon
           icon="editor:mode-edit"
           style="color: var(--dorc-link-color)"
@@ -92,31 +105,40 @@ export class ConfigValueControls extends LitElement {
         >Cancel</vaadin-button
       >
       <vaadin-button
-        title="Delete Value"
+        aria-label="Delete Value"
         theme="icon"
         @click="${this.removeConfigValue}"
       >
-        <vaadin-icon icon="icons:clear" style="color: var(--dorc-error-color)"></vaadin-icon>
+        <vaadin-tooltip slot="tooltip" text="Delete Value"></vaadin-tooltip>
+        <vaadin-icon
+          icon="icons:clear"
+          style="color: var(--dorc-error-color)"
+        ></vaadin-icon>
       </vaadin-button>
-      ${this.additionalInformation !== ''
-        ? html`<div style="display: inline-block">
-            ${this.additionalInformation}
-          </div>`
-        : html``}
+      ${
+        this.additionalInformation !== ''
+          ? html`<div style="display: inline-block">
+              ${this.additionalInformation}
+            </div>`
+          : html``
+      }
     `;
   }
 
-  removeConfigValue() {
-    const answer = confirm(
-      `Confirm removing value: ${this.value?.Key}?\nfor variable: ${
-        this.value?.Value
+  async removeConfigValue() {
+    // Snapshot before awaiting: this control sits in a recycled grid cell, so
+    // `this.value` can belong to a different row by the time the user answers.
+    const configValue = this.value;
+    const answer = await confirmPrompt(
+      `Confirm removing value: ${configValue?.Key}?\nfor variable: ${
+        configValue?.Value
       }`
     );
-    if (answer && this.value?.Id) {
-      const api = new RefDataConfigApi();
+    if (answer && configValue?.Id) {
+      const api = new RefDataConfigApi(dorcApiConfiguration);
       api
         .refDataConfigDelete({
-          id: this.value.Id
+          id: configValue.Id
         })
         .subscribe({
           next: (value: boolean) => {
@@ -169,7 +191,7 @@ export class ConfigValueControls extends LitElement {
   }
 
   _saveClick() {
-    const api = new RefDataConfigApi();
+    const api = new RefDataConfigApi(dorcApiConfiguration);
     api
       .refDataConfigPut({
         id: this.value.Id,

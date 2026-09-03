@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// The JSON model for JSON Patch Operations
     /// </summary>
     [DataContract(Name = "JsonPatchDocument")]
-    public partial class JsonPatchDocument : IEquatable<JsonPatchDocument>, IValidatableObject
+    public partial class JsonPatchDocument : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="JsonPatchDocument" /> class.
@@ -62,48 +62,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as JsonPatchDocument);
-        }
-
-        /// <summary>
-        /// Returns true if JsonPatchDocument instances are equal
-        /// </summary>
-        /// <param name="input">Instance of JsonPatchDocument to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(JsonPatchDocument input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return false;
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

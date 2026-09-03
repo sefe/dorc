@@ -25,12 +25,13 @@ namespace Dorc.Core.Tests
                 Substitute.For<Microsoft.Extensions.Logging.ILoggerFactory>(),
                 Substitute.For<IRequestsPersistentSource>(),
                 Substitute.For<Dorc.PersistentData.IClaimsPrincipalReader>(),
-                Substitute.For<Dorc.Core.Interfaces.IDeploymentEventsPublisher>()
+                Substitute.For<Dorc.Core.Interfaces.IDeploymentEventsPublisher>(),
+                Substitute.For<Dorc.Core.BuildServer.IBuildServerClientFactory>()
             );
         }
 
         [TestMethod]
-        public void AddComponent_WhenIsEnabledIsFalse_ExcludesComponent()
+        public void AddComponent_WhenIsEnabledIsFalse_IncludesComponentForDisabledResult()
         {
             // Arrange
             var componentNames = new List<string>();
@@ -47,7 +48,8 @@ namespace Dorc.Core.Tests
             InvokeAddComponent(componentNames, component);
 
             // Assert
-            Assert.AreEqual(0, componentNames.Count, "Component with IsEnabled=false should be excluded");
+            Assert.AreEqual(1, componentNames.Count, "Disabled leaf should be persisted as a disabled result");
+            Assert.AreEqual("DisabledComponent", componentNames[0]);
         }
 
         [TestMethod]
@@ -73,7 +75,7 @@ namespace Dorc.Core.Tests
         }
 
         [TestMethod]
-        public void AddComponent_WithHierarchy_OnlyIncludesEnabledLeafComponents()
+        public void AddComponent_WithHierarchy_IncludesAllLeafComponents()
         {
             // Arrange
             var componentNames = new List<string>();
@@ -122,10 +124,10 @@ namespace Dorc.Core.Tests
             InvokeAddComponent(componentNames, parentContainer);
 
             // Assert
-            Assert.AreEqual(2, componentNames.Count, "Should only include enabled leaf components");
+            Assert.AreEqual(3, componentNames.Count, "All leaf components should have deployment results");
             Assert.IsTrue(componentNames.Contains("EnabledLeaf1"), "EnabledLeaf1 should be included");
             Assert.IsTrue(componentNames.Contains("EnabledLeaf2"), "EnabledLeaf2 should be included");
-            Assert.IsFalse(componentNames.Contains("DisabledLeaf"), "DisabledLeaf should be excluded");
+            Assert.IsTrue(componentNames.Contains("DisabledLeaf"), "DisabledLeaf should be included as disabled");
             Assert.IsFalse(componentNames.Contains("ParentContainer"), "ParentContainer should never be deployed");
         }
 
@@ -164,7 +166,45 @@ namespace Dorc.Core.Tests
         }
 
         [TestMethod]
-        public void AddComponent_WhenIsEnabledIsFalse_ExcludesLeafComponent()
+        public void AddComponent_WhenNestedParentIsDisabled_DoesNotIncludeItsChildren()
+        {
+            // Arrange
+            var componentNames = new List<string>();
+            var enabledLeaf = new ComponentApiModel
+            {
+                ComponentId = 3,
+                ComponentName = "EnabledLeaf",
+                ScriptPath = "deploy.ps1",
+                IsEnabled = true,
+                Children = new List<ComponentApiModel>()
+            };
+            var disabledParent = new ComponentApiModel
+            {
+                ComponentId = 2,
+                ComponentName = "DisabledParent",
+                IsEnabled = false,
+                Children = new List<ComponentApiModel> { enabledLeaf }
+            };
+            var root = new ComponentApiModel
+            {
+                ComponentId = 1,
+                ComponentName = "Root",
+                IsEnabled = true,
+                Children = new List<ComponentApiModel> { disabledParent }
+            };
+
+            _componentsPersistentSource!.LoadChildren(Arg.Any<ComponentApiModel>());
+
+            // Act
+            InvokeAddComponent(componentNames, root);
+
+            // Assert
+            Assert.AreEqual(0, componentNames.Count,
+                "Children of a disabled nested container should not be deployed");
+        }
+
+        [TestMethod]
+        public void AddComponent_WhenIsEnabledIsFalse_IncludesLeafComponent()
         {
             // Arrange
             var componentNames = new List<string>();
@@ -181,7 +221,8 @@ namespace Dorc.Core.Tests
             InvokeAddComponent(componentNames, component);
 
             // Assert
-            Assert.AreEqual(0, componentNames.Count, "Disabled leaf component should be excluded");
+            Assert.AreEqual(1, componentNames.Count, "Disabled leaf component should be persisted");
+            Assert.AreEqual("DisabledComponent", componentNames[0]);
         }
 
         private void InvokeAddComponent(List<string> componentNames, ComponentApiModel component)

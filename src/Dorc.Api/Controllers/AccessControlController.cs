@@ -115,6 +115,20 @@ namespace Dorc.Api.Controllers
                 accessControl.Type == AccessControlType.Project &&
                  _securityPrivilegesChecker.CanModifyProject(User, accessControl.Name))
             {
+                // Resolve the target object from its Name (which is what we authorized against)
+                // and ignore any client-supplied ObjectId. Otherwise a caller could pass the Name
+                // of an object they own together with the ObjectId of an object they do not, and
+                // have the ACL writes land on the latter (IDOR / privilege escalation).
+                var authorizedObject = accessControl.Type == AccessControlType.Environment
+                    ? _accessControlPersistentSource.GetSecurableObjects<Environment>(User, accessControl.Name).FirstOrDefault()
+                    : _accessControlPersistentSource.GetSecurableObjects<Project>(User, accessControl.Name).FirstOrDefault();
+                if (authorizedObject == null)
+                {
+                    return StatusCode(StatusCodes.Status400BadRequest,
+                        "Unable to locate access control element!");
+                }
+                accessControl.ObjectId = authorizedObject.ObjectId;
+
                 // Prevent users without read-secrets privilege from granting it
                 var requestingUserCanReadSecrets = accessControl.Type == AccessControlType.Environment
                     ? _securityPrivilegesChecker.CanReadSecrets(User, accessControl.Name)

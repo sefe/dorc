@@ -30,14 +30,14 @@ namespace Org.OpenAPITools.Model
     /// BuildDeployment
     /// </summary>
     [DataContract(Name = "BuildDeployment")]
-    public partial class BuildDeployment : IEquatable<BuildDeployment>, IValidatableObject
+    public partial class BuildDeployment : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="BuildDeployment" /> class.
         /// </summary>
         /// <param name="deployment">deployment.</param>
         /// <param name="sourceBuild">sourceBuild.</param>
-        public BuildDeployment(BuildSummary deployment = default(BuildSummary), XamlBuildReference sourceBuild = default(XamlBuildReference))
+        public BuildDeployment(BuildSummary deployment = default, XamlBuildReference sourceBuild = default)
         {
             this.Deployment = deployment;
             this.SourceBuild = sourceBuild;
@@ -79,66 +79,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as BuildDeployment);
-        }
-
-        /// <summary>
-        /// Returns true if BuildDeployment instances are equal
-        /// </summary>
-        /// <param name="input">Instance of BuildDeployment to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(BuildDeployment input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.Deployment == input.Deployment ||
-                    (this.Deployment != null &&
-                    this.Deployment.Equals(input.Deployment))
-                ) && 
-                (
-                    this.SourceBuild == input.SourceBuild ||
-                    (this.SourceBuild != null &&
-                    this.SourceBuild.Equals(input.SourceBuild))
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.Deployment != null)
-                {
-                    hashCode = (hashCode * 59) + this.Deployment.GetHashCode();
-                }
-                if (this.SourceBuild != null)
-                {
-                    hashCode = (hashCode * 59) + this.SourceBuild.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

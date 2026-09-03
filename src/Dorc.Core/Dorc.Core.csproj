@@ -13,17 +13,10 @@
     <PackageReference Include="Microsoft.PowerShell.SDK" Version="7.5.4" />
     <PackageReference Include="Microsoft.Data.SqlClient" Version="6.1.2" />
     <PackageReference Include="Microsoft.SqlServer.SqlManagementObjects" Version="172.76.0" />
-    <PackageReference Include="NSwag.ApiDescription.Client" Version="14.6.1">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
     <PackageReference Include="RestSharp" Version="112.1.0" />
-    <PackageReference Include="Microsoft.Extensions.ApiDescription.Client" Version="9.0.10">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
     <PackageReference Include="Microsoft.Extensions.Configuration" Version="9.0.10" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="9.0.10" />
+    <PackageReference Include="Microsoft.Extensions.Http" Version="9.0.10" />
     <PackageReference Include="System.DirectoryServices" Version="9.0.10" />
     <PackageReference Include="System.DirectoryServices.AccountManagement" Version="9.0.10" />
     <PackageReference Include="System.ServiceProcess.ServiceController" Version="9.0.10" />
@@ -31,10 +24,12 @@
     <PackageReference Include="TypedSignalR.Client.TypeScript.Attributes" Version="1.15.0" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Dorc.AzureDevOps.Client\Dorc.AzureDevOps.Client.csproj" />
     <ProjectReference Include="..\Dorc.AzureDevOps\src\Org.OpenAPITools\Org.OpenAPITools.csproj" />
     <ProjectReference Include="..\Dorc.PersistentData\Dorc.PersistentData.csproj" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Dorc.Monitor.IntegrationTests" />
+    <InternalsVisibleTo Include="Dorc.Core.Tests" />
   </ItemGroup>
 </Project>

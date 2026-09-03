@@ -17,7 +17,7 @@ namespace Dorc.Core.Lamar
             For<IPropertyEncryptor>().Use(x =>
             {
                 var secureKeyPersistentDataSource = x.GetInstance<ISecureKeyPersistentDataSource>();
-                return new QuantumResistantPropertyEncryptor(secureKeyPersistentDataSource.GetInitialisationVector(),
+                return new AesGcmPropertyEncryptor(secureKeyPersistentDataSource.GetInitialisationVector(),
                     secureKeyPersistentDataSource.GetSymmetricKey());
             });
 

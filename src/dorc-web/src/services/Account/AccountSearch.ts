@@ -3,6 +3,7 @@ import { UserSearchResult } from '../../apis/dorc-api/models';
 import { GroupSearchResult } from '../../apis/dorc-api/models/GroupSearchResult';
 import { AccountApi } from '../../apis/dorc-api/apis/AccountApi';
 import { DirectorySearchApi } from '../../apis/dorc-api';
+import { dorcApiConfiguration } from '../dorc-api-configuration';
 
 type UserExistsSuccessCallback = (userExists: boolean) => void;
 type UserExistsFailureCallback = (error: any) => void;
@@ -28,7 +29,7 @@ export class AccountSearch {
     failureCallback: UserExistsFailureCallback,
     completionCallback: UserExistsCompletionCallback
   ): void {
-    const api = new AccountApi();
+    const api = new AccountApi(dorcApiConfiguration);
     api
       .accountUserExistsGet({
         userLanId: lanId,
@@ -55,7 +56,7 @@ export class AccountSearch {
     failureCallback: GroupExistsFailureCallback,
     completionCallback: GroupExistsCompletionCallback
   ): void {
-    const api = new AccountApi();
+    const api = new AccountApi(dorcApiConfiguration);
     api
       .accountGroupExistsGet({
         groupLanId: lanId,
@@ -81,7 +82,7 @@ export class AccountSearch {
     failureCallback: FindUsersFailureCallback,
     completionCallback: FindUsersCompletionCallback
   ): void {
-    const api = new DirectorySearchApi();
+    const api = new DirectorySearchApi(dorcApiConfiguration);
     api
       .directorySearchUsersGet({
         userSearchCriteria: searchCriteria
@@ -105,7 +106,7 @@ export class AccountSearch {
     failureCallback: FindGroupsFailureCallback,
     completionCallback: FindGroupsCompletionCallback
   ): void {
-    const api = new DirectorySearchApi();
+    const api = new DirectorySearchApi(dorcApiConfiguration);
     api
       .directorySearchGroupsGet({
         groupSearchCriteria: searchCriteria

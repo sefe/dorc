@@ -27,29 +27,36 @@ using OpenAPIDateConverter = Org.OpenAPITools.Client.OpenAPIDateConverter;
 namespace Org.OpenAPITools.Model
 {
     /// <summary>
-    /// Describes how a phase should run against an agent queue.
+    /// AgentPoolQueueTarget
     /// </summary>
     [DataContract(Name = "AgentPoolQueueTarget")]
-    public partial class AgentPoolQueueTarget : IEquatable<AgentPoolQueueTarget>, IValidatableObject
+    public partial class AgentPoolQueueTarget : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="AgentPoolQueueTarget" /> class.
         /// </summary>
+        /// <param name="type">The type of the target..</param>
         /// <param name="agentSpecification">agentSpecification.</param>
         /// <param name="allowScriptsAuthAccessOption">Enables scripts and other processes launched while executing phase to access the OAuth token.</param>
         /// <param name="demands">demands.</param>
         /// <param name="executionOptions">executionOptions.</param>
         /// <param name="queue">queue.</param>
-        /// <param name="type">The type of the target..</param>
-        public AgentPoolQueueTarget(AgentSpecification agentSpecification = default(AgentSpecification), bool allowScriptsAuthAccessOption = default(bool), List<Demand> demands = default(List<Demand>), AgentTargetExecutionOptions executionOptions = default(AgentTargetExecutionOptions), AgentPoolQueue queue = default(AgentPoolQueue), int type = default(int))
+        public AgentPoolQueueTarget(int type = default, AgentSpecification agentSpecification = default, bool allowScriptsAuthAccessOption = default, List<Demand> demands = default, AgentTargetExecutionOptions executionOptions = default, AgentPoolQueue queue = default)
         {
+            this.Type = type;
             this.AgentSpecification = agentSpecification;
             this.AllowScriptsAuthAccessOption = allowScriptsAuthAccessOption;
             this.Demands = demands;
             this.ExecutionOptions = executionOptions;
             this.Queue = queue;
-            this.Type = type;
         }
+
+        /// <summary>
+        /// The type of the target.
+        /// </summary>
+        /// <value>The type of the target.</value>
+        [DataMember(Name = "type", EmitDefaultValue = false)]
+        public int Type { get; set; }
 
         /// <summary>
         /// Gets or Sets AgentSpecification
@@ -83,13 +90,6 @@ namespace Org.OpenAPITools.Model
         public AgentPoolQueue Queue { get; set; }
 
         /// <summary>
-        /// The type of the target.
-        /// </summary>
-        /// <value>The type of the target.</value>
-        [DataMember(Name = "type", EmitDefaultValue = false)]
-        public int Type { get; set; }
-
-        /// <summary>
         /// Returns the string presentation of the object
         /// </summary>
         /// <returns>String presentation of the object</returns>
@@ -97,12 +97,12 @@ namespace Org.OpenAPITools.Model
         {
             StringBuilder sb = new StringBuilder();
             sb.Append("class AgentPoolQueueTarget {\n");
+            sb.Append("  Type: ").Append(Type).Append("\n");
             sb.Append("  AgentSpecification: ").Append(AgentSpecification).Append("\n");
             sb.Append("  AllowScriptsAuthAccessOption: ").Append(AllowScriptsAuthAccessOption).Append("\n");
             sb.Append("  Demands: ").Append(Demands).Append("\n");
             sb.Append("  ExecutionOptions: ").Append(ExecutionOptions).Append("\n");
             sb.Append("  Queue: ").Append(Queue).Append("\n");
-            sb.Append("  Type: ").Append(Type).Append("\n");
             sb.Append("}\n");
             return sb.ToString();
         }
@@ -117,95 +117,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as AgentPoolQueueTarget);
-        }
-
-        /// <summary>
-        /// Returns true if AgentPoolQueueTarget instances are equal
-        /// </summary>
-        /// <param name="input">Instance of AgentPoolQueueTarget to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(AgentPoolQueueTarget input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.AgentSpecification == input.AgentSpecification ||
-                    (this.AgentSpecification != null &&
-                    this.AgentSpecification.Equals(input.AgentSpecification))
-                ) && 
-                (
-                    this.AllowScriptsAuthAccessOption == input.AllowScriptsAuthAccessOption ||
-                    this.AllowScriptsAuthAccessOption.Equals(input.AllowScriptsAuthAccessOption)
-                ) && 
-                (
-                    this.Demands == input.Demands ||
-                    this.Demands != null &&
-                    input.Demands != null &&
-                    this.Demands.SequenceEqual(input.Demands)
-                ) && 
-                (
-                    this.ExecutionOptions == input.ExecutionOptions ||
-                    (this.ExecutionOptions != null &&
-                    this.ExecutionOptions.Equals(input.ExecutionOptions))
-                ) && 
-                (
-                    this.Queue == input.Queue ||
-                    (this.Queue != null &&
-                    this.Queue.Equals(input.Queue))
-                ) && 
-                (
-                    this.Type == input.Type ||
-                    this.Type.Equals(input.Type)
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.AgentSpecification != null)
-                {
-                    hashCode = (hashCode * 59) + this.AgentSpecification.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.AllowScriptsAuthAccessOption.GetHashCode();
-                if (this.Demands != null)
-                {
-                    hashCode = (hashCode * 59) + this.Demands.GetHashCode();
-                }
-                if (this.ExecutionOptions != null)
-                {
-                    hashCode = (hashCode * 59) + this.ExecutionOptions.GetHashCode();
-                }
-                if (this.Queue != null)
-                {
-                    hashCode = (hashCode * 59) + this.Queue.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.Type.GetHashCode();
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

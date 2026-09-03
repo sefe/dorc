@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// AggregatedResultsAnalysis
     /// </summary>
     [DataContract(Name = "AggregatedResultsAnalysis")]
-    public partial class AggregatedResultsAnalysis : IEquatable<AggregatedResultsAnalysis>, IValidatableObject
+    public partial class AggregatedResultsAnalysis : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="AggregatedResultsAnalysis" /> class.
@@ -43,7 +43,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="runSummaryByOutcome">runSummaryByOutcome.</param>
         /// <param name="runSummaryByState">runSummaryByState.</param>
         /// <param name="totalTests">totalTests.</param>
-        public AggregatedResultsAnalysis(string duration = default(string), Dictionary<string, AggregatedResultsByOutcome> notReportedResultsByOutcome = default(Dictionary<string, AggregatedResultsByOutcome>), TestResultsContext previousContext = default(TestResultsContext), Dictionary<string, AggregatedResultsByOutcome> resultsByOutcome = default(Dictionary<string, AggregatedResultsByOutcome>), AggregatedResultsDifference resultsDifference = default(AggregatedResultsDifference), Dictionary<string, AggregatedRunsByOutcome> runSummaryByOutcome = default(Dictionary<string, AggregatedRunsByOutcome>), Dictionary<string, AggregatedRunsByState> runSummaryByState = default(Dictionary<string, AggregatedRunsByState>), int totalTests = default(int))
+        public AggregatedResultsAnalysis(string duration = default, Dictionary<string, AggregatedResultsByOutcome> notReportedResultsByOutcome = default, TestResultsContext previousContext = default, Dictionary<string, AggregatedResultsByOutcome> resultsByOutcome = default, AggregatedResultsDifference resultsDifference = default, Dictionary<string, AggregatedRunsByOutcome> runSummaryByOutcome = default, Dictionary<string, AggregatedRunsByState> runSummaryByState = default, int totalTests = default)
         {
             this.Duration = duration;
             this.NotReportedResultsByOutcome = notReportedResultsByOutcome;
@@ -133,120 +133,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as AggregatedResultsAnalysis);
-        }
-
-        /// <summary>
-        /// Returns true if AggregatedResultsAnalysis instances are equal
-        /// </summary>
-        /// <param name="input">Instance of AggregatedResultsAnalysis to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(AggregatedResultsAnalysis input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.Duration == input.Duration ||
-                    (this.Duration != null &&
-                    this.Duration.Equals(input.Duration))
-                ) && 
-                (
-                    this.NotReportedResultsByOutcome == input.NotReportedResultsByOutcome ||
-                    this.NotReportedResultsByOutcome != null &&
-                    input.NotReportedResultsByOutcome != null &&
-                    this.NotReportedResultsByOutcome.SequenceEqual(input.NotReportedResultsByOutcome)
-                ) && 
-                (
-                    this.PreviousContext == input.PreviousContext ||
-                    (this.PreviousContext != null &&
-                    this.PreviousContext.Equals(input.PreviousContext))
-                ) && 
-                (
-                    this.ResultsByOutcome == input.ResultsByOutcome ||
-                    this.ResultsByOutcome != null &&
-                    input.ResultsByOutcome != null &&
-                    this.ResultsByOutcome.SequenceEqual(input.ResultsByOutcome)
-                ) && 
-                (
-                    this.ResultsDifference == input.ResultsDifference ||
-                    (this.ResultsDifference != null &&
-                    this.ResultsDifference.Equals(input.ResultsDifference))
-                ) && 
-                (
-                    this.RunSummaryByOutcome == input.RunSummaryByOutcome ||
-                    this.RunSummaryByOutcome != null &&
-                    input.RunSummaryByOutcome != null &&
-                    this.RunSummaryByOutcome.SequenceEqual(input.RunSummaryByOutcome)
-                ) && 
-                (
-                    this.RunSummaryByState == input.RunSummaryByState ||
-                    this.RunSummaryByState != null &&
-                    input.RunSummaryByState != null &&
-                    this.RunSummaryByState.SequenceEqual(input.RunSummaryByState)
-                ) && 
-                (
-                    this.TotalTests == input.TotalTests ||
-                    this.TotalTests.Equals(input.TotalTests)
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.Duration != null)
-                {
-                    hashCode = (hashCode * 59) + this.Duration.GetHashCode();
-                }
-                if (this.NotReportedResultsByOutcome != null)
-                {
-                    hashCode = (hashCode * 59) + this.NotReportedResultsByOutcome.GetHashCode();
-                }
-                if (this.PreviousContext != null)
-                {
-                    hashCode = (hashCode * 59) + this.PreviousContext.GetHashCode();
-                }
-                if (this.ResultsByOutcome != null)
-                {
-                    hashCode = (hashCode * 59) + this.ResultsByOutcome.GetHashCode();
-                }
-                if (this.ResultsDifference != null)
-                {
-                    hashCode = (hashCode * 59) + this.ResultsDifference.GetHashCode();
-                }
-                if (this.RunSummaryByOutcome != null)
-                {
-                    hashCode = (hashCode * 59) + this.RunSummaryByOutcome.GetHashCode();
-                }
-                if (this.RunSummaryByState != null)
-                {
-                    hashCode = (hashCode * 59) + this.RunSummaryByState.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.TotalTests.GetHashCode();
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

@@ -66,6 +66,34 @@ namespace Dorc.PersistentData.Extensions
 
             return null;
         }
+
+        public static Expression<Func<T, bool>> StartsWithExpression<T>(this IQueryable<T> source, string propertyName,
+            string propertyValue)
+        {
+            var parameterExp = Expression.Parameter(typeof(T), "type");
+
+            if (typeof(T).GetProperty(propertyName) == null)
+            {
+                throw new ArgumentException($"Filter by '{propertyName}' has failed: type '{typeof(T).Name}' does not have property '{propertyName}'");
+            }
+
+            var propertyExp = Expression.Property(parameterExp, propertyName);
+
+            // SARGable prefix predicate. EF Core compiles string.StartsWith into LIKE '@p%',
+            // which uses an index seek when a supporting non-clustered index exists on the
+            // column. Only string columns make sense here -- non-string properties return
+            // null (callers skip such filters).
+            if (propertyExp.Type == typeof(string))
+            {
+                var method = typeof(string).GetMethod("StartsWith", new[] { typeof(string) });
+
+                var startsWithMethodExp = Expression.Call(propertyExp, method, Expression.Invoke(() => propertyValue));
+
+                return Expression.Lambda<Func<T, bool>>(startsWithMethodExp, parameterExp);
+            }
+
+            return null;
+        }
     }
 
 }

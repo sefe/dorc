@@ -27,13 +27,15 @@ namespace Dorc.Api.Services
             if (build == null)
             {
                 _log.LogError($"Wrong build type: {request}");
-                throw new WrongBuildTypeException($"Wrong build type. BuildUrl should start from 'http' or 'file' but got {request.BuildUrl}");
+                throw new WrongBuildTypeException($"Wrong build type. BuildUrl should start with 'http', 'file', or be a numeric run ID (GitHub), but got {request.BuildUrl}");
             }
 
             if (request.BuildNum != null && request.BuildNum.Contains(" [PINNED]"))
                 request.BuildNum = request.BuildNum.Replace(" [PINNED]", "");
 
-            if (build.IsValid(new BuildDetails(request)))
+            var project = _projectsPersistentSource.GetProject(request.Project);
+            var sourceControlType = project?.SourceControlType ?? SourceControlType.AzureDevOps;
+            if (build.IsValid(new BuildDetails(request, sourceControlType)))
                 return build.Process(request, user);
 
             _log.LogError("Build validation failed. {ValidationResult}", build.ValidationResult);

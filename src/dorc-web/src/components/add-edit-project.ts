@@ -1,19 +1,21 @@
+import '@vaadin/dialog';
+import type { DialogOpenedChangedEvent } from '@vaadin/dialog';
+import { dialogRenderer } from '@vaadin/dialog/lit';
 import { css, LitElement } from 'lit';
 import '@vaadin/text-field';
 import '@vaadin/combo-box';
 import '@vaadin/button';
 import '@vaadin/details';
 import '@vaadin/checkbox';
-import { customElement, property, query } from 'lit/decorators.js';
+import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
-import '@vaadin/dialog';
 import '@vaadin/vertical-layout';
 import '@vaadin/horizontal-layout';
-import '../components/hegs-dialog';
 import { TextField } from '@vaadin/text-field';
-import { HegsDialog } from './hegs-dialog';
 import { RefDataProjectsApi } from '../apis/dorc-api';
 import type { ProjectApiModel } from '../apis/dorc-api';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
+
 
 @customElement('add-edit-project')
 export class AddEditProject extends LitElement {
@@ -35,9 +37,44 @@ export class AddEditProject extends LitElement {
     this.setTextField('proj-url', this._project.ArtefactsUrl ?? '');
     this.setTextField('proj-azure', this._project.ArtefactsSubPaths ?? '');
     this.setTextField('proj-regex', this._project.ArtefactsBuildRegex ?? '');
+    this.setTextField('proj-leanix-url', this._project.LeanIXUrl ?? '');
     this.setTextField('proj-terraform-git-url', this._project.TerraformGitRepoUrl ?? '');
 
     this.requestUpdate('project', oldVal);
+  }
+
+  private get isGitHub(): boolean {
+    return String(this._project?.SourceControlType) === 'GitHub';
+  }
+
+  private get isFileShare(): boolean {
+    return String(this._project?.SourceControlType) === 'FileShare';
+  }
+
+  private get urlLabel(): string {
+    if (this.isFileShare) return 'File Share Path (e.g., file://server/share/builds)';
+    if (this.isGitHub) return 'GitHub API URL (e.g., https://api.github.com/repos/owner/repo)';
+    return 'Azure DevOps Server URL';
+  }
+
+  private get subPathsLabel(): string {
+    if (this.isFileShare) return 'Sub-paths (semicolon-separated)';
+    if (this.isGitHub) return 'GitHub Workflow Files (semicolon-separated, e.g., build.yml;deploy.yml)';
+    return 'Azure DevOps Server Project';
+  }
+
+  private get buildRegexLabel(): string {
+    if (this.isFileShare) return 'Build Filter Regex';
+    if (this.isGitHub) return 'Workflow Name Regex';
+    return 'Build Definition Regex';
+  }
+
+  private get showSubPaths(): boolean {
+    return !this.isFileShare;
+  }
+
+  private get showBuildRegex(): boolean {
+    return !this.isFileShare;
   }
 
   @property({ type: Array })
@@ -76,19 +113,17 @@ export class AddEditProject extends LitElement {
 
   private allProjNames: string[] | undefined;
 
-  @query('#dialog') dialog!: HegsDialog;
+  @state() private dialogOpened = false;
 
   static get styles() {
     return css`
-      vaadin-text-field {
+      vaadin-text-field,
+      vaadin-combo-box {
         display: flex;
         align-items: center;
         justify-content: center;
         width: 490px;
         padding: 5px;
-      }
-      vaadin-combo-box.vaadin-text-field {
-        --lumo-space-m: 0px;
       }
       .tooltip {
         position: relative;
@@ -132,12 +167,48 @@ export class AddEditProject extends LitElement {
 
   render() {
     return html`
-      <hegs-dialog
+      <vaadin-dialog
         id="dialog"
-        @dialog-close="${this.close}"
-        title="Edit Project Metadata"
-      >
+        header-title="Edit Project Metadata"
+        draggable
+        .opened="${this.dialogOpened}"
+        @opened-changed="${(e: DialogOpenedChangedEvent) => {
+          this.dialogOpened = e.detail.value;
+          if (!this.dialogOpened) this.close();
+        }}"
+        ${dialogRenderer(this.renderProjectForm, [
+          this._project,
+          this.showSubPaths,
+          this.showBuildRegex,
+          this.urlLabel,
+          this.subPathsLabel,
+          this.buildRegexLabel,
+          this.ErrorMessage,
+          this.canSubmit
+        ])}
+      ></vaadin-dialog>
+    `;
+  }
+
+  getEmptyProj(): ProjectApiModel {
+    return {
+      ProjectDescription: '',
+      ProjectId: 0,
+      ProjectName: '',
+      ArtefactsBuildRegex: '',
+      ArtefactsSubPaths: '',
+      ArtefactsUrl: '',
+      LeanIXUrl: '',
+      SourceControlType: 'AzureDevOps' as any
+    };
+  }
+
+  private renderProjectForm = () => html`
+
         <vaadin-vertical-layout>
+          <p style="margin: 0 0 8px 0; color: var(--lumo-secondary-text-color); font-size: var(--lumo-font-size-s);">
+            Projects can only be updated by Admins or users with write access.
+          </p>
           <vaadin-text-field
             id="proj-name"
             style="width: 490px;"
@@ -154,35 +225,61 @@ export class AddEditProject extends LitElement {
             value="${this._project?.ProjectDescription ?? ''}"
             @value-changed="${this._descriptionChanged}"
           ></vaadin-text-field>
+          <vaadin-combo-box
+            id="proj-source-control"
+            style="width: 490px;"
+            label="Source Control Type"
+            .items="${[
+              { label: 'Azure DevOps', value: 'AzureDevOps' },
+              { label: 'GitHub', value: 'GitHub' },
+              { label: 'File Share', value: 'FileShare' }
+            ]}"
+            item-label-path="label"
+            item-value-path="value"
+            .value="${String(this._project?.SourceControlType ?? 'AzureDevOps')}"
+            @value-changed="${this._sourceControlTypeChanged}"
+          ></vaadin-combo-box>
           <vaadin-text-field
             id="proj-url"
             style="width: 490px;"
-            label="Azure DevOps Server URL / File Path"
+            label="${this.urlLabel}"
             maxlength="${this.maxFieldLength}"
             title="Maximum length: ${this.maxFieldLength} symbols"
             required
-            pattern="^(https|file)?:\\/\\/(.*)"
+            pattern="^((https?|file):\\/\\/(.*)|\\\\\\\\(.*))"
             value="${this._project?.ArtefactsUrl ?? ''}"
-            @value-changed="${this._azureDevOpsUrlChanged}"
+            @value-changed="${this._artefactsUrlChanged}"
           ></vaadin-text-field>
+          ${this.showSubPaths ? html`
           <vaadin-text-field
             id="proj-azure"
             style="width: 490px;"
-            label="Azure DevOps Server Project"
+            label="${this.subPathsLabel}"
             maxlength="${this.maxFieldLength}"
             title="Maximum length: ${this.maxFieldLength} symbols"
             required
             min-length="6"
             value="${this._project?.ArtefactsSubPaths ?? ''}"
-            @value-changed="${this._azureDevOpsProjectChanged}"
-          ></vaadin-text-field>
+            @value-changed="${this._artefactsSubPathsChanged}"
+          ></vaadin-text-field>` : html``}
+          ${this.showBuildRegex ? html`
           <vaadin-text-field
             id="proj-regex"
             style="width: 490px;"
-            label="Build Definition Regex"
+            label="${this.buildRegexLabel}"
             value="${this._project?.ArtefactsBuildRegex ?? ''}"
             @value-changed="${this._buildDefinitionRegexChanged}"
-          ></vaadin-text-field>
+          ></vaadin-text-field>` : html``}
+          <vaadin-text-field
+            id="proj-leanix-url"
+            style="width: 490px;"
+            label="LeanIX URL"
+            maxlength="${this.maxFieldLength}"
+            title="Maximum length: ${this.maxFieldLength} symbols"
+            value="${this._project?.LeanIXUrl ?? ''}"
+            @value-changed="${this._leanIxUrlChanged}"
+            helper-text="LeanIX workspace URL (e.g., https://.../factSheets)">
+          </vaadin-text-field>
           <vaadin-text-field
             id="proj-terraform-git-url"
             style="width: 490px;"
@@ -206,23 +303,10 @@ export class AddEditProject extends LitElement {
             </vaadin-button>
           </vaadin-horizontal-layout>
         </vaadin-vertical-layout>
-      </hegs-dialog>
-    `;
-  }
-
-  getEmptyProj(): ProjectApiModel {
-    return {
-      ProjectDescription: '',
-      ProjectId: 0,
-      ProjectName: '',
-      ArtefactsBuildRegex: '',
-      ArtefactsSubPaths: '',
-      ArtefactsUrl: ''
-    };
-  }
+  `;
 
   public open() {
-    this.dialog.open = true;
+    this.dialogOpened = true;
     this.ErrorMessage = '';
   }
 
@@ -263,17 +347,18 @@ export class AddEditProject extends LitElement {
     }
   }
 
-  _azureDevOpsUrlChanged(data: any) {
+  _artefactsUrlChanged(data: any) {
     if (this._project !== undefined && data.target !== undefined) {
       const model: ProjectApiModel = JSON.parse(JSON.stringify(this._project));
 
       model.ArtefactsUrl = data.target.value;
       this._project = model;
+      this._validateUrlForProvider();
       this._inputValueChanged();
     }
   }
 
-  _azureDevOpsProjectChanged(data: any) {
+  _artefactsSubPathsChanged(data: any) {
     if (this._project !== undefined && data.target !== undefined) {
       const model: ProjectApiModel = JSON.parse(JSON.stringify(this._project));
 
@@ -291,6 +376,83 @@ export class AddEditProject extends LitElement {
       this._project = model;
       this._inputValueChanged();
     }
+  }
+
+  _leanIxUrlChanged(data: any) {
+    if (this._project !== undefined && data.target !== undefined) {
+      const model: ProjectApiModel = JSON.parse(JSON.stringify(this._project));
+
+      model.LeanIXUrl = data.target.value;
+      this._project = model;
+      this._inputValueChanged();
+    }
+  }
+
+  _sourceControlTypeChanged(data: any) {
+    if (this._project !== undefined && data.target !== undefined) {
+      const newValue = data.target.value;
+      if (newValue === String(this._project.SourceControlType)) return;
+      const model: ProjectApiModel = JSON.parse(JSON.stringify(this._project));
+      model.SourceControlType = newValue as any;
+      this._project = model;
+      this._validateUrlForProvider();
+      this.requestUpdate();
+    }
+  }
+
+  private _validateUrlForProvider() {
+    const urlField = this.shadowRoot?.getElementById('proj-url') as TextField;
+    if (!urlField) return;
+
+    const url = (this._project?.ArtefactsUrl ?? '').trim();
+    const provider = String(this._project?.SourceControlType ?? 'AzureDevOps');
+
+    if (!url) {
+      urlField.errorMessage = '';
+      urlField.invalid = false;
+      return;
+    }
+
+    const isFileUrl = url.toLowerCase().startsWith('file:') || url.startsWith('\\\\');
+
+    let hostname = '';
+    if (!isFileUrl) {
+      try {
+        hostname = new URL(url).hostname.toLowerCase();
+      } catch {
+        // Not a valid URL yet — skip validation until it is
+        urlField.errorMessage = '';
+        urlField.invalid = false;
+        return;
+      }
+    }
+
+    const isGitHubHost = hostname === 'github.com' || hostname.endsWith('.github.com');
+    const isDevOpsHost = hostname === 'dev.azure.com' || hostname.endsWith('.dev.azure.com') ||
+      hostname === 'visualstudio.com' || hostname.endsWith('.visualstudio.com') ||
+      // TFS-style on-prem hosts typically look like `tfs.<corp-domain>` or
+      // `tfs<N>.<corp-domain>`; `.endsWith('.tfs.')` can never match because
+      // a hostname never ends with a trailing dot. Use a substring / prefix
+      // check so common on-prem conventions are recognised.
+      hostname === 'tfs' || hostname.startsWith('tfs.') || hostname.includes('.tfs.');
+
+    let error = '';
+
+    if (provider === 'GitHub' && !isGitHubHost && !isFileUrl) {
+      if (isDevOpsHost) {
+        error = 'This looks like an Azure DevOps URL. Change the provider or use a GitHub API URL.';
+      }
+    } else if (provider === 'AzureDevOps' && isGitHubHost) {
+      error = 'This looks like a GitHub URL. Change the provider to GitHub or use an Azure DevOps URL.';
+    } else if (provider === 'FileShare' && !isFileUrl) {
+      if (isGitHubHost || isDevOpsHost) {
+        error = 'FileShare projects require a file:// path, not a web URL.';
+      }
+    }
+
+    urlField.errorMessage = error;
+    urlField.invalid = !!error;
+    this._canSubmit();
   }
 
   _checkName(data: string) {
@@ -325,6 +487,7 @@ export class AddEditProject extends LitElement {
         result = false;
       }
       if (
+        this.showSubPaths &&
         this._project.ArtefactsSubPaths !== undefined &&
         (this._project.ArtefactsSubPaths?.length ?? 0) < 1
       ) {
@@ -336,13 +499,15 @@ export class AddEditProject extends LitElement {
   }
 
   _canSubmit() {
-    this.canSubmit = this.projValid && this.isNameValid && !this.isBusy;
+    const urlField = this.shadowRoot?.getElementById('proj-url') as TextField;
+    const urlValid = !urlField?.invalid;
+    this.canSubmit = this.projValid && this.isNameValid && urlValid && !this.isBusy;
   }
 
   _submit() {
     this._setBusy();
     if (this._project.ProjectId === 0) {
-      const api = new RefDataProjectsApi();
+      const api = new RefDataProjectsApi(dorcApiConfiguration);
       api.refDataProjectsPost({ projectApiModel: this._project }).subscribe({
         next: () => {
           this.projAdded();
@@ -358,7 +523,7 @@ export class AddEditProject extends LitElement {
         }
       });
     } else {
-      const api = new RefDataProjectsApi();
+      const api = new RefDataProjectsApi(dorcApiConfiguration);
       api.refDataProjectsPut({ projectApiModel: this._project }).subscribe({
         next: (data: ProjectApiModel) => {
           if (data !== null) {
@@ -406,7 +571,7 @@ export class AddEditProject extends LitElement {
       composed: true
     });
     this.dispatchEvent(event);
-    this.dialog.close();
+    this.dialogOpened = false;
     this.Reset();
   }
 
@@ -419,7 +584,7 @@ export class AddEditProject extends LitElement {
       composed: true
     });
     this.dispatchEvent(event);
-    this.dialog.close();
+    this.dialogOpened = false;
     this.Reset();
   }
 

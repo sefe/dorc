@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// AssociatedWorkItem
     /// </summary>
     [DataContract(Name = "AssociatedWorkItem")]
-    public partial class AssociatedWorkItem : IEquatable<AssociatedWorkItem>, IValidatableObject
+    public partial class AssociatedWorkItem : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="AssociatedWorkItem" /> class.
@@ -42,7 +42,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="url">REST Url of the work item..</param>
         /// <param name="webUrl">webUrl.</param>
         /// <param name="workItemType">workItemType.</param>
-        public AssociatedWorkItem(string assignedTo = default(string), int id = default(int), string state = default(string), string title = default(string), string url = default(string), string webUrl = default(string), string workItemType = default(string))
+        public AssociatedWorkItem(string assignedTo = default, int id = default, string state = default, string title = default, string url = default, string webUrl = default, string workItemType = default)
         {
             this.AssignedTo = assignedTo;
             this.Id = id;
@@ -126,107 +126,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as AssociatedWorkItem);
-        }
-
-        /// <summary>
-        /// Returns true if AssociatedWorkItem instances are equal
-        /// </summary>
-        /// <param name="input">Instance of AssociatedWorkItem to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(AssociatedWorkItem input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.AssignedTo == input.AssignedTo ||
-                    (this.AssignedTo != null &&
-                    this.AssignedTo.Equals(input.AssignedTo))
-                ) && 
-                (
-                    this.Id == input.Id ||
-                    this.Id.Equals(input.Id)
-                ) && 
-                (
-                    this.State == input.State ||
-                    (this.State != null &&
-                    this.State.Equals(input.State))
-                ) && 
-                (
-                    this.Title == input.Title ||
-                    (this.Title != null &&
-                    this.Title.Equals(input.Title))
-                ) && 
-                (
-                    this.Url == input.Url ||
-                    (this.Url != null &&
-                    this.Url.Equals(input.Url))
-                ) && 
-                (
-                    this.WebUrl == input.WebUrl ||
-                    (this.WebUrl != null &&
-                    this.WebUrl.Equals(input.WebUrl))
-                ) && 
-                (
-                    this.WorkItemType == input.WorkItemType ||
-                    (this.WorkItemType != null &&
-                    this.WorkItemType.Equals(input.WorkItemType))
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.AssignedTo != null)
-                {
-                    hashCode = (hashCode * 59) + this.AssignedTo.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.Id.GetHashCode();
-                if (this.State != null)
-                {
-                    hashCode = (hashCode * 59) + this.State.GetHashCode();
-                }
-                if (this.Title != null)
-                {
-                    hashCode = (hashCode * 59) + this.Title.GetHashCode();
-                }
-                if (this.Url != null)
-                {
-                    hashCode = (hashCode * 59) + this.Url.GetHashCode();
-                }
-                if (this.WebUrl != null)
-                {
-                    hashCode = (hashCode * 59) + this.WebUrl.GetHashCode();
-                }
-                if (this.WorkItemType != null)
-                {
-                    hashCode = (hashCode * 59) + this.WorkItemType.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

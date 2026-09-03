@@ -41,7 +41,7 @@ namespace Tools.EncryptionMigrationCLI
                 var contextFactory = new DeploymentContextFactory(connectionString);
                 var secureKeySource = new SecureKeyPersistentDataSource(contextFactory);
                 
-                var encryptor = new QuantumResistantPropertyEncryptor(
+                var encryptor = new AesGcmPropertyEncryptor(
                     secureKeySource.GetInitialisationVector(),
                     secureKeySource.GetSymmetricKey());
 
@@ -76,11 +76,11 @@ namespace Tools.EncryptionMigrationCLI
     public class EncryptionMigration
     {
         private readonly IDeploymentContextFactory _contextFactory;
-        private readonly QuantumResistantPropertyEncryptor _encryptor;
+        private readonly AesGcmPropertyEncryptor _encryptor;
         private readonly ILogger _log;
         private readonly int _batchSize;
 
-        public EncryptionMigration(IDeploymentContextFactory contextFactory, QuantumResistantPropertyEncryptor encryptor, ILogger log, int batchSize = 100)
+        public EncryptionMigration(IDeploymentContextFactory contextFactory, AesGcmPropertyEncryptor encryptor, ILogger log, int batchSize = 100)
         {
             _contextFactory = contextFactory;
             _encryptor = encryptor;
