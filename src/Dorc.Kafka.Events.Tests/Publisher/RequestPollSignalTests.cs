@@ -68,10 +68,7 @@ public class RequestPollSignalTests
         }
         sw.Stop();
 
-        // Generous margin: the claim under test is "cancellation is observed rather than the
-        // full 30s timeout elapsing", not a latency SLO. A 1s bound flaked on a loaded CI
-        // runner (1053ms observed); 5s still proves cancellation by a factor of six.
-        Assert.IsTrue(sw.ElapsedMilliseconds < 5_000, $"Wait should observe cancellation; took {sw.ElapsedMilliseconds}ms.");
+        Assert.IsTrue(sw.ElapsedMilliseconds < 1_000, $"Wait should observe cancellation; took {sw.ElapsedMilliseconds}ms.");
     }
 
     [TestMethod]
