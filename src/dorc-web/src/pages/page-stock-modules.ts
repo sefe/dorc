@@ -2,6 +2,7 @@ import '@vaadin/button';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/grid/vaadin-grid-column';
 import '@vaadin/grid/vaadin-grid-sort-column';
+import { columnBodyRenderer } from '@vaadin/grid/lit';
 import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
 import '@vaadin/text-field';
@@ -16,6 +17,7 @@ import {
 } from '../apis/dorc-api';
 import { PageElement } from '../helpers/page-element';
 import { retrieveErrorMessage } from '../helpers/errorMessage-retriever';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 import '../components/deploy-from-template-dialog';
 import { DeployFromTemplateDialog } from '../components/deploy-from-template-dialog';
 
@@ -115,7 +117,7 @@ export class PageStockModules extends PageElement {
   @query('deploy-from-template-dialog')
   private deployDialog!: DeployFromTemplateDialog;
 
-  private terraformApi = new TerraformApi();
+  private terraformApi = new TerraformApi(dorcApiConfiguration);
 
   connectedCallback() {
     super.connectedCallback();
@@ -172,7 +174,10 @@ export class PageStockModules extends PageElement {
             path="Category"
             header="Category"
           ></vaadin-grid-sort-column>
-          <vaadin-grid-column header="Status" .renderer="${this.statusRenderer}"></vaadin-grid-column>
+          <vaadin-grid-column
+            header="Status"
+            ${columnBodyRenderer(this.statusRenderer, [])}
+          ></vaadin-grid-column>
           <vaadin-grid-column header="Description" path="Description"></vaadin-grid-column>
           <vaadin-grid-sort-column
             path="Owner"
@@ -182,7 +187,7 @@ export class PageStockModules extends PageElement {
             header=""
             auto-width
             flex-grow="0"
-            .renderer="${this.actionsRenderer.bind(this)}"
+            ${columnBodyRenderer(this.actionsRenderer, [])}
           ></vaadin-grid-column>
         </vaadin-grid>
 
@@ -193,60 +198,51 @@ export class PageStockModules extends PageElement {
         theme="wide"
         resizable
         draggable
-        ${dialogRenderer(this.detailRenderer.bind(this), [this.detail])}
-        ${dialogFooterRenderer(
-          () => html`
-            <vaadin-button @click="${() => (this.detailOpen = false)}">Close</vaadin-button>
-          `,
-          [],
-        )}
+        ${dialogRenderer(this.detailRenderer, [this.detail])}
+        ${dialogFooterRenderer(this.detailFooterRenderer, [])}
       ></vaadin-dialog>
 
       <deploy-from-template-dialog></deploy-from-template-dialog>
     `;
   }
 
-  private statusRenderer(root: HTMLElement, _: any, model: { item: TerraformTemplateManifest }) {
-    const t = model.item;
-    root.innerHTML = t.Deprecated
-      ? `<span class="deprecated-badge">Deprecated</span>`
-      : `<span class="active-badge">Active</span>`;
-  }
+  private statusRenderer = (template: TerraformTemplateManifest) =>
+    template.Deprecated
+      ? html`<span class="deprecated-badge">Deprecated</span>`
+      : html`<span class="active-badge">Active</span>`;
 
-  private actionsRenderer(root: HTMLElement, _: any, model: { item: TerraformTemplateManifest }) {
-    root.innerHTML = '';
-    // Lay the actions out in a single non-wrapping row; without this the
-    // buttons overflow the auto-width cell and get clipped to an ellipsis.
-    const actions = document.createElement('div');
-    actions.style.cssText = 'display:flex; gap:4px; white-space:nowrap; align-items:center;';
-
-    const btn = document.createElement('vaadin-button');
-    btn.setAttribute('theme', 'tertiary small');
-    btn.textContent = 'Details';
-    btn.addEventListener('click', () => {
-      this.detail = model.item;
-      this.detailOpen = true;
-    });
-    actions.appendChild(btn);
-
-    const ref = document.createElement('vaadin-button');
-    ref.setAttribute('theme', 'tertiary small');
-    ref.textContent = 'Copy reference';
-    ref.addEventListener('click', () => this.copyReference(model.item));
-    actions.appendChild(ref);
-
-    const deploy = document.createElement('vaadin-button');
-    deploy.setAttribute('theme', 'primary small');
-    deploy.textContent = 'Deploy from template';
-    deploy.addEventListener('click', () => this.openDeploy(model.item));
-    actions.appendChild(deploy);
-
-    root.appendChild(actions);
-  }
+  // Lay the actions out in a single non-wrapping row; without this the
+  // buttons overflow the auto-width cell and get clipped to an ellipsis.
+  private actionsRenderer = (template: TerraformTemplateManifest) => html`
+    <div style="display:flex; gap:4px; white-space:nowrap; align-items:center;">
+      <vaadin-button
+        theme="tertiary small"
+        @click="${() => {
+          this.detail = template;
+          this.detailOpen = true;
+        }}"
+        >Details</vaadin-button
+      >
+      <vaadin-button
+        theme="tertiary small"
+        @click="${() => this.copyReference(template)}"
+        >Copy reference</vaadin-button
+      >
+      <vaadin-button
+        theme="primary small"
+        @click="${() => this.openDeploy(template)}"
+        >Deploy from template</vaadin-button
+      >
+    </div>
+  `;
 
   private openDeploy(t: TerraformTemplateManifest) {
     this.deployDialog?.open(t);
   }
+
+  private detailFooterRenderer = () => html`
+    <vaadin-button @click="${() => (this.detailOpen = false)}">Close</vaadin-button>
+  `;
 
   // Vaadin dialogRenderer always passes the Dialog instance as the renderer
   // argument; deps array is for re-render reactivity, not value-passing.

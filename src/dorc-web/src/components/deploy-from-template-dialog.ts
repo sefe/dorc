@@ -9,7 +9,7 @@ import { dialogRenderer, dialogFooterRenderer } from '@vaadin/dialog/lit';
 import { Notification } from '@vaadin/notification';
 import { css, html, LitElement } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import { Router } from '@vaadin/router';
+import { navigate } from '../router/router';
 import {
   ProjectApiModel,
   RefDataProjectsApi,
@@ -22,6 +22,7 @@ import {
   EnvironmentApiModelTemplateApiModel,
 } from '../apis/dorc-api';
 import { retrieveErrorMessage } from '../helpers/errorMessage-retriever';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 // 'Deploy from stock template' wizard. Single-page form with three
 // implicit sections (Target / Inputs / Review) all fields visible at once
@@ -117,9 +118,9 @@ export class DeployFromTemplateDialog extends LitElement {
   @state()
   private error: string | null = null;
 
-  private projectsApi = new RefDataProjectsApi();
-  private envMappingsApi = new RefDataProjectEnvironmentMappingsApi();
-  private terraformApi = new TerraformApi();
+  private projectsApi = new RefDataProjectsApi(dorcApiConfiguration);
+  private envMappingsApi = new RefDataProjectEnvironmentMappingsApi(dorcApiConfiguration);
+  private terraformApi = new TerraformApi(dorcApiConfiguration);
 
   // Monotonic token guarding the environments request. Each new request
   // (or anything that invalidates the current environment list, e.g. a
@@ -474,7 +475,7 @@ export class DeployFromTemplateDialog extends LitElement {
           const n = Notification.show(message, { duration: 5000, position: 'bottom-end' });
           n.setAttribute('theme', 'success');
           this.clearEnteredValues();
-          Router.go('/monitor-requests');
+          navigate('/monitor-requests');
         },
         error: (err: any) => {
           this.submitting = false;
