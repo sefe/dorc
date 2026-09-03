@@ -1,10 +1,8 @@
+import { comboBoxRenderer } from '@vaadin/combo-box/lit';
 import { css, LitElement } from 'lit';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/combo-box';
-import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
-import { GridItemModel } from '@vaadin/grid';
-import '@polymer/paper-dialog';
 import { ComboBox } from '@vaadin/combo-box';
 import '@vaadin/text-field';
 import { customElement, property } from 'lit/decorators.js';
@@ -19,10 +17,12 @@ import {
   DatabaseApiModel,
   GroupApiModel
 } from '../apis/dorc-api';
+import '@vaadin/button';
+import '@vaadin/vertical-layout';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('add-edit-database')
 export class AddEditDatabase extends LitElement {
-
   private readonly maxFieldLength = 50;
 
   @property({ type: Object })
@@ -47,14 +47,20 @@ export class AddEditDatabase extends LitElement {
     this.ErrorMessage = '';
     this.infoMessage = '';
 
-    const adGroupCombo = this.shadowRoot?.getElementById('active-dir-groups') as ComboBox;
+    const adGroupCombo = this.shadowRoot?.getElementById(
+      'active-dir-groups'
+    ) as ComboBox;
     if (adGroupCombo) {
-      const group = this.groups.find(t => t.GroupName === this._database.AdGroup);
+      const group = this.groups.find(
+        t => t.GroupName === this._database.AdGroup
+      );
       if (group !== undefined) adGroupCombo.selectedItem = group;
       else adGroupCombo.selectedItem = undefined;
     }
 
-    console.log(`Database instance: ${this.DbServerName} name: ${this.DatabaseName}`);
+    console.log(
+      `Database instance: ${this.DbServerName} name: ${this.DatabaseName}`
+    );
     this.requestUpdate('srv', oldVal);
   }
 
@@ -77,31 +83,26 @@ export class AddEditDatabase extends LitElement {
 
   private isNameValid = false;
 
-  @property({ type: Boolean })
-  private canSubmit = false;
+  @property({ type: Boolean }) canSubmit = false;
 
   @property() ErrorMessage = '';
 
-  @property({ type: Array })
-  private groups: GroupApiModel[] = [];
+  @property({ type: Array }) groups: GroupApiModel[] = [];
 
   private adGroupsMap: Map<number | undefined, GroupApiModel> | undefined;
 
-  @property({ type: String })
-  private infoMessage: any;
+  @property({ type: String }) infoMessage: any;
 
-  @property({ type: Boolean })
-  private attach = false;
+  @property({ type: Boolean }) attach = false;
 
   private dbId = 0;
 
-  @property({ type: Number })
-  private envId = 0;
+  @property({ type: Number }) envId = 0;
 
   constructor() {
     super();
 
-    const api = new RefDataGroupsApi();
+    const api = new RefDataGroupsApi(dorcApiConfiguration);
     api.refDataGroupsGet().subscribe(
       (data: GroupApiModel[]) => {
         this.setADGroups(data);
@@ -131,7 +132,9 @@ export class AddEditDatabase extends LitElement {
 
   render() {
     return html`
-      <div style="padding: var(--lumo-space-s); width: 100%; max-width: 500px; box-sizing: border-box;">
+      <div
+        style="padding: var(--lumo-space-s); width: 100%; max-width: 500px; box-sizing: border-box;"
+      >
         <vaadin-vertical-layout>
           <vaadin-text-field
             class="block"
@@ -140,7 +143,6 @@ export class AddEditDatabase extends LitElement {
             title="Maximum length: ${this.maxFieldLength} symbols"
             pattern="^[a-zA-Z0-9_]{1,128}?$"
             required
-            auto-validate
             @input="${this._dbNameValueChanged}"
             .value="${this.DatabaseName}"
           ></vaadin-text-field>
@@ -149,9 +151,8 @@ export class AddEditDatabase extends LitElement {
             label="Application Tag"
             maxlength="${this.maxFieldLength}"
             title="Maximum length: ${this.maxFieldLength} symbols"
-            pattern="^[a-zA-Z0-9&.\\- ]+$"
+            pattern="^[a-zA-Z0-9&amp;.\\- ]+$"
             required
-            auto-validate
             @input="${this._dbTypeValueChanged}"
             .value="${this.DatabaseType}"
           ></vaadin-text-field>
@@ -162,7 +163,6 @@ export class AddEditDatabase extends LitElement {
             maxlength="${this.maxFieldLength}"
             title="Maximum length: ${this.maxFieldLength} symbols"
             required
-            auto-validate
             @input="${this._sqlServerValueChanged}"
             .value="${this.DbServerName}"
           ></vaadin-text-field>
@@ -172,7 +172,6 @@ export class AddEditDatabase extends LitElement {
             maxlength="${this.maxFieldLength}"
             title="Maximum length: ${this.maxFieldLength} symbols"
             @input="${this._dbaArrayNameValueChanged}"
-            auto-validate
             .value="${this.ArrayName}"
           ></vaadin-text-field>
           <vaadin-combo-box
@@ -183,8 +182,7 @@ export class AddEditDatabase extends LitElement {
             item-label-path="GroupName"
             @value-changed="${this.setSelectedADGroup}"
             .items="${this.groups}"
-            filter-property="GroupName"
-            .renderer="${this._boundADGroupsRenderer}"
+            ${comboBoxRenderer(this._boundADGroupsRenderer, [])}
             placeholder="Select Permission"
             style="width: 300px"
             helper-text="(Advanced: Use 'OTHER' if not applicable/unknown)"
@@ -211,14 +209,10 @@ export class AddEditDatabase extends LitElement {
     }
   }
 
-  _boundADGroupsRenderer(
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<GroupApiModel>
-  ) {
-    // only render the checkbox once, to avoid re-creating during subsequent calls
-    const groupApiModel = model.item as GroupApiModel;
-    root.innerHTML = `<paper-item>${groupApiModel.GroupName}</paper-item>`;
+  // Was a <paper-item>, which no longer resolves to anything since Polymer
+  // was removed; the combo-box styles its own items.
+  _boundADGroupsRenderer(group: GroupApiModel) {
+    return html`<div>${group.GroupName}</div>`;
   }
 
   _reset() {
@@ -241,32 +235,32 @@ export class AddEditDatabase extends LitElement {
 
   saveDatabase() {
     if (this._database.Id !== undefined && this._database.Id > 0) {
-      const api = new RefDataDatabasesApi();
-      api.refDataDatabasesPut({
-        id: this._database.Id ?? 0,
-        databaseApiModel: {
-          Id: this._database.Id,
-          ServerName: this.DbServerName,
-          Name: this.DatabaseName,
-          Type: this.DatabaseType,
-          AdGroup: this.AdGroup,
-          ArrayName: this.ArrayName
-        }
-      })
-      .subscribe({
-        next: (data: DatabaseApiModel) => {
-          this.fireDatabaseChangedEvent(data);
-          this._reset();
-        },
-        error: (err: any) => {
-          console.error(err.response);
-          this.ErrorMessage = err.response;
-        },
-        complete: () => console.log('done adding DB')
-      });
-    }
-    else {
-      const api = new RefDataDatabasesApi();
+      const api = new RefDataDatabasesApi(dorcApiConfiguration);
+      api
+        .refDataDatabasesPut({
+          id: this._database.Id ?? 0,
+          databaseApiModel: {
+            Id: this._database.Id,
+            ServerName: this.DbServerName,
+            Name: this.DatabaseName,
+            Type: this.DatabaseType,
+            AdGroup: this.AdGroup,
+            ArrayName: this.ArrayName
+          }
+        })
+        .subscribe({
+          next: (data: DatabaseApiModel) => {
+            this.fireDatabaseChangedEvent(data);
+            this._reset();
+          },
+          error: (err: any) => {
+            console.error(err.response);
+            this.ErrorMessage = err.response;
+          },
+          complete: () => console.log('done adding DB')
+        });
+    } else {
+      const api = new RefDataDatabasesApi(dorcApiConfiguration);
       api
         .refDataDatabasesPost({
           databaseApiModel: {
@@ -335,7 +329,7 @@ export class AddEditDatabase extends LitElement {
     if (id > 0) {
       if (this.attach) {
         this.dbId = id;
-        const api = new RefDataEnvironmentsDetailsApi();
+        const api = new RefDataEnvironmentsDetailsApi(dorcApiConfiguration);
         api
           .refDataEnvironmentsDetailsPut({
             action: 'attach',
@@ -395,7 +389,7 @@ export class AddEditDatabase extends LitElement {
   }
 
   private checkDBExists() {
-    const api = new RefDataDatabasesApi();
+    const api = new RefDataDatabasesApi(dorcApiConfiguration);
     api
       .refDataDatabasesGet({
         name: this.DatabaseName,
@@ -432,29 +426,35 @@ export class AddEditDatabase extends LitElement {
     return /\s/g.test(s);
   }
 
-
   private checkDbValid(dbs: DatabaseApiModel[]) {
     const foundDatabase = dbs?.[0];
-        
+
     if (
       foundDatabase &&
       foundDatabase.Id === this._database.Id &&
-      this.checkDatabaseComplete({ServerName: this.DbServerName, Name: this.DatabaseName, Type: this.DatabaseType, AdGroup: this.AdGroup})
+      this.checkDatabaseComplete({
+        ServerName: this.DbServerName,
+        Name: this.DatabaseName,
+        Type: this.DatabaseType,
+        AdGroup: this.AdGroup
+      })
     ) {
       this.isNameValid = true;
       this.infoMessage = '';
-
     } else if (foundDatabase && foundDatabase.Id !== this._database.Id) {
       this.isNameValid = false;
       this.infoMessage = 'Database already exists';
-
     } else if (
       !foundDatabase &&
-      this.checkDatabaseComplete({ServerName: this.DbServerName, Name: this.DatabaseName, Type: this.DatabaseType, AdGroup: this.AdGroup})
+      this.checkDatabaseComplete({
+        ServerName: this.DbServerName,
+        Name: this.DatabaseName,
+        Type: this.DatabaseType,
+        AdGroup: this.AdGroup
+      })
     ) {
       this.isNameValid = true;
       this.infoMessage = '';
-
     } else {
       this.isNameValid = false;
       // Clear the "Database already exists" message if the database doesn't exist
@@ -467,29 +467,22 @@ export class AddEditDatabase extends LitElement {
     console.log(`isNameValid: ${this.isNameValid}`);
   }
 
-  checkDatabaseComplete(db: DatabaseApiModel){
+  checkDatabaseComplete(db: DatabaseApiModel) {
     let nameValid = false;
     let instanceValid = false;
     let typeValid = false;
 
-    if (
-    db.Name &&
-    db.Name?.length > 0 &&
-    !this.hasWhiteSpace(db.Name ?? ''))
-    {
+    if (db.Name && db.Name?.length > 0 && !this.hasWhiteSpace(db.Name ?? '')) {
       nameValid = true;
     }
     if (
       db.ServerName &&
       db.ServerName?.length > 0 &&
-      !this.hasWhiteSpace(db.ServerName ?? ''))
-    {
+      !this.hasWhiteSpace(db.ServerName ?? '')
+    ) {
       instanceValid = true;
     }
-    if (
-      db.Type &&
-      db.Type?.length > 0)
-    {
+    if (db.Type && db.Type?.length > 0) {
       typeValid = true;
     }
 
@@ -503,7 +496,7 @@ export class AddEditDatabase extends LitElement {
       AdGroup: '',
       Type: '',
       EnvironmentNames: [],
-      Id : 0,
+      Id: 0,
       UserEditable: false
     };
   }

@@ -1,5 +1,6 @@
-import '@polymer/paper-dialog';
-import { PaperDialogElement } from '@polymer/paper-dialog';
+import '@vaadin/dialog';
+import type { DialogOpenedChangedEvent } from '@vaadin/dialog';
+import { dialogFooterRenderer, dialogRenderer } from '@vaadin/dialog/lit';
 import '@vaadin/button';
 import '@vaadin/checkbox';
 import '@vaadin/text-field';
@@ -10,24 +11,17 @@ import { css, LitElement } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { Notification } from '@vaadin/notification';
-import { ajax } from 'rxjs/ajax';
-import { EnvironmentApiModel } from '../apis/dorc-api';
-import { BASE_PATH } from '../apis/dorc-api/runtime';
-import { oauthServiceContainer } from '../services/Account/OAuthService';
-
-// Request interface for cloning environment
-interface CloneEnvironmentRequest {
-  SourceEnvironmentId: number;
-  NewEnvironmentName: string;
-  CopyPropertyValues?: boolean;
-  CopyServerMappings?: boolean;
-  CopyDatabaseMappings?: boolean;
-  CopyProjectMappings?: boolean;
-  CopyAccessControls?: boolean;
-}
+import {
+  CloneEnvironmentRequest,
+  EnvironmentApiModel,
+  RefDataEnvironmentsApi
+} from '../apis/dorc-api';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('clone-environment')
 export class CloneEnvironment extends LitElement {
+  @state() private dialogOpened = false;
+
   @property({ type: Object }) sourceEnvironment: EnvironmentApiModel | undefined;
 
   @state() private newEnvironmentName = '';
@@ -42,7 +36,7 @@ export class CloneEnvironment extends LitElement {
 
   static get styles() {
     return css`
-      paper-dialog.size-position {
+      vaadin-dialog::part(overlay) {
         overflow: auto;
         width: min(90vw, 550px);
       }
@@ -90,12 +84,140 @@ export class CloneEnvironment extends LitElement {
 
   render() {
     return html`
-      <paper-dialog
-        class="size-position"
+      <vaadin-dialog
         id="clone-environment-dialog"
-        allow-click-through
-        modal
-      >
+        header-title="Clone Environment"
+        draggable
+        .opened="${this.dialogOpened}"
+        @opened-changed="${(e: DialogOpenedChangedEvent) => {
+          this.dialogOpened = e.detail.value;
+          // Escape and outside-click are close paths too, and the form was
+          // previously only reset by the explicit close() button.
+          if (!this.dialogOpened) this._resetForm();
+        }}"
+        ${dialogRenderer(this.renderCloneContent, [
+          this.sourceEnvironment,
+          this.errorMessage,
+          this.isCloning,
+          this.canClone,
+          this.newEnvironmentName,
+          this.copyPropertyValues,
+          this.copyServerMappings,
+          this.copyDatabaseMappings,
+          this.copyProjectMappings,
+          this.copyAccessControls
+        ])}
+        ${dialogFooterRenderer(this.renderCloneFooter, [
+          this.canClone,
+          this.isCloning,
+          this.sourceEnvironment,
+          this.newEnvironmentName,
+          this.copyPropertyValues,
+          this.copyServerMappings,
+          this.copyDatabaseMappings,
+          this.copyProjectMappings,
+          this.copyAccessControls
+        ])}
+      ></vaadin-dialog>
+    `;
+  }
+
+  private _nameValueChanged(e: CustomEvent<{ value: string }>) {
+    this.newEnvironmentName = e.detail.value;
+    this._validateForm();
+  }
+
+  private _validateForm() {
+    this.canClone =
+      !!this.sourceEnvironment &&
+      !!this.newEnvironmentName &&
+      this.newEnvironmentName.trim().length > 0 &&
+      this.newEnvironmentName.trim() !== this.sourceEnvironment.EnvironmentName;
+
+    if (
+      this.newEnvironmentName.trim() ===
+      this.sourceEnvironment?.EnvironmentName
+    ) {
+      this.errorMessage =
+        'New environment name must be different from the source';
+    } else {
+      this.errorMessage = '';
+    }
+  }
+
+  private _cloneEnvironment() {
+    if (!this.sourceEnvironment?.EnvironmentId) {
+      this.errorMessage = 'Source environment is not valid';
+      return;
+    }
+
+    this.isCloning = true;
+    this.errorMessage = '';
+
+    const request: CloneEnvironmentRequest = {
+      SourceEnvironmentId: this.sourceEnvironment.EnvironmentId,
+      NewEnvironmentName: this.newEnvironmentName.trim(),
+      CopyPropertyValues: this.copyPropertyValues,
+      CopyServerMappings: this.copyServerMappings,
+      CopyDatabaseMappings: this.copyDatabaseMappings,
+      CopyProjectMappings: this.copyProjectMappings,
+      CopyAccessControls: this.copyAccessControls
+    };
+
+    const api = new RefDataEnvironmentsApi(dorcApiConfiguration);
+    api.refDataEnvironmentsClonePost({ cloneEnvironmentRequest: request }).subscribe({
+      next: (clonedEnv: EnvironmentApiModel) => {
+        this.isCloning = false;
+
+        Notification.show(
+          `Environment '${clonedEnv.EnvironmentName}' created successfully!`,
+          {
+            theme: 'success',
+            position: 'bottom-start',
+            duration: 5000
+          }
+        );
+
+        // Dispatch event to notify parent component
+        const event = new CustomEvent('environment-cloned', {
+          detail: { environment: clonedEnv },
+          bubbles: true,
+          composed: true
+        });
+        this.dispatchEvent(event);
+
+        // Close and reset
+        this.close();
+      },
+      error: (err: any) => {
+        this.isCloning = false;
+        console.error('Error cloning environment:', err);
+        const message = err?.response?.Message || err?.response || err?.message || 'Failed to clone environment';
+        this.errorMessage = typeof message === 'string' ? message : JSON.stringify(message);
+      }
+    });
+  }
+
+  private _resetForm() {
+    this.newEnvironmentName = '';
+    this.copyPropertyValues = false;
+    this.copyServerMappings = false;
+    this.copyDatabaseMappings = false;
+    this.copyProjectMappings = false;
+    this.copyAccessControls = false;
+    this.canClone = false;
+    this.errorMessage = '';
+  }
+
+  open(environment: EnvironmentApiModel) {
+    this.sourceEnvironment = environment;
+    this._resetForm();
+    this.dialogOpened = true;
+  }
+
+
+  private renderCloneContent = () => html`
+
         <table>
           <tr>
             <td>
@@ -119,7 +241,6 @@ export class CloneEnvironment extends LitElement {
             id="new-env-name"
             label="New Environment Name"
             required
-            auto-validate
             .value=${this.newEnvironmentName}
             @value-changed=${this._nameValueChanged}
             placeholder="Enter name for the cloned environment"
@@ -183,6 +304,9 @@ export class CloneEnvironment extends LitElement {
             ? html`<div class="error-message">${this.errorMessage}</div>`
             : ''}
         </div>
+  `;
+
+  private renderCloneFooter = () => html`
         <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px;">
           <div>
             <vaadin-button
@@ -193,125 +317,11 @@ export class CloneEnvironment extends LitElement {
             </vaadin-button>
             ${this.isCloning ? html`<div class="small-loader"></div>` : html``}
           </div>
-          <vaadin-button dialog-confirm @click=${this.close}>Close</vaadin-button>
+          <vaadin-button @click=${this.close}>Close</vaadin-button>
         </div>
-      </paper-dialog>
-    `;
-  }
-
-  private _nameValueChanged(e: CustomEvent<{ value: string }>) {
-    this.newEnvironmentName = e.detail.value;
-    this._validateForm();
-  }
-
-  private _validateForm() {
-    this.canClone =
-      !!this.sourceEnvironment &&
-      !!this.newEnvironmentName &&
-      this.newEnvironmentName.trim().length > 0 &&
-      this.newEnvironmentName.trim() !== this.sourceEnvironment.EnvironmentName;
-
-    if (
-      this.newEnvironmentName.trim() ===
-      this.sourceEnvironment?.EnvironmentName
-    ) {
-      this.errorMessage =
-        'New environment name must be different from the source';
-    } else {
-      this.errorMessage = '';
-    }
-  }
-
-  private _cloneEnvironment() {
-    if (!this.sourceEnvironment?.EnvironmentId) {
-      this.errorMessage = 'Source environment is not valid';
-      return;
-    }
-
-    this.isCloning = true;
-    this.errorMessage = '';
-
-    const request: CloneEnvironmentRequest = {
-      SourceEnvironmentId: this.sourceEnvironment.EnvironmentId,
-      NewEnvironmentName: this.newEnvironmentName.trim(),
-      CopyPropertyValues: this.copyPropertyValues,
-      CopyServerMappings: this.copyServerMappings,
-      CopyDatabaseMappings: this.copyDatabaseMappings,
-      CopyProjectMappings: this.copyProjectMappings,
-      CopyAccessControls: this.copyAccessControls
-    };
-
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    const signedInUser = oauthServiceContainer.service.signedInUser;
-    if (signedInUser?.access_token) {
-      headers['Authorization'] = 'Bearer ' + signedInUser.access_token;
-    }
-
-    ajax<EnvironmentApiModel>({
-      url: `${BASE_PATH}/RefDataEnvironments/Clone`,
-      method: 'POST',
-      headers,
-      body: JSON.stringify(request),
-      withCredentials: true
-    }).subscribe({
-      next: (response) => {
-        const clonedEnv = response.response;
-        this.isCloning = false;
-
-        Notification.show(
-          `Environment '${clonedEnv.EnvironmentName}' created successfully!`,
-          {
-            theme: 'success',
-            position: 'bottom-start',
-            duration: 5000
-          }
-        );
-
-        // Dispatch event to notify parent component
-        const event = new CustomEvent('environment-cloned', {
-          detail: { environment: clonedEnv },
-          bubbles: true,
-          composed: true
-        });
-        this.dispatchEvent(event);
-
-        // Close and reset
-        this.close();
-      },
-      error: (err: any) => {
-        this.isCloning = false;
-        console.error('Error cloning environment:', err);
-        const message = err?.response?.Message || err?.response || err?.message || 'Failed to clone environment';
-        this.errorMessage = typeof message === 'string' ? message : JSON.stringify(message);
-      }
-    });
-  }
-
-  private _resetForm() {
-    this.newEnvironmentName = '';
-    this.copyPropertyValues = false;
-    this.copyServerMappings = false;
-    this.copyDatabaseMappings = false;
-    this.copyProjectMappings = false;
-    this.copyAccessControls = false;
-    this.canClone = false;
-    this.errorMessage = '';
-  }
-
-  open(environment: EnvironmentApiModel) {
-    this.sourceEnvironment = environment;
-    this._resetForm();
-    const dialog = this.shadowRoot?.getElementById(
-      'clone-environment-dialog'
-    ) as PaperDialogElement;
-    dialog.open();
-  }
+  `;
 
   close() {
-    const dialog = this.shadowRoot?.getElementById(
-      'clone-environment-dialog'
-    ) as PaperDialogElement;
-    dialog.close();
-    this._resetForm();
+    this.dialogOpened = false;
   }
 }

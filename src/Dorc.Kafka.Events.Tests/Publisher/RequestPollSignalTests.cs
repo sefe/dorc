@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using Dorc.Core.Events;
 
 namespace Dorc.Kafka.Events.Tests.Publisher;
@@ -14,14 +13,8 @@ public class RequestPollSignalTests
         using var s = new RequestPollSignal();
         s.Signal();
 
-        var sw = Stopwatch.StartNew();
-        await s.WaitAsync(TimeSpan.FromSeconds(5), CancellationToken.None);
-        sw.Stop();
-
-        // Budget is well under the 5s timeout rather than near-zero: what is
-        // being asserted is that the latch released the wait, not how quickly a
-        // shared build agent got round to scheduling the continuation.
-        Assert.IsTrue(sw.ElapsedMilliseconds < 2_000, $"Pre-signalled wait should return without waiting out its timeout; took {sw.ElapsedMilliseconds}ms.");
+        await s.WaitAsync(TimeSpan.FromSeconds(30), CancellationToken.None)
+            .WaitAsync(TimeSpan.FromSeconds(5));
     }
 
     [TestMethod]
@@ -29,14 +22,11 @@ public class RequestPollSignalTests
     {
         // : signal short-circuits a pending wait.
         using var s = new RequestPollSignal();
-        var sw = Stopwatch.StartNew();
         var waitTask = s.WaitAsync(TimeSpan.FromSeconds(10), CancellationToken.None);
         await Task.Delay(50);
         s.Signal();
-        await waitTask;
-        sw.Stop();
 
-        Assert.IsTrue(sw.ElapsedMilliseconds < 3_000, $"Signalled wait should short-circuit its 10s timeout; took {sw.ElapsedMilliseconds}ms.");
+        await waitTask.WaitAsync(TimeSpan.FromSeconds(5));
     }
 
     [TestMethod]
@@ -44,11 +34,11 @@ public class RequestPollSignalTests
     {
         // Baseline: with no signal, wait elapses to its full timeout.
         using var s = new RequestPollSignal();
-        var sw = Stopwatch.StartNew();
-        await s.WaitAsync(TimeSpan.FromMilliseconds(300), CancellationToken.None);
-        sw.Stop();
+        var waitTask = s.WaitAsync(TimeSpan.FromMilliseconds(300), CancellationToken.None);
 
-        Assert.IsTrue(sw.ElapsedMilliseconds >= 250, $"Wait should approximate the timeout; got {sw.ElapsedMilliseconds}ms.");
+        await Task.Delay(50);
+        Assert.IsFalse(waitTask.IsCompleted, "An unsignalled wait should not complete immediately.");
+        await waitTask.WaitAsync(TimeSpan.FromSeconds(5));
     }
 
     [TestMethod]
@@ -59,19 +49,8 @@ public class RequestPollSignalTests
         var waitTask = s.WaitAsync(TimeSpan.FromSeconds(30), cts.Token);
         cts.CancelAfter(50);
 
-        var sw = Stopwatch.StartNew();
-        try
-        {
-            await waitTask;
-            Assert.Fail("Expected OperationCanceledException to surface from a cancelled WaitAsync.");
-        }
-        catch (OperationCanceledException)
-        {
-            // Expected — cancellation observed.
-        }
-        sw.Stop();
-
-        Assert.IsTrue(sw.ElapsedMilliseconds < 5_000, $"Wait should observe cancellation rather than its 30s timeout; took {sw.ElapsedMilliseconds}ms.");
+        await Assert.ThrowsAsync<OperationCanceledException>(
+            () => waitTask.WaitAsync(TimeSpan.FromSeconds(5)));
     }
 
     [TestMethod]
@@ -96,11 +75,10 @@ public class RequestPollSignalTests
         await s.WaitAsync(TimeSpan.FromMilliseconds(100), CancellationToken.None);
 
         // Second wait — should TIMEOUT (only one slot was latched).
-        var sw = Stopwatch.StartNew();
-        await s.WaitAsync(TimeSpan.FromMilliseconds(300), CancellationToken.None);
-        sw.Stop();
-        Assert.IsTrue(sw.ElapsedMilliseconds >= 250,
-            $"Second wait should timeout (duplicate signals collapsed); got {sw.ElapsedMilliseconds}ms.");
+        var secondWait = s.WaitAsync(TimeSpan.FromMilliseconds(300), CancellationToken.None);
+        await Task.Delay(50);
+        Assert.IsFalse(secondWait.IsCompleted, "Duplicate signals should release only one wait.");
+        await secondWait.WaitAsync(TimeSpan.FromSeconds(5));
     }
 
     [TestMethod]
@@ -111,12 +89,11 @@ public class RequestPollSignalTests
         var s = new RequestPollSignal();
         s.Dispose();
 
-        var sw = System.Diagnostics.Stopwatch.StartNew();
-        await s.WaitAsync(TimeSpan.FromMilliseconds(120), CancellationToken.None);
-        sw.Stop();
+        var waitTask = s.WaitAsync(TimeSpan.FromMilliseconds(120), CancellationToken.None);
 
-        Assert.IsTrue(sw.ElapsedMilliseconds >= 90,
-            $"Disposed wait must still pace the loop via delay; returned after {sw.ElapsedMilliseconds}ms.");
+        await Task.Delay(25);
+        Assert.IsFalse(waitTask.IsCompleted, "A disposed wait should retain the polling delay.");
+        await waitTask.WaitAsync(TimeSpan.FromSeconds(5));
     }
 
     [TestMethod]

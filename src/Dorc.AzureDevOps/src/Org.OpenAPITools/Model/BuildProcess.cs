@@ -30,13 +30,13 @@ namespace Org.OpenAPITools.Model
     /// Represents a build process.
     /// </summary>
     [DataContract(Name = "BuildProcess")]
-    public partial class BuildProcess : IEquatable<BuildProcess>, IValidatableObject
+    public partial class BuildProcess : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="BuildProcess" /> class.
         /// </summary>
         /// <param name="type">The type of the process..</param>
-        public BuildProcess(int type = default(int))
+        public BuildProcess(int type = default)
         {
             this.Type = type;
         }
@@ -71,53 +71,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as BuildProcess);
-        }
-
-        /// <summary>
-        /// Returns true if BuildProcess instances are equal
-        /// </summary>
-        /// <param name="input">Instance of BuildProcess to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(BuildProcess input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.Type == input.Type ||
-                    this.Type.Equals(input.Type)
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                hashCode = (hashCode * 59) + this.Type.GetHashCode();
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

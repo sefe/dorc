@@ -6,7 +6,7 @@ All URIs are relative to *https://dev.azure.com*
 |--------|--------------|-------------|
 | [**OptionsList**](OptionsApi.md#optionslist) | **GET** /{organization}/{project}/_apis/build/options |  |
 
-<a name="optionslist"></a>
+<a id="optionslist"></a>
 # **OptionsList**
 > List&lt;BuildOptionDefinition&gt; OptionsList (string organization, string project, string apiVersion)
 

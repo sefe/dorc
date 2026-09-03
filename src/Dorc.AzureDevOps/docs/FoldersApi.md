@@ -9,7 +9,7 @@ All URIs are relative to *https://dev.azure.com*
 | [**FoldersList**](FoldersApi.md#folderslist) | **GET** /{organization}/{project}/_apis/build/folders/{path} |  |
 | [**FoldersUpdate**](FoldersApi.md#foldersupdate) | **POST** /{organization}/{project}/_apis/build/folders |  |
 
-<a name="folderscreate"></a>
+<a id="folderscreate"></a>
 # **FoldersCreate**
 > Folder FoldersCreate (string organization, string project, string path, string apiVersion, Folder body)
 
@@ -109,7 +109,7 @@ catch (ApiException e)
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-<a name="foldersdelete"></a>
+<a id="foldersdelete"></a>
 # **FoldersDelete**
 > void FoldersDelete (string organization, string project, string path, string apiVersion)
 
@@ -203,7 +203,7 @@ void (empty response body)
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-<a name="folderslist"></a>
+<a id="folderslist"></a>
 # **FoldersList**
 > List&lt;Folder&gt; FoldersList (string organization, string project, string path, string apiVersion, string? queryOrder = null)
 
@@ -303,7 +303,7 @@ catch (ApiException e)
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-<a name="foldersupdate"></a>
+<a id="foldersupdate"></a>
 # **FoldersUpdate**
 > Folder FoldersUpdate (string organization, string project, string path, string apiVersion, Folder body)
 

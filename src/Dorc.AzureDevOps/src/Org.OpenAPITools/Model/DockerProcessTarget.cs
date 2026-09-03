@@ -30,13 +30,13 @@ namespace Org.OpenAPITools.Model
     /// Represents the target for the docker build process.
     /// </summary>
     [DataContract(Name = "DockerProcessTarget")]
-    public partial class DockerProcessTarget : IEquatable<DockerProcessTarget>, IValidatableObject
+    public partial class DockerProcessTarget : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="DockerProcessTarget" /> class.
         /// </summary>
         /// <param name="agentSpecification">agentSpecification.</param>
-        public DockerProcessTarget(AgentSpecification agentSpecification = default(AgentSpecification))
+        public DockerProcessTarget(AgentSpecification agentSpecification = default)
         {
             this.AgentSpecification = agentSpecification;
         }
@@ -70,57 +70,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as DockerProcessTarget);
-        }
-
-        /// <summary>
-        /// Returns true if DockerProcessTarget instances are equal
-        /// </summary>
-        /// <param name="input">Instance of DockerProcessTarget to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(DockerProcessTarget input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.AgentSpecification == input.AgentSpecification ||
-                    (this.AgentSpecification != null &&
-                    this.AgentSpecification.Equals(input.AgentSpecification))
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.AgentSpecification != null)
-                {
-                    hashCode = (hashCode * 59) + this.AgentSpecification.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

@@ -1,11 +1,14 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render } from 'lit';
 
 // --- Hoisted mock values (available before vi.mock factories run) ---
 // Cast to `any` so test code can index `.mock.calls[i][j]` without strict-mode
 // noise; vi.fn()'s inferred call tuple is empty when the factory takes no args.
 const { mockRequestStatusesPut, mockSubscribe } = vi.hoisted(() => {
   const mockSubscribe = vi.fn();
-  const mockRequestStatusesPut: any = vi.fn(() => ({ subscribe: mockSubscribe }));
+  const mockRequestStatusesPut: any = vi.fn(() => ({
+    subscribe: mockSubscribe
+  }));
   return { mockRequestStatusesPut, mockSubscribe };
 });
 
@@ -22,7 +25,6 @@ vi.mock('@vaadin/text-field', () => ({}));
 vi.mock('@vaadin/notification', () => ({
   Notification: { show: vi.fn() }
 }));
-vi.mock('@vaadin/grid', () => ({}));
 
 // Internal component side-effect registrations
 vi.mock('../../src/components/grid-button-groups/request-controls', () => ({}));
@@ -64,11 +66,10 @@ vi.mock('../../src/helpers/errorMessage-retriever.js', () => ({
 vi.mock('../../src/helpers/html-meta-manager', () => ({
   updateMetadata: vi.fn()
 }));
-vi.mock('../../src/router/routes.ts', () => ({}));
-vi.mock('@vaadin/router', () => ({}));
 
 // DOrc API
 vi.mock('../../src/apis/dorc-api', () => ({
+  Configuration: class {},
   RequestStatusesApi: class {
     requestStatusesPut = mockRequestStatusesPut;
   }
@@ -112,6 +113,33 @@ describe('PageMonitorRequests', () => {
     el.remove();
     vi.useRealTimers();
     document.body.innerHTML = '';
+  });
+
+  // -------------------------------------------------------
+  // Pause/resume live updates
+  // -------------------------------------------------------
+  describe('toggleAutoRefresh', () => {
+    it('stops the hub connection when pausing', async () => {
+      const hub = (el as any).hubConnection;
+      expect(el.autoRefresh).toBe(true);
+
+      await (el as any).toggleAutoRefresh();
+
+      expect(el.autoRefresh).toBe(false);
+      expect(hub.stop).toHaveBeenCalled();
+    });
+
+    it('restarts the hub connection when resuming while disconnected', async () => {
+      const hub = (el as any).hubConnection;
+      hub.state = 'Disconnected';
+      el.autoRefresh = false;
+      hub.start.mockClear();
+
+      await (el as any).toggleAutoRefresh();
+
+      expect(el.autoRefresh).toBe(true);
+      expect(hub.start).toHaveBeenCalled();
+    });
   });
 
   // -------------------------------------------------------
@@ -302,6 +330,15 @@ describe('PageMonitorRequests', () => {
         expect.objectContaining({ Path: 'BuildNumber' })
       );
     });
+
+    it('keeps the same provider across host re-renders', async () => {
+      const before = getDataProvider();
+
+      el.requestUpdate();
+      await el.updateComplete;
+
+      expect(getDataProvider()).toBe(before);
+    });
   });
 
   // -------------------------------------------------------
@@ -368,8 +405,10 @@ describe('PageMonitorRequests', () => {
     let root: HTMLElement;
 
     beforeEach(() => {
+      // These are Lit renderer directives now: they return a template rather
+      // than writing into a root, so the test does the rendering.
       root = document.createElement('div');
-      el.detailsHeaderRenderer(root);
+      render(el.detailsHeaderRenderer(), root);
     });
 
     it('renders three filter text inputs', () => {
@@ -417,15 +456,13 @@ describe('PageMonitorRequests', () => {
   describe('details cell renderer', () => {
     it('renders project, environment, and build in a single cell', () => {
       const root = document.createElement('div');
-      const model = {
-        item: {
-          Project: 'TestProject',
-          EnvironmentName: 'production',
-          BuildNumber: '3.1.4'
-        }
+      const item = {
+        Project: 'TestProject',
+        EnvironmentName: 'production',
+        BuildNumber: '3.1.4'
       };
 
-      (el as any).detailsRenderer(root, document.createElement('div'), model);
+      render((el as any).detailsRenderer(item), root);
 
       const text = root.textContent ?? '';
       expect(text).toContain('TestProject');

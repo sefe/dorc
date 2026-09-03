@@ -18,6 +18,7 @@ namespace Dorc.Monitor
         private readonly IRequestsPersistentSource requestsPersistentSource;
         private readonly IDeploymentEventsPublisher eventPublisher;
         private readonly IDistributedLockService distributedLockService;
+        private readonly ILoggerFactory loggerFactory;
 
         private DeploymentRequestDetailSerializer serializer = new DeploymentRequestDetailSerializer();
 
@@ -45,7 +46,8 @@ namespace Dorc.Monitor
             IDeploymentRequestProcessesPersistentSource processesPersistentSource,
             IRequestsPersistentSource requestsPersistentSource,
             IDeploymentEventsPublisher eventPublisher,
-            IDistributedLockService distributedLockService)
+            IDistributedLockService distributedLockService,
+            ILoggerFactory loggerFactory)
         {
             this.logger = logger;
             this.serviceProvider = serviceProvider;
@@ -53,6 +55,7 @@ namespace Dorc.Monitor
             this.requestsPersistentSource = requestsPersistentSource;
             this.eventPublisher = eventPublisher;
             this.distributedLockService = distributedLockService;
+            this.loggerFactory = loggerFactory;
         }
 
         /// <summary>
@@ -244,58 +247,56 @@ namespace Dorc.Monitor
             var methodName = method.ToString();
             if (requestToSwitchCount > 0)
             {
-                monitorCancellationToken.ThrowIfCancellationRequested();
                 var ids = requests.Select(r => r.Id).ToArray();
                 var idsString = string.Join(',', ids);
 
                 this.logger.LogInformation($"Going to {methodName} the requests: [{idsString}]");
 
-                foreach (var id in ids)
-                {
-                    TerminateRequestExecution(id, requestCancellationSources);
-                }
+                var updatedRequestCount = 0;
+                var updatedIds = new List<int>();
 
-                // Uses optimistic concurrency: only updates requests still in 'fromStatus'
-                int updatedRequestCount = this.requestsPersistentSource.SwitchDeploymentRequestStatuses(
-                    requests,
-                    fromStatus,
-                    toStatus,
-                    DateTimeOffset.Now);
-
-                if (updatedRequestCount == requestToSwitchCount)
+                foreach (var request in requests)
                 {
-                    // All requests were successfully updated
-                    foreach (var id in ids)
+                    monitorCancellationToken.ThrowIfCancellationRequested();
+
+                    TerminateRequestExecution(request.Id, requestCancellationSources);
+
+                    // Uses optimistic concurrency: only updates requests still in 'fromStatus'
+                    int switched = this.requestsPersistentSource.SwitchDeploymentRequestStatuses(
+                        new List<DeploymentRequestApiModel> { request },
+                        fromStatus,
+                        toStatus,
+                        DateTimeOffset.Now);
+
+                    if (switched > 0)
                     {
-                        TerminateRunnerProcesses(id);
+                        updatedRequestCount++;
+                        updatedIds.Add(request.Id);
+                        TerminateRunnerProcesses(request.Id);
                         PublishRequestStatusChangedSafe(new DeploymentRequestEventData(
-                            RequestId: id,
+                            RequestId: request.Id,
                             Status: toStatus.ToString(),
                             StartedTime: null,
                             CompletedTime: null,
                             Timestamp: DateTimeOffset.UtcNow
                         ));
                     }
+                }
+
+                if (updatedRequestCount == requestToSwitchCount)
+                {
+                    // All requests were successfully updated
                     this.logger.LogInformation($"Requests with ids [{idsString}] are {methodName}ed.");
                 }
                 else if (updatedRequestCount > 0)
                 {
                     // Partial success: some requests were already processed by another monitor
-                    foreach (var id in ids)
-                    {
-                        TerminateRunnerProcesses(id);
-                        PublishRequestStatusChangedSafe(new DeploymentRequestEventData(
-                            RequestId: id,
-                            Status: toStatus.ToString(),
-                            StartedTime: null,
-                            CompletedTime: null,
-                            Timestamp: DateTimeOffset.UtcNow
-                        ));
-                    }
+                    var updatedIdsString = string.Join(',', updatedIds);
                     var skippedCount = requestToSwitchCount - updatedRequestCount;
                     this.logger.LogInformation(
                         $"{updatedRequestCount} of {requestToSwitchCount} requests {methodName}ed. " +
-                        $"{skippedCount} were likely already processed by another monitor instance. IDs [{idsString}]");
+                        $"{skippedCount} were likely already processed by another monitor instance. " +
+                        $"Updated IDs [{updatedIdsString}], All IDs [{idsString}]");
                 }
                 else
                 {
@@ -623,7 +624,7 @@ namespace Dorc.Monitor
                 var pendingRequestProcessor = this.serviceProvider.GetService(typeof(IPendingRequestProcessor)) as IPendingRequestProcessor;
                 if (pendingRequestProcessor == null)
                     throw new ArgumentNullException(nameof(pendingRequestProcessor));
-                pendingRequestProcessor.Execute(requestToExecute, requestCancellationToken);
+                pendingRequestProcessor.Execute(requestToExecute, requestCancellationToken, loggerFactory);
             }
             catch (Exception exception)
             {

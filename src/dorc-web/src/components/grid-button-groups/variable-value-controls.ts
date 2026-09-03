@@ -1,3 +1,4 @@
+import { confirmPrompt } from '../confirm-prompt';
 import '@vaadin/button';
 import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
@@ -7,6 +8,7 @@ import '@vaadin/vaadin-lumo-styles/icons.js';
 import { css, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
+import { live } from 'lit/directives/live.js';
 import { styleMap } from 'lit/directives/style-map.js';
 import { PropertyValuesApi } from '../../apis/dorc-api';
 import type { PropertyValueDto } from '../../apis/dorc-api';
@@ -14,6 +16,9 @@ import { Response } from '../../apis/dorc-api';
 import '../../icons/editor-icons.js';
 import '../../icons/iron-icons.js';
 import { Notification } from '@vaadin/notification';
+import '@vaadin/text-field';
+import '@vaadin/tooltip';
+import { dorcApiConfiguration } from '../../services/dorc-api-configuration';
 
 @customElement('variable-value-controls')
 export class VariableValueControls extends LitElement {
@@ -52,45 +57,52 @@ export class VariableValueControls extends LitElement {
 
   render() {
     const editStyles = {
-      color: this.value.UserEditable ? 'var(--dorc-link-color)' : 'var(--dorc-text-secondary)'
+      color: this.value.UserEditable
+        ? 'var(--dorc-link-color)'
+        : 'var(--dorc-text-secondary)'
     };
     const deleteStyles = {
-      color: this.value.UserEditable ? 'var(--dorc-error-color)' : 'var(--dorc-text-secondary)'
+      color: this.value.UserEditable
+        ? 'var(--dorc-error-color)'
+        : 'var(--dorc-text-secondary)'
     };
     return html`
-      ${this.value?.Property?.Secure
-        ? html`<vaadin-password-field
-            id="${`propValue${this.value?.Id}`}"
-            value="Ex@mplePassw0rd"
-            reveal-button-hidden
-            ?readonly="${!this.editing}"
-            focus-target
-            @value-changed="${(e: CustomEvent) => {
-              const textField = e.detail as TextField;
-              if (this.value) this.value.Value = textField.value;
-            }}"
-            style="padding: 0px"
-          ></vaadin-password-field>`
-        : html` <vaadin-text-field
-            id="${`propValue${this.value?.Id}`}"
-            ?readonly="${!this.editing}"
-            focus-target
-            .value="${this.value?.Value ?? ''}"
-            @value-changed="${(e: CustomEvent) => {
-              const textField = e.detail as TextField;
-              if (this.value) this.value.Value = textField.value;
-            }}"
-            style="padding: 0px"
-          ></vaadin-text-field>`}
+      ${
+        this.value?.Property?.Secure
+          ? html`<vaadin-password-field
+              id="${`propValue${this.value?.Id}`}"
+              value="Ex@mplePassw0rd"
+              reveal-button-hidden
+              ?readonly="${!this.editing}"
+              focus-target
+              @value-changed="${(e: CustomEvent) => {
+                const textField = e.detail as TextField;
+                if (this.value) this.value.Value = textField.value;
+              }}"
+              style="padding: 0px"
+            ></vaadin-password-field>`
+          : html` <vaadin-text-field
+              id="${`propValue${this.value?.Id}`}"
+              ?readonly="${!this.editing}"
+              focus-target
+              .value="${live(this.value?.Value ?? '')}"
+              @value-changed="${(e: CustomEvent) => {
+                const textField = e.detail as TextField;
+                if (this.value) this.value.Value = textField.value;
+              }}"
+              style="padding: 0px"
+            ></vaadin-text-field>`
+      }
 
       <vaadin-button
         id="edit"
-        title="Edit"
+        aria-label="Edit"
         theme="icon small"
         @click="${this._editClick}"
         ?disabled="${!this.value.UserEditable}"
         ?hidden="${this.editing}"
       >
+        <vaadin-tooltip slot="tooltip" text="Edit"></vaadin-tooltip>
         <vaadin-icon
           icon="editor:mode-edit"
           style=${styleMap(editStyles)}
@@ -111,39 +123,45 @@ export class VariableValueControls extends LitElement {
         >Cancel</vaadin-button
       >
       <vaadin-button
-        title="Delete Value"
+        aria-label="Delete Value"
         theme="icon small"
         @click="${this.removePropertyValue}"
         ?disabled="${!this.value.UserEditable}"
       >
+        <vaadin-tooltip slot="tooltip" text="Delete Value"></vaadin-tooltip>
         <vaadin-icon
           icon="icons:clear"
           style=${styleMap(deleteStyles)}
         ></vaadin-icon>
       </vaadin-button>
-      ${this.additionalInformation !== ''
-        ? html`<div style="display: inline-block">
-            ${this.additionalInformation}
-          </div>`
-        : html``}
+      ${
+        this.additionalInformation !== ''
+          ? html`<div style="display: inline-block">
+              ${this.additionalInformation}
+            </div>`
+          : html``
+      }
     `;
   }
 
-  removePropertyValue() {
-    const answer = confirm(
-      `Confirm removing value: ${this.value?.Value}?\nfor variable: ${
-        this.value?.Property?.Name
-      }\nwith scope: ${this.value?.PropertyValueFilter}`
+  async removePropertyValue() {
+    // Snapshot before awaiting: this control sits in a recycled grid cell, so
+    // `this.value` can belong to a different row by the time the user answers.
+    const propertyValue = this.value;
+    const answer = await confirmPrompt(
+      `Confirm removing value: ${propertyValue?.Value}?\nfor variable: ${
+        propertyValue?.Property?.Name
+      }\nwith scope: ${propertyValue?.PropertyValueFilter}`
     );
-    if (answer && this.value?.Id) {
-      if (this.value.PropertyValueFilter === '') {
-        this.value.PropertyValueFilter = undefined;
-        this.value.DefaultValue = true;
+    if (answer && propertyValue?.Id) {
+      if (propertyValue.PropertyValueFilter === '') {
+        propertyValue.PropertyValueFilter = undefined;
+        propertyValue.DefaultValue = true;
       }
-      const api = new PropertyValuesApi();
+      const api = new PropertyValuesApi(dorcApiConfiguration);
       api
         .propertyValuesDelete({
-          propertyValueDto: [this.value]
+          propertyValueDto: [propertyValue]
         })
         .subscribe({
           next: (value: Response[]) => {
@@ -201,7 +219,7 @@ export class VariableValueControls extends LitElement {
   }
 
   _saveClick() {
-    const api = new PropertyValuesApi();
+    const api = new PropertyValuesApi(dorcApiConfiguration);
     api
       .propertyValuesPut({
         propertyValueDto: [this.value]

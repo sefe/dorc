@@ -74,3 +74,17 @@
 #*.PDF   diff=astextplain
 #*.rtf   diff=astextplain
 #*.RTF   diff=astextplain
+
+###############################################################################
+# Generated API clients
+#
+# openapi-generator always writes LF. CI regenerates these trees on Windows
+# and fails the build when the result differs from what is committed, so the
+# working copy has to be checked out exactly as the generator writes it.
+# Under the `* text=auto` rule above these files check out as CRLF on Windows,
+# which made every generated file read as modified to `git status` even though
+# `git diff` reported no content change at all (run 32056758186).
+# text=auto still lets git detect and skip anything binary.
+###############################################################################
+src/dorc-web/src/apis/** text=auto eol=lf
+src/Dorc.AzureDevOps/** text=auto eol=lf

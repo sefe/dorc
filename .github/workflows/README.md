@@ -165,8 +165,14 @@ artifacts/
 │   ├── *.dacpac
 │   └── *.sql
 ├── Server/                  # MSI installers
-│   ├── Setup.Dorc.msi
-│   ├── Setup.Dorc.msi.json
+│   ├── Setup.Dorc.Api.msi
+│   ├── Setup.Dorc.Api.msi.json
+│   ├── Setup.Dorc.Web.msi
+│   ├── Setup.Dorc.Web.msi.json
+│   ├── Setup.Dorc.Monitors.msi
+│   ├── Setup.Dorc.Monitors.msi.json
+│   ├── Setup.Dorc.Cli.msi
+│   ├── Setup.Dorc.Cli.msi.json
 │   ├── Setup.Acceptance.msi
 │   └── Setup.Acceptance.msi.json
 └── DOrc.Cmdlet/            # PowerShell module

@@ -1,3 +1,4 @@
+import { confirmPrompt } from '../confirm-prompt';
 import { css, LitElement } from 'lit';
 import '@vaadin/button';
 import '@vaadin/icons/vaadin-icons';
@@ -7,9 +8,15 @@ import { html } from 'lit/html.js';
 import { styleMap } from 'lit/directives/style-map.js';
 import '../../icons/iron-icons.js';
 import '@vaadin/vaadin-lumo-styles/icons.js';
-import { ApiBoolResult, DatabaseApiModel, RefDataDatabasesApi } from '../../apis/dorc-api';
+import {
+  ApiBoolResult,
+  DatabaseApiModel,
+  RefDataDatabasesApi
+} from '../../apis/dorc-api';
 import { ErrorNotification } from '../notifications/error-notification';
 import { retrieveErrorMessage } from '../../helpers/errorMessage-retriever.js';
+import '@vaadin/tooltip';
+import { dorcApiConfiguration } from '../../services/dorc-api-configuration';
 
 @customElement('database-controls')
 export class DatabaseControls extends LitElement {
@@ -18,7 +25,7 @@ export class DatabaseControls extends LitElement {
   @property({ type: Number })
   envId = 0;
 
-  @property({ type: Boolean }) private readonly = true;
+  @property({ type: Boolean }) readonly = true;
 
   static get styles() {
     return css`
@@ -37,18 +44,26 @@ export class DatabaseControls extends LitElement {
 
   render() {
     const unlinkStyles = {
-      color: this.readonly ? 'var(--dorc-text-secondary)' : 'var(--dorc-error-color)'
+      color: this.readonly
+        ? 'var(--dorc-text-secondary)'
+        : 'var(--dorc-error-color)'
     };
     const editStyles = {
-      color: this.readonly ? 'var(--dorc-text-secondary)' : 'var(--dorc-link-color)'
+      color: this.readonly
+        ? 'var(--dorc-text-secondary)'
+        : 'var(--dorc-link-color)'
     };
     return html`
       <vaadin-button
-        title="Edit Database Details"
+        aria-label="Edit Database Details"
         theme="icon"
         @click="${this.editDatabase}"
         ?disabled="${this.readonly}"
       >
+        <vaadin-tooltip
+          slot="tooltip"
+          text="Edit Database Details"
+        ></vaadin-tooltip>
         <vaadin-icon
           icon="lumo:edit"
           style=${styleMap(editStyles)}
@@ -56,11 +71,12 @@ export class DatabaseControls extends LitElement {
       </vaadin-button>
 
       <vaadin-button
-        title="Delete database"
+        aria-label="Delete database"
         theme="icon"
         @click="${this.deleteDatabase}"
         ?disabled="${this.readonly}"
       >
+        <vaadin-tooltip slot="tooltip" text="Delete database"></vaadin-tooltip>
         <vaadin-icon
           icon="icons:delete"
           style=${styleMap(unlinkStyles)}
@@ -69,18 +85,23 @@ export class DatabaseControls extends LitElement {
     `;
   }
 
-  deleteDatabase() {
-    const answer = confirm(`Delete database ${this.databaseDetails?.Name}?`);
-    if (answer && this.databaseDetails?.Id) {
-      const api = new RefDataDatabasesApi();
+  async deleteDatabase() {
+    // Snapshot before awaiting: this control sits in a recycled grid cell, so
+    // `this.databaseDetails` can belong to a different row by the time the user answers.
+    const database = this.databaseDetails;
+    const answer = await confirmPrompt(`Delete database ${database?.Name}?`);
+    if (answer && database?.Id) {
+      const api = new RefDataDatabasesApi(dorcApiConfiguration);
       api
         .refDataDatabasesDelete({
-          databaseId: this.databaseDetails.Id
+          databaseId: database.Id
         })
         .subscribe({
           next: (result: ApiBoolResult) => {
             if (result.Result === true) {
-              const database = this.databaseDetails;
+              // The snapshot, not a fresh read: the cell can be recycled
+              // during the network round trip, and the delete itself
+              // refreshes the grid.
               const event = new CustomEvent('database-deleted', {
                 composed: true,
                 bubbles: true,
@@ -100,14 +121,16 @@ export class DatabaseControls extends LitElement {
           error: (err: any) => {
             console.error(err);
             const notification = new ErrorNotification();
-            const errorMessage = retrieveErrorMessage(err, 'Failed to delete database');
-            
+            const errorMessage = retrieveErrorMessage(
+              err,
+              'Failed to delete database'
+            );
+
             notification.setAttribute('errorMessage', errorMessage);
             this.shadowRoot?.appendChild(notification);
             notification.open();
           },
-          complete: () =>
-            console.log(`Deleted Database ${this.databaseDetails?.Name}`)
+          complete: () => console.log(`Deleted Database ${database?.Name}`)
         });
     }
   }

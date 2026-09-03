@@ -69,7 +69,7 @@ public sealed class KafkaDeploymentEventPublisher : IDeploymentEventsPublisher, 
             var result = await _resultsProducer.ProduceAsync(
                 _topics.ResultsStatus,
                 new Message<string, DeploymentResultEventData> { Key = key, Value = eventData });
-            _logger.LogDebug(
+            _logger.LogInformation(
                 "publish-ok topic={Topic} partition={Partition} offset={Offset} requestId={RequestId}",
                 result.Topic, result.Partition.Value, result.Offset.Value, eventData.RequestId);
             // Healthy path ends here: the API-side results consumer projects
@@ -118,7 +118,7 @@ public sealed class KafkaDeploymentEventPublisher : IDeploymentEventsPublisher, 
             var result = await _requestsProducer.ProduceAsync(
                 topic,
                 new Message<string, DeploymentRequestEventData> { Key = key, Value = eventData });
-            _logger.LogDebug(
+            _logger.LogInformation(
                 "publish-ok topic={Topic} partition={Partition} offset={Offset} requestId={RequestId} status={Status}",
                 result.Topic, result.Partition.Value, result.Offset.Value, eventData.RequestId, eventData.Status);
         }
