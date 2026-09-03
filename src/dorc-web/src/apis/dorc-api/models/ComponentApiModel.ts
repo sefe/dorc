@@ -82,14 +82,11 @@ export interface ComponentApiModel {
      */
     TerraformSubPath?: string | null;
     /**
-     * Catalog reference: stock-template name this component was
-     * instantiated from (TerraformSourceType.Catalog only).
      * @type {string}
      * @memberof ComponentApiModel
      */
     TerraformTemplateName?: string | null;
     /**
-     * Catalog reference: pinned stock-template version.
      * @type {string}
      * @memberof ComponentApiModel
      */

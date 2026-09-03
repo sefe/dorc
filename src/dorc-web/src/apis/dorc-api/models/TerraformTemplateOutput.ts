@@ -12,27 +12,34 @@
  */
 
 import type {
-    ComponentApiModel,
+    TerraformParameterType,
 } from './';
 
 /**
  * @export
- * @interface TerraformTemplateInstantiateResponseApiModel
+ * @interface TerraformTemplateOutput
  */
-export interface TerraformTemplateInstantiateResponseApiModel {
-    /**
-     * @type {ComponentApiModel}
-     * @memberof TerraformTemplateInstantiateResponseApiModel
-     */
-    component?: ComponentApiModel;
-    /**
-     * @type {number}
-     * @memberof TerraformTemplateInstantiateResponseApiModel
-     */
-    requestId?: number;
+export interface TerraformTemplateOutput {
     /**
      * @type {string}
-     * @memberof TerraformTemplateInstantiateResponseApiModel
+     * @memberof TerraformTemplateOutput
      */
-    requestStatus?: string | null;
+    Name: string;
+    /**
+     * @type {TerraformParameterType}
+     * @memberof TerraformTemplateOutput
+     */
+    Type: TerraformParameterType;
+    /**
+     * @type {string}
+     * @memberof TerraformTemplateOutput
+     */
+    Description?: string | null;
+    /**
+     * @type {boolean}
+     * @memberof TerraformTemplateOutput
+     */
+    Sensitive: boolean;
 }
+
+
