@@ -99,14 +99,14 @@ namespace Dorc.Core.BuildServer
         }
 
         public async Task<IEnumerable<DeployableArtefact>> GetBuildsAsync(string serverUrl, string projectPaths,
-            string buildRegex, string definitionName, bool filterPinnedOnly)
+            string buildRegex, string definitionName, bool filterPinnedOnly, CancellationToken cancellationToken = default)
         {
             var (owner, repo) = ParseOwnerRepo(serverUrl);
 
             using var client = CreateHttpClient();
 
             // Find the workflow ID by name
-            var workflowId = await GetWorkflowIdByNameAsync(client, serverUrl, owner, repo, definitionName);
+            var workflowId = await GetWorkflowIdByNameAsync(client, serverUrl, owner, repo, definitionName, cancellationToken);
 
             if (workflowId == null)
             {
@@ -116,7 +116,7 @@ namespace Dorc.Core.BuildServer
 
             var firstPage = $"{_hostValidator.GetApiBase(serverUrl)}/repos/{owner}/{repo}/actions/workflows/{workflowId}/runs?status=completed&per_page={PerPage}";
             var allRuns = await ReadAllPagesAsync<GitHubWorkflowRunsResponse, GitHubWorkflowRun>(
-                client, firstPage, r => r.WorkflowRuns);
+                client, firstPage, r => r.WorkflowRuns, cancellationToken: cancellationToken);
 
             // GitHub Actions does not have a direct equivalent to Azure DevOps "KeepForever" (pinned).
             if (filterPinnedOnly)
@@ -142,7 +142,7 @@ namespace Dorc.Core.BuildServer
         }
 
         public async Task<string> GetBuildArtifactDownloadUrlAsync(string serverUrl, string projectPaths,
-            string buildRegex, string definitionName, string buildUrl)
+            string buildRegex, string definitionName, string buildUrl, CancellationToken cancellationToken = default)
         {
             var (owner, repo) = ParseOwnerRepo(serverUrl);
 
@@ -154,10 +154,10 @@ namespace Dorc.Core.BuildServer
                 throw new ArgumentException($"GitHub Actions run ID must be numeric, got '{runId}'");
 
             var artifactsUrl = $"{_hostValidator.GetApiBase(serverUrl)}/repos/{owner}/{repo}/actions/runs/{runId}/artifacts";
-            using var response = await client.GetAsync(artifactsUrl);
+            using var response = await client.GetAsync(artifactsUrl, cancellationToken);
             response.EnsureSuccessStatusCode();
 
-            var json = await response.Content.ReadAsStringAsync();
+            var json = await response.Content.ReadAsStringAsync(cancellationToken);
             var artifactsResponse = DeserializeResponse<GitHubArtifactsResponse>(json);
 
             if (artifactsResponse?.Artifacts == null || artifactsResponse.Artifacts.Count == 0)
@@ -170,7 +170,7 @@ namespace Dorc.Core.BuildServer
         }
 
         public async Task<BuildServerBuildInfo?> ValidateBuildAsync(string serverUrl, string projectPaths,
-            string buildRegex, string? buildText, string? buildNum, string? vstsUrl, bool pinnedOnly)
+            string buildRegex, string? buildText, string? buildNum, string? vstsUrl, bool pinnedOnly, CancellationToken cancellationToken = default)
         {
             var (owner, repo) = ParseOwnerRepo(serverUrl);
 
@@ -185,13 +185,13 @@ namespace Dorc.Core.BuildServer
             var directRunId = TryExtractRunId(vstsUrl);
             if (directRunId != null)
             {
-                var run = await GetRunByIdAsync(client, serverUrl, owner, repo, directRunId);
+                var run = await GetRunByIdAsync(client, serverUrl, owner, repo, directRunId, cancellationToken);
                 if (run != null && run.Conclusion == "success")
                     return MapRunToInfo(run, buildText);
                 return null;
             }
 
-            var workflowId = await GetWorkflowIdByNameAsync(client, serverUrl, owner, repo, buildText);
+            var workflowId = await GetWorkflowIdByNameAsync(client, serverUrl, owner, repo, buildText, cancellationToken);
             if (workflowId == null)
                 return null;
 
@@ -202,9 +202,9 @@ namespace Dorc.Core.BuildServer
                 cleanBuildNum.Equals("latest", StringComparison.OrdinalIgnoreCase))
             {
                 var latestUrl = $"{_hostValidator.GetApiBase(serverUrl)}/repos/{owner}/{repo}/actions/workflows/{workflowId}/runs?status=success&per_page=1";
-                using var latestResponse = await client.GetAsync(latestUrl);
+                using var latestResponse = await client.GetAsync(latestUrl, cancellationToken);
                 latestResponse.EnsureSuccessStatusCode();
-                var latestJson = await latestResponse.Content.ReadAsStringAsync();
+                var latestJson = await latestResponse.Content.ReadAsStringAsync(cancellationToken);
                 var latestPage = DeserializeResponse<GitHubWorkflowRunsResponse>(latestJson);
                 var latestRun = latestPage?.WorkflowRuns?.FirstOrDefault();
                 return latestRun != null ? MapRunToInfo(latestRun, buildText) : null;
@@ -223,7 +223,8 @@ namespace Dorc.Core.BuildServer
                 stopWhen: r => r.Conclusion == "success" &&
                                (r.RunNumber.ToString() == trimmed ||
                                 (r.DisplayTitle ?? string.Empty).Trim()
-                                    .Equals(trimmed, StringComparison.OrdinalIgnoreCase)));
+                                    .Equals(trimmed, StringComparison.OrdinalIgnoreCase)),
+                cancellationToken: cancellationToken);
 
             var matchedRun = allRuns.FirstOrDefault(r => r.Conclusion == "success" &&
                                                           (r.RunNumber.ToString() == trimmed ||
@@ -260,14 +261,14 @@ namespace Dorc.Core.BuildServer
             return null;
         }
 
-        private async Task<GitHubWorkflowRun?> GetRunByIdAsync(HttpClient client, string serverUrl, string owner, string repo, string runId)
+        private async Task<GitHubWorkflowRun?> GetRunByIdAsync(HttpClient client, string serverUrl, string owner, string repo, string runId, CancellationToken cancellationToken)
         {
             var url = $"{_hostValidator.GetApiBase(serverUrl)}/repos/{owner}/{repo}/actions/runs/{runId}";
-            using var response = await client.GetAsync(url);
+            using var response = await client.GetAsync(url, cancellationToken);
             if (!response.IsSuccessStatusCode)
                 return null;
 
-            var json = await response.Content.ReadAsStringAsync();
+            var json = await response.Content.ReadAsStringAsync(cancellationToken);
             return DeserializeResponse<GitHubWorkflowRun>(json);
         }
 
@@ -285,12 +286,13 @@ namespace Dorc.Core.BuildServer
             };
         }
 
-        private async Task<long?> GetWorkflowIdByNameAsync(HttpClient client, string serverUrl, string owner, string repo, string workflowName)
+        private async Task<long?> GetWorkflowIdByNameAsync(HttpClient client, string serverUrl, string owner, string repo, string workflowName, CancellationToken cancellationToken = default)
         {
             var firstPage = $"{_hostValidator.GetApiBase(serverUrl)}/repos/{owner}/{repo}/actions/workflows?per_page={PerPage}";
             var workflows = await ReadAllPagesAsync<GitHubWorkflowsResponse, GitHubWorkflow>(
                 client, firstPage, r => r.Workflows,
-                stopWhen: w => (w.Name ?? "").Equals(workflowName, StringComparison.OrdinalIgnoreCase));
+                stopWhen: w => (w.Name ?? "").Equals(workflowName, StringComparison.OrdinalIgnoreCase),
+                cancellationToken: cancellationToken);
 
             return workflows
                 .FirstOrDefault(w => (w.Name ?? "").Equals(workflowName, StringComparison.OrdinalIgnoreCase))
@@ -308,7 +310,8 @@ namespace Dorc.Core.BuildServer
             HttpClient client,
             string firstPageUrl,
             Func<TResponse, IEnumerable<TItem>?> selector,
-            Func<TItem, bool>? stopWhen = null)
+            Func<TItem, bool>? stopWhen = null,
+            CancellationToken cancellationToken = default)
             where TResponse : class
         {
             var aggregated = new List<TItem>();
@@ -316,9 +319,9 @@ namespace Dorc.Core.BuildServer
 
             for (var page = 0; page < MaxPages; page++)
             {
-                using var response = await client.GetAsync(url);
+                using var response = await client.GetAsync(url, cancellationToken);
                 response.EnsureSuccessStatusCode();
-                var json = await response.Content.ReadAsStringAsync();
+                var json = await response.Content.ReadAsStringAsync(cancellationToken);
                 var parsed = DeserializeResponse<TResponse>(json);
                 var items = parsed != null ? selector(parsed) : null;
                 if (items != null)
