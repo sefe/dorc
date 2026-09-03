@@ -87,7 +87,11 @@ Two secondary defects in the same class:
 
 `ProcessSecurityContextBuilder.cs:98` calls `SetSecurityDescriptorDacl(ref securityDescriptor, true, IntPtr.Zero, false)` — DACL present and NULL, which grants full access to everyone. That descriptor is stored on `ProcessAttributes` (`:119-121`, with `bInheritHandle = true`) and passed as `lpProcessAttributes` to `CreateProcessAsUser` (`RunnerProcessStarter.cs:69-73`).
 
-Any local principal therefore obtains `PROCESS_ALL_ACCESS` over a Runner: read the decrypted property bag out of its memory, or inject code and execute as the deployment account. This also bounds what SC-04 can mean — transport confidentiality is worth little when the consuming process object is world-writable.
+Any local principal would therefore obtain `PROCESS_ALL_ACCESS` over a Runner: read the decrypted property bag out of its memory, or inject code and execute as the deployment account. This also bounds what SC-04 can mean — transport confidentiality is worth little when the consuming process object is world-writable.
+
+**Correction, established while implementing S-008. The NULL DACL never takes effect, and this weakness as originally stated overstates the exposure.** `SetSecurityDescriptorDacl` is declared `ref SECURITY_DESCRIPTOR`, so it modifies a *managed* copy of the struct. The pointer actually placed on `ProcessAttributes` and passed to `CreateProcessAsUser` addresses a separate unmanaged buffer that only `InitializeSecurityDescriptor` ever touched — control word zero, so `SE_DACL_PRESENT` is **clear**. A descriptor with no DACL *present* is not a descriptor with a NULL DACL: Windows applies the creating token's **default DACL** instead. Runner processes have therefore been protected all along, by a token default rather than by anything deliberate.
+
+This makes the finding *lower* severity and the fix *more* urgent, not less. The marshalling defect is load-bearing: repairing it in isolation — the obvious tidy-up for anyone reading that interop — would convert a dormant mistake into the live world-writable process this entry describes. The weakness is best read as a latent one whose trigger is a plausible piece of routine maintenance. S-008 removes both the intent and the interop that could realise it.
 
 Related, same file: `LOGON32_LOGON_NETWORK_CLEARTEXT` at `:76`, the password held in a managed `string` (non-zeroable, GC-copied), and the `LogonUser` token at `:78` never closed — only its duplicate is returned.
 
