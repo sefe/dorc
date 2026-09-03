@@ -238,7 +238,7 @@ export class PageServersList extends ResponsiveMixin(PageElement) {
         <vaadin-grid-column
           width='120px'
           flex-grow='0'
-          .renderer='${this.connectivityStatusRenderer}'
+          ${columnBodyRenderer(this.connectivityStatusRenderer, [])}
           resizable
           header='Status'
         ></vaadin-grid-column>
@@ -596,15 +596,15 @@ export class PageServersList extends ResponsiveMixin(PageElement) {
               html` <button
                 class="env"
                 @click="${() =>
-                    this.dispatchEvent(
-                      new CustomEvent('open-environment-details', {
-                        detail: {
-                          envName: i
-                        },
-                        bubbles: true,
-                        composed: true
-                      })
-                    )}"
+                  this.dispatchEvent(
+                    new CustomEvent('open-environment-details', {
+                      detail: {
+                        envName: i
+                      },
+                      bubbles: true,
+                      composed: true
+                    })
+                  )}"
                 style="font-size: var(--lumo-font-size-s);"
               >
                 ${i}
@@ -672,15 +672,15 @@ export class PageServersList extends ResponsiveMixin(PageElement) {
           html` <button
             class="tag"
             @click="${() =>
-                this.dispatchEvent(
-                  new CustomEvent('filter-tags-server-list', {
-                    detail: {
-                      value
-                    },
-                    bubbles: true,
-                    composed: true
-                  })
-                )}"
+              this.dispatchEvent(
+                new CustomEvent('filter-tags-server-list', {
+                  detail: {
+                    value
+                  },
+                  bubbles: true,
+                  composed: true
+                })
+              )}"
           >
             ${value}
           </button>`
@@ -688,15 +688,14 @@ export class PageServersList extends ResponsiveMixin(PageElement) {
     `;
   };
 
-  private connectivityStatusRenderer = (
-    root: HTMLElement,
-    _: HTMLElement,
-    model: GridItemModel<ServerApiModel>
-  ) => {
-    const server = model.item;
+  private connectivityStatusRenderer = (server: ServerApiModel) => {
     const isReachable = server.IsReachable;
-    const lastChecked = server.LastChecked ? new Date(server.LastChecked) : null;
-    const unreachableSince = server.UnreachableSince ? new Date(server.UnreachableSince) : null;
+    const lastChecked = server.LastChecked
+      ? new Date(server.LastChecked)
+      : null;
+    const unreachableSince = server.UnreachableSince
+      ? new Date(server.UnreachableSince)
+      : null;
     const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
     let statusHtml;
@@ -706,20 +705,34 @@ export class PageServersList extends ResponsiveMixin(PageElement) {
       statusHtml = html`<span style="color: gray;">Not checked</span>`;
       title = 'Connectivity has not been checked yet';
     } else if (isReachable === true) {
-      statusHtml = html`<vaadin-icon icon="vaadin:check-circle" style="color: green;"></vaadin-icon> <span>Online</span>`;
+      statusHtml = html`<vaadin-icon
+          icon="vaadin:check-circle"
+          style="color: green;"
+        ></vaadin-icon>
+        <span>Online</span>`;
       title = `Last checked: ${lastChecked.toLocaleString()}`;
     } else if (unreachableSince !== null && unreachableSince < oneWeekAgo) {
-      statusHtml = html`<vaadin-icon icon="vaadin:warning" style="color: orange;"></vaadin-icon> <span>Unreachable (7+ days)</span>`;
+      statusHtml = html`<vaadin-icon
+          icon="vaadin:warning"
+          style="color: orange;"
+        ></vaadin-icon>
+        <span>Unreachable (7+ days)</span>`;
       title = `Unreachable since: ${unreachableSince.toLocaleString()}`;
     } else {
-      statusHtml = html`<vaadin-icon icon="vaadin:exclamation-circle" style="color: #d4a017;"></vaadin-icon> <span>Unreachable</span>`;
+      statusHtml = html`<vaadin-icon
+          icon="vaadin:exclamation-circle"
+          style="color: #d4a017;"
+        ></vaadin-icon>
+        <span>Unreachable</span>`;
       title = `Unreachable since: ${unreachableSince ? unreachableSince.toLocaleString() : lastChecked.toLocaleString()}`;
     }
 
-    render(
-      html`<div title="${title}" style="display: flex; align-items: center; gap: 4px;">${statusHtml}</div>`,
-      root
-    );
+    return html`<div
+      title="${title}"
+      style="display: flex; align-items: center; gap: 4px;"
+    >
+      ${statusHtml}
+    </div>`;
   };
 
   protected firstUpdated(_changedProperties: PropertyValues) {
