@@ -1,0 +1,13 @@
+﻿<Include xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <!--
+    The package version comes from the build, not from a file inside the
+    package. Binding it to !(bind.FileVersion.DeployApiDll) tied every
+    package's identity to Dorc.Api.dll, which only one of the split packages
+    will contain; the remaining packages had no version source at all, and any
+    package that did carry the API would be forced to change version whenever
+    the API did. Setup.Dorc.Api.wixproj defines BuildVersion from the Version
+    property both pipelines already pass.
+  -->
+  <?define ProductVersion="$(var.BuildVersion)" ?>
+</Include>
+

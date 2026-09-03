@@ -11,7 +11,14 @@
 						<util:ServiceConfig FirstFailureActionType="restart" SecondFailureActionType="restart" ThirdFailureActionType="restart" />
 					</ServiceInstall>
 
-					<ServiceControl Id="DeployMonitorServiceProdStartService" Wait="yes" Stop="both" Remove="uninstall" Name="DeployMonitorServiceProd" />
+					<!--
+						Name must match the ServiceInstall above (DeploymentActionServiceProd).
+						It previously read DeployMonitorServiceProd, a service that is never
+						installed, so the stop and remove operations silently addressed nothing.
+						RunDeployment.ps1's blanket Stop-Services prelude has masked this;
+						IS S-010 makes that prelude conditional, which removes the mask.
+					-->
+					<ServiceControl Id="DeployMonitorServiceProdStartService" Wait="yes" Stop="both" Remove="uninstall" Name="DeploymentActionServiceProd" />
 
 					<File Id="ProdDeployMonitorExe" KeyPath="yes" Source="$(var.Dorc.Monitor.TargetDir)DOrc.Monitor.exe" />
 

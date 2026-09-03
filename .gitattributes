@@ -4,6 +4,19 @@
 * text=auto
 
 ###############################################################################
+# PowerShell scripts keep whatever line endings they are committed with.
+#
+# The .ps1 files under src/install-scripts were committed with CRLF, before
+# `text=auto` above was in effect. That rule normalises to LF on check-in, so
+# editing one of those files from a checkout that does not convert on checkout
+# rewrites every line: the blob flips CRLF to LF and the diff reads as a
+# whole-file delete and recreate, which is unreviewable and destroys blame.
+# `-text` switches conversion off for these files so their existing endings
+# survive an edit.
+###############################################################################
+*.ps1 -text
+
+###############################################################################
 # Set default behavior for command prompt diff.
 #
 # This is need for earlier builds of msysgit that does not have it on by

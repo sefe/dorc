@@ -18,8 +18,10 @@ Uninstall-Module DOrcDeployModule -AllVersions -ErrorAction Silent
 Uninstall-Module Internal-DOrcDeployModule -AllVersions -ErrorAction Silent
 
 # Install the public DOrcDeployModule from PowerShell Gallery
-Install-Module -Name "DOrcDeployModule" -Repository "PSGallery" -AllowClobber -Force
-Import-Module -Name DOrcDeployModule
+$DOrcDeployModuleVersion = "26.8.4.2"
+Install-Module -Name "DOrcDeployModule" -RequiredVersion $DOrcDeployModuleVersion -Repository "PSGallery" -AllowClobber -Force
+Import-Module -Name "DOrcDeployModule" -RequiredVersion $DOrcDeployModuleVersion
+Write-Host "Using DOrcDeployModule version $DOrcDeployModuleVersion"
 
 # Install SqlServer module from PowerShell Gallery
 Uninstall-Module SqlServer -AllVersions -ErrorAction Silent
@@ -67,13 +69,66 @@ $envSettings = Get-EnvSettings $settings $EnvName
 $envSettings.LoadPropertiesToVariables()
 
 [string[]]$AllServers = @()
-# TODO: Stop all DOrc activity, suspend / stop services, websites etc..
+
+# The packages this run will actually install. Everything below is scoped to
+# these rather than to the environment as a whole: with one package there was
+# no difference, with four there is. Deploying the UI used to stop both
+# monitors on every target server and nothing ever started them again, which
+# made independent deployability unreachable no matter how well the packages
+# were split.
+$msisToDeploy = @($settings.MsiFileNames | Where-Object { ($ExcludeMSI -split ";") -notcontains $_.Name })
+
+# Each package declares the Windows services it owns in its .msi.json sidecar.
+# A sidecar without that array falls back to the environment-wide list, so a
+# drop produced before the sidecars carried it still quiesces as it used to.
+function Get-ServicesInScope
+{
+    Param([object[]]$Packages, [string]$Drop, $Settings)
+
+    $services = @()
+    foreach ($package in $Packages)
+    {
+        $sidecar = Get-ChildItem -Path $Drop -Filter "$($package.Name).json" -Recurse -ErrorAction SilentlyContinue |
+                   Select-Object -First 1
+        if (-not $sidecar)
+        {
+            Write-Host "  No sidecar for $($package.Name); falling back to the environment service list."
+            $services += ($Settings.DeploymentServices -split ";")
+            continue
+        }
+
+        $content = Get-Content -Raw -Path $sidecar.FullName | ConvertFrom-Json
+        if ($null -eq $content.PSObject.Properties['Services'])
+        {
+            Write-Host "  $($sidecar.Name) declares no Services; falling back to the environment service list."
+            $services += ($Settings.DeploymentServices -split ";")
+            continue
+        }
+
+        $services += $content.Services
+    }
+    return @($services | Where-Object { $_ } | Sort-Object -Unique)
+}
+
+$servicesInScope = Get-ServicesInScope -Packages $msisToDeploy -Drop $DropFolder -Settings $settings
+if ($servicesInScope.Count -gt 0)
+{
+    Write-Host "Services in scope for this deployment:" ($servicesInScope -join ", ")
+}
+else
+{
+    Write-Host "No services belong to the packages being deployed; none will be stopped."
+}
+
 foreach ($serverName in $envsettings.TargetServers)
 {
     $AllServers += $serverName
     Write-Host "Closing RDP sessions on:" $ServerName
     LogOffUsers $ServerName
-    Stop-Services ($settings.DeploymentServices -split ";") $ServerName
+    if ($servicesInScope.Count -gt 0)
+    {
+        Stop-Services $servicesInScope $ServerName
+    }
 }
 
 # Deploy Database updates (should be added to existing settings JSON)
@@ -123,16 +178,94 @@ if ($MsiInstalls)
     $global:DeploymentServiceAccount = $DeploymentInstallAccount
     $global:DeploymentServiceAccountPassword = $DeploymentInstallAccountPassword
 
+    # One atomic install became four, so a mid-run failure can now leave an
+    # environment with some packages installed and some not. The bare loop
+    # reported success either way. Each outcome is recorded, the run stops at
+    # the first failure rather than installing on top of a broken state, and
+    # the summary says which products are installed and which are not.
+    $installed = @()
+    $failed = $null
+
     foreach ($msiObject in $settings.MsiFileNames)
     {
         if (($ExcludeMSI -split ";") -contains $msiObject.Name)
         {
             Write-Host "SKIPPED: Deploy $($msiObject.Name) to" $envSettings.TargetServers
+            continue
         }
-        else
+
+        Write-Host "Deploy $($msiObject.Name) to" $envSettings.TargetServers
+        try
         {
-            Write-Host "Deploy $($msiObject.Name) to" $envSettings.TargetServers
             DeployMSI -MSIFile $msiObject.Name -DropFolder $DropFolder -ProductNames $msiObject.ProductNames
+            $installed += $msiObject.Name
+        }
+        catch
+        {
+            $failed = $msiObject.Name
+            Write-Host "FAILED: $($msiObject.Name) - $($_.Exception.Message)"
+            break
+        }
+    }
+
+    Write-Host "----------Installer outcome----------"
+    Write-Host "  Installed:   $(if ($installed) { $installed -join ', ' } else { 'none' })"
+    if ($failed)
+    {
+        $notAttempted = @($msisToDeploy | Where-Object { $installed -notcontains $_.Name -and $_.Name -ne $failed } |
+                          ForEach-Object { $_.Name })
+        Write-Host "  Failed:      $failed"
+        Write-Host "  Not tried:   $(if ($notAttempted) { $notAttempted -join ', ' } else { 'none' })"
+        throw "Deployment stopped at $failed. The environment is part-installed: $(if ($installed) { $installed -join ', ' } else { 'nothing' }) present."
+    }
+
+    # Nothing restarted the services this run stopped, so a deployment that
+    # touched the monitors left them down until someone noticed.
+    if ($servicesInScope.Count -gt 0)
+    {
+        Write-Host "----------Starting services----------"
+        foreach ($serverName in $envSettings.TargetServers)
+        {
+            Start-Services $servicesInScope $serverName
+        }
+
+        # A service that is absent is not a failure: TargetServers is the whole
+        # environment, and only the servers the Monitors package installed on
+        # host these services at all. Failing on absence would fail every
+        # deployment to an environment with a server that does not run them.
+        # A service that exists and is not running is a failure - that is the
+        # state this step exists to catch.
+        $notRunning = @()
+        $absent = @()
+        foreach ($serverName in $envSettings.TargetServers)
+        {
+            foreach ($service in $servicesInScope)
+            {
+                $state = Invoke-Command -ComputerName $serverName -ScriptBlock {
+                    param($svc)
+                    $service = Get-Service $svc -ErrorAction SilentlyContinue
+                    if ($service) { $service.Status.ToString() }
+                } -ArgumentList $service
+
+                if (-not $state)
+                {
+                    Write-Host "  $service is not installed on $serverName"
+                    $absent += "$service on $serverName"
+                }
+                else
+                {
+                    Write-Host "  $service on $serverName is $state"
+                    if ($state -ne "Running") { $notRunning += "$service on $serverName" }
+                }
+            }
+        }
+        if ($absent.Count -gt 0)
+        {
+            Write-Host "Not installed, so not started: $($absent -join '; ')"
+        }
+        if ($notRunning.Count -gt 0)
+        {
+            throw "Deployment installed successfully but these services are installed and not running: $($notRunning -join '; ')"
         }
     }
 }

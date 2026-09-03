@@ -1,0 +1,78 @@
+﻿<Project>
+  <Import Project="Sdk.props" Sdk="WixToolset.Sdk" Version="6.0.1" />
+  <PropertyGroup>
+    <Platform Condition=" '$(Platform)' == '' ">x64</Platform>
+    <Name>Setup.Dorc.Web</Name>
+    <DorcWebUIDir>$(SolutionDir)dorc-web\dist</DorcWebUIDir>
+    <!-- See Setup.Dorc.Api.wixproj: the certificates are named, not inherited from a project reference. -->
+    <DorcCertDir>$(SolutionDir)Dorc.Api</DorcCertDir>
+    <Platforms>x64</Platforms>
+    <!--
+      Both pipelines pass /p:Version as yy.MM.dd.<run>, e.g. 26.08.03.2689.
+      Parse-and-format strips the leading zeros the date format introduces, so
+      the value matches what !(bind.FileVersion.DeployApiDll) used to resolve
+      to: the Win32 version resource stores numbers, not the literal string, so
+      the old binding produced 26.8.3.2689. A local build with no Version set
+      gets a valid placeholder rather than failing to compile.
+    -->
+    <DorcProductVersion Condition="'$(Version)' != ''">$([System.Version]::Parse('$(Version)').ToString())</DorcProductVersion>
+    <DorcProductVersion Condition="'$(DorcProductVersion)' == ''">0.0.1</DorcProductVersion>
+</PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x64' ">
+    <DefineConstants>Debug;DorcWebUIDir=$(DorcWebUIDir);DorcCertDir=$(DorcCertDir);BuildVersion=$(DorcProductVersion)</DefineConstants>
+    <SuppressValidation>True</SuppressValidation>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|x64' ">
+    <DefineConstants>DorcWebUIDir=$(DorcWebUIDir);DorcCertDir=$(DorcCertDir);BuildVersion=$(DorcProductVersion)</DefineConstants>
+    <SuppressValidation>True</SuppressValidation>
+  </PropertyGroup>
+  <ItemGroup>
+    <Folder Include="Web" />
+    <Folder Include="Web\Orchestrator" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="Dependencies.wxi" />
+    <Content Include="Setup.Dorc.Web.msi.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Web\Orchestrator\HeatTransform.xslt" />
+    <Content Include="Install.Orchestrator.bat">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+  <!--
+    The placeholder above is for the inner loop only. A CI build that produced
+    one would ship an MSI that no environment could upgrade to, and it would do
+    so silently, so refuse to build instead.
+  -->
+  <Target Name="EnsureBuildVersion" BeforeTargets="Build"
+          Condition="'$(Version)' == '' and ('$(TF_BUILD)' != '' or '$(GITHUB_ACTIONS)' != '')">
+    <Error Text="No Version property was supplied, so the package would be versioned $(DorcProductVersion). Pass /p:Version=&lt;build number&gt;." />
+  </Target>
+
+  <ItemGroup>
+    <HarvestDirectory Include="$(DorcWebUIDir)">
+      <DirectoryRefId>DorcWebFolder</DirectoryRefId>
+      <ComponentGroupName>DOrcWebComGroup</ComponentGroupName>
+      <Transforms>$(MSBuildProjectDirectory)/Web/Orchestrator/HeatTransform.xslt</Transforms>
+      <PreprocessorVariable>var.DorcWebUIDir</PreprocessorVariable>
+      <SuppressRootDirectory>true</SuppressRootDirectory>
+    </HarvestDirectory>
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="WixJsonFileExtension" Version="6.3.2" />
+    <PackageReference Include="WixToolset.Heat" Version="6.0.2" />
+    <PackageReference Include="WixToolset.Util.wixext" Version="6.0.2" />
+    <PackageReference Include="WixToolset.Iis.wixext" Version="6.0.2" />
+  </ItemGroup>
+  <Import Project="Sdk.targets" Sdk="WixToolset.Sdk" Version="6.0.1" />
+  <PropertyGroup>
+    <PreBuildEvent />
+  </PropertyGroup>
+  <PropertyGroup>
+    <PostBuildEvent>
+			copy $(ProjectDir)%2a.bat $(TargetDir)\.
+			copy $(ProjectDir)%2a.msi.json $(TargetDir)\.
+		</PostBuildEvent>
+  </PropertyGroup>
+</Project>

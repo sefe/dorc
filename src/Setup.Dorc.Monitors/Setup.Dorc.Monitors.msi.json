@@ -1,9 +1,12 @@
 {
   "ProductNames": [
-    "Deployment Orchestrator",
-    "DevOps Orchestrator"
+    "DOrc Monitors"
   ],
   "ServerType": "WebServer",
+  "Services": [
+    "DeploymentActionServiceProd",
+    "DeploymentActionServiceNonProd"
+  ],
   "Parameters": [
     {
       "MSIParameter": "ENVIRONMENT",
@@ -14,10 +17,6 @@
       "DeployProperty": "ENVIRONMENT_TIER"
     },
     {
-      "MSIParameter": "SERVICE.PASSWORD",
-      "DeployProperty": "SERVICE_PASSWORD"
-    },
-    {
       "MSIParameter": "SVC.PASSWORDPROD",
       "DeployProperty": "SVC_PASSWORDPROD"
     },
@@ -26,20 +25,12 @@
       "DeployProperty": "DORC_NonProdDeployPassword"
     },
     {
-      "MSIParameter": "SERVICE.IDENTITY",
-      "DeployProperty": "SERVICE_IDENTITY"
-    },
-    {
       "MSIParameter": "DEPLOYMENT.DBSERVER",
       "DeployProperty": "DEPLOYMENT_DBSERVER"
     },
     {
       "MSIParameter": "DEPLOYMENT.DB",
       "DeployProperty": "DEPLOYMENT_DB"
-    },
-    {
-      "MSIParameter": "WEB.BACKGROUND.COLOUR",
-      "DeployProperty": "WEB_BACKGROUND_COLOUR"
     },
     {
       "MSIParameter": "SVC.ACCOUNTPROD",
@@ -56,26 +47,6 @@
     {
       "MSIParameter": "DEPLOYAPI.ENDPOINT",
       "DeployProperty": "DEPLOYAPI_ENDPOINT"
-    },
-    {
-      "MSIParameter": "DEPLOYMENTORCHESTRATOR.CORS",
-      "DeployProperty": "DEPLOYMENTORCHESTRATOR_CORS"
-    },
-    {
-      "MSIParameter": "DEPLOYMENTORCHESTRATOR.URIPREFIX",
-      "DeployProperty": "DEPLOYMENTORCHESTRATOR_URIPREFIX"
-    },
-    {
-      "MSIParameter": "AD.ROLEPROVIDER.GROUP.POWERUSER",
-      "DeployProperty": "AD_ROLEPROVIDER_GROUP_POWERUSER"
-    },
-    {
-      "MSIParameter": "AD.ROLEPROVIDER.GROUP.ADMIN",
-      "DeployProperty": "AD_ROLEPROVIDER_GROUP_ADMIN"
-    },
-    {
-      "MSIParameter": "AADADOSORGURL",
-      "DeployProperty": "AADADOSORGURL"
     },
     {
       "MSIParameter": "AADCLIENTID",
@@ -98,68 +69,12 @@
       "DeployProperty": "GITHUBARTIFACTDOWNLOADFOLDER"
     },
     {
-      "MSIParameter": "DOMAINNAME",
-      "DeployProperty": "DOMAINNAME"
-    },
-    {
       "MSIParameter": "DOMAINNAMEINTRA",
       "DeployProperty": "DOMAINNAMEINTRA"
     },
     {
       "MSIParameter": "SMTPHOST",
       "DeployProperty": "SMTPHOST"
-    },
-    {
-      "MSIParameter": "DORCHELPERPAGE",
-      "DeployProperty": "DORCHELPERPAGE"
-    },
-    {
-      "MSIParameter": "CERTIFICATE.PASSWORD",
-      "DeployProperty": "CERTIFICATE_PASSWORD"
-    },
-    {
-      "MSIParameter": "ENVIRONMENTISPRODUCTION",
-      "DeployProperty": "ENVIRONMENTISPRODUCTION"
-    },
-    {
-      "MSIParameter": "DORC.AUTHENTICATION.SCHEME",
-      "DeployProperty": "DORC_AUTHENTICATION_SCHEME"
-    },
-    {
-      "MSIParameter": "DORC.OAUTH.AUTHORITY",
-      "DeployProperty": "DORC_OAUTH_AUTHORITY"
-    },
-    {
-      "MSIParameter": "DORC.OAUTH.UI.CLIENT.ID",
-      "DeployProperty": "DORC_OAUTH_UI_CLIENT_ID"
-    },
-    {
-      "MSIParameter": "DORC.OAUTH.UI.REQUESTED.SCOPES",
-      "DeployProperty": "DORC_OAUTH_UI_REQUESTED_SCOPES"
-    },
-    {
-      "MSIParameter": "DORC.OAUTH.API.RESOURCE.NAME",
-      "DeployProperty": "DORC_OAUTH_API_RESOURCE_NAME"
-    },
-    {
-      "MSIParameter": "DORC.OAUTH.API.GLOBAL.SCOPE",
-      "DeployProperty": "DORC_OAUTH_API_GLOBAL_SCOPE"
-    },
-    {
-      "MSIParameter": "ONE.PASSWORD.BASE.URL",
-      "DeployProperty": "ONE_PASSWORD_BASE_URL"
-    },
-    {
-      "MSIParameter": "ONE.PASSWORD.APIKEY",
-      "DeployProperty": "ONE_PASSWORD_APIKEY"
-    },
-    {
-      "MSIParameter": "ONE.PASSWORD.VAULT.ID",
-      "DeployProperty": "ONE_PASSWORD_VAULT_ID"
-    },
-    {
-      "MSIParameter": "ONE.PASSWORD.ITEM.ID",
-      "DeployProperty": "ONE_PASSWORD_ITEM_ID"
     },
     {
       "MSIParameter": "OPENSEARCH.URI",
@@ -178,14 +93,6 @@
       "DeployProperty": "OPENSEARCH_DEPLOYMENTRESULTINDEX"
     },
     {
-      "MSIParameter": "IDENTITYSERVER.CLIENTID",
-      "DeployProperty": "IDENTITYSERVER_CLIENTID"
-    },
-    {
-      "MSIParameter": "ONE.PASSWORD.IDENTITYSERVER.APISECRET.ITEMID",
-      "DeployProperty": "ONE_PASSWORD_IDENTITYSERVER_APISECRET_ITEMID"
-    },
-    {
       "MSIParameter": "DORC.API.CLIENTID",
       "DeployProperty": "DORC_API_CLIENTID"
     },
@@ -196,14 +103,6 @@
     {
       "MSIParameter": "DORC.API.SCOPE",
       "DeployProperty": "DORC_OAUTH_API_GLOBAL_SCOPE"
-    },
-    {
-      "MSIParameter": "AZURE.SIGNALR.USE",
-      "DeployProperty": "AZURE_SIGNALR_USE"
-    },
-    {
-      "MSIParameter": "AZURE.SIGNALR.CONNECTIONSTRING",
-      "DeployProperty": "AZURE_SIGNALR_CONNECTIONSTRING"
     },
     {
       "MSIParameter": "AZURESTORAGEACCOUNT.TENANTID",
@@ -288,10 +187,6 @@
     {
       "MSIParameter": "KAFKA.LOCKS.CONSUMERGROUPID.NONPROD",
       "DeployProperty": "KAFKA_LOCKS_CONSUMERGROUPID_NONPROD"
-    },
-    {
-      "MSIParameter": "PAUSE.DEPLOYMENT.ENABLED",
-      "DeployProperty": "PAUSE_DEPLOYMENT_ENABLED"
     }
   ]
 }

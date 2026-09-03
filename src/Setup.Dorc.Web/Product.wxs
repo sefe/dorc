@@ -1,0 +1,86 @@
+﻿<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
+	<?include Dependencies.wxi?>
+	<!--
+		A new identity, not a rename. The residual has been emptied of everything
+		but the UI, so keeping the old UpgradeCode would mean a product whose
+		payload had silently changed out from under every installed environment.
+		The legacy names move to the API package's sidecar instead, which is
+		sequenced first, so the monolith is uninstalled before any new package
+		installs — it still carries the pre-S-003 RemoveFolders, and removing it
+		after a new package would take that package's files with it.
+	-->
+	<Package Name="DOrc Web" Language="1033" Version="$(var.ProductVersion)" Manufacturer="SEFE" UpgradeCode="{75FD9925-8D34-439F-90D8-90215B1E053D}" ProductCode="{EBCEBD71-6999-46CA-9578-6E6E95B4B0BD}">
+		<Property Id="WEB.SITENAME" Value="Default Web Site" />
+		<Property Id="WEB.PORT" Value="80" />
+		<Property Id="DOTNET.VERSION" Value="4.0.30319" />
+
+		<Media Id="1" Cabinet="media1.cab" EmbedCab="yes" />
+
+		<InstallExecuteSequence>
+			<Custom Action="ReconfigureLoadUserProfileOrchestrator" Before="InstallFinalize" Condition="NOT Installed" />
+		</InstallExecuteSequence>
+
+
+		<Feature Id="DOrcWeb" Title="DOrc Web" Level="1">
+			<Feature Id="Web.Components" Title="Web Components">
+				<ComponentRef Id="RemoveFolders" />
+				<ComponentRef Id="RemoveWebFolder" />
+
+
+				<!-- See RequestApi.wxs: the certificates sit in Permanent components of their own. -->
+				<ComponentRef Id="UiCertificate" />
+				<ComponentRef Id="UiCertificateProd" />
+
+				<ComponentGroupRef Id="DOrcWebComGroup" />
+				<ComponentRef Id="DOrcWebIISComponent" />
+				<ComponentRef Id="DOrcWebIISComponentProd" />
+				<ComponentRef Id="RemoveDorcWebFolder" />
+
+			</Feature>
+		</Feature>
+
+		<StandardDirectory Id="ProgramFiles64Folder">
+				<Directory Id="DOrcFolder" Name="DOrc">
+					<Directory Id="INSTALLLOCATION" Name="Deploy">
+						<!--
+							The shared root. Every package will install under it and none
+							will own it, so nothing here may delete recursively: a
+							RemoveFolderEx rooted at INSTALLLOCATION belongs to whichever
+							package inherits it and takes the other three with it.
+
+							Plain RemoveFolder removes a directory only when it is already
+							empty, so it is safe for every package to declare it — whichever
+							package is uninstalled last is the one that succeeds. The
+							loose-file sweep stays: no package puts files in the root, so it
+							has nothing of another package's to remove.
+
+							Recursive cleanup now lives with each subtree, on the component
+							that will move into the package owning it.
+						-->
+						<Component Id="RemoveFolders" Guid="{FCDB53AB-31DF-4248-A077-5556E46799CA}">
+							<CreateFolder />
+							<RemoveFile Id="Remove.Files" Directory="INSTALLLOCATION" Name="*.*" On="both" />
+							<RemoveFolder Id="Remove.Folder" On="both" />
+						</Component>
+						<!-- Shared with the API package, so empty-only removal, as above. -->
+						<Directory Id="WebFolder" Name="Web">
+							<Component Id="RemoveWebFolder" Guid="{036BE0ED-0C48-4682-9B6F-C3B76E150D29}">
+								<CreateFolder />
+								<RemoveFolder Id="Remove.WebFolder" On="both" />
+							</Component>
+							<!-- UI-owned outright: recursive cleanup is safe here. -->
+							<Directory Id="DorcWebFolder" Name="Orchestrator">
+								<Component Id="RemoveDorcWebFolder" Guid="{6B1CCD59-C0FE-4CC5-9343-AFD2F0E5885B}">
+									<CreateFolder />
+									<util:RemoveFolderEx Id="Remove.DorcWebFolderEx" Property="DorcWebFolder" On="both" />
+									<RemoveFolder Id="Remove.DorcWebFolder" On="both" />
+								</Component>
+								<Directory Id="DorcWebHealthFolder" Name="health" />
+							</Directory>
+						</Directory>
+						<!-- Tools moved to Setup.Dorc.Cli (S-006). -->
+					</Directory>
+				</Directory>
+		</StandardDirectory>
+	</Package>
+</Wix>

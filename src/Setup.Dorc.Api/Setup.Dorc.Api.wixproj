@@ -1,0 +1,82 @@
+<Project>
+  <Import Project="Sdk.props" Sdk="WixToolset.Sdk" Version="6.0.1" />
+  <PropertyGroup>
+    <Platform Condition=" '$(Platform)' == '' ">x64</Platform>
+    <Name>Setup.Dorc.Api</Name>
+    <DorcApiDir>$(SolutionDir)Dorc.Api\bin\$(Configuration)\net8.0\publish</DorcApiDir>
+    <!--
+      The two certificates live in source under Dorc.Api. They used to resolve
+      through the bind path the Dorc.Api ProjectReference contributed, which
+      made a build dependency responsible for finding a file; naming the
+      directory keeps them resolvable in a package that does not reference
+      that project (the UI).
+    -->
+    <DorcCertDir>$(SolutionDir)Dorc.Api</DorcCertDir>
+    <Platforms>x64</Platforms>
+    <!-- See the equivalent property in Setup.Dorc.Web.wixproj for the reasoning. -->
+    <DorcProductVersion Condition="'$(Version)' != ''">$([System.Version]::Parse('$(Version)').ToString())</DorcProductVersion>
+    <DorcProductVersion Condition="'$(DorcProductVersion)' == ''">0.0.1</DorcProductVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x64' ">
+    <DefineConstants>Debug;DorcApiDir=$(DorcApiDir);DorcCertDir=$(DorcCertDir);BuildVersion=$(DorcProductVersion)</DefineConstants>
+    <SuppressValidation>True</SuppressValidation>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|x64' ">
+    <DefineConstants>DorcApiDir=$(DorcApiDir);DorcCertDir=$(DorcCertDir);BuildVersion=$(DorcProductVersion)</DefineConstants>
+    <SuppressValidation>True</SuppressValidation>
+  </PropertyGroup>
+  <ItemGroup>
+    <Content Include="Dependencies.wxi" />
+    <Content Include="HeatTransform.xslt" />
+    <Content Include="Setup.Dorc.Api.msi.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Dorc.Api\Dorc.Api.csproj">
+      <Name>Dorc.Api</Name>
+      <Project>{e4958e0f-ec3c-4943-adfb-deb744f5ab57}</Project>
+      <Private>True</Private>
+      <DoNotHarvest>True</DoNotHarvest>
+      <RefProjectOutputGroups>Binaries;Content;Satellites</RefProjectOutputGroups>
+      <RefTargetDir>INSTALLFOLDER</RefTargetDir>
+    </ProjectReference>
+  </ItemGroup>
+  <!--
+    Local-build fallback only — see the equivalent target in Setup.Dorc.Api.wixproj
+    for the full reasoning. CI runs src\InstallerPayload.proj first and passes
+    DorcPayloadPrepublished=true, which skips this.
+  -->
+  <Target Name="PublishProjects" AfterTargets="BeforeResolveReferences"
+          Condition="'$(DorcPayloadPrepublished)' != 'true'">
+    <Exec Command="dotnet publish &quot;$(SolutionDir)Dorc.Api\Dorc.Api.csproj&quot; -c $(Configuration)" />
+  </Target>
+  <!--
+    See Setup.Dorc.Api.wixproj: a CI build with no Version would ship a package no
+    environment could upgrade to, and would do it silently.
+  -->
+  <Target Name="EnsureBuildVersion" BeforeTargets="Build"
+          Condition="'$(Version)' == '' and ('$(TF_BUILD)' != '' or '$(GITHUB_ACTIONS)' != '')">
+    <Error Text="No Version property was supplied, so the package would be versioned $(DorcProductVersion). Pass /p:Version=&lt;build number&gt;." />
+  </Target>
+  <ItemGroup>
+    <HarvestDirectory Include="$(DorcApiDir)">
+      <DirectoryRefId>RequestApi</DirectoryRefId>
+      <ComponentGroupName>DOrcAPIComGroup</ComponentGroupName>
+      <Transforms>$(MSBuildProjectDirectory)/HeatTransform.xslt</Transforms>
+      <PreprocessorVariable>var.DorcApiDir</PreprocessorVariable>
+      <SuppressRootDirectory>true</SuppressRootDirectory>
+      <SuppressRegistry>true</SuppressRegistry>
+    </HarvestDirectory>
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="WixJsonFileExtension" Version="6.3.2" />
+    <PackageReference Include="WixToolset.Heat" Version="6.0.2" />
+    <PackageReference Include="WixToolset.Util.wixext" Version="6.0.2" />
+    <PackageReference Include="WixToolset.Iis.wixext" Version="6.0.2" />
+  </ItemGroup>
+  <Import Project="Sdk.targets" Sdk="WixToolset.Sdk" Version="6.0.1" />
+  <PropertyGroup>
+    <PostBuildEvent>copy $(ProjectDir)%2a.msi.json $(TargetDir)\.</PostBuildEvent>
+  </PropertyGroup>
+</Project>
