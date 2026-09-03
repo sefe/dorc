@@ -35,10 +35,23 @@ namespace Dorc.Api.Controllers
         /// <returns></returns>
         [HttpGet]
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(IEnumerable<DaemonStatusApiModel>))]
+        [SwaggerResponse(StatusCodes.Status403Forbidden, Type = typeof(string))]
+        [SwaggerResponse(StatusCodes.Status404NotFound, Type = typeof(string))]
         public IActionResult Get(int id)
         {
             if (id == 0)
                 return StatusCode(StatusCodes.Status400BadRequest, "Environment ID is not valid!");
+
+            var environment = _environmentsPersistentSource.GetEnvironment(id, User);
+            if (environment == null)
+                return NotFound($"Environment with ID {id} not found");
+
+            // Probing daemon statuses logs on with the deployment credential for the target
+            // environment's tier, so authority must be established before the probe is
+            // invoked - not merely reflected in what it returns.
+            if (!_securityPrivilegesChecker.CanModifyEnvironment(User, environment.EnvironmentName))
+                return StatusCode(StatusCodes.Status403Forbidden,
+                    "You do not have permission to read daemon statuses for this environment.");
 
             var result = _daemonStatusProbe.GetDaemonStatuses(id)
                 .Select(DaemonStatusMapping.ToApi)
@@ -53,12 +66,24 @@ namespace Dorc.Api.Controllers
         /// <param name="envName"></param>
         /// <returns></returns>
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(IEnumerable<DaemonStatusApiModel>))]
+        [SwaggerResponse(StatusCodes.Status403Forbidden, Type = typeof(string))]
+        [SwaggerResponse(StatusCodes.Status404NotFound, Type = typeof(string))]
         [HttpGet]
         [Route("{envName}")]
         public IActionResult Get(string envName)
         {
             if (string.IsNullOrEmpty(envName))
                 return StatusCode(StatusCodes.Status400BadRequest, "Environment name is not valid!");
+
+            // Passing the principal to the probe annotates the environment with ownership
+            // flags; it does not filter access. The authority check belongs here.
+            var environment = _environmentsPersistentSource.GetEnvironment(envName, User);
+            if (environment == null)
+                return NotFound($"Environment '{envName}' not found");
+
+            if (!_securityPrivilegesChecker.CanModifyEnvironment(User, environment.EnvironmentName))
+                return StatusCode(StatusCodes.Status403Forbidden,
+                    "You do not have permission to read daemon statuses for this environment.");
 
             var result = _daemonStatusProbe.GetDaemonStatuses(envName, User)
                 .Select(DaemonStatusMapping.ToApi)

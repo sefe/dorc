@@ -29,8 +29,8 @@ Four rules determine the order below. They are stated up front because several a
 |----|-------|-----------|------------|
 | ⚙ S-000 | Interim exposure containment via `IsForProd` | SD-0, W-4 | **APPLIED in production 2026-08-10** (Ids 9, 13, 16). Verification outstanding; ST not yet changed. |
 | S-001 | Implement the Terraform approval predicates | SD-10, W-10, SC-05a | **DONE** |
-| S-002 | Authorize the daemon status endpoint | W-15, SC-05a | — |
-| S-003 | Enforce the API scope policy in combined auth mode | W-17 | — |
+| S-002 | Authorize the daemon status endpoint | W-15, SC-05a | **DONE** |
+| S-003 | Enforce the API scope policy in combined auth mode | W-17 | **DONE** |
 | S-004 | Contain expression evaluation by provenance | SD-1a, W-1, SC-01, SC-02 | — |
 | S-005 | Confine the build drop location | W-14, SC-05 | — |
 | S-006 | Remove resolved property values from runner logging | SD-6, W-7, SC-06 | — |
