@@ -87,8 +87,14 @@ as `AADTENANT` / `AADCLIENTID` / `AADSECRET`).
   `bots[0].botId`). Both must be substituted before the package will validate. The bot is
   declared `personal` scope and `isNotificationOnly`.
 - `color.png` (192×192) / `outline.png` (32×32) — placeholder icons; replace with real
-  branding before tenant-wide rollout.
-- `package.ps1` — substitutes the app id and produces the zip.
+  branding before tenant-wide rollout. Requirements Teams enforces:
+  - Both must keep these exact filenames — `manifest.json` refers to them literally.
+  - `color.png` is the full-colour app icon at exactly 192×192.
+  - `outline.png` must be exactly 32×32 and a **white glyph on a transparent
+    background**. It is rendered in the Teams app bar, so a fully opaque icon shows as
+    a solid block. This is the easiest one to get wrong.
+- `package.ps1` — substitutes the app id, checks the icons against the above, and
+  produces the zip.
 
 ### Where the app id comes from
 

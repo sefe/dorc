@@ -39,11 +39,67 @@ $appId = $parsedAppId.ToString()
 $scriptRoot = $PSScriptRoot
 if (-not $OutputPath) { $OutputPath = Join-Path $scriptRoot 'dorc-notifications.zip' }
 
+# These names are fixed: manifest.json's icons block refers to them literally, and
+# Teams resolves them by name inside the zip. Renaming an icon breaks the upload.
 $sourceFiles = 'manifest.json', 'color.png', 'outline.png'
 foreach ($file in $sourceFiles) {
     $path = Join-Path $scriptRoot $file
-    if (-not (Test-Path -LiteralPath $path)) { throw "Required file '$file' was not found in '$scriptRoot'." }
+    if (-not (Test-Path -LiteralPath $path)) {
+        throw "Required file '$file' was not found in '$scriptRoot'. The icon files must be named exactly 'color.png' and 'outline.png'."
+    }
 }
+
+# Icon checks. Teams rejects wrong dimensions outright, and renders a non-transparent
+# outline icon as a solid block in the app bar - both are easier to catch here than
+# after a catalog upload.
+function Test-TeamsIcons {
+    param([string] $Root)
+
+    try { Add-Type -AssemblyName System.Drawing -ErrorAction Stop }
+    catch {
+        Write-Warning "System.Drawing unavailable - skipping icon validation. Verify the icons by hand."
+        return
+    }
+
+    $expected = @{ 'color.png' = 192; 'outline.png' = 32 }
+    foreach ($name in $expected.Keys) {
+        $size = $expected[$name]
+        $bitmap = [System.Drawing.Bitmap]::FromFile((Join-Path $Root $name))
+        try {
+            if ($bitmap.Width -ne $size -or $bitmap.Height -ne $size) {
+                throw "$name must be ${size}x${size}, but is $($bitmap.Width)x$($bitmap.Height)."
+            }
+
+            $transparent = 0
+            $colouredVisible = 0
+            $distinct = @{}
+            for ($y = 0; $y -lt $bitmap.Height; $y++) {
+                for ($x = 0; $x -lt $bitmap.Width; $x++) {
+                    $pixel = $bitmap.GetPixel($x, $y)
+                    $distinct[$pixel.ToArgb()] = $true
+                    if ($pixel.A -eq 0) { $transparent++ }
+                    elseif ($pixel.R -ne 255 -or $pixel.G -ne 255 -or $pixel.B -ne 255) { $colouredVisible++ }
+                }
+            }
+
+            if ($name -eq 'outline.png') {
+                if ($transparent -eq 0) {
+                    throw "outline.png has no transparent pixels. Teams needs a transparent background with a white glyph - a fully opaque icon renders as a solid block in the app bar."
+                }
+                if ($colouredVisible -gt 0) {
+                    Write-Warning "outline.png has $colouredVisible non-white visible pixel(s). Teams expects a white-only monochrome glyph."
+                }
+            }
+
+            if ($distinct.Count -eq 1) {
+                Write-Warning "$name is a single flat colour - looks like the placeholder swatch rather than real artwork."
+            }
+        }
+        finally { $bitmap.Dispose() }
+    }
+}
+
+Test-TeamsIcons -Root $scriptRoot
 
 # Stage in a temp directory so the placeholder is never overwritten in the working tree.
 $staging = Join-Path ([System.IO.Path]::GetTempPath()) ("dorc-teams-app-" + [Guid]::NewGuid().ToString('N'))
