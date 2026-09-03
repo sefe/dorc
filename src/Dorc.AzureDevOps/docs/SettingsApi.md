@@ -7,7 +7,7 @@ All URIs are relative to *https://dev.azure.com*
 | [**SettingsGet**](SettingsApi.md#settingsget) | **GET** /{organization}/{project}/_apis/build/settings |  |
 | [**SettingsUpdate**](SettingsApi.md#settingsupdate) | **PATCH** /{organization}/{project}/_apis/build/settings |  |
 
-<a name="settingsget"></a>
+<a id="settingsget"></a>
 # **SettingsGet**
 > BuildSettings SettingsGet (string organization, string project, string apiVersion)
 
@@ -104,7 +104,7 @@ catch (ApiException e)
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-<a name="settingsupdate"></a>
+<a id="settingsupdate"></a>
 # **SettingsUpdate**
 > BuildSettings SettingsUpdate (string organization, string project, string apiVersion, BuildSettings body)
 

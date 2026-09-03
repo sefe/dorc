@@ -1,4 +1,5 @@
 import { css, LitElement } from 'lit';
+import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid';
 import { customElement, property } from 'lit/decorators.js';
@@ -6,12 +7,18 @@ import { html } from 'lit/html.js';
 import { UserApiModel } from '../apis/dorc-api';
 
 @customElement('attached-app-users')
-export class AttachedUsers extends LitElement {
+export class AttachedUsers extends ResponsiveMixin(LitElement) {
   @property({ type: Array }) users: UserApiModel[] = [];
 
   static get styles() {
     return css`
-
+      @media (max-width: 768px) {
+        vaadin-grid-cell-content {
+          white-space: normal;
+          word-wrap: break-word;
+          overflow-wrap: break-word;
+        }
+      }
     `;
   }
 
@@ -27,7 +34,12 @@ export class AttachedUsers extends LitElement {
         </vaadin-grid-sort-column>
         <vaadin-grid-sort-column header="Login ID" path="LoginId" resizable>
         </vaadin-grid-sort-column>
-        <vaadin-grid-sort-column header="Login Type" path="LoginType" resizable>
+        <vaadin-grid-sort-column
+          header="Login Type"
+          path="LoginType"
+          resizable
+          ?hidden="${this._narrowScreen}"
+        >
         </vaadin-grid-sort-column>
         <vaadin-grid-sort-column header="LAN ID" path="LanId" resizable>
         </vaadin-grid-sort-column>
@@ -35,9 +47,15 @@ export class AttachedUsers extends LitElement {
           header="LAN ID Type"
           path="LanIdType"
           resizable
+          ?hidden="${this._narrowScreen}"
         >
         </vaadin-grid-sort-column>
-        <vaadin-grid-sort-column header="Team" path="Team" resizable>
+        <vaadin-grid-sort-column
+          header="Team"
+          path="Team"
+          resizable
+          ?hidden="${this._narrowScreen}"
+        >
         </vaadin-grid-sort-column>
       </vaadin-grid>
     `;
@@ -45,8 +63,12 @@ export class AttachedUsers extends LitElement {
 
   private get sortedUsers(): UserApiModel[] {
     return [...this.users].sort((a, b) => {
-    if (String(a.DisplayName).toLowerCase() > String(b.DisplayName).toLowerCase()) return 1;
-    return -1;
+      if (
+        String(a.DisplayName).toLowerCase() >
+        String(b.DisplayName).toLowerCase()
+      )
+        return 1;
+      return -1;
     });
   }
 }

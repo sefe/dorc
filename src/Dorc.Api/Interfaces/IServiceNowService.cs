@@ -1,3 +1,5 @@
+using Dorc.Api.Models;
+
 namespace Dorc.Api.Interfaces
 {
     public interface IServiceNowService

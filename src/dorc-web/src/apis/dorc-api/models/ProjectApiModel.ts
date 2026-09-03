@@ -13,6 +13,7 @@
 
 import type {
     DatabaseApiModel,
+    SourceControlType,
 } from './';
 
 /**
@@ -61,8 +62,20 @@ export interface ProjectApiModel {
      */
     NotificationEmail?: string | null;
     /**
+     * @type {string}
+     * @memberof ProjectApiModel
+     */
+    LeanIXUrl?: string | null;
+    /**
      * @type {DatabaseApiModel}
      * @memberof ProjectApiModel
      */
     SourceDatabase?: DatabaseApiModel;
+    /**
+     * @type {SourceControlType}
+     * @memberof ProjectApiModel
+     */
+    SourceControlType?: SourceControlType;
 }
+
+

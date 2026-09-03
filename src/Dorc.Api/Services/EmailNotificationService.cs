@@ -1,4 +1,6 @@
 using System.Net;
+using System.Net.Http.Headers;
+using System.Net.Mail;
 using System.Text;
 using System.Text.Json;
 using Dorc.Api.Interfaces;
@@ -14,6 +16,7 @@ namespace Dorc.Api.Services
         private readonly IAzureAdTokenService _tokenService;
 
         private const string GraphScope = "https://graph.microsoft.com/.default";
+        private const int MaxRecipients = 10;
 
         public EmailNotificationService(
             HttpClient httpClient,
@@ -47,10 +50,10 @@ namespace Dorc.Api.Services
                 return;
             }
 
-            var fromAddress = GetFromAddress();
-            if (string.IsNullOrEmpty(fromAddress))
+            var fromAddress = GetFromAddress().Trim();
+            if (string.IsNullOrEmpty(fromAddress) || !IsValidEmail(fromAddress))
             {
-                _logger.LogWarning("Email_FromAddress not configured. Cannot send CR override notification.");
+                _logger.LogWarning("Email_FromAddress '{FromAddress}' is missing or invalid. Cannot send CR override notification.", SanitizeForLog(fromAddress));
                 return;
             }
 
@@ -63,19 +66,22 @@ namespace Dorc.Api.Services
                     return;
                 }
 
-                var subject = $"[DOrc Alert] Production Deployment CR Override - {environment}";
+                var safeEnv = SanitizeForLog(environment);
+                var subject = $"[DOrc Alert] Production Deployment CR Override - {safeEnv}";
                 var body = CreateCrOverrideEmailBody(username, environment, project, buildNumber);
 
-                // Build recipients list
+                // Build and validate recipients list
                 var recipientList = notificationEmail
                     .Split(new[] { ';', ',' }, StringSplitOptions.RemoveEmptyEntries)
                     .Select(r => r.Trim())
-                    .Where(r => !string.IsNullOrEmpty(r))
+                    .Where(IsValidEmail)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .Take(MaxRecipients)
                     .ToList();
 
                 if (recipientList.Count == 0)
                 {
-                    _logger.LogWarning("No valid recipients for CR override notification.");
+                    _logger.LogWarning("No valid recipients found in notification email '{NotificationEmail}'.", SanitizeForLog(notificationEmail));
                     return;
                 }
 
@@ -99,7 +105,7 @@ namespace Dorc.Api.Services
                             emailAddress = new
                             {
                                 address = fromAddress,
-                                name = GetFromName()
+                                name = SanitizeForLog(GetFromName())
                             }
                         },
                         toRecipients
@@ -108,12 +114,13 @@ namespace Dorc.Api.Services
                 };
 
                 var json = JsonSerializer.Serialize(graphPayload);
-                var request = new HttpRequestMessage(HttpMethod.Post,
-                    $"https://graph.microsoft.com/v1.0/users/{fromAddress}/sendMail");
-                request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
-                request.Content = new StringContent(json, Encoding.UTF8, "application/json");
+                var requestUri = $"https://graph.microsoft.com/v1.0/users/{Uri.EscapeDataString(fromAddress)}/sendMail";
+                using var request = new HttpRequestMessage(HttpMethod.Post, requestUri);
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+                using var content = new StringContent(json, Encoding.UTF8, "application/json");
+                request.Content = content;
 
-                var response = await _httpClient.SendAsync(request);
+                using var response = await _httpClient.SendAsync(request);
 
                 if (!response.IsSuccessStatusCode)
                 {
@@ -127,11 +134,33 @@ namespace Dorc.Api.Services
                     "CR override notification sent via Graph API to {RecipientCount} recipients",
                     recipientList.Count);
             }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
             catch (Exception ex)
             {
-                _logger.LogError(ex,
-                    "Failed to send CR override notification via Graph API");
+                _logger.LogError(ex, "Failed to send CR override notification via Graph API");
                 // Don't throw - email failure shouldn't block deployment
+            }
+        }
+
+        private static bool IsValidEmail(string email)
+        {
+            if (string.IsNullOrWhiteSpace(email))
+                return false;
+
+            if (email.Contains('\r') || email.Contains('\n'))
+                return false;
+
+            try
+            {
+                var address = new MailAddress(email);
+                return address.Address == email;
+            }
+            catch
+            {
+                return false;
             }
         }
 

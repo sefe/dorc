@@ -21,3 +21,17 @@
 #docs/*.md
 # Then explicitly reverse the ignore rule for a single file:
 #!docs/README.md
+
+# The client project file is excluded from generation: dependabot owns the
+# package versions in it, and the client csproj must not regress to the
+# generator's template versions on every regeneration. Everything else in
+# this tree is pure generator output.
+src/Org.OpenAPITools/Org.OpenAPITools.csproj
+
+# The generated test project is vacuous scaffolding — one empty placeholder
+# per API and model, asserting nothing. CI never runs it (the test discovery
+# filter matches *Tests.csproj, not *Test.csproj), so it is ~190 files of
+# churn on every generator bump for no coverage. Excluded here rather than
+# merely deleted: without this rule the next generation writes it straight
+# back, which is exactly what happened when it was deleted before.
+src/Org.OpenAPITools.Test/**

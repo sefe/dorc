@@ -1,8 +1,6 @@
 import { EnvironmentHistoryApiModel } from '../../apis/dorc-api';
 
-export class EnvironmentHistoryApiModelExtended
-  implements EnvironmentHistoryApiModel
-{
+export class EnvironmentHistoryApiModelExtended implements EnvironmentHistoryApiModel {
   /**
    * @type {number}
    * @memberof EnvironmentHistoryApiModel

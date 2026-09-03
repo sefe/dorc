@@ -1,6 +1,7 @@
 ﻿using Dorc.Api.Interfaces;
 using Dorc.Core;
 using Dorc.Core.Account;
+using Dorc.Core.BuildServer;
 using Dorc.Core.Configuration;
 using Dorc.Core.Interfaces;
 using Lamar;
@@ -24,11 +25,13 @@ namespace Dorc.Api.Services
             For<IRequestService>().Use<RequestService>();
 
             For<IDeployableBuildFactory>().Use<DeployableBuildFactory>();
-            For<DirectorySearcher>().Use(serviceContext =>
+            For<GitHubDeployableBuild>().Use<GitHubDeployableBuild>().Transient();
+            For<Func<GitHubDeployableBuild>>().Use(ctx => () => ctx.GetInstance<GitHubDeployableBuild>());
+            For<IDirectorySearchService>().Use(serviceContext =>
             {
                 var directoryEntry = new DirectoryEntry();
                 var directorySearcher = new DirectorySearcher(directoryEntry);
-                return directorySearcher;
+                return new ActiveDirectorySearchService(directorySearcher);
             }).Scoped();
             
             For<IDirectorySearcherFactory>().Use<DirectorySearcherFactory>().Singleton()
@@ -43,6 +46,8 @@ namespace Dorc.Api.Services
             For<IUserGroupsReaderFactory>().Use<UserGroupReaderFactory>().Singleton();
 
             For<IFileSystemHelper>().Use<FileSystemHelper>();
+            For<IGitHubHostValidator>().Use<GitHubHostValidator>().Singleton();
+            For<IBuildServerClientFactory>().Use<BuildServerClientFactory>();
             For<IRequestsManager>().Use<RequestsManager>();
             For<ISqlUserPasswordReset>().Use<SqlUserPasswordReset>();
             For<IApiServices>().Use<ApiServices>();

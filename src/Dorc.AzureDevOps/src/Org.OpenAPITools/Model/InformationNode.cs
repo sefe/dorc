@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// Data representation of an information node associated with a build
     /// </summary>
     [DataContract(Name = "InformationNode")]
-    public partial class InformationNode : IEquatable<InformationNode>, IValidatableObject
+    public partial class InformationNode : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="InformationNode" /> class.
@@ -41,7 +41,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="nodeId">Node Id of this information node.</param>
         /// <param name="parentId">Id of parent node (xml tree).</param>
         /// <param name="type">The type of the information node.</param>
-        public InformationNode(Dictionary<string, string> fields = default(Dictionary<string, string>), string lastModifiedBy = default(string), DateTime lastModifiedDate = default(DateTime), int nodeId = default(int), int parentId = default(int), string type = default(string))
+        public InformationNode(Dictionary<string, string> fields = default, string lastModifiedBy = default, DateTime lastModifiedDate = default, int nodeId = default, int parentId = default, string type = default)
         {
             this.Fields = fields;
             this.LastModifiedBy = lastModifiedBy;
@@ -121,95 +121,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as InformationNode);
-        }
-
-        /// <summary>
-        /// Returns true if InformationNode instances are equal
-        /// </summary>
-        /// <param name="input">Instance of InformationNode to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(InformationNode input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.Fields == input.Fields ||
-                    this.Fields != null &&
-                    input.Fields != null &&
-                    this.Fields.SequenceEqual(input.Fields)
-                ) && 
-                (
-                    this.LastModifiedBy == input.LastModifiedBy ||
-                    (this.LastModifiedBy != null &&
-                    this.LastModifiedBy.Equals(input.LastModifiedBy))
-                ) && 
-                (
-                    this.LastModifiedDate == input.LastModifiedDate ||
-                    (this.LastModifiedDate != null &&
-                    this.LastModifiedDate.Equals(input.LastModifiedDate))
-                ) && 
-                (
-                    this.NodeId == input.NodeId ||
-                    this.NodeId.Equals(input.NodeId)
-                ) && 
-                (
-                    this.ParentId == input.ParentId ||
-                    this.ParentId.Equals(input.ParentId)
-                ) && 
-                (
-                    this.Type == input.Type ||
-                    (this.Type != null &&
-                    this.Type.Equals(input.Type))
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.Fields != null)
-                {
-                    hashCode = (hashCode * 59) + this.Fields.GetHashCode();
-                }
-                if (this.LastModifiedBy != null)
-                {
-                    hashCode = (hashCode * 59) + this.LastModifiedBy.GetHashCode();
-                }
-                if (this.LastModifiedDate != null)
-                {
-                    hashCode = (hashCode * 59) + this.LastModifiedDate.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.NodeId.GetHashCode();
-                hashCode = (hashCode * 59) + this.ParentId.GetHashCode();
-                if (this.Type != null)
-                {
-                    hashCode = (hashCode * 59) + this.Type.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

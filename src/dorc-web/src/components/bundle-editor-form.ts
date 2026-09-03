@@ -1,3 +1,4 @@
+import { Notification } from '@vaadin/notification';
 import { LitElement, html, css } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import '@vaadin/text-field';
@@ -15,6 +16,7 @@ import {
 import { BundleEditorDialog } from './bundle-editor-dialog';
 import * as ace from 'ace-builds';
 import { ComboBox } from '@vaadin/combo-box';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('bundle-editor-form')
 export class BundleEditorForm extends LitElement {
@@ -41,9 +43,9 @@ export class BundleEditorForm extends LitElement {
 
   @property({ type: Object })
   bundleRequest: BundledRequestsApiModel = {};
-  
-  @property({ type: Array})
-  projects: ProjectApiModel[] | null  = [];
+
+  @property({ type: Array })
+  projects: ProjectApiModel[] | null = [];
 
   @property({ type: Array })
   existingBundleNames: string[] = [];
@@ -61,7 +63,7 @@ export class BundleEditorForm extends LitElement {
   ];
 
   private readonly _requestTemplates: Record<string, object> = {
-    'JobRequest': {
+    JobRequest: {
       Project: '',
       BuildText: '',
       BuildUrl: '',
@@ -69,7 +71,7 @@ export class BundleEditorForm extends LitElement {
       Components: [],
       RequestProperties: []
     },
-    'CopyEnvBuild': {
+    CopyEnvBuild: {
       TargetEnv: '',
       DataBackup: '',
       BundleName: '',
@@ -202,7 +204,11 @@ export class BundleEditorForm extends LitElement {
 
   private _setDefaultProject() {
     // If there's exactly one project and no project is selected, default to it
-    if (this.projects && this.projects.length === 1 && !this.bundleRequest.ProjectId) {
+    if (
+      this.projects &&
+      this.projects.length === 1 &&
+      !this.bundleRequest.ProjectId
+    ) {
       const project = this.projects[0];
       if (project.ProjectId) {
         this._updateValue('ProjectId', project.ProjectId);
@@ -259,7 +265,8 @@ export class BundleEditorForm extends LitElement {
     // Check if we should apply a template
     // Apply template if Request is empty, default '{}', or matches another type's template
     const currentRequest = this.bundleRequest.Request || '{}';
-    const isEmptyOrDefault = currentRequest === '{}' || currentRequest.trim() === '';
+    const isEmptyOrDefault =
+      currentRequest === '{}' || currentRequest.trim() === '';
 
     // Check if current request matches one of the templates (user hasn't customized it)
     let isTemplate = false;
@@ -323,7 +330,7 @@ export class BundleEditorForm extends LitElement {
       return;
     }
 
-    const api = new BundledRequestsApi();
+    const api = new BundledRequestsApi(dorcApiConfiguration);
 
     const loadingChangeEvent = 'loading-changed';
     this.dispatchEvent(
@@ -349,7 +356,7 @@ export class BundleEditorForm extends LitElement {
             composed: true
           })
         );
-    
+
         this.dialog.closeDialog();
         const savedEvent = new CustomEvent('bundle-saved', {
           detail: { bundleRequest: this.bundleRequest },
@@ -358,7 +365,7 @@ export class BundleEditorForm extends LitElement {
         });
         this.dispatchEvent(savedEvent);
       },
-      error: (error) => {
+      error: error => {
         console.error('Error saving bundle request:', error);
         this.dispatchEvent(
           new CustomEvent(loadingChangeEvent, {
@@ -428,15 +435,15 @@ export class BundleEditorForm extends LitElement {
         ...this.bundleRequest,
         Request: editorValue
       };
-      
+
       // Update the dialog's copy
       this.dialog.updateBundleRequest(this.bundleRequest);
     }
   }
-  
+
   private _validateBundle(): boolean {
     this._synchronizeEditorWithBundleRequest();
-    
+
     if (!this.bundleRequest.BundleName) {
       this._showError('Bundle Name is required');
       return false;
@@ -472,20 +479,14 @@ export class BundleEditorForm extends LitElement {
     return true;
   }
 
+  // Was a hand-built <vaadin-notification> with an imperative renderer, one
+  // per error, appended to document.body and never removed. Notification.show
+  // is the supported form and cleans up after itself.
   private _showError(message: string) {
-    const notification = document.createElement('vaadin-notification');
-    notification.setAttribute('theme', 'error');
-    notification.setAttribute('position', 'top-center');
-    notification.setAttribute('duration', '3000');
-    notification.renderer = (root: HTMLElement) => {
-      if (root.firstElementChild) {
-        return;
-      }
-      const div = document.createElement('div');
-      div.textContent = message;
-      root.appendChild(div);
-    };
-    document.body.appendChild(notification);
-    notification.open();
+    Notification.show(message, {
+      theme: 'error',
+      position: 'top-center',
+      duration: 3000
+    });
   }
 }

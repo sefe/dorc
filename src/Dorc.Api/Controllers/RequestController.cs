@@ -3,13 +3,12 @@ using Dorc.ApiModel;
 using Dorc.Core.Configuration;
 using Dorc.Core.Events;
 using Dorc.Core.Interfaces;
+using Dorc.OpenSearchData.Sources.Interfaces;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Sources.Interfaces;
-using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Swashbuckle.AspNetCore.Annotations;
-using Dorc.OpenSearchData.Sources.Interfaces;
 
 namespace Dorc.Api.Controllers
 {
@@ -27,6 +26,7 @@ namespace Dorc.Api.Controllers
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
         private readonly IDeploymentEventsPublisher _deploymentEventsPublisher;
         private readonly IEmailNotificationService _emailNotificationService;
+        private readonly IServiceNowService _serviceNowService;
         private readonly IConfigurationSettings _configurationSettings;
         private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
         private readonly IActiveDirectorySearcher _directorySearcher;
@@ -38,6 +38,7 @@ namespace Dorc.Api.Controllers
             IClaimsPrincipalReader claimsPrincipalReader,
             IDeploymentEventsPublisher deploymentEventsPublisher,
             IEmailNotificationService emailNotificationService,
+            IServiceNowService serviceNowService,
             IConfigurationSettings configurationSettings,
             IEnvironmentsPersistentSource environmentsPersistentSource,
             IDirectorySearcherFactory directorySearcherFactory,
@@ -53,9 +54,10 @@ namespace Dorc.Api.Controllers
             _claimsPrincipalReader = claimsPrincipalReader;
             _deploymentEventsPublisher = deploymentEventsPublisher;
             _emailNotificationService = emailNotificationService;
+            _serviceNowService = serviceNowService;
             _configurationSettings = configurationSettings;
             _environmentsPersistentSource = environmentsPersistentSource;
-            _directorySearcher = directorySearcherFactory.GetOAuthDirectorySearcher();
+            _directorySearcher = directorySearcherFactory.GetEntraSearcher();
             _deploymentLogService = deploymentLogService;
         }
 
@@ -246,7 +248,10 @@ namespace Dorc.Api.Controllers
 
                 // Broadcast restart -> Restarting
                 _ = _deploymentEventsPublisher.PublishRequestStatusChangedAsync(
-                    new DeploymentRequestEventData(updated));
+                    new DeploymentRequestEventData(updated))
+                    .ContinueWith(t => _log.LogWarning(t.Exception!.InnerException,
+                        "fire-and-forget publish failed for requestId={RequestId}", updated.Id),
+                        TaskContinuationOptions.OnlyOnFaulted);
 
                 return StatusCode(StatusCodes.Status200OK,
                     new RequestStatusDto { Id = updated.Id, Status = updated.Status.ToString() });
@@ -403,7 +408,10 @@ namespace Dorc.Api.Controllers
 
                 // Broadcast cancel -> Cancelling/Cancelled
                 _ = _deploymentEventsPublisher.PublishRequestStatusChangedAsync(
-                    new DeploymentRequestEventData(updated));
+                    new DeploymentRequestEventData(updated))
+                    .ContinueWith(t => _log.LogWarning(t.Exception!.InnerException,
+                        "fire-and-forget publish failed for requestId={RequestId}", updated.Id),
+                        TaskContinuationOptions.OnlyOnFaulted);
 
                 return StatusCode(StatusCodes.Status200OK,
                     new RequestStatusDto { Id = updated.Id, Status = updated.Status.ToString() });
@@ -458,7 +466,10 @@ namespace Dorc.Api.Controllers
 
                 // Broadcast pause -> Paused
                 _ = _deploymentEventsPublisher.PublishRequestStatusChangedAsync(
-                    new DeploymentRequestEventData(updated));
+                    new DeploymentRequestEventData(updated))
+                    .ContinueWith(t => _log.LogWarning(t.Exception!.InnerException,
+                        "fire-and-forget publish failed for requestId={RequestId}", updated.Id),
+                        TaskContinuationOptions.OnlyOnFaulted);
 
                 return StatusCode(StatusCodes.Status200OK,
                     new RequestStatusDto { Id = updated.Id, Status = updated.Status.ToString() });
@@ -513,7 +524,10 @@ namespace Dorc.Api.Controllers
 
                 // Broadcast resume -> Pending
                 _ = _deploymentEventsPublisher.PublishRequestStatusChangedAsync(
-                    new DeploymentRequestEventData(updated));
+                    new DeploymentRequestEventData(updated))
+                    .ContinueWith(t => _log.LogWarning(t.Exception!.InnerException,
+                        "fire-and-forget publish failed for requestId={RequestId}", updated.Id),
+                        TaskContinuationOptions.OnlyOnFaulted);
 
                 return StatusCode(StatusCodes.Status200OK,
                     new RequestStatusDto { Id = updated.Id, Status = updated.Status.ToString() });
@@ -538,6 +552,55 @@ namespace Dorc.Api.Controllers
         {
             try
             {
+                if (string.IsNullOrWhiteSpace(requestDto.Project))
+                {
+                    return BadRequest("Project name must be provided.");
+                }
+
+                var project = _projectsPersistentSource.GetProject(requestDto.Project);
+                if (project == null)
+                {
+                    return BadRequest($"Project '{requestDto.Project}' does not exist.");
+                }
+
+                if (string.IsNullOrWhiteSpace(requestDto.Environment))
+                {
+                    return BadRequest("Environment name must be provided.");
+                }
+
+                var environment = _environmentsPersistentSource.GetEnvironment(requestDto.Environment);
+                if (environment == null)
+                {
+                    return BadRequest($"Environment '{requestDto.Environment}' does not exist.");
+                }
+
+                if (requestDto.Components != null && requestDto.Components.Any())
+                {
+                    var projectComponents = _projectsPersistentSource.GetComponentsForProject(requestDto.Project)
+                        .Select(c => c.ComponentName)
+                        .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+                    var invalidComponents = requestDto.Components
+                        .Where(c => !projectComponents.Contains(c))
+                        .ToList();
+
+                    if (invalidComponents.Any())
+                    {
+                        return BadRequest(
+                            $"The following components do not exist for project '{requestDto.Project}': {string.Join(", ", invalidComponents.Select(c => $"'{c}'"))}.");
+                    }
+                }
+
+                if (string.IsNullOrWhiteSpace(requestDto.BuildText) && string.IsNullOrWhiteSpace(requestDto.BuildUrl))
+                {
+                    return BadRequest("Either BuildText or BuildUrl must be provided.");
+                }
+
+                if (string.IsNullOrWhiteSpace(requestDto.BuildNum))
+                {
+                    return BadRequest("BuildNum must be provided.");
+                }
+
                 var canModifyEnv = _apiSecurityService.CanModifyEnvironment(User, requestDto.Environment);
                 if (!canModifyEnv)
                 {
@@ -549,8 +612,23 @@ namespace Dorc.Api.Controllers
                             $"Forbidden request to {safeEnv}");
                 }
 
-                // Check if environment is prod (used for email notification below)
+                // Check if environment is prod (used for CR gate and email notification below)
                 var isProd = _environmentsPersistentSource.EnvironmentIsProd(requestDto.Environment);
+
+                // Server-side CR gate: require valid CR for prod deployments unless explicitly overridden
+                if (isProd && !requestDto.OverrideCr)
+                {
+                    if (string.IsNullOrWhiteSpace(requestDto.ChangeRequestNumber))
+                    {
+                        return BadRequest("A validated Change Request number is required for production deployments unless Override CR is specified.");
+                    }
+
+                    var crValidation = await _serviceNowService.ValidateChangeRequestAsync(requestDto.ChangeRequestNumber);
+                    if (!crValidation.IsValid)
+                    {
+                        return BadRequest($"Change Request validation failed: {crValidation.Message}");
+                    }
+                }
 
                 try
                 {
@@ -578,9 +656,9 @@ namespace Dorc.Api.Controllers
                                 requestDto.BuildNum ?? requestDto.BuildText ?? string.Empty,
                                 notificationEmail ?? string.Empty);
                         }
-                        catch (Exception)
+                        catch (Exception ex)
                         {
-                            _log.LogError("Failed to send CR override email notification for request {RequestId}", result.Id);
+                            _log.LogError(ex, "Failed to send CR override email notification for request {RequestId}", result.Id);
                             // Don't fail the deployment because of email failure
                         }
                     }

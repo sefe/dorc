@@ -4,6 +4,7 @@ import {
   RefDataUsersApi,
   UserApiModel
 } from './apis/dorc-api';
+import { dorcApiConfiguration } from './services/dorc-api-configuration';
 
 export default class GlobalCache {
   private static instance: GlobalCache;
@@ -17,22 +18,22 @@ export default class GlobalCache {
   public userRoles!: string[];
 
   private constructor() {
-    const refDataUsersApi = new RefDataUsersApi();
+    const refDataUsersApi = new RefDataUsersApi(dorcApiConfiguration);
     this.allUsersResp = refDataUsersApi.refDataUsersGet();
     this.allUsersResp.subscribe({
       next: (data: Array<UserApiModel>) => {
         this.allUsers = data;
       },
-      error: (err: string) => console.error(err),
+      error: (err: string) => console.error(err)
     });
 
-    const refDataRolesApi = new RefDataRolesApi();
+    const refDataRolesApi = new RefDataRolesApi(dorcApiConfiguration);
     this.allRolesResp = refDataRolesApi.refDataRolesGet();
     this.allRolesResp.subscribe({
       next: (data: string[]) => {
         this.userRoles = data;
       },
-      error: (err: string) => console.error(err),
+      error: (err: string) => console.error(err)
     });
   }
 

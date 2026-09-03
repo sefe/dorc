@@ -1,22 +1,27 @@
-import { css, LitElement, PropertyValues, render } from 'lit';
+import { columnBodyRenderer } from '@vaadin/grid/lit';
+import { css, LitElement, PropertyValues } from 'lit';
 import '@vaadin/checkbox';
 import '@vaadin/button';
 import '@vaadin/combo-box';
-import { customElement, property } from 'lit/decorators.js';
+import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import {
   BundledRequestsApi,
   BundledRequestsApiModel,
-  MakeLikeProdApi, PropertiesApi,
+  MakeLikeProdApi,
+  PropertiesApi,
   PropertyApiModel,
   RequestProperty
 } from '../apis/dorc-api';
-import { ComboBox } from '@vaadin/combo-box/src/vaadin-combo-box';
+import { ComboBox } from '@vaadin/combo-box';
 import { TextField } from '@vaadin/text-field';
-import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
-import { GridItemModel } from '@vaadin/grid';
-import './deploy/property-override-controls'
-import { MakeLikeProductionDialog } from './make-like-production-dialog.ts';
+import './deploy/property-override-controls';
+import type { MakeLikeProductionDialog } from './make-like-production-dialog.ts';
+import '@vaadin/details';
+import '@vaadin/grid/vaadin-grid-sort-column';
+import '@vaadin/vertical-layout';
+import '@vaadin/text-field';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('make-like-production')
 export class MakeLikeProduction extends LitElement {
@@ -28,34 +33,31 @@ export class MakeLikeProduction extends LitElement {
   set mappedProjects(value: string[] | undefined) {
     this._mappedProjects = value;
 
-    const api = new BundledRequestsApi();
-    api
-      .bundledRequestsGet({ projectNames: this._mappedProjects })
-      .subscribe({
-        next: (data: BundledRequestsApiModel[]) => {
-          this.bundleRequests = data;
+    const api = new BundledRequestsApi(dorcApiConfiguration);
+    api.bundledRequestsGet({ projectNames: this._mappedProjects }).subscribe({
+      next: (data: BundledRequestsApiModel[]) => {
+        this.bundleRequests = data;
 
-          const unique = [...new Set(data.map(item => item.BundleName))];
+        const unique = [...new Set(data.map(item => item.BundleName))];
 
-          this.setBundleNames(unique);
-        },
-        error: (err: any) => console.error(err),
-        complete: () => console.log('done loading bundles')
-      });
+        this.setBundleNames(unique);
+      },
+      error: (err: any) => console.error(err),
+      complete: () => console.log('done loading bundles')
+    });
   }
 
   private bundleRequests!: BundledRequestsApiModel[];
-  @property({ type: Array }) private dataBackups: string[] | undefined;
+  @property({ type: Array }) dataBackups: string[] | undefined;
 
-  @property({ type: Array }) private bundledRequests:
-    | (string | null | undefined)[]
-    | undefined;
+  @property({ type: Array }) bundledRequests:
+    (string | null | undefined)[] | undefined;
 
   private _mappedProjects: string[] | undefined;
 
-  private selectedDataBackup: string | undefined;
+  @state() private selectedDataBackup = '';
 
-  private selectedBundleName: string | undefined;
+  @state() private selectedBundleName = '';
 
   @property({ type: Array }) propertyOverrides: RequestProperty[] = [];
 
@@ -63,9 +65,27 @@ export class MakeLikeProduction extends LitElement {
 
   @property({ type: Object }) dialog: MakeLikeProductionDialog | undefined;
 
-  private propertyName = '';
+  private _resetVersion = 0;
 
-  private propertyValue = '';
+  @property({ type: Number })
+  get resetVersion(): number {
+    return this._resetVersion;
+  }
+
+  set resetVersion(value: number) {
+    if (value === this._resetVersion) {
+      return;
+    }
+
+    this._resetVersion = value;
+    this.reset();
+  }
+
+  @state() private propertyName = '';
+
+  @state() private propertyValue = '';
+
+  private dataBackupsRequestVersion = 0;
 
   static get styles() {
     return css`
@@ -98,20 +118,22 @@ export class MakeLikeProduction extends LitElement {
 
   render() {
     return html`
-      <vaadin-vertical-layout style="width: 700px">
+      <vaadin-vertical-layout style="width: 100%; max-width: 700px">
         <vaadin-combo-box
           label="Bundle Request"
           class="block"
           .items="${this.bundledRequests}"
           .itemValuePath=""
-          style="min-width: 600px"
+          .value="${this.selectedBundleName}"
+          style="width: 100%; max-width: 600px"
           @value-changed="${this._dataSourceBundleNameChanged}"
         ></vaadin-combo-box>
         <vaadin-combo-box
           label="Data Source"
           class="block"
           .items="${this.dataBackups}"
-          style="min-width: 600px"
+          .value="${this.selectedDataBackup}"
+          style="width: 100%; max-width: 600px"
           @value-changed="${this._dataSourceDataBackupChanged}"
         ></vaadin-combo-box>
         <vaadin-details
@@ -127,13 +149,15 @@ export class MakeLikeProduction extends LitElement {
               clear-button-visible
               item-label-path="Name"
               item-value-path="Name"
-              style="min-width: 600px"
+              .value="${this.propertyName}"
+              style="width: 100%; max-width: 600px"
             ></vaadin-combo-box>
             <vaadin-text-field
               required
               placeholder="Property Value"
+              .value="${this.propertyValue}"
               @value-changed="${this._propValueChanged}"
-              style="min-width: 500px"
+              style="width: 100%; max-width: 500px"
             ></vaadin-text-field>
             <vaadin-button
               @click="${this.AddOverrideProperty}"
@@ -164,8 +188,7 @@ export class MakeLikeProduction extends LitElement {
                 resizable
               ></vaadin-grid-sort-column>
               <vaadin-grid-column
-                .renderer="${this._boundPropOverridesButtonsRenderer}"
-                .attachedDbsControl="${this}"
+                ${columnBodyRenderer(this._boundPropOverridesButtonsRenderer, [])}
                 resizable
               ></vaadin-grid-column>
             </vaadin-grid>
@@ -178,7 +201,7 @@ export class MakeLikeProduction extends LitElement {
   constructor() {
     super();
 
-    const api = new PropertiesApi();
+    const api = new PropertiesApi(dorcApiConfiguration);
     api.propertiesGet().subscribe({
       next: (data: PropertyApiModel[]) => {
         this.properties = data;
@@ -190,6 +213,16 @@ export class MakeLikeProduction extends LitElement {
 
   protected firstUpdated(_changedProperties: PropertyValues) {
     super.firstUpdated(_changedProperties);
+  }
+
+  public reset() {
+    this.dataBackupsRequestVersion++;
+    this.selectedDataBackup = '';
+    this.selectedBundleName = '';
+    this.dataBackups = undefined;
+    this.propertyOverrides = [];
+    this.propertyName = '';
+    this.propertyValue = '';
   }
 
   _propNameValueChanged(data: any) {
@@ -223,40 +256,31 @@ export class MakeLikeProduction extends LitElement {
 
     const property: RequestProperty = {
       PropertyName: find.Name,
-        PropertyValue: this.propertyValue
-    }
+      PropertyValue: this.propertyValue
+    };
     this.propertyOverrides.push(property);
     this.propertyOverrides = JSON.parse(JSON.stringify(this.propertyOverrides));
 
-    this.dialog?.propertyAdded(property)
+    this.dialog?.propertyAdded(property);
   }
 
-  _boundPropOverridesButtonsRenderer(
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<RequestProperty>
-  ) {
-    // The below line has a horrible hack
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore
-    const altThis = _column.attachedDbsControl as MakeLikeProduction;
-    const propertyOverride = model.item as RequestProperty;
+  _boundPropOverridesButtonsRenderer(item: RequestProperty) {
+    const propertyOverride = item as RequestProperty;
 
-    render(
-      html` <property-override-controls
-        .propertyOverride="${propertyOverride}"
-        @property-override-removed="${() => {
-          altThis.RemoveOverrideProperty(propertyOverride);
-        }}"
-      ></property-override-controls>`,
-      root
-    );
+    return html` <property-override-controls
+      .propertyOverride="${propertyOverride}"
+      @property-override-removed="${(e: CustomEvent) => {
+        this.RemoveOverrideProperty(e.detail.propertyOverride);
+      }}"
+    ></property-override-controls>`;
   }
 
   private RemoveOverrideProperty(propertyOverride: RequestProperty) {
-    this.propertyOverrides = this.propertyOverrides.filter((val) => val.PropertyName != propertyOverride.PropertyName);
+    this.propertyOverrides = this.propertyOverrides.filter(
+      val => val.PropertyName != propertyOverride.PropertyName
+    );
     this.propertyOverrides = JSON.parse(JSON.stringify(this.propertyOverrides));
-    this.dialog?.propertyRemoved(propertyOverride)
+    this.dialog?.propertyRemoved(propertyOverride);
   }
 
   _dataSourceDataBackupChanged(data: CustomEvent) {
@@ -268,27 +292,50 @@ export class MakeLikeProduction extends LitElement {
   _dataSourceBundleNameChanged(data: CustomEvent) {
     this.isLoading();
     this.selectedBundleName = data.detail.value;
+    this.selectedDataBackup = '';
+    this.dataBackups = undefined;
+    this.dialog?.backupChanged(undefined);
+    const selectedBundleName = this.selectedBundleName;
+    const requestVersion = ++this.dataBackupsRequestVersion;
 
-    const selectedBundleReqs = this.bundleRequests?.filter(
-      b => b.BundleName === this.selectedBundleName
-    );
+    const selectedBundleReqs =
+      this.bundleRequests?.filter(b => b.BundleName === selectedBundleName) ??
+      [];
 
     if (selectedBundleReqs.length === 0) {
+      this.dialog?.bundleChanged(undefined);
+      this.isntLoading();
       return;
     }
 
     const projectId: number = selectedBundleReqs[0].ProjectId ?? 0;
 
-    const api = new MakeLikeProdApi();
+    const api = new MakeLikeProdApi(dorcApiConfiguration);
     api.makeLikeProdDataBackupsGet({ projectId: projectId }).subscribe({
       next: (data: string[]) => {
+        if (
+          requestVersion !== this.dataBackupsRequestVersion ||
+          selectedBundleName !== this.selectedBundleName
+        ) {
+          return;
+        }
         this.setDataBackups(data);
       },
-      error: (err: any) => console.error(err),
-      complete: () => console.log('done loading data backups')
+      error: (err: any) => {
+        if (requestVersion === this.dataBackupsRequestVersion) {
+          this.isntLoading();
+        }
+        console.error(err);
+      },
+      complete: () => {
+        if (requestVersion === this.dataBackupsRequestVersion) {
+          this.isntLoading();
+        }
+        console.log('done loading data backups');
+      }
     });
 
-    this.dialog?.bundleChanged(this.selectedBundleName);
+    this.dialog?.bundleChanged(selectedBundleName);
   }
 
   isLoading() {

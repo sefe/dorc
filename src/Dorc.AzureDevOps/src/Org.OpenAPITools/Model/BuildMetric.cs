@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// Represents metadata about builds in the system.
     /// </summary>
     [DataContract(Name = "BuildMetric")]
-    public partial class BuildMetric : IEquatable<BuildMetric>, IValidatableObject
+    public partial class BuildMetric : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="BuildMetric" /> class.
@@ -39,7 +39,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="intValue">The value..</param>
         /// <param name="name">The name of the metric..</param>
         /// <param name="scope">The scope..</param>
-        public BuildMetric(DateTime date = default(DateTime), int intValue = default(int), string name = default(string), string scope = default(string))
+        public BuildMetric(DateTime date = default, int intValue = default, string name = default, string scope = default)
         {
             this.Date = date;
             this.IntValue = intValue;
@@ -101,80 +101,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as BuildMetric);
-        }
-
-        /// <summary>
-        /// Returns true if BuildMetric instances are equal
-        /// </summary>
-        /// <param name="input">Instance of BuildMetric to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(BuildMetric input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.Date == input.Date ||
-                    (this.Date != null &&
-                    this.Date.Equals(input.Date))
-                ) && 
-                (
-                    this.IntValue == input.IntValue ||
-                    this.IntValue.Equals(input.IntValue)
-                ) && 
-                (
-                    this.Name == input.Name ||
-                    (this.Name != null &&
-                    this.Name.Equals(input.Name))
-                ) && 
-                (
-                    this.Scope == input.Scope ||
-                    (this.Scope != null &&
-                    this.Scope.Equals(input.Scope))
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.Date != null)
-                {
-                    hashCode = (hashCode * 59) + this.Date.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.IntValue.GetHashCode();
-                if (this.Name != null)
-                {
-                    hashCode = (hashCode * 59) + this.Name.GetHashCode();
-                }
-                if (this.Scope != null)
-                {
-                    hashCode = (hashCode * 59) + this.Scope.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

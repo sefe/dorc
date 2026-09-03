@@ -1,5 +1,6 @@
 using Dorc.ApiModel;
 using Dorc.Core;
+using Dorc.Core.Configuration;
 using Microsoft.Extensions.Configuration;
 using RestSharp;
 using System;
@@ -19,24 +20,25 @@ namespace Tools.RequestCLI
 
             Output("=== Execution started ===");
 
-            var cliArgs = new CliArgs(args);
-            var api = new ApiCaller(new DorcOAuthClientConfiguration(config));
-
-            Output("============================= Requesting Deploy =============================");
-            Output("=== Project            : " + cliArgs.Request.Project);
-            Output("=== Target Environment : " + cliArgs.Request.Environment);
-            Output("=== Build Text         : " + cliArgs.Request.BuildText);
-            Output("=== Build Number       : " + cliArgs.Request.BuildNum);
-            Output("=== Build Uri          : " + cliArgs.Request.BuildUrl);
-            Output("=== Components         : " + string.Join(" ", cliArgs.Request.Components.ToArray()));
-            Output("=== Pinned             : " + cliArgs.Request.Pinned);
-            Output("=== CR Number          : " + (cliArgs.Request.ChangeRequestNumber ?? "(none)"));
-            Output("=== AutoCR             : " + cliArgs.AutoCr);
-            Output("=== Wait               : " + cliArgs.Wait);
-            Output("=== Api Root Url       : " + config["DorcApi:BaseUrl"]);
-            Output("=============================================================================");
             try
             {
+                var cliArgs = new CliArgs(args);
+                var api = new ApiCaller(new DorcOAuthClientConfiguration(config));
+
+                Output("============================= Requesting Deploy =============================");
+                Output("=== Project            : " + cliArgs.Request.Project);
+                Output("=== Target Environment : " + cliArgs.Request.Environment);
+                Output("=== Build Text         : " + cliArgs.Request.BuildText);
+                Output("=== Build Number       : " + cliArgs.Request.BuildNum);
+                Output("=== Build Uri          : " + cliArgs.Request.BuildUrl);
+                Output("=== Components         : " + string.Join(" ", cliArgs.Request.Components.ToArray()));
+                Output("=== Pinned             : " + cliArgs.Request.Pinned);
+                Output("=== CR Number          : " + (cliArgs.Request.ChangeRequestNumber ?? "(none)"));
+                Output("=== AutoCR             : " + cliArgs.AutoCr);
+                Output("=== Wait               : " + cliArgs.Wait);
+                Output("=== Api Root Url       : " + config["DorcApi:BaseUrl"]);
+                Output("=============================================================================");
+
                 // AutoCR: create a standard CR in ServiceNow before submitting the deployment
                 if (cliArgs.AutoCr && string.IsNullOrEmpty(cliArgs.Request.ChangeRequestNumber))
                 {
@@ -97,7 +99,7 @@ namespace Tools.RequestCLI
 
         private static void CatchAllUnhandledExceptions(object sender, UnhandledExceptionEventArgs e)
         {
-            Exception ex = (Exception) e.ExceptionObject;
+            Exception ex = (Exception)e.ExceptionObject;
             DisplayExceptionMessage(ex);
         }
 
@@ -109,8 +111,8 @@ namespace Tools.RequestCLI
                 DisplayExceptionMessage(ex.InnerException);
             }
         }
-    
-       private static void Output(string strText)
+
+        private static void Output(string strText)
         {
             Console.WriteLine(DateTime.Now + " - " + strText);
         }

@@ -11,17 +11,17 @@ export interface ChangeRequestValidationResult {
    * Whether the CR is valid and in the correct state for deployment
    */
   IsValid?: boolean;
-  
+
   /**
    * Message describing the validation result
    */
   Message?: string | null;
-  
+
   /**
    * Current state of the CR in ServiceNow (e.g., "Implement", "Scheduled", etc.)
    */
   State?: string | null;
-  
+
   /**
    * The CR number that was validated
    */

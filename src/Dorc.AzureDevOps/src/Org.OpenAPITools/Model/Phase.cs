@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// Represents a phase of a build definition.
     /// </summary>
     [DataContract(Name = "Phase")]
-    public partial class Phase : IEquatable<Phase>, IValidatableObject
+    public partial class Phase : IValidatableObject
     {
         /// <summary>
         /// The job authorization scope for builds queued against this definition.
@@ -50,7 +50,6 @@ namespace Org.OpenAPITools.Model
             /// </summary>
             [EnumMember(Value = "project")]
             Project = 2
-
         }
 
 
@@ -73,7 +72,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="steps">steps.</param>
         /// <param name="target">target.</param>
         /// <param name="variables">variables.</param>
-        public Phase(string condition = default(string), List<Dependency> dependencies = default(List<Dependency>), JobAuthorizationScopeEnum? jobAuthorizationScope = default(JobAuthorizationScopeEnum?), int jobCancelTimeoutInMinutes = default(int), int jobTimeoutInMinutes = default(int), string name = default(string), string refName = default(string), List<BuildDefinitionStep> steps = default(List<BuildDefinitionStep>), PhaseTarget target = default(PhaseTarget), Dictionary<string, BuildDefinitionVariable> variables = default(Dictionary<string, BuildDefinitionVariable>))
+        public Phase(string condition = default, List<Dependency> dependencies = default, JobAuthorizationScopeEnum? jobAuthorizationScope = default, int jobCancelTimeoutInMinutes = default, int jobTimeoutInMinutes = default, string name = default, string refName = default, List<BuildDefinitionStep> steps = default, PhaseTarget target = default, Dictionary<string, BuildDefinitionVariable> variables = default)
         {
             this.Condition = condition;
             this.Dependencies = dependencies;
@@ -178,129 +177,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as Phase);
-        }
-
-        /// <summary>
-        /// Returns true if Phase instances are equal
-        /// </summary>
-        /// <param name="input">Instance of Phase to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(Phase input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.Condition == input.Condition ||
-                    (this.Condition != null &&
-                    this.Condition.Equals(input.Condition))
-                ) && 
-                (
-                    this.Dependencies == input.Dependencies ||
-                    this.Dependencies != null &&
-                    input.Dependencies != null &&
-                    this.Dependencies.SequenceEqual(input.Dependencies)
-                ) && 
-                (
-                    this.JobAuthorizationScope == input.JobAuthorizationScope ||
-                    this.JobAuthorizationScope.Equals(input.JobAuthorizationScope)
-                ) && 
-                (
-                    this.JobCancelTimeoutInMinutes == input.JobCancelTimeoutInMinutes ||
-                    this.JobCancelTimeoutInMinutes.Equals(input.JobCancelTimeoutInMinutes)
-                ) && 
-                (
-                    this.JobTimeoutInMinutes == input.JobTimeoutInMinutes ||
-                    this.JobTimeoutInMinutes.Equals(input.JobTimeoutInMinutes)
-                ) && 
-                (
-                    this.Name == input.Name ||
-                    (this.Name != null &&
-                    this.Name.Equals(input.Name))
-                ) && 
-                (
-                    this.RefName == input.RefName ||
-                    (this.RefName != null &&
-                    this.RefName.Equals(input.RefName))
-                ) && 
-                (
-                    this.Steps == input.Steps ||
-                    this.Steps != null &&
-                    input.Steps != null &&
-                    this.Steps.SequenceEqual(input.Steps)
-                ) && 
-                (
-                    this.Target == input.Target ||
-                    (this.Target != null &&
-                    this.Target.Equals(input.Target))
-                ) && 
-                (
-                    this.Variables == input.Variables ||
-                    this.Variables != null &&
-                    input.Variables != null &&
-                    this.Variables.SequenceEqual(input.Variables)
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.Condition != null)
-                {
-                    hashCode = (hashCode * 59) + this.Condition.GetHashCode();
-                }
-                if (this.Dependencies != null)
-                {
-                    hashCode = (hashCode * 59) + this.Dependencies.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.JobAuthorizationScope.GetHashCode();
-                hashCode = (hashCode * 59) + this.JobCancelTimeoutInMinutes.GetHashCode();
-                hashCode = (hashCode * 59) + this.JobTimeoutInMinutes.GetHashCode();
-                if (this.Name != null)
-                {
-                    hashCode = (hashCode * 59) + this.Name.GetHashCode();
-                }
-                if (this.RefName != null)
-                {
-                    hashCode = (hashCode * 59) + this.RefName.GetHashCode();
-                }
-                if (this.Steps != null)
-                {
-                    hashCode = (hashCode * 59) + this.Steps.GetHashCode();
-                }
-                if (this.Target != null)
-                {
-                    hashCode = (hashCode * 59) + this.Target.GetHashCode();
-                }
-                if (this.Variables != null)
-                {
-                    hashCode = (hashCode * 59) + this.Variables.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

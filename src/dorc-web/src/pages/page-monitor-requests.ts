@@ -1,4 +1,6 @@
-import type { Grid, GridItemModel } from '@vaadin/grid';
+import { columnBodyRenderer, columnHeaderRenderer } from '@vaadin/grid/lit';
+import type { Grid } from '@vaadin/grid';
+import '../components/dorc-spinner';
 import {
   GridDataProviderCallback,
   GridDataProviderParams,
@@ -12,7 +14,7 @@ import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid-sorter';
 import '@vaadin/icons/vaadin-icons';
 import '@vaadin/text-field';
-import { css, PropertyValueMap, render } from 'lit';
+import { css, PropertyValueMap } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import '../components/grid-button-groups/request-controls';
@@ -37,9 +39,14 @@ import {
 import { HubConnection, HubConnectionState } from '@microsoft/signalr';
 import { retrieveErrorMessage } from '../helpers/errorMessage-retriever.js';
 import type { PropertyValues } from 'lit';
-import type { RouterLocation } from '@vaadin/router';
-import { PageElement } from '../helpers/page-element';
-import type { RouteMeta } from '../router/routes';
+import { PageElement, PageLocation } from '../helpers/page-element';
+import { ResponsiveMixin } from '../helpers/responsive-mixin';
+import {
+  SilentGridRefresher,
+  silentRefreshStyles
+} from '../helpers/silent-grid-refresh';
+import '@vaadin/tooltip';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 const username = 'Username';
 const status = 'Status';
@@ -51,14 +58,12 @@ const id = 'Id';
 
 @customElement('page-monitor-requests')
 export class PageMonitorRequests
-  extends PageElement
+  extends ResponsiveMixin(PageElement)
   implements IDeploymentsEventsClient
 {
   @query('#grid') grid: Grid | undefined;
 
-  // since grid is being refreshed with multiple requests (pages) in non-deterministic way,
-  // we need to store the max count of items before refresh to keep grid's cache size
-  maxCountBeforeRefresh: number | undefined;
+  private silentRefresh = new SilentGridRefresher(() => this.grid);
 
   private hubConnection: HubConnection | undefined;
 
@@ -77,8 +82,6 @@ export class PageMonitorRequests
   // properties (e.g. hubConnectionState, autoRefresh) change. Vaadin's
   // headerRenderer is only invoked when the cell is first created, so Lit's
   // normal re-render cycle does not update the header automatically.
-  private _idHeaderRoot?: HTMLElement;
-
   userFilter: string = '';
   statusFilter: string = '';
   componentsFilter: string = '';
@@ -87,86 +90,169 @@ export class PageMonitorRequests
   envFilter: string = '';
   buildFilter: string = '';
 
-  static get styles() {
-    return css`
-      vaadin-grid {
-        overflow: hidden;
-        height: calc(100vh - 56px);
-        --divider-color: var(--dorc-border-color);
-      }
+  private monitorDataProvider = (
+    params: GridDataProviderParams<DeploymentRequestApiModel>,
+    callback: GridDataProviderCallback<DeploymentRequestApiModel>
+  ) => {
+    if (this.projectFilter !== '' && this.projectFilter !== undefined) {
+      params.filters.push({ path: 'Project', value: this.projectFilter });
+    }
+    if (this.envFilter !== '' && this.envFilter !== undefined) {
+      params.filters.push({
+        path: 'EnvironmentName',
+        value: this.envFilter
+      });
+    }
+    if (this.buildFilter !== '' && this.buildFilter !== undefined) {
+      params.filters.push({
+        path: 'BuildNumber',
+        value: this.buildFilter
+      });
+    }
 
-      vaadin-text-field {
-        padding: 0;
-        margin: 0;
-      }
+    if (this.idFilter !== '' && this.idFilter !== undefined) {
+      params.filters.push({ path: 'Id', value: this.idFilter });
+    }
 
-      vaadin-grid-cell-content {
-        padding-top: 0px;
-        padding-bottom: 0px;
-        margin: 0px;
-      }
+    if (this.userFilter !== '' && this.userFilter !== undefined) {
+      params.filters.push({ path: 'UserName', value: this.userFilter });
+    }
 
-      .overlay {
-        width: 100%;
-        height: 100%;
-        position: fixed;
-      }
+    if (this.statusFilter !== '' && this.statusFilter !== undefined) {
+      params.filters.push({ path: 'Status', value: this.statusFilter });
+    }
 
-      .overlay__inner {
-        width: 100%;
-        height: 100%;
-        position: absolute;
-      }
+    if (this.componentsFilter !== '' && this.componentsFilter !== undefined) {
+      params.filters.push({
+        path: 'Components',
+        value: this.componentsFilter
+      });
+    }
+    const api = new RequestStatusesApi(dorcApiConfiguration);
+    this.silentRefresh.requestStarted();
+    api
+      .requestStatusesPut({
+        pagedDataOperators: {
+          Filters: params.filters.map(
+            (f: GridFilterDefinition): PagedDataFilter => ({
+              Path: f.path,
+              FilterValue: f.value
+            })
+          ),
+          SortOrders: params.sortOrders.map(
+            (s: GridSorterDefinition): PagedDataSorting => ({
+              Path: s.path,
+              Direction: s.direction?.toString()
+            })
+          )
+        },
+        limit: params.pageSize,
+        page: params.page + 1
+      })
+      .subscribe({
+        next: (data: GetRequestStatusesListResponseDto) => {
+          data.Items?.map(
+            item => (item.UserName = getShortLogonName(item.UserName))
+          );
+          callback(
+            data.Items ?? [],
+            this.silentRefresh.reportedSize(data.TotalItems)
+          );
 
-      .overlay__content {
-        left: 20%;
-        position: absolute;
-        top: 20%;
-        transform: translate(-50%, -50%);
-      }
-
-      .spinner {
-        width: 75px;
-        height: 75px;
-        display: inline-block;
-        border-width: 2px;
-        border-color: var(--dorc-border-color);
-        border-top-color: var(--dorc-link-color);
-        animation: spin 1s infinite linear;
-        border-radius: 100%;
-        border-style: solid;
-      }
-
-      @keyframes spin {
-        100% {
-          transform: rotate(360deg);
+          this.dispatchEvent(
+            new CustomEvent('searching-requests-finished', {
+              detail: data,
+              bubbles: true,
+              composed: true
+            })
+          );
+        },
+        error: (err: any) => {
+          const errMessage = retrieveErrorMessage(err);
+          const notification = new ErrorNotification();
+          notification.setAttribute('errorMessage', errMessage);
+          this.shadowRoot?.appendChild(notification);
+          notification.open();
+          console.error(errMessage, err);
+          callback([], 0);
+          this.silentRefresh.requestFinished();
+          this.dispatchEvent(
+            new CustomEvent('searching-requests-finished', {
+              detail: { TotalItems: 0 },
+              bubbles: true,
+              composed: true
+            })
+          );
+        },
+        complete: () => {
+          this.silentRefresh.requestFinished();
+          this.monitorRequestsLoaded();
         }
-      }
+      });
+  };
 
-      .cover {
-        object-fit: cover;
-        position: fixed;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-      }
-    `;
+  static get styles() {
+    return [
+      silentRefreshStyles,
+      css`
+        :host {
+          display: flex;
+          flex-direction: column;
+          height: 100%;
+          overflow: hidden;
+          --divider-color: var(--dorc-border-color);
+        }
+        vaadin-grid {
+          flex: 1;
+          min-height: 0;
+        }
+
+        vaadin-text-field {
+          padding: 0;
+          margin: 0;
+        }
+
+        vaadin-grid-cell-content {
+          padding-top: 0px;
+          padding-bottom: 0px;
+          margin: 0px;
+        }
+
+        .id-btn {
+          font-size: 14px;
+          font-family: monospace;
+          background-color: var(--dorc-chip-bg);
+          color: var(--dorc-chip-text);
+          display: inline-block;
+          padding: 3px;
+          margin: 3px;
+          text-decoration: none;
+          border-radius: 3px;
+          border: 0;
+          cursor: pointer;
+        }
+
+        .id-btn:hover {
+          background-color: var(--dorc-badge-bg);
+          color: var(--dorc-badge-text);
+        }
+
+        .cover {
+          object-fit: cover;
+          position: fixed;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+        }
+      `
+    ];
   }
 
   render() {
     return html`
-      <div
-        id="loading"
-        class="overlay"
-        style="z-index: 2"
+      <dorc-spinner
         ?hidden="${!this.isLoading && !this.isSearching}"
-      >
-        <div class="overlay__inner">
-          <div class="overlay__content">
-            <span class="spinner"></span>
-          </div>
-        </div>
-      </div>
+      ></dorc-spinner>
 
       <vaadin-grid
         id="grid"
@@ -174,160 +260,64 @@ export class PageMonitorRequests
         multi-sort
         .size=${200}
         theme="compact row-stripes no-row-borders no-border"
-        .dataProvider=${(
-          params: GridDataProviderParams<DeploymentRequestApiModel>,
-          callback: GridDataProviderCallback<DeploymentRequestApiModel>
-        ) => {
-          if (this.projectFilter !== '' && this.projectFilter !== undefined) {
-            params.filters.push({ path: 'Project', value: this.projectFilter });
-          }
-          if (this.envFilter !== '' && this.envFilter !== undefined) {
-            params.filters.push({
-              path: 'EnvironmentName',
-              value: this.envFilter
-            });
-          }
-          if (this.buildFilter !== '' && this.buildFilter !== undefined) {
-            params.filters.push({
-              path: 'BuildNumber',
-              value: this.buildFilter
-            });
-          }
-
-          if (this.idFilter !== '' && this.idFilter !== undefined) {
-            params.filters.push({ path: 'Id', value: this.idFilter });
-          }
-
-          if (this.userFilter !== '' && this.userFilter !== undefined) {
-            params.filters.push({ path: 'UserName', value: this.userFilter });
-          }
-
-          if (this.statusFilter !== '' && this.statusFilter !== undefined) {
-            params.filters.push({ path: 'Status', value: this.statusFilter });
-          }
-
-          if (
-            this.componentsFilter !== '' &&
-            this.componentsFilter !== undefined
-          ) {
-            params.filters.push({
-              path: 'Components',
-              value: this.componentsFilter
-            });
-          }
-          const api = new RequestStatusesApi();
-          api
-            .requestStatusesPut({
-              pagedDataOperators: {
-                Filters: params.filters.map(
-                  (f: GridFilterDefinition): PagedDataFilter => ({
-                    Path: f.path,
-                    FilterValue: f.value
-                  })
-                ),
-                SortOrders: params.sortOrders.map(
-                  (s: GridSorterDefinition): PagedDataSorting => ({
-                    Path: s.path,
-                    Direction: s.direction?.toString()
-                  })
-                )
-              },
-              limit: params.pageSize,
-              page: params.page + 1
-            })
-            .subscribe({
-              next: (data: GetRequestStatusesListResponseDto) => {
-                data.Items?.map(
-                  item => (item.UserName = getShortLogonName(item.UserName))
-                );
-                callback(
-                  data.Items ?? [],
-                  Math.max(
-                    this.maxCountBeforeRefresh ?? 0,
-                    data.TotalItems ?? 0
-                  )
-                );
-
-                this.dispatchEvent(
-                  new CustomEvent('searching-requests-finished', {
-                    detail: data,
-                    bubbles: true,
-                    composed: true
-                  })
-                );
-              },
-              error: (err: any) => {
-                const errMessage = retrieveErrorMessage(err);
-                const notification = new ErrorNotification();
-                notification.setAttribute('errorMessage', errMessage);
-                this.shadowRoot?.appendChild(notification);
-                notification.open();
-                console.error(errMessage, err);
-                callback([], 0);
-                this.dispatchEvent(
-                  new CustomEvent('searching-requests-finished', {
-                    detail: { TotalItems: 0 },
-                    bubbles: true,
-                    composed: true
-                  })
-                );
-              },
-              complete: () => {
-                this.monitorRequestsLoaded();
-              }
-            });
-        }}
+        .dataProvider=${this.monitorDataProvider}
         style="z-index: 1"
       >
         <vaadin-grid-column
           path="Id"
           resizable
           auto-width
-          .headerRenderer="${this.idHeaderRenderer}"
-          .renderer="${this.idRenderer}"
+          ${columnHeaderRenderer(this.idHeaderRenderer, [
+            this.hubConnectionState,
+            this.autoRefresh
+          ])}
+          ${columnBodyRenderer(this.idRenderer, [])}
         ></vaadin-grid-column>
         <vaadin-grid-column
           header="Details"
           resizable
           auto-width
-          .headerRenderer="${this.detailsHeaderRenderer}"
-          .renderer="${this.detailsRenderer}"
+          ${columnHeaderRenderer(this.detailsHeaderRenderer, [])}
+          ${columnBodyRenderer(this.detailsRenderer, [])}
         >
         </vaadin-grid-column>
         <vaadin-grid-column
           resizable
-          .renderer="${this.timingsRenderer}"
+          ${columnBodyRenderer(this.timingsRenderer, [])}
           header="Timings"
           auto-width
+          ?hidden="${this._narrowScreen}"
         ></vaadin-grid-column>
         <vaadin-grid-column
           header="User"
-          .headerRenderer="${this.usersHeaderRenderer}"
-          .renderer="${this.usernameRenderer}"
+          ${columnHeaderRenderer(this.usersHeaderRenderer, [])}
+          ${columnBodyRenderer(this.usernameRenderer, [])}
           resizable
           auto-width
+          ?hidden="${this._narrowScreen}"
         >
         </vaadin-grid-column>
         <vaadin-grid-column
           path="Status"
           header="Status"
-          .headerRenderer="${this.statusHeaderRenderer}"
+          ${columnHeaderRenderer(this.statusHeaderRenderer, [])}
           resizable
           auto-width
         >
         </vaadin-grid-column>
         <vaadin-grid-column
-          .renderer="${this._requestControlsRenderer}"
+          ${columnBodyRenderer(this._requestControlsRenderer, [])}
           resizable
           width="160px"
         >
         </vaadin-grid-column>
         <vaadin-grid-column
           header="Components"
-          .headerRenderer="${this.componentsHeaderRenderer}"
-          .renderer="${this.componentsRenderer}"
+          ${columnHeaderRenderer(this.componentsHeaderRenderer, [])}
+          ${columnBodyRenderer(this.componentsRenderer, [])}
           resizable
           auto-width
+          ?hidden="${this._narrowScreen}"
         >
         </vaadin-grid-column>
       </vaadin-grid>
@@ -378,16 +368,10 @@ export class PageMonitorRequests
 
   updated(changed: PropertyValueMap<any>) {
     super.updated(changed);
-    if (changed.has('hubConnectionState') || changed.has('autoRefresh')) {
-      if (this._idHeaderRoot) {
-        // Re-render header to reflect state changes
-        this.idHeaderRenderer(this._idHeaderRoot);
-      }
-    }
   }
 
   // Router lifecycle: feed location to PageElement -> html-meta-manager updates title/description
-  public onAfterEnter(location: RouterLocation<RouteMeta>) {
+  public onAfterEnter(location: PageLocation) {
     this.location = location;
   }
 
@@ -433,6 +417,32 @@ export class PageMonitorRequests
 
   private debouncedRefreshGrid = this.debounce(() => this.refreshGrid(), 500);
 
+  // Pausing stops the hub connection entirely so the client doesn't keep
+  // (re)connecting in the background; resuming starts it again. SignalR's
+  // automatic reconnect only kicks in on connection loss, not manual stop.
+  private async toggleAutoRefresh() {
+    this.autoRefresh = !this.autoRefresh;
+    if (!this.hubConnection) return;
+    if (this.autoRefresh) {
+      if (this.hubConnection.state === HubConnectionState.Disconnected) {
+        try {
+          await this.hubConnection.start();
+        } catch (err) {
+          console.error('Error starting SignalR connection:', err);
+          this.hubConnectionState = String(err);
+          return;
+        }
+      }
+      this.hubConnectionState = this.hubConnection.state;
+      this.refreshGrid();
+    } else {
+      this.hubConnection.stop().catch(err => {
+        console.error('Error stopping SignalR connection:', err);
+      });
+      this.hubConnectionState = this.hubConnection.state;
+    }
+  }
+
   onDeploymentRequestStatusChanged(): Promise<void> {
     if (this.autoRefresh) this.debouncedRefreshGrid();
     return Promise.resolve();
@@ -447,9 +457,7 @@ export class PageMonitorRequests
   }
 
   private refreshGrid() {
-    // Avoid toggling loading overlays; simply invalidate cache
-    this.maxCountBeforeRefresh = 0;
-    this.grid?.clearCache();
+    this.silentRefresh.refresh();
   }
 
   private searchingRequestsStarted(event: CustomEvent) {
@@ -485,7 +493,6 @@ export class PageMonitorRequests
         default:
           break;
       }
-      this.maxCountBeforeRefresh = 0;
       this.grid?.clearCache();
       this.isSearching = true;
     },
@@ -517,8 +524,7 @@ export class PageMonitorRequests
 
   updateGrid() {
     if (this.grid) {
-      this.maxCountBeforeRefresh = (this.grid as any).__data?._flatSize; // there is no good way to get size of loaded items in vaadin grid(!)
-      this.grid.clearCache();
+      this.silentRefresh.refreshWithLoadingUi();
       this.isLoading = true;
     }
   }
@@ -555,78 +561,53 @@ export class PageMonitorRequests
     });
   }
 
-  private componentsRenderer(
-    root: HTMLElement,
-    _: HTMLElement,
-    model: GridItemModel<DeploymentRequestApiModel>
-  ) {
-    const request = model.item as DeploymentRequestApiModel;
+  private componentsRenderer(item: DeploymentRequestApiModel) {
+    const request = item as DeploymentRequestApiModel;
     const elements = request.Components?.split('|').sort((a, b) =>
       a.localeCompare(b)
     );
 
-    render(
-      html`
-        <vaadin-vertical-layout>
-          ${elements?.map(
-            element =>
-              html`<div
-                style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
-              >
-                ${element}
-              </div>`
-          )}
-        </vaadin-vertical-layout>
-      `,
-      root
-    );
-  }
-
-  private usernameRenderer(
-    root: HTMLElement,
-    _: HTMLElement,
-    model: GridItemModel<DeploymentRequestApiModel>
-  ) {
-    const request = model.item as DeploymentRequestApiModel;
-    render(
-      html` <div
-        style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
-      >
-        ${request.UserName}
-      </div>`,
-      root
-    );
-  }
-
-  private detailsRenderer = (
-    root: HTMLElement,
-    _: HTMLElement,
-    model: GridItemModel<DeploymentRequestApiModel>
-  ) => {
-    const request = model.item;
-    render(
-      html`
-        <vaadin-horizontal-layout style="align-items: center;" theme="spacing">
-          <vaadin-vertical-layout>
-            <div>${request.Project} - ${request.EnvironmentName}</div>
-            <div
+    return html`
+      <vaadin-vertical-layout>
+        ${elements?.map(
+          element =>
+            html`<div
               style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
             >
-              ${request.BuildNumber}
-            </div>
-          </vaadin-vertical-layout>
-        </vaadin-horizontal-layout>
-      `,
-      root
-    );
+              ${element}
+            </div>`
+        )}
+      </vaadin-vertical-layout>
+    `;
+  }
+
+  private usernameRenderer(item: DeploymentRequestApiModel) {
+    const request = item as DeploymentRequestApiModel;
+    return html` <div
+      style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
+    >
+      ${request.UserName}
+    </div>`;
+  }
+
+  private detailsRenderer = (item: DeploymentRequestApiModel) => {
+    const request = item;
+    return html`
+      <vaadin-horizontal-layout style="align-items: center;" theme="spacing">
+        <vaadin-vertical-layout>
+          <div>${request.Project} - ${request.EnvironmentName}</div>
+          <div
+            style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
+          >
+            ${request.BuildNumber}
+          </div>
+        </vaadin-vertical-layout>
+      </vaadin-horizontal-layout>
+    `;
   };
 
-  private timingsRenderer = (
-    root: HTMLElement,
-    _: HTMLElement,
-    model: GridItemModel<DeploymentRequestApiModel>
-  ) => {
-    const request = model.item as DeploymentRequestApiModel;
+  private timingsRenderer = (item: DeploymentRequestApiModel) => {
+    const request = item as DeploymentRequestApiModel;
     let sTime = '';
     let sDate = '';
     let cTime = '';
@@ -654,271 +635,187 @@ export class PageMonitorRequests
       );
     }
 
-    render(
-      html`
-        <vaadin-horizontal-layout style="align-items: center;" theme="spacing">
-          <vaadin-vertical-layout
-            style="line-height: var(--lumo-line-height-s);"
-          >
-            <div
-              style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
-            >
-              ${`${sDate} ${sTime}`}
-            </div>
-            <div
-              style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
-            >
-              ${`${cDate} ${cTime}`}
-            </div>
-          </vaadin-vertical-layout>
-        </vaadin-horizontal-layout>
-      `,
-      root
-    );
-  };
-
-  private idRenderer = (
-    root: HTMLElement,
-    _: HTMLElement,
-    model: GridItemModel<DeploymentRequestApiModel>
-  ) => {
-    const request = model.item;
-    render(
-      html`
-        <vaadin-horizontal-layout style="align-items: center;" theme="spacing">
-          <span
+    return html`
+      <vaadin-horizontal-layout style="align-items: center;" theme="spacing">
+        <vaadin-vertical-layout style="line-height: var(--lumo-line-height-s);">
+          <div
             style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
           >
-            ${request.Id}
-          </span>
-          <vaadin-button
-            title="View Detailed Results"
-            theme="icon small"
-            @click="${() => {
-              const event = new CustomEvent('open-monitor-result', {
-                detail: {
-                  request,
-                  message: 'Show results for Request'
-                },
-                bubbles: true,
-                composed: true
-              });
-              this.dispatchEvent(event);
-            }}"
+            ${`${sDate} ${sTime}`}
+          </div>
+          <div
+            style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
           >
-            <vaadin-icon
-              icon="vaadin:ellipsis-dots-h"
-              style="color: var(--dorc-link-color)"
-            ></vaadin-icon>
-          </vaadin-button>
-        </vaadin-horizontal-layout>
-      `,
-      root
-    );
+            ${`${cDate} ${cTime}`}
+          </div>
+        </vaadin-vertical-layout>
+      </vaadin-horizontal-layout>
+    `;
   };
 
-  _requestControlsRenderer(
-    root: HTMLElement,
-    _: HTMLElement,
-    { item }: GridItemModel<DeploymentRequestApiModel>
-  ) {
-    render(
-      html` <request-controls
-        .requestId=${item.Id ?? 0}
-        .cancelable=${!!item.UserEditable &&
+  private idRenderer = (item: DeploymentRequestApiModel) => {
+    const request = item;
+    return html`
+      <button
+        type="button"
+        class="id-btn"
+        @click="${(e: Event) => {
+          e.stopPropagation();
+          this.dispatchEvent(
+            new CustomEvent('open-monitor-result', {
+              detail: { request, message: 'Show results for Request' },
+              bubbles: true,
+              composed: true
+            })
+          );
+        }}"
+      >
+        ${request.Id}
+      </button>
+    `;
+  };
+
+  _requestControlsRenderer(item: DeploymentRequestApiModel) {
+    return html` <request-controls
+      .requestId=${item.Id ?? 0}
+      .cancelable=${
+        !!item.UserEditable &&
         (item.Status === 'Running' ||
           item.Status === 'Requesting' ||
           item.Status === 'Pending' ||
           item.Status === 'Restarting' ||
-          item.Status === 'Paused')}
-        .canRestart=${!!item.UserEditable &&
+          item.Status === 'Paused')
+      }
+      .canRestart=${
+        !!item.UserEditable &&
         item.Status !== 'Pending' &&
-        item.Status !== 'Paused'}
-        .canPause=${!!item.UserEditable && item.Status === 'Pending'}
-        .canResume=${!!item.UserEditable && item.Status === 'Paused'}
-      ></request-controls>`,
-      root
-    );
+        item.Status !== 'Paused'
+      }
+      .canPause=${!!item.UserEditable && item.Status === 'Pending'}
+      .canResume=${!!item.UserEditable && item.Status === 'Paused'}
+    ></request-controls>`;
   }
 
-  idHeaderRenderer = (root: HTMLElement) => {
-    // Store root for future manual re-renders
-    this._idHeaderRoot = root;
-    render(
-      html`
-        <vaadin-horizontal-layout
-          style="align-items:center; gap:2px;"
-          theme="spacing-xs"
+  idHeaderRenderer = () => html`
+    <vaadin-horizontal-layout
+      style="align-items:center; gap:2px;"
+      theme="spacing-xs"
+    >
+      <connection-status-indicator
+        mode="toggle"
+        .state="${this.hubConnectionState}"
+        .autoRefresh="${this.autoRefresh}"
+        @toggle-auto-refresh="${() => {
+          void this.toggleAutoRefresh();
+        }}"
+      ></connection-status-indicator>
+
+      ${
+        !this.autoRefresh
+          ? html`
+              <vaadin-button
+                theme="icon small"
+                style="padding:0;margin:0"
+                aria-label="Manual refresh"
+                @click="${() => {
+                  const event = new CustomEvent('refresh-requests', {
+                    detail: {},
+                    bubbles: true,
+                    composed: true
+                  });
+                  this.dispatchEvent(event);
+                }}"
+              >
+                <vaadin-tooltip
+                  slot="tooltip"
+                  text="Manual refresh"
+                ></vaadin-tooltip>
+                <vaadin-icon
+                  icon="icons:refresh"
+                  style="color: var(--dorc-link-color)"
+                ></vaadin-icon>
+              </vaadin-button>
+            `
+          : null
+      }
+
+      <vaadin-grid-sorter
+        path="Id"
+        direction="desc"
+        style="align-items: normal"
+      ></vaadin-grid-sorter>
+
+      <vaadin-text-field
+        placeholder="Id"
+        clear-button-visible
+        focus-target
+        style="width: 100px"
+        theme="small"
+        @input="${(e: InputEvent) => {
+          const textField = e.target as any;
+          this.dispatchEvent(
+            new CustomEvent('searching-requests-started', {
+              detail: {
+                field: id,
+                value: textField?.value
+              },
+              bubbles: true,
+              composed: true
+            })
+          );
+        }}"
+      ></vaadin-text-field>
+    </vaadin-horizontal-layout>
+  `;
+
+  detailsHeaderRenderer = () => {
+    return html`
+      <div style="display: flex; align-items: center; gap: 2px;">
+        <vaadin-grid-sorter
+          path="Project"
+          style="align-items: normal; flex: 0 0 auto;"
+        ></vaadin-grid-sorter>
+        <vaadin-text-field
+          placeholder="Project"
+          title="starts with"
+          clear-button-visible
+          focus-target
+          style="width: 90px;"
+          theme="small"
+          @input="${(e: InputEvent) => {
+            const textField = e.target as any;
+            this.dispatchEvent(
+              new CustomEvent('searching-requests-started', {
+                detail: {
+                  field: project,
+                  value: textField?.value
+                },
+                bubbles: true,
+                composed: true
+              })
+            );
+          }}"
+        ></vaadin-text-field>
+        <span style="flex: 0 0 auto; color: var(--lumo-secondary-text-color);"
+          >-</span
         >
-          <connection-status-indicator
-            mode="toggle"
-            .state="${this.hubConnectionState}"
-            .autoRefresh="${this.autoRefresh}"
-            @toggle-auto-refresh="${() => {
-              this.autoRefresh = !this.autoRefresh;
-              if (this.autoRefresh) {
-                this.refreshGrid();
-              }
-              this.idHeaderRenderer(root);
-            }}"
-          ></connection-status-indicator>
-
-          ${!this.autoRefresh
-            ? html`
-                <vaadin-button
-                  theme="icon small"
-                  style="padding:0;margin:0"
-                  title="Manual refresh"
-                  @click="${() => {
-                    const event = new CustomEvent('refresh-requests', {
-                      detail: {},
-                      bubbles: true,
-                      composed: true
-                    });
-                    this.dispatchEvent(event);
-                  }}"
-                >
-                  <vaadin-icon
-                    icon="icons:refresh"
-                    style="color: var(--dorc-link-color)"
-                  ></vaadin-icon>
-                </vaadin-button>
-              `
-            : null}
-
-          <vaadin-grid-sorter
-            path="Id"
-            direction="desc"
-            style="align-items: normal"
-          ></vaadin-grid-sorter>
-
-          <vaadin-text-field
-            placeholder="Id"
-            clear-button-visible
-            focus-target
-            style="width: 100px"
-            theme="small"
-            @input="${(e: InputEvent) => {
-              const textField = e.target as any;
-              this.dispatchEvent(
-                new CustomEvent('searching-requests-started', {
-                  detail: {
-                    field: id,
-                    value: textField?.value
-                  },
-                  bubbles: true,
-                  composed: true
-                })
-              );
-            }}"
-          ></vaadin-text-field>
-        </vaadin-horizontal-layout>
-      `,
-      root
-    );
-  };
-
-  detailsHeaderRenderer = (root: HTMLElement) => {
-    render(
-      html`
-        <div style="display: flex; align-items: center; gap: 2px;">
-          <vaadin-grid-sorter
-            path="Project"
-            style="align-items: normal; flex: 0 0 auto;"
-          ></vaadin-grid-sorter>
-          <vaadin-text-field
-            placeholder="Project"
-            clear-button-visible
-            focus-target
-            style="width: 90px;"
-            theme="small"
-            @input="${(e: InputEvent) => {
-              const textField = e.target as any;
-              this.dispatchEvent(
-                new CustomEvent('searching-requests-started', {
-                  detail: {
-                    field: project,
-                    value: textField?.value
-                  },
-                  bubbles: true,
-                  composed: true
-                })
-              );
-            }}"
-          ></vaadin-text-field>
-          <span style="flex: 0 0 auto; color: var(--lumo-secondary-text-color);"
-            >-</span
-          >
-          <vaadin-grid-sorter
-            path="EnvironmentName"
-            style="align-items: normal; flex: 0 0 auto;"
-          ></vaadin-grid-sorter>
-          <vaadin-text-field
-            placeholder="Environment"
-            clear-button-visible
-            focus-target
-            style="width: 110px;"
-            theme="small"
-            @input="${(e: InputEvent) => {
-              const textField = e.target as any;
-              this.dispatchEvent(
-                new CustomEvent('searching-requests-started', {
-                  detail: {
-                    field: environment,
-                    value: textField?.value
-                  },
-                  bubbles: true,
-                  composed: true
-                })
-              );
-            }}"
-          ></vaadin-text-field>
-          <vaadin-grid-sorter
-            path="BuildNumber"
-            style="align-items: normal; flex: 0 0 auto;"
-          ></vaadin-grid-sorter>
-          <vaadin-text-field
-            placeholder="Build"
-            clear-button-visible
-            focus-target
-            style="width: 80px;"
-            theme="small"
-            @input="${(e: InputEvent) => {
-              const textField = e.target as any;
-              this.dispatchEvent(
-                new CustomEvent('searching-requests-started', {
-                  detail: {
-                    field: buildNumber,
-                    value: textField?.value
-                  },
-                  bubbles: true,
-                  composed: true
-                })
-              );
-            }}"
-          ></vaadin-text-field>
-        </div>
-      `,
-      root
-    );
-  };
-
-  usersHeaderRenderer = (root: HTMLElement) => {
-    render(
-      html`
+        <vaadin-grid-sorter
+          path="EnvironmentName"
+          style="align-items: normal; flex: 0 0 auto;"
+        ></vaadin-grid-sorter>
         <vaadin-text-field
-          placeholder="Username"
+          placeholder="Environment"
+          title="starts with"
           clear-button-visible
           focus-target
-          style="width: 100px"
+          style="width: 110px;"
           theme="small"
           @input="${(e: InputEvent) => {
             const textField = e.target as any;
-
             this.dispatchEvent(
               new CustomEvent('searching-requests-started', {
                 detail: {
-                  field: username,
+                  field: environment,
                   value: textField?.value
                 },
                 bubbles: true,
@@ -927,27 +824,23 @@ export class PageMonitorRequests
             );
           }}"
         ></vaadin-text-field>
-      `,
-      root
-    );
-  };
-
-  statusHeaderRenderer = (root: HTMLElement) => {
-    render(
-      html`
+        <vaadin-grid-sorter
+          path="BuildNumber"
+          style="align-items: normal; flex: 0 0 auto;"
+        ></vaadin-grid-sorter>
         <vaadin-text-field
-          placeholder="Status"
+          placeholder="Build#"
+          title="contains"
           clear-button-visible
           focus-target
-          style="width: 100px"
+          style="width: 80px;"
           theme="small"
           @input="${(e: InputEvent) => {
             const textField = e.target as any;
-
             this.dispatchEvent(
               new CustomEvent('searching-requests-started', {
                 detail: {
-                  field: status,
+                  field: buildNumber,
                   value: textField?.value
                 },
                 bubbles: true,
@@ -956,36 +849,84 @@ export class PageMonitorRequests
             );
           }}"
         ></vaadin-text-field>
-      `,
-      root
-    );
+      </div>
+    `;
   };
 
-  componentsHeaderRenderer = (root: HTMLElement) => {
-    render(
-      html`
-        <vaadin-text-field
-          placeholder="Components"
-          clear-button-visible
-          focus-target
-          style="width: 110px"
-          theme="small"
-          @input="${(e: InputEvent) => {
-            const textField = e.target as any;
-            this.dispatchEvent(
-              new CustomEvent('searching-requests-started', {
-                detail: {
-                  field: components,
-                  value: textField?.value
-                },
-                bubbles: true,
-                composed: true
-              })
-            );
-          }}"
-        ></vaadin-text-field>
-      `,
-      root
-    );
+  usersHeaderRenderer = () => {
+    return html`
+      <vaadin-text-field
+        placeholder="Username"
+        clear-button-visible
+        focus-target
+        style="width: 100px"
+        theme="small"
+        @input="${(e: InputEvent) => {
+          const textField = e.target as any;
+
+          this.dispatchEvent(
+            new CustomEvent('searching-requests-started', {
+              detail: {
+                field: username,
+                value: textField?.value
+              },
+              bubbles: true,
+              composed: true
+            })
+          );
+        }}"
+      ></vaadin-text-field>
+    `;
+  };
+
+  statusHeaderRenderer = () => {
+    return html`
+      <vaadin-text-field
+        placeholder="Status"
+        clear-button-visible
+        focus-target
+        style="width: 100px"
+        theme="small"
+        @input="${(e: InputEvent) => {
+          const textField = e.target as any;
+
+          this.dispatchEvent(
+            new CustomEvent('searching-requests-started', {
+              detail: {
+                field: status,
+                value: textField?.value
+              },
+              bubbles: true,
+              composed: true
+            })
+          );
+        }}"
+      ></vaadin-text-field>
+    `;
+  };
+
+  componentsHeaderRenderer = () => {
+    return html`
+      <vaadin-text-field
+        placeholder="Components"
+        clear-button-visible
+        focus-target
+        style="width: 110px"
+        theme="small"
+        @input="${(e: InputEvent) => {
+          const textField = e.target as any;
+          this.dispatchEvent(
+            new CustomEvent('searching-requests-started', {
+              detail: {
+                field: components,
+                value: textField?.value
+              },
+              bubbles: true,
+              composed: true
+            })
+          );
+        }}"
+      ></vaadin-text-field>
+    `;
   };
 }

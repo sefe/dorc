@@ -1,3 +1,4 @@
+import { comboBoxRenderer } from '@vaadin/combo-box/lit';
 import '@vaadin/button';
 import '@vaadin/combo-box';
 import '@vaadin/text-field';
@@ -8,9 +9,9 @@ import { nothing } from 'lit';
 import { AddEndurUserOrGroup } from './add-endur-user-or-group';
 
 import { renderSearchResults } from './utilities/addUserOrGroupTemplateHelper';
+import '@vaadin/vertical-layout';
 
 export function addEndurUserOrGroupTemplate(this: AddEndurUserOrGroup) {
-
   const maxFieldLength = 50;
 
   return html` <div>
@@ -24,7 +25,7 @@ export function addEndurUserOrGroupTemplate(this: AddEndurUserOrGroup) {
               label="System Account Identifier Filter"
               @keypress="${this.filterKeypressed}"
               value="${this.winIdFilter}"
-              allowed-char-pattern="[a-zA-Z0-9-_.' ()&]"
+              allowed-char-pattern="[a-zA-Z0-9-_.' ()&amp;]"
             >
             </vaadin-text-field>
           </td>
@@ -37,9 +38,11 @@ export function addEndurUserOrGroupTemplate(this: AddEndurUserOrGroup) {
             </vaadin-button>
           </td>
           <td class="acc-filter__ldr-td">
-            ${this.isUserOrGroupLoadingCompleted
-              ? html`${nothing}`
-              : html`<div class="acc-filter__small-loader"></div> `}
+            ${
+              this.isUserOrGroupLoadingCompleted
+                ? html`${nothing}`
+                : html`<div class="acc-filter__small-loader"></div> `
+            }
           </td>
         </tr>
       </table>
@@ -50,7 +53,7 @@ export function addEndurUserOrGroupTemplate(this: AddEndurUserOrGroup) {
         item-value-path="FullLogonName"
         item-label-path="DisplayName"
         .disabled="${!this.isUserOrGroupListEnabled}"
-        .renderer="${renderSearchResults}"
+        ${comboBoxRenderer(renderSearchResults, [])}
         .items="${this.searchResults}"
         @change="${this.filteredUserOrGroupSelected}"
       >

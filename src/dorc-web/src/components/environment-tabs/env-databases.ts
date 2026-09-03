@@ -13,14 +13,19 @@ import { PageEnvBase } from './page-env-base';
 import '@vaadin/dialog';
 import { DialogOpenedChangedEvent } from '@vaadin/dialog';
 import { dialogFooterRenderer, dialogRenderer } from '@vaadin/dialog/lit';
-import { DatabaseApiModel, EnvironmentContentApiModel, RefDataEnvironmentsDetailsApi } from '../../apis/dorc-api';
+import {
+  DatabaseApiModel,
+  EnvironmentContentApiModel,
+  RefDataEnvironmentsDetailsApi
+} from '../../apis/dorc-api';
+import { dorcApiConfiguration } from '../../services/dorc-api-configuration';
 
 @customElement('env-databases')
 export class EnvDatabases extends PageEnvBase {
   @property({ type: Array })
   databases: Array<DatabaseApiModel> | undefined = [];
 
-  @property({ type: Boolean }) private envReadOnly = false;
+  @property({ type: Boolean }) envReadOnly = false;
 
   @state()
   private attachDatabaseDialogOpened = false;
@@ -28,7 +33,10 @@ export class EnvDatabases extends PageEnvBase {
   static get styles() {
     return css`
       :host {
+        display: flex;
+        flex-direction: column;
         width: 100%;
+        height: 100%;
       }
       .span {
         font-family: var(--lumo-font-family);
@@ -43,14 +51,15 @@ export class EnvDatabases extends PageEnvBase {
         vertical-align: middle;
       }
       .buttons {
-        font-size: 10px;
+        font-size: var(--lumo-font-size-s);
         color: var(--dorc-link-color);
-        padding: 2px;
+        padding: var(--lumo-space-xs);
       }
       vaadin-details {
         overflow: auto;
         width: calc(100% - 4px);
-        height: calc(100vh - 180px);
+        flex: 1;
+        min-height: 0;
         --divider-color: var(--dorc-border-color);
       }
     `;
@@ -66,20 +75,21 @@ export class EnvDatabases extends PageEnvBase {
         <div>
           <div class="inline">
             <div class="inline">
-                  <vaadin-button
-                    title="Attach Database"
-                    @click="${this.openAttachDatabaseDialog}"
-                    .disabled="${!this.environment?.UserEditable}"
-                  >Attach Database</vaadin-button>
+              <vaadin-button
+                title="Attach Database"
+                @click="${this.openAttachDatabaseDialog}"
+                .disabled="${!this.environment?.UserEditable}"
+                >Attach Database</vaadin-button
+              >
               <vaadin-dialog
-                id='attach-database-dialog'
-                header-title='Attach Database'
-                .opened='${this.attachDatabaseDialogOpened}'
+                id="attach-database-dialog"
+                header-title="Attach Database"
+                .opened="${this.attachDatabaseDialogOpened}"
                 draggable
-                @opened-changed='${(event: DialogOpenedChangedEvent) => {
+                @opened-changed="${(event: DialogOpenedChangedEvent) => {
                   this.attachDatabaseDialogOpened = event.detail.value;
-                }}'
-                ${dialogRenderer(this.renderAttachDatabaseDialog, [])}
+                }}"
+                ${dialogRenderer(this.renderAttachDatabaseDialog, [this.databases, this.environmentId])}
                 ${dialogFooterRenderer(this.renderAttachDatabaseFooter, [])}
               ></vaadin-dialog>
             </div>
@@ -124,7 +134,7 @@ export class EnvDatabases extends PageEnvBase {
 
   refreshDatabases() {
     if (!this.environmentId || this.environmentId === -1) return;
-    const api = new RefDataEnvironmentsDetailsApi();
+    const api = new RefDataEnvironmentsDetailsApi(dorcApiConfiguration);
     api.refDataEnvironmentsDetailsIdGet({ id: this.environmentId }).subscribe(
       (data: EnvironmentContentApiModel) => {
         this.setDatabases(data);
@@ -143,7 +153,7 @@ export class EnvDatabases extends PageEnvBase {
       data?.DbServers !== null
         ? data?.DbServers?.sort(this.sortDbs)
         : undefined;
-  }
+  };
 
   override notifyEnvironmentContentReady() {
     this.envReadOnly = !this.environment?.UserEditable;
@@ -153,12 +163,15 @@ export class EnvDatabases extends PageEnvBase {
   sortDbs(a: DatabaseApiModel, b: DatabaseApiModel): number {
     if (String(a.Name).toLowerCase() > String(b.Name).toLowerCase()) return 1;
     if (a.Name?.toLowerCase() === b.Name?.toLowerCase()) {
-      if (String(a.ServerName).toLowerCase() > String(b.ServerName).toLowerCase()) return 1;
+      if (
+        String(a.ServerName).toLowerCase() > String(b.ServerName).toLowerCase()
+      )
+        return 1;
       return -1;
     }
     return -1;
   }
-    private renderAttachDatabaseDialog = () => html`
+  private renderAttachDatabaseDialog = () => html`
     <attach-database
       id="attach-database"
       .envId="${this.environmentId}"
@@ -168,10 +181,10 @@ export class EnvDatabases extends PageEnvBase {
   `;
 
   private renderAttachDatabaseFooter = () => html`
-  <div style="display: flex; justify-content: flex-end">
-    <vaadin-button @click="${this.closeAttachDatabaseDialog}"
-      >Close</vaadin-button
-    >
+    <div style="display: flex; justify-content: flex-end">
+      <vaadin-button @click="${this.closeAttachDatabaseDialog}"
+        >Close</vaadin-button
+      >
     </div>
   `;
 

@@ -1,4 +1,5 @@
 using Dorc.Api.Interfaces;
+using Dorc.Api.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Swashbuckle.AspNetCore.Annotations;
@@ -43,6 +44,10 @@ namespace Dorc.Api.Controllers
 
                 return Ok(await _serviceNowService.ValidateChangeRequestAsync(crNumber));
             }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error validating CR {CrNumber}: {Message}", Sanitize(crNumber), ex.Message);
@@ -73,6 +78,10 @@ namespace Dorc.Api.Controllers
                 var result = await _serviceNowService.CreateChangeRequestAsync(input);
                 return result.Success ? Ok(result) : BadRequest(result);
             }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error creating AutoCR");
@@ -99,6 +108,10 @@ namespace Dorc.Api.Controllers
                 input.CrInputsFetched = true;
                 _logger.LogInformation("Auto-fetched cr-inputs.json for project '{Project}': group='{Group}', service='{Service}'",
                     Sanitize(input.ProjectName), Sanitize(input.AssignmentGroup), Sanitize(input.BusinessService));
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception ex)
             {

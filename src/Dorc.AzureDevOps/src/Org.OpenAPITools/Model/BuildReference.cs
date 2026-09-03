@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// Represents a reference to a build.
     /// </summary>
     [DataContract(Name = "BuildReference")]
-    public partial class BuildReference : IEquatable<BuildReference>, IValidatableObject
+    public partial class BuildReference : IValidatableObject
     {
         /// <summary>
         /// The build result.
@@ -68,7 +68,6 @@ namespace Org.OpenAPITools.Model
             /// </summary>
             [EnumMember(Value = "canceled")]
             Canceled = 5
-
         }
 
 
@@ -126,7 +125,6 @@ namespace Org.OpenAPITools.Model
             /// </summary>
             [EnumMember(Value = "all")]
             All = 7
-
         }
 
 
@@ -149,7 +147,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="result">The build result..</param>
         /// <param name="startTime">The time that the build was started..</param>
         /// <param name="status">The build status..</param>
-        public BuildReference(ReferenceLinks links = default(ReferenceLinks), string buildNumber = default(string), bool deleted = default(bool), DateTime finishTime = default(DateTime), int id = default(int), DateTime queueTime = default(DateTime), IdentityRef requestedFor = default(IdentityRef), ResultEnum? result = default(ResultEnum?), DateTime startTime = default(DateTime), StatusEnum? status = default(StatusEnum?))
+        public BuildReference(ReferenceLinks links = default, string buildNumber = default, bool deleted = default, DateTime finishTime = default, int id = default, DateTime queueTime = default, IdentityRef requestedFor = default, ResultEnum? result = default, DateTime startTime = default, StatusEnum? status = default)
         {
             this.Links = links;
             this.BuildNumber = buildNumber;
@@ -249,122 +247,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as BuildReference);
-        }
-
-        /// <summary>
-        /// Returns true if BuildReference instances are equal
-        /// </summary>
-        /// <param name="input">Instance of BuildReference to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(BuildReference input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.Links == input.Links ||
-                    (this.Links != null &&
-                    this.Links.Equals(input.Links))
-                ) && 
-                (
-                    this.BuildNumber == input.BuildNumber ||
-                    (this.BuildNumber != null &&
-                    this.BuildNumber.Equals(input.BuildNumber))
-                ) && 
-                (
-                    this.Deleted == input.Deleted ||
-                    this.Deleted.Equals(input.Deleted)
-                ) && 
-                (
-                    this.FinishTime == input.FinishTime ||
-                    (this.FinishTime != null &&
-                    this.FinishTime.Equals(input.FinishTime))
-                ) && 
-                (
-                    this.Id == input.Id ||
-                    this.Id.Equals(input.Id)
-                ) && 
-                (
-                    this.QueueTime == input.QueueTime ||
-                    (this.QueueTime != null &&
-                    this.QueueTime.Equals(input.QueueTime))
-                ) && 
-                (
-                    this.RequestedFor == input.RequestedFor ||
-                    (this.RequestedFor != null &&
-                    this.RequestedFor.Equals(input.RequestedFor))
-                ) && 
-                (
-                    this.Result == input.Result ||
-                    this.Result.Equals(input.Result)
-                ) && 
-                (
-                    this.StartTime == input.StartTime ||
-                    (this.StartTime != null &&
-                    this.StartTime.Equals(input.StartTime))
-                ) && 
-                (
-                    this.Status == input.Status ||
-                    this.Status.Equals(input.Status)
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.Links != null)
-                {
-                    hashCode = (hashCode * 59) + this.Links.GetHashCode();
-                }
-                if (this.BuildNumber != null)
-                {
-                    hashCode = (hashCode * 59) + this.BuildNumber.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.Deleted.GetHashCode();
-                if (this.FinishTime != null)
-                {
-                    hashCode = (hashCode * 59) + this.FinishTime.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.Id.GetHashCode();
-                if (this.QueueTime != null)
-                {
-                    hashCode = (hashCode * 59) + this.QueueTime.GetHashCode();
-                }
-                if (this.RequestedFor != null)
-                {
-                    hashCode = (hashCode * 59) + this.RequestedFor.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.Result.GetHashCode();
-                if (this.StartTime != null)
-                {
-                    hashCode = (hashCode * 59) + this.StartTime.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.Status.GetHashCode();
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

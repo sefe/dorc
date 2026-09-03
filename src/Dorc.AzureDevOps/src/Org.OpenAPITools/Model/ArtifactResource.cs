@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// ArtifactResource
     /// </summary>
     [DataContract(Name = "ArtifactResource")]
-    public partial class ArtifactResource : IEquatable<ArtifactResource>, IValidatableObject
+    public partial class ArtifactResource : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="ArtifactResource" /> class.
@@ -41,7 +41,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="properties">Type-specific properties of the artifact..</param>
         /// <param name="type">The type of the resource: File container, version control folder, UNC path, etc..</param>
         /// <param name="url">The full http link to the resource..</param>
-        public ArtifactResource(ReferenceLinks links = default(ReferenceLinks), string data = default(string), string downloadUrl = default(string), Dictionary<string, string> properties = default(Dictionary<string, string>), string type = default(string), string url = default(string))
+        public ArtifactResource(ReferenceLinks links = default, string data = default, string downloadUrl = default, Dictionary<string, string> properties = default, string type = default, string url = default)
         {
             this.Links = links;
             this.Data = data;
@@ -120,103 +120,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as ArtifactResource);
-        }
-
-        /// <summary>
-        /// Returns true if ArtifactResource instances are equal
-        /// </summary>
-        /// <param name="input">Instance of ArtifactResource to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(ArtifactResource input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.Links == input.Links ||
-                    (this.Links != null &&
-                    this.Links.Equals(input.Links))
-                ) && 
-                (
-                    this.Data == input.Data ||
-                    (this.Data != null &&
-                    this.Data.Equals(input.Data))
-                ) && 
-                (
-                    this.DownloadUrl == input.DownloadUrl ||
-                    (this.DownloadUrl != null &&
-                    this.DownloadUrl.Equals(input.DownloadUrl))
-                ) && 
-                (
-                    this.Properties == input.Properties ||
-                    this.Properties != null &&
-                    input.Properties != null &&
-                    this.Properties.SequenceEqual(input.Properties)
-                ) && 
-                (
-                    this.Type == input.Type ||
-                    (this.Type != null &&
-                    this.Type.Equals(input.Type))
-                ) && 
-                (
-                    this.Url == input.Url ||
-                    (this.Url != null &&
-                    this.Url.Equals(input.Url))
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.Links != null)
-                {
-                    hashCode = (hashCode * 59) + this.Links.GetHashCode();
-                }
-                if (this.Data != null)
-                {
-                    hashCode = (hashCode * 59) + this.Data.GetHashCode();
-                }
-                if (this.DownloadUrl != null)
-                {
-                    hashCode = (hashCode * 59) + this.DownloadUrl.GetHashCode();
-                }
-                if (this.Properties != null)
-                {
-                    hashCode = (hashCode * 59) + this.Properties.GetHashCode();
-                }
-                if (this.Type != null)
-                {
-                    hashCode = (hashCode * 59) + this.Type.GetHashCode();
-                }
-                if (this.Url != null)
-                {
-                    hashCode = (hashCode * 59) + this.Url.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

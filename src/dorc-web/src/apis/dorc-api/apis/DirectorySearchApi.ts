@@ -14,7 +14,7 @@
 import type { Observable } from 'rxjs';
 import type { AjaxResponse } from 'rxjs/ajax';
 import { BaseAPI } from '../runtime';
-import type { OperationOpts, HttpQuery } from '../runtime';
+import type { OperationOpts, HttpHeaders, HttpQuery } from '../runtime';
 import type {
     ApiBoolResult,
     GroupSearchResult,
@@ -45,6 +45,16 @@ export class DirectorySearchApi extends BaseAPI {
     directorySearchGroupsGet({ groupSearchCriteria }: DirectorySearchGroupsGetRequest, opts?: OperationOpts): Observable<AjaxResponse<Array<GroupSearchResult>>>
     directorySearchGroupsGet({ groupSearchCriteria }: DirectorySearchGroupsGetRequest, opts?: OperationOpts): Observable<Array<GroupSearchResult> | AjaxResponse<Array<GroupSearchResult>>> {
 
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         const query: HttpQuery = {};
 
         if (groupSearchCriteria != null) { query['groupSearchCriteria'] = groupSearchCriteria; }
@@ -52,6 +62,7 @@ export class DirectorySearchApi extends BaseAPI {
         return this.request<Array<GroupSearchResult>>({
             url: '/DirectorySearch/groups',
             method: 'GET',
+            headers,
             query,
         }, opts?.responseOpts);
     };
@@ -62,6 +73,16 @@ export class DirectorySearchApi extends BaseAPI {
     directorySearchIsuseringroupGet({ groupName, account }: DirectorySearchIsuseringroupGetRequest, opts?: OperationOpts): Observable<AjaxResponse<ApiBoolResult>>
     directorySearchIsuseringroupGet({ groupName, account }: DirectorySearchIsuseringroupGetRequest, opts?: OperationOpts): Observable<ApiBoolResult | AjaxResponse<ApiBoolResult>> {
 
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         const query: HttpQuery = {};
 
         if (groupName != null) { query['groupName'] = groupName; }
@@ -70,6 +91,7 @@ export class DirectorySearchApi extends BaseAPI {
         return this.request<ApiBoolResult>({
             url: '/DirectorySearch/isuseringroup',
             method: 'GET',
+            headers,
             query,
         }, opts?.responseOpts);
     };
@@ -80,6 +102,16 @@ export class DirectorySearchApi extends BaseAPI {
     directorySearchUsersGet({ userSearchCriteria }: DirectorySearchUsersGetRequest, opts?: OperationOpts): Observable<AjaxResponse<Array<UserSearchResult>>>
     directorySearchUsersGet({ userSearchCriteria }: DirectorySearchUsersGetRequest, opts?: OperationOpts): Observable<Array<UserSearchResult> | AjaxResponse<Array<UserSearchResult>>> {
 
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         const query: HttpQuery = {};
 
         if (userSearchCriteria != null) { query['userSearchCriteria'] = userSearchCriteria; }
@@ -87,6 +119,7 @@ export class DirectorySearchApi extends BaseAPI {
         return this.request<Array<UserSearchResult>>({
             url: '/DirectorySearch/users',
             method: 'GET',
+            headers,
             query,
         }, opts?.responseOpts);
     };

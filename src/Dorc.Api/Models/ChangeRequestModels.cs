@@ -1,4 +1,4 @@
-namespace Dorc.Api.Interfaces
+namespace Dorc.Api.Models
 {
     public class CreateChangeRequestInput
     {

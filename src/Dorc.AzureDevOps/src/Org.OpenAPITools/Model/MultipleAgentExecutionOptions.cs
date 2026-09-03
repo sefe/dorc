@@ -27,23 +27,30 @@ using OpenAPIDateConverter = Org.OpenAPITools.Client.OpenAPIDateConverter;
 namespace Org.OpenAPITools.Model
 {
     /// <summary>
-    /// Represents options for running a phase against multiple agents.
+    /// MultipleAgentExecutionOptions
     /// </summary>
     [DataContract(Name = "MultipleAgentExecutionOptions")]
-    public partial class MultipleAgentExecutionOptions : IEquatable<MultipleAgentExecutionOptions>, IValidatableObject
+    public partial class MultipleAgentExecutionOptions : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="MultipleAgentExecutionOptions" /> class.
         /// </summary>
+        /// <param name="type">Indicates the type of execution options..</param>
         /// <param name="continueOnError">Indicates whether failure on one agent should prevent the phase from running on other agents..</param>
         /// <param name="maxConcurrency">The maximum number of agents to use simultaneously..</param>
-        /// <param name="type">Indicates the type of execution options..</param>
-        public MultipleAgentExecutionOptions(bool continueOnError = default(bool), int maxConcurrency = default(int), int type = default(int))
+        public MultipleAgentExecutionOptions(int type = default, bool continueOnError = default, int maxConcurrency = default)
         {
+            this.Type = type;
             this.ContinueOnError = continueOnError;
             this.MaxConcurrency = maxConcurrency;
-            this.Type = type;
         }
+
+        /// <summary>
+        /// Indicates the type of execution options.
+        /// </summary>
+        /// <value>Indicates the type of execution options.</value>
+        [DataMember(Name = "type", EmitDefaultValue = false)]
+        public int Type { get; set; }
 
         /// <summary>
         /// Indicates whether failure on one agent should prevent the phase from running on other agents.
@@ -60,13 +67,6 @@ namespace Org.OpenAPITools.Model
         public int MaxConcurrency { get; set; }
 
         /// <summary>
-        /// Indicates the type of execution options.
-        /// </summary>
-        /// <value>Indicates the type of execution options.</value>
-        [DataMember(Name = "type", EmitDefaultValue = false)]
-        public int Type { get; set; }
-
-        /// <summary>
         /// Returns the string presentation of the object
         /// </summary>
         /// <returns>String presentation of the object</returns>
@@ -74,9 +74,9 @@ namespace Org.OpenAPITools.Model
         {
             StringBuilder sb = new StringBuilder();
             sb.Append("class MultipleAgentExecutionOptions {\n");
+            sb.Append("  Type: ").Append(Type).Append("\n");
             sb.Append("  ContinueOnError: ").Append(ContinueOnError).Append("\n");
             sb.Append("  MaxConcurrency: ").Append(MaxConcurrency).Append("\n");
-            sb.Append("  Type: ").Append(Type).Append("\n");
             sb.Append("}\n");
             return sb.ToString();
         }
@@ -91,63 +91,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as MultipleAgentExecutionOptions);
-        }
-
-        /// <summary>
-        /// Returns true if MultipleAgentExecutionOptions instances are equal
-        /// </summary>
-        /// <param name="input">Instance of MultipleAgentExecutionOptions to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(MultipleAgentExecutionOptions input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.ContinueOnError == input.ContinueOnError ||
-                    this.ContinueOnError.Equals(input.ContinueOnError)
-                ) && 
-                (
-                    this.MaxConcurrency == input.MaxConcurrency ||
-                    this.MaxConcurrency.Equals(input.MaxConcurrency)
-                ) && 
-                (
-                    this.Type == input.Type ||
-                    this.Type.Equals(input.Type)
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                hashCode = (hashCode * 59) + this.ContinueOnError.GetHashCode();
-                hashCode = (hashCode * 59) + this.MaxConcurrency.GetHashCode();
-                hashCode = (hashCode * 59) + this.Type.GetHashCode();
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

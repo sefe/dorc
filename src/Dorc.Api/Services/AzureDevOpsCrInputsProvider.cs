@@ -80,6 +80,10 @@ namespace Dorc.Api.Services
 
                 return ParseCrInputs(fileContent, safeName);
             }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error fetching cr-inputs.json for project '{ProjectName}'", safeName);
@@ -137,6 +141,11 @@ namespace Dorc.Api.Services
                     safeProjectName, Sanitize(model.AssignmentGroup), Sanitize(model.BusinessService));
 
                 return model;
+            }
+            catch (JsonException ex)
+            {
+                _logger.LogError(ex, "Failed to parse cr-inputs.json for project '{ProjectName}'", safeProjectName);
+                return null;
             }
             catch (Exception ex)
             {

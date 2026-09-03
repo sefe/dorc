@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// XamlBuildControllerReference
     /// </summary>
     [DataContract(Name = "XamlBuildControllerReference")]
-    public partial class XamlBuildControllerReference : IEquatable<XamlBuildControllerReference>, IValidatableObject
+    public partial class XamlBuildControllerReference : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="XamlBuildControllerReference" /> class.
@@ -38,7 +38,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="id">Id of the resource.</param>
         /// <param name="name">Name of the linked resource (definition name, controller name, etc.).</param>
         /// <param name="url">Full http link to the resource.</param>
-        public XamlBuildControllerReference(int id = default(int), string name = default(string), string url = default(string))
+        public XamlBuildControllerReference(int id = default, string name = default, string url = default)
         {
             this.Id = id;
             this.Name = name;
@@ -91,71 +91,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as XamlBuildControllerReference);
-        }
-
-        /// <summary>
-        /// Returns true if XamlBuildControllerReference instances are equal
-        /// </summary>
-        /// <param name="input">Instance of XamlBuildControllerReference to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(XamlBuildControllerReference input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.Id == input.Id ||
-                    this.Id.Equals(input.Id)
-                ) && 
-                (
-                    this.Name == input.Name ||
-                    (this.Name != null &&
-                    this.Name.Equals(input.Name))
-                ) && 
-                (
-                    this.Url == input.Url ||
-                    (this.Url != null &&
-                    this.Url.Equals(input.Url))
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                hashCode = (hashCode * 59) + this.Id.GetHashCode();
-                if (this.Name != null)
-                {
-                    hashCode = (hashCode * 59) + this.Name.GetHashCode();
-                }
-                if (this.Url != null)
-                {
-                    hashCode = (hashCode * 59) + this.Url.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

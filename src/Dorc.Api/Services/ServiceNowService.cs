@@ -37,65 +37,73 @@ namespace Dorc.Api.Services
         private string SubscriptionKey() => _config.GetConfigValue("ServiceNowApiSubscriptionKey", string.Empty);
         private string AadScope() => _config.GetConfigValue("ServiceNowAadScope", string.Empty);
 
-        private string ConfigOrDefault(string key, string fallback) =>
-            _config.GetConfigValue(key, fallback) is { Length: > 0 } v ? v : fallback;
+        // ── HTTP request builder ───────────────────────────────────────────
 
-        // ── HTTP client bootstrap ──────────────────────────────────────────
-
-        private async Task ConfigureClientAsync()
+        private async Task<HttpRequestMessage> CreateRequestMessageAsync(HttpMethod method, string relativeUrl)
         {
             var apiUrl = ApiUrl();
-            if (!string.IsNullOrEmpty(apiUrl))
-            {
-                if (!apiUrl.EndsWith('/')) apiUrl += '/';
-                _httpClient.BaseAddress = new Uri(apiUrl);
-            }
+            if (!string.IsNullOrEmpty(apiUrl) && !apiUrl.EndsWith('/'))
+                apiUrl += '/';
+
+            var requestUri = !string.IsNullOrEmpty(apiUrl)
+                ? new Uri(new Uri(apiUrl), relativeUrl)
+                : new Uri(relativeUrl, UriKind.RelativeOrAbsolute);
+
+            var request = new HttpRequestMessage(method, requestUri);
 
             var subKey = SubscriptionKey();
             if (!string.IsNullOrEmpty(subKey))
-                _httpClient.DefaultRequestHeaders.Add("subscription-key", subKey);
+                request.Headers.TryAddWithoutValidation("subscription-key", subKey);
 
             var scope = AadScope();
             if (!string.IsNullOrEmpty(scope))
             {
                 var token = await _tokenService.GetTokenAsync(scope);
                 if (!string.IsNullOrEmpty(token))
-                    _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+                    request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
             }
 
-            _httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+            return request;
         }
 
         // ── Validate ───────────────────────────────────────────────────────
 
         public async Task<ChangeRequestValidationResult> ValidateChangeRequestAsync(string crNumber)
         {
-            crNumber = Sanitize(crNumber);
-            if (string.IsNullOrEmpty(crNumber))
-                return ValidationError("Change Request number is required", crNumber);
+            var normalizedCr = NormalizeCrNumber(crNumber);
+            if (string.IsNullOrEmpty(normalizedCr))
+                return ValidationError("Change Request number is required", normalizedCr);
 
-            var skip = CheckServiceNowAvailability(crNumber);
+            var skip = CheckServiceNowAvailability(normalizedCr);
             if (skip != null) return skip;
-
-            await ConfigureClientAsync();
 
             try
             {
-                var cr = await FetchChangeRequestAsync(crNumber);
+                var cr = await FetchChangeRequestAsync(normalizedCr);
                 if (cr == null)
-                    return ValidationError($"Change Request {crNumber} not found in ServiceNow", crNumber);
+                    return ValidationError($"Change Request {normalizedCr} not found in ServiceNow", normalizedCr);
 
-                return EvaluateChangeRequest(cr, crNumber);
+                return EvaluateChangeRequest(cr, normalizedCr);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (HttpRequestException ex)
             {
-                _logger.LogError(ex, "HTTP error validating CR {CrNumber}", crNumber);
-                return ValidationError("Failed to connect to ServiceNow. Please try again later or contact support.", crNumber);
+                _logger.LogError(ex, "HTTP error validating CR {CrNumber}", normalizedCr);
+                return ValidationError("Failed to connect to ServiceNow. Please try again later or contact support.", normalizedCr);
+            }
+            catch (JsonException ex)
+            {
+                _logger.LogError(ex, "JSON parse error validating CR {CrNumber}", normalizedCr);
+                return ValidationError("Received invalid response format from ServiceNow.", normalizedCr);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error validating CR {CrNumber}", crNumber);
-                return ValidationError("An unexpected error occurred while validating the Change Request. Please try again later or contact support.", crNumber);
+                _logger.LogError(ex, "Error validating CR {CrNumber}", normalizedCr);
+                return ValidationError("An unexpected error occurred while validating the Change Request. Please try again later or contact support.", normalizedCr);
             }
         }
 
@@ -133,7 +141,8 @@ namespace Dorc.Api.Services
                            "&sysparm_display_value=true";
 
             _logger.LogInformation("Validating CR {CrNumber} against ServiceNow", crNumber);
-            var response = await _httpClient.GetAsync(endpoint);
+            using var request = await CreateRequestMessageAsync(HttpMethod.Get, endpoint);
+            using var response = await _httpClient.SendAsync(request);
             var body = await response.Content.ReadAsStringAsync();
 
             if (!response.IsSuccessStatusCode)
@@ -149,7 +158,7 @@ namespace Dorc.Api.Services
                 return null;
             }
 
-            _logger.LogInformation("CR {CrNumber} raw validate response: {Response}", crNumber, body);
+            _logger.LogTrace("CR {CrNumber} raw validate response: {Response}", crNumber, body);
 
             var result = JsonSerializer.Deserialize<SnResultArray<SnChangeRequestResponse>>(body, JsonOptions);
             return result?.result is { Length: > 0 } arr ? arr[0] : null;
@@ -239,10 +248,8 @@ namespace Dorc.Api.Services
             if (string.IsNullOrEmpty(ApiUrl()))
                 return CreateError("ServiceNow API URL is not configured");
 
-            await ConfigureClientAsync();
-
-            var safeProject = Sanitize(input.ProjectName);
-            var safeEnv = Sanitize(input.Environment);
+            var safeProject = SanitizeForLog(input.ProjectName);
+            var safeEnv = SanitizeForLog(input.Environment);
 
             try
             {
@@ -251,8 +258,11 @@ namespace Dorc.Api.Services
 
                 _logger.LogInformation("Creating AutoCR for {Project} → {Environment}", safeProject, safeEnv);
 
-                var response = await _httpClient.PostAsync("change_request",
-                    new StringContent(JsonSerializer.Serialize(crBody), Encoding.UTF8, "application/json"));
+                using var request = await CreateRequestMessageAsync(HttpMethod.Post, "change_request");
+                using var content = new StringContent(JsonSerializer.Serialize(crBody), Encoding.UTF8, "application/json");
+                request.Content = content;
+
+                using var response = await _httpClient.SendAsync(request);
                 var responseContent = await response.Content.ReadAsStringAsync();
 
                 if (!response.IsSuccessStatusCode)
@@ -262,7 +272,7 @@ namespace Dorc.Api.Services
                     return CreateError($"ServiceNow returned {response.StatusCode} when creating CR");
                 }
 
-                _logger.LogInformation("CR creation raw response: {Response}", responseContent);
+                _logger.LogTrace("CR creation raw response: {Response}", responseContent);
 
                 var result = JsonSerializer.Deserialize<SnResultObject<SnChangeRequestResponse>>(responseContent, JsonOptions);
                 if (result?.result == null || string.IsNullOrEmpty(result.result.number))
@@ -284,14 +294,23 @@ namespace Dorc.Api.Services
 
                 return new CreateChangeRequestResult { Success = true, CrNumber = cr.number, Message = message };
             }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
             catch (HttpRequestException ex)
             {
-                _logger.LogError(ex, "HTTP error creating AutoCR");
+                _logger.LogError(ex, "HTTP error creating AutoCR for project {Project}", safeProject);
                 return CreateError("Failed to connect to ServiceNow. Please try again later or contact support.");
+            }
+            catch (JsonException ex)
+            {
+                _logger.LogError(ex, "JSON parse error creating AutoCR for project {Project}", safeProject);
+                return CreateError("Received invalid response format from ServiceNow when creating Change Request.");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error creating AutoCR");
+                _logger.LogError(ex, "Error creating AutoCR for project {Project}", safeProject);
                 return CreateError("An unexpected error occurred while creating the Change Request. Please try again later or contact support.");
             }
         }
@@ -307,7 +326,7 @@ namespace Dorc.Api.Services
                 : _config.GetConfigValue("ServiceNowCrBusinessService", "");
 
             if (string.IsNullOrEmpty(assignmentGroup))
-                _logger.LogWarning("No AssignmentGroup for project '{Project}'. ServiceNow may reject the CR.", Sanitize(input.ProjectName));
+                _logger.LogWarning("No AssignmentGroup for project '{Project}'. ServiceNow may reject the CR.", SanitizeForLog(input.ProjectName));
 
             var startDate = DateTime.UtcNow;
             var endDate = startDate.AddHours(1);
@@ -317,7 +336,7 @@ namespace Dorc.Api.Services
             if (DateTime.TryParse(input.EndDate, out var pe)) endDate = pe;
 
             var source = input.CrInputsFetched ? "cr-inputs.json" : "hardcoded defaults";
-            _logger.LogInformation("Building CR body for '{Project}' using {Source}", Sanitize(input.ProjectName), source);
+            _logger.LogInformation("Building CR body for '{Project}' using {Source}", SanitizeForLog(input.ProjectName), source);
 
             var body = new Dictionary<string, string>
             {
@@ -391,8 +410,11 @@ namespace Dorc.Api.Services
                 };
                 AddIfNotEmpty(body, "assignment_group", assignmentGroup);
 
-                var content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
-                var response = await _httpClient.PutAsync($"change_request/{sysId}", content);
+                using var request = await CreateRequestMessageAsync(HttpMethod.Put, $"change_request/{sysId}");
+                using var content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
+                request.Content = content;
+
+                using var response = await _httpClient.SendAsync(request);
                 var responseBody = await response.Content.ReadAsStringAsync();
 
                 if (!response.IsSuccessStatusCode)
@@ -411,6 +433,20 @@ namespace Dorc.Api.Services
 
                 _logger.LogInformation("Advanced CR {SysId} to state {State}", sysId, targetState);
                 return true;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (HttpRequestException ex)
+            {
+                _logger.LogWarning(ex, "HTTP error advancing CR {SysId} to state {State}", sysId, targetState);
+                return false;
+            }
+            catch (JsonException ex)
+            {
+                _logger.LogWarning(ex, "JSON parsing error advancing CR {SysId} to state {State}", sysId, targetState);
+                return false;
             }
             catch (Exception ex)
             {
@@ -431,8 +467,11 @@ namespace Dorc.Api.Services
             Success = false, Message = message
         };
 
-        private static string Sanitize(string? value) =>
-            (value ?? string.Empty).Replace("\r", "").Replace("\n", "").Trim().ToUpperInvariant();
+        private static string SanitizeForLog(string? value) =>
+            (value ?? string.Empty).Replace("\r", string.Empty).Replace("\n", string.Empty);
+
+        private static string NormalizeCrNumber(string? value) =>
+            SanitizeForLog(value).Trim().ToUpperInvariant();
 
         private static string OrDefault(string? value, string fallback) =>
             string.IsNullOrWhiteSpace(value) ? fallback : value;

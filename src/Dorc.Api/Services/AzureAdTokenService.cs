@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Dorc.Api.Interfaces;
 using Dorc.Core.Configuration;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace Dorc.Api.Services
 {
@@ -12,13 +13,19 @@ namespace Dorc.Api.Services
     {
         private readonly ILogger<AzureAdTokenService> _logger;
         private readonly IConfigurationSettings _configurationSettings;
+        private readonly IHttpClientFactory _httpClientFactory;
+        private readonly IMemoryCache _memoryCache;
 
         public AzureAdTokenService(
             ILogger<AzureAdTokenService> logger,
-            IConfigurationSettings configurationSettings)
+            IConfigurationSettings configurationSettings,
+            IHttpClientFactory httpClientFactory,
+            IMemoryCache memoryCache)
         {
             _logger = logger;
             _configurationSettings = configurationSettings;
+            _httpClientFactory = httpClientFactory;
+            _memoryCache = memoryCache;
         }
 
         private static string Sanitize(string? value) =>
@@ -27,6 +34,12 @@ namespace Dorc.Api.Services
         public async Task<string?> GetTokenAsync(string scope)
         {
             var safeScope = Sanitize(scope);
+            var cacheKey = $"aad_token_{safeScope}";
+
+            if (_memoryCache.TryGetValue(cacheKey, out string? cachedToken) && !string.IsNullOrEmpty(cachedToken))
+            {
+                return cachedToken;
+            }
 
             var tenantId = _configurationSettings.GetAzureEntraTenantId();
             var clientId = _configurationSettings.GetAzureEntraClientId();
@@ -39,7 +52,7 @@ namespace Dorc.Api.Services
             }
 
             var tokenUrl = $"https://login.microsoftonline.com/{tenantId}/oauth2/v2.0/token";
-            var body = new FormUrlEncodedContent(new[]
+            using var body = new FormUrlEncodedContent(new[]
             {
                 new KeyValuePair<string, string>("grant_type", "client_credentials"),
                 new KeyValuePair<string, string>("client_id", clientId),
@@ -47,7 +60,7 @@ namespace Dorc.Api.Services
                 new KeyValuePair<string, string>("scope", scope)
             });
 
-            using var httpClient = new HttpClient();
+            var httpClient = _httpClientFactory.CreateClient();
             var response = await httpClient.PostAsync(tokenUrl, body);
             var content = await response.Content.ReadAsStringAsync();
 
@@ -61,8 +74,20 @@ namespace Dorc.Api.Services
             var json = JsonSerializer.Deserialize<JsonElement>(content);
             if (json.TryGetProperty("access_token", out var accessToken))
             {
-                _logger.LogDebug("Azure AD bearer token acquired for scope '{Scope}'", safeScope);
-                return accessToken.GetString();
+                var token = accessToken.GetString();
+                if (!string.IsNullOrEmpty(token))
+                {
+                    int expiresInSeconds = 3599;
+                    if (json.TryGetProperty("expires_in", out var expiresInProp) && expiresInProp.TryGetInt32(out var exp))
+                    {
+                        expiresInSeconds = exp;
+                    }
+                    var cacheExpiry = TimeSpan.FromSeconds(Math.Max(60, expiresInSeconds - 60));
+                    _memoryCache.Set(cacheKey, token, cacheExpiry);
+
+                    _logger.LogDebug("Azure AD bearer token acquired for scope '{Scope}'", safeScope);
+                    return token;
+                }
             }
 
             _logger.LogError("Azure AD token response missing access_token property");

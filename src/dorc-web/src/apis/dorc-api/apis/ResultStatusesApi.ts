@@ -14,7 +14,7 @@
 import type { Observable } from 'rxjs';
 import type { AjaxResponse } from 'rxjs/ajax';
 import { BaseAPI } from '../runtime';
-import type { OperationOpts, HttpQuery } from '../runtime';
+import type { OperationOpts, HttpHeaders, HttpQuery } from '../runtime';
 import type {
     DeploymentResultApiModel,
 } from '../models';
@@ -39,6 +39,16 @@ export class ResultStatusesApi extends BaseAPI {
     resultStatusesGet({ requestId }: ResultStatusesGetRequest, opts?: OperationOpts): Observable<AjaxResponse<Array<DeploymentResultApiModel>>>
     resultStatusesGet({ requestId }: ResultStatusesGetRequest, opts?: OperationOpts): Observable<Array<DeploymentResultApiModel> | AjaxResponse<Array<DeploymentResultApiModel>>> {
 
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         const query: HttpQuery = {};
 
         if (requestId != null) { query['requestId'] = requestId; }
@@ -46,6 +56,7 @@ export class ResultStatusesApi extends BaseAPI {
         return this.request<Array<DeploymentResultApiModel>>({
             url: '/ResultStatuses',
             method: 'GET',
+            headers,
             query,
         }, opts?.responseOpts);
     };
@@ -56,6 +67,16 @@ export class ResultStatusesApi extends BaseAPI {
     resultStatusesLogGet({ requestId, resultId }: ResultStatusesLogGetRequest, opts?: OperationOpts): Observable<AjaxResponse<string>>
     resultStatusesLogGet({ requestId, resultId }: ResultStatusesLogGetRequest, opts?: OperationOpts): Observable<string | AjaxResponse<string>> {
 
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         const query: HttpQuery = {};
 
         if (requestId != null) { query['requestId'] = requestId; }
@@ -64,6 +85,7 @@ export class ResultStatusesApi extends BaseAPI {
         return this.request<string>({
             url: '/ResultStatuses/Log',
             method: 'GET',
+            headers,
             query,
         }, opts?.responseOpts);
     };

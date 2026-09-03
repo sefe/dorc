@@ -1,6 +1,7 @@
 import { UserManagerSettings, UserManager, User } from 'oidc-client-ts';
 import { OAuthConfigurableSettings, oauthSettings } from '../../OAuthSettings';
 import { catchError, from, Observable, tap } from 'rxjs';
+import { drawerShortcuts } from '../../components/drawer-shortcuts';
 
 export const OAUTH_SCHEME = 'OAuth';
 
@@ -38,7 +39,7 @@ export class OAuthService {
    */
   public signIn(): void {
     console.log('signin redirect');
-    localStorage.setItem("lastUrl", window.location.href);
+    localStorage.setItem('lastUrl', window.location.href);
     this.saveConfigurableSettings();
     this._mgr.signinRedirect().catch(err => console.error(err));
   }
@@ -49,7 +50,10 @@ export class OAuthService {
       client_id: this._mgr.settings.client_id,
       scope: this._mgr.settings.scope
     };
-    localStorage.setItem("idsrv.oauthsettings", JSON.stringify(configurableSettings));
+    localStorage.setItem(
+      'idsrv.oauthsettings',
+      JSON.stringify(configurableSettings)
+    );
   }
 
   /**
@@ -64,9 +68,9 @@ export class OAuthService {
           this._signedInUser = user;
         }
         console.log('signin response success');
-        localStorage.removeItem("idsrv.oauthsettings");
-        const lastUrl = localStorage.getItem("lastUrl") ?? '/';
-        localStorage.removeItem("lastUrl");
+        localStorage.removeItem('idsrv.oauthsettings');
+        const lastUrl = localStorage.getItem('lastUrl') ?? '/';
+        localStorage.removeItem('lastUrl');
         const exceptions = ['signin.html'];
         if (exceptions.some(exception => lastUrl.endsWith(exception))) {
           location.assign('/');
@@ -103,6 +107,10 @@ export class OAuthService {
    */
   public signOut(): Observable<void> {
     this.saveConfigurableSettings();
+    // Both sign-out paths clear shortcuts: this one, and signOutCallback below
+    // for the return leg. Neither covers a browser close or a silent session
+    // expiry — see SC-17, which states that limit rather than implying coverage.
+    drawerShortcuts.clear();
     return from(this._mgr.signoutRedirect()).pipe(
       tap(() => {
         console.log('signed out');
@@ -123,7 +131,12 @@ export class OAuthService {
       .signoutCallback()
       .then(() => {
         console.log('signout callback response success');
-        localStorage.removeItem("idsrv.oauthsettings");
+        localStorage.removeItem('idsrv.oauthsettings');
+        // SC-17: shortcuts used to live in a cookie with an accidental 7-day TTL,
+        // which was the only thing that ever pruned them. localStorage has no
+        // expiry, so without this they would outlive the session indefinitely.
+        // Cleared to empty rather than removed, so the migration guard stays armed.
+        drawerShortcuts.clear();
         location.assign('/');
       })
       .catch(err => console.error(err));

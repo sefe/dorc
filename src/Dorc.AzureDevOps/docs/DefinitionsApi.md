@@ -12,7 +12,7 @@ All URIs are relative to *https://dev.azure.com*
 | [**DefinitionsRestoreDefinition**](DefinitionsApi.md#definitionsrestoredefinition) | **PATCH** /{organization}/{project}/_apis/build/definitions/{definitionId} |  |
 | [**DefinitionsUpdate**](DefinitionsApi.md#definitionsupdate) | **PUT** /{organization}/{project}/_apis/build/definitions/{definitionId} |  |
 
-<a name="definitionscreate"></a>
+<a id="definitionscreate"></a>
 # **DefinitionsCreate**
 > BuildDefinition DefinitionsCreate (string organization, string project, string apiVersion, BuildDefinition body, int? definitionToCloneId = null, int? definitionToCloneRevision = null)
 
@@ -114,7 +114,7 @@ catch (ApiException e)
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-<a name="definitionsdelete"></a>
+<a id="definitionsdelete"></a>
 # **DefinitionsDelete**
 > void DefinitionsDelete (string organization, string project, int definitionId, string apiVersion)
 
@@ -208,7 +208,7 @@ void (empty response body)
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-<a name="definitionsget"></a>
+<a id="definitionsget"></a>
 # **DefinitionsGet**
 > BuildDefinition DefinitionsGet (string organization, string project, int definitionId, string apiVersion, int? revision = null, DateTime? minMetricsTime = null, string? propertyFilters = null, bool? includeLatestBuilds = null)
 
@@ -314,7 +314,7 @@ catch (ApiException e)
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-<a name="definitionsgetdefinitionrevisions"></a>
+<a id="definitionsgetdefinitionrevisions"></a>
 # **DefinitionsGetDefinitionRevisions**
 > List&lt;BuildDefinitionRevision&gt; DefinitionsGetDefinitionRevisions (string organization, string project, int definitionId, string apiVersion)
 
@@ -412,7 +412,7 @@ catch (ApiException e)
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-<a name="definitionslist"></a>
+<a id="definitionslist"></a>
 # **DefinitionsList**
 > List&lt;BuildDefinitionReference&gt; DefinitionsList (string organization, string project, string apiVersion, string? name = null, string? repositoryId = null, string? repositoryType = null, string? queryOrder = null, int? top = null, string? continuationToken = null, DateTime? minMetricsTime = null, string? definitionIds = null, string? path = null, DateTime? builtAfter = null, DateTime? notBuiltAfter = null, bool? includeAllProperties = null, bool? includeLatestBuilds = null, Guid? taskIdFilter = null, int? processType = null, string? yamlFilename = null)
 
@@ -540,7 +540,7 @@ catch (ApiException e)
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-<a name="definitionsrestoredefinition"></a>
+<a id="definitionsrestoredefinition"></a>
 # **DefinitionsRestoreDefinition**
 > BuildDefinition DefinitionsRestoreDefinition (string organization, string project, int definitionId, bool deleted, string apiVersion)
 
@@ -640,7 +640,7 @@ catch (ApiException e)
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-<a name="definitionsupdate"></a>
+<a id="definitionsupdate"></a>
 # **DefinitionsUpdate**
 > BuildDefinition DefinitionsUpdate (string organization, string project, int definitionId, string apiVersion, BuildDefinition body, int? secretsSourceDefinitionId = null, int? secretsSourceDefinitionRevision = null)
 

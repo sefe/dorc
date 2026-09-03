@@ -10,6 +10,8 @@
         public string ArtefactsBuildRegex { get; set; }
         public string TerraformGitRepoUrl { get; set; }
         public string NotificationEmail { get; set; }
+        public string LeanIXUrl { get; set; }
         public DatabaseApiModel SourceDatabase { get; set; }
+        public SourceControlType SourceControlType { get; set; } = SourceControlType.AzureDevOps;
     }
 }
