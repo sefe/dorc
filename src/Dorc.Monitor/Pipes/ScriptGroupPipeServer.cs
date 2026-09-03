@@ -161,13 +161,19 @@ namespace Dorc.Monitor.Pipes
 
                 security.AddAccessRule(new PipeAccessRule(runner, RunnerRights, AccessControlType.Allow));
             }
-            catch (Exception ex)
+            catch (IdentityNotMappedException ex)
             {
                 logger.LogError(
-                    $"The deployment account '{account}' could not be admitted to the script group pipe." +
-                    " The Runner will be unable to read it unless it runs as an account the pipe already" +
-                    $" admits. Exception: {ex}");
+                    ex,
+                    "The deployment account '{Account}' could not be admitted to the script group pipe."
+                    + " The Runner will be unable to read it unless it runs as an account the pipe already admits.",
+                    SanitizeForLog(account));
             }
+        }
+
+        private static string SanitizeForLog(string value)
+        {
+            return value.Replace("\r", string.Empty).Replace("\n", string.Empty);
         }
 
         private void Serve(
