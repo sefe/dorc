@@ -54,7 +54,7 @@ namespace Dorc.Core.VariableResolution
                         _logger.LogError(
                             "A property expression could not be parsed and was not evaluated: {Error}", error);
 
-                        throw new InvalidOperationException(
+                        throw new PropertyExpressionEvaluationException(
                             $"A property expression could not be parsed and was not evaluated: {error}");
                     }
 
@@ -64,6 +64,14 @@ namespace Dorc.Core.VariableResolution
             }
 
             return value;
+        }
+    }
+
+    public sealed class PropertyExpressionEvaluationException : InvalidOperationException
+    {
+        public PropertyExpressionEvaluationException(string message)
+            : base(message)
+        {
         }
     }
 }
