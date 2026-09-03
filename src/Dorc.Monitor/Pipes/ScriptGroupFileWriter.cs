@@ -69,7 +69,7 @@ namespace Dorc.Monitor.Pipes
                     JsonSerializer.Serialize(createStream, scriptGroup, serializeOptions);
                 }
 
-                GrantReadAccessToRunner(filename, readerIdentity);
+                GrantReadAccessToRunner(pipeName, readerIdentity);
 
                 return Task.CompletedTask;
             }
@@ -191,9 +191,14 @@ namespace Dorc.Monitor.Pipes
         /// would convert a transient directory-service blip into a failed production
         /// deployment, which is a far worse outcome than the one being guarded against.
         /// </summary>
-        private void GrantReadAccessToRunner(string filename, ScriptGroupReaderIdentity readerIdentity)
+        private void GrantReadAccessToRunner(string pipeName, ScriptGroupReaderIdentity readerIdentity)
         {
             var account = readerIdentity.QualifiedAccountName;
+
+            // Resolved here rather than taken as a path, so the confinement check runs on the
+            // way to every operation performed on the bundle rather than only on the way to
+            // the first one.
+            var filename = BundlePath(pipeName);
 
             try
             {
