@@ -24,12 +24,14 @@ namespace Dorc.PersistentData.Sources
         private readonly IDeploymentContextFactory _contextFactory;
         private readonly IRequestsPersistentSource _requestsPersistentSource;
         private readonly IScriptsAuditPersistentSource _scriptsAuditPersistentSource;
+        private readonly ISourceHostAllowList _sourceHostAllowList;
 
-        public ManageProjectsPersistentSource(IDeploymentContextFactory contextFactory, IRequestsPersistentSource requestsPersistentSource, IScriptsAuditPersistentSource scriptsAuditPersistentSource)
+        public ManageProjectsPersistentSource(IDeploymentContextFactory contextFactory, IRequestsPersistentSource requestsPersistentSource, IScriptsAuditPersistentSource scriptsAuditPersistentSource, ISourceHostAllowList sourceHostAllowList)
         {
             _requestsPersistentSource = requestsPersistentSource;
             _contextFactory = contextFactory;
             _scriptsAuditPersistentSource = scriptsAuditPersistentSource;
+            _sourceHostAllowList = sourceHostAllowList;
         }
 
         public void InsertRefDataAudit(string username, HttpRequestType requestType, RefDataApiModel refDataApiModel)
@@ -333,6 +335,7 @@ namespace Dorc.PersistentData.Sources
                 ValidateComponentNameDoesNotBelongToDifferentProject(component, projectId);
                 ValidateNameLengthRestrictions(component);
                 ValidateScriptPathIsConfined(component);
+                ValidateTerraformSourceHost(component);
             }
 
             ValidateNoDuplicateComponentIdsOrNames(flattenedComponents);
@@ -341,6 +344,9 @@ namespace Dorc.PersistentData.Sources
         public void CreateComponent(ComponentApiModel apiComponent, int projectId, int? parentId, string username)
         {
             if (apiComponent.ComponentId == 0)
+            {
+                ValidateTerraformSourceHost(apiComponent);
+
                 using (var context = _contextFactory.GetContext())
                 {
                     var duplicateComponent =
@@ -407,12 +413,15 @@ namespace Dorc.PersistentData.Sources
                             username, "Insert", projectName);
                     }
                 }
+            }
         }
 
         public void UpdateComponent(ComponentApiModel apiComponent, int projectId, int? parentId, string username)
         {
             if (apiComponent.ComponentId == 0)
                 return;
+
+            ValidateTerraformSourceHost(apiComponent);
 
             using (var context = _contextFactory.GetContext())
             {
@@ -806,6 +815,33 @@ namespace Dorc.PersistentData.Sources
                 throw new ArgumentOutOfRangeException(nameof(component),
                     "Component '" + component.ComponentName + "' has a script path that cannot be"
                     + " accepted, because " + reason);
+            }
+        }
+
+        /// <summary>
+        /// Rejects a Terraform component naming a source location the deployment is not
+        /// permitted to provision code from.
+        ///
+        /// This is the other half of the script path question. For a PowerShell component the
+        /// path is relative to the script root and confined by that relativity; for a Terraform
+        /// component on the SharedFolder source type it IS the location, legitimately absolute,
+        /// and so needs a host allow-list instead. Same field, same rights to set it, same
+        /// outcome if it is unconstrained - code provisioned from somewhere of the setter's
+        /// choosing and executed as the deployment account.
+        /// </summary>
+        private void ValidateTerraformSourceHost(ComponentApiModel component)
+        {
+            if (component.ComponentType != ComponentType.Terraform
+                || _sourceHostAllowList.IsUnconfigured)
+            {
+                return;
+            }
+
+            if (!_sourceHostAllowList.IsTerraformSourceAllowed(component.ScriptPath, out var reason))
+            {
+                throw new ArgumentOutOfRangeException(nameof(component),
+                    "Component '" + component.ComponentName + "' has a Terraform source location that"
+                    + " cannot be accepted, because " + reason);
             }
         }
 

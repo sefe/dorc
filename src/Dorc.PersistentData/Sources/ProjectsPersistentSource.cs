@@ -1,6 +1,7 @@
 ﻿using Dorc.ApiModel;
 using Dorc.PersistentData.Contexts;
 using Dorc.PersistentData.Model;
+using Dorc.PersistentData.Security;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -18,17 +19,20 @@ namespace Dorc.PersistentData.Sources
         private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
         private readonly ILogger _logger;
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
+        private readonly ISourceHostAllowList _sourceHostAllowList;
 
         public ProjectsPersistentSource(IDeploymentContextFactory contextFactory,
             IEnvironmentsPersistentSource environmentsPersistentSource,
             ILogger<ProjectsPersistentSource> logger,
-            IClaimsPrincipalReader claimsPrincipalReader
+            IClaimsPrincipalReader claimsPrincipalReader,
+            ISourceHostAllowList sourceHostAllowList
             )
         {
             _logger = logger;
             _environmentsPersistentSource = environmentsPersistentSource;
             _contextFactory = contextFactory;
             _claimsPrincipalReader = claimsPrincipalReader;
+            _sourceHostAllowList = sourceHostAllowList;
         }
 
         public IEnumerable<ProjectApiModel> GetProjects(IPrincipal user, int deprecated = 0)
@@ -181,6 +185,8 @@ namespace Dorc.PersistentData.Sources
 
         public void InsertProject(ProjectApiModel apiProject)
         {
+            ValidateSourceHosts(apiProject);
+
             using (var context = _contextFactory.GetContext())
             {
                 var project = new Project
@@ -224,6 +230,8 @@ namespace Dorc.PersistentData.Sources
 
         public void UpdateProject(ProjectApiModel newProjectDetails)
         {
+            ValidateSourceHosts(newProjectDetails);
+
             //check if ProjectName has changed
             using (var context = _contextFactory.GetContext())
             {
@@ -328,6 +336,48 @@ namespace Dorc.PersistentData.Sources
             ValidateProjectNameIsNotNullOrEmpty(apiProject);
             ValidateProjectHasUrl(apiProject);
             ValidateProjectLengthRestrictions(apiProject);
+            ValidateSourceHosts(apiProject);
+        }
+
+        /// <summary>
+        /// Rejects a project naming a source host the deployment is not permitted to fetch
+        /// from. Both fields are execution input - the artefacts URL becomes the drop location
+        /// scripts are read from, and the Terraform repository is cloned and run - and both are
+        /// settable at per-project modify rights.
+        ///
+        /// Existing project data is untouched: this constrains what is written from here on,
+        /// so that enforcement never becomes a flag day.
+        /// </summary>
+        private void ValidateSourceHosts(ProjectApiModel apiProject)
+        {
+            if (_sourceHostAllowList.IsUnconfigured)
+            {
+                _logger.LogWarning(
+                    "No source host allow-list is configured ('{ArtefactSetting}' / '{TerraformSetting}'), so"
+                    + " project '{ProjectName}' may name any artefacts or Terraform host. Deployable content"
+                    + " is fetched and executed from these locations.",
+                    SourceHostAllowList.ArtefactHostsSetting,
+                    SourceHostAllowList.TerraformHostsSetting,
+                    SanitizeForLog(apiProject.ProjectName));
+                return;
+            }
+
+            if (!_sourceHostAllowList.IsArtefactSourceAllowed(apiProject.ArtefactsUrl, out var artefactReason))
+            {
+                throw new ArgumentOutOfRangeException(nameof(apiProject),
+                    "Project artefacts URL cannot be accepted, because " + artefactReason);
+            }
+
+            if (!_sourceHostAllowList.IsTerraformSourceAllowed(apiProject.TerraformGitRepoUrl, out var terraformReason))
+            {
+                throw new ArgumentOutOfRangeException(nameof(apiProject),
+                    "Project Terraform repository URL cannot be accepted, because " + terraformReason);
+            }
+        }
+
+        private static string? SanitizeForLog(string? value)
+        {
+            return value?.Replace("\r", string.Empty).Replace("\n", string.Empty);
         }
 
         public bool ProjectArtifactsUriFileValid(ProjectApiModel apiProject)
