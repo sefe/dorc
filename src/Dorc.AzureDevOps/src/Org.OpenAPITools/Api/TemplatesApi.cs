@@ -167,7 +167,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of void</returns>
-        System.Threading.Tasks.Task TemplatesDeleteAsync(string organization, string project, string templateId, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task TemplatesDeleteAsync(string organization, string project, string templateId, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
 
         /// <summary>
         /// 
@@ -183,7 +183,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse</returns>
-        System.Threading.Tasks.Task<ApiResponse<Object>> TemplatesDeleteWithHttpInfoAsync(string organization, string project, string templateId, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ApiResponse<Object>> TemplatesDeleteWithHttpInfoAsync(string organization, string project, string templateId, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
         /// <summary>
         /// 
         /// </summary>
@@ -198,7 +198,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of BuildDefinitionTemplate</returns>
-        System.Threading.Tasks.Task<BuildDefinitionTemplate> TemplatesGetAsync(string organization, string project, string templateId, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<BuildDefinitionTemplate> TemplatesGetAsync(string organization, string project, string templateId, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
 
         /// <summary>
         /// 
@@ -214,7 +214,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse (BuildDefinitionTemplate)</returns>
-        System.Threading.Tasks.Task<ApiResponse<BuildDefinitionTemplate>> TemplatesGetWithHttpInfoAsync(string organization, string project, string templateId, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ApiResponse<BuildDefinitionTemplate>> TemplatesGetWithHttpInfoAsync(string organization, string project, string templateId, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
         /// <summary>
         /// 
         /// </summary>
@@ -228,7 +228,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of List&lt;BuildDefinitionTemplate&gt;</returns>
-        System.Threading.Tasks.Task<List<BuildDefinitionTemplate>> TemplatesListAsync(string organization, string project, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<List<BuildDefinitionTemplate>> TemplatesListAsync(string organization, string project, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
 
         /// <summary>
         /// 
@@ -243,7 +243,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse (List&lt;BuildDefinitionTemplate&gt;)</returns>
-        System.Threading.Tasks.Task<ApiResponse<List<BuildDefinitionTemplate>>> TemplatesListWithHttpInfoAsync(string organization, string project, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ApiResponse<List<BuildDefinitionTemplate>>> TemplatesListWithHttpInfoAsync(string organization, string project, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
         /// <summary>
         /// 
         /// </summary>
@@ -259,7 +259,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of BuildDefinitionTemplate</returns>
-        System.Threading.Tasks.Task<BuildDefinitionTemplate> TemplatesSaveTemplateAsync(string organization, string project, string templateId, string apiVersion, BuildDefinitionTemplate body, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<BuildDefinitionTemplate> TemplatesSaveTemplateAsync(string organization, string project, string templateId, string apiVersion, BuildDefinitionTemplate body, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
 
         /// <summary>
         /// 
@@ -276,7 +276,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse (BuildDefinitionTemplate)</returns>
-        System.Threading.Tasks.Task<ApiResponse<BuildDefinitionTemplate>> TemplatesSaveTemplateWithHttpInfoAsync(string organization, string project, string templateId, string apiVersion, BuildDefinitionTemplate body, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ApiResponse<BuildDefinitionTemplate>> TemplatesSaveTemplateWithHttpInfoAsync(string organization, string project, string templateId, string apiVersion, BuildDefinitionTemplate body, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
         #endregion Asynchronous Operations
     }
 
@@ -458,6 +458,7 @@ namespace Org.OpenAPITools.Api
             };
 
             var localVarContentType = Org.OpenAPITools.Client.ClientUtils.SelectHeaderContentType(_contentTypes);
+            var localVarMultipartFormData = localVarContentType == "multipart/form-data";
             if (localVarContentType != null)
             {
                 localVarRequestOptions.HeaderParameters.Add("Content-Type", localVarContentType);
@@ -519,7 +520,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of void</returns>
-        public async System.Threading.Tasks.Task TemplatesDeleteAsync(string organization, string project, string templateId, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public async System.Threading.Tasks.Task TemplatesDeleteAsync(string organization, string project, string templateId, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             await TemplatesDeleteWithHttpInfoAsync(organization, project, templateId, apiVersion, operationIndex, cancellationToken).ConfigureAwait(false);
         }
@@ -535,7 +536,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse</returns>
-        public async System.Threading.Tasks.Task<Org.OpenAPITools.Client.ApiResponse<Object>> TemplatesDeleteWithHttpInfoAsync(string organization, string project, string templateId, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public async System.Threading.Tasks.Task<Org.OpenAPITools.Client.ApiResponse<Object>> TemplatesDeleteWithHttpInfoAsync(string organization, string project, string templateId, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             // verify the required parameter 'organization' is set
             if (organization == null)
@@ -686,6 +687,7 @@ namespace Org.OpenAPITools.Api
             };
 
             var localVarContentType = Org.OpenAPITools.Client.ClientUtils.SelectHeaderContentType(_contentTypes);
+            var localVarMultipartFormData = localVarContentType == "multipart/form-data";
             if (localVarContentType != null)
             {
                 localVarRequestOptions.HeaderParameters.Add("Content-Type", localVarContentType);
@@ -747,7 +749,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of BuildDefinitionTemplate</returns>
-        public async System.Threading.Tasks.Task<BuildDefinitionTemplate> TemplatesGetAsync(string organization, string project, string templateId, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public async System.Threading.Tasks.Task<BuildDefinitionTemplate> TemplatesGetAsync(string organization, string project, string templateId, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             Org.OpenAPITools.Client.ApiResponse<BuildDefinitionTemplate> localVarResponse = await TemplatesGetWithHttpInfoAsync(organization, project, templateId, apiVersion, operationIndex, cancellationToken).ConfigureAwait(false);
             return localVarResponse.Data;
@@ -764,7 +766,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse (BuildDefinitionTemplate)</returns>
-        public async System.Threading.Tasks.Task<Org.OpenAPITools.Client.ApiResponse<BuildDefinitionTemplate>> TemplatesGetWithHttpInfoAsync(string organization, string project, string templateId, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public async System.Threading.Tasks.Task<Org.OpenAPITools.Client.ApiResponse<BuildDefinitionTemplate>> TemplatesGetWithHttpInfoAsync(string organization, string project, string templateId, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             // verify the required parameter 'organization' is set
             if (organization == null)
@@ -908,6 +910,7 @@ namespace Org.OpenAPITools.Api
             };
 
             var localVarContentType = Org.OpenAPITools.Client.ClientUtils.SelectHeaderContentType(_contentTypes);
+            var localVarMultipartFormData = localVarContentType == "multipart/form-data";
             if (localVarContentType != null)
             {
                 localVarRequestOptions.HeaderParameters.Add("Content-Type", localVarContentType);
@@ -967,7 +970,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of List&lt;BuildDefinitionTemplate&gt;</returns>
-        public async System.Threading.Tasks.Task<List<BuildDefinitionTemplate>> TemplatesListAsync(string organization, string project, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public async System.Threading.Tasks.Task<List<BuildDefinitionTemplate>> TemplatesListAsync(string organization, string project, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             Org.OpenAPITools.Client.ApiResponse<List<BuildDefinitionTemplate>> localVarResponse = await TemplatesListWithHttpInfoAsync(organization, project, apiVersion, operationIndex, cancellationToken).ConfigureAwait(false);
             return localVarResponse.Data;
@@ -983,7 +986,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse (List&lt;BuildDefinitionTemplate&gt;)</returns>
-        public async System.Threading.Tasks.Task<Org.OpenAPITools.Client.ApiResponse<List<BuildDefinitionTemplate>>> TemplatesListWithHttpInfoAsync(string organization, string project, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public async System.Threading.Tasks.Task<Org.OpenAPITools.Client.ApiResponse<List<BuildDefinitionTemplate>>> TemplatesListWithHttpInfoAsync(string organization, string project, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             // verify the required parameter 'organization' is set
             if (organization == null)
@@ -1137,6 +1140,7 @@ namespace Org.OpenAPITools.Api
             };
 
             var localVarContentType = Org.OpenAPITools.Client.ClientUtils.SelectHeaderContentType(_contentTypes);
+            var localVarMultipartFormData = localVarContentType == "multipart/form-data";
             if (localVarContentType != null)
             {
                 localVarRequestOptions.HeaderParameters.Add("Content-Type", localVarContentType);
@@ -1200,7 +1204,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of BuildDefinitionTemplate</returns>
-        public async System.Threading.Tasks.Task<BuildDefinitionTemplate> TemplatesSaveTemplateAsync(string organization, string project, string templateId, string apiVersion, BuildDefinitionTemplate body, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public async System.Threading.Tasks.Task<BuildDefinitionTemplate> TemplatesSaveTemplateAsync(string organization, string project, string templateId, string apiVersion, BuildDefinitionTemplate body, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             Org.OpenAPITools.Client.ApiResponse<BuildDefinitionTemplate> localVarResponse = await TemplatesSaveTemplateWithHttpInfoAsync(organization, project, templateId, apiVersion, body, operationIndex, cancellationToken).ConfigureAwait(false);
             return localVarResponse.Data;
@@ -1218,7 +1222,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse (BuildDefinitionTemplate)</returns>
-        public async System.Threading.Tasks.Task<Org.OpenAPITools.Client.ApiResponse<BuildDefinitionTemplate>> TemplatesSaveTemplateWithHttpInfoAsync(string organization, string project, string templateId, string apiVersion, BuildDefinitionTemplate body, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public async System.Threading.Tasks.Task<Org.OpenAPITools.Client.ApiResponse<BuildDefinitionTemplate>> TemplatesSaveTemplateWithHttpInfoAsync(string organization, string project, string templateId, string apiVersion, BuildDefinitionTemplate body, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             // verify the required parameter 'organization' is set
             if (organization == null)

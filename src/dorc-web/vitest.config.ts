@@ -26,7 +26,7 @@ export default defineConfig({
   oxc: {
     decorator: { legacy: true },
     assumptions: { setPublicClassFields: true },
-    typescript: { removeClassFieldsWithoutInitializer: true },
+    typescript: { removeClassFieldsWithoutInitializer: true }
   },
   test: {
     include: ['tests/**/*.test.ts'],
@@ -36,9 +36,15 @@ export default defineConfig({
     hookTimeout: 30000,
     browser: {
       enabled: true,
+      // Pin the browser API to IPv4 so Windows hosts that cannot bind IPv6
+      // localhost can execute the browser suite.
+      api: {
+        host: '127.0.0.1',
+        port: 51234
+      },
       provider: playwright(),
       headless: true,
-      instances: BROWSERS.map(browser => ({ browser })),
-    },
-  },
+      instances: BROWSERS.map(browser => ({ browser }))
+    }
+  }
 });

@@ -1,3 +1,4 @@
+import { confirmPrompt } from '../confirm-prompt';
 import { css, nothing, PropertyValues } from 'lit';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid';
@@ -8,16 +9,18 @@ import { Notification } from '@vaadin/notification';
 import {
   AccessControlType,
   DatabaseApiModel,
+  EnvironmentApiModel,
   RefDataEnvironmentsApi
 } from '../../apis/dorc-api';
 import '@vaadin/button';
 import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
 import '@vaadin/details';
+import '@vaadin/horizontal-layout';
 import '../make-like-production-dialog';
-import '@polymer/paper-dialog';
 import '../add-edit-environment';
 import { PageEnvBase } from './page-env-base';
+import '../add-edit-access-control';
 import { AddEditAccessControl } from '../add-edit-access-control';
 import GlobalCache from '../../global-cache';
 import { ResetAppPasswordBehalf } from '../reset-app-password-behalf';
@@ -28,6 +31,8 @@ import { SuccessNotification } from '../notifications/success-notification';
 import { ErrorNotification } from '../notifications/error-notification';
 import { retrieveErrorMessage } from '../../helpers/errorMessage-retriever';
 import { MakeLikeProductionDialog } from '../make-like-production-dialog.ts';
+import '@vaadin/tooltip';
+import { dorcApiConfiguration } from '../../services/dorc-api-configuration';
 
 @customElement('env-control-center')
 export class EnvControlCenter extends PageEnvBase {
@@ -85,11 +90,6 @@ export class EnvControlCenter extends PageEnvBase {
         display: none;
       }
 
-      paper-dialog.size-position {
-        top: 8px;
-        padding: 10px;
-      }
-
       a {
         color: inherit; /* blue colors for links too */
         text-decoration: inherit; /* no underline */
@@ -103,6 +103,13 @@ export class EnvControlCenter extends PageEnvBase {
       .delete-progress {
         padding: 8px 0 4px 0;
         color: var(--dorc-text-secondary);
+      }
+
+      .control-center-summary {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--lumo-space-xs, 0.375rem);
+        white-space: nowrap;
       }
     `;
   }
@@ -135,13 +142,10 @@ export class EnvControlCenter extends PageEnvBase {
         style="border-top: 6px solid var(--dorc-ctrl-section-border, #ffad33) !important; background-color: var(--dorc-ctrl-section-bg, #fff5e6); padding-left: 4px; margin: 0px;"
       >
         <vaadin-details-summary slot="summary">
-          <vaadin-horizontal-layout>
-            <vaadin-icon
-              icon="vaadin:automation"
-              style="display: table-cell; padding-right: 5px"
-            ></vaadin-icon>
-            <span> Environment Control Center </span>
-          </vaadin-horizontal-layout>
+          <span class="control-center-summary">
+            <vaadin-icon icon="vaadin:automation"></vaadin-icon>
+            <span>Environment Control Center</span>
+          </span>
         </vaadin-details-summary>
         <div style="padding-left: 30px">
           <vaadin-button
@@ -166,10 +170,14 @@ export class EnvControlCenter extends PageEnvBase {
             >Environment History</vaadin-button
           >
           <vaadin-button
-            title="Access Control..."
+            aria-label="Access Control..."
             theme="icon"
             @click="${this.openAccessControl}"
           >
+            <vaadin-tooltip
+              slot="tooltip"
+              text="Access Control..."
+            ></vaadin-tooltip>
             <vaadin-icon icon="vaadin:lock"></vaadin-icon>Environment
             Access...</vaadin-button
           >
@@ -194,15 +202,17 @@ export class EnvControlCenter extends PageEnvBase {
             <vaadin-icon icon="vaadin:safe" slot="prefix"></vaadin-icon>Reset
             SQL Account Password for...</vaadin-button
           >
-          ${this.isDeletingEnvironment
-            ? html`
-                <div class="delete-progress" role="status" aria-live="polite">
-                  Deleting '${this.environment?.EnvironmentName}' and its
-                  properties. This can take a minute or two for an environment
-                  with a lot of history - please leave this page open.
-                </div>
-              `
-            : nothing}
+          ${
+            this.isDeletingEnvironment
+              ? html`
+                  <div class="delete-progress" role="status" aria-live="polite">
+                    Deleting '${this.environment?.EnvironmentName}' and its
+                    properties. This can take a minute or two for an environment
+                    with a lot of history - please leave this page open.
+                  </div>
+                `
+              : nothing
+          }
         </div>
       </vaadin-details>
     `;
@@ -237,7 +247,7 @@ export class EnvControlCenter extends PageEnvBase {
   }
 
   isEnvironmentOwner() {
-    const api = new RefDataEnvironmentsApi();
+    const api = new RefDataEnvironmentsApi(dorcApiConfiguration);
     api
       .refDataEnvironmentsIsEnvironmentOwnerGet({
         envName: this.environment?.EnvironmentName ?? ''
@@ -262,7 +272,7 @@ export class EnvControlCenter extends PageEnvBase {
       'add-edit-access-control'
     ) as AddEditAccessControl;
 
-    addEditAccessControl.open(this.secureName, AccessControlType.NUMBER_1);
+    addEditAccessControl.open(this.secureName, AccessControlType.Environment);
   }
 
   closeMlpDialog() {
@@ -277,25 +287,28 @@ export class EnvControlCenter extends PageEnvBase {
     });
   }
 
-  deleteEnvironment() {
+  async deleteEnvironment() {
     if (this.isDeletingEnvironment) {
       return;
     }
 
-    const answer = confirm(
+    // Snapshot before awaiting, so the environment deleted and the one named in
+    // the success notification are the one the user was asked about.
+    const environment = this.environment;
+    const answer = await confirmPrompt(
       'Are you sure you want to delete your environment and properties?'
     );
     if (answer) {
-      if (this.environment !== undefined) {
-        const api = new RefDataEnvironmentsApi();
+      if (environment !== undefined) {
+        const api = new RefDataEnvironmentsApi(dorcApiConfiguration);
         this.isDeletingEnvironment = true;
         api
-          .refDataEnvironmentsDelete({ environmentApiModel: this.environment })
+          .refDataEnvironmentsDelete({ environmentApiModel: environment })
           .subscribe({
             next: (data: boolean) => {
               if (data) {
                 const message = `The Environment ${
-                  this.environment?.EnvironmentName
+                  environment?.EnvironmentName
                 } has been deleted from DOrc`;
 
                 const notification = new SuccessNotification();
@@ -305,7 +318,7 @@ export class EnvControlCenter extends PageEnvBase {
 
                 const event = new CustomEvent('environment-deleted', {
                   detail: {
-                    Environment: this.environment
+                    Environment: environment
                   },
                   bubbles: true,
                   composed: true
@@ -313,12 +326,13 @@ export class EnvControlCenter extends PageEnvBase {
                 this.dispatchEvent(event);
               } else {
                 this.showDeleteError(
+                  environment,
                   'The server reported that the environment was not deleted.'
                 );
               }
             },
             error: (err: any) => {
-              this.showDeleteError(err);
+              this.showDeleteError(environment, err);
               this.isDeletingEnvironment = false;
             },
             complete: () => {
@@ -329,12 +343,18 @@ export class EnvControlCenter extends PageEnvBase {
     }
   }
 
-  private showDeleteError(err: any) {
+  private showDeleteError(
+    environment: EnvironmentApiModel | undefined,
+    err: any
+  ) {
     // The reason lives in the response the API sends back - a timeout, a privilege problem and an
     // environment that has already gone all need different things from the user, and the previous
     // 'Failed to delete your environment' alert told them apart from none of them.
+    // The snapshot, not a fresh read: this runs after the confirmation and a
+    // network round trip, so naming `this.environment` could report a failure
+    // against whichever environment is loaded by then.
     const message = `Failed to delete environment '${
-      this.environment?.EnvironmentName
+      environment?.EnvironmentName
     }'. ${retrieveErrorMessage(err)}`;
 
     const notification = new ErrorNotification();

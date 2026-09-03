@@ -1,4 +1,7 @@
-import { css, PropertyValues, render } from 'lit';
+import { ref } from 'lit/directives/ref.js';
+import { columnBodyRenderer, columnHeaderRenderer } from '@vaadin/grid/lit';
+import { confirmPrompt } from '../components/confirm-prompt';
+import { css, PropertyValues } from 'lit';
 import '../components/dorc-spinner';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid';
@@ -19,14 +22,44 @@ import {
   EnvironmentApiModelTemplateApiModel
 } from '../apis/dorc-api';
 import { ErrorNotification } from '../components/notifications/error-notification.ts';
-import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
-import { Grid, GridItemModel } from '@vaadin/grid';
+import { Grid } from '@vaadin/grid';
+import '../components/hegs-json-viewer';
 import { HegsJsonViewer } from '../components/hegs-json-viewer.ts';
 import '../components/grid-button-groups/bundle-request-controls';
 import '../components/bundle-editor-dialog';
 import { BundleEditorDialog } from '../components/bundle-editor-dialog';
-import { Router } from '@vaadin/router';
+import { navigate } from '../router/router';
 import { ComboBox } from '@vaadin/combo-box';
+import '@vaadin/grid/vaadin-grid-sorter';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
+
+/**
+ * Puts a row's JSON into a `hegs-json-viewer` and expands it.
+ *
+ * The viewer seeds `.data` from its own text exactly once, in
+ * connectedCallback. Grid cells are recycled — Vaadin only clears a cell when
+ * the renderer function itself changes — so the element survives into the next
+ * row and would keep showing the first row's JSON even though its text had
+ * been updated. Binding `.data` per render fixes that; returning a fresh
+ * callback each time is what makes `ref` re-run, since expansion is only
+ * exposed as a method.
+ */
+const showJson = (raw: string | null | undefined) => (element?: Element) => {
+  if (!element) return;
+  const viewer = element as unknown as HegsJsonViewer & { data?: unknown };
+  viewer.data = parseJson(raw);
+  viewer.expand('**');
+};
+
+/** Malformed JSON renders as the raw string rather than blowing up the grid. */
+function parseJson(raw: string | null | undefined): unknown {
+  if (!raw) return {};
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return raw;
+  }
+}
 
 @customElement('page-project-bundles')
 export class PageProjectBundles extends ResponsiveMixin(PageElement) {
@@ -34,10 +67,10 @@ export class PageProjectBundles extends ResponsiveMixin(PageElement) {
   project: string | undefined;
 
   @property({ type: Boolean })
-  private loading = true;
+  loading = true;
 
   @property({ type: String })
-  private bundleNameFilter = '';
+  bundleNameFilter = '';
 
   static get styles() {
     return css`
@@ -56,8 +89,6 @@ export class PageProjectBundles extends ResponsiveMixin(PageElement) {
         padding: var(--lumo-space-m) var(--lumo-space-m) 0 var(--lumo-space-m);
         flex-wrap: wrap;
       }
-
-
 
       h2 {
         margin: 0;
@@ -91,8 +122,8 @@ export class PageProjectBundles extends ResponsiveMixin(PageElement) {
   @query('#grid') grid: Grid | undefined;
 
   // Bound header renderer to avoid creating new function references on each render
-  private _boundBundleNameHeaderRenderer = this.bundleNameHeaderRenderer.bind(this);
-  private _boundHandleBundleNameFilterChange = this.handleBundleNameFilterChange.bind(this);
+  private _boundHandleBundleNameFilterChange =
+    this.handleBundleNameFilterChange.bind(this);
 
   private updateUniqueBundleNames() {
     const names = new Set<string>();
@@ -108,8 +139,8 @@ export class PageProjectBundles extends ResponsiveMixin(PageElement) {
     if (!this.bundleNameFilter) {
       this.filteredBundledRequests = [...this.bundledRequests];
     } else {
-      this.filteredBundledRequests = this.bundledRequests.filter(bundle => 
-        bundle.BundleName === this.bundleNameFilter
+      this.filteredBundledRequests = this.bundledRequests.filter(
+        bundle => bundle.BundleName === this.bundleNameFilter
       );
     }
   }
@@ -120,27 +151,25 @@ export class PageProjectBundles extends ResponsiveMixin(PageElement) {
     this.applyBundleNameFilter();
   }
 
-  bundleNameHeaderRenderer(root: HTMLElement) {
-    render(
-      html`
-        <vaadin-grid-sorter
-          path="BundleName"
-          direction="asc"
-          style="align-items: normal"
-        >Bundle Name</vaadin-grid-sorter>
-        <vaadin-combo-box
-          clear-button-visible
-          focus-target
-          .items="${this.uniqueBundleNames}"
-          placeholder="Select bundle..."
-          style="width: 200px"
-          theme="small"
-          .value="${this.bundleNameFilter}"
-          @value-changed="${this._boundHandleBundleNameFilterChange}"
-        ></vaadin-combo-box>
-      `,
-      root
-    );
+  bundleNameHeaderRenderer() {
+    return html`
+      <vaadin-grid-sorter
+        path="BundleName"
+        direction="asc"
+        style="align-items: normal"
+        >Bundle Name</vaadin-grid-sorter
+      >
+      <vaadin-combo-box
+        clear-button-visible
+        focus-target
+        .items="${this.uniqueBundleNames}"
+        placeholder="Select bundle..."
+        style="width: 200px"
+        theme="small"
+        .value="${this.bundleNameFilter}"
+        @value-changed="${this._boundHandleBundleNameFilterChange}"
+      ></vaadin-combo-box>
+    `;
   }
 
   render() {
@@ -181,10 +210,13 @@ export class PageProjectBundles extends ResponsiveMixin(PageElement) {
           auto-width
           flex-grow="0"
           resizable
-          .headerRenderer="${this._boundBundleNameHeaderRenderer}"
+          ${columnHeaderRenderer(this.bundleNameHeaderRenderer, [
+            this.uniqueBundleNames,
+            this.bundleNameFilter
+          ])}
         ></vaadin-grid-column>
         <vaadin-grid-column
-          .renderer="${this._typeRenderer}"
+          ${columnBodyRenderer(this._typeRenderer, [])}
           header="Type"
           auto-width
           flex-grow="0"
@@ -208,7 +240,7 @@ export class PageProjectBundles extends ResponsiveMixin(PageElement) {
           ?hidden="${this._narrowScreen}"
         ></vaadin-grid-sort-column>
         <vaadin-grid-column
-          .renderer="${this.bundleControlsRenderer}"
+          ${columnBodyRenderer(this.bundleControlsRenderer, [])}
           resizable
           flex-grow="0"
         ></vaadin-grid-column>
@@ -216,7 +248,7 @@ export class PageProjectBundles extends ResponsiveMixin(PageElement) {
           path="Request"
           header="Request"
           resizable
-          .renderer="${this._jsonRenderer}"
+          ${columnBodyRenderer(this._jsonRenderer, [])}
           ?hidden="${this._narrowScreen}"
         ></vaadin-grid-column>
       </vaadin-grid>
@@ -236,7 +268,7 @@ export class PageProjectBundles extends ResponsiveMixin(PageElement) {
     );
     this.addEventListener(
       'delete-bundle-request',
-      this._handleDeleteBundle as EventListener
+      this._handleDeleteBundle as unknown as EventListener
     );
 
     // Get project name from URL
@@ -246,10 +278,8 @@ export class PageProjectBundles extends ResponsiveMixin(PageElement) {
     this.loadProjectData();
   }
 
-
-
   private loadProjectData() {
-    const api = new RefDataProjectEnvironmentMappingsApi();
+    const api = new RefDataProjectEnvironmentMappingsApi(dorcApiConfiguration);
     if (this.project !== undefined) {
       api
         .refDataProjectEnvironmentMappingsGet({
@@ -263,14 +293,16 @@ export class PageProjectBundles extends ResponsiveMixin(PageElement) {
           },
           (err: any) => {
             console.error(err);
-            Router.go('not-found');
+            void navigate('not-found');
           }
         );
     }
   }
 
   private _openAddBundleDialog() {
-    const projects = this.projectData?.Project ? [this.projectData.Project] : [];
+    const projects = this.projectData?.Project
+      ? [this.projectData.Project]
+      : [];
     this.bundleEditorDialog.openNew(projects, this.uniqueBundleNames);
   }
 
@@ -278,41 +310,41 @@ export class PageProjectBundles extends ResponsiveMixin(PageElement) {
     this.fetchBundledRequests();
   }
 
-  bundleControlsRenderer(
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<BundledRequestsApiModel>
-  ) {
-    render(
-      html` <bundle-request-controls .value="${model.item}">
-      </bundle-request-controls>`,
-      root
-    );
+  bundleControlsRenderer(item: BundledRequestsApiModel) {
+    return html` <bundle-request-controls .value="${item}">
+    </bundle-request-controls>`;
   }
 
   private _handleEditBundle(e: CustomEvent) {
-    const projects = this.projectData?.Project ? [this.projectData.Project] : [];
-    this.bundleEditorDialog.openEdit(e.detail.value, projects, this.uniqueBundleNames);
+    const projects = this.projectData?.Project
+      ? [this.projectData.Project]
+      : [];
+    this.bundleEditorDialog.openEdit(
+      e.detail.value,
+      projects,
+      this.uniqueBundleNames
+    );
   }
 
-  private _handleDeleteBundle(e: CustomEvent) {
+  private async _handleDeleteBundle(e: CustomEvent) {
     const bundle = e.detail.value as BundledRequestsApiModel;
 
     if (bundle.Id) {
-      const confirmDelete = confirm(
+      const confirmDelete = await confirmPrompt(
         'Are you sure you want to delete this bundle request: ' +
           bundle.BundleName +
-          '-' + bundle.RequestName +
+          '-' +
+          bundle.RequestName +
           '?'
       );
 
       if (confirmDelete) {
-        const api = new BundledRequestsApi();
+        const api = new BundledRequestsApi(dorcApiConfiguration);
         api.bundledRequestsDelete({ id: bundle.Id }).subscribe({
           next: () => {
             this.fetchBundledRequests();
           },
-          error: (error) => {
+          error: error => {
             console.error('Error deleting bundle request:', error);
             new ErrorNotification().open();
           }
@@ -321,39 +353,26 @@ export class PageProjectBundles extends ResponsiveMixin(PageElement) {
     }
   }
 
-  _jsonRenderer(
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<BundledRequestsApiModel>
-  ) {
-    const bundle = model.item as BundledRequestsApiModel;
-
-    root.innerHTML = `<hegs-json-viewer style="font-size: small ">${
-      bundle.Request
-    }</hegs-json-viewer>`;
-    const viewer = root.querySelector(
-      'hegs-json-viewer'
-    ) as unknown as HegsJsonViewer;
-    viewer.expand('**');
+  _jsonRenderer(bundle: BundledRequestsApiModel) {
+    // The viewer is configured through a method, so `ref` fires exactly when
+    // the element exists rather than querying it back out of the cell.
+    return html`<hegs-json-viewer
+      style="font-size: small"
+      ${ref(showJson(bundle.Request))}
+    ></hegs-json-viewer>`;
   }
 
-  _typeRenderer(
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<BundledRequestsApiModel>
-  ) {
-    const bundle = model.item as BundledRequestsApiModel;
-
+  _typeRenderer(bundle: BundledRequestsApiModel) {
     // API returns Type as string name ("JobRequest", "CopyEnvBuild") not number
-    const typeString = (bundle.Type as unknown as string) || 'Unknown';
-
-    root.innerHTML = `<span>${typeString}</span>`;
+    return html`<span
+      >${(bundle.Type as unknown as string) || 'Unknown'}</span
+    >`;
   }
 
   private fetchBundledRequests() {
-    const api = new BundledRequestsApi();
+    const api = new BundledRequestsApi(dorcApiConfiguration);
     const projectNames = this.project ? [this.project] : [];
-    
+
     api.bundledRequestsGet({ projectNames }).subscribe({
       next: data => {
         this.bundledRequests = data.sort((a, b) => {
@@ -373,10 +392,7 @@ export class PageProjectBundles extends ResponsiveMixin(PageElement) {
         this.updateUniqueBundleNames();
         this.applyBundleNameFilter();
 
-        if (this.grid) {
-          this.grid.clearCache();
-          this.grid.requestContentUpdate();
-        }
+        this.grid?.clearCache();
 
         this.loading = false;
       },

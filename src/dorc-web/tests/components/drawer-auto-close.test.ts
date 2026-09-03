@@ -64,7 +64,7 @@ describe('Drawer auto-close on mobile', () => {
     container.remove();
   });
 
-  it('closes drawer on vaadin-router-location-changed when narrow', async () => {
+  it('closes drawer on dorc-router-location-changed when narrow', async () => {
     mockMatchMedia(true);
 
     const { el, navbar } = await mountDorcApp(container);
@@ -72,7 +72,7 @@ describe('Drawer auto-close on mobile', () => {
     (el as any)._openDrawer();
     expect(navbar.classList.contains('open')).to.equal(true, 'precondition');
 
-    window.dispatchEvent(new CustomEvent('vaadin-router-location-changed'));
+    window.dispatchEvent(new CustomEvent('dorc-router-location-changed'));
 
     expect(navbar.classList.contains('open')).to.equal(
       false,
@@ -80,13 +80,13 @@ describe('Drawer auto-close on mobile', () => {
     );
   });
 
-  it('does NOT close drawer on vaadin-router-location-changed when wide', async () => {
+  it('does NOT close drawer on dorc-router-location-changed when wide', async () => {
     mockMatchMedia(false);
 
     const { el, navbar } = await mountDorcApp(container);
     (el as any)._openDrawer();
 
-    window.dispatchEvent(new CustomEvent('vaadin-router-location-changed'));
+    window.dispatchEvent(new CustomEvent('dorc-router-location-changed'));
 
     expect(navbar.classList.contains('open')).to.equal(
       true,

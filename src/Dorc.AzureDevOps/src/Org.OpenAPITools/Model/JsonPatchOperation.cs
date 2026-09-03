@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// The JSON model for a JSON Patch operation
     /// </summary>
     [DataContract(Name = "JsonPatchOperation")]
-    public partial class JsonPatchOperation : IEquatable<JsonPatchOperation>, IValidatableObject
+    public partial class JsonPatchOperation : IValidatableObject
     {
         /// <summary>
         /// The patch operation
@@ -74,7 +74,6 @@ namespace Org.OpenAPITools.Model
             /// </summary>
             [EnumMember(Value = "test")]
             Test = 6
-
         }
 
 
@@ -91,7 +90,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="op">The patch operation.</param>
         /// <param name="path">The path for the operation. In the case of an array, a zero based index can be used to specify the position in the array (e.g. /biscuits/0/name). The \&quot;-\&quot; character can be used instead of an index to insert at the end of the array (e.g. /biscuits/-)..</param>
         /// <param name="value">The value for the operation. This is either a primitive or a JToken..</param>
-        public JsonPatchOperation(string from = default(string), OpEnum? op = default(OpEnum?), string path = default(string), Object value = default(Object))
+        public JsonPatchOperation(string from = default, OpEnum? op = default, string path = default, Object value = default)
         {
             this.From = from;
             this.Op = op;
@@ -146,80 +145,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as JsonPatchOperation);
-        }
-
-        /// <summary>
-        /// Returns true if JsonPatchOperation instances are equal
-        /// </summary>
-        /// <param name="input">Instance of JsonPatchOperation to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(JsonPatchOperation input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.From == input.From ||
-                    (this.From != null &&
-                    this.From.Equals(input.From))
-                ) && 
-                (
-                    this.Op == input.Op ||
-                    this.Op.Equals(input.Op)
-                ) && 
-                (
-                    this.Path == input.Path ||
-                    (this.Path != null &&
-                    this.Path.Equals(input.Path))
-                ) && 
-                (
-                    this.Value == input.Value ||
-                    (this.Value != null &&
-                    this.Value.Equals(input.Value))
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.From != null)
-                {
-                    hashCode = (hashCode * 59) + this.From.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.Op.GetHashCode();
-                if (this.Path != null)
-                {
-                    hashCode = (hashCode * 59) + this.Path.GetHashCode();
-                }
-                if (this.Value != null)
-                {
-                    hashCode = (hashCode * 59) + this.Value.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

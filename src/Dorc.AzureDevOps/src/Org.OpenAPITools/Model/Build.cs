@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// Data representation of a build.
     /// </summary>
     [DataContract(Name = "Build")]
-    public partial class Build : IEquatable<Build>, IValidatableObject
+    public partial class Build : IValidatableObject
     {
         /// <summary>
         /// The build&#39;s priority.
@@ -68,7 +68,6 @@ namespace Org.OpenAPITools.Model
             /// </summary>
             [EnumMember(Value = "high")]
             High = 5
-
         }
 
 
@@ -96,7 +95,6 @@ namespace Org.OpenAPITools.Model
             /// </summary>
             [EnumMember(Value = "doNotRun")]
             DoNotRun = 2
-
         }
 
 
@@ -196,7 +194,6 @@ namespace Org.OpenAPITools.Model
             /// </summary>
             [EnumMember(Value = "all")]
             All = 14
-
         }
 
 
@@ -242,7 +239,6 @@ namespace Org.OpenAPITools.Model
             /// </summary>
             [EnumMember(Value = "canceled")]
             Canceled = 5
-
         }
 
 
@@ -300,7 +296,6 @@ namespace Org.OpenAPITools.Model
             /// </summary>
             [EnumMember(Value = "all")]
             All = 7
-
         }
 
 
@@ -357,7 +352,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="uri">The URI of the build..</param>
         /// <param name="url">The REST URL of the build..</param>
         /// <param name="validationResults">validationResults.</param>
-        public Build(ReferenceLinks links = default(ReferenceLinks), AgentSpecification agentSpecification = default(AgentSpecification), string buildNumber = default(string), int buildNumberRevision = default(int), BuildController controller = default(BuildController), DefinitionReference definition = default(DefinitionReference), bool deleted = default(bool), IdentityRef deletedBy = default(IdentityRef), DateTime deletedDate = default(DateTime), string deletedReason = default(string), List<Demand> demands = default(List<Demand>), DateTime finishTime = default(DateTime), int id = default(int), bool keepForever = default(bool), IdentityRef lastChangedBy = default(IdentityRef), DateTime lastChangedDate = default(DateTime), BuildLogReference logs = default(BuildLogReference), TaskOrchestrationPlanReference orchestrationPlan = default(TaskOrchestrationPlanReference), string parameters = default(string), List<TaskOrchestrationPlanReference> plans = default(List<TaskOrchestrationPlanReference>), PriorityEnum? priority = default(PriorityEnum?), TeamProjectReference project = default(TeamProjectReference), PropertiesCollection properties = default(PropertiesCollection), string quality = default(string), AgentPoolQueue queue = default(AgentPoolQueue), QueueOptionsEnum? queueOptions = default(QueueOptionsEnum?), int queuePosition = default(int), DateTime queueTime = default(DateTime), ReasonEnum? reason = default(ReasonEnum?), BuildRepository repository = default(BuildRepository), IdentityRef requestedBy = default(IdentityRef), IdentityRef requestedFor = default(IdentityRef), ResultEnum? result = default(ResultEnum?), bool retainedByRelease = default(bool), string sourceBranch = default(string), string sourceVersion = default(string), DateTime startTime = default(DateTime), StatusEnum? status = default(StatusEnum?), List<string> tags = default(List<string>), Build triggeredByBuild = default(Build), Dictionary<string, string> triggerInfo = default(Dictionary<string, string>), string uri = default(string), string url = default(string), List<BuildRequestValidationResult> validationResults = default(List<BuildRequestValidationResult>))
+        public Build(ReferenceLinks links = default, AgentSpecification agentSpecification = default, string buildNumber = default, int buildNumberRevision = default, BuildController controller = default, DefinitionReference definition = default, bool deleted = default, IdentityRef deletedBy = default, DateTime deletedDate = default, string deletedReason = default, List<Demand> demands = default, DateTime finishTime = default, int id = default, bool keepForever = default, IdentityRef lastChangedBy = default, DateTime lastChangedDate = default, BuildLogReference logs = default, TaskOrchestrationPlanReference orchestrationPlan = default, string parameters = default, List<TaskOrchestrationPlanReference> plans = default, PriorityEnum? priority = default, TeamProjectReference project = default, PropertiesCollection properties = default, string quality = default, AgentPoolQueue queue = default, QueueOptionsEnum? queueOptions = default, int queuePosition = default, DateTime queueTime = default, ReasonEnum? reason = default, BuildRepository repository = default, IdentityRef requestedBy = default, IdentityRef requestedFor = default, ResultEnum? result = default, bool retainedByRelease = default, string sourceBranch = default, string sourceVersion = default, DateTime startTime = default, StatusEnum? status = default, List<string> tags = default, Build triggeredByBuild = default, Dictionary<string, string> triggerInfo = default, string uri = default, string url = default, List<BuildRequestValidationResult> validationResults = default)
         {
             this.Links = links;
             this.AgentSpecification = agentSpecification;
@@ -727,405 +722,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as Build);
-        }
-
-        /// <summary>
-        /// Returns true if Build instances are equal
-        /// </summary>
-        /// <param name="input">Instance of Build to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(Build input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.Links == input.Links ||
-                    (this.Links != null &&
-                    this.Links.Equals(input.Links))
-                ) && 
-                (
-                    this.AgentSpecification == input.AgentSpecification ||
-                    (this.AgentSpecification != null &&
-                    this.AgentSpecification.Equals(input.AgentSpecification))
-                ) && 
-                (
-                    this.BuildNumber == input.BuildNumber ||
-                    (this.BuildNumber != null &&
-                    this.BuildNumber.Equals(input.BuildNumber))
-                ) && 
-                (
-                    this.BuildNumberRevision == input.BuildNumberRevision ||
-                    this.BuildNumberRevision.Equals(input.BuildNumberRevision)
-                ) && 
-                (
-                    this.Controller == input.Controller ||
-                    (this.Controller != null &&
-                    this.Controller.Equals(input.Controller))
-                ) && 
-                (
-                    this.Definition == input.Definition ||
-                    (this.Definition != null &&
-                    this.Definition.Equals(input.Definition))
-                ) && 
-                (
-                    this.Deleted == input.Deleted ||
-                    this.Deleted.Equals(input.Deleted)
-                ) && 
-                (
-                    this.DeletedBy == input.DeletedBy ||
-                    (this.DeletedBy != null &&
-                    this.DeletedBy.Equals(input.DeletedBy))
-                ) && 
-                (
-                    this.DeletedDate == input.DeletedDate ||
-                    (this.DeletedDate != null &&
-                    this.DeletedDate.Equals(input.DeletedDate))
-                ) && 
-                (
-                    this.DeletedReason == input.DeletedReason ||
-                    (this.DeletedReason != null &&
-                    this.DeletedReason.Equals(input.DeletedReason))
-                ) && 
-                (
-                    this.Demands == input.Demands ||
-                    this.Demands != null &&
-                    input.Demands != null &&
-                    this.Demands.SequenceEqual(input.Demands)
-                ) && 
-                (
-                    this.FinishTime == input.FinishTime ||
-                    (this.FinishTime != null &&
-                    this.FinishTime.Equals(input.FinishTime))
-                ) && 
-                (
-                    this.Id == input.Id ||
-                    this.Id.Equals(input.Id)
-                ) && 
-                (
-                    this.KeepForever == input.KeepForever ||
-                    this.KeepForever.Equals(input.KeepForever)
-                ) && 
-                (
-                    this.LastChangedBy == input.LastChangedBy ||
-                    (this.LastChangedBy != null &&
-                    this.LastChangedBy.Equals(input.LastChangedBy))
-                ) && 
-                (
-                    this.LastChangedDate == input.LastChangedDate ||
-                    (this.LastChangedDate != null &&
-                    this.LastChangedDate.Equals(input.LastChangedDate))
-                ) && 
-                (
-                    this.Logs == input.Logs ||
-                    (this.Logs != null &&
-                    this.Logs.Equals(input.Logs))
-                ) && 
-                (
-                    this.OrchestrationPlan == input.OrchestrationPlan ||
-                    (this.OrchestrationPlan != null &&
-                    this.OrchestrationPlan.Equals(input.OrchestrationPlan))
-                ) && 
-                (
-                    this.Parameters == input.Parameters ||
-                    (this.Parameters != null &&
-                    this.Parameters.Equals(input.Parameters))
-                ) && 
-                (
-                    this.Plans == input.Plans ||
-                    this.Plans != null &&
-                    input.Plans != null &&
-                    this.Plans.SequenceEqual(input.Plans)
-                ) && 
-                (
-                    this.Priority == input.Priority ||
-                    this.Priority.Equals(input.Priority)
-                ) && 
-                (
-                    this.Project == input.Project ||
-                    (this.Project != null &&
-                    this.Project.Equals(input.Project))
-                ) && 
-                (
-                    this.Properties == input.Properties ||
-                    (this.Properties != null &&
-                    this.Properties.Equals(input.Properties))
-                ) && 
-                (
-                    this.Quality == input.Quality ||
-                    (this.Quality != null &&
-                    this.Quality.Equals(input.Quality))
-                ) && 
-                (
-                    this.Queue == input.Queue ||
-                    (this.Queue != null &&
-                    this.Queue.Equals(input.Queue))
-                ) && 
-                (
-                    this.QueueOptions == input.QueueOptions ||
-                    this.QueueOptions.Equals(input.QueueOptions)
-                ) && 
-                (
-                    this.QueuePosition == input.QueuePosition ||
-                    this.QueuePosition.Equals(input.QueuePosition)
-                ) && 
-                (
-                    this.QueueTime == input.QueueTime ||
-                    (this.QueueTime != null &&
-                    this.QueueTime.Equals(input.QueueTime))
-                ) && 
-                (
-                    this.Reason == input.Reason ||
-                    this.Reason.Equals(input.Reason)
-                ) && 
-                (
-                    this.Repository == input.Repository ||
-                    (this.Repository != null &&
-                    this.Repository.Equals(input.Repository))
-                ) && 
-                (
-                    this.RequestedBy == input.RequestedBy ||
-                    (this.RequestedBy != null &&
-                    this.RequestedBy.Equals(input.RequestedBy))
-                ) && 
-                (
-                    this.RequestedFor == input.RequestedFor ||
-                    (this.RequestedFor != null &&
-                    this.RequestedFor.Equals(input.RequestedFor))
-                ) && 
-                (
-                    this.Result == input.Result ||
-                    this.Result.Equals(input.Result)
-                ) && 
-                (
-                    this.RetainedByRelease == input.RetainedByRelease ||
-                    this.RetainedByRelease.Equals(input.RetainedByRelease)
-                ) && 
-                (
-                    this.SourceBranch == input.SourceBranch ||
-                    (this.SourceBranch != null &&
-                    this.SourceBranch.Equals(input.SourceBranch))
-                ) && 
-                (
-                    this.SourceVersion == input.SourceVersion ||
-                    (this.SourceVersion != null &&
-                    this.SourceVersion.Equals(input.SourceVersion))
-                ) && 
-                (
-                    this.StartTime == input.StartTime ||
-                    (this.StartTime != null &&
-                    this.StartTime.Equals(input.StartTime))
-                ) && 
-                (
-                    this.Status == input.Status ||
-                    this.Status.Equals(input.Status)
-                ) && 
-                (
-                    this.Tags == input.Tags ||
-                    this.Tags != null &&
-                    input.Tags != null &&
-                    this.Tags.SequenceEqual(input.Tags)
-                ) && 
-                (
-                    this.TriggeredByBuild == input.TriggeredByBuild ||
-                    (this.TriggeredByBuild != null &&
-                    this.TriggeredByBuild.Equals(input.TriggeredByBuild))
-                ) && 
-                (
-                    this.TriggerInfo == input.TriggerInfo ||
-                    this.TriggerInfo != null &&
-                    input.TriggerInfo != null &&
-                    this.TriggerInfo.SequenceEqual(input.TriggerInfo)
-                ) && 
-                (
-                    this.Uri == input.Uri ||
-                    (this.Uri != null &&
-                    this.Uri.Equals(input.Uri))
-                ) && 
-                (
-                    this.Url == input.Url ||
-                    (this.Url != null &&
-                    this.Url.Equals(input.Url))
-                ) && 
-                (
-                    this.ValidationResults == input.ValidationResults ||
-                    this.ValidationResults != null &&
-                    input.ValidationResults != null &&
-                    this.ValidationResults.SequenceEqual(input.ValidationResults)
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.Links != null)
-                {
-                    hashCode = (hashCode * 59) + this.Links.GetHashCode();
-                }
-                if (this.AgentSpecification != null)
-                {
-                    hashCode = (hashCode * 59) + this.AgentSpecification.GetHashCode();
-                }
-                if (this.BuildNumber != null)
-                {
-                    hashCode = (hashCode * 59) + this.BuildNumber.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.BuildNumberRevision.GetHashCode();
-                if (this.Controller != null)
-                {
-                    hashCode = (hashCode * 59) + this.Controller.GetHashCode();
-                }
-                if (this.Definition != null)
-                {
-                    hashCode = (hashCode * 59) + this.Definition.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.Deleted.GetHashCode();
-                if (this.DeletedBy != null)
-                {
-                    hashCode = (hashCode * 59) + this.DeletedBy.GetHashCode();
-                }
-                if (this.DeletedDate != null)
-                {
-                    hashCode = (hashCode * 59) + this.DeletedDate.GetHashCode();
-                }
-                if (this.DeletedReason != null)
-                {
-                    hashCode = (hashCode * 59) + this.DeletedReason.GetHashCode();
-                }
-                if (this.Demands != null)
-                {
-                    hashCode = (hashCode * 59) + this.Demands.GetHashCode();
-                }
-                if (this.FinishTime != null)
-                {
-                    hashCode = (hashCode * 59) + this.FinishTime.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.Id.GetHashCode();
-                hashCode = (hashCode * 59) + this.KeepForever.GetHashCode();
-                if (this.LastChangedBy != null)
-                {
-                    hashCode = (hashCode * 59) + this.LastChangedBy.GetHashCode();
-                }
-                if (this.LastChangedDate != null)
-                {
-                    hashCode = (hashCode * 59) + this.LastChangedDate.GetHashCode();
-                }
-                if (this.Logs != null)
-                {
-                    hashCode = (hashCode * 59) + this.Logs.GetHashCode();
-                }
-                if (this.OrchestrationPlan != null)
-                {
-                    hashCode = (hashCode * 59) + this.OrchestrationPlan.GetHashCode();
-                }
-                if (this.Parameters != null)
-                {
-                    hashCode = (hashCode * 59) + this.Parameters.GetHashCode();
-                }
-                if (this.Plans != null)
-                {
-                    hashCode = (hashCode * 59) + this.Plans.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.Priority.GetHashCode();
-                if (this.Project != null)
-                {
-                    hashCode = (hashCode * 59) + this.Project.GetHashCode();
-                }
-                if (this.Properties != null)
-                {
-                    hashCode = (hashCode * 59) + this.Properties.GetHashCode();
-                }
-                if (this.Quality != null)
-                {
-                    hashCode = (hashCode * 59) + this.Quality.GetHashCode();
-                }
-                if (this.Queue != null)
-                {
-                    hashCode = (hashCode * 59) + this.Queue.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.QueueOptions.GetHashCode();
-                hashCode = (hashCode * 59) + this.QueuePosition.GetHashCode();
-                if (this.QueueTime != null)
-                {
-                    hashCode = (hashCode * 59) + this.QueueTime.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.Reason.GetHashCode();
-                if (this.Repository != null)
-                {
-                    hashCode = (hashCode * 59) + this.Repository.GetHashCode();
-                }
-                if (this.RequestedBy != null)
-                {
-                    hashCode = (hashCode * 59) + this.RequestedBy.GetHashCode();
-                }
-                if (this.RequestedFor != null)
-                {
-                    hashCode = (hashCode * 59) + this.RequestedFor.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.Result.GetHashCode();
-                hashCode = (hashCode * 59) + this.RetainedByRelease.GetHashCode();
-                if (this.SourceBranch != null)
-                {
-                    hashCode = (hashCode * 59) + this.SourceBranch.GetHashCode();
-                }
-                if (this.SourceVersion != null)
-                {
-                    hashCode = (hashCode * 59) + this.SourceVersion.GetHashCode();
-                }
-                if (this.StartTime != null)
-                {
-                    hashCode = (hashCode * 59) + this.StartTime.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.Status.GetHashCode();
-                if (this.Tags != null)
-                {
-                    hashCode = (hashCode * 59) + this.Tags.GetHashCode();
-                }
-                if (this.TriggeredByBuild != null)
-                {
-                    hashCode = (hashCode * 59) + this.TriggeredByBuild.GetHashCode();
-                }
-                if (this.TriggerInfo != null)
-                {
-                    hashCode = (hashCode * 59) + this.TriggerInfo.GetHashCode();
-                }
-                if (this.Uri != null)
-                {
-                    hashCode = (hashCode * 59) + this.Uri.GetHashCode();
-                }
-                if (this.Url != null)
-                {
-                    hashCode = (hashCode * 59) + this.Url.GetHashCode();
-                }
-                if (this.ValidationResults != null)
-                {
-                    hashCode = (hashCode * 59) + this.ValidationResults.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

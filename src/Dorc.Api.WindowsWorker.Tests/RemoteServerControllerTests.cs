@@ -43,7 +43,7 @@ namespace Dorc.Api.WindowsWorker.Tests
 
         private static RegistryFixture LoadFixture()
         {
-            var path = Path.Combine(AppContext.BaseDirectory, "Fixtures", "registry-operating-system.json");
+            var path = Path.Join(AppContext.BaseDirectory, "Fixtures", "registry-operating-system.json");
             return JsonSerializer.Deserialize<RegistryFixture>(
                        File.ReadAllText(path),
                        new JsonSerializerOptions(JsonSerializerDefaults.Web))

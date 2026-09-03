@@ -5,6 +5,8 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { Notification } from '@vaadin/notification';
 import { ApiBoolResult, EnvironmentApiModel, RefDataEnvironmentsDetailsApi } from '../apis/dorc-api';
+import '@vaadin/combo-box';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('add-env-tenant')
 export class AddEnvTenant extends LitElement {
@@ -75,7 +77,7 @@ export class AddEnvTenant extends LitElement {
       return;
     }
     const envId = this.selectedEnvironmentId;
-    const api = new RefDataEnvironmentsDetailsApi();
+    const api = new RefDataEnvironmentsDetailsApi(dorcApiConfiguration);
     api.refDataEnvironmentsDetailsSetParentForEnvironmentPut({
       childEnvId: this.selectedEnvironmentId,
       parentEnvId: this.parentEnvironment?.EnvironmentId
@@ -122,7 +124,7 @@ export class AddEnvTenant extends LitElement {
 
   private _fetchPossibleTenants() {
     this.envsLoading = true;
-    const api = new RefDataEnvironmentsDetailsApi();
+    const api = new RefDataEnvironmentsDetailsApi(dorcApiConfiguration);
     api.refDataEnvironmentsDetailsGetPossibleEnvironmentChildrenGet({ id: this.parentEnvironment?.EnvironmentId })
       .subscribe({
         next: (data: Array<EnvironmentApiModel>) => {

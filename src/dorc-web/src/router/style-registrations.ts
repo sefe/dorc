@@ -25,9 +25,9 @@ registerStyles(
 registerStyles(
   'vaadin-tab',
   css`
-      :host([orientation^='vertical']) {
-          min-height: var(--lumo-size-s);
-      }
+    :host([orientation^='vertical']) {
+      min-height: var(--lumo-size-s);
+    }
   `
 );
 
@@ -66,6 +66,15 @@ registerStyles(
   `
 );
 
+registerStyles(
+  'vaadin-confirm-dialog-overlay',
+  css`
+    :host([theme~='deploy-preview']) [part='overlay'] {
+      width: min(95vw, 900px);
+    }
+  `
+);
+
 // Mobile-only: stretch combo-boxes to fill the row so they don't get squeezed.
 // On desktop, leave sizing to the local component styles (some pages set
 // `min-width: 490px` etc. that would conflict with a global `width: 100%`).
@@ -88,7 +97,7 @@ registerStyles(
   'vaadin-button',
   css`
     @media (max-width: 768px) {
-      :host([theme~='icon']) {
+      :host([theme~='icon']:not([theme~='drawer-shortcut-close'])) {
         min-width: 44px;
         min-height: 44px;
       }
