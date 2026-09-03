@@ -36,6 +36,7 @@ namespace Dorc.Api.Controllers
             _azureStorageAccountWorker = azureStorageAccountWorker;
         }
 
+
         /// <summary>
         /// Gets Terraform plan for a deployment result
         /// </summary>
