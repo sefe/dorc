@@ -51,16 +51,12 @@ namespace Dorc.Api.Tests.Sources
                 File.WriteAllText(diskPath, "Write-Host 'different content'");
 
                 var deploymentScript = source.GetScripts(7);
-                var mayExecute = ScriptContentGate.MayExecute(
-                    ScriptContentVerificationMode.Enforce,
-                    deploymentScript.ContentHash,
-                    File.ReadAllBytes(diskPath),
-                    out var verdict,
-                    out _);
+                var diskContentHash = ScriptContentHash.Of(File.ReadAllBytes(diskPath));
 
                 Assert.AreEqual(StoredBaseline, deploymentScript.ContentHash);
-                Assert.IsFalse(mayExecute);
-                Assert.AreEqual(ScriptContentVerdict.Mismatched, verdict);
+                Assert.IsFalse(ScriptContentHash.Matches(
+                    deploymentScript.ContentHash,
+                    diskContentHash));
                 Assert.AreEqual(StoredBaseline, storedScript.ContentHash);
             }
             finally

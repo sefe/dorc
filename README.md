@@ -11,18 +11,18 @@ DOrc consists of four main components working together to orchestrate deployment
 ```mermaid
 graph TB
     %% Users and External Systems
-    Users[Users/Teams<br/>Developers, DevOps, Ops]
-    AzureDevOps[Azure DevOps<br/>Build Artifacts]
-    AzureEntra[Azure Entra/AD<br/>Authentication]
-    OpenSearch[OpenSearch/ELK<br/>Logging Platform]
+    Users["Users/Teams<br/>Developers, DevOps, Ops"]
+    AzureDevOps["Azure DevOps<br/>Build Artifacts"]
+    AzureEntra["Azure Entra/AD<br/>Authentication"]
+    OpenSearch["OpenSearch/ELK<br/>Logging Platform"]
     
     %% Core Components
-    WebUI[DOrc Web UI<br/>Lit 3, Vaadin Components<br/>TypeScript, Vite]
-    API[DOrc API<br/>ASP.NET Core 8<br/>REST API + SignalR Hub]
-    Database[(SQL Server Database<br/>Projects, Environments<br/>Config, Deployments<br/>Audit, Users)]
-    Monitor[DOrc Monitor<br/>Event Aggregation<br/>Log Processing]
-    Runner[DOrc Runner<br/>PowerShell Execution<br/>Script Processing]
-    TargetServers[Target Servers<br/>Application Deployments<br/>Configuration Updates]
+    WebUI["DOrc Web UI<br/>Lit 3, Vaadin Components<br/>TypeScript, Vite"]
+    API["DOrc API<br/>ASP.NET Core 8<br/>REST API + SignalR Hub"]
+    Database[("SQL Server Database<br/>Projects, Environments<br/>Config, Deployments<br/>Audit, Users")]
+    Monitor["DOrc Monitor<br/>Event Aggregation<br/>Log Processing"]
+    Runner["DOrc Runner<br/>PowerShell Execution<br/>Script Processing"]
+    TargetServers["Target Servers<br/>Application Deployments<br/>Configuration Updates"]
     
     %% User Interactions
     Users -->|HTTPS/OAuth| WebUI

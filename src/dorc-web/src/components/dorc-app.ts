@@ -32,6 +32,7 @@ import {
 import { NARROW_BREAKPOINT } from '../helpers/responsive-mixin.ts';
 import { LOCATION_CHANGED_EVENT, navigate } from '../router/router.ts';
 import { dorcEnvironmentNameFromMetadata } from '../helpers/dorc-environment-name';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 let dorcNavbar: DorcNavbar;
 
@@ -187,8 +188,8 @@ export class DorcApp extends LitElement {
          in a token that clears WCAG 1.4.11's 3:1 in both themes. */
       #splitter {
         position: relative;
-        width: 12px;
-        min-width: 12px;
+        width: 2px;
+        min-width: 2px;
         flex-shrink: 0;
         cursor: ew-resize;
         background-color: transparent;
@@ -199,16 +200,23 @@ export class DorcApp extends LitElement {
         content: '';
         position: absolute;
         inset-block: 0;
-        left: 50%;
-        transform: translateX(-50%);
+        left: 0;
         width: 2px;
-        background-color: var(--dorc-text-secondary);
+        background-color: var(--dorc-bg-secondary);
+      }
+
+      #splitter::after {
+        content: '';
+        position: absolute;
+        inset-block: 0;
+        left: -5px;
+        width: 12px;
       }
 
       #splitter:hover::before,
-      #splitter:focus-visible::before {
-        width: 4px;
-        background-color: var(--dorc-link-color);
+      #splitter:focus-visible::before,
+      :host([resizing]) #splitter::before {
+        background-color: var(--dorc-icon-interactive);
       }
 
       #splitter:focus-visible {
@@ -888,7 +896,7 @@ export class DorcApp extends LitElement {
   }
 
   private getUserRoles() {
-    const api = new RefDataRolesApi();
+    const api = new RefDataRolesApi(dorcApiConfiguration);
     api.refDataRolesGet().subscribe({
       next: (data: string[]) => {
         this.userRoles = data.join(' | ');
@@ -898,7 +906,7 @@ export class DorcApp extends LitElement {
   }
 
   private getUserEmail() {
-    const api = new MakeLikeProdApi();
+    const api = new MakeLikeProdApi(dorcApiConfiguration);
     api.makeLikeProdNotifyEmailAddressGet().subscribe({
       next: value => {
         this.userEmail = value;
@@ -908,7 +916,7 @@ export class DorcApp extends LitElement {
   }
 
   private getDorcEnv() {
-    const api = new MetadataApi();
+    const api = new MetadataApi(dorcApiConfiguration);
     api.metadataGet().subscribe({
       next: (data: string) => {
         const environmentName = dorcEnvironmentNameFromMetadata(data);

@@ -6,6 +6,7 @@ import { html } from 'lit/html.js';
 import type { DaemonApiModel } from '../apis/dorc-api';
 import { RefDataDaemonsApi } from '../apis/dorc-api';
 import '@vaadin/vertical-layout';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('edit-daemon')
 export class EditDaemon extends LitElement {
@@ -125,7 +126,7 @@ export class EditDaemon extends LitElement {
       ServiceType: this.serviceType
     };
 
-    const api = new RefDataDaemonsApi();
+    const api = new RefDataDaemonsApi(dorcApiConfiguration);
     api
       .refDataDaemonsPut({ id: this.daemon.Id, daemonApiModel: payload })
       .subscribe(

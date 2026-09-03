@@ -13,6 +13,7 @@ import { AccessControlType } from '../apis/dorc-api';
 import '@vaadin/button';
 import '@vaadin/horizontal-layout';
 import '@vaadin/tooltip';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('environment-card')
 export class EnvironmentCard extends LitElement {
@@ -205,7 +206,7 @@ export class EnvironmentCard extends LitElement {
   removeMapping(data: any) {
     const env = data.currentTarget.env as EnvironmentApiModel;
 
-    const api = new RefDataProjectEnvironmentMappingsApi();
+    const api = new RefDataProjectEnvironmentMappingsApi(dorcApiConfiguration);
     api
       .refDataProjectEnvironmentMappingsDelete({
         environment: env.EnvironmentName || '',

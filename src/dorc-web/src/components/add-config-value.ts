@@ -12,6 +12,7 @@ import {
 } from '../apis/dorc-api';
 import { retrieveErrorMessage } from '../helpers/errorMessage-retriever';
 import '@vaadin/vertical-layout';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('add-config-value')
 export class AddConfigValue extends LitElement {
@@ -148,7 +149,7 @@ export class AddConfigValue extends LitElement {
   }
 
   _submit() {
-    const api = new RefDataConfigApi();
+    const api = new RefDataConfigApi(dorcApiConfiguration);
 
     this.configValue.Secure = this.isSecure;
     this.configValue.IsForProd = this.isForProd;
