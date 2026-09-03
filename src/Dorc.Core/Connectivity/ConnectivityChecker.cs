@@ -99,7 +99,19 @@ namespace Dorc.Core.Connectivity
             {
                 throw;
             }
-            catch
+            catch (PingException)
+            {
+                return false;
+            }
+            catch (SocketException)
+            {
+                return false;
+            }
+            catch (SqlException)
+            {
+                return false;
+            }
+            catch (TimeoutException)
             {
                 return false;
             }

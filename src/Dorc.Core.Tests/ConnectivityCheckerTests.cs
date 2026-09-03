@@ -118,7 +118,7 @@ namespace Dorc.Core.Tests
         {
             var fake = new FakeProbe
             {
-                OnPing = (_, _) => throw new InvalidOperationException("ping boom"),
+                OnPing = (_, _) => throw new System.Net.NetworkInformation.PingException("ping boom"),
                 OnTcp = (_, _, _) => Task.FromResult(true),
             };
             var result = await fake.CheckServerConnectivityAsync("host01");
@@ -132,8 +132,8 @@ namespace Dorc.Core.Tests
         {
             var fake = new FakeProbe
             {
-                OnPing = (_, _) => throw new InvalidOperationException("ping boom"),
-                OnTcp = (_, _, _) => throw new InvalidOperationException("tcp boom"),
+                OnPing = (_, _) => throw new System.Net.NetworkInformation.PingException("ping boom"),
+                OnTcp = (_, _, _) => throw new System.Net.Sockets.SocketException(),
             };
             var result = await fake.CheckServerConnectivityAsync("host01");
             Assert.IsFalse(result);
@@ -196,12 +196,24 @@ namespace Dorc.Core.Tests
 
             var pingThrows = new FakeProbe
             {
-                OnPing = (_, _) => throw new Exception(),
+                OnPing = (_, _) => throw new System.Net.NetworkInformation.PingException("ping boom"),
                 OnTcp = (_, _, _) => Task.FromResult(true),
             };
             await pingThrows.CheckServerConnectivityAsync("h");
             Assert.AreEqual(1, pingThrows.PingCalls.Count);
             Assert.AreEqual(1, pingThrows.TcpCalls.Count);
+        }
+
+        [TestMethod]
+        public async Task CheckServerConnectivityAsync_UnexpectedProbeFault_Propagates()
+        {
+            var fake = new FakeProbe
+            {
+                OnPing = (_, _) => throw new InvalidOperationException("unexpected"),
+            };
+
+            await Assert.ThrowsAsync<InvalidOperationException>(
+                () => fake.CheckServerConnectivityAsync("host01"));
         }
 
         // ----- §3.2 db-probe tests -----
@@ -241,7 +253,7 @@ namespace Dorc.Core.Tests
         {
             var fake = new FakeProbe
             {
-                OnSql = (_, _, _) => Task.FromException<bool>(new InvalidOperationException("auth-fail simulated")),
+                OnSql = (_, _, _) => Task.FromException<bool>(new TimeoutException("auth-fail simulated")),
             };
             var result = await fake.CheckDatabaseConnectivityAsync("server", "db");
             Assert.IsFalse(result);
