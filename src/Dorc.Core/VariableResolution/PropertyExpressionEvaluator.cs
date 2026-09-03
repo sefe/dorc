@@ -51,8 +51,7 @@ namespace Dorc.Core.VariableResolution
                         // The expression itself is not logged: it is a resolved property value
                         // and may be a secret. The error names the shape of the failure and
                         // where in the expression it occurred.
-                        _logger.LogError(
-                            "A property expression could not be parsed and was not evaluated: {Error}", error);
+                        _logger.LogError("A property expression could not be parsed and was not evaluated.");
 
                         throw new PropertyExpressionEvaluationException(
                             $"A property expression could not be parsed and was not evaluated: {error}");
