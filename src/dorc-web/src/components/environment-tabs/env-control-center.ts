@@ -258,6 +258,9 @@ export class EnvControlCenter extends PageEnvBase {
   }
 
   notifyEnvironmentReady() {
+    if (!this.environment?.EnvironmentName) {
+      return;
+    }
     this.isEnvironmentOwner();
   }
 
