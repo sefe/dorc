@@ -287,8 +287,12 @@ namespace Dorc.Api.Controllers
 
             if (!_apiSecurityService.CanModifyEnvironment(User, deploymentRequest.EnvironmentName))
             {
-                var userName = _claimsPrincipalReader.GetUserFullDomainName(User);
-                _log.LogInformation($"Forbidden Terraform plan access to deployment result {deploymentResultId} on environment '{deploymentRequest.EnvironmentName}' from {userName}");
+                var userIdentifier = _claimsPrincipalReader.GetUserSafeIdentifier(User);
+                _log.LogInformation(
+                    "Forbidden Terraform plan access to deployment result {DeploymentResultId} on environment '{EnvironmentName}' from {UserIdentifier}",
+                    deploymentResultId,
+                    deploymentRequest.EnvironmentName,
+                    userIdentifier);
                 return AuthorizationOutcome.Refused(
                     StatusCode(StatusCodes.Status403Forbidden, NoEnvironmentAuthorityMessage));
             }
@@ -313,20 +317,30 @@ namespace Dorc.Api.Controllers
             }
 
             var submitter = GetOriginalSubmitter(deploymentRequest);
-            var approver = _claimsPrincipalReader.GetUserFullDomainName(User);
+            var approverFullDomainName = _claimsPrincipalReader.GetUserFullDomainName(User);
+            var approverLogin = _claimsPrincipalReader.GetUserLogin(User);
 
-            // Neither side may be indeterminate. Permitting because an identity could not be
-            // established would fail open on precisely the check that is meant to be strict.
+            // Every comparison input must be established. Permitting because one identifier
+            // is unavailable could miss the representation that matches the stored submitter.
             if (!UserIdentityCanonicaliser.CanEstablish(submitter) ||
-                !UserIdentityCanonicaliser.CanEstablish(approver))
+                !UserIdentityCanonicaliser.CanEstablish(approverFullDomainName) ||
+                !UserIdentityCanonicaliser.CanEstablish(approverLogin))
             {
                 _log.LogWarning($"Cannot establish submitter or approver identity for request {deploymentRequest.Id}; refusing confirmation.");
                 return StatusCode(StatusCodes.Status403Forbidden, SeparateApproverRequiredMessage);
             }
 
-            if (UserIdentityCanonicaliser.SamePrincipal(submitter, approver))
+            // OAuth's full-domain identity is normally an email address, whose local part
+            // need not equal the user's SAM account name. Compare both representations so
+            // DOMAIN\jsmith cannot approve as john.smith@corp when their login is jsmith.
+            if (UserIdentityCanonicaliser.SamePrincipal(submitter, approverFullDomainName) ||
+                UserIdentityCanonicaliser.SamePrincipal(submitter, approverLogin))
             {
-                _log.LogInformation($"Refused self-approval of request {deploymentRequest.Id} by {approver}.");
+                var approverIdentifier = _claimsPrincipalReader.GetUserSafeIdentifier(User);
+                _log.LogInformation(
+                    "Refused self-approval of request {RequestId} by {ApproverIdentifier}.",
+                    deploymentRequest.Id,
+                    approverIdentifier);
                 return StatusCode(StatusCodes.Status403Forbidden, SeparateApproverRequiredMessage);
             }
 
