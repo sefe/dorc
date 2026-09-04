@@ -11,6 +11,7 @@ import { DaemonStatusApiModel } from '../apis/dorc-api';
 import type { DiscoverDaemonsResult } from '../apis/dorc-api';
 import { Notification } from '@vaadin/notification';
 import { dorcApiConfiguration } from '../services/dorc-api-configuration';
+import { retrieveErrorMessage } from '../helpers/errorMessage-retriever';
 
 @customElement('application-daemons')
 export class ApplicationDaemons extends LitElement {
@@ -184,7 +185,7 @@ export class ApplicationDaemons extends LitElement {
       error: (err: any) => {
         console.error('Daemon discovery failed:', err);
         Notification.show(
-          `Discovery failed: ${err?.message || 'Unknown error'}`,
+          `Discovery failed: ${retrieveErrorMessage(err, 'Unknown error')}`,
           {
             theme: 'error',
             position: 'bottom-start',

@@ -12,9 +12,9 @@ import '../../src/components/notifications/warning-notification';
 type Toast = HTMLElement & { open(): void };
 
 const cardText = (toast: HTMLElement) => {
-  const notification = toast.shadowRoot?.querySelector('vaadin-notification') as
-    | (HTMLElement & { _card?: HTMLElement })
-    | null;
+  const notification = toast.shadowRoot?.querySelector(
+    'vaadin-notification'
+  ) as (HTMLElement & { _card?: HTMLElement }) | null;
   return notification?._card?.textContent?.replace(/\s+/g, ' ').trim() ?? '';
 };
 
@@ -62,5 +62,59 @@ describe('notification toasts', () => {
         expect(cardText(el)).to.not.contain('First problem');
       });
     });
+  });
+
+  it('deduplicates repeated identical error notifications', async () => {
+    const host = (await fixture(html`<div></div>`)) as unknown as HTMLElement;
+    const first = document.createElement('error-notification') as Toast;
+    const second = document.createElement('error-notification') as Toast;
+    first.setAttribute('errorMessage', 'Repeated problem');
+    second.setAttribute('errorMessage', 'Repeated problem');
+    host.append(first, second);
+    await settle();
+
+    first.open();
+    second.open();
+    await settle();
+
+    expect(first.isConnected).to.equal(true);
+    expect(second.isConnected).to.equal(false);
+    expect(cardText(first)).to.contain('Repeated problem');
+    expect(host.querySelectorAll('error-notification')).to.have.length(1);
+  });
+
+  it('preserves distinct simultaneous error notifications', async () => {
+    const host = (await fixture(html`<div></div>`)) as unknown as HTMLElement;
+    const first = document.createElement('error-notification') as Toast;
+    const second = document.createElement('error-notification') as Toast;
+    first.setAttribute('errorMessage', 'First problem');
+    second.setAttribute('errorMessage', 'Second problem');
+    host.append(first, second);
+    await settle();
+
+    first.open();
+    second.open();
+    await settle();
+
+    expect(first.isConnected).to.equal(true);
+    expect(second.isConnected).to.equal(true);
+    expect(cardText(first)).to.contain('First problem');
+    expect(cardText(second)).to.contain('Second problem');
+  });
+
+  it('normalizes a raw AjaxError message at the notification boundary', async () => {
+    const host = (await fixture(html`<div></div>`)) as unknown as HTMLElement;
+    const el = document.createElement('error-notification') as Toast;
+    el.setAttribute('errorMessage', 'ajax error 401');
+    host.appendChild(el);
+    await settle();
+
+    el.open();
+    await settle();
+
+    expect(cardText(el)).to.contain(
+      'Session has expired, please refresh the page.'
+    );
+    expect(cardText(el)).to.not.contain('ajax error');
   });
 });
