@@ -1,4 +1,4 @@
-using Dorc.ApiModel;
+﻿using Dorc.ApiModel;
 using Dorc.ApiModel.MonitorRunnerApi;
 using Dorc.Core;
 using Dorc.Core.AzureStorageAccount;
@@ -7,6 +7,7 @@ using Dorc.Core.Configuration;
 using Dorc.Monitor.Pipes;
 using Dorc.Monitor.RunnerProcess;
 using Dorc.Monitor.RunnerProcess.Interop.Windows.Kernel32;
+using Dorc.Monitor.Security;
 using Dorc.Monitor.TerraformSourceConfig;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.Extensions.Configuration;
@@ -130,139 +131,162 @@ namespace Dorc.Monitor
             using (var securityContext = contextBuilder.Build())
             {
                 var startedScriptGroupPipeName = $"DOrcMonitor-{HostInstanceId.Value}-{requestId}";
-                Task scriptGroupPipeTask = _scriptGroupPipeServer.Start(
-                        startedScriptGroupPipeName,
-                        scriptGroup,
-                        pipeCancellationTokenSource.Token);
-                logger.LogInformation($"Server named pipe with the name '{startedScriptGroupPipeName}' has started.");
 
-                var runnerLogPathSetting = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build()
-                .GetSection("AppSettings")["RunnerLogPath"]!;
-                var runnerLogPath = runnerLogPathSetting + $"\\{startedScriptGroupPipeName}.txt";
-                var uncLogPath = runnerLogPath.Replace("c:", @"\\" + System.Environment.GetEnvironmentVariable("COMPUTERNAME"));
+                // The script group is made available to the account the Runner will be started
+                // as, taken from the same credential resolution that built the process security
+                // context rather than assumed to be the Monitor's own identity.
+                var readerIdentity = new ScriptGroupReaderIdentity(domainName, processAccountName);
 
-                _requestsPersistentSource.UpdateUncLogPath(requestId, uncLogPath);
-
-                var planStorageDir = Path.Join(DorcProgramData.Root, "terraform-plans");
-                if (!Directory.Exists(planStorageDir))
-                    Directory.CreateDirectory(planStorageDir);
-                var terraformPlanFileName = deploymentResult.Id.CreateTerraformPlanBlobName();
-                var terraformPlanFilePath = Path.Combine(planStorageDir, terraformPlanFileName);
-                var terraformPlanContentFileName = deploymentResult.Id.CreateTerraformPlanContentBlobName();
-                var terraformPlanContentFilePath = Path.Combine(planStorageDir, terraformPlanContentFileName);
-                if (terreformOperation == TerraformRunnerOperations.ApplyPlan)
-                {
-                    _azureStorageAccountWorker.DownloadFileFromBlobs(terraformPlanFileName, terraformPlanFilePath);
-                }
-
-                var processStarter = new TerraformRunnerProcessStarter(logger)
-                {
-                    RunnerExecutableFullName = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build().GetSection("AppSettings")["TerraformDeploymentRunnerPath"],
-                    ScriptGroupPipeName = startedScriptGroupPipeName,
-                    RunnerLogPath = runnerLogPath,
-                    PlanFilePath = terraformPlanFilePath,
-                    PlanContentFilePath = terraformPlanContentFilePath,
-                    TerrafromRunnerOperation = terreformOperation
-                };
                 try
                 {
-                    Interop.Kernel32.STARTUPINFO startupInfo = new ProcessStartupInfoBuilder(logger).Build();
-                    logger.LogInformation("Starting Runner process.");
+                    Task scriptGroupPipeTask = _scriptGroupPipeServer.Start(
+                            startedScriptGroupPipeName,
+                            scriptGroup,
+                            readerIdentity,
+                            pipeCancellationTokenSource.Token);
+                    logger.LogInformation($"Server named pipe with the name '{startedScriptGroupPipeName}' has started.");
 
-                    cancellationToken.ThrowIfCancellationRequested();
+                    var runnerLogPathSetting = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build()
+                    .GetSection("AppSettings")["RunnerLogPath"]!;
+                    var runnerLogPath = runnerLogPathSetting + $"\\{startedScriptGroupPipeName}.txt";
+                    var uncLogPath = runnerLogPath.Replace("c:", @"\\" + System.Environment.GetEnvironmentVariable("COMPUTERNAME"));
 
-                    var process = processStarter.Start(startupInfo, securityContext);
+                    _requestsPersistentSource.UpdateUncLogPath(requestId, uncLogPath);
+
+                    // The plan and its human-readable rendering carry the variable values the
+                    // configuration was rendered with. They are staged in a directory that
+                    // admits the Monitor, SYSTEM, Administrators and the account the Runner
+                    // will write them as - and nobody else on the host.
+                    var planStorageDir = TerraformPlanStorage.EnsureRestricted(
+                        DorcProgramData.Root,
+                        readerIdentity,
+                        logger);
+                    var terraformPlanFileName = deploymentResult.Id.CreateTerraformPlanBlobName();
+                    var terraformPlanFilePath = Path.Join(planStorageDir, terraformPlanFileName);
+                    var terraformPlanContentFileName = deploymentResult.Id.CreateTerraformPlanContentBlobName();
+                    var terraformPlanContentFilePath = Path.Join(planStorageDir, terraformPlanContentFileName);
+                    if (terreformOperation == TerraformRunnerOperations.ApplyPlan)
+                    {
+                        _azureStorageAccountWorker.DownloadFileFromBlobs(terraformPlanFileName, terraformPlanFilePath);
+                    }
+
+                    var processStarter = new TerraformRunnerProcessStarter(logger)
+                    {
+                        RunnerExecutableFullName = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build().GetSection("AppSettings")["TerraformDeploymentRunnerPath"],
+                        ScriptGroupPipeName = startedScriptGroupPipeName,
+                        RunnerLogPath = runnerLogPath,
+                        PlanFilePath = terraformPlanFilePath,
+                        PlanContentFilePath = terraformPlanContentFilePath,
+                        TerrafromRunnerOperation = terreformOperation
+                    };
                     try
                     {
-                        if (Marshal.GetLastWin32Error() != 0)
-                        {
-                            logger.LogError("The process creation was not successful.");
-                            throw new Win32Exception(Marshal.GetLastWin32Error());
-                        }
-
-                        _processesPersistentSource.AssociateProcessWithRequest((int)process.Id, requestId);
-
-                        if (cancellationToken.IsCancellationRequested)
-                        {
-                            logger.LogDebug("Trying to terminate the Runner process.");
-                            process.Kill();
-                            logger.LogInformation("The Runner process is terminated.");
-                            throw new OperationCanceledException("The Runner process is terminated.");
-                        }
-
-                        logger.LogDebug("Waiting for process to exit.");
-                        var resultCode = process.WaitForExit();
-                        logger.LogInformation($"Runner finished for request ID '{requestId}' with result code [{resultCode}]");
+                        Interop.Kernel32.STARTUPINFO startupInfo = new ProcessStartupInfoBuilder(logger).Build();
+                        logger.LogInformation("Starting Runner process.");
 
                         cancellationToken.ThrowIfCancellationRequested();
 
-                        if (resultCode == RunnerProcess.RunnerProcess.ProcessTerminatedExitCode)
+                        var process = processStarter.Start(startupInfo, securityContext);
+                        try
                         {
-                            logger.LogInformation("The Runner process is terminated.");
-                            throw new OperationCanceledException("The Runner process is terminated.");
-                        }
-                        else if (resultCode != 0)
-                        {
-                            isScriptExecutionSuccessful = false;
-                            Exception? ex = new Win32Exception(Marshal.GetLastWin32Error());
-
-                            if (ex != null)
+                            if (Marshal.GetLastWin32Error() != 0)
                             {
-                                logger.LogError("The Win32 exception with HRESULT error code is detected immediately after WaitForExit invocation."
-                                                       + " Message:" + ex.Message
-                                                       + "; Source: " + ex.Source
-                                                       + "; Data: " + ex.Data
-                                                       + "; HelpLink: " + ex.HelpLink
-                                                       + "; InnerException: " + ex.InnerException
-                                                       + "; TargetSite: " + ex.TargetSite + ".");
+                                logger.LogError("The process creation was not successful.");
+                                throw new Win32Exception(Marshal.GetLastWin32Error());
+                            }
+
+                            _processesPersistentSource.AssociateProcessWithRequest((int)process.Id, requestId);
+
+                            if (cancellationToken.IsCancellationRequested)
+                            {
+                                logger.LogDebug("Trying to terminate the Runner process.");
+                                process.Kill();
+                                logger.LogInformation("The Runner process is terminated.");
+                                throw new OperationCanceledException("The Runner process is terminated.");
+                            }
+
+                            logger.LogDebug("Waiting for process to exit.");
+                            var resultCode = process.WaitForExit();
+                            logger.LogInformation($"Runner finished for request ID '{requestId}' with result code [{resultCode}]");
+
+                            cancellationToken.ThrowIfCancellationRequested();
+
+                            if (resultCode == RunnerProcess.RunnerProcess.ProcessTerminatedExitCode)
+                            {
+                                logger.LogInformation("The Runner process is terminated.");
+                                throw new OperationCanceledException("The Runner process is terminated.");
+                            }
+                            else if (resultCode != 0)
+                            {
+                                isScriptExecutionSuccessful = false;
+                                Exception? ex = new Win32Exception(Marshal.GetLastWin32Error());
+
+                                if (ex != null)
+                                {
+                                    logger.LogError("The Win32 exception with HRESULT error code is detected immediately after WaitForExit invocation."
+                                                           + " Message:" + ex.Message
+                                                           + "; Source: " + ex.Source
+                                                           + "; Data: " + ex.Data
+                                                           + "; HelpLink: " + ex.HelpLink
+                                                           + "; InnerException: " + ex.InnerException
+                                                           + "; TargetSite: " + ex.TargetSite + ".");
+                                }
+                            }
+
+                            if (Marshal.GetLastWin32Error() != 0)
+                            {
+                                logger.LogError("Waiting the process to exit was not successful.");
+                                throw new Win32Exception(Marshal.GetLastWin32Error());
                             }
                         }
-
-                        if (Marshal.GetLastWin32Error() != 0)
+                        finally
                         {
-                            logger.LogError("Waiting the process to exit was not successful.");
-                            throw new Win32Exception(Marshal.GetLastWin32Error());
+                            pipeCancellationTokenSource.Cancel();
+                            _processesPersistentSource.RemoveProcess((int)process.Id);
+                            process.Dispose();
                         }
                     }
-                    finally
+                    catch (Exception e)
                     {
                         pipeCancellationTokenSource.Cancel();
-                        _processesPersistentSource.RemoveProcess((int)process.Id);
-                        process.Dispose();
+                        logger.LogError($"Exception is thrown while operating with the Runner process. Exception: {e}");
+                        throw;
+                    }
+                
+                    if (isScriptExecutionSuccessful)
+                    switch (terreformOperation)
+                    {
+                        case TerraformRunnerOperations.CreatePlan:
+                            // save Terraform binary plan file to Azure Storage Account
+                            _azureStorageAccountWorker.SaveFileToBlobs(terraformPlanFilePath);
+                            // save Terraform human-readable plan file to Azure Storage Account
+                            _azureStorageAccountWorker.SaveFileToBlobs(terraformPlanContentFilePath);
+
+                            // Update status to WaitingConfirmation
+                            _requestsPersistentSource.UpdateResultStatus(
+                                deploymentResult,
+                                DeploymentResultStatus.WaitingConfirmation);
+
+                            logger.LogInformation($"Terraform plan created for component '{component.ComponentName}'. Waiting for confirmation.");
+                            break;
+
+                        case TerraformRunnerOperations.ApplyPlan:
+                            // Update status to WaitingConfirmation
+                            _requestsPersistentSource.UpdateResultStatus(
+                                deploymentResult,
+                                DeploymentResultStatus.Complete);
+
+                            logger.LogInformation($"Terraform plan applied for component '{component.ComponentName}'. Completed.");
+                            break;
                     }
                 }
-                catch (Exception e)
+                finally
                 {
-                    pipeCancellationTokenSource.Cancel();
-                    logger.LogError($"Exception is thrown while operating with the Runner process. Exception: {e}");
-                    throw;
-                }
-                
-                if (isScriptExecutionSuccessful)
-                switch (terreformOperation)
-                {
-                    case TerraformRunnerOperations.CreatePlan:
-                        // save Terraform binary plan file to Azure Storage Account
-                        _azureStorageAccountWorker.SaveFileToBlobs(terraformPlanFilePath);
-                        // save Terraform human-readable plan file to Azure Storage Account
-                        _azureStorageAccountWorker.SaveFileToBlobs(terraformPlanContentFilePath);
-
-                        // Update status to WaitingConfirmation
-                        _requestsPersistentSource.UpdateResultStatus(
-                            deploymentResult,
-                            DeploymentResultStatus.WaitingConfirmation);
-
-                        logger.LogInformation($"Terraform plan created for component '{component.ComponentName}'. Waiting for confirmation.");
-                        break;
-
-                    case TerraformRunnerOperations.ApplyPlan:
-                        // Update status to WaitingConfirmation
-                        _requestsPersistentSource.UpdateResultStatus(
-                            deploymentResult,
-                            DeploymentResultStatus.Complete);
-
-                        logger.LogInformation($"Terraform plan applied for component '{component.ComponentName}'. Completed.");
-                        break;
+                    // The bundle carries the resolved deployment properties, secrets
+                    // included. It is needed for the span of one Runner process, so it is
+                    // withdrawn as soon as that process is gone - on the failure and
+                    // cancellation paths as much as the successful one.
+                    _scriptGroupPipeServer.Expire(startedScriptGroupPipeName);
                 }
 
             }
