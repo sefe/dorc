@@ -55,6 +55,9 @@ namespace Dorc.Api.Services
                 case BuildType.GitHubBuild:
                     return _gitHubDeployableBuildFactory();
 
+                case BuildType.Catalog:
+                    return new CatalogDeployableBuild(_deployLibrary, _requestsPersistentSource);
+
                 case BuildType.UnknownBuildType:
                 default:
                     return null;

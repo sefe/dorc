@@ -1,8 +1,10 @@
 using Dorc.ApiModel;
 using Dorc.ApiModel.MonitorRunnerApi;
 using Dorc.Runner.Logger;
+using Dorc.Terraform.Catalog;
 using Dorc.TerraformRunner.CodeSources;
 using Dorc.TerraformRunner.Pipes;
+using Dorc.TerraformRunner.State;
 using Microsoft.Extensions.Logging;
 using System.ComponentModel;
 using System.Text;
@@ -16,13 +18,56 @@ namespace Dorc.TerraformRunner
         private readonly IScriptGroupPipeClient _scriptGroupPipeClient;
         private readonly TerraformCodeSourceProviderFactory _codeSourceFactory;
 
+        // Cleartext values of properties the request flagged sensitive, used
+        // to scrub terraform command output before it is logged. Terraform
+        // masks variables the MODULE marks `sensitive`, but a manifest can
+        // flag a parameter sensitive whose module variable is not marked, so
+        // this is the runner-side backstop for that gap. Populated per
+        // operation from the ScriptGroup; empty when nothing is flagged.
+        private IReadOnlyList<string> _sensitiveValues = Array.Empty<string>();
+
         public TerraformProcessor(
             IRunnerLogger logger,
-            IScriptGroupPipeClient scriptGroupPipeClient)
+            IScriptGroupPipeClient scriptGroupPipeClient,
+            ITemplateCatalog catalog)
         {
             this.logger = logger;
             this._scriptGroupPipeClient = scriptGroupPipeClient;
-            this._codeSourceFactory = new TerraformCodeSourceProviderFactory(logger);
+            this._codeSourceFactory = new TerraformCodeSourceProviderFactory(logger, catalog);
+        }
+
+        // Collects the cleartext values of the flagged-sensitive properties
+        // from the ScriptGroup so terraform output can be scrubbed of them.
+        // Names come from ScriptGroup.SensitivePropertyNames (set by the
+        // Monitor dispatcher from the request's IsSensitive flags); values
+        // come from CommonProperties. Only non-empty values are kept - an
+        // empty value would otherwise redact the entire output.
+        private static IReadOnlyList<string> CollectSensitiveValues(ScriptGroup scriptGroup)
+        {
+            var names = scriptGroup.SensitivePropertyNames;
+            if (names is null || names.Count == 0) return Array.Empty<string>();
+            var props = scriptGroup.CommonProperties;
+            if (props is null) return Array.Empty<string>();
+
+            // IsNullOrWhiteSpace, not IsNullOrEmpty: a whitespace-only value
+            // can never be a meaningful secret, and redacting it would rewrite
+            // every matching run of spaces in the terraform log. Values that
+            // merely CONTAIN spaces are still kept and redacted.
+            return names
+                .Select(name => props.TryGetValue(name, out var vv) ? vv?.Value?.ToString() : null)
+                .Where(v => !string.IsNullOrWhiteSpace(v))
+                .Select(v => v!)
+                .ToList();
+        }
+
+        private string RedactSensitiveValues(string text)
+        {
+            if (string.IsNullOrEmpty(text) || _sensitiveValues.Count == 0) return text;
+            foreach (var value in _sensitiveValues)
+            {
+                text = text.Replace(value, "[REDACTED]");
+            }
+            return text;
         }
 
         public async Task<bool> PreparePlanAsync(
@@ -30,24 +75,35 @@ namespace Dorc.TerraformRunner
             int requestId,
             string resultFilePath,
             string planContentFilePath,
+            string? lockFilePath,
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
             ScriptGroup scriptGroupProperties = this._scriptGroupPipeClient.GetScriptGroupProperties(pipeName);
             var deployResultId = scriptGroupProperties.DeployResultId;
             var properties = scriptGroupProperties.CommonProperties;
+            _sensitiveValues = CollectSensitiveValues(scriptGroupProperties);
 
             this.logger.SetRequestId(requestId);
             this.logger.SetDeploymentResultId(deployResultId);
 
             logger.Information($"TerraformProcessor.PreparePlan called for request' with id '{requestId}', deployment result id '{deployResultId}'.");
-            
+
             var terraformWorkingDir = await SetupTerraformWorkingDirectoryAsync(requestId, scriptGroupProperties, cancellationToken);
 
             try
             {
                 // Create terraform plan
                 var planContent = await CreateTerraformPlanAsync(properties, terraformWorkingDir, resultFilePath, planContentFilePath, requestId, cancellationToken);
+
+                // persist .terraform.lock.hcl alongside the plan binary
+                // so the apply phase resolves identical provider versions. The
+                // dispatcher uploads this to blob storage; the apply path
+                // restores it into the working dir before init.
+                if (!string.IsNullOrEmpty(lockFilePath))
+                {
+                    PersistLockFile(terraformWorkingDir, lockFilePath);
+                }
 
                 logger.Information($"Terraform plan created for request '{requestId}'. Waiting for confirmation.");
                 DeleteTempTerraformFolder(terraformWorkingDir);
@@ -59,6 +115,50 @@ namespace Dorc.TerraformRunner
                 logger.Error(ex, $"Failed to create Terraform plan for request '{requestId}': {ex.Message}");
                 return false;
             }
+        }
+
+        // helpers. Per-operation execution-bundle persistence is bound
+        // to .terraform.lock.hcl only at this stage; full .terraform/ tarball
+        // + SHA-256 verification is the follow-up under the consolidated
+        // lifecycle owner.
+        private void PersistLockFile(string workingDir, string lockFilePath)
+        {
+            // Defence-in-depth: reject `..` segments before composing paths.
+            // Both inputs are platform-supplied today, but the rejection is
+            // documented contract that matches DOrc's path-traversal posture.
+            if (workingDir.Contains("..") || lockFilePath.Contains(".."))
+            {
+                throw new ArgumentException("paths must not contain parent-directory segments");
+            }
+            var source = Path.Join(workingDir, ".terraform.lock.hcl");
+            if (!File.Exists(source))
+            {
+                logger.Warning(
+                    $".terraform.lock.hcl not found in working dir; lock-file persistence skipped (no provider lock to record).");
+                return;
+            }
+            var destDir = Path.GetDirectoryName(lockFilePath);
+            if (!string.IsNullOrEmpty(destDir)) Directory.CreateDirectory(destDir);
+            File.Copy(source, lockFilePath, true);
+            logger.FileLogger.LogInformation($"Persisted .terraform.lock.hcl to {lockFilePath}");
+        }
+
+        private void RestoreLockFile(string workingDir, string lockFilePath)
+        {
+            if (workingDir.Contains("..") || (lockFilePath?.Contains("..") ?? false))
+            {
+                throw new ArgumentException("paths must not contain parent-directory segments");
+            }
+            if (string.IsNullOrEmpty(lockFilePath) || !File.Exists(lockFilePath))
+            {
+                logger.Warning(
+                    $"Persisted .terraform.lock.hcl not found at '{lockFilePath}'; apply will resolve provider versions afresh.");
+                return;
+            }
+            var dest = Path.Join(workingDir, ".terraform.lock.hcl");
+            File.Copy(lockFilePath, dest, true);
+            logger.FileLogger.LogInformation(
+                $"Restored .terraform.lock.hcl into working dir from {lockFilePath}");
         }
 
         private async Task<string> SetupTerraformWorkingDirectoryAsync(
@@ -76,17 +176,58 @@ namespace Dorc.TerraformRunner
 
             // Get the appropriate provider for the source type
             var provider = _codeSourceFactory.GetProvider(scriptGroup.TerraformSourceType);
-            
+
             logger.Information($"Using Terraform source type: {scriptGroup.TerraformSourceType}");
-            
+
             // Provision the code using the selected provider
             await provider.ProvisionCodeAsync(scriptGroup, workingDir, cancellationToken);
 
             // If a sub-path is specified, move only that directory to the root
             if (!string.IsNullOrEmpty(scriptGroup.TerraformSubPath))
             {
-                await DirectoryHelper.ExtractSubPathAsync(workingDir, scriptGroup.TerraformSubPath, cancellationToken);
+                await TerraformSourceSubPath.ApplyAsync(workingDir, scriptGroup.TerraformSubPath, cancellationToken);
                 logger.FileLogger.LogInformation($"Successfully extracted path {scriptGroup.TerraformSubPath}");
+            }
+
+            // "DOrc owns the backend" applies only when DOrc actually renders
+            // one. When the platform state backend is configured (all three
+            // settings present) we reject user-checked-in backend blocks and
+            // render _dorc_backend.tf in their place. On the legacy path (no
+            // platform backend configured) a component's own backend block is
+            // the only thing keeping its state remote across throwaway working
+            // dirs, so rejecting it would break every pre-existing component.
+            var renderPlatformBackend = !string.IsNullOrEmpty(scriptGroup.TerraformStateKey)
+                && !string.IsNullOrEmpty(scriptGroup.TerraformStateStorageAccount)
+                && !string.IsNullOrEmpty(scriptGroup.TerraformStateContainerName);
+
+            if (renderPlatformBackend)
+            {
+                // The validator throws with a precise error string identifying
+                // the offending file when the engineer must remove the
+                // declaration. It runs before the platform file is written, so
+                // ANY backend declaration found here - including a file named
+                // _dorc_backend.tf - is user content.
+                TerraformBackendValidator.RejectIfUserBackendBlocksPresent(workingDir);
+
+                TerraformBackendRenderer.WriteToWorkingDirectory(
+                    workingDir,
+                    new TerraformBackendRenderer.AzureBlobBackend(
+                        StorageAccount: scriptGroup.TerraformStateStorageAccount,
+                        ContainerName: scriptGroup.TerraformStateContainerName,
+                        Key: scriptGroup.TerraformStateKey,
+                        ResourceGroup: scriptGroup.TerraformStateResourceGroup));
+                logger.FileLogger.LogInformation(
+                    $"Rendered platform backend (key={scriptGroup.TerraformStateKey})");
+            }
+
+            // Catalog modules follow the module contract (no provider blocks;
+            // the consuming root supplies them). DOrc runs the module AS the
+            // root, so there is no consumer: render the provider configuration
+            // the module cannot declare for itself or `terraform plan` fails
+            // on azurerm's mandatory `features {}` block.
+            if (scriptGroup.TerraformSourceType == TerraformSourceType.Catalog)
+            {
+                TerraformProviderRenderer.WriteAzureRmIfRequired(workingDir);
             }
 
             logger.Information($"Terraform working directory has been set up at: {workingDir}");
@@ -103,28 +244,33 @@ namespace Dorc.TerraformRunner
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-                        
+
             try
             {
-                // Initialize Terraform if needed
-                await RunTerraformCommandAsync(terraformWorkingDir, "init  -no-color", cancellationToken);
-                
-                // Create Terraform variables file
+                await RunTerraformCommandAsync(
+                    terraformWorkingDir,
+                    TerraformCommand.Init,
+                    new[] { "init", "-no-color" },
+                    cancellationToken);
+
                 await CreateTerraformVariablesFileAsync(terraformWorkingDir, properties, cancellationToken);
-                
-                // Generate the plan
-                var planArgs = $"plan -out={resultFilePath} -detailed-exitcode -no-color";
-                
-                var planResult = await RunTerraformCommandAsync(terraformWorkingDir, planArgs, cancellationToken);
-                
-                // Get human-readable plan output
-                var showArgs = $"show {resultFilePath} -no-color";
-                var planContent = await RunTerraformCommandAsync(terraformWorkingDir, showArgs, cancellationToken);
+
+                await RunTerraformCommandAsync(
+                    terraformWorkingDir,
+                    TerraformCommand.PlanDetailedExitCode,
+                    new[] { "plan", $"-out={resultFilePath}", "-detailed-exitcode", "-no-color" },
+                    cancellationToken);
+
+                var planContent = await RunTerraformCommandAsync(
+                    terraformWorkingDir,
+                    TerraformCommand.Show,
+                    new[] { "show", resultFilePath, "-no-color" },
+                    cancellationToken);
                 if (!String.IsNullOrEmpty(planContent))
                 {
                     File.WriteAllText(planContentFilePath, planContent);
                 }
-                
+
                 logger.Information($"Terraform plan created successfully for request '{requestId}'");
                 return planContent;
             }
@@ -135,8 +281,8 @@ namespace Dorc.TerraformRunner
         }
 
         private async Task CreateTerraformVariablesFileAsync(
-            string workingDir, 
-            IDictionary<string, VariableValue> properties, 
+            string workingDir,
+            IDictionary<string, VariableValue> properties,
             CancellationToken cancellationToken)
         {
             var variablesContent = new StringBuilder();
@@ -175,13 +321,18 @@ namespace Dorc.TerraformRunner
         }
 
         private async Task<string> RunTerraformCommandAsync(
-            string workingDir, 
-            string arguments, 
+            string workingDir,
+            TerraformCommand command,
+            IReadOnlyList<string> commandArgs,
             CancellationToken cancellationToken)
         {
             using var process = new System.Diagnostics.Process();
             process.StartInfo.FileName = "terraform";
-            process.StartInfo.Arguments = arguments;
+            // ArgumentList passes each argument as a discrete value; the runtime
+            // applies platform-correct quoting. This eliminates the prior
+            // "Arguments = string concatenation" injection surface where paths
+            // with spaces or shell metacharacters could split into extra tokens.
+            foreach (var arg in commandArgs) process.StartInfo.ArgumentList.Add(arg);
             process.StartInfo.WorkingDirectory = workingDir;
             process.StartInfo.UseShellExecute = false;
             process.StartInfo.RedirectStandardOutput = true;
@@ -191,7 +342,7 @@ namespace Dorc.TerraformRunner
             var outputBuilder = new StringBuilder();
             var errorBuilder = new StringBuilder();
 
-            process.OutputDataReceived += (sender, e) =>
+            process.OutputDataReceived += (_, e) =>
             {
                 if (!string.IsNullOrEmpty(e.Data))
                 {
@@ -199,7 +350,7 @@ namespace Dorc.TerraformRunner
                 }
             };
 
-            process.ErrorDataReceived += (sender, e) =>
+            process.ErrorDataReceived += (_, e) =>
             {
                 if (!string.IsNullOrEmpty(e.Data))
                 {
@@ -207,9 +358,7 @@ namespace Dorc.TerraformRunner
                 }
             };
 
-            var tfCommand = arguments.Split(' ')[0];
-
-            logger.Debug($"Running Terraform command: terraform {tfCommand}");
+            logger.Debug($"Running Terraform command: terraform {command}");
 
             try
             {
@@ -217,11 +366,34 @@ namespace Dorc.TerraformRunner
                 process.BeginOutputReadLine();
                 process.BeginErrorReadLine();
 
-                // Wait for the process to complete or be cancelled
-                while (!process.HasExited)
+                try
                 {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    await Task.Delay(100, cancellationToken);
+                    await process.WaitForExitAsync(cancellationToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    try
+                    {
+                        if (!process.HasExited)
+                        {
+                            // Kill the entire tree so any terraform-spawned
+                            // provider plugins are also reaped.
+                            process.Kill(entireProcessTree: true);
+                        }
+                    }
+                    catch (InvalidOperationException killEx)
+                    {
+                        // Process exited between HasExited check and Kill - benign.
+                        logger.Debug($"Process exited before kill could fire: {killEx.Message}");
+                    }
+                    catch (Win32Exception killEx)
+                    {
+                        // OS-level kill failure (e.g. permissions). Log but do
+                        // not re-throw so the cancellation flow proceeds.
+                        logger.Warning($"OS-level kill failed for terraform process: {killEx.Message}");
+                    }
+                    logger.Warning($"Terraform command {command} was cancelled; killed process tree.");
+                    throw;
                 }
             }
             catch (Win32Exception ex) when (ex.NativeErrorCode == 2)
@@ -239,39 +411,60 @@ namespace Dorc.TerraformRunner
             }
             catch (OperationCanceledException)
             {
-                logger.Warning($"Terraform command {tfCommand} was cancelled.");
                 throw;
             }
             catch (Exception e)
             {
-                logger.Error($"Running of the Terraform process failed. Arguments: {arguments} in {workingDir}", e);
+                logger.Error($"Running of the Terraform process failed. Command: {command}, args: [{string.Join(" ", commandArgs)}] in {workingDir}", e);
                 throw;
             }
 
             var output = outputBuilder.ToString();
             var error = errorBuilder.ToString();
 
-            if (process.ExitCode == 1)
+            InterpretExitCode(command, process.ExitCode, error);
+
+            logger.Information($"Terraform command {command} completed successfully. Output:{Environment.NewLine}{RedactSensitiveValues(output)}");
+            return output;
+        }
+
+        // Per-command exit-code semantics. Documented at  of the
+        // terraform-hardening .
+        //
+        // - PlanDetailedExitCode: 0 = no changes, 1 = error, 2 = changes
+        //   pending (success). Anything not 0/1/2 is also treated as an
+        //   error so we don't silently accept unknown codes.
+        // - Init / Apply / Show: any non-zero exit code is an error.
+        private void InterpretExitCode(TerraformCommand command, int exitCode, string errorOutput)
+        {
+            if (command == TerraformCommand.PlanDetailedExitCode)
             {
-                var errorMessage = $"Terraform command {tfCommand} failed with exit code {process.ExitCode}";
-                logger.Error($"{errorMessage}. Error: {error}");
-                throw new InvalidOperationException(errorMessage);
+                if (exitCode == 0 || exitCode == 2) return;
+                var planMsg = $"terraform plan failed with exit code {exitCode}";
+                logger.Error($"{planMsg}. Error: {RedactSensitiveValues(errorOutput)}");
+                throw new InvalidOperationException(planMsg);
             }
 
-            logger.Information($"Terraform command {tfCommand} completed successfully. Output:{Environment.NewLine}{output}");
-            return output;
+            if (exitCode != 0)
+            {
+                var msg = $"terraform {command} failed with exit code {exitCode}";
+                logger.Error($"{msg}. Error: {RedactSensitiveValues(errorOutput)}");
+                throw new InvalidOperationException(msg);
+            }
         }
 
         public async Task<bool> ExecuteConfirmedPlanAsync(
             string pipeName,
             int requestId,
             string planFile,
+            string? lockFilePath,
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
             ScriptGroup scriptGroupProperties = this._scriptGroupPipeClient.GetScriptGroupProperties(pipeName);
             var deployResultId = scriptGroupProperties.DeployResultId;
+            _sensitiveValues = CollectSensitiveValues(scriptGroupProperties);
 
             this.logger.SetRequestId(requestId);
             this.logger.SetDeploymentResultId(deployResultId);
@@ -279,12 +472,13 @@ namespace Dorc.TerraformRunner
             logger.Information($"TerraformProcessor.ExecuteConfirmedPlan called for request' with id '{requestId}', deployment result id '{deployResultId}'.");
 
             // Execute the actual Terraform plan
-            return await ExecuteTerraformPlanAsync(requestId, planFile, scriptGroupProperties, cancellationToken);
+            return await ExecuteTerraformPlanAsync(requestId, planFile, lockFilePath, scriptGroupProperties, cancellationToken);
         }
 
         private async Task<bool> ExecuteTerraformPlanAsync(
             int requestId,
             string planFile,
+            string? lockFilePath,
             ScriptGroup scriptGroup,
             CancellationToken cancellationToken)
         {
@@ -295,12 +489,25 @@ namespace Dorc.TerraformRunner
             {
                 terraformWorkingDir = await SetupTerraformWorkingDirectoryAsync(requestId, scriptGroup, cancellationToken);
 
-                // Initialize Terraform if needed
-                await RunTerraformCommandAsync(terraformWorkingDir, "init  -no-color", cancellationToken);
+                // restore the persisted .terraform.lock.hcl into the
+                // working dir before init so apply resolves identical provider
+                // versions to the plan run.
+                if (!string.IsNullOrEmpty(lockFilePath))
+                {
+                    RestoreLockFile(terraformWorkingDir, lockFilePath);
+                }
 
-                // Execute terraform apply using the stored plan
-                var applyArgs = $"apply -auto-approve {planFile}  -no-color";
-                await RunTerraformCommandAsync(terraformWorkingDir, applyArgs, cancellationToken);
+                await RunTerraformCommandAsync(
+                    terraformWorkingDir,
+                    TerraformCommand.Init,
+                    new[] { "init", "-no-color" },
+                    cancellationToken);
+
+                await RunTerraformCommandAsync(
+                    terraformWorkingDir,
+                    TerraformCommand.Apply,
+                    new[] { "apply", "-auto-approve", planFile, "-no-color" },
+                    cancellationToken);
 
                 logger.Information($"Terraform apply completed successfully for request ID: {requestId}");
 
@@ -320,14 +527,8 @@ namespace Dorc.TerraformRunner
             if (String.IsNullOrEmpty(folderPath) || !Directory.Exists(folderPath))
                 return;
 
-            DirectoryHelper.SafeRemoveDirectory(folderPath);
+            ResilientDirectoryDeletion.Delete(folderPath);
         }
 
-        private class TerraformExecutionResult
-        {
-            public bool Success { get; set; }
-            public string? Output { get; set; }
-            public string? ErrorMessage { get; set; }
-        }
     }
 }

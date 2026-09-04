@@ -37,6 +37,8 @@ namespace Dorc.Monitor.TerraformSourceConfig
             scriptGroup.TerraformSourceType = component.TerraformSourceType;
             scriptGroup.TerraformGitBranch = component.TerraformGitBranch ?? "main";
             scriptGroup.TerraformSubPath = component.TerraformSubPath ?? string.Empty;
+            scriptGroup.TerraformTemplateName = component.TerraformTemplateName ?? string.Empty;
+            scriptGroup.TerraformTemplateVersion = component.TerraformTemplateVersion ?? string.Empty;
 
             switch (component.TerraformSourceType)
             {
@@ -54,6 +56,19 @@ namespace Dorc.Monitor.TerraformSourceConfig
 
                 case TerraformSourceType.SharedFolder:
                     // No additional configuration needed for shared folder
+                    break;
+
+                case TerraformSourceType.Catalog:
+                    // The catalog reference is already on ScriptGroup
+                    // (TerraformTemplateName + TerraformTemplateVersion); the
+                    // runner's CatalogReferenceCodeSourceProvider resolves it
+                    // against ITemplateCatalog and delegates to the underlying
+                    // source kind. PAT for the resolved Git source is read
+                    // from properties when present.
+                    if (properties.TryGetValue(TerraformGitPatPropertyName, out var catalogPat))
+                    {
+                        scriptGroup.TerraformGitPat = catalogPat.Value?.ToString() ?? string.Empty;
+                    }
                     break;
 
                 default:
@@ -90,7 +105,7 @@ namespace Dorc.Monitor.TerraformSourceConfig
             }
             else
             {
-                _logger.LogWarning($"PAT token not found in properties. Expected property: {TerraformGitPatPropertyName}");
+                _logger.LogWarning("Required PAT property is missing for Terraform Git source.");
             }
         }
 

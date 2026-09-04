@@ -329,6 +329,13 @@ export class DorcNavbar extends LitElement {
         </vaadin-tab>
 
         <vaadin-tab>
+          <a href="${urlForName('stock-modules')}">
+            <vaadin-icon icon="vaadin:puzzle-piece" theme="small"></vaadin-icon>
+            Stock modules
+          </a>
+        </vaadin-tab>
+
+        <vaadin-tab>
           <a href="${urlForName('variables')}">
             <vaadin-icon icon="inline:variables-icon" theme="small"></vaadin-icon>
             Variables

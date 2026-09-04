@@ -1,5 +1,11 @@
 # Setting Up a Terraform Project with DOrc
 
+> **See also**:
+> - [`MODULE-CONTRACT.md`](./MODULE-CONTRACT.md) - the contract every stock module must satisfy.
+> - [`MODULES.md`](./MODULES.md) - the index of stock modules engineers can start from.
+> - [`STATE-MODEL.md`](./STATE-MODEL.md) - how DOrc owns Terraform state at deploy time.
+> - [`../../stock-modules/`](../../stock-modules/) - the stock module library.
+
 This guide shows you how to set up a project to deploy Terraform infrastructure using DOrc's Terraform Runner functionality.
 
 ## Overview
@@ -34,24 +40,15 @@ my-terraform-project/
 ├── environments/
 │   ├── dev/
 │   │   └── terraform.tfvars
-│   ├── staging/
-│   │   └── terraform.tfvars
 │   └── prod/
 │       └── terraform.tfvars
-├── modules/
-│   ├── sql-database/
-│   │   ├── main.tf
-│   │   ├── variables.tf
-│   │   └── outputs.tf
-│   └── sql-managed-instance/
-│       ├── main.tf
-│       ├── variables.tf
-│       └── outputs.tf
 ├── main.tf
 ├── variables.tf
 ├── outputs.tf
 └── providers.tf
 ```
+
+Engineers should **reference stock modules** rather than copy them inline. The `stock-modules/` library at the repository root publishes curated modules (see [`MODULES.md`](./MODULES.md)).
 
 ## Example Configuration Files
 
@@ -59,43 +56,32 @@ my-terraform-project/
 
 ```hcl
 terraform {
-  required_version = ">= 1.0"
+  required_version = ">= 1.5.0"
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
-      version = "~> 3.0"
+      version = "~> 3.100"
     }
   }
+  # No backend block - DOrc renders the Azure Blob backend at deploy time.
+  # See STATE-MODEL.md. User-checked-in backend blocks are rejected at pre-flight.
 }
 
 provider "azurerm" {
   features {}
 }
 
-# SQL Database module example
+# Reference the sql-database stock module at a pinned tag.
 module "sql_database" {
   count  = var.enable_sql_database ? 1 : 0
-  source = "./modules/sql-database"
-  
-  resource_group_name = var.resource_group_name
-  location           = var.location
-  database_name      = var.database_name
-  server_name        = var.sql_server_name
-  environment        = var.environment
-  
-  tags = var.tags
-}
+  source = "git::https://<repo>//stock-modules/sql-database?ref=stock-modules/sql-database/v1.0.0"
 
-# SQL Managed Instance module example
-module "sql_managed_instance" {
-  count  = var.enable_sql_mi ? 1 : 0
-  source = "./modules/sql-managed-instance"
-  
-  resource_group_name = var.resource_group_name
-  location           = var.location
-  instance_name      = var.sql_mi_name
-  environment        = var.environment
-  
+  resource_group_name    = var.resource_group_name
+  location               = var.location
+  server_name            = var.sql_server_name
+  database_name          = var.database_name
+  administrator_password = var.sql_admin_password
+
   tags = var.tags
 }
 ```
@@ -125,12 +111,6 @@ variable "enable_sql_database" {
   default     = false
 }
 
-variable "enable_sql_mi" {
-  description = "Enable SQL Managed Instance deployment"
-  type        = bool
-  default     = false
-}
-
 variable "database_name" {
   description = "Name of the SQL database"
   type        = string
@@ -143,10 +123,10 @@ variable "sql_server_name" {
   default     = ""
 }
 
-variable "sql_mi_name" {
-  description = "Name of the SQL Managed Instance"
+variable "sql_admin_password" {
+  description = "SQL admin password. Supplied at deploy time by a DOrc sensitive property; never committed."
   type        = string
-  default     = ""
+  sensitive   = true
 }
 
 variable "tags" {

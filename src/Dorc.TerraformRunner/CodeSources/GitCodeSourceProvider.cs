@@ -27,10 +27,12 @@ namespace Dorc.TerraformRunner.CodeSources
                 throw new InvalidOperationException("Git repository URL is not configured.");
             }
 
-            // Validate and sanitize branch name to prevent command injection
-            var branchName = SanitizeGitParameter(scriptGroup.TerraformGitBranch ?? "main");
-            
-            _logger.Information($"Cloning Git repository '{scriptGroup.TerraformGitRepoUrl}' branch '{branchName}'");
+            // Validate and sanitize the ref to prevent command injection. It
+            // may name a branch, a tag (the catalog pins module versions as
+            // git tags, e.g. stock-modules/sql-database/v1.0.0), or a commit.
+            var gitRef = SanitizeGitParameter(scriptGroup.TerraformGitBranch ?? "main");
+
+            _logger.Information($"Cloning Git repository '{scriptGroup.TerraformGitRepoUrl}' ref '{gitRef}'");
 
             // Determine if this is GitHub or Azure DevOps
             bool isGitHub = scriptGroup.TerraformGitRepoUrl.Contains("github.com", StringComparison.OrdinalIgnoreCase);
@@ -39,8 +41,13 @@ namespace Dorc.TerraformRunner.CodeSources
 
             await Task.Run(() =>
             {
+                // Clone the whole repo (all branches + tags) rather than
+                // passing the ref as CloneOptions.BranchName: BranchName only
+                // resolves remote-tracking BRANCHES, so a tag or commit ref
+                // makes Clone throw. We then resolve the ref (branch, tag, or
+                // commit) and check it out explicitly - a superset of the old
+                // branch-only behaviour.
                 var cloneOptions = new CloneOptions();
-                cloneOptions.BranchName = branchName;
                 cloneOptions.FetchOptions.CredentialsProvider = (_url, _user, _cred) => CreateCredentials(scriptGroup, isGitHub, isAzureDevOps);
                 cloneOptions.FetchOptions.OnProgress = (serverProgressOutput) =>
                 {
@@ -50,7 +57,9 @@ namespace Dorc.TerraformRunner.CodeSources
 
                 try
                 {
-                    Repository.Clone(scriptGroup.TerraformGitRepoUrl, workingDir, cloneOptions);
+                    var repoPath = Repository.Clone(scriptGroup.TerraformGitRepoUrl, workingDir, cloneOptions);
+                    using var repo = new Repository(repoPath);
+                    CheckoutRef(repo, gitRef);
                 }
                 catch (Exception ex)
                 {
@@ -58,6 +67,51 @@ namespace Dorc.TerraformRunner.CodeSources
                     throw new InvalidOperationException($"Failed to clone Git repository: {ex.Message}", ex);
                 }
             }, cancellationToken);
+        }
+
+        // Resolves gitRef against a freshly cloned repo as a branch, tag, or
+        // commit (in that order) and checks it out. Non-default branches are
+        // remote-tracking after a full clone, so we also try the origin/ prefix.
+        private void CheckoutRef(Repository repo, string gitRef)
+        {
+            // 1. Local branch (typically only the default branch exists locally).
+            var localBranch = repo.Branches[gitRef];
+            if (localBranch != null)
+            {
+                Commands.Checkout(repo, localBranch);
+                return;
+            }
+
+            // 2. Remote-tracking branch.
+            var remoteBranch = repo.Branches["origin/" + gitRef];
+            if (remoteBranch != null)
+            {
+                Commands.Checkout(repo, remoteBranch);
+                return;
+            }
+
+            // 3. Tag -> its target commit (detached HEAD, fine for a build).
+            var tag = repo.Tags[gitRef];
+            if (tag != null)
+            {
+                var tagCommit = tag.PeeledTarget as Commit ?? tag.Target.Peel<Commit>();
+                if (tagCommit != null)
+                {
+                    Commands.Checkout(repo, tagCommit);
+                    return;
+                }
+            }
+
+            // 4. Commit SHA / other committish.
+            var commit = repo.Lookup(gitRef)?.Peel<Commit>();
+            if (commit != null)
+            {
+                Commands.Checkout(repo, commit);
+                return;
+            }
+
+            throw new InvalidOperationException(
+                $"Could not resolve git ref '{gitRef}' as a branch, tag, or commit in '{repo.Info.WorkingDirectory}'.");
         }
 
         private UsernamePasswordCredentials CreateCredentials(ScriptGroup scriptGroup, bool isGitHub, bool isAzureDevOps)

@@ -151,8 +151,15 @@ models/ServerAuditApiModel.ts
 models/ServerOperatingSystemApiModel.ts
 models/SourceControlType.ts
 models/SqlPortApiModel.ts
+models/TerraformParameterType.ts
 models/TerraformPlanApiModel.ts
 models/TerraformSourceType.ts
+models/TerraformTemplateInstantiateRequestApiModel.ts
+models/TerraformTemplateInstantiateResponseApiModel.ts
+models/TerraformTemplateManifest.ts
+models/TerraformTemplateOutput.ts
+models/TerraformTemplateParameter.ts
+models/TerraformTemplateSource.ts
 models/UpdateEnvironmentHistoryRequest.ts
 models/UserAccountType.ts
 models/UserApiModel.ts
