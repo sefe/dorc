@@ -29,7 +29,7 @@ Four rules determine the order below. They are stated up front because several a
 |----|-------|-----------|------------|
 | ⚙ S-000 | Interim exposure containment via `IsForProd` | SD-0, W-4 | **APPLIED in production 2026-08-10** (Ids 9, 13, 16). Verification outstanding; ST not yet changed. |
 | S-001 | Implement the Terraform approval predicates | SD-10, W-10, SC-05a | **DONE** |
-| S-002 | Authorize the daemon status endpoint | W-15, SC-05a | **DONE** |
+| S-002 | Authorize the daemon status endpoint | W-15, SC-05a | **DECLINED** — daemon status reads remain available to authenticated users |
 | S-003 | Enforce the API scope policy in combined auth mode | W-17 | **DONE** |
 | S-004 | Contain expression evaluation by provenance | SD-1a, W-1, SC-01, SC-02 | — |
 | S-005 | Confine the build drop location | W-14, SC-05 | — |
@@ -53,7 +53,7 @@ Four rules determine the order below. They are stated up front because several a
 | S-022 | Record attribution reached and not reached | SD-8, W-9 | S-021 |
 | S-023 | Replace the expression compiler with a fixed grammar | SD-1b, W-1 | S-004 |
 
-**Independently shippable today, in any order:** S-001, S-002, S-003, S-004, S-005, S-006, S-007, S-008, S-009, S-010, S-011. Eleven steps, covering every rank-1 and rank-2 weakness and the write-path half of every rank-3 weakness. Nothing in that set waits on an unknown.
+**Independently shippable today, in any order:** S-001, S-003, S-004, S-005, S-006, S-007, S-008, S-009, S-010, S-011. Ten steps, covering every accepted rank-1 and rank-2 remediation and the write-path half of every rank-3 weakness. Nothing in that set waits on an unknown.
 
 ---
 
@@ -93,13 +93,11 @@ Two policy decisions must be made explicitly rather than defaulted:
 
 ### S-002 — Authorize the daemon status endpoint
 
-**What changes.** The daemon status retrieval endpoint gains an authorization check against the environment identified in the request, matching the pattern used elsewhere for environment-scoped reads.
+**Decision.** Declined after review. Daemon status retrieval remains available to any authenticated user and does not require environment write permission.
 
-**Why it changes.** W-15, rank 1. The endpoint takes an environment identifier and drives a production-credential logon inside the API process, with no check beyond requiring authentication. This step closes the *reachability*; S-021 addresses the underlying fact that the API process resolves deployment credentials at all.
+**Residual risk.** W-15 remains open: the endpoint takes an environment identifier and drives a production-credential logon inside the API process. S-021 remains the planned remediation for removing that credential resolution from the API process without restricting status reads.
 
-**Dependencies.** None.
-
-**Verification intent.** A user without rights on the identified environment is refused before any credential resolution occurs — verified by asserting the probe is not invoked, not merely that the response is a failure. Users with rights are unaffected.
+**Verification intent.** Authenticated users retain the existing read behaviour. S-021 must preserve that behaviour while removing the privileged credential use.
 
 ### S-003 — Enforce the API scope policy in combined auth mode
 
