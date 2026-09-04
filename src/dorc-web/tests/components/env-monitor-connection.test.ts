@@ -2,10 +2,6 @@ import { describe, expect, it, vi } from 'vitest';
 import { EnvMonitor } from '../../src/components/environment-tabs/env-monitor';
 
 const methods = EnvMonitor.prototype as unknown as {
-  pauseAutoRefreshAfterConnectionFailure(
-    this: ConnectionHarness,
-    err: unknown
-  ): void;
   stopHubConnection(this: ConnectionHarness): Promise<void>;
   toggleAutoRefresh(this: ConnectionHarness): Promise<void>;
 };
@@ -41,18 +37,6 @@ function createHarness(): ConnectionHarness {
 }
 
 describe('EnvMonitor connection handling', () => {
-  it.each([0, 401])(
-    'pauses automatic refresh after request status %s',
-    status => {
-      const harness = createHarness();
-
-      methods.pauseAutoRefreshAfterConnectionFailure.call(harness, { status });
-
-      expect(harness.autoRefresh).toBe(false);
-      expect(harness.hubConnection.stop).toHaveBeenCalledTimes(1);
-    }
-  );
-
   it('waits for an in-flight stop before resuming', async () => {
     const harness = createHarness();
     let finishStop: (() => void) | undefined;
@@ -71,7 +55,7 @@ describe('EnvMonitor connection handling', () => {
       return Promise.resolve();
     });
 
-    methods.pauseAutoRefreshAfterConnectionFailure.call(harness, { status: 0 });
+    await methods.toggleAutoRefresh.call(harness);
     const resume = methods.toggleAutoRefresh.call(harness);
 
     expect(harness.hubConnection.start).not.toHaveBeenCalled();
@@ -98,7 +82,7 @@ describe('EnvMonitor connection handling', () => {
         })
     );
 
-    methods.pauseAutoRefreshAfterConnectionFailure.call(harness, { status: 0 });
+    await methods.toggleAutoRefresh.call(harness);
     const staleResume = methods.toggleAutoRefresh.call(harness);
     await methods.toggleAutoRefresh.call(harness);
 

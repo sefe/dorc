@@ -164,7 +164,7 @@ describe('PageMonitorRequests', () => {
       );
       hub.start.mockClear();
 
-      (el as any).pauseAutoRefreshAfterConnectionFailure({ status: 0 });
+      await (el as any).toggleAutoRefresh();
       const resume = (el as any).toggleAutoRefresh();
 
       expect(el.autoRefresh).toBe(true);
@@ -191,7 +191,7 @@ describe('PageMonitorRequests', () => {
       );
       hub.start.mockClear();
 
-      (el as any).pauseAutoRefreshAfterConnectionFailure({ status: 0 });
+      await (el as any).toggleAutoRefresh();
       const staleResume = (el as any).toggleAutoRefresh();
       await (el as any).toggleAutoRefresh();
 
@@ -479,28 +479,18 @@ describe('PageMonitorRequests', () => {
       return callback;
     }
 
-    it.each([0, 401])(
-      'pauses automatic refresh after request status %s',
+    it.each([0, 401, 400])(
+      'keeps automatic refresh enabled after request status %s',
       status => {
         const hub = (el as any).hubConnection;
         hub.stop.mockClear();
 
         callDataProviderWithError({ status, message: `ajax error ${status}` });
 
-        expect(el.autoRefresh).toBe(false);
-        expect(hub.stop).toHaveBeenCalledTimes(1);
+        expect(el.autoRefresh).toBe(true);
+        expect(hub.stop).not.toHaveBeenCalled();
       }
     );
-
-    it('keeps automatic refresh enabled for an API validation error', () => {
-      const hub = (el as any).hubConnection;
-      hub.stop.mockClear();
-
-      callDataProviderWithError({ status: 400, response: 'Invalid filter' });
-
-      expect(el.autoRefresh).toBe(true);
-      expect(hub.stop).not.toHaveBeenCalled();
-    });
   });
 
   // -------------------------------------------------------

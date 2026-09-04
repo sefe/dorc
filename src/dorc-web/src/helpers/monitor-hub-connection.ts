@@ -1,15 +1,17 @@
-import { HubConnection } from '@microsoft/signalr';
+import { HubConnection, IRetryPolicy, RetryContext } from '@microsoft/signalr';
 
 const stopPromises = new WeakMap<HubConnection, Promise<void>>();
 
-export function isMonitorConnectionFailure(err: unknown): boolean {
-  if (typeof err !== 'object' || err === null || !('status' in err)) {
-    return false;
-  }
+const maximumReconnectDelayMilliseconds = 30_000;
 
-  const status = (err as { status?: unknown }).status;
-  return status === 0 || status === 401;
-}
+export const monitorHubReconnectPolicy: IRetryPolicy = {
+  nextRetryDelayInMilliseconds(retryContext: RetryContext): number {
+    return Math.min(
+      1000 * 2 ** retryContext.previousRetryCount,
+      maximumReconnectDelayMilliseconds
+    );
+  }
+};
 
 export function waitForMonitorHubStop(
   connection: HubConnection

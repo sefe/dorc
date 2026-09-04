@@ -49,7 +49,6 @@ import {
 import '@vaadin/tooltip';
 import { dorcApiConfiguration } from '../../services/dorc-api-configuration';
 import {
-  isMonitorConnectionFailure,
   stopMonitorHub,
   waitForMonitorHubStop
 } from '../../helpers/monitor-hub-connection';
@@ -175,7 +174,6 @@ export class EnvMonitor
           );
         },
         error: (err: any) => {
-          this.pauseAutoRefreshAfterConnectionFailure(err);
           const errMessage = retrieveErrorMessage(err);
           const notification = new ErrorNotification();
           notification.setAttribute('errorMessage', errMessage);
@@ -198,18 +196,6 @@ export class EnvMonitor
         }
       });
   };
-
-  private pauseAutoRefreshAfterConnectionFailure(err: unknown): void {
-    if (!isMonitorConnectionFailure(err) || !this.autoRefresh) {
-      return;
-    }
-
-    this.autoRefresh = false;
-    if (this.hubConnection) {
-      void this.stopHubConnection();
-      this.hubConnectionState = this.hubConnection.state;
-    }
-  }
 
   private stopHubConnection(): Promise<void> {
     if (!this.hubConnection) {
