@@ -377,6 +377,7 @@ namespace Dorc.Api.Tests.Controllers
             Assert.AreEqual(StatusCodes.Status403Forbidden, StatusOf(response));
             AssertNoStateChanged();
         }
+
         /// <summary>
         /// AC-15. The codebase's usual boolean-setting pattern resolves an absent key to
         /// false, which would ship this control silently off. Absent must mean enabled for
