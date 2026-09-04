@@ -105,6 +105,8 @@ Two policy decisions must be made explicitly rather than defaulted:
 
 **Why it changes.** W-17. In combined mode the scope requirement is silently never enforced. Audience validation and the authenticated-principal requirement still hold, so this is a narrowing of an existing gap rather than an open door — but a policy that is registered and not applied is worse than one that was never written, because it reads as protection.
 
+This is transitional hardening while combined authentication remains supported. It does not reverse the planned removal of Negotiate/Windows authentication from the primary API in the API-split plan's S-007; once that removal lands, only the OAuth policy path remains.
+
 **Dependencies.** None.
 
 **Verification intent.** A token for the API audience lacking the required scope is refused in combined mode as it already is in OAuth-only mode. Windows-authenticated principals continue to reach controllers unaffected. A test covers each configured authentication mode rather than only the default, since the defect is precisely that one mode was untested.
