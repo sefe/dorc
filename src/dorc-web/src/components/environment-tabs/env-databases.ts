@@ -101,6 +101,7 @@ export class EnvDatabases extends PageEnvBase {
               .databases="${this.databases}"
               .readonly="${this.envReadOnly}"
               @database-detached="${this._dbDetached}"
+              @database-tags-updated="${this.refreshDatabases}"
             ></attached-databases>
           </div>
         </div>

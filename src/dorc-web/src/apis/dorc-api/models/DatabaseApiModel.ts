@@ -32,10 +32,10 @@ export interface DatabaseApiModel {
      */
     Name?: string | null;
     /**
-     * @type {string}
+     * @type {Array<string>}
      * @memberof DatabaseApiModel
      */
-    Type?: string | null;
+    Tags?: Array<string> | null;
     /**
      * @type {string}
      * @memberof DatabaseApiModel

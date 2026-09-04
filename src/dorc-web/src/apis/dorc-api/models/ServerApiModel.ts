@@ -42,8 +42,8 @@ export interface ServerApiModel {
      */
     OsName?: string | null;
     /**
-     * @type {string}
+     * @type {Array<string>}
      * @memberof ServerApiModel
      */
-    ApplicationTags?: string | null;
+    Tags?: Array<string> | null;
 }

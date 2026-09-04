@@ -33,7 +33,9 @@ namespace Dorc.PersistentData.Sources
         {
             using (var context = _contextFactory.GetContext())
             {
-                return MapToDatabaseApiModel(context.Databases.SingleOrDefault(x => x.Id == id));
+                return MapToDatabaseApiModel(context.Databases
+                    .Include(x => x.TagLinks)
+                    .SingleOrDefault(x => x.Id == id));
             }
         }
 
@@ -43,6 +45,7 @@ namespace Dorc.PersistentData.Sources
             {
                 return context.Databases
                     .Include(d => d.Group)
+                    .Include(d => d.TagLinks)
                     .Include(d => d.Environments)
                     .Where(d => d.Name.Equals(name) && d.ServerName.Equals(server)).ToList()
                     .Select(MapToDatabaseApiModel).ToList();
@@ -53,7 +56,7 @@ namespace Dorc.PersistentData.Sources
         {
             using (var context = _contextFactory.GetContext())
             {
-                return context.Databases.Include(d => d.Group).Where(d => d.Name != null).ToList()
+                return context.Databases.Include(d => d.Group).Include(d => d.TagLinks).Where(d => d.Name != null).ToList()
                     .Select(MapToDatabaseApiModel).ToList();
 
             }
@@ -64,7 +67,7 @@ namespace Dorc.PersistentData.Sources
             var output = new List<string>();
             using (var context = _contextFactory.GetContext())
             {
-                var database = context.Databases.Include(s => s.Environments)
+                var database = context.Databases.Include(s => s.TagLinks).Include(s => s.Environments)
                     .FirstOrDefault(s => s.Id.Equals(serverId));
 
                 if (database == null)
@@ -109,23 +112,54 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        public DatabaseApiModel? GetDatabaseByType(string envName, string type)
+        public DatabaseApiModel? GetDatabaseByTag(string envName, string tag)
         {
             using (var context = _contextFactory.GetContext())
             {
-                var dbDetails = context.Environments
-                    .Include(env => env.Databases)
-                    .Single(e => e.Name == envName)
-                    .Databases.SingleOrDefault(x => x.Type == type);
+                // Matched in the query rather than over the materialised graph so the
+                // comparison keeps the database's case-insensitive collation. Doing it
+                // in memory would compare Ordinal, and this overload would then
+                // disagree with the DatabaseTagMatch-based one on whether 'endur'
+                // finds a database tagged 'Endur'.
+                var dbDetails = context.Databases
+                    .Include(d => d.TagLinks)
+                    .Where(d => d.Environments.Any(e => e.Name == envName))
+                    .Where(DatabaseTagMatch.HasTag(tag))
+                    .SingleOrDefault();
                 return dbDetails != null ? MapToDatabaseApiModel(dbDetails) : null;
             }
+        }
+
+        /// <summary>
+        /// Make the database's tag rows match the supplied set, and keep the
+        /// deprecated delimited column in step until the follow-up release drops it.
+        /// Rows are added and removed rather than cleared and rebuilt, so unchanged
+        /// tags keep their identity and the write is a no-op when nothing moved.
+        /// </summary>
+        private static void SyncTagLinks(Database entity, IEnumerable<string> tags)
+        {
+            var wanted = TagString.Normalize(tags);
+
+            var toRemove = entity.TagLinks
+                .Where(link => !wanted.Contains(link.Tag, TagString.Comparer))
+                .ToList();
+            foreach (var link in toRemove)
+                entity.TagLinks.Remove(link);
+
+            var existing = entity.TagLinks.Select(link => link.Tag).ToArray();
+            foreach (var tag in wanted.Where(t => !existing.Contains(t, TagString.Comparer)))
+                entity.TagLinks.Add(new DatabaseTag { DatabaseId = entity.Id, Tag = tag });
+
+            entity.Tags = TagString.Join(wanted);
         }
 
         private DatabaseApiModel? GetDatabase(DatabaseApiModel db, IDeploymentContext context)
         {
             var database =
                 MapToDatabaseApiModel(
-                context.Databases.SingleOrDefault(d => d.Name.Equals(db.Name)
+                context.Databases
+                    .Include(d => d.TagLinks)
+                    .SingleOrDefault(d => d.Name.Equals(db.Name)
                                                        &&
                                                        d.ServerName.Equals(db.ServerName)));
 
@@ -146,16 +180,16 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        public DatabaseApiModel GetDatabaseByType(EnvironmentApiModel environment, string type)
+        public DatabaseApiModel GetDatabaseByTag(EnvironmentApiModel environment, string tag)
         {
             using (var context = _contextFactory.GetContext())
             {
                 var endurDb = context.Databases
                     .Include(d => d.Environments)
+                    .Include(d => d.TagLinks)
                     .Include(d => d.Group)
-                    .SingleOrDefault(d =>
-                        d.Type == type
-                        && d.Environments.FirstOrDefault().Name == environment.EnvironmentName);
+                    .Where(DatabaseTagMatch.HasTag(tag))
+                    .SingleOrDefault(d => d.Environments.FirstOrDefault().Name == environment.EnvironmentName);
                 return endurDb != null ? MapToDatabaseApiModel(endurDb) : null;
             }
         }
@@ -180,6 +214,7 @@ namespace Dorc.PersistentData.Sources
             {
                 var result = context.Databases
                     .Include(d => d.Group)
+                    .Include(d => d.TagLinks)
                     .Where(database => database.Environments
                         .Any(env => env.Name == environmentName))
                     .OrderBy(database => database.Name).ToList();
@@ -199,6 +234,7 @@ namespace Dorc.PersistentData.Sources
                 var envPrivilegeInfos = GetEnvironmentPrivInfos(user, context);
 
                 var reqStatusesQueryable = context.Databases.Include(database => database.Environments)
+                    .Include(database => database.TagLinks)
                     .Include(database => database.Group).AsQueryable();
 
                 if (operators.Filters != null && operators.Filters.Any())
@@ -216,6 +252,17 @@ namespace Dorc.PersistentData.Sources
                             {
                                 filterLambdas.Add(server =>
                                     server.Environments.Any(ed => ed.Name.Contains(pagedDataFilter.FilterValue)));
+                            }
+                            else if (pagedDataFilter.Path == "Tags")
+                            {
+                                // Matched against the tag rows, not the deprecated
+                                // delimited column. Letting ContainsExpression resolve
+                                // "Tags" by name would bind to that column, so the grid
+                                // would filter a store deployments no longer read from —
+                                // and would throw outright once the follow-up release
+                                // drops it.
+                                filterLambdas.Add(database =>
+                                    database.TagLinks.Any(t => t.Tag.Contains(pagedDataFilter.FilterValue)));
                             }
                             else
                             {
@@ -243,6 +290,18 @@ namespace Dorc.PersistentData.Sources
                         if (operators.SortOrders[i].Path == "EnvironmentNames")
                         {
                             operators.SortOrders[i].Path = "Environments";
+                        }
+
+                        if (operators.SortOrders[i].Path == "Tags")
+                        {
+                            // Ordered on the tag rows by their alphabetically first tag.
+                            // Name-resolving "Tags" would order on the deprecated column,
+                            // which sorts by whatever order the tags happen to be joined
+                            // in and stops existing when that column is dropped.
+                            Expression<Func<Database, string>> firstTag =
+                                d => d.TagLinks.Select(t => t.Tag).OrderBy(t => t).FirstOrDefault();
+                            orderedQuery = OrderScripts(operators, i, orderedQuery, reqStatusesQueryable, firstTag);
+                            continue;
                         }
 
                         var param = Expression.Parameter(typeof(Database), "Database");
@@ -296,7 +355,7 @@ namespace Dorc.PersistentData.Sources
                     {
                         Id = s.Id,
                         Name = s.Name,
-                        Type = s.Type,
+                        Tags = s.TagLinks.Select(t => t.Tag).ToArray(),
                         ServerName = s.ServerName,
                         AdGroup = s.Group?.Name,
                         ArrayName = s.ArrayName,
@@ -337,7 +396,9 @@ namespace Dorc.PersistentData.Sources
 
                 var dbIds = environmentDetails.Databases.Select(d => d.Id).ToList();
 
-                var database = context.EnvironmentUsers.Include(eu => eu.Database).Include(eu => eu.User)
+                var database = context.EnvironmentUsers
+                    .Include(eu => eu.Database).ThenInclude(d => d.TagLinks)
+                    .Include(eu => eu.User)
                     .Where(eu =>
                         dbIds.Contains(eu.Database.Id) && eu.User.LoginId.Equals(username) &&
                         eu.User.LoginType.Equals(envFilter)).Select(eu => eu.Database).FirstOrDefault();
@@ -350,7 +411,13 @@ namespace Dorc.PersistentData.Sources
         {
             using (var context = _contextFactory.GetContext())
             {
-                var existingDatabase = context.Databases.Find(database.Id);
+                // Include the tag rows: SyncTagLinks reconciles against what is
+                // already there, and Find does not populate navigations. Without
+                // this it sees an empty set, re-inserts every tag the database
+                // already carries (PK violation) and never issues the deletes.
+                var existingDatabase = context.Databases
+                    .Include(d => d.TagLinks)
+                    .FirstOrDefault(d => d.Id == database.Id);
 
                 if (existingDatabase == null)
                     return null;
@@ -369,7 +436,7 @@ namespace Dorc.PersistentData.Sources
                 existingDatabase.Name = database.Name;
                 existingDatabase.ServerName = database.ServerName;
                 existingDatabase.ArrayName = database.ArrayName;
-                existingDatabase.Type = database.Type;
+                SyncTagLinks(existingDatabase, database.Tags);
 
                 var adGroup = context.AdGroups
                     .FirstOrDefault(g => g.Name == database.AdGroup);
@@ -395,7 +462,9 @@ namespace Dorc.PersistentData.Sources
                 Id = db.Id,
                 Name = db.Name,
                 ServerName = db.ServerName,
-                Type = db.Type,
+                Tags = TagString.Join(db.Tags),
+                TagLinks = TagString.Normalize(db.Tags)
+                    .Select(t => new DatabaseTag { Tag = t }).ToList(),
                 ArrayName = db.ArrayName
             };
         }
@@ -410,7 +479,7 @@ namespace Dorc.PersistentData.Sources
                 AdGroup = db.Group?.Name,
                 Id = db.Id,
                 Name = db.Name,
-                Type = db.Type,
+                Tags = db.TagLinks != null ? db.TagLinks.Select(t => t.Tag).ToArray() : System.Array.Empty<string>(),
                 ServerName = db.ServerName,
                 ArrayName = db.ArrayName,
                 EnvironmentNames = db.Environments != null ? db.Environments.Select(e => e.Name).ToList() : new List<string>()

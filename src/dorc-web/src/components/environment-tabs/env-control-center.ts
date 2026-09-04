@@ -20,6 +20,7 @@ import '@vaadin/horizontal-layout';
 import '../make-like-production-dialog';
 import '../add-edit-environment';
 import { PageEnvBase } from './page-env-base';
+import { hasTag } from '../../helpers/tag-parser';
 import '../add-edit-access-control';
 import { AddEditAccessControl } from '../add-edit-access-control';
 import GlobalCache from '../../global-cache';
@@ -400,9 +401,11 @@ export class EnvControlCenter extends PageEnvBase {
       p => p.ProjectName ?? ''
     );
 
-    // since ThinClient is a DB tag and DB type and environment filter, we can use it to find the app database server
-    this.appDbServer = this.envContent?.DbServers?.find(
-      s => s.Type === this.environment?.Details?.ThinClient
+    // since ThinClient is a DB tag and DB type and environment filter, we can use
+    // it to find the app database server — matched as tag membership over the
+    // semicolon-separated Tags list.
+    this.appDbServer = this.envContent?.DbServers?.find(s =>
+      hasTag(s.Tags, this.environment?.Details?.ThinClient)
     );
   }
 }
