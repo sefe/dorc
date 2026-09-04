@@ -463,7 +463,9 @@ var endpointConventionBuilder = app.MapControllers();
 // Controllers. This must cover ConfigAuthScheme.Both as well as OAuth: Both is the distinct
 // string "OAuth+WinAuth", so an exact match against OAuth alone silently skipped the policy
 // and left bearer tokens unchecked for scope in combined mode. The policy itself exempts
-// Windows-authenticated requests, so applying it in Both mode does not deny them.
+// Windows-authenticated requests, so applying it in Both mode does not deny them. This only
+// attaches authorization to an already configured mode; it does not register or enable
+// Windows authentication.
 if (authenticationScheme is ConfigAuthScheme.OAuth or ConfigAuthScheme.Both)
 {
     endpointConventionBuilder.RequireAuthorization(apiScopeAuthorizationPolicy);
