@@ -1,5 +1,4 @@
-﻿using System.Runtime.Versioning;
-using System.Security.Principal;
+﻿using System.Security.Principal;
 using Dorc.ApiModel;
 using Dorc.Core;
 using Dorc.Core.Interfaces;
@@ -15,7 +14,6 @@ namespace Dorc.Api.Controllers
     [Authorize]
     [ApiController]
     [Route("[controller]")]
-    [SupportedOSPlatform("windows")]
     public sealed class AccessControlController : ControllerBase
     {
         private const int AC_ALLOW_READ_SECRETS = 2;

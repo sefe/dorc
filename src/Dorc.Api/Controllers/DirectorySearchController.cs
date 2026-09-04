@@ -1,5 +1,4 @@
 using System.Net;
-using System.Runtime.Versioning;
 using System.Text.RegularExpressions;
 using Dorc.Api.Services;
 using Dorc.ApiModel;
@@ -13,7 +12,6 @@ namespace Dorc.Api.Controllers
     [Authorize]
     [ApiController]
     [Route("[controller]")]
-    [SupportedOSPlatform("windows")]
     public class DirectorySearchController : Controller
     {
         internal const int UserSearchCriteriaMinimalLength = 3;
