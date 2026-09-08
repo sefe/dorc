@@ -28,9 +28,8 @@ describe('MakeLikeProductionDialog reset', () => {
     );
     el.Open();
     await el.updateComplete;
-    const openedResetVersion = (
-      el as unknown as { formResetVersion: number }
-    ).formResetVersion;
+    const openedResetVersion = (el as unknown as { formResetVersion: number })
+      .formResetVersion;
 
     el.bundleChanged('Bundle A');
     el.backupChanged('Backup A');
@@ -39,15 +38,11 @@ describe('MakeLikeProductionDialog reset', () => {
       PropertyValue: 'Value A'
     });
 
-    expect(
-      (el as unknown as { canSubmit: boolean }).canSubmit
-    ).to.equal(true);
+    expect((el as unknown as { canSubmit: boolean }).canSubmit).to.equal(true);
 
     el.closeDialog();
 
-    expect(
-      (el as unknown as { canSubmit: boolean }).canSubmit
-    ).to.equal(false);
+    expect((el as unknown as { canSubmit: boolean }).canSubmit).to.equal(false);
     expect(el.propertyOverrides).to.deep.equal([]);
     expect(
       (el as unknown as { formResetVersion: number }).formResetVersion
@@ -100,8 +95,6 @@ describe('MakeLikeProductionDialog reset', () => {
     );
     await el.updateComplete;
 
-    expect(
-      (el as unknown as { canSubmit: boolean }).canSubmit
-    ).to.equal(false);
+    expect((el as unknown as { canSubmit: boolean }).canSubmit).to.equal(false);
   });
 });

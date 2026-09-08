@@ -20,7 +20,6 @@ import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('add-edit-server')
 export class AddEditServer extends LitElement {
-
   private readonly maxServerNameLength = 32;
   private readonly maxOSNameLength = 50;
 
@@ -133,7 +132,9 @@ export class AddEditServer extends LitElement {
 
   render() {
     return html`
-      <div style="padding: var(--lumo-space-s); width: 100%; max-width: 500px; box-sizing: border-box;">
+      <div
+        style="padding: var(--lumo-space-s); width: 100%; max-width: 500px; box-sizing: border-box;"
+      >
         <vaadin-vertical-layout>
           <vaadin-text-field
             id="serverName"
@@ -158,12 +159,12 @@ export class AddEditServer extends LitElement {
             style="width: 300px"
             clear-button-visible
           ></vaadin-combo-box>
-        <div class="button-container">
-          <vaadin-button @click="${this.lookupOSFromTarget}">
-            Lookup OS
-          </vaadin-button>
-          ${this.loadingOS ? html`<div class="small-loader"></div>` : html``}
-        </div>
+          <div class="button-container">
+            <vaadin-button @click="${this.lookupOSFromTarget}">
+              Lookup OS
+            </vaadin-button>
+            ${this.loadingOS ? html`<div class="small-loader"></div>` : html``}
+          </div>
         </vaadin-vertical-layout>
         <vaadin-button .disabled="${!this.canSubmit}" @click="${this.save}"
           >Save
@@ -342,9 +343,9 @@ export class AddEditServer extends LitElement {
 
   private showError(err: any) {
     const notification = new ErrorNotification();
-    
+
     const errorMessage = retrieveErrorMessage(err, 'Failed to save server');
-    
+
     notification.setAttribute('errorMessage', errorMessage);
     this.shadowRoot?.appendChild(notification);
     notification.open();

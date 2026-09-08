@@ -34,6 +34,10 @@ namespace Dorc.PersistentData.EntityTypeConfigurations
                 .HasMaxLength(512);
 
             builder
+                .Property(e => e.NotificationEmail)
+                .HasMaxLength(512);
+
+            builder
                 .Property(e => e.LeanIXUrl)
                 .HasMaxLength(512);
 

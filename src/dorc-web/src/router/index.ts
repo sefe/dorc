@@ -3,7 +3,11 @@ import { routes } from './routes.ts';
 import { router } from './router.ts';
 import { appConfig } from '../app-config';
 import { ApiConfigApi, ApiConfigModel } from '../apis/dorc-api';
-import { OAUTH_SCHEME, oauthServiceContainer, OAuthServiceSettings } from '../services/Account/OAuthService';
+import {
+  OAUTH_SCHEME,
+  oauthServiceContainer,
+  OAuthServiceSettings
+} from '../services/Account/OAuthService';
 import { oauthSettings } from '../OAuthSettings.ts';
 import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
@@ -12,8 +16,12 @@ const routeConfig = routes;
 new ApiConfigApi(dorcApiConfiguration).apiConfigGet().subscribe({
   next: (apiConfig: ApiConfigModel) => {
     appConfig.authenticationScheme = apiConfig.AuthenticationScheme ?? 'NotSet';
-    appConfig.pauseDeploymentEnabled = Boolean((apiConfig as Record<string, unknown>)['PauseDeploymentEnabled']);
-    appConfig.isProduction = Boolean((apiConfig as Record<string, unknown>)['IsProduction']);
+    appConfig.pauseDeploymentEnabled = Boolean(
+      (apiConfig as Record<string, unknown>)['PauseDeploymentEnabled']
+    );
+    appConfig.isProduction = Boolean(
+      (apiConfig as Record<string, unknown>)['IsProduction']
+    );
     if (appConfig.authenticationScheme == OAUTH_SCHEME) {
       const settings: OAuthServiceSettings = {
         ...oauthSettings,
@@ -23,18 +31,18 @@ new ApiConfigApi(dorcApiConfiguration).apiConfigGet().subscribe({
       };
       oauthServiceContainer.setSettings(settings);
       oauthServiceContainer.service.getUser().subscribe({
-        next: (user) => {
+        next: user => {
           if (!user || !user.access_token) {
             oauthServiceContainer.service.signIn();
           } else {
             void router.setRoutes(routeConfig);
           }
         },
-        error: (err) => console.error('Error getting user:', err)
+        error: err => console.error('Error getting user:', err)
       });
     } else {
       void router.setRoutes(routeConfig);
     }
   },
   error: (err: string) => console.error(err)
-}); 
+});

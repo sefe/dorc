@@ -12,7 +12,6 @@ import { renderSearchResults } from './utilities/addUserOrGroupTemplateHelper';
 import '@vaadin/vertical-layout';
 
 export function addEndurUserOrGroupTemplate(this: AddEndurUserOrGroup) {
-
   const maxFieldLength = 50;
 
   return html` <div>
@@ -39,9 +38,11 @@ export function addEndurUserOrGroupTemplate(this: AddEndurUserOrGroup) {
             </vaadin-button>
           </td>
           <td class="acc-filter__ldr-td">
-            ${this.isUserOrGroupLoadingCompleted
-              ? html`${nothing}`
-              : html`<div class="acc-filter__small-loader"></div> `}
+            ${
+              this.isUserOrGroupLoadingCompleted
+                ? html`${nothing}`
+                : html`<div class="acc-filter__small-loader"></div> `
+            }
           </td>
         </tr>
       </table>

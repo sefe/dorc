@@ -27,12 +27,10 @@ const { loadSpy, resetSpy, setDbIdSpy } = vi.hoisted(() => ({
 
 await import('../../src/components/view-database-permissions');
 await import('../../src/components/edit-database-permissions');
-const { ViewDatabasePermissions } = await import(
-  '../../src/components/view-database-permissions'
-);
-const { EditDatabasePermissions } = await import(
-  '../../src/components/edit-database-permissions'
-);
+const { ViewDatabasePermissions } =
+  await import('../../src/components/view-database-permissions');
+const { EditDatabasePermissions } =
+  await import('../../src/components/edit-database-permissions');
 await import('../../src/components/attached-databases');
 
 // Spy on the seeding entry points rather than the network, so the count is of
@@ -115,7 +113,9 @@ describe('attached-databases permission dialogs', () => {
 
     await openView(el, 7);
 
-    expect(setDbIdSpy.mock.calls.at(-1)?.[0], 'seeded with the new row').toBe(7);
+    expect(setDbIdSpy.mock.calls.at(-1)?.[0], 'seeded with the new row').toBe(
+      7
+    );
     el.remove();
   });
 

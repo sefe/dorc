@@ -34,8 +34,12 @@ export class AttachedUsers extends ResponsiveMixin(LitElement) {
         </vaadin-grid-sort-column>
         <vaadin-grid-sort-column header="Login ID" path="LoginId" resizable>
         </vaadin-grid-sort-column>
-        <vaadin-grid-sort-column header="Login Type" path="LoginType" resizable
-          ?hidden="${this._narrowScreen}">
+        <vaadin-grid-sort-column
+          header="Login Type"
+          path="LoginType"
+          resizable
+          ?hidden="${this._narrowScreen}"
+        >
         </vaadin-grid-sort-column>
         <vaadin-grid-sort-column header="LAN ID" path="LanId" resizable>
         </vaadin-grid-sort-column>
@@ -46,8 +50,12 @@ export class AttachedUsers extends ResponsiveMixin(LitElement) {
           ?hidden="${this._narrowScreen}"
         >
         </vaadin-grid-sort-column>
-        <vaadin-grid-sort-column header="Team" path="Team" resizable
-          ?hidden="${this._narrowScreen}">
+        <vaadin-grid-sort-column
+          header="Team"
+          path="Team"
+          resizable
+          ?hidden="${this._narrowScreen}"
+        >
         </vaadin-grid-sort-column>
       </vaadin-grid>
     `;
@@ -55,8 +63,12 @@ export class AttachedUsers extends ResponsiveMixin(LitElement) {
 
   private get sortedUsers(): UserApiModel[] {
     return [...this.users].sort((a, b) => {
-    if (String(a.DisplayName).toLowerCase() > String(b.DisplayName).toLowerCase()) return 1;
-    return -1;
+      if (
+        String(a.DisplayName).toLowerCase() >
+        String(b.DisplayName).toLowerCase()
+      )
+        return 1;
+      return -1;
     });
   }
 }

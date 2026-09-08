@@ -12,5 +12,7 @@ namespace Dorc.Core.AzureDevOpsServer
         int ExtractBuildId(string buildUri);
         Task<List<Build>> GetBuildsFromBuildNumberAsync(string collection, string buildNumber, string projectName,
             int requestSize = 10);
+
+        Task<string?> GetFileFromRepoAsync(string collection, string adoProjects, params string[] candidateFileNames);
     }
 }

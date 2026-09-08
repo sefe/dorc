@@ -45,13 +45,15 @@ export class PageTestComponent extends PageElement {
 
   render() {
     return html`
-      ${this.loading
-        ? html` <div class="loader"></div> `
-        : html`
-            <add-edit-access-control
-              .secureName="${this.secureName}"
-            ></add-edit-access-control>
-          `}
+      ${
+        this.loading
+          ? html` <div class="loader"></div> `
+          : html`
+              <add-edit-access-control
+                .secureName="${this.secureName}"
+              ></add-edit-access-control>
+            `
+      }
     `;
   }
 }

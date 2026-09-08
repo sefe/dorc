@@ -136,15 +136,12 @@ export function buildComponentFailureRates(
   top: number
 ): ComponentFailureRate[] {
   return rows
-    .filter(
-      row => (row.AttemptCount ?? 0) >= minAttempts && row.ComponentName
-    )
+    .filter(row => (row.AttemptCount ?? 0) >= minAttempts && row.ComponentName)
     .map(row => ({
       componentName: row.ComponentName ?? '',
       failureRatePercent:
-        Math.round(
-          ((row.FailedCount ?? 0) / (row.AttemptCount ?? 1)) * 1000
-        ) / 10,
+        Math.round(((row.FailedCount ?? 0) / (row.AttemptCount ?? 1)) * 1000) /
+        10,
       attemptCount: row.AttemptCount ?? 0,
       retryAttemptCount: row.RetryAttemptCount ?? 0
     }))

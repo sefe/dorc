@@ -165,7 +165,9 @@ export class ViewDatabasePermissions extends LitElement {
   public loadDatabaseUsers() {
     if (this.dbId > 0) {
       this.loading = true;
-      const refDataPermissionApi = new RefDataDatabaseUsersApi(dorcApiConfiguration);
+      const refDataPermissionApi = new RefDataDatabaseUsersApi(
+        dorcApiConfiguration
+      );
       refDataPermissionApi
         .refDataDatabaseUsersGet({ id: this.dbId, envId: this.envId })
         .subscribe(

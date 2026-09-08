@@ -366,7 +366,9 @@ export class PageProjectComponents extends ResponsiveMixin(PageElement) {
       }
 
       this.environmentsLoading = true;
-      const api = new RefDataProjectEnvironmentMappingsApi(dorcApiConfiguration);
+      const api = new RefDataProjectEnvironmentMappingsApi(
+        dorcApiConfiguration
+      );
       api
         .refDataProjectEnvironmentMappingsGet({
           project: this.projectName,

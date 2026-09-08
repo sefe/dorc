@@ -37,9 +37,9 @@ const mount = async () => {
 };
 
 const overlayOf = (el: Host) =>
-  el.shadowRoot?.querySelector('vaadin-dialog')?.shadowRoot?.querySelector(
-    'vaadin-dialog-overlay'
-  ) as HTMLElement | null;
+  el.shadowRoot
+    ?.querySelector('vaadin-dialog')
+    ?.shadowRoot?.querySelector('vaadin-dialog-overlay') as HTMLElement | null;
 
 describe('access control dialog dismissal', () => {
   it('keeps action spacing and save position stable while saving', async () => {
@@ -56,7 +56,9 @@ describe('access control dialog dismissal', () => {
     await settle();
 
     const savingPosition = saveButton.getBoundingClientRect();
-    const spinner = dialog.querySelector('.save-progress .small-loader') as HTMLElement;
+    const spinner = dialog.querySelector(
+      '.save-progress .small-loader'
+    ) as HTMLElement;
 
     expect(getComputedStyle(actionBar).gap).to.not.equal('normal');
     expect(savingPosition.x).to.equal(idlePosition.x);
@@ -70,9 +72,7 @@ describe('access control dialog dismissal', () => {
     (el as unknown as { savingAccessControls: boolean }).savingAccessControls =
       true;
 
-    expect(() =>
-      (el as unknown as { save: () => void }).save()
-    ).not.to.throw();
+    expect(() => (el as unknown as { save: () => void }).save()).not.to.throw();
   });
 
   it('opens with the work in place', async () => {

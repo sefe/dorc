@@ -8,8 +8,8 @@ describe('EnvironmentCard responsive layout', () => {
     EnvironmentName: 'Test Environment',
     Details: {
       Description: 'A test environment description',
-      EnvironmentOwner: 'test-owner',
-    },
+      EnvironmentOwner: 'test-owner'
+    }
   };
 
   it('should use flex layout instead of absolute positioning', async () => {
@@ -18,7 +18,9 @@ describe('EnvironmentCard responsive layout', () => {
     `);
     await el.updateComplete;
 
-    const cardElement = el.shadowRoot!.querySelector('.card-element') as HTMLElement;
+    const cardElement = el.shadowRoot!.querySelector(
+      '.card-element'
+    ) as HTMLElement;
     const computedStyle = getComputedStyle(cardElement);
 
     expect(computedStyle.display).to.equal('flex');
@@ -31,7 +33,9 @@ describe('EnvironmentCard responsive layout', () => {
     `);
     await el.updateComplete;
 
-    const cardElement = el.shadowRoot!.querySelector('.card-element') as HTMLElement;
+    const cardElement = el.shadowRoot!.querySelector(
+      '.card-element'
+    ) as HTMLElement;
     const computedStyle = getComputedStyle(cardElement);
 
     expect(computedStyle.boxSizing).to.equal('border-box');
@@ -43,7 +47,9 @@ describe('EnvironmentCard responsive layout', () => {
     `);
     await el.updateComplete;
 
-    const cardContent = el.shadowRoot!.querySelector('.card-content') as HTMLElement;
+    const cardContent = el.shadowRoot!.querySelector(
+      '.card-content'
+    ) as HTMLElement;
     expect(cardContent).to.not.be.null;
 
     const computedStyle = getComputedStyle(cardContent);
@@ -57,7 +63,9 @@ describe('EnvironmentCard responsive layout', () => {
     `);
     await el.updateComplete;
 
-    const cardActions = el.shadowRoot!.querySelector('.card-actions') as HTMLElement;
+    const cardActions = el.shadowRoot!.querySelector(
+      '.card-actions'
+    ) as HTMLElement;
     expect(cardActions).to.not.be.null;
 
     const computedStyle = getComputedStyle(cardActions);
@@ -74,8 +82,10 @@ describe('EnvironmentCard responsive layout', () => {
     const allDivs = el.shadowRoot!.querySelectorAll('div');
     allDivs.forEach(div => {
       const style = getComputedStyle(div);
-      expect(style.position).to.not.equal('absolute',
-        `Found position: absolute on element with class="${div.className}"`);
+      expect(style.position).to.not.equal(
+        'absolute',
+        `Found position: absolute on element with class="${div.className}"`
+      );
     });
   });
 

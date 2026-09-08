@@ -70,7 +70,8 @@ describe('P3: app shell accessibility', () => {
 
       expect(splitter.getAttribute('role')).to.equal('separator');
       expect(splitter.getAttribute('aria-orientation')).to.equal('vertical');
-      expect(splitter.getAttribute('aria-label')).to.be.a('string').and.not.empty;
+      expect(splitter.getAttribute('aria-label')).to.be.a('string').and.not
+        .empty;
       expect(splitter.getAttribute('aria-valuemin')).to.equal('200');
       expect(splitter.getAttribute('aria-valuemax')).to.equal('1000');
       expect(splitter.getAttribute('aria-valuenow')).to.equal('300');
@@ -193,10 +194,12 @@ describe('P3: app shell accessibility', () => {
       menuBtn.click();
       await app.updateComplete;
 
-      expect(navbar.hasAttribute('inert'), 'collapsed: not focusable').to.be.true;
-      expect(navbar.getAttribute('aria-hidden'), 'collapsed: hidden from AT').to.equal(
-        'true'
-      );
+      expect(navbar.hasAttribute('inert'), 'collapsed: not focusable').to.be
+        .true;
+      expect(
+        navbar.getAttribute('aria-hidden'),
+        'collapsed: hidden from AT'
+      ).to.equal('true');
 
       menuBtn.click();
       await app.updateComplete;
@@ -259,10 +262,13 @@ describe('P3: app shell accessibility', () => {
 // ─── D-34 ─────────────────────────────────────────────────────────────────
 describe('SC-26: reduced motion', () => {
   it('suppresses the shared spinner animation under prefers-reduced-motion', async () => {
-    const { DorcSpinner } = await import('../../src/components/dorc-spinner.js');
+    const { DorcSpinner } =
+      await import('../../src/components/dorc-spinner.js');
 
     const css = (
-      DorcSpinner as unknown as { styles: { cssText: string } | Array<{ cssText: string }> }
+      DorcSpinner as unknown as {
+        styles: { cssText: string } | Array<{ cssText: string }>;
+      }
     ).styles;
     const text = Array.isArray(css)
       ? css.map(s => s.cssText).join('\n')

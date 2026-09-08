@@ -114,7 +114,10 @@ describe('RouteResolver', () => {
   });
 
   it('decodes URL-encoded parameters', async () => {
-    const resolution = await resolveChain(resolver, '/project-envs/My%20Project');
+    const resolution = await resolveChain(
+      resolver,
+      '/project-envs/My%20Project'
+    );
     expect(resolution.params.id).to.equal('My Project');
   });
 
@@ -187,9 +190,9 @@ describe('RouteResolver', () => {
     });
 
     it('encodes parameter values', () => {
-      expect(resolver.urlForName('project-envs', { id: 'My Project' })).to.equal(
-        '/project-envs/My%20Project'
-      );
+      expect(
+        resolver.urlForName('project-envs', { id: 'My Project' })
+      ).to.equal('/project-envs/My%20Project');
     });
 
     it('throws for an unknown route name', () => {

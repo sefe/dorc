@@ -4,6 +4,7 @@ export * from './AnalyticsApi';
 export * from './ApiConfigApi';
 export * from './ApiRootApi';
 export * from './BundledRequestsApi';
+export * from './ChangeRequestApi';
 export * from './ConfigValuesApi';
 export * from './CopyEnvBuildApi';
 export * from './DaemonAuditApi';

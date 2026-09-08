@@ -54,8 +54,7 @@ const controlIn = (el: HTMLElement) =>
   el.shadowRoot
     ?.querySelector('vaadin-grid')
     ?.querySelector('variable-value-controls') as
-    | (HTMLElement & { editing: boolean })
-    | null;
+    (HTMLElement & { editing: boolean }) | null;
 
 describe('variable value cells enter edit mode', () => {
   it('the Variables page repaints the cell into edit mode', async () => {
@@ -88,9 +87,10 @@ describe('variable value cells enter edit mode', () => {
     await el.updateComplete;
     await settle();
 
-    expect(controlIn(el)?.editing, 'the cell repainted into edit mode').to.equal(
-      true
-    );
+    expect(
+      controlIn(el)?.editing,
+      'the cell repainted into edit mode'
+    ).to.equal(true);
 
     el.remove();
   });

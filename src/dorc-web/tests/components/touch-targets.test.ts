@@ -11,8 +11,8 @@ describe('Touch target structure', () => {
       EnvironmentName: 'Test Env',
       Details: {
         Description: 'desc',
-        EnvironmentOwner: 'owner',
-      },
+        EnvironmentOwner: 'owner'
+      }
     };
 
     it('should render icon buttons with theme="icon" for global style targeting', async () => {
@@ -21,7 +21,9 @@ describe('Touch target structure', () => {
       `);
       await el.updateComplete;
 
-      const buttons = el.shadowRoot!.querySelectorAll('vaadin-button[theme="icon"]');
+      const buttons = el.shadowRoot!.querySelectorAll(
+        'vaadin-button[theme="icon"]'
+      );
       expect(buttons.length).to.equal(4, 'Should have 4 icon-themed buttons');
     });
 
@@ -46,7 +48,7 @@ describe('Touch target structure', () => {
     const mockProject = {
       ProjectId: 1,
       ProjectName: 'Test Project',
-      ProjectDescription: 'desc',
+      ProjectDescription: 'desc'
     };
 
     it('should render icon button with theme="icon" for global style targeting', async () => {
@@ -55,7 +57,9 @@ describe('Touch target structure', () => {
       `);
       await el.updateComplete;
 
-      const buttons = el.shadowRoot!.querySelectorAll('vaadin-button[theme="icon"]');
+      const buttons = el.shadowRoot!.querySelectorAll(
+        'vaadin-button[theme="icon"]'
+      );
       expect(buttons.length).to.equal(1, 'Should have 1 icon-themed button');
     });
   });
@@ -126,12 +130,12 @@ describe('Touch target structure', () => {
         : (styles as any).cssText || '';
 
       // Tag and env buttons should have display: inline-block and padding
-      expect(cssText).to.include('.tag',
-        'Should have .tag class styles');
-      expect(cssText).to.include('.env',
-        'Should have .env class styles');
-      expect(cssText).to.include('display: inline-block',
-        'Tag/env buttons should be inline-block');
+      expect(cssText).to.include('.tag', 'Should have .tag class styles');
+      expect(cssText).to.include('.env', 'Should have .env class styles');
+      expect(cssText).to.include(
+        'display: inline-block',
+        'Tag/env buttons should be inline-block'
+      );
     });
   });
 });

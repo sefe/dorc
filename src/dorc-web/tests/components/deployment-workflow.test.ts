@@ -110,15 +110,16 @@ describe('deployment confirmation', () => {
       ArtefactsUrl: 'https://artefacts.example/builds'
     };
     await deploy.updateComplete;
+    await settle();
     deploy.envName = 'DEV';
     deploy.selectedBuildId = 'build-9';
     deploy.selectedBuild = '2026.08.12';
     (deploy as unknown as { buildDef: string }).buildDef = 'Release';
     (
       deploy.shadowRoot?.querySelector('hegs-tree') as HTMLElement & {
-        getCheckedComponents(): Array<{ data: { name: string } }>;
+        getCheckedComponentNames(): string[];
       }
-    ).getCheckedComponents = () => [{ data: { name: 'Database' } }];
+    ).getCheckedComponentNames = () => ['Database'];
 
     const deployButton = Array.from(
       deploy.shadowRoot?.querySelectorAll('vaadin-button') ?? []
@@ -150,7 +151,9 @@ describe('deployment confirmation', () => {
         BuildText: 'Release',
         BuildNum: '2026.08.12',
         RequestProperties: [],
-        Components: ['Database']
+        Components: ['Database'],
+        ChangeRequestNumber: undefined,
+        OverrideCr: undefined
       }
     });
 

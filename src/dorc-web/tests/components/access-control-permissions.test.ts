@@ -71,8 +71,7 @@ const checkboxAt = (el: Host, row: number, column: number) => {
   // presence assertions below use chai's strict `equal(null)` — so they would
   // pass with no checkbox rendered at all.
   return (content?.querySelector('vaadin-checkbox') ?? null) as
-    | (HTMLElement & { checked: boolean; disabled: boolean })
-    | null;
+    (HTMLElement & { checked: boolean; disabled: boolean }) | null;
 };
 
 describe('add-edit-access-control permission checkboxes', () => {

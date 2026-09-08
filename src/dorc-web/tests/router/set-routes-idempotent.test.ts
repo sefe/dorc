@@ -12,11 +12,19 @@ import type { AppRoute } from '../../src/router/route-config';
 // guard rather than a fix for a reachable path.
 
 const first: AppRoute[] = [
-  { path: '', component: 'div', children: [{ path: '/first', component: 'div' }] }
+  {
+    path: '',
+    component: 'div',
+    children: [{ path: '/first', component: 'div' }]
+  }
 ];
 
 const second: AppRoute[] = [
-  { path: '', component: 'section', children: [{ path: '/first', component: 'div' }] }
+  {
+    path: '',
+    component: 'section',
+    children: [{ path: '/first', component: 'div' }]
+  }
 ];
 
 describe('setRoutes', () => {

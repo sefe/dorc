@@ -1,7 +1,11 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import '@vaadin/dialog';
-import { BundledRequestsApiModel, BundledRequestType, ProjectApiModel } from '../apis/dorc-api';
+import {
+  BundledRequestsApiModel,
+  BundledRequestType,
+  ProjectApiModel
+} from '../apis/dorc-api';
 import { DialogOpenedChangedEvent } from '@vaadin/dialog';
 import { dialogRenderer } from '@vaadin/dialog/lit';
 import './bundle-editor-form';
@@ -14,8 +18,8 @@ export class BundleEditorDialog extends LitElement {
     }
   `;
 
-  @property({ type: Array})
-  projects: ProjectApiModel[] | null  = [];
+  @property({ type: Array })
+  projects: ProjectApiModel[] | null = [];
 
   @property({ type: Array })
   existingBundleNames: string[] = [];
@@ -41,14 +45,14 @@ export class BundleEditorDialog extends LitElement {
   // the first render and never re-runs, so `updateBundleRequest()` — called by
   // the form while the dialog is open — could not repaint the content.
   private renderDialog = () => html`
-      <bundle-editor-form
-        id="bundle-form"
-        .bundleRequest="${this.bundleRequest}"
-        .projects="${this.projects}"
-        .existingBundleNames="${this.existingBundleNames}"
-        .isEdit="${this.isEdit}"
-        .dialog="${this}"
-        @bundle-saved="${(e: CustomEvent) => {
+    <bundle-editor-form
+      id="bundle-form"
+      .bundleRequest="${this.bundleRequest}"
+      .projects="${this.projects}"
+      .existingBundleNames="${this.existingBundleNames}"
+      .isEdit="${this.isEdit}"
+      .dialog="${this}"
+      @bundle-saved="${(e: CustomEvent) => {
           this.dispatchEvent(
             new CustomEvent('bundle-saved', {
               bubbles: true,
@@ -57,9 +61,8 @@ export class BundleEditorDialog extends LitElement {
             })
           );
         }}"
-            
-      ></bundle-editor-form>
-    `;
+    ></bundle-editor-form>
+  `;
 
   render() {
     return html`
@@ -67,9 +70,9 @@ export class BundleEditorDialog extends LitElement {
         .opened="${this.open}"
         theme="wide"
         draggable
-        header-title="${this.isEdit
-          ? 'Edit Bundle Request'
-          : 'Create Bundle Request'}"
+        header-title="${
+          this.isEdit ? 'Edit Bundle Request' : 'Create Bundle Request'
+        }"
         @opened-changed="${(event: DialogOpenedChangedEvent) => {
           this.open = event.detail.value;
           if (!this.open) {
@@ -110,7 +113,10 @@ export class BundleEditorDialog extends LitElement {
    * @param projects - List of available projects for the bundle request
    * @param existingBundleNames - List of existing bundle names for autocomplete suggestions
    */
-  public openNew(projects: ProjectApiModel[] | null = null, existingBundleNames: string[] = []) {
+  public openNew(
+    projects: ProjectApiModel[] | null = null,
+    existingBundleNames: string[] = []
+  ) {
     this.isEdit = false;
     this.projects = projects;
     this.existingBundleNames = existingBundleNames;
@@ -131,7 +137,11 @@ export class BundleEditorDialog extends LitElement {
    * @param projects - List of available projects for the bundle request
    * @param existingBundleNames - List of existing bundle names for autocomplete suggestions
    */
-  public openEdit(bundle: BundledRequestsApiModel, projects: ProjectApiModel[] | null = null, existingBundleNames: string[] = []) {
+  public openEdit(
+    bundle: BundledRequestsApiModel,
+    projects: ProjectApiModel[] | null = null,
+    existingBundleNames: string[] = []
+  ) {
     this.isEdit = true;
     this.projects = projects;
     this.existingBundleNames = existingBundleNames;

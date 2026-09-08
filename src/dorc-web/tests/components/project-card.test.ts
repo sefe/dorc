@@ -10,7 +10,7 @@ describe('ProjectCard responsive layout', () => {
     ProjectDescription: 'A test project description',
     ArtefactsUrl: '',
     ArtefactsSubPaths: '',
-    ArtefactsBuildRegex: '',
+    ArtefactsBuildRegex: ''
   };
 
   it('should use flex layout instead of float', async () => {
@@ -19,7 +19,9 @@ describe('ProjectCard responsive layout', () => {
     `);
     await el.updateComplete;
 
-    const cardElement = el.shadowRoot!.querySelector('.card-element') as HTMLElement;
+    const cardElement = el.shadowRoot!.querySelector(
+      '.card-element'
+    ) as HTMLElement;
     const computedStyle = getComputedStyle(cardElement);
 
     expect(computedStyle.display).to.equal('flex');
@@ -33,7 +35,9 @@ describe('ProjectCard responsive layout', () => {
     `);
     await el.updateComplete;
 
-    const cardElement = el.shadowRoot!.querySelector('.card-element') as HTMLElement;
+    const cardElement = el.shadowRoot!.querySelector(
+      '.card-element'
+    ) as HTMLElement;
     const computedStyle = getComputedStyle(cardElement);
 
     expect(computedStyle.boxSizing).to.equal('border-box');
@@ -48,8 +52,10 @@ describe('ProjectCard responsive layout', () => {
     const allDivs = el.shadowRoot!.querySelectorAll('div');
     allDivs.forEach(div => {
       const style = getComputedStyle(div);
-      expect(style.float).to.be.oneOf(['none', ''],
-        `Found float: ${style.float} on element with class="${div.className}"`);
+      expect(style.float).to.be.oneOf(
+        ['none', ''],
+        `Found float: ${style.float} on element with class="${div.className}"`
+      );
     });
   });
 
@@ -59,7 +65,9 @@ describe('ProjectCard responsive layout', () => {
     `);
     await el.updateComplete;
 
-    const cardContent = el.shadowRoot!.querySelector('.card-content') as HTMLElement;
+    const cardContent = el.shadowRoot!.querySelector(
+      '.card-content'
+    ) as HTMLElement;
     expect(cardContent).to.not.be.null;
 
     const computedStyle = getComputedStyle(cardContent);

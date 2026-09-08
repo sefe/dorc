@@ -120,7 +120,11 @@ describe('PageAnalytics', () => {
 
   it('excludes the top 3 projects without throwing when fewer than 3 exist', async () => {
     monthHolder.value = [
-      { Year: new Date().getFullYear(), ProjectName: 'Solo', CountOfDeployments: 5 }
+      {
+        Year: new Date().getFullYear(),
+        ProjectName: 'Solo',
+        CountOfDeployments: 5
+      }
     ];
 
     const el = await mount();
@@ -141,9 +145,30 @@ describe('PageAnalytics', () => {
 
   it('aggregates monthly outcomes into prod/non-prod volumes and failure rate', async () => {
     outcomeHolder.value = [
-      { Year: 2026, Month: 1, IsProd: true, CountOfDeployments: 10, Failed: 1, Cancelled: 0 },
-      { Year: 2026, Month: 1, IsProd: false, CountOfDeployments: 30, Failed: 3, Cancelled: 2 },
-      { Year: 2026, Month: 2, IsProd: false, CountOfDeployments: 20, Failed: 0, Cancelled: 1 }
+      {
+        Year: 2026,
+        Month: 1,
+        IsProd: true,
+        CountOfDeployments: 10,
+        Failed: 1,
+        Cancelled: 0
+      },
+      {
+        Year: 2026,
+        Month: 1,
+        IsProd: false,
+        CountOfDeployments: 30,
+        Failed: 3,
+        Cancelled: 2
+      },
+      {
+        Year: 2026,
+        Month: 2,
+        IsProd: false,
+        CountOfDeployments: 20,
+        Failed: 0,
+        Cancelled: 1
+      }
     ];
 
     const el = await mount();
@@ -159,8 +184,22 @@ describe('PageAnalytics', () => {
 
   it('applies the month-range filter to the monthly outcome chart', async () => {
     outcomeHolder.value = [
-      { Year: 2025, Month: 12, IsProd: false, CountOfDeployments: 5, Failed: 0, Cancelled: 0 },
-      { Year: 2026, Month: 1, IsProd: false, CountOfDeployments: 7, Failed: 0, Cancelled: 0 }
+      {
+        Year: 2025,
+        Month: 12,
+        IsProd: false,
+        CountOfDeployments: 5,
+        Failed: 0,
+        Cancelled: 0
+      },
+      {
+        Year: 2026,
+        Month: 1,
+        IsProd: false,
+        CountOfDeployments: 7,
+        Failed: 0,
+        Cancelled: 0
+      }
     ];
 
     const el = await mount();
@@ -185,7 +224,8 @@ describe('PageAnalytics', () => {
     (el as any).filterProject = 'Alpha';
     (el as any).applyTimeSeriesFilters();
 
-    const riverData = (el as any).riverChartOptions.series[0].data as unknown[][];
+    const riverData = (el as any).riverChartOptions.series[0]
+      .data as unknown[][];
     expect(riverData).toHaveLength(1);
     expect(riverData[0][2]).toBe('Alpha');
   });
@@ -193,11 +233,23 @@ describe('PageAnalytics', () => {
   it('renders no-data titles for the new charts when their tables are empty', async () => {
     const el = await mount();
 
-    expect((el as any).monthlyOutcomeChartOptions.title.text).toContain('no data available');
-    expect((el as any).environmentWaitChartOptions.title.text).toContain('no data available');
-    expect((el as any).projectDurationChartOptions.title.text).toContain('no data available');
-    expect((el as any).componentReliabilityChartOptions.title.text).toContain('no data available');
-    expect((el as any).recoveryTimeChartOptions.title.text).toContain('no data available');
-    expect((el as any).stalenessChartOptions.title.text).toContain('no data available');
+    expect((el as any).monthlyOutcomeChartOptions.title.text).toContain(
+      'no data available'
+    );
+    expect((el as any).environmentWaitChartOptions.title.text).toContain(
+      'no data available'
+    );
+    expect((el as any).projectDurationChartOptions.title.text).toContain(
+      'no data available'
+    );
+    expect((el as any).componentReliabilityChartOptions.title.text).toContain(
+      'no data available'
+    );
+    expect((el as any).recoveryTimeChartOptions.title.text).toContain(
+      'no data available'
+    );
+    expect((el as any).stalenessChartOptions.title.text).toContain(
+      'no data available'
+    );
   });
 });

@@ -1,7 +1,16 @@
-import { columnBodyRenderer, columnHeaderRenderer, gridRowDetailsRenderer } from '@vaadin/grid/lit';
+import {
+  columnBodyRenderer,
+  columnHeaderRenderer,
+  gridRowDetailsRenderer
+} from '@vaadin/grid/lit';
 import '@vaadin/button';
 import '../components/dorc-spinner';
-import { GridCellPartNameGenerator, GridDataProviderCallback, GridDataProviderParams, GridSorterDefinition } from '@vaadin/grid';
+import {
+  GridCellPartNameGenerator,
+  GridDataProviderCallback,
+  GridDataProviderParams,
+  GridSorterDefinition
+} from '@vaadin/grid';
 import '@vaadin/grid';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid-sorter';
@@ -48,8 +57,16 @@ export class PageProjectsAudit extends ResponsiveMixin(PageElement) {
         flex-direction: column;
         height: 100%;
         min-height: 0;
-        --audit-row-add-bg: color-mix(in srgb, var(--dorc-success-bg) 35%, var(--dorc-bg-primary));
-        --audit-row-remove-bg: color-mix(in srgb, var(--dorc-failure-bg) 35%, var(--dorc-bg-primary));
+        --audit-row-add-bg: color-mix(
+          in srgb,
+          var(--dorc-success-bg) 35%,
+          var(--dorc-bg-primary)
+        );
+        --audit-row-remove-bg: color-mix(
+          in srgb,
+          var(--dorc-failure-bg) 35%,
+          var(--dorc-bg-primary)
+        );
         --audit-char-add-bg: var(--dorc-success-bg);
         --audit-char-remove-bg: var(--dorc-failure-bg);
       }
@@ -184,7 +201,9 @@ export class PageProjectsAudit extends ResponsiveMixin(PageElement) {
 
   render() {
     return html`
-      <dorc-spinner ?hidden="${!(this.loading || this.searching)}"></dorc-spinner>
+      <dorc-spinner
+        ?hidden="${!(this.loading || this.searching)}"
+      ></dorc-spinner>
       <vaadin-grid
         id="grid"
         column-reordering-allowed
@@ -263,9 +282,18 @@ export class PageProjectsAudit extends ResponsiveMixin(PageElement) {
   protected firstUpdated(_changedProperties: PropertyValues) {
     super.firstUpdated(_changedProperties);
 
-    this.addEventListener('project-audit-loaded', this.auditLoaded as EventListener);
-    this.addEventListener('searching-project-audit-started', this.searchingStarted as EventListener);
-    this.addEventListener('searching-project-audit-finished', this.searchingFinished as EventListener);
+    this.addEventListener(
+      'project-audit-loaded',
+      this.auditLoaded as EventListener
+    );
+    this.addEventListener(
+      'searching-project-audit-started',
+      this.searchingStarted as EventListener
+    );
+    this.addEventListener(
+      'searching-project-audit-finished',
+      this.searchingFinished as EventListener
+    );
   }
 
   private searchingStarted() {
@@ -280,19 +308,15 @@ export class PageProjectsAudit extends ResponsiveMixin(PageElement) {
     this.loading = false;
   }
 
-  private cellPartNameGenerator: GridCellPartNameGenerator<RefDataAuditApiModel> = (
-    _column,
-    model
-  ) => {
-    const action = model.item?.Action;
-    if (action === 'Create') return 'create-type';
-    if (action === 'Delete') return 'delete-type';
-    return '';
-  };
+  private cellPartNameGenerator: GridCellPartNameGenerator<RefDataAuditApiModel> =
+    (_column, model) => {
+      const action = model.item?.Action;
+      if (action === 'Create') return 'create-type';
+      if (action === 'Delete') return 'delete-type';
+      return '';
+    };
 
-  private projectNameRenderer = (
-    item: RefDataAuditApiModel
-  ) => {
+  private projectNameRenderer = (item: RefDataAuditApiModel) => {
     const name = item.Project?.ProjectName;
     if (!name) {
       return html`<span class="muted">(deleted)</span>`;
@@ -300,9 +324,7 @@ export class PageProjectsAudit extends ResponsiveMixin(PageElement) {
     return html`<span>${name}</span>`;
   };
 
-  private dateRenderer = (
-    item: RefDataAuditApiModel
-  ) => {
+  private dateRenderer = (item: RefDataAuditApiModel) => {
     const raw = item?.Date;
     if (!raw) {
       return html``;
@@ -315,9 +337,7 @@ export class PageProjectsAudit extends ResponsiveMixin(PageElement) {
   // Value-cell shows a compact summary only — line counts and a few changed
   // section names. The full unified diff lives in the row-details slot
   // (detailsRenderer below) and is opened by clicking the row's chevron.
-  private valueRenderer = (
-    item: RefDataAuditApiModel
-  ) => {
+  private valueRenderer = (item: RefDataAuditApiModel) => {
     const raw = item?.Json;
     if (!raw) {
       return html`<span class="muted">—</span>`;
@@ -347,19 +367,23 @@ export class PageProjectsAudit extends ResponsiveMixin(PageElement) {
     const overflow = sectionCount - visibleSections.length;
 
     return html`
-        <div class="summary-counts">
-          <span class="added">+${insertCount}</span>
-          <span class="removed">-${deleteCount}</span>
-          lines${sectionCount > 0
-            ? html` · ${sectionCount} section${sectionCount === 1 ? '' : 's'}`
-            : ''}
-        </div>
-        ${sectionCount > 0
-          ? html`<div class="summary-sections">
-              ${visibleSections.join(', ')}${overflow > 0 ? ` +${overflow} more` : ''}
-            </div>`
-          : ''}
-      `;
+      <div class="summary-counts">
+        <span class="added">+${insertCount}</span>
+        <span class="removed">-${deleteCount}</span>
+        lines${
+            sectionCount > 0
+              ? html` · ${sectionCount} section${sectionCount === 1 ? '' : 's'}`
+              : ''
+          }
+      </div>
+      ${
+          sectionCount > 0
+            ? html`<div class="summary-sections">
+                ${visibleSections.join(', ')}${overflow > 0 ? ` +${overflow} more` : ''}
+              </div>`
+            : ''
+        }
+    `;
   };
 
   // Walk the line-LCS ops and infer a section name for each insert/delete.
@@ -465,9 +489,7 @@ export class PageProjectsAudit extends ResponsiveMixin(PageElement) {
   // line is rendered (the user wanted full context for navigation). The
   // surrounding details-pane has its own internal scroll (CSS), so the grid
   // row metadata above stays visible while the user scrolls the diff content.
-  private detailsRenderer = (
-    item: RefDataAuditApiModel
-  ) => {
+  private detailsRenderer = (item: RefDataAuditApiModel) => {
     const raw = item?.Json;
     if (!raw) {
       return html`<div class="details-pane muted">—</div>`;
@@ -475,11 +497,15 @@ export class PageProjectsAudit extends ResponsiveMixin(PageElement) {
     const priorRaw = item.PriorJson;
     const curr = this.prettyJson(raw);
     if (!priorRaw) {
-      return html`<div class="details-pane"><pre class="value">${curr}</pre></div>`;
+      return html`<div class="details-pane">
+        <pre class="value">${curr}</pre>
+      </div>`;
     }
     const prev = this.prettyJson(priorRaw);
     if (prev === curr) {
-      return html`<div class="details-pane"><pre class="value">${curr}</pre></div>`;
+      return html`<div class="details-pane">
+        <pre class="value">${curr}</pre>
+      </div>`;
     }
     const ops = this.computeLineDiff(prev, curr);
     const rows = this.buildSideBySide(ops);
@@ -507,23 +533,25 @@ export class PageProjectsAudit extends ResponsiveMixin(PageElement) {
         cells.push(html`<div class="diff-cell">${leftFrags}</div>`);
         cells.push(html`<div class="diff-cell right">${rightFrags}</div>`);
       } else {
-        const leftCls = r.kind === 'delete' ? 'diff-cell line-remove' : 'diff-cell';
-        const rightCls = r.kind === 'insert' ? 'diff-cell right line-add' : 'diff-cell right';
+        const leftCls =
+          r.kind === 'delete' ? 'diff-cell line-remove' : 'diff-cell';
+        const rightCls =
+          r.kind === 'insert' ? 'diff-cell right line-add' : 'diff-cell right';
         cells.push(html`<div class="${leftCls}">${r.left ?? ''}</div>`);
         cells.push(html`<div class="${rightCls}">${r.right ?? ''}</div>`);
       }
     }
     return html`
-        <div class="details-pane">
-          <div class="diff-header">
-            <div>Before</div>
-            <div class="right">After</div>
-          </div>
-          <div class="diff-pane-scroll">
-            <div class="diff-grid">${cells}</div>
-          </div>
+      <div class="details-pane">
+        <div class="diff-header">
+          <div>Before</div>
+          <div class="right">After</div>
         </div>
-      `;
+        <div class="diff-pane-scroll">
+          <div class="diff-grid">${cells}</div>
+        </div>
+      </div>
+    `;
   };
 
   // Convert the line-LCS ops into a side-by-side row stream. Within each run
@@ -534,8 +562,16 @@ export class PageProjectsAudit extends ResponsiveMixin(PageElement) {
   // Keep ops emit a single row with the same line on both sides.
   private buildSideBySide(
     ops: { type: 'keep' | 'insert' | 'delete'; line: string }[]
-  ): { left: string | null; right: string | null; kind: 'keep' | 'change' | 'delete' | 'insert' }[] {
-    const out: { left: string | null; right: string | null; kind: 'keep' | 'change' | 'delete' | 'insert' }[] = [];
+  ): {
+    left: string | null;
+    right: string | null;
+    kind: 'keep' | 'change' | 'delete' | 'insert';
+  }[] {
+    const out: {
+      left: string | null;
+      right: string | null;
+      kind: 'keep' | 'change' | 'delete' | 'insert';
+    }[] = [];
     let i = 0;
     while (i < ops.length) {
       if (ops[i].type === 'keep') {
@@ -564,9 +600,7 @@ export class PageProjectsAudit extends ResponsiveMixin(PageElement) {
     return out;
   }
 
-  private chevronRenderer = (
-    item: RefDataAuditApiModel
-  ) => {
+  private chevronRenderer = (item: RefDataAuditApiModel) => {
     const isOpen = this.openedItems.indexOf(item) !== -1;
     const icon = isOpen ? 'vaadin:chevron-down' : 'vaadin:chevron-right';
     return html`<vaadin-icon class="chevron" icon="${icon}"></vaadin-icon>`;
@@ -696,42 +730,42 @@ export class PageProjectsAudit extends ResponsiveMixin(PageElement) {
 
   userHeaderRenderer = () => {
     return html`
-        <vaadin-horizontal-layout style="align-items: center;" theme="spacing-xs">
-          <vaadin-grid-sorter path="Username">User</vaadin-grid-sorter>
-          <vaadin-text-field
-            placeholder="User"
-            clear-button-visible
-            focus-target
-            style="width: 100px"
-            theme="small"
-            @input="${(e: InputEvent) => {
+      <vaadin-horizontal-layout style="align-items: center;" theme="spacing-xs">
+        <vaadin-grid-sorter path="Username">User</vaadin-grid-sorter>
+        <vaadin-text-field
+          placeholder="User"
+          clear-button-visible
+          focus-target
+          style="width: 100px"
+          theme="small"
+          @input="${(e: InputEvent) => {
               const tf = e.target as HTMLInputElement;
               this.userFilter = tf?.value ?? '';
               this.refreshGrid();
             }}"
-          ></vaadin-text-field>
-        </vaadin-horizontal-layout>
-      `;
+        ></vaadin-text-field>
+      </vaadin-horizontal-layout>
+    `;
   };
 
   actionHeaderRenderer = () => {
     return html`
-        <vaadin-horizontal-layout style="align-items: center;" theme="spacing-xs">
-          <vaadin-grid-sorter path="Action">Action</vaadin-grid-sorter>
-          <vaadin-text-field
-            placeholder="Action"
-            clear-button-visible
-            focus-target
-            style="width: 80px"
-            theme="small"
-            @input="${(e: InputEvent) => {
+      <vaadin-horizontal-layout style="align-items: center;" theme="spacing-xs">
+        <vaadin-grid-sorter path="Action">Action</vaadin-grid-sorter>
+        <vaadin-text-field
+          placeholder="Action"
+          clear-button-visible
+          focus-target
+          style="width: 80px"
+          theme="small"
+          @input="${(e: InputEvent) => {
               const tf = e.target as HTMLInputElement;
               this.actionFilter = tf?.value ?? '';
               this.refreshGrid();
             }}"
-          ></vaadin-text-field>
-        </vaadin-horizontal-layout>
-      `;
+        ></vaadin-text-field>
+      </vaadin-horizontal-layout>
+    `;
   };
 
   private refreshGrid() {

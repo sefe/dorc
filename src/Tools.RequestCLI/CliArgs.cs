@@ -18,6 +18,7 @@ namespace Tools.RequestCLI
 
         public RequestDto Request => _request;
         public bool Wait { set; get; }
+        public bool AutoCr { set; get; }
 
         private void ParseArguments(string[] args)
         {
@@ -48,6 +49,15 @@ namespace Tools.RequestCLI
                         throw new ArgumentException("Invalid build URI format. Expected format: /builduri:<url>");
                     }
                     _request.BuildUrl = buildUrl;
+                }
+                else if (strArgument.ToLower().Contains("/crnumber:"))
+                {
+                    var separatorIndex = strArgument.IndexOf(':');
+                    _request.ChangeRequestNumber = strArgument.Substring(separatorIndex + 1).Trim();
+                }
+                else if (strArgument.ToLower().Contains("/autocr"))
+                {
+                    AutoCr = true;
                 }
         }
 
