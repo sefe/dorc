@@ -12,6 +12,7 @@ import { html } from 'lit/html.js';
 import { TerraformPlanApiModel } from '../apis/dorc-api/models/index';
 import { TerraformApi } from '../apis/dorc-api/apis/TerraformApi';
 import { dorcApiConfiguration } from '../services/dorc-api-configuration';
+import { retrieveErrorMessage } from '../helpers/errorMessage-retriever';
 
 @customElement('terraform-plan-dialog')
 export class TerraformPlanDialog extends LitElement {
@@ -34,6 +35,7 @@ export class TerraformPlanDialog extends LitElement {
   private processing: boolean = false;
 
   private terraformApi = new TerraformApi(dorcApiConfiguration);
+  private loadToken = 0;
 
   static get styles() {
     return css`
@@ -140,11 +142,11 @@ export class TerraformPlanDialog extends LitElement {
         padding: 20px;
       }
 
-      vaadin-button[theme~="primary"] {
+      vaadin-button[theme~='primary'] {
         background-color: var(--lumo-success-color);
       }
 
-      vaadin-button[theme~="error"] {
+      vaadin-button[theme~='error'] {
         background-color: var(--lumo-error-color);
       }
     `;
@@ -154,6 +156,8 @@ export class TerraformPlanDialog extends LitElement {
     return html`
       <vaadin-dialog
         .opened="${this.opened}"
+        .noCloseOnEsc=${this.processing}
+        .noCloseOnOutsideClick=${this.processing}
         @opened-changed="${this._onDialogOpenedChanged}"
         header-title="Terraform Plan"
         theme="wide"
@@ -175,15 +179,18 @@ export class TerraformPlanDialog extends LitElement {
     if (this.loading) {
       return html`
         <div class="loading-indicator">
-          <vaadin-icon icon="vaadin:spinner" style="animation: spin 1s linear infinite;"></vaadin-icon>
+          <vaadin-icon
+            icon="vaadin:spinner"
+            style="animation: spin 1s linear infinite;"
+          ></vaadin-icon>
           <p>Loading Terraform plan...</p>
         </div>
       `;
     }
 
-    if (this.error) {
+    if (this.error && !this.plan) {
       return html`
-        <div class="error-message">
+        <div class="error-message" role="alert">
           <strong>Error:</strong> ${this.error}
         </div>
         <div class="actions">
@@ -194,9 +201,7 @@ export class TerraformPlanDialog extends LitElement {
 
     if (!this.plan) {
       return html`
-        <div class="error-message">
-          No plan data available.
-        </div>
+        <div class="error-message">No plan data available.</div>
         <div class="actions">
           <vaadin-button @click="${this._close}">Close</vaadin-button>
         </div>
@@ -204,54 +209,61 @@ export class TerraformPlanDialog extends LitElement {
     }
 
     return html`
+      ${this.error ? html`<div class="error-message" role="alert">${this.error}</div>` : ''}
       <div class="plan-header">
         <h3>Deployment Result ID: ${this.plan.DeploymentResultId}</h3>
         <p>
-          Created: ${this.plan.CreatedAt ? new Date(this.plan.CreatedAt).toLocaleString() : 'Unknown'}
+          Created:
+          ${this.plan.CreatedAt ? new Date(this.plan.CreatedAt).toLocaleString() : 'Unknown'}
           <span class="status-badge ${this._getStatusClass(this.plan.Status)}">
             ${this.plan.Status}
           </span>
         </p>
       </div>
 
-      <div class="plan-content">
-        ${this._renderPlanBody()}
-      </div>
+      <div class="plan-content">${this._renderPlanBody()}</div>
 
-      <div class="actions">
-        ${this._renderActionButtons()}
-      </div>
+      <div class="actions">${this._renderActionButtons()}</div>
     `;
-  }
+  };
 
   private _renderActionButtons() {
     const canConfirm = this.plan?.Status === 'WaitingConfirmation';
     const canDecline = this.plan?.Status === 'WaitingConfirmation';
 
     return html`
-      ${canConfirm ? html`
-        <vaadin-button
-          theme="primary success"
-          @click="${this._confirmPlan}"
-          .disabled="${this.processing}"
-        >
-          <vaadin-icon icon="vaadin:check" slot="prefix"></vaadin-icon>
-          Confirm & Execute
-        </vaadin-button>
-      ` : ''}
-      
-      ${canDecline ? html`
-        <vaadin-button
-          theme="error"
-          @click="${this._declinePlan}"
-          .disabled="${this.processing}"
-        >
-          <vaadin-icon icon="vaadin:close" slot="prefix"></vaadin-icon>
-          Decline
-        </vaadin-button>
-      ` : ''}
-      
-      <vaadin-button @click="${this._close}">Close</vaadin-button>
+      ${
+        canConfirm
+          ? html`
+              <vaadin-button
+                theme="primary success"
+                @click="${this._confirmPlan}"
+                .disabled="${this.processing}"
+              >
+                <vaadin-icon icon="vaadin:check" slot="prefix"></vaadin-icon>
+                Confirm & Apply
+              </vaadin-button>
+            `
+          : ''
+      }
+      ${
+        canDecline
+          ? html`
+              <vaadin-button
+                theme="error"
+                @click="${this._declinePlan}"
+                .disabled="${this.processing}"
+              >
+                <vaadin-icon icon="vaadin:close" slot="prefix"></vaadin-icon>
+                Decline
+              </vaadin-button>
+            `
+          : ''
+      }
+
+      <vaadin-button @click="${this._close}" .disabled=${this.processing}
+        >Close</vaadin-button
+      >
     `;
   }
 
@@ -264,17 +276,19 @@ export class TerraformPlanDialog extends LitElement {
     if (!content || content.trim() === '') {
       return html`
         <div class="error-message">
-          No plan content available. The plan may have failed to generate; check the deployment log for details.
+          No plan content available. The plan may have failed to generate; check
+          the deployment log for details.
         </div>
       `;
     }
 
     const lines = content.split(/\r?\n/);
-    return html`<pre class="plan-text">${lines.map((line) => {
-      const cls = this._classifyPlanLine(line);
-      const masked = this._maskSensitiveValues(line);
-      return html`<span class="plan-line ${cls}">${masked}\n</span>`;
-    })}</pre>`;
+    return html`<pre class="plan-text">
+${lines.map(line => {
+        const cls = this._classifyPlanLine(line);
+        const masked = this._maskSensitiveValues(line);
+        return html`<span class="plan-line ${cls}">${masked} </span>`;
+      })}</pre>`;
   }
 
   private _classifyPlanLine(line: string): string {
@@ -311,7 +325,7 @@ export class TerraformPlanDialog extends LitElement {
     //    body of a heredoc block is not redacted here, only its opener.
     return line.replace(
       /(["']?)([A-Za-z0-9_.-]*?(token|pat|secret|password|key|connectionstring)[A-Za-z0-9_.-]*?)\1(\s*=\s*)(".*?"|<<-?[A-Za-z0-9_]+|[^\s#]+)/gi,
-      (_match, q, name, _kw, eq) => `${q}${name}${q}${eq}[REDACTED]`,
+      (_match, q, name, _kw, eq) => `${q}${name}${q}${eq}[REDACTED]`
     );
   }
 
@@ -336,97 +350,106 @@ export class TerraformPlanDialog extends LitElement {
   }
 
   private async _loadPlan() {
+    const token = ++this.loadToken;
     this.loading = true;
     this.error = null;
     this.plan = null;
 
-    this.terraformApi.terraformPlanDeploymentResultIdGet({ deploymentResultId: this.deploymentResultId }).subscribe({
-      next: (data: TerraformPlanApiModel) => {
-        this.plan = data;
-        this.loading = false;
-      },
-      error: (err: any) => {
-        console.error(err);
-        this.loading = false;
-      },
-      complete: () => console.log('done loading result Statuses')
-    });
+    this.terraformApi
+      .terraformPlanDeploymentResultIdGet({
+        deploymentResultId: this.deploymentResultId
+      })
+      .subscribe({
+        next: (data: TerraformPlanApiModel) => {
+          if (token !== this.loadToken || !this.opened) return;
+          this.plan = data;
+          this.loading = false;
+        },
+        error: (err: any) => {
+          if (token !== this.loadToken || !this.opened) return;
+          this.error =
+            retrieveErrorMessage(err) ?? 'Could not load the Terraform plan.';
+          this.loading = false;
+        },
+        complete: () => console.log('done loading result Statuses')
+      });
   }
 
-  private async _confirmPlan() {
-    if (!this.plan) return;
-
-    this.processing = true;      
-
-    this.terraformApi.terraformPlanDeploymentResultIdConfirmPost({ deploymentResultId: this.deploymentResultId }).subscribe({
-      error: (err: any) => {
-        console.error(err);
-      },
-      complete: () => console.log('done confirming the Terraform plan')
-    });
-      
-    // Update the plan status
-    this.plan = { ...this.plan, Status: 'Confirmed' };
-     
-    // Dispatch custom event to notify parent component
-    this.dispatchEvent(new CustomEvent('terraform-plan-confirmed', {
-      detail: { 
-        deploymentResultId: this.plan.DeploymentResultId
-      },
-      bubbles: true,
-      composed: true
-    }));
-    this.processing = false;
-
-    // Close dialog after confirm
-    this._close();
+  private _confirmPlan() {
+    this._submitDecision(true);
   }
 
-  private async _declinePlan() {
-    if (!this.plan) return;
+  private _declinePlan() {
+    this._submitDecision(false);
+  }
 
+  private _submitDecision(confirm: boolean) {
+    if (
+      !this.plan ||
+      this.plan.Status !== 'WaitingConfirmation' ||
+      this.processing
+    )
+      return;
+    const plan = this.plan;
+    const deploymentResultId = this.deploymentResultId;
     this.processing = true;
-
-    this.terraformApi.terraformPlanDeploymentResultIdDeclinePost({ deploymentResultId: this.deploymentResultId }).subscribe({
-      error: (err: any) => {
-        console.error(err);
+    this.error = null;
+    const operation = confirm
+      ? this.terraformApi.terraformPlanDeploymentResultIdConfirmPost({
+          deploymentResultId
+        })
+      : this.terraformApi.terraformPlanDeploymentResultIdDeclinePost({
+          deploymentResultId
+        });
+    operation.subscribe({
+      error: err => {
+        this.processing = false;
+        this.error =
+          retrieveErrorMessage(err) ??
+          `Could not ${confirm ? 'confirm' : 'decline'} the plan.`;
       },
-      complete: () => console.log('done confirming the Terraform plan')
+      complete: () => {
+        this.plan = { ...plan, Status: confirm ? 'Confirmed' : 'Cancelled' };
+        this.processing = false;
+        this.dispatchEvent(
+          new CustomEvent(
+            confirm ? 'terraform-plan-confirmed' : 'terraform-plan-declined',
+            {
+              detail: { deploymentResultId },
+              bubbles: true,
+              composed: true
+            }
+          )
+        );
+        this._close();
+      }
     });
-    // Update the plan status
-    this.plan = { ...this.plan, Status: 'Cancelled' };
-      
-    // Dispatch custom event to notify parent component
-    this.dispatchEvent(new CustomEvent('terraform-plan-declined', {
-      detail: { 
-        deploymentResultId: this.plan.DeploymentResultId
-      },
-      bubbles: true,
-      composed: true
-    }));
-
-    // Close dialog after decline
-    this._close();
   }
 
   private _close() {
+    if (this.processing) return;
+    this.loadToken += 1;
     this.opened = false;
     this._sendCloseDialogEvent();
   }
 
   public open(deploymentResultId: number) {
+    if (this.processing) return;
     this.deploymentResultId = deploymentResultId;
+    if (this.opened) void this._loadPlan();
     this.opened = true;
   }
 
-  private _sendCloseDialogEvent(){
+  private _sendCloseDialogEvent() {
     // Dispatch custom event to notify parent component
-    this.dispatchEvent(new CustomEvent('close-terraform-plan', {
-      detail: { 
-        value: false
-      },
-      bubbles: true,
-      composed: true
-    }));
+    this.dispatchEvent(
+      new CustomEvent('close-terraform-plan', {
+        detail: {
+          value: false
+        },
+        bubbles: true,
+        composed: true
+      })
+    );
   }
 }

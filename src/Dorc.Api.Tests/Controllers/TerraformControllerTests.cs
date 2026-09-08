@@ -1,8 +1,11 @@
 using Dorc.Api.Controllers;
 using Dorc.Api.Interfaces;
 using Dorc.ApiModel;
+using Dorc.ApiModel.MonitorRunnerApi;
 using Dorc.Core.AzureStorageAccount;
+using Dorc.Core;
 using Dorc.Core.Interfaces;
+using Dorc.Core.VariableResolution;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Model;
 using Dorc.PersistentData.Sources;
@@ -25,9 +28,13 @@ namespace Dorc.Api.Tests.Controllers
         private IAzureStorageAccountWorker _storage = null!;
         private ITemplateCatalog _catalog = null!;
         private IProjectsPersistentSource _projects = null!;
+        private IEnvironmentsPersistentSource _environments = null!;
         private IManageProjectsPersistentSource _manageProjects = null!;
         private IParameterValidator _parameterValidator = null!;
         private IRequestService _requestService = null!;
+        private IPropertyValuesPersistentSource _propertyValues = null!;
+        private IVariableResolver _variableResolver = null!;
+        private IVariableScopeOptionsResolver _variableScopeOptionsResolver = null!;
         private TerraformController _controller = null!;
 
         private const int DeploymentResultId = 42;
@@ -44,9 +51,21 @@ namespace Dorc.Api.Tests.Controllers
             _storage = Substitute.For<IAzureStorageAccountWorker>();
             _catalog = Substitute.For<ITemplateCatalog>();
             _projects = Substitute.For<IProjectsPersistentSource>();
+            _environments = Substitute.For<IEnvironmentsPersistentSource>();
             _manageProjects = Substitute.For<IManageProjectsPersistentSource>();
             _parameterValidator = Substitute.For<IParameterValidator>();
             _requestService = Substitute.For<IRequestService>();
+            _propertyValues = Substitute.For<IPropertyValuesPersistentSource>();
+            _variableResolver = Substitute.For<IVariableResolver>();
+            _variableScopeOptionsResolver = Substitute.For<IVariableScopeOptionsResolver>();
+
+            _variableResolver.LoadProperties().Returns(new Dictionary<string, VariableValue>());
+            _variableResolver.SetPropertyValue(Arg.Any<string>(), Arg.Any<string>());
+            _variableResolver.SetPropertyValue(Arg.Any<string>(), Arg.Any<VariableValue?>());
+            _parameterValidator.Validate(
+                    Arg.Any<TerraformTemplateManifest>(),
+                    Arg.Any<IReadOnlyDictionary<string, string?>>())
+                .Returns(new ParameterValidationResult(true, Array.Empty<ParameterValidationError>()));
 
             _controller = new TerraformController(
                 NullLogger<TerraformController>.Instance,
@@ -56,9 +75,13 @@ namespace Dorc.Api.Tests.Controllers
                 _storage,
                 _catalog,
                 _projects,
+                _environments,
                 _manageProjects,
                 _parameterValidator,
-                _requestService)
+                _requestService,
+                _propertyValues,
+                _variableResolver,
+                _variableScopeOptionsResolver)
             {
                 ControllerContext = new ControllerContext
                 {
@@ -116,11 +139,45 @@ namespace Dorc.Api.Tests.Controllers
                 ProjectId = ProjectId,
                 ProjectName = ProjectName
             });
+            _environments.GetEnvironment(Arg.Any<string>())
+                .Returns(new EnvironmentApiModel { EnvironmentName = EnvName });
+            _environments.GetMappedProjects(Arg.Any<string>())
+                .Returns(new List<ProjectApiModel>
+                {
+                    new ProjectApiModel { ProjectName = ProjectName }
+                });
             // Destination project has no existing components by default, so the
             // duplicate-name conflict and parent-in-project checks pass; a test
             // that wants a collision overrides this.
             _projects.GetComponentsForProject(ProjectName).Returns(new List<ComponentApiModel>());
             _security.IsProjectOwnerOrAdmin(Arg.Any<ClaimsPrincipal>(), ProjectName).Returns(true);
+        }
+
+        private TerraformController CreateController(IParameterValidator parameterValidator)
+        {
+            var controller = new TerraformController(
+                NullLogger<TerraformController>.Instance,
+                _requests,
+                _security,
+                _claimsReader,
+                _storage,
+                _catalog,
+                _projects,
+                _environments,
+                _manageProjects,
+                parameterValidator,
+                _requestService,
+                _propertyValues,
+                _variableResolver,
+                _variableScopeOptionsResolver)
+            {
+                ControllerContext = new ControllerContext
+                {
+                    HttpContext = new DefaultHttpContext()
+                }
+            };
+            controller.HttpContext.User = _controller.HttpContext.User;
+            return controller;
         }
 
         [TestMethod]
@@ -225,24 +282,7 @@ namespace Dorc.Api.Tests.Controllers
             GivenTemplateAndProject(manifest);
             _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(true);
 
-            var controller = new TerraformController(
-                NullLogger<TerraformController>.Instance,
-                _requests,
-                _security,
-                _claimsReader,
-                _storage,
-                _catalog,
-                _projects,
-                _manageProjects,
-                new ParameterValidator(),
-                _requestService)
-            {
-                ControllerContext = new ControllerContext
-                {
-                    HttpContext = new DefaultHttpContext()
-                }
-            };
-            controller.HttpContext.User = _controller.HttpContext.User;
+            var controller = CreateController(new ParameterValidator());
 
             var result = await controller.InstantiateTemplate(
                 TemplateName,
@@ -263,6 +303,224 @@ namespace Dorc.Api.Tests.Controllers
                 "Sensitive parameter's raw value must not appear in the 400 response body.");
             StringAssert.Contains(body, "[REDACTED]",
                 "Sensitive parameter's value is replaced with the redaction marker.");
+            _requestService.DidNotReceiveWithAnyArgs().CreateRequest(default!, default!);
+            _manageProjects.DidNotReceiveWithAnyArgs()
+                .CreateComponent(default!, default, default, default!);
+        }
+
+        [TestMethod]
+        public async Task InstantiateTemplate_InheritedRequiredInputs_ValidateFromEnvironmentAndDoNotPersist()
+        {
+            GivenTemplateAndProject(Manifest(new TerraformTemplateParameter(
+                Name: "required_input",
+                Type: TerraformParameterType.String,
+                Required: true,
+                Description: null,
+                Default: null,
+                AllowedValues: null,
+                Pattern: null,
+                Min: null,
+                Max: null,
+                Sensitive: false)));
+
+            _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(true);
+            _variableResolver.LoadProperties().Returns(new Dictionary<string, VariableValue>
+            {
+                ["required_input"] = new VariableValue { Value = "resolved-from-env", Type = typeof(string) }
+            });
+            _requestService.CreateRequest(Arg.Any<RequestDto>(), Arg.Any<ClaimsPrincipal>())
+                .Returns(new RequestStatusDto { Id = 123, Status = "Pending" });
+
+            var controller = CreateController(new ParameterValidator());
+            var result = await controller.InstantiateTemplate(
+                TemplateName,
+                TemplateVersion,
+                new TerraformTemplateInstantiateRequestApiModel
+                {
+                    ProjectId = ProjectId,
+                    EnvironmentName = EnvName,
+                    Parameters = new Dictionary<string, string>()
+                },
+                CancellationToken.None);
+
+            Assert.IsInstanceOfType(result, typeof(OkObjectResult));
+            _manageProjects.Received(1).CreateComponent(
+                Arg.Is<ComponentApiModel>(c => c.ComponentId == 0),
+                ProjectId, Arg.Any<int?>(), Arg.Any<string>());
+            _requestService.Received(1).CreateRequest(
+                Arg.Is<RequestDto>(dto =>
+                    dto.Environment == EnvName
+                    && dto.Project == ProjectName
+                    && dto.RequestProperties.Count == 0),
+                Arg.Any<ClaimsPrincipal>());
+        }
+
+        [TestMethod]
+        public async Task InstantiateTemplate_ExplicitOverrideWinsAndOnlyOverridePersists()
+        {
+            GivenTemplateAndProject(Manifest(
+                new TerraformTemplateParameter(
+                    Name: "required_input",
+                    Type: TerraformParameterType.String,
+                    Required: true,
+                    Description: null,
+                    Default: null,
+                    AllowedValues: null,
+                    Pattern: null,
+                    Min: null,
+                    Max: null,
+                    Sensitive: false),
+                new TerraformTemplateParameter(
+                    Name: "override_me",
+                    Type: TerraformParameterType.String,
+                    Required: false,
+                    Description: null,
+                    Default: "manifest-default",
+                    AllowedValues: null,
+                    Pattern: null,
+                    Min: null,
+                    Max: null,
+                    Sensitive: false)));
+
+            _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(true);
+            _variableResolver.LoadProperties().Returns(new Dictionary<string, VariableValue>
+            {
+                ["required_input"] = new VariableValue { Value = "resolved-from-env", Type = typeof(string) },
+                ["override_me"] = new VariableValue { Value = "env-value", Type = typeof(string) }
+            });
+            _requestService.CreateRequest(Arg.Any<RequestDto>(), Arg.Any<ClaimsPrincipal>())
+                .Returns(new RequestStatusDto { Id = 123, Status = "Pending" });
+
+            var controller = CreateController(new ParameterValidator());
+            var result = await controller.InstantiateTemplate(
+                TemplateName,
+                TemplateVersion,
+                new TerraformTemplateInstantiateRequestApiModel
+                {
+                    ProjectId = ProjectId,
+                    EnvironmentName = EnvName,
+                    Parameters = new Dictionary<string, string>
+                    {
+                        ["override_me"] = "user-value"
+                    }
+                },
+                CancellationToken.None);
+
+            Assert.IsInstanceOfType(result, typeof(OkObjectResult));
+            _manageProjects.Received(1).CreateComponent(
+                Arg.Is<ComponentApiModel>(c => c.ComponentId == 0),
+                ProjectId, Arg.Any<int?>(), Arg.Any<string>());
+            _requestService.Received(1).CreateRequest(
+                Arg.Is<RequestDto>(dto =>
+                    dto.Environment == EnvName
+                    && dto.Project == ProjectName
+                    && dto.RequestProperties.Count == 1
+                    && dto.RequestProperties.Any(p => p.PropertyName == "override_me" && p.PropertyValue == "user-value")
+                    && dto.RequestProperties.All(p => p.PropertyName != "required_input")),
+                Arg.Any<ClaimsPrincipal>());
+        }
+
+        [TestMethod]
+        public async Task InstantiateTemplate_DerivedEnvironmentInput_ResolvesUsingRequestOverrides()
+        {
+            GivenTemplateAndProject(Manifest(
+                new TerraformTemplateParameter("prefix", TerraformParameterType.String, true,
+                    null, null, null, null, null, null, false),
+                new TerraformTemplateParameter("resource_name", TerraformParameterType.String, true,
+                    null, null, null, "^override_storage$", null, null, false)));
+            _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(true);
+            _propertyValues.LoadAllPropertiesIntoCache().Returns(new Dictionary<string, PropertyValueDto>
+            {
+                ["prefix"] = new PropertyValueDto { Value = "environment" },
+                ["resource_name"] = new PropertyValueDto { Value = "$prefix$_storage" },
+                ["unrelated"] = new PropertyValueDto { Value = "not-a-manifest-input" }
+            });
+            _variableResolver = new VariableResolver(
+                _propertyValues, NullLoggerFactory.Instance, new PropertyEvaluator());
+            _requestService.CreateRequest(Arg.Any<RequestDto>(), Arg.Any<ClaimsPrincipal>())
+                .Returns(new RequestStatusDto { Id = 123, Status = "Pending" });
+
+            var controller = CreateController(new ParameterValidator());
+            var result = await controller.InstantiateTemplate(
+                TemplateName, TemplateVersion,
+                new TerraformTemplateInstantiateRequestApiModel
+                {
+                    ProjectId = ProjectId, EnvironmentName = EnvName,
+                    Parameters = new Dictionary<string, string> { ["prefix"] = "override" }
+                }, CancellationToken.None);
+
+            Assert.IsInstanceOfType(result, typeof(OkObjectResult));
+            _propertyValues.Received(1).AddFilter(
+                PropertyValueFilterTypes.EnvironmentPropertyFilterType, EnvName);
+            _requestService.Received(1).CreateRequest(
+                Arg.Is<RequestDto>(dto => dto.RequestProperties.Count == 1
+                    && dto.RequestProperties.First().PropertyName == "prefix"
+                    && dto.RequestProperties.First().PropertyValue == "override"),
+                Arg.Any<ClaimsPrincipal>());
+        }
+
+        [TestMethod]
+        public async Task InstantiateTemplate_InvalidInheritedValue_IsNotReturnedToTheBrowser()
+        {
+            const string inheritedValue = "environment-only-value";
+            GivenTemplateAndProject(Manifest(
+                new TerraformTemplateParameter("required_input", TerraformParameterType.Number, true,
+                    null, null, null, null, null, null, false)));
+            _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(true);
+            _variableResolver.LoadProperties().Returns(new Dictionary<string, VariableValue>
+            {
+                ["required_input"] = new VariableValue { Value = inheritedValue, Type = typeof(string) }
+            });
+
+            var result = await CreateController(new ParameterValidator()).InstantiateTemplate(
+                TemplateName, TemplateVersion,
+                new TerraformTemplateInstantiateRequestApiModel
+                {
+                    ProjectId = ProjectId, EnvironmentName = EnvName
+                }, CancellationToken.None);
+
+            Assert.IsInstanceOfType(result, typeof(BadRequestObjectResult));
+            var message = ((BadRequestObjectResult)result).Value!.ToString()!;
+            StringAssert.Contains(message, "required_input");
+            Assert.IsFalse(message.Contains(inheritedValue));
+            _manageProjects.DidNotReceiveWithAnyArgs().CreateComponent(default!, default, default, default!);
+        }
+
+        [TestMethod]
+        public async Task InstantiateTemplate_MissingRequiredInput_Returns400BeforeCreatingComponent()
+        {
+            GivenTemplateAndProject(Manifest(new TerraformTemplateParameter(
+                Name: "required_input",
+                Type: TerraformParameterType.String,
+                Required: true,
+                Description: null,
+                Default: null,
+                AllowedValues: null,
+                Pattern: null,
+                Min: null,
+                Max: null,
+                Sensitive: false)));
+
+            _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(true);
+            _variableResolver.LoadProperties().Returns(new Dictionary<string, VariableValue>());
+            _requestService.CreateRequest(Arg.Any<RequestDto>(), Arg.Any<ClaimsPrincipal>())
+                .Returns(new RequestStatusDto { Id = 123, Status = "Pending" });
+
+            var controller = CreateController(new ParameterValidator());
+            var result = await controller.InstantiateTemplate(
+                TemplateName,
+                TemplateVersion,
+                new TerraformTemplateInstantiateRequestApiModel
+                {
+                    ProjectId = ProjectId,
+                    EnvironmentName = EnvName,
+                    Parameters = new Dictionary<string, string>()
+                },
+                CancellationToken.None);
+
+            Assert.IsInstanceOfType(result, typeof(BadRequestObjectResult));
+            _manageProjects.DidNotReceiveWithAnyArgs()
+                .CreateComponent(default!, default, default, default!);
             _requestService.DidNotReceiveWithAnyArgs().CreateRequest(default!, default!);
         }
 
@@ -312,6 +570,84 @@ namespace Dorc.Api.Tests.Controllers
                 "200 body is the instantiate response envelope.");
             var envelope = (TerraformTemplateInstantiateResponseApiModel)ok.Value!;
             Assert.AreEqual(newRequestId, envelope.RequestId);
+        }
+
+        [TestMethod]
+        public async Task InstantiateTemplate_CreateAndDeployUsesCanonicalEnvironmentAndPersistsEmptyOverride()
+        {
+            const int newRequestId = 123;
+            GivenTemplateAndProject(Manifest(new TerraformTemplateParameter(
+                Name: "optional_feature",
+                Type: TerraformParameterType.String,
+                Required: false,
+                Description: null,
+                Default: "default-value",
+                AllowedValues: null,
+                Pattern: null,
+                Min: null,
+                Max: null,
+                Sensitive: false)));
+
+            _environments.GetEnvironment(Arg.Any<string>())
+                .Returns(new EnvironmentApiModel { EnvironmentName = EnvName });
+            _environments.GetMappedProjects(Arg.Any<string>())
+                .Returns(new List<ProjectApiModel>
+                {
+                    new ProjectApiModel { ProjectName = ProjectName }
+                });
+            _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(true);
+            _parameterValidator.Validate(
+                    Arg.Any<TerraformTemplateManifest>(),
+                    Arg.Any<IReadOnlyDictionary<string, string?>>())
+                .Returns(new ParameterValidationResult(true, Array.Empty<ParameterValidationError>()));
+            _requestService.CreateRequest(Arg.Any<RequestDto>(), Arg.Any<ClaimsPrincipal>())
+                .Returns(new RequestStatusDto { Id = newRequestId, Status = "Pending" });
+
+            var result = await _controller.InstantiateTemplate(
+                TemplateName,
+                TemplateVersion,
+                new TerraformTemplateInstantiateRequestApiModel
+                {
+                    ProjectId = ProjectId,
+                    EnvironmentName = "  tevo dv 11  ",
+                    Parameters = new Dictionary<string, string> { ["optional_feature"] = string.Empty }
+                },
+                CancellationToken.None);
+
+            Assert.IsInstanceOfType(result, typeof(OkObjectResult));
+            _security.Received(1).CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), EnvName);
+            _requestService.Received(1).CreateRequest(
+                Arg.Is<RequestDto>(dto =>
+                    dto.Environment == EnvName
+                    && dto.RequestProperties.Any(p => p.PropertyName == "optional_feature" && p.PropertyValue == string.Empty)),
+                Arg.Any<ClaimsPrincipal>());
+        }
+
+        [TestMethod]
+        public async Task InstantiateTemplate_CreateAndDeployRejectsUnmappedEnvironment_Returns400()
+        {
+            GivenTemplateAndProject(Manifest());
+            _environments.GetEnvironment(Arg.Any<string>())
+                .Returns(new EnvironmentApiModel { EnvironmentName = EnvName });
+            _environments.GetMappedProjects(Arg.Any<string>())
+                .Returns(Array.Empty<ProjectApiModel>());
+
+            var result = await _controller.InstantiateTemplate(
+                TemplateName,
+                TemplateVersion,
+                new TerraformTemplateInstantiateRequestApiModel
+                {
+                    ProjectId = ProjectId,
+                    EnvironmentName = EnvName,
+                    Parameters = new Dictionary<string, string>()
+                },
+                CancellationToken.None);
+
+            Assert.IsInstanceOfType(result, typeof(BadRequestObjectResult));
+            var badRequest = (BadRequestObjectResult)result;
+            StringAssert.Contains((string)badRequest.Value!, ProjectName);
+            _manageProjects.DidNotReceiveWithAnyArgs().CreateComponent(default!, default, default, default!);
+            _requestService.DidNotReceiveWithAnyArgs().CreateRequest(default!, default!);
         }
 
         [TestMethod]
@@ -368,6 +704,48 @@ namespace Dorc.Api.Tests.Controllers
                 "Conflict message names the contested component name.");
             _manageProjects.DidNotReceiveWithAnyArgs()
                 .CreateComponent(default!, default, default, default!);
+        }
+
+        [TestMethod]
+        public async Task InstantiateTemplate_RetryWithDifferentParent_Returns409()
+        {
+            GivenTemplateAndProject(Manifest());
+            _projects.GetComponentsForProject(ProjectName).Returns(new List<ComponentApiModel>
+            {
+                new ComponentApiModel
+                {
+                    ComponentId = 55,
+                    ComponentName = TemplateName,
+                    ParentId = 10,
+                    ComponentType = ComponentType.Terraform,
+                    TerraformSourceType = TerraformSourceType.Catalog,
+                    TerraformTemplateName = TemplateName,
+                    TerraformTemplateVersion = TemplateVersion,
+                }
+            });
+            _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(true);
+            _parameterValidator.Validate(
+                    Arg.Any<TerraformTemplateManifest>(),
+                    Arg.Any<IReadOnlyDictionary<string, string?>>())
+                .Returns(new ParameterValidationResult(true, Array.Empty<ParameterValidationError>()));
+
+            var result = await _controller.InstantiateTemplate(
+                TemplateName,
+                TemplateVersion,
+                new TerraformTemplateInstantiateRequestApiModel
+                {
+                    ProjectId = ProjectId,
+                    EnvironmentName = EnvName,
+                    ParentComponentId = 999,
+                    Parameters = new Dictionary<string, string>()
+                },
+                CancellationToken.None);
+
+            Assert.IsInstanceOfType(result, typeof(ConflictObjectResult),
+                "A retry that changes the parent should not silently reuse the existing component.");
+            _manageProjects.DidNotReceiveWithAnyArgs()
+                .CreateComponent(default!, default, default, default!);
+            _requestService.DidNotReceiveWithAnyArgs().CreateRequest(default!, default!);
         }
 
         [TestMethod]

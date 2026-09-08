@@ -21,7 +21,50 @@ module "vnet" {
 }
 ```
 
-In DOrc, catalog templates are consumed via the component itself, not via DOrc properties: use the **Stock Modules** page's **Deploy from template** wizard (or `POST /api/Terraform/templates/{name}/{version}/instantiate`), which creates a Terraform component with `TerraformSourceType = Catalog` and the component fields `TerraformTemplateName` / `TerraformTemplateVersion` set to the chosen template. The engineer then deploys that component through the normal DOrc deploy flow.
+In DOrc, the template reference belongs to the **project component**:
+`TerraformSourceType = Catalog`, `TerraformTemplateName`, and
+`TerraformTemplateVersion`. Input values belong to the target environment's
+DOrc properties, with optional request-specific overrides.
+
+## Plan infrastructure in a DOrc environment
+
+Open the **Terraform module catalog**, or use **Plan Terraform for this
+environment** under an environment's mapped projects. The normal deployment
+page also links to the catalog without requiring a dummy build artifact.
+
+1. Choose a module version and select **Plan deployment**.
+2. **Target:** select a project and an existing mapped DOrc environment with
+   deployment access. Reuse an enabled component pinned to that template
+   version, or create a separately named component for separate infrastructure.
+   This flow requires project ownership or administrator access as well as
+   permission to deploy to the environment. It does not create environments or
+   map projects automatically.
+3. **Inputs:** leave inputs inherited to use the environment's DOrc properties
+   (including normal property scoping and resolution). If a property is absent,
+   Terraform uses the module's default. Manifest defaults must describe those
+   module defaults accurately. Enable **Override ... for this request** only for
+   one-off differences. An omitted Boolean differs from an explicit `false`.
+   Overrides do not change saved environment variables; changing target clears
+   entered overrides. Inherited values are not fetched into the form.
+4. **Review:** inspect project, component, environment, template version and
+   overrides. Sensitive overrides remain hidden. Submit the plan request.
+5. DOrc opens that request's deployment results. When the plan is ready, review
+   it and choose **Confirm & Apply** or **Decline**. Submission alone does not
+   apply infrastructure changes, and a failed decision stays visible for retry.
+
+The project/component/environment identity determines the state key. Reuse the
+same component in the same environment for later updates; deploy it to another
+mapped environment for separate state. Do not create a new component for every
+deployment. See [the state model](./STATE-MODEL.md) for backend configuration.
+
+The API equivalent is
+`POST /Terraform/templates/{name}/{version}/instantiate`, relative to the API
+base URL. With `EnvironmentName` present, the endpoint validates the mapped
+target and effective inputs before creating a component, then submits a
+deployment request. Only explicitly supplied `Parameters` become request
+overrides. Omitting `EnvironmentName` creates only the component. If request
+submission fails after component creation, the component remains; retrying
+with the same name and template reuses it.
 
 ## Adding a new module
 

@@ -3,6 +3,8 @@ using Dorc.Api.Model;
 using Dorc.Api.Services;
 using Dorc.ApiModel;
 using Dorc.Core.AzureStorageAccount;
+using Dorc.Core;
+using Dorc.Core.VariableResolution;
 using Dorc.Core.Interfaces;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Model;
@@ -12,6 +14,7 @@ using Dorc.Terraform.Catalog;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Swashbuckle.AspNetCore.Annotations;
+using System.Globalization;
 using System.Security.Principal;
 
 namespace Dorc.Api.Controllers
@@ -28,9 +31,13 @@ namespace Dorc.Api.Controllers
         private readonly IAzureStorageAccountWorker _azureStorageAccountWorker;
         private readonly ITemplateCatalog _templateCatalog;
         private readonly IProjectsPersistentSource _projectsPersistentSource;
+        private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
         private readonly IManageProjectsPersistentSource _manageProjectsPersistentSource;
         private readonly IParameterValidator _parameterValidator;
         private readonly IRequestService _requestService;
+        private readonly IPropertyValuesPersistentSource _propertyValuesPersistentSource;
+        private readonly IVariableResolver _variableResolver;
+        private readonly IVariableScopeOptionsResolver _variableScopeOptionsResolver;
 
         public TerraformController(
             ILogger<TerraformController> log,
@@ -40,9 +47,13 @@ namespace Dorc.Api.Controllers
             IAzureStorageAccountWorker azureStorageAccountWorker,
             ITemplateCatalog templateCatalog,
             IProjectsPersistentSource projectsPersistentSource,
+            IEnvironmentsPersistentSource environmentsPersistentSource,
             IManageProjectsPersistentSource manageProjectsPersistentSource,
             IParameterValidator parameterValidator,
-            IRequestService requestService)
+            IRequestService requestService,
+            IPropertyValuesPersistentSource propertyValuesPersistentSource,
+            [FromKeyedServices("VariableResolver")] IVariableResolver variableResolver,
+            IVariableScopeOptionsResolver variableScopeOptionsResolver)
         {
             _log = log;
             _requestsPersistentSource = requestsPersistentSource;
@@ -51,9 +62,13 @@ namespace Dorc.Api.Controllers
             _azureStorageAccountWorker = azureStorageAccountWorker;
             _templateCatalog = templateCatalog;
             _projectsPersistentSource = projectsPersistentSource;
+            _environmentsPersistentSource = environmentsPersistentSource;
             _manageProjectsPersistentSource = manageProjectsPersistentSource;
             _parameterValidator = parameterValidator;
             _requestService = requestService;
+            _propertyValuesPersistentSource = propertyValuesPersistentSource;
+            _variableResolver = variableResolver;
+            _variableScopeOptionsResolver = variableScopeOptionsResolver;
         }
 
         /// <summary>
@@ -93,13 +108,14 @@ namespace Dorc.Api.Controllers
 
         /// <summary>
         /// Instantiates a stock template as a new Catalog-mode component in
-        /// the destination project. The engineer then deploys the new
-        /// component through the existing DOrc deploy flow.
+        /// the destination project. When an environment is supplied, the
+        /// endpoint also validates the effective manifest inputs and submits
+        /// a deploy request through the existing DOrc flow.
         ///
         /// This endpoint is the "Deploy from template" entry point used by
-        /// the Stock Modules page in the dorc-web UI. It does NOT trigger
-        /// a deployment itself; it only persists a new ComponentApiModel
-        /// pre-wired with TerraformSourceType=Catalog and the chosen
+        /// the Stock Modules page in the dorc-web UI. In create-only mode
+        /// it only persists a new ComponentApiModel pre-wired with
+        /// TerraformSourceType=Catalog and the chosen
         /// (TerraformTemplateName, TerraformTemplateVersion).
         /// </summary>
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(TerraformTemplateInstantiateResponseApiModel))]
@@ -160,6 +176,26 @@ namespace Dorc.Api.Controllers
                 return Forbid();
             }
 
+            var deployEnvironment = string.IsNullOrWhiteSpace(request.EnvironmentName)
+                ? null
+                : _environmentsPersistentSource.GetEnvironment(request.EnvironmentName.Trim());
+            if (!string.IsNullOrWhiteSpace(request.EnvironmentName) && deployEnvironment is null)
+            {
+                return BadRequest($"Environment '{request.EnvironmentName}' was not found.");
+            }
+
+            if (deployEnvironment is not null)
+            {
+                var mappedProjects = _environmentsPersistentSource.GetMappedProjects(deployEnvironment.EnvironmentName)
+                    .Select(p => p.ProjectName)
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase);
+                if (!mappedProjects.Contains(project.ProjectName))
+                {
+                    return BadRequest(
+                        $"Project '{project.ProjectName}' is not mapped to environment '{deployEnvironment.EnvironmentName}'.");
+                }
+            }
+
             var componentName = string.IsNullOrWhiteSpace(request.ComponentName)
                 ? manifest.Name
                 : request.ComponentName.Trim();
@@ -209,11 +245,42 @@ namespace Dorc.Api.Controllers
                 return BadRequest(ex.Message);
             }
 
-            var projectComponents = _projectsPersistentSource
-                .GetComponentsForProject(project.ProjectName)
-                .ToList();
+            var projectComponents = _projectsPersistentSource.GetComponentsForProject(project.ProjectName).ToList();
 
             var deployRequested = !string.IsNullOrWhiteSpace(request.EnvironmentName);
+
+            if (deployRequested)
+            {
+                // The deploy request is only legal for callers who can
+                // modify the target environment. Validate that before we
+                // create or reuse any component so invalid requests leave no
+                // persisted side effects behind.
+                if (!_apiSecurityService.CanModifyEnvironment(User, deployEnvironment!.EnvironmentName))
+                {
+                    return StatusCode(StatusCodes.Status403Forbidden,
+                        $"Forbidden: caller cannot modify environment '{deployEnvironment.EnvironmentName}'.");
+                }
+
+                // Resolve only manifest-declared inputs. Explicit request
+                // overrides win; otherwise we inherit the environment-scoped
+                // value already configured in DOrc. Manifest defaults are used
+                // only when runtime would rely on them.
+                var supplied = (request.Parameters ?? new Dictionary<string, string>())
+                    .ToDictionary(kv => kv.Key, kv => (string?)kv.Value);
+                var validationInputs = BuildValidationInputs(manifest, supplied, deployEnvironment!);
+                var validation = _parameterValidator.Validate(manifest, validationInputs);
+                if (!validation.IsValid)
+                {
+                    var firstError = validation.Errors[0];
+                    if (!supplied.ContainsKey(firstError.ParameterName))
+                    {
+                        return BadRequest(
+                            $"Parameter '{firstError.ParameterName}' is missing or invalid in the environment/module defaults. Configure the environment property or supply a valid request override.");
+                    }
+                    return BadRequest(
+                        $"Parameter '{firstError.ParameterName}' invalid: {firstError.Message}");
+                }
+            }
 
             // A duplicate inside the destination project passes the
             // cross-project validation above but would still trigger the
@@ -237,6 +304,12 @@ namespace Dorc.Api.Controllers
                     && existingComponent.TerraformSourceType == TerraformSourceType.Catalog
                     && string.Equals(existingComponent.TerraformTemplateName, manifest.Name, StringComparison.OrdinalIgnoreCase)
                     && string.Equals(existingComponent.TerraformTemplateVersion, manifest.Version, StringComparison.OrdinalIgnoreCase);
+                if (request.ParentComponentId.HasValue
+                    && existingComponent.ParentId != request.ParentComponentId.Value)
+                {
+                    return Conflict(
+                        $"A component named '{componentName}' already exists in project '{project.ProjectName}' under a different parent. Choose a different component name or retry with the original parent.");
+                }
                 if (!deployRequested || !isIdenticalCatalogComponent)
                 {
                     return Conflict(
@@ -294,46 +367,27 @@ namespace Dorc.Api.Controllers
             }
 
             // create-and-deploy mode. When the wizard supplies an
-            // environment + parameter values, additionally validate the
-            // values, verify env-modify permission (controller-pin,
-            // matching RequestController.Post), compose a Catalog-mode
-            // RequestDto, and submit it through the existing
-            // IRequestService.CreateRequest path. On failure we return an
-            // error WITH the created Component still persisted; the caller
-            // sees the component in their project and can retry the deploy
-            // (the identical-catalog-component reuse above makes that retry
-            // succeed instead of 409ing).
+            // environment + parameter values, compose a Catalog-mode
+            // RequestDto and submit it through the existing
+            // IRequestService.CreateRequest path. Parameter validation and
+            // env-modify permission checks already ran before any create
+            // path could persist a component, so invalid requests cannot
+            // leave side effects behind. If the deploy submission fails, the
+            // component stays persisted so the caller can retry.
             if (deployRequested)
             {
-                // C-13 RBAC controller-pin: this check lives in the controller,
-                // not RequestService. RequestService.CreateRequest does NOT
-                // enforce CanModifyEnvironment.
-                if (!_apiSecurityService.CanModifyEnvironment(User, request.EnvironmentName))
-                {
-                    return StatusCode(StatusCodes.Status403Forbidden,
-                        $"Forbidden: caller cannot modify environment '{request.EnvironmentName}'.");
-                }
-
-                // Server-side parameter validation against the manifest.
                 var supplied = (request.Parameters ?? new Dictionary<string, string>())
                     .ToDictionary(kv => kv.Key, kv => (string?)kv.Value);
-                var validation = _parameterValidator.Validate(manifest, supplied);
-                if (!validation.IsValid)
-                {
-                    var firstError = validation.Errors[0];
-                    return BadRequest(
-                        $"Parameter '{firstError.ParameterName}' invalid: {firstError.Message}");
-                }
 
                 // Compose RequestDto. BuildUrl is set to the catalog sentinel
                 // directly because we already know this single component is
                 // Catalog-mode (we just created it, or verified the reused
-                // one is an identical Catalog instantiation). RequestProperties carry
-                // each manifest parameter's value with IsSensitive sourced
-                // from the manifest's Sensitive flag so the closed
-                //  redaction surface covers them.
+                // one is an identical Catalog instantiation). RequestProperties
+                // carry only explicit user overrides; inherited environment
+                // values stay in the environment and are not duplicated or
+                // displayed back to the caller.
                 var requestProperties = manifest.Parameters
-                    .Where(p => supplied.TryGetValue(p.Name, out var v) && !string.IsNullOrEmpty(v))
+                    .Where(p => supplied.ContainsKey(p.Name))
                     .Select(p => new RequestProperty
                     {
                         PropertyName = p.Name,
@@ -344,7 +398,7 @@ namespace Dorc.Api.Controllers
                 var requestDto = new RequestDto
                 {
                     Project = project.ProjectName,
-                    Environment = request.EnvironmentName,
+                    Environment = deployEnvironment?.EnvironmentName ?? request.EnvironmentName,
                     BuildUrl = BuildDetails.CatalogSentinel,
                     BuildText = string.Empty,
                     BuildNum = string.Empty,
@@ -359,7 +413,7 @@ namespace Dorc.Api.Controllers
                     {
                         _log.LogError(
                             "Catalog instantiate-and-deploy: deploy request submission returned no id for component '{Component}' in env '{Env}'.",
-                            safeComponentName, SanitizeForLog(request.EnvironmentName));
+                            safeComponentName, SanitizeForLog(deployEnvironment.EnvironmentName));
                         return StatusCode(StatusCodes.Status500InternalServerError,
                             "Component was created, but the deploy request failed to submit. See server logs.");
                     }
@@ -376,17 +430,61 @@ namespace Dorc.Api.Controllers
                 {
                     _log.LogError(ex,
                         "Catalog instantiate-and-deploy: deploy request submission threw for component '{Component}' in env '{Env}'.",
-                        safeComponentName, SanitizeForLog(request.EnvironmentName));
+                        safeComponentName, SanitizeForLog(deployEnvironment.EnvironmentName));
                     return StatusCode(StatusCodes.Status500InternalServerError,
                         "Component was created, but the deploy request failed to submit. See server logs.");
                 }
             }
 
-            // create-component-only mode: no deploy request was submitted, so
-            // RequestId / RequestStatus are left at their defaults. The endpoint
-            // returns the same envelope type in both modes so its declared 200
-            // shape is honest and self-consistent.
+            // create-only mode: no deploy request was submitted, so RequestId
+            // / RequestStatus are left at their defaults. The endpoint
+            // returns the same envelope type in both modes so its declared
+            // 200 shape is honest and self-consistent.
             return Ok(new TerraformTemplateInstantiateResponseApiModel { Component = component });
+        }
+
+        private Dictionary<string, string?> BuildValidationInputs(
+            TerraformTemplateManifest manifest,
+            IDictionary<string, string?> supplied,
+            EnvironmentApiModel environment)
+        {
+            _propertyValuesPersistentSource.AddFilter(PropertyValueFilterTypes.EnvironmentPropertyFilterType, environment.EnvironmentName);
+            _variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.EnvironmentName, environment.EnvironmentName);
+            _variableScopeOptionsResolver.SetPropertyValues(_variableResolver, environment);
+
+            // Derived environment properties must see the same overrides as
+            // the Monitor, which seeds request properties before resolution.
+            foreach (var parameter in manifest.Parameters.Where(p => supplied.ContainsKey(p.Name)))
+            {
+                _variableResolver.SetPropertyValue(parameter.Name, supplied[parameter.Name] ?? string.Empty);
+            }
+            var resolvedProperties = _variableResolver.LoadProperties();
+            var validationInputs = new Dictionary<string, string?>(supplied, StringComparer.Ordinal);
+
+            foreach (var parameter in manifest.Parameters)
+            {
+                if (validationInputs.ContainsKey(parameter.Name))
+                {
+                    continue;
+                }
+
+                if (resolvedProperties.TryGetValue(parameter.Name, out var resolvedValue))
+                {
+                    var value = Convert.ToString(resolvedValue?.Value, CultureInfo.InvariantCulture);
+                    if (value is not null)
+                    {
+                        validationInputs[parameter.Name] = value;
+                        continue;
+                    }
+                }
+
+                if (parameter.Default is not null)
+                {
+                    validationInputs[parameter.Name] = parameter.Default;
+                }
+            }
+
+            return validationInputs;
         }
 
         /// <summary>

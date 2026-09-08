@@ -207,6 +207,14 @@ export class DeployEnv extends LitElement {
         </div>
         <hegs-json-viewer id="jsonviewer">{}</hegs-json-viewer>
       </vaadin-confirm-dialog>
+      <p style="margin-left:var(--lumo-space-s)">
+        <a
+          href=${`/stock-modules?project=${encodeURIComponent(this.project?.ProjectName ?? '')}&environment=${encodeURIComponent(this.envName)}`}
+        >
+          Plan Terraform from the module catalog
+        </a>
+        &mdash; reuse a component without selecting a build artifact.
+      </p>
       <div class="build-defs-section" ?hidden="${this.isFolderProject}">
         <div class="combo-row">
           <vaadin-combo-box

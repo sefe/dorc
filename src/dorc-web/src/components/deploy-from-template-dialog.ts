@@ -9,478 +9,596 @@ import { dialogRenderer, dialogFooterRenderer } from '@vaadin/dialog/lit';
 import { Notification } from '@vaadin/notification';
 import { css, html, LitElement } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
+import { forkJoin } from 'rxjs';
 import { navigate } from '../router/router';
 import {
+  ComponentApiModel,
+  ComponentType,
+  EnvironmentApiModel,
   ProjectApiModel,
+  RefDataComponentsApi,
   RefDataProjectsApi,
   RefDataProjectEnvironmentMappingsApi,
   TerraformApi,
-  TerraformTemplateInstantiateResponseApiModel,
+  TerraformSourceType,
   TerraformTemplateManifest,
-  TerraformTemplateParameter,
-  EnvironmentApiModel,
-  EnvironmentApiModelTemplateApiModel,
+  TerraformTemplateParameter
 } from '../apis/dorc-api';
 import { retrieveErrorMessage } from '../helpers/errorMessage-retriever';
 import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
-// 'Deploy from stock template' wizard. Single-page form with three
-// implicit sections (Target / Inputs / Review) all fields visible at once
-// for a small parameter count, masking sensitive ones. On submit, calls the
-// extended instantiate endpoint with EnvironmentName + Parameters set,
-// switching the API to create-and-deploy mode. On success, the user
-// is navigated to the monitor-requests page where they can confirm the plan
-// via the existing terraform-plan-dialog hosted by component-deployment-results.
+export interface TemplateDeploymentContext {
+  projectName?: string;
+  environmentName?: string;
+}
+
 @customElement('deploy-from-template-dialog')
 export class DeployFromTemplateDialog extends LitElement {
-  static get styles() {
-    return css`
-      :host {
-        display: contents;
-      }
-      .form {
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-        min-width: 520px;
-        max-width: 720px;
-      }
-      .params {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-        border-top: 1px solid var(--lumo-contrast-10pct);
-        padding-top: 12px;
-      }
-      .param-row {
-        display: grid;
-        grid-template-columns: 200px 1fr;
-        align-items: center;
-        gap: 8px;
-      }
-      .param-label {
-        font-family: var(--lumo-font-family);
-        font-size: var(--lumo-font-size-s);
-      }
-      .param-label code {
-        background: var(--lumo-contrast-5pct);
-        padding: 1px 4px;
-        border-radius: var(--lumo-border-radius-s);
-      }
-      .param-help {
-        font-size: var(--lumo-font-size-xs);
-        color: var(--lumo-secondary-text-color);
-      }
-      .hint {
-        color: var(--lumo-secondary-text-color);
-        font-size: var(--lumo-font-size-s);
-      }
-      .error-line {
-        color: var(--lumo-error-text-color);
-      }
-      .section-title {
-        font-weight: 600;
-        font-size: var(--lumo-font-size-s);
-        text-transform: uppercase;
-        color: var(--lumo-secondary-text-color);
-        margin-top: 8px;
-      }
-    `;
-  }
+  static styles = css`
+    :host {
+      display: contents;
+    }
+  `;
 
-  @property({ type: Boolean })
-  opened = false;
-
-  @property({ attribute: false })
-  template: TerraformTemplateManifest | null = null;
-
-  @state()
-  private projects: ProjectApiModel[] = [];
-
-  @state()
-  private environments: EnvironmentApiModel[] = [];
-
-  @state()
-  private selectedProject: ProjectApiModel | null = null;
-
-  @state()
-  private selectedEnvironmentName: string = '';
-
-  @state()
-  private componentName = '';
-
-  @state()
-  private paramValues: Record<string, string> = {};
-
-  @state()
-  private submitting = false;
-
-  @state()
-  private error: string | null = null;
+  @property({ type: Boolean }) opened = false;
+  @property({ attribute: false }) template: TerraformTemplateManifest | null =
+    null;
+  @state() private projects: ProjectApiModel[] = [];
+  @state() private environments: EnvironmentApiModel[] = [];
+  @state() private components: ComponentApiModel[] = [];
+  @state() private selectedProject: ProjectApiModel | null = null;
+  @state() private selectedComponent: ComponentApiModel | null = null;
+  @state() private selectedEnvironmentName = '';
+  @state() private componentName = '';
+  @state() private createNew = true;
+  @state() private paramValues: Record<string, string> = {};
+  @state() private step = 0;
+  @state() private projectsLoading = false;
+  @state() private targetLoading = false;
+  @state() private submitting = false;
+  @state() private error: string | null = null;
 
   private projectsApi = new RefDataProjectsApi(dorcApiConfiguration);
-  private envMappingsApi = new RefDataProjectEnvironmentMappingsApi(dorcApiConfiguration);
+  private componentsApi = new RefDataComponentsApi(dorcApiConfiguration);
+  private envMappingsApi = new RefDataProjectEnvironmentMappingsApi(
+    dorcApiConfiguration
+  );
   private terraformApi = new TerraformApi(dorcApiConfiguration);
+  private requestToken = 0;
+  private context: TemplateDeploymentContext = {};
 
-  // Monotonic token guarding the environments request. Each new request
-  // (or anything that invalidates the current environment list, e.g. a
-  // project switch) bumps it; a response is applied only if its captured
-  // token still matches, so a slow response for a previously selected
-  // project can never overwrite the list for the current one.
-  private environmentsRequestToken = 0;
-
-  open(template: TerraformTemplateManifest) {
+  open(
+    template: TerraformTemplateManifest,
+    context: TemplateDeploymentContext = {}
+  ) {
+    if (this.submitting) return;
+    const token = ++this.requestToken;
     this.template = template;
+    this.context = context;
     this.componentName = template.Name;
     this.selectedProject = null;
+    this.selectedComponent = null;
     this.selectedEnvironmentName = '';
-    // Invalidate any environments request still in flight from a previous
-    // use of this long-lived dialog.
-    this.environmentsRequestToken += 1;
+    this.projects = [];
     this.environments = [];
+    this.components = [];
+    this.createNew = true;
     this.paramValues = {};
-    // Pre-fill defaults from the manifest.
-    for (const p of template.Parameters ?? []) {
-      if (p.Default != null && p.Default !== '') {
-        this.paramValues = { ...this.paramValues, [p.Name]: p.Default };
-      } else if (p.Type === 'Bool' && p.Required) {
-        // An unchecked checkbox is a valid value ('false'), but
-        // checked-changed only fires when the box is toggled, so without
-        // seeding here a required Bool with no default could only be
-        // satisfied by checking and unchecking the box. Only required Bools
-        // are seeded: seeding an OPTIONAL defaultless Bool would submit
-        // 'false' for an untouched box and override the Terraform module's
-        // own variable default, which must win when the user expresses no
-        // preference.
-        this.paramValues = { ...this.paramValues, [p.Name]: 'false' };
-      }
-    }
+    this.step = 0;
     this.error = null;
+    this.targetLoading = false;
+    this.projectsLoading = true;
     this.opened = true;
-    this.loadProjects();
-  }
-
-  private loadProjects() {
     this.projectsApi.refDataProjectsGet().subscribe({
-      next: (data) => {
-        this.projects = data ?? [];
+      next: data => {
+        if (token !== this.requestToken || !this.opened) return;
+        this.projects = [...(data ?? [])].sort((a, b) =>
+          (a.ProjectName ?? '').localeCompare(b.ProjectName ?? '')
+        );
+        this.projectsLoading = false;
+        const project = this.projects.find(
+          p => p.ProjectName === context.projectName
+        );
+        if (project) this.onProjectChange(project);
       },
-      error: (err) => {
-        this.error = retrieveErrorMessage(err) ?? 'Failed to load projects.';
-      },
+      error: err => {
+        if (token !== this.requestToken || !this.opened) return;
+        this.projectsLoading = false;
+        this.error =
+          retrieveErrorMessage(err) ??
+          'Failed to load projects. Close and try again.';
+      }
     });
   }
 
-  private loadEnvironmentsForProject(projectName: string) {
-    const token = ++this.environmentsRequestToken;
-    this.envMappingsApi
-      .refDataProjectEnvironmentMappingsGet({ project: projectName, includeRead: false })
-      .subscribe({
-        next: (wrapper: EnvironmentApiModelTemplateApiModel) => {
-          if (token !== this.environmentsRequestToken) return; // stale response
-          this.environments = wrapper.Items ?? [];
-        },
-        error: (err) => {
-          if (token !== this.environmentsRequestToken) return; // stale response
-          this.error = retrieveErrorMessage(err) ?? 'Failed to load environments for the chosen project.';
-          this.environments = [];
-        },
-      });
-  }
-
   private onProjectChange(project: ProjectApiModel | null) {
-    // Invalidate any in-flight environments request for the previous
-    // project; when a new project is chosen loadEnvironmentsForProject
-    // bumps the token again for its own request.
-    this.environmentsRequestToken += 1;
+    if (this.selectedProject === project) return;
+    const token = ++this.requestToken;
     this.selectedProject = project;
+    this.selectedComponent = null;
     this.selectedEnvironmentName = '';
     this.environments = [];
-    if (project?.ProjectName) {
-      this.loadEnvironmentsForProject(project.ProjectName);
+    this.components = [];
+    this.paramValues = {};
+    this.createNew = true;
+    this.error = null;
+    this.targetLoading = !!project?.ProjectName;
+    if (!project?.ProjectName) return;
+    forkJoin({
+      environments: this.envMappingsApi.refDataProjectEnvironmentMappingsGet({
+        project: project.ProjectName,
+        includeRead: false
+      }),
+      components: this.componentsApi.refDataComponentsGet({
+        id: project.ProjectName
+      })
+    }).subscribe({
+      next: data => {
+        if (token !== this.requestToken || !this.opened) return;
+        this.environments = [...(data.environments.Items ?? [])].sort((a, b) =>
+          (a.EnvironmentName ?? '').localeCompare(b.EnvironmentName ?? '')
+        );
+        this.components = data.components.Items ?? [];
+        this.targetLoading = false;
+        this.createNew = this.reusableComponents.length === 0;
+        this.selectedComponent = this.reusableComponents[0] ?? null;
+        const environment = this.environments.find(
+          e => e.EnvironmentName === this.context.environmentName
+        );
+        this.selectedEnvironmentName = environment?.EnvironmentName ?? '';
+      },
+      error: err => {
+        if (token !== this.requestToken || !this.opened) return;
+        this.targetLoading = false;
+        this.error =
+          retrieveErrorMessage(err) ??
+          'Failed to load project targets. Select the project again.';
+      }
+    });
+  }
+
+  private get reusableComponents() {
+    return this.components.filter(
+      c =>
+        c.ComponentType === ComponentType.Terraform &&
+        c.TerraformSourceType === TerraformSourceType.Catalog &&
+        c.TerraformTemplateName?.toLowerCase() ===
+          this.template?.Name.toLowerCase() &&
+        c.TerraformTemplateVersion === this.template?.Version &&
+        c.IsEnabled !== false
+    );
+  }
+
+  private get targetComponentName() {
+    return this.createNew
+      ? this.componentName.trim()
+      : (this.selectedComponent?.ComponentName ?? '');
+  }
+
+  private targetError(): string | null {
+    if (this.projectsLoading || this.targetLoading)
+      return 'Wait for the project targets to load.';
+    if (!this.selectedProject?.ProjectId) return 'Select a project.';
+    if (
+      !this.environments.some(
+        e => e.EnvironmentName === this.selectedEnvironmentName
+      )
+    )
+      return 'Select a mapped environment you can deploy to.';
+    if (!this.targetComponentName)
+      return 'Choose an existing component or enter a new component name.';
+    if (
+      this.createNew &&
+      this.components.some(
+        c =>
+          c.ComponentName?.toLowerCase() ===
+          this.targetComponentName.toLowerCase()
+      )
+    )
+      return 'That component already exists. Reuse it, or choose a different name for separate infrastructure.';
+    return null;
+  }
+
+  private inputError(): string | null {
+    for (const p of this.template?.Parameters ?? []) {
+      // Omitted inputs are resolved on the server, never fetched into the browser.
+      if (!(p.Name in this.paramValues)) continue;
+      const value = this.paramValues[p.Name];
+      if (p.Required && value === '')
+        return `Enter an override for ${p.Name}, or use its environment value.`;
+      if (value === '') continue;
+      if (p.AllowedValues?.length && !p.AllowedValues.includes(value))
+        return `Choose an allowed value for ${p.Name}.`;
+      if (p.Type === 'Number') {
+        const number = Number(value);
+        if (!Number.isFinite(number))
+          return `${p.Name} must be a finite number.`;
+        if (p.Min != null && number < p.Min)
+          return `${p.Name} must be at least ${p.Min}.`;
+        if (p.Max != null && number > p.Max)
+          return `${p.Name} must be at most ${p.Max}.`;
+      }
     }
+    return null;
+  }
+
+  private setOverride(parameter: TerraformTemplateParameter, enabled: boolean) {
+    if (enabled) {
+      this.paramValues = {
+        ...this.paramValues,
+        [parameter.Name]: parameter.Sensitive
+          ? ''
+          : (parameter.Default ?? (parameter.Type === 'Bool' ? 'false' : ''))
+      };
+    } else {
+      const values = { ...this.paramValues };
+      delete values[parameter.Name];
+      this.paramValues = values;
+    }
+    this.error = null;
   }
 
   private setParamValue(name: string, value: string) {
     this.paramValues = { ...this.paramValues, [name]: value };
   }
 
-  private clientValidate(): string | null {
-    if (!this.selectedProject) return 'Select a destination project.';
-    if (!this.selectedEnvironmentName) return 'Select a destination environment.';
-    if (!this.componentName) return 'Component name is required.';
-    if (!this.template) return 'Template is missing.';
-    for (const p of this.template.Parameters ?? []) {
-      const v = this.paramValues[p.Name];
-      if (p.Required && (v == null || v === '')) {
-        return `Parameter '${p.Name}' is required.`;
-      }
-      if (v != null && v !== '' && p.Pattern) {
-        try {
-          if (!new RegExp(p.Pattern).test(v)) {
-            return `Parameter '${p.Name}' does not match the manifest's pattern: ${p.Pattern}`;
-          }
-        } catch {
-          // Ignore invalid regex from manifest; server-side validator is canonical.
-        }
-      }
-      if (v != null && v !== '' && p.Type === 'Number') {
-        const n = Number(v);
-        if (Number.isNaN(n)) return `Parameter '${p.Name}' must be a number.`;
-        if (p.Min != null && n < p.Min) return `Parameter '${p.Name}' must be >= ${p.Min}.`;
-        if (p.Max != null && n > p.Max) return `Parameter '${p.Name}' must be <= ${p.Max}.`;
-      }
-    }
-    return null;
-  }
-
   render() {
     return html`
       <vaadin-dialog
-        .opened="${this.opened}"
-        @opened-changed="${(e: CustomEvent) => {
-          this.opened = e.detail.value;
-          // Closing via Escape / overlay dismiss routes through here rather
-          // than the Cancel/submit handlers; clear entered (possibly
-          // sensitive) values on every close so they never linger in this
-          // long-lived component's state.
-          if (!e.detail.value) this.clearEnteredValues();
-        }}"
-        header-title="Deploy from template${this.template ? `: ${this.template.Name}@${this.template.Version}` : ''}"
+        .opened=${this.opened}
+        .noCloseOnEsc=${this.submitting}
+        .noCloseOnOutsideClick=${this.submitting}
+        @opened-changed=${(e: CustomEvent<{ value: boolean }>) => {
+          if (!e.detail.value && !this.submitting) this.close();
+        }}
+        header-title="Plan infrastructure${this.template ? `: ${this.template.Name} ${this.template.Version}` : ''}"
         ${dialogRenderer(this.bodyRenderer, [
           this.template,
           this.projects,
           this.environments,
+          this.components,
           this.selectedProject,
+          this.selectedComponent,
           this.selectedEnvironmentName,
           this.componentName,
+          this.createNew,
           this.paramValues,
+          this.step,
+          this.projectsLoading,
+          this.targetLoading,
           this.submitting,
-          this.error,
+          this.error
         ])}
-        ${dialogFooterRenderer(this.footerRenderer, [this.submitting, this.selectedProject, this.selectedEnvironmentName, this.componentName])}
+        ${dialogFooterRenderer(this.footerRenderer, [
+          this.step,
+          this.submitting,
+          this.projectsLoading,
+          this.targetLoading
+        ])}
       ></vaadin-dialog>
     `;
   }
 
-  private bodyRenderer = () => {
-    if (!this.template) return html``;
-    const t = this.template;
-    return html`
-      <div class="form">
-        <div class="hint">
-          The wizard creates a Catalog-mode component in the chosen project and
-          submits a deployment request against the chosen environment with the
-          parameter values you supply below. After submission you'll be taken
-          to the monitor-requests page where you can confirm the Terraform plan.
-        </div>
-
-        ${this.error ? html`<div class="error-line">${this.error}</div>` : ''}
-
-        <div class="section-title">Target</div>
-
-        <vaadin-combo-box
-          label="Destination project"
-          item-label-path="ProjectName"
-          item-value-path="ProjectId"
-          .items="${this.projects}"
-          .selectedItem="${this.selectedProject ?? undefined}"
-          @selected-item-changed="${(e: CustomEvent) =>
-            this.onProjectChange(e.detail.value as ProjectApiModel | null)}"
-          required
-        ></vaadin-combo-box>
-
-        <vaadin-combo-box
-          label="Destination environment"
-          item-label-path="EnvironmentName"
-          item-value-path="EnvironmentName"
-          .items="${this.environments}"
-          .value="${this.selectedEnvironmentName}"
-          @value-changed="${(e: CustomEvent) =>
-            (this.selectedEnvironmentName = (e.detail.value as string) ?? '')}"
-          .disabled="${!this.selectedProject}"
-          required
-        ></vaadin-combo-box>
-
-        <vaadin-text-field
-          label="Component name"
-          .value="${this.componentName}"
-          @value-changed="${(e: CustomEvent) => (this.componentName = (e.detail.value as string) ?? '')}"
-          helper-text="Defaults to the template name. Must be unique within the project."
-          required
-        ></vaadin-text-field>
-
-        <div class="section-title">Inputs</div>
-        <div class="params">
-          ${(t.Parameters ?? []).map((p) => this.paramRenderer(p))}
-        </div>
+  private bodyRenderer = () => html`
+    <div
+      style="display:flex;flex-direction:column;gap:var(--lumo-space-m);min-width:0;overflow-wrap:anywhere;"
+      aria-busy=${this.submitting}
+    >
+      <div role="status" aria-live="polite">
+        Step ${this.step + 1} of 3:
+        <strong>${['Target', 'Inputs', 'Review'][this.step]}</strong>
       </div>
-    `;
-  };
+      ${this.error ? html`<div role="alert" style="color:var(--lumo-error-text-color)">${this.error}</div>` : ''}
+      ${this.step === 0 ? this.targetRenderer() : this.step === 1 ? this.inputsRenderer() : this.reviewRenderer()}
+    </div>
+  `;
 
-  private paramRenderer = (p: TerraformTemplateParameter) => {
-    const value = this.paramValues[p.Name] ?? '';
-    const helper = `${p.Description ?? ''}${p.Required ? ' (required)' : ''}${p.Default ? ` default: ${p.Default}` : ''}`;
-    if (p.Sensitive) {
-      return html`
-        <div class="param-row">
-          <div class="param-label">
-            <code>${p.Name}</code>
-            <div class="param-help">sensitive · ${p.Type}</div>
-          </div>
-          <vaadin-password-field
-            .value="${value}"
-            @value-changed="${(e: CustomEvent) => this.setParamValue(p.Name, (e.detail.value as string) ?? '')}"
-            helper-text="${helper}"
-            ?required="${p.Required}"
-          ></vaadin-password-field>
-        </div>
-      `;
+  private targetRenderer = () => html`
+    <p style="margin:0">
+      A template defines a reusable project component, not a new DOrc
+      environment. Select an existing mapped environment. Reuse the same
+      component to update its infrastructure there; a new component represents
+      separate infrastructure.
+    </p>
+    <vaadin-combo-box
+      label="Project"
+      item-label-path="ProjectName"
+      item-value-path="ProjectId"
+      .items=${this.projects}
+      .selectedItem=${this.selectedProject ?? undefined}
+      .disabled=${this.projectsLoading}
+      @selected-item-changed=${(
+        e: CustomEvent<{ value: ProjectApiModel | null }>
+      ) => this.onProjectChange(e.detail.value ?? null)}
+      helper-text="Creating or reusing a template here requires project ownership or administrator access."
+      required
+    ></vaadin-combo-box>
+    ${this.projectsLoading || this.targetLoading ? html`<div role="status">Loading project targets...</div>` : ''}
+    <vaadin-combo-box
+      label="DOrc environment"
+      item-label-path="EnvironmentName"
+      item-value-path="EnvironmentName"
+      .items=${this.environments}
+      .value=${this.selectedEnvironmentName}
+      .disabled=${!this.selectedProject || this.targetLoading}
+      @value-changed=${(e: CustomEvent<{ value: string }>) => {
+        const name = e.detail.value ?? '';
+        if (name !== this.selectedEnvironmentName) {
+          this.selectedEnvironmentName = name;
+          this.paramValues = {};
+        }
+      }}
+      helper-text="Only mapped environments with deployment access are listed. Inputs and state belong to this target."
+      required
+    ></vaadin-combo-box>
+    ${
+      this.selectedProject && !this.targetLoading && !this.environments.length
+        ? html`<p role="status">
+            No deployable environments. Map the project to an environment and
+            obtain deployment access first.
+          </p>`
+        : ''
     }
-    if (p.Type === 'Bool') {
-      return html`
-        <div class="param-row">
-          <div class="param-label">
-            <code>${p.Name}</code>
-            <div class="param-help">${p.Type}</div>
-          </div>
-          <div>
+    ${
+      this.reusableComponents.length
+        ? html`
             <vaadin-checkbox
-              .checked="${value === 'true'}"
-              @checked-changed="${(e: CustomEvent) =>
-                this.setParamValue(p.Name, (e.detail.value as boolean) ? 'true' : 'false')}"
-              label="${helper}"
+              label="Create a separate component instead of reusing one"
+              .checked=${this.createNew}
+              @checked-changed=${(e: CustomEvent<{ value: boolean }>) => (this.createNew = e.detail.value)}
             ></vaadin-checkbox>
-          </div>
-        </div>
-      `;
+          `
+        : ''
     }
-    if (p.AllowedValues && p.AllowedValues.length > 0) {
-      return html`
-        <div class="param-row">
-          <div class="param-label">
-            <code>${p.Name}</code>
-            <div class="param-help">${p.Type} · allow-list</div>
-          </div>
-          <vaadin-combo-box
-            .items="${p.AllowedValues}"
-            .value="${value}"
-            @value-changed="${(e: CustomEvent) => this.setParamValue(p.Name, (e.detail.value as string) ?? '')}"
-            helper-text="${helper}"
-            ?required="${p.Required}"
-          ></vaadin-combo-box>
-        </div>
-      `;
+    ${
+      this.createNew
+        ? html`
+            <vaadin-text-field
+              label="New component name"
+              .value=${this.componentName}
+              @value-changed=${(e: CustomEvent<{ value: string }>) => (this.componentName = e.detail.value ?? '')}
+              helper-text="Keep this identity stable for subsequent deployments. Component names must be unique."
+              maxlength="64"
+              required
+            ></vaadin-text-field>
+          `
+        : html`
+            <vaadin-combo-box
+              label="Existing component"
+              item-label-path="ComponentName"
+              .items=${this.reusableComponents}
+              .selectedItem=${this.selectedComponent ?? undefined}
+              @selected-item-changed=${(
+          e: CustomEvent<{ value: ComponentApiModel | null }>
+        ) => (this.selectedComponent = e.detail.value ?? null)}
+              helper-text="Enabled components pinned to this exact template version."
+              required
+            ></vaadin-combo-box>
+          `
     }
-    if (p.Type === 'Number') {
-      return html`
-        <div class="param-row">
-          <div class="param-label">
-            <code>${p.Name}</code>
-            <div class="param-help">${p.Type}${p.Min != null ? ` · min ${p.Min}` : ''}${p.Max != null ? ` · max ${p.Max}` : ''}</div>
-          </div>
-          <vaadin-number-field
-            .value="${value}"
-            @value-changed="${(e: CustomEvent) => this.setParamValue(p.Name, (e.detail.value as string) ?? '')}"
-            helper-text="${helper}"
-            ?required="${p.Required}"
-            .min="${p.Min ?? undefined}"
-            .max="${p.Max ?? undefined}"
-          ></vaadin-number-field>
-        </div>
-      `;
-    }
-    // String (default)
-    return html`
-      <div class="param-row">
-        <div class="param-label">
-          <code>${p.Name}</code>
-          <div class="param-help">${p.Type}${p.Pattern ? ' · pattern' : ''}</div>
-        </div>
-        <vaadin-text-field
-          .value="${value}"
-          @value-changed="${(e: CustomEvent) => this.setParamValue(p.Name, (e.detail.value as string) ?? '')}"
-          helper-text="${helper}"
-          ?required="${p.Required}"
-          .pattern="${p.Pattern ?? ''}"
-        ></vaadin-text-field>
-      </div>
-    `;
-  };
+  `;
 
-  // Clears any entered parameter values (which may include a plaintext
-  // sensitive value, e.g. administrator_password) so they do not linger in
-  // this long-lived component's reactive state after the dialog closes.
-  private clearEnteredValues() {
-    this.paramValues = {};
-    this.error = null;
+  private inputsRenderer = () => html`
+    <p style="margin:0">
+      Inputs use DOrc properties for
+      <strong>${this.selectedEnvironmentName}</strong>, falling back to module
+      defaults. Override only values that should differ for this request.
+      Overrides do not update environment variables and are cleared if you
+      change the target.
+    </p>
+    <p style="margin:0">
+      Required values are checked on submission. Inherited values, including
+      secrets, are not loaded into this form.
+      <a
+        href="/environment/${encodeURIComponent(this.selectedEnvironmentName)}/variables"
+        target="_blank"
+        rel="noopener"
+      >
+        Manage environment variables
+      </a>
+    </p>
+    ${(this.template?.Parameters ?? []).map(
+      p => html`
+        <div
+          style="display:flex;flex-direction:column;gap:var(--lumo-space-xs);border-top:1px solid var(--lumo-contrast-10pct);padding-top:var(--lumo-space-s)"
+        >
+          <strong
+            >${p.Name}${p.Required ? ' (required)' : ''}${p.Sensitive ? ' (sensitive)' : ''}</strong
+          >
+          <span>${p.Description ?? ''}</span>
+          <span
+            style="font-size:var(--lumo-font-size-s);color:var(--lumo-secondary-text-color)"
+          >
+            ${p.Name in this.paramValues ? 'Request override' : 'Environment property, otherwise module default'}
+            ${!p.Sensitive && p.Default != null ? ` (default: ${p.Default})` : ''}
+          </span>
+          <vaadin-checkbox
+            .label=${`Override ${p.Name} for this request`}
+            .checked=${p.Name in this.paramValues}
+            @checked-changed=${(e: CustomEvent<{ value: boolean }>) =>
+            this.setOverride(p, e.detail.value)}
+          ></vaadin-checkbox>
+          ${p.Name in this.paramValues ? this.paramRenderer(p) : ''}
+        </div>
+      `
+    )}
+  `;
+
+  private paramRenderer(p: TerraformTemplateParameter) {
+    const value = this.paramValues[p.Name] ?? '';
+    const changed = (e: CustomEvent<{ value: string }>) =>
+      this.setParamValue(p.Name, e.detail.value ?? '');
+    if (p.Sensitive)
+      return html` <vaadin-password-field
+        .label=${p.Name}
+        .value=${value}
+        @value-changed=${changed}
+        ?required=${p.Required}
+        autocomplete="new-password"
+      ></vaadin-password-field>`;
+    if (p.AllowedValues?.length)
+      return html` <vaadin-combo-box
+        .label=${p.Name}
+        .items=${p.AllowedValues}
+        .value=${value}
+        @value-changed=${changed}
+        ?required=${p.Required}
+      ></vaadin-combo-box>`;
+    if (p.Type === 'Bool')
+      return html` <vaadin-checkbox
+        .label=${p.Name}
+        .checked=${value === 'true'}
+        @checked-changed=${(e: CustomEvent<{ value: boolean }>) =>
+          this.setParamValue(p.Name, e.detail.value ? 'true' : 'false')}
+      ></vaadin-checkbox>`;
+    if (p.Type === 'Number')
+      return html` <vaadin-number-field
+        .label=${p.Name}
+        .value=${value}
+        @value-changed=${changed}
+        ?required=${p.Required}
+        .min=${p.Min ?? undefined}
+        .max=${p.Max ?? undefined}
+      ></vaadin-number-field>`;
+    return html` <vaadin-text-field
+      .label=${p.Name}
+      .value=${value}
+      @value-changed=${changed}
+      ?required=${p.Required}
+    ></vaadin-text-field>`;
   }
+
+  private reviewRenderer = () => html`
+    <dl
+      style="margin:0;display:grid;grid-template-columns:auto minmax(0,1fr);gap:var(--lumo-space-s)"
+    >
+      <dt>Project</dt>
+      <dd style="margin:0">${this.selectedProject?.ProjectName}</dd>
+      <dt>Environment</dt>
+      <dd style="margin:0">${this.selectedEnvironmentName}</dd>
+      <dt>Component</dt>
+      <dd style="margin:0">
+        ${this.targetComponentName} (${this.createNew ? 'create' : 'reuse'})
+      </dd>
+      <dt>Template</dt>
+      <dd style="margin:0">${this.template?.Name} ${this.template?.Version}</dd>
+    </dl>
+    <p style="margin:0">
+      The project, component and environment identify the Terraform state.
+      Reusing this component in this environment updates the same
+      infrastructure; deploying it to another environment uses separate state.
+    </p>
+    <div style="display:flex;flex-direction:column;gap:var(--lumo-space-xs)">
+      ${(this.template?.Parameters ?? []).map(
+        p => html`
+          <div>
+            <strong>${p.Name}:</strong> ${
+          p.Name in this.paramValues
+            ? p.Sensitive
+              ? 'Sensitive override (hidden)'
+              : this.paramValues[p.Name] || '(empty override)'
+            : 'Environment property / module default'
+        }
+          </div>
+        `
+      )}
+    </div>
+    <p style="margin:0">
+      Submit creates a deployment request and generates a plan. It does
+      <strong>not</strong> apply changes. Review the plan in deployment results
+      and explicitly confirm it before Terraform applies it.
+    </p>
+    ${this.template?.Deprecated ? html`<p role="alert">This template version is deprecated. Review its suitability before proceeding.</p>` : ''}
+  `;
 
   private footerRenderer = () => html`
     <vaadin-button
       theme="tertiary"
-      @click="${() => {
-        this.opened = false;
-        this.clearEnteredValues();
-      }}"
-      .disabled="${this.submitting}"
+      @click=${() => this.close()}
+      .disabled=${this.submitting}
+      >Cancel</vaadin-button
     >
-      Cancel
-    </vaadin-button>
+    ${
+      this.step > 0
+        ? html` <vaadin-button
+            @click=${() => {
+        this.step -= 1;
+        this.error = null;
+      }}
+            .disabled=${this.submitting}
+            >Back</vaadin-button
+          >`
+        : ''
+    }
     <vaadin-button
       theme="primary"
-      @click="${() => this.submit()}"
-      .disabled="${this.submitting || !this.selectedProject || !this.selectedEnvironmentName || !this.componentName}"
+      @click=${() => this.advance()}
+      .disabled=${this.submitting || this.projectsLoading || this.targetLoading}
     >
-      Deploy
+      ${this.submitting ? 'Submitting...' : this.step === 2 ? 'Submit plan request' : 'Continue'}
     </vaadin-button>
   `;
 
+  private advance() {
+    if (this.submitting) return;
+    this.error =
+      this.targetError() ?? (this.step > 0 ? this.inputError() : null);
+    if (this.error) return;
+    if (this.step < 2) this.step += 1;
+    else this.submit();
+  }
+
+  private close() {
+    if (this.submitting) return;
+    this.opened = false;
+    this.requestToken += 1;
+    this.paramValues = {};
+    this.error = null;
+  }
+
   private submit() {
-    if (!this.template || !this.selectedProject || !this.selectedEnvironmentName || !this.componentName) return;
-
-    const validation = this.clientValidate();
-    if (validation) {
-      this.error = validation;
+    if (!this.template || !this.selectedProject?.ProjectId || this.submitting)
       return;
-    }
-
     this.submitting = true;
     this.error = null;
-
-    const projectId = this.selectedProject.ProjectId as number;
-
+    const componentName = this.targetComponentName;
+    const environmentName = this.selectedEnvironmentName;
     this.terraformApi
       .terraformTemplateInstantiatePost({
         name: this.template.Name,
         version: this.template.Version,
         body: {
-          ProjectId: projectId,
-          ComponentName: this.componentName,
-          ParentComponentId: null,
-          EnvironmentName: this.selectedEnvironmentName,
-          Parameters: this.paramValues,
-        } as any,
+          ProjectId: this.selectedProject.ProjectId,
+          ComponentName: componentName,
+          ParentComponentId: this.createNew
+            ? null
+            : this.selectedComponent?.ParentId || null,
+          EnvironmentName: environmentName,
+          Parameters: { ...this.paramValues }
+        }
       })
       .subscribe({
-        next: (response) => {
+        next: response => {
           this.submitting = false;
-          this.opened = false;
-          // The wizard always sets EnvironmentName, so the server replies
-          // with the create-and-deploy envelope.
-          const requestId = (response as TerraformTemplateInstantiateResponseApiModel)?.requestId;
-          const message = requestId
-            ? `Created component '${this.componentName}' and submitted deploy request #${requestId} to ${this.selectedEnvironmentName}.`
-            : `Created component '${this.componentName}'.`;
-          const n = Notification.show(message, { duration: 5000, position: 'bottom-end' });
-          n.setAttribute('theme', 'success');
-          this.clearEnteredValues();
-          navigate('/monitor-requests');
+          if (!response.requestId || response.requestId <= 0) {
+            this.error =
+              'No deployment request ID was returned. Check deployment requests before retrying.';
+            return;
+          }
+          this.close();
+          const notification = Notification.show(
+            `Plan request #${response.requestId} submitted for ${componentName} in ${environmentName}. Review the plan before applying.`,
+            { duration: 8000, position: 'bottom-end' }
+          );
+          notification.setAttribute('theme', 'success');
+          navigate(`/monitor-result/${response.requestId}`);
         },
-        error: (err: any) => {
+        error: err => {
           this.submitting = false;
-          this.error = retrieveErrorMessage(err) ?? 'Failed to create the component / deploy request.';
-        },
+          this.error =
+            retrieveErrorMessage(err) ??
+            'Could not submit the plan request. Review the target and inputs.';
+        }
       });
   }
 }
