@@ -247,15 +247,13 @@ namespace Dorc.Api.Controllers
 
             var projectComponents = _projectsPersistentSource.GetComponentsForProject(project.ProjectName).ToList();
 
-            var deployRequested = !string.IsNullOrWhiteSpace(request.EnvironmentName);
-
-            if (deployRequested)
+            if (deployEnvironment is not null)
             {
                 // The deploy request is only legal for callers who can
                 // modify the target environment. Validate that before we
                 // create or reuse any component so invalid requests leave no
                 // persisted side effects behind.
-                if (!_apiSecurityService.CanModifyEnvironment(User, deployEnvironment!.EnvironmentName))
+                if (!_apiSecurityService.CanModifyEnvironment(User, deployEnvironment.EnvironmentName))
                 {
                     return StatusCode(StatusCodes.Status403Forbidden,
                         $"Forbidden: caller cannot modify environment '{deployEnvironment.EnvironmentName}'.");
@@ -267,7 +265,7 @@ namespace Dorc.Api.Controllers
                 // only when runtime would rely on them.
                 var supplied = (request.Parameters ?? new Dictionary<string, string>())
                     .ToDictionary(kv => kv.Key, kv => (string?)kv.Value);
-                var validationInputs = BuildValidationInputs(manifest, supplied, deployEnvironment!);
+                var validationInputs = BuildValidationInputs(manifest, supplied, deployEnvironment);
                 var validation = _parameterValidator.Validate(manifest, validationInputs);
                 if (!validation.IsValid)
                 {
@@ -310,7 +308,7 @@ namespace Dorc.Api.Controllers
                     return Conflict(
                         $"A component named '{componentName}' already exists in project '{project.ProjectName}' under a different parent. Choose a different component name or retry with the original parent.");
                 }
-                if (!deployRequested || !isIdenticalCatalogComponent)
+                if (deployEnvironment is null || !isIdenticalCatalogComponent)
                 {
                     return Conflict(
                         $"A component named '{componentName}' already exists in project '{project.ProjectName}'. Choose a different component name.");
@@ -374,7 +372,7 @@ namespace Dorc.Api.Controllers
             // path could persist a component, so invalid requests cannot
             // leave side effects behind. If the deploy submission fails, the
             // component stays persisted so the caller can retry.
-            if (deployRequested)
+            if (deployEnvironment is not null)
             {
                 var supplied = (request.Parameters ?? new Dictionary<string, string>())
                     .ToDictionary(kv => kv.Key, kv => (string?)kv.Value);
@@ -398,7 +396,7 @@ namespace Dorc.Api.Controllers
                 var requestDto = new RequestDto
                 {
                     Project = project.ProjectName,
-                    Environment = deployEnvironment?.EnvironmentName ?? request.EnvironmentName,
+                    Environment = deployEnvironment.EnvironmentName,
                     BuildUrl = BuildDetails.CatalogSentinel,
                     BuildText = string.Empty,
                     BuildNum = string.Empty,

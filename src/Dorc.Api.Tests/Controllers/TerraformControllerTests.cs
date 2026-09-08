@@ -651,14 +651,43 @@ namespace Dorc.Api.Tests.Controllers
         }
 
         [TestMethod]
-        public async Task InstantiateTemplate_CreateOnlyWithoutEnvironment_Returns200AndDoesNotSubmitRequest()
+        public async Task InstantiateTemplate_UnknownEnvironment_Returns400BeforeCreatingComponent()
+        {
+            GivenTemplateAndProject(Manifest());
+            _environments.GetEnvironment(Arg.Any<string>()).Returns((EnvironmentApiModel?)null);
+
+            var result = await _controller.InstantiateTemplate(
+                TemplateName,
+                TemplateVersion,
+                new TerraformTemplateInstantiateRequestApiModel
+                {
+                    ProjectId = ProjectId,
+                    EnvironmentName = "MissingEnvironment"
+                },
+                CancellationToken.None);
+
+            Assert.IsInstanceOfType(result, typeof(BadRequestObjectResult));
+            StringAssert.Contains((string)((BadRequestObjectResult)result).Value!, "MissingEnvironment");
+            _manageProjects.DidNotReceiveWithAnyArgs().CreateComponent(default!, default, default, default!);
+            _requestService.DidNotReceiveWithAnyArgs().CreateRequest(default!, default!);
+        }
+
+        [TestMethod]
+        [DataRow(null)]
+        [DataRow("")]
+        [DataRow("   ")]
+        public async Task InstantiateTemplate_CreateOnlyWithoutEnvironment_Returns200AndDoesNotSubmitRequest(string? environmentName)
         {
             GivenTemplateAndProject(Manifest());
 
             var result = await _controller.InstantiateTemplate(
                 TemplateName,
                 TemplateVersion,
-                new TerraformTemplateInstantiateRequestApiModel { ProjectId = ProjectId },
+                new TerraformTemplateInstantiateRequestApiModel
+                {
+                    ProjectId = ProjectId,
+                    EnvironmentName = environmentName
+                },
                 CancellationToken.None);
 
             Assert.IsInstanceOfType(result, typeof(OkObjectResult), "Create-only mode returns 200.");
@@ -675,6 +704,7 @@ namespace Dorc.Api.Tests.Controllers
                 Arg.Is<ComponentApiModel>(c => c.ComponentId == 0),
                 ProjectId, Arg.Any<int?>(), Arg.Any<string>());
             _requestService.DidNotReceiveWithAnyArgs().CreateRequest(default!, default!);
+            _environments.DidNotReceiveWithAnyArgs().GetEnvironment(default!);
         }
 
         [TestMethod]
