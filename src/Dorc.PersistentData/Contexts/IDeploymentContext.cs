@@ -35,6 +35,12 @@ namespace Dorc.PersistentData.Contexts
         DbSet<RefDataAudit> RefDataAudits { get; set; }
         DbSet<RefDataAuditAction> RefDataAuditActions { get; set; }
         DbSet<DaemonAudit> DaemonAudits { get; set; }
+        DbSet<Container> Containers { get; set; }
+        DbSet<CloudResource> CloudResources { get; set; }
+        DbSet<ApiRegistration> ApiRegistrations { get; set; }
+        DbSet<ContainerAudit> ContainerAudits { get; set; }
+        DbSet<CloudResourceAudit> CloudResourceAudits { get; set; }
+        DbSet<ApiRegistrationAudit> ApiRegistrationAudits { get; set; }
         DbSet<DaemonObservation> DaemonObservations { get; set; }
         DbSet<ServerAudit> ServerAudits { get; set; }
         DbSet<DatabaseAudit> DatabaseAudits { get; set; }
