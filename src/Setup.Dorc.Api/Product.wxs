@@ -1,0 +1,73 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
+	<?include Dependencies.wxi?>
+	<Package Name="DOrc API" Language="1033" Version="$(var.ProductVersion)" Manufacturer="SEFE" UpgradeCode="{BDA17BEA-8D7D-4074-B051-AE886213D833}" ProductCode="{2C1F6B2B-BECD-45B8-906C-BF82B33235B0}">
+		<Property Id="DOTNET.VERSION" Value="4.0.30319" />
+
+		<Media Id="1" Cabinet="media1.cab" EmbedCab="yes" />
+
+		<InstallExecuteSequence>
+			<Custom Action="ReconfigureLoadUserProfileRequestApi" Before="InstallFinalize" Condition="NOT Installed" />
+		</InstallExecuteSequence>
+
+		<Feature Id="Api" Title="API" Level="1">
+			<ComponentRef Id="RemoveInstallRoot" />
+			<ComponentRef Id="RemoveWebFolder" />
+			<ComponentRef Id="RemoveRequestApiFolder" />
+
+			<!--
+				RegistryEntries moves here rather than staying with the UI: it is
+				machine-scoped, both web packages would otherwise want it, and the API
+				is the package that cannot function without it. Its GUID is unchanged,
+				so the registry value keeps its identity across the split.
+			-->
+			<ComponentRef Id="RegistryEntries" />
+
+			<ComponentRef Id="ApiCertificate" />
+			<ComponentRef Id="ApiCertificateProd" />
+
+			<ComponentRef Id="RequestApiComponent" />
+			<ComponentRef Id="RequestApiComponentProd" />
+			<ComponentGroupRef Id="DOrcAPIComGroup" />
+		</Feature>
+
+		<StandardDirectory Id="ProgramFiles64Folder">
+			<Directory Id="DOrcFolder" Name="DOrc">
+				<!--
+					The install root is shared with the other DOrc packages and owned by
+					none of them, so nothing here may delete recursively. Plain
+					RemoveFolder removes a directory only when it is already empty, so
+					every package can declare it and whichever is uninstalled last is the
+					one that succeeds. Kept identical to the equivalent component in the
+					other packages, deliberately.
+				-->
+				<Directory Id="INSTALLLOCATION" Name="Deploy">
+					<Component Id="RemoveInstallRoot" Guid="{38C48ECF-C6A2-4C8E-96DE-81C9354CB072}">
+						<CreateFolder />
+						<RemoveFile Id="Remove.Files" Directory="INSTALLLOCATION" Name="*.*" On="both" />
+						<RemoveFolder Id="Remove.Folder" On="both" />
+					</Component>
+					<Component Id="RegistryEntries" Guid="{78F39129-DF84-4BF7-B0CA-B23CA9E06D55}" Permanent="yes">
+						<RegistryKey Root="HKLM" Key="SYSTEM\CurrentControlSet\Control\Lsa">
+							<RegistryValue Type="integer" Name="DisableLoopbackCheck" Value="1" KeyPath="yes" />
+						</RegistryKey>
+					</Component>
+					<!-- Shared with the UI, so empty-only removal here too. -->
+					<Directory Id="WebFolder" Name="Web">
+						<Component Id="RemoveWebFolder" Guid="{F42F5817-8705-4FE0-8F1E-032C0868C90E}">
+							<CreateFolder />
+							<RemoveFolder Id="Remove.WebFolder" On="both" />
+						</Component>
+						<!-- Owned outright by this package: recursive cleanup is safe. -->
+						<Directory Id="RequestApi" Name="Api">
+							<Component Id="RemoveRequestApiFolder" Guid="{419215C7-1C5D-43A4-AF94-D33E382D6415}">
+								<CreateFolder />
+								<util:RemoveFolderEx Id="Remove.RequestApiEx" Property="RequestApi" On="both" />
+								<RemoveFolder Id="Remove.RequestApi" On="both" />
+							</Component>
+						</Directory>
+					</Directory>
+				</Directory>
+			</Directory>
+		</StandardDirectory>
+	</Package>
+</Wix>

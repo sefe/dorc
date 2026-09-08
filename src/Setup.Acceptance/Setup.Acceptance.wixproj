@@ -37,7 +37,7 @@
     </ProjectReference>
   </ItemGroup>
   <!--
-    Local-build fallback only — see the equivalent target in Setup.Dorc.wixproj
+    Local-build fallback only — see the equivalent target in Setup.Dorc.Api.wixproj
     for the full reasoning. CI runs src\InstallerPayload.proj first and passes
     DorcPayloadPrepublished=true, which skips this.
   -->

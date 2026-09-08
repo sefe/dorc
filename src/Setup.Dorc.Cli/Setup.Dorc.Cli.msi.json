@@ -1,0 +1,29 @@
+{
+  "ProductNames": [
+    "DOrc Command Line Tools"
+  ],
+  "ServerType": "WebServer",
+  "Services": [],
+  "Parameters": [
+    {
+      "MSIParameter": "DEPLOYAPI.ENDPOINT",
+      "DeployProperty": "DEPLOYAPI_ENDPOINT"
+    },
+    {
+      "MSIParameter": "DORC.API.CLIENTID",
+      "DeployProperty": "DORC_API_CLIENTID"
+    },
+    {
+      "MSIParameter": "DORC.API.CLIENTSECRET",
+      "DeployProperty": "DORC_API_CLIENTSECRET"
+    },
+    {
+      "MSIParameter": "DEPLOYMENT.DBSERVER",
+      "DeployProperty": "DEPLOYMENT_DBSERVER"
+    },
+    {
+      "MSIParameter": "DEPLOYMENT.DB",
+      "DeployProperty": "DEPLOYMENT_DB"
+    }
+  ]
+}

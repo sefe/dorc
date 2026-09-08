@@ -1,0 +1,29 @@
+{
+  "ProductNames": [
+    "DOrc Web"
+  ],
+  "ServerType": "WebServer",
+  "Services": [],
+  "Parameters": [
+    {
+      "MSIParameter": "SERVICE.PASSWORD",
+      "DeployProperty": "SERVICE_PASSWORD"
+    },
+    {
+      "MSIParameter": "SERVICE.IDENTITY",
+      "DeployProperty": "SERVICE_IDENTITY"
+    },
+    {
+      "MSIParameter": "DEPLOYAPI.ENDPOINT",
+      "DeployProperty": "DEPLOYAPI_ENDPOINT"
+    },
+    {
+      "MSIParameter": "DORCHELPERPAGE",
+      "DeployProperty": "DORCHELPERPAGE"
+    },
+    {
+      "MSIParameter": "CERTIFICATE.PASSWORD",
+      "DeployProperty": "CERTIFICATE_PASSWORD"
+    }
+  ]
+}

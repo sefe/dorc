@@ -235,7 +235,8 @@ config flip.
 ### 8.3 Kafka cluster connectivity
 
 Cutover deploy passes the following MSI parameters (per
-`Setup.Dorc.msi.json` / `Install.Orchestrator.bat`):
+`Setup.Dorc.Monitors.msi.json` / the split-package
+`Install.Orchestrator.bat`):
 
 - `KAFKA.BOOTSTRAPSERVERS` — comma-separated `host:port` list
   (production: Aiven cluster).

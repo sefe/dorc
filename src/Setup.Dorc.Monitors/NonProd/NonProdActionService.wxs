@@ -10,7 +10,16 @@
 						<util:ServiceConfig FirstFailureActionType="restart" SecondFailureActionType="restart" ThirdFailureActionType="restart" />
 					</ServiceInstall>
 
-					<ServiceControl Id="DeployMonitorServiceNonProdStartService" Wait="yes" Remove="uninstall" Name="DeployMonitorServiceNonProd" />
+					<!--
+						Two corrections, matching the Prod element:
+						Name must match the ServiceInstall above (DeploymentActionServiceNonProd);
+						it previously read DeployMonitorServiceNonProd, a service that is never
+						installed. And Stop="both" was absent entirely here while present on Prod,
+						so this element never stopped the running service before replacing its
+						executable. RunDeployment.ps1's blanket Stop-Services prelude has masked
+						both; IS S-010 makes that prelude conditional, which removes the mask.
+					-->
+					<ServiceControl Id="DeployMonitorServiceNonProdStartService" Wait="yes" Stop="both" Remove="uninstall" Name="DeploymentActionServiceNonProd" />
 
 					<File Id="NonProdDeployMonitorExe" KeyPath="yes" Source="$(var.Dorc.Monitor.TargetDir)DOrc.Monitor.exe" />
 

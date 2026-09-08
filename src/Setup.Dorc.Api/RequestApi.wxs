@@ -1,10 +1,55 @@
-﻿<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:iis="http://wixtoolset.org/schemas/v4/wxs/iis" xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util"
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:iis="http://wixtoolset.org/schemas/v4/wxs/iis" xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util"
 	 xmlns:Json="http://schemas.hegsie.com/wix/JsonExtension">
   <Fragment>
     <CustomAction Id="ReconfigureLoadUserProfileRequestApi" Directory="RequestApi" Execute="deferred" Impersonate="no" ExeCommand="[System64Folder]inetsrv\AppCmd.exe set apppool &quot;DeployApi&quot; -processmodel.loaduserprofile:true" Return="ignore" />
 
-	<Binary Id="certBinaryApi" SourceFile="DorcNonProdSSLCert.pfx"/>
-	<Binary Id="certBinaryApiProd" SourceFile="deploymentportal.pfx"/>
+	<Binary Id="certBinaryApi" SourceFile="$(var.DorcCertDir)\DorcNonProdSSLCert.pfx"/>
+	<Binary Id="certBinaryApiProd" SourceFile="$(var.DorcCertDir)\deploymentportal.pfx"/>
+
+	<!--
+		The certificates are hosted in their own components, and those components
+		are Permanent.
+
+		iis:Certificate compiles to a custom action, not a reference-counted
+		resource, so MSI will not stop one package's uninstall from stripping a
+		certificate another package is still bound to. Both this package and the
+		UI install the same two certificates into localMachine\root; if the
+		removal action ran, uninstalling either would break HTTPS for the other.
+		A Permanent component is never scheduled for removal, so it never runs.
+
+		The cost is that the certificates outlive the last package. That is the
+		trade this assumption accepts, and IS S-005 is the step that confirms or
+		replaces it — Shared components with matching GUIDs are the alternative,
+		giving real refcounting at the price of coupling the two packages'
+		component identity. Nothing here has been observed on a live host yet.
+	-->
+	<Component Id="ApiCertificate" Guid="{6CC28316-07CE-4139-BE6E-76F4C5B2DBC2}" Permanent="yes" Directory="RequestApi"
+	           Condition="ENVIRONMENTISPRODUCTION = &quot;FALSE&quot;">
+		<CreateFolder />
+		<iis:Certificate
+		BinaryRef="certBinaryApi"
+		Id="MySSLCertApi"
+		Name="DorcNonProdSSLCert.pfx"
+		Request="no"
+		StoreLocation="localMachine"
+		StoreName="root"
+		PFXPassword="[CERTIFICATE.PASSWORD]">
+		</iis:Certificate>
+	</Component>
+
+	<Component Id="ApiCertificateProd" Guid="{5335F7D5-287D-4F6D-A761-9071689F63FA}" Permanent="yes" Directory="RequestApi"
+	           Condition="ENVIRONMENTISPRODUCTION = &quot;TRUE&quot;">
+		<CreateFolder />
+		<iis:Certificate
+		BinaryRef="certBinaryApiProd"
+		Id="MySSLCertApiProd"
+		Name="deploymentportal.pfx"
+		Request="no"
+		StoreLocation="localMachine"
+		StoreName="root"
+		PFXPassword="[CERTIFICATE.PASSWORD]">
+		</iis:Certificate>
+	</Component>
 
 	<Component Id="RequestApiComponent" Guid="6c4716f9-3b27-4866-b0c6-4941658b0bab" KeyPath="yes" Directory="RequestApi" Condition="ENVIRONMENTISPRODUCTION = &quot;FALSE&quot;">
         <util:User Id="ApiUser" Name="[SERVICE.IDENTITY]" Password="[SERVICE.PASSWORD]" CreateUser="no" RemoveOnUninstall="no" LogonAsService="yes" />
@@ -12,15 +57,6 @@
 			<iis:RecycleTime Value="2:00" />
 		</iis:WebAppPool>
 
-		<iis:Certificate
-		 BinaryRef="certBinaryApi"
-		 Id="MySSLCertApi"
-		 Name="DorcNonProdSSLCert.pfx"
-		 Request="no"
-		 StoreLocation="localMachine"
-		 StoreName="root"
-		 PFXPassword="[CERTIFICATE.PASSWORD]">
-		</iis:Certificate>
 		
         <iis:WebSite Id="DOrcApi" SiteId="*" Description="DOrcApi" ConfigureIfExists="yes" AutoStart="yes" StartOnInstall="yes" Directory="RequestApi">
           <iis:WebDirProperties Id="SiteDirProperties" AnonymousAccess="yes" BasicAuthentication="no" WindowsAuthentication="yes" AuthenticationProviders="Negotiate,NTLM" />
@@ -104,15 +140,6 @@
 			  <iis:RecycleTime Value="2:00" />
 		  </iis:WebAppPool>
 
-		  <iis:Certificate
-		   BinaryRef="certBinaryApiProd"
-		   Id="MySSLCertApiProd"
-		   Name="deploymentportal.pfx"
-		   Request="no"
-		   StoreLocation="localMachine"
-		   StoreName="root"
-		   PFXPassword="[CERTIFICATE.PASSWORD]">
-		  </iis:Certificate>
 
 		  <iis:WebSite Id="DOrcApiProd" SiteId="*" Description="DOrcApi" ConfigureIfExists="yes" AutoStart="yes" StartOnInstall="yes" Directory="RequestApi">
 			  <iis:WebDirProperties Id="SiteDirPropertiesProd" AnonymousAccess="yes" BasicAuthentication="no" WindowsAuthentication="yes" AuthenticationProviders="Negotiate,NTLM" />
