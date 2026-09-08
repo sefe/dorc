@@ -115,6 +115,11 @@ jobs:
       # subdirectory.
       - name: tflint --init (pinned plugins from .tflint.hcl)
         working-directory: ${{ matrix.module }}
+        # GITHUB_TOKEN authenticates the plugin download's GitHub API calls;
+        # anonymous calls share one per-IP rate limit across all tenants of
+        # the runner fleet and intermittently 403.
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: tflint --init --config "${GITHUB_WORKSPACE}/.tflint.hcl"
       - name: tflint
         working-directory: ${{ matrix.module }}
