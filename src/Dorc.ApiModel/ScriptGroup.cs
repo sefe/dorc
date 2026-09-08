@@ -30,6 +30,33 @@ namespace Dorc.ApiModel
         public string GitHubRunId { get; set; }
         public string GitHubApiBaseUrl { get; set; }
 
+        // Platform-rendered Terraform state backend.
+        // Set by the Monitor dispatcher; consumed by the runner to write
+        // _dorc_backend.tf into the working directory before `terraform init`.
+        // When TerraformStateKey is null/empty the runner skips backend
+        // rendering (legacy behaviour) - this preserves backward compatibility
+        // until the consolidated lifecycle path is the default.
+        // Plain `string` (not `string?`) because Dorc.ApiModel targets
+        // netstandard2.0 / C# 7.3 - nullable reference types require C# 8+.
+        public string TerraformStateStorageAccount { get; set; }
+        public string TerraformStateContainerName { get; set; }
+        public string TerraformStateKey { get; set; }
+        public string TerraformStateResourceGroup { get; set; }
+
+        // Catalog reference. When TerraformSourceType=Catalog these identify
+        // the stock template the runner should resolve via ITemplateCatalog
+        //.
+        public string TerraformTemplateName { get; set; }
+        public string TerraformTemplateVersion { get; set; }
+
+        // Names of properties the request flags as sensitive (wizard
+        // parameters with sensitive: true). Additive: absent in payloads
+        // produced before the field existed, which deserializes as the empty
+        // default. The runner merges these into its log-redaction options so
+        // redaction of a flagged property does not depend on its NAME
+        // matching the heuristic pattern.
+        public IList<string> SensitivePropertyNames { get; set; } = new List<string>();
+
         public IDictionary<string, VariableValue> CommonProperties { get; set; }
         public IList<ScriptProperties> ScriptProperties { get; set; }
     }

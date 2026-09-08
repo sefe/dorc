@@ -1,53 +1,31 @@
 variable "resource_group_name" {
-  description = "Name of the resource group"
+  description = "Existing resource group."
   type        = string
-  default     = ""
 }
 
 variable "location" {
-  description = "Azure region for resources"
+  description = "Azure region."
   type        = string
-  default     = "East US"
-}
-
-variable "environment" {
-  description = "Environment name (dev, staging, prod)"
-  type        = string
-  default     = "dev"
-}
-
-variable "enable_sql_database" {
-  description = "Enable SQL Database deployment"
-  type        = bool
-  default     = false
-}
-
-variable "enable_sql_mi" {
-  description = "Enable SQL Managed Instance deployment"
-  type        = bool
-  default     = false
-}
-
-variable "database_name" {
-  description = "Name of the SQL database"
-  type        = string
-  default     = ""
 }
 
 variable "sql_server_name" {
-  description = "Name of the SQL server"
+  description = "SQL logical server name."
   type        = string
-  default     = ""
 }
 
-variable "sql_mi_name" {
-  description = "Name of the SQL Managed Instance"
+variable "database_name" {
+  description = "SQL database name."
   type        = string
-  default     = ""
+}
+
+variable "sql_admin_password" {
+  description = "Supplied at deploy time by a DOrc sensitive property; never committed to source. Min 16 chars."
+  type        = string
+  sensitive   = true
 }
 
 variable "tags" {
-  description = "Tags to apply to resources"
+  description = "Tags applied to deployed resources."
   type        = map(string)
   default     = {}
 }

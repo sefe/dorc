@@ -90,7 +90,7 @@ namespace Dorc.PersistentData.Sources
         // Shared filter/sort/page/project pipeline for the per-project and cross-project audit
         // queries. RefDataAudit.ProjectId is non-nullable in the EF model but the database column
         // permits NULL (FK has ON DELETE SET NULL), so a row whose project was deleted may surface
-        // with Project == null at runtime — guard the projection accordingly.
+        // with Project == null at runtime guard the projection accordingly.
         // The IDeploymentContext is required for the prior-Json lookup that powers the projects
         // audit page diff view: a correlated subquery is the cheapest way to fetch each row's
         // chronologically-prior same-project audit Json without N+1 round-trips or pulling the
@@ -182,7 +182,7 @@ namespace Dorc.PersistentData.Sources
 
             // For each row in the page, look up the chronologically-prior audit row's Json for
             // the same project. Implemented as a single EF query whose projection contains a
-            // correlated subquery — translates to one SQL statement with an OUTER APPLY (one
+            // correlated subquery translates to one SQL statement with an OUTER APPLY (one
             // round-trip total, regardless of page size). Skips rows with NULL ProjectId
             // (orphaned/project-deleted) since prior-lookup is meaningless for them.
             var pagedAuditIds = output.Items.Select(a => a.RefDataAuditId).ToList();
@@ -372,6 +372,8 @@ namespace Dorc.PersistentData.Sources
                         TerraformSourceType = apiComponent.TerraformSourceType,
                         TerraformGitBranch = apiComponent.TerraformGitBranch,
                         TerraformSubPath = apiComponent.TerraformSubPath,
+                        TerraformTemplateName = apiComponent.TerraformTemplateName,
+                        TerraformTemplateVersion = apiComponent.TerraformTemplateVersion,
                     };
 
                     // Only create Script entity for PowerShell components and Terraform with SharedFolder type
@@ -442,6 +444,8 @@ namespace Dorc.PersistentData.Sources
                 component.TerraformSourceType = apiComponent.TerraformSourceType;
                 component.TerraformGitBranch = apiComponent.TerraformGitBranch;
                 component.TerraformSubPath = apiComponent.TerraformSubPath;
+                component.TerraformTemplateName = apiComponent.TerraformTemplateName;
+                component.TerraformTemplateVersion = apiComponent.TerraformTemplateVersion;
 
                 if (component.Parent == null && parentId != null)
                     component.Parent = context.Components.First(x => x.Id == parentId);
@@ -738,6 +742,8 @@ namespace Dorc.PersistentData.Sources
                     TerraformSourceType = comp.TerraformSourceType,
                     TerraformGitBranch = comp.TerraformGitBranch,
                     TerraformSubPath = comp.TerraformSubPath,
+                    TerraformTemplateName = comp.TerraformTemplateName,
+                    TerraformTemplateVersion = comp.TerraformTemplateVersion,
                     PSVersion = script.PowerShellVersionNumber
                 };
 
@@ -754,6 +760,8 @@ namespace Dorc.PersistentData.Sources
                 TerraformSourceType = comp.TerraformSourceType,
                 TerraformGitBranch = comp.TerraformGitBranch,
                 TerraformSubPath = comp.TerraformSubPath,
+                TerraformTemplateName = comp.TerraformTemplateName,
+                TerraformTemplateVersion = comp.TerraformTemplateVersion,
             };
         }
 

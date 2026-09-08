@@ -74,6 +74,10 @@ namespace Dorc.Api.Controllers
                     refData);
                 _projectsPersistentSource.ValidateProject(refData.Project, HttpRequestType.Put);
 
+                // reject components that mix a catalog reference and a
+                // direct source before any persistence runs.
+                Validation.TerraformExclusivityValidator.ValidateAll(refData.Components);
+
                 _manageProjectsPersistentSource.ValidateComponents(refData.Components, refData.Project.ProjectId,
                     HttpRequestType.Put);
 
@@ -118,6 +122,10 @@ namespace Dorc.Api.Controllers
                 throw new Exception("User must be part of 'Admin' group to create new Projects");
 
             _projectsPersistentSource.ValidateProject(refData.Project, HttpRequestType.Post);
+
+            // reject components that mix a catalog reference and a
+            // direct source before any persistence runs.
+            Validation.TerraformExclusivityValidator.ValidateAll(refData.Components);
 
             _manageProjectsPersistentSource.ValidateComponents(refData.Components, refData.Project.ProjectId,
                 HttpRequestType.Post);

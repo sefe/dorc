@@ -15,7 +15,8 @@ namespace Dorc.Monitor.RunnerProcess
         public string RunnerLogPath { get; set; } = string.Empty;
         public string PlanFilePath { get; set; } = string.Empty;
         public string PlanContentFilePath { get; set; } = string.Empty;
-        public TerraformRunnerOperations TerrafromRunnerOperation { get; set; } = TerraformRunnerOperations.None;
+        public string LockFilePath { get; set; } = string.Empty;
+        public TerraformRunnerOperations TerraformRunnerOperation { get; set; } = TerraformRunnerOperations.None;
 
         private TerraformRunnerProcessStarter() { }
 
@@ -54,12 +55,20 @@ namespace Dorc.Monitor.RunnerProcess
             #endregion
                 
             var runnerFileInfo = new FileInfo(this.RunnerExecutableFullName);
+            // Path-valued arguments are quoted: the runner log / plan / lock
+            // paths live under configurable roots that can contain spaces,
+            // and CommandLineParser would otherwise split them into
+            // separate tokens.
             string commandLine = runnerFileInfo.Name
                 +" -p " + this.ScriptGroupPipeName
-                +" -l " + this.RunnerLogPath
-                +" -t " + this.PlanFilePath
-                +" -c " + this.PlanContentFilePath
-                +" -o " + (int)this.TerrafromRunnerOperation;
+                +" -l \"" + this.RunnerLogPath + "\""
+                +" -t \"" + this.PlanFilePath + "\""
+                +" -c \"" + this.PlanContentFilePath + "\""
+                +" -o " + (int)this.TerraformRunnerOperation;
+            if (!string.IsNullOrEmpty(this.LockFilePath))
+            {
+                commandLine += " -k \"" + this.LockFilePath + "\"";
+            }
 #if DEBUG
             commandLine += " --useFile=true";
 #endif

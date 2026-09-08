@@ -17,6 +17,9 @@ import { BaseAPI, throwIfNullOrUndefined, encodeURI } from '../runtime';
 import type { OperationOpts, HttpHeaders } from '../runtime';
 import type {
     TerraformPlanApiModel,
+    TerraformTemplateInstantiateRequestApiModel,
+    TerraformTemplateInstantiateResponseApiModel,
+    TerraformTemplateManifest,
 } from '../models';
 
 export interface TerraformPlanDeploymentResultIdConfirmPostRequest {
@@ -29,6 +32,21 @@ export interface TerraformPlanDeploymentResultIdDeclinePostRequest {
 
 export interface TerraformPlanDeploymentResultIdGetRequest {
     deploymentResultId: number;
+}
+
+export interface TerraformTemplateInstantiatePostRequest {
+    name: string;
+    version: string;
+    body?: TerraformTemplateInstantiateRequestApiModel;
+}
+
+export interface TerraformTemplateLatestGetRequest {
+    name: string;
+}
+
+export interface TerraformTemplateVersionGetRequest {
+    name: string;
+    version: string;
 }
 
 /**
@@ -103,6 +121,104 @@ export class TerraformApi extends BaseAPI {
 
         return this.request<TerraformPlanApiModel>({
             url: '/Terraform/plan/{deploymentResultId}'.replace('{deploymentResultId}', encodeURI(deploymentResultId)),
+            method: 'GET',
+            headers,
+        }, opts?.responseOpts);
+    };
+
+    /**
+     */
+    terraformTemplateInstantiatePost({ name, version, body }: TerraformTemplateInstantiatePostRequest): Observable<TerraformTemplateInstantiateResponseApiModel>
+    terraformTemplateInstantiatePost({ name, version, body }: TerraformTemplateInstantiatePostRequest, opts?: OperationOpts): Observable<AjaxResponse<TerraformTemplateInstantiateResponseApiModel>>
+    terraformTemplateInstantiatePost({ name, version, body }: TerraformTemplateInstantiatePostRequest, opts?: OperationOpts): Observable<TerraformTemplateInstantiateResponseApiModel | AjaxResponse<TerraformTemplateInstantiateResponseApiModel>> {
+        throwIfNullOrUndefined(name, 'name', 'terraformTemplateInstantiatePost');
+        throwIfNullOrUndefined(version, 'version', 'terraformTemplateInstantiatePost');
+
+        const headers: HttpHeaders = {
+            'Content-Type': 'application/json',
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
+        return this.request<TerraformTemplateInstantiateResponseApiModel>({
+            url: '/Terraform/templates/{name}/{version}/instantiate'.replace('{name}', encodeURI(name)).replace('{version}', encodeURI(version)),
+            method: 'POST',
+            headers,
+            body: body,
+        }, opts?.responseOpts);
+    };
+
+    /**
+     */
+    terraformTemplateLatestGet({ name }: TerraformTemplateLatestGetRequest): Observable<TerraformTemplateManifest>
+    terraformTemplateLatestGet({ name }: TerraformTemplateLatestGetRequest, opts?: OperationOpts): Observable<AjaxResponse<TerraformTemplateManifest>>
+    terraformTemplateLatestGet({ name }: TerraformTemplateLatestGetRequest, opts?: OperationOpts): Observable<TerraformTemplateManifest | AjaxResponse<TerraformTemplateManifest>> {
+        throwIfNullOrUndefined(name, 'name', 'terraformTemplateLatestGet');
+
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
+        return this.request<TerraformTemplateManifest>({
+            url: '/Terraform/templates/{name}'.replace('{name}', encodeURI(name)),
+            method: 'GET',
+            headers,
+        }, opts?.responseOpts);
+    };
+
+    /**
+     */
+    terraformTemplateVersionGet({ name, version }: TerraformTemplateVersionGetRequest): Observable<TerraformTemplateManifest>
+    terraformTemplateVersionGet({ name, version }: TerraformTemplateVersionGetRequest, opts?: OperationOpts): Observable<AjaxResponse<TerraformTemplateManifest>>
+    terraformTemplateVersionGet({ name, version }: TerraformTemplateVersionGetRequest, opts?: OperationOpts): Observable<TerraformTemplateManifest | AjaxResponse<TerraformTemplateManifest>> {
+        throwIfNullOrUndefined(name, 'name', 'terraformTemplateVersionGet');
+        throwIfNullOrUndefined(version, 'version', 'terraformTemplateVersionGet');
+
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
+        return this.request<TerraformTemplateManifest>({
+            url: '/Terraform/templates/{name}/{version}'.replace('{name}', encodeURI(name)).replace('{version}', encodeURI(version)),
+            method: 'GET',
+            headers,
+        }, opts?.responseOpts);
+    };
+
+    /**
+     */
+    terraformTemplatesGet(): Observable<Array<TerraformTemplateManifest>>
+    terraformTemplatesGet(opts?: OperationOpts): Observable<AjaxResponse<Array<TerraformTemplateManifest>>>
+    terraformTemplatesGet(opts?: OperationOpts): Observable<Array<TerraformTemplateManifest> | AjaxResponse<Array<TerraformTemplateManifest>>> {
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
+        return this.request<Array<TerraformTemplateManifest>>({
+            url: '/Terraform/templates',
             method: 'GET',
             headers,
         }, opts?.responseOpts);
