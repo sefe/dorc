@@ -480,50 +480,14 @@ namespace Dorc.Monitor
                 return null;
             }
 
+            byte[] scriptContent;
             try
             {
-                var baseline = ScriptContentHash.Of(File.ReadAllBytes(path));
-
-                // A synthetic principal, because there is no user here — this is the deployment
-                // engine baselining a script, and the audit entry should say so. The Monitor's
-                // claims reader reports the service's own configured identity whatever it is
-                // handed, so the name below is what makes the intent legible in code rather than
-                // what lands in the audit trail.
-                var engine = new GenericPrincipal(new GenericIdentity("DOrc deployment engine"), null);
-
-                var authoritativeBaseline =
-                    _scriptsPersistentSource.RecordContentHashIfUnrecorded(
-                        script.Id, baseline, engine);
-
-                if (string.IsNullOrWhiteSpace(authoritativeBaseline))
-                {
-                    logger.LogWarning(
-                        "Could not record a content baseline for script {ScriptId} ('{ScriptPath}')."
-                        + " It will be verified from whenever one is recorded.",
-                        script.Id, path);
-
-                    return null;
-                }
-
-                if (ScriptContentHash.Matches(authoritativeBaseline, baseline))
-                {
-                    logger.LogInformation(
-                        "Recorded a first-seen content baseline for script {ScriptId}"
-                        + " ('{ScriptPath}'). Subsequent deployments verify against it.",
-                        script.Id, path);
-                }
-                else
-                {
-                    logger.LogInformation(
-                        "Another deployment recorded the first content baseline for script"
-                        + " {ScriptId} ('{ScriptPath}'). This deployment will verify against that"
-                        + " authoritative baseline.",
-                        script.Id, path);
-                }
-
-                return authoritativeBaseline;
+                scriptContent = File.ReadAllBytes(path);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is IOException
+                or UnauthorizedAccessException
+                or System.Security.SecurityException)
             {
                 // Reading the share can fail for every ordinary reason. The deployment is about
                 // to fail on its own for the same reason and say so more usefully.
@@ -534,6 +498,47 @@ namespace Dorc.Monitor
 
                 return null;
             }
+
+            var baseline = ScriptContentHash.Of(scriptContent);
+
+            // A synthetic principal, because there is no user here — this is the deployment
+            // engine baselining a script, and the audit entry should say so. The Monitor's
+            // claims reader reports the service's own configured identity whatever it is
+            // handed, so the name below is what makes the intent legible in code rather than
+            // what lands in the audit trail.
+            var engine = new GenericPrincipal(new GenericIdentity("DOrc deployment engine"), null);
+
+            var authoritativeBaseline =
+                _scriptsPersistentSource.RecordContentHashIfUnrecorded(
+                    script.Id, baseline, engine);
+
+            if (string.IsNullOrWhiteSpace(authoritativeBaseline))
+            {
+                logger.LogWarning(
+                    "Could not record a content baseline for script {ScriptId} ('{ScriptPath}')."
+                    + " It will be verified from whenever one is recorded.",
+                    script.Id, path);
+
+                return null;
+            }
+
+            if (ScriptContentHash.Matches(authoritativeBaseline, baseline))
+            {
+                logger.LogInformation(
+                    "Recorded a first-seen content baseline for script {ScriptId}"
+                    + " ('{ScriptPath}'). Subsequent deployments verify against it.",
+                    script.Id, path);
+            }
+            else
+            {
+                logger.LogInformation(
+                    "Another deployment recorded the first content baseline for script"
+                    + " {ScriptId} ('{ScriptPath}'). This deployment will verify against that"
+                    + " authoritative baseline.",
+                    script.Id, path);
+            }
+
+            return authoritativeBaseline;
         }
 
         private void Report(bool enforcing, string? scriptPath, string scriptsLocation, string reason)
