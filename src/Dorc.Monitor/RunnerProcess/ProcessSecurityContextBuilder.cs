@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using Microsoft.Win32.SafeHandles;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using System.Security.Principal;
@@ -56,48 +57,35 @@ namespace Dorc.Monitor.RunnerProcess
             }
             #endregion
 
-            var logonToken = LogOn(this.UserName, this.Domain, this.Password);
-
+            SafeAccessTokenHandle logonToken = LogOn(this.UserName, this.Domain, this.Password);
+            SafeAccessTokenHandle primaryToken = null;
+            RunnerProcessSecurityDescriptor descriptor = null;
             try
             {
-                var primaryToken = DuplicateAsPrimaryToken(logonToken);
+                primaryToken = DuplicateAsPrimaryToken(logonToken);
+                descriptor = DescribeProcessAccess(logonToken);
 
-                try
-                {
-                    var descriptor = DescribeProcessAccess(logonToken);
+                var context = new ProcessSecurityContext(
+                    primaryToken,
+                    logonToken,
+                    descriptor,
+                    ProcessAttributes(descriptor),
+                    ThreadAttributes());
 
-                    try
-                    {
-                        return new ProcessSecurityContext(
-                            primaryToken,
-                            logonToken,
-                            descriptor,
-                            ProcessAttributes(descriptor),
-                            ThreadAttributes());
-                    }
-                    catch
-                    {
-                        descriptor.Dispose();
-                        throw;
-                    }
-                }
-                catch
-                {
-                    Interop.Windows.Kernel32.Interop.Kernel32.CloseHandle(primaryToken);
-                    throw;
-                }
+                primaryToken = null;
+                logonToken = null;
+                descriptor = null;
+                return context;
             }
-            catch
+            finally
             {
-                // The logon token was previously never closed at all: DuplicateTokenEx produced
-                // the primary token that got disposed, and this one was simply dropped. One
-                // handle, and one live logon session, leaked per script group dispatched.
-                Interop.Windows.Kernel32.Interop.Kernel32.CloseHandle(logonToken);
-                throw;
+                descriptor?.Dispose();
+                primaryToken?.Dispose();
+                logonToken?.Dispose();
             }
         }
 
-        private IntPtr LogOn(string userName, string domain, string password)
+        private SafeAccessTokenHandle LogOn(string userName, string domain, string password)
         {
             var result = Interop.Windows.Advapi32.Interop.Advapi32.LogonUser(
                 userName,
@@ -116,7 +104,7 @@ namespace Dorc.Monitor.RunnerProcess
 
             this.logger.LogInformation("Logon as {UserName} succeeded", SanitizeForLog(userName));
 
-            return token;
+            return new SafeAccessTokenHandle(token);
         }
 
         private static string SanitizeForLog(string value)
@@ -124,12 +112,12 @@ namespace Dorc.Monitor.RunnerProcess
             return value.Replace("\r", string.Empty).Replace("\n", string.Empty);
         }
 
-        private IntPtr DuplicateAsPrimaryToken(IntPtr logonToken)
+        private SafeAccessTokenHandle DuplicateAsPrimaryToken(SafeAccessTokenHandle logonToken)
         {
             var tokenAttributes = new Interop.Windows.Kernel32.Interop.Kernel32.SECURITY_ATTRIBUTES();
 
             var result = Interop.Windows.Advapi32.Interop.Advapi32.DuplicateTokenEx(
-                logonToken,
+                logonToken.DangerousGetHandle(),
                 0, // Zero requests the same access rights as the existing token.
                 ref tokenAttributes,
                 SECURITY_IMPERSONATION_LEVEL.SecurityImpersonation,
@@ -145,7 +133,7 @@ namespace Dorc.Monitor.RunnerProcess
                 throw new Win32Exception(winError, "Could not derive a primary token for the Runner process.");
             }
 
-            return primaryToken;
+            return new SafeAccessTokenHandle(primaryToken);
         }
 
         /// <summary>
@@ -154,9 +142,9 @@ namespace Dorc.Monitor.RunnerProcess
         /// its user is the right principal by construction — and it needs no directory lookup,
         /// which keeps a transient directory-service fault from failing a deployment.
         /// </summary>
-        private static RunnerProcessSecurityDescriptor DescribeProcessAccess(IntPtr logonToken)
+        private static RunnerProcessSecurityDescriptor DescribeProcessAccess(SafeAccessTokenHandle logonToken)
         {
-            using var runner = new WindowsIdentity(logonToken);
+            using var runner = new WindowsIdentity(logonToken.DangerousGetHandle());
 
             return RunnerProcessSecurityDescriptor.AdmittingOnly(
                 runner.User!,
