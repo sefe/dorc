@@ -2,6 +2,7 @@ using Dorc.Monitor.Pipes;
 using Microsoft.Extensions.Logging;
 using System.Globalization;
 using System.Runtime.Versioning;
+using System.Security;
 using System.Security.AccessControl;
 using System.Security.Principal;
 
@@ -127,7 +128,7 @@ namespace Dorc.Monitor.Terraform
                     _logger.LogDebug($"Local Terraform plan artefacts in '{Directory}' have been removed.");
                 }
             }
-            catch (Exception ex)
+            catch (Exception ex) when (IsExpectedFileSystemFailure(ex))
             {
                 // Called from the deployment path. Failing to delete is worth knowing about but
                 // must not replace the deployment's own outcome.
@@ -313,7 +314,7 @@ namespace Dorc.Monitor.Terraform
 
                         removed++;
                     }
-                    catch (Exception ex)
+                    catch (Exception ex) when (IsExpectedFileSystemFailure(ex))
                     {
                         _logger.LogWarning(
                             $"Failed to remove orphaned Terraform plan artefacts at '{entry}'. Exception: {ex}");
@@ -326,12 +327,19 @@ namespace Dorc.Monitor.Terraform
                         $"Removed {removed} orphaned Terraform plan artefact(s) from '{root}'.");
                 }
             }
-            catch (Exception ex)
+            catch (Exception ex) when (IsExpectedFileSystemFailure(ex))
             {
                 // Housekeeping. Never let it stop a deployment.
                 _logger.LogWarning(
                     $"Failed to enumerate Terraform plan artefacts in '{root}'. Exception: {ex}");
             }
+        }
+
+        private static bool IsExpectedFileSystemFailure(Exception exception)
+        {
+            return exception is IOException
+                or UnauthorizedAccessException
+                or SecurityException;
         }
 
         private static bool LastWriteWithin(string directory, DateTime cutoff)

@@ -80,13 +80,21 @@ namespace Dorc.Monitor.Pipes
                 securityIdentifier = resolved;
                 return true;
             }
-            catch (Exception ex)
+            catch (Exception ex) when (IsExpectedTranslationFailure(ex))
             {
                 refusal =
                     $"The configured deployment account '{account}' could not be resolved to a security"
                     + $" identifier. Exception: {ex}";
                 return false;
             }
+        }
+
+        private static bool IsExpectedTranslationFailure(Exception exception)
+        {
+            return exception is IdentityNotMappedException
+                or ArgumentException
+                or InvalidOperationException
+                || exception.GetType() == typeof(SystemException);
         }
 
         /// <summary>

@@ -132,6 +132,15 @@ namespace Dorc.Monitor.Tests
             Assert.IsFalse(Directory.Exists(store.Directory));
         }
 
+        [TestMethod]
+        public void UnexpectedFailuresDuringExpiryAreNotHidden()
+        {
+            _logger = new ThrowingDebugLogger();
+            var store = Reserve(4017);
+
+            Assert.ThrowsExactly<InvalidOperationException>(() => store.Expire());
+        }
+
         /// <summary>
         /// This is the asymmetry the plan path depends on. If the blob upload failed, the local
         /// copy is the only copy of that plan — so a later deployment reserving the same directory
@@ -242,6 +251,26 @@ namespace Dorc.Monitor.Tests
             }
 
             Directory.SetLastWriteTimeUtc(directory, when);
+        }
+
+        private sealed class ThrowingDebugLogger : ILogger
+        {
+            public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+            public bool IsEnabled(LogLevel logLevel) => true;
+
+            public void Log<TState>(
+                LogLevel logLevel,
+                EventId eventId,
+                TState state,
+                Exception? exception,
+                Func<TState, Exception?, string> formatter)
+            {
+                if (logLevel == LogLevel.Debug)
+                {
+                    throw new InvalidOperationException("Unexpected logger failure.");
+                }
+            }
         }
     }
 }
