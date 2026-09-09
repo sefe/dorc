@@ -349,20 +349,12 @@ namespace Dorc.Monitor.Terraform
                 return true;
             }
 
-            foreach (var entry in System.IO.Directory.EnumerateFileSystemEntries(
-                directory, "*", SearchOption.AllDirectories))
-            {
-                var lastWrite = System.IO.Directory.Exists(entry)
+            return System.IO.Directory
+                .EnumerateFileSystemEntries(directory, "*", SearchOption.AllDirectories)
+                .Select(entry => System.IO.Directory.Exists(entry)
                     ? System.IO.Directory.GetLastWriteTimeUtc(entry)
-                    : File.GetLastWriteTimeUtc(entry);
-
-                if (lastWrite >= cutoff)
-                {
-                    return true;
-                }
-            }
-
-            return false;
+                    : File.GetLastWriteTimeUtc(entry))
+                .Any(lastWrite => lastWrite >= cutoff);
         }
     }
 }
