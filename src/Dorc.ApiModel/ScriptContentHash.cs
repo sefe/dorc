@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -76,19 +77,10 @@ namespace Dorc.ApiModel
                 return false;
             }
 
-            foreach (var character in candidate)
-            {
-                var isHex = (character >= '0' && character <= '9')
+            return candidate.All(character =>
+                (character >= '0' && character <= '9')
                     || (character >= 'a' && character <= 'f')
-                    || (character >= 'A' && character <= 'F');
-
-                if (!isHex)
-                {
-                    return false;
-                }
-            }
-
-            return true;
+                    || (character >= 'A' && character <= 'F'));
         }
 
         private static string ToHex(byte[] hash)
