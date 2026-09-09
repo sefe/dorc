@@ -162,7 +162,7 @@ namespace Dorc.PersistentData.Sources
                 // Existing values default the other way, in the column default, so that adding
                 // the classification changes no deployment's behaviour - the asymmetry is the
                 // point, and it is what lets this ship without an estate-wide inventory first.
-                VisibleToScripts = model.Secure ? model.VisibleToScripts : true
+                VisibleToScripts = !model.Secure || model.VisibleToScripts
             };
 
             if (model.Secure)
