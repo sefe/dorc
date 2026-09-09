@@ -1,3 +1,4 @@
+using Microsoft.Win32.SafeHandles;
 using System.Runtime.Versioning;
 
 namespace Dorc.Monitor.RunnerProcess
@@ -19,27 +20,29 @@ namespace Dorc.Monitor.RunnerProcess
             private bool disposedValue;
             #endregion
 
-            private readonly IntPtr logonToken;
+            private readonly SafeAccessTokenHandle logonToken;
+            private readonly SafeAccessTokenHandle locallyLoggedOnUserToken;
             private readonly RunnerProcessSecurityDescriptor securityDescriptor;
 
-            public IntPtr LocallyLoggedOnUserToken { get; set; }
+            public IntPtr LocallyLoggedOnUserToken =>
+                this.locallyLoggedOnUserToken.DangerousGetHandle();
             public Interop.Windows.Kernel32.Interop.Kernel32.SECURITY_ATTRIBUTES ProcessAttributes;
             public Interop.Windows.Kernel32.Interop.Kernel32.SECURITY_ATTRIBUTES ThreadAttributes;
 
             private ProcessSecurityContext() { }
 
             internal ProcessSecurityContext(
-                IntPtr locallyLoggedOnUserToken,
-                IntPtr logonToken,
+                SafeAccessTokenHandle locallyLoggedOnUserToken,
+                SafeAccessTokenHandle logonToken,
                 RunnerProcessSecurityDescriptor securityDescriptor,
                 Interop.Windows.Kernel32.Interop.Kernel32.SECURITY_ATTRIBUTES processAttributes,
                 Interop.Windows.Kernel32.Interop.Kernel32.SECURITY_ATTRIBUTES threadAttributes)
             {
-                if (locallyLoggedOnUserToken == IntPtr.Zero)
+                if (locallyLoggedOnUserToken.IsInvalid)
                 {
                     throw new Exception("ProcessSecurityContext can't be created since provided locallyLoggedOnUserToken is Zero.");
                 }
-                this.LocallyLoggedOnUserToken = locallyLoggedOnUserToken;
+                this.locallyLoggedOnUserToken = locallyLoggedOnUserToken;
                 this.logonToken = logonToken;
                 this.securityDescriptor = securityDescriptor;
 
@@ -56,12 +59,8 @@ namespace Dorc.Monitor.RunnerProcess
                     {
                     }
 
-                    Interop.Windows.Kernel32.Interop.Kernel32.CloseHandle(this.LocallyLoggedOnUserToken);
-
-                    if (this.logonToken != IntPtr.Zero)
-                    {
-                        Interop.Windows.Kernel32.Interop.Kernel32.CloseHandle(this.logonToken);
-                    }
+                    this.locallyLoggedOnUserToken.Dispose();
+                    this.logonToken.Dispose();
 
                     // Unmanaged memory, so it is released on the finalizer path too.
                     this.securityDescriptor?.Dispose();
