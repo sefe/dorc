@@ -125,7 +125,9 @@ namespace Dorc.Monitor.Tests
                     new StringBuilder(),
                     CancellationToken.None);
             }
-            catch (Exception)
+            catch (Exception ex) when (ex.Message.Contains(
+                "'Domain' should be specified.",
+                StringComparison.Ordinal))
             {
                 // Expected: the security context cannot be built on a test host. The group has
                 // been published by then, which is what is under test.
@@ -257,6 +259,17 @@ namespace Dorc.Monitor.Tests
             Assert.AreEqual(ScriptContentVerdict.Mismatched, verdict);
             _scripts.DidNotReceiveWithAnyArgs()
                 .RecordContentHash(default, default, default!);
+        }
+
+        [TestMethod]
+        public void UnexpectedBaselinePersistenceFailuresAreNotHidden()
+        {
+            _scripts.RecordContentHashIfUnrecorded(
+                    Arg.Any<int>(), Arg.Any<string>(), Arg.Any<IPrincipal>())
+                .Returns(_ => throw new InvalidOperationException("Database unavailable."));
+
+            Assert.ThrowsExactly<InvalidOperationException>(
+                () => DispatchAndCaptureGroup(recordedBaseline: null));
         }
     }
 }
