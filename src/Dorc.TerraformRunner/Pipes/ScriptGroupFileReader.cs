@@ -1,4 +1,4 @@
-﻿using Dorc.ApiModel;
+using Dorc.ApiModel;
 using Dorc.ApiModel.Constants;
 using Dorc.ApiModel.MonitorRunnerApi;
 using Microsoft.Extensions.Logging;
@@ -42,9 +42,9 @@ namespace Dorc.TerraformRunner.Pipes
                 logger.LogInformation($"Received from file: {guid}");
                 foreach (var scriptGroupScriptProperty in list)
                 {
-                    var props = JsonSerializer.Serialize(scriptGroupScriptProperty.Properties);
+                    var propertyNames = string.Join(", ", scriptGroupScriptProperty.Properties.Keys);
 
-                    logger.LogInformation($"Asked to execute: {scriptGroupScriptProperty.ScriptPath} for env {env.Value} with properties {props}");
+                    logger.LogInformation($"Asked to execute: {scriptGroupScriptProperty.ScriptPath} for env {env.Value} with properties: {propertyNames}");
                 }
 
                 logger.LogInformation("Deserialization of ScriptGroup is completed.");
