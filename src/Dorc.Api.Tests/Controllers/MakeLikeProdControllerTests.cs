@@ -30,6 +30,7 @@ namespace Dorc.Api.Tests.Controllers
         private IProjectsPersistentSource _projectsPersistentSource;
         private IClaimsPrincipalReader _claimsPrincipalReader;
         private IRequestsPersistentSource _requestsPersistentSource;
+        private IRequestService _requestService;
         private MakeLikeProdController _controller;
         private ClaimsPrincipal _user;
 
@@ -47,6 +48,7 @@ namespace Dorc.Api.Tests.Controllers
             _projectsPersistentSource = Substitute.For<IProjectsPersistentSource>();
             _claimsPrincipalReader = Substitute.For<IClaimsPrincipalReader>();
             _requestsPersistentSource = Substitute.For<IRequestsPersistentSource>();
+            _requestService = Substitute.For<IRequestService>();
 
             _controller = new MakeLikeProdController(
                 _logger,
@@ -59,7 +61,8 @@ namespace Dorc.Api.Tests.Controllers
                 _bundledRequestVariableLoader,
                 _projectsPersistentSource,
                 _claimsPrincipalReader,
-                _requestsPersistentSource)
+                _requestsPersistentSource,
+                _requestService)
             {
                 ControllerContext = new ControllerContext()
                 {
@@ -110,9 +113,8 @@ namespace Dorc.Api.Tests.Controllers
             _securityPrivilegesChecker.IsEnvironmentOwnerOrAdmin(_user, targetEnv).Returns(true);
             _environmentsPersistentSource.GetEnvironment(targetEnv).Returns(new EnvironmentApiModel { EnvironmentIsProd = false });
             _bundledRequestsPersistentSource.GetRequestsForBundle(bundleName).Returns(bundledRequests);
-            _deployLibrary.SubmitRequest(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), 
-                Arg.Any<string>(), Arg.Any<List<string>>(), Arg.Any<List<RequestProperty>>(), Arg.Any<ClaimsPrincipal>())
-                .Returns(12345);
+            _requestService.CreateRequest(Arg.Any<RequestDto>(), Arg.Any<ClaimsPrincipal>())
+                .Returns(new RequestStatusDto { Id = 12345 });
             _claimsPrincipalReader.GetUserEmail(_user).Returns("testuser@example.com");
             _variableResolver.GetPropertyValue(Arg.Any<string>()).Returns(new VariableValue { Value = "test", Type = typeof(string) });
 
@@ -120,6 +122,14 @@ namespace Dorc.Api.Tests.Controllers
             var result = _controller.Put(mlpRequest);
 
             // Assert
+            _requestService.Received(1).CreateRequest(
+                Arg.Is<RequestDto>(request =>
+                    request.Project == "TestProject" &&
+                    request.Environment == targetEnv &&
+                    request.BuildUrl == "http://build.url"),
+                _user);
+            _deployLibrary.DidNotReceiveWithAnyArgs().SubmitRequest(
+                default!, default!, default!, default!, default!, default!, default!);
             _variableResolver.Received(1).SetPropertyValue("StartingRequestId", "12345");
             _variableResolver.Received(1).SetPropertyValue("AllRequestIds", "12345");
         }
@@ -227,14 +237,16 @@ namespace Dorc.Api.Tests.Controllers
             _bundledRequestsPersistentSource.GetRequestsForBundle(bundleName).Returns(bundledRequests);
             
             // First job request returns 12345
-            _deployLibrary.SubmitRequest("TestProject1", Arg.Any<string>(), Arg.Any<string>(), 
-                Arg.Any<string>(), Arg.Any<List<string>>(), Arg.Any<List<RequestProperty>>(), Arg.Any<ClaimsPrincipal>())
-                .Returns(12345);
+            _requestService.CreateRequest(
+                    Arg.Is<RequestDto>(request => request.Project == "TestProject1"),
+                    Arg.Any<ClaimsPrincipal>())
+                .Returns(new RequestStatusDto { Id = 12345 });
             
             // Second job request returns 12346
-            _deployLibrary.SubmitRequest("TestProject2", Arg.Any<string>(), Arg.Any<string>(), 
-                Arg.Any<string>(), Arg.Any<List<string>>(), Arg.Any<List<RequestProperty>>(), Arg.Any<ClaimsPrincipal>())
-                .Returns(12346);
+            _requestService.CreateRequest(
+                    Arg.Is<RequestDto>(request => request.Project == "TestProject2"),
+                    Arg.Any<ClaimsPrincipal>())
+                .Returns(new RequestStatusDto { Id = 12346 });
             
             // CopyEnvBuild returns two request IDs
             _deployLibrary.CopyEnvBuildWithComponentIds(Arg.Any<string>(), Arg.Any<string>(), 
@@ -334,9 +346,8 @@ namespace Dorc.Api.Tests.Controllers
             _securityPrivilegesChecker.IsEnvironmentOwnerOrAdmin(_user, targetEnv).Returns(true);
             _environmentsPersistentSource.GetEnvironment(targetEnv).Returns(new EnvironmentApiModel { EnvironmentIsProd = false });
             _bundledRequestsPersistentSource.GetRequestsForBundle(bundleName).Returns(bundledRequests);
-            _deployLibrary.SubmitRequest(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(),
-                Arg.Any<string>(), Arg.Any<List<string>>(), Arg.Any<List<RequestProperty>>(), Arg.Any<ClaimsPrincipal>())
-                .Returns(12345);
+            _requestService.CreateRequest(Arg.Any<RequestDto>(), Arg.Any<ClaimsPrincipal>())
+                .Returns(new RequestStatusDto { Id = 12345 });
             _claimsPrincipalReader.GetUserEmail(_user).Returns("testuser@example.com");
             // Return the literal $AllRequestIds$ since it's not resolved yet
             _variableResolver.GetPropertyValue("NotifyRequestIds").Returns(new VariableValue { Value = "$AllRequestIds$", Type = typeof(string) });
@@ -403,9 +414,8 @@ namespace Dorc.Api.Tests.Controllers
             _securityPrivilegesChecker.IsEnvironmentOwnerOrAdmin(_user, targetEnv).Returns(true);
             _environmentsPersistentSource.GetEnvironment(targetEnv).Returns(new EnvironmentApiModel { EnvironmentIsProd = false });
             _bundledRequestsPersistentSource.GetRequestsForBundle(bundleName).Returns(bundledRequests);
-            _deployLibrary.SubmitRequest(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(),
-                Arg.Any<string>(), Arg.Any<List<string>>(), Arg.Any<List<RequestProperty>>(), Arg.Any<ClaimsPrincipal>())
-                .Returns(12345);
+            _requestService.CreateRequest(Arg.Any<RequestDto>(), Arg.Any<ClaimsPrincipal>())
+                .Returns(new RequestStatusDto { Id = 12345 });
             _claimsPrincipalReader.GetUserEmail(_user).Returns("testuser@example.com");
             _variableResolver.GetPropertyValue(Arg.Any<string>()).Returns(new VariableValue { Value = "test", Type = typeof(string) });
 
@@ -494,12 +504,14 @@ namespace Dorc.Api.Tests.Controllers
             _environmentsPersistentSource.GetEnvironment(targetEnv).Returns(new EnvironmentApiModel { EnvironmentIsProd = false });
             _bundledRequestsPersistentSource.GetRequestsForBundle(bundleName).Returns(bundledRequests);
 
-            _deployLibrary.SubmitRequest("TestProject1", Arg.Any<string>(), Arg.Any<string>(),
-                Arg.Any<string>(), Arg.Any<List<string>>(), Arg.Any<List<RequestProperty>>(), Arg.Any<ClaimsPrincipal>())
-                .Returns(12345);
-            _deployLibrary.SubmitRequest("TestProject2", Arg.Any<string>(), Arg.Any<string>(),
-                Arg.Any<string>(), Arg.Any<List<string>>(), Arg.Any<List<RequestProperty>>(), Arg.Any<ClaimsPrincipal>())
-                .Returns(12346);
+            _requestService.CreateRequest(
+                    Arg.Is<RequestDto>(request => request.Project == "TestProject1"),
+                    Arg.Any<ClaimsPrincipal>())
+                .Returns(new RequestStatusDto { Id = 12345 });
+            _requestService.CreateRequest(
+                    Arg.Is<RequestDto>(request => request.Project == "TestProject2"),
+                    Arg.Any<ClaimsPrincipal>())
+                .Returns(new RequestStatusDto { Id = 12346 });
 
             _claimsPrincipalReader.GetUserEmail(_user).Returns("testuser@example.com");
             _variableResolver.GetPropertyValue(Arg.Any<string>()).Returns(new VariableValue { Value = "test", Type = typeof(string) });
@@ -577,9 +589,8 @@ namespace Dorc.Api.Tests.Controllers
             _securityPrivilegesChecker.IsEnvironmentOwnerOrAdmin(_user, targetEnv).Returns(true);
             _environmentsPersistentSource.GetEnvironment(targetEnv).Returns(new EnvironmentApiModel { EnvironmentIsProd = false });
             _bundledRequestsPersistentSource.GetRequestsForBundle(bundleName).Returns(bundledRequests);
-            _deployLibrary.SubmitRequest(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(),
-                Arg.Any<string>(), Arg.Any<List<string>>(), Arg.Any<List<RequestProperty>>(), Arg.Any<ClaimsPrincipal>())
-                .Returns(12345);
+            _requestService.CreateRequest(Arg.Any<RequestDto>(), Arg.Any<ClaimsPrincipal>())
+                .Returns(new RequestStatusDto { Id = 12345 });
             _claimsPrincipalReader.GetUserEmail(_user).Returns("testuser@example.com");
             _variableResolver.GetPropertyValue(Arg.Any<string>()).Returns(new VariableValue { Value = "test", Type = typeof(string) });
 
