@@ -1,0 +1,35 @@
+{
+  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.16/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.16",
+  "version": "1.0.0",
+  "id": "__BOT_APP_ID__",
+  "developer": {
+    "name": "DOrc",
+    "websiteUrl": "https://github.com/sefe/dorc",
+    "privacyUrl": "https://github.com/sefe/dorc",
+    "termsOfUseUrl": "https://github.com/sefe/dorc"
+  },
+  "name": {
+    "short": "DOrc Notifications",
+    "full": "DOrc Deployment Notifications"
+  },
+  "description": {
+    "short": "Direct messages when your DOrc deployment requests finish.",
+    "full": "Sends you a direct message with an Adaptive Card summary (request id, project, environment, status, duration and a deep-link back to DOrc) when a deployment request you submitted reaches a terminal state."
+  },
+  "icons": {
+    "color": "color.png",
+    "outline": "outline.png"
+  },
+  "accentColor": "#2D5B90",
+  "bots": [
+    {
+      "botId": "__BOT_APP_ID__",
+      "scopes": [ "personal" ],
+      "supportsFiles": false,
+      "isNotificationOnly": true
+    }
+  ],
+  "permissions": [ "identity" ],
+  "validDomains": []
+}

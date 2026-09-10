@@ -398,6 +398,8 @@ ca.pem
 **/.env
 **/.env.local
 
+dorc-notifications.zip
+
 # --- Agent scratch ---
 # Subagent worktrees. Ephemeral copies of this repo; committing one sweeps a
 # reviewer's deliberate mutation onto the branch, which is how three commits
