@@ -1,4 +1,5 @@
 ﻿using System.Text.RegularExpressions;
+using Dorc.ApiModel;
 using Dorc.Core.Models;
 using Microsoft.Extensions.Logging;
 using Dorc.PersistentData.Security;
@@ -37,19 +38,17 @@ namespace Dorc.Core.AzureDevOpsServer
         private static string[] scopes = { AppSettings["AadScopes"] };
         private static string azureEndpointUrl = AppSettings["AzureEndpoint"] ?? "dev.azure.com";
 
-        // Read the same way as AppSettings above, which this file already does statically. The
-        // client is constructed with `new` at three call sites rather than resolved from the
-        // container, so threading the allow-list in would mean widening three constructors that
-        // have nothing else to do with it.
-        private static readonly ISourceHostAllowList SourceHosts = new SourceHostAllowList(
-            new ConfigurationBuilder().AddJsonFile("appsettings.json").Build());
-        
+        private readonly ISourceHostAllowList _sourceHosts;
 
-        public AzureDevOpsServerWebClient(string serverUrl, ILogger<AzureDevOpsServerWebClient> log)
+        public AzureDevOpsServerWebClient(
+            string serverUrl,
+            ILogger<AzureDevOpsServerWebClient> log,
+            ISourceHostAllowList sourceHosts)
         {
             var aadConnectionSettings = new AadConnectionSettings(clientId, scopes, secret, tenant);
             _log = log;
             _serverUrl = serverUrl;
+            _sourceHosts = sourceHosts ?? throw new ArgumentNullException(nameof(sourceHosts));
             // Ideally for speed of queries we only want to retrieve the connection settings once at instantiation time.
             _authTokenGenerator = AuthTokenGeneratorFactory.GetAuthTokenGenerator(aadConnectionSettings);
         }
@@ -132,8 +131,8 @@ namespace Dorc.Core.AzureDevOpsServer
         {
             // AzureEndpoint is configured as a bare host ("dev.azure.com") by default but may be
             // written as a URL, so both sides are reduced to a host before comparing.
-            var configured = SourceHostAllowList.HostOf(azureEndpointUrl) ?? azureEndpointUrl?.Trim();
-            var actual = SourceHostAllowList.HostOf(azureEndpoint);
+            var configured = SourceHost.Of(azureEndpointUrl) ?? azureEndpointUrl?.Trim();
+            var actual = SourceHost.Of(azureEndpoint);
 
             return !string.IsNullOrWhiteSpace(configured)
                 && actual != null
@@ -142,18 +141,19 @@ namespace Dorc.Core.AzureDevOpsServer
 
         private void RequireDefaultCredentialsPermitted(string azureEndpoint)
         {
-            if (SourceHosts.IsArtefactSourceUnconfigured)
+            if (_sourceHosts.IsArtefactSourceUnconfigured)
             {
                 throw new InvalidOperationException(
                     $"Refusing to present default Windows credentials because no artefact host "
                     + $"allow-list is configured ('{SourceHostAllowList.ArtefactHostsSetting}').");
             }
 
-            if (!SourceHosts.IsArtefactSourceAllowed(azureEndpoint, out var reason))
+            var decision = _sourceHosts.CheckArtefactSource(azureEndpoint);
+            if (!decision.Allowed)
             {
                 throw new InvalidOperationException(
-                    $"Refusing to present default Windows credentials to '{azureEndpoint}', because {reason}");
-        }
+                    $"Refusing to present default Windows credentials to '{azureEndpoint}', because {decision.Reason}");
+            }
         }
 
         private static bool IsBuildDefinitionCompletedSuccessfully(BuildDefinitionReference buildDefinition)
