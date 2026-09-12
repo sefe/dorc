@@ -3,7 +3,6 @@ using Dorc.ApiModel.MonitorRunnerApi;
 using Dorc.Core.BuildServer;
 using Dorc.Core.Configuration;
 using Dorc.PersistentData.Security;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Dorc.AzureDevOps.Client.Auth;
 
@@ -20,20 +19,16 @@ namespace Dorc.Monitor.TerraformSourceConfig
         private readonly IConfigurationSettings _configurationSettings;
         private readonly IGitHubHostValidator _gitHubHostValidator;
 
-        // Read directly rather than injected: this type is constructed with `new` by both
-        // dispatchers, and the allow-list is process-wide configuration rather than per-request
-        // state.
         private readonly ISourceHostAllowList _sourceHosts;
 
         public TerraformSourceConfigurator(ILogger logger, IConfigurationSettings configurationSettings,
             IGitHubHostValidator gitHubHostValidator,
-            ISourceHostAllowList? sourceHosts = null)
+            ISourceHostAllowList sourceHosts)
         {
             _logger = logger;
             _configurationSettings = configurationSettings;
             _gitHubHostValidator = gitHubHostValidator;
-            _sourceHosts = sourceHosts ?? new SourceHostAllowList(
-                new ConfigurationBuilder().AddJsonFile("appsettings.json").Build());
+            _sourceHosts = sourceHosts ?? throw new ArgumentNullException(nameof(sourceHosts));
         }
 
         public void ConfigureScriptGroup(
@@ -127,20 +122,18 @@ namespace Dorc.Monitor.TerraformSourceConfig
                 return false;
             }
 
-            if (_sourceHosts.IsTerraformSourceAllowed(repositoryUrl, out var reason))
+            var decision = _sourceHosts.CheckTerraformSource(repositoryUrl);
+            if (decision.Allowed)
             {
                 return true;
             }
 
             _logger.LogError(
                 "Withholding Git credentials from '{RepositoryUrl}', because {Reason}",
-                SingleLine(repositoryUrl),
-                SingleLine(reason));
+                LogText.SingleLine(repositoryUrl),
+                LogText.SingleLine(decision.Reason));
             return false;
         }
-
-        private static string SingleLine(string? value) =>
-            value?.Replace("\r", string.Empty).Replace("\n", string.Empty) ?? string.Empty;
 
         /// <summary>
         /// Compared on the parsed host, not by substring. A test for "dev.azure.com" anywhere in
@@ -154,7 +147,7 @@ namespace Dorc.Monitor.TerraformSourceConfig
         /// </summary>
         internal static bool IsAzureDevOpsRepository(string repositoryUrl)
         {
-            var host = SourceHostAllowList.HostOf(repositoryUrl);
+            var host = SourceHost.Of(repositoryUrl);
 
             if (host == null)
             {
