@@ -41,7 +41,9 @@ namespace Dorc.Runner
                     scriptGroupProperties.ScriptsLocation,
                     scriptProps.ScriptPath,
                     scriptProps.Properties,
-                    scriptGroupProperties.CommonProperties);
+                    scriptGroupProperties.CommonProperties,
+                    scriptGroupProperties.ContentVerification,
+                    scriptProps.ExpectedContentHash);
             }
 
             return sumResult;            
