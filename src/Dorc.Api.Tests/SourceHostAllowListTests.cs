@@ -1,3 +1,4 @@
+using Dorc.ApiModel;
 using Dorc.PersistentData.Security;
 using Microsoft.Extensions.Configuration;
 
@@ -39,7 +40,7 @@ namespace Dorc.Api.Tests
         [DataRow("HTTPS://BUILDSERVER.CORP.EXAMPLE.COM/drops")]
         public void AcceptsAPermittedArtefactHost(string url)
         {
-            Assert.IsTrue(Configured().IsArtefactSourceAllowed(url, out _), url);
+            Assert.IsTrue(Configured().CheckArtefactSource(url).Allowed, url);
         }
 
         [TestMethod]
@@ -48,7 +49,7 @@ namespace Dorc.Api.Tests
             var roots =
                 $" https://{ArtefactHost}/drops/one ; ; \\\\{ArtefactHost}\\drops\\two ";
 
-            Assert.IsTrue(Configured().IsArtefactSourceAllowed(roots, out _));
+            Assert.IsTrue(Configured().CheckArtefactSource(roots).Allowed);
         }
 
         [TestMethod]
@@ -57,8 +58,10 @@ namespace Dorc.Api.Tests
             var roots =
                 $"https://{ArtefactHost}/drops/one; https://attacker.net/drops/two";
 
-            Assert.IsFalse(Configured().IsArtefactSourceAllowed(roots, out var reason));
-            StringAssert.Contains(reason, "attacker.net");
+            var decision = Configured().CheckArtefactSource(roots);
+
+            Assert.IsFalse(decision.Allowed);
+            StringAssert.Contains(decision.Reason, "attacker.net");
         }
 
         /// <summary>
@@ -73,7 +76,7 @@ namespace Dorc.Api.Tests
         [DataRow(@"\\buildserver.corp.example.com.attacker.net\drops")]
         public void RejectsAHostThatMerelyContainsAPermittedOne(string url)
         {
-            Assert.IsFalse(Configured().IsArtefactSourceAllowed(url, out _),
+            Assert.IsFalse(Configured().CheckArtefactSource(url).Allowed,
                 $"'{url}' is not the permitted host, it only mentions it.");
         }
 
@@ -85,16 +88,18 @@ namespace Dorc.Api.Tests
         public void RejectsAPermittedHostPlacedInUserInfo()
         {
             Assert.IsFalse(
-                Configured().IsArtefactSourceAllowed(
-                    "https://buildserver.corp.example.com@attacker.net/drops", out _));
+                Configured().CheckArtefactSource(
+                    "https://buildserver.corp.example.com@attacker.net/drops").Allowed);
         }
 
         [TestMethod]
         public void RejectsAnUnrelatedHost()
         {
-            Assert.IsFalse(Configured().IsArtefactSourceAllowed("https://attacker.net/drops", out var reason));
-            StringAssert.Contains(reason, "attacker.net");
-            StringAssert.Contains(reason, SourceHostAllowList.ArtefactHostsSetting);
+            var decision = Configured().CheckArtefactSource("https://attacker.net/drops");
+
+            Assert.IsFalse(decision.Allowed);
+            StringAssert.Contains(decision.Reason, "attacker.net");
+            StringAssert.Contains(decision.Reason, SourceHostAllowList.ArtefactHostsSetting);
         }
 
         /// <summary>
@@ -106,11 +111,11 @@ namespace Dorc.Api.Tests
         {
             var allowList = Configured();
 
-            Assert.IsTrue(allowList.IsArtefactSourceAllowed($"https://{ArtefactHost}/drops", out _));
-            Assert.IsFalse(allowList.IsTerraformSourceAllowed($"https://{ArtefactHost}/repo.git", out _));
+            Assert.IsTrue(allowList.CheckArtefactSource($"https://{ArtefactHost}/drops").Allowed);
+            Assert.IsFalse(allowList.CheckTerraformSource($"https://{ArtefactHost}/repo.git").Allowed);
 
-            Assert.IsTrue(allowList.IsTerraformSourceAllowed($"https://{TerraformHost}/repo.git", out _));
-            Assert.IsFalse(allowList.IsArtefactSourceAllowed($"https://{TerraformHost}/drops", out _));
+            Assert.IsTrue(allowList.CheckTerraformSource($"https://{TerraformHost}/repo.git").Allowed);
+            Assert.IsFalse(allowList.CheckArtefactSource($"https://{TerraformHost}/drops").Allowed);
         }
 
         [TestMethod]
@@ -119,10 +124,12 @@ namespace Dorc.Api.Tests
             var allowList = Configured();
 
             // A local path on the API host is not somewhere deployable content is fetched from.
-            Assert.IsFalse(allowList.IsArtefactSourceAllowed("file:///C:/local/drops", out var local));
-            Assert.IsFalse(allowList.IsArtefactSourceAllowed("not a url at all", out _));
+            var local = allowList.CheckArtefactSource("file:///C:/local/drops");
 
-            StringAssert.Contains(local, "does not name a host");
+            Assert.IsFalse(local.Allowed);
+            Assert.IsFalse(allowList.CheckArtefactSource("not a url at all").Allowed);
+
+            StringAssert.Contains(local.Reason, "does not name a host");
         }
 
         /// <summary>
@@ -139,8 +146,8 @@ namespace Dorc.Api.Tests
             Assert.IsTrue(allowList.IsUnconfigured);
             Assert.IsTrue(allowList.IsArtefactSourceUnconfigured);
             Assert.IsTrue(allowList.IsTerraformSourceUnconfigured);
-            Assert.IsTrue(allowList.IsArtefactSourceAllowed("https://anywhere.example.com/drops", out _));
-            Assert.IsTrue(allowList.IsTerraformSourceAllowed(@"\\anywhere\share", out _));
+            Assert.IsTrue(allowList.CheckArtefactSource("https://anywhere.example.com/drops").Allowed);
+            Assert.IsTrue(allowList.CheckTerraformSource(@"\\anywhere\share").Allowed);
         }
 
         [TestMethod]
@@ -158,8 +165,8 @@ namespace Dorc.Api.Tests
             // The list that IS filled enforces; the one that is not still admits, because an
             // unfilled list confines nothing and enforcing it would be enforcing against zero
             // permitted hosts.
-            Assert.IsFalse(artefactsOnly.IsArtefactSourceAllowed("https://attacker.net/drops", out _));
-            Assert.IsTrue(artefactsOnly.IsTerraformSourceAllowed("https://attacker.net/repo.git", out _));
+            Assert.IsFalse(artefactsOnly.CheckArtefactSource("https://attacker.net/drops").Allowed);
+            Assert.IsTrue(artefactsOnly.CheckTerraformSource("https://attacker.net/repo.git").Allowed);
         }
 
         [TestMethod]
@@ -171,7 +178,7 @@ namespace Dorc.Api.Tests
                 [SourceHostAllowList.ArtefactHostsSetting + ":1"] = "   "
             });
 
-            Assert.IsTrue(padded.IsArtefactSourceAllowed($"https://{ArtefactHost}/drops", out _));
+            Assert.IsTrue(padded.CheckArtefactSource($"https://{ArtefactHost}/drops").Allowed);
         }
 
         [TestMethod]
@@ -179,21 +186,62 @@ namespace Dorc.Api.Tests
         {
             var allowList = Configured();
 
-            Assert.IsTrue(allowList.IsTerraformSourceAllowed(null, out _));
-            Assert.IsTrue(allowList.IsTerraformSourceAllowed("   ", out _),
+            Assert.IsTrue(allowList.CheckTerraformSource(null).Allowed);
+            Assert.IsTrue(allowList.CheckTerraformSource("   ").Allowed,
                 "Whether the field may be empty at all is asked elsewhere.");
         }
 
         /// <summary>
-        /// UNC paths are not URIs, and a non-Windows host does not parse them as one. The host
-        /// has to be read the same way wherever this runs.
+        /// The host is read by one parser for every form a source is written in, and that
+        /// parser gives the same answer on every platform .NET 8 runs on.
         /// </summary>
         [TestMethod]
-        public void ReadsTheHostOfAUncPathWithoutRelyingOnUriParsing()
+        [DataRow(@"\\buildserver\drops\app")]
+        [DataRow("//buildserver/drops/app")]
+        [DataRow("file://buildserver/drops/app")]
+        [DataRow("https://buildserver/drops/app")]
+        [DataRow("  https://buildserver/drops/app  ")]
+        public void ReadsTheHostOfEveryFormASourceIsWrittenIn(string source)
         {
-            Assert.AreEqual("buildserver", SourceHostAllowList.HostOf(@"\\buildserver\drops\app"));
-            Assert.AreEqual("buildserver", SourceHostAllowList.HostOf("//buildserver/drops/app".Replace('/', '\\')));
-            Assert.IsNull(SourceHostAllowList.HostOf(@"relative\path"));
+            Assert.AreEqual("buildserver", SourceHost.Of(source));
+        }
+
+        [TestMethod]
+        [DataRow(@"relative\path")]
+        [DataRow("file:///C:/local/drops")]
+        [DataRow("not a url at all")]
+        [DataRow("")]
+        [DataRow(null)]
+        public void ReadsNoHostWhereNoneIsNamed(string? source)
+        {
+            Assert.IsNull(SourceHost.Of(source));
+        }
+
+        /// <summary>
+        /// The configuration binder returns null for a list written as a single value, which
+        /// would read as "not configured" and admit every host. A list that is present but
+        /// unreadable is an error at start-up, not a silently permissive allow-list.
+        /// </summary>
+        [TestMethod]
+        public void RefusesAListWrittenAsASingleValue()
+        {
+            var refusal = Assert.ThrowsExactly<InvalidOperationException>(() => Build(new Dictionary<string, string?>
+            {
+                [SourceHostAllowList.ArtefactHostsSetting] = ArtefactHost + ";" + TerraformHost
+            }));
+
+            StringAssert.Contains(refusal.Message, SourceHostAllowList.ArtefactHostsSetting);
+        }
+
+        [TestMethod]
+        public void TreatsABlankValueAsUnconfigured()
+        {
+            var blank = Build(new Dictionary<string, string?>
+            {
+                [SourceHostAllowList.ArtefactHostsSetting] = "   "
+            });
+
+            Assert.IsTrue(blank.IsUnconfigured);
         }
     }
 }
