@@ -200,46 +200,36 @@ namespace Dorc.Monitor.Pipes
             // the first one.
             var filename = BundlePath(pipeName);
 
+            var resolution = readerIdentity.Resolve();
+
+            if (!resolution.IsResolved)
+            {
+                // A misconfigured account name that resolves to a broad group would publish
+                // the bundle to it, and one that does not resolve at all cannot be granted
+                // anything. Either way the deployment will fail moments later when the logon
+                // is attempted with the same name, and the bundle is expired on that path.
+                logger.LogError(
+                    resolution.Cause,
+                    "{Refusal} No access has been granted to the script group bundle '{BundlePath}', so the Runner"
+                    + " will be unable to read it unless it runs as an account the directory already admits.",
+                    resolution.Refusal,
+                    filename);
+                return;
+            }
+
             try
             {
-                var reader = (SecurityIdentifier)new NTAccount(account).Translate(typeof(SecurityIdentifier));
-
-                if (DeploymentPrincipal.IsTooBroadToHoldASecret(reader))
-                {
-                    // A misconfigured account name that resolves to a broad group would
-                    // publish the bundle to it. The deployment will fail moments later when
-                    // the logon is attempted with the same name, and the bundle is expired on
-                    // that path - but not granting it in the first place is free.
-                    logger.LogError(
-                        "The configured deployment account '{Account}' resolves to '{Sid}', which is a group" +
-                        " broad enough that granting it access to the script group bundle would disclose it." +
-                        " No access has been granted.",
-                        DeploymentPrincipal.SanitizeForLog(account),
-                        reader.Value);
-                    return;
-                }
-
                 var fileInfo = new FileInfo(filename);
                 var security = fileInfo.GetAccessControl();
                 security.AddAccessRule(new FileSystemAccessRule(
-                    reader,
+                    resolution.SecurityIdentifier!,
                     FileSystemRights.Read,
                     AccessControlType.Allow));
                 fileInfo.SetAccessControl(security);
             }
             catch (PrivilegeNotHeldException ex) { LogFailedGrant(ex, account, filename); }
             catch (UnauthorizedAccessException ex) { LogFailedGrant(ex, account, filename); }
-            catch (IdentityNotMappedException ex) { LogFailedGrant(ex, account, filename); }
-            catch (SecurityException ex) { LogFailedGrant(ex, account, filename); }
             catch (IOException ex) { LogFailedGrant(ex, account, filename); }
-            catch (SystemException ex) when (ex is not OutOfMemoryException)
-            {
-                // NTAccount.Translate surfaces directory-service failures as SystemException
-                // itself - a plain 'new SystemException' from the SID lookup - so the typed
-                // catches above do not cover the case this method exists to survive: an
-                // unreachable domain controller must not fail a deployment.
-                LogFailedGrant(ex, account, filename);
-            }
         }
 
         private void LogFailedGrant(Exception ex, string account, string filename) =>
@@ -248,7 +238,7 @@ namespace Dorc.Monitor.Pipes
                 "The deployment account '{Account}' could not be granted access to the script group bundle" +
                 " '{BundlePath}'. The Runner will be unable to read it unless it runs as an account the" +
                 " directory already admits.",
-                DeploymentPrincipal.SanitizeForLog(account),
+                LogText.SingleLine(account),
                 filename);
 
         /// <summary>
