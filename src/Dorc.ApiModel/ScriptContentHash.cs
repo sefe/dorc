@@ -1,7 +1,6 @@
 using System;
 using System.Linq;
 using System.Security.Cryptography;
-using System.Text;
 
 namespace Dorc.ApiModel
 {
@@ -77,24 +76,14 @@ namespace Dorc.ApiModel
                 return false;
             }
 
-            return candidate.All(character =>
-                (character >= '0' && character <= '9')
-                    || (character >= 'a' && character <= 'f')
-                    || (character >= 'A' && character <= 'F'));
+            return candidate.All(Uri.IsHexDigit);
         }
 
         private static string ToHex(byte[] hash)
         {
-            // Written out rather than using Convert.ToHexString, which does not exist on .NET
-            // Framework 4.8 - and this assembly compiles for it.
-            var text = new StringBuilder(hash.Length * 2);
-
-            foreach (var b in hash)
-            {
-                text.Append(b.ToString("x2"));
-            }
-
-            return text.ToString();
+            // Convert.ToHexString does not exist on .NET Framework 4.8, which this assembly
+            // compiles for, but BitConverter does everywhere.
+            return BitConverter.ToString(hash).Replace("-", string.Empty).ToLowerInvariant();
         }
     }
 }
