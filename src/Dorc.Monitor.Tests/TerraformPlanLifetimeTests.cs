@@ -87,7 +87,7 @@ namespace Dorc.Monitor.Tests
             var store = Reserve(4004);
 
             Assert.AreEqual(
-                Path.Combine(store.Directory, "4004.tfplan"),
+                Path.Join(store.Directory, "4004.tfplan"),
                 store.PathOf("4004.tfplan"));
         }
 
@@ -169,7 +169,7 @@ namespace Dorc.Monitor.Tests
         public void TheBacklogOfPlansWrittenBeforeThisLayoutExistedIsSwept()
         {
             Directory.CreateDirectory(_root);
-            var legacy = Path.Combine(_root, "1234.tfplan");
+            var legacy = Path.Join(_root, "1234.tfplan");
             File.WriteAllText(legacy, "an-old-plan");
             File.SetLastWriteTimeUtc(legacy, DateTime.UtcNow.AddDays(-30));
 
