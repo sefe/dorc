@@ -127,10 +127,11 @@ namespace Dorc.PersistentData.Sources
 
         public bool UpdateScript(ScriptApiModel script, IPrincipal user)
         {
-            if (!ScriptPathConfinement.IsConfined(script.Path, out var reason))
+            var confinement = ScriptPathConfinement.Check(script.Path);
+            if (!confinement.Allowed)
             {
                 throw new ArgumentOutOfRangeException(nameof(script),
-                    "Script '" + script.Name + "' has a path that cannot be accepted, because " + reason);
+                    "Script '" + script.Name + "' has a path that cannot be accepted, because " + confinement.Reason);
             }
 
             using (var context = _contextFactory.GetContext())
