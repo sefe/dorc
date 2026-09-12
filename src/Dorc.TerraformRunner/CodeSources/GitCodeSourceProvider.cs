@@ -108,39 +108,9 @@ namespace Dorc.TerraformRunner.CodeSources
             throw new InvalidOperationException("No valid credentials found for Git authentication.");
         }
 
-        internal static bool IsHost(string? url, string host)
-        {
-            var actual = HostOf(url);
+        internal static bool IsHost(string? url, string host) => SourceHost.Is(url, host);
 
-            return actual != null
-                && (string.Equals(actual, host, StringComparison.OrdinalIgnoreCase)
-                    || actual.EndsWith("." + host, StringComparison.OrdinalIgnoreCase));
-        }
-
-        /// <summary>
-        /// The authority of a URL, or null when there is none.
-        ///
-        /// Deliberately a local copy of what SourceHostAllowList does on the API side, rather
-        /// than a shared reference: that type lives in Dorc.PersistentData, and referencing it
-        /// from the Terraform Runner would drag Entity Framework into a process whose whole job
-        /// is to run terraform. The duplicated part is one string operation; the two are doing
-        /// different jobs with it - one compares against a configured list, this compares two
-        /// URLs to each other.
-        /// </summary>
-        private static string? HostOf(string? url)
-        {
-            if (string.IsNullOrWhiteSpace(url))
-            {
-                return null;
-            }
-
-            if (!Uri.TryCreate(url.Trim(), UriKind.Absolute, out var uri))
-            {
-                return null;
-            }
-
-            return string.IsNullOrEmpty(uri.Host) ? null : uri.Host;
-        }
+        private static string? HostOf(string? url) => SourceHost.Of(url);
 
         private string SanitizeGitParameter(string parameter)
         {
