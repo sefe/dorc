@@ -8,8 +8,6 @@ using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Win32.SafeHandles;
-using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using System.Security.Principal;
 
@@ -70,9 +68,6 @@ namespace Dorc.Api.Controllers
                     $"You are not authorized to reset passwords for {envName}");
         }
 
-        [DllImport("advapi32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
-        public static extern bool LogonUser(string lpszUsername, string lpszDomain, IntPtr lpszPassword,
-            int dwLogonType, int dwLogonProvider, out SafeAccessTokenHandle phToken);
         private IActionResult ResetPassword(string envFilter, string envName, string username)
         {
             try
@@ -121,35 +116,11 @@ namespace Dorc.Api.Controllers
             if (credential == null)
                 return new ApiBoolResult { Message = "Unable to retrieve DOrc Login details", Result = false };
 
-            var user = credential.UserName;
-
-            const int logon32ProviderDefault = 0;
-            //This parameter causes LogonUser to create a primary token.   
-            const int logon32LogonInteractive = 2;
-
-            var passwordPointer = Marshal.SecureStringToGlobalAllocUnicode(credential.Password);
-            bool returnValue;
-            SafeAccessTokenHandle safeAccessTokenHandle;
-            try
-            {
-                returnValue = LogonUser(user, domainName, passwordPointer,
-                    logon32LogonInteractive, logon32ProviderDefault,
-                    out safeAccessTokenHandle);
-            }
-            finally
-            {
-                Marshal.ZeroFreeGlobalAllocUnicode(passwordPointer);
-            }
-
-            if (false == returnValue)
-            {
-                int ret = Marshal.GetLastWin32Error();
-                Console.WriteLine("LogonUser failed with error code : {0}", ret);
-                throw new System.ComponentModel.Win32Exception(ret);
-            }
+            using var token = WindowsLogon.LogOn(
+                credential, domainName, LogonType.Interactive, LogonProvider.Default);
 
             return WindowsIdentity.RunImpersonated(
-                safeAccessTokenHandle,
+                token,
                 // User action  
                 () => _sqlUserPasswordReset.ResetSqlUserPassword(serverName, username));
         }

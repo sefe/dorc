@@ -57,16 +57,9 @@ namespace Dorc.Core.Security
                 ? ProductionPasswordKey
                 : NonProductionPasswordKey;
 
-            var password = new SecureString();
-            foreach (var character in _configValues.GetConfigValue(passwordKey) ?? string.Empty)
-            {
-                password.AppendChar(character);
-            }
-
-            password.MakeReadOnly();
-            var credential = new DeploymentCredential(
+            var credential = DeploymentCredential.FromPlainText(
                 _configValues.GetConfigValue(userNameKey) ?? string.Empty,
-                password);
+                _configValues.GetConfigValue(passwordKey) ?? string.Empty);
 
             if (!credential.IsComplete)
             {

@@ -4,6 +4,7 @@ using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using System.Security.Principal;
 using System.Security;
+using Dorc.Core.Security;
 using Microsoft.Extensions.Logging;
 
 namespace Dorc.Monitor.RunnerProcess
@@ -85,31 +86,19 @@ namespace Dorc.Monitor.RunnerProcess
 
         private SafeAccessTokenHandle LogOn(string userName, string domain, SecureString password)
         {
-            var passwordPointer = Marshal.SecureStringToGlobalAllocUnicode(password);
             try
             {
-                var result = Interop.Windows.Advapi32.Interop.Advapi32.LogonUser(
-                    userName,
-                    domain,
-                    passwordPointer,
-                    (int)LOGON_TYPE.LOGON32_LOGON_NETWORK_CLEARTEXT,
-                    (int)LOGON_PROVIDER.LOGON32_PROVIDER_DEFAULT,
-                    out var token);
-
-                if (!result)
-                {
-                    var winError = Marshal.GetLastWin32Error();
-                    this.logger.LogError($"LogonUser failed with win32 error: {winError}");
-                    throw new Exception($"Cannot process request under account {userName}");
-                }
+                var token = WindowsLogon.LogOn(
+                    userName, domain, password, LogonType.NetworkCleartext, LogonProvider.Default);
 
                 this.logger.LogInformation("Logon succeeded.");
 
-                return new SafeAccessTokenHandle(token);
+                return token;
             }
-            finally
+            catch (Win32Exception ex)
             {
-                Marshal.ZeroFreeGlobalAllocUnicode(passwordPointer);
+                this.logger.LogError($"LogonUser failed with win32 error: {ex.NativeErrorCode}");
+                throw new Exception($"Cannot process request under account {userName}", ex);
             }
         }
 
