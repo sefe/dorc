@@ -1,3 +1,4 @@
+using Dorc.ApiModel;
 using Microsoft.Extensions.Configuration;
 
 namespace Dorc.PersistentData.Security
@@ -21,16 +22,16 @@ namespace Dorc.PersistentData.Security
     public interface ISourceHostAllowList
     {
         /// <summary>
-        /// Whether a build artefact location may be fetched from. On false,
-        /// <paramref name="reason"/> explains, in terms a caller can show a user.
+        /// Whether a build artefact location may be fetched from. The value is the project's
+        /// artefacts URL: one root, or several separated by semicolons.
         /// </summary>
-        bool IsArtefactSourceAllowed(string? url, out string reason);
+        PolicyDecision CheckArtefactSource(string? url);
 
         /// <summary>
         /// Whether Terraform code may be provisioned from this location - a git repository
         /// URL or a shared folder.
         /// </summary>
-        bool IsTerraformSourceAllowed(string? url, out string reason);
+        PolicyDecision CheckTerraformSource(string? url);
 
         /// <summary>
         /// True when neither list is configured, so no confinement is in force. Callers that
@@ -48,6 +49,11 @@ namespace Dorc.PersistentData.Security
         private readonly IReadOnlyCollection<string> artefactHosts;
         private readonly IReadOnlyCollection<string> terraformHosts;
 
+        /// <exception cref="InvalidOperationException">
+        /// A list is present in configuration but is not a list of host names. Thrown at
+        /// construction - which is process start-up - so that a mistyped setting is an error
+        /// the operator sees rather than an allow-list that silently admits everything.
+        /// </exception>
         public SourceHostAllowList(IConfiguration configuration)
         {
             artefactHosts = Read(configuration, ArtefactHostsSetting);
@@ -56,42 +62,33 @@ namespace Dorc.PersistentData.Security
 
         public bool IsUnconfigured => artefactHosts.Count == 0 && terraformHosts.Count == 0;
 
-        public bool IsArtefactSourceAllowed(string? url, out string reason)
+        public PolicyDecision CheckArtefactSource(string? url)
         {
-            reason = string.Empty;
-
-            if (artefactHosts.Count == 0 || string.IsNullOrWhiteSpace(url))
-            {
-                return true;
-            }
-
             // ArtefactsUrl uses the same semicolon-delimited root format consumed by
-            // PathConfinement. Every non-empty, trimmed root is independently executable
-            // input, so permitting only the first leaves later roots as an allow-list bypass.
-            foreach (var root in url.Split(
-                         ';',
-                         StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            // PathConfinement. Every non-empty root is independently executable input, so
+            // permitting only the first would leave later roots as an allow-list bypass.
+            var roots = (url ?? string.Empty).Split(
+                ';',
+                StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+            foreach (var root in roots)
             {
-                if (!IsAllowed(root, artefactHosts, ArtefactHostsSetting, out reason))
+                var decision = Check(root, artefactHosts, ArtefactHostsSetting);
+
+                if (!decision.Allowed)
                 {
-                    return false;
+                    return decision;
                 }
             }
 
-            return true;
+            return PolicyDecision.Allow();
         }
 
-        public bool IsTerraformSourceAllowed(string? url, out string reason) =>
-            IsAllowed(url, terraformHosts, TerraformHostsSetting, out reason);
+        public PolicyDecision CheckTerraformSource(string? url) =>
+            Check(url, terraformHosts, TerraformHostsSetting);
 
-        private static bool IsAllowed(
-            string? url,
-            IReadOnlyCollection<string> allowed,
-            string setting,
-            out string reason)
+        private static PolicyDecision Check(string? url, IReadOnlyCollection<string> allowed, string setting)
         {
-            reason = string.Empty;
-
             if (allowed.Count == 0)
             {
                 // Not configured, so not enforced. There is no safe built-in default for a host
@@ -100,32 +97,32 @@ namespace Dorc.PersistentData.Security
                 // against nothing would reject every project edit in every deployment on the
                 // day this ships, which is the flag day the sequencing rules exist to prevent.
                 // The gap is reportable through IsUnconfigured rather than silent.
-                return true;
+                return PolicyDecision.Allow();
             }
 
             if (string.IsNullOrWhiteSpace(url))
             {
                 // Nothing named, nothing fetched. Whether the field may be empty at all is a
                 // separate question, already asked elsewhere.
-                return true;
+                return PolicyDecision.Allow();
             }
 
             var host = HostOf(url);
 
             if (host == null)
             {
-                reason = $"'{url}' does not name a host that can be identified, so it cannot be"
-                    + " checked against the permitted list.";
-                return false;
+                return PolicyDecision.Refuse(
+                    $"'{LogText.SingleLine(url.Trim())}' does not name a host that can be identified, so it"
+                    + " cannot be checked against the permitted list.");
             }
 
             if (allowed.Contains(host, StringComparer.OrdinalIgnoreCase))
             {
-                return true;
+                return PolicyDecision.Allow();
             }
 
-            reason = $"its host '{host}' is not permitted. Add it to '{setting}' if it should be.";
-            return false;
+            return PolicyDecision.Refuse(
+                $"its host '{host}' is not permitted. Add it to '{setting}' if it should be.");
         }
 
         /// <summary>
@@ -137,47 +134,47 @@ namespace Dorc.PersistentData.Security
         /// https://build.corp.example.com.attacker.net passes a test for
         /// "build.corp.example.com". Only comparing the parsed authority avoids that, which is
         /// why the host is extracted here and compared whole.
+        ///
+        /// <see cref="Uri"/> reads \\host\share, //host/share and file://host/share alike, on
+        /// every platform .NET 8 runs on, so there is one parser and one answer. A local path,
+        /// file:///C:/x, parses but names no host, and a local path on the API host is not a
+        /// source anything should be fetched from.
         /// </summary>
         public static string? HostOf(string? urlOrUncPath)
         {
-            if (string.IsNullOrWhiteSpace(urlOrUncPath))
+            if (!Uri.TryCreate(urlOrUncPath?.Trim(), UriKind.Absolute, out var uri))
             {
                 return null;
             }
 
-            var value = urlOrUncPath.Trim();
-
-            // A UNC path is not a URI, and Uri.TryCreate on Linux does not treat \\host\share
-            // as one either. Read the host directly so this answers the same way wherever it
-            // runs.
-            if (value.StartsWith(@"\\", StringComparison.Ordinal))
-            {
-                var segments = value[2..].Split('\\', StringSplitOptions.RemoveEmptyEntries);
-                return segments.Length > 0 ? segments[0] : null;
-            }
-
-            if (!Uri.TryCreate(value, UriKind.Absolute, out var uri))
-            {
-                return null;
-            }
-
-            // file://host/share and file:///C:/local differ: the second names no host, and a
-            // local path on the API host is not a source anything should be fetched from.
             return string.IsNullOrEmpty(uri.Host) ? null : uri.Host;
         }
 
         private static IReadOnlyCollection<string> Read(IConfiguration configuration, string setting)
         {
-            var configured = configuration.GetSection(setting).Get<string[]>();
+            var section = configuration.GetSection(setting);
 
-            if (configured == null)
+            if (!section.Exists() || string.IsNullOrWhiteSpace(section.Value) && !section.GetChildren().Any())
             {
+                // Absent, or present and blank. Either is "not configured".
                 return Array.Empty<string>();
             }
 
-            return configured
+            if (section.Value != null)
+            {
+                // A single value where a list was expected: "a.corp;b.corp" written as one
+                // string rather than as a JSON array. The configuration binder returns null for
+                // this, which would have read as "not configured" and admitted every host. A
+                // list that is present but unreadable is an error, not an absence.
+                throw new InvalidOperationException(
+                    $"'{setting}' must be a list of host names, one per entry, but it is the single value"
+                    + $" '{section.Value}'. Write it as a JSON array, or as indexed entries ({setting}:0, {setting}:1, ...).");
+            }
+
+            return section.GetChildren()
+                .Select(child => child.Value)
                 .Where(host => !string.IsNullOrWhiteSpace(host))
-                .Select(host => host.Trim())
+                .Select(host => host!.Trim())
                 .ToArray();
         }
     }

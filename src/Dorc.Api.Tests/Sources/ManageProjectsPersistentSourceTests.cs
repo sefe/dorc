@@ -37,6 +37,7 @@ namespace Dorc.Api.Tests.Sources
             // and keeps the pre-existing tests testing what they were written to test.
             _sourceHostAllowList = Substitute.For<ISourceHostAllowList>();
             _sourceHostAllowList.IsUnconfigured.Returns(true);
+            _sourceHostAllowList.CheckTerraformSource(Arg.Any<string>()).Returns(PolicyDecision.Allow());
             _context = Substitute.For<IDeploymentContext>();
             
             // Setup the context factory to return our mocked context
@@ -422,8 +423,8 @@ namespace Dorc.Api.Tests.Sources
         {
             _sourceHostAllowList.IsUnconfigured.Returns(false);
             _sourceHostAllowList
-                .IsTerraformSourceAllowed(Arg.Any<string>(), out Arg.Any<string>())
-                .Returns(call => { call[1] = "its host 'attacker' is not permitted."; return false; });
+                .CheckTerraformSource(Arg.Any<string>())
+                .Returns(PolicyDecision.Refuse("its host 'attacker' is not permitted."));
 
             var refusal = Assert.ThrowsExactly<ArgumentOutOfRangeException>(() =>
                 _source.ValidateComponents(
@@ -437,8 +438,8 @@ namespace Dorc.Api.Tests.Sources
         {
             _sourceHostAllowList.IsUnconfigured.Returns(false);
             _sourceHostAllowList
-                .IsTerraformSourceAllowed(Arg.Any<string>(), out Arg.Any<string>())
-                .Returns(call => { call[1] = "its host 'attacker' is not permitted."; return false; });
+                .CheckTerraformSource(Arg.Any<string>())
+                .Returns(PolicyDecision.Refuse("its host 'attacker' is not permitted."));
             _contextFactory.ClearReceivedCalls();
 
             var component = OneComponent(
@@ -454,8 +455,8 @@ namespace Dorc.Api.Tests.Sources
         {
             _sourceHostAllowList.IsUnconfigured.Returns(false);
             _sourceHostAllowList
-                .IsTerraformSourceAllowed(Arg.Any<string>(), out Arg.Any<string>())
-                .Returns(call => { call[1] = "its host 'attacker' is not permitted."; return false; });
+                .CheckTerraformSource(Arg.Any<string>())
+                .Returns(PolicyDecision.Refuse("its host 'attacker' is not permitted."));
             _contextFactory.ClearReceivedCalls();
 
             var component = OneComponent(
@@ -479,7 +480,7 @@ namespace Dorc.Api.Tests.Sources
                 OneComponent(@"\\anywhere\terraform\infra", ComponentType.Terraform), 1, HttpRequestType.Post);
 
             _sourceHostAllowList.DidNotReceive()
-                .IsTerraformSourceAllowed(Arg.Any<string>(), out Arg.Any<string>());
+                .CheckTerraformSource(Arg.Any<string>());
         }
     }
 }
