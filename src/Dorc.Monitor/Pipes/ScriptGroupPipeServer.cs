@@ -148,32 +148,28 @@ namespace Dorc.Monitor.Pipes
             SecurityIdentifier monitor,
             ScriptGroupReaderIdentity readerIdentity)
         {
-            var account = readerIdentity.QualifiedAccountName;
+            var resolution = readerIdentity.Resolve();
 
-            try
+            if (!resolution.IsResolved)
             {
-                var runner = (SecurityIdentifier)new NTAccount(account).Translate(typeof(SecurityIdentifier));
-
-                if (runner.Equals(monitor))
-                {
-                    return;
-                }
-
-                security.AddAccessRule(new PipeAccessRule(runner, RunnerRights, AccessControlType.Allow));
-            }
-            catch (IdentityNotMappedException ex)
-            {
+                // The same refusals as the bundle and the plan directory: a broad group would
+                // publish the pipe to the host, and an unresolvable name cannot be admitted.
                 logger.LogError(
-                    ex,
-                    "The deployment account '{Account}' could not be admitted to the script group pipe."
-                    + " The Runner will be unable to read it unless it runs as an account the pipe already admits.",
-                    SanitizeForLog(account));
+                    resolution.Cause,
+                    "{Refusal} It has not been admitted to the script group pipe, so the Runner will be unable to"
+                    + " read it unless it runs as an account the pipe already admits.",
+                    resolution.Refusal);
+                return;
             }
-        }
 
-        private static string SanitizeForLog(string value)
-        {
-            return value.Replace("\r", string.Empty).Replace("\n", string.Empty);
+            var runner = resolution.SecurityIdentifier!;
+
+            if (runner.Equals(monitor))
+            {
+                return;
+            }
+
+            security.AddAccessRule(new PipeAccessRule(runner, RunnerRights, AccessControlType.Allow));
         }
 
         private void Serve(
