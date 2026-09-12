@@ -1,3 +1,4 @@
+using Dorc.ApiModel;
 using Dorc.PersistentData.Security;
 using Microsoft.Extensions.Configuration;
 
@@ -143,6 +144,8 @@ namespace Dorc.Api.Tests
             var allowList = Unconfigured();
 
             Assert.IsTrue(allowList.IsUnconfigured);
+            Assert.IsTrue(allowList.IsArtefactSourceUnconfigured);
+            Assert.IsTrue(allowList.IsTerraformSourceUnconfigured);
             Assert.IsTrue(allowList.CheckArtefactSource("https://anywhere.example.com/drops").Allowed);
             Assert.IsTrue(allowList.CheckTerraformSource(@"\\anywhere\share").Allowed);
         }
@@ -156,6 +159,8 @@ namespace Dorc.Api.Tests
             });
 
             Assert.IsFalse(artefactsOnly.IsUnconfigured);
+            Assert.IsFalse(artefactsOnly.IsArtefactSourceUnconfigured);
+            Assert.IsTrue(artefactsOnly.IsTerraformSourceUnconfigured);
 
             // The list that IS filled enforces; the one that is not still admits, because an
             // unfilled list confines nothing and enforcing it would be enforcing against zero
@@ -198,7 +203,7 @@ namespace Dorc.Api.Tests
         [DataRow("  https://buildserver/drops/app  ")]
         public void ReadsTheHostOfEveryFormASourceIsWrittenIn(string source)
         {
-            Assert.AreEqual("buildserver", SourceHostAllowList.HostOf(source));
+            Assert.AreEqual("buildserver", SourceHost.Of(source));
         }
 
         [TestMethod]
@@ -209,7 +214,7 @@ namespace Dorc.Api.Tests
         [DataRow(null)]
         public void ReadsNoHostWhereNoneIsNamed(string? source)
         {
-            Assert.IsNull(SourceHostAllowList.HostOf(source));
+            Assert.IsNull(SourceHost.Of(source));
         }
 
         /// <summary>
