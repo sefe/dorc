@@ -107,7 +107,7 @@ namespace Dorc.Monitor.Terraform
                     nameof(planFileName));
             }
 
-            return Path.Combine(Directory, planFileName);
+            return Path.Join(Directory, planFileName);
         }
 
         /// <summary>
