@@ -1,6 +1,7 @@
 using System.Text.RegularExpressions;
 using Dorc.Core.AzureDevOpsServer;
 using Dorc.Core.Models;
+using Dorc.PersistentData.Security;
 using Microsoft.Extensions.Logging;
 using Org.OpenAPITools.Model;
 
@@ -12,10 +13,12 @@ namespace Dorc.Core.BuildServer
     public class AzureDevOpsBuildServerClient : IBuildServerClient
     {
         private readonly ILoggerFactory _loggerFactory;
+        private readonly ISourceHostAllowList _sourceHosts;
 
-        public AzureDevOpsBuildServerClient(ILoggerFactory loggerFactory)
+        public AzureDevOpsBuildServerClient(ILoggerFactory loggerFactory, ISourceHostAllowList sourceHosts)
         {
             _loggerFactory = loggerFactory;
+            _sourceHosts = sourceHosts;
         }
 
         public IEnumerable<DeployableArtefact> GetDefinitions(string serverUrl, string projectPaths, string buildRegex)
@@ -187,7 +190,7 @@ namespace Dorc.Core.BuildServer
         private AzureDevOpsServerWebClient CreateClient(string serverUrl)
         {
             return new AzureDevOpsServerWebClient(serverUrl,
-                _loggerFactory.CreateLogger<AzureDevOpsServerWebClient>());
+                _loggerFactory.CreateLogger<AzureDevOpsServerWebClient>(), _sourceHosts);
         }
     }
 }

@@ -73,10 +73,6 @@ namespace Dorc.Core
             return GetDaemonStatusesForEnvironment(environment);
         }
 
-        [DllImport("advapi32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
-        public static extern bool LogonUser(string lpszUsername, string lpszDomain, IntPtr lpszPassword,
-            int dwLogonType, int dwLogonProvider, out SafeAccessTokenHandle phToken);
-
         private List<DaemonStatus> GetDaemonStatusesForEnvironment(EnvironmentApiModel? environment)
         {
             var credential = GetCredential(environment);
@@ -88,20 +84,8 @@ namespace Dorc.Core
 
             if (credential != null)
             {
-                const int logon32ProviderDefault = 0;
-                // This parameter causes LogonUser to create a primary token.
-                const int logon32LogonInteractive = 2;
-
-                bool returnValue = Logon(credential, domainName,
-                    logon32LogonInteractive, logon32ProviderDefault,
-                    out var safeAccessTokenHandle);
-
-                if (false == returnValue)
-                {
-                    int ret = Marshal.GetLastWin32Error();
-                    Console.WriteLine("LogonUser failed with error code : {0}", ret);
-                    throw new System.ComponentModel.Win32Exception(ret);
-                }
+                using var safeAccessTokenHandle = WindowsLogon.LogOn(
+                    credential, domainName, LogonType.Interactive, LogonProvider.Default);
 
                 List<DaemonStatus> probeResults = [];
                 WindowsIdentity.RunImpersonated(
@@ -135,19 +119,8 @@ namespace Dorc.Core
 
             if (credential != null)
             {
-                const int logon32ProviderDefault = 0;
-                const int logon32LogonInteractive = 2;
-
-                bool returnValue = Logon(credential, domainName,
-                    logon32LogonInteractive, logon32ProviderDefault,
-                    out var safeAccessTokenHandle);
-
-                if (!returnValue)
-                {
-                    int ret = Marshal.GetLastWin32Error();
-                    _logger.LogError("LogonUser failed with error code: {ErrorCode}", ret);
-                    throw new System.ComponentModel.Win32Exception(ret);
-                }
+                var safeAccessTokenHandle = WindowsLogon.LogOn(
+                    credential, domainName, LogonType.Interactive, LogonProvider.Default);
 
                 using (safeAccessTokenHandle)
                 {
@@ -180,30 +153,6 @@ namespace Dorc.Core
                 environment?.EnvironmentIsProd == true
                     ? DeploymentTier.Production
                     : DeploymentTier.NonProduction);
-        }
-
-        private static bool Logon(
-            DeploymentCredential credential,
-            string domainName,
-            int logonType,
-            int logonProvider,
-            out SafeAccessTokenHandle token)
-        {
-            var passwordPointer = Marshal.SecureStringToGlobalAllocUnicode(credential.Password);
-            try
-            {
-                return LogonUser(
-                    credential.UserName,
-                    domainName,
-                    passwordPointer,
-                    logonType,
-                    logonProvider,
-                    out token);
-            }
-            finally
-            {
-                Marshal.ZeroFreeGlobalAllocUnicode(passwordPointer);
-            }
         }
 
         private List<DaemonStatus> BuildDaemonList(EnvironmentApiModel? environment,
@@ -291,7 +240,7 @@ namespace Dorc.Core
                             catch (Exception ex)
                             {
                                 _logger.LogInformation("Error retrieving daemon info for {DaemonName}{NewLine}        {Message}{NewLine}        {InnerException}",
-                                             SanitizeForLog(daemonApiModel.Name),
+                                             LogText.SingleLine(daemonApiModel.Name),
                                              Environment.NewLine,
                                              ex.Message,
                                              ex.InnerException);
@@ -301,9 +250,9 @@ namespace Dorc.Core
                     catch (Exception ex)
                     {
                         _logger.LogInformation("Error, couldn't ping: {ServerName}{NewLine}{Message}",
-                                     SanitizeForLog(serverApiModel.Name),
+                                     LogText.SingleLine(serverApiModel.Name),
                                      Environment.NewLine,
-                                     SanitizeForLog(ex.Message));
+                                     LogText.SingleLine(ex.Message));
                     }
                 }
             }
@@ -420,20 +369,8 @@ namespace Dorc.Core
 
             var domainName = _domainName;
 
-            const int logon32ProviderDefault = 0;
-            // This parameter causes LogonUser to create a primary token.
-            const int logon32LogonInteractive = 2;
-
-            bool returnValue = Logon(credential, domainName,
-                logon32LogonInteractive, logon32ProviderDefault,
-                out var safeAccessTokenHandle);
-
-            if (false == returnValue)
-            {
-                int ret = Marshal.GetLastWin32Error();
-                Console.WriteLine("LogonUser failed with error code : {0}", ret);
-                throw new System.ComponentModel.Win32Exception(ret);
-            }
+            using var safeAccessTokenHandle = WindowsLogon.LogOn(
+                credential, domainName, LogonType.Interactive, LogonProvider.Default);
 
             return WindowsIdentity.RunImpersonated(
                 safeAccessTokenHandle,
@@ -642,16 +579,10 @@ namespace Dorc.Core
             {
                 result.Success = false;
                 result.Errors.Add($"Fatal error during daemon discovery: {ex.Message}");
-                _logger.LogError(ex, "Fatal error during daemon discovery for environment {EnvName}", SanitizeForLog(envName));
+                _logger.LogError(ex, "Fatal error during daemon discovery for environment {EnvName}", LogText.SingleLine(envName));
             }
 
             return result;
-        }
-        private static string SanitizeForLog(string? input)
-        {
-            return string.IsNullOrEmpty(input)
-                ? string.Empty
-                : input.Replace("\r", string.Empty).Replace("\n", string.Empty);
         }
     }
 }

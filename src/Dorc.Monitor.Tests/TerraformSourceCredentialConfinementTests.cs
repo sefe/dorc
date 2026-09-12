@@ -60,17 +60,9 @@ namespace Dorc.Monitor.Tests
             public bool IsTerraformSourceUnconfigured => isUnconfigured;
             public bool IsUnconfigured => isUnconfigured;
 
-            public bool IsArtefactSourceAllowed(string? url, out string reason)
-            {
-                reason = "host is not allowed";
-                return false;
-            }
+            public PolicyDecision CheckArtefactSource(string? url) => PolicyDecision.Refuse("host is not allowed");
 
-            public bool IsTerraformSourceAllowed(string? url, out string reason)
-            {
-                reason = "host is not allowed";
-                return false;
-            }
+            public PolicyDecision CheckTerraformSource(string? url) => PolicyDecision.Refuse("host is not allowed");
         }
     }
 }

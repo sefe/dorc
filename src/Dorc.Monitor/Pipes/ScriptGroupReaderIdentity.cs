@@ -1,3 +1,6 @@
+using System.Runtime.Versioning;
+using Dorc.Monitor.Security;
+
 namespace Dorc.Monitor.Pipes
 {
     /// <summary>
@@ -37,5 +40,13 @@ namespace Dorc.Monitor.Pipes
             UserName.Contains('\\') || UserName.Contains('@') || Domain.Length == 0
                 ? UserName
                 : $@"{Domain}\{UserName}";
+
+        /// <summary>
+        /// Resolves this account to a security identifier, or explains why it was refused.
+        /// Every artefact that admits the Runner - bundle, pipe, plan directory - goes through
+        /// this one resolution so that all of them refuse the same misconfigurations.
+        /// </summary>
+        [SupportedOSPlatform("windows")]
+        public DeploymentPrincipalResolution Resolve() => DeploymentPrincipal.Resolve(QualifiedAccountName);
     }
 }

@@ -1,3 +1,4 @@
+using System.Net;
 using System.Security;
 
 namespace Dorc.Core.Security
@@ -35,12 +36,9 @@ namespace Dorc.Core.Security
 
         public static SecureString ToSecureString(string value)
         {
-            var secret = new SecureString();
-            foreach (var character in value)
-            {
-                secret.AppendChar(character);
-            }
-
+            // NetworkCredential already converts a string to a SecureString; there is no need
+            // to spell the loop out here.
+            var secret = new NetworkCredential(string.Empty, value).SecurePassword;
             secret.MakeReadOnly();
             return secret;
         }

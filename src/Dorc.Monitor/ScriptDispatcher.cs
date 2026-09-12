@@ -368,10 +368,11 @@ namespace Dorc.Monitor
             var enforcing = configurationSettingsEngine.GetScriptPathEnforcementEnabled();
             var confined = true;
 
-            if (!ScriptPathConfinement.IsConfined(script.Path, out var reason))
+            var registered = ScriptPathConfinement.Check(script.Path);
+            if (!registered.Allowed)
             {
                 confined = false;
-                Report(enforcing, script.Path, scriptsLocation, reason);
+                Report(enforcing, script.Path, scriptsLocation, registered.Reason);
             }
 
             foreach (var scriptGroup in scriptGroups)
@@ -395,9 +396,9 @@ namespace Dorc.Monitor
 
         private void Report(bool enforcing, string? scriptPath, string scriptsLocation, string reason)
         {
-            var safeScriptPath = SingleLine(scriptPath);
-            var safeScriptRoot = SingleLine(scriptsLocation);
-            var safeReason = SingleLine(reason);
+            var safeScriptPath = LogText.SingleLine(scriptPath);
+            var safeScriptRoot = LogText.SingleLine(scriptsLocation);
+            var safeReason = LogText.SingleLine(reason);
 
             if (enforcing)
             {
@@ -417,8 +418,6 @@ namespace Dorc.Monitor
             }
         }
 
-        private static string SingleLine(string? value) =>
-            value?.Replace("\r", string.Empty).Replace("\n", string.Empty) ?? string.Empty;
 
         private string GetDeploymentRunnerFileFullName(
             string powerShellVersionNumber)

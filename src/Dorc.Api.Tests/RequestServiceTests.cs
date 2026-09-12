@@ -166,7 +166,7 @@ namespace Dorc.Api.Tests
             var mockedLoggerFactory = Substitute.For<ILoggerFactory>();
             var mockDeployLibrary = Substitute.For<IDeployLibrary>();
             Func<GitHubDeployableBuild> mockedGitHubDeployableBuildFactory = () => null!;
-            IDeployableBuildFactory factory = new DeployableBuildFactory(mockedFileSystemHelper, mockedLoggerFactory, mockedProjectsPds, mockDeployLibrary, mockRequestsPersistentSource, mockedGitHubDeployableBuildFactory);
+            IDeployableBuildFactory factory = new DeployableBuildFactory(mockedFileSystemHelper, mockedLoggerFactory, mockedProjectsPds, mockDeployLibrary, mockRequestsPersistentSource, mockedGitHubDeployableBuildFactory, Substitute.For<Dorc.PersistentData.Security.ISourceHostAllowList>());
             var test4Service = new RequestService(mockedLogger, factory, mockedProjectsPds);
             Exception expectedException1 = null;
             try
