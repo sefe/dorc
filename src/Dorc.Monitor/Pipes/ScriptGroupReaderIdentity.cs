@@ -1,5 +1,5 @@
 using System.Runtime.Versioning;
-using System.Security.Principal;
+using Dorc.Monitor.Security;
 
 namespace Dorc.Monitor.Pipes
 {
@@ -42,78 +42,11 @@ namespace Dorc.Monitor.Pipes
                 : $@"{Domain}\{UserName}";
 
         /// <summary>
-        /// Resolves this account to a security identifier, refusing one that names a principal
-        /// too broad to be trusted with a deployment artefact.
-        ///
-        /// Both callers — the script-group bundle and the Terraform plan directory — grant this
-        /// principal access to something that carries resolved deployment properties, so both
-        /// need the same refusal. A misconfigured account name that happens to resolve to
-        /// Authenticated Users would otherwise publish the artefact to the whole host.
-        /// </summary>
-        /// <param name="refusal">
-        /// Why the identity was refused, when this returns false. Suitable for logging: it names
-        /// the configured account but nothing from the artefact being protected.
-        /// </param>
-        [SupportedOSPlatform("windows")]
-        public bool TryResolveSecurityIdentifier(
-            out SecurityIdentifier? securityIdentifier,
-            out string? refusal)
-        {
-            securityIdentifier = null;
-            refusal = null;
-
-            var account = QualifiedAccountName;
-
-            try
-            {
-                var resolved = (SecurityIdentifier)new NTAccount(account).Translate(typeof(SecurityIdentifier));
-
-                if (IsTooBroadToHoldASecret(resolved))
-                {
-                    refusal =
-                        $"The configured deployment account '{account}' resolves to '{resolved}', which is a"
-                        + " group broad enough that granting it access to a deployment artefact would"
-                        + " disclose it.";
-                    return false;
-                }
-
-                securityIdentifier = resolved;
-                return true;
-            }
-            catch (Exception ex) when (IsExpectedTranslationFailure(ex))
-            {
-                refusal =
-                    $"The configured deployment account '{account}' could not be resolved to a security"
-                    + $" identifier. Exception: {ex}";
-                return false;
-            }
-        }
-
-        private static bool IsExpectedTranslationFailure(Exception exception)
-        {
-            return exception is IdentityNotMappedException
-                or ArgumentException
-                or InvalidOperationException
-                || exception.GetType() == typeof(SystemException);
-        }
-
-        /// <summary>
-        /// Refuses the principals whose membership is effectively "anyone on the host". This is
-        /// a denylist of the catastrophic cases, not a general test for whether a SID names a
-        /// group — that needs the account's SID_NAME_USE, which has no managed API. A narrower
-        /// group slipping through still only reaches one deployment's artefacts, for the seconds
-        /// before the logon fails on the same misconfigured name.
+        /// Resolves this account to a security identifier, or explains why it was refused.
+        /// Every artefact that admits the Runner - bundle, pipe, plan directory - goes through
+        /// this one resolution so that all of them refuse the same misconfigurations.
         /// </summary>
         [SupportedOSPlatform("windows")]
-        private static bool IsTooBroadToHoldASecret(SecurityIdentifier sid)
-        {
-            return sid.IsWellKnown(WellKnownSidType.WorldSid)
-                || sid.IsWellKnown(WellKnownSidType.AuthenticatedUserSid)
-                || sid.IsWellKnown(WellKnownSidType.BuiltinUsersSid)
-                || sid.IsWellKnown(WellKnownSidType.BuiltinGuestsSid)
-                || sid.IsWellKnown(WellKnownSidType.InteractiveSid)
-                || sid.IsWellKnown(WellKnownSidType.NetworkSid)
-                || sid.IsWellKnown(WellKnownSidType.AnonymousSid);
-        }
+        public DeploymentPrincipalResolution Resolve() => DeploymentPrincipal.Resolve(QualifiedAccountName);
     }
 }

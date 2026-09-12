@@ -75,7 +75,8 @@ namespace Dorc.Monitor.Tests
                 Substitute.For<IProjectsPersistentSource>(),
                 Substitute.For<IGitHubHostValidator>(),
                 Substitute.For<IScriptScopeConfigValues>(),
-                credentialSource);
+                credentialSource,
+                Substitute.For<ISourceHostAllowList>());
 
             Assert.IsFalse(scriptDispatcher.Dispatch(
                 "C:\\Scripts",

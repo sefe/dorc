@@ -22,16 +22,22 @@ namespace Dorc.Core.Tests
     {
         private static string Evaluate(string expression)
         {
-            Assert.IsTrue(PropertyExpressionGrammar.TryEvaluate(expression, out var result, out var error),
-                $"Expected '{expression}' to parse, but: {error}");
-            return result;
+            try
+            {
+                return PropertyExpressionGrammar.Evaluate(expression);
+            }
+            catch (PropertyExpressionParseException refusal)
+            {
+                Assert.Fail($"Expected '{expression}' to parse, but: {refusal.Message}");
+                throw;
+            }
         }
 
         private static string Refuse(string expression)
         {
-            Assert.IsFalse(PropertyExpressionGrammar.TryEvaluate(expression, out _, out var error),
-                $"Expected '{expression}' to be refused.");
-            return error;
+            return Assert.ThrowsExactly<PropertyExpressionParseException>(
+                () => PropertyExpressionGrammar.Evaluate(expression),
+                $"Expected '{expression}' to be refused.").Message;
         }
 
         /// <summary>

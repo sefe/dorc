@@ -27,21 +27,21 @@ namespace Dorc.Api.Tests.Sources
         [DataRow(ScriptContentVerificationMode.Enforce)]
         public void UnmodifiedContentExecutes(ScriptContentVerificationMode mode)
         {
-            Assert.IsTrue(ScriptContentGate.MayExecute(
-                mode, BaselineOfContent, Content, out var verdict, out _));
+            var decision = ScriptContentGate.Evaluate(mode, BaselineOfContent, Content);
 
-            Assert.AreEqual(ScriptContentVerdict.Matched, verdict);
+            Assert.IsTrue(decision.MayExecute);
+            Assert.AreEqual(ScriptContentVerdict.Matched, decision.Verdict);
         }
 
         [TestMethod]
         public void ModifiedContentDoesNotExecuteWhenEnforcing()
         {
-            Assert.IsFalse(ScriptContentGate.MayExecute(
-                ScriptContentVerificationMode.Enforce, BaselineOfSomethingElse, Content,
-                out var verdict, out var explanation));
+            var decision = ScriptContentGate.Evaluate(
+                ScriptContentVerificationMode.Enforce, BaselineOfSomethingElse, Content);
 
-            Assert.AreEqual(ScriptContentVerdict.Mismatched, verdict);
-            Assert.IsTrue(explanation.Contains("has not been executed"));
+            Assert.IsFalse(decision.MayExecute);
+            Assert.AreEqual(ScriptContentVerdict.Mismatched, decision.Verdict);
+            Assert.IsTrue(decision.Explanation.Contains("has not been executed"));
         }
 
         /// <summary>
@@ -52,12 +52,12 @@ namespace Dorc.Api.Tests.Sources
         [TestMethod]
         public void ModifiedContentExecutesWhenOnlyReporting()
         {
-            Assert.IsTrue(ScriptContentGate.MayExecute(
-                ScriptContentVerificationMode.Report, BaselineOfSomethingElse, Content,
-                out var verdict, out var explanation));
+            var decision = ScriptContentGate.Evaluate(
+                ScriptContentVerificationMode.Report, BaselineOfSomethingElse, Content);
 
-            Assert.AreEqual(ScriptContentVerdict.Mismatched, verdict);
-            Assert.IsTrue(explanation.Contains("report rather than enforce"));
+            Assert.IsTrue(decision.MayExecute);
+            Assert.AreEqual(ScriptContentVerdict.Mismatched, decision.Verdict);
+            Assert.IsTrue(decision.Explanation.Contains("report rather than enforce"));
         }
 
         /// <summary>
@@ -73,20 +73,20 @@ namespace Dorc.Api.Tests.Sources
         public void AnUnrecordedBaselineIsNeverARefusal(
             ScriptContentVerificationMode mode, string? baseline)
         {
-            Assert.IsTrue(ScriptContentGate.MayExecute(
-                mode, baseline!, Content, out var verdict, out _));
+            var decision = ScriptContentGate.Evaluate(mode, baseline!, Content);
 
-            Assert.AreEqual(ScriptContentVerdict.Unrecorded, verdict);
+            Assert.IsTrue(decision.MayExecute);
+            Assert.AreEqual(ScriptContentVerdict.Unrecorded, decision.Verdict);
         }
 
         [TestMethod]
         public void NothingIsComparedWhenVerificationIsOff()
         {
-            Assert.IsTrue(ScriptContentGate.MayExecute(
-                ScriptContentVerificationMode.Off, BaselineOfSomethingElse, Content,
-                out var verdict, out _));
+            var decision = ScriptContentGate.Evaluate(
+                ScriptContentVerificationMode.Off, BaselineOfSomethingElse, Content);
 
-            Assert.AreEqual(ScriptContentVerdict.NotVerified, verdict);
+            Assert.IsTrue(decision.MayExecute);
+            Assert.AreEqual(ScriptContentVerdict.NotVerified, decision.Verdict);
         }
 
         /// <summary>
@@ -97,10 +97,9 @@ namespace Dorc.Api.Tests.Sources
         [TestMethod]
         public void TheExplanationCarriesHashesAndNoScriptContent()
         {
-            ScriptContentGate.MayExecute(
+            var explanation = ScriptContentGate.Evaluate(
                 ScriptContentVerificationMode.Enforce, BaselineOfSomethingElse,
-                Encoding.UTF8.GetBytes("Invoke-Expression $env:PAYLOAD"),
-                out _, out var explanation);
+                Encoding.UTF8.GetBytes("Invoke-Expression $env:PAYLOAD")).Explanation;
 
             Assert.IsFalse(explanation.Contains("Invoke-Expression"));
             Assert.IsTrue(explanation.Contains(BaselineOfSomethingElse));

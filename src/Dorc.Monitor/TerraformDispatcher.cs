@@ -48,7 +48,8 @@ namespace Dorc.Monitor
             IProjectsPersistentSource projectsPersistentSource,
             IGitHubHostValidator gitHubHostValidator,
             IScriptScopeConfigValues scriptScopeConfigValues,
-            IDeploymentCredentialSource credentialSource)
+            IDeploymentCredentialSource credentialSource,
+            ISourceHostAllowList sourceHostAllowList)
         {
             this.logger = logger;
             this._requestsPersistentSource = requestsPersistentSource;
@@ -60,7 +61,7 @@ namespace Dorc.Monitor
             this._projectsPersistentSource = projectsPersistentSource;
             this._scriptScopeConfigValues = scriptScopeConfigValues;
             this._credentialSource = credentialSource;
-            this._sourceConfigurator = new TerraformSourceConfigurator(logger, _configurationSettingsEngine, gitHubHostValidator);
+            this._sourceConfigurator = new TerraformSourceConfigurator(logger, _configurationSettingsEngine, gitHubHostValidator, sourceHostAllowList);
         }
 
         public bool Dispatch(
