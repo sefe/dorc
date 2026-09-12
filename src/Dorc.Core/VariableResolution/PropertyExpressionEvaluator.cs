@@ -41,7 +41,12 @@ namespace Dorc.Core.VariableResolution
                     // assembly: an estate inventory found every one of the 11 distinct
                     // expressions in use to be a string literal followed by a chain of
                     // lower-casing, upper-casing and replacement, which is a parser's job.
-                    if (!PropertyExpressionGrammar.TryEvaluate(exp, out var resolvedValue, out var error))
+                    string resolvedValue;
+                    try
+                    {
+                        resolvedValue = PropertyExpressionGrammar.Evaluate(exp);
+                    }
+                    catch (PropertyExpressionParseException parseFailure)
                     {
                         // Fail closed. Never fall back to compilation - that fallback would be
                         // the weakness this step removes, and it is the only thing containing
@@ -49,12 +54,13 @@ namespace Dorc.Core.VariableResolution
                         // configuration values are encrypted at rest and do reach here.
                         //
                         // The expression itself is not logged: it is a resolved property value
-                        // and may be a secret. The error names the shape of the failure and
-                        // where in the expression it occurred.
+                        // and may be a secret. The parse failure names the shape of the failure
+                        // and where in the expression it occurred, and nothing else.
                         _logger.LogError("A property expression could not be parsed and was not evaluated.");
 
                         throw new PropertyExpressionEvaluationException(
-                            $"A property expression could not be parsed and was not evaluated: {error}");
+                            $"A property expression could not be parsed and was not evaluated: {parseFailure.Message}",
+                            parseFailure);
                     }
 
                     _compiledResults[exp] = resolvedValue;
@@ -68,8 +74,8 @@ namespace Dorc.Core.VariableResolution
 
     public sealed class PropertyExpressionEvaluationException : InvalidOperationException
     {
-        public PropertyExpressionEvaluationException(string message)
-            : base(message)
+        public PropertyExpressionEvaluationException(string message, Exception innerException)
+            : base(message, innerException)
         {
         }
     }
