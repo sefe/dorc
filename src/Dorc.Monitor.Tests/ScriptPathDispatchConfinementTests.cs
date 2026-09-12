@@ -1,6 +1,7 @@
-using Dorc.ApiModel;
+﻿using Dorc.ApiModel;
 using Dorc.ApiModel.MonitorRunnerApi;
 using Dorc.Core.Configuration;
+using Dorc.Core.Security;
 using Dorc.Monitor.Pipes;
 using Dorc.PersistentData.Security;
 using Dorc.PersistentData.Sources.Interfaces;
@@ -29,6 +30,22 @@ namespace Dorc.Monitor.Tests
 
         private IScriptGroupPipeServer _pipeServer = null!;
         private IConfigurationSettings _settings = null!;
+
+        private readonly IDeploymentCredentialSource _credentialSource =
+            CredentialSourceFor("svc-dorc", "password");
+
+        /// <summary>
+        /// A credential source that resolves, so these tests exercise what they are about rather
+        /// than the missing-credential path.
+        /// </summary>
+        private static IDeploymentCredentialSource CredentialSourceFor(string userName, string password)
+        {
+            var source = Substitute.For<IDeploymentCredentialSource>();
+            source.Description.Returns("test");
+            source.Resolve(Arg.Any<DeploymentTier>())
+                .Returns(DeploymentCredential.FromPlainText(userName, password));
+            return source;
+        }
 
         [TestInitialize]
         public void Setup()
@@ -62,7 +79,8 @@ namespace Dorc.Monitor.Tests
                 _pipeServer,
                 _settings,
                 Substitute.For<IRequestsPersistentSource>(),
-                Substitute.For<IScriptScopeConfigValues>());
+                Substitute.For<IScriptScopeConfigValues>(),
+                _credentialSource);
 
         private bool Dispatch(string storedScriptPath)
         {

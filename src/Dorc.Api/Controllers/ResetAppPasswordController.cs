@@ -1,5 +1,6 @@
-using Dorc.ApiModel;
+﻿using Dorc.ApiModel;
 using Dorc.Core.Configuration;
+using Dorc.Core.Security;
 using Dorc.Core.Interfaces;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Extensions;
@@ -7,8 +8,6 @@ using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Win32.SafeHandles;
-using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using System.Security.Principal;
 
@@ -21,6 +20,7 @@ namespace Dorc.Api.Controllers
     public class ResetAppPasswordController : ControllerBase
     {
         private readonly IDatabasesPersistentSource _databasesPersistentSource;
+        private readonly IDeploymentCredentialSource _credentialSource;
         private readonly ISqlUserPasswordReset _sqlUserPasswordReset;
         private readonly IConfigValuesPersistentSource _configValuesPersistentSource;
         private readonly ILogger _logger;
@@ -34,8 +34,10 @@ namespace Dorc.Api.Controllers
             ILogger<ResetAppPasswordController> logger,
             ISecurityPrivilegesChecker securityPrivilegesChecker,
             IConfigurationSettings configurationSettingsEngine,
-            IClaimsPrincipalReader claimsPrincipalReader)
+            IClaimsPrincipalReader claimsPrincipalReader,
+            IDeploymentCredentialSource credentialSource)
         {
+            _credentialSource = credentialSource;
             _securityPrivilegesChecker = securityPrivilegesChecker;
             _logger = logger;
             _configValuesPersistentSource = configValuesPersistentSource;
@@ -63,9 +65,6 @@ namespace Dorc.Api.Controllers
                     $"You are not authorized to reset passwords for {envName}");
         }
 
-        [DllImport("advapi32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
-        public static extern bool LogonUser(string lpszUsername, string lpszDomain, string lpszPassword,
-            int dwLogonType, int dwLogonProvider, out SafeAccessTokenHandle phToken);
         private IActionResult ResetPassword(string envFilter, string envName, string username)
         {
             try
@@ -86,31 +85,23 @@ namespace Dorc.Api.Controllers
 
         private ApiBoolResult ResetSqlServerPasswordForUser(string username, string serverName)
         {
-            var user = _configValuesPersistentSource.GetConfigValue("DORC_NonProdDeployUsername");
-            var pwd = _configValuesPersistentSource.GetConfigValue("DORC_NonProdDeployPassword");
+            // The fourth resolution site, and the one whose hard-coded tier is worth noting: it
+            // resolves the NON-PRODUCTION credential regardless of the server it is resetting a
+            // password on. That is preserved here rather than quietly changed - whether it is
+            // deliberate or a latent defect is a question for whoever owns this endpoint, and
+            // making it environment-keyed is the next step's business.
+            var credential = _credentialSource.Resolve(DeploymentTier.NonProduction);
 
             var domainName = _configurationSettingsEngine.GetConfigurationDomainNameIntra();
-            
-            if (user == null || pwd == null)
+
+            if (credential == null)
                 return new ApiBoolResult { Message = "Unable to retrieve DOrc Login details", Result = false };
 
-            const int logon32ProviderDefault = 0;
-            //This parameter causes LogonUser to create a primary token.   
-            const int logon32LogonInteractive = 2;
-
-            bool returnValue = LogonUser(user, domainName, pwd,
-                logon32LogonInteractive, logon32ProviderDefault,
-                out var safeAccessTokenHandle);
-
-            if (false == returnValue)
-            {
-                int ret = Marshal.GetLastWin32Error();
-                Console.WriteLine("LogonUser failed with error code : {0}", ret);
-                throw new System.ComponentModel.Win32Exception(ret);
-            }
+            using var token = WindowsLogon.LogOn(
+                credential, domainName, LogonType.Interactive, LogonProvider.Default);
 
             return WindowsIdentity.RunImpersonated(
-                safeAccessTokenHandle,
+                token,
                 // User action  
                 () => _sqlUserPasswordReset.ResetSqlUserPassword(serverName, username));
         }

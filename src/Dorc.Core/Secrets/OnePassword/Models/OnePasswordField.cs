@@ -1,6 +1,6 @@
 ﻿using System.Text.Json.Serialization;
 
-namespace OnePassword.Connect.Client
+namespace Dorc.Core.Secrets.OnePassword
 {
     public class OnePasswordField
     {

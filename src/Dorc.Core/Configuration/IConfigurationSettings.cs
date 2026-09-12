@@ -52,6 +52,18 @@
         /// only reported. Absence means report.
         /// </summary>
         bool GetScriptPathEnforcementEnabled();
+
+        /// <summary>
+        /// Whether deployment credentials come from the secrets vault rather than DOrc's own
+        /// configuration values. Absence means configuration values.
+        /// </summary>
+        bool GetDeploymentCredentialsFromVault();
+
+        /// <summary>
+        /// The vault item holding a deployment credential, by tier and by whether the username
+        /// or the password is wanted. Null when unconfigured.
+        /// </summary>
+        string? GetDeploymentCredentialItemId(Security.DeploymentTier tier, bool forPassword);
         bool GetIsProduction();
     }
 }

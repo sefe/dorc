@@ -204,6 +204,35 @@ namespace Dorc.Core.Configuration
             return bool.TryParse(value, out bool enforce) && enforce;
         }
 
+        /// <summary>
+        /// Whether deployment credentials come from the secrets vault rather than from DOrc's
+        /// own configuration values.
+        ///
+        /// Absence means configuration values — today's behaviour. Switching where the whole
+        /// estate's deployment credentials come from is a deliberate act, not something a
+        /// release performs on an operator's behalf.
+        /// </summary>
+        public bool GetDeploymentCredentialsFromVault()
+        {
+            var value = _configuration.GetSection("AppSettings")["DeploymentCredentialsFromVault"];
+
+            return bool.TryParse(value, out bool fromVault) && fromVault;
+        }
+
+        /// <summary>
+        /// The vault item holding a deployment credential, by tier and by whether the username
+        /// or the password is wanted. Null when unconfigured — the vault-backed source refuses
+        /// rather than falling back, so that choosing it cannot silently be undone.
+        /// </summary>
+        public string? GetDeploymentCredentialItemId(Security.DeploymentTier tier, bool forPassword)
+        {
+            var key = tier == Security.DeploymentTier.Production
+                ? (forPassword ? "ProdDeployPasswordItemId" : "ProdDeployUsernameItemId")
+                : (forPassword ? "NonProdDeployPasswordItemId" : "NonProdDeployUsernameItemId");
+
+            return _configuration.GetSection("AppSettings")[key];
+        }
+
         public bool GetIsProduction()
         {
             var value = _configuration.GetSection("AppSettings")["IsProduction"];
