@@ -51,16 +51,13 @@ namespace Dorc.Api.Tests.Sources
                 File.WriteAllText(diskPath, "Write-Host 'different content'");
 
                 var deploymentScript = source.GetScripts(7);
-                var mayExecute = ScriptContentGate.MayExecute(
-                    ScriptContentVerificationMode.Enforce,
-                    deploymentScript.ContentHash,
-                    File.ReadAllBytes(diskPath),
-                    out var verdict,
-                    out _);
+                var onDisk = ScriptContentHash.Of(File.ReadAllBytes(diskPath));
 
+                // The mapping carries the recorded baseline through untouched. It must never be
+                // recomputed from whatever is on disk at the time, because the disk content is
+                // exactly what the baseline exists to be checked against.
                 Assert.AreEqual(StoredBaseline, deploymentScript.ContentHash);
-                Assert.IsFalse(mayExecute);
-                Assert.AreEqual(ScriptContentVerdict.Mismatched, verdict);
+                Assert.IsFalse(ScriptContentHash.Matches(deploymentScript.ContentHash, onDisk));
                 Assert.AreEqual(StoredBaseline, storedScript.ContentHash);
             }
             finally

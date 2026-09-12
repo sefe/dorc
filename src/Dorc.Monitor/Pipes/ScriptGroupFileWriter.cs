@@ -174,11 +174,9 @@ namespace Dorc.Monitor.Pipes
         /// otherwise make the bundle unreadable. Access is granted on the file rather than the
         /// directory so that the deployment account can reach the bundle it is meant to consume
         /// and not those of concurrent deployments — the isolation that buys is per-deployment,
-        /// but the principal need not be: an environment that names no execution identity of its
-        /// own still resolves to one shared account per production/non-production tier, so any
-        /// process already running as it can still read that tier's in-flight bundles. What
-        /// narrows the principal is the environment naming its own identity; that is a migration
-        /// per environment, not a property of this code.
+        /// but the principal is not: it is one shared account per production/non-production
+        /// tier, so any process already running as it can still read that tier's in-flight
+        /// bundles. Narrowing the principal itself is S-021's job, not this one's.
         ///
         /// Reaching a file by path also needs traverse rights on its parents. Those come from
         /// the "Bypass traverse checking" right, which Windows grants to Everyone by default;
@@ -202,17 +200,19 @@ namespace Dorc.Monitor.Pipes
             // the first one.
             var filename = BundlePath(pipeName);
 
-            // A misconfigured account name that resolves to a broad group would publish the
-            // bundle to it. The deployment will fail moments later when the logon is attempted
-            // with the same name, and the bundle is expired on that path - but not granting it
-            // in the first place is free.
-            if (!readerIdentity.TryResolveSecurityIdentifier(out var reader, out var refusal))
+            var resolution = readerIdentity.Resolve();
+
+            if (!resolution.IsResolved)
             {
+                // A misconfigured account name that resolves to a broad group would publish
+                // the bundle to it, and one that does not resolve at all cannot be granted
+                // anything. Either way the deployment will fail moments later when the logon
+                // is attempted with the same name, and the bundle is expired on that path.
                 logger.LogError(
-                    "{Refusal} No access to the script group bundle '{BundlePath}' has been granted, so the" +
-                    " Runner will be unable to read it unless it runs as an account the directory already" +
-                    " admits.",
-                    DeploymentPrincipal.SanitizeForLog(refusal ?? string.Empty),
+                    resolution.Cause,
+                    "{Refusal} No access has been granted to the script group bundle '{BundlePath}', so the Runner"
+                    + " will be unable to read it unless it runs as an account the directory already admits.",
+                    resolution.Refusal,
                     filename);
                 return;
             }
@@ -222,24 +222,14 @@ namespace Dorc.Monitor.Pipes
                 var fileInfo = new FileInfo(filename);
                 var security = fileInfo.GetAccessControl();
                 security.AddAccessRule(new FileSystemAccessRule(
-                    reader,
+                    resolution.SecurityIdentifier!,
                     FileSystemRights.Read,
                     AccessControlType.Allow));
                 fileInfo.SetAccessControl(security);
             }
             catch (PrivilegeNotHeldException ex) { LogFailedGrant(ex, account, filename); }
             catch (UnauthorizedAccessException ex) { LogFailedGrant(ex, account, filename); }
-            catch (IdentityNotMappedException ex) { LogFailedGrant(ex, account, filename); }
-            catch (SecurityException ex) { LogFailedGrant(ex, account, filename); }
             catch (IOException ex) { LogFailedGrant(ex, account, filename); }
-            catch (SystemException ex) when (ex is not OutOfMemoryException)
-            {
-                // NTAccount.Translate surfaces directory-service failures as SystemException
-                // itself - a plain 'new SystemException' from the SID lookup - so the typed
-                // catches above do not cover the case this method exists to survive: an
-                // unreachable domain controller must not fail a deployment.
-                LogFailedGrant(ex, account, filename);
-            }
         }
 
         private void LogFailedGrant(Exception ex, string account, string filename) =>
@@ -248,7 +238,7 @@ namespace Dorc.Monitor.Pipes
                 "The deployment account '{Account}' could not be granted access to the script group bundle" +
                 " '{BundlePath}'. The Runner will be unable to read it unless it runs as an account the" +
                 " directory already admits.",
-                DeploymentPrincipal.SanitizeForLog(account),
+                LogText.SingleLine(account),
                 filename);
 
         /// <summary>

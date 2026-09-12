@@ -1,4 +1,4 @@
-﻿using System.Text;
+using System.Text;
 
 namespace Dorc.Core.VariableResolution
 {
@@ -22,284 +22,271 @@ namespace Dorc.Core.VariableResolution
     /// makes the literal's extent ambiguous, and an ambiguous expression is refused rather than
     /// guessed at.
     ///
-    /// The grammar fails closed. Anything it cannot parse is an error and never falls back to
-    /// compilation. That is what contains the one part of the inventory that could not be
-    /// examined — secure configuration values are encrypted at rest, could not be inspected by
-    /// query, and do reach the evaluator.
+    /// The grammar fails closed. Anything it cannot parse is a
+    /// <see cref="PropertyExpressionParseException"/> and never falls back to compilation. That
+    /// is what contains the one part of the inventory that could not be examined — secure
+    /// configuration values are encrypted at rest, could not be inspected by query, and do
+    /// reach the evaluator.
     /// </summary>
     public static class PropertyExpressionGrammar
     {
         /// <summary>
         /// Evaluates an expression, with the <c>fn:</c> marker already stripped.
         /// </summary>
-        /// <param name="result">The evaluated string, when this returns true.</param>
-        /// <param name="error">
-        /// Why parsing failed, when this returns false. Deliberately describes the *shape* of
-        /// the failure and its position, and never quotes the literal's content — the literal
-        /// is a resolved property value and may be a secret.
-        /// </param>
-        public static bool TryEvaluate(string expression, out string result, out string error)
+        /// <exception cref="PropertyExpressionParseException">
+        /// The expression is outside the grammar. The message describes the *shape* of the
+        /// failure and its position, and never quotes the literal's content — the literal is a
+        /// resolved property value and may be a secret.
+        /// </exception>
+        public static string Evaluate(string expression)
         {
-            result = string.Empty;
-            error = string.Empty;
-
             if (string.IsNullOrEmpty(expression))
             {
-                error = "the expression is empty.";
-                return false;
+                throw new PropertyExpressionParseException("the expression is empty.");
             }
 
-            var position = 0;
-
-            if (!TryReadStringLiteral(expression, ref position, out var value, out error))
-            {
-                return false;
-            }
-
-            while (position < expression.Length)
-            {
-                if (!TryApplyOperation(expression, ref position, ref value, out error))
-                {
-                    return false;
-                }
-            }
-
-            result = value;
-            return true;
+            return new Parser(expression).Evaluate();
         }
 
         /// <summary>
-        /// Reads a C# double-quoted literal, honouring the escapes that can legitimately appear
-        /// in one. An unrecognised escape is a refusal rather than a passthrough: the point of
-        /// this type is that nothing it does not understand gets evaluated.
+        /// One evaluation of one expression. Owns the read position so that the parsing
+        /// functions can be plain methods returning what they read, rather than threading the
+        /// position and the result through reference parameters.
         /// </summary>
-        private static bool TryReadStringLiteral(string expression, ref int position, out string value, out string error)
+        private sealed class Parser
         {
-            value = string.Empty;
-            error = string.Empty;
+            private readonly string _expression;
+            private int _position;
 
-            SkipWhitespace(expression, ref position);
-
-            if (position >= expression.Length || expression[position] != '"')
+            public Parser(string expression)
             {
-                error = $"expected a double-quoted string literal at position {position}."
-                    + " Verbatim and interpolated literals are not part of the grammar.";
-                return false;
+                _expression = expression;
             }
 
-            position++;
+            private bool AtEnd => _position >= _expression.Length;
 
-            var literal = new StringBuilder();
+            private char Current => _expression[_position];
 
-            while (position < expression.Length)
+            public string Evaluate()
             {
-                var character = expression[position];
+                var value = ReadStringLiteral();
 
-                if (character == '"')
+                while (!AtEnd)
                 {
-                    position++;
-                    value = literal.ToString();
-                    return true;
+                    value = ApplyOperation(value);
                 }
 
-                if (character != '\\')
+                return value;
+            }
+
+            /// <summary>
+            /// Reads a C# double-quoted literal, honouring the escapes that can legitimately
+            /// appear in one. An unrecognised escape is a refusal rather than a passthrough: the
+            /// point of this type is that nothing it does not understand gets evaluated.
+            /// </summary>
+            private string ReadStringLiteral()
+            {
+                SkipWhitespace();
+
+                if (AtEnd || Current != '"')
                 {
-                    literal.Append(character);
-                    position++;
-                    continue;
+                    throw Refuse(
+                        $"expected a double-quoted string literal at position {_position}."
+                        + " Verbatim and interpolated literals are not part of the grammar.");
                 }
 
-                position++;
-                if (position >= expression.Length)
+                _position++;
+
+                var literal = new StringBuilder();
+
+                while (!AtEnd)
                 {
-                    error = "the string literal ends with an incomplete escape sequence.";
-                    return false;
+                    var character = Current;
+
+                    if (character == '"')
+                    {
+                        _position++;
+                        return literal.ToString();
+                    }
+
+                    if (character != '\\')
+                    {
+                        literal.Append(character);
+                        _position++;
+                        continue;
+                    }
+
+                    _position++;
+                    if (AtEnd)
+                    {
+                        throw Refuse("the string literal ends with an incomplete escape sequence.");
+                    }
+
+                    switch (Current)
+                    {
+                        case '\\': literal.Append('\\'); break;
+                        case '"': literal.Append('"'); break;
+                        case 'n': literal.Append('\n'); break;
+                        case 'r': literal.Append('\r'); break;
+                        case 't': literal.Append('\t'); break;
+                        case '0': literal.Append('\0'); break;
+                        default:
+                            throw Refuse($"unsupported escape sequence at position {_position}.");
+                    }
+
+                    _position++;
                 }
 
-                switch (expression[position])
+                throw Refuse("the string literal is not closed.");
+            }
+
+            private string ApplyOperation(string value)
+            {
+                SkipWhitespace();
+
+                if (AtEnd)
                 {
-                    case '\\': literal.Append('\\'); break;
-                    case '"': literal.Append('"'); break;
-                    case 'n': literal.Append('\n'); break;
-                    case 'r': literal.Append('\r'); break;
-                    case 't': literal.Append('\t'); break;
-                    case '0': literal.Append('\0'); break;
+                    return value;
+                }
+
+                if (Current != '.')
+                {
+                    throw Refuse(
+                        $"expected '.' before an operation at position {_position}, or the end of the expression.");
+                }
+
+                _position++;
+
+                // The operation name is read as a whole identifier before being matched, not
+                // prefix-matched. Prefix-matching "ToLower" against "ToLowerInvariant" would still
+                // refuse the expression - correctly - but blame the argument list rather than the
+                // unsupported operation, which sends whoever is diagnosing it the wrong way.
+                var operation = ReadIdentifier();
+
+                switch (operation)
+                {
+                    case "ToLower":
+                        ConsumeEmptyArgumentList(operation);
+
+                        // Invariant rather than current-culture. The Turkish dotless i is the
+                        // standard example of why a deployment must not resolve a property
+                        // differently depending on the host's locale.
+                        return value.ToLowerInvariant();
+
+                    case "ToUpper":
+                        ConsumeEmptyArgumentList(operation);
+                        return value.ToUpperInvariant();
+
+                    case "Replace":
+                        var (from, to) = ReadReplaceArguments();
+
+                        if (from.Length == 0)
+                        {
+                            // Replacing the empty string is not something the estate does, and
+                            // .NET throws for it. Refuse it here so the failure names the reason.
+                            throw Refuse("Replace was called with an empty first argument.");
+                        }
+
+                        return value.Replace(from, to, StringComparison.Ordinal);
+
                     default:
-                        error = $"unsupported escape sequence at position {position}.";
-                        return false;
+                        throw Refuse(
+                            $"unsupported operation at position {_position - operation.Length}."
+                            + " The grammar allows ToLower, ToUpper and Replace only.");
                 }
-
-                position++;
             }
 
-            error = "the string literal is not closed.";
-            return false;
-        }
-
-        private static bool TryApplyOperation(string expression, ref int position, ref string value, out string error)
-        {
-            error = string.Empty;
-
-            SkipWhitespace(expression, ref position);
-
-            if (position >= expression.Length)
+            private string ReadIdentifier()
             {
-                return true;
-            }
+                SkipWhitespace();
 
-            if (expression[position] != '.')
-            {
-                error = $"expected '.' before an operation at position {position}, or the end of the expression.";
-                return false;
-            }
-
-            position++;
-
-            // The operation name is read as a whole identifier before being matched, not
-            // prefix-matched. Prefix-matching "ToLower" against "ToLowerInvariant" would still
-            // refuse the expression - correctly - but blame the argument list rather than the
-            // unsupported operation, which sends whoever is diagnosing it the wrong way.
-            var operation = ReadIdentifier(expression, ref position);
-
-            switch (operation)
-            {
-                case "ToLower":
-                    if (!TryConsumeEmptyArgumentList(expression, ref position, operation, out error))
-                    {
-                        return false;
-                    }
-
-                    // Invariant rather than current-culture. The Turkish dotless i is the
-                    // standard example of why a deployment must not resolve a property
-                    // differently depending on the host's locale.
-                    value = value.ToLowerInvariant();
-                    return true;
-
-                case "ToUpper":
-                    if (!TryConsumeEmptyArgumentList(expression, ref position, operation, out error))
-                    {
-                        return false;
-                    }
-
-                    value = value.ToUpperInvariant();
-                    return true;
-
-                case "Replace":
-                    if (!TryReadReplaceArguments(expression, ref position, out var from, out var to, out error))
-                    {
-                        return false;
-                    }
-
-                    if (from.Length == 0)
-                    {
-                        // Replacing the empty string is not something the estate does, and .NET
-                        // throws for it. Refuse it here so the failure names the reason.
-                        error = "Replace was called with an empty first argument.";
-                        return false;
-                    }
-
-                    value = value.Replace(from, to, StringComparison.Ordinal);
-                    return true;
-
-                default:
-                    error = $"unsupported operation at position {position - operation.Length}."
-                        + " The grammar allows ToLower, ToUpper and Replace only.";
-                    return false;
-            }
-        }
-
-        private static string ReadIdentifier(string expression, ref int position)
-        {
-            SkipWhitespace(expression, ref position);
-
-            var start = position;
-            while (position < expression.Length
-                && (char.IsLetterOrDigit(expression[position]) || expression[position] == '_'))
-            {
-                position++;
-            }
-
-            return expression[start..position];
-        }
-
-        private static bool TryReadReplaceArguments(
-            string expression, ref int position, out string from, out string to, out string error)
-        {
-            from = string.Empty;
-            to = string.Empty;
-
-            SkipWhitespace(expression, ref position);
-
-            if (position >= expression.Length || expression[position] != '(')
-            {
-                error = $"expected '(' after Replace at position {position}.";
-                return false;
-            }
-
-            position++;
-
-            if (!TryReadStringLiteral(expression, ref position, out from, out error))
-            {
-                return false;
-            }
-
-            SkipWhitespace(expression, ref position);
-
-            if (position >= expression.Length || expression[position] != ',')
-            {
-                error = $"expected ',' between Replace arguments at position {position}."
-                    + " Replace takes exactly two string literals.";
-                return false;
-            }
-
-            position++;
-
-            if (!TryReadStringLiteral(expression, ref position, out to, out error))
-            {
-                return false;
-            }
-
-            SkipWhitespace(expression, ref position);
-
-            if (position >= expression.Length || expression[position] != ')')
-            {
-                error = $"expected ')' after the Replace arguments at position {position}.";
-                return false;
-            }
-
-            position++;
-            return true;
-        }
-
-        private static bool TryConsumeEmptyArgumentList(
-            string expression, ref int position, string operation, out string error)
-        {
-            error = string.Empty;
-
-            SkipWhitespace(expression, ref position);
-
-            if (position < expression.Length && expression[position] == '(')
-            {
-                position++;
-                SkipWhitespace(expression, ref position);
-
-                if (position < expression.Length && expression[position] == ')')
+                var start = _position;
+                while (!AtEnd && (char.IsLetterOrDigit(Current) || Current == '_'))
                 {
-                    position++;
-                    return true;
+                    _position++;
+                }
+
+                return _expression[start.._position];
+            }
+
+            private (string From, string To) ReadReplaceArguments()
+            {
+                Expect('(', $"expected '(' after Replace at position {_position}.");
+
+                var from = ReadStringLiteral();
+
+                SkipWhitespace();
+                Expect(
+                    ',',
+                    $"expected ',' between Replace arguments at position {_position}."
+                    + " Replace takes exactly two string literals.");
+
+                var to = ReadStringLiteral();
+
+                SkipWhitespace();
+                Expect(')', $"expected ')' after the Replace arguments at position {_position}.");
+
+                return (from, to);
+            }
+
+            private void ConsumeEmptyArgumentList(string operation)
+            {
+                SkipWhitespace();
+
+                if (!AtEnd && Current == '(')
+                {
+                    _position++;
+                    SkipWhitespace();
+
+                    if (!AtEnd && Current == ')')
+                    {
+                        _position++;
+                        return;
+                    }
+                }
+
+                throw Refuse($"{operation} takes no arguments and must be written as {operation}().");
+            }
+
+            /// <summary>
+            /// Consumes <paramref name="expected"/> at the current position, or refuses with the
+            /// message. The message is built by the caller so that it reports the position at
+            /// which the character was expected.
+            /// </summary>
+            private void Expect(char expected, string refusal)
+            {
+                SkipWhitespace();
+
+                if (AtEnd || Current != expected)
+                {
+                    throw Refuse(refusal);
+                }
+
+                _position++;
+            }
+
+            private void SkipWhitespace()
+            {
+                while (!AtEnd && char.IsWhiteSpace(Current))
+                {
+                    _position++;
                 }
             }
 
-            error = $"{operation} takes no arguments and must be written as {operation}().";
-            return false;
+            private static PropertyExpressionParseException Refuse(string reason) =>
+                new PropertyExpressionParseException(reason);
         }
+    }
 
-        private static void SkipWhitespace(string expression, ref int position)
+    /// <summary>
+    /// An expression outside the grammar. The message names the shape and position of the
+    /// failure only; it never contains the expression's text.
+    /// </summary>
+    public sealed class PropertyExpressionParseException : InvalidOperationException
+    {
+        public PropertyExpressionParseException(string message)
+            : base(message)
         {
-            while (position < expression.Length && char.IsWhiteSpace(expression[position]))
-            {
-                position++;
-            }
         }
     }
 }

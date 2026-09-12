@@ -1,4 +1,5 @@
 using Dorc.ApiModel;
+using Dorc.PersistentData.Security;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
@@ -18,21 +19,24 @@ namespace Dorc.Core.BuildServer
         private readonly IConfiguration _configuration;
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IGitHubHostValidator _hostValidator;
+        private readonly ISourceHostAllowList _sourceHosts;
 
         public BuildServerClientFactory(ILoggerFactory loggerFactory, IConfiguration configuration,
-            IHttpClientFactory httpClientFactory, IGitHubHostValidator hostValidator)
+            IHttpClientFactory httpClientFactory, IGitHubHostValidator hostValidator,
+            ISourceHostAllowList sourceHosts)
         {
             _loggerFactory = loggerFactory;
             _configuration = configuration;
             _httpClientFactory = httpClientFactory;
             _hostValidator = hostValidator;
+            _sourceHosts = sourceHosts;
         }
 
         public IBuildServerClient Create(SourceControlType sourceControlType)
         {
             return sourceControlType switch
             {
-                SourceControlType.AzureDevOps => new AzureDevOpsBuildServerClient(_loggerFactory),
+                SourceControlType.AzureDevOps => new AzureDevOpsBuildServerClient(_loggerFactory, _sourceHosts),
                 SourceControlType.GitHub => new GitHubActionsBuildServerClient(
                     _loggerFactory.CreateLogger<GitHubActionsBuildServerClient>(), _configuration, _httpClientFactory, _hostValidator),
                 SourceControlType.FileShare => throw new InvalidOperationException(

@@ -17,6 +17,7 @@ using Dorc.Monitor.Registry;
 using Dorc.Monitor.RequestProcessors;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Contexts;
+using Dorc.PersistentData.Security;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -39,6 +40,9 @@ var configurationRoot = new ConfigurationBuilder()
 var monitorConfiguration = new MonitorConfiguration(configurationRoot);
 
 builder.Services.AddTransient(s => configurationRoot);
+// One instance per process: the allow-list is settings, not request state, and constructing it
+// is where a list that is present but unreadable is refused - at start-up, not mid-deployment.
+builder.Services.AddSingleton<ISourceHostAllowList>(new SourceHostAllowList(configurationRoot));
 builder.Services.AddTransient<IMonitorConfiguration>(m => monitorConfiguration);
 
 builder.Services.AddWindowsService(options =>
