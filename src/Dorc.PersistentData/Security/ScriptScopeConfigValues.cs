@@ -1,4 +1,4 @@
-using Dorc.ApiModel;
+﻿using Dorc.ApiModel;
 using Microsoft.Extensions.Configuration;
 
 namespace Dorc.PersistentData.Security
@@ -25,6 +25,12 @@ namespace Dorc.PersistentData.Security
     /// rather than "every secure value". The remainder wait on their consumers being migrated;
     /// what is still published is reported so that backlog stays visible rather than assumed.
     ///
+    /// Alongside the reserved-key list, each value carries its own classification, which an
+    /// administrator maintains. The list is estate-wide and settled by evidence; the
+    /// classification is per key and per deployment, and generalises the list without needing an
+    /// inventory of the estate first — existing values default to visible so nothing changes on
+    /// upgrade, and new secure values are created hidden.
+    ///
     /// Usernames stay visible deliberately. Scripts legitimately consume them to grant logon
     /// rights, and an account name is an identity rather than a credential — already visible in
     /// target-server access control lists, process listings and event logs.
@@ -32,9 +38,18 @@ namespace Dorc.PersistentData.Security
     public interface IScriptScopeConfigValues
     {
         /// <summary>
-        /// Whether this key must not reach deployment script scope.
+        /// Whether this key must not reach deployment script scope, judged on the key alone.
+        /// Used where only a property name is in hand.
         /// </summary>
         bool IsWithheld(string? key);
+
+        /// <summary>
+        /// Whether this value must not reach deployment script scope, judged on the value
+        /// itself. Two independent reasons withhold it: the reserved-key list, which is
+        /// estate-wide and fixed by evidence, and the value's own classification, which an
+        /// administrator maintains per key. Either is sufficient.
+        /// </summary>
+        bool IsWithheld(ConfigValueApiModel configValue);
 
         /// <summary>
         /// The keys being withheld, for reporting.
@@ -83,6 +98,9 @@ namespace Dorc.PersistentData.Security
         public bool IsWithheld(string? key) =>
             !string.IsNullOrWhiteSpace(key) && withheld.Contains(key.Trim());
 
+        public bool IsWithheld(ConfigValueApiModel configValue) =>
+            configValue == null || !configValue.VisibleToScripts || IsWithheld(configValue.Key);
+
         public IReadOnlyCollection<string> StillPublishedSecureKeys(IEnumerable<ConfigValueApiModel> configValues)
         {
             if (configValues == null)
@@ -91,7 +109,7 @@ namespace Dorc.PersistentData.Security
             }
 
             return configValues
-                .Where(value => value != null && value.Secure && !IsWithheld(value.Key))
+                .Where(value => value != null && value.Secure && !IsWithheld(value))
                 .Select(value => value.Key)
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .OrderBy(key => key, StringComparer.OrdinalIgnoreCase)

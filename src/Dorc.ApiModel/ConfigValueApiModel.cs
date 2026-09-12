@@ -11,5 +11,10 @@ namespace Dorc.ApiModel
         public string Value { get; set; }
         public bool Secure { get; set; }
         public Nullable<bool> IsForProd { get; set; }
+
+        /// <summary>
+        /// Whether this value may be resolved into deployment script scope.
+        /// </summary>
+        public bool VisibleToScripts { get; set; }
     }
 }
