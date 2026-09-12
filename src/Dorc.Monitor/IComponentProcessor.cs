@@ -12,6 +12,8 @@ namespace Dorc.Monitor
             int environmentId,
             bool isProductionEnvironment,
             string environmentName,
+            string? executionIdentityReference,
+            RequestExecutionIdentityAdoption identityAdoption,
             string scriptRoot,
             IDictionary<string, VariableValue> commonProperties,
             CancellationToken cancellationToken);
