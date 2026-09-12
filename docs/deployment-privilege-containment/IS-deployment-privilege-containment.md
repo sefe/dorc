@@ -36,7 +36,7 @@ Four rules determine the order below. They are stated up front because several a
 | S-006 | Remove resolved property values from runner logging | SD-6, W-7, SC-06 | **DONE** |
 | S-007 | Expire execution artefacts | SD-7, W-8, W-12, SC-08, SC-08a | **DONE** (W-8a disclosure closed; its retention deferred to S-021) |
 | S-008 | Replace the null process security descriptor | SD-2, W-2, SC-04 | — |
-| S-009 | Authenticate the script-group transport | SD-2, W-3, SC-04 | — |
+| S-009 | Authenticate the script-group transport | SD-2, W-3, SC-04 | **DONE** — must ship in lockstep, see the step |
 | S-010 | Validate script paths at the write path | SD-5, W-5 | — |
 | S-011 | Validate source URLs at the write path | SD-9, W-11, W-16 | — |
 | S-012 | Bind source credentials to validated hosts | SD-9, W-11, W-16, SC-05b | S-011 |
@@ -194,6 +194,16 @@ If an unpredictable pipe name is adopted as defence in depth, it must be generat
 **Dependencies.** None. Derive the principal from the credential resolution point.
 
 **Verification intent.** A process other than the Monitor cannot read a script group in transit. A runner refuses a script group offered by a process that is not the expected server. A squatter holding the pipe name before the Monitor creates it does not receive the bundle and does not cause the runner to execute attacker-supplied content. Normal deployments are unaffected on both transports.
+
+**Release constraint, established during implementation — this step must ship in lockstep.** The Runner cannot know which account the Monitor runs as, so it is told, on the command line: the Monitor emits `--serverSid=<its own SID>` and the Runner refuses any pipe not owned by it. Command-line arguments are parsed strictly, so **a Monitor carrying this change will fail every deployment against a Runner that predates it**, at argument parsing, before anything else. The Monitor and all three Runners are installed together, which is what makes this acceptable; an upgrade that replaces the Monitor while leaving a Runner path pointing at an older deployment will break. This is the concrete instance of the release-ordering risk S-018 owns.
+
+**Two decisions worth recording.**
+
+*An absent or malformed server identity is a refusal, not a pass.* A Runner that was never told whom to trust cannot authenticate anything, and defaulting to trust in exactly that case would leave the weakness open wherever the argument failed to arrive.
+
+*The pipe's owner is set explicitly rather than left to default.* The owner of a kernel object comes from the creating token's default owner, which for an account belonging to Administrators is `BUILTIN\Administrators` rather than the account itself. Left at the default, the check would either fail for a Monitor running as an administrator, or — if relaxed to accept the group — admit anyone who can become a local administrator as a legitimate server.
+
+**One trade accepted.** A squatter that claims the pipe name first now causes the Monitor's create to fail, and the deployment fails loudly rather than proceeding against an unknown counterparty. Any local user can therefore deny deployments on a Monitor host by squatting names. That is strictly better than the present behaviour, where the same act yields code execution as the deployment account, but it is a denial of service that did not previously exist and should be expected in operation.
 
 ---
 
