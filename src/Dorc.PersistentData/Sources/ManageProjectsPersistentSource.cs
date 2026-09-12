@@ -801,11 +801,12 @@ namespace Dorc.PersistentData.Sources
                 return;
             }
 
-            if (!ScriptPathConfinement.IsConfined(component.ScriptPath, out var reason))
+            var confinement = ScriptPathConfinement.Check(component.ScriptPath);
+            if (!confinement.Allowed)
             {
                 throw new ArgumentOutOfRangeException(nameof(component),
                     "Component '" + component.ComponentName + "' has a script path that cannot be"
-                    + " accepted, because " + reason);
+                    + " accepted, because " + confinement.Reason);
             }
         }
 

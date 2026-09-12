@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 
 namespace Dorc.PersistentData.Security
@@ -22,107 +22,85 @@ namespace Dorc.PersistentData.Security
     /// </summary>
     public static class ScriptPathConfinement
     {
+        private const string ScriptPathProperty = "ScriptPath";
+
         /// <summary>
-        /// True when the registered path can only resolve beneath the root it is joined to. On
-        /// false, <paramref name="reason"/> says which rule it broke, in terms a caller can
-        /// show a user.
+        /// Whether the registered path can only resolve beneath the root it is joined to. A
+        /// refusal says which rule it broke, in terms a caller can show a user.
         ///
         /// Accepts either form a script path is stored in - a plain path, or a JSON document
         /// carrying one under ScriptPath. Both reach Path.Combine at dispatch, so checking only
         /// the plain form would leave the JSON form as an open door.
         /// </summary>
-        public static bool IsConfined(string? scriptPath, out string reason)
+        public static PolicyDecision Check(string? scriptPath)
         {
-            reason = string.Empty;
-
             if (string.IsNullOrWhiteSpace(scriptPath))
             {
                 // Nothing to execute. Components legitimately carry no script.
-                return true;
+                return PolicyDecision.Allow();
             }
 
-            if (LooksLikeJson(scriptPath))
-            {
-                return IsEmbeddedPathConfined(scriptPath, out reason);
-            }
-
-            return IsRelativeAndTraversalFree(scriptPath, out reason);
-        }
-
-        private static bool IsEmbeddedPathConfined(string scriptPath, out string reason)
-        {
-            string? embedded;
+            JsonNode? document;
             try
             {
-                embedded = JsonNode.Parse(scriptPath)?["ScriptPath"]?.GetValue<string>();
+                document = JsonNode.Parse(scriptPath);
             }
             catch (JsonException)
             {
-                reason = "it is a JSON script path whose ScriptPath cannot be read, so it cannot be"
-                    + " shown to resolve beneath the script root.";
-                return false;
-            }
-            catch (InvalidOperationException)
-            {
-                // It announced itself as JSON and then would not yield a path - malformed, or
-                // ScriptPath present but not a string. Its confinement cannot be established,
-                // and something that cannot be shown to be confined is refused.
-                reason = "it is a JSON script path whose ScriptPath cannot be read, so it cannot be"
-                    + " shown to resolve beneath the script root.";
-                return false;
+                // The plain form. A path is never well-formed JSON, so this is the one parse
+                // that decides which form the value is in.
+                return CheckPath(scriptPath);
             }
 
-            if (string.IsNullOrWhiteSpace(embedded))
+            if (document is not JsonObject properties)
+            {
+                // Well-formed JSON that is not a document - a bare number or string - is not
+                // the JSON form, which is always an object. It is judged as the path it is.
+                return CheckPath(scriptPath);
+            }
+
+            var embedded = properties[ScriptPathProperty];
+
+            if (embedded == null)
             {
                 // Parsed cleanly and names no script. Dispatch combines an empty path with the
                 // root, which resolves to the root itself.
-                reason = string.Empty;
-                return true;
+                return PolicyDecision.Allow();
             }
 
-            return IsRelativeAndTraversalFree(embedded, out reason);
+            if (embedded is JsonValue value && value.TryGetValue<string>(out var embeddedPath))
+            {
+                return CheckPath(embeddedPath);
+            }
+
+            // ScriptPath is present but is not a string. Its confinement cannot be
+            // established, and something that cannot be shown to be confined is refused.
+            return PolicyDecision.Refuse(
+                "it is a JSON script path whose ScriptPath is not a string, so it cannot be shown to"
+                + " resolve beneath the script root.");
         }
 
-        /// <summary>
-        /// Matches how the write path already classifies a stored value, so the two cannot
-        /// disagree about which form they are looking at.
-        /// </summary>
-        private static bool LooksLikeJson(string scriptPath)
+        private static PolicyDecision CheckPath(string scriptPath)
         {
-            try
-            {
-                JsonNode.Parse(scriptPath);
-                return true;
-            }
-            catch (JsonException)
-            {
-                return false;
-            }
-        }
-
-        private static bool IsRelativeAndTraversalFree(string scriptPath, out string reason)
-        {
-            reason = string.Empty;
-
             if (string.IsNullOrWhiteSpace(scriptPath))
             {
-                return true;
+                return PolicyDecision.Allow();
             }
 
             var path = scriptPath.Trim();
 
             if (IsRooted(path))
             {
-                reason = "it is an absolute path. Script paths are stored relative to the script root;"
-                    + " an absolute path replaces that root instead of resolving beneath it.";
-                return false;
+                return PolicyDecision.Refuse(
+                    "it is an absolute path. Script paths are stored relative to the script root;"
+                    + " an absolute path replaces that root instead of resolving beneath it.");
             }
 
             if (HasTraversalSegment(path))
             {
-                reason = "it contains a parent directory reference ('..'), which can resolve outside"
-                    + " the script root.";
-                return false;
+                return PolicyDecision.Refuse(
+                    "it contains a parent directory reference ('..'), which can resolve outside"
+                    + " the script root.");
             }
 
             if (path.Contains(':'))
@@ -130,20 +108,20 @@ namespace Dorc.PersistentData.Security
                 // Everything colon-shaped in a Windows path names something other than a file
                 // beneath the root: a drive, a device, or an alternate data stream. None of
                 // them belongs in a registered script path.
-                reason = "it contains a colon, which names a drive, device or alternate data stream"
-                    + " rather than a file beneath the script root.";
-                return false;
+                return PolicyDecision.Refuse(
+                    "it contains a colon, which names a drive, device or alternate data stream"
+                    + " rather than a file beneath the script root.");
             }
 
-            return true;
+            return PolicyDecision.Allow();
         }
 
         private static bool IsRooted(string path)
         {
             // Judged directly rather than through Path.IsPathRooted, which answers according to
             // the host it runs on: on Linux it does not consider \\host\share or C:\x rooted at
-            // all, and this validation must give the same answer everywhere it is evaluated as
-            // the Windows host that will later join the path.
+            // all. The API is heading for a Linux host (#423), and this validation must give
+            // the same answer there as the Windows host that will later join the path.
             if (path[0] == '\\' || path[0] == '/')
             {
                 return true;
@@ -154,17 +132,9 @@ namespace Dorc.PersistentData.Security
 
         private static bool HasTraversalSegment(string path)
         {
-            foreach (var segment in path.Split('\\', '/'))
-            {
-                // Compared as a whole segment: a file legitimately named "..dat" is not
-                // traversal, and a rule that matched the substring would reject it.
-                if (segment.Trim() == "..")
-                {
-                    return true;
-                }
-            }
-
-            return false;
+            // Compared as whole segments: a file legitimately named "..dat" is not traversal,
+            // and a rule that matched the substring would reject it.
+            return path.Split('\\', '/').Any(segment => segment.Trim() == "..");
         }
     }
 }
