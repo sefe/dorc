@@ -1,8 +1,6 @@
 using Dorc.Monitor.Pipes;
 using Microsoft.Extensions.Logging;
 using System.Runtime.Versioning;
-using System.Security;
-using System.Security.AccessControl;
 using System.Security.Principal;
 
 namespace Dorc.Monitor.Security
@@ -74,44 +72,20 @@ namespace Dorc.Monitor.Security
             ScriptGroupReaderIdentity readerIdentity,
             ILogger logger)
         {
-            var account = readerIdentity.QualifiedAccountName;
+            var resolution = readerIdentity.Resolve();
 
-            try
+            if (resolution.IsResolved)
             {
-                var sid = (SecurityIdentifier)new NTAccount(account).Translate(typeof(SecurityIdentifier));
-
-                if (DeploymentPrincipal.IsTooBroadToHoldASecret(sid))
-                {
-                    logger.LogError(
-                        "The configured deployment account '{Account}' resolves to '{Sid}', which is a group" +
-                        " broad enough that admitting it to the Terraform plan directory would disclose every" +
-                        " plan staged on this host. It has not been admitted.",
-                        DeploymentPrincipal.SanitizeForLog(account),
-                        sid.Value);
-                    return null;
-                }
-
-                return sid;
+                return resolution.SecurityIdentifier;
             }
-            catch (IdentityNotMappedException ex) { LogUnresolved(ex, account, logger); }
-            catch (SecurityException ex) { LogUnresolved(ex, account, logger); }
-            catch (SystemException ex) when (ex is not OutOfMemoryException)
-            {
-                // NTAccount.Translate reports a directory-service failure as a plain
-                // SystemException. An unreachable domain controller must leave the directory
-                // restricted, not leave the deployment unable to reach this point at all.
-                LogUnresolved(ex, account, logger);
-            }
+
+            logger.LogError(
+                resolution.Cause,
+                "{Refusal} It has not been admitted to the Terraform plan directory, so the plan will fail to"
+                + " be written unless the Runner runs as an account the directory already admits.",
+                resolution.Refusal);
 
             return null;
         }
-
-        private static void LogUnresolved(Exception ex, string account, ILogger logger) =>
-            logger.LogError(
-                ex,
-                "The deployment account '{Account}' could not be resolved, so it has not been admitted to the" +
-                " Terraform plan directory. The plan will fail to be written unless the Runner runs as an" +
-                " account the directory already admits.",
-                DeploymentPrincipal.SanitizeForLog(account));
     }
 }

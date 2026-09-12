@@ -50,7 +50,8 @@ namespace Dorc.Monitor
             IAzureStorageAccountWorker azureStorageAccountWorker,
             IProjectsPersistentSource projectsPersistentSource,
             IGitHubHostValidator gitHubHostValidator,
-            IScriptScopeConfigValues scriptScopeConfigValues)
+            IScriptScopeConfigValues scriptScopeConfigValues,
+            ISourceHostAllowList sourceHostAllowList)
         {
             this.logger = logger;
             this._requestsPersistentSource = requestsPersistentSource;
@@ -61,7 +62,7 @@ namespace Dorc.Monitor
             this._azureStorageAccountWorker = azureStorageAccountWorker;
             this._projectsPersistentSource = projectsPersistentSource;
             this._scriptScopeConfigValues = scriptScopeConfigValues;
-            this._sourceConfigurator = new TerraformSourceConfigurator(logger, _configurationSettingsEngine, gitHubHostValidator);
+            this._sourceConfigurator = new TerraformSourceConfigurator(logger, _configurationSettingsEngine, gitHubHostValidator, sourceHostAllowList);
         }
 
         public bool Dispatch(
