@@ -54,7 +54,7 @@ namespace Dorc.Monitor.Tests
         {
             _scriptRoot = Path.Join(Path.GetTempPath(), "dorc-script-test-" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(_scriptRoot);
-            _scriptFile = Path.Combine(_scriptRoot, "Deploy.ps1");
+            _scriptFile = Path.Join(_scriptRoot, "Deploy.ps1");
             File.WriteAllText(_scriptFile, "Write-Host 'deploy'");
 
             _pipeServer = Substitute.For<IScriptGroupPipeServer>();

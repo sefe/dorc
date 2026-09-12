@@ -42,7 +42,7 @@ namespace Dorc.Api.Tests.Sources
             contextFactory.GetContext().Returns(context);
             var source = new ComponentsPersistentSource(contextFactory);
 
-            var diskPath = Path.Combine(
+            var diskPath = Path.Join(
                 AppContext.BaseDirectory,
                 $"dorc-script-content-{Guid.NewGuid():N}.ps1");
 
