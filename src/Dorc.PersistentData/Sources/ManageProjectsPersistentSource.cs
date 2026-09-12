@@ -810,11 +810,12 @@ namespace Dorc.PersistentData.Sources
                 return;
             }
 
-            if (!ScriptPathConfinement.IsConfined(component.ScriptPath, out var reason))
+            var confinement = ScriptPathConfinement.Check(component.ScriptPath);
+            if (!confinement.Allowed)
             {
                 throw new ArgumentOutOfRangeException(nameof(component),
                     "Component '" + component.ComponentName + "' has a script path that cannot be"
-                    + " accepted, because " + reason);
+                    + " accepted, because " + confinement.Reason);
             }
         }
 
@@ -837,11 +838,12 @@ namespace Dorc.PersistentData.Sources
                 return;
             }
 
-            if (!_sourceHostAllowList.IsTerraformSourceAllowed(component.ScriptPath, out var reason))
+            var source = _sourceHostAllowList.CheckTerraformSource(component.ScriptPath);
+            if (!source.Allowed)
             {
                 throw new ArgumentOutOfRangeException(nameof(component),
                     "Component '" + component.ComponentName + "' has a Terraform source location that"
-                    + " cannot be accepted, because " + reason);
+                    + " cannot be accepted, because " + source.Reason);
             }
         }
 
