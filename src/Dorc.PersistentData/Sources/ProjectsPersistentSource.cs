@@ -358,26 +358,23 @@ namespace Dorc.PersistentData.Sources
                     + " is fetched and executed from these locations.",
                     SourceHostAllowList.ArtefactHostsSetting,
                     SourceHostAllowList.TerraformHostsSetting,
-                    SanitizeForLog(apiProject.ProjectName));
+                    LogText.SingleLine(apiProject.ProjectName));
                 return;
             }
 
-            if (!_sourceHostAllowList.IsArtefactSourceAllowed(apiProject.ArtefactsUrl, out var artefactReason))
+            var artefacts = _sourceHostAllowList.CheckArtefactSource(apiProject.ArtefactsUrl);
+            if (!artefacts.Allowed)
             {
                 throw new ArgumentOutOfRangeException(nameof(apiProject),
-                    "Project artefacts URL cannot be accepted, because " + artefactReason);
+                    "Project artefacts URL cannot be accepted, because " + artefacts.Reason);
             }
 
-            if (!_sourceHostAllowList.IsTerraformSourceAllowed(apiProject.TerraformGitRepoUrl, out var terraformReason))
+            var terraform = _sourceHostAllowList.CheckTerraformSource(apiProject.TerraformGitRepoUrl);
+            if (!terraform.Allowed)
             {
                 throw new ArgumentOutOfRangeException(nameof(apiProject),
-                    "Project Terraform repository URL cannot be accepted, because " + terraformReason);
+                    "Project Terraform repository URL cannot be accepted, because " + terraform.Reason);
             }
-        }
-
-        private static string? SanitizeForLog(string? value)
-        {
-            return value?.Replace("\r", string.Empty).Replace("\n", string.Empty);
         }
 
         public bool ProjectArtifactsUriFileValid(ProjectApiModel apiProject)
