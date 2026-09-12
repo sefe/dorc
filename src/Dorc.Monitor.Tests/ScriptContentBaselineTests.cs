@@ -250,13 +250,12 @@ namespace Dorc.Monitor.Tests
             Assert.AreEqual(
                 RecordedBaseline,
                 group.ScriptProperties.Single().ExpectedContentHash);
-            Assert.IsFalse(ScriptContentGate.MayExecute(
+            var decision = ScriptContentGate.Evaluate(
                 group.ContentVerification,
                 group.ScriptProperties.Single().ExpectedContentHash!,
-                diskContent,
-                out var verdict,
-                out _));
-            Assert.AreEqual(ScriptContentVerdict.Mismatched, verdict);
+                diskContent);
+            Assert.IsFalse(decision.MayExecute);
+            Assert.AreEqual(ScriptContentVerdict.Mismatched, decision.Verdict);
             _scripts.DidNotReceiveWithAnyArgs()
                 .RecordContentHash(default, default, default!);
         }

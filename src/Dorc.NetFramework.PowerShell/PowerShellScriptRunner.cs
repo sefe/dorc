@@ -41,19 +41,18 @@ namespace Dorc.NetFramework.PowerShell
                 // substitute the file.
                 byte[] content = File.ReadAllBytes(scriptName);
 
-                ScriptContentVerdict verdict;
-                string explanation;
-                if (!ScriptContentGate.MayExecute(
-                        contentVerification, script.Item3, content, out verdict, out explanation))
+                var decision = ScriptContentGate.Evaluate(contentVerification, script.Item3, content);
+
+                if (!decision.MayExecute)
                 {
-                    logger.FileLogger.LogError("{0} Script: '{1}'.", explanation, scriptName);
+                    logger.FileLogger.LogError("{0} Script: '{1}'.", decision.Explanation, scriptName);
                     throw new ScriptContentVerificationException(
-                        "Refusing to execute '" + scriptName + "'. " + explanation);
+                        "Refusing to execute '" + scriptName + "'. " + decision.Explanation);
                 }
 
-                if (verdict != ScriptContentVerdict.Matched)
+                if (decision.Verdict != ScriptContentVerdict.Matched)
                 {
-                    logger.FileLogger.LogWarning("{0} Script: '{1}'.", explanation, scriptName);
+                    logger.FileLogger.LogWarning("{0} Script: '{1}'.", decision.Explanation, scriptName);
                 }
 
                 IDictionary<string, VariableValue> scriptProperties = script.Item2;

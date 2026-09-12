@@ -31,18 +31,18 @@ namespace Dorc.PowerShell
             // the two reads anyone with write access to the share can substitute the file.
             var content = File.ReadAllBytes(scriptName);
 
-            if (!ScriptContentGate.MayExecute(
-                    contentVerification, expectedContentHash!, content,
-                    out var verdict, out var explanation))
+            var decision = ScriptContentGate.Evaluate(contentVerification, expectedContentHash!, content);
+
+            if (!decision.MayExecute)
             {
-                logger.FileLogger.LogError("{0} Script: '{1}'.", explanation, scriptName);
+                logger.FileLogger.LogError("{0} Script: '{1}'.", decision.Explanation, scriptName);
                 throw new ScriptContentVerificationException(
-                    $"Refusing to execute '{scriptName}'. {explanation}");
+                    $"Refusing to execute '{scriptName}'. {decision.Explanation}");
             }
 
-            if (verdict != ScriptContentVerdict.Matched)
+            if (decision.Verdict != ScriptContentVerdict.Matched)
             {
-                logger.FileLogger.LogWarning("{0} Script: '{1}'.", explanation, scriptName);
+                logger.FileLogger.LogWarning("{0} Script: '{1}'.", decision.Explanation, scriptName);
             }
 
             IDictionary<string, VariableValue> combinedProperties = CombineProperties(scriptProperties, commonProperties);

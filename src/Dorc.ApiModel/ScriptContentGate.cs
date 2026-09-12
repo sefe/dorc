@@ -30,6 +30,31 @@ namespace Dorc.ApiModel
     }
 
     /// <summary>
+    /// What the gate decided about the content a runner has just read, and why.
+    /// </summary>
+    public sealed class ScriptContentDecision
+    {
+        internal ScriptContentDecision(bool mayExecute, ScriptContentVerdict verdict, string explanation)
+        {
+            MayExecute = mayExecute;
+            Verdict = verdict;
+            Explanation = explanation;
+        }
+
+        /// <summary>False only when the content must not execute.</summary>
+        public bool MayExecute { get; }
+
+        public ScriptContentVerdict Verdict { get; }
+
+        /// <summary>
+        /// What to log, in every outcome but <see cref="ScriptContentVerdict.Matched"/>.
+        /// Contains hashes and no script content: a mismatch report that quoted the difference
+        /// would put the modified script into the log of a deployment that refused to run it.
+        /// </summary>
+        public string Explanation { get; }
+    }
+
+    /// <summary>
     /// Decides whether the content a runner has just read may be executed.
     ///
     /// One decision, shared. The two PowerShell runners compile for different frameworks and
@@ -49,27 +74,17 @@ namespace Dorc.ApiModel
         /// <param name="mode">How far verification is taken.</param>
         /// <param name="recordedHash">The baseline, or null when none has been recorded.</param>
         /// <param name="content">The exact bytes about to be executed.</param>
-        /// <param name="verdict">What was found.</param>
-        /// <param name="explanation">
-        /// What to log, in every outcome but <see cref="ScriptContentVerdict.Matched"/>.
-        /// Contains hashes and no script content: a mismatch report that quoted the difference
-        /// would put the modified script into the log of a deployment that refused to run it.
-        /// </param>
-        /// <returns>False only when the content must not execute.</returns>
-        public static bool MayExecute(
+        public static ScriptContentDecision Evaluate(
             ScriptContentVerificationMode mode,
             string recordedHash,
-            byte[] content,
-            out ScriptContentVerdict verdict,
-            out string explanation)
+            byte[] content)
         {
-            explanation = string.Empty;
-
             if (mode == ScriptContentVerificationMode.Off)
             {
-                verdict = ScriptContentVerdict.NotVerified;
-                explanation = "Script content verification is switched off.";
-                return true;
+                return new ScriptContentDecision(
+                    true,
+                    ScriptContentVerdict.NotVerified,
+                    "Script content verification is switched off.");
             }
 
             if (content == null)
@@ -79,39 +94,38 @@ namespace Dorc.ApiModel
 
             if (string.IsNullOrWhiteSpace(recordedHash))
             {
-                verdict = ScriptContentVerdict.Unrecorded;
-                explanation =
+                return new ScriptContentDecision(
+                    true,
+                    ScriptContentVerdict.Unrecorded,
                     "No content baseline had been recorded for this script, so there was nothing to"
                     + " verify against. The baseline is recorded from this execution and verified"
-                    + " from the next one.";
-                return true;
+                    + " from the next one.");
             }
 
             var computed = ScriptContentHash.Of(content);
 
             if (ScriptContentHash.Matches(recordedHash, computed))
             {
-                verdict = ScriptContentVerdict.Matched;
-                return true;
+                return new ScriptContentDecision(true, ScriptContentVerdict.Matched, string.Empty);
             }
-
-            verdict = ScriptContentVerdict.Mismatched;
 
             if (mode == ScriptContentVerificationMode.Enforce)
             {
-                explanation =
+                return new ScriptContentDecision(
+                    false,
+                    ScriptContentVerdict.Mismatched,
                     "The script's content does not match its recorded baseline and has not been"
                     + $" executed. Recorded '{recordedHash}', found '{computed}'. Either the script"
                     + " was promoted without its baseline being re-recorded, or it was modified on"
-                    + " the share.";
-                return false;
+                    + " the share.");
             }
 
-            explanation =
+            return new ScriptContentDecision(
+                true,
+                ScriptContentVerdict.Mismatched,
                 "The script's content does not match its recorded baseline. It has been executed"
                 + " because script content verification is set to report rather than enforce."
-                + $" Recorded '{recordedHash}', found '{computed}'.";
-            return true;
+                + $" Recorded '{recordedHash}', found '{computed}'.");
         }
     }
 }
