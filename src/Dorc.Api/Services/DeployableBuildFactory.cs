@@ -4,6 +4,7 @@ using Dorc.ApiModel;
 using Dorc.Core.AzureDevOpsServer;
 using Dorc.Core.BuildServer;
 using Dorc.Core.Interfaces;
+using Dorc.PersistentData.Security;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.Extensions.Logging;
 
@@ -17,12 +18,15 @@ namespace Dorc.Api.Services
         private readonly IDeployLibrary _deployLibrary;
         private readonly IRequestsPersistentSource _requestsPersistentSource;
         private readonly Func<GitHubDeployableBuild> _gitHubDeployableBuildFactory;
+        private readonly ISourceHostAllowList _sourceHosts;
 
         public DeployableBuildFactory(IFileSystemHelper fileSystemHelper, ILoggerFactory loggerFactory,
             IProjectsPersistentSource projectsPersistentSource, IDeployLibrary deployLibrary,
             IRequestsPersistentSource requestsPersistentSource,
-            Func<GitHubDeployableBuild> gitHubDeployableBuildFactory)
+            Func<GitHubDeployableBuild> gitHubDeployableBuildFactory,
+            ISourceHostAllowList sourceHosts)
         {
+            _sourceHosts = sourceHosts;
             _requestsPersistentSource = requestsPersistentSource;
             _deployLibrary = deployLibrary;
             _projectsPersistentSource = projectsPersistentSource;
@@ -49,7 +53,7 @@ namespace Dorc.Api.Services
                         var tfsUrl = project.ArtefactsUrl;
                         var webClientLogger = _loggerFactory.CreateLogger<AzureDevOpsServerWebClient>();
                         var buildLogger = _loggerFactory.CreateLogger<AzureDevOpsDeployableBuild>();
-                        return new AzureDevOpsDeployableBuild(new AzureDevOpsServerWebClient(tfsUrl, webClientLogger), buildLogger, _projectsPersistentSource, _deployLibrary, _requestsPersistentSource);
+                        return new AzureDevOpsDeployableBuild(new AzureDevOpsServerWebClient(tfsUrl, webClientLogger, _sourceHosts), buildLogger, _projectsPersistentSource, _deployLibrary, _requestsPersistentSource);
                     }
 
                 case BuildType.GitHubBuild:

@@ -18,7 +18,7 @@ namespace Dorc.Api.Tests
     [TestClass]
     public class ScriptPathConfinementTests
     {
-        private static bool IsConfined(string? path) => ScriptPathConfinement.IsConfined(path, out _);
+        private static bool IsConfined(string? path) => ScriptPathConfinement.Check(path).Allowed;
 
         [TestMethod]
         [DataRow(@"00 Generic\DeployMSI.ps1")]
@@ -87,11 +87,11 @@ namespace Dorc.Api.Tests
         [TestMethod]
         public void SaysWhichRuleWasBroken()
         {
-            ScriptPathConfinement.IsConfined(@"\\attacker\share\x.ps1", out var absolute);
-            ScriptPathConfinement.IsConfined(@"..\x.ps1", out var traversal);
+            var absolute = ScriptPathConfinement.Check(@"\\attacker\share\x.ps1");
+            var traversal = ScriptPathConfinement.Check(@"..\x.ps1");
 
-            StringAssert.Contains(absolute, "absolute path");
-            StringAssert.Contains(traversal, "parent directory");
+            StringAssert.Contains(absolute.Reason, "absolute path");
+            StringAssert.Contains(traversal.Reason, "parent directory");
         }
 
         /// <summary>

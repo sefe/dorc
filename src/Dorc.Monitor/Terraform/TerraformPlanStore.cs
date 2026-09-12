@@ -190,16 +190,19 @@ namespace Dorc.Monitor.Terraform
             // an access denial from Terraform moments later. Throwing here would turn a transient
             // directory-service blip into a failed production deployment, and would do it before
             // the deployment had any chance to report why.
-            SecurityIdentifier? deploymentAccount = null;
-            if (!deploymentIdentity.TryResolveSecurityIdentifier(out deploymentAccount, out var refusal))
+            var resolution = deploymentIdentity.Resolve();
+            if (!resolution.IsResolved)
             {
                 _logger.LogError(
-                    $"{refusal} The Terraform plan directory '{Directory}' has been created without it, so"
+                    resolution.Cause,
+                    "{Refusal} The Terraform plan directory '{Directory}' has been created without it, so"
                     + " the Runner will be unable to write its plan unless it runs as an account the"
-                    + " directory already admits.");
+                    + " directory already admits.",
+                    resolution.Refusal,
+                    Directory);
             }
 
-            var security = RestrictedSecurity(deploymentAccount);
+            var security = RestrictedSecurity(resolution.SecurityIdentifier);
 
             if (!System.IO.Directory.Exists(Directory))
             {
