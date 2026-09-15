@@ -1,0 +1,183 @@
+name: Linux Build Gate
+
+# Guards HLPS SC-1 for the primary API compile graph (Dorc.Api, Dorc.Core,
+# Dorc.PersistentData): no Windows-only package refs, no win-* RuntimeIdentifier,
+# and no NEW Windows-only API usage.
+#
+# Enforcement is in FOUR layers, because each one alone is evasible:
+#   1. csproj guard — catches the dependency being declared. Not sufficient alone:
+#      a package ref can arrive transitively.
+#   2. Suppression guard — catches the two ways CA1416 is silenced:
+#      [SupportedOSPlatform("windows")] on the enclosing type (the analyzer does not
+#      fire inside one) and #pragma warning disable CA1416. Without this, layer 3 is
+#      trivially bypassed by annotating the class.
+#   3. CA1416-as-error — catches the API actually being USED. A Windows-only API
+#      compiles clean on Linux unless the warning is promoted, so a build job that
+#      merely succeeds is not a gate.
+#   4. Linux test run — the Graph parity suite has no other Linux CI home.
+#
+# System.Management IS checked (layer 1), but reported as a warning rather than an
+# error: the WMI code moves behind the Windows worker at S-005 and still carries
+# CA1416 until then. SC-1b is met when that warning stops appearing and the CA1416
+# backlog list below is empty. Dorc.Api is meanwhile gated against NEW Windows-only
+# sites via that backlog.
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - 'release/**'
+      - 'feature/**'
+      - 'fix/**'
+      - 'hotfix/**'
+      - 'migration/**'
+      - 'copilot/**'
+      - 'claude/**'
+      - 'feat/**'
+  pull_request:
+    branches:
+      - main
+      - develop
+      - 'release/**'
+
+env:
+  DOTNET_VERSION: '8.0.x'
+  DOTNET_CLI_TELEMETRY_OPTOUT: 1
+  DOTNET_NOLOGO: 1
+
+permissions:
+  contents: read
+
+concurrency:
+  group: linux-build-gate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  linux-build:
+    name: Build primary API compile graph on Linux
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          # This workflow never pushes; don't leave GITHUB_TOKEN in .git/config
+          # for later steps to read.
+          persist-credentials: false
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Guard — no Windows-only package refs or RIDs in the primary compile graph
+        run: |
+          set -euo pipefail
+          roots="src/Dorc.Api src/Dorc.Core src/Dorc.PersistentData"
+
+          # A renamed or moved directory must fail the gate, not silently pass it.
+          # (grep exiting non-zero on a missing path would otherwise read as "clean".)
+          for d in $roots; do
+            if [ ! -d "$d" ]; then
+              echo "::error::guard path $d does not exist — the gate would be a no-op. Update this workflow."
+              exit 1
+            fi
+          done
+
+          status=0
+
+          # Matches any System.DirectoryServices* package, single or double quoted,
+          # with or without spaces around '='. Anchoring the optional .AccountManagement
+          # suffix would miss .Protocols and any future sibling.
+          echo "Checking for System.DirectoryServices* PackageReference..."
+          if grep -rn -E '<PackageReference[^>]*Include[[:space:]]*=[[:space:]]*["'"'"']System\.DirectoryServices' \
+              $roots --include='*.csproj'; then
+            echo "::error::System.DirectoryServices* PackageReference found in the primary compile graph. SC-1 regression."
+            status=1
+          fi
+
+          echo "Checking for win-* RuntimeIdentifier..."
+          if grep -rn -E '<RuntimeIdentifier>[[:space:]]*win' $roots --include='*.csproj'; then
+            echo "::error::win-* RuntimeIdentifier found in the primary compile graph. SC-1 requires Dorc.Api to run on Linux."
+            status=1
+          fi
+
+          # SC-1b's mechanism. Reported as a warning until S-005 moves WMI to the worker;
+          # SC-1b is met when this reports nothing.
+          echo "Checking for System.Management PackageReference..."
+          if grep -rn -E '<PackageReference[^>]*Include[[:space:]]*=[[:space:]]*["'"'"']System\.Management' \
+              $roots --include='*.csproj'; then
+            echo "::warning::System.Management PackageReference present — expected until S-005; blocks SC-1b."
+          fi
+
+          # CA1416 does NOT fire inside a type annotated [SupportedOSPlatform("windows")], and
+          # a #pragma disable silences it outright. Both defeat the CA1416 layer below, so any
+          # NEW occurrence is itself a gate violation. The allow-list is the set present when
+          # this check was added; it must only ever shrink.
+          echo "Checking for CA1416 suppression routes..."
+          # Known sites and the step that clears each. This list must only ever shrink:
+          #   AccountController, BundledRequestsController,
+          #   MakeLikeProdController                              -> S-005/S-006 (see U-18)
+          # AccessControlController and DirectorySearchController came off this list:
+          # S-001 removed their Windows-only dependencies, so the attribute was stale.
+          #   ResetAppPasswordController                          -> S-006
+          #   ClaimsTransformer                                   -> S-007
+          #   DaemonStatusProbe                                   -> S-005
+          # CoreRegistry came off this list: its CA1416 pragma was replaced with an
+          # OperatingSystem.IsWindows() guard, which the analyzer accepts without suppression.
+          suppress_allow='AccountController\.cs|BundledRequestsController\.cs|MakeLikeProdController\.cs|ResetAppPasswordController\.cs|ClaimsTransformer\.cs|DaemonStatusProbe\.cs'
+          if grep -rn -E 'SupportedOSPlatform\("windows"\)|#pragma warning disable CA1416' \
+              $roots --include='*.cs' | grep -vE "$suppress_allow"; then
+            echo "::error::New [SupportedOSPlatform(\"windows\")] or CA1416 pragma in the primary compile graph. These suppress the CA1416 gate — move the code to the worker rather than annotating it."
+            status=1
+          fi
+
+          [ $status -eq 0 ] && echo "OK — no Windows-only package refs or RIDs."
+          exit $status
+
+      - name: Restore
+        run: |
+          set -euo pipefail
+          dotnet restore src/Dorc.Core/Dorc.Core.csproj
+          dotnet restore src/Dorc.PersistentData/Dorc.PersistentData.csproj
+          dotnet restore src/Dorc.Api/Dorc.Api.csproj
+          dotnet restore src/Dorc.Core.Tests/Dorc.Core.Tests.csproj
+
+      # CA1416 promoted to an error: this is what actually catches Windows-only APIs
+      # being used again. Dorc.Core carries one accepted site (DaemonStatusProbe,
+      # suppressed inline in CoreRegistry.cs, removed at S-005).
+      - name: Build Dorc.Core (Release, CA1416 = error)
+        run: dotnet build src/Dorc.Core/Dorc.Core.csproj -c Release --no-restore --nologo -warnaserror:CA1416
+
+      - name: Build Dorc.PersistentData (Release, CA1416 = error)
+        run: dotnet build src/Dorc.PersistentData/Dorc.PersistentData.csproj -c Release --no-restore --nologo -warnaserror:CA1416
+
+      # Dorc.Api still holds the pre-S-005 WMI backlog, so CA1416 cannot be a blanket
+      # error here yet. Instead: build normally, then fail if a CA1416 warning appears
+      # in any file outside the known backlog. That blocks NEW Windows-only code while
+      # the S-005 migration is still outstanding.
+      - name: Build Dorc.Api (Release, CA1416 gated outside the S-005 backlog)
+        run: |
+          set -euo pipefail
+          dotnet build src/Dorc.Api/Dorc.Api.csproj -c Release --no-restore --nologo 2>&1 | tee api-build.log
+          # Known Windows-only sites awaiting S-005 (WMI / service control).
+          backlog='WmiUtil\.cs|RefDataServersController\.cs|CoreRegistry\.cs|Program\.cs'
+          # NOTE: `grep -vE ""` matches nothing, so an EMPTY backlog would silently turn this
+          # into a permanent pass — i.e. reaching SC-1b's terminal state would DISABLE the
+          # gate. Handle the empty case explicitly: with no backlog, any CA1416 is a failure.
+          if [ -z "$backlog" ]; then
+            if grep -E 'warning CA1416' api-build.log; then
+              echo "::error::CA1416 warning in Dorc.Api with an empty backlog."
+              exit 1
+            fi
+          elif grep -E 'warning CA1416' api-build.log | grep -vE "$backlog"; then
+            echo "::error::New CA1416 platform-compatibility warning in Dorc.Api outside the backlog."
+            exit 1
+          fi
+          echo "OK — no new Windows-only API usage in Dorc.Api."
+
+      # The Graph parity suite is the evidence base for SC-6 / SC-9 / SC-10 and
+      # otherwise only runs on windows-latest in release.yml. Run it on Linux too.
+      - name: Test Dorc.Core.Tests on Linux
+        run: dotnet test src/Dorc.Core.Tests/Dorc.Core.Tests.csproj -c Release --no-restore --nologo
