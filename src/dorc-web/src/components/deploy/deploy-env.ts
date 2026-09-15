@@ -8,6 +8,7 @@ import '@vaadin/dialog';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/horizontal-layout';
+import '@vaadin/icons/vaadin-icons';
 import '@vaadin/notification';
 import '@vaadin/text-field';
 import { TextField } from '@vaadin/text-field';
@@ -24,7 +25,6 @@ import {
   RequestStatusDto
 } from '../../apis/dorc-api';
 import type { ProjectApiModel } from '../../apis/dorc-api';
-import '@vaadin/confirm-dialog';
 import '../hegs-json-viewer';
 import './property-override-controls';
 import { ErrorNotification } from '../notifications/error-notification';
@@ -96,6 +96,22 @@ export class DeployEnv extends LitElement {
         }
       [hidden] {
         display: none !important;
+      }
+      .deploy-dialog-content {
+        min-width: min(560px, 80vw);
+      }
+      .deploy-dialog-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: var(--lumo-space-s);
+        font-size: var(--lumo-font-size-l);
+        font-weight: 600;
+      }
+      .deploy-dialog-actions {
+        display: flex;
+        justify-content: flex-end;
+        margin-top: var(--lumo-space-m);
       }
       .build-defs-section {
         display: flex;
@@ -189,24 +205,37 @@ export class DeployEnv extends LitElement {
 
   render() {
     return html`
-      <vaadin-confirm-dialog
+      <vaadin-dialog
         id="dialog"
         theme="deploy-preview"
-        header="New deployment"
-        confirm-text="Deploy"
-        cancel-theme="primary"
-        cancel-button-visible
+        aria-label="New deployment"
         .opened="${this.dialogOpened}"
         @opened-changed="${(e: CustomEvent) => {
           this.dialogOpened = (e.detail as { value: boolean }).value;
         }}"
-        @confirm="${this.startDeployment}"
       >
-        <div style="margin-bottom: 5px;">
-          Please confirm you want to submit this deployment request?
+        <div class="deploy-dialog-content">
+          <div class="deploy-dialog-header">
+            <span>New deployment</span>
+            <vaadin-button
+              theme="tertiary icon"
+              aria-label="Close"
+              @click="${this.deployConfirmDialogClosed}"
+            >
+              <vaadin-icon icon="vaadin:close-small"></vaadin-icon>
+            </vaadin-button>
+          </div>
+          <div style="margin-bottom: 5px;">
+            Please confirm you want to submit this deployment request?
+          </div>
+          <hegs-json-viewer id="jsonviewer">{}</hegs-json-viewer>
+          <div class="deploy-dialog-actions">
+            <vaadin-button theme="primary" @click="${this.startDeployment}">
+              Deploy
+            </vaadin-button>
+          </div>
         </div>
-        <hegs-json-viewer id="jsonviewer">{}</hegs-json-viewer>
-      </vaadin-confirm-dialog>
+      </vaadin-dialog>
       <div class="build-defs-section" ?hidden="${this.isFolderProject}">
         <div class="combo-row">
           <vaadin-combo-box
