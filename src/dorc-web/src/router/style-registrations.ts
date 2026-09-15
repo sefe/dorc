@@ -72,6 +72,21 @@ registerStyles(
     :host([theme~='deploy-preview']) [part='overlay'] {
       width: min(95vw, 900px);
     }
+
+    :host([theme~='deploy-preview']) [part='footer'] {
+      background: var(--lumo-base-color);
+      border-top: none;
+    }
+
+    :host([theme~='deploy-preview']) [part='header'] {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    :host([theme~='deploy-preview']) [part='header'] vaadin-button {
+      margin-inline-start: auto;
+    }
   `
 );
 
