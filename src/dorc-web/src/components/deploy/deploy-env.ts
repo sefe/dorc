@@ -5,6 +5,7 @@ import '@vaadin/combo-box';
 import { ComboBox } from '@vaadin/combo-box';
 import '@vaadin/details';
 import '@vaadin/dialog';
+import '@vaadin/confirm-dialog';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/horizontal-layout';
@@ -34,6 +35,10 @@ import { TreeNode } from './component-tree/TreeNode';
 import { SuccessfulDeployNotification } from './notifications/successful-deploy-notification';
 import { HegsJsonViewer } from '../hegs-json-viewer';
 import { dorcApiConfiguration } from '../../services/dorc-api-configuration';
+
+type ConfirmDialogWithOverlay = HTMLElement & {
+  _overlayElement?: HTMLElement;
+};
 
 @customElement('deploy-env')
 export class DeployEnv extends LitElement {
@@ -193,6 +198,14 @@ export class DeployEnv extends LitElement {
   protected firstUpdated(_changedProperties: PropertyValues) {
     super.firstUpdated(_changedProperties);
 
+    const dialog = this.shadowRoot?.getElementById(
+      'dialog'
+    ) as ConfirmDialogWithOverlay | null;
+    dialog?._overlayElement?.addEventListener(
+      'vaadin-overlay-outside-click',
+      this.closeDeployDialog
+    );
+
     const api = new PropertiesApi(dorcApiConfiguration);
     api.propertiesGet().subscribe({
       next: (data: PropertyApiModel[]) => {
@@ -205,37 +218,32 @@ export class DeployEnv extends LitElement {
 
   render() {
     return html`
-      <vaadin-dialog
+      <vaadin-confirm-dialog
         id="dialog"
         theme="deploy-preview"
-        aria-label="New deployment"
+        header="New deployment"
+        confirm-text="Deploy"
         .opened="${this.dialogOpened}"
         @opened-changed="${(e: CustomEvent) => {
           this.dialogOpened = (e.detail as { value: boolean }).value;
         }}"
+        @confirm="${this.startDeployment}"
       >
-        <div class="deploy-dialog-content">
-          <div class="deploy-dialog-header">
-            <span>New deployment</span>
-            <vaadin-button
-              theme="tertiary icon"
-              aria-label="Close"
-              @click="${this.deployConfirmDialogClosed}"
-            >
-              <vaadin-icon icon="vaadin:close-small"></vaadin-icon>
-            </vaadin-button>
-          </div>
-          <div style="margin-bottom: 5px;">
-            Please confirm you want to submit this deployment request?
-          </div>
-          <hegs-json-viewer id="jsonviewer">{}</hegs-json-viewer>
-          <div class="deploy-dialog-actions">
-            <vaadin-button theme="primary" @click="${this.startDeployment}">
-              Deploy
-            </vaadin-button>
-          </div>
+        <div slot="header" class="deploy-dialog-header">
+          <span>New deployment</span>
+          <vaadin-button
+            theme="tertiary icon"
+            aria-label="Close"
+            @click="${this.deployConfirmDialogClosed}"
+          >
+            <vaadin-icon icon="vaadin:close-small"></vaadin-icon>
+          </vaadin-button>
         </div>
-      </vaadin-dialog>
+        <div style="margin-bottom: 5px;">
+          Please confirm you want to submit this deployment request?
+        </div>
+        <hegs-json-viewer id="jsonviewer">{}</hegs-json-viewer>
+      </vaadin-confirm-dialog>
       <div class="build-defs-section" ?hidden="${this.isFolderProject}">
         <div class="combo-row">
           <vaadin-combo-box
@@ -419,6 +427,10 @@ export class DeployEnv extends LitElement {
   deployConfirmDialogClosed() {
     this.dialogOpened = false;
   }
+
+  private closeDeployDialog = () => {
+    this.dialogOpened = false;
+  };
 
   private setBuilds(data: DeployArtefactDto[]) {
     this.builds = data;
