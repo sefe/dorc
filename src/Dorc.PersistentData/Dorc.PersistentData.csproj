@@ -46,8 +46,6 @@
     <PackageReference Include="System.Collections.Immutable" Version="9.0.10" />
     <PackageReference Include="System.ComponentModel.Composition" Version="9.0.10" />
     <PackageReference Include="System.Diagnostics.DiagnosticSource" Version="9.0.10" />
-    <PackageReference Include="System.DirectoryServices" Version="9.0.10" />
-    <PackageReference Include="System.DirectoryServices.AccountManagement" Version="9.0.10" />
     <PackageReference Include="System.Reflection.Metadata" Version="9.0.10" />
     <PackageReference Include="System.Runtime.CompilerServices.Unsafe" Version="6.1.2" />
   </ItemGroup>

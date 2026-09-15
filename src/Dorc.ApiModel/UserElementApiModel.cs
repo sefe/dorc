@@ -11,5 +11,12 @@ namespace Dorc.ApiModel
         public string Username { get; set; }
         public bool IsGroup { get; set; }
         public string Email { get; set; }
+
+        /// <summary>
+        /// On-premises sAMAccountName for directory-synced principals, when Entra exposes it.
+        /// Null for cloud-only accounts. Used to build DOMAIN\logon names that match what
+        /// Active Directory produced before the Graph migration.
+        /// </summary>
+        public string SamAccountName { get; set; }
     }
 }
