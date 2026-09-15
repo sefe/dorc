@@ -39,6 +39,11 @@ import {
   getHubProxyFactory
 } from '../services/ServerEvents';
 import { dorcApiConfiguration } from '../services/dorc-api-configuration';
+import { retrieveErrorMessage } from '../helpers/errorMessage-retriever';
+import {
+  stopMonitorHub,
+  waitForMonitorHubStop
+} from '../helpers/monitor-hub-connection';
 
 const asUndef = (t: string | null | undefined): string | undefined =>
   t ?? undefined;
@@ -181,7 +186,10 @@ export class PageMonitorResult
       this.hubConnection &&
       this.hubConnection.state !== HubConnectionState.Disconnected
     ) {
-      this.hubConnection.stop().catch(() => {});
+      void stopMonitorHub(
+        this.hubConnection,
+        state => (this.hubConnectionState = state)
+      );
     }
   }
 
@@ -325,6 +333,10 @@ export class PageMonitorResult
 
   private async initializeSignalR() {
     if (!this.hubConnection) this.hubConnection = DeploymentHub.getConnection();
+    await waitForMonitorHubStop(this.hubConnection);
+    if (!this.isConnected) {
+      return;
+    }
 
     getReceiverRegister('IDeploymentsEventsClient').register(
       this.hubConnection,
@@ -347,7 +359,7 @@ export class PageMonitorResult
         await hubProxy.joinRequestGroup(this.requestId);
         this.hubConnectionState = this.hubConnection.state;
       } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : String(err);
+        const errorMessage = retrieveErrorMessage(err);
         this.hubConnectionState = errorMessage;
         console.error(err);
       }
@@ -428,37 +440,37 @@ export class PageMonitorResult
                 ></request-status-card>
                 <div class="results-section">
                   ${
-                this.resultsLoading && !this.resultItems
-                  ? html` <div class="small-loader"></div>`
-                  : html`
-                      <vaadin-details
-                        opened
-                        summary="Deployment Component Results"
-                        style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; margin-top: 4px"
-                      >
-                        <component-deployment-results
-                          .resultItems="${this.resultItems}"
-                        ></component-deployment-results>
-                      </vaadin-details>
-                    `
-              }
+                    this.resultsLoading && !this.resultItems
+                      ? html` <div class="small-loader"></div>`
+                      : html`
+                          <vaadin-details
+                            opened
+                            summary="Deployment Component Results"
+                            style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; margin-top: 4px"
+                          >
+                            <component-deployment-results
+                              .resultItems="${this.resultItems}"
+                            ></component-deployment-results>
+                          </vaadin-details>
+                        `
+                  }
                   ${
-                !this.attemptsLoading &&
-                this.attemptItems &&
-                this.attemptItems.length > 0
-                  ? html`
-                      <vaadin-details
-                        summary="Previous Attempts (${this.attemptItems.length})"
-                        style="border-top: 6px solid orange; background-color: var(--dorc-bg-secondary); padding-left: 4px; margin-top: 4px"
-                      >
-                        <component-previous-attempts
-                          .attemptItems="${this.attemptItems}"
-                          .requestId="${this.requestId}"
-                        ></component-previous-attempts>
-                      </vaadin-details>
-                    `
-                  : html``
-              }
+                    !this.attemptsLoading &&
+                    this.attemptItems &&
+                    this.attemptItems.length > 0
+                      ? html`
+                          <vaadin-details
+                            summary="Previous Attempts (${this.attemptItems.length})"
+                            style="border-top: 6px solid orange; background-color: var(--dorc-bg-secondary); padding-left: 4px; margin-top: 4px"
+                          >
+                            <component-previous-attempts
+                              .attemptItems="${this.attemptItems}"
+                              .requestId="${this.requestId}"
+                            ></component-previous-attempts>
+                          </vaadin-details>
+                        `
+                      : html``
+                  }
                 </div>
               `
       }
