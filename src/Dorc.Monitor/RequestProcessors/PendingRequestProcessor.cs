@@ -126,7 +126,7 @@ namespace Dorc.Monitor.RequestProcessors
 
                         var deploymentStartedTime = DateTimeOffset.Now;
 
-                        InitializeDeploymentRequest(requestToExecute.Request);
+                        InitializeDeploymentRequest(requestToExecute.Request, deploymentStartedTime);
 
                         var deploymentRequestStatus = DeploymentRequestStatus.Completed;
 
@@ -458,19 +458,19 @@ namespace Dorc.Monitor.RequestProcessors
             }
         }
 
-        private void InitializeDeploymentRequest(DeploymentRequestApiModel request)
+        private void InitializeDeploymentRequest(DeploymentRequestApiModel request, DateTimeOffset startedTime)
         {
             logger.LogInformation("Setting Request to Running state, Id: " + request.Id);
 
             requestsPersistentSource.SetRequestStartStatus(
                 request,
                 DeploymentRequestStatus.Running,
-                DateTimeOffset.Now);
+                startedTime);
 
             eventsPublisher.PublishRequestStatusChangedAsync(new DeploymentRequestEventData(request)
             {
                 Status = DeploymentRequestStatus.Running.ToString(),
-                StartedTime = DateTimeOffset.Now,
+                StartedTime = startedTime,
             }).ContinueWith(t => logger.LogWarning(t.Exception!.InnerException,
                 "fire-and-forget publish failed for requestId={RequestId}", request.Id),
                 TaskContinuationOptions.OnlyOnFaulted);
