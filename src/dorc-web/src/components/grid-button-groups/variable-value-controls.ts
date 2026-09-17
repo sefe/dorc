@@ -224,15 +224,46 @@ export class VariableValueControls extends LitElement {
       .propertyValuesPut({
         propertyValueDto: [this.value]
       })
-      .subscribe(() => {
-        this.dispatchEvent(
-          new CustomEvent('editing-cancelled', {
-            detail: { id: this.value?.Id },
-            bubbles: true,
-            composed: true
-          })
-        );
-        this.showSuccessMessage('Variable value saved successfully!');
+      .subscribe({
+        next: (responses: Response[]) => {
+          if (responses[0]?.Status !== 'success') {
+            Notification.show(
+              responses[0]?.Status ?? 'Unable to update variable value.',
+              {
+                theme: 'error',
+                position: 'bottom-start',
+                duration: 5000
+              }
+            );
+            return;
+          }
+
+          this.dispatchEvent(
+            new CustomEvent('variable-value-updated', {
+              detail: { data: responses },
+              bubbles: true,
+              composed: true
+            })
+          );
+          this.dispatchEvent(
+            new CustomEvent('editing-cancelled', {
+              detail: { id: this.value?.Id },
+              bubbles: true,
+              composed: true
+            })
+          );
+          this.showSuccessMessage('Variable value saved successfully!');
+        },
+        error: (err: any) => {
+          Notification.show(
+            err?.message ?? 'Unable to update variable value.',
+            {
+              theme: 'error',
+              position: 'bottom-start',
+              duration: 5000
+            }
+          );
+        }
       });
   }
 
