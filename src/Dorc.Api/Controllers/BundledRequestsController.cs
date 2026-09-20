@@ -1,4 +1,5 @@
 using Dorc.ApiModel;
+using Dorc.Core;
 using Dorc.Core.Interfaces;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -48,10 +49,9 @@ namespace Dorc.Api.Controllers
             }
             catch (Exception ex)
             {
-                string error = "Error while locating Bundled Requests for project(s) " +
-                               string.Join('|', projectNames);
-                _logger.LogError(ex, error);
-                return BadRequest(error);
+                var sanitisedProjects = LogSanitizer.Sanitize(string.Join('|', projectNames));
+                _logger.LogError(ex, "Error locating bundled requests for projects {ProjectNames}", sanitisedProjects);
+                return BadRequest("Error while locating Bundled Requests for project(s) " + string.Join('|', projectNames));
             }
         }
 
@@ -72,9 +72,8 @@ namespace Dorc.Api.Controllers
             }
             catch (Exception ex)
             {
-                string error = $"Error while locating requests for bundle {bundleName}";
-                _logger.LogError(ex, error);
-                return BadRequest(error + " - " + ex);
+                _logger.LogError(ex, "Error locating requests for bundle {BundleName}", LogSanitizer.Sanitize(bundleName));
+                return BadRequest($"Error while locating requests for bundle {bundleName} - {ex}");
             }
         }
 
@@ -109,8 +108,8 @@ namespace Dorc.Api.Controllers
             }
             catch (Exception ex)
             {
-                string error = "Error while creating bundled request.";
-                _logger.LogError(ex, error);
+                const string error = "Error while creating bundled request.";
+                _logger.LogError(ex, "Error creating bundled request");
                 return BadRequest(error + " - " + ex);
             }
         }
@@ -146,8 +145,8 @@ namespace Dorc.Api.Controllers
             }
             catch (Exception ex)
             {
-                string error = "Error while updating bundled request.";
-                _logger.LogError(ex, error);
+                const string error = "Error while updating bundled request.";
+                _logger.LogError(ex, "Error updating bundled request");
                 return BadRequest(error + " - " + ex);
             }
         }
@@ -181,9 +180,8 @@ namespace Dorc.Api.Controllers
             }
             catch (Exception ex)
             {
-                string error = $"Error while deleting bundled request with ID {id}";
-                _logger.LogError(ex, error);
-                return BadRequest(error + " - " + ex);
+                _logger.LogError(ex, "Error deleting bundled request {Id}", id);
+                return BadRequest($"Error while deleting bundled request with ID {id} - {ex}");
             }
         }
 
