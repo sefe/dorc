@@ -423,6 +423,13 @@ describe('PageMonitorRequests', () => {
       expect(inputs[2].getAttribute('placeholder')).toBe('Build#');
     });
 
+    it('labels detail filters as substring searches', () => {
+      const inputs = root.querySelectorAll('vaadin-text-field');
+      expect(inputs[0].getAttribute('title')).toBe('contains');
+      expect(inputs[1].getAttribute('title')).toBe('contains');
+      expect(inputs[2].getAttribute('title')).toBe('contains');
+    });
+
     it('renders three sort toggles', () => {
       const sorters = root.querySelectorAll('vaadin-grid-sorter');
       expect(sorters.length).toBe(3);
