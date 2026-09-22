@@ -1,4 +1,4 @@
-﻿using Dorc.Core.Configuration;
+using Dorc.Core.Configuration;
 using Microsoft.Extensions.Configuration;
 
 namespace Dorc.Monitor
@@ -122,6 +122,29 @@ namespace Dorc.Monitor
             }
         }
 
+        public bool EnableConnectivityCheck
+        {
+            get
+            {
+                var value = configurationRoot.GetSection(appSettings)["EnableConnectivityCheck"];
+                return !string.IsNullOrWhiteSpace(value) &&
+                       bool.TryParse(value, out bool result) &&
+                       result;
+            }
+        }
+
+        public int ConnectivityCheckIntervalMinutes
+        {
+            get
+            {
+                var raw = configurationRoot.GetSection(appSettings)["ConnectivityCheckIntervalMinutes"];
+                if (int.TryParse(raw, out var parsed) && parsed > 0)
+                {
+                    return parsed;
+                }
+                return 60;
+            }
+        }
         public string Environment
         {
             get
@@ -139,7 +162,7 @@ namespace Dorc.Monitor
                 {
                     return max;
                 }
-                return 0; // 0 means unlimited
+                return 0;
             }
         }
 

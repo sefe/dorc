@@ -15,6 +15,9 @@ namespace Dorc.Monitor
         string DorcApiClientSecret { get; }
         string DorcApiScope { get; }
 
+        // Connectivity check settings
+        bool EnableConnectivityCheck { get; }
+        int ConnectivityCheckIntervalMinutes { get; }
         // Concurrency settings
         /// <summary>
         /// Maximum number of concurrent deployments. Set to 0 for unlimited.
