@@ -1,0 +1,134 @@
+name: Database Acceptance Tests
+
+# The only tests that actually execute a dacpac publish. Everything else about the
+# schema is verified by reading generated SQL, which catches a lot but proves
+# nothing about what SQL Server does when it runs.
+#
+# These tests create an ephemeral database per test, publish the SSDT dacpac
+# against it with BlockOnPossibleDataLoss and IncludeTransactionalScripts on, seed
+# legacy state to exercise the pre/post-deployment migrations, assert on the
+# result, and drop the database. They are tagged [TestCategory("Database")] and
+# were previously in no workflow at all, so a schema migration could reach
+# production having never been run.
+
+on:
+  pull_request:
+    paths:
+      - 'src/Dorc.Database/**'
+      - 'src/Tests.Acceptance/**'
+      # The EF model and the SSDT project are two independent descriptions of the
+      # same tables; a change to either can break the publish or the mapping.
+      - 'src/Dorc.PersistentData/**'
+      - '.github/workflows/database-acceptance.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/Dorc.Database/**'
+      - 'src/Tests.Acceptance/**'
+      - 'src/Dorc.PersistentData/**'
+      - '.github/workflows/database-acceptance.yml'
+  workflow_dispatch:
+
+# checks/pull-requests write are needed by the test-result publisher step;
+# everything else is read-only.
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+
+jobs:
+  database-acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    # The sa password below is repeated literally in three places rather than held
+    # in a workflow env var, because the env context is not available inside a
+    # services block - a variable would work in the step and silently not in the
+    # service. It is deliberately plain text: the container exists only for the
+    # life of this job, listens only on the runner, and the credential protects
+    # nothing. A secret here would imply otherwise.
+    services:
+      sqlserver:
+        # 2019 rather than latest: the dacpac targets Sql150 and sets
+        # CompatibilityMode 100, and the migration scripts avoid STRING_SPLIT and
+        # THROW for exactly that reason. Testing on a newer engine than the estate
+        # runs would silently accept syntax production would reject.
+        image: mcr.microsoft.com/mssql/server:2019-latest
+        env:
+          ACCEPT_EULA: 'Y'
+          MSSQL_SA_PASSWORD: 'Dorc-CI-LocalOnly-2026!'
+          MSSQL_PID: 'Developer'
+        ports:
+          - 1433:1433
+        options: >-
+          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P 'Dorc-CI-LocalOnly-2026!' -Q 'SELECT 1' || /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P 'Dorc-CI-LocalOnly-2026!' -Q 'SELECT 1'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 20
+          --health-start-period 30s
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '8.0.x'
+
+      # The tests locate the dacpac under src/Dorc.Database/sql/**; without this
+      # they fail with a clear FileNotFoundException rather than a false pass.
+      - name: Build the dacpac
+        run: dotnet build src/Dorc.Database/Dorc.Database.sqlproj --configuration Debug
+
+      - name: Database acceptance tests
+        env:
+          # Read by DatabaseTestBase through AddEnvironmentVariables.
+          ConnectionStrings__DOrcConnectionString: 'Server=localhost,1433;Database=master;User Id=sa;Password=Dorc-CI-LocalOnly-2026!;TrustServerCertificate=True;Encrypt=False'
+          # Without this a missing connection string is an Assert.Inconclusive, and
+          # the suite would report green while testing nothing. Here it is a
+          # failure — the point of the job is that it cannot silently opt out.
+          DORC_DB_TESTS_REQUIRED: '1'
+        run: >-
+          dotnet test src/Tests.Acceptance/Tests.Acceptance.csproj
+          --filter "TestCategory=Database"
+          --logger "trx;LogFileName=database-acceptance.trx"
+          --results-directory TestResults
+
+      # The filter selecting nothing is not a failure to dotnet test — it prints
+      # "No test matches the given testcase filter" and exits 0. That would put the
+      # job straight back to the state it exists to prevent: a schema migration
+      # reaching production having never been executed. Rename the category, move
+      # the tests, and this is the step that notices.
+      - name: Assert the migration tests actually ran
+        run: |
+          trx=$(find TestResults -name '*.trx' | head -1)
+          if [ -z "$trx" ]; then
+            echo "::error::No .trx produced - the test run did not happen."
+            exit 1
+          fi
+          executed=$(sed -n 's/.*<Counters[^>]*executed="\([0-9]*\)".*/\1/p' "$trx" | head -1)
+          echo "Executed tests: ${executed:-unknown}"
+          if [ -z "$executed" ] || [ "$executed" -lt 1 ]; then
+            echo "::error::The TestCategory=Database filter selected no tests."
+            exit 1
+          fi
+
+      # Same reporter as release.yml and kafka-integration.yml, so all three
+      # pipelines report identically. fail-on-error is off because the test step
+      # above already fails the job; this step only reports.
+      - name: Publish test results
+        if: always()
+        uses: dorny/test-reporter@df6247429542221bc30d46a036ee47af1102c451 # v2.7.0
+        with:
+          name: Database Acceptance Test Results
+          path: 'TestResults/**/*.trx'
+          reporter: dotnet-trx
+          fail-on-error: false
+
+      - name: SQL Server logs on failure
+        if: failure()
+        run: docker logs "$(docker ps -a --filter ancestor=mcr.microsoft.com/mssql/server:2019-latest --format '{{.ID}}' | head -1)" --tail 200 || true

@@ -1,4 +1,4 @@
-﻿/*
+/*
  Pre-Deployment Script Template
 --------------------------------------------------------------------------------------
  This file contains SQL statements that will be executed before the build script.
@@ -9,4 +9,6 @@
                SELECT * FROM [$(TableName)]
 --------------------------------------------------------------------------------------
 */
-:r .\StageServicesForMigration.sql
+:r ./GuardTagLengthsBeforeMigration.sql
+:r ./StashDatabaseIdentityValue.sql
+:r ./StageServicesForMigration.sql

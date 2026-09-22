@@ -10,6 +10,6 @@
     [TerraformGitRepoUrl]   NVARCHAR (512)   NULL,
     [SourceControlType]     INT              NOT NULL DEFAULT 0,
     [LeanIXUrl]             NVARCHAR (512)   NULL,
-    CONSTRAINT [FK_Project_ToDatabase] FOREIGN KEY ([SourceDatabaseId]) REFERENCES [dbo].[DATABASE]([DB_ID])
+    CONSTRAINT [FK_Project_ToDatabase] FOREIGN KEY ([SourceDatabaseId]) REFERENCES [deploy].[Database]([Id])
 );
 

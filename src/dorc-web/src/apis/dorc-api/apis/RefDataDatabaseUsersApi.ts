@@ -28,7 +28,7 @@ export interface RefDataDatabaseUsersGetRequest {
 export interface RefDataDatabaseUsersGetDbUsersPermissionsGetRequest {
     serverName?: string;
     databaseName?: string;
-    dbType?: string;
+    tag?: string;
 }
 
 /**
@@ -67,9 +67,9 @@ export class RefDataDatabaseUsersApi extends BaseAPI {
 
     /**
      */
-    refDataDatabaseUsersGetDbUsersPermissionsGet({ serverName, databaseName, dbType }: RefDataDatabaseUsersGetDbUsersPermissionsGetRequest): Observable<Array<UserDbPermissionApiModel>>
-    refDataDatabaseUsersGetDbUsersPermissionsGet({ serverName, databaseName, dbType }: RefDataDatabaseUsersGetDbUsersPermissionsGetRequest, opts?: OperationOpts): Observable<AjaxResponse<Array<UserDbPermissionApiModel>>>
-    refDataDatabaseUsersGetDbUsersPermissionsGet({ serverName, databaseName, dbType }: RefDataDatabaseUsersGetDbUsersPermissionsGetRequest, opts?: OperationOpts): Observable<Array<UserDbPermissionApiModel> | AjaxResponse<Array<UserDbPermissionApiModel>>> {
+    refDataDatabaseUsersGetDbUsersPermissionsGet({ serverName, databaseName, tag }: RefDataDatabaseUsersGetDbUsersPermissionsGetRequest): Observable<Array<UserDbPermissionApiModel>>
+    refDataDatabaseUsersGetDbUsersPermissionsGet({ serverName, databaseName, tag }: RefDataDatabaseUsersGetDbUsersPermissionsGetRequest, opts?: OperationOpts): Observable<AjaxResponse<Array<UserDbPermissionApiModel>>>
+    refDataDatabaseUsersGetDbUsersPermissionsGet({ serverName, databaseName, tag }: RefDataDatabaseUsersGetDbUsersPermissionsGetRequest, opts?: OperationOpts): Observable<Array<UserDbPermissionApiModel> | AjaxResponse<Array<UserDbPermissionApiModel>>> {
 
         const headers: HttpHeaders = {
             // oauth required
@@ -85,7 +85,7 @@ export class RefDataDatabaseUsersApi extends BaseAPI {
 
         if (serverName != null) { query['serverName'] = serverName; }
         if (databaseName != null) { query['databaseName'] = databaseName; }
-        if (dbType != null) { query['dbType'] = dbType; }
+        if (tag != null) { query['tag'] = tag; }
 
         return this.request<Array<UserDbPermissionApiModel>>({
             url: '/RefDataDatabaseUsers/GetDbUsersPermissions',

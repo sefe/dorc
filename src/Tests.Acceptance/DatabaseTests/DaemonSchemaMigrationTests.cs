@@ -38,7 +38,7 @@ namespace Tests.Acceptance.DatabaseTests
         [TestCategory("Database")]
         public void SC02_PopulatedLegacyDb_MigratesCleanly()
         {
-            // Seed legacy state before publish. Fixture creates dbo.SERVER (if not present),
+            // Seed legacy state before publish. Fixture creates the legacy dbo.SERVER (if not present),
             // populates it with a test server, creates dbo.SERVICE and dbo.SERVER_SERVICE_MAP
             // with 4 service rows (including one NULL Service_Name) and 4 map rows (including
             // one orphan Server_ID referencing a non-existent server).
@@ -153,7 +153,7 @@ namespace Tests.Acceptance.DatabaseTests
 
             // Seed dependencies: one server row and one daemon row.
             ExecuteEphemeral(@"
-                INSERT INTO [dbo].[SERVER] (Server_Name) VALUES (N'obs-test-srv');
+                INSERT INTO [deploy].[Server] ([Name]) VALUES (N'obs-test-srv');
                 DECLARE @sid INT = SCOPE_IDENTITY();
                 SET IDENTITY_INSERT [deploy].[Daemon] ON;
                 INSERT INTO [deploy].[Daemon] (Id, Name) VALUES (500, N'obs-test-daemon');

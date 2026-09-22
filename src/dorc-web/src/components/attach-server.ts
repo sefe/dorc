@@ -9,6 +9,7 @@ import {
   RefDataServersApi
 } from '../apis/dorc-api/apis';
 import { ApiBoolResult, ServerApiModel } from '../apis/dorc-api';
+import { joinTags, normaliseTags } from '../helpers/tag-parser';
 import '@vaadin/horizontal-layout';
 import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
@@ -76,9 +77,9 @@ export class AttachServer extends LitElement {
               >
             </h3>
             <h3 style="color: black">
-              Server Applications:
+              Server Tags:
               <span style="color: var(--dorc-link-color)"
-                >${this.selectedServer?.ApplicationTags}</span
+                >${joinTags(normaliseTags(this.selectedServer?.Tags))}</span
               >
             </h3>
           </div>

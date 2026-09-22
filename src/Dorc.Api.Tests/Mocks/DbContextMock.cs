@@ -13,7 +13,10 @@ namespace Dorc.Api.Tests.Mocks
             ((IQueryable<T>)dbSet).Provider.Returns(queryable.Provider);
             ((IQueryable<T>)dbSet).Expression.Returns(queryable.Expression);
             ((IQueryable<T>)dbSet).ElementType.Returns(queryable.ElementType);
-            ((IQueryable<T>)dbSet).GetEnumerator().Returns(queryable.GetEnumerator());
+            // A fresh enumerator per call: query shapes that iterate a set more than
+            // once (e.g. cross joins) would otherwise see an exhausted enumerator on
+            // the second pass and silently drop rows.
+            ((IQueryable<T>)dbSet).GetEnumerator().Returns(_ => queryable.GetEnumerator());
             dbSet.When(x => x.Add(Arg.Any<T>())).Do(call => sourceList.Add(call.Arg<T>()));
             dbSet.When(x => x.Remove(Arg.Any<T>())).Do(call => sourceList.Remove(call.Arg<T>()));
 

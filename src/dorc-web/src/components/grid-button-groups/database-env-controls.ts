@@ -91,6 +91,21 @@ export class DatabaseEnvControls extends LitElement {
           style="color: var(--dorc-link-color)"
         ></vaadin-icon>
       </vaadin-button>
+      <vaadin-button
+        aria-label="Edit Database Tags"
+        theme="icon"
+        @click="${this.manageDatabaseTags}"
+        ?disabled="${this.readonly}"
+      >
+        <vaadin-tooltip
+          slot="tooltip"
+          text="Edit Database Tags"
+        ></vaadin-tooltip>
+        <vaadin-icon
+          icon="vaadin:tags"
+          style=${styleMap(editStyles)}
+        ></vaadin-icon>
+      </vaadin-button>
     `;
   }
 
@@ -148,5 +163,17 @@ export class DatabaseEnvControls extends LitElement {
       }
     });
     this.dispatchEvent(event);
+  }
+
+  private manageDatabaseTags() {
+    this.dispatchEvent(
+      new CustomEvent('manage-database-tags', {
+        bubbles: true,
+        composed: true,
+        detail: {
+          database: this.dbDetails
+        }
+      })
+    );
   }
 }

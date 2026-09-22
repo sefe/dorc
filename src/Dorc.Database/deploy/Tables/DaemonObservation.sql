@@ -6,7 +6,7 @@ CREATE TABLE [deploy].[DaemonObservation] (
     [ObservedStatus] NVARCHAR (50)  NULL,
     [ErrorMessage]   NVARCHAR (MAX) NULL,
     CONSTRAINT [PK_DaemonObservation] PRIMARY KEY CLUSTERED ([Id] ASC),
-    CONSTRAINT [FK_DaemonObservation_Server] FOREIGN KEY ([ServerId]) REFERENCES [dbo].[SERVER] ([Server_ID]) ON DELETE NO ACTION,
+    CONSTRAINT [FK_DaemonObservation_Server] FOREIGN KEY ([ServerId]) REFERENCES [deploy].[Server] ([Id]) ON DELETE NO ACTION,
     CONSTRAINT [FK_DaemonObservation_Daemon] FOREIGN KEY ([DaemonId]) REFERENCES [deploy].[Daemon] ([Id]) ON DELETE NO ACTION
 );
 GO

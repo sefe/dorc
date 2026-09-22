@@ -9,7 +9,7 @@
         CopyEnvBuild,
         RefDataEnvironments,
         RefDataDatabases,
-        RefDataDatabasesByType,
+        RefDataDatabasesByTag,
         RefDataServers,
         RefDataServersAppServersByEnvName,
         RefDataSqlPorts,
