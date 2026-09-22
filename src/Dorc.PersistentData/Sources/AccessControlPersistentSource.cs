@@ -69,6 +69,11 @@ namespace Dorc.PersistentData.Sources
                 var existingAccessControl = context.AccessControls.Find(accessControl.Id);
 
                 if (existingAccessControl == null) return null;
+                if (existingAccessControl.ObjectId != objectId)
+                {
+                    throw new InvalidOperationException(
+                        "The access-control entry does not belong to the authorized object.");
+                }
 
                 var oldPermissions = existingAccessControl.Allow;
                 var oldName = existingAccessControl.Name;
