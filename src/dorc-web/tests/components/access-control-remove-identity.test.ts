@@ -26,9 +26,8 @@ vi.mock('../../src/components/confirm-prompt', () => ({
     })
 }));
 
-const { AddEditAccessControl } = await import(
-  '../../src/components/add-edit-access-control'
-);
+const { AddEditAccessControl } =
+  await import('../../src/components/add-edit-access-control');
 await import('../../src/components/grid-button-groups/access-control-controls');
 await import('../../src/components/deploy/property-override-controls');
 
@@ -67,7 +66,9 @@ describe('access control removal identity', () => {
     );
     await settle();
 
-    const control = host.querySelector('access-control-controls') as HTMLElement & {
+    const control = host.querySelector(
+      'access-control-controls'
+    ) as HTMLElement & {
       removeAccess(): Promise<void>;
       accessControl?: Privilege;
     };

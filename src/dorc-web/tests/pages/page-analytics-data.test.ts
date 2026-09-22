@@ -131,9 +131,24 @@ describe('page-analytics-data helpers', () => {
   describe('buildComponentFailureRates', () => {
     it('computes percentage, enforces min volume, ranks worst first', () => {
       const rows = [
-        { ComponentName: 'Flaky', AttemptCount: 100, FailedCount: 25, RetryAttemptCount: 10 },
-        { ComponentName: 'Solid', AttemptCount: 200, FailedCount: 2, RetryAttemptCount: 0 },
-        { ComponentName: 'TinySample', AttemptCount: 2, FailedCount: 2, RetryAttemptCount: 0 }
+        {
+          ComponentName: 'Flaky',
+          AttemptCount: 100,
+          FailedCount: 25,
+          RetryAttemptCount: 10
+        },
+        {
+          ComponentName: 'Solid',
+          AttemptCount: 200,
+          FailedCount: 2,
+          RetryAttemptCount: 0
+        },
+        {
+          ComponentName: 'TinySample',
+          AttemptCount: 2,
+          FailedCount: 2,
+          RetryAttemptCount: 0
+        }
       ];
 
       const result = buildComponentFailureRates(rows, 20, 10);

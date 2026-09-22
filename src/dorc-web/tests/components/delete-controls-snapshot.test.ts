@@ -81,7 +81,7 @@ describe('delete controls report the row they acted on', () => {
 
     el.remove();
     // `confirmed: false` is the first pass of main's daemon-detach flow: the
-// API answers with RequiresConfirmation if the server still has daemons.
+    // API answers with RequiresConfirmation if the server still has daemons.
     expect(deleteSpy).toHaveBeenCalledWith({ serverId: 1, confirmed: false });
     expect(reported?.Name, 'reports the row it deleted').toBe('Foo');
   });

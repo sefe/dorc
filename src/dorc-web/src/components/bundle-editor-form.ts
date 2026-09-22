@@ -43,9 +43,9 @@ export class BundleEditorForm extends LitElement {
 
   @property({ type: Object })
   bundleRequest: BundledRequestsApiModel = {};
-  
-  @property({ type: Array})
-  projects: ProjectApiModel[] | null  = [];
+
+  @property({ type: Array })
+  projects: ProjectApiModel[] | null = [];
 
   @property({ type: Array })
   existingBundleNames: string[] = [];
@@ -63,7 +63,7 @@ export class BundleEditorForm extends LitElement {
   ];
 
   private readonly _requestTemplates: Record<string, object> = {
-    'JobRequest': {
+    JobRequest: {
       Project: '',
       BuildText: '',
       BuildUrl: '',
@@ -71,7 +71,7 @@ export class BundleEditorForm extends LitElement {
       Components: [],
       RequestProperties: []
     },
-    'CopyEnvBuild': {
+    CopyEnvBuild: {
       TargetEnv: '',
       DataBackup: '',
       BundleName: '',
@@ -204,7 +204,11 @@ export class BundleEditorForm extends LitElement {
 
   private _setDefaultProject() {
     // If there's exactly one project and no project is selected, default to it
-    if (this.projects && this.projects.length === 1 && !this.bundleRequest.ProjectId) {
+    if (
+      this.projects &&
+      this.projects.length === 1 &&
+      !this.bundleRequest.ProjectId
+    ) {
       const project = this.projects[0];
       if (project.ProjectId) {
         this._updateValue('ProjectId', project.ProjectId);
@@ -261,7 +265,8 @@ export class BundleEditorForm extends LitElement {
     // Check if we should apply a template
     // Apply template if Request is empty, default '{}', or matches another type's template
     const currentRequest = this.bundleRequest.Request || '{}';
-    const isEmptyOrDefault = currentRequest === '{}' || currentRequest.trim() === '';
+    const isEmptyOrDefault =
+      currentRequest === '{}' || currentRequest.trim() === '';
 
     // Check if current request matches one of the templates (user hasn't customized it)
     let isTemplate = false;
@@ -351,7 +356,7 @@ export class BundleEditorForm extends LitElement {
             composed: true
           })
         );
-    
+
         this.dialog.closeDialog();
         const savedEvent = new CustomEvent('bundle-saved', {
           detail: { bundleRequest: this.bundleRequest },
@@ -360,7 +365,7 @@ export class BundleEditorForm extends LitElement {
         });
         this.dispatchEvent(savedEvent);
       },
-      error: (error) => {
+      error: error => {
         console.error('Error saving bundle request:', error);
         this.dispatchEvent(
           new CustomEvent(loadingChangeEvent, {
@@ -430,15 +435,15 @@ export class BundleEditorForm extends LitElement {
         ...this.bundleRequest,
         Request: editorValue
       };
-      
+
       // Update the dialog's copy
       this.dialog.updateBundleRequest(this.bundleRequest);
     }
   }
-  
+
   private _validateBundle(): boolean {
     this._synchronizeEditorWithBundleRequest();
-    
+
     if (!this.bundleRequest.BundleName) {
       this._showError('Bundle Name is required');
       return false;

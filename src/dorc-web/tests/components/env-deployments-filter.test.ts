@@ -20,13 +20,12 @@ describe('EnvDeployments date filter', () => {
       of([{ EnvironmentId: 1, EnvironmentName: 'Test Environment' }])
     );
 
-    const detailsApi =
-      RefDataEnvironmentsDetailsApi.prototype as unknown as {
-        refDataEnvironmentsDetailsIdGet: () => Observable<EnvironmentContentApiModel>;
-        refDataEnvironmentsDetailsGetComponentStatuesGet: () => Observable<
-          EnvironmentContentBuildsApiModel[]
-        >;
-      };
+    const detailsApi = RefDataEnvironmentsDetailsApi.prototype as unknown as {
+      refDataEnvironmentsDetailsIdGet: () => Observable<EnvironmentContentApiModel>;
+      refDataEnvironmentsDetailsGetComponentStatuesGet: () => Observable<
+        EnvironmentContentBuildsApiModel[]
+      >;
+    };
     vi.spyOn(detailsApi, 'refDataEnvironmentsDetailsIdGet').mockReturnValue(
       of({ EnvironmentName: 'Test Environment', Builds: [] })
     );

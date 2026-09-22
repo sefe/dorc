@@ -70,5 +70,20 @@ namespace Tools.RequestCLI.Tests
 
             CollectionAssert.AreEqual(new[] { "Web", "Api", "Db" }, cliArgs.Request.Components.ToArray());
         }
+
+        [TestMethod]
+        public void ParseArguments_PopulatesCrNumberAndAutoCr()
+        {
+            var cliArgs = new CliArgs(new[]
+            {
+                "/project:MyProject",
+                "/targetenv:PROD",
+                "/crnumber:CHG0012345",
+                "/autocr"
+            });
+
+            Assert.AreEqual("CHG0012345", cliArgs.Request.ChangeRequestNumber);
+            Assert.IsTrue(cliArgs.AutoCr);
+        }
     }
 }

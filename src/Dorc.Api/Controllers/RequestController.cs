@@ -1,4 +1,5 @@
 ﻿using Dorc.Api.Interfaces;
+using Dorc.Api.Services;
 using Dorc.ApiModel;
 using Dorc.Core.Configuration;
 using Dorc.Core.Events;
@@ -25,6 +26,8 @@ namespace Dorc.Api.Controllers
         private readonly IProjectsPersistentSource _projectsPersistentSource;
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
         private readonly IDeploymentEventsPublisher _deploymentEventsPublisher;
+        private readonly IEmailNotificationService _emailNotificationService;
+        private readonly IServiceNowService _serviceNowService;
         private readonly IConfigurationSettings _configurationSettings;
         private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
         private readonly IActiveDirectorySearcher _directorySearcher;
@@ -35,6 +38,8 @@ namespace Dorc.Api.Controllers
             IProjectsPersistentSource projectsPersistentSource,
             IClaimsPrincipalReader claimsPrincipalReader,
             IDeploymentEventsPublisher deploymentEventsPublisher,
+            IEmailNotificationService emailNotificationService,
+            IServiceNowService serviceNowService,
             IConfigurationSettings configurationSettings,
             IEnvironmentsPersistentSource environmentsPersistentSource,
             IDirectorySearcherFactory directorySearcherFactory,
@@ -49,6 +54,8 @@ namespace Dorc.Api.Controllers
             _log = log;
             _claimsPrincipalReader = claimsPrincipalReader;
             _deploymentEventsPublisher = deploymentEventsPublisher;
+            _emailNotificationService = emailNotificationService;
+            _serviceNowService = serviceNowService;
             _configurationSettings = configurationSettings;
             _environmentsPersistentSource = environmentsPersistentSource;
             _directorySearcher = directorySearcherFactory.GetEntraSearcher();
@@ -542,7 +549,7 @@ namespace Dorc.Api.Controllers
         [SwaggerResponse(StatusCodes.Status400BadRequest, Type = typeof(RequestStatusDto))]
         [SwaggerResponse(StatusCodes.Status403Forbidden, Type = typeof(string))]
         [HttpPost]
-        public IActionResult Post([FromBody] RequestDto requestDto)
+        public async Task<IActionResult> Post([FromBody] RequestDto requestDto)
         {
             try
             {
@@ -598,10 +605,30 @@ namespace Dorc.Api.Controllers
                 var canModifyEnv = _apiSecurityService.CanModifyEnvironment(User, requestDto.Environment);
                 if (!canModifyEnv)
                 {
-                    string username = _claimsPrincipalReader.GetUserFullDomainName(User);
-                    _log.LogInformation($"Forbidden request to {requestDto.Environment} from {username}");
+                    var safeEnv = requestDto.Environment
+                        .Replace("\r", string.Empty)
+                        .Replace("\n", string.Empty);
+                    _log.LogInformation("Forbidden deployment request to {Environment}", safeEnv);
                     return StatusCode(StatusCodes.Status403Forbidden,
-                            $"Forbidden request to {requestDto.Environment} from {username}");
+                            $"Forbidden request to {safeEnv}");
+                }
+
+                // Check if environment is prod (used for CR gate and email notification below)
+                var isProd = _environmentsPersistentSource.EnvironmentIsProd(requestDto.Environment);
+
+                // Server-side CR gate: require valid CR for prod deployments unless explicitly overridden
+                if (isProd && !requestDto.OverrideCr)
+                {
+                    if (string.IsNullOrWhiteSpace(requestDto.ChangeRequestNumber))
+                    {
+                        return BadRequest("A validated Change Request number is required for production deployments unless Override CR is specified.");
+                    }
+
+                    var crValidation = await _serviceNowService.ValidateChangeRequestAsync(requestDto.ChangeRequestNumber);
+                    if (!crValidation.IsValid)
+                    {
+                        return BadRequest($"Change Request validation failed: {crValidation.Message}");
+                    }
                 }
 
                 try
@@ -615,20 +642,36 @@ namespace Dorc.Api.Controllers
 
                     _log.LogInformation($"Request {result.Id} created");
 
+                    // Send email notification when deploying to prod with CR override
+                    if (isProd && requestDto.OverrideCr)
+                    {
+                        var projectModel = _projectsPersistentSource.GetProject(requestDto.Project);
+                        var notificationEmail = projectModel?.NotificationEmail;
+                        string username = _claimsPrincipalReader.GetUserFullDomainName(User);
+                        await _emailNotificationService.SendCrOverrideNotificationAsync(
+                            username,
+                            requestDto.Environment,
+                            requestDto.Project,
+                            requestDto.BuildNum ?? requestDto.BuildText ?? string.Empty,
+                            notificationEmail ?? string.Empty);
+                    }
+
                     StoreEnvironmentOwnerEmail(result.Id, requestDto.Environment);
 
                     return Ok(result);
                 }
-                catch (Exception e)
+                catch (WrongBuildTypeException e)
                 {
-                    _log.LogError(e.Message);
-                    return BadRequest(e.Message);
+                    _log.LogWarning(e, "Deployment request build validation failed");
+                    return BadRequest("Unable to create deployment request because the build details are invalid.");
                 }
             }
             catch (Exception e)
             {
                 _log.LogError(e, "api/Request/post");
-                var result = StatusCode(StatusCodes.Status500InternalServerError, e);
+                var result = StatusCode(
+                    StatusCodes.Status500InternalServerError,
+                    "An unexpected error occurred while creating the deployment request.");
                 return result;
             }
         }

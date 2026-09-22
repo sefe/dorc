@@ -14,7 +14,7 @@ class TestGridPage extends ResponsiveMixin(LitElement) {
   @property({ type: Array })
   items = [
     { name: 'Item 1', description: 'Desc 1', details: 'Details 1' },
-    { name: 'Item 2', description: 'Desc 2', details: 'Details 2' },
+    { name: 'Item 2', description: 'Desc 2', details: 'Details 2' }
   ];
 
   static override styles = css`
@@ -80,7 +80,7 @@ describe('Grid column hiding on narrow screens', () => {
       },
       addListener: () => {},
       removeListener: () => {},
-      dispatchEvent: () => true,
+      dispatchEvent: () => true
     };
     window.matchMedia = () => mql;
     return {
@@ -91,7 +91,7 @@ describe('Grid column hiding on narrow screens', () => {
         listeners.forEach(fn =>
           fn({ matches: newMatches, media: mql.media } as MediaQueryListEvent)
         );
-      },
+      }
     };
   }
 
@@ -103,8 +103,12 @@ describe('Grid column hiding on narrow screens', () => {
     await el.updateComplete;
 
     const colName = el.shadowRoot!.querySelector('#col-name') as HTMLElement;
-    const colDesc = el.shadowRoot!.querySelector('#col-description') as HTMLElement;
-    const colDetails = el.shadowRoot!.querySelector('#col-details') as HTMLElement;
+    const colDesc = el.shadowRoot!.querySelector(
+      '#col-description'
+    ) as HTMLElement;
+    const colDetails = el.shadowRoot!.querySelector(
+      '#col-details'
+    ) as HTMLElement;
 
     expect(colName.hidden).to.equal(false);
     expect(colDesc.hidden).to.equal(false);
@@ -119,12 +123,25 @@ describe('Grid column hiding on narrow screens', () => {
     await el.updateComplete;
 
     const colName = el.shadowRoot!.querySelector('#col-name') as HTMLElement;
-    const colDesc = el.shadowRoot!.querySelector('#col-description') as HTMLElement;
-    const colDetails = el.shadowRoot!.querySelector('#col-details') as HTMLElement;
+    const colDesc = el.shadowRoot!.querySelector(
+      '#col-description'
+    ) as HTMLElement;
+    const colDetails = el.shadowRoot!.querySelector(
+      '#col-details'
+    ) as HTMLElement;
 
-    expect(colName.hidden).to.equal(false, 'Name column should always be visible');
-    expect(colDesc.hidden).to.equal(true, 'Description column should be hidden on narrow');
-    expect(colDetails.hidden).to.equal(true, 'Details column should be hidden on narrow');
+    expect(colName.hidden).to.equal(
+      false,
+      'Name column should always be visible'
+    );
+    expect(colDesc.hidden).to.equal(
+      true,
+      'Description column should be hidden on narrow'
+    );
+    expect(colDetails.hidden).to.equal(
+      true,
+      'Details column should be hidden on narrow'
+    );
   });
 
   it('should toggle columns when screen size changes', async () => {
@@ -134,7 +151,9 @@ describe('Grid column hiding on narrow screens', () => {
     );
     await el.updateComplete;
 
-    const colDesc = el.shadowRoot!.querySelector('#col-description') as HTMLElement;
+    const colDesc = el.shadowRoot!.querySelector(
+      '#col-description'
+    ) as HTMLElement;
 
     // Initially visible
     expect(colDesc.hidden).to.equal(false);

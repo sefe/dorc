@@ -171,9 +171,7 @@ export class PageEnvironmentHistory extends ResponsiveMixin(PageElement) {
     );
   }
 
-  _dateRenderer(
-    item: EnvironmentHistoryApiModelExtended
-  ) {
+  _dateRenderer(item: EnvironmentHistoryApiModelExtended) {
     const history = item as EnvironmentHistoryApiModelExtended;
     const time = history.UpdatedDate?.toLocaleTimeString('en-GB');
     const date = history.UpdatedDate?.toLocaleDateString('en-GB', {
@@ -190,21 +188,22 @@ export class PageEnvironmentHistory extends ResponsiveMixin(PageElement) {
   // it into that row's model — and edit-comments-controls saves that same
   // object. `change` only fires when the user commits an edit.
   _commentRenderer(
-    item: EnvironmentHistoryApiModel, model: GridItemModel<EnvironmentHistoryApiModel>
+    item: EnvironmentHistoryApiModel,
+    model: GridItemModel<EnvironmentHistoryApiModel>
   ) {
     const history = item as EnvironmentHistoryApiModel;
     return html`<vaadin-text-field
-        style="width: 270px"
-        id="${`comments${model.index}`}"
-        readonly
-        focus-target
-        .value="${live(history.Comment ?? '')}"
-        .history="${history}"
-        @change="${(e: Event) => {
+      style="width: 270px"
+      id="${`comments${model.index}`}"
+      readonly
+      focus-target
+      .value="${live(history.Comment ?? '')}"
+      .history="${history}"
+      @change="${(e: Event) => {
           history.Comment = (e.currentTarget as TextField).value;
         }}"
-      >
-      </vaadin-text-field>`;
+    >
+    </vaadin-text-field>`;
   }
 
   _editButtonsRenderer(

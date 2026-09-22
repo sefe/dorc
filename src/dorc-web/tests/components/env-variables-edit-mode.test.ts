@@ -23,8 +23,7 @@ const settle = () => new Promise(r => setTimeout(r, 150));
 const providerOf = (el: HTMLElement) =>
   (
     el.shadowRoot?.querySelector('vaadin-grid') as
-      | (HTMLElement & { dataProvider?: unknown })
-      | null
+      (HTMLElement & { dataProvider?: unknown }) | null
   )?.dataProvider;
 
 describe('grid data providers survive a host re-render', () => {

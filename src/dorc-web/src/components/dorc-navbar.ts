@@ -240,7 +240,10 @@ export class DorcNavbar extends LitElement {
       >
         <vaadin-tab>
           <a href="${urlForName('deploy')}" @click="${this.openDeploy}">
-            <vaadin-icon icon="vaadin:expand-square" theme="small"></vaadin-icon>
+            <vaadin-icon
+              icon="vaadin:expand-square"
+              theme="small"
+            ></vaadin-icon>
             Deploy
           </a>
         </vaadin-tab>
@@ -253,11 +256,12 @@ export class DorcNavbar extends LitElement {
         ${repeat(
           this.shortcuts.results,
           resultKey,
-          result => html`<vaadin-tab
-            ><monitor-result-tab
-              .requestStatus="${result}"
-            ></monitor-result-tab
-          ></vaadin-tab>`
+          result =>
+            html`<vaadin-tab
+              ><monitor-result-tab
+                .requestStatus="${result}"
+              ></monitor-result-tab
+            ></vaadin-tab>`
         )}
         <vaadin-tab>
           <a href="${urlForName('projects')}">
@@ -268,9 +272,10 @@ export class DorcNavbar extends LitElement {
         ${repeat(
           this.shortcuts.projects,
           projectKey,
-          project => html`<vaadin-tab
-            ><project-envs-tab .project="${project}"></project-envs-tab
-          ></vaadin-tab>`
+          project =>
+            html`<vaadin-tab
+              ><project-envs-tab .project="${project}"></project-envs-tab
+            ></vaadin-tab>`
         )}
         <vaadin-tab>
           <a href="${urlForName('environments')}">
@@ -281,9 +286,10 @@ export class DorcNavbar extends LitElement {
         ${repeat(
           this.shortcuts.environments,
           envKey,
-          env => html`<vaadin-tab
-            ><env-detail-tab .env="${env}"></env-detail-tab
-          ></vaadin-tab>`
+          env =>
+            html`<vaadin-tab
+              ><env-detail-tab .env="${env}"></env-detail-tab
+            ></vaadin-tab>`
         )}
         <vaadin-tab>
           <a href="${urlForName('servers')}">
@@ -298,15 +304,21 @@ export class DorcNavbar extends LitElement {
           </a>
         </vaadin-tab>
         <vaadin-tab>
-          <a href="${urlForName('sql-roles')}" style="padding-left: var(--lumo-space-l);">
-              <vaadin-icon icon="vaadin:key" theme="small"></vaadin-icon>
-              Roles
+          <a
+            href="${urlForName('sql-roles')}"
+            style="padding-left: var(--lumo-space-l);"
+          >
+            <vaadin-icon icon="vaadin:key" theme="small"></vaadin-icon>
+            Roles
           </a>
         </vaadin-tab>
         <vaadin-tab>
-          <a href="${urlForName('sql-ports')}" style="padding-left: var(--lumo-space-l);">
-              <vaadin-icon icon="vaadin:connect" theme="small"></vaadin-icon>
-              Ports
+          <a
+            href="${urlForName('sql-ports')}"
+            style="padding-left: var(--lumo-space-l);"
+          >
+            <vaadin-icon icon="vaadin:connect" theme="small"></vaadin-icon>
+            Ports
           </a>
         </vaadin-tab>
         <vaadin-tab>
@@ -323,14 +335,20 @@ export class DorcNavbar extends LitElement {
         </vaadin-tab>
         <vaadin-tab>
           <a href="${urlForName('scripts')}">
-            <vaadin-icon icon="inline:powershell-icon" theme="small"></vaadin-icon>
+            <vaadin-icon
+              icon="inline:powershell-icon"
+              theme="small"
+            ></vaadin-icon>
             Scripts
           </a>
         </vaadin-tab>
 
         <vaadin-tab>
           <a href="${urlForName('variables')}">
-            <vaadin-icon icon="inline:variables-icon" theme="small"></vaadin-icon>
+            <vaadin-icon
+              icon="inline:variables-icon"
+              theme="small"
+            ></vaadin-icon>
             Variables
           </a>
         </vaadin-tab>
@@ -340,7 +358,10 @@ export class DorcNavbar extends LitElement {
           @click="${this._toggleAuditMenu}"
         >
           <a href="#" @click="${(e: Event) => e.preventDefault()}">
-            <vaadin-icon icon="vaadin:calendar-user" theme="small"></vaadin-icon>
+            <vaadin-icon
+              icon="vaadin:calendar-user"
+              theme="small"
+            ></vaadin-icon>
             Audit
             <vaadin-icon
               icon="${this.auditMenuExpanded ? 'vaadin:chevron-down-small' : 'vaadin:chevron-right-small'}"
@@ -357,7 +378,10 @@ export class DorcNavbar extends LitElement {
         <vaadin-tab ?hidden="${!this.auditMenuExpanded}">
           <a href="${urlForName('scripts-audit')}" title="Scripts Audit">
             <div class="sub-item">
-              <vaadin-icon icon="inline:powershell-icon" theme="small"></vaadin-icon>
+              <vaadin-icon
+                icon="inline:powershell-icon"
+                theme="small"
+              ></vaadin-icon>
               Scripts Audit
             </div>
           </a>
@@ -365,7 +389,10 @@ export class DorcNavbar extends LitElement {
         <vaadin-tab ?hidden="${!this.auditMenuExpanded}">
           <a href="${urlForName('variables-audit')}" title="Variables Audit">
             <div class="sub-item">
-              <vaadin-icon icon="inline:variables-icon" theme="small"></vaadin-icon>
+              <vaadin-icon
+                icon="inline:variables-icon"
+                theme="small"
+              ></vaadin-icon>
               Variables Audit
             </div>
           </a>
@@ -402,16 +429,21 @@ export class DorcNavbar extends LitElement {
             </div>
           </a>
         </vaadin-tab>
-        ${this.isAdmin
-          ? html`
-              <vaadin-tab>
-                <a href="${urlForName('configuration')}">
-                  <vaadin-icon icon="vaadin:options" theme="small"></vaadin-icon>
-                  Configuration
-                </a>
-              </vaadin-tab>
-            `
-          : html``}
+        ${
+          this.isAdmin
+            ? html`
+                <vaadin-tab>
+                  <a href="${urlForName('configuration')}">
+                    <vaadin-icon
+                      icon="vaadin:options"
+                      theme="small"
+                    ></vaadin-icon>
+                    Configuration
+                  </a>
+                </vaadin-tab>
+              `
+            : html``
+        }
         <vaadin-tab>
           <a href="${urlForName('analytics')}">
             <vaadin-icon icon="vaadin:chart" theme="small"></vaadin-icon>

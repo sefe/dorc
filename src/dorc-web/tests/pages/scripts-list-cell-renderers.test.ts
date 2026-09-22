@@ -48,7 +48,9 @@ type Page = HTMLElement & {
   powerShellVersions: string[];
   enabledRenderer(script: Script): unknown;
   psVersionRenderer(script: Script): unknown;
-  _jsonRenderer(script: Script & { Path?: string; IsPathJSON?: boolean }): unknown;
+  _jsonRenderer(
+    script: Script & { Path?: string; IsPathJSON?: boolean }
+  ): unknown;
 };
 
 // Deliberately not attached: connectedCallback would fire the page's data
@@ -90,9 +92,10 @@ describe('page-scripts-list editable cell renderers', () => {
     checkbox.checked = true;
     await settle();
 
-    expect(script.IsEnabled, 'model untouched by a non-gesture change').to.equal(
-      false
-    );
+    expect(
+      script.IsEnabled,
+      'model untouched by a non-gesture change'
+    ).to.equal(false);
   });
 
   it('records a real click on the enabled checkbox', async () => {
@@ -102,8 +105,7 @@ describe('page-scripts-list editable cell renderers', () => {
 
     (
       host.querySelector('vaadin-checkbox')?.querySelector('input') as
-        | HTMLInputElement
-        | undefined
+        HTMLInputElement | undefined
     )?.click();
     await settle();
 
@@ -145,10 +147,9 @@ describe('page-scripts-list editable cell renderers', () => {
     render(page._jsonRenderer(second) as never, host);
     await settle();
 
-    expect(
-      host.querySelector('hegs-json-viewer'),
-      'element reused'
-    ).to.equal(viewer);
+    expect(host.querySelector('hegs-json-viewer'), 'element reused').to.equal(
+      viewer
+    );
     expect(viewer.data, 'shows the new row').to.deep.equal({ b: 2 });
   });
 
@@ -189,7 +190,10 @@ describe('page-scripts-list editable cell renderers', () => {
     await settle();
 
     render(
-      page.psVersionRenderer({ Id: 2, PowerShellVersionNumber: '5.1' }) as never,
+      page.psVersionRenderer({
+        Id: 2,
+        PowerShellVersionNumber: '5.1'
+      }) as never,
       host
     );
     await settle();

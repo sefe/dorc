@@ -306,215 +306,235 @@ export class PageAnalytics extends PageElement {
 
   render() {
     return html`
-      ${this.loading
-        ? html` <dorc-spinner></dorc-spinner> `
-        : html`
-            <div id="page_div">
-              <div class="page-analytics__main-info main-info">
-                <div class="statistics-cards">
-                  <div class="statistics-cards__item card-element">
-                    <h3>${this.totalDeployments}</h3>
-                    <span class="card-element__text">Total # deployments</span>
-                  </div>
-                  <div class="statistics-cards__item card-element">
-                    <h3>${this.totalDeploymentsThisYear}</h3>
-                    <span class="card-element__text"
-                      >Total # deployments this year</span
+      ${
+        this.loading
+          ? html` <dorc-spinner></dorc-spinner> `
+          : html`
+              <div id="page_div">
+                <div class="page-analytics__main-info main-info">
+                  <div class="statistics-cards">
+                    <div class="statistics-cards__item card-element">
+                      <h3>${this.totalDeployments}</h3>
+                      <span class="card-element__text"
+                        >Total # deployments</span
+                      >
+                    </div>
+                    <div class="statistics-cards__item card-element">
+                      <h3>${this.totalDeploymentsThisYear}</h3>
+                      <span class="card-element__text"
+                        >Total # deployments this year</span
+                      >
+                    </div>
+                    <div class="statistics-cards__item card-element">
+                      <h3>${this.averageDeploymentsPerDay}</h3>
+                      <span class="card-element__text"
+                        >Average Deployments Per Day</span
+                      >
+                    </div>
+                    <div class="statistics-cards__item card-element">
+                      <h3>${this.busiestDeploymentCount}</h3>
+                      <span class="card-element__text"
+                        >Most Deployments In A Day</span
+                      >
+                    </div>
+                    <div class="statistics-cards__item card-element">
+                      <h3>${this.totalFailedDeploymentsThisYear}</h3>
+                      <span class="card-element__text"
+                        >Total Failures This Year</span
+                      >
+                    </div>
+                    <div class="statistics-cards__item card-element">
+                      <h3>${this.percentFailedThisYear}%</h3>
+                      <span class="card-element__text"
+                        >Failure Rate This Year</span
+                      >
+                    </div>
+                    <div class="statistics-cards__item card-element">
+                      <h3>
+                        ${
+                        this.durationStats?.AverageDurationMinutes?.toFixed(
+                          1
+                        ) ?? 0
+                      }
+                        min
+                      </h3>
+                      <span class="card-element__text"
+                        >Average Deployment Duration</span
+                      >
+                    </div>
+                    <div class="statistics-cards__item card-element">
+                      <h3>
+                        ${this.durationStats?.MaxDurationMinutes?.toFixed(1) ?? 0}
+                        min
+                      </h3>
+                      <span class="card-element__text">Longest Deployment</span>
+                    </div>
+                    <div class="statistics-cards__item card-element">
+                      <h3>
+                        ${this.durationStats?.MinDurationMinutes?.toFixed(1) ?? 0}
+                        min
+                      </h3>
+                      <span class="card-element__text"
+                        >Shortest Deployment</span
+                      >
+                    </div>
+                    <div
+                      class="statistics-cards__item card-element"
+                      title="P50 (50th percentile): half of all deployments complete within this time"
                     >
-                  </div>
-                  <div class="statistics-cards__item card-element">
-                    <h3>${this.averageDeploymentsPerDay}</h3>
-                    <span class="card-element__text"
-                      >Average Deployments Per Day</span
+                      <h3>
+                        ${
+                        this.durationStats?.P50DurationMinutes?.toFixed(1) ??
+                        '—'
+                      }
+                        min
+                      </h3>
+                      <span class="card-element__text"
+                        >Median Duration (P50)</span
+                      >
+                    </div>
+                    <div
+                      class="statistics-cards__item card-element"
+                      title="P90 (90th percentile): 90% of deployments complete within this time — only 10% take longer"
                     >
-                  </div>
-                  <div class="statistics-cards__item card-element">
-                    <h3>${this.busiestDeploymentCount}</h3>
-                    <span class="card-element__text"
-                      >Most Deployments In A Day</span
+                      <h3>
+                        ${
+                        this.durationStats?.P90DurationMinutes?.toFixed(1) ??
+                        '—'
+                      }
+                        min
+                      </h3>
+                      <span class="card-element__text">P90 Duration</span>
+                    </div>
+                    <div
+                      class="statistics-cards__item card-element"
+                      title="P95 (95th percentile): 95% of deployments complete within this time — only the slowest 5% take longer"
                     >
+                      <h3>
+                        ${
+                        this.durationStats?.P95DurationMinutes?.toFixed(1) ??
+                        '—'
+                      }
+                        min
+                      </h3>
+                      <span class="card-element__text">P95 Duration</span>
+                    </div>
                   </div>
-                  <div class="statistics-cards__item card-element">
-                    <h3>${this.totalFailedDeploymentsThisYear}</h3>
-                    <span class="card-element__text"
-                      >Total Failures This Year</span
-                    >
-                  </div>
-                  <div class="statistics-cards__item card-element">
-                    <h3>${this.percentFailedThisYear}%</h3>
-                    <span class="card-element__text"
-                      >Failure Rate This Year</span
-                    >
-                  </div>
-                  <div class="statistics-cards__item card-element">
-                    <h3>
-                      ${this.durationStats?.AverageDurationMinutes?.toFixed(
-                        1
-                      ) ?? 0}
-                      min
-                    </h3>
-                    <span class="card-element__text"
-                      >Average Deployment Duration</span
-                    >
-                  </div>
-                  <div class="statistics-cards__item card-element">
-                    <h3>
-                      ${this.durationStats?.MaxDurationMinutes?.toFixed(1) ?? 0}
-                      min
-                    </h3>
-                    <span class="card-element__text">Longest Deployment</span>
-                  </div>
-                  <div class="statistics-cards__item card-element">
-                    <h3>
-                      ${this.durationStats?.MinDurationMinutes?.toFixed(1) ?? 0}
-                      min
-                    </h3>
-                    <span class="card-element__text">Shortest Deployment</span>
-                  </div>
-                  <div class="statistics-cards__item card-element"
-                    title="P50 (50th percentile): half of all deployments complete within this time">
-                    <h3>
-                      ${this.durationStats?.P50DurationMinutes?.toFixed(1) ??
-                      '—'}
-                      min
-                    </h3>
-                    <span class="card-element__text"
-                      >Median Duration (P50)</span
-                    >
-                  </div>
-                  <div class="statistics-cards__item card-element"
-                    title="P90 (90th percentile): 90% of deployments complete within this time — only 10% take longer">
-                    <h3>
-                      ${this.durationStats?.P90DurationMinutes?.toFixed(1) ??
-                      '—'}
-                      min
-                    </h3>
-                    <span class="card-element__text">P90 Duration</span>
-                  </div>
-                  <div class="statistics-cards__item card-element"
-                    title="P95 (95th percentile): 95% of deployments complete within this time — only the slowest 5% take longer">
-                    <h3>
-                      ${this.durationStats?.P95DurationMinutes?.toFixed(1) ??
-                      '—'}
-                      min
-                    </h3>
-                    <span class="card-element__text">P95 Duration</span>
+                  <div class="top3-chart-block">
+                    <dorc-chart
+                      class="chart chart--sm"
+                      .option="${this.top3PieChartOptions}"
+                    ></dorc-chart>
                   </div>
                 </div>
-                <div class="top3-chart-block">
+                <div class="statistics-cards__item card-element">
                   <dorc-chart
-                    class="chart chart--sm"
-                    .option="${this.top3PieChartOptions}"
+                    class="chart chart--md"
+                    .option="${this.environmentUsageChartOptions}"
+                  ></dorc-chart>
+                </div>
+                <div class="statistics-cards__item card-element">
+                  <dorc-chart
+                    class="chart chart--md"
+                    .option="${this.userActivityChartOptions}"
+                  ></dorc-chart>
+                </div>
+                <div class="statistics-cards__item card-element">
+                  <dorc-chart
+                    class="chart chart--md"
+                    .option="${this.timePatternChartOptions}"
+                  ></dorc-chart>
+                </div>
+                <div class="statistics-cards__item card-element">
+                  <dorc-chart
+                    class="chart chart--lg"
+                    .option="${this.componentUsageChartOptions}"
+                  ></dorc-chart>
+                </div>
+                <div class="statistics-cards__item card-element">
+                  <dorc-chart
+                    class="chart chart--md"
+                    .option="${this.environmentWaitChartOptions}"
+                  ></dorc-chart>
+                </div>
+                <div class="statistics-cards__item card-element">
+                  <dorc-chart
+                    class="chart chart--lg"
+                    .option="${this.projectDurationChartOptions}"
+                  ></dorc-chart>
+                </div>
+                <div class="statistics-cards__item card-element">
+                  <dorc-chart
+                    class="chart chart--lg"
+                    .option="${this.componentReliabilityChartOptions}"
+                  ></dorc-chart>
+                </div>
+                <div class="statistics-cards__item card-element">
+                  <dorc-chart
+                    class="chart chart--md"
+                    .option="${this.recoveryTimeChartOptions}"
+                  ></dorc-chart>
+                </div>
+                <div class="statistics-cards__item card-element">
+                  <dorc-chart
+                    class="chart chart--lg"
+                    .option="${this.stalenessChartOptions}"
+                  ></dorc-chart>
+                </div>
+                <div class="statistics-cards__item card-element">
+                  <div class="filter-bar">
+                    <vaadin-combo-box
+                      label="From month"
+                      clear-button-visible
+                      .items="${this.monthFilterOptions}"
+                      .value="${this.filterFromMonth}"
+                      @value-changed="${this.updateFromMonthFilter}"
+                    ></vaadin-combo-box>
+                    <vaadin-combo-box
+                      label="To month"
+                      clear-button-visible
+                      .items="${this.monthFilterOptions}"
+                      .value="${this.filterToMonth}"
+                      @value-changed="${this.updateToMonthFilter}"
+                    ></vaadin-combo-box>
+                    <vaadin-combo-box
+                      label="Project"
+                      clear-button-visible
+                      .items="${this.projectFilterOptions}"
+                      .value="${this.filterProject}"
+                      @value-changed="${this.updateProjectFilter}"
+                    ></vaadin-combo-box>
+                    <span class="card-element__text"
+                      >Month range applies to both charts. The project filter
+                      applies to the deployment river only — the monthly outcome
+                      chart always shows all projects.</span
+                    >
+                  </div>
+                  <dorc-chart
+                    class="chart chart--md"
+                    .option="${this.monthlyOutcomeChartOptions}"
+                  ></dorc-chart>
+                </div>
+                <div class="statistics-cards__item card-element">
+                  <dorc-chart
+                    class="chart chart--xl"
+                    .option="${this.riverChartOptions}"
+                  ></dorc-chart>
+                  <vaadin-checkbox
+                    label="Include Deprecated"
+                    ?checked="${this.includeDeprecated}"
+                    @change="${this.updateDeprecated}"
+                  ></vaadin-checkbox>
+                </div>
+                <div class="statistics-cards__item card-element">
+                  <dorc-chart
+                    class="chart chart--xl"
+                    .option="${this.pieChartOptions}"
                   ></dorc-chart>
                 </div>
               </div>
-              <div class="statistics-cards__item card-element">
-                <dorc-chart
-                  class="chart chart--md"
-                  .option="${this.environmentUsageChartOptions}"
-                ></dorc-chart>
-              </div>
-              <div class="statistics-cards__item card-element">
-                <dorc-chart
-                  class="chart chart--md"
-                  .option="${this.userActivityChartOptions}"
-                ></dorc-chart>
-              </div>
-              <div class="statistics-cards__item card-element">
-                <dorc-chart
-                  class="chart chart--md"
-                  .option="${this.timePatternChartOptions}"
-                ></dorc-chart>
-              </div>
-              <div class="statistics-cards__item card-element">
-                <dorc-chart
-                  class="chart chart--lg"
-                  .option="${this.componentUsageChartOptions}"
-                ></dorc-chart>
-              </div>
-              <div class="statistics-cards__item card-element">
-                <dorc-chart
-                  class="chart chart--md"
-                  .option="${this.environmentWaitChartOptions}"
-                ></dorc-chart>
-              </div>
-              <div class="statistics-cards__item card-element">
-                <dorc-chart
-                  class="chart chart--lg"
-                  .option="${this.projectDurationChartOptions}"
-                ></dorc-chart>
-              </div>
-              <div class="statistics-cards__item card-element">
-                <dorc-chart
-                  class="chart chart--lg"
-                  .option="${this.componentReliabilityChartOptions}"
-                ></dorc-chart>
-              </div>
-              <div class="statistics-cards__item card-element">
-                <dorc-chart
-                  class="chart chart--md"
-                  .option="${this.recoveryTimeChartOptions}"
-                ></dorc-chart>
-              </div>
-              <div class="statistics-cards__item card-element">
-                <dorc-chart
-                  class="chart chart--lg"
-                  .option="${this.stalenessChartOptions}"
-                ></dorc-chart>
-              </div>
-              <div class="statistics-cards__item card-element">
-                <div class="filter-bar">
-                  <vaadin-combo-box
-                    label="From month"
-                    clear-button-visible
-                    .items="${this.monthFilterOptions}"
-                    .value="${this.filterFromMonth}"
-                    @value-changed="${this.updateFromMonthFilter}"
-                  ></vaadin-combo-box>
-                  <vaadin-combo-box
-                    label="To month"
-                    clear-button-visible
-                    .items="${this.monthFilterOptions}"
-                    .value="${this.filterToMonth}"
-                    @value-changed="${this.updateToMonthFilter}"
-                  ></vaadin-combo-box>
-                  <vaadin-combo-box
-                    label="Project"
-                    clear-button-visible
-                    .items="${this.projectFilterOptions}"
-                    .value="${this.filterProject}"
-                    @value-changed="${this.updateProjectFilter}"
-                  ></vaadin-combo-box>
-                  <span class="card-element__text"
-                    >Month range applies to both charts. The project filter
-                    applies to the deployment river only — the monthly outcome
-                    chart always shows all projects.</span
-                  >
-                </div>
-                <dorc-chart
-                  class="chart chart--md"
-                  .option="${this.monthlyOutcomeChartOptions}"
-                ></dorc-chart>
-              </div>
-              <div class="statistics-cards__item card-element">
-                <dorc-chart
-                  class="chart chart--xl"
-                  .option="${this.riverChartOptions}"
-                ></dorc-chart>
-                <vaadin-checkbox
-                  label="Include Deprecated"
-                  ?checked="${this.includeDeprecated}"
-                  @change="${this.updateDeprecated}"
-                ></vaadin-checkbox>
-              </div>
-              <div class="statistics-cards__item card-element">
-                <dorc-chart
-                  class="chart chart--xl"
-                  .option="${this.pieChartOptions}"
-                ></dorc-chart>
-              </div>
-            </div>
-          `}
+            `
+      }
     `;
   }
 
@@ -925,7 +945,10 @@ export class PageAnalytics extends PageElement {
         0
       );
       if (otherTotal > 0) {
-        pieData.push({ name: `Other (${remainder.length})`, value: otherTotal });
+        pieData.push({
+          name: `Other (${remainder.length})`,
+          value: otherTotal
+        });
       }
     }
 
@@ -1097,8 +1120,7 @@ export class PageAnalytics extends PageElement {
       position: 'top',
       formatter: (params: TopLevelFormatterParams) => {
         const item = (Array.isArray(params) ? params[0] : params) as
-          | CallbackDataParams
-          | undefined;
+          CallbackDataParams | undefined;
         const point = (item?.data as number[]) ?? [];
         if (point.length < 3) return '';
         const hour = point[0];
@@ -1290,7 +1312,8 @@ export class PageAnalytics extends PageElement {
       tooltip: { trigger: 'axis' },
       legend: {
         data: ['Non-Prod', 'Prod', 'Cancelled', 'Failure Rate %'],
-        top: 40      },
+        top: 40
+      },
       grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
       xAxis: { type: 'category', data: months },
       yAxis: [
@@ -1440,8 +1463,7 @@ export class PageAnalytics extends PageElement {
         axisPointer: { type: 'shadow' },
         formatter: (params: TopLevelFormatterParams) => {
           const item = (Array.isArray(params) ? params[0] : params) as
-            | CallbackDataParams
-            | undefined;
+            CallbackDataParams | undefined;
           if (!item) return '';
           const rate = rates[item.dataIndex ?? 0];
           if (!rate) return '';
@@ -1492,8 +1514,7 @@ export class PageAnalytics extends PageElement {
         axisPointer: { type: 'shadow' },
         formatter: (params: TopLevelFormatterParams) => {
           const item = (Array.isArray(params) ? params[0] : params) as
-            | CallbackDataParams
-            | undefined;
+            CallbackDataParams | undefined;
           if (!item) return '';
           const row = top[item.dataIndex ?? 0];
           if (!row) return '';

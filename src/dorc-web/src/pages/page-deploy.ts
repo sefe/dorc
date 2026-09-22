@@ -152,6 +152,7 @@ export class PageDeploy extends PageElement {
           id="deployEnv"
           .project="${this.project}"
           .envName="${this.selectedEnvironmentName}"
+          .envIsProd="${this.environment?.EnvironmentIsProd ?? false}"
         ></deploy-env>
         <div></div>
       </div>
@@ -171,7 +172,9 @@ export class PageDeploy extends PageElement {
 
     if (this.project !== undefined) {
       this.envsLoading = true;
-      const api = new RefDataProjectEnvironmentMappingsApi(dorcApiConfiguration);
+      const api = new RefDataProjectEnvironmentMappingsApi(
+        dorcApiConfiguration
+      );
       api
         .refDataProjectEnvironmentMappingsGet({
           project: this.project?.ProjectName ?? '',

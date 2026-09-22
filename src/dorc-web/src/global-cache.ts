@@ -24,7 +24,7 @@ export default class GlobalCache {
       next: (data: Array<UserApiModel>) => {
         this.allUsers = data;
       },
-      error: (err: string) => console.error(err),
+      error: (err: string) => console.error(err)
     });
 
     const refDataRolesApi = new RefDataRolesApi(dorcApiConfiguration);
@@ -33,7 +33,7 @@ export default class GlobalCache {
       next: (data: string[]) => {
         this.userRoles = data;
       },
-      error: (err: string) => console.error(err),
+      error: (err: string) => console.error(err)
     });
   }
 

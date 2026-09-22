@@ -16,8 +16,7 @@ type Host = HTMLElement & { updateComplete: Promise<unknown> };
 
 const viewerIn = (el: Host) =>
   el.shadowRoot?.getElementById('jsonviewer') as
-    | (HTMLElement & { data?: unknown })
-    | null;
+    (HTMLElement & { data?: unknown }) | null;
 
 describe('deploy-env confirmation seeding', () => {
   it('gives the json viewer an object to merge into', async () => {

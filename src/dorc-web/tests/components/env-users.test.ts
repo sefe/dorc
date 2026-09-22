@@ -19,10 +19,9 @@ describe('EnvUsers details', () => {
       of([{ EnvironmentId: 1, EnvironmentName: 'Test Environment' }])
     );
 
-    const detailsApi =
-      RefDataEnvironmentsDetailsApi.prototype as unknown as {
-        refDataEnvironmentsDetailsIdGet: () => Observable<EnvironmentContentApiModel>;
-      };
+    const detailsApi = RefDataEnvironmentsDetailsApi.prototype as unknown as {
+      refDataEnvironmentsDetailsIdGet: () => Observable<EnvironmentContentApiModel>;
+    };
     vi.spyOn(detailsApi, 'refDataEnvironmentsDetailsIdGet').mockReturnValue(
       of({ EnvironmentName: 'Test Environment', EndurUsers: [] })
     );

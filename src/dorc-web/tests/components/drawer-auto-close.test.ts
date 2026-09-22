@@ -12,7 +12,7 @@ function mockMatchMedia(matches: boolean) {
     removeEventListener: () => {},
     addListener: () => {},
     removeListener: () => {},
-    dispatchEvent: () => true,
+    dispatchEvent: () => true
   };
   window.matchMedia = () => mql;
   return mql;
@@ -138,11 +138,20 @@ describe('Drawer auto-close on mobile', () => {
       const styles = mod.DorcApp.styles;
       const cssText = Array.isArray(styles)
         ? styles.map((s: any) => s.cssText ?? '').join('')
-        : (styles as any)?.cssText ?? '';
+        : ((styles as any)?.cssText ?? '');
 
-      expect(cssText).to.include('max-width: 768px', 'Should have mobile breakpoint');
-      expect(cssText).to.include('#dorcNavbar.open', 'Should have .open class rule');
-      expect(cssText).to.include('position: fixed', 'Navbar should be fixed on mobile');
+      expect(cssText).to.include(
+        'max-width: 768px',
+        'Should have mobile breakpoint'
+      );
+      expect(cssText).to.include(
+        '#dorcNavbar.open',
+        'Should have .open class rule'
+      );
+      expect(cssText).to.include(
+        'position: fixed',
+        'Navbar should be fixed on mobile'
+      );
     });
   });
 });
@@ -177,7 +186,9 @@ describe('Splitter listener survives reconnect', () => {
   it('still flips drag-in-progress on mousedown after disconnect/reconnect', async () => {
     const { el } = await mountDorcApp(container);
 
-    splitterOf(el).dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    splitterOf(el).dispatchEvent(
+      new MouseEvent('mousedown', { bubbles: true })
+    );
     expect((el as any)._splitterDragInProgress).to.equal(
       true,
       'splitter mousedown should set _splitterDragInProgress on first mount'
@@ -195,7 +206,9 @@ describe('Splitter listener survives reconnect', () => {
     await el.updateComplete;
 
     (el as any)._splitterDragInProgress = false;
-    splitterOf(el).dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    splitterOf(el).dispatchEvent(
+      new MouseEvent('mousedown', { bubbles: true })
+    );
     expect((el as any)._splitterDragInProgress).to.equal(
       true,
       'splitter mousedown should still fire after reconnect'

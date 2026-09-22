@@ -72,10 +72,9 @@ describe('redirects and the location object', () => {
     expect(router.location.pathname).to.equal(
       '/environment/DEV1/components/servers'
     );
-    expect(
-      router.location.redirectFrom,
-      'records where it came from'
-    ).to.equal('/environment/DEV1/components');
+    expect(router.location.redirectFrom, 'records where it came from').to.equal(
+      '/environment/DEV1/components'
+    );
   });
 
   it('carries the query string through the redirect', async () => {
@@ -103,8 +102,9 @@ describe('redirects and the location object', () => {
 
     window.removeEventListener(LOCATION_CHANGED_EVENT, listener);
 
-    expect(seen, 'one event per navigation, with the final pathname').to.deep.equal(
-      ['/projects', '/servers']
-    );
+    expect(
+      seen,
+      'one event per navigation, with the final pathname'
+    ).to.deep.equal(['/projects', '/servers']);
   });
 });

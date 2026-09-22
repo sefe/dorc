@@ -514,15 +514,15 @@ export class PageDatabasesList extends ResponsiveMixin(PageElement) {
               html` <button
                 class="env"
                 @click="${() =>
-                    this.dispatchEvent(
-                      new CustomEvent('open-environment-details', {
-                        detail: {
-                          envName: i
-                        },
-                        bubbles: true,
-                        composed: true
-                      })
-                    )}"
+                  this.dispatchEvent(
+                    new CustomEvent('open-environment-details', {
+                      detail: {
+                        envName: i
+                      },
+                      bubbles: true,
+                      composed: true
+                    })
+                  )}"
                 style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
               >
                 ${i}
@@ -596,15 +596,15 @@ export class PageDatabasesList extends ResponsiveMixin(PageElement) {
             style="border: 0px"
             class="tag"
             @click="${() =>
-                this.dispatchEvent(
-                  new CustomEvent('filter-tags-database-list', {
-                    detail: {
-                      value
-                    },
-                    bubbles: true,
-                    composed: true
-                  })
-                )}"
+              this.dispatchEvent(
+                new CustomEvent('filter-tags-database-list', {
+                  detail: {
+                    value
+                  },
+                  bubbles: true,
+                  composed: true
+                })
+              )}"
           >
             ${value}
           </button>`

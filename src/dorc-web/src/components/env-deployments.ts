@@ -66,17 +66,15 @@ export class EnvDeployments extends ResponsiveMixin(LitElement) {
     `;
   }
 
-  cellPartNameGenerator: GridCellPartNameGenerator<EnvironmentContentBuildsApiModel> = (
-    _column,
-    model
-  ) => {
-    const item = model.item;
-    let parts = '';
-    if (item.State === 'Complete') {
-      parts += ' success';
-    } else if (item.State === 'Failed') {
-      parts += ' failure';
-    }
-    return parts;
-  };
+  cellPartNameGenerator: GridCellPartNameGenerator<EnvironmentContentBuildsApiModel> =
+    (_column, model) => {
+      const item = model.item;
+      let parts = '';
+      if (item.State === 'Complete') {
+        parts += ' success';
+      } else if (item.State === 'Failed') {
+        parts += ' failure';
+      }
+      return parts;
+    };
 }

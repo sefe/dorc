@@ -9,7 +9,10 @@ import { html } from 'lit/html.js';
 import { GridCellPartNameGenerator } from '@vaadin/grid';
 import { DateTimePicker } from '@vaadin/date-time-picker';
 import { PageEnvBase } from './page-env-base';
-import { EnvironmentContentBuildsApiModel, RefDataEnvironmentsDetailsApi } from '../../apis/dorc-api';
+import {
+  EnvironmentContentBuildsApiModel,
+  RefDataEnvironmentsDetailsApi
+} from '../../apis/dorc-api';
 import { EnvironmentContentBuildsApiModelExtended } from '../model-extensions/EnvironmentContentBuildsApiModelExtended';
 import '@vaadin/date-time-picker';
 import '@vaadin/grid/vaadin-grid-filter';
@@ -23,8 +26,7 @@ export class EnvDeployments extends PageEnvBase {
   @property({ type: Boolean }) applyingNewFilter = false;
 
   @property({ type: Array }) deployments:
-    | Array<EnvironmentContentBuildsApiModelExtended>
-    | undefined;
+    Array<EnvironmentContentBuildsApiModelExtended> | undefined;
 
   static get styles() {
     return css`
@@ -68,69 +70,73 @@ export class EnvDeployments extends PageEnvBase {
 
   render() {
     return html`
-      ${this.loading
-        ? html` <dorc-spinner></dorc-spinner>`
-        : html`
-            <vaadin-details
-              opened
-              summary="Application Deployment Filter"
-              style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; margin: 0px;"
-            >
-              <vaadin-date-time-picker
-                id="deployments-filter"
-                value="${Date.now()}"
-                .step="${60 * 30}"
-                date-placeholder="Date"
-                time-placeholder="Time"
-              ></vaadin-date-time-picker>
-              <vaadin-button
-                .disabled="${this.applyingNewFilter}"
-                @click="${this.applyDateTimeFilter}"
-                >Apply
-              </vaadin-button>
-              ${this.applyingNewFilter
-                ? html` <div class="small-loader"></div>`
-                : html``}
-            </vaadin-details>
-            <vaadin-grid
-              .items="${this.deployments ?? []}"
-              theme="compact row-stripes no-row-borders no-border"
-              .cellPartNameGenerator="${this.cellPartNameGenerator}"
-              style="height: 100%; width: 100%; flex-grow: 1"
-            >
-              <vaadin-grid-column
-                header="Request Id"
-                ${columnBodyRenderer(this._idRenderer, [])}
-                resizable
-                width="110px"
-                ${columnHeaderRenderer(this.idHeaderRenderer, [])}
+      ${
+        this.loading
+          ? html` <dorc-spinner></dorc-spinner>`
+          : html`
+              <vaadin-details
+                opened
+                summary="Application Deployment Filter"
+                style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; margin: 0px;"
               >
-              </vaadin-grid-column>
-              <vaadin-grid-column
-                path="ComponentName"
-                resizable
-                auto-width
-                ${columnHeaderRenderer(this.componentNameHeaderRenderer, [])}
+                <vaadin-date-time-picker
+                  id="deployments-filter"
+                  value="${Date.now()}"
+                  .step="${60 * 30}"
+                  date-placeholder="Date"
+                  time-placeholder="Time"
+                ></vaadin-date-time-picker>
+                <vaadin-button
+                  .disabled="${this.applyingNewFilter}"
+                  @click="${this.applyDateTimeFilter}"
+                  >Apply
+                </vaadin-button>
+                ${
+                this.applyingNewFilter
+                  ? html` <div class="small-loader"></div>`
+                  : html``
+              }
+              </vaadin-details>
+              <vaadin-grid
+                .items="${this.deployments ?? []}"
+                theme="compact row-stripes no-row-borders no-border"
+                .cellPartNameGenerator="${this.cellPartNameGenerator}"
+                style="height: 100%; width: 100%; flex-grow: 1"
               >
-              </vaadin-grid-column>
-              <vaadin-grid-column
-                path="RequestBuildNum"
-                resizable
-                auto-width
-                ${columnHeaderRenderer(this.requestNumberHeaderRenderer, [])}
-              >
-              </vaadin-grid-column>
-              <vaadin-grid-column
-                header="Requested"
-                ${columnBodyRenderer(this._dateRenderer, [])}
-                ${columnHeaderRenderer(this.dateHeaderRenderer, [])}
-                resizable
-                auto-width
-              ></vaadin-grid-column>
-              <vaadin-grid-sort-column header="Status" path="State" resizable>
-              </vaadin-grid-sort-column>
-            </vaadin-grid>
-          `}
+                <vaadin-grid-column
+                  header="Request Id"
+                  ${columnBodyRenderer(this._idRenderer, [])}
+                  resizable
+                  width="110px"
+                  ${columnHeaderRenderer(this.idHeaderRenderer, [])}
+                >
+                </vaadin-grid-column>
+                <vaadin-grid-column
+                  path="ComponentName"
+                  resizable
+                  auto-width
+                  ${columnHeaderRenderer(this.componentNameHeaderRenderer, [])}
+                >
+                </vaadin-grid-column>
+                <vaadin-grid-column
+                  path="RequestBuildNum"
+                  resizable
+                  auto-width
+                  ${columnHeaderRenderer(this.requestNumberHeaderRenderer, [])}
+                >
+                </vaadin-grid-column>
+                <vaadin-grid-column
+                  header="Requested"
+                  ${columnBodyRenderer(this._dateRenderer, [])}
+                  ${columnHeaderRenderer(this.dateHeaderRenderer, [])}
+                  resizable
+                  auto-width
+                ></vaadin-grid-column>
+                <vaadin-grid-sort-column header="Status" path="State" resizable>
+                </vaadin-grid-sort-column>
+              </vaadin-grid>
+            `
+      }
     `;
   }
 
@@ -186,52 +192,54 @@ export class EnvDeployments extends PageEnvBase {
 
   idHeaderRenderer() {
     return html`
-        <vaadin-grid-sorter path="RequestId">Request Id</vaadin-grid-sorter>
-      `;
+      <vaadin-grid-sorter path="RequestId">Request Id</vaadin-grid-sorter>
+    `;
   }
 
   dateHeaderRenderer() {
     return html`
-        <vaadin-grid-sorter path="UpdatedDate">Updated Date</vaadin-grid-sorter>
-      `;
+      <vaadin-grid-sorter path="UpdatedDate">Updated Date</vaadin-grid-sorter>
+    `;
   }
 
   componentNameHeaderRenderer() {
-    return html`<vaadin-grid-sorter path="ComponentName">Component Name</vaadin-grid-sorter>
-        <vaadin-grid-filter path="ComponentName">
-          <vaadin-text-field
-            clear-button-visible
-            slot="filter"
-            focus-target
-            style="width: 100%"
-            theme="small"
-          ></vaadin-text-field>
-        </vaadin-grid-filter>`;
+    return html`<vaadin-grid-sorter path="ComponentName"
+        >Component Name</vaadin-grid-sorter
+      >
+      <vaadin-grid-filter path="ComponentName">
+        <vaadin-text-field
+          clear-button-visible
+          slot="filter"
+          focus-target
+          style="width: 100%"
+          theme="small"
+        ></vaadin-text-field>
+      </vaadin-grid-filter>`;
   }
 
   requestNumberHeaderRenderer() {
-    return html`<vaadin-grid-sorter path="RequestBuildNum">Request Build Number</vaadin-grid-sorter>
-        <vaadin-grid-filter path="RequestBuildNum">
-          <vaadin-text-field
-            clear-button-visible
-            slot="filter"
-            focus-target
-            style="width: 100%"
-            theme="small"
-          ></vaadin-text-field>
-        </vaadin-grid-filter>`;
+    return html`<vaadin-grid-sorter path="RequestBuildNum"
+        >Request Build Number</vaadin-grid-sorter
+      >
+      <vaadin-grid-filter path="RequestBuildNum">
+        <vaadin-text-field
+          clear-button-visible
+          slot="filter"
+          focus-target
+          style="width: 100%"
+          theme="small"
+        ></vaadin-text-field>
+      </vaadin-grid-filter>`;
   }
 
-  _idRenderer(
-    item: EnvironmentContentBuildsApiModelExtended
-  ) {
+  _idRenderer(item: EnvironmentContentBuildsApiModelExtended) {
     const content = item as EnvironmentContentBuildsApiModelExtended;
 
     return html`
-        <vaadin-button
-          class="underlined-button"
-          theme="tertiary-inline"
-          @click="${() => {
+      <vaadin-button
+        class="underlined-button"
+        theme="tertiary-inline"
+        @click="${() => {
             const event = new CustomEvent('open-monitor-result', {
               detail: {
                 request: {
@@ -245,14 +253,12 @@ export class EnvDeployments extends PageEnvBase {
             });
             this.dispatchEvent(event);
           }}"
-          >${content.RequestId}</vaadin-button
-        >
-      `;
+        >${content.RequestId}</vaadin-button
+      >
+    `;
   }
 
-  _dateRenderer(
-    item: EnvironmentContentBuildsApiModelExtended
-  ) {
+  _dateRenderer(item: EnvironmentContentBuildsApiModelExtended) {
     const history = item as EnvironmentContentBuildsApiModelExtended;
     const time = history.UpdatedDate?.toLocaleTimeString('en-GB');
     const date = history.UpdatedDate?.toLocaleDateString('en-GB', {
@@ -270,17 +276,15 @@ export class EnvDeployments extends PageEnvBase {
     console.log('loading set to false');
   }
 
-  cellPartNameGenerator: GridCellPartNameGenerator<EnvironmentContentBuildsApiModel> = (
-    _column,
-    model
-  ) => {
-    const item = model.item;
-    let parts = '';
-    if (item.State === 'Complete') {
-      parts += ' success';
-    } else if (item.State === 'Failed') {
-      parts += ' failure';
-    }
-    return parts;
-  };
+  cellPartNameGenerator: GridCellPartNameGenerator<EnvironmentContentBuildsApiModel> =
+    (_column, model) => {
+      const item = model.item;
+      let parts = '';
+      if (item.State === 'Complete') {
+        parts += ' success';
+      } else if (item.State === 'Failed') {
+        parts += ' failure';
+      }
+      return parts;
+    };
 }
