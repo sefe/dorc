@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>dorc-api-windowsworker</UserSecretsId>
+    <RootNamespace>Dorc.Api.WindowsWorker</RootNamespace>
+    <AssemblyName>Dorc.Api.WindowsWorker</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Dorc.Core\Dorc.Core.csproj" />
+    <ProjectReference Include="..\Dorc.ApiModel\Dorc.ApiModel.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Dorc.Api.WindowsWorker.Tests" />
+  </ItemGroup>
+</Project>
