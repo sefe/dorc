@@ -17,6 +17,7 @@ import {
   getTextFieldValue
 } from './utilities/vaadinHelper';
 import { getShortLogonName } from '../../helpers/user-extensions';
+import { retrieveErrorMessage } from '../../helpers/errorMessage-retriever';
 
 type UserOrGroupFoundOrFailureCallback = (errorMessage: string) => void;
 type UserOrGroupNotFoundCallback = () => void;
@@ -231,8 +232,7 @@ export class AddEndurUserOrGroup extends AddUserOrGroupBase {
         );
       }
     } catch (e) {
-      let errorMessage: string = '';
-      if (e instanceof Error) errorMessage = e.message;
+      const errorMessage = retrieveErrorMessage(e, '');
       this.overlayMessage = errorMessage;
       foundOrInvalidCallback(errorMessage);
     }
