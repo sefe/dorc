@@ -72,6 +72,8 @@ export class PageMonitorResult
   @property({ type: String }) hubConnectionState: string | undefined =
     HubConnectionState.Disconnected;
 
+  @property({ type: Boolean }) autoRefresh = true;
+
   private hubConnection: HubConnection | undefined;
 
   static get styles() {
@@ -337,8 +339,16 @@ export class PageMonitorResult
 
     this.hubConnection.onreconnected(async () => {
       await hubProxy.joinRequestGroup(this.requestId);
-      this.refreshData();
+      if (this.autoRefresh) this.refreshData();
       this.hubConnectionState = this.hubConnection!.state;
+    });
+
+    this.hubConnection.onclose(() => {
+      this.hubConnectionState = this.hubConnection?.state;
+    });
+
+    this.hubConnection.onreconnecting(() => {
+      this.hubConnectionState = this.hubConnection?.state;
     });
 
     if (this.hubConnection.state === HubConnectionState.Disconnected) {
@@ -363,7 +373,13 @@ export class PageMonitorResult
   onDeploymentRequestStatusChanged(
     data: DeploymentRequestEventData
   ): Promise<void> {
-    if (!data || data.requestId !== this.requestId) return Promise.resolve();
+    if (
+      !this.autoRefresh ||
+      !data ||
+      data.requestId !== this.requestId
+    ) {
+      return Promise.resolve();
+    }
     const startedTime =
       data.startedTime instanceof Date
         ? data.startedTime.toISOString()
@@ -396,7 +412,10 @@ export class PageMonitorResult
   onDeploymentResultStatusChanged(
     data: DeploymentResultEventData
   ): Promise<void> {
-    if (this.isEventForRequest(data, this.requestId)) {
+    if (
+      this.autoRefresh &&
+      this.isEventForRequest(data, this.requestId)
+    ) {
       this.refreshResultItems();
     }
     return Promise.resolve();
@@ -425,6 +444,8 @@ export class PageMonitorResult
                   .deployRequest="${this.deployRequest}"
                   .selectedProject="${this.selectedProject}"
                   .hubConnectionState="${this.hubConnectionState}"
+                  .autoRefresh="${this.autoRefresh}"
+                  @toggle-auto-refresh="${this.toggleAutoRefresh}"
                 ></request-status-card>
                 <div class="results-section">
                   ${
@@ -480,5 +501,36 @@ export class PageMonitorResult
     });
 
     this.refreshData();
+  }
+
+  private async toggleAutoRefresh() {
+    this.autoRefresh = !this.autoRefresh;
+    if (!this.hubConnection) return;
+
+    if (this.autoRefresh) {
+      try {
+        if (this.hubConnection.state === HubConnectionState.Disconnected) {
+          await this.hubConnection.start();
+        }
+        const hubProxy = getHubProxyFactory(
+          'IDeploymentEventsHub'
+        ).createHubProxy(this.hubConnection);
+        await hubProxy.joinRequestGroup(this.requestId);
+        this.hubConnectionState = this.hubConnection.state;
+        this.refreshData();
+      } catch (err) {
+        this.hubConnectionState = String(err);
+        console.error(err);
+      }
+      return;
+    }
+
+    try {
+      await this.hubConnection.stop();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      this.hubConnectionState = this.hubConnection.state;
+    }
   }
 }
