@@ -30,6 +30,13 @@ export class AddConfigValue extends LitElement {
 
   @property({ type: Boolean }) valid = false;
 
+  // Unticked by default, and only meaningful for a secure value: the server hides a new
+  // secure value from script scope unless its creator says otherwise, while a non-secure
+  // value is ordinary configuration and stays visible whatever this says. Defaulting the
+  // other way would make every newly-added credential readable by every deployment
+  // script the moment it was created.
+  @property({ type: Boolean }) private visibleToScripts = false;
+
   @property({ type: Object }) configValue: ConfigValueApiModel =
     this.getEmptyConfigValue();
 
@@ -101,6 +108,16 @@ export class AddConfigValue extends LitElement {
               this.isForProd = (e.target as HTMLInputElement).checked;
             }}"
           ></vaadin-checkbox>
+          <vaadin-checkbox
+            id="visible-to-scripts"
+            label="Visible To Scripts"
+            title="Whether deployment scripts may read this value. Only applies to secure values; some values are withheld from script scope regardless."
+            .disabled="${!this.isSecure}"
+            .checked="${this.visibleToScripts}"
+            @change="${(e: Event) => {
+              this.visibleToScripts = (e.target as HTMLInputElement).checked;
+            }}"
+          ></vaadin-checkbox>
         </vaadin-vertical-layout>
         <div>
           <vaadin-button @click="${this.reset}">Clear</vaadin-button>
@@ -136,6 +153,7 @@ export class AddConfigValue extends LitElement {
 
     this.configValue.Secure = this.isSecure;
     this.configValue.IsForProd = this.isForProd;
+    this.configValue.VisibleToScripts = this.visibleToScripts;
     this.configValue.Key = this.key;
     this.configValue.Value = this.value;
 
@@ -182,6 +200,7 @@ export class AddConfigValue extends LitElement {
     this.clearTextField('value');
 
     this.configValue = this.getEmptyConfigValue();
+    this.visibleToScripts = false;
     this.keyValid = false;
     this.valueValid = false;
 
@@ -194,7 +213,8 @@ export class AddConfigValue extends LitElement {
       Key: '',
       Value: '',
       Secure: false,
-      IsForProd: undefined
+      IsForProd: undefined,
+      VisibleToScripts: false
     };
   }
 }

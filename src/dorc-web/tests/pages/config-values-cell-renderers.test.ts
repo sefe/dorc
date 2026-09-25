@@ -16,12 +16,19 @@ import '../../src/pages/page-config-values-list';
 // The renderers are called directly: connectedCallback would drive the page's
 // data provider at the API, and `isAdmin` is all these two need.
 
-type ConfigValue = { Id?: number; Key?: string; Secure?: boolean; IsForProd?: boolean };
+type ConfigValue = {
+  Id?: number;
+  Key?: string;
+  Secure?: boolean;
+  IsForProd?: boolean;
+  VisibleToScripts?: boolean;
+};
 
 type Page = HTMLElement & {
   isAdmin: boolean;
   isSecuredRenderer(configValue: ConfigValue): unknown;
   isForProdRenderer(configValue: ConfigValue): unknown;
+  isVisibleToScriptsRenderer(configValue: ConfigValue): unknown;
 };
 
 describe('page-config-values-list editable cell renderers', () => {
@@ -143,5 +150,69 @@ describe('page-config-values-list editable cell renderers', () => {
 
     expect(updated.length, 'one update').to.equal(1);
     expect(updated[0].Secure, 'carries the new value').to.equal(true);
+  });
+
+  it('shows the stored script visibility classification', async () => {
+    render(
+      page.isVisibleToScriptsRenderer({
+        Id: 1,
+        Secure: true,
+        VisibleToScripts: false
+      }) as never,
+      host
+    );
+    await settle();
+
+    expect(
+      (host.querySelector('vaadin-checkbox') as HTMLElement & {
+        checked: boolean;
+      }).checked
+    ).to.equal(false);
+  });
+
+  it('only lets administrators change script visibility on secure values', async () => {
+    const renderVisibility = async (isAdmin: boolean, secure: boolean) => {
+      page.isAdmin = isAdmin;
+      render(
+        page.isVisibleToScriptsRenderer({
+          Id: 1,
+          Secure: secure,
+          VisibleToScripts: true
+        }) as never,
+        host
+      );
+      await settle();
+      return (host.querySelector('vaadin-checkbox') as HTMLElement & {
+        disabled: boolean;
+      }).disabled;
+    };
+
+    expect(await renderVisibility(true, true)).to.equal(false);
+    expect(await renderVisibility(true, false)).to.equal(true);
+    expect(await renderVisibility(false, true)).to.equal(true);
+  });
+
+  it('persists a real script visibility change without altering other fields', async () => {
+    const updated: ConfigValue[] = [];
+    (page as unknown as { updateConfigItem(v: ConfigValue): void }).updateConfigItem =
+      v => updated.push(v);
+
+    const original: ConfigValue = {
+      Id: 1,
+      Key: 'SomeAccountPassword',
+      Secure: true,
+      IsForProd: true,
+      VisibleToScripts: false
+    };
+    render(page.isVisibleToScriptsRenderer(original) as never, host);
+    await settle();
+    (
+      host.querySelector('vaadin-checkbox')?.querySelector('input') as
+        | HTMLInputElement
+        | undefined
+    )?.click();
+    await settle();
+
+    expect(updated).to.deep.equal([{ ...original, VisibleToScripts: true }]);
   });
 });
