@@ -36,6 +36,7 @@ namespace Dorc.Monitor
         private readonly IAzureStorageAccountWorker _azureStorageAccountWorker;
         private readonly IProjectsPersistentSource _projectsPersistentSource;
         private readonly TerraformSourceConfigurator _sourceConfigurator;
+        private readonly IScriptScopeConfigValues _scriptScopeConfigValues;
 
         private bool isScriptExecutionSuccessful; // This field is needed to be instance-wide since Runner process errors are processed as instance-wide events.
 
@@ -49,6 +50,7 @@ namespace Dorc.Monitor
             IAzureStorageAccountWorker azureStorageAccountWorker,
             IProjectsPersistentSource projectsPersistentSource,
             IGitHubHostValidator gitHubHostValidator,
+            IScriptScopeConfigValues scriptScopeConfigValues,
             ISourceHostAllowList sourceHostAllowList)
         {
             this.logger = logger;
@@ -59,6 +61,7 @@ namespace Dorc.Monitor
             this._scriptGroupPipeServer = scriptGroupPipeServer;
             this._azureStorageAccountWorker = azureStorageAccountWorker;
             this._projectsPersistentSource = projectsPersistentSource;
+            this._scriptScopeConfigValues = scriptScopeConfigValues;
             this._sourceConfigurator = new TerraformSourceConfigurator(logger, _configurationSettingsEngine, gitHubHostValidator, sourceHostAllowList);
         }
 
@@ -296,6 +299,30 @@ namespace Dorc.Monitor
             return isScriptExecutionSuccessful;
         }
 
+        /// <summary>
+        /// See ScriptDispatcher: the same invariant, on the branch that serialises a script
+        /// group for the Terraform Runner.
+        /// </summary>
+        private IDictionary<string, VariableValue> WithheldKeysRemoved(
+            IDictionary<string, VariableValue> properties)
+        {
+            var withheld = properties.Keys.Where(_scriptScopeConfigValues.IsWithheld).ToList();
+
+            if (withheld.Count == 0)
+            {
+                return properties;
+            }
+
+            logger.LogWarning(
+                "Removed {Count} withheld key(s) from the Terraform script group before dispatch: {Keys}.",
+                withheld.Count,
+                string.Join(", ", withheld));
+
+            return properties
+                .Where(property => !_scriptScopeConfigValues.IsWithheld(property.Key))
+                .ToDictionary(property => property.Key, property => property.Value);
+        }
+
         private (string, string) GetProcessCredentials(bool isProduction, string environmentName)
         {
             if (isProduction)
@@ -328,7 +355,7 @@ namespace Dorc.Monitor
                 ID = Guid.NewGuid(),
                 DeployResultId = deploymentResultId,
                 ScriptsLocation = scriptsLocation,
-                CommonProperties = properties,
+                CommonProperties = WithheldKeysRemoved(properties),
                 ScriptProperties = new List<ScriptProperties>()
             };
 
