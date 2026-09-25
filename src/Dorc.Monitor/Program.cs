@@ -14,6 +14,8 @@ using Dorc.Kafka.Lock.DependencyInjection;
 using Dorc.Monitor.Pipes;
 using Dorc.Monitor.Registry;
 using Dorc.Monitor.RequestProcessors;
+using Dorc.Monitor.Notifications;
+using Dorc.Monitor.Notifications.Teams;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Contexts;
 using Dorc.PersistentData.Sources.Interfaces;
@@ -214,6 +216,23 @@ builder.Services.AddHttpClient("GitHubActions", client =>
 builder.Services.AddTransient<IGitHubArtifactDownloader, GitHubArtifactDownloader>();
 
 builder.Services.AddTransient<IConfigurationSettings, ConfigurationSettings>();
+
+//Notification Setup. Bound from builder.Configuration (not configurationRoot) so that
+//env-var / secret-store overrides work — see the IMPORTANT note above.
+var teamsSection = builder.Configuration.GetSection(TeamsBotOptions.SectionName);
+builder.Services.Configure<TeamsBotOptions>(teamsSection);
+//A malformed Enabled value must never stop the Monitor from starting; treat it as disabled.
+if (bool.TryParse(teamsSection["Enabled"], out var teamsNotificationsEnabled) && teamsNotificationsEnabled)
+{
+    builder.Services.AddTransient<DeploymentCompletionCardBuilder>();
+    builder.Services.AddTransient<IActiveDirectorySearcher, AzureEntraSearcher>();
+    builder.Services.AddSingleton<ITeamsConversationClient, TeamsConversationClient>();
+    builder.Services.AddTransient<IDeploymentNotificationSink, TeamsBotNotificationSink>();
+}
+else
+{
+    builder.Services.AddSingleton<IDeploymentNotificationSink, NoOpDeploymentNotificationSink>();
+}
 
 var connectionString = monitorConfiguration.DOrcConnectionString;
 

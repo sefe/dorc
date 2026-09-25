@@ -2,12 +2,14 @@ using Dorc.ApiModel;
 using Dorc.Core.Events;
 using Dorc.Core.Interfaces;
 using Dorc.Core.HighAvailability;
+using Dorc.Monitor.Notifications;
 using Dorc.Monitor.RequestProcessors;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using System.Collections.Concurrent;
+using System.Linq;
 
 namespace Dorc.Monitor.Tests
 {
@@ -20,6 +22,8 @@ namespace Dorc.Monitor.Tests
         private IRequestsPersistentSource mockRequestsPersistentSource = null!;
         private IDeploymentEventsPublisher mockEventPublisher = null!;
         private IDistributedLockService mockDistributedLockService = null!;
+        private IDeploymentNotificationSink mockNotificationSink = null!;
+        private ILoggerFactory mockLoggerFactory = null!;
 
         private DeploymentRequestStateProcessor sut = null!;
         private ConcurrentBag<Task> publishTasks = null!;
@@ -33,6 +37,8 @@ namespace Dorc.Monitor.Tests
             mockRequestsPersistentSource = Substitute.For<IRequestsPersistentSource>();
             mockEventPublisher = Substitute.For<IDeploymentEventsPublisher>();
             mockDistributedLockService = Substitute.For<IDistributedLockService>();
+            mockNotificationSink = Substitute.For<IDeploymentNotificationSink>();
+            mockLoggerFactory = Substitute.For<ILoggerFactory>();
 
             mockEventPublisher.PublishRequestStatusChangedAsync(Arg.Any<DeploymentRequestEventData>())
                 .Returns(Task.CompletedTask);
@@ -45,7 +51,9 @@ namespace Dorc.Monitor.Tests
                 mockProcessesPersistentSource,
                 mockRequestsPersistentSource,
                 mockEventPublisher,
-                mockDistributedLockService);
+                mockDistributedLockService,
+                mockNotificationSink,
+                mockLoggerFactory);
             sut.OnPublishTaskCreated = t => publishTasks.Add(t);
         }
 
@@ -310,6 +318,257 @@ namespace Dorc.Monitor.Tests
         }
 
         [TestMethod]
+        public void CancelRequests_WhenSwitchSucceeds_FiresNotificationPerCancelledRequest()
+        {
+            // Arrange
+            var requests = CreateCancelRequests(1, 2);
+            mockRequestsPersistentSource
+                .GetRequestsWithStatus(DeploymentRequestStatus.Cancelling, false)
+                .Returns(requests);
+            mockRequestsPersistentSource
+                .SwitchDeploymentRequestStatuses(
+                    Arg.Any<IList<DeploymentRequestApiModel>>(),
+                    DeploymentRequestStatus.Cancelling,
+                    DeploymentRequestStatus.Cancelled,
+                    Arg.Any<DateTimeOffset>())
+                .Returns(2);
+
+            var cancellationSources = new ConcurrentDictionary<int, CancellationTokenSource>();
+
+            // Act
+            sut.CancelRequests(false, cancellationSources, CancellationToken.None);
+
+            // Assert - a single batch covering both cancelled requests, not one DM each.
+            // The sink groups the batch per requester before sending.
+            mockNotificationSink.DidNotReceiveWithAnyArgs().NotifyRequestCompletedAsync(default!, default!, default, default);
+            mockNotificationSink.ReceivedWithAnyArgs(1).NotifyRequestsCompletedAsync(default!, default!, default);
+            mockNotificationSink.Received(1).NotifyRequestsCompletedAsync(
+                Arg.Is<IReadOnlyCollection<DeploymentRequestApiModel>>(batch =>
+                    batch.Count == 2 && requests.All(r => batch.Contains(r))),
+                DeploymentRequestStatus.Cancelled.ToString(),
+                Arg.Any<DateTimeOffset>());
+        }
+
+        [TestMethod]
+        public void CancelRequests_WhenSwitchReturnsZero_DoesNotFireNotifications()
+        {
+            // Arrange: another monitor already processed everything
+            var requests = CreateCancelRequests(1, 2);
+            mockRequestsPersistentSource
+                .GetRequestsWithStatus(DeploymentRequestStatus.Cancelling, false)
+                .Returns(requests);
+            mockRequestsPersistentSource
+                .SwitchDeploymentRequestStatuses(
+                    Arg.Any<IList<DeploymentRequestApiModel>>(),
+                    DeploymentRequestStatus.Cancelling,
+                    DeploymentRequestStatus.Cancelled,
+                    Arg.Any<DateTimeOffset>())
+                .Returns(0);
+
+            var cancellationSources = new ConcurrentDictionary<int, CancellationTokenSource>();
+
+            // Act
+            sut.CancelRequests(false, cancellationSources, CancellationToken.None);
+
+            // Assert - nothing was transitioned by this monitor, so the empty batch is not dispatched
+            mockNotificationSink.DidNotReceiveWithAnyArgs().NotifyRequestCompletedAsync(default!, default!, default, default);
+            mockNotificationSink.DidNotReceiveWithAnyArgs().NotifyRequestsCompletedAsync(default!, default!, default);
+        }
+
+        [TestMethod]
+        public void AbandonRequests_WhenSwitchSucceeds_FiresNotificationWithAbandonedStatus()
+        {
+            // Arrange
+            var requests = CreateRequests(5);
+            requests[0].Status = DeploymentRequestStatus.Running.ToString();
+            requests[0].RequestedTime = DateTimeOffset.Now.AddDays(-2);
+            mockRequestsPersistentSource
+                .GetRequestsWithStatus(DeploymentRequestStatus.Running, false)
+                .Returns(requests);
+            mockRequestsPersistentSource
+                .SwitchDeploymentRequestStatuses(
+                    Arg.Any<IList<DeploymentRequestApiModel>>(),
+                    DeploymentRequestStatus.Running,
+                    DeploymentRequestStatus.Abandoned,
+                    Arg.Any<DateTimeOffset>())
+                .Returns(1);
+
+            var cancellationSources = new ConcurrentDictionary<int, CancellationTokenSource>();
+
+            // Act
+            sut.AbandonRequests(false, cancellationSources, CancellationToken.None);
+
+            // Assert
+            mockNotificationSink.ReceivedWithAnyArgs(1).NotifyRequestsCompletedAsync(default!, default!, default);
+            mockNotificationSink.Received(1).NotifyRequestsCompletedAsync(
+                Arg.Is<IReadOnlyCollection<DeploymentRequestApiModel>>(batch =>
+                    batch.Count == 1 && batch.Contains(requests[0])),
+                DeploymentRequestStatus.Abandoned.ToString(),
+                Arg.Any<DateTimeOffset>());
+        }
+
+        [TestMethod]
+        public void CancelRequests_WhenSwitchIsPartial_NotifiesOnlyTransitionedRequests()
+        {
+            // Arrange: request 1 is transitioned by this monitor; request 2 was already
+            // processed by another monitor instance (its optimistic switch updates 0 rows).
+            var requests = CreateCancelRequests(1, 2);
+            mockRequestsPersistentSource
+                .GetRequestsWithStatus(DeploymentRequestStatus.Cancelling, false)
+                .Returns(requests);
+            mockRequestsPersistentSource
+                .SwitchDeploymentRequestStatuses(
+                    Arg.Is<IList<DeploymentRequestApiModel>>(l => l.Count == 1 && l[0].Id == 1),
+                    DeploymentRequestStatus.Cancelling,
+                    DeploymentRequestStatus.Cancelled,
+                    Arg.Any<DateTimeOffset>())
+                .Returns(1);
+            mockRequestsPersistentSource
+                .SwitchDeploymentRequestStatuses(
+                    Arg.Is<IList<DeploymentRequestApiModel>>(l => l.Count == 1 && l[0].Id == 2),
+                    DeploymentRequestStatus.Cancelling,
+                    DeploymentRequestStatus.Cancelled,
+                    Arg.Any<DateTimeOffset>())
+                .Returns(0);
+
+            var cancellationSources = new ConcurrentDictionary<int, CancellationTokenSource>();
+
+            // Act
+            sut.CancelRequests(false, cancellationSources, CancellationToken.None);
+
+            // Assert - the batch carries only the request this monitor transitioned; the one
+            // another monitor already handled must not appear, or it would be DMed twice.
+            mockNotificationSink.ReceivedWithAnyArgs(1).NotifyRequestsCompletedAsync(default!, default!, default);
+            mockNotificationSink.Received(1).NotifyRequestsCompletedAsync(
+                Arg.Is<IReadOnlyCollection<DeploymentRequestApiModel>>(batch =>
+                    batch.Count == 1 && batch.Contains(requests[0])),
+                DeploymentRequestStatus.Cancelled.ToString(),
+                Arg.Any<DateTimeOffset>());
+        }
+
+        [TestMethod]
+        public async Task CancelStaleRequests_NotifiesCancelledForStaleRequestingButNotResumedRunning()
+        {
+            // Arrange: one Running request resumed as Pending (must NOT notify) and one stale
+            // Requesting request cancelled (must notify).
+            var resumedRunning = new List<DeploymentRequestApiModel>
+            {
+                new() { Id = 70, EnvironmentName = "EnvC", Status = DeploymentRequestStatus.Running.ToString(), IsProd = false, UserName = "testuser" }
+            };
+            mockRequestsPersistentSource
+                .GetRequestsWithStatus(DeploymentRequestStatus.Running, false)
+                .Returns(resumedRunning);
+            mockRequestsPersistentSource
+                .SwitchDeploymentRequestStatuses(
+                    Arg.Any<IList<DeploymentRequestApiModel>>(),
+                    DeploymentRequestStatus.Running,
+                    DeploymentRequestStatus.Pending)
+                .Returns(1);
+
+            var staleRequesting = new List<DeploymentRequestApiModel>
+            {
+                new() { Id = 71, EnvironmentName = "EnvC", Status = DeploymentRequestStatus.Requesting.ToString(), IsProd = false, UserName = "testuser" }
+            };
+            mockRequestsPersistentSource
+                .GetRequestsWithStatus(DeploymentRequestStatus.Requesting, false)
+                .Returns(staleRequesting);
+            mockRequestsPersistentSource
+                .SwitchDeploymentRequestStatuses(
+                    Arg.Any<IList<DeploymentRequestApiModel>>(),
+                    DeploymentRequestStatus.Requesting,
+                    DeploymentRequestStatus.Cancelled,
+                    Arg.Any<DateTimeOffset>())
+                .Returns(1);
+
+            // Act
+            sut.CancelStaleRequests(false);
+            await Task.WhenAll(publishTasks);
+
+            // Assert - exactly one batch: the cancelled stale request, not the resumed one
+            mockNotificationSink.ReceivedWithAnyArgs(1).NotifyRequestsCompletedAsync(default!, default!, default);
+            mockNotificationSink.Received(1).NotifyRequestsCompletedAsync(
+                Arg.Is<IReadOnlyCollection<DeploymentRequestApiModel>>(batch =>
+                    batch.Count == 1 && batch.Contains(staleRequesting[0])),
+                DeploymentRequestStatus.Cancelled.ToString(),
+                Arg.Any<DateTimeOffset>());
+        }
+
+        [TestMethod]
+        public async Task ExecuteRequests_WhenRequestProcessorResolutionFails_NotifiesErrored()
+        {
+            // Arrange: the request is picked up (UpdateNonProcessedRequest returns 1) but the
+            // service provider cannot resolve IPendingRequestProcessor, so execution errors out.
+            var requests = new List<DeploymentRequestApiModel>
+            {
+                new() { Id = 80, EnvironmentName = "EnvErr", Status = DeploymentRequestStatus.Pending.ToString(),
+                        IsProd = false, UserName = "testuser",
+                        RequestDetails = "<DeploymentRequestDetail xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\"><Components /><ComponentsToSkip /><Properties /></DeploymentRequestDetail>" }
+            };
+            mockRequestsPersistentSource
+                .GetRequestsWithStatus(
+                    DeploymentRequestStatus.Pending,
+                    DeploymentRequestStatus.Running,
+                    DeploymentRequestStatus.Confirmed,
+                    DeploymentRequestStatus.Paused,
+                    false)
+                .Returns(requests);
+            mockDistributedLockService.IsEnabled.Returns(false);
+            mockRequestsPersistentSource
+                .UpdateNonProcessedRequest(
+                    Arg.Any<DeploymentRequestApiModel>(),
+                    Arg.Any<DeploymentRequestStatus>(),
+                    Arg.Any<DateTimeOffset>())
+                .Returns(1);
+            mockServiceProvider.GetService(typeof(IPendingRequestProcessor)).Returns((object?)null);
+
+            var cancellationSources = new ConcurrentDictionary<int, CancellationTokenSource>();
+
+            // Act
+            var tasks = sut.ExecuteRequests(false, cancellationSources, CancellationToken.None);
+            await Task.WhenAll(tasks);
+            await Task.WhenAll(publishTasks);
+
+            // Assert
+            mockNotificationSink.Received(1).NotifyRequestCompletedAsync(
+                Arg.Is<DeploymentRequestApiModel>(r => r.Id == 80),
+                DeploymentRequestStatus.Errored.ToString(),
+                Arg.Any<DateTimeOffset>(),
+                Arg.Any<DateTimeOffset>());
+        }
+
+        [TestMethod]
+        public void CancelRequests_WhenSinkReturnsFaultedTask_DoesNotThrow()
+        {
+            // Arrange: the sink fails asynchronously; the fault must be observed by the
+            // fire-and-forget continuation, never surfaced to the state processor.
+            var requests = CreateCancelRequests(1);
+            mockRequestsPersistentSource
+                .GetRequestsWithStatus(DeploymentRequestStatus.Cancelling, false)
+                .Returns(requests);
+            mockRequestsPersistentSource
+                .SwitchDeploymentRequestStatuses(
+                    Arg.Any<IList<DeploymentRequestApiModel>>(),
+                    DeploymentRequestStatus.Cancelling,
+                    DeploymentRequestStatus.Cancelled,
+                    Arg.Any<DateTimeOffset>())
+                .Returns(1);
+            mockNotificationSink
+                .NotifyRequestCompletedAsync(default!, default!, default, default)
+                .ReturnsForAnyArgs(Task.FromException(new InvalidOperationException("async sink failure")));
+
+            var cancellationSources = new ConcurrentDictionary<int, CancellationTokenSource>();
+
+            // Act + Assert (no exception)
+            sut.CancelRequests(false, cancellationSources, CancellationToken.None);
+
+            mockRequestsPersistentSource.Received(1)
+                .SwitchDeploymentResultsStatuses(
+                    Arg.Any<IList<DeploymentRequestApiModel>>(),
+                    Arg.Is<DeploymentResultStatus>(s => s.Value == "Pending"),
+                    Arg.Is<DeploymentResultStatus>(s => s.Value == "Cancelled"));
+        }
+
+        [TestMethod]
         public void CancelRequests_WhenSwitchReturnsPartial_StillSwitchesDeploymentResults()
         {
             // Arrange: we cancelled 1 of 2
@@ -456,7 +715,9 @@ namespace Dorc.Monitor.Tests
                 mockProcessesPersistentSource,
                 mockRequestsPersistentSource,
                 mockEventPublisher,
-                mockDistributedLockService);
+                mockDistributedLockService,
+                mockNotificationSink,
+                mockLoggerFactory);
 
             mockDistributedLockService
                 .TryAcquireLockAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
@@ -1259,7 +1520,7 @@ namespace Dorc.Monitor.Tests
             CancellationToken capturedToken = default;
             var mockPendingProcessor = Substitute.For<IPendingRequestProcessor>();
             mockPendingProcessor
-                .When(p => p.Execute(Arg.Any<RequestToProcessDto>(), Arg.Any<CancellationToken>()))
+                .When(p => p.Execute(Arg.Any<RequestToProcessDto>(), Arg.Any<CancellationToken>(), Arg.Any<ILoggerFactory>()))
                 .Do(ci => capturedToken = ci.Arg<CancellationToken>());
             mockServiceProvider.GetService(typeof(IPendingRequestProcessor)).Returns(mockPendingProcessor);
 
@@ -1299,7 +1560,7 @@ namespace Dorc.Monitor.Tests
             CancellationToken capturedToken = default;
             var mockPendingProcessor = Substitute.For<IPendingRequestProcessor>();
             mockPendingProcessor
-                .When(p => p.Execute(Arg.Any<RequestToProcessDto>(), Arg.Any<CancellationToken>()))
+                .When(p => p.Execute(Arg.Any<RequestToProcessDto>(), Arg.Any<CancellationToken>(), Arg.Any<ILoggerFactory>()))
                 .Do(ci => capturedToken = ci.Arg<CancellationToken>());
             mockServiceProvider.GetService(typeof(IPendingRequestProcessor)).Returns(mockPendingProcessor);
 
@@ -1341,7 +1602,7 @@ namespace Dorc.Monitor.Tests
 
             var mockPendingProcessor = Substitute.For<IPendingRequestProcessor>();
             mockPendingProcessor
-                .When(p => p.Execute(Arg.Any<RequestToProcessDto>(), Arg.Any<CancellationToken>()))
+                .When(p => p.Execute(Arg.Any<RequestToProcessDto>(), Arg.Any<CancellationToken>(), Arg.Any<ILoggerFactory>()))
                 .Do(ci =>
                 {
                     capturedToken = ci.Arg<CancellationToken>();
@@ -1399,7 +1660,7 @@ namespace Dorc.Monitor.Tests
 
             // Assert - the guard prevented Execute from being called
             mockPendingProcessor.DidNotReceive()
-                .Execute(Arg.Any<RequestToProcessDto>(), Arg.Any<CancellationToken>());
+                .Execute(Arg.Any<RequestToProcessDto>(), Arg.Any<CancellationToken>(), Arg.Any<ILoggerFactory>());
         }
 
         // =====================================================================
