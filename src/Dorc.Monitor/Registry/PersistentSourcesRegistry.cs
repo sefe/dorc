@@ -1,5 +1,6 @@
 ﻿using Dorc.PersistentData.Sources;
 using Dorc.PersistentData.Sources.Interfaces;
+using Dorc.PersistentData.Security;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Dorc.Monitor.Registry
@@ -8,6 +9,8 @@ namespace Dorc.Monitor.Registry
     {
         public static void Register(IServiceCollection collection)
         {
+            collection.AddSingleton<ISourceHostAllowList, SourceHostAllowList>();
+
             collection.AddTransient<IRequestsPersistentSource, RequestsPersistentSource>();
             collection.AddTransient<IDeploymentRequestProcessesPersistentSource, DeploymentRequestProcessesPersistentSource>();
             collection.AddTransient<IPropertyValuesPersistentSource, PropertyValuesPersistentSource>();

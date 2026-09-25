@@ -38,7 +38,7 @@ Four rules determine the order below. They are stated up front because several a
 | S-008 | Replace the null process security descriptor | SD-2, W-2, SC-04 | **DONE** — see the W-2 correction |
 | S-009 | Authenticate the script-group transport | SD-2, W-3, SC-04 | **DONE** — must ship in lockstep, see the step |
 | S-010 | Validate script paths at the write path | SD-5, W-5 | **DONE** (W-5a recorded, deferred to S-011) |
-| S-011 | Validate source URLs at the write path | SD-9, W-11, W-16 | — |
+| S-011 | Validate source URLs at the write path | SD-9, W-11, W-16, W-5a | **DONE** — unenforced until configured, see the step |
 | S-012 | Bind source credentials to validated hosts | SD-9, W-11, W-16, SC-05b | S-011 |
 | ⚙ S-013 | Migrate the three `DORC_NonProdDeployPassword` consumers | SD-3a precondition | **U-12 CLOSED** |
 | S-014 | Denylist the operator-only secret keys | SD-3a, W-4, SC-03 | S-006, S-013 |
@@ -241,6 +241,14 @@ If an unpredictable pipe name is adopted as defence in depth, it must be generat
 **Dependencies.** None.
 
 **Verification intent.** A project update naming a host outside the allow-list is rejected for either field. Allowed hosts succeed. The allow-list is configurable rather than compiled in, since it is deployment-specific.
+
+**Two lists, not one.** `AllowedArtefactHosts` and `AllowedTerraformSourceHosts`, because permission to drop build artefacts somewhere is not permission to clone and execute infrastructure code from it. The Terraform list also governs W-5a's component-level shared folder, which is the same kind of source reached by another route.
+
+**The control is inert until configured, and this is deliberate.** There is no safe built-in default for a host allow-list — every estate's hosts are its own — and an empty list cannot be distinguished from one an operator has not filled in yet. Enforcing against an unfilled list would reject every project and component edit in every deployment on the day this ships, which is precisely the flag day sequencing principle 3 exists to prevent. So an unconfigured list admits everything, and says so: `ISourceHostAllowList.IsUnconfigured` is reportable, and the write path logs a warning naming both settings each time it declines to check. Filling either list turns that list on; the other stays inert until filled.
+
+This makes S-011 a two-part delivery: the code ships here, and the estate's hosts are entered by an operator afterwards. Until they are, W-11, W-16 and W-5a remain open — the step should not be read as closing them on merge.
+
+**The host is parsed, never matched.** A substring test for `build.corp.example.com` is satisfied by `build.corp.example.com.attacker.net`, and by the same host placed in a path, a query, a fragment or userinfo. Only comparing the parsed authority avoids that. UNC paths are read directly rather than through `Uri`, which does not treat `\\host\share` as a URI on a non-Windows host — the check has to answer identically wherever it runs.
 
 ### S-012 — Bind source credentials to validated hosts
 
