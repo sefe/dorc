@@ -47,7 +47,11 @@ namespace Dorc.Monitor.Tests
         {
             var source = Substitute.For<IDeploymentCredentialSource>();
             source.Description.Returns("test");
+            // Both overloads: the dispatchers call the environment-keyed one, and NSubstitute
+            // treats them as separate members.
             source.Resolve(Arg.Any<DeploymentTier>())
+                .Returns(DeploymentCredential.FromPlainText(userName, password));
+            source.Resolve(Arg.Any<DeploymentTier>(), Arg.Any<string?>())
                 .Returns(DeploymentCredential.FromPlainText(userName, password));
             return source;
         }
@@ -62,9 +66,9 @@ namespace Dorc.Monitor.Tests
         {
             var source = Substitute.For<IDeploymentCredentialSource>();
             source.Description.Returns("test");
-            source.Resolve(DeploymentTier.Production)
+            source.Resolve(DeploymentTier.Production, Arg.Any<string?>())
                 .Returns(DeploymentCredential.FromPlainText(ProdAccount, "prod-password"));
-            source.Resolve(DeploymentTier.NonProduction)
+            source.Resolve(DeploymentTier.NonProduction, Arg.Any<string?>())
                 .Returns(DeploymentCredential.FromPlainText(NonProdAccount, "nonprod-password"));
             return source;
         }
@@ -120,6 +124,8 @@ namespace Dorc.Monitor.Tests
                     deploymentRequestId: 42,
                     isProduction: isProduction,
                     environmentName: "SOME-ENV",
+                    executionIdentityReference: null,
+                    identityAdoption: new RequestExecutionIdentityAdoption(),
                     new StringBuilder(),
                     CancellationToken.None),
                 "Dispatch was expected to fail while building the Runner's security context. If it now" +
@@ -250,7 +256,11 @@ namespace Dorc.Monitor.Tests
         {
             var source = Substitute.For<IDeploymentCredentialSource>();
             source.Description.Returns("test");
+            // Both overloads: the dispatchers call the environment-keyed one, and NSubstitute
+            // treats them as separate members.
             source.Resolve(Arg.Any<DeploymentTier>())
+                .Returns(DeploymentCredential.FromPlainText(userName, password));
+            source.Resolve(Arg.Any<DeploymentTier>(), Arg.Any<string?>())
                 .Returns(DeploymentCredential.FromPlainText(userName, password));
             return source;
         }
@@ -298,6 +308,8 @@ namespace Dorc.Monitor.Tests
                 deploymentRequestId: 42,
                 isProduction: true,
                 environmentName: "SOME-ENV",
+                executionIdentityReference: null,
+                identityAdoption: new RequestExecutionIdentityAdoption(),
                 new StringBuilder(),
                 CancellationToken.None));
 

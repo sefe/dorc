@@ -28,6 +28,8 @@ namespace Dorc.PersistentData.Sources.Interfaces
         bool IsEnvironmentOwner(string envName, ClaimsPrincipal user);
         bool DeleteEnvironment(EnvironmentApiModel env, IPrincipal principal);
         EnvironmentApiModel UpdateEnvironment(EnvironmentApiModel env, IPrincipal user);
+        EnvironmentApiModel SetExecutionIdentityReference(int environmentId, string? executionIdentityReference,
+            IPrincipal user);
         IEnumerable<string> GetEnvironmentNames(IPrincipal principal);
         IEnumerable<EnvironmentApiModel> GetEnvironmentsForDatabase(string databaseName, string serverName, IPrincipal user);
         EnvironmentApiModel GetEnvironment(string environmentName);

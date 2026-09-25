@@ -13,6 +13,12 @@
         public string? Description { get; set; }
         public int? ParentId { get; set; }
 
+        /// <summary>
+        /// The execution identity this environment deploys under, or null to use the tier
+        /// default. Optional so that migration proceeds environment by environment.
+        /// </summary>
+        public string? ExecutionIdentityReference { get; set; }
+
         public ICollection<Database> Databases { get; set; } = new List<Database>();
         public ICollection<EnvironmentHistory> Histories { get; set; } = new List<EnvironmentHistory>();
         public ICollection<Server> Servers { get; set; } = new List<Server>();

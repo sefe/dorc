@@ -12,9 +12,17 @@
     [Description]        NVARCHAR (MAX)   NULL,
     [LastUpdate]         DATETIME         NULL,
     [ParentId]           INT              NULL REFERENCES [deploy].[Environment] (Id), 
+    -- Names the execution identity this environment deploys under, or NULL to use the tier
+    -- default. Optional and NULL by default so that adding it changes nothing: an environment
+    -- with no reference deploys exactly as before, and migration proceeds environment by
+    -- environment rather than as a flag day.
+    --
+    -- A reference rather than a credential. Granularity is by sensitivity tier in practice -
+    -- the estate holds well over a thousand environments and an account each is not viable -
+    -- but the column is per environment so the cases that warrant their own can have one.
+    [ExecutionIdentityReference] NVARCHAR (128) NULL,
     CONSTRAINT [PK_Environment] PRIMARY KEY CLUSTERED ([Id] ASC), 
     CONSTRAINT [ParentId_not_itself] CHECK ([Id]!=[ParentId])
 );
-
 
 
