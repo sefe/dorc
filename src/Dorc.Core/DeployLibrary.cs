@@ -7,6 +7,7 @@ using Dorc.Core.Events;
 using Dorc.Core.Exceptions;
 using Dorc.Core.Interfaces;
 using Dorc.PersistentData;
+using Dorc.PersistentData.Security;
 using Dorc.PersistentData.Model;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.Extensions.Logging;
@@ -26,6 +27,7 @@ namespace Dorc.Core
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
         private readonly IDeploymentEventsPublisher _deploymentEventsPublisher;
         private readonly IBuildServerClientFactory _buildServerClientFactory;
+        private readonly ISourceHostAllowList _sourceHosts;
 
         public DeployLibrary(IProjectsPersistentSource projectsPersistentSource,
             IComponentsPersistentSource componentsPersistentSource,
@@ -35,9 +37,11 @@ namespace Dorc.Core
             IRequestsPersistentSource requestsPersistentSource,
             IClaimsPrincipalReader claimsPrincipalReader,
             IDeploymentEventsPublisher deploymentEventsPublisher,
-            IBuildServerClientFactory buildServerClientFactory
+            IBuildServerClientFactory buildServerClientFactory,
+            ISourceHostAllowList sourceHosts
             )
         {
+            _sourceHosts = sourceHosts;
             _requestsPersistentSource = requestsPersistentSource;
             _loggerFactory = loggerFactory;
             _environmentsPersistentSource = environmentsPersistentSource;
@@ -216,7 +220,7 @@ namespace Dorc.Core
             else if (!string.IsNullOrEmpty(project.ArtefactsUrl) && project.ArtefactsUrl.StartsWith("http") &&
                 !string.IsNullOrEmpty(project.ArtefactsSubPaths))
             {
-                var azureDevOpsServerWebClient = new AzureDevOpsServerWebClient(project.ArtefactsUrl, _loggerFactory.CreateLogger<AzureDevOpsServer.AzureDevOpsServerWebClient>());
+                var azureDevOpsServerWebClient = new AzureDevOpsServerWebClient(project.ArtefactsUrl, _loggerFactory.CreateLogger<AzureDevOpsServer.AzureDevOpsServerWebClient>(), _sourceHosts);
 
                 var projects = project.ArtefactsSubPaths.Split(';');
 
