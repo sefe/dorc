@@ -91,6 +91,10 @@ namespace Dorc.Core.VariableResolution
                 var o = _expressionEvaluator.Evaluate(propertyValue.Value);
                 return new VariableValue { Value = o, Type = o.GetType() };
             }
+            catch (PropertyExpressionEvaluationException)
+            {
+                throw;
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to evaluate property '{Property}': {ErrorMessage}", property, ex.Message);
