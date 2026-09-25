@@ -1,4 +1,4 @@
-using Dorc.ApiModel;
+﻿using Dorc.ApiModel;
 using Dorc.Core.Configuration;
 using Dorc.Core.Interfaces;
 using Dorc.PersistentData;
@@ -14,16 +14,13 @@ using System.Security.Principal;
 using System.ServiceProcess;
 using Environment = System.Environment;
 
+using Dorc.Core.Security;
+
 namespace Dorc.Core
 {
     [SupportedOSPlatform("windows")]
     public class DaemonStatusProbe : IDaemonStatusProbe
     {
-        private const string DORCProdDeployUsername = "DORC_ProdDeployUsername";
-        private const string DORCProdDeployPassword = "DORC_ProdDeployPassword";
-        private const string DORCNonProdDeployUsername = "DORC_NonProdDeployUsername";
-        private const string DORCNonProdDeployPassword = "DORC_NonProdDeployPassword";
-
         private readonly ILogger _logger;
         private readonly IConfigValuesPersistentSource _configValuesPersistentSource;
         private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
@@ -36,6 +33,7 @@ namespace Dorc.Core
         private readonly IDaemonAuditPersistentSource _daemonAuditPersistentSource;
         private readonly IServersAuditPersistentSource _serversAuditPersistentSource;
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
+        private readonly IDeploymentCredentialSource _credentialSource;
 
         public DaemonStatusProbe(IConfigValuesPersistentSource configValuesPersistentSource,
             ILogger<DaemonStatusProbe> logger,
@@ -46,7 +44,8 @@ namespace Dorc.Core
             IConfigurationSettings configurationSettingsEngine,
             IDaemonAuditPersistentSource daemonAuditPersistentSource,
             IServersAuditPersistentSource serversAuditPersistentSource,
-            IClaimsPrincipalReader claimsPrincipalReader)
+            IClaimsPrincipalReader claimsPrincipalReader,
+            IDeploymentCredentialSource credentialSource)
         {
             _daemonsPersistentSource = daemonsPersistentSource;
             _daemonObservationPersistentSource = daemonObservationPersistentSource;
@@ -57,6 +56,7 @@ namespace Dorc.Core
             _daemonAuditPersistentSource = daemonAuditPersistentSource;
             _serversAuditPersistentSource = serversAuditPersistentSource;
             _claimsPrincipalReader = claimsPrincipalReader;
+            _credentialSource = credentialSource;
 
             _domainName = configurationSettingsEngine.GetConfigurationDomainNameIntra();
         }
@@ -73,35 +73,19 @@ namespace Dorc.Core
             return GetDaemonStatusesForEnvironment(environment);
         }
 
-        [DllImport("advapi32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
-        public static extern bool LogonUser(string lpszUsername, string lpszDomain, string lpszPassword,
-            int dwLogonType, int dwLogonProvider, out SafeAccessTokenHandle phToken);
-
         private List<DaemonStatus> GetDaemonStatusesForEnvironment(EnvironmentApiModel? environment)
         {
-            GetUsernameAndPassword(environment, out var user, out var pwd);
+            var credential = GetCredential(environment);
 
             var domainName = _domainName;
 
             var servers = _serversPersistentSource.GetServersForEnvId(environment.EnvironmentId).ToList();
             var daemons = BuildDaemonList(environment, servers);
 
-            if (!string.IsNullOrWhiteSpace(user) && !string.IsNullOrWhiteSpace(pwd))
+            if (credential != null)
             {
-                const int logon32ProviderDefault = 0;
-                // This parameter causes LogonUser to create a primary token.
-                const int logon32LogonInteractive = 2;
-
-                bool returnValue = LogonUser(user, domainName, pwd,
-                    logon32LogonInteractive, logon32ProviderDefault,
-                    out var safeAccessTokenHandle);
-
-                if (false == returnValue)
-                {
-                    int ret = Marshal.GetLastWin32Error();
-                    Console.WriteLine("LogonUser failed with error code : {0}", ret);
-                    throw new System.ComponentModel.Win32Exception(ret);
-                }
+                using var safeAccessTokenHandle = WindowsLogon.LogOn(
+                    credential, domainName, LogonType.Interactive, LogonProvider.Default);
 
                 List<DaemonStatus> probeResults = [];
                 WindowsIdentity.RunImpersonated(
@@ -126,28 +110,17 @@ namespace Dorc.Core
 
         private List<DaemonStatus> DiscoverAllDaemonsForEnvironmentInternal(EnvironmentApiModel? environment)
         {
-            GetUsernameAndPassword(environment, out var user, out var pwd);
+            var credential = GetCredential(environment);
 
             var domainName = _domainName;
 
             var servers = _serversPersistentSource.GetServersForEnvId(environment.EnvironmentId).ToList();
             var daemons = BuildDaemonListForDiscovery(environment, servers);
 
-            if (!string.IsNullOrWhiteSpace(user) && !string.IsNullOrWhiteSpace(pwd))
+            if (credential != null)
             {
-                const int logon32ProviderDefault = 0;
-                const int logon32LogonInteractive = 2;
-
-                bool returnValue = LogonUser(user, domainName, pwd,
-                    logon32LogonInteractive, logon32ProviderDefault,
-                    out var safeAccessTokenHandle);
-
-                if (!returnValue)
-                {
-                    int ret = Marshal.GetLastWin32Error();
-                    _logger.LogError("LogonUser failed with error code: {ErrorCode}", ret);
-                    throw new System.ComponentModel.Win32Exception(ret);
-                }
+                var safeAccessTokenHandle = WindowsLogon.LogOn(
+                    credential, domainName, LogonType.Interactive, LogonProvider.Default);
 
                 using (safeAccessTokenHandle)
                 {
@@ -167,20 +140,19 @@ namespace Dorc.Core
             return ProbeDaemonStatuses(daemons);
         }
 
-        private void GetUsernameAndPassword(EnvironmentApiModel? environment, out string user, out string pwd)
+        /// <summary>
+        /// Resolves the credential this probe logs on with, through the same source the
+        /// dispatchers use. This site had its own copy of the four key names and the same
+        /// production boolean; it is also the site that could be reached without authorization
+        /// while the dispatchers could not, which is what four copies of a security decision
+        /// buys.
+        /// </summary>
+        private DeploymentCredential? GetCredential(EnvironmentApiModel? environment)
         {
-            if (environment.EnvironmentIsProd)
-            {
-                user = _configValuesPersistentSource.GetConfigValue(DORCProdDeployUsername);
-                pwd = _configValuesPersistentSource.GetConfigValue(DORCProdDeployPassword);
-            }
-            else
-            {
-                user = _configValuesPersistentSource
-                    .GetConfigValue(DORCNonProdDeployUsername);
-                pwd = _configValuesPersistentSource
-                    .GetConfigValue(DORCNonProdDeployPassword);
-            }
+            return _credentialSource.Resolve(
+                environment?.EnvironmentIsProd == true
+                    ? DeploymentTier.Production
+                    : DeploymentTier.NonProduction);
         }
 
         private List<DaemonStatus> BuildDaemonList(EnvironmentApiModel? environment,
@@ -268,7 +240,7 @@ namespace Dorc.Core
                             catch (Exception ex)
                             {
                                 _logger.LogInformation("Error retrieving daemon info for {DaemonName}{NewLine}        {Message}{NewLine}        {InnerException}",
-                                             SanitizeForLog(daemonApiModel.Name),
+                                             LogText.SingleLine(daemonApiModel.Name),
                                              Environment.NewLine,
                                              ex.Message,
                                              ex.InnerException);
@@ -278,9 +250,9 @@ namespace Dorc.Core
                     catch (Exception ex)
                     {
                         _logger.LogInformation("Error, couldn't ping: {ServerName}{NewLine}{Message}",
-                                     SanitizeForLog(serverApiModel.Name),
+                                     LogText.SingleLine(serverApiModel.Name),
                                      Environment.NewLine,
-                                     SanitizeForLog(ex.Message));
+                                     LogText.SingleLine(ex.Message));
                     }
                 }
             }
@@ -387,24 +359,18 @@ namespace Dorc.Core
             var environment =
                 _environmentsPersistentSource.GetEnvironment(daemonStatus.EnvName, principal);
 
-            GetUsernameAndPassword(environment, out var user, out var pwd);
+            var credential = GetCredential(environment);
+
+            if (credential == null)
+            {
+                _logger.LogError("No deployment credential is available for daemon action.");
+                return null;
+            }
 
             var domainName = _domainName;
 
-            const int logon32ProviderDefault = 0;
-            // This parameter causes LogonUser to create a primary token.
-            const int logon32LogonInteractive = 2;
-
-            bool returnValue = LogonUser(user, domainName, pwd,
-                logon32LogonInteractive, logon32ProviderDefault,
-                out var safeAccessTokenHandle);
-
-            if (false == returnValue)
-            {
-                int ret = Marshal.GetLastWin32Error();
-                Console.WriteLine("LogonUser failed with error code : {0}", ret);
-                throw new System.ComponentModel.Win32Exception(ret);
-            }
+            using var safeAccessTokenHandle = WindowsLogon.LogOn(
+                credential, domainName, LogonType.Interactive, LogonProvider.Default);
 
             return WindowsIdentity.RunImpersonated(
                 safeAccessTokenHandle,
@@ -613,16 +579,10 @@ namespace Dorc.Core
             {
                 result.Success = false;
                 result.Errors.Add($"Fatal error during daemon discovery: {ex.Message}");
-                _logger.LogError(ex, "Fatal error during daemon discovery for environment {EnvName}", SanitizeForLog(envName));
+                _logger.LogError(ex, "Fatal error during daemon discovery for environment {EnvName}", LogText.SingleLine(envName));
             }
 
             return result;
-        }
-        private static string SanitizeForLog(string? input)
-        {
-            return string.IsNullOrEmpty(input)
-                ? string.Empty
-                : input.Replace("\r", string.Empty).Replace("\n", string.Empty);
         }
     }
 }
