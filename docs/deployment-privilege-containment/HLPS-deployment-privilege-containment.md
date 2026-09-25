@@ -197,6 +197,14 @@ Only `Dorc.Runner`'s pipe client omits it. The .NET Framework runner is selected
 
 The log path is then published: `ScriptDispatcher.cs:106-113` composes a UNC path and calls `UpdateUncLogPath`, surfaced on the request model (`RequestsStatusPersistentSource.cs:211`). This is a second disclosure channel for exactly the values W-4 concerns, and it is not closed by anything that fixes W-4.
 
+### W-5a — A Terraform component's shared-folder location is unconstrained
+
+**Capability required: as W-5 — modify rights on a single project. Same rank.**
+
+Found while implementing S-010. A Terraform component's `ScriptPath` is not a script path relative to the script root; under the `SharedFolder` source type it is passed as `ScriptsLocation` and *is* the location the infrastructure code is provisioned from, legitimately an absolute UNC path. W-5's relativity rule therefore cannot be applied to it — doing so would reject every Terraform component on that source type — and it is left unconstrained by S-010 as a result.
+
+It needs a host allow-list, the same control the two project-level URLs need, so it is folded into **S-011** rather than given a step of its own.
+
 ### W-8 — Script-group artefacts persist indefinitely
 
 **Capability required: read the Monitor host filesystem. Debug builds only — see the scope note.**
