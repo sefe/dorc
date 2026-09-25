@@ -51,7 +51,46 @@ namespace Dorc.Core
                 : _rolePrivilegesChecker.IsAdmin(user) || _securityObjectFilter.HasPrivilege(project, user, AccessLevel.Owner);
         }
 
+        /// <summary>
+        /// Whether decrypted secret values may be retrieved for this environment.
+        ///
+        /// The privilege exists for service accounts belonging to live running systems. As
+        /// implemented it did neither of the two things that requires: it was granted
+        /// implicitly to every environment OWNER, and it could not be restricted to machines at
+        /// all, so human owners received decrypted secret property values through the API and
+        /// the web UI - the exact outcome it was designed to prevent.
+        ///
+        /// Both are closed here. A person fails regardless of what they have been granted or
+        /// what they own, and ownership no longer implies the privilege, so holding it now
+        /// requires an explicit grant and an audit of holders means something.
+        ///
+        /// Humans are not refused, they are redacted: the secure value is replaced with an
+        /// empty string on the path that serves it. See PropertyValuesService.
+        /// </summary>
         public bool CanReadSecrets(ClaimsPrincipal user, string environmentName)
+        {
+            if (!_claimsPrincipalReader.IsServicePrincipal(user))
+            {
+                return false;
+            }
+
+            var env = _environmentsPersistentSource.GetSecurityObject(environmentName);
+            return env != null && _securityObjectFilter.HasPrivilege(env, user, AccessLevel.ReadSecrets);
+        }
+
+        /// <summary>
+        /// Whether this caller may GRANT the read-secrets privilege to someone else.
+        ///
+        /// Deliberately a different question from whether they may exercise it, and the reason
+        /// the two cannot share a predicate. Administering the privilege is something people
+        /// do; exercising it is something machines do. Had the grant guard kept using
+        /// CanReadSecrets after the restriction above, no human could ever have granted
+        /// ReadSecrets to anyone, and the privilege would have become unadministrable.
+        ///
+        /// This therefore keeps the original semantics - the privilege or ownership of the
+        /// environment - so that administration is unchanged by this step.
+        /// </summary>
+        public bool CanGrantReadSecrets(ClaimsPrincipal user, string environmentName)
         {
             var env = _environmentsPersistentSource.GetSecurityObject(environmentName);
             return env != null && _securityObjectFilter.HasPrivilege(env, user, AccessLevel.ReadSecrets | AccessLevel.Owner);
