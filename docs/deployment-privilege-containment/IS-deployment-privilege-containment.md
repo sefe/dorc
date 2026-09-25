@@ -40,10 +40,10 @@ Four rules determine the order below. They are stated up front because several a
 | S-010 | Validate script paths at the write path | SD-5, W-5 | **DONE** (W-5a recorded, deferred to S-011) |
 | S-011 | Validate source URLs at the write path | SD-9, W-11, W-16, W-5a | **DONE** — unenforced until configured, see the step |
 | S-012 | Bind source credentials to validated hosts | SD-9, W-11, W-16, SC-05b | **DONE** — partly inert until S-011 is configured |
-| ⚙ S-013 | Migrate the three `DORC_NonProdDeployPassword` consumers | SD-3a precondition | **U-12 CLOSED** |
+| ⚙ S-013 | Migrate the three `DORC_NonProdDeployPassword` consumers | SD-3a precondition | **Runbook delivered**; operator-executed |
 | S-014 | Classify config values: reserved-key denylist | SD-3a, W-4, SC-03 | **DONE for the three zero-consumer keys**; the rest still gated on S-013 |
 | S-014a | Restrict `CanReadSecrets` to service principals | W-19 | **DONE** — has a blast radius, see the step |
-| ⚙ S-015 | Rotate the deployment credentials | SD-3, W-4 | **S-004 and S-014** |
+| ⚙ S-015 | Rotate the deployment credentials | SD-3, W-4 | **Runbook delivered**; gate satisfied, operator-executed |
 | ⚙ S-016 | Remediate off-share script paths | SD-5 precondition | **Worklist queries delivered** (`S-016-off-share-script-paths.sql`); operator-executed |
 | S-017 | Confine script paths at dispatch | SD-5, W-5, SC-05 | **DONE** — reports by default, enforce after S-016 |
 | S-018 | Verify script content at the point of read | SD-5, W-5, SC-05 | S-017, U-14; **lockstep release** |
