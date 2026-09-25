@@ -30,6 +30,17 @@ namespace Dorc.ApiModel
         public string GitHubRunId { get; set; }
         public string GitHubApiBaseUrl { get; set; }
 
+        /// <summary>
+        /// How far the runner takes content verification.
+        ///
+        /// Carried rather than read by the runner from its own configuration. The Monitor is
+        /// where the estate's setting lives, and a runner reading its own would let a host with
+        /// a stale or edited configuration file quietly execute unverified — which is the
+        /// deployment host, the least trustworthy place to keep the answer.
+        /// </summary>
+        public ScriptContentVerificationMode ContentVerification { get; set; }
+            = ScriptContentVerificationMode.Report;
+
         public IDictionary<string, VariableValue> CommonProperties { get; set; }
         public IList<ScriptProperties> ScriptProperties { get; set; }
     }

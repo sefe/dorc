@@ -1,4 +1,5 @@
-﻿using Dorc.ApiModel.MonitorRunnerApi;
+﻿using Dorc.ApiModel;
+using Dorc.ApiModel.MonitorRunnerApi;
 
 namespace Dorc.PowerShell
 {
@@ -7,7 +8,9 @@ namespace Dorc.PowerShell
         int Run(string scriptsLocation,
             string scriptName,
             IDictionary<string, VariableValue> scriptProperties,
-            IDictionary<string, VariableValue> commonProperties
+            IDictionary<string, VariableValue> commonProperties,
+            ScriptContentVerificationMode contentVerification,
+            string? expectedContentHash
         );
     }
 }
