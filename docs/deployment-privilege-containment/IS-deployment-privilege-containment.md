@@ -39,7 +39,7 @@ Four rules determine the order below. They are stated up front because several a
 | S-009 | Authenticate the script-group transport | SD-2, W-3, SC-04 | **DONE** — must ship in lockstep, see the step |
 | S-010 | Validate script paths at the write path | SD-5, W-5 | **DONE** (W-5a recorded, deferred to S-011) |
 | S-011 | Validate source URLs at the write path | SD-9, W-11, W-16, W-5a | **DONE** — unenforced until configured, see the step |
-| S-012 | Bind source credentials to validated hosts | SD-9, W-11, W-16, SC-05b | S-011 |
+| S-012 | Bind source credentials to validated hosts | SD-9, W-11, W-16, SC-05b | **DONE** — partly inert until S-011 is configured |
 | ⚙ S-013 | Migrate the three `DORC_NonProdDeployPassword` consumers | SD-3a precondition | **U-12 CLOSED** |
 | S-014 | Denylist the operator-only secret keys | SD-3a, W-4, SC-03 | S-006, S-013 |
 | S-014a | Restrict `CanReadSecrets` to service principals | W-19 | Usage decision (see step) |
@@ -259,6 +259,16 @@ This makes S-011 a two-part delivery: the code ships here, and the estate's host
 **Dependencies.** S-011, whose allow-list this consumes.
 
 **Verification intent.** A URL crafted to contain an allow-listed host as a substring of an attacker-controlled host attracts no credential. Legitimate hosts continue to receive the correct credential. No path offers default Windows credentials to a host that is not allow-listed.
+
+**Three legs, and they do not all depend on the allow-list.** Two of the fixes are unconditional and take effect on merge; one inherits S-011's inertness.
+
+*Unconditional.* Every host classification is now a comparison against the parsed authority instead of a substring test over the URL text. That covers `dev.azure.com` / `visualstudio.com` in the Monitor's source configurator, `github.com` / `dev.azure.com` in the Runner's git provider, and the configured Azure endpoint in the build-server client. A substring test is satisfied by an attacker's host that merely mentions the expected one — in a subdomain, a path, a query, a fragment, or userinfo — and all five shapes are covered by tests.
+
+*Unconditional, and the one no allow-list would have caught.* The git credentials callback ignored the URL it was asked about. libgit2 invokes it for every URL it authenticates against during a clone, **redirect targets included**, so a repository that redirected elsewhere collected the Terraform PAT or the Entra token without the redirect ever appearing in project configuration. The callback now refuses any host other than the configured repository's.
+
+*Inherits S-011's inertness.* Whether a repository may be offered credentials at all, and whether an endpoint may be offered default Windows credentials, are decided against the allow-list — so both remain permissive until the estate's hosts are entered, and both log when they decline to check.
+
+**Default Windows credentials are constrained, not removed.** An on-premises Azure DevOps Server legitimately authenticates that way, so removing the branch would break those estates. It is now reachable only for a host on the artefact allow-list; where none is configured, it warns and proceeds as before. This is the leg the HLPS singles out as the one no token-scoping fix would catch, because it presents an interactive service identity rather than a scoped token — it is closed by configuration rather than by code, and should be tracked as such until the list is filled.
 
 ---
 

@@ -33,6 +33,10 @@ namespace Dorc.PersistentData.Security
         /// </summary>
         PolicyDecision CheckTerraformSource(string? url);
 
+        bool IsArtefactSourceUnconfigured { get; }
+
+        bool IsTerraformSourceUnconfigured { get; }
+
         /// <summary>
         /// True when neither list is configured, so no confinement is in force. Callers that
         /// want to report the gap can ask; the decision to leave it unenforced is deliberate
@@ -59,6 +63,10 @@ namespace Dorc.PersistentData.Security
             artefactHosts = Read(configuration, ArtefactHostsSetting);
             terraformHosts = Read(configuration, TerraformHostsSetting);
         }
+
+        public bool IsArtefactSourceUnconfigured => artefactHosts.Count == 0;
+
+        public bool IsTerraformSourceUnconfigured => terraformHosts.Count == 0;
 
         public bool IsUnconfigured => artefactHosts.Count == 0 && terraformHosts.Count == 0;
 
@@ -107,7 +115,7 @@ namespace Dorc.PersistentData.Security
                 return PolicyDecision.Allow();
             }
 
-            var host = HostOf(url);
+            var host = SourceHost.Of(url);
 
             if (host == null)
             {
@@ -123,31 +131,6 @@ namespace Dorc.PersistentData.Security
 
             return PolicyDecision.Refuse(
                 $"its host '{host}' is not permitted. Add it to '{setting}' if it should be.");
-        }
-
-        /// <summary>
-        /// The host of a URL or UNC path, or null when none can be established.
-        ///
-        /// Parsed rather than matched. A substring test against the URL text - the shape this
-        /// codebase uses elsewhere to decide whether a host is "the" host - is satisfied by
-        /// any attacker-chosen host that merely contains the expected one, so
-        /// https://build.corp.example.com.attacker.net passes a test for
-        /// "build.corp.example.com". Only comparing the parsed authority avoids that, which is
-        /// why the host is extracted here and compared whole.
-        ///
-        /// <see cref="Uri"/> reads \\host\share, //host/share and file://host/share alike, on
-        /// every platform .NET 8 runs on, so there is one parser and one answer. A local path,
-        /// file:///C:/x, parses but names no host, and a local path on the API host is not a
-        /// source anything should be fetched from.
-        /// </summary>
-        public static string? HostOf(string? urlOrUncPath)
-        {
-            if (!Uri.TryCreate(urlOrUncPath?.Trim(), UriKind.Absolute, out var uri))
-            {
-                return null;
-            }
-
-            return string.IsNullOrEmpty(uri.Host) ? null : uri.Host;
         }
 
         private static IReadOnlyCollection<string> Read(IConfiguration configuration, string setting)

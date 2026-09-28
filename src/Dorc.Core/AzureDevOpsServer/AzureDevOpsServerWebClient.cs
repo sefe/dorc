@@ -1,6 +1,8 @@
 ﻿using System.Text.RegularExpressions;
+using Dorc.ApiModel;
 using Dorc.Core.Models;
 using Microsoft.Extensions.Logging;
+using Dorc.PersistentData.Security;
 using Microsoft.Extensions.Configuration;
 using Org.OpenAPITools.Api;
 using Org.OpenAPITools.Client;
@@ -35,13 +37,18 @@ namespace Dorc.Core.AzureDevOpsServer
         private static string secret = AppSettings["AadSecret"];
         private static string[] scopes = { AppSettings["AadScopes"] };
         private static string azureEndpointUrl = AppSettings["AzureEndpoint"] ?? "dev.azure.com";
-        
 
-        public AzureDevOpsServerWebClient(string serverUrl, ILogger<AzureDevOpsServerWebClient> log)
+        private readonly ISourceHostAllowList _sourceHosts;
+
+        public AzureDevOpsServerWebClient(
+            string serverUrl,
+            ILogger<AzureDevOpsServerWebClient> log,
+            ISourceHostAllowList sourceHosts)
         {
             var aadConnectionSettings = new AadConnectionSettings(clientId, scopes, secret, tenant);
             _log = log;
             _serverUrl = serverUrl;
+            _sourceHosts = sourceHosts ?? throw new ArgumentNullException(nameof(sourceHosts));
             // Ideally for speed of queries we only want to retrieve the connection settings once at instantiation time.
             _authTokenGenerator = AuthTokenGeneratorFactory.GetAuthTokenGenerator(aadConnectionSettings);
         }
@@ -88,28 +95,65 @@ namespace Dorc.Core.AzureDevOpsServer
         }
 
         /// <summary>
-        /// Builds the configuration and API client for one Azure DevOps
-        /// endpoint. Azure DevOps Services authenticates with an AAD token;
-        /// an on-premises Azure DevOps Server takes the process's Windows
-        /// credentials instead. The client carries the converter that unwraps
-        /// Azure DevOps's count/value list envelope, so every API must be
-        /// constructed from it.
+        /// Builds the configuration and API client for one Azure DevOps endpoint.
+        ///
+        /// The endpoint is derived from project configuration, so credentials are selected only
+        /// after comparing parsed hosts and applying the source-host allow-list. The client also
+        /// carries the converter that unwraps Azure DevOps's count/value list envelope.
         /// </summary>
-        private (Org.OpenAPITools.Client.Configuration Configuration, ApiClient Client) ConnectTo(string azureEndpoint)
+        private (Org.OpenAPITools.Client.Configuration Configuration, ApiClient Client) ConnectTo(
+           string azureEndpoint)
         {
-            var configuration = azureEndpoint.Contains(azureEndpointUrl)
-                ? new Org.OpenAPITools.Client.Configuration
-                {
-                    BasePath = azureEndpoint,
-                    AccessToken = _authTokenGenerator.GetToken()
-                }
-                : new Org.OpenAPITools.Client.Configuration
-                {
-                    BasePath = azureEndpoint,
-                    UseDefaultCredentials = true
-                };
+           Org.OpenAPITools.Client.Configuration configuration;
 
-            return (configuration, AzureDevOpsApiClientFactory.Create(configuration.BasePath));
+           if (IsConfiguredAzureEndpoint(azureEndpoint))
+           {
+               configuration = new Org.OpenAPITools.Client.Configuration
+               {
+                   BasePath = azureEndpoint,
+                   AccessToken = _authTokenGenerator.GetToken()
+               };
+           }
+           else
+           {
+               RequireDefaultCredentialsPermitted(azureEndpoint);
+               configuration = new Org.OpenAPITools.Client.Configuration
+               {
+                   BasePath = azureEndpoint,
+                   UseDefaultCredentials = true,
+               };
+           }
+
+           return (configuration, AzureDevOpsApiClientFactory.Create(configuration.BasePath));
+        }
+
+        private static bool IsConfiguredAzureEndpoint(string azureEndpoint)
+        {
+            // AzureEndpoint is configured as a bare host ("dev.azure.com") by default but may be
+            // written as a URL, so both sides are reduced to a host before comparing.
+            var configured = SourceHost.Of(azureEndpointUrl) ?? azureEndpointUrl?.Trim();
+            var actual = SourceHost.Of(azureEndpoint);
+
+            return !string.IsNullOrWhiteSpace(configured)
+                && actual != null
+                && string.Equals(actual, configured, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private void RequireDefaultCredentialsPermitted(string azureEndpoint)
+        {
+            if (_sourceHosts.IsArtefactSourceUnconfigured)
+            {
+                throw new InvalidOperationException(
+                    $"Refusing to present default Windows credentials because no artefact host "
+                    + $"allow-list is configured ('{SourceHostAllowList.ArtefactHostsSetting}').");
+            }
+
+            var decision = _sourceHosts.CheckArtefactSource(azureEndpoint);
+            if (!decision.Allowed)
+            {
+                throw new InvalidOperationException(
+                    $"Refusing to present default Windows credentials to '{azureEndpoint}', because {decision.Reason}");
+            }
         }
 
         private static bool IsBuildDefinitionCompletedSuccessfully(BuildDefinitionReference buildDefinition)

@@ -44,7 +44,7 @@ namespace Dorc.Core.Tests
         [TestMethod]
         public void Create_AzureDevOps_ReturnsAzureDevOpsBuildServerClient()
         {
-            var factory = new BuildServerClientFactory(_loggerFactory, _configuration, _httpClientFactory, _hostValidator);
+            var factory = new BuildServerClientFactory(_loggerFactory, _configuration, _httpClientFactory, _hostValidator, Substitute.For<Dorc.PersistentData.Security.ISourceHostAllowList>());
             var client = factory.Create(SourceControlType.AzureDevOps);
 
             Assert.IsNotNull(client);
@@ -54,7 +54,7 @@ namespace Dorc.Core.Tests
         [TestMethod]
         public void Create_GitHub_ReturnsGitHubActionsBuildServerClient()
         {
-            var factory = new BuildServerClientFactory(_loggerFactory, _configuration, _httpClientFactory, _hostValidator);
+            var factory = new BuildServerClientFactory(_loggerFactory, _configuration, _httpClientFactory, _hostValidator, Substitute.For<Dorc.PersistentData.Security.ISourceHostAllowList>());
             var client = factory.Create(SourceControlType.GitHub);
 
             Assert.IsNotNull(client);
@@ -64,7 +64,7 @@ namespace Dorc.Core.Tests
         [TestMethod]
         public void Create_UnsupportedType_ThrowsNotSupportedException()
         {
-            var factory = new BuildServerClientFactory(_loggerFactory, _configuration, _httpClientFactory, _hostValidator);
+            var factory = new BuildServerClientFactory(_loggerFactory, _configuration, _httpClientFactory, _hostValidator, Substitute.For<Dorc.PersistentData.Security.ISourceHostAllowList>());
 
             Assert.Throws<NotSupportedException>(() =>
                 factory.Create((SourceControlType)999));
@@ -73,7 +73,7 @@ namespace Dorc.Core.Tests
         [TestMethod]
         public void Create_AzureDevOps_MultipleCalls_ReturnsFreshInstances()
         {
-            var factory = new BuildServerClientFactory(_loggerFactory, _configuration, _httpClientFactory, _hostValidator);
+            var factory = new BuildServerClientFactory(_loggerFactory, _configuration, _httpClientFactory, _hostValidator, Substitute.For<Dorc.PersistentData.Security.ISourceHostAllowList>());
             var client1 = factory.Create(SourceControlType.AzureDevOps);
             var client2 = factory.Create(SourceControlType.AzureDevOps);
 
@@ -83,7 +83,7 @@ namespace Dorc.Core.Tests
         [TestMethod]
         public void Create_GitHub_MultipleCalls_ReturnsFreshInstances()
         {
-            var factory = new BuildServerClientFactory(_loggerFactory, _configuration, _httpClientFactory, _hostValidator);
+            var factory = new BuildServerClientFactory(_loggerFactory, _configuration, _httpClientFactory, _hostValidator, Substitute.For<Dorc.PersistentData.Security.ISourceHostAllowList>());
             var client1 = factory.Create(SourceControlType.GitHub);
             var client2 = factory.Create(SourceControlType.GitHub);
 
