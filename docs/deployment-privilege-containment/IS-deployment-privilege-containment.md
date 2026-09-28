@@ -34,7 +34,7 @@ Four rules determine the order below. They are stated up front because several a
 | S-004 | Contain expression evaluation by provenance | SD-1a, W-1, SC-01, SC-02 | **DONE** |
 | S-005 | Confine the build drop location | W-14, SC-05 | **DONE** |
 | S-006 | Remove resolved property values from runner logging | SD-6, W-7, SC-06 | **DONE** |
-| S-007 | Expire execution artefacts | SD-7, W-8, W-12, SC-08, SC-08a | — |
+| S-007 | Expire execution artefacts | SD-7, W-8, W-12, SC-08, SC-08a | **DONE** (W-8a disclosure closed; its retention deferred to S-021) |
 | S-008 | Replace the null process security descriptor | SD-2, W-2, SC-04 | — |
 | S-009 | Authenticate the script-group transport | SD-2, W-3, SC-04 | — |
 | S-010 | Validate script paths at the write path | SD-5, W-5 | — |
@@ -161,7 +161,13 @@ The bundle directory's privileged-identity set is corrected to grant the deploym
 
 **Dependencies.** None.
 
+**Deliberately excluded, found while implementing — reduced after review.** The *local* copies of the plan files under `%ProgramData%\dorc\terraform-plans` are a third artefact family. Two separate questions live in it: who can read the directory, and how long its contents survive. **The first is now closed here.** The directory is created and re-asserted under the same protected access control list as the Terraform working directory, admitting the Monitor, SYSTEM, Administrators and — because the Runner writes the plan as the deployment account, not as the Monitor — that deployment account at Modify. The principal comes from the same credential resolution point as the bundle's reader, so it moves with S-021 rather than needing it. Applying the restriction is fatal to the dispatch if it fails, because the alternative is staging a plan in a directory the whole host can read; failing to resolve the deployment account is not, for the same reason the bundle's reader grant is best-effort — it only ever widens access. **The second remains excluded**: deleting the local copies means relying on the blob upload having succeeded, and the local file is the only remaining copy if it did not — a correctness risk in the plan/apply handshake that this step has no business taking. **Recorded as W-8a**, now reduced to its retention half and still belonging with S-021, and noted here so that closing S-007 is not mistaken for closing the artefact question.
+
 **Verification intent.** After a successful deployment and after a failed one, no bundle and no Terraform working directory remains. A newly created working directory carries the restricted access control list rather than inherited permissions. The deployment identity can read the bundle it is meant to consume — this is the regression the current identity set would produce if corrected carelessly.
+
+**Which half ships where, corrected after implementation.** The bundle half reaches **Debug builds only**. The file transport is selected under `#if DEBUG` on both sides — the Monitor's registration and the `--useFile=true` argument it puts on the Runner's command line — so a Release build never writes a bundle. The Terraform working-directory half is unconditional and does reach production. This step therefore closes W-12 in production and W-8 in development, and the production exposure of the same payload remains **W-3**, closed by S-009. S-009 is consequently the higher-value step of the two and should not be sequenced behind anything.
+
+**Failure posture of the reader grant.** The per-file grant to the deployment account only ever widens access; the confinement is the directory access control list, applied before it. It is therefore best-effort: a failure to resolve the account — a directory-service blip, an unjoined host — is logged and the deployment proceeds. Throwing would convert a transient directory-service fault into a failed production deployment, which is worse than the exposure being guarded against, and cannot make the bundle over-readable in any case.
 
 ---
 
@@ -362,6 +368,8 @@ Binding granularity is by sensitivity tier rather than per environment: the esta
 **Why it changes.** W-6 and W-15. Execution identity is currently a boolean, and four sites across two processes duplicate the same resolution logic.
 
 **Dependencies.** S-020. **Revisits S-007, S-008 and S-009** — each sets an access control list naming the deployment identity, which this step makes environment-dependent. If those steps derived their principal from the credential resolution point as instructed, this is a drop-in; if not, they must be corrected here.
+
+**Also picks up what remains of W-8a**, reduced in S-007: the local Terraform plan directory is now restricted, admitting the deployment account resolved at the credential resolution point, so the identity change here is a drop-in for it as it is for the rest. What is still open is the *retention* question, which is entangled with the plan/apply blob handshake rather than being housekeeping.
 
 **Verification intent.** An environment with a configured identity deploys under it on both dispatch paths and both API-side sites. An environment without one deploys exactly as before. No resolution site returns a credential for an environment it is not bound to. The fallback count is reportable.
 
