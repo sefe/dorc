@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Configuration;
+﻿using Microsoft.Extensions.Configuration;
 
 namespace Dorc.Core.Configuration
 {
@@ -186,6 +186,22 @@ namespace Dorc.Core.Configuration
             // "enabled for production", so absence is reported as null and the decision is
             // left to the caller, which knows the request's tier.
             return bool.TryParse(value, out bool required) ? required : null;
+        }
+
+        /// <summary>
+        /// Whether a script path that resolves outside the script root refuses the deployment,
+        /// or is only reported.
+        ///
+        /// Absence means report. Enforcement is deliberately opt-in: existing components hold
+        /// paths that were never validated, so enforcing on the day this ships would fail every
+        /// deployment of an off-share component at once. The report is what identifies them, and
+        /// enforcement is turned on once the estate is clean.
+        /// </summary>
+        public bool GetScriptPathEnforcementEnabled()
+        {
+            var value = _configuration.GetSection("AppSettings")["EnforceScriptPathConfinement"];
+
+            return bool.TryParse(value, out bool enforce) && enforce;
         }
 
         public bool GetIsProduction()
