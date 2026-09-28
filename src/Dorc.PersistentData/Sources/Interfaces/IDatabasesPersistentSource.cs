@@ -11,8 +11,8 @@ namespace Dorc.PersistentData.Sources.Interfaces
         DatabaseApiModel? AddDatabase(DatabaseApiModel db);
         IEnumerable<DatabaseApiModel> GetDatabasesForEnvId(int environmentId);
         IEnumerable<DatabaseApiModel> GetDatabasesForEnvironmentName(string environmentName);
-        DatabaseApiModel GetDatabaseByType(EnvironmentApiModel environment, string type);
-        DatabaseApiModel? GetDatabaseByType(string envName, string type);
+        DatabaseApiModel GetDatabaseByTag(EnvironmentApiModel environment, string tag);
+        DatabaseApiModel? GetDatabaseByTag(string envName, string tag);
         bool DeleteDatabase(int databaseId);
         DatabaseApiModel? GetApplicationDatabaseForEnvFilter(string username, string filter, string envFilter);
         GetDatabaseApiModelListResponseDto GetDatabaseApiModelByPage(int limit, int page,

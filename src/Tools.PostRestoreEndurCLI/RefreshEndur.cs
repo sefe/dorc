@@ -24,9 +24,9 @@ namespace Tools.PostRestoreEndurCLI
         private DatabaseApiModel GetEndurDatabase(string envName)
         {
             var result = _apiCaller.Call<DatabaseApiModel>(
-                Endpoints.RefDataDatabasesByType,
+                Endpoints.RefDataDatabasesByTag,
                 Method.Get,
-                new Dictionary<string, string> { { "envName", envName }, { "type", "Endur" } },
+                new Dictionary<string, string> { { "envName", envName }, { "tag", "Endur" } },
                 null);
 
             if (!result.IsModelValid || result.Value == null)
@@ -114,8 +114,14 @@ namespace Tools.PostRestoreEndurCLI
                            endurServiceManagerRow.login_name + ";" + endurServiceManagerRow.workstation_name + ";" +
                            endurServiceManagerRow.default_service + ";" + endurServiceManagerRow.app_login_name + ";" +
                            endurServiceManagerRow.curr_date + ";" + endurServiceManagerRow.user_id);
+                    // Substring match, not set membership. Tags used to be one delimited
+                    // string here, so Contains was string.Contains and 'endurappsvc_prod'
+                    // matched a server tagged 'endurappsvc_prod_1'. As an array, Contains
+                    // would silently become exact equality and those rows would stop
+                    // being remapped, with no compiler error to announce it — hence the
+                    // explicitly named rule.
                     var result = endurAppServers.SingleOrDefault(x =>
-                        x.ApplicationTags.Contains(endurServiceManagerRow.app_login_name));
+                        TagString.HasTagContaining(x.Tags, endurServiceManagerRow.app_login_name));
                     if (result != null)
                     {
                         endurServiceManagerRow.login_name = strSVCAccount;
