@@ -46,7 +46,7 @@ Four rules determine the order below. They are stated up front because several a
 | ⚙ S-015 | Rotate the deployment credentials | SD-3, W-4 | **Runbook delivered**; gate satisfied, operator-executed |
 | ⚙ S-016 | Remediate off-share script paths | SD-5 precondition | **Worklist queries delivered** (`S-016-off-share-script-paths.sql`); operator-executed |
 | S-017 | Confine script paths at dispatch | SD-5, W-5, SC-05 | **DONE** — reports by default, enforce after S-016 |
-| S-018 | Verify script content at the point of read | SD-5, W-5, SC-05 | S-017, U-14; **lockstep release** |
+| S-018 | Verify script content at the point of read | SD-5, W-5, SC-05 | **U-14 resolved**, see `SPEC-S-018-*`; a) record **DONE**, b) verify **lockstep** |
 | S-019 | Introduce config-value visibility classification | SD-3b, W-4 | **DONE** — server and web UI |
 | S-020 | Introduce the credential provider abstraction | SD-4 | **DONE** |
 | S-021 | Bind execution identity to the environment | SD-4, W-6, W-15, SC-07, W-8a | **DONE** — opt-in per environment; W-8a closed here |
@@ -397,6 +397,20 @@ Everything in it is read-only except a remediation template that is commented ou
 **Release constraint.** **Lockstep, not additive.** The script group is deserialized by a serializer that ignores unknown members, so a runner that has not been upgraded would silently ignore an added hash and execute unverified — the criterion unmet with no signal. All three runners and both dispatchers ship together; they are packaged in a single installer, so this is achievable. The Monitor must also define its behaviour when it cannot confirm the runner performed verification.
 
 **Verification intent.** A script whose content changed after its hash was recorded fails verification and does not execute, with the outcome recorded against the deployment result. An unmodified script executes normally. An unrecorded hash follows the adopted tolerance mode rather than failing arbitrarily.
+
+**U-14 is resolved in `SPEC-S-018-script-content-verification.md`.** Four decisions, summarised here because they change what this step is.
+
+**DOrc records the hash on first execution — trust on first use.** Not an operator by hand: there are hundreds of registered scripts and a control needing hundreds of manual acts is never adopted. Not the promotion pipeline as a precondition: that is the correct end state and the spec makes it reachable, but requiring pipeline work outside this repository first means the step delivers nothing until that work happens. What trust on first use is worth, stated plainly: it does not establish that a script was legitimate when first seen — if the share was already compromised, the compromised bytes become the baseline. What it detects is **change after recording**, which is the actual attack, and it converts a silent indefinite compromise into a refusal at the next deployment.
+
+**Re-recording on promotion is an administrator-gated endpoint**, which a pipeline calls after publishing a new version. Clearing a hash means "re-record on next execution", not "stop verifying this one" — there is deliberately no per-script opt-out, because a per-script opt-out is a per-script hole.
+
+**Three modes, defaulting to report**: `Off`, `Report`, `Enforce`, from `ScriptContentVerification` in AppSettings. Same shape as script path confinement and for the same reason — the population that would be refused on release day is unknown until something reports it. An unrecorded hash is **never** a refusal in any mode.
+
+**The Monitor does not attempt to confirm that verification happened.** The IS asks for that behaviour to be defined, and this is the definition. The runner reports its outcome, the Monitor records what was reported, and records when nothing was. Anything stronger would be a false claim: the Monitor cannot distinguish "verified silently" from "old build" without a protocol version, and an old build ignores a protocol version too. The real guard against a stale runner is the lockstep release, not a runtime check.
+
+**Delivered in two parts.** **S-018a** — schema column, entity, API model, the hash computation in the shared assembly, the mode setting, and the recording endpoint. Nothing reads the column, so it changes no behaviour and ships on its own. **S-018b** — the hash travels in the script group, both PowerShell runners verify before execution, first use records, outcome reported. That half carries the lockstep constraint.
+
+**Two residuals, recorded not closed.** Trust on first use does not authenticate the first read. And verification covers the entry script, not what it dot-sources — a verified script that dot-sources an unverified file from the same share executes unverified code, and no check placed at a single point of read closes that.
 
 ---
 
