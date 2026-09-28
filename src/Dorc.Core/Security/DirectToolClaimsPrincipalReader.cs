@@ -24,6 +24,16 @@ namespace Dorc.Core.Security
             _clientName = clientName;
         }
 
+        /// <summary>
+        /// This reader stands in for a tool running as itself - the Monitor among them - so the
+        /// caller is a machine by construction. It is not a bypass: the ReadSecrets privilege
+        /// still has to be granted explicitly on the environment.
+        /// </summary>
+        public bool IsServicePrincipal(IPrincipal user)
+        {
+            return true;
+        }
+
         public string GetUserName(IPrincipal user)
         {
             return _clientName;
