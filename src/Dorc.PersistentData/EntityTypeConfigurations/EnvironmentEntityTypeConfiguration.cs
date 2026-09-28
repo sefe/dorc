@@ -1,4 +1,5 @@
-﻿using Dorc.PersistentData.Model;
+﻿using Dorc.ApiModel;
+using Dorc.PersistentData.Model;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Environment = Dorc.PersistentData.Model.Environment;
@@ -20,6 +21,10 @@ namespace Dorc.PersistentData.EntityTypeConfigurations
             builder
                 .Property(e => e.ThinClientServer)
                 .HasMaxLength(50);
+
+            builder
+                .Property(e => e.ExecutionIdentityReference)
+                .HasMaxLength(EnvironmentExecutionIdentityReference.MaxLength);
 
             builder
                 .HasMany(environment => environment.Histories)
