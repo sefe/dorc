@@ -3,6 +3,8 @@ using Microsoft.Win32.SafeHandles;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using System.Security.Principal;
+using System.Security;
+using Dorc.Core.Security;
 using Microsoft.Extensions.Logging;
 
 namespace Dorc.Monitor.RunnerProcess
@@ -14,8 +16,6 @@ namespace Dorc.Monitor.RunnerProcess
 
         public string UserName { get; set; } = string.Empty;
         public string Domain { get; set; } = string.Empty;
-        public string Password { get; set; } = string.Empty;
-
         private ProcessSecurityContextBuilder() { }
 
         internal ProcessSecurityContextBuilder(ILogger logger)
@@ -34,11 +34,10 @@ namespace Dorc.Monitor.RunnerProcess
         /// changed. Deployment scripts reach target servers and script shares over the network
         /// as this account, which requires a logon that retains the credential for outbound
         /// authentication; the alternatives either drop it or demand the interactive logon
-        /// right on every Monitor host. The credential's residence in a managed string that
-        /// cannot be zeroed is a storage-layer problem, recorded against S-020 rather than
-        /// papered over here.
+        /// right on every Monitor host. The password stays in a <see cref="SecureString"/> until
+        /// it is marshalled directly into the Windows logon call.
         /// </remarks>
-        public ProcessSecurityContext Build()
+        public ProcessSecurityContext Build(SecureString password)
         {
             #region Verification
             if (string.IsNullOrEmpty(this.UserName))
@@ -51,13 +50,13 @@ namespace Dorc.Monitor.RunnerProcess
                 throw new Exception("Runner process SecurityContext can't be anonymous. 'Domain' should be specified.");
             }
 
-            if (string.IsNullOrEmpty(this.Password))
+            if (password == null || password.Length == 0)
             {
                 throw new Exception("Runner process SecurityContext can't be anonymous. 'Password' should be specified.");
             }
             #endregion
 
-            SafeAccessTokenHandle logonToken = LogOn(this.UserName, this.Domain, this.Password);
+            SafeAccessTokenHandle logonToken = LogOn(this.UserName, this.Domain, password);
             SafeAccessTokenHandle primaryToken = null;
             RunnerProcessSecurityDescriptor descriptor = null;
             try
@@ -85,31 +84,22 @@ namespace Dorc.Monitor.RunnerProcess
             }
         }
 
-        private SafeAccessTokenHandle LogOn(string userName, string domain, string password)
+        private SafeAccessTokenHandle LogOn(string userName, string domain, SecureString password)
         {
-            var result = Interop.Windows.Advapi32.Interop.Advapi32.LogonUser(
-                userName,
-                domain,
-                password,
-                (int)LOGON_TYPE.LOGON32_LOGON_NETWORK_CLEARTEXT,
-                (int)LOGON_PROVIDER.LOGON32_PROVIDER_DEFAULT,
-                out var token);
-
-            if (!result)
+            try
             {
-                var winError = Marshal.GetLastWin32Error();
-                this.logger.LogError($"LogonUser failed with win32 error: {winError}");
-                throw new Exception($"Cannot process request under account {userName}");
+                var token = WindowsLogon.LogOn(
+                    userName, domain, password, LogonType.NetworkCleartext, LogonProvider.Default);
+
+                this.logger.LogInformation("Logon succeeded.");
+
+                return token;
             }
-
-            this.logger.LogInformation("Logon as {UserName} succeeded", SanitizeForLog(userName));
-
-            return new SafeAccessTokenHandle(token);
-        }
-
-        private static string SanitizeForLog(string value)
-        {
-            return value.Replace("\r", string.Empty).Replace("\n", string.Empty);
+            catch (Win32Exception ex)
+            {
+                this.logger.LogError($"LogonUser failed with win32 error: {ex.NativeErrorCode}");
+                throw new Exception($"Cannot process request under account {userName}", ex);
+            }
         }
 
         private SafeAccessTokenHandle DuplicateAsPrimaryToken(SafeAccessTokenHandle logonToken)

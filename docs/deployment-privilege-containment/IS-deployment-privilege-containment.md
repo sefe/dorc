@@ -48,7 +48,7 @@ Four rules determine the order below. They are stated up front because several a
 | S-017 | Confine script paths at dispatch | SD-5, W-5, SC-05 | **DONE** — reports by default, enforce after S-016 |
 | S-018 | Verify script content at the point of read | SD-5, W-5, SC-05 | S-017, U-14; **lockstep release** |
 | S-019 | Introduce config-value visibility classification | SD-3b, W-4 | **Server side DONE**; web UI outstanding, see the step |
-| S-020 | Introduce the credential provider abstraction | SD-4 | S-019 (ConfigValues variant only) |
+| S-020 | Introduce the credential provider abstraction | SD-4 | **DONE** |
 | S-021 | Bind execution identity to the environment | SD-4, W-6, W-15, SC-07 | S-020; revisits S-007, S-008, S-009 |
 | S-022 | Record attribution reached and not reached | SD-8, W-9 | S-021 |
 | S-023 | Replace the expression compiler with a fixed grammar | SD-1b, W-1 | **DONE** |
@@ -429,6 +429,17 @@ That half needs the generated TypeScript API client regenerated from the OpenAPI
 **Dependencies.** S-019, if the configuration-value-backed variant is used — a fixed denylist cannot cover keys minted per environment, so the classification must exist first. No dependency if the vault-backed variant is chosen.
 
 **Verification intent.** Both implementations resolve the same credential for the same reference. Switching implementations by configuration requires no code change. The relocated client is consumed identically by the API and the Monitor.
+
+**All four resolution sites now go through it**, which was not stated as part of this step but is what makes it worth doing: the PowerShell dispatcher, the Terraform dispatcher, the daemon status probe in the API process, and the password reset controller each carried their own copy of the same four key names and the same production boolean. Four copies of a security decision is four places for it to drift, and it is why the probe could be reached without authorization while the dispatchers could not.
+
+**One thing preserved rather than quietly corrected.** The password reset controller resolves the **non-production** credential regardless of which server it is resetting a password on. That is either deliberate or a latent defect; it belongs to whoever owns the endpoint, and making it environment-keyed is S-021's business. It is now visible at a single call site instead of being buried in a hard-coded key name.
+
+**The relocation is what makes the vault option real.** The reader moved from `Dorc.Api.Services` — an assembly the Monitor cannot reach, and a namespace the repository's naming standard names as a dumping ground to avoid — into `Dorc.Core.Secrets`. Before that the Monitor could not have read a credential from the vault however it was configured, so "vault-backed" would have been an API-only capability. The vendor-shaped `OnePassword.Connect.Client` namespace is corrected to `Dorc.Core.Secrets.OnePassword` at the same time.
+
+**Configuration values stay the default.** Switching where the whole estate's deployment credentials come from is a deliberate act, not something a release performs on an operator's behalf. The vault-backed source **refuses rather than falling back** when it is selected but its item identifiers are unset — falling back would silently undo the decision to stop keeping those credentials in DOrc's database.
+
+**The S-019 dependency did not bind.** It applies only if the configuration-value variant needs to cover keys minted per environment, which is S-021's concern; the abstraction itself is tier-based and needed no classification first.
+
 
 ### S-021 — Bind execution identity to the environment
 

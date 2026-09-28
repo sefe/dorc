@@ -1,4 +1,4 @@
-using AspNetCoreRateLimit;
+﻿using AspNetCoreRateLimit;
 using Dorc.Api.Events;
 using Dorc.Api.Interfaces;
 using Dorc.Api.Security;
@@ -6,6 +6,7 @@ using Dorc.Api.Services;
 using Dorc.Core.AzureStorageAccount;
 using Dorc.Core.BuildServer;
 using Dorc.Core.Configuration;
+using Dorc.Core.Secrets;
 using Dorc.Core.Interfaces;
 using Dorc.Core.Lamar;
 using Dorc.Core.Security;
@@ -398,6 +399,11 @@ builder.Host.UseLamar((context, registry) =>
 {
     registry.IncludeRegistry<OpenSearchDataRegistry>();
     registry.IncludeRegistry<PersistentDataRegistry>();
+    // The two implementations are registered concretely so the core registry's configured
+    // choice between them can resolve either.
+    registry.For<ConfigValueDeploymentCredentialSource>().Use<ConfigValueDeploymentCredentialSource>();
+    registry.For<VaultDeploymentCredentialSource>().Use<VaultDeploymentCredentialSource>();
+
     registry.IncludeRegistry<CoreRegistry>();
     registry.IncludeRegistry<ApiRegistry>();
 
