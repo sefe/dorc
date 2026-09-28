@@ -45,8 +45,10 @@ namespace Dorc.NetFramework.Runner
 
                 scriptRunner.Run(
                     scriptGroupProperties.ScriptsLocation,
-                    scriptGroupProperties.ScriptProperties.Select(p => (p.ScriptPath, p.Properties)),
-                   scriptGroupProperties.CommonProperties);
+                    scriptGroupProperties.ScriptProperties.Select(p =>
+                        (p.ScriptPath, p.Properties, p.ExpectedContentHash)),
+                   scriptGroupProperties.CommonProperties,
+                   scriptGroupProperties.ContentVerification);
 
             }
             catch (Exception e)
