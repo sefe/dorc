@@ -26,6 +26,9 @@ namespace Dorc.TerraformRunner
         [Option('f', "useFile", Required = false, HelpText = "File be used instead of named pipe to get all script properties.")]
         public bool UseFile { get; set; }
 
+        [Option("serverSid", Required = false, HelpText = "Security identifier the script group pipe must be owned by.")]
+        public string ServerSid { get; set; }
+
         public TerrafromRunnerOperations TerrafromRunnerOperation => (TerrafromRunnerOperations)Operation;
     }
 }
