@@ -28,7 +28,7 @@ namespace Dorc.Core.Tests
         public void AcceptsAPipeOwnedByTheStatedServer()
         {
             // No exception is the acceptance.
-            ScriptGroupPipeClient.RequireOwnedBy(MonitorSid, (MonitorSid), "DOrcMonitor-host-42");
+            ScriptGroupPipeClient.RequireOwnedBy(MonitorSid, MonitorSid, "DOrcMonitor-host-42");
         }
 
         /// <summary>
@@ -40,7 +40,7 @@ namespace Dorc.Core.Tests
         {
             var refusal = Assert.ThrowsExactly<UnauthorizedAccessException>(() =>
                 ScriptGroupPipeClient.RequireOwnedBy(
-                    MonitorSid, (SquatterSid), "DOrcMonitor-host-42"));
+                    MonitorSid, SquatterSid, "DOrcMonitor-host-42"));
 
             StringAssert.Contains(refusal.Message, SquatterSid);
             StringAssert.Contains(refusal.Message, "Refusing to accept a script group");
@@ -56,7 +56,7 @@ namespace Dorc.Core.Tests
         public void RefusesAPipeOwnedByAdministratorsRatherThanTheServerAccount()
         {
             Assert.ThrowsExactly<UnauthorizedAccessException>(() =>
-                ScriptGroupPipeClient.RequireOwnedBy(MonitorSid, (AdministratorsSid), "pipe"));
+                ScriptGroupPipeClient.RequireOwnedBy(MonitorSid, AdministratorsSid, "pipe"));
         }
 
         /// <summary>
@@ -71,7 +71,7 @@ namespace Dorc.Core.Tests
         public void RefusesWhenNoServerIdentityWasStated(string? statedSid)
         {
             var refusal = Assert.ThrowsExactly<UnauthorizedAccessException>(() =>
-                ScriptGroupPipeClient.RequireOwnedBy(statedSid!, (MonitorSid), "pipe"));
+                ScriptGroupPipeClient.RequireOwnedBy(statedSid!, MonitorSid, "pipe"));
 
             StringAssert.Contains(refusal.Message, "cannot be authenticated");
         }
@@ -88,7 +88,7 @@ namespace Dorc.Core.Tests
         public void RefusesWhenTheStatedServerIdentityIsMalformed(string statedSid)
         {
             Assert.ThrowsExactly<UnauthorizedAccessException>(() =>
-                ScriptGroupPipeClient.RequireOwnedBy(statedSid, (MonitorSid), "pipe"));
+                ScriptGroupPipeClient.RequireOwnedBy(statedSid, MonitorSid, "pipe"));
         }
 
         /// <summary>
@@ -98,7 +98,7 @@ namespace Dorc.Core.Tests
         [TestMethod]
         public void IgnoresSurroundingWhitespaceInTheStatedIdentity()
         {
-            ScriptGroupPipeClient.RequireOwnedBy($"  {MonitorSid} ", (MonitorSid), "pipe");
+            ScriptGroupPipeClient.RequireOwnedBy($"  {MonitorSid} ", MonitorSid, "pipe");
         }
     }
 }
