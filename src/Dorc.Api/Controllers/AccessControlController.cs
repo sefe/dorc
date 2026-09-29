@@ -129,6 +129,18 @@ namespace Dorc.Api.Controllers
                 }
                 accessControl.ObjectId = authorizedObject.ObjectId;
 
+                var existingPrivileges = _accessControlPersistentSource
+                    .GetAccessControls(accessControl.ObjectId)
+                    .ToDictionary(privilege => privilege.Id);
+
+                if (accessControl.Privileges.Any(privilege =>
+                        privilege.Id > 0 && !existingPrivileges.ContainsKey(privilege.Id)))
+                {
+                    return StatusCode(
+                        StatusCodes.Status400BadRequest,
+                        "An access-control entry does not belong to the authorized object.");
+                }
+
                 // Prevent users without read-secrets privilege from granting it
                 var requestingUserCanReadSecrets = accessControl.Type == AccessControlType.Environment
                     ? _securityPrivilegesChecker.CanReadSecrets(User, accessControl.Name)
@@ -136,14 +148,15 @@ namespace Dorc.Api.Controllers
 
                 if (!requestingUserCanReadSecrets)
                 {
-                    var existingPrivileges = _accessControlPersistentSource.GetAccessControls(accessControl.ObjectId)
-                        .ToDictionary(p => p.Id);
-
                     foreach (var privilege in accessControl.Privileges)
                     {
                         var hasReadSecrets = (privilege.Allow & AC_ALLOW_READ_SECRETS) != 0;
                         var hadReadSecretsBefore = existingPrivileges.TryGetValue(privilege.Id, out var existing)
-                            && (existing.Allow & AC_ALLOW_READ_SECRETS) != 0;
+                            && (existing.Allow & AC_ALLOW_READ_SECRETS) != 0
+                            && string.Equals(
+                                existing.Pid,
+                                privilege.Pid,
+                                StringComparison.OrdinalIgnoreCase);
 
                         if (hasReadSecrets && !hadReadSecretsBefore)
                         {
@@ -156,7 +169,7 @@ namespace Dorc.Api.Controllers
                 // For environments, ensure at least one owner remains
                 if (accessControl.Type == AccessControlType.Environment)
                 {
-                    var currentOwners = _accessControlPersistentSource.GetAccessControls(accessControl.ObjectId)
+                    var currentOwners = existingPrivileges.Values
                         .Where(p => (p.Allow & 4) != 0) // Check for Owner flag (4)
                         .ToList();
                     
@@ -179,8 +192,7 @@ namespace Dorc.Api.Controllers
                     }
                 }
 
-                var existingIds = _accessControlPersistentSource.GetAccessControls(accessControl.ObjectId).Select(p => p.Id)
-                    .ToArray();
+                var existingIds = existingPrivileges.Keys.ToArray();
                 var newIds = accessControl.Privileges.Select(p => p.Id).ToArray();
                 
                 foreach (var existingId in existingIds)
