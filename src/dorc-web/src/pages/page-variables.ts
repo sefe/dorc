@@ -273,7 +273,7 @@ export class PageVariables extends PageElement {
                       <vaadin-button
                         style="--lumo-primary-text-color: var(--dorc-error-color);"
                         ?disabled="${
-                          !this.isAdmin ||
+                          !this.canDeleteSelectedVariable() ||
                           this.deletingVariable ||
                           !this.existingPropertySelected
                         }"
@@ -605,6 +605,16 @@ export class PageVariables extends PageElement {
       this.newVariableName = combo.value.trim();
       this.validateNewVariable();
     }
+  }
+
+  private canDeleteSelectedVariable(): boolean {
+    if (this.isAdmin) return true;
+    return (
+      this.isPowerUser &&
+      !this.loadingPropertyValues &&
+      this.allPropertyValues !== undefined &&
+      this.allPropertyValues.length === 0
+    );
   }
 
   async deleteVariable() {
