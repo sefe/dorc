@@ -37,7 +37,7 @@ namespace Dorc.Api.Controllers
             IDeploymentEventsPublisher deploymentEventsPublisher,
             IConfigurationSettings configurationSettings,
             IEnvironmentsPersistentSource environmentsPersistentSource,
-            IDirectorySearcherFactory directorySearcherFactory,
+            IActiveDirectorySearcher activeDirectorySearcher,
             IDeploymentLogService deploymentLogService
             )
         {
@@ -51,7 +51,7 @@ namespace Dorc.Api.Controllers
             _deploymentEventsPublisher = deploymentEventsPublisher;
             _configurationSettings = configurationSettings;
             _environmentsPersistentSource = environmentsPersistentSource;
-            _directorySearcher = directorySearcherFactory.GetEntraSearcher();
+            _directorySearcher = activeDirectorySearcher;
             _deploymentLogService = deploymentLogService;
         }
 

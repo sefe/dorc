@@ -150,7 +150,6 @@ static void ConfigureOAuth(WebApplicationBuilder builder, IConfigurationSettings
 {
     if (registerOwnReader)
     {
-        builder.Services.AddTransient(ctx => ctx.GetService<IUserGroupsReaderFactory>().GetOAuthUserGroupsReader());
         builder.Services.AddTransient<IClaimsPrincipalReader, OAuthClaimsPrincipalReader>();
     }
 
