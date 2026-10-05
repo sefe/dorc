@@ -86,9 +86,6 @@ namespace Dorc.Monitor.RequestProcessors
                     _variableResolver =
                         new VariableResolver(propertyValuesPersistentSource, _loggerFactory, _propertyEvaluator);
 
-                    _variableResolver =
-                        new VariableResolver(propertyValuesPersistentSource, _loggerFactory, _propertyEvaluator);
-
                     var scriptRoot = _configValuesPersistentSource.GetConfigValue("ScriptRoot");
                     SetUpScriptRootAsProperty(scriptRoot);
 
