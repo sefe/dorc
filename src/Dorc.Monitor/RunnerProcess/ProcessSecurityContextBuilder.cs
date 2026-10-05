@@ -1,3 +1,4 @@
+using Dorc.ApiModel;
 using System.ComponentModel;
 using Microsoft.Win32.SafeHandles;
 using System.Runtime.InteropServices;
@@ -102,14 +103,9 @@ namespace Dorc.Monitor.RunnerProcess
                 throw new Exception($"Cannot process request under account {userName}");
             }
 
-            this.logger.LogInformation("Logon as {UserName} succeeded", SanitizeForLog(userName));
+            this.logger.LogInformation("Logon as {UserName} succeeded", LogText.SingleLine(userName));
 
             return new SafeAccessTokenHandle(token);
-        }
-
-        private static string SanitizeForLog(string value)
-        {
-            return value.Replace("\r", string.Empty).Replace("\n", string.Empty);
         }
 
         private SafeAccessTokenHandle DuplicateAsPrimaryToken(SafeAccessTokenHandle logonToken)

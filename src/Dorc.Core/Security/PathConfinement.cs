@@ -1,5 +1,3 @@
-using System.Text;
-
 namespace Dorc.Core.Security
 {
     /// <summary>
@@ -13,12 +11,10 @@ namespace Dorc.Core.Security
     /// defeated by a root that is a textual prefix of an unrelated sibling directory
     /// (\\host\scripts-archive against a root of \\host\scripts).
     ///
-    /// Normalisation is performed here rather than through System.IO.Path, deliberately.
-    /// The paths being judged are Windows and UNC paths, but the test suite runs on Linux,
-    /// where Path.IsPathRooted rejects \\host\share and GetFullPath leaves backslashes
-    /// untouched. A confinement check that answered differently on the test host than in
-    /// production would be worse than none, so both separators are treated as separators and
-    /// traversal is resolved directly.
+    /// Parsing and normalisation are left to <see cref="Uri"/>, which reads UNC paths, drive
+    /// paths and file URIs alike, resolves "." and ".." segments, and does so the same way on
+    /// every platform .NET 8 runs on. System.IO.Path is not used because it answers according
+    /// to the host it runs on, and these are Windows paths that may be judged on a Linux host.
     /// </summary>
     public static class PathConfinement
     {
@@ -27,8 +23,8 @@ namespace Dorc.Core.Security
         /// be reduced. A null result means "cannot be shown to be confined" and callers must
         /// treat it as a refusal.
         ///
-        /// The result uses backslash separators and retains its root marker: a UNC prefix, a
-        /// drive specifier, or a leading slash for POSIX paths.
+        /// The result is the local path form: a UNC prefix or a drive specifier, backslash
+        /// separators, no trailing separator.
         /// </summary>
         public static string? Canonicalise(string? pathOrUri)
         {
@@ -37,102 +33,30 @@ namespace Dorc.Core.Security
                 return null;
             }
 
-            var value = pathOrUri.Trim();
-
-            // Configured roots are frequently recorded as file:// URIs while the values
-            // compared against them are plain UNC or local paths. Reduce both to a path.
-            if (Uri.TryCreate(value, UriKind.Absolute, out var uri) && uri.IsFile)
+            if (!Uri.TryCreate(pathOrUri.Trim(), UriKind.Absolute, out var uri) || !uri.IsFile)
             {
-                // LocalPath is platform-dependent for UNC, so rebuild from the components.
-                value = string.IsNullOrEmpty(uri.Host)
-                    ? Uri.UnescapeDataString(uri.AbsolutePath)
-                    : @"\\" + uri.Host + Uri.UnescapeDataString(uri.AbsolutePath);
-            }
-
-            value = value.Replace('/', '\\');
-
-            var root = ExtractRoot(value, out var remainder);
-            if (root == null)
-            {
-                // Relative, or otherwise not anchored anywhere. Not confinable.
+                // Relative, or not a file location at all. Not anchored anywhere, so not
+                // confinable.
                 return null;
             }
 
-            var segments = new List<string>();
-            foreach (var segment in remainder.Split('\\', StringSplitOptions.RemoveEmptyEntries))
+            if (uri.IsUnc && uri.AbsolutePath.Trim('/').Length == 0)
             {
-                if (segment == ".")
-                {
-                    continue;
-                }
-
-                if (segment == "..")
-                {
-                    if (segments.Count == 0)
-                    {
-                        // Traversal above the root. Not a path that can be shown to be within
-                        // anything.
-                        return null;
-                    }
-
-                    segments.RemoveAt(segments.Count - 1);
-                    continue;
-                }
-
-                segments.Add(segment);
+                // A server with no share names no location that can contain anything.
+                return null;
             }
 
-            var canonical = new StringBuilder(root);
-            for (var i = 0; i < segments.Count; i++)
-            {
-                if (i > 0 || !root.EndsWith('\\'))
-                {
-                    canonical.Append('\\');
-                }
+            // LocalPath has already had "." and ".." resolved and escapes decoded. A segment
+            // that still reads as traversal was percent-encoded on the way in, which Uri does
+            // not resolve but the file system would - so it is refused rather than compared.
+            var path = uri.LocalPath.Replace('/', '\\').TrimEnd('\\');
 
-                canonical.Append(segments[i]);
+            if (path.Split('\\').Any(segment => segment == "." || segment == ".."))
+            {
+                return null;
             }
 
-            return canonical.ToString();
-        }
-
-        /// <summary>
-        /// Splits the anchoring prefix from the rest of the path. Returns null when the path
-        /// is not anchored, which makes it unconfinable.
-        /// </summary>
-        private static string? ExtractRoot(string value, out string remainder)
-        {
-            remainder = string.Empty;
-
-            // UNC: \\server\share
-            if (value.StartsWith(@"\\", StringComparison.Ordinal))
-            {
-                var parts = value[2..].Split('\\', StringSplitOptions.RemoveEmptyEntries);
-                if (parts.Length < 2)
-                {
-                    // A server with no share names no location that can contain anything.
-                    return null;
-                }
-
-                remainder = string.Join('\\', parts.Skip(2));
-                return @"\\" + parts[0] + '\\' + parts[1];
-            }
-
-            // Drive: X:\ or X:
-            if (value.Length >= 2 && char.IsLetter(value[0]) && value[1] == ':')
-            {
-                remainder = value.Length > 2 ? value[2..] : string.Empty;
-                return value[..2].ToUpperInvariant();
-            }
-
-            // POSIX absolute, retained so the helper is exercisable on non-Windows hosts.
-            if (value.StartsWith('\\'))
-            {
-                remainder = value[1..];
-                return "\\";
-            }
-
-            return null;
+            return path;
         }
 
         /// <summary>
@@ -157,9 +81,7 @@ namespace Dorc.Core.Security
 
             // Compared with the separator appended so that a root of \\host\scripts does not
             // admit \\host\scripts-archive, which a bare prefix test would.
-            var rootWithSeparator = canonicalRoot.EndsWith('\\') ? canonicalRoot : canonicalRoot + '\\';
-
-            return canonicalCandidate.StartsWith(rootWithSeparator, StringComparison.OrdinalIgnoreCase);
+            return canonicalCandidate.StartsWith(canonicalRoot + '\\', StringComparison.OrdinalIgnoreCase);
         }
 
         /// <summary>

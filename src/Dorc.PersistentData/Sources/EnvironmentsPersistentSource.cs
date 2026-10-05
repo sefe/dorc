@@ -680,10 +680,7 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
                         catch (Exception ex)
                         {
                             transaction.Rollback();
-                            var safeEnvironmentName = env.EnvironmentName?
-                                .Replace("\r", string.Empty)
-                                .Replace("\n", string.Empty);
-                            logger.LogError(ex, $"Failed to delete environment '{safeEnvironmentName}'");
+                            logger.LogError(ex, $"Failed to delete environment '{LogText.SingleLine(env.EnvironmentName)}'");
                             throw;
                         }
                     }
