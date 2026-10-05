@@ -34,6 +34,13 @@
 					<Json:JsonFile Id="EnforceScriptPathConfinementNonProd" ElementPath="$.AppSettings.EnforceScriptPathConfinement" File="[#NonProdDeployMonitorExeConfig]" Value="[DORC.ENFORCE.SCRIPT.PATH.CONFINEMENT]" />
 					<!-- Empty (unset pipeline property) writes "", which reads as false = credentials from configuration values. -->
 					<Json:JsonFile Id="DeploymentCredentialsFromVaultNonProd" ElementPath="$.AppSettings.DeploymentCredentialsFromVault" File="[#NonProdDeployMonitorExeConfig]" Value="[DORC.DEPLOYMENT.CREDENTIALS.FROM.VAULT]" />
+					<Json:JsonFile Id="ProdDeployUsernameItemIdNonProd" ElementPath="$.AppSettings.ProdDeployUsernameItemId" File="[#NonProdDeployMonitorExeConfig]" Value="[DORC.PROD.DEPLOY.USERNAME.ITEMID]" />
+					<Json:JsonFile Id="ProdDeployPasswordItemIdNonProd" ElementPath="$.AppSettings.ProdDeployPasswordItemId" File="[#NonProdDeployMonitorExeConfig]" Value="[DORC.PROD.DEPLOY.PASSWORD.ITEMID]" />
+					<Json:JsonFile Id="NonProdDeployUsernameItemIdNonProd" ElementPath="$.AppSettings.NonProdDeployUsernameItemId" File="[#NonProdDeployMonitorExeConfig]" Value="[DORC.NONPROD.DEPLOY.USERNAME.ITEMID]" />
+					<Json:JsonFile Id="NonProdDeployPasswordItemIdNonProd" ElementPath="$.AppSettings.NonProdDeployPasswordItemId" File="[#NonProdDeployMonitorExeConfig]" Value="[DORC.NONPROD.DEPLOY.PASSWORD.ITEMID]" />
+					<Json:JsonFile Id="OnePasswordBaseUrlNonProd" ElementPath="$.AppSettings.OnePassword.BaseUrl" File="[#NonProdDeployMonitorExeConfig]" Value="[ONE.PASSWORD.BASE.URL]" />
+					<Json:JsonFile Id="OnePasswordApiKeyNonProd" ElementPath="$.AppSettings.OnePassword.ApiKey" File="[#NonProdDeployMonitorExeConfig]" Value="[ONE.PASSWORD.APIKEY]" />
+					<Json:JsonFile Id="OnePasswordVaultIdNonProd" ElementPath="$.AppSettings.OnePassword.VaultId" File="[#NonProdDeployMonitorExeConfig]" Value="[ONE.PASSWORD.VAULT.ID]" />
 					<Json:JsonFile Id="RunnerLogPathNonProd" ElementPath="$.AppSettings.RunnerLogPath" File="[#NonProdDeployMonitorExeConfig]" Value="c:\Log\DOrc\Deploy\Services\Requests" />
 
 					<Json:JsonFile Id="GitHubTokenNonProd" ElementPath="$.AppSettings.GitHubToken" File="[#NonProdDeployMonitorExeConfig]" Value="[GITHUBTOKEN]" />
