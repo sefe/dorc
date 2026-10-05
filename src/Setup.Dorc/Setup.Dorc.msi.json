@@ -106,6 +106,10 @@
       "DeployProperty": "ALLOWED_TERRAFORM_SOURCE_HOSTS"
     },
     {
+      "MSIParameter": "DORC.CONFIG.KEYS.WITHHELD.FROM.SCRIPTS",
+      "DeployProperty": "DORC_CONFIG_KEYS_WITHHELD_FROM_SCRIPTS"
+    },
+    {
       "MSIParameter": "DOMAINNAME",
       "DeployProperty": "DOMAINNAME"
     },
