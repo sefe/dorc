@@ -80,6 +80,10 @@
 		     "separate approver required for production tier" — the fail-safe default. -->
 		<Json:JsonFile Id="TerraformSeparateApproverRequiredApi" ElementPath="$.AppSettings.TerraformSeparateApproverRequired" Value="[DORC.TERRAFORM.SEPARATE.APPROVER.REQUIRED]" File="[#DeployApiWebConfig]" />
 		<Json:JsonFile Id="DeploymentCredentialsFromVaultApi" ElementPath="$.AppSettings.DeploymentCredentialsFromVault" Value="[DORC.DEPLOYMENT.CREDENTIALS.FROM.VAULT]" File="[#DeployApiWebConfig]" />
+		<Json:JsonFile Id="ProdDeployUsernameItemIdApi" ElementPath="$.AppSettings.ProdDeployUsernameItemId" Value="[DORC.PROD.DEPLOY.USERNAME.ITEMID]" File="[#DeployApiWebConfig]" />
+		<Json:JsonFile Id="ProdDeployPasswordItemIdApi" ElementPath="$.AppSettings.ProdDeployPasswordItemId" Value="[DORC.PROD.DEPLOY.PASSWORD.ITEMID]" File="[#DeployApiWebConfig]" />
+		<Json:JsonFile Id="NonProdDeployUsernameItemIdApi" ElementPath="$.AppSettings.NonProdDeployUsernameItemId" Value="[DORC.NONPROD.DEPLOY.USERNAME.ITEMID]" File="[#DeployApiWebConfig]" />
+		<Json:JsonFile Id="NonProdDeployPasswordItemIdApi" ElementPath="$.AppSettings.NonProdDeployPasswordItemId" Value="[DORC.NONPROD.DEPLOY.PASSWORD.ITEMID]" File="[#DeployApiWebConfig]" />
 
 		<!-- Kafka cluster configuration (S-014: binding path is root $.Kafka.*; AuthMode forced to SaslSsl per-env) -->
 		<Json:JsonFile Id="KafkaEnabledApi" ElementPath="$.Kafka.Enabled" Value="[KAFKA.ENABLED]" File="[#DeployApiWebConfig]" />
@@ -171,6 +175,10 @@
 			     "separate approver required for production tier" — the fail-safe default. -->
 			<Json:JsonFile Id="TerraformSeparateApproverRequiredApiProd" ElementPath="$.AppSettings.TerraformSeparateApproverRequired" Value="[DORC.TERRAFORM.SEPARATE.APPROVER.REQUIRED]" File="[#DeployApiWebConfig]" />
 			<Json:JsonFile Id="DeploymentCredentialsFromVaultApiProd" ElementPath="$.AppSettings.DeploymentCredentialsFromVault" Value="[DORC.DEPLOYMENT.CREDENTIALS.FROM.VAULT]" File="[#DeployApiWebConfig]" />
+			<Json:JsonFile Id="ProdDeployUsernameItemIdApiProd" ElementPath="$.AppSettings.ProdDeployUsernameItemId" Value="[DORC.PROD.DEPLOY.USERNAME.ITEMID]" File="[#DeployApiWebConfig]" />
+			<Json:JsonFile Id="ProdDeployPasswordItemIdApiProd" ElementPath="$.AppSettings.ProdDeployPasswordItemId" Value="[DORC.PROD.DEPLOY.PASSWORD.ITEMID]" File="[#DeployApiWebConfig]" />
+			<Json:JsonFile Id="NonProdDeployUsernameItemIdApiProd" ElementPath="$.AppSettings.NonProdDeployUsernameItemId" Value="[DORC.NONPROD.DEPLOY.USERNAME.ITEMID]" File="[#DeployApiWebConfig]" />
+			<Json:JsonFile Id="NonProdDeployPasswordItemIdApiProd" ElementPath="$.AppSettings.NonProdDeployPasswordItemId" Value="[DORC.NONPROD.DEPLOY.PASSWORD.ITEMID]" File="[#DeployApiWebConfig]" />
 
 			<!-- Kafka cluster configuration (S-014: binding path is root $.Kafka.*; AuthMode forced to SaslSsl per-env) -->
 			<Json:JsonFile Id="KafkaEnabledApiProd" ElementPath="$.Kafka.Enabled" Value="[KAFKA.ENABLED]" File="[#DeployApiWebConfig]" />
