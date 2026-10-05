@@ -4,6 +4,8 @@
 		<Property Id="WEB.SITENAME" Value="Default Web Site" />
 		<Property Id="WEB.PORT" Value="80" />
 		<Property Id="DOTNET.VERSION" Value="4.0.30319" />
+		<Property Id="ALLOWED.ARTEFACT.HOSTS" Value="[]" Secure="yes" />
+		<Property Id="ALLOWED.TERRAFORM.SOURCE.HOSTS" Value="[]" Secure="yes" />
 
 		<Media Id="1" Cabinet="media1.cab" EmbedCab="yes" />
 
