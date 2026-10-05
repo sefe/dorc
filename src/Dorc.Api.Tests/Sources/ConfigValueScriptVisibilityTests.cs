@@ -138,6 +138,36 @@ namespace Dorc.Api.Tests.Sources
             Assert.IsFalse(updated.VisibleToScripts, "The classification must survive the round trip.");
         }
 
+        /// <summary>
+        /// A client that predates the classification sends no VisibleToScripts at all. That
+        /// must read as "unchanged", not as "hidden": otherwise every edit such a client made
+        /// to a visible value would withhold it from scripts and drop the edit it was making.
+        /// </summary>
+        [TestMethod]
+        public void AnUnstatedVisibilityLeavesTheClassificationAloneAndAppliesTheEdit()
+        {
+            _stored.Add(new ConfigValue
+            {
+                Id = 8,
+                Key = "SomeSetting",
+                Value = "old",
+                Secure = false,
+                VisibleToScripts = true
+            });
+
+            var updated = _source.UpdateConfigValue(new ConfigValueApiModel
+            {
+                Id = 8,
+                Key = "SomeSetting",
+                Value = "new",
+                Secure = false
+            });
+
+            Assert.IsTrue(_stored.Single().VisibleToScripts);
+            Assert.AreEqual("new", _stored.Single().Value);
+            Assert.IsTrue(updated.VisibleToScripts);
+        }
+
         [TestMethod]
         public void TheClassificationIsReportedBackToCallers()
         {

@@ -8710,7 +8710,8 @@
             "nullable": true
           },
           "VisibleToScripts": {
-            "type": "boolean"
+            "type": "boolean",
+            "nullable": true
           }
         },
         "additionalProperties": false
