@@ -39,7 +39,7 @@ Four rules determine the order below. They are stated up front because several a
 | S-009 | Authenticate the script-group transport | SD-2, W-3, SC-04 | **DONE** — must ship in lockstep, see the step |
 | S-010 | Validate script paths at the write path | SD-5, W-5 | **DONE** (W-5a recorded, deferred to S-011) |
 | S-011 | Validate source URLs at the write path | SD-9, W-11, W-16, W-5a | **DONE** — unenforced until configured, see the step |
-| S-012 | Bind source credentials to validated hosts | SD-9, W-11, W-16, SC-05b | **DONE** — partly inert until S-011 is configured |
+| S-012 | Bind source credentials to validated hosts | SD-9, W-11, W-16, SC-05b | **DONE** — the credential legs refuse until S-011 is configured |
 | ⚙ S-013 | Migrate the three `DORC_NonProdDeployPassword` consumers | SD-3a precondition | **U-12 CLOSED** |
 | S-014 | Classify config values: reserved-key denylist | SD-3a, W-4, SC-03 | **DONE for the three zero-consumer keys**; the rest still gated on S-013 |
 | S-014a | Restrict `CanReadSecrets` to service principals | W-19 | **DONE** — has a blast radius, see the step |
@@ -266,9 +266,9 @@ This makes S-011 a two-part delivery: the code ships here, and the estate's host
 
 *Unconditional, and the one no allow-list would have caught.* The git credentials callback ignored the URL it was asked about. libgit2 invokes it for every URL it authenticates against during a clone, **redirect targets included**, so a repository that redirected elsewhere collected the Terraform PAT or the Entra token without the redirect ever appearing in project configuration. The callback now refuses any host other than the configured repository's.
 
-*Inherits S-011's inertness.* Whether a repository may be offered credentials at all, and whether an endpoint may be offered default Windows credentials, are decided against the allow-list — so both remain permissive until the estate's hosts are entered, and both log when they decline to check.
+*Fails closed where S-011 stays inert.* Whether a repository may be offered credentials at all, and whether an endpoint may be offered default Windows credentials, are decided against the allow-list — and, unlike the project-edit validation in S-011, an empty list here is a refusal, not a pass. Presenting a credential is the act being constrained, so there is no safe way to do it against an unknown host; the Monitor logs the refusal and the deployment fails on the fetch. The consequence is a flag day of the deliberate kind: a Terraform Git source, or an on-premises Azure DevOps artefact fetch that relies on default Windows credentials, stops working on the estate the moment this ships until `AllowedTerraformSourceHosts` / `AllowedArtefactHosts` name its hosts. A partly filled configuration — one list named, the other not — is reported as such.
 
-**Default Windows credentials are constrained, not removed.** An on-premises Azure DevOps Server legitimately authenticates that way, so removing the branch would break those estates. It is now reachable only for a host on the artefact allow-list; where none is configured, it warns and proceeds as before. This is the leg the HLPS singles out as the one no token-scoping fix would catch, because it presents an interactive service identity rather than a scoped token — it is closed by configuration rather than by code, and should be tracked as such until the list is filled.
+**Default Windows credentials are constrained, not removed.** An on-premises Azure DevOps Server legitimately authenticates that way, so removing the branch would break those estates. It is now reachable only for a host on the artefact allow-list; where none is configured, it refuses rather than proceeding. This is the leg the HLPS singles out as the one no token-scoping fix would catch, because it presents an interactive service identity rather than a scoped token — which is why it is closed by code until the list is filled, rather than left open by configuration.
 
 ---
 

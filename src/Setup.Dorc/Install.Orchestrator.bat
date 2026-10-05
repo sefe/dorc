@@ -35,6 +35,7 @@ KAFKA.LOCKS.CONSUMERGROUPID.PROD="dorc.monitor.locks.prod" ^
 KAFKA.LOCKS.CONSUMERGROUPID.NONPROD="dorc.monitor.locks.nonprod" ^
 ALLOWED.ARTEFACT.HOSTS="[]" ^
 ALLOWED.TERRAFORM.SOURCE.HOSTS="[]" ^
+DORC.CONFIG.KEYS.WITHHELD.FROM.SCRIPTS="[\"DORC_ProdDeployPassword\",\"DORC_WebDeployPassword\",\"DorcApiAccessPassword\"]" ^
 /qb /L*v "%MYDIR%\Setup.Dorc.log"
 
 echo Returncode: %ERRORLEVEL%
