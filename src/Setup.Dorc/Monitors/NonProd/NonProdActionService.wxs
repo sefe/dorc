@@ -34,8 +34,8 @@
 
 					<Json:JsonFile Id="GitHubTokenNonProd" ElementPath="$.AppSettings.GitHubToken" File="[#NonProdDeployMonitorExeConfig]" Value="[GITHUBTOKEN]" />
 					<Json:JsonFile Id="GitHubArtifactDownloadFolderNonProd" ElementPath="$.AppSettings.GitHubArtifactDownloadFolder" File="[#NonProdDeployMonitorExeConfig]" Value="[GITHUBARTIFACTDOWNLOADFOLDER]" />
-					<Json:JsonFile Id="AllowedArtefactHostsNonProd" ElementPath="$.AppSettings.AllowedArtefactHosts" Value="[ALLOWED.ARTEFACT.HOSTS]" ValueType="json" Action="replaceJsonValue" File="[#NonProdDeployMonitorExeConfig]" />
-					<Json:JsonFile Id="AllowedTerraformSourceHostsNonProd" ElementPath="$.AppSettings.AllowedTerraformSourceHosts" Value="[ALLOWED.TERRAFORM.SOURCE.HOSTS]" ValueType="json" Action="replaceJsonValue" File="[#NonProdDeployMonitorExeConfig]" />
+					<Json:JsonFile Id="AllowedArtefactHostsNonProd" ElementPath="$.AppSettings.AllowedArtefactHosts" Value="[ALLOWED.ARTEFACT.HOSTS]" Action="replaceJsonValue" File="[#NonProdDeployMonitorExeConfig]" />
+					<Json:JsonFile Id="AllowedTerraformSourceHostsNonProd" ElementPath="$.AppSettings.AllowedTerraformSourceHosts" Value="[ALLOWED.TERRAFORM.SOURCE.HOSTS]" Action="replaceJsonValue" File="[#NonProdDeployMonitorExeConfig]" />
 
 					<Json:JsonFile Id="DorcApiClientId" ElementPath="$.AppSettings.DorcApi.ClientId" File="[#NonProdDeployMonitorExeConfig]" Value="[DORC.API.CLIENTID]" />
 					<Json:JsonFile Id="DorcApiClientSecret" ElementPath="$.AppSettings.DorcApi.ClientSecret" File="[#NonProdDeployMonitorExeConfig]" Value="[DORC.API.CLIENTSECRET]" />
