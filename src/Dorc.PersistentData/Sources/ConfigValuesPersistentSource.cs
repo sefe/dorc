@@ -116,13 +116,16 @@ namespace Dorc.PersistentData.Sources
                 configValue.IsForProd = model.IsForProd;
             }
 
-            // 3) Else if the script visibility changed, update the classification. Ordered with
-            // the other single-property branches because the caller changes one thing per
-            // request; placed before Value so that toggling visibility on a value whose text is
-            // unchanged is not mistaken for a no-op.
-            else if (configValue.VisibleToScripts != model.VisibleToScripts)
+            // 3) Else if the script visibility is stated and changed, update the classification.
+            // Ordered with the other single-property branches because the caller changes one
+            // thing per request; placed before Value so that toggling visibility on a value
+            // whose text is unchanged is not mistaken for a no-op. A model that leaves the
+            // field out is not asking for a change - without that, a client written before the
+            // classification existed would hide every visible value it edited and lose the
+            // edit it meant to make.
+            else if (model.VisibleToScripts.HasValue && configValue.VisibleToScripts != model.VisibleToScripts.Value)
             {
-                configValue.VisibleToScripts = model.VisibleToScripts;
+                configValue.VisibleToScripts = model.VisibleToScripts.Value;
             }
 
             // 4) Else if Value changed update (encrypt if Secure)
@@ -162,7 +165,7 @@ namespace Dorc.PersistentData.Sources
                 // Existing values default the other way, in the column default, so that adding
                 // the classification changes no deployment's behaviour - the asymmetry is the
                 // point, and it is what lets this ship without an estate-wide inventory first.
-                VisibleToScripts = !model.Secure || model.VisibleToScripts
+                VisibleToScripts = !model.Secure || model.VisibleToScripts.GetValueOrDefault()
             };
 
             if (model.Secure)
