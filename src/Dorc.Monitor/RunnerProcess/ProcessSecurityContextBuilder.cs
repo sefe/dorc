@@ -1,4 +1,3 @@
-using Dorc.ApiModel;
 using System.ComponentModel;
 using Microsoft.Win32.SafeHandles;
 using System.Runtime.InteropServices;
@@ -92,7 +91,13 @@ namespace Dorc.Monitor.RunnerProcess
                 var token = WindowsLogon.LogOn(
                     userName, domain, password, LogonType.NetworkCleartext, LogonProvider.Default);
 
-                this.logger.LogInformation("Logon succeeded for account '{Account}'.", LogText.SingleLine(userName));
+                // Named from the token Windows issued, not from the configured credential: the
+                // token is what the Runner will run as, and the configured record is the one
+                // thing this class must not write anywhere.
+                using (var identity = new WindowsIdentity(token.DangerousGetHandle()))
+                {
+                    this.logger.LogInformation("Logon succeeded for account '{Account}'.", identity.Name);
+                }
 
                 return token;
             }
