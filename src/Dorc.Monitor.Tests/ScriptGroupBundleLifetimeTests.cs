@@ -40,23 +40,6 @@ namespace Dorc.Monitor.Tests
         private readonly IDeploymentCredentialSource _credentialSource = TierAwareCredentialSource();
 
         /// <summary>
-        /// A credential source that resolves, so these tests exercise what they are about rather
-        /// than the missing-credential path.
-        /// </summary>
-        private static IDeploymentCredentialSource CredentialSourceFor(string userName, string password)
-        {
-            var source = Substitute.For<IDeploymentCredentialSource>();
-            source.Description.Returns("test");
-            // Both overloads: the dispatchers call the environment-keyed one, and NSubstitute
-            // treats them as separate members.
-            source.Resolve(Arg.Any<DeploymentTier>())
-                .Returns(DeploymentCredential.FromPlainText(userName, password));
-            source.Resolve(Arg.Any<DeploymentTier>(), Arg.Any<string?>())
-                .Returns(DeploymentCredential.FromPlainText(userName, password));
-            return source;
-        }
-
-        /// <summary>
         /// Tier selection now lives in the credential source, not the dispatcher — so this
         /// returns a different account per tier, and the assertions below verify the dispatcher
         /// asks for the RIGHT tier rather than that it knows which config key to read. The key
@@ -79,10 +62,6 @@ namespace Dorc.Monitor.Tests
             _pipeServer = Substitute.For<IScriptGroupPipeServer>();
 
             _configValues = Substitute.For<IConfigValuesPersistentSource>();
-            _configValues.GetConfigValue("DORC_ProdDeployUsername").Returns(ProdAccount);
-            _configValues.GetConfigValue("DORC_ProdDeployPassword").Returns("prod-password");
-            _configValues.GetConfigValue("DORC_NonProdDeployUsername").Returns(NonProdAccount);
-            _configValues.GetConfigValue("DORC_NonProdDeployPassword").Returns("nonprod-password");
 
             _configurationSettings = Substitute.For<IConfigurationSettings>();
             _scriptScopeConfigValues = Substitute.For<IScriptScopeConfigValues>();
@@ -247,8 +226,6 @@ namespace Dorc.Monitor.Tests
     [TestClass]
     public class WithheldKeysAreNotDispatchedTests
     {
-        private const string _unused = "";
-
         /// <summary>
         /// A credential source that resolves, so these tests exercise what they are about rather
         /// than the missing-credential path.

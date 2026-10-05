@@ -45,5 +45,5 @@ export interface ConfigValueApiModel {
      * @type {boolean}
      * @memberof ConfigValueApiModel
      */
-    VisibleToScripts?: boolean;
+    VisibleToScripts?: boolean | null;
 }

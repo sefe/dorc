@@ -16,9 +16,8 @@ namespace Dorc.Monitor.Tests
     /// deployment properties, and every one of them was created under %ProgramData% with an
     /// inherited ACL that admits any authenticated user on the host.
     ///
-    /// These cover the directory restriction itself, and the plan directory that had been left
-    /// out of it: the plan file embeds the variable values the configuration was rendered with,
-    /// and the rendering beside it spells them out in clear.
+    /// These cover the directory restriction itself. The Terraform plan directory, which
+    /// became per-deployment and expiring in S-021, is covered by TerraformPlanLifetimeTests.
     /// </summary>
     [TestClass]
     [SupportedOSPlatform("windows")]
@@ -158,58 +157,6 @@ namespace Dorc.Monitor.Tests
             Assert.AreNotEqual(
                 FileSystemRights.TakeOwnership,
                 granted.FileSystemRights & FileSystemRights.TakeOwnership);
-        }
-
-        [TestMethod]
-        public void ThePlanDirectoryIsRestrictedAndAdmitsTheAccountThatWritesThePlan()
-        {
-            var planDirectory = TerraformPlanStorage.EnsureRestricted(
-                _scratch,
-                new ScriptGroupReaderIdentity(domain: null, CurrentAccountName),
-                Substitute.For<ILogger>());
-
-            Assert.AreEqual(Path.Join(_scratch, "terraform-plans"), planDirectory);
-            Assert.IsTrue(IsProtected(planDirectory));
-            Assert.IsEmpty(RulesFor(planDirectory, Everyone));
-            Assert.IsNotEmpty(RulesFor(planDirectory, CurrentUser));
-        }
-
-        /// <summary>
-        /// The confinement is the directory ACL and it is applied regardless. Admitting the
-        /// deployment account only ever WIDENS access, so a name the local authority cannot
-        /// resolve - an unreachable domain controller, a host that is not joined - leaves the
-        /// plan unwritable, which fails the deployment loudly, rather than leaving it readable.
-        /// </summary>
-        [TestMethod]
-        public void APlanDirectoryIsStillRestrictedWhenTheDeploymentAccountCannotBeResolved()
-        {
-            var logger = Substitute.For<ILogger>();
-
-            var planDirectory = TerraformPlanStorage.EnsureRestricted(
-                _scratch,
-                new ScriptGroupReaderIdentity("NO-SUCH-DOMAIN", $"no-such-account-{Guid.NewGuid():N}"),
-                logger);
-
-            Assert.IsTrue(IsProtected(planDirectory));
-            Assert.IsEmpty(RulesFor(planDirectory, Everyone));
-        }
-
-        /// <summary>
-        /// A deployment account misconfigured to a broad group would publish every plan staged
-        /// on the host to it.
-        /// </summary>
-        [TestMethod]
-        public void APlanDirectoryRefusesADeploymentAccountThatNamesTheWholeHost()
-        {
-            var everyoneAccountName = ((NTAccount)Everyone.Translate(typeof(NTAccount))).Value;
-
-            var planDirectory = TerraformPlanStorage.EnsureRestricted(
-                _scratch,
-                new ScriptGroupReaderIdentity(domain: null, everyoneAccountName),
-                Substitute.For<ILogger>());
-
-            Assert.IsTrue(IsProtected(planDirectory));
-            Assert.IsEmpty(RulesFor(planDirectory, Everyone));
         }
     }
 
