@@ -39,9 +39,9 @@
 					<Json:JsonFile Id="ProdDeployPasswordItemIdProd" ElementPath="$.AppSettings.ProdDeployPasswordItemId" File="[#ProdDeployMonitorExeConfig]" Value="[DORC.PROD.DEPLOY.PASSWORD.ITEMID]" />
 					<Json:JsonFile Id="NonProdDeployUsernameItemIdProd" ElementPath="$.AppSettings.NonProdDeployUsernameItemId" File="[#ProdDeployMonitorExeConfig]" Value="[DORC.NONPROD.DEPLOY.USERNAME.ITEMID]" />
 					<Json:JsonFile Id="NonProdDeployPasswordItemIdProd" ElementPath="$.AppSettings.NonProdDeployPasswordItemId" File="[#ProdDeployMonitorExeConfig]" Value="[DORC.NONPROD.DEPLOY.PASSWORD.ITEMID]" />
-					<Json:JsonFile Id="OnePasswordBaseUrlProd" ElementPath="$.AppSettings.OnePassword.BaseUrl" File="[#ProdDeployMonitorExeConfig]" Value="[ONE.PASSWORD.BASE.URL]" />
-					<Json:JsonFile Id="OnePasswordApiKeyProd" ElementPath="$.AppSettings.OnePassword.ApiKey" File="[#ProdDeployMonitorExeConfig]" Value="[ONE.PASSWORD.APIKEY]" />
-					<Json:JsonFile Id="OnePasswordVaultIdProd" ElementPath="$.AppSettings.OnePassword.VaultId" File="[#ProdDeployMonitorExeConfig]" Value="[ONE.PASSWORD.VAULT.ID]" />
+					<Json:JsonFile Id="MonitorOnePasswordBaseUrlProd" ElementPath="$.AppSettings.OnePassword.BaseUrl" File="[#ProdDeployMonitorExeConfig]" Value="[ONE.PASSWORD.BASE.URL]" />
+					<Json:JsonFile Id="MonitorOnePasswordApiKeyProd" ElementPath="$.AppSettings.OnePassword.ApiKey" File="[#ProdDeployMonitorExeConfig]" Value="[ONE.PASSWORD.APIKEY]" />
+					<Json:JsonFile Id="MonitorOnePasswordVaultIdProd" ElementPath="$.AppSettings.OnePassword.VaultId" File="[#ProdDeployMonitorExeConfig]" Value="[ONE.PASSWORD.VAULT.ID]" />
 					<Json:JsonFile Id="RunnerLogPathProd" ElementPath="$.AppSettings.RunnerLogPath" File="[#ProdDeployMonitorExeConfig]" Value="c:\Log\DOrc\Deploy\Services\Requests" />
 
 					<Json:JsonFile Id="GitHubTokenProd" ElementPath="$.AppSettings.GitHubToken" File="[#ProdDeployMonitorExeConfig]" Value="[GITHUBTOKEN]" />
