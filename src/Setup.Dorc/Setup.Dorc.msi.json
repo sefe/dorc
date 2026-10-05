@@ -98,6 +98,14 @@
       "DeployProperty": "GITHUBARTIFACTDOWNLOADFOLDER"
     },
     {
+      "MSIParameter": "ALLOWED.ARTEFACT.HOSTS",
+      "DeployProperty": "ALLOWED_ARTEFACT_HOSTS"
+    },
+    {
+      "MSIParameter": "ALLOWED.TERRAFORM.SOURCE.HOSTS",
+      "DeployProperty": "ALLOWED_TERRAFORM_SOURCE_HOSTS"
+    },
+    {
       "MSIParameter": "DOMAINNAME",
       "DeployProperty": "DOMAINNAME"
     },
