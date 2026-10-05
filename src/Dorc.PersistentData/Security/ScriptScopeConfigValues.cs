@@ -99,7 +99,7 @@ namespace Dorc.PersistentData.Security
             !string.IsNullOrWhiteSpace(key) && withheld.Contains(key.Trim());
 
         public bool IsWithheld(ConfigValueApiModel configValue) =>
-            configValue == null || !configValue.VisibleToScripts || IsWithheld(configValue.Key);
+            configValue == null || configValue.VisibleToScripts != true || IsWithheld(configValue.Key);
 
         public IReadOnlyCollection<string> StillPublishedSecureKeys(IEnumerable<ConfigValueApiModel> configValues)
         {
