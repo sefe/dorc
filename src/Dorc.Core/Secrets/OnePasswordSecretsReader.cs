@@ -53,16 +53,13 @@ namespace Dorc.Core.Secrets
             return GetSecretByItemId(itemId, "DORC API secret");
         }
 
-        public string GetSecret(string itemId, string humanizedName) =>
-            GetSecretByItemId(itemId, humanizedName);
-
         public SecureString GetSecureSecret(string itemId, string humanizedName)
         {
             var value = GetSecretByItemId(itemId, humanizedName);
             return DeploymentCredential.ToSecureString(value);
         }
 
-        private string GetSecretByItemId(string itemId, string humanizedName)
+        public string GetSecretByItemId(string itemId, string humanizedName)
         {
             if (_onePasswordClient == null || string.IsNullOrEmpty(_vaultId) || string.IsNullOrEmpty(itemId))
             {

@@ -42,7 +42,7 @@ namespace Dorc.Core.Security
         protected override DeploymentCredential? ResolveNamedIdentity(string identityReference, DeploymentTier tier)
         {
             var credential = new DeploymentCredential(
-                _secrets.GetSecret($"{identityReference}-username", $"{identityReference} deployment username"),
+                _secrets.GetSecretByItemId($"{identityReference}-username", $"{identityReference} deployment username"),
                 _secrets.GetSecureSecret($"{identityReference}-password", $"{identityReference} deployment password"));
 
             return credential.IsComplete ? credential : null;
@@ -69,7 +69,7 @@ namespace Dorc.Core.Security
             }
 
             var credential = new DeploymentCredential(
-                _secrets.GetSecret(userNameItem, $"{tier} deployment username"),
+                _secrets.GetSecretByItemId(userNameItem, $"{tier} deployment username"),
                 _secrets.GetSecureSecret(passwordItem, $"{tier} deployment password"));
 
             if (!credential.IsComplete)
