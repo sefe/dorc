@@ -48,6 +48,10 @@ import {
 } from '../../helpers/silent-grid-refresh';
 import '@vaadin/tooltip';
 import { dorcApiConfiguration } from '../../services/dorc-api-configuration';
+import {
+  stopMonitorHub,
+  waitForMonitorHubStop
+} from '../../helpers/monitor-hub-connection';
 
 const username = 'Username';
 const status = 'Status';
@@ -192,6 +196,16 @@ export class EnvMonitor
         }
       });
   };
+
+  private stopHubConnection(): Promise<void> {
+    if (!this.hubConnection) {
+      return Promise.resolve();
+    }
+    return stopMonitorHub(
+      this.hubConnection,
+      state => (this.hubConnectionState = state)
+    );
+  }
 
   constructor() {
     super();
@@ -379,14 +393,16 @@ export class EnvMonitor
     super.disconnectedCallback();
     this.removeEventListener('keydown', this._onHostKeyDown);
     if (this.hubConnection) {
-      this.hubConnection.stop().catch(err => {
-        console.error('Error stopping SignalR connection:', err);
-      });
+      void this.stopHubConnection();
     }
   }
 
   private async initializeSignalR() {
     this.hubConnection = DeploymentHub.getConnection();
+    await waitForMonitorHubStop(this.hubConnection);
+    if (!this.isConnected) {
+      return;
+    }
 
     getReceiverRegister('IDeploymentsEventsClient').register(
       this.hubConnection,
@@ -411,7 +427,7 @@ export class EnvMonitor
         })
         .catch(err => {
           console.error('Error starting SignalR connection:', err);
-          this.hubConnectionState = err.toString();
+          this.hubConnectionState = retrieveErrorMessage(err);
         });
     }
   }
@@ -425,21 +441,30 @@ export class EnvMonitor
     this.autoRefresh = !this.autoRefresh;
     if (!this.hubConnection) return;
     if (this.autoRefresh) {
+      await waitForMonitorHubStop(this.hubConnection);
+      if (!this.autoRefresh) {
+        return;
+      }
       if (this.hubConnection.state === HubConnectionState.Disconnected) {
         try {
           await this.hubConnection.start();
         } catch (err) {
+          if (!this.autoRefresh) {
+            return;
+          }
           console.error('Error starting SignalR connection:', err);
-          this.hubConnectionState = String(err);
+          this.hubConnectionState = retrieveErrorMessage(err);
           return;
         }
+      }
+      if (!this.autoRefresh) {
+        await this.stopHubConnection();
+        return;
       }
       this.hubConnectionState = this.hubConnection.state;
       this.refreshGrid();
     } else {
-      this.hubConnection.stop().catch(err => {
-        console.error('Error stopping SignalR connection:', err);
-      });
+      void this.stopHubConnection();
       this.hubConnectionState = this.hubConnection.state;
     }
   }
