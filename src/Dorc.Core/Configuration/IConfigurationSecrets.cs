@@ -32,7 +32,7 @@ namespace Dorc.Core.Configuration
         /// caller has to decide what an absent secret means, and for a deployment credential
         /// the answer is to refuse rather than to authenticate as the host account.
         /// </remarks>
-        string GetSecret(string itemId, string humanizedName);
+        string GetSecretByItemId(string itemId, string humanizedName);
 
         /// <summary>
         /// Gets a secret intended for password authentication without retaining its value in a

@@ -44,6 +44,8 @@ export class RequestStatusCard extends LitElement {
   @property({ type: String }) hubConnectionState: string | undefined =
     HubConnectionState.Disconnected;
 
+  @property({ type: Boolean }) autoRefresh = true;
+
   @state()
   buildNumberHref = '';
 
@@ -158,9 +160,9 @@ export class RequestStatusCard extends LitElement {
             </td>
             <td style="vertical-align: middle">
               <connection-status-indicator
-                mode="icon"
+                mode="toggle"
                 .state="${this.hubConnectionState}"
-                .showWhenConnected="${true}"
+                .autoRefresh="${this.autoRefresh}"
               ></connection-status-indicator>
             </td>
             ${
