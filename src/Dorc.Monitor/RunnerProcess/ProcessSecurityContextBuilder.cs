@@ -1,3 +1,4 @@
+using Dorc.ApiModel;
 using System.ComponentModel;
 using Microsoft.Win32.SafeHandles;
 using System.Runtime.InteropServices;
@@ -91,7 +92,7 @@ namespace Dorc.Monitor.RunnerProcess
                 var token = WindowsLogon.LogOn(
                     userName, domain, password, LogonType.NetworkCleartext, LogonProvider.Default);
 
-                this.logger.LogInformation("Logon succeeded.");
+                this.logger.LogInformation("Logon succeeded for account '{Account}'.", LogText.SingleLine(userName));
 
                 return token;
             }
