@@ -79,10 +79,10 @@ namespace Dorc.Core.VariableResolution
                     propertyValue = EvaluatePropertyValue(variableValue);
                 }
 
-                // Expression evaluation compiles and runs C#. It is applied only to values
-                // whose content is administrator-curated: a request-supplied value, or a
-                // curated value that interpolates one, would otherwise let anyone able to
-                // submit a deployment request execute code inside the Monitor process.
+                // Expression evaluation is applied only to values whose content is
+                // administrator-curated. The grammar can no longer run code, but a
+                // request-supplied value, or a curated value that interpolates one, is still
+                // input the requester chose, and it is kept out of the evaluator on principle.
                 if (_requestSuppliedProperties.IsInfluenced(property, RawValueOf))
                 {
                     return propertyValue;
