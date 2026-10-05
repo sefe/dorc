@@ -95,7 +95,7 @@ namespace Dorc.Core.Tests
             _configuration.GetDeploymentCredentialItemId(DeploymentTier.Production, false).Returns("prod-user-item");
             _configuration.GetDeploymentCredentialItemId(DeploymentTier.Production, true).Returns("prod-pass-item");
 
-            _secrets.GetSecret("prod-user-item", Arg.Any<string>()).Returns("svc-prod");
+            _secrets.GetSecretByItemId("prod-user-item", Arg.Any<string>()).Returns("svc-prod");
             _secrets.GetSecureSecret("prod-pass-item", Arg.Any<string>())
                 .Returns(DeploymentCredential.ToSecureString("prod-secret"));
 
@@ -123,7 +123,7 @@ namespace Dorc.Core.Tests
         {
             Assert.IsNull(_source.Resolve(DeploymentTier.NonProduction));
 
-            _secrets.DidNotReceive().GetSecret(Arg.Any<string>(), Arg.Any<string>());
+            _secrets.DidNotReceive().GetSecretByItemId(Arg.Any<string>(), Arg.Any<string>());
             _secrets.DidNotReceive().GetSecureSecret(Arg.Any<string>(), Arg.Any<string>());
         }
 

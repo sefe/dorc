@@ -56,7 +56,7 @@ namespace Dorc.Core.Security
             }
 
             var credential = new DeploymentCredential(
-                _secrets.GetSecret(userNameItem, $"{tier} deployment username"),
+                _secrets.GetSecretByItemId(userNameItem, $"{tier} deployment username"),
                 _secrets.GetSecureSecret(passwordItem, $"{tier} deployment password"));
 
             if (!credential.IsComplete)

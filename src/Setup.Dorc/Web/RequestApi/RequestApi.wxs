@@ -77,6 +77,7 @@
 		<!-- Empty (unset pipeline property) writes "", which the API reads as null =
 		     "separate approver required for production tier" — the fail-safe default. -->
 		<Json:JsonFile Id="TerraformSeparateApproverRequiredApi" ElementPath="$.AppSettings.TerraformSeparateApproverRequired" Value="[DORC.TERRAFORM.SEPARATE.APPROVER.REQUIRED]" File="[#DeployApiWebConfig]" />
+		<Json:JsonFile Id="DeploymentCredentialsFromVaultApi" ElementPath="$.AppSettings.DeploymentCredentialsFromVault" Value="[DORC.DEPLOYMENT.CREDENTIALS.FROM.VAULT]" File="[#DeployApiWebConfig]" />
 
 		<!-- Kafka cluster configuration (S-014: binding path is root $.Kafka.*; AuthMode forced to SaslSsl per-env) -->
 		<Json:JsonFile Id="KafkaEnabledApi" ElementPath="$.Kafka.Enabled" Value="[KAFKA.ENABLED]" File="[#DeployApiWebConfig]" />
@@ -165,6 +166,7 @@
 			<!-- Empty (unset pipeline property) writes "", which the API reads as null =
 			     "separate approver required for production tier" — the fail-safe default. -->
 			<Json:JsonFile Id="TerraformSeparateApproverRequiredApiProd" ElementPath="$.AppSettings.TerraformSeparateApproverRequired" Value="[DORC.TERRAFORM.SEPARATE.APPROVER.REQUIRED]" File="[#DeployApiWebConfig]" />
+			<Json:JsonFile Id="DeploymentCredentialsFromVaultApiProd" ElementPath="$.AppSettings.DeploymentCredentialsFromVault" Value="[DORC.DEPLOYMENT.CREDENTIALS.FROM.VAULT]" File="[#DeployApiWebConfig]" />
 
 			<!-- Kafka cluster configuration (S-014: binding path is root $.Kafka.*; AuthMode forced to SaslSsl per-env) -->
 			<Json:JsonFile Id="KafkaEnabledApiProd" ElementPath="$.Kafka.Enabled" Value="[KAFKA.ENABLED]" File="[#DeployApiWebConfig]" />
