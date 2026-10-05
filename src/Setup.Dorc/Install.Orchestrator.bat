@@ -33,6 +33,8 @@ KAFKA.TOPICS.RESULTSSTATUS="dorc.results.status" ^
 KAFKA.TOPICS.REQUESTSNEWDLQ="dorc.requests.new.dlq" ^
 KAFKA.LOCKS.CONSUMERGROUPID.PROD="dorc.monitor.locks.prod" ^
 KAFKA.LOCKS.CONSUMERGROUPID.NONPROD="dorc.monitor.locks.nonprod" ^
+ALLOWED.ARTEFACT.HOSTS="[]" ^
+ALLOWED.TERRAFORM.SOURCE.HOSTS="[]" ^
 /qb /L*v "%MYDIR%\Setup.Dorc.log"
 
 echo Returncode: %ERRORLEVEL%
