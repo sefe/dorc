@@ -46,9 +46,10 @@ namespace Dorc.Core.Security
                 return null;
             }
 
-            // LocalPath has already had "." and ".." resolved and escapes decoded. A segment
-            // that still reads as traversal was percent-encoded on the way in, which Uri does
-            // not resolve but the file system would - so it is refused rather than compared.
+            // LocalPath has already had "." and ".." resolved - in their percent-encoded forms
+            // too - and escapes decoded. A dot segment that nonetheless survives is refused
+            // rather than compared, as a backstop: nothing that still reads as traversal is
+            // ever shown to be confined.
             var path = uri.LocalPath.Replace('/', '\\').TrimEnd('\\');
 
             if (path.Split('\\').Any(segment => segment == "." || segment == ".."))

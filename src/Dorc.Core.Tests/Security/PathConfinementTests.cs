@@ -98,15 +98,16 @@ namespace Dorc.Core.Tests.Security
         }
 
         /// <summary>
-        /// Uri resolves ".." but leaves "%2e%2e" alone, and then decodes it to ".." in the
-        /// local path - which the file system would resolve. A traversal that survives
-        /// normalisation is refused rather than compared.
+        /// Uri decodes "%2e%2e" and resolves it exactly as it resolves "..", so an encoded
+        /// traversal lands where the plain one does: outside the root, and refused.
         /// </summary>
         [TestMethod]
         public void RejectsPercentEncodedTraversal()
         {
             Assert.IsFalse(PathConfinement.IsWithin(Root + @"\%2e%2e\Scripts.ST\x.ps1", Root));
-            Assert.IsNull(PathConfinement.Canonicalise(Root + @"\%2e%2e\x.ps1"));
+            Assert.AreEqual(
+                PathConfinement.Canonicalise(Root + @"\..\Scripts.ST\x.ps1"),
+                PathConfinement.Canonicalise(Root + @"\%2e%2e\Scripts.ST\x.ps1"));
         }
 
         [TestMethod]
