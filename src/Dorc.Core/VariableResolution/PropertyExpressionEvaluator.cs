@@ -1,12 +1,11 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using Microsoft.Extensions.Logging;
-using Microsoft.CodeAnalysis.CSharp.Scripting;
 
 namespace Dorc.Core.VariableResolution
 {
     public class PropertyExpressionEvaluator : IPropertyExpressionEvaluator
     {
-        // Per-instance, not static. A process-wide cache keyed on expression text outlives
+        // Results of successfully parsed expressions. Per-instance, not static. A process-wide cache keyed on expression text outlives
         // every request in the Monitor, so a value first computed while deploying to one
         // environment was returned unchanged when deploying to another - including from a
         // non-production deployment to a subsequent production one. The resolver constructs
@@ -38,13 +37,46 @@ namespace Dorc.Core.VariableResolution
                         return res;
                     }
 
-                    var resolvedValue = CSharpScript.EvaluateAsync(exp).Result;
+                    // Parsed, not compiled. The C# scripting dependency is gone from this
+                    // assembly: an estate inventory found every one of the 11 distinct
+                    // expressions in use to be a string literal followed by a chain of
+                    // lower-casing, upper-casing and replacement, which is a parser's job.
+                    string resolvedValue;
+                    try
+                    {
+                        resolvedValue = PropertyExpressionGrammar.Evaluate(exp);
+                    }
+                    catch (PropertyExpressionParseException parseFailure)
+                    {
+                        // Fail closed. Never fall back to compilation - that fallback would be
+                        // the weakness this step removes, and it is the only thing containing
+                        // the part of the inventory that could not be examined, since secure
+                        // configuration values are encrypted at rest and do reach here.
+                        //
+                        // The expression itself is not logged: it is a resolved property value
+                        // and may be a secret. The parse failure names the shape of the failure
+                        // and where in the expression it occurred, and nothing else.
+                        _logger.LogError("A property expression could not be parsed and was not evaluated.");
+
+                        throw new PropertyExpressionEvaluationException(
+                            $"A property expression could not be parsed and was not evaluated: {parseFailure.Message}",
+                            parseFailure);
+                    }
+
                     _compiledResults[exp] = resolvedValue;
                     return resolvedValue;
                 }
             }
 
             return value;
+        }
+    }
+
+    public sealed class PropertyExpressionEvaluationException : InvalidOperationException
+    {
+        public PropertyExpressionEvaluationException(string message, Exception innerException)
+            : base(message, innerException)
+        {
         }
     }
 }
