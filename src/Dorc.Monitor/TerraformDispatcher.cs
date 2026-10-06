@@ -9,6 +9,7 @@ using Dorc.Monitor.RunnerProcess;
 using Dorc.Monitor.RunnerProcess.Interop.Windows.Kernel32;
 using Dorc.Monitor.Security;
 using Dorc.Monitor.TerraformSourceConfig;
+using Dorc.PersistentData.Security;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -47,7 +48,8 @@ namespace Dorc.Monitor
             IScriptGroupPipeServer scriptGroupPipeServer,
             IAzureStorageAccountWorker azureStorageAccountWorker,
             IProjectsPersistentSource projectsPersistentSource,
-            IGitHubHostValidator gitHubHostValidator)
+            IGitHubHostValidator gitHubHostValidator,
+            ISourceHostAllowList sourceHostAllowList)
         {
             this.logger = logger;
             this._requestsPersistentSource = requestsPersistentSource;
@@ -57,7 +59,7 @@ namespace Dorc.Monitor
             this._scriptGroupPipeServer = scriptGroupPipeServer;
             this._azureStorageAccountWorker = azureStorageAccountWorker;
             this._projectsPersistentSource = projectsPersistentSource;
-            this._sourceConfigurator = new TerraformSourceConfigurator(logger, _configurationSettingsEngine, gitHubHostValidator);
+            this._sourceConfigurator = new TerraformSourceConfigurator(logger, _configurationSettingsEngine, gitHubHostValidator, sourceHostAllowList);
         }
 
         public bool Dispatch(

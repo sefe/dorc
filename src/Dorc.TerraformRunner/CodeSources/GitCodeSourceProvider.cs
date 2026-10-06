@@ -1,4 +1,4 @@
-using Dorc.ApiModel;
+﻿using Dorc.ApiModel;
 using Dorc.Runner.Logger;
 using LibGit2Sharp;
 using Microsoft.Extensions.Logging;
@@ -32,16 +32,16 @@ namespace Dorc.TerraformRunner.CodeSources
             
             _logger.Information($"Cloning Git repository '{scriptGroup.TerraformGitRepoUrl}' branch '{branchName}'");
 
-            // Determine if this is GitHub or Azure DevOps
-            bool isGitHub = scriptGroup.TerraformGitRepoUrl.Contains("github.com", StringComparison.OrdinalIgnoreCase);
-            bool isAzureDevOps = scriptGroup.TerraformGitRepoUrl.Contains("dev.azure.com", StringComparison.OrdinalIgnoreCase) ||
-                                 scriptGroup.TerraformGitRepoUrl.Contains("visualstudio.com", StringComparison.OrdinalIgnoreCase);
+            var isGitHub = IsHost(scriptGroup.TerraformGitRepoUrl, "github.com");
+            var isAzureDevOps = IsHost(scriptGroup.TerraformGitRepoUrl, "dev.azure.com")
+                || IsHost(scriptGroup.TerraformGitRepoUrl, "visualstudio.com");
 
             await Task.Run(() =>
             {
                 var cloneOptions = new CloneOptions();
                 cloneOptions.BranchName = branchName;
-                cloneOptions.FetchOptions.CredentialsProvider = (_url, _user, _cred) => CreateCredentials(scriptGroup, isGitHub, isAzureDevOps);
+                cloneOptions.FetchOptions.CredentialsProvider = (url, _user, _cred) =>
+                    CreateCredentials(scriptGroup, url, isGitHub, isAzureDevOps);
                 cloneOptions.FetchOptions.OnProgress = (serverProgressOutput) =>
                 {
                     _logger.FileLogger.LogDebug($"Git clone progress: {serverProgressOutput}");
@@ -60,8 +60,35 @@ namespace Dorc.TerraformRunner.CodeSources
             }, cancellationToken);
         }
 
-        private UsernamePasswordCredentials CreateCredentials(ScriptGroup scriptGroup, bool isGitHub, bool isAzureDevOps)
+        /// <summary>
+        /// Supplies the credential libgit2 asks for - but only for the repository this clone was
+        /// asked to perform.
+        ///
+        /// The url argument was previously ignored, and libgit2 calls this back for every URL it
+        /// authenticates against during a clone, redirect targets included. A repository that
+        /// redirected elsewhere therefore collected the Terraform PAT or the Entra access token,
+        /// neither of which is scoped to a repository, without the redirect ever appearing in
+        /// project configuration for anyone to notice.
+        ///
+        /// The whole origin is compared - scheme, host and port - not just the host. A same-host
+        /// redirect from https to http would otherwise carry the credential across a plaintext
+        /// connection.
+        /// </summary>
+        internal UsernamePasswordCredentials CreateCredentials(
+            ScriptGroup scriptGroup, string url, bool isGitHub, bool isAzureDevOps)
         {
+            var requested = OriginOf(url);
+            var expected = OriginOf(scriptGroup.TerraformGitRepoUrl);
+
+            if (requested == null || expected == null
+                || !string.Equals(requested, expected, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(
+                    $"Refusing to authenticate to '{url}': it is not the configured Terraform repository"
+                    + " origin (scheme, host and port). Credentials are supplied only to the repository"
+                    + " the deployment names.");
+            }
+
             // For GitHub and Azure DevOps Git, PAT is used as username with empty password
             // or as password with any username (both work)
             if (!string.IsNullOrEmpty(scriptGroup.TerraformGitPat))
@@ -84,6 +111,26 @@ namespace Dorc.TerraformRunner.CodeSources
             }
 
             throw new InvalidOperationException("No valid credentials found for Git authentication.");
+        }
+
+        internal static bool IsHost(string? url, string host) => SourceHost.Is(url, host);
+
+        /// <summary>
+        /// The origin - scheme, host and explicit non-default port - or null when the URL names
+        /// no host. Default ports are normalised away, so https://host and https://host:443 are
+        /// the same origin.
+        /// </summary>
+        private static string? OriginOf(string? url)
+        {
+            if (!Uri.TryCreate(url?.Trim(), UriKind.Absolute, out var uri)
+                || string.IsNullOrEmpty(uri.Host))
+            {
+                return null;
+            }
+
+            return uri.IsDefaultPort
+                ? $"{uri.Scheme}://{uri.Host}"
+                : $"{uri.Scheme}://{uri.Host}:{uri.Port}";
         }
 
         private string SanitizeGitParameter(string parameter)
