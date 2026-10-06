@@ -142,6 +142,10 @@
       "DeployProperty": "DORC_TERRAFORM_SEPARATE_APPROVER_REQUIRED"
     },
     {
+      "MSIParameter": "DORC.ENFORCE.SCRIPT.PATH.CONFINEMENT",
+      "DeployProperty": "DORC_ENFORCE_SCRIPT_PATH_CONFINEMENT"
+    },
+    {
       "MSIParameter": "DORC.OAUTH.AUTHORITY",
       "DeployProperty": "DORC_OAUTH_AUTHORITY"
     },
