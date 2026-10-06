@@ -8708,6 +8708,10 @@
           "IsForProd": {
             "type": "boolean",
             "nullable": true
+          },
+          "VisibleToScripts": {
+            "type": "boolean",
+            "nullable": true
           }
         },
         "additionalProperties": false

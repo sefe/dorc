@@ -47,7 +47,7 @@ Four rules determine the order below. They are stated up front because several a
 | ⚙ S-016 | Remediate off-share script paths | SD-5 precondition | **Worklist queries delivered** (`S-016-off-share-script-paths.sql`); operator-executed |
 | S-017 | Confine script paths at dispatch | SD-5, W-5, SC-05 | **DONE** — reports by default, enforce after S-016 |
 | S-018 | Verify script content at the point of read | SD-5, W-5, SC-05 | S-017, U-14; **lockstep release** |
-| S-019 | Introduce config-value visibility classification | SD-3b, W-4 | **Server side DONE**; web UI outstanding, see the step |
+| S-019 | Introduce config-value visibility classification | SD-3b, W-4 | **DONE** — server and web UI |
 | S-020 | Introduce the credential provider abstraction | SD-4 | **DONE** |
 | S-021 | Bind execution identity to the environment | SD-4, W-6, W-15, SC-07, W-8a | **DONE** — opt-in per environment; W-8a closed here |
 | S-022 | Record attribution reached and not reached | SD-8, W-9 | **DONE** — `S-022-attribution-reached-and-not-reached.md` |
@@ -414,9 +414,17 @@ Everything in it is read-only except a remediation template that is commented ou
 
 **Verification intent.** An existing value's behaviour is unchanged until an administrator changes its classification. A newly created secure value is hidden by default. A hidden value does not appear in the serialized script group. The administrative surface is reachable only by administrators.
 
-**Delivered server side; the web UI is not done.** Schema, entity, API model, persistence and enforcement are complete, and the classification is maintainable through the existing `RefDataConfig` endpoints — which already gate every write on `IsAdmin`, so the "reachable only by administrators" criterion needed no new code. What is missing is the *convenient* surface: a column on the config values page and a control on the create form.
+**Delivered server side first; the web UI followed.** Schema, entity, API model, persistence and enforcement are complete, and the classification is maintainable through the existing `RefDataConfig` endpoints — which already gate every write on `IsAdmin`, so the "reachable only by administrators" criterion needed no new code. What is missing is the *convenient* surface: a column on the config values page and a control on the create form.
 
-That half needs the generated TypeScript API client regenerated from the OpenAPI document — `dorc-web/src/apis/dorc-api/models/ConfigValueApiModel.ts` carries a "do not edit manually" banner, and hand-editing generated output is how a client and a contract drift apart. The step is usable without it: an administrator can set the classification over the API today.
+That half needed the generated TypeScript API client regenerated from the OpenAPI document — `dorc-web/src/apis/dorc-api/models/ConfigValueApiModel.ts` carries a "do not edit manually" banner, and hand-editing generated output is how a client and a contract drift apart. The field was added to the checked-in `swagger.json` and the model regenerated from it; the build verifies on every run that the committed client matches what the committed document generates, so the two cannot drift without the build saying so. The field is nullable in both, following the API model: an update that leaves it out changes nothing.
+
+**The UI half.** A "Visible To Scripts" column on the config values page and a control on the create form, both administrator-gated like the existing classifications. Two decisions worth stating.
+
+The checkbox is readable on every row but changeable only on secure ones. A non-secure value is ordinary configuration, visible to scripts by definition, and the server forces the flag true when one is created — an editable control there would suggest a restriction that does not exist.
+
+The create form defaults it **off**, matching the server's asymmetry: a new secure value is hidden from script scope unless its creator says otherwise, while existing values default the other way in the column default. Defaulting the form the other way would make every newly-added credential readable by every deployment script the moment it was created.
+
+**The reserved-key list is not duplicated into the UI.** A value on that list is withheld from script scope whatever the checkbox says, and the server is where that is decided. Showing it per row would need either an endpoint exposing the list or a second copy of it in the client — and a second copy of a security decision is a second place for it to drift. The residual is that an administrator can tick "visible" on a reserved key and see it stay ticked while the value remains withheld; the display misleads, the enforcement does not. Recorded rather than closed.
 
 **The asymmetric default is what makes this shippable.** Existing values default to visible, in the column default, so adding the column changes no deployment's behaviour on upgrade. New *secure* values are created hidden. A symmetric default would force a choice between breaking deployments on day one and shipping a control that protects nothing new.
 
