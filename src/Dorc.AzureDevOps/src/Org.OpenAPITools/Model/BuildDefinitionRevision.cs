@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// Represents a revision of a build definition.
     /// </summary>
     [DataContract(Name = "BuildDefinitionRevision")]
-    public partial class BuildDefinitionRevision : IEquatable<BuildDefinitionRevision>, IValidatableObject
+    public partial class BuildDefinitionRevision : IValidatableObject
     {
         /// <summary>
         /// The change type (add, edit, delete).
@@ -56,7 +56,6 @@ namespace Org.OpenAPITools.Model
             /// </summary>
             [EnumMember(Value = "delete")]
             Delete = 3
-
         }
 
 
@@ -76,7 +75,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="definitionUrl">A link to the definition at this revision..</param>
         /// <param name="name">The name of the definition..</param>
         /// <param name="revision">The revision number..</param>
-        public BuildDefinitionRevision(IdentityRef changedBy = default(IdentityRef), DateTime changedDate = default(DateTime), ChangeTypeEnum? changeType = default(ChangeTypeEnum?), string comment = default(string), string definitionUrl = default(string), string name = default(string), int revision = default(int))
+        public BuildDefinitionRevision(IdentityRef changedBy = default, DateTime changedDate = default, ChangeTypeEnum? changeType = default, string comment = default, string definitionUrl = default, string name = default, int revision = default)
         {
             this.ChangedBy = changedBy;
             this.ChangedDate = changedDate;
@@ -157,103 +156,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as BuildDefinitionRevision);
-        }
-
-        /// <summary>
-        /// Returns true if BuildDefinitionRevision instances are equal
-        /// </summary>
-        /// <param name="input">Instance of BuildDefinitionRevision to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(BuildDefinitionRevision input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.ChangedBy == input.ChangedBy ||
-                    (this.ChangedBy != null &&
-                    this.ChangedBy.Equals(input.ChangedBy))
-                ) && 
-                (
-                    this.ChangedDate == input.ChangedDate ||
-                    (this.ChangedDate != null &&
-                    this.ChangedDate.Equals(input.ChangedDate))
-                ) && 
-                (
-                    this.ChangeType == input.ChangeType ||
-                    this.ChangeType.Equals(input.ChangeType)
-                ) && 
-                (
-                    this.Comment == input.Comment ||
-                    (this.Comment != null &&
-                    this.Comment.Equals(input.Comment))
-                ) && 
-                (
-                    this.DefinitionUrl == input.DefinitionUrl ||
-                    (this.DefinitionUrl != null &&
-                    this.DefinitionUrl.Equals(input.DefinitionUrl))
-                ) && 
-                (
-                    this.Name == input.Name ||
-                    (this.Name != null &&
-                    this.Name.Equals(input.Name))
-                ) && 
-                (
-                    this.Revision == input.Revision ||
-                    this.Revision.Equals(input.Revision)
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.ChangedBy != null)
-                {
-                    hashCode = (hashCode * 59) + this.ChangedBy.GetHashCode();
-                }
-                if (this.ChangedDate != null)
-                {
-                    hashCode = (hashCode * 59) + this.ChangedDate.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.ChangeType.GetHashCode();
-                if (this.Comment != null)
-                {
-                    hashCode = (hashCode * 59) + this.Comment.GetHashCode();
-                }
-                if (this.DefinitionUrl != null)
-                {
-                    hashCode = (hashCode * 59) + this.DefinitionUrl.GetHashCode();
-                }
-                if (this.Name != null)
-                {
-                    hashCode = (hashCode * 59) + this.Name.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.Revision.GetHashCode();
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

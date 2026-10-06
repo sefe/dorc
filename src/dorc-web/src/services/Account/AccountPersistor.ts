@@ -1,5 +1,6 @@
 import { UserApiModel } from '../../apis/dorc-api/models';
 import { RefDataUsersApi } from '../../apis/dorc-api';
+import { dorcApiConfiguration } from '../dorc-api-configuration';
 
 type SavedUserOrGroupSuccessCallback = (savedUserOrGroup: UserApiModel) => void;
 type SavedUserOrGroupFailureCallback = (error: any) => void;
@@ -12,7 +13,7 @@ export class AccountPersistor {
     failureCallback: SavedUserOrGroupFailureCallback,
     completionCallback: SavedUserOrGroupCompletionCallback
   ): void {
-    const api = new RefDataUsersApi();
+    const api = new RefDataUsersApi(dorcApiConfiguration);
     api.refDataUsersPost({ userApiModel: userOrGroup }).subscribe({
       next: (value: UserApiModel) => successCallback(value),
       error: (err: any) => {

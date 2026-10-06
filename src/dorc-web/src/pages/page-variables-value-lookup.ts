@@ -1,36 +1,28 @@
-import '@polymer/paper-dialog';
+import { columnBodyRenderer, columnHeaderRenderer } from '@vaadin/grid/lit';
+import '../components/dorc-spinner';
 import '@vaadin/button';
-import {
-  GridDataProviderCallback,
-  GridDataProviderParams,
-  GridItemModel,
-  GridSorterDefinition
-} from '@vaadin/grid';
+import { GridDataProviderCallback, GridDataProviderParams, GridSorterDefinition } from '@vaadin/grid';
 import '@vaadin/grid/vaadin-grid';
-import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid-sorter';
 import '@vaadin/horizontal-layout';
 import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
 import '@vaadin/text-field';
-import { css, PropertyValues, render } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
+import { css, PropertyValues } from 'lit';
+import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import '../components/add-daemon';
-import {
-  FlatPropertyValueApiModel,
-  GetScopedPropertyValuesResponseDto,
-  PagedDataSorting,
-  RefDataSearchPropertyValuesApi
-} from '../apis/dorc-api';
+import { FlatPropertyValueApiModel, GetScopedPropertyValuesResponseDto, PagedDataSorting, RefDataSearchPropertyValuesApi } from '../apis/dorc-api';
 import { PagedDataFilter, PropertyValueAuditApiModel } from '../apis/dorc-api';
 import { PageElement } from '../helpers/page-element';
+import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import '../components/grid-button-groups/variable-value-controls';
 import { PropertyValueDto } from '../apis/dorc-api';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('page-variables-value-lookup')
-export class PageVariablesValueLookup extends PageElement {
+export class PageVariablesValueLookup extends ResponsiveMixin(PageElement) {
   @property({ type: Array })
   variableValues: Array<FlatPropertyValueApiModel> = [];
 
@@ -42,56 +34,27 @@ export class PageVariablesValueLookup extends PageElement {
   private scopeFilterValue = '';
   private valueFilterValue = '';
 
+  @state() private _editingValueId: number | undefined;
+
   @property({ type: Boolean }) loading = true;
 
   @property({ type: Boolean }) searching = false;
 
   static get styles() {
     return css`
-      vaadin-grid#grid {
+      :host {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
         overflow: hidden;
-        height: calc(100vh - 56px);
-        --divider-color: rgb(223, 232, 239);
+        --divider-color: var(--dorc-border-color);
       }
-      .overlay {
-        width: 100%;
-        height: 100%;
-        position: fixed;
-      }
-      .overlay__inner {
-        width: 100%;
-        height: 100%;
-        position: absolute;
-      }
-      .overlay__content {
-        left: 20%;
-        position: absolute;
-        top: 20%;
-        transform: translate(-50%, -50%);
-      }
-      .spinner {
-        width: 75px;
-        height: 75px;
-        display: inline-block;
-        border-width: 2px;
-        border-color: rgba(255, 255, 255, 0.05);
-        border-top-color: cornflowerblue;
-        animation: spin 1s infinite linear;
-        border-radius: 100%;
-        border-style: solid;
-      }
-      @keyframes spin {
-        100% {
-          transform: rotate(360deg);
-        }
-      }
-      paper-dialog.size-position {
-        top: 16px;
-        overflow: auto;
-        padding: 10px;
+      vaadin-grid#grid {
+        flex: 1;
+        min-height: 0;
       }
       .highlight {
-        background-color: #b4d5ff;
+        background-color: var(--dorc-chip-bg);
       }
       vaadin-grid#grid {
         overflow: hidden;
@@ -105,22 +68,19 @@ export class PageVariablesValueLookup extends PageElement {
         padding-bottom: 0px;
         margin: 0px;
       }
+      @media (max-width: 768px) {
+        vaadin-grid-cell-content {
+          white-space: normal;
+          word-wrap: break-word;
+          overflow-wrap: break-word;
+        }
+      }
     `;
   }
 
   render() {
     return html`
-      <div
-        class="overlay"
-        style="z-index: 1000"
-        ?hidden="${!(this.loading || this.searching)}"
-      >
-        <div class="overlay__inner">
-          <div class="overlay__content">
-            <span class="spinner"></span>
-          </div>
-        </div>
-      </div>
+      <dorc-spinner style="--dorc-spinner-z-index: 1000" ?hidden="${!(this.loading || this.searching)}"></dorc-spinner>
       <vaadin-grid
         id="grid"
         column-reordering-allowed
@@ -131,21 +91,24 @@ export class PageVariablesValueLookup extends PageElement {
       >
         <vaadin-grid-column
           path="Property"
-          .headerRenderer="${this.nameHeaderRenderer}"
+          ${columnHeaderRenderer(this.nameHeaderRenderer, [])}
           resizable
           auto-width
         >
         </vaadin-grid-column>
         <vaadin-grid-column
           path="PropertyValueScope"
-          .headerRenderer="${this.scopeHeaderRenderer}"
+          ${columnHeaderRenderer(this.scopeHeaderRenderer, [])}
           resizable
           auto-width
+          ?hidden="${this._narrowScreen}"
         ></vaadin-grid-column>
         <vaadin-grid-column
           header="Value"
-          .renderer="${this.valueRenderer}"
-          .headerRenderer="${this.valueHeaderRenderer}"
+          ${columnBodyRenderer(this.valueRenderer, [
+                    this._editingValueId
+                  ])}
+          ${columnHeaderRenderer(this.valueHeaderRenderer, [])}
           resizable
           width="60em"
         ></vaadin-grid-column>
@@ -167,6 +130,12 @@ export class PageVariablesValueLookup extends PageElement {
     );
 
     this.addEventListener('values-loaded', this.valuesLoaded as EventListener);
+    this.addEventListener('editing-started', ((e: CustomEvent) => {
+      this._editingValueId = e.detail.id;
+    }) as EventListener);
+    this.addEventListener('editing-cancelled', (() => {
+      this._editingValueId = undefined;
+    }) as EventListener);
   }
 
   private searchingValuesStarted() {
@@ -181,34 +150,31 @@ export class PageVariablesValueLookup extends PageElement {
     this.loading = false;
   }
 
-  valueRenderer(
-    root: HTMLElement,
-    _column: GridColumn,
-    model: GridItemModel<FlatPropertyValueApiModel>
-  ) {
+  valueRenderer = (
+    item: FlatPropertyValueApiModel
+  ) => {
     const converted: PropertyValueDto = {
-      Id: model.item.PropertyValueId,
-      Value: model.item.PropertyValue,
-      PropertyValueFilter: model.item.PropertyValueScope,
-      PropertyValueFilterId: model.item.PropertyValueScopeId,
-      UserEditable: model.item.UserEditable,
+      Id: item.PropertyValueId,
+      Value: item.PropertyValue,
+      PropertyValueFilter: item.PropertyValueScope,
+      PropertyValueFilterId: item.PropertyValueScopeId,
+      UserEditable: item.UserEditable,
       Property: {
-        Id: model.item.PropertyId,
-        Name: model.item.Property,
-        Secure: model.item.Secure
+        Id: item.PropertyId,
+        Name: item.Property,
+        Secure: item.Secure
       }
     };
 
-    render(
-      html`<variable-value-controls .value="${converted}">
-      </variable-value-controls>`,
-      root
-    );
-  }
+    return html`<variable-value-controls
+        .value="${converted}"
+        .editing="${converted.Id === this._editingValueId}"
+      >
+      </variable-value-controls>`;
+  };
 
-  nameHeaderRenderer = (root: HTMLElement) => {
-    render(
-      html`
+  nameHeaderRenderer = () => {
+    return html`
         <vaadin-horizontal-layout style="align-items: center;" theme="spacing-xs">
           <vaadin-grid-sorter path="Property"></vaadin-grid-sorter>
           <vaadin-text-field
@@ -224,14 +190,11 @@ export class PageVariablesValueLookup extends PageElement {
             }}"
           ></vaadin-text-field>
         </vaadin-horizontal-layout>
-      `,
-      root
-    );
+      `;
   }
 
-  scopeHeaderRenderer = (root: HTMLElement) => {
-    render(
-      html`
+  scopeHeaderRenderer = () => {
+    return html`
         <vaadin-horizontal-layout style="align-items: center;" theme="spacing-xs">
           <vaadin-grid-sorter path="PropertyValueScope"></vaadin-grid-sorter>
           <vaadin-text-field
@@ -247,14 +210,11 @@ export class PageVariablesValueLookup extends PageElement {
             }}"
           ></vaadin-text-field>
         </vaadin-horizontal-layout>
-      `,
-      root
-    );
+      `;
   }
 
-  valueHeaderRenderer = (root: HTMLElement) => {
-    render(
-      html`
+  valueHeaderRenderer = () => {
+    return html`
         <vaadin-horizontal-layout style="align-items: center;" theme="spacing-xs">
           <vaadin-grid-sorter path="PropertyValue"></vaadin-grid-sorter>
           <vaadin-text-field
@@ -270,9 +230,7 @@ export class PageVariablesValueLookup extends PageElement {
             }}"
           ></vaadin-text-field>
         </vaadin-horizontal-layout>
-      `,
-      root
-    );
+      `;
   }
 
   private refreshGrid() {
@@ -302,7 +260,7 @@ export class PageVariablesValueLookup extends PageElement {
       filters.push({ Path: 'PropertyValue', FilterValue: this.valueFilterValue });
     }
 
-    const api = new RefDataSearchPropertyValuesApi();
+    const api = new RefDataSearchPropertyValuesApi(dorcApiConfiguration);
     api
       .refDataSearchPropertyValuesPut({
         pagedDataOperators: {

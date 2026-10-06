@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// WorkspaceTemplate
     /// </summary>
     [DataContract(Name = "WorkspaceTemplate")]
-    public partial class WorkspaceTemplate : IEquatable<WorkspaceTemplate>, IValidatableObject
+    public partial class WorkspaceTemplate : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="WorkspaceTemplate" /> class.
@@ -40,7 +40,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="lastModifiedDate">The last time this template was modified.</param>
         /// <param name="mappings">List of workspace mappings.</param>
         /// <param name="workspaceId">Id of the workspace for this template.</param>
-        public WorkspaceTemplate(string definitionUri = default(string), string lastModifiedBy = default(string), DateTime lastModifiedDate = default(DateTime), List<WorkspaceMapping> mappings = default(List<WorkspaceMapping>), int workspaceId = default(int))
+        public WorkspaceTemplate(string definitionUri = default, string lastModifiedBy = default, DateTime lastModifiedDate = default, List<WorkspaceMapping> mappings = default, int workspaceId = default)
         {
             this.DefinitionUri = definitionUri;
             this.LastModifiedBy = lastModifiedBy;
@@ -111,90 +111,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as WorkspaceTemplate);
-        }
-
-        /// <summary>
-        /// Returns true if WorkspaceTemplate instances are equal
-        /// </summary>
-        /// <param name="input">Instance of WorkspaceTemplate to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(WorkspaceTemplate input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.DefinitionUri == input.DefinitionUri ||
-                    (this.DefinitionUri != null &&
-                    this.DefinitionUri.Equals(input.DefinitionUri))
-                ) && 
-                (
-                    this.LastModifiedBy == input.LastModifiedBy ||
-                    (this.LastModifiedBy != null &&
-                    this.LastModifiedBy.Equals(input.LastModifiedBy))
-                ) && 
-                (
-                    this.LastModifiedDate == input.LastModifiedDate ||
-                    (this.LastModifiedDate != null &&
-                    this.LastModifiedDate.Equals(input.LastModifiedDate))
-                ) && 
-                (
-                    this.Mappings == input.Mappings ||
-                    this.Mappings != null &&
-                    input.Mappings != null &&
-                    this.Mappings.SequenceEqual(input.Mappings)
-                ) && 
-                (
-                    this.WorkspaceId == input.WorkspaceId ||
-                    this.WorkspaceId.Equals(input.WorkspaceId)
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.DefinitionUri != null)
-                {
-                    hashCode = (hashCode * 59) + this.DefinitionUri.GetHashCode();
-                }
-                if (this.LastModifiedBy != null)
-                {
-                    hashCode = (hashCode * 59) + this.LastModifiedBy.GetHashCode();
-                }
-                if (this.LastModifiedDate != null)
-                {
-                    hashCode = (hashCode * 59) + this.LastModifiedDate.GetHashCode();
-                }
-                if (this.Mappings != null)
-                {
-                    hashCode = (hashCode * 59) + this.Mappings.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.WorkspaceId.GetHashCode();
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

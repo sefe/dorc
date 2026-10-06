@@ -59,4 +59,16 @@
     </xsl:attribute>
   </xsl:template>
 
+  <xsl:template match="wix:File[@Source='$(var.ToolsPVCDir)\appsettings.json']/@Id">
+    <xsl:attribute name="{name()}">
+      <xsl:value-of select="'PropertyValueCreationConfig'" />
+    </xsl:attribute>
+  </xsl:template>
+
+  <xsl:template match="wix:File[@Source='$(var.ToolsEMDir)\appsettings.json']/@Id">
+    <xsl:attribute name="{name()}">
+      <xsl:value-of select="'EncryptionMigrationConfig'" />
+    </xsl:attribute>
+  </xsl:template>
+
 </xsl:stylesheet>

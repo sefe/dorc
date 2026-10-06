@@ -18,7 +18,7 @@ All URIs are relative to *https://dev.azure.com*
 | [**BuildsUpdateBuild**](BuildsApi.md#buildsupdatebuild) | **PATCH** /{organization}/{project}/_apis/build/builds/{buildId} |  |
 | [**BuildsUpdateBuilds**](BuildsApi.md#buildsupdatebuilds) | **PATCH** /{organization}/{project}/_apis/build/builds |  |
 
-<a name="buildsdelete"></a>
+<a id="buildsdelete"></a>
 # **BuildsDelete**
 > void BuildsDelete (string organization, string project, int buildId, string apiVersion)
 
@@ -112,7 +112,7 @@ void (empty response body)
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-<a name="buildsget"></a>
+<a id="buildsget"></a>
 # **BuildsGet**
 > Build BuildsGet (string organization, string project, int buildId, string apiVersion, string? propertyFilters = null)
 
@@ -212,7 +212,7 @@ catch (ApiException e)
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-<a name="buildsgetbuildchanges"></a>
+<a id="buildsgetbuildchanges"></a>
 # **BuildsGetBuildChanges**
 > List&lt;Change&gt; BuildsGetBuildChanges (string organization, string project, int buildId, string apiVersion, string? continuationToken = null, int? top = null, bool? includeSourceChange = null)
 
@@ -316,7 +316,7 @@ catch (ApiException e)
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-<a name="buildsgetbuildlog"></a>
+<a id="buildsgetbuildlog"></a>
 # **BuildsGetBuildLog**
 > string BuildsGetBuildLog (string organization, string project, int buildId, int logId, string apiVersion, long? startLine = null, long? endLine = null)
 
@@ -420,7 +420,7 @@ catch (ApiException e)
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-<a name="buildsgetbuildlogs"></a>
+<a id="buildsgetbuildlogs"></a>
 # **BuildsGetBuildLogs**
 > List&lt;BuildLog&gt; BuildsGetBuildLogs (string organization, string project, int buildId, string apiVersion)
 
@@ -518,7 +518,7 @@ catch (ApiException e)
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-<a name="buildsgetbuildworkitemsrefs"></a>
+<a id="buildsgetbuildworkitemsrefs"></a>
 # **BuildsGetBuildWorkItemsRefs**
 > List&lt;ResourceRef&gt; BuildsGetBuildWorkItemsRefs (string organization, string project, int buildId, string apiVersion, int? top = null)
 
@@ -618,7 +618,7 @@ catch (ApiException e)
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-<a name="buildsgetbuildworkitemsrefsfromcommits"></a>
+<a id="buildsgetbuildworkitemsrefsfromcommits"></a>
 # **BuildsGetBuildWorkItemsRefsFromCommits**
 > List&lt;ResourceRef&gt; BuildsGetBuildWorkItemsRefsFromCommits (string organization, string project, int buildId, string apiVersion, List<string> body, int? top = null)
 
@@ -720,7 +720,7 @@ catch (ApiException e)
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-<a name="buildsgetchangesbetweenbuilds"></a>
+<a id="buildsgetchangesbetweenbuilds"></a>
 # **BuildsGetChangesBetweenBuilds**
 > List&lt;Change&gt; BuildsGetChangesBetweenBuilds (string organization, string project, string apiVersion, int? fromBuildId = null, int? toBuildId = null, int? top = null)
 
@@ -822,7 +822,7 @@ catch (ApiException e)
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-<a name="buildsgetworkitemsbetweenbuilds"></a>
+<a id="buildsgetworkitemsbetweenbuilds"></a>
 # **BuildsGetWorkItemsBetweenBuilds**
 > List&lt;ResourceRef&gt; BuildsGetWorkItemsBetweenBuilds (string organization, string project, int fromBuildId, int toBuildId, string apiVersion, int? top = null)
 
@@ -925,7 +925,7 @@ catch (ApiException e)
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-<a name="buildslist"></a>
+<a id="buildslist"></a>
 # **BuildsList**
 > List&lt;Build&gt; BuildsList (string organization, string project, string apiVersion, string? definitions = null, string? queues = null, string? buildNumber = null, DateTime? minTime = null, DateTime? maxTime = null, string? requestedFor = null, string? reasonFilter = null, string? statusFilter = null, string? resultFilter = null, string? tagFilters = null, string? properties = null, int? top = null, string? continuationToken = null, int? maxBuildsPerDefinition = null, string? deletedFilter = null, string? queryOrder = null, string? branchName = null, string? buildIds = null, string? repositoryId = null, string? repositoryType = null)
 
@@ -1061,7 +1061,7 @@ catch (ApiException e)
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-<a name="buildsqueue"></a>
+<a id="buildsqueue"></a>
 # **BuildsQueue**
 > Build BuildsQueue (string organization, string project, string apiVersion, Build body, bool? ignoreWarnings = null, string? checkInTicket = null, int? sourceBuildId = null, int? definitionId = null)
 
@@ -1167,7 +1167,7 @@ catch (ApiException e)
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-<a name="buildsupdatebuild"></a>
+<a id="buildsupdatebuild"></a>
 # **BuildsUpdateBuild**
 > Build BuildsUpdateBuild (string organization, string project, int buildId, string apiVersion, Build body, bool? retry = null)
 
@@ -1269,7 +1269,7 @@ catch (ApiException e)
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-<a name="buildsupdatebuilds"></a>
+<a id="buildsupdatebuilds"></a>
 # **BuildsUpdateBuilds**
 > List&lt;Build&gt; BuildsUpdateBuilds (string organization, string project, string apiVersion, List<Build> body)
 

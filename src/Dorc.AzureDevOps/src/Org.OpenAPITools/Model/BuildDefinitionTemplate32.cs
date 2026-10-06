@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// For back-compat with extensions that use the old Steps format instead of Process and Phases
     /// </summary>
     [DataContract(Name = "BuildDefinitionTemplate3_2")]
-    public partial class BuildDefinitionTemplate32 : IEquatable<BuildDefinitionTemplate32>, IValidatableObject
+    public partial class BuildDefinitionTemplate32 : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="BuildDefinitionTemplate32" /> class.
@@ -44,7 +44,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="id">id.</param>
         /// <param name="name">name.</param>
         /// <param name="template">template.</param>
-        public BuildDefinitionTemplate32(bool canDelete = default(bool), string category = default(string), string defaultHostedQueue = default(string), string description = default(string), Dictionary<string, string> icons = default(Dictionary<string, string>), Guid iconTaskId = default(Guid), string id = default(string), string name = default(string), BuildDefinition32 template = default(BuildDefinition32))
+        public BuildDefinitionTemplate32(bool canDelete = default, string category = default, string defaultHostedQueue = default, string description = default, Dictionary<string, string> icons = default, Guid iconTaskId = default, string id = default, string name = default, BuildDefinition32 template = default)
         {
             this.CanDelete = canDelete;
             this.Category = category;
@@ -142,126 +142,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as BuildDefinitionTemplate32);
-        }
-
-        /// <summary>
-        /// Returns true if BuildDefinitionTemplate32 instances are equal
-        /// </summary>
-        /// <param name="input">Instance of BuildDefinitionTemplate32 to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(BuildDefinitionTemplate32 input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.CanDelete == input.CanDelete ||
-                    this.CanDelete.Equals(input.CanDelete)
-                ) && 
-                (
-                    this.Category == input.Category ||
-                    (this.Category != null &&
-                    this.Category.Equals(input.Category))
-                ) && 
-                (
-                    this.DefaultHostedQueue == input.DefaultHostedQueue ||
-                    (this.DefaultHostedQueue != null &&
-                    this.DefaultHostedQueue.Equals(input.DefaultHostedQueue))
-                ) && 
-                (
-                    this.Description == input.Description ||
-                    (this.Description != null &&
-                    this.Description.Equals(input.Description))
-                ) && 
-                (
-                    this.Icons == input.Icons ||
-                    this.Icons != null &&
-                    input.Icons != null &&
-                    this.Icons.SequenceEqual(input.Icons)
-                ) && 
-                (
-                    this.IconTaskId == input.IconTaskId ||
-                    (this.IconTaskId != null &&
-                    this.IconTaskId.Equals(input.IconTaskId))
-                ) && 
-                (
-                    this.Id == input.Id ||
-                    (this.Id != null &&
-                    this.Id.Equals(input.Id))
-                ) && 
-                (
-                    this.Name == input.Name ||
-                    (this.Name != null &&
-                    this.Name.Equals(input.Name))
-                ) && 
-                (
-                    this.Template == input.Template ||
-                    (this.Template != null &&
-                    this.Template.Equals(input.Template))
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                hashCode = (hashCode * 59) + this.CanDelete.GetHashCode();
-                if (this.Category != null)
-                {
-                    hashCode = (hashCode * 59) + this.Category.GetHashCode();
-                }
-                if (this.DefaultHostedQueue != null)
-                {
-                    hashCode = (hashCode * 59) + this.DefaultHostedQueue.GetHashCode();
-                }
-                if (this.Description != null)
-                {
-                    hashCode = (hashCode * 59) + this.Description.GetHashCode();
-                }
-                if (this.Icons != null)
-                {
-                    hashCode = (hashCode * 59) + this.Icons.GetHashCode();
-                }
-                if (this.IconTaskId != null)
-                {
-                    hashCode = (hashCode * 59) + this.IconTaskId.GetHashCode();
-                }
-                if (this.Id != null)
-                {
-                    hashCode = (hashCode * 59) + this.Id.GetHashCode();
-                }
-                if (this.Name != null)
-                {
-                    hashCode = (hashCode * 59) + this.Name.GetHashCode();
-                }
-                if (this.Template != null)
-                {
-                    hashCode = (hashCode * 59) + this.Template.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

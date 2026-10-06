@@ -42,7 +42,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>string</returns>
         [Obsolete]
-        string BadgeGet(string organization, Guid project, int definitionId, string apiVersion, string? branchName = default(string?), int operationIndex = 0);
+        string BadgeGet(string organization, Guid project, int definitionId, string apiVersion, string? branchName = default, int operationIndex = 0);
 
         /// <summary>
         /// 
@@ -59,7 +59,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>ApiResponse of string</returns>
         [Obsolete]
-        ApiResponse<string> BadgeGetWithHttpInfo(string organization, Guid project, int definitionId, string apiVersion, string? branchName = default(string?), int operationIndex = 0);
+        ApiResponse<string> BadgeGetWithHttpInfo(string organization, Guid project, int definitionId, string apiVersion, string? branchName = default, int operationIndex = 0);
         /// <summary>
         /// 
         /// </summary>
@@ -75,7 +75,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="branchName">The branch name. (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>string</returns>
-        string BadgeGetBuildBadgeData(string organization, string project, string repoType, string apiVersion, string? repoId = default(string?), string? branchName = default(string?), int operationIndex = 0);
+        string BadgeGetBuildBadgeData(string organization, string project, string repoType, string apiVersion, string? repoId = default, string? branchName = default, int operationIndex = 0);
 
         /// <summary>
         /// 
@@ -92,7 +92,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="branchName">The branch name. (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>ApiResponse of string</returns>
-        ApiResponse<string> BadgeGetBuildBadgeDataWithHttpInfo(string organization, string project, string repoType, string apiVersion, string? repoId = default(string?), string? branchName = default(string?), int operationIndex = 0);
+        ApiResponse<string> BadgeGetBuildBadgeDataWithHttpInfo(string organization, string project, string repoType, string apiVersion, string? repoId = default, string? branchName = default, int operationIndex = 0);
         #endregion Synchronous Operations
     }
 
@@ -118,7 +118,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of string</returns>
         [Obsolete]
-        System.Threading.Tasks.Task<string> BadgeGetAsync(string organization, Guid project, int definitionId, string apiVersion, string? branchName = default(string?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<string> BadgeGetAsync(string organization, Guid project, int definitionId, string apiVersion, string? branchName = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
 
         /// <summary>
         /// 
@@ -136,7 +136,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse (string)</returns>
         [Obsolete]
-        System.Threading.Tasks.Task<ApiResponse<string>> BadgeGetWithHttpInfoAsync(string organization, Guid project, int definitionId, string apiVersion, string? branchName = default(string?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ApiResponse<string>> BadgeGetWithHttpInfoAsync(string organization, Guid project, int definitionId, string apiVersion, string? branchName = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
         /// <summary>
         /// 
         /// </summary>
@@ -153,7 +153,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of string</returns>
-        System.Threading.Tasks.Task<string> BadgeGetBuildBadgeDataAsync(string organization, string project, string repoType, string apiVersion, string? repoId = default(string?), string? branchName = default(string?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<string> BadgeGetBuildBadgeDataAsync(string organization, string project, string repoType, string apiVersion, string? repoId = default, string? branchName = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
 
         /// <summary>
         /// 
@@ -171,7 +171,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse (string)</returns>
-        System.Threading.Tasks.Task<ApiResponse<string>> BadgeGetBuildBadgeDataWithHttpInfoAsync(string organization, string project, string repoType, string apiVersion, string? repoId = default(string?), string? branchName = default(string?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ApiResponse<string>> BadgeGetBuildBadgeDataWithHttpInfoAsync(string organization, string project, string repoType, string apiVersion, string? repoId = default, string? branchName = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
         #endregion Asynchronous Operations
     }
 
@@ -304,7 +304,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>string</returns>
         [Obsolete]
-        public string BadgeGet(string organization, Guid project, int definitionId, string apiVersion, string? branchName = default(string?), int operationIndex = 0)
+        public string BadgeGet(string organization, Guid project, int definitionId, string apiVersion, string? branchName = default, int operationIndex = 0)
         {
             Org.OpenAPITools.Client.ApiResponse<string> localVarResponse = BadgeGetWithHttpInfo(organization, project, definitionId, apiVersion, branchName);
             return localVarResponse.Data;
@@ -322,7 +322,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>ApiResponse of string</returns>
         [Obsolete]
-        public Org.OpenAPITools.Client.ApiResponse<string> BadgeGetWithHttpInfo(string organization, Guid project, int definitionId, string apiVersion, string? branchName = default(string?), int operationIndex = 0)
+        public Org.OpenAPITools.Client.ApiResponse<string> BadgeGetWithHttpInfo(string organization, Guid project, int definitionId, string apiVersion, string? branchName = default, int operationIndex = 0)
         {
             // verify the required parameter 'organization' is set
             if (organization == null)
@@ -347,6 +347,7 @@ namespace Org.OpenAPITools.Api
             };
 
             var localVarContentType = Org.OpenAPITools.Client.ClientUtils.SelectHeaderContentType(_contentTypes);
+            var localVarMultipartFormData = localVarContentType == "multipart/form-data";
             if (localVarContentType != null)
             {
                 localVarRequestOptions.HeaderParameters.Add("Content-Type", localVarContentType);
@@ -404,7 +405,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of string</returns>
         [Obsolete]
-        public async System.Threading.Tasks.Task<string> BadgeGetAsync(string organization, Guid project, int definitionId, string apiVersion, string? branchName = default(string?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public async System.Threading.Tasks.Task<string> BadgeGetAsync(string organization, Guid project, int definitionId, string apiVersion, string? branchName = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             Org.OpenAPITools.Client.ApiResponse<string> localVarResponse = await BadgeGetWithHttpInfoAsync(organization, project, definitionId, apiVersion, branchName, operationIndex, cancellationToken).ConfigureAwait(false);
             return localVarResponse.Data;
@@ -423,7 +424,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse (string)</returns>
         [Obsolete]
-        public async System.Threading.Tasks.Task<Org.OpenAPITools.Client.ApiResponse<string>> BadgeGetWithHttpInfoAsync(string organization, Guid project, int definitionId, string apiVersion, string? branchName = default(string?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public async System.Threading.Tasks.Task<Org.OpenAPITools.Client.ApiResponse<string>> BadgeGetWithHttpInfoAsync(string organization, Guid project, int definitionId, string apiVersion, string? branchName = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             // verify the required parameter 'organization' is set
             if (organization == null)
@@ -506,7 +507,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="branchName">The branch name. (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>string</returns>
-        public string BadgeGetBuildBadgeData(string organization, string project, string repoType, string apiVersion, string? repoId = default(string?), string? branchName = default(string?), int operationIndex = 0)
+        public string BadgeGetBuildBadgeData(string organization, string project, string repoType, string apiVersion, string? repoId = default, string? branchName = default, int operationIndex = 0)
         {
             Org.OpenAPITools.Client.ApiResponse<string> localVarResponse = BadgeGetBuildBadgeDataWithHttpInfo(organization, project, repoType, apiVersion, repoId, branchName);
             return localVarResponse.Data;
@@ -524,7 +525,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="branchName">The branch name. (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>ApiResponse of string</returns>
-        public Org.OpenAPITools.Client.ApiResponse<string> BadgeGetBuildBadgeDataWithHttpInfo(string organization, string project, string repoType, string apiVersion, string? repoId = default(string?), string? branchName = default(string?), int operationIndex = 0)
+        public Org.OpenAPITools.Client.ApiResponse<string> BadgeGetBuildBadgeDataWithHttpInfo(string organization, string project, string repoType, string apiVersion, string? repoId = default, string? branchName = default, int operationIndex = 0)
         {
             // verify the required parameter 'organization' is set
             if (organization == null)
@@ -561,6 +562,7 @@ namespace Org.OpenAPITools.Api
             };
 
             var localVarContentType = Org.OpenAPITools.Client.ClientUtils.SelectHeaderContentType(_contentTypes);
+            var localVarMultipartFormData = localVarContentType == "multipart/form-data";
             if (localVarContentType != null)
             {
                 localVarRequestOptions.HeaderParameters.Add("Content-Type", localVarContentType);
@@ -632,7 +634,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of string</returns>
-        public async System.Threading.Tasks.Task<string> BadgeGetBuildBadgeDataAsync(string organization, string project, string repoType, string apiVersion, string? repoId = default(string?), string? branchName = default(string?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public async System.Threading.Tasks.Task<string> BadgeGetBuildBadgeDataAsync(string organization, string project, string repoType, string apiVersion, string? repoId = default, string? branchName = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             Org.OpenAPITools.Client.ApiResponse<string> localVarResponse = await BadgeGetBuildBadgeDataWithHttpInfoAsync(organization, project, repoType, apiVersion, repoId, branchName, operationIndex, cancellationToken).ConfigureAwait(false);
             return localVarResponse.Data;
@@ -651,7 +653,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse (string)</returns>
-        public async System.Threading.Tasks.Task<Org.OpenAPITools.Client.ApiResponse<string>> BadgeGetBuildBadgeDataWithHttpInfoAsync(string organization, string project, string repoType, string apiVersion, string? repoId = default(string?), string? branchName = default(string?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public async System.Threading.Tasks.Task<Org.OpenAPITools.Client.ApiResponse<string>> BadgeGetBuildBadgeDataWithHttpInfoAsync(string organization, string project, string repoType, string apiVersion, string? repoId = default, string? branchName = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             // verify the required parameter 'organization' is set
             if (organization == null)

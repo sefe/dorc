@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// Represents a queue for running builds.
     /// </summary>
     [DataContract(Name = "AgentPoolQueue")]
-    public partial class AgentPoolQueue : IEquatable<AgentPoolQueue>, IValidatableObject
+    public partial class AgentPoolQueue : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="AgentPoolQueue" /> class.
@@ -40,7 +40,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="name">The name of the queue..</param>
         /// <param name="pool">pool.</param>
         /// <param name="url">The full http link to the resource..</param>
-        public AgentPoolQueue(ReferenceLinks links = default(ReferenceLinks), int id = default(int), string name = default(string), TaskAgentPoolReference pool = default(TaskAgentPoolReference), string url = default(string))
+        public AgentPoolQueue(ReferenceLinks links = default, int id = default, string name = default, TaskAgentPoolReference pool = default, string url = default)
         {
             this.Links = links;
             this.Id = id;
@@ -109,89 +109,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as AgentPoolQueue);
-        }
-
-        /// <summary>
-        /// Returns true if AgentPoolQueue instances are equal
-        /// </summary>
-        /// <param name="input">Instance of AgentPoolQueue to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(AgentPoolQueue input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.Links == input.Links ||
-                    (this.Links != null &&
-                    this.Links.Equals(input.Links))
-                ) && 
-                (
-                    this.Id == input.Id ||
-                    this.Id.Equals(input.Id)
-                ) && 
-                (
-                    this.Name == input.Name ||
-                    (this.Name != null &&
-                    this.Name.Equals(input.Name))
-                ) && 
-                (
-                    this.Pool == input.Pool ||
-                    (this.Pool != null &&
-                    this.Pool.Equals(input.Pool))
-                ) && 
-                (
-                    this.Url == input.Url ||
-                    (this.Url != null &&
-                    this.Url.Equals(input.Url))
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.Links != null)
-                {
-                    hashCode = (hashCode * 59) + this.Links.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.Id.GetHashCode();
-                if (this.Name != null)
-                {
-                    hashCode = (hashCode * 59) + this.Name.GetHashCode();
-                }
-                if (this.Pool != null)
-                {
-                    hashCode = (hashCode * 59) + this.Pool.GetHashCode();
-                }
-                if (this.Url != null)
-                {
-                    hashCode = (hashCode * 59) + this.Url.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

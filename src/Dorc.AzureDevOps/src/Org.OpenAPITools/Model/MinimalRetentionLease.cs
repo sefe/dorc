@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// MinimalRetentionLease
     /// </summary>
     [DataContract(Name = "MinimalRetentionLease")]
-    public partial class MinimalRetentionLease : IEquatable<MinimalRetentionLease>, IValidatableObject
+    public partial class MinimalRetentionLease : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="MinimalRetentionLease" /> class.
@@ -38,7 +38,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="definitionId">The pipeline definition of the run..</param>
         /// <param name="ownerId">User-provided string that identifies the owner of a retention lease..</param>
         /// <param name="runId">The pipeline run to protect..</param>
-        public MinimalRetentionLease(int definitionId = default(int), string ownerId = default(string), int runId = default(int))
+        public MinimalRetentionLease(int definitionId = default, string ownerId = default, int runId = default)
         {
             this.DefinitionId = definitionId;
             this.OwnerId = ownerId;
@@ -91,67 +91,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as MinimalRetentionLease);
-        }
-
-        /// <summary>
-        /// Returns true if MinimalRetentionLease instances are equal
-        /// </summary>
-        /// <param name="input">Instance of MinimalRetentionLease to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(MinimalRetentionLease input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.DefinitionId == input.DefinitionId ||
-                    this.DefinitionId.Equals(input.DefinitionId)
-                ) && 
-                (
-                    this.OwnerId == input.OwnerId ||
-                    (this.OwnerId != null &&
-                    this.OwnerId.Equals(input.OwnerId))
-                ) && 
-                (
-                    this.RunId == input.RunId ||
-                    this.RunId.Equals(input.RunId)
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                hashCode = (hashCode * 59) + this.DefinitionId.GetHashCode();
-                if (this.OwnerId != null)
-                {
-                    hashCode = (hashCode * 59) + this.OwnerId.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.RunId.GetHashCode();
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

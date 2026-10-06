@@ -1,5 +1,6 @@
 ﻿using Dorc.PersistentData.Sources;
 using Dorc.PersistentData.Sources.Interfaces;
+using Dorc.PersistentData.Security;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Dorc.Monitor.Registry
@@ -8,6 +9,8 @@ namespace Dorc.Monitor.Registry
     {
         public static void Register(IServiceCollection collection)
         {
+            collection.AddSingleton<ISourceHostAllowList, SourceHostAllowList>();
+
             collection.AddTransient<IRequestsPersistentSource, RequestsPersistentSource>();
             collection.AddTransient<IDeploymentRequestProcessesPersistentSource, DeploymentRequestProcessesPersistentSource>();
             collection.AddTransient<IPropertyValuesPersistentSource, PropertyValuesPersistentSource>();
@@ -17,12 +20,14 @@ namespace Dorc.Monitor.Registry
             collection.AddTransient<IPropertiesPersistentSource, PropertiesPersistentSource>();
             collection.AddTransient<IServersPersistentSource, ServersPersistentSource>();
             collection.AddTransient<IDaemonsPersistentSource, DaemonsPersistentSource>();
+            collection.AddTransient<IDaemonObservationPersistentSource, DaemonObservationPersistentSource>();
             collection.AddTransient<IDatabasesPersistentSource, DatabasesPersistentSource>();
             collection.AddTransient<IUserPermsPersistentSource, UserPermsPersistentSource>();
             collection.AddTransient<IAccessControlPersistentSource, AccessControlPersistentSource>();
             collection.AddTransient<IProjectsPersistentSource, ProjectsPersistentSource>();
             collection.AddSingleton<ISecureKeyPersistentDataSource, SecureKeyPersistentDataSource>();
             collection.AddTransient<IConfigValuesPersistentSource, ConfigValuesPersistentSource>();
+            collection.AddTransient<IScriptsAuditPersistentSource, ScriptsAuditPersistentSource>();
         }
     }
 }

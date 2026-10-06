@@ -1,3 +1,4 @@
+import { comboBoxRenderer } from '@vaadin/combo-box/lit';
 import '@vaadin/button';
 import '@vaadin/combo-box';
 import '@vaadin/text-field';
@@ -8,8 +9,12 @@ import { nothing } from 'lit';
 import { AddEndurUserOrGroup } from './add-endur-user-or-group';
 
 import { renderSearchResults } from './utilities/addUserOrGroupTemplateHelper';
+import '@vaadin/vertical-layout';
 
 export function addEndurUserOrGroupTemplate(this: AddEndurUserOrGroup) {
+
+  const maxFieldLength = 50;
+
   return html` <div>
     <vaadin-vertical-layout>
       <table>
@@ -21,7 +26,7 @@ export function addEndurUserOrGroupTemplate(this: AddEndurUserOrGroup) {
               label="System Account Identifier Filter"
               @keypress="${this.filterKeypressed}"
               value="${this.winIdFilter}"
-              allowed-char-pattern="[a-zA-Z0-9-_.' ()&]"
+              allowed-char-pattern="[a-zA-Z0-9-_.' ()&amp;]"
             >
             </vaadin-text-field>
           </td>
@@ -47,7 +52,7 @@ export function addEndurUserOrGroupTemplate(this: AddEndurUserOrGroup) {
         item-value-path="FullLogonName"
         item-label-path="DisplayName"
         .disabled="${!this.isUserOrGroupListEnabled}"
-        .renderer="${renderSearchResults}"
+        ${comboBoxRenderer(renderSearchResults, [])}
         .items="${this.searchResults}"
         @change="${this.filteredUserOrGroupSelected}"
       >
@@ -56,6 +61,8 @@ export function addEndurUserOrGroupTemplate(this: AddEndurUserOrGroup) {
         class="acc-form__block"
         id="system-account-id"
         label="System Account Identifier (Endur)"
+        maxlength="${maxFieldLength}"
+        title="Maximum length: ${maxFieldLength} symbols"
         value="${this.lanId}"
         .invalid="${this.isLanIdValid === false}"
         error-message="${this.lanIdErrorMessage}"
@@ -66,6 +73,8 @@ export function addEndurUserOrGroupTemplate(this: AddEndurUserOrGroup) {
         class="acc-form__block"
         id="displayName"
         label="Display Name"
+        maxlength="${maxFieldLength}"
+        title="Maximum length: ${maxFieldLength} symbols"
         value="${this.displayName}"
         @value-changed="${this.displayNameChanged}"
         .invalid="${this.isDisplayNameValid === false}"
@@ -77,6 +86,8 @@ export function addEndurUserOrGroupTemplate(this: AddEndurUserOrGroup) {
         class="acc-form__block"
         id="team"
         label="Team"
+        maxlength="${maxFieldLength}"
+        title="Maximum length: ${maxFieldLength} symbols"
         .invalid="${this.isTeamNameValid === false}"
         error-message="${this.teamNameErrorMessage}"
         @value-changed="${this.teamNameChanged}"

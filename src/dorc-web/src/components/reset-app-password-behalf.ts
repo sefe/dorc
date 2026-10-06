@@ -1,32 +1,37 @@
-import { css, LitElement, render } from 'lit';
+import { comboBoxRenderer } from '@vaadin/combo-box/lit';
+import { confirmPrompt } from './confirm-prompt';
+import { css, LitElement } from 'lit';
 import '@vaadin/checkbox';
 import '@vaadin/button';
 import '@vaadin/combo-box';
-import '@polymer/paper-dialog';
-import { customElement, property } from 'lit/decorators.js';
+import '@vaadin/dialog';
+import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
-import { PaperDialogElement } from '@polymer/paper-dialog';
-import { ComboBox, ComboBoxItemModel } from '@vaadin/combo-box';
+import type { DialogOpenedChangedEvent } from '@vaadin/dialog';
+import { dialogFooterRenderer, dialogRenderer } from '@vaadin/dialog/lit';
 import {
   ApiBoolResult,
   ResetAppPasswordApi,
   UserApiModel
 } from '../apis/dorc-api';
 import { SuccessNotification } from './notifications/success-notification';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('reset-app-password-behalf')
 export class ResetAppPasswordBehalf extends LitElement {
+  @state() private dialogOpened = false;
+
   @property({ type: Array }) appUsers: Array<UserApiModel> = [];
 
-  @property({ type: String }) private selectedUser = '';
+  @property({ type: String }) selectedUser = '';
 
-  @property({ type: Boolean }) private resettingAppPassword = false;
+  @property({ type: Boolean }) resettingAppPassword = false;
 
-  @property({ type: String }) protected envFilter: string | undefined;
+  @property({ type: String }) envFilter: string | undefined;
 
-  @property({ type: String }) protected environmentName: string | undefined;
-  @property({ type: String }) protected serverName: string | undefined;
-  @property({ type: String }) protected databaseName: string | undefined;
+  @property({ type: String }) environmentName: string | undefined;
+  @property({ type: String }) serverName: string | undefined;
+  @property({ type: String }) databaseName: string | undefined;
 
   static get styles() {
     return css`
@@ -46,11 +51,10 @@ export class ResetAppPasswordBehalf extends LitElement {
           transform: rotate(360deg);
         }
       }
-      paper-dialog.size-position {
-        position: center;
+      vaadin-dialog::part(overlay) {
         top: 16px;
         overflow: auto;
-        padding: 10px;
+        max-width: calc(100vw - 32px);
       }
       .info-section {
         background: #f7f7f7;
@@ -78,79 +82,55 @@ export class ResetAppPasswordBehalf extends LitElement {
 
   render() {
     return html`
-      <paper-dialog
-        class="size-position"
+      <vaadin-dialog
         id="reset-app-password-behalf-dialog"
-        allow-click-through
-        modal
-      >
-        <div>
-          <vaadin-combo-box
-            id="app-users"
-            label="Select User"
-            item-value-path="LanId"
-            item-label-path="DisplayName"
-            .items="${this.appUsers}"
-            .renderer="${this.appUsersRenderer}"
-            @value-changed="${this.appUserValueChanged}"
-            style="width: 100%"
-          ></vaadin-combo-box>
-
-          <div style="margin-right: 30px">
-            <vaadin-button 
-              @click="${this.resetAppPassword}" 
-              ?disabled="${this.serverName === undefined && this.databaseName === undefined}"
-              >Reset Password</vaadin-button
-            >
-            ${this.resettingAppPassword
-              ? html` <div class="small-loader"></div> `
-              : html``}
-          </div>
-
-          <div class="info-section">
-            <div class="action-description">
-              This will reset the selected user's SQL account password for the next server and database:
-            </div>
-            <br/>
-            <div class="info-row">
-              <span class="info-label">Server:</span>
-              <span class="info-value">${this.serverName}</span>
-            </div>
-            <div class="info-row">
-              <span class="info-label">Database:</span>
-              <span class="info-value">${this.databaseName}</span>
-            </div>
-          </div>
-        </div>
-        <div style="display: flex; justify-content: flex-end">
-          <vaadin-button dialog-confirm>Close</vaadin-button>
-        </div>
-      </paper-dialog>
+        header-title="Reset Application Password"
+        draggable
+        .opened="${this.dialogOpened}"
+        @opened-changed="${(e: DialogOpenedChangedEvent) => {
+          this.dialogOpened = e.detail.value;
+        }}"
+        ${dialogRenderer(this.renderResetContent, [
+          this.appUsers,
+          this.serverName,
+          this.databaseName,
+          this.resettingAppPassword,
+          this.selectedUser,
+          this.envFilter,
+          this.environmentName
+        ])}
+        ${dialogFooterRenderer(this.renderResetFooter, [])}
+      ></vaadin-dialog>
     `;
   }
 
-  resetAppPassword() {
+  async resetAppPassword() {
     const user = this.appUsers.find(u => u.LanId === this.selectedUser);
     if (user === undefined) return;
 
-    const answer = confirm(
+    // Snapshot the environment inputs alongside the user: all three name the
+    // account being reset, and the host can reassign them while the
+    // confirmation is open.
+    const envFilter = this.envFilter ?? '';
+    const environmentName = this.environmentName ?? '';
+    const answer = await confirmPrompt(
       `Are you sure you want to reset the SQL account password for ${
         user.DisplayName
       }?`
     );
     if (answer) {
       this.resettingAppPassword = true;
-      const api = new ResetAppPasswordApi();
+      const api = new ResetAppPasswordApi(dorcApiConfiguration);
       api
         .resetAppPasswordForUserPut({
-          envFilter: this.envFilter ?? '',
-          envName: this.environmentName ?? '',
+          envFilter,
+          envName: environmentName,
           username: user.LanId ?? ''
         })
         .subscribe({
           next: (result: ApiBoolResult) => {
             if (result.Result) {
-              const appName = this.envFilter ?? '';
+              const appName = envFilter;
               const message = `Password successfully reset, it is now set as the same as your ${
                 appName
               } login name, you will need to login without encryption the first time.`;
@@ -173,7 +153,10 @@ export class ResetAppPasswordBehalf extends LitElement {
 
   errorAlert(result: any) {
     const event = new CustomEvent('error-alert', {
-      detail: { description: 'Failed to reset the SQL account password', result },
+      detail: {
+        description: 'Failed to reset the SQL account password',
+        result
+      },
       bubbles: true,
       composed: true
     });
@@ -184,38 +167,79 @@ export class ResetAppPasswordBehalf extends LitElement {
     this.selectedUser = data.detail.value;
   }
 
-  appUsersRenderer(
-    root: HTMLElement,
-    _comboBox: ComboBox,
-    model: ComboBoxItemModel<UserApiModel>
-  ) {
-    render(
-      html`<vaadin-vertical-layout>
-        <div style="line-height: var(--lumo-line-height-m);">
-          ${model.item.DisplayName ?? ''}
-        </div>
-        <div
-          style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
-        >
-          ${model.item.LanId ?? ''}
-        </div>
-      </vaadin-vertical-layout>`,
-      root
-    );
+  appUsersRenderer(item: UserApiModel) {
+    return html`<vaadin-vertical-layout>
+      <div style="line-height: var(--lumo-line-height-m);">
+        ${item.DisplayName ?? ''}
+      </div>
+      <div
+        style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
+      >
+        ${item.LanId ?? ''}
+      </div>
+    </vaadin-vertical-layout>`;
   }
 
-  public open() {
-    const dialog = this.shadowRoot?.getElementById(
-      'reset-app-password-behalf-dialog'
-    ) as PaperDialogElement;
+  /**
+   * The combo-box renderer stays a plain `.renderer` binding for now — it is a
+   * grid/combo-box renderer, which belongs to the separate F-4 migration, not
+   * this dialog conversion. It is listed in that audit.
+   */
+  private renderResetContent = () => html`
+    <div>
+      <vaadin-combo-box
+        id="app-users"
+        label="Select User"
+        item-value-path="LanId"
+        item-label-path="DisplayName"
+        .items="${this.appUsers}"
+        ${comboBoxRenderer(this.appUsersRenderer, [])}
+        @value-changed="${this.appUserValueChanged}"
+        style="width: 100%"
+      ></vaadin-combo-box>
 
-    dialog.open();
+      <div style="margin-right: 30px">
+        <vaadin-button
+          @click="${this.resetAppPassword}"
+          ?disabled="${this.serverName === undefined && this.databaseName === undefined}"
+          >Reset Password</vaadin-button
+        >
+        ${
+          this.resettingAppPassword
+            ? html` <div class="small-loader"></div> `
+            : html``
+        }
+      </div>
+
+      <div class="info-section">
+        <div class="action-description">
+          This will reset the selected user's SQL account password for the next
+          server and database:
+        </div>
+        <br />
+        <div class="info-row">
+          <span class="info-label">Server:</span>
+          <span class="info-value">${this.serverName}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Database:</span>
+          <span class="info-value">${this.databaseName}</span>
+        </div>
+      </div>
+    </div>
+  `;
+
+  private renderResetFooter = () => html`
+    <vaadin-button @click="${() => (this.dialogOpened = false)}"
+      >Close</vaadin-button
+    >
+  `;
+
+  public open() {
+    this.dialogOpened = true;
   }
 
   public close() {
-    const dialog = this.shadowRoot?.getElementById(
-      'reset-app-password-behalf-dialog'
-    ) as PaperDialogElement;
-    dialog.close();
+    this.dialogOpened = false;
   }
 }

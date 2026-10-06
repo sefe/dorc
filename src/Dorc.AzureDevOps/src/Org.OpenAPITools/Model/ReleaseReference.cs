@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// Reference to a release.
     /// </summary>
     [DataContract(Name = "ReleaseReference")]
-    public partial class ReleaseReference : IEquatable<ReleaseReference>, IValidatableObject
+    public partial class ReleaseReference : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="ReleaseReference" /> class.
@@ -45,7 +45,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="environmentName">Release environment name..</param>
         /// <param name="id">Release ID..</param>
         /// <param name="name">Release name..</param>
-        public ReleaseReference(int attempt = default(int), DateTime creationDate = default(DateTime), int definitionId = default(int), DateTime environmentCreationDate = default(DateTime), int environmentDefinitionId = default(int), string environmentDefinitionName = default(string), int environmentId = default(int), string environmentName = default(string), int id = default(int), string name = default(string))
+        public ReleaseReference(int attempt = default, DateTime creationDate = default, int definitionId = default, DateTime environmentCreationDate = default, int environmentDefinitionId = default, string environmentDefinitionName = default, int environmentId = default, string environmentName = default, int id = default, string name = default)
         {
             this.Attempt = attempt;
             this.CreationDate = creationDate;
@@ -161,118 +161,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as ReleaseReference);
-        }
-
-        /// <summary>
-        /// Returns true if ReleaseReference instances are equal
-        /// </summary>
-        /// <param name="input">Instance of ReleaseReference to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(ReleaseReference input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.Attempt == input.Attempt ||
-                    this.Attempt.Equals(input.Attempt)
-                ) && 
-                (
-                    this.CreationDate == input.CreationDate ||
-                    (this.CreationDate != null &&
-                    this.CreationDate.Equals(input.CreationDate))
-                ) && 
-                (
-                    this.DefinitionId == input.DefinitionId ||
-                    this.DefinitionId.Equals(input.DefinitionId)
-                ) && 
-                (
-                    this.EnvironmentCreationDate == input.EnvironmentCreationDate ||
-                    (this.EnvironmentCreationDate != null &&
-                    this.EnvironmentCreationDate.Equals(input.EnvironmentCreationDate))
-                ) && 
-                (
-                    this.EnvironmentDefinitionId == input.EnvironmentDefinitionId ||
-                    this.EnvironmentDefinitionId.Equals(input.EnvironmentDefinitionId)
-                ) && 
-                (
-                    this.EnvironmentDefinitionName == input.EnvironmentDefinitionName ||
-                    (this.EnvironmentDefinitionName != null &&
-                    this.EnvironmentDefinitionName.Equals(input.EnvironmentDefinitionName))
-                ) && 
-                (
-                    this.EnvironmentId == input.EnvironmentId ||
-                    this.EnvironmentId.Equals(input.EnvironmentId)
-                ) && 
-                (
-                    this.EnvironmentName == input.EnvironmentName ||
-                    (this.EnvironmentName != null &&
-                    this.EnvironmentName.Equals(input.EnvironmentName))
-                ) && 
-                (
-                    this.Id == input.Id ||
-                    this.Id.Equals(input.Id)
-                ) && 
-                (
-                    this.Name == input.Name ||
-                    (this.Name != null &&
-                    this.Name.Equals(input.Name))
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                hashCode = (hashCode * 59) + this.Attempt.GetHashCode();
-                if (this.CreationDate != null)
-                {
-                    hashCode = (hashCode * 59) + this.CreationDate.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.DefinitionId.GetHashCode();
-                if (this.EnvironmentCreationDate != null)
-                {
-                    hashCode = (hashCode * 59) + this.EnvironmentCreationDate.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.EnvironmentDefinitionId.GetHashCode();
-                if (this.EnvironmentDefinitionName != null)
-                {
-                    hashCode = (hashCode * 59) + this.EnvironmentDefinitionName.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.EnvironmentId.GetHashCode();
-                if (this.EnvironmentName != null)
-                {
-                    hashCode = (hashCode * 59) + this.EnvironmentName.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.Id.GetHashCode();
-                if (this.Name != null)
-                {
-                    hashCode = (hashCode * 59) + this.Name.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

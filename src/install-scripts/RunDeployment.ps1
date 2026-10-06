@@ -43,7 +43,12 @@ else
     throw [System.IO.FileNotFoundException] $commonCode
 }
 
-$settings = Load-InstallSettings -Path (Join-Path $SettingsFolder "DeploySettings.json")
+$mergedSettingsPath = Join-Path $SettingsFolder "DeploySettings.json"
+Write-Host "=== Preparing Deployment Settings ===" -ForegroundColor Cyan
+Merge-DeploySettings -SourceFolder $SettingsFolder -EnvName $EnvName -OutputPath $mergedSettingsPath
+
+# Load the merged settings
+$settings = Load-InstallSettings -Path $mergedSettingsPath
 
 $settings.LoadModules($DropFolder)
 

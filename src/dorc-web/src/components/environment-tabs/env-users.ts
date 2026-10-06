@@ -17,6 +17,29 @@ export class EnvUsers extends PageEnvBase {
         height: 100%;
         flex-direction: column;
       }
+      vaadin-details {
+        overflow: hidden;
+        width: calc(100% - 4px);
+        flex: 0 0 auto;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+      }
+      vaadin-details[opened] {
+        flex: 1 1 auto;
+      }
+      vaadin-details::part(content) {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      attached-app-users {
+        display: block;
+        flex: 1;
+        min-height: 0;
+      }
     `;
   }
 
@@ -25,15 +48,15 @@ export class EnvUsers extends PageEnvBase {
       <vaadin-details
         opened
         summary="Application Users"
-        style="border-top: 6px solid cornflowerblue; background-color: ghostwhite; padding-left: 4px; margin: 0px;"
+        style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; margin: 0px;"
       >
+        <attached-app-users
+          id="application-users"
+          .users="${this.envContent?.EndurUsers ?? []}"
+          style="width: 100%; height: 100%;"
+        >
+        </attached-app-users>
       </vaadin-details>
-      <attached-app-users
-              id="application-users"
-              .users="${this.envContent?.EndurUsers ?? []}"
-              style="width: 100%; height: 100%;"
-      >
-      </attached-app-users>
     `;
   }
 

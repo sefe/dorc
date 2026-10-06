@@ -80,7 +80,8 @@ namespace Dorc.Monitor
                         eventsPublisher.PublishResultStatusChangedAsync(new DeploymentResultEventData(deploymentResult)
                         {
                             Status = DeploymentResultStatus.Running.ToString()
-                        });
+                        }).ContinueWith(t => _logger.LogWarning(t.Exception!.InnerException,
+                            "fire-and-forget publish failed for result"), TaskContinuationOptions.OnlyOnFaulted);
 
                         isSuccessful = terraformDispatcher.Dispatch(
                             component,
@@ -118,7 +119,8 @@ namespace Dorc.Monitor
                         eventsPublisher.PublishResultStatusChangedAsync(new DeploymentResultEventData(deploymentResult)
                         {
                             Status = DeploymentResultStatus.Running.ToString()
-                        });
+                        }).ContinueWith(t => _logger.LogWarning(t.Exception!.InnerException,
+                            "fire-and-forget publish failed for result"), TaskContinuationOptions.OnlyOnFaulted);
 
                         // Handle PowerShell components
                         var script = GetScripts(component.ComponentId);
@@ -141,7 +143,8 @@ namespace Dorc.Monitor
                             eventsPublisher.PublishResultStatusChangedAsync(new DeploymentResultEventData(deploymentResult)
                             {
                                 Status = deploymentResultStatus.ToString()
-                            });
+                            }).ContinueWith(t => _logger.LogWarning(t.Exception!.InnerException,
+                                "fire-and-forget publish failed for result"), TaskContinuationOptions.OnlyOnFaulted);
 
                             componentsPersistentSource.SaveEnvComponentStatus(
                                 environmentId,
@@ -207,7 +210,8 @@ namespace Dorc.Monitor
                 eventsPublisher.PublishResultStatusChangedAsync(new DeploymentResultEventData(deploymentResult)
                 {
                     Status = deploymentResultStatus.ToString()
-                });
+                }).ContinueWith(t => _logger.LogWarning(t.Exception!.InnerException,
+                    "fire-and-forget publish failed for result"), TaskContinuationOptions.OnlyOnFaulted);
             }
 
             return deploymentResultStatus != DeploymentResultStatus.Failed;

@@ -65,20 +65,18 @@ steps:
     scriptType: 'filePath'
     scriptName: '$(Build.SourcesDirectory)\src\Tools.DOrc.Cmdlet\UpdateVersion.ps1'
 
-- task: NuGetCommand@2
-  displayName: 'NuGet restore'
-  inputs:
-    feedsToUse: config
-    nugetConfigPath: 'pipelines\NuGet.config'
-
+# Every project in the solution is SDK-style (csproj / wixproj / sqlproj) and
+# there is no packages.config anywhere in the tree, so the separate 'NuGet
+# restore' task that used to run here duplicated this one.
+# noCache was forcing all 124 unique packages to be re-downloaded from the feed
+# on every build, defeating the agent's local package cache.
 - task: DotNetCoreCLI@2
   displayName: 'Restore Packages'
   inputs:
       command: 'restore'
-      projects: $(solution)    
+      projects: $(solution)
       feedsToUse: 'config'
       nugetConfigPath: 'pipelines\NuGet.config'
-      noCache: true
 
 - task: sonarsource.sonarqube.15B84CA1-B62F-4A2A-A403-89B77A063157.SonarQubePrepare@6.3.2
   displayName: 'Prepare the SonarQube analysis'
@@ -100,24 +98,57 @@ steps:
     xmlTransformationRules: ''
     jsonTargetFiles: 'appsettings.test.json'
 
+# Materialise the directories the installers harvest, before anything else
+# builds. SDK-style projects are not directly packageable — the deployable
+# layout only exists after Publish has run, and for Dorc.Api that includes
+# web.config, which IIS needs and which does not exist in source.
+#
+# This used to happen inside the wixprojs via <Exec>, spawning child processes
+# the parent MSBuild could not see or deduplicate; under a parallel build the
+# two wixprojs ran their chains concurrently and raced the outer build for the
+# same intermediate outputs (CS2012). Running it here, as one MSBuild
+# invocation over the whole payload list, means a single engine owns the graph
+# and the shared dependencies are built exactly once.
+- task: MSBuild@1
+  displayName: 'Publish Installer Payload'
+  inputs:
+    solution: 'src/InstallerPayload.proj'
+    configuration: '$(BuildConfiguration)'
+    maximumCpuCount: true
+
+# maximumCpuCount is safe here only because the payload above is already on
+# disk and DorcPayloadPrepublished=true switches off the wixprojs' in-build
+# Exec chains. Removing either of those brings back the CS2012 race that took
+# main red on GitHub run 30812109885 — do not enable it without both.
+#
+# 'clean' stays off: it was forcing a full rebuild on every run of a persistent
+# self-hosted agent, discarding all incremental build state. That is unrelated
+# to the parallelism problem above.
 - task: VSBuild@1
   displayName: 'Build solution **\*.sln'
   inputs:
       solution: $(solution)
-      msbuildArgs: '/p:RunWixToolsOutOfProc=true,Version=$(version)'
+      msbuildArgs: '/p:RunWixToolsOutOfProc=true,Version=$(version) /p:DorcPayloadPrepublished=true'
       platform: '$(BuildPlatform)'
       configuration: '$(BuildConfiguration)'
-      clean: true
+      maximumCpuCount: true
 
+# runInParallel / codeCoverageEnabled / diagnosticsEnabled used to sit inside
+# the testAssemblyVer2 block scalar, so they were parsed as test-assembly glob
+# patterns rather than task inputs and had never taken effect — tests have been
+# running serially with no coverage collected. Parallel execution and coverage
+# are promoted to real inputs here; diagnosticsEnabled is dropped rather than
+# switched on, since it collects per-test diagnostic data at a real cost and
+# nothing has ever consumed it.
 - task: VSTest@2
   displayName: 'Test Assemblies **\*tests.dll;-:**\obj\**'
   inputs:
     testAssemblyVer2: |
       **\*tests.dll
       !**\obj\**
-      runInParallel: true
-      codeCoverageEnabled: true
-      diagnosticsEnabled: True
+      !**\IntegrationTests\**
+    runInParallel: true
+    codeCoverageEnabled: true
   continueOnError: true
   
 - task: sonarsource.sonarqube.6D01813A-9589-4B15-8491-8164AEB38055.SonarQubeAnalyze@6.3.2

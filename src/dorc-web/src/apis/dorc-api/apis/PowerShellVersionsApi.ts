@@ -14,7 +14,7 @@
 import type { Observable } from 'rxjs';
 import type { AjaxResponse } from 'rxjs/ajax';
 import { BaseAPI } from '../runtime';
-import type { OperationOpts } from '../runtime';
+import type { OperationOpts, HttpHeaders } from '../runtime';
 import type {
     PowerShellVersionDto,
 } from '../models';
@@ -29,9 +29,20 @@ export class PowerShellVersionsApi extends BaseAPI {
     powerShellVersionsGet(): Observable<Array<PowerShellVersionDto>>
     powerShellVersionsGet(opts?: OperationOpts): Observable<AjaxResponse<Array<PowerShellVersionDto>>>
     powerShellVersionsGet(opts?: OperationOpts): Observable<Array<PowerShellVersionDto> | AjaxResponse<Array<PowerShellVersionDto>>> {
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         return this.request<Array<PowerShellVersionDto>>({
             url: '/PowerShellVersions',
             method: 'GET',
+            headers,
         }, opts?.responseOpts);
     };
 

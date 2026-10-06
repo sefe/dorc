@@ -9,7 +9,7 @@ All URIs are relative to *https://dev.azure.com*
 | [**LeasesGet**](LeasesApi.md#leasesget) | **GET** /{organization}/{project}/_apis/build/retention/leases/{leaseId} |  |
 | [**LeasesGetRetentionLeasesByMinimalRetentionLeases**](LeasesApi.md#leasesgetretentionleasesbyminimalretentionleases) | **GET** /{organization}/{project}/_apis/build/retention/leases |  |
 
-<a name="leasesadd"></a>
+<a id="leasesadd"></a>
 # **LeasesAdd**
 > List&lt;RetentionLease&gt; LeasesAdd (string organization, string project, string apiVersion, List<NewRetentionLease> body)
 
@@ -108,7 +108,7 @@ catch (ApiException e)
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-<a name="leasesdelete"></a>
+<a id="leasesdelete"></a>
 # **LeasesDelete**
 > void LeasesDelete (string organization, string project, string ids, string apiVersion)
 
@@ -203,7 +203,7 @@ void (empty response body)
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-<a name="leasesget"></a>
+<a id="leasesget"></a>
 # **LeasesGet**
 > RetentionLease LeasesGet (string organization, string project, int leaseId, string apiVersion)
 
@@ -302,7 +302,7 @@ catch (ApiException e)
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-<a name="leasesgetretentionleasesbyminimalretentionleases"></a>
+<a id="leasesgetretentionleasesbyminimalretentionleases"></a>
 # **LeasesGetRetentionLeasesByMinimalRetentionLeases**
 > List&lt;RetentionLease&gt; LeasesGetRetentionLeasesByMinimalRetentionLeases (string organization, string project, string leasesToFetch, string apiVersion)
 

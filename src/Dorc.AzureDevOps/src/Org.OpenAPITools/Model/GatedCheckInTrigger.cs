@@ -27,10 +27,10 @@ using OpenAPIDateConverter = Org.OpenAPITools.Client.OpenAPIDateConverter;
 namespace Org.OpenAPITools.Model
 {
     /// <summary>
-    /// Represents a gated check-in trigger.
+    /// GatedCheckInTrigger
     /// </summary>
     [DataContract(Name = "GatedCheckInTrigger")]
-    public partial class GatedCheckInTrigger : IEquatable<GatedCheckInTrigger>, IValidatableObject
+    public partial class GatedCheckInTrigger : IValidatableObject
     {
         /// <summary>
         /// The type of the trigger.
@@ -92,7 +92,6 @@ namespace Org.OpenAPITools.Model
             /// </summary>
             [EnumMember(Value = "all")]
             All = 9
-
         }
 
 
@@ -105,16 +104,16 @@ namespace Org.OpenAPITools.Model
         /// <summary>
         /// Initializes a new instance of the <see cref="GatedCheckInTrigger" /> class.
         /// </summary>
+        /// <param name="triggerType">The type of the trigger..</param>
         /// <param name="pathFilters">pathFilters.</param>
         /// <param name="runContinuousIntegration">Indicates whether CI triggers should run after the gated check-in succeeds..</param>
         /// <param name="useWorkspaceMappings">Indicates whether to take workspace mappings into account when determining whether a build should run..</param>
-        /// <param name="triggerType">The type of the trigger..</param>
-        public GatedCheckInTrigger(List<string> pathFilters = default(List<string>), bool runContinuousIntegration = default(bool), bool useWorkspaceMappings = default(bool), TriggerTypeEnum? triggerType = default(TriggerTypeEnum?))
+        public GatedCheckInTrigger(TriggerTypeEnum? triggerType = default, List<string> pathFilters = default, bool runContinuousIntegration = default, bool useWorkspaceMappings = default)
         {
+            this.TriggerType = triggerType;
             this.PathFilters = pathFilters;
             this.RunContinuousIntegration = runContinuousIntegration;
             this.UseWorkspaceMappings = useWorkspaceMappings;
-            this.TriggerType = triggerType;
         }
 
         /// <summary>
@@ -145,10 +144,10 @@ namespace Org.OpenAPITools.Model
         {
             StringBuilder sb = new StringBuilder();
             sb.Append("class GatedCheckInTrigger {\n");
+            sb.Append("  TriggerType: ").Append(TriggerType).Append("\n");
             sb.Append("  PathFilters: ").Append(PathFilters).Append("\n");
             sb.Append("  RunContinuousIntegration: ").Append(RunContinuousIntegration).Append("\n");
             sb.Append("  UseWorkspaceMappings: ").Append(UseWorkspaceMappings).Append("\n");
-            sb.Append("  TriggerType: ").Append(TriggerType).Append("\n");
             sb.Append("}\n");
             return sb.ToString();
         }
@@ -163,73 +162,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as GatedCheckInTrigger);
-        }
-
-        /// <summary>
-        /// Returns true if GatedCheckInTrigger instances are equal
-        /// </summary>
-        /// <param name="input">Instance of GatedCheckInTrigger to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(GatedCheckInTrigger input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.PathFilters == input.PathFilters ||
-                    this.PathFilters != null &&
-                    input.PathFilters != null &&
-                    this.PathFilters.SequenceEqual(input.PathFilters)
-                ) && 
-                (
-                    this.RunContinuousIntegration == input.RunContinuousIntegration ||
-                    this.RunContinuousIntegration.Equals(input.RunContinuousIntegration)
-                ) && 
-                (
-                    this.UseWorkspaceMappings == input.UseWorkspaceMappings ||
-                    this.UseWorkspaceMappings.Equals(input.UseWorkspaceMappings)
-                ) && 
-                (
-                    this.TriggerType == input.TriggerType ||
-                    this.TriggerType.Equals(input.TriggerType)
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.PathFilters != null)
-                {
-                    hashCode = (hashCode * 59) + this.PathFilters.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.RunContinuousIntegration.GetHashCode();
-                hashCode = (hashCode * 59) + this.UseWorkspaceMappings.GetHashCode();
-                hashCode = (hashCode * 59) + this.TriggerType.GetHashCode();
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

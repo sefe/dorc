@@ -65,7 +65,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="id"> (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>List&lt;DefinitionResourceReference&gt;</returns>
-        List<DefinitionResourceReference> AuthorizedresourcesList(string organization, string project, string apiVersion, string? type = default(string?), string? id = default(string?), int operationIndex = 0);
+        List<DefinitionResourceReference> AuthorizedresourcesList(string organization, string project, string apiVersion, string? type = default, string? id = default, int operationIndex = 0);
 
         /// <summary>
         /// 
@@ -81,7 +81,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="id"> (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>ApiResponse of List&lt;DefinitionResourceReference&gt;</returns>
-        ApiResponse<List<DefinitionResourceReference>> AuthorizedresourcesListWithHttpInfo(string organization, string project, string apiVersion, string? type = default(string?), string? id = default(string?), int operationIndex = 0);
+        ApiResponse<List<DefinitionResourceReference>> AuthorizedresourcesListWithHttpInfo(string organization, string project, string apiVersion, string? type = default, string? id = default, int operationIndex = 0);
         #endregion Synchronous Operations
     }
 
@@ -105,7 +105,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of List&lt;DefinitionResourceReference&gt;</returns>
-        System.Threading.Tasks.Task<List<DefinitionResourceReference>> AuthorizedresourcesAuthorizeProjectResourcesAsync(string organization, string project, string apiVersion, List<DefinitionResourceReference> body, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<List<DefinitionResourceReference>> AuthorizedresourcesAuthorizeProjectResourcesAsync(string organization, string project, string apiVersion, List<DefinitionResourceReference> body, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
 
         /// <summary>
         /// 
@@ -121,7 +121,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse (List&lt;DefinitionResourceReference&gt;)</returns>
-        System.Threading.Tasks.Task<ApiResponse<List<DefinitionResourceReference>>> AuthorizedresourcesAuthorizeProjectResourcesWithHttpInfoAsync(string organization, string project, string apiVersion, List<DefinitionResourceReference> body, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ApiResponse<List<DefinitionResourceReference>>> AuthorizedresourcesAuthorizeProjectResourcesWithHttpInfoAsync(string organization, string project, string apiVersion, List<DefinitionResourceReference> body, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
         /// <summary>
         /// 
         /// </summary>
@@ -137,7 +137,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of List&lt;DefinitionResourceReference&gt;</returns>
-        System.Threading.Tasks.Task<List<DefinitionResourceReference>> AuthorizedresourcesListAsync(string organization, string project, string apiVersion, string? type = default(string?), string? id = default(string?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<List<DefinitionResourceReference>> AuthorizedresourcesListAsync(string organization, string project, string apiVersion, string? type = default, string? id = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
 
         /// <summary>
         /// 
@@ -154,7 +154,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse (List&lt;DefinitionResourceReference&gt;)</returns>
-        System.Threading.Tasks.Task<ApiResponse<List<DefinitionResourceReference>>> AuthorizedresourcesListWithHttpInfoAsync(string organization, string project, string apiVersion, string? type = default(string?), string? id = default(string?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ApiResponse<List<DefinitionResourceReference>>> AuthorizedresourcesListWithHttpInfoAsync(string organization, string project, string apiVersion, string? type = default, string? id = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
         #endregion Asynchronous Operations
     }
 
@@ -339,6 +339,7 @@ namespace Org.OpenAPITools.Api
             };
 
             var localVarContentType = Org.OpenAPITools.Client.ClientUtils.SelectHeaderContentType(_contentTypes);
+            var localVarMultipartFormData = localVarContentType == "multipart/form-data";
             if (localVarContentType != null)
             {
                 localVarRequestOptions.HeaderParameters.Add("Content-Type", localVarContentType);
@@ -400,7 +401,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of List&lt;DefinitionResourceReference&gt;</returns>
-        public async System.Threading.Tasks.Task<List<DefinitionResourceReference>> AuthorizedresourcesAuthorizeProjectResourcesAsync(string organization, string project, string apiVersion, List<DefinitionResourceReference> body, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public async System.Threading.Tasks.Task<List<DefinitionResourceReference>> AuthorizedresourcesAuthorizeProjectResourcesAsync(string organization, string project, string apiVersion, List<DefinitionResourceReference> body, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             Org.OpenAPITools.Client.ApiResponse<List<DefinitionResourceReference>> localVarResponse = await AuthorizedresourcesAuthorizeProjectResourcesWithHttpInfoAsync(organization, project, apiVersion, body, operationIndex, cancellationToken).ConfigureAwait(false);
             return localVarResponse.Data;
@@ -417,7 +418,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse (List&lt;DefinitionResourceReference&gt;)</returns>
-        public async System.Threading.Tasks.Task<Org.OpenAPITools.Client.ApiResponse<List<DefinitionResourceReference>>> AuthorizedresourcesAuthorizeProjectResourcesWithHttpInfoAsync(string organization, string project, string apiVersion, List<DefinitionResourceReference> body, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public async System.Threading.Tasks.Task<Org.OpenAPITools.Client.ApiResponse<List<DefinitionResourceReference>>> AuthorizedresourcesAuthorizeProjectResourcesWithHttpInfoAsync(string organization, string project, string apiVersion, List<DefinitionResourceReference> body, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             // verify the required parameter 'organization' is set
             if (organization == null)
@@ -518,7 +519,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="id"> (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>List&lt;DefinitionResourceReference&gt;</returns>
-        public List<DefinitionResourceReference> AuthorizedresourcesList(string organization, string project, string apiVersion, string? type = default(string?), string? id = default(string?), int operationIndex = 0)
+        public List<DefinitionResourceReference> AuthorizedresourcesList(string organization, string project, string apiVersion, string? type = default, string? id = default, int operationIndex = 0)
         {
             Org.OpenAPITools.Client.ApiResponse<List<DefinitionResourceReference>> localVarResponse = AuthorizedresourcesListWithHttpInfo(organization, project, apiVersion, type, id);
             return localVarResponse.Data;
@@ -535,7 +536,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="id"> (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>ApiResponse of List&lt;DefinitionResourceReference&gt;</returns>
-        public Org.OpenAPITools.Client.ApiResponse<List<DefinitionResourceReference>> AuthorizedresourcesListWithHttpInfo(string organization, string project, string apiVersion, string? type = default(string?), string? id = default(string?), int operationIndex = 0)
+        public Org.OpenAPITools.Client.ApiResponse<List<DefinitionResourceReference>> AuthorizedresourcesListWithHttpInfo(string organization, string project, string apiVersion, string? type = default, string? id = default, int operationIndex = 0)
         {
             // verify the required parameter 'organization' is set
             if (organization == null)
@@ -566,6 +567,7 @@ namespace Org.OpenAPITools.Api
             };
 
             var localVarContentType = Org.OpenAPITools.Client.ClientUtils.SelectHeaderContentType(_contentTypes);
+            var localVarMultipartFormData = localVarContentType == "multipart/form-data";
             if (localVarContentType != null)
             {
                 localVarRequestOptions.HeaderParameters.Add("Content-Type", localVarContentType);
@@ -635,7 +637,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of List&lt;DefinitionResourceReference&gt;</returns>
-        public async System.Threading.Tasks.Task<List<DefinitionResourceReference>> AuthorizedresourcesListAsync(string organization, string project, string apiVersion, string? type = default(string?), string? id = default(string?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public async System.Threading.Tasks.Task<List<DefinitionResourceReference>> AuthorizedresourcesListAsync(string organization, string project, string apiVersion, string? type = default, string? id = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             Org.OpenAPITools.Client.ApiResponse<List<DefinitionResourceReference>> localVarResponse = await AuthorizedresourcesListWithHttpInfoAsync(organization, project, apiVersion, type, id, operationIndex, cancellationToken).ConfigureAwait(false);
             return localVarResponse.Data;
@@ -653,7 +655,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse (List&lt;DefinitionResourceReference&gt;)</returns>
-        public async System.Threading.Tasks.Task<Org.OpenAPITools.Client.ApiResponse<List<DefinitionResourceReference>>> AuthorizedresourcesListWithHttpInfoAsync(string organization, string project, string apiVersion, string? type = default(string?), string? id = default(string?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public async System.Threading.Tasks.Task<Org.OpenAPITools.Client.ApiResponse<List<DefinitionResourceReference>>> AuthorizedresourcesListWithHttpInfoAsync(string organization, string project, string apiVersion, string? type = default, string? id = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             // verify the required parameter 'organization' is set
             if (organization == null)

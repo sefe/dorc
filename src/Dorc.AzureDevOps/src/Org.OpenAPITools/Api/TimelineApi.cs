@@ -44,7 +44,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="planId"> (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>Timeline</returns>
-        Timeline TimelineGet(string organization, string project, int buildId, Guid timelineId, string apiVersion, int? changeId = default(int?), Guid? planId = default(Guid?), int operationIndex = 0);
+        Timeline TimelineGet(string organization, string project, int buildId, Guid timelineId, string apiVersion, int? changeId = default, Guid? planId = default, int operationIndex = 0);
 
         /// <summary>
         /// 
@@ -62,7 +62,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="planId"> (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>ApiResponse of Timeline</returns>
-        ApiResponse<Timeline> TimelineGetWithHttpInfo(string organization, string project, int buildId, Guid timelineId, string apiVersion, int? changeId = default(int?), Guid? planId = default(Guid?), int operationIndex = 0);
+        ApiResponse<Timeline> TimelineGetWithHttpInfo(string organization, string project, int buildId, Guid timelineId, string apiVersion, int? changeId = default, Guid? planId = default, int operationIndex = 0);
         #endregion Synchronous Operations
     }
 
@@ -89,7 +89,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of Timeline</returns>
-        System.Threading.Tasks.Task<Timeline> TimelineGetAsync(string organization, string project, int buildId, Guid timelineId, string apiVersion, int? changeId = default(int?), Guid? planId = default(Guid?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<Timeline> TimelineGetAsync(string organization, string project, int buildId, Guid timelineId, string apiVersion, int? changeId = default, Guid? planId = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
 
         /// <summary>
         /// 
@@ -108,7 +108,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse (Timeline)</returns>
-        System.Threading.Tasks.Task<ApiResponse<Timeline>> TimelineGetWithHttpInfoAsync(string organization, string project, int buildId, Guid timelineId, string apiVersion, int? changeId = default(int?), Guid? planId = default(Guid?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ApiResponse<Timeline>> TimelineGetWithHttpInfoAsync(string organization, string project, int buildId, Guid timelineId, string apiVersion, int? changeId = default, Guid? planId = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
         #endregion Asynchronous Operations
     }
 
@@ -242,7 +242,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="planId"> (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>Timeline</returns>
-        public Timeline TimelineGet(string organization, string project, int buildId, Guid timelineId, string apiVersion, int? changeId = default(int?), Guid? planId = default(Guid?), int operationIndex = 0)
+        public Timeline TimelineGet(string organization, string project, int buildId, Guid timelineId, string apiVersion, int? changeId = default, Guid? planId = default, int operationIndex = 0)
         {
             Org.OpenAPITools.Client.ApiResponse<Timeline> localVarResponse = TimelineGetWithHttpInfo(organization, project, buildId, timelineId, apiVersion, changeId, planId);
             return localVarResponse.Data;
@@ -261,7 +261,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="planId"> (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>ApiResponse of Timeline</returns>
-        public Org.OpenAPITools.Client.ApiResponse<Timeline> TimelineGetWithHttpInfo(string organization, string project, int buildId, Guid timelineId, string apiVersion, int? changeId = default(int?), Guid? planId = default(Guid?), int operationIndex = 0)
+        public Org.OpenAPITools.Client.ApiResponse<Timeline> TimelineGetWithHttpInfo(string organization, string project, int buildId, Guid timelineId, string apiVersion, int? changeId = default, Guid? planId = default, int operationIndex = 0)
         {
             // verify the required parameter 'organization' is set
             if (organization == null)
@@ -292,6 +292,7 @@ namespace Org.OpenAPITools.Api
             };
 
             var localVarContentType = Org.OpenAPITools.Client.ClientUtils.SelectHeaderContentType(_contentTypes);
+            var localVarMultipartFormData = localVarContentType == "multipart/form-data";
             if (localVarContentType != null)
             {
                 localVarRequestOptions.HeaderParameters.Add("Content-Type", localVarContentType);
@@ -365,7 +366,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of Timeline</returns>
-        public async System.Threading.Tasks.Task<Timeline> TimelineGetAsync(string organization, string project, int buildId, Guid timelineId, string apiVersion, int? changeId = default(int?), Guid? planId = default(Guid?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public async System.Threading.Tasks.Task<Timeline> TimelineGetAsync(string organization, string project, int buildId, Guid timelineId, string apiVersion, int? changeId = default, Guid? planId = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             Org.OpenAPITools.Client.ApiResponse<Timeline> localVarResponse = await TimelineGetWithHttpInfoAsync(organization, project, buildId, timelineId, apiVersion, changeId, planId, operationIndex, cancellationToken).ConfigureAwait(false);
             return localVarResponse.Data;
@@ -385,7 +386,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse (Timeline)</returns>
-        public async System.Threading.Tasks.Task<Org.OpenAPITools.Client.ApiResponse<Timeline>> TimelineGetWithHttpInfoAsync(string organization, string project, int buildId, Guid timelineId, string apiVersion, int? changeId = default(int?), Guid? planId = default(Guid?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public async System.Threading.Tasks.Task<Org.OpenAPITools.Client.ApiResponse<Timeline>> TimelineGetWithHttpInfoAsync(string organization, string project, int buildId, Guid timelineId, string apiVersion, int? changeId = default, Guid? planId = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             // verify the required parameter 'organization' is set
             if (organization == null)

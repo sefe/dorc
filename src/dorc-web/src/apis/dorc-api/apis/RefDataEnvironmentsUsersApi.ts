@@ -55,6 +55,16 @@ export class RefDataEnvironmentsUsersApi extends BaseAPI {
     refDataEnvironmentsUsersGet({ id, type }: RefDataEnvironmentsUsersGetRequest, opts?: OperationOpts): Observable<AjaxResponse<Array<UserApiModel>>>
     refDataEnvironmentsUsersGet({ id, type }: RefDataEnvironmentsUsersGetRequest, opts?: OperationOpts): Observable<Array<UserApiModel> | AjaxResponse<Array<UserApiModel>>> {
 
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         const query: HttpQuery = {};
 
         if (id != null) { query['id'] = id; }
@@ -63,6 +73,7 @@ export class RefDataEnvironmentsUsersApi extends BaseAPI {
         return this.request<Array<UserApiModel>>({
             url: '/RefDataEnvironmentsUsers',
             method: 'GET',
+            headers,
             query,
         }, opts?.responseOpts);
     };
@@ -74,9 +85,20 @@ export class RefDataEnvironmentsUsersApi extends BaseAPI {
     refDataEnvironmentsUsersIdGet({ id }: RefDataEnvironmentsUsersIdGetRequest, opts?: OperationOpts): Observable<Array<UserApiModel> | AjaxResponse<Array<UserApiModel>>> {
         throwIfNullOrUndefined(id, 'id', 'refDataEnvironmentsUsersIdGet');
 
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         return this.request<Array<UserApiModel>>({
             url: '/RefDataEnvironmentsUsers/{id}'.replace('{id}', encodeURI(id)),
             method: 'GET',
+            headers,
         }, opts?.responseOpts);
     };
 
@@ -87,9 +109,20 @@ export class RefDataEnvironmentsUsersApi extends BaseAPI {
     refDataEnvironmentsUsersOwnerIdGet({ id }: RefDataEnvironmentsUsersOwnerIdGetRequest, opts?: OperationOpts): Observable<EnvironmentOwnerApiModel | AjaxResponse<EnvironmentOwnerApiModel>> {
         throwIfNullOrUndefined(id, 'id', 'refDataEnvironmentsUsersOwnerIdGet');
 
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         return this.request<EnvironmentOwnerApiModel>({
             url: '/RefDataEnvironmentsUsers/owner/{id}'.replace('{id}', encodeURI(id)),
             method: 'GET',
+            headers,
         }, opts?.responseOpts);
     };
 
@@ -102,6 +135,13 @@ export class RefDataEnvironmentsUsersApi extends BaseAPI {
 
         const headers: HttpHeaders = {
             'Content-Type': 'application/json',
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
         };
 
         return this.request<boolean>({
@@ -119,9 +159,20 @@ export class RefDataEnvironmentsUsersApi extends BaseAPI {
     refDataEnvironmentsUsersSearchUsersSearchGet({ search }: RefDataEnvironmentsUsersSearchUsersSearchGetRequest, opts?: OperationOpts): Observable<Array<UserElementApiModel> | AjaxResponse<Array<UserElementApiModel>>> {
         throwIfNullOrUndefined(search, 'search', 'refDataEnvironmentsUsersSearchUsersSearchGet');
 
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         return this.request<Array<UserElementApiModel>>({
             url: '/RefDataEnvironmentsUsers/SearchUsers/{search}'.replace('{search}', encodeURI(search)),
             method: 'GET',
+            headers,
         }, opts?.responseOpts);
     };
 

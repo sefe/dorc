@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// Represents the application of an optional behavior to a build definition.
     /// </summary>
     [DataContract(Name = "BuildOption")]
-    public partial class BuildOption : IEquatable<BuildOption>, IValidatableObject
+    public partial class BuildOption : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="BuildOption" /> class.
@@ -38,7 +38,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="definition">definition.</param>
         /// <param name="enabled">Indicates whether the behavior is enabled..</param>
         /// <param name="inputs">inputs.</param>
-        public BuildOption(BuildOptionDefinitionReference definition = default(BuildOptionDefinitionReference), bool enabled = default(bool), Dictionary<string, string> inputs = default(Dictionary<string, string>))
+        public BuildOption(BuildOptionDefinitionReference definition = default, bool enabled = default, Dictionary<string, string> inputs = default)
         {
             this.Definition = definition;
             this.Enabled = enabled;
@@ -89,72 +89,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as BuildOption);
-        }
-
-        /// <summary>
-        /// Returns true if BuildOption instances are equal
-        /// </summary>
-        /// <param name="input">Instance of BuildOption to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(BuildOption input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.Definition == input.Definition ||
-                    (this.Definition != null &&
-                    this.Definition.Equals(input.Definition))
-                ) && 
-                (
-                    this.Enabled == input.Enabled ||
-                    this.Enabled.Equals(input.Enabled)
-                ) && 
-                (
-                    this.Inputs == input.Inputs ||
-                    this.Inputs != null &&
-                    input.Inputs != null &&
-                    this.Inputs.SequenceEqual(input.Inputs)
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.Definition != null)
-                {
-                    hashCode = (hashCode * 59) + this.Definition.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.Enabled.GetHashCode();
-                if (this.Inputs != null)
-                {
-                    hashCode = (hashCode * 59) + this.Inputs.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

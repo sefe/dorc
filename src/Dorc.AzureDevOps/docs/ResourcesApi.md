@@ -7,7 +7,7 @@ All URIs are relative to *https://dev.azure.com*
 | [**ResourcesAuthorizeDefinitionResources**](ResourcesApi.md#resourcesauthorizedefinitionresources) | **PATCH** /{organization}/{project}/_apis/build/definitions/{definitionId}/resources |  |
 | [**ResourcesList**](ResourcesApi.md#resourceslist) | **GET** /{organization}/{project}/_apis/build/definitions/{definitionId}/resources |  |
 
-<a name="resourcesauthorizedefinitionresources"></a>
+<a id="resourcesauthorizedefinitionresources"></a>
 # **ResourcesAuthorizeDefinitionResources**
 > List&lt;DefinitionResourceReference&gt; ResourcesAuthorizeDefinitionResources (string organization, string project, int definitionId, string apiVersion, List<DefinitionResourceReference> body)
 
@@ -105,7 +105,7 @@ catch (ApiException e)
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-<a name="resourceslist"></a>
+<a id="resourceslist"></a>
 # **ResourcesList**
 > List&lt;DefinitionResourceReference&gt; ResourcesList (string organization, string project, int definitionId, string apiVersion)
 

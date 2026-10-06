@@ -2,7 +2,6 @@
 using Dorc.Core.Configuration;
 using Dorc.Core.IdentityServer;
 using Dorc.Core.Interfaces;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Caching.Memory;
 
 namespace Dorc.Api.Services
@@ -10,6 +9,7 @@ namespace Dorc.Api.Services
     public class DirectorySearcherFactory : IDirectorySearcherFactory
     {
         private readonly ActiveDirectorySearcher _adSearcher;
+        private readonly AzureEntraSearcher _azEntraSearcher;
         private readonly IActiveDirectorySearcher _oauthDirectorySearcher;
 
         public DirectorySearcherFactory(IConfigurationSettings config,
@@ -18,7 +18,7 @@ namespace Dorc.Api.Services
             ILoggerFactory loggerFactory)
         {
             _adSearcher = new ActiveDirectorySearcher(config.GetConfigurationDomainNameIntra(), loggerFactory.CreateLogger<ActiveDirectorySearcher>());
-            var azEntraSearcher = new AzureEntraSearcher(config, loggerFactory.CreateLogger<AzureEntraSearcher>());
+            _azEntraSearcher = new AzureEntraSearcher(config, loggerFactory.CreateLogger<AzureEntraSearcher>());
 
             var searchersList = new List<IActiveDirectorySearcher>();
             if (config.GetIsUseAdAsSearcher() == true)
@@ -29,7 +29,7 @@ namespace Dorc.Api.Services
             {
                 var identityServerSearcher = new IdentityServerSearcher(config, secretsReader, loggerFactory.CreateLogger<IdentityServerSearcher>(), loggerFactory);
                 searchersList.Add(identityServerSearcher);
-                searchersList.Add(azEntraSearcher);
+                searchersList.Add(_azEntraSearcher);
             }
 
             var compositeOauthSearcher = new CompositeActiveDirectorySearcher(
@@ -42,6 +42,11 @@ namespace Dorc.Api.Services
         public IActiveDirectorySearcher GetActiveDirectorySearcher()
         {
             return _adSearcher;
+        }
+
+        public IActiveDirectorySearcher GetEntraSearcher()
+        {
+            return _azEntraSearcher;
         }
 
         public IActiveDirectorySearcher GetOAuthDirectorySearcher()

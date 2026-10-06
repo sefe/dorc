@@ -16,5 +16,7 @@ namespace Dorc.PersistentData.Model
         Create,
         Update,
         Delete,
+        Attach,
+        Detach,
     }
 }

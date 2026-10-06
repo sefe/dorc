@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// SupportedTrigger
     /// </summary>
     [DataContract(Name = "SupportedTrigger")]
-    public partial class SupportedTrigger : IEquatable<SupportedTrigger>, IValidatableObject
+    public partial class SupportedTrigger : IValidatableObject
     {
         /// <summary>
         /// The type of trigger.
@@ -92,7 +92,6 @@ namespace Org.OpenAPITools.Model
             /// </summary>
             [EnumMember(Value = "all")]
             All = 9
-
         }
 
 
@@ -109,7 +108,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="notificationType">How the trigger is notified of changes..</param>
         /// <param name="supportedCapabilities">The capabilities supported by this trigger..</param>
         /// <param name="type">The type of trigger..</param>
-        public SupportedTrigger(int defaultPollingInterval = default(int), string notificationType = default(string), Dictionary<string, Object> supportedCapabilities = default(Dictionary<string, Object>), TypeEnum? type = default(TypeEnum?))
+        public SupportedTrigger(int defaultPollingInterval = default, string notificationType = default, Dictionary<string, Object> supportedCapabilities = default, TypeEnum? type = default)
         {
             this.DefaultPollingInterval = defaultPollingInterval;
             this.NotificationType = notificationType;
@@ -164,77 +163,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as SupportedTrigger);
-        }
-
-        /// <summary>
-        /// Returns true if SupportedTrigger instances are equal
-        /// </summary>
-        /// <param name="input">Instance of SupportedTrigger to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(SupportedTrigger input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.DefaultPollingInterval == input.DefaultPollingInterval ||
-                    this.DefaultPollingInterval.Equals(input.DefaultPollingInterval)
-                ) && 
-                (
-                    this.NotificationType == input.NotificationType ||
-                    (this.NotificationType != null &&
-                    this.NotificationType.Equals(input.NotificationType))
-                ) && 
-                (
-                    this.SupportedCapabilities == input.SupportedCapabilities ||
-                    this.SupportedCapabilities != null &&
-                    input.SupportedCapabilities != null &&
-                    this.SupportedCapabilities.SequenceEqual(input.SupportedCapabilities)
-                ) && 
-                (
-                    this.Type == input.Type ||
-                    this.Type.Equals(input.Type)
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                hashCode = (hashCode * 59) + this.DefaultPollingInterval.GetHashCode();
-                if (this.NotificationType != null)
-                {
-                    hashCode = (hashCode * 59) + this.NotificationType.GetHashCode();
-                }
-                if (this.SupportedCapabilities != null)
-                {
-                    hashCode = (hashCode * 59) + this.SupportedCapabilities.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.Type.GetHashCode();
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

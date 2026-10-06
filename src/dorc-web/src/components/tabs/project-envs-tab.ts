@@ -1,54 +1,53 @@
-import { css, LitElement } from 'lit';
+import { LitElement } from 'lit';
 import '@vaadin/icons';
+import '@vaadin/icon';
+import '@vaadin/button';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
-import { ProjectApiModel } from '../../apis/dorc-api';
+import type { ProjectShortcut } from '../drawer-shortcuts';
 import { urlForName } from '../../router/router';
-import '@vaadin/icon';
 
 @customElement('project-envs-tab')
 export class ProjectEnvsTab extends LitElement {
-  @property({ type: Object }) public project: ProjectApiModel | undefined;
+  @property({ type: Object }) public project: ProjectShortcut | undefined;
 
-  static get styles() {
-    return css`
-      a {
-        color: inherit; /* blue colors for links too */
-        text-decoration: inherit; /* no underline */
-        display: block;
-        width: 100%;
-      }
-      vaadin-icon {
-        width: var(--lumo-icon-size-s);
-        height: var(--lumo-icon-size-s);
-        font-size: var(--lumo-font-size-s);
-      }
-    `;
+  /** Light DOM so `vaadin-tab._onKeyUp` can find the anchor — see env-detail-tab. */
+  protected createRenderRoot() {
+    return this;
   }
 
   render() {
-    return html` <div>
-      <div style="margin-left: 20px; width: 270px">
-        <a
-          style="float:left"
-          href="${urlForName('project-envs', {
-            id: String(this.project?.ProjectName)
-          })}"
-        >
-          <vaadin-icon icon="vaadin:records"></vaadin-icon>
-          ${this.project?.ProjectName}
-        </a>
+    const name = this.project?.ProjectName ?? '';
+    return html`
+      <a
+        class="shortcut-link"
+        href="${urlForName('project-envs', { id: String(name) })}"
+        title="${name}"
+      >
         <vaadin-icon
-          style="color: lightblue; float: right;  position: absolute; right: 5px; top: 5px; min-height: var(--lumo-size-xs);"
-          icon="vaadin:close-small"
+          class="shortcut-icon"
+          icon="vaadin:records"
           theme="small"
-          @click="${this.removeProjEnvs}"
         ></vaadin-icon>
-      </div>
-    </div>`;
+        <span class="shortcut-label">${name}</span>
+      </a>
+      <vaadin-button
+        class="shortcut-close"
+        theme="icon small drawer-shortcut-close"
+        aria-label="Close ${name} shortcut"
+        @click="${this.removeProjEnvs}"
+      >
+        <vaadin-icon icon="vaadin:close-small" theme="small"></vaadin-icon>
+      </vaadin-button>
+    `;
   }
 
-  removeProjEnvs() {
+  removeProjEnvs(e: Event) {
+    // See env-detail-tab.removeEnvDetail: stops the enclosing vaadin-tabs
+    // selecting the tab this handler is about to remove.
+    e.stopPropagation();
+    e.preventDefault();
+
     const event = new CustomEvent('close-project-envs', {
       detail: {
         Project: this.project

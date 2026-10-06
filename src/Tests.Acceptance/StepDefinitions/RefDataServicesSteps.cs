@@ -9,37 +9,37 @@ namespace Tests.Acceptance.StepDefinitions
     [Binding]
     public class RefDataServicesFeatureSteps
     {
-        private ApiResult<ServiceStatusApiModel> serviceStatusResult = default!;
+        private ApiResult<DaemonStatusApiModel> serviceStatusResult = default!;
 
         [Ignore]
         [Given(@"I have created PUT request to RefDataServices with body contains json with '(.*)' '(.*)' '(.*)'")]
         public void GivenIHaveCreatedPUTRequestToRefDataServicesWithBodyContainsJsonWith(string p0, string p1, string p2)
         {
-            ServiceStatusApiModel jsonObject = new ServiceStatusApiModel
+            DaemonStatusApiModel jsonObject = new DaemonStatusApiModel
             {
                 ServerName = p0,
-                ServiceName = p1,
-                ServiceStatus = p2
+                DaemonName = p1,
+                Status = p2
             };
             string json = JsonSerializer.Serialize(jsonObject);
 
             using (var caller = new ApiCaller())
             {
-                serviceStatusResult = caller.Call<ServiceStatusApiModel>(Endpoints.RefDataServices, Method.Put, body: json);
+                serviceStatusResult = caller.Call<DaemonStatusApiModel>(Endpoints.RefDataServices, Method.Put, body: json);
             }
         }
 
         [Ignore]
-        [Then(@"The '(.*)' should be equal ServiceStatusApiModel ServiceStatus")]
-        public void ThenTheShouldBeEqualServiceStatusApiModelServiceStatus(string p0)
+        [Then(@"The '(.*)' should be equal DaemonStatusApiModel ServiceStatus")]
+        public void ThenTheShouldBeEqualDaemonStatusApiModelServiceStatus(string p0)
         {
             if (serviceStatusResult != null)
             {
                 if (serviceStatusResult.IsModelValid)
                 {
-                    if (serviceStatusResult.Model is ServiceStatusApiModel model)
+                    if (serviceStatusResult.Model is DaemonStatusApiModel model)
                     {
-                        Assert.AreEqual(p0, model.ServiceStatus);
+                        Assert.AreEqual(p0, model.Status);
                     }
                 }
                 else

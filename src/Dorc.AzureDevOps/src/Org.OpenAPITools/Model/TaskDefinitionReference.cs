@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// A reference to a task definition.
     /// </summary>
     [DataContract(Name = "TaskDefinitionReference")]
-    public partial class TaskDefinitionReference : IEquatable<TaskDefinitionReference>, IValidatableObject
+    public partial class TaskDefinitionReference : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="TaskDefinitionReference" /> class.
@@ -38,7 +38,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="definitionType">The type of task (task or task group)..</param>
         /// <param name="id">The ID of the task..</param>
         /// <param name="versionSpec">The version of the task..</param>
-        public TaskDefinitionReference(string definitionType = default(string), Guid id = default(Guid), string versionSpec = default(string))
+        public TaskDefinitionReference(string definitionType = default, Guid id = default, string versionSpec = default)
         {
             this.DefinitionType = definitionType;
             this.Id = id;
@@ -91,75 +91,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as TaskDefinitionReference);
-        }
-
-        /// <summary>
-        /// Returns true if TaskDefinitionReference instances are equal
-        /// </summary>
-        /// <param name="input">Instance of TaskDefinitionReference to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(TaskDefinitionReference input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.DefinitionType == input.DefinitionType ||
-                    (this.DefinitionType != null &&
-                    this.DefinitionType.Equals(input.DefinitionType))
-                ) && 
-                (
-                    this.Id == input.Id ||
-                    (this.Id != null &&
-                    this.Id.Equals(input.Id))
-                ) && 
-                (
-                    this.VersionSpec == input.VersionSpec ||
-                    (this.VersionSpec != null &&
-                    this.VersionSpec.Equals(input.VersionSpec))
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.DefinitionType != null)
-                {
-                    hashCode = (hashCode * 59) + this.DefinitionType.GetHashCode();
-                }
-                if (this.Id != null)
-                {
-                    hashCode = (hashCode * 59) + this.Id.GetHashCode();
-                }
-                if (this.VersionSpec != null)
-                {
-                    hashCode = (hashCode * 59) + this.VersionSpec.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

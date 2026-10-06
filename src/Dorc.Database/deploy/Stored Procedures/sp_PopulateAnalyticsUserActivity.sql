@@ -11,8 +11,10 @@ BEGIN
     SELECT 
         ISNULL([UserName], 'Unknown') AS [UserName],
         COUNT(*) AS [TotalDeployments],
-        SUM(CASE WHEN [Status] = 'Completed' OR [Status] = 'Success' THEN 1 ELSE 0 END) AS [SuccessCount],
-        SUM(CASE WHEN [Status] = 'Failed' OR [Status] = 'Error' THEN 1 ELSE 0 END) AS [FailCount]
+        SUM(CASE WHEN [Status] IN ('Completed', 'Success') THEN 1 ELSE 0 END) AS [SuccessCount],
+        -- Unified failure taxonomy: 'Errored' is the current enum value,
+        -- 'Error' covers legacy rows (see docs/analytics-page/README.md).
+        SUM(CASE WHEN [Status] IN ('Failed', 'Errored', 'Error') THEN 1 ELSE 0 END) AS [FailCount]
     FROM (
         SELECT [UserName], [Status]
         FROM [deploy].[DeploymentRequest]

@@ -12,6 +12,7 @@
 using System;
 using System.Collections.Generic;
 using System.Net;
+using System.Net.Security;
 using System.Security.Cryptography.X509Certificates;
 using Org.OpenAPITools.Client.Auth;
 
@@ -45,6 +46,12 @@ namespace Org.OpenAPITools.Client
         /// </summary>
         /// <value>OAuth Client Secret.</value>
         string OAuthClientSecret { get; }
+
+        /// <summary>
+        /// Gets the OAuth token scope.
+        /// </summary>
+        /// <value>OAuth Token scope.</value>
+        string? OAuthScope { get; }
 
         /// <summary>
         /// Gets the OAuth flow.
@@ -96,10 +103,10 @@ namespace Org.OpenAPITools.Client
         string TempFolderPath { get; }
 
         /// <summary>
-        /// Gets the HTTP connection timeout (in milliseconds)
+        /// Gets the HTTP connection timeout.
         /// </summary>
         /// <value>HTTP connection timeout.</value>
-        int Timeout { get; }
+        TimeSpan Timeout { get; }
 
         /// <summary>
         /// Gets the proxy.
@@ -124,6 +131,11 @@ namespace Org.OpenAPITools.Client
         /// </summary>
         /// <value>Password.</value>
         string Password { get; }
+
+        /// <summary>
+        /// Determine whether or not the "default credentials" (e.g. the user account under which the current process is running) will be sent along to the server. The default is false.
+        /// </summary>
+        bool UseDefaultCredentials { get; }
 
         /// <summary>
         /// Get the servers associated with the operation.
@@ -153,9 +165,9 @@ namespace Org.OpenAPITools.Client
         X509CertificateCollection ClientCertificates { get; }
 
         /// <summary>
-        /// Determine whether or not the "default credentials" (e.g. the user account under which the current process is
-        /// running) will be sent along to the server. The default is false.
+        /// Callback function for handling the validation of remote certificates. Useful for certificate pinning and
+        /// overriding certificate errors in the scope of a request.
         /// </summary>
-        bool UseDefaultCredentials { get; }
+        RemoteCertificateValidationCallback RemoteCertificateValidationCallback { get; }
     }
 }

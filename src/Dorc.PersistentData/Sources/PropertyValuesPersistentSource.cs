@@ -174,17 +174,9 @@ namespace Dorc.PersistentData.Sources
                 var propertyValue = MapToPropertyValue(propertyValueDto, property);
                 if (property.Secure)
                 {
-                    if (property.IsArray)
-                    {
-                        var encrypted = JsonSerializer.Deserialize<string[]>(propertyValueDto.Value)
-                            ?.Select(s => _encrypt.EncryptValue(propertyValue.Value)).ToList();
-
-                        propertyValue.Value = JsonSerializer.Serialize(encrypted);
-                    }
-                    else
-                    {
-                        propertyValue.Value = _encrypt.EncryptValue(propertyValue.Value);
-                    }
+                    propertyValue.Value = property.IsArray
+                        ? EncryptArrayValue(propertyValueDto.Value, _encrypt)
+                        : _encrypt.EncryptValue(propertyValue.Value);
                 }
                 context.PropertyValues.Add(propertyValue);
 
@@ -370,10 +362,6 @@ namespace Dorc.PersistentData.Sources
                                    propertyFilter.Id
                                join environment in context.Environments on propertyValueFilter.Value equals
                                    environment.Name
-                               let isDelegate =
-                                   (from env in context.Environments
-                                    where env.Name == environment.Name && env.Users.Select(u => u.LoginId).Contains(username)
-                                    select env.Name).Any()
                                let permissions =
                                    (from env in context.Environments
                                     join ac in context.AccessControls on env.ObjectId equals ac.ObjectId
@@ -394,7 +382,7 @@ namespace Dorc.PersistentData.Sources
                                    PropertyValueId = propertyValue.Id,
                                    Secure = property.Secure,
                                    IsArray = property.IsArray,
-                                   UserEditable = isOwner || isDelegate || hasPermission
+                                   UserEditable = isOwner || hasPermission
                                };
 
                 IQueryable<FlatPropertyValueApiModel> scopedPropertyValuesQuery;
@@ -547,10 +535,6 @@ namespace Dorc.PersistentData.Sources
                                        propertyFilter.Id
                                    join environment in context.Environments on propertyValueFilter.Value equals
                                        environment.Name
-                                   let isDelegate =
-                                       (from env in context.Environments
-                                        where env.Name == environment.Name && env.Users.Select(u => u.LoginId).Contains(username)
-                                        select env.Name).Any()
                                    let permissions =
                                        (from env in context.Environments
                                         join ac in context.AccessControls on env.ObjectId equals ac.ObjectId
@@ -570,7 +554,7 @@ namespace Dorc.PersistentData.Sources
                                        PropertyValueId = propertyValue.Id,
                                        Secure = property.Secure,
                                        IsArray = property.IsArray,
-                                       UserEditable = isOwner || isDelegate || hasPermission
+                                       UserEditable = isOwner || hasPermission
                                    };
 
                     var global = from propertyValue in context.PropertyValues
@@ -739,7 +723,7 @@ namespace Dorc.PersistentData.Sources
                 {
                     case true:
                         {
-                            t.Value = _encrypt.DecryptValue(t.Value.ToString());
+                            t.Value = DecryptStoredValue(t.Value.ToString(), t.Property.IsArray);
                             AddKeyPair(properties, t.Property.Name, t);
                             break;
                         }
@@ -798,7 +782,7 @@ namespace Dorc.PersistentData.Sources
             if (propertyValue.Property.Secure
                 && propertyValue.Value != null)
             {
-                return _encrypt.DecryptValue(propertyValue.Value);
+                return DecryptStoredValue(propertyValue.Value, propertyValue.Property.IsArray);
             }
 
             return propertyValue.Value;
@@ -809,10 +793,40 @@ namespace Dorc.PersistentData.Sources
             if (propertyValue.Property.Secure
                 && propertyValue.Value != null)
             {
-                propertyValue.Value = _encrypt.DecryptValue(propertyValue.Value);
+                propertyValue.Value = DecryptStoredValue(propertyValue.Value, propertyValue.Property.IsArray);
             }
 
             return propertyValue;
+        }
+
+        private string DecryptStoredValue(string value, bool isArray)
+        {
+            return isArray
+                ? DecryptArrayValue(value, _encrypt)
+                : _encrypt.DecryptValue(value);
+        }
+
+        // Secure array values are stored as a JSON array of per-element ciphertexts. Encrypt and
+        // decrypt must be symmetric: encrypt each element, decrypt each element. (A previous
+        // version encrypted the whole serialized array for every element, corrupting the data.)
+        internal static string EncryptArrayValue(string serializedArray, IPropertyEncryptor encryptor)
+        {
+            var items = JsonSerializer.Deserialize<string[]>(serializedArray);
+            if (items == null)
+                return serializedArray;
+
+            var encrypted = items.Select(encryptor.EncryptValue).ToList();
+            return JsonSerializer.Serialize(encrypted);
+        }
+
+        internal static string DecryptArrayValue(string serializedArray, IPropertyEncryptor encryptor)
+        {
+            var items = JsonSerializer.Deserialize<string[]>(serializedArray);
+            if (items == null)
+                return serializedArray;
+
+            var decrypted = items.Select(encryptor.DecryptValue).ToList();
+            return JsonSerializer.Serialize(decrypted);
         }
 
         private static void AddKeyPair(IDictionary<string, PropertyValueDto> properties, string key, PropertyValueDto value)
@@ -829,7 +843,6 @@ namespace Dorc.PersistentData.Sources
             for (var i = 0; i < ds.Tables[0].Rows.Count; i++)
             {
                 var isOwner = ds.Tables[0].Rows[i][7] as int?;
-                var isDelegate = ds.Tables[0].Rows[i][8] as int?;
                 var hasPermission = ds.Tables[0].Rows[i][9] as int?;
 
                 result[i] = new PropertyValueDto
@@ -845,7 +858,7 @@ namespace Dorc.PersistentData.Sources
                     Id = ds.Tables[0].Rows[i][5] is long ? (long)ds.Tables[0].Rows[i][5] : 0,
                     PropertyValueFilterId = ds.Tables[0].Rows[i][6] as long?,
                     Priority = ds.Tables[0].Rows[i][10] as int? ?? 0,
-                    UserEditable = isOwner == 1 || isDelegate == 1 || hasPermission == 1
+                    UserEditable = isOwner == 1 || hasPermission == 1
                 };
             }
 

@@ -42,7 +42,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="type"> (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>BuildReportMetadata</returns>
-        BuildReportMetadata ReportGet(string organization, string project, int buildId, string apiVersion, string? type = default(string?), int operationIndex = 0);
+        BuildReportMetadata ReportGet(string organization, string project, int buildId, string apiVersion, string? type = default, int operationIndex = 0);
 
         /// <summary>
         /// 
@@ -58,7 +58,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="type"> (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>ApiResponse of BuildReportMetadata</returns>
-        ApiResponse<BuildReportMetadata> ReportGetWithHttpInfo(string organization, string project, int buildId, string apiVersion, string? type = default(string?), int operationIndex = 0);
+        ApiResponse<BuildReportMetadata> ReportGetWithHttpInfo(string organization, string project, int buildId, string apiVersion, string? type = default, int operationIndex = 0);
         #endregion Synchronous Operations
     }
 
@@ -83,7 +83,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of BuildReportMetadata</returns>
-        System.Threading.Tasks.Task<BuildReportMetadata> ReportGetAsync(string organization, string project, int buildId, string apiVersion, string? type = default(string?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<BuildReportMetadata> ReportGetAsync(string organization, string project, int buildId, string apiVersion, string? type = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
 
         /// <summary>
         /// 
@@ -100,7 +100,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse (BuildReportMetadata)</returns>
-        System.Threading.Tasks.Task<ApiResponse<BuildReportMetadata>> ReportGetWithHttpInfoAsync(string organization, string project, int buildId, string apiVersion, string? type = default(string?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ApiResponse<BuildReportMetadata>> ReportGetWithHttpInfoAsync(string organization, string project, int buildId, string apiVersion, string? type = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
         #endregion Asynchronous Operations
     }
 
@@ -232,7 +232,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="type"> (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>BuildReportMetadata</returns>
-        public BuildReportMetadata ReportGet(string organization, string project, int buildId, string apiVersion, string? type = default(string?), int operationIndex = 0)
+        public BuildReportMetadata ReportGet(string organization, string project, int buildId, string apiVersion, string? type = default, int operationIndex = 0)
         {
             Org.OpenAPITools.Client.ApiResponse<BuildReportMetadata> localVarResponse = ReportGetWithHttpInfo(organization, project, buildId, apiVersion, type);
             return localVarResponse.Data;
@@ -249,7 +249,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="type"> (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>ApiResponse of BuildReportMetadata</returns>
-        public Org.OpenAPITools.Client.ApiResponse<BuildReportMetadata> ReportGetWithHttpInfo(string organization, string project, int buildId, string apiVersion, string? type = default(string?), int operationIndex = 0)
+        public Org.OpenAPITools.Client.ApiResponse<BuildReportMetadata> ReportGetWithHttpInfo(string organization, string project, int buildId, string apiVersion, string? type = default, int operationIndex = 0)
         {
             // verify the required parameter 'organization' is set
             if (organization == null)
@@ -281,6 +281,7 @@ namespace Org.OpenAPITools.Api
             };
 
             var localVarContentType = Org.OpenAPITools.Client.ClientUtils.SelectHeaderContentType(_contentTypes);
+            var localVarMultipartFormData = localVarContentType == "multipart/form-data";
             if (localVarContentType != null)
             {
                 localVarRequestOptions.HeaderParameters.Add("Content-Type", localVarContentType);
@@ -347,7 +348,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of BuildReportMetadata</returns>
-        public async System.Threading.Tasks.Task<BuildReportMetadata> ReportGetAsync(string organization, string project, int buildId, string apiVersion, string? type = default(string?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public async System.Threading.Tasks.Task<BuildReportMetadata> ReportGetAsync(string organization, string project, int buildId, string apiVersion, string? type = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             Org.OpenAPITools.Client.ApiResponse<BuildReportMetadata> localVarResponse = await ReportGetWithHttpInfoAsync(organization, project, buildId, apiVersion, type, operationIndex, cancellationToken).ConfigureAwait(false);
             return localVarResponse.Data;
@@ -365,7 +366,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse (BuildReportMetadata)</returns>
-        public async System.Threading.Tasks.Task<Org.OpenAPITools.Client.ApiResponse<BuildReportMetadata>> ReportGetWithHttpInfoAsync(string organization, string project, int buildId, string apiVersion, string? type = default(string?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public async System.Threading.Tasks.Task<Org.OpenAPITools.Client.ApiResponse<BuildReportMetadata>> ReportGetWithHttpInfoAsync(string organization, string project, int buildId, string apiVersion, string? type = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             // verify the required parameter 'organization' is set
             if (organization == null)

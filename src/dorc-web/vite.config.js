@@ -89,9 +89,7 @@ function copyDirRecursive(src, dest) {
 }
 
 export default defineConfig({
-  plugins: [
-    vaadinLumoPlugin()
-  ],
+  plugins: [vaadinLumoPlugin()],
   build: {
     rollupOptions: {
       input: {

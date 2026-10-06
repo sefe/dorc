@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// SourceProviderAttributes
     /// </summary>
     [DataContract(Name = "SourceProviderAttributes")]
-    public partial class SourceProviderAttributes : IEquatable<SourceProviderAttributes>, IValidatableObject
+    public partial class SourceProviderAttributes : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="SourceProviderAttributes" /> class.
@@ -38,7 +38,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="name">The name of the source provider..</param>
         /// <param name="supportedCapabilities">The capabilities supported by this source provider..</param>
         /// <param name="supportedTriggers">The types of triggers supported by this source provider..</param>
-        public SourceProviderAttributes(string name = default(string), Dictionary<string, bool> supportedCapabilities = default(Dictionary<string, bool>), List<SupportedTrigger> supportedTriggers = default(List<SupportedTrigger>))
+        public SourceProviderAttributes(string name = default, Dictionary<string, bool> supportedCapabilities = default, List<SupportedTrigger> supportedTriggers = default)
         {
             this.Name = name;
             this.SupportedCapabilities = supportedCapabilities;
@@ -91,77 +91,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as SourceProviderAttributes);
-        }
-
-        /// <summary>
-        /// Returns true if SourceProviderAttributes instances are equal
-        /// </summary>
-        /// <param name="input">Instance of SourceProviderAttributes to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(SourceProviderAttributes input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.Name == input.Name ||
-                    (this.Name != null &&
-                    this.Name.Equals(input.Name))
-                ) && 
-                (
-                    this.SupportedCapabilities == input.SupportedCapabilities ||
-                    this.SupportedCapabilities != null &&
-                    input.SupportedCapabilities != null &&
-                    this.SupportedCapabilities.SequenceEqual(input.SupportedCapabilities)
-                ) && 
-                (
-                    this.SupportedTriggers == input.SupportedTriggers ||
-                    this.SupportedTriggers != null &&
-                    input.SupportedTriggers != null &&
-                    this.SupportedTriggers.SequenceEqual(input.SupportedTriggers)
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.Name != null)
-                {
-                    hashCode = (hashCode * 59) + this.Name.GetHashCode();
-                }
-                if (this.SupportedCapabilities != null)
-                {
-                    hashCode = (hashCode * 59) + this.SupportedCapabilities.GetHashCode();
-                }
-                if (this.SupportedTriggers != null)
-                {
-                    hashCode = (hashCode * 59) + this.SupportedTriggers.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

@@ -13,7 +13,7 @@ All URIs are relative to *https://dev.azure.com*
 | [**SourceProvidersListWebhooks**](SourceProvidersApi.md#sourceproviderslistwebhooks) | **GET** /{organization}/{project}/_apis/sourceProviders/{providerName}/webhooks |  |
 | [**SourceProvidersRestoreWebhooks**](SourceProvidersApi.md#sourceprovidersrestorewebhooks) | **POST** /{organization}/{project}/_apis/sourceProviders/{providerName}/webhooks |  |
 
-<a name="sourceprovidersgetfilecontents"></a>
+<a id="sourceprovidersgetfilecontents"></a>
 # **SourceProvidersGetFileContents**
 > string SourceProvidersGetFileContents (string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = null, string? repository = null, string? commitOrBranch = null, string? path = null)
 
@@ -120,7 +120,7 @@ catch (ApiException e)
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-<a name="sourceprovidersgetpathcontents"></a>
+<a id="sourceprovidersgetpathcontents"></a>
 # **SourceProvidersGetPathContents**
 > List&lt;SourceRepositoryItem&gt; SourceProvidersGetPathContents (string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = null, string? repository = null, string? commitOrBranch = null, string? path = null)
 
@@ -227,7 +227,7 @@ catch (ApiException e)
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-<a name="sourceprovidersgetpullrequest"></a>
+<a id="sourceprovidersgetpullrequest"></a>
 # **SourceProvidersGetPullRequest**
 > PullRequest SourceProvidersGetPullRequest (string organization, string project, string providerName, string pullRequestId, string apiVersion, string? repositoryId = null, Guid? serviceEndpointId = null)
 
@@ -332,7 +332,7 @@ catch (ApiException e)
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-<a name="sourceproviderslist"></a>
+<a id="sourceproviderslist"></a>
 # **SourceProvidersList**
 > List&lt;SourceProviderAttributes&gt; SourceProvidersList (string organization, string project, string apiVersion)
 
@@ -429,7 +429,7 @@ catch (ApiException e)
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-<a name="sourceproviderslistbranches"></a>
+<a id="sourceproviderslistbranches"></a>
 # **SourceProvidersListBranches**
 > List&lt;string&gt; SourceProvidersListBranches (string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = null, string? repository = null, string? branchName = null)
 
@@ -534,7 +534,7 @@ catch (ApiException e)
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-<a name="sourceproviderslistrepositories"></a>
+<a id="sourceproviderslistrepositories"></a>
 # **SourceProvidersListRepositories**
 > SourceRepositories SourceProvidersListRepositories (string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = null, string? repository = null, string? resultSet = null, bool? pageResults = null, string? continuationToken = null)
 
@@ -643,7 +643,7 @@ catch (ApiException e)
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-<a name="sourceproviderslistwebhooks"></a>
+<a id="sourceproviderslistwebhooks"></a>
 # **SourceProvidersListWebhooks**
 > List&lt;RepositoryWebhook&gt; SourceProvidersListWebhooks (string organization, string project, string providerName, string apiVersion, Guid? serviceEndpointId = null, string? repository = null)
 
@@ -746,7 +746,7 @@ catch (ApiException e)
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-<a name="sourceprovidersrestorewebhooks"></a>
+<a id="sourceprovidersrestorewebhooks"></a>
 # **SourceProvidersRestoreWebhooks**
 > void SourceProvidersRestoreWebhooks (string organization, string project, string providerName, string apiVersion, List<string> body, Guid? serviceEndpointId = null, string? repository = null)
 

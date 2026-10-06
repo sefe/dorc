@@ -30,26 +30,40 @@ namespace Org.OpenAPITools.Model
     /// BuildCompletedEvent
     /// </summary>
     [DataContract(Name = "BuildCompletedEvent")]
-    public partial class BuildCompletedEvent : IEquatable<BuildCompletedEvent>, IValidatableObject
+    public partial class BuildCompletedEvent : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="BuildCompletedEvent" /> class.
         /// </summary>
+        /// <param name="buildId">buildId.</param>
+        /// <param name="build">build.</param>
         /// <param name="changes">Changes associated with a build used for build notifications.</param>
         /// <param name="pullRequest">pullRequest.</param>
         /// <param name="testResults">testResults.</param>
         /// <param name="timelineRecords">Timeline records associated with a build used for build notifications.</param>
         /// <param name="workItems">Work items associated with a build used for build notifications.</param>
-        /// <param name="buildId">buildId.</param>
-        public BuildCompletedEvent(List<Change> changes = default(List<Change>), PullRequest pullRequest = default(PullRequest), AggregatedResultsAnalysis testResults = default(AggregatedResultsAnalysis), List<TimelineRecord> timelineRecords = default(List<TimelineRecord>), List<AssociatedWorkItem> workItems = default(List<AssociatedWorkItem>), int buildId = default(int))
+        public BuildCompletedEvent(int buildId = default, Build build = default, List<Change> changes = default, PullRequest pullRequest = default, AggregatedResultsAnalysis testResults = default, List<TimelineRecord> timelineRecords = default, List<AssociatedWorkItem> workItems = default)
         {
+            this.BuildId = buildId;
+            this.Build = build;
             this.Changes = changes;
             this.PullRequest = pullRequest;
             this.TestResults = testResults;
             this.TimelineRecords = timelineRecords;
             this.WorkItems = workItems;
-            this.BuildId = buildId;
         }
+
+        /// <summary>
+        /// Gets or Sets BuildId
+        /// </summary>
+        [DataMember(Name = "buildId", EmitDefaultValue = false)]
+        public int BuildId { get; set; }
+
+        /// <summary>
+        /// Gets or Sets Build
+        /// </summary>
+        [DataMember(Name = "build", EmitDefaultValue = false)]
+        public Build Build { get; set; }
 
         /// <summary>
         /// Changes associated with a build used for build notifications
@@ -85,12 +99,6 @@ namespace Org.OpenAPITools.Model
         public List<AssociatedWorkItem> WorkItems { get; set; }
 
         /// <summary>
-        /// Gets or Sets BuildId
-        /// </summary>
-        [DataMember(Name = "buildId", EmitDefaultValue = false)]
-        public int BuildId { get; set; }
-
-        /// <summary>
         /// Returns the string presentation of the object
         /// </summary>
         /// <returns>String presentation of the object</returns>
@@ -98,12 +106,13 @@ namespace Org.OpenAPITools.Model
         {
             StringBuilder sb = new StringBuilder();
             sb.Append("class BuildCompletedEvent {\n");
+            sb.Append("  BuildId: ").Append(BuildId).Append("\n");
+            sb.Append("  Build: ").Append(Build).Append("\n");
             sb.Append("  Changes: ").Append(Changes).Append("\n");
             sb.Append("  PullRequest: ").Append(PullRequest).Append("\n");
             sb.Append("  TestResults: ").Append(TestResults).Append("\n");
             sb.Append("  TimelineRecords: ").Append(TimelineRecords).Append("\n");
             sb.Append("  WorkItems: ").Append(WorkItems).Append("\n");
-            sb.Append("  BuildId: ").Append(BuildId).Append("\n");
             sb.Append("}\n");
             return sb.ToString();
         }
@@ -118,101 +127,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as BuildCompletedEvent);
-        }
-
-        /// <summary>
-        /// Returns true if BuildCompletedEvent instances are equal
-        /// </summary>
-        /// <param name="input">Instance of BuildCompletedEvent to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(BuildCompletedEvent input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.Changes == input.Changes ||
-                    this.Changes != null &&
-                    input.Changes != null &&
-                    this.Changes.SequenceEqual(input.Changes)
-                ) && 
-                (
-                    this.PullRequest == input.PullRequest ||
-                    (this.PullRequest != null &&
-                    this.PullRequest.Equals(input.PullRequest))
-                ) && 
-                (
-                    this.TestResults == input.TestResults ||
-                    (this.TestResults != null &&
-                    this.TestResults.Equals(input.TestResults))
-                ) && 
-                (
-                    this.TimelineRecords == input.TimelineRecords ||
-                    this.TimelineRecords != null &&
-                    input.TimelineRecords != null &&
-                    this.TimelineRecords.SequenceEqual(input.TimelineRecords)
-                ) && 
-                (
-                    this.WorkItems == input.WorkItems ||
-                    this.WorkItems != null &&
-                    input.WorkItems != null &&
-                    this.WorkItems.SequenceEqual(input.WorkItems)
-                ) && 
-                (
-                    this.BuildId == input.BuildId ||
-                    this.BuildId.Equals(input.BuildId)
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.Changes != null)
-                {
-                    hashCode = (hashCode * 59) + this.Changes.GetHashCode();
-                }
-                if (this.PullRequest != null)
-                {
-                    hashCode = (hashCode * 59) + this.PullRequest.GetHashCode();
-                }
-                if (this.TestResults != null)
-                {
-                    hashCode = (hashCode * 59) + this.TestResults.GetHashCode();
-                }
-                if (this.TimelineRecords != null)
-                {
-                    hashCode = (hashCode * 59) + this.TimelineRecords.GetHashCode();
-                }
-                if (this.WorkItems != null)
-                {
-                    hashCode = (hashCode * 59) + this.WorkItems.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.BuildId.GetHashCode();
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

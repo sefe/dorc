@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// Represents a group of inputs for a build option.
     /// </summary>
     [DataContract(Name = "BuildOptionGroupDefinition")]
-    public partial class BuildOptionGroupDefinition : IEquatable<BuildOptionGroupDefinition>, IValidatableObject
+    public partial class BuildOptionGroupDefinition : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="BuildOptionGroupDefinition" /> class.
@@ -38,7 +38,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="displayName">The name of the group to display in the UI..</param>
         /// <param name="isExpanded">Indicates whether the group is initially displayed as expanded in the UI..</param>
         /// <param name="name">The internal name of the group..</param>
-        public BuildOptionGroupDefinition(string displayName = default(string), bool isExpanded = default(bool), string name = default(string))
+        public BuildOptionGroupDefinition(string displayName = default, bool isExpanded = default, string name = default)
         {
             this.DisplayName = displayName;
             this.IsExpanded = isExpanded;
@@ -91,71 +91,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as BuildOptionGroupDefinition);
-        }
-
-        /// <summary>
-        /// Returns true if BuildOptionGroupDefinition instances are equal
-        /// </summary>
-        /// <param name="input">Instance of BuildOptionGroupDefinition to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(BuildOptionGroupDefinition input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.DisplayName == input.DisplayName ||
-                    (this.DisplayName != null &&
-                    this.DisplayName.Equals(input.DisplayName))
-                ) && 
-                (
-                    this.IsExpanded == input.IsExpanded ||
-                    this.IsExpanded.Equals(input.IsExpanded)
-                ) && 
-                (
-                    this.Name == input.Name ||
-                    (this.Name != null &&
-                    this.Name.Equals(input.Name))
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.DisplayName != null)
-                {
-                    hashCode = (hashCode * 59) + this.DisplayName.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.IsExpanded.GetHashCode();
-                if (this.Name != null)
-                {
-                    hashCode = (hashCode * 59) + this.Name.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

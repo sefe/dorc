@@ -9,6 +9,8 @@ import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { RefDataEnvironmentsHistoryApi } from '../../apis/dorc-api/apis';
 import { EnvironmentHistoryApiModel } from '../../apis/dorc-api/models';
+import '@vaadin/button';
+import { dorcApiConfiguration } from '../../services/dorc-api-configuration';
 
 @customElement('edit-comments-controls')
 export class EditCommentsControls extends LitElement {
@@ -24,6 +26,12 @@ export class EditCommentsControls extends LitElement {
 
   static get styles() {
     return css`
+      :host {
+        display: inline-flex;
+        align-items: center;
+        flex-wrap: nowrap;
+        gap: var(--lumo-space-xs);
+      }
       vaadin-button {
         padding: 0px;
         margin: 2px;
@@ -83,7 +91,7 @@ export class EditCommentsControls extends LitElement {
 
   _saveClick() {
     const envHistory = this.model?.item as EnvironmentHistoryApiModel;
-    const api = new RefDataEnvironmentsHistoryApi();
+    const api = new RefDataEnvironmentsHistoryApi(dorcApiConfiguration);
     api
       .refDataEnvironmentsHistoryPut({ environmentHistoryApiModel: envHistory })
       .subscribe(

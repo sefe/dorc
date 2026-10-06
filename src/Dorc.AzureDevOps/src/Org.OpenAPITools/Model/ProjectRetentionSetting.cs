@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// Contains the settings for the retention rules.
     /// </summary>
     [DataContract(Name = "ProjectRetentionSetting")]
-    public partial class ProjectRetentionSetting : IEquatable<ProjectRetentionSetting>, IValidatableObject
+    public partial class ProjectRetentionSetting : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="ProjectRetentionSetting" /> class.
@@ -39,7 +39,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="purgePullRequestRuns">purgePullRequestRuns.</param>
         /// <param name="purgeRuns">purgeRuns.</param>
         /// <param name="retainRunsPerProtectedBranch">retainRunsPerProtectedBranch.</param>
-        public ProjectRetentionSetting(RetentionSetting purgeArtifacts = default(RetentionSetting), RetentionSetting purgePullRequestRuns = default(RetentionSetting), RetentionSetting purgeRuns = default(RetentionSetting), RetentionSetting retainRunsPerProtectedBranch = default(RetentionSetting))
+        public ProjectRetentionSetting(RetentionSetting purgeArtifacts = default, RetentionSetting purgePullRequestRuns = default, RetentionSetting purgeRuns = default, RetentionSetting retainRunsPerProtectedBranch = default)
         {
             this.PurgeArtifacts = purgeArtifacts;
             this.PurgePullRequestRuns = purgePullRequestRuns;
@@ -97,84 +97,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as ProjectRetentionSetting);
-        }
-
-        /// <summary>
-        /// Returns true if ProjectRetentionSetting instances are equal
-        /// </summary>
-        /// <param name="input">Instance of ProjectRetentionSetting to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(ProjectRetentionSetting input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.PurgeArtifacts == input.PurgeArtifacts ||
-                    (this.PurgeArtifacts != null &&
-                    this.PurgeArtifacts.Equals(input.PurgeArtifacts))
-                ) && 
-                (
-                    this.PurgePullRequestRuns == input.PurgePullRequestRuns ||
-                    (this.PurgePullRequestRuns != null &&
-                    this.PurgePullRequestRuns.Equals(input.PurgePullRequestRuns))
-                ) && 
-                (
-                    this.PurgeRuns == input.PurgeRuns ||
-                    (this.PurgeRuns != null &&
-                    this.PurgeRuns.Equals(input.PurgeRuns))
-                ) && 
-                (
-                    this.RetainRunsPerProtectedBranch == input.RetainRunsPerProtectedBranch ||
-                    (this.RetainRunsPerProtectedBranch != null &&
-                    this.RetainRunsPerProtectedBranch.Equals(input.RetainRunsPerProtectedBranch))
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.PurgeArtifacts != null)
-                {
-                    hashCode = (hashCode * 59) + this.PurgeArtifacts.GetHashCode();
-                }
-                if (this.PurgePullRequestRuns != null)
-                {
-                    hashCode = (hashCode * 59) + this.PurgePullRequestRuns.GetHashCode();
-                }
-                if (this.PurgeRuns != null)
-                {
-                    hashCode = (hashCode * 59) + this.PurgeRuns.GetHashCode();
-                }
-                if (this.RetainRunsPerProtectedBranch != null)
-                {
-                    hashCode = (hashCode * 59) + this.RetainRunsPerProtectedBranch.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

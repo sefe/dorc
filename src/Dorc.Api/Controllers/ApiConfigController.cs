@@ -33,7 +33,9 @@ namespace Dorc.Api.Controllers
                 AuthenticationScheme = scheme == ConfigAuthScheme.Both ? ConfigAuthScheme.OAuth : scheme,
                 OAuthAuthority = _configurationSettings.GetOAuthAuthority(),
                 OAuthUiClientId = _configurationSettings.GetOAuthUiClientId(),
-                OAuthUiRequestedScopes = _configurationSettings.GetOAuthUiRequestedScopes()
+                OAuthUiRequestedScopes = _configurationSettings.GetOAuthUiRequestedScopes(),
+                PauseDeploymentEnabled = _configurationSettings.GetPauseDeploymentEnabled(),
+                IsProduction = _configurationSettings.GetIsProduction()
             };
         }
     }

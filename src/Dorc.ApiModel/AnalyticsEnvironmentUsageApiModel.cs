@@ -5,5 +5,6 @@ namespace Dorc.ApiModel
         public string EnvironmentName { get; set; }
         public int CountOfDeployments { get; set; }
         public int Failed { get; set; }
+        public System.DateTimeOffset? LastSuccessfulDeployment { get; set; }
     }
 }

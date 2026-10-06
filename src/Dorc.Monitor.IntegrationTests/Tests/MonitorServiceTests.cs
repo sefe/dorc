@@ -3,6 +3,7 @@ using Dorc.Monitor.RequestProcessors;
 using Dorc.Monitor.Tests.Data;
 using Dorc.Monitor.Tests.Init;
 using JasperFx.Core;
+using Microsoft.Extensions.Logging;
 using NSubstitute;
 using System.Collections.Concurrent;
 using System.Diagnostics;
@@ -152,7 +153,10 @@ namespace Dorc.Monitor.IntegrationTests.Tests
         private IPendingRequestProcessor SetupPendingRequestProcessorMock(IList<string> envsToCheck, ConcurrentQueue<string> queue, ConcurrentDictionary<string, string> dict, Stopwatch stopWatch)
         {
             var prProcessorMock = Substitute.For<IPendingRequestProcessor>();
-            prProcessorMock.When(s => s.Execute(Arg.Any<RequestToProcessDto>(), Arg.Any<CancellationToken>()))
+            prProcessorMock.When(s => s.Execute(
+                    Arg.Any<RequestToProcessDto>(),
+                    Arg.Any<CancellationToken>(),
+                    Arg.Any<ILoggerFactory>()))
                 .Do(c =>
                 {
                     var a = c.Arg<RequestToProcessDto>();

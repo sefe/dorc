@@ -26,7 +26,9 @@ AS
 								ELSE p.Name
 							END as ProjectName,
 							COUNT(distinct dr.[id]) AS 'CountofDeployments',
-							COUNT(distinct CASE WHEN dr.Status='Failed' THEN dr.[id] END) AS Failed
+							-- Unified failure taxonomy: 'Errored' is the current enum value,
+							-- 'Error' covers legacy rows (see docs/analytics-page/README.md).
+							COUNT(distinct CASE WHEN dr.Status IN ('Failed','Errored','Error') THEN dr.[id] END) AS Failed
 					FROM CombinedDeploymentRequests dr
 							LEFT JOIN [deploy].Project p ON p.Name = dr.Project
              WHERE [CompletedTime] IS NOT NULL

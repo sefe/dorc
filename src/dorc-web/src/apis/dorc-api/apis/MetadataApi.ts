@@ -14,7 +14,7 @@
 import type { Observable } from 'rxjs';
 import type { AjaxResponse } from 'rxjs/ajax';
 import { BaseAPI } from '../runtime';
-import type { OperationOpts } from '../runtime';
+import type { OperationOpts, HttpHeaders } from '../runtime';
 
 /**
  * no description
@@ -26,9 +26,20 @@ export class MetadataApi extends BaseAPI {
     metadataGet(): Observable<string>
     metadataGet(opts?: OperationOpts): Observable<AjaxResponse<string>>
     metadataGet(opts?: OperationOpts): Observable<string | AjaxResponse<string>> {
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         return this.request<string>({
             url: '/Metadata',
             method: 'GET',
+            headers,
         }, opts?.responseOpts);
     };
 

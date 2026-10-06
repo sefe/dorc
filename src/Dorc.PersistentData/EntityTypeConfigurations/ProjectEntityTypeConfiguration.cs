@@ -1,7 +1,8 @@
-﻿using Microsoft.EntityFrameworkCore.Metadata.Builders;
-using Microsoft.EntityFrameworkCore;
-using Environment = Dorc.PersistentData.Model.Environment;
+﻿using Dorc.ApiModel;
 using Dorc.PersistentData.Model;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using Environment = Dorc.PersistentData.Model.Environment;
 
 namespace Dorc.PersistentData.EntityTypeConfigurations
 {
@@ -33,7 +34,16 @@ namespace Dorc.PersistentData.EntityTypeConfigurations
                 .HasMaxLength(512);
 
             builder
+                .Property(e => e.LeanIXUrl)
+                .HasMaxLength(512);
+
+            builder
                 .Property(x => x.SourceDatabaseId);
+
+            builder
+                .Property(x => x.SourceControlType)
+                .HasDefaultValue(SourceControlType.AzureDevOps)
+                .HasConversion<int>();
 
             builder
                 .HasMany(x => x.Components)

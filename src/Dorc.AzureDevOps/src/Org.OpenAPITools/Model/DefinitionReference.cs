@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// Represents a reference to a definition.
     /// </summary>
     [DataContract(Name = "DefinitionReference")]
-    public partial class DefinitionReference : IEquatable<DefinitionReference>, IValidatableObject
+    public partial class DefinitionReference : IValidatableObject
     {
         /// <summary>
         /// A value that indicates whether builds can be queued against this definition.
@@ -56,7 +56,6 @@ namespace Org.OpenAPITools.Model
             /// </summary>
             [EnumMember(Value = "disabled")]
             Disabled = 3
-
         }
 
 
@@ -84,7 +83,6 @@ namespace Org.OpenAPITools.Model
             /// </summary>
             [EnumMember(Value = "build")]
             Build = 2
-
         }
 
 
@@ -107,7 +105,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="type">The type of the definition..</param>
         /// <param name="uri">The definition&#39;s URI..</param>
         /// <param name="url">The REST URL of the definition..</param>
-        public DefinitionReference(DateTime createdDate = default(DateTime), int id = default(int), string name = default(string), string path = default(string), TeamProjectReference project = default(TeamProjectReference), QueueStatusEnum? queueStatus = default(QueueStatusEnum?), int revision = default(int), TypeEnum? type = default(TypeEnum?), string uri = default(string), string url = default(string))
+        public DefinitionReference(DateTime createdDate = default, int id = default, string name = default, string path = default, TeamProjectReference project = default, QueueStatusEnum? queueStatus = default, int revision = default, TypeEnum? type = default, string uri = default, string url = default)
         {
             this.CreatedDate = createdDate;
             this.Id = id;
@@ -208,122 +206,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as DefinitionReference);
-        }
-
-        /// <summary>
-        /// Returns true if DefinitionReference instances are equal
-        /// </summary>
-        /// <param name="input">Instance of DefinitionReference to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(DefinitionReference input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.CreatedDate == input.CreatedDate ||
-                    (this.CreatedDate != null &&
-                    this.CreatedDate.Equals(input.CreatedDate))
-                ) && 
-                (
-                    this.Id == input.Id ||
-                    this.Id.Equals(input.Id)
-                ) && 
-                (
-                    this.Name == input.Name ||
-                    (this.Name != null &&
-                    this.Name.Equals(input.Name))
-                ) && 
-                (
-                    this.Path == input.Path ||
-                    (this.Path != null &&
-                    this.Path.Equals(input.Path))
-                ) && 
-                (
-                    this.Project == input.Project ||
-                    (this.Project != null &&
-                    this.Project.Equals(input.Project))
-                ) && 
-                (
-                    this.QueueStatus == input.QueueStatus ||
-                    this.QueueStatus.Equals(input.QueueStatus)
-                ) && 
-                (
-                    this.Revision == input.Revision ||
-                    this.Revision.Equals(input.Revision)
-                ) && 
-                (
-                    this.Type == input.Type ||
-                    this.Type.Equals(input.Type)
-                ) && 
-                (
-                    this.Uri == input.Uri ||
-                    (this.Uri != null &&
-                    this.Uri.Equals(input.Uri))
-                ) && 
-                (
-                    this.Url == input.Url ||
-                    (this.Url != null &&
-                    this.Url.Equals(input.Url))
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.CreatedDate != null)
-                {
-                    hashCode = (hashCode * 59) + this.CreatedDate.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.Id.GetHashCode();
-                if (this.Name != null)
-                {
-                    hashCode = (hashCode * 59) + this.Name.GetHashCode();
-                }
-                if (this.Path != null)
-                {
-                    hashCode = (hashCode * 59) + this.Path.GetHashCode();
-                }
-                if (this.Project != null)
-                {
-                    hashCode = (hashCode * 59) + this.Project.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.QueueStatus.GetHashCode();
-                hashCode = (hashCode * 59) + this.Revision.GetHashCode();
-                hashCode = (hashCode * 59) + this.Type.GetHashCode();
-                if (this.Uri != null)
-                {
-                    hashCode = (hashCode * 59) + this.Uri.GetHashCode();
-                }
-                if (this.Url != null)
-                {
-                    hashCode = (hashCode * 59) + this.Url.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

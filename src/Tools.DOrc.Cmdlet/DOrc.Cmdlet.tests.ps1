@@ -22,6 +22,8 @@ Context "Open-ApiConnection test" {
 
 Context "Import-DOrcProperties" {
 
+    Mock Connect-DOrcIdentityServer -ModuleName DOrc.Cmdlet { $true }
+
     It 'Fails with empty $ApiUrl'{
         {Import-DOrcProperties $ApiUrl $CsvFile} | Should -Throw "Cannot bind argument to parameter 'ApiUrl' because it is an empty string"
     }
@@ -55,6 +57,8 @@ Context "Import-DOrcProperties" {
 
 
 Context "Export-DOrcProperties" {
+
+    Mock Connect-DOrcIdentityServer -ModuleName DOrc.Cmdlet { $true }
 
     It 'Fails with empty $ApiUrl'{
         {Export-DOrcProperties $ApiUrl $Environment $CsvFile} | Should -Throw "Cannot bind argument to parameter 'ApiUrl' because it is an empty string"
@@ -147,3 +151,4 @@ Context "Convert-CsvToCsvProperties validation" {
         { $invalidData | Convert-CsvToCsvProperties } | Should -Throw "Property value cannot be blank or empty. Found blank value for property 'ValidProperty'"
     }
 }
+

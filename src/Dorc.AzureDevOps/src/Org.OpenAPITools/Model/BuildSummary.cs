@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// BuildSummary
     /// </summary>
     [DataContract(Name = "BuildSummary")]
-    public partial class BuildSummary : IEquatable<BuildSummary>, IValidatableObject
+    public partial class BuildSummary : IValidatableObject
     {
         /// <summary>
         /// Defines Reason
@@ -121,7 +121,6 @@ namespace Org.OpenAPITools.Model
             /// </summary>
             [EnumMember(Value = "all")]
             All = 14
-
         }
 
 
@@ -177,7 +176,6 @@ namespace Org.OpenAPITools.Model
             /// </summary>
             [EnumMember(Value = "all")]
             All = 7
-
         }
 
 
@@ -197,7 +195,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="requestedFor">requestedFor.</param>
         /// <param name="startTime">startTime.</param>
         /// <param name="status">status.</param>
-        public BuildSummary(XamlBuildReference build = default(XamlBuildReference), DateTime finishTime = default(DateTime), bool keepForever = default(bool), string quality = default(string), ReasonEnum? reason = default(ReasonEnum?), IdentityRef requestedFor = default(IdentityRef), DateTime startTime = default(DateTime), StatusEnum? status = default(StatusEnum?))
+        public BuildSummary(XamlBuildReference build = default, DateTime finishTime = default, bool keepForever = default, string quality = default, ReasonEnum? reason = default, IdentityRef requestedFor = default, DateTime startTime = default, StatusEnum? status = default)
         {
             this.Build = build;
             this.FinishTime = finishTime;
@@ -275,108 +273,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as BuildSummary);
-        }
-
-        /// <summary>
-        /// Returns true if BuildSummary instances are equal
-        /// </summary>
-        /// <param name="input">Instance of BuildSummary to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(BuildSummary input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.Build == input.Build ||
-                    (this.Build != null &&
-                    this.Build.Equals(input.Build))
-                ) && 
-                (
-                    this.FinishTime == input.FinishTime ||
-                    (this.FinishTime != null &&
-                    this.FinishTime.Equals(input.FinishTime))
-                ) && 
-                (
-                    this.KeepForever == input.KeepForever ||
-                    this.KeepForever.Equals(input.KeepForever)
-                ) && 
-                (
-                    this.Quality == input.Quality ||
-                    (this.Quality != null &&
-                    this.Quality.Equals(input.Quality))
-                ) && 
-                (
-                    this.Reason == input.Reason ||
-                    this.Reason.Equals(input.Reason)
-                ) && 
-                (
-                    this.RequestedFor == input.RequestedFor ||
-                    (this.RequestedFor != null &&
-                    this.RequestedFor.Equals(input.RequestedFor))
-                ) && 
-                (
-                    this.StartTime == input.StartTime ||
-                    (this.StartTime != null &&
-                    this.StartTime.Equals(input.StartTime))
-                ) && 
-                (
-                    this.Status == input.Status ||
-                    this.Status.Equals(input.Status)
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.Build != null)
-                {
-                    hashCode = (hashCode * 59) + this.Build.GetHashCode();
-                }
-                if (this.FinishTime != null)
-                {
-                    hashCode = (hashCode * 59) + this.FinishTime.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.KeepForever.GetHashCode();
-                if (this.Quality != null)
-                {
-                    hashCode = (hashCode * 59) + this.Quality.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.Reason.GetHashCode();
-                if (this.RequestedFor != null)
-                {
-                    hashCode = (hashCode * 59) + this.RequestedFor.GetHashCode();
-                }
-                if (this.StartTime != null)
-                {
-                    hashCode = (hashCode * 59) + this.StartTime.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.Status.GetHashCode();
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

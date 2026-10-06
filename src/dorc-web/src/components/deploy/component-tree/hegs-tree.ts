@@ -10,9 +10,9 @@ import { TreeAction } from './TreeAction';
 export class HegsTree extends LitElement {
   private selected: TreeNode | undefined = undefined;
 
-  @property({ type: Array }) private data: TreeNode[] | undefined;
+  @property({ type: Array }) data: TreeNode[] | undefined;
 
-  @property({ type: Array }) private actions: TreeAction[] = [];
+  @property({ type: Array }) actions: TreeAction[] = [];
 
   @property({ type: Boolean }) componentsLoading = false;
 
@@ -45,23 +45,25 @@ export class HegsTree extends LitElement {
 
   render() {
     return html`
-      ${this.componentsLoading
-        ? html` <div class="small-loader"></div> `
-        : html`
-            <div style="width: 700px">
-              <div style="padding: 3px"></div>
-              ${this.data?.map(
-                (child: TreeNode) => html`
-                  <hegs-tree-node
-                    id="hegs-tree-node"
-                    .data="${child}"
-                    .actions="${this.actions}"
-                  ></hegs-tree-node>
-                `
-              )}
-              <div style="padding: 3px"></div>
-            </div>
-          `}
+      ${
+        this.componentsLoading
+          ? html` <div class="small-loader"></div> `
+          : html`
+              <div style="width: 700px">
+                <div style="padding: 3px"></div>
+                ${this.data?.map(
+                  (child: TreeNode) => html`
+                    <hegs-tree-node
+                      id="hegs-tree-node"
+                      .data="${child}"
+                      .actions="${this.actions}"
+                    ></hegs-tree-node>
+                  `
+                )}
+                <div style="padding: 3px"></div>
+              </div>
+            `
+      }
     `;
   }
 

@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// TaskSourceDefinitionBase
     /// </summary>
     [DataContract(Name = "TaskSourceDefinitionBase")]
-    public partial class TaskSourceDefinitionBase : IEquatable<TaskSourceDefinitionBase>, IValidatableObject
+    public partial class TaskSourceDefinitionBase : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="TaskSourceDefinitionBase" /> class.
@@ -40,7 +40,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="keySelector">keySelector.</param>
         /// <param name="selector">selector.</param>
         /// <param name="target">target.</param>
-        public TaskSourceDefinitionBase(string authKey = default(string), string endpoint = default(string), string keySelector = default(string), string selector = default(string), string target = default(string))
+        public TaskSourceDefinitionBase(string authKey = default, string endpoint = default, string keySelector = default, string selector = default, string target = default)
         {
             this.AuthKey = authKey;
             this.Endpoint = endpoint;
@@ -106,93 +106,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as TaskSourceDefinitionBase);
-        }
-
-        /// <summary>
-        /// Returns true if TaskSourceDefinitionBase instances are equal
-        /// </summary>
-        /// <param name="input">Instance of TaskSourceDefinitionBase to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(TaskSourceDefinitionBase input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.AuthKey == input.AuthKey ||
-                    (this.AuthKey != null &&
-                    this.AuthKey.Equals(input.AuthKey))
-                ) && 
-                (
-                    this.Endpoint == input.Endpoint ||
-                    (this.Endpoint != null &&
-                    this.Endpoint.Equals(input.Endpoint))
-                ) && 
-                (
-                    this.KeySelector == input.KeySelector ||
-                    (this.KeySelector != null &&
-                    this.KeySelector.Equals(input.KeySelector))
-                ) && 
-                (
-                    this.Selector == input.Selector ||
-                    (this.Selector != null &&
-                    this.Selector.Equals(input.Selector))
-                ) && 
-                (
-                    this.Target == input.Target ||
-                    (this.Target != null &&
-                    this.Target.Equals(input.Target))
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.AuthKey != null)
-                {
-                    hashCode = (hashCode * 59) + this.AuthKey.GetHashCode();
-                }
-                if (this.Endpoint != null)
-                {
-                    hashCode = (hashCode * 59) + this.Endpoint.GetHashCode();
-                }
-                if (this.KeySelector != null)
-                {
-                    hashCode = (hashCode * 59) + this.KeySelector.GetHashCode();
-                }
-                if (this.Selector != null)
-                {
-                    hashCode = (hashCode * 59) + this.Selector.GetHashCode();
-                }
-                if (this.Target != null)
-                {
-                    hashCode = (hashCode * 59) + this.Target.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

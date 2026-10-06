@@ -14,7 +14,7 @@
 import type { Observable } from 'rxjs';
 import type { AjaxResponse } from 'rxjs/ajax';
 import { BaseAPI } from '../runtime';
-import type { OperationOpts } from '../runtime';
+import type { OperationOpts, HttpHeaders } from '../runtime';
 import type {
     ApiEndpoints,
 } from '../models';
@@ -29,9 +29,20 @@ export class ApiRootApi extends BaseAPI {
     rootGet(): Observable<ApiEndpoints>
     rootGet(opts?: OperationOpts): Observable<AjaxResponse<ApiEndpoints>>
     rootGet(opts?: OperationOpts): Observable<ApiEndpoints | AjaxResponse<ApiEndpoints>> {
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         return this.request<ApiEndpoints>({
             url: '/',
             method: 'GET',
+            headers,
         }, opts?.responseOpts);
     };
 

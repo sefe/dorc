@@ -55,7 +55,7 @@ namespace Dorc.Api.Tests
 
             try
             {
-                var result = testService.GetPropertyValues(propertyName, null, new GenericPrincipal(WindowsIdentity.GetCurrent(), null)).FirstOrDefault();
+                var result = testService.GetPropertyValues(propertyName, null, new GenericPrincipal(new GenericIdentity("test-user"), null)).FirstOrDefault();
                 if (result.Property.Name != propertyName ||
                     result.Property.Secure != secure ||
                     result.Value != propertyValue ||
@@ -109,7 +109,7 @@ namespace Dorc.Api.Tests
 
             try
             {
-                var result = testService.GetPropertyValues(propertyName, environmentName, new GenericPrincipal(WindowsIdentity.GetCurrent(), null)).FirstOrDefault();
+                var result = testService.GetPropertyValues(propertyName, environmentName, new GenericPrincipal(new GenericIdentity("test-user"), null)).FirstOrDefault();
                 if (result.Property.Name != propertyName ||
                     result.Property.Secure != secure ||
                     result.Value != propertyValue ||
@@ -161,7 +161,7 @@ namespace Dorc.Api.Tests
                     }
                 });
 
-            Assert.Throws<NonEnoughRightsException>(() => testService.GetPropertyValues(propertyName, environmentName, new GenericPrincipal(WindowsIdentity.GetCurrent(), null)));
+            Assert.Throws<NonEnoughRightsException>(() => testService.GetPropertyValues(propertyName, environmentName, new GenericPrincipal(new GenericIdentity("test-user"), null)));
         }
 
         [TestMethod]
@@ -215,7 +215,7 @@ namespace Dorc.Api.Tests
                 var result = testService.GetPropertyValues(
                     propertyName: String.Empty,
                     environmentName: environmentName,
-                    user: new GenericPrincipal(WindowsIdentity.GetCurrent(), null)
+                    user: new GenericPrincipal(new GenericIdentity("test-user"), null)
                     );
                 Assert.IsTrue(result.Where(property => property.Property.Secure).All(property => String.IsNullOrEmpty(property.Value)));
                 Assert.IsTrue(result.Where(property => !property.Property.Secure).All(property => !String.IsNullOrEmpty(property.Value)));
@@ -266,7 +266,7 @@ namespace Dorc.Api.Tests
 
             try
             {
-                var result = testService.GetPropertyValues(propertyName, environmentName, new GenericPrincipal(WindowsIdentity.GetCurrent(), null));
+                var result = testService.GetPropertyValues(propertyName, environmentName, new GenericPrincipal(new GenericIdentity("test-user"), null));
                 if (result.FirstOrDefault().Property.Name != propertyName ||
                     result.FirstOrDefault().Property.Secure != secure ||
                     result.FirstOrDefault().Value != propertyValue ||
@@ -326,7 +326,7 @@ namespace Dorc.Api.Tests
             try
             {
                 var result = testService.DeletePropertyValues(new List<PropertyValueDto> { testProperty },
-                    new GenericPrincipal(WindowsIdentity.GetCurrent(), null));
+                    new GenericPrincipal(new GenericIdentity("test-user"), null));
                 if (result.FirstOrDefault().Status.Equals("success"))
                 {
                     Assert.Fail();
@@ -378,7 +378,7 @@ namespace Dorc.Api.Tests
             try
             {
                 var result = testService.DeletePropertyValues(new List<PropertyValueDto> { testProperty },
-                    new GenericPrincipal(WindowsIdentity.GetCurrent(), null));
+                    new GenericPrincipal(new GenericIdentity("test-user"), null));
                 if (result.FirstOrDefault().Status.Equals("success"))
                 {
                     Assert.Fail();
@@ -446,7 +446,7 @@ namespace Dorc.Api.Tests
             try
             {
                 var result = testService.DeletePropertyValues(new List<PropertyValueDto> { property },
-                    new GenericPrincipal(WindowsIdentity.GetCurrent(), null));
+                    new GenericPrincipal(new GenericIdentity("test-user"), null));
                 if (!result.FirstOrDefault().Status.Equals("success"))
                 {
                     Assert.Fail();
@@ -461,7 +461,7 @@ namespace Dorc.Api.Tests
             try
             {
                 var result = testService.DeletePropertyValues(new List<PropertyValueDto> { property },
-                    new GenericPrincipal(WindowsIdentity.GetCurrent(), null));
+                    new GenericPrincipal(new GenericIdentity("test-user"), null));
                 if (result.FirstOrDefault().Status.Equals("success"))
                 {
                     Assert.Fail();
@@ -476,7 +476,7 @@ namespace Dorc.Api.Tests
             try
             {
                 var result = testService.DeletePropertyValues(new List<PropertyValueDto> { property },
-                    new GenericPrincipal(WindowsIdentity.GetCurrent(), null));
+                    new GenericPrincipal(new GenericIdentity("test-user"), null));
                 if (result.FirstOrDefault().Status.Equals("success"))
                 {
                     Assert.Fail();
@@ -539,7 +539,7 @@ namespace Dorc.Api.Tests
             try
             {
                 var result = testService.DeletePropertyValues(new List<PropertyValueDto> { testProperty },
-                    new GenericPrincipal(WindowsIdentity.GetCurrent(), null));
+                    new GenericPrincipal(new GenericIdentity("test-user"), null));
                 if (!result.FirstOrDefault().Status.Equals("success"))
                 {
                     Assert.Fail();
@@ -555,7 +555,7 @@ namespace Dorc.Api.Tests
             try
             {
                 IEnumerable<Response> result1 = testService.DeletePropertyValues(new List<PropertyValueDto> { testProperty },
-                    new GenericPrincipal(WindowsIdentity.GetCurrent(), null));
+                    new GenericPrincipal(new GenericIdentity("test-user"), null));
                 var first = result1.FirstOrDefault();
                 if (first != null && first.Status.Equals("success"))
                 {
@@ -606,7 +606,7 @@ namespace Dorc.Api.Tests
             try
             {
                 var result = testService.PostPropertyValues(new List<PropertyValueDto> { testProperty },
-                    new GenericPrincipal(WindowsIdentity.GetCurrent(), null));
+                    new GenericPrincipal(new GenericIdentity("test-user"), null));
                 if (result.FirstOrDefault().Status.Equals("success"))
                 {
                     Assert.Fail();
@@ -659,7 +659,7 @@ namespace Dorc.Api.Tests
             try
             {
                 var result = testService.PostPropertyValues(new List<PropertyValueDto> { testProperty },
-                    new GenericPrincipal(WindowsIdentity.GetCurrent(), null));
+                    new GenericPrincipal(new GenericIdentity("test-user"), null));
                 if (result.FirstOrDefault().Status.Equals("success"))
                 {
                     Assert.Fail();
@@ -728,7 +728,7 @@ namespace Dorc.Api.Tests
             try
             {
                 var result = testService.PostPropertyValues(new List<PropertyValueDto> { testProperty },
-                    new GenericPrincipal(WindowsIdentity.GetCurrent(), null));
+                    new GenericPrincipal(new GenericIdentity("test-user"), null));
                 if (!result.FirstOrDefault().Status.Equals("success"))
                 {
                     Assert.Fail();
@@ -797,7 +797,7 @@ namespace Dorc.Api.Tests
             try
             {
                 var result = testService.PostPropertyValues(new List<PropertyValueDto> { testProperty },
-                    new GenericPrincipal(WindowsIdentity.GetCurrent(), null));
+                    new GenericPrincipal(new GenericIdentity("test-user"), null));
                 if (!result.FirstOrDefault().Status.Equals("success"))
                 {
                     Assert.Fail();
@@ -854,7 +854,7 @@ namespace Dorc.Api.Tests
             try
             {
                 var result = testService.PostPropertyValues(new List<PropertyValueDto> { testProperty },
-                    new GenericPrincipal(WindowsIdentity.GetCurrent(), null));
+                    new GenericPrincipal(new GenericIdentity("test-user"), null));
                 if (result.FirstOrDefault().Status.Equals("success"))
                 {
                     Assert.Fail();
@@ -902,7 +902,7 @@ namespace Dorc.Api.Tests
             try
             {
                 var result = testService.PutPropertyValues(new List<PropertyValueDto> { testProperty },
-                    new GenericPrincipal(WindowsIdentity.GetCurrent(), null));
+                    new GenericPrincipal(new GenericIdentity("test-user"), null));
                 if (!result.FirstOrDefault().Status.StartsWith("error") || !result.FirstOrDefault().Status.Contains("permissions"))
                 {
                     Assert.Fail();
@@ -955,7 +955,7 @@ namespace Dorc.Api.Tests
             try
             {
                 var result = testService.PutPropertyValues(new List<PropertyValueDto> { testProperty },
-                    new GenericPrincipal(WindowsIdentity.GetCurrent(), null));
+                    new GenericPrincipal(new GenericIdentity("test-user"), null));
                 if (result.FirstOrDefault().Status.Equals("success"))
                 {
                     Assert.Fail();
@@ -1033,7 +1033,7 @@ namespace Dorc.Api.Tests
             try
             {
                 var result = testService.PutPropertyValues(new List<PropertyValueDto> { testProperty },
-                    new GenericPrincipal(WindowsIdentity.GetCurrent(), null));
+                    new GenericPrincipal(new GenericIdentity("test-user"), null));
                 if (!result.FirstOrDefault().Status.Equals("success"))
                 {
                     Assert.Fail();
@@ -1112,7 +1112,7 @@ namespace Dorc.Api.Tests
             try
             {
                 var result = testService.PutPropertyValues(new List<PropertyValueDto> { testProperty },
-                    new GenericPrincipal(WindowsIdentity.GetCurrent(), null));
+                    new GenericPrincipal(new GenericIdentity("test-user"), null));
                 if (!result.FirstOrDefault().Status.Equals("success"))
                 {
                     Assert.Fail();

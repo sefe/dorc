@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// Represents binding of data source for the service endpoint request.
     /// </summary>
     [DataContract(Name = "DataSourceBindingBase")]
-    public partial class DataSourceBindingBase : IEquatable<DataSourceBindingBase>, IValidatableObject
+    public partial class DataSourceBindingBase : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="DataSourceBindingBase" /> class.
@@ -48,7 +48,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="resultSelector">Gets or sets the result selector..</param>
         /// <param name="resultTemplate">Gets or sets the result template..</param>
         /// <param name="target">Gets or sets the target of the data source..</param>
-        public DataSourceBindingBase(string callbackContextTemplate = default(string), string callbackRequiredTemplate = default(string), string dataSourceName = default(string), string endpointId = default(string), string endpointUrl = default(string), List<AuthorizationHeader> headers = default(List<AuthorizationHeader>), string initialContextTemplate = default(string), Dictionary<string, string> parameters = default(Dictionary<string, string>), string requestContent = default(string), string requestVerb = default(string), string resultSelector = default(string), string resultTemplate = default(string), string target = default(string))
+        public DataSourceBindingBase(string callbackContextTemplate = default, string callbackRequiredTemplate = default, string dataSourceName = default, string endpointId = default, string endpointUrl = default, List<AuthorizationHeader> headers = default, string initialContextTemplate = default, Dictionary<string, string> parameters = default, string requestContent = default, string requestVerb = default, string resultSelector = default, string resultTemplate = default, string target = default)
         {
             this.CallbackContextTemplate = callbackContextTemplate;
             this.CallbackRequiredTemplate = callbackRequiredTemplate;
@@ -191,167 +191,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as DataSourceBindingBase);
-        }
-
-        /// <summary>
-        /// Returns true if DataSourceBindingBase instances are equal
-        /// </summary>
-        /// <param name="input">Instance of DataSourceBindingBase to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(DataSourceBindingBase input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.CallbackContextTemplate == input.CallbackContextTemplate ||
-                    (this.CallbackContextTemplate != null &&
-                    this.CallbackContextTemplate.Equals(input.CallbackContextTemplate))
-                ) && 
-                (
-                    this.CallbackRequiredTemplate == input.CallbackRequiredTemplate ||
-                    (this.CallbackRequiredTemplate != null &&
-                    this.CallbackRequiredTemplate.Equals(input.CallbackRequiredTemplate))
-                ) && 
-                (
-                    this.DataSourceName == input.DataSourceName ||
-                    (this.DataSourceName != null &&
-                    this.DataSourceName.Equals(input.DataSourceName))
-                ) && 
-                (
-                    this.EndpointId == input.EndpointId ||
-                    (this.EndpointId != null &&
-                    this.EndpointId.Equals(input.EndpointId))
-                ) && 
-                (
-                    this.EndpointUrl == input.EndpointUrl ||
-                    (this.EndpointUrl != null &&
-                    this.EndpointUrl.Equals(input.EndpointUrl))
-                ) && 
-                (
-                    this.Headers == input.Headers ||
-                    this.Headers != null &&
-                    input.Headers != null &&
-                    this.Headers.SequenceEqual(input.Headers)
-                ) && 
-                (
-                    this.InitialContextTemplate == input.InitialContextTemplate ||
-                    (this.InitialContextTemplate != null &&
-                    this.InitialContextTemplate.Equals(input.InitialContextTemplate))
-                ) && 
-                (
-                    this.Parameters == input.Parameters ||
-                    this.Parameters != null &&
-                    input.Parameters != null &&
-                    this.Parameters.SequenceEqual(input.Parameters)
-                ) && 
-                (
-                    this.RequestContent == input.RequestContent ||
-                    (this.RequestContent != null &&
-                    this.RequestContent.Equals(input.RequestContent))
-                ) && 
-                (
-                    this.RequestVerb == input.RequestVerb ||
-                    (this.RequestVerb != null &&
-                    this.RequestVerb.Equals(input.RequestVerb))
-                ) && 
-                (
-                    this.ResultSelector == input.ResultSelector ||
-                    (this.ResultSelector != null &&
-                    this.ResultSelector.Equals(input.ResultSelector))
-                ) && 
-                (
-                    this.ResultTemplate == input.ResultTemplate ||
-                    (this.ResultTemplate != null &&
-                    this.ResultTemplate.Equals(input.ResultTemplate))
-                ) && 
-                (
-                    this.Target == input.Target ||
-                    (this.Target != null &&
-                    this.Target.Equals(input.Target))
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.CallbackContextTemplate != null)
-                {
-                    hashCode = (hashCode * 59) + this.CallbackContextTemplate.GetHashCode();
-                }
-                if (this.CallbackRequiredTemplate != null)
-                {
-                    hashCode = (hashCode * 59) + this.CallbackRequiredTemplate.GetHashCode();
-                }
-                if (this.DataSourceName != null)
-                {
-                    hashCode = (hashCode * 59) + this.DataSourceName.GetHashCode();
-                }
-                if (this.EndpointId != null)
-                {
-                    hashCode = (hashCode * 59) + this.EndpointId.GetHashCode();
-                }
-                if (this.EndpointUrl != null)
-                {
-                    hashCode = (hashCode * 59) + this.EndpointUrl.GetHashCode();
-                }
-                if (this.Headers != null)
-                {
-                    hashCode = (hashCode * 59) + this.Headers.GetHashCode();
-                }
-                if (this.InitialContextTemplate != null)
-                {
-                    hashCode = (hashCode * 59) + this.InitialContextTemplate.GetHashCode();
-                }
-                if (this.Parameters != null)
-                {
-                    hashCode = (hashCode * 59) + this.Parameters.GetHashCode();
-                }
-                if (this.RequestContent != null)
-                {
-                    hashCode = (hashCode * 59) + this.RequestContent.GetHashCode();
-                }
-                if (this.RequestVerb != null)
-                {
-                    hashCode = (hashCode * 59) + this.RequestVerb.GetHashCode();
-                }
-                if (this.ResultSelector != null)
-                {
-                    hashCode = (hashCode * 59) + this.ResultSelector.GetHashCode();
-                }
-                if (this.ResultTemplate != null)
-                {
-                    hashCode = (hashCode * 59) + this.ResultTemplate.GetHashCode();
-                }
-                if (this.Target != null)
-                {
-                    hashCode = (hashCode * 59) + this.Target.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

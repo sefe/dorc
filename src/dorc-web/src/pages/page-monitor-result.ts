@@ -1,4 +1,5 @@
 import '@vaadin/button';
+import '../components/dorc-spinner';
 import '@vaadin/details';
 import '@vaadin/dialog';
 import '@vaadin/grid';
@@ -12,10 +13,13 @@ import { css, PropertyValues } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import '../components/component-deployment-results';
+import '../components/component-previous-attempts';
 import '../components/grid-button-groups/request-controls';
 import { Notification } from '@vaadin/notification';
 import {
+  DeploymentRequestAttemptApiModel,
   DeploymentResultApiModel,
+  RequestApi,
   RequestStatusesApi,
   ResultStatusesApi
 } from '../apis/dorc-api';
@@ -33,16 +37,31 @@ import {
   DeploymentRequestEventData,
   DeploymentResultEventData,
   getHubProxyFactory
- } from '../services/ServerEvents';
- 
-const asUndef = (t: string | null | undefined): string | undefined => t ?? undefined;
+} from '../services/ServerEvents';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
+import { retrieveErrorMessage } from '../helpers/errorMessage-retriever';
+import {
+  stopMonitorHub,
+  waitForMonitorHubStop
+} from '../helpers/monitor-hub-connection';
+
+const asUndef = (t: string | null | undefined): string | undefined =>
+  t ?? undefined;
 
 @customElement('page-monitor-result')
-export class PageMonitorResult extends PageElement implements IDeploymentsEventsClient {
+export class PageMonitorResult
+  extends PageElement
+  implements IDeploymentsEventsClient
+{
   @property({ type: Boolean }) loading = true;
+
+  @property({ type: Boolean }) notFound = false;
 
   @property({ type: Array })
   resultItems: DeploymentResultApiModel[] | undefined;
+
+  @property({ type: Array })
+  attemptItems: DeploymentRequestAttemptApiModel[] | undefined;
 
   @property({ type: Number })
   requestId = 0;
@@ -54,41 +73,21 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
   selectedProject = '';
 
   @property({ type: Boolean }) resultsLoading = true;
-  @property({ type: String }) hubConnectionState: string | undefined = HubConnectionState.Disconnected;
-  
+  @property({ type: Boolean }) attemptsLoading = true;
+  @property({ type: String }) hubConnectionState: string | undefined =
+    HubConnectionState.Disconnected;
+
+  @property({ type: Boolean }) autoRefresh = true;
+
   private hubConnection: HubConnection | undefined;
 
   static get styles() {
     return css`
-      .overlay {
-        width: 100%;
+      :host {
+        display: flex;
+        flex-direction: column;
         height: 100%;
-        position: fixed;
-      }
-
-      .overlay__inner {
-        width: 100%;
-        height: 100%;
-        position: absolute;
-      }
-
-      .overlay__content {
-        left: 20%;
-        position: absolute;
-        top: 20%;
-        transform: translate(-50%, -50%);
-      }
-
-      .spinner {
-        width: 75px;
-        height: 75px;
-        display: inline-block;
-        border-width: 2px;
-        border-color: rgba(255, 255, 255, 0.05);
-        border-top-color: cornflowerblue;
-        animation: spin 1s infinite linear;
-        border-radius: 100%;
-        border-style: solid;
+        overflow: hidden;
       }
 
       .small-loader {
@@ -107,12 +106,6 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
         100% {
           transform: rotate(360deg);
         }
-      }
-
-      paper-dialog.size-position {
-        top: 16px;
-        overflow: auto;
-        padding: 10px;
       }
 
       .card-element {
@@ -148,17 +141,36 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
       .vaadin-dialog-overlay {
         width: calc(100vw - (4 * var(--lumo-space-m)));
       }
+
+      .results-section {
+        flex: 1 1 0;
+        overflow: auto;
+        min-height: 0;
+      }
     `;
   }
 
   protected async firstUpdated(_changedProperties: PropertyValues) {
     super.firstUpdated(_changedProperties);
 
-    const resultId = location.pathname.substring(
-      location.pathname.lastIndexOf('/') + 1
+    const resultId = decodeURIComponent(
+      location.pathname.substring(location.pathname.lastIndexOf('/') + 1)
     );
-    this.requestId = Number.parseInt(decodeURIComponent(resultId), 10);
 
+    if (
+      !/^\d+$/.test(resultId) ||
+      Number(resultId) > 2147483647 ||
+      Number(resultId) < 1
+    ) {
+      this.notFound = true;
+      this.loading = false;
+      this.showNotFoundError(
+        `The deployment request '${resultId}' is not found.`
+      );
+      return;
+    }
+
+    this.requestId = Number.parseInt(resultId, 10);
     this.refreshData();
 
     // Initialize SignalR connection for real-time updates scoped to this request
@@ -172,8 +184,14 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
 
   disconnectedCallback(): void {
     super.disconnectedCallback();
-    if (this.hubConnection && this.hubConnection.state !== HubConnectionState.Disconnected) {
-      this.hubConnection.stop().catch(() => {});
+    if (
+      this.hubConnection &&
+      this.hubConnection.state !== HubConnectionState.Disconnected
+    ) {
+      void stopMonitorHub(
+        this.hubConnection,
+        state => (this.hubConnectionState = state)
+      );
     }
   }
 
@@ -206,26 +224,60 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
     });
   }
 
+  requestPaused(e: CustomEvent) {
+    this.refreshData();
+    Notification.show(`Paused request with ID: ${e.detail.requestId}`, {
+      theme: 'success',
+      position: 'bottom-start',
+      duration: 5000
+    });
+  }
+
+  requestResumed(e: CustomEvent) {
+    this.refreshData();
+    Notification.show(`Resumed request with ID: ${e.detail.requestId}`, {
+      theme: 'success',
+      position: 'bottom-start',
+      duration: 5000
+    });
+  }
+
   private refreshData() {
     this.resultsLoading = true;
-    const apiRequests = new RequestStatusesApi();
+    const apiRequests = new RequestStatusesApi(dorcApiConfiguration);
     apiRequests.requestStatusesGet({ requestId: this.requestId }).subscribe({
       next: (data: DeploymentRequestApiModel) => {
-        this.selectedProject = data.Project ?? '';  
+        this.selectedProject = data.Project ?? '';
         const normalised: DeploymentRequestApiModel = {
           ...data,
-          CompletedTime: this.isTerminal(data.Status) ? asUndef(data.CompletedTime) : undefined,
+          CompletedTime: this.isTerminal(data.Status)
+            ? asUndef(data.CompletedTime)
+            : undefined,
           StartedTime: asUndef((data as any).StartedTime)
-
         };
         this.deployRequest = normalised;
       },
       error: (err: any) => {
+        if (err.status === 404 || err.status === 400) {
+          this.notFound = true;
+          this.loading = false;
+          this.showNotFoundError(
+            `The deployment request with id ${this.requestId} is not found.`
+          );
+          return;
+        }
         const notification = new ErrorNotification();
-        notification.setAttribute('errorMessage', err.response);
+        notification.setAttribute(
+          'errorMessage',
+          typeof err.response === 'string'
+            ? err.response
+            : `Failed to load request ${this.requestId}`
+        );
         this.shadowRoot?.appendChild(notification);
         notification.open();
-        console.error(err);        
+        console.error(err);
+        this.loading = false;
+        this.resultsLoading = false;
       },
       complete: () => {
         console.log('done loading request');
@@ -235,53 +287,89 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
     });
 
     this.refreshResultItems();
+    this.refreshAttemptItems();
   }
 
   refreshResultItems = () => {
     this.resultsLoading = true;
 
-    const api = new ResultStatusesApi();
+    const api = new ResultStatusesApi(dorcApiConfiguration);
     api.resultStatusesGet({ requestId: this.requestId }).subscribe({
       next: (data: Array<DeploymentResultApiModel>) => {
         this.resultItems = data;
       },
       error: (err: any) => {
         console.error(err);
+        // 'complete' never runs after an error, so clear the results loading
+        // flag here or a failed first load spins the loader forever. The
+        // page-level 'loading' flag belongs to the request-details call,
+        // which may still be in flight - leave it alone.
+        this.resultItems = this.resultItems ?? [];
+        this.resultsLoading = false;
       },
       complete: () => {
         console.log('done loading result Statuses');
-        this.loading = false;
         this.resultsLoading = false;
       }
-    });    
-  }
+    });
+  };
+
+  refreshAttemptItems = () => {
+    this.attemptsLoading = true;
+
+    const api = new RequestApi(dorcApiConfiguration);
+    api.requestRequestIdAttemptsGet({ requestId: this.requestId }).subscribe({
+      next: (data: Array<DeploymentRequestAttemptApiModel>) => {
+        this.attemptItems = data;
+      },
+      error: (err: any) => {
+        console.error('Failed to load attempts:', err);
+        this.attemptItems = [];
+      },
+      complete: () => {
+        console.log('done loading attempts');
+        this.attemptsLoading = false;
+      }
+    });
+  };
 
   private async initializeSignalR() {
-    if (!this.hubConnection)
-      this.hubConnection = DeploymentHub.getConnection();
+    if (!this.hubConnection) this.hubConnection = DeploymentHub.getConnection();
+    await waitForMonitorHubStop(this.hubConnection);
+    if (!this.isConnected) {
+      return;
+    }
 
-    getReceiverRegister('IDeploymentsEventsClient')
-      .register(this.hubConnection, this);
+    getReceiverRegister('IDeploymentsEventsClient').register(
+      this.hubConnection,
+      this
+    );
 
-    const hubProxy = getHubProxyFactory('IDeploymentEventsHub')
-        .createHubProxy(this.hubConnection);
+    const hubProxy = getHubProxyFactory('IDeploymentEventsHub').createHubProxy(
+      this.hubConnection
+    );
 
     this.hubConnection.onreconnected(async () => {
-       await hubProxy.joinRequestGroup(this.requestId);
-       this.refreshData();
-       this.hubConnectionState = this.hubConnection!.state;
-     });
+      await hubProxy.joinRequestGroup(this.requestId);
+      if (this.autoRefresh) this.refreshData();
+      this.hubConnectionState = this.hubConnection!.state;
+    });
+
+    this.hubConnection.onclose(() => {
+      this.hubConnectionState = this.hubConnection?.state;
+    });
+
+    this.hubConnection.onreconnecting(() => {
+      this.hubConnectionState = this.hubConnection?.state;
+    });
 
     if (this.hubConnection.state === HubConnectionState.Disconnected) {
-      try
-      {
+      try {
         await this.hubConnection.start();
         await hubProxy.joinRequestGroup(this.requestId);
         this.hubConnectionState = this.hubConnection.state;
-      }
-      catch (err)
-      {
-        const errorMessage = err instanceof Error ? err.message : String(err);
+      } catch (err) {
+        const errorMessage = retrieveErrorMessage(err);
         this.hubConnectionState = errorMessage;
         console.error(err);
       }
@@ -289,37 +377,66 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
   }
 
   private isTerminal(status: string | null | undefined) {
-    return ['Completed', 'Failed', 'Cancelled', 'Skipped'].includes(status ?? '');
+    return ['Completed', 'Failed', 'Cancelled', 'Skipped'].includes(
+      status ?? ''
+    );
   }
- 
-  onDeploymentRequestStatusChanged(data: DeploymentRequestEventData): Promise<void> {
-    if (!data || data.requestId !== this.requestId) return Promise.resolve();
-    const startedTime = (data.startedTime instanceof Date ? data.startedTime.toISOString() : data.startedTime);
-    const completedTime = (data.completedTime instanceof Date ? data.completedTime.toISOString() : data.completedTime);
+
+  onDeploymentRequestStatusChanged(
+    data: DeploymentRequestEventData
+  ): Promise<void> {
+    if (
+      !this.autoRefresh ||
+      !data ||
+      data.requestId !== this.requestId
+    ) {
+      return Promise.resolve();
+    }
+    const startedTime =
+      data.startedTime instanceof Date
+        ? data.startedTime.toISOString()
+        : data.startedTime;
+    const completedTime =
+      data.completedTime instanceof Date
+        ? data.completedTime.toISOString()
+        : data.completedTime;
 
     this.deployRequest = {
       ...this.deployRequest,
       Status: data.status,
-      StartedTime: startedTime !== undefined ? asUndef(startedTime) : this.deployRequest?.StartedTime,
+      StartedTime:
+        startedTime !== undefined
+          ? asUndef(startedTime)
+          : this.deployRequest?.StartedTime,
       CompletedTime: this.isTerminal(data.status)
-    ? (completedTime !== undefined ? asUndef(completedTime) : this.deployRequest?.CompletedTime)
-    : undefined
-  };
-  return Promise.resolve();
-}
-  
+        ? completedTime !== undefined
+          ? asUndef(completedTime)
+          : this.deployRequest?.CompletedTime
+        : undefined
+    };
+    return Promise.resolve();
+  }
+
   onDeploymentRequestStarted(): Promise<void> {
     return Promise.resolve();
   }
 
-  onDeploymentResultStatusChanged(data: DeploymentResultEventData): Promise<void> {
-    if (this.isEventForRequest(data, this.requestId)) {
+  onDeploymentResultStatusChanged(
+    data: DeploymentResultEventData
+  ): Promise<void> {
+    if (
+      this.autoRefresh &&
+      this.isEventForRequest(data, this.requestId)
+    ) {
       this.refreshResultItems();
     }
     return Promise.resolve();
   }
 
-  isEventForRequest(event: DeploymentResultEventData, requestId: number): boolean {
+  isEventForRequest(
+    event: DeploymentResultEventData,
+    requestId: number
+  ): boolean {
     if (!event || typeof event !== 'object') {
       return false;
     }
@@ -329,37 +446,63 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
 
   render() {
     return html`
-      ${this.loading
-        ? html`
-            <div class="overlay" style="z-index: 2">
-              <div class="overlay__inner">
-                <div class="overlay__content">
-                  <span class="spinner"></span>
+      ${
+        this.notFound
+          ? html``
+          : this.loading
+            ? html` <dorc-spinner></dorc-spinner> `
+            : html`
+                <request-status-card
+                  .deployRequest="${this.deployRequest}"
+                  .selectedProject="${this.selectedProject}"
+                  .hubConnectionState="${this.hubConnectionState}"
+                  .autoRefresh="${this.autoRefresh}"
+                  @toggle-auto-refresh="${this.toggleAutoRefresh}"
+                ></request-status-card>
+                <div class="results-section">
+                  ${
+                    this.resultsLoading && !this.resultItems
+                      ? html` <div class="small-loader"></div>`
+                      : html`
+                          <vaadin-details
+                            opened
+                            summary="Deployment Component Results"
+                            style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; margin-top: 4px"
+                          >
+                            <component-deployment-results
+                              .resultItems="${this.resultItems}"
+                            ></component-deployment-results>
+                          </vaadin-details>
+                        `
+                  }
+                  ${
+                    !this.attemptsLoading &&
+                    this.attemptItems &&
+                    this.attemptItems.length > 0
+                      ? html`
+                          <vaadin-details
+                            summary="Previous Attempts (${this.attemptItems.length})"
+                            style="border-top: 6px solid orange; background-color: var(--dorc-bg-secondary); padding-left: 4px; margin-top: 4px"
+                          >
+                            <component-previous-attempts
+                              .attemptItems="${this.attemptItems}"
+                              .requestId="${this.requestId}"
+                            ></component-previous-attempts>
+                          </vaadin-details>
+                        `
+                      : html``
+                  }
                 </div>
-              </div>
-            </div>
-          `
-        : html`
-            <request-status-card
-              .deployRequest="${this.deployRequest}"
-              .selectedProject="${this.selectedProject}"
-              .hubConnectionState="${this.hubConnectionState}"
-            ></request-status-card>
-            ${this.resultsLoading
-              ? html` <div class="small-loader"></div>`
-              : html`
-                  <vaadin-details
-                    opened
-                    summary="Deployment Component Results"
-                    style="border-top: 6px solid cornflowerblue; background-color: ghostwhite; padding-left: 4px"
-                  >
-                    <component-deployment-results
-                      .resultItems="${this.resultItems}"
-                    ></component-deployment-results>
-                  </vaadin-details>
-                `}
-          `}
+              `
+      }
     `;
+  }
+
+  private showNotFoundError(message: string) {
+    const notification = new ErrorNotification();
+    notification.setAttribute('errorMessage', message);
+    this.shadowRoot?.appendChild(notification);
+    notification.open();
   }
 
   private refreshPage() {
@@ -370,5 +513,36 @@ export class PageMonitorResult extends PageElement implements IDeploymentsEvents
     });
 
     this.refreshData();
+  }
+
+  private async toggleAutoRefresh() {
+    this.autoRefresh = !this.autoRefresh;
+    if (!this.hubConnection) return;
+
+    if (this.autoRefresh) {
+      try {
+        if (this.hubConnection.state === HubConnectionState.Disconnected) {
+          await this.hubConnection.start();
+        }
+        const hubProxy = getHubProxyFactory(
+          'IDeploymentEventsHub'
+        ).createHubProxy(this.hubConnection);
+        await hubProxy.joinRequestGroup(this.requestId);
+        this.hubConnectionState = this.hubConnection.state;
+        this.refreshData();
+      } catch (err) {
+        this.hubConnectionState = String(err);
+        console.error(err);
+      }
+      return;
+    }
+
+    try {
+      await this.hubConnection.stop();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      this.hubConnectionState = this.hubConnection.state;
+    }
   }
 }

@@ -30,13 +30,13 @@ namespace Org.OpenAPITools.Model
     /// Specification of the agent defined by the pool provider.
     /// </summary>
     [DataContract(Name = "AgentSpecification")]
-    public partial class AgentSpecification : IEquatable<AgentSpecification>, IValidatableObject
+    public partial class AgentSpecification : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="AgentSpecification" /> class.
         /// </summary>
         /// <param name="identifier">Agent specification unique identifier..</param>
-        public AgentSpecification(string identifier = default(string))
+        public AgentSpecification(string identifier = default)
         {
             this.Identifier = identifier;
         }
@@ -71,57 +71,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as AgentSpecification);
-        }
-
-        /// <summary>
-        /// Returns true if AgentSpecification instances are equal
-        /// </summary>
-        /// <param name="input">Instance of AgentSpecification to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(AgentSpecification input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.Identifier == input.Identifier ||
-                    (this.Identifier != null &&
-                    this.Identifier.Equals(input.Identifier))
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.Identifier != null)
-                {
-                    hashCode = (hashCode * 59) + this.Identifier.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

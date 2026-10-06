@@ -1,0 +1,73 @@
+name: Publish Release
+
+# Manually publish a draft GitHub Release for a build produced by release.yml.
+# Looks up the workflow artifact named `dorc-release-<version>`, downloads its
+# zip, and attaches it to a draft release tagged `v<version>` at the same
+# commit the build was produced from.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Build version to publish (e.g. 26.05.05.1988)'
+        required: true
+        type: string
+      draft:
+        description: 'Create as draft (uncheck to publish immediately)'
+        required: false
+        type: boolean
+        default: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: read
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      VERSION: ${{ inputs.version }}
+      DRAFT: ${{ inputs.draft }}
+      REPO: ${{ github.repository }}
+
+    steps:
+      - name: Locate build artifact
+        id: artifact
+        run: |
+          set -euo pipefail
+          payload=$(gh api "repos/${REPO}/actions/artifacts?name=dorc-release-${VERSION}&per_page=1")
+          count=$(echo "$payload" | jq '.total_count')
+          if [ "$count" -eq 0 ]; then
+            echo "::error::No artifact named dorc-release-${VERSION} found. Has release.yml run for that version?"
+            exit 1
+          fi
+          echo "id=$(echo "$payload" | jq -r '.artifacts[0].id')" >> "$GITHUB_OUTPUT"
+          echo "head_sha=$(echo "$payload" | jq -r '.artifacts[0].workflow_run.head_sha')" >> "$GITHUB_OUTPUT"
+          echo "expired=$(echo "$payload" | jq -r '.artifacts[0].expired')" >> "$GITHUB_OUTPUT"
+
+      - name: Fail if artifact has expired
+        if: steps.artifact.outputs.expired == 'true'
+        run: |
+          echo "::error::Artifact dorc-release-${VERSION} has expired and can no longer be downloaded."
+          exit 1
+
+      - name: Download artifact zip
+        env:
+          ARTIFACT_ID: ${{ steps.artifact.outputs.id }}
+        run: |
+          set -euo pipefail
+          mkdir -p ./release
+          gh api "repos/${REPO}/actions/artifacts/${ARTIFACT_ID}/zip" \
+            > "./release/dorc-release-${VERSION}.zip"
+          ls -lh "./release/dorc-release-${VERSION}.zip"
+
+      - name: Create release
+        env:
+          HEAD_SHA: ${{ steps.artifact.outputs.head_sha }}
+        run: |
+          set -euo pipefail
+          flags=(--target "$HEAD_SHA" --title "v${VERSION}" --generate-notes)
+          if [ "$DRAFT" = "true" ]; then
+            flags+=(--draft)
+          fi
+          gh release create "v${VERSION}" "${flags[@]}" "./release/dorc-release-${VERSION}.zip"

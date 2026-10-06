@@ -45,6 +45,16 @@ export class AccessControlApi extends BaseAPI {
     accessControlGet({ accessControlType, accessControlName }: AccessControlGetRequest, opts?: OperationOpts): Observable<AjaxResponse<AccessSecureApiModel>>
     accessControlGet({ accessControlType, accessControlName }: AccessControlGetRequest, opts?: OperationOpts): Observable<AccessSecureApiModel | AjaxResponse<AccessSecureApiModel>> {
 
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         const query: HttpQuery = {};
 
         if (accessControlType != null) { query['accessControlType'] = accessControlType; }
@@ -53,6 +63,7 @@ export class AccessControlApi extends BaseAPI {
         return this.request<AccessSecureApiModel>({
             url: '/AccessControl',
             method: 'GET',
+            headers,
             query,
         }, opts?.responseOpts);
     };
@@ -65,6 +76,13 @@ export class AccessControlApi extends BaseAPI {
 
         const headers: HttpHeaders = {
             'Content-Type': 'application/json',
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
         };
 
         return this.request<AccessSecureApiModel>({
@@ -81,6 +99,16 @@ export class AccessControlApi extends BaseAPI {
     accessControlSearchUsersGet({ search }: AccessControlSearchUsersGetRequest, opts?: OperationOpts): Observable<AjaxResponse<Array<UserElementApiModel>>>
     accessControlSearchUsersGet({ search }: AccessControlSearchUsersGetRequest, opts?: OperationOpts): Observable<Array<UserElementApiModel> | AjaxResponse<Array<UserElementApiModel>>> {
 
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         const query: HttpQuery = {};
 
         if (search != null) { query['search'] = search; }
@@ -88,6 +116,7 @@ export class AccessControlApi extends BaseAPI {
         return this.request<Array<UserElementApiModel>>({
             url: '/AccessControl/SearchUsers',
             method: 'GET',
+            headers,
             query,
         }, opts?.responseOpts);
     };

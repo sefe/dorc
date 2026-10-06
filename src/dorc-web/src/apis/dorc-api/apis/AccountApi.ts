@@ -14,7 +14,7 @@
 import type { Observable } from 'rxjs';
 import type { AjaxResponse } from 'rxjs/ajax';
 import { BaseAPI } from '../runtime';
-import type { OperationOpts, HttpQuery } from '../runtime';
+import type { OperationOpts, HttpHeaders, HttpQuery } from '../runtime';
 
 export interface AccountGroupExistsGetRequest {
     groupLanId?: string;
@@ -37,6 +37,16 @@ export class AccountApi extends BaseAPI {
     accountGroupExistsGet({ groupLanId, accountType }: AccountGroupExistsGetRequest, opts?: OperationOpts): Observable<AjaxResponse<boolean>>
     accountGroupExistsGet({ groupLanId, accountType }: AccountGroupExistsGetRequest, opts?: OperationOpts): Observable<boolean | AjaxResponse<boolean>> {
 
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         const query: HttpQuery = {};
 
         if (groupLanId != null) { query['groupLanId'] = groupLanId; }
@@ -45,6 +55,7 @@ export class AccountApi extends BaseAPI {
         return this.request<boolean>({
             url: '/Account/groupExists',
             method: 'GET',
+            headers,
             query,
         }, opts?.responseOpts);
     };
@@ -55,6 +66,16 @@ export class AccountApi extends BaseAPI {
     accountUserExistsGet({ userLanId, accountType }: AccountUserExistsGetRequest, opts?: OperationOpts): Observable<AjaxResponse<boolean>>
     accountUserExistsGet({ userLanId, accountType }: AccountUserExistsGetRequest, opts?: OperationOpts): Observable<boolean | AjaxResponse<boolean>> {
 
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         const query: HttpQuery = {};
 
         if (userLanId != null) { query['userLanId'] = userLanId; }
@@ -63,6 +84,7 @@ export class AccountApi extends BaseAPI {
         return this.request<boolean>({
             url: '/Account/userExists',
             method: 'GET',
+            headers,
             query,
         }, opts?.responseOpts);
     };

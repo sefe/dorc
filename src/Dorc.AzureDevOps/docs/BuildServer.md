@@ -15,7 +15,7 @@ Name | Type | Description | Notes
 **StatusChangedDate** | **DateTime** |  | [optional] 
 **Uri** | **string** |  | [optional] 
 **Url** | **string** |  | [optional] 
-**_Version** | **int** |  | [optional] 
+**VarVersion** | **int** |  | [optional] 
 
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
 

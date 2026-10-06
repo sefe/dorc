@@ -6,7 +6,7 @@ All URIs are relative to *https://dev.azure.com*
 |--------|--------------|-------------|
 | [**ReportGet**](ReportApi.md#reportget) | **GET** /{organization}/{project}/_apis/build/builds/{buildId}/report |  |
 
-<a name="reportget"></a>
+<a id="reportget"></a>
 # **ReportGet**
 > BuildReportMetadata ReportGet (string organization, string project, int buildId, string apiVersion, string? type = null)
 

@@ -27,10 +27,10 @@ using OpenAPIDateConverter = Org.OpenAPITools.Client.OpenAPIDateConverter;
 namespace Org.OpenAPITools.Model
 {
     /// <summary>
-    /// Represents a continuous integration (CI) trigger.
+    /// ContinuousIntegrationTrigger
     /// </summary>
     [DataContract(Name = "ContinuousIntegrationTrigger")]
-    public partial class ContinuousIntegrationTrigger : IEquatable<ContinuousIntegrationTrigger>, IValidatableObject
+    public partial class ContinuousIntegrationTrigger : IValidatableObject
     {
         /// <summary>
         /// The type of the trigger.
@@ -92,7 +92,6 @@ namespace Org.OpenAPITools.Model
             /// </summary>
             [EnumMember(Value = "all")]
             All = 9
-
         }
 
 
@@ -105,6 +104,7 @@ namespace Org.OpenAPITools.Model
         /// <summary>
         /// Initializes a new instance of the <see cref="ContinuousIntegrationTrigger" /> class.
         /// </summary>
+        /// <param name="triggerType">The type of the trigger..</param>
         /// <param name="batchChanges">Indicates whether changes should be batched while another CI build is running..</param>
         /// <param name="branchFilters">branchFilters.</param>
         /// <param name="maxConcurrentBuildsPerBranch">The maximum number of simultaneous CI builds that will run per branch..</param>
@@ -112,9 +112,9 @@ namespace Org.OpenAPITools.Model
         /// <param name="pollingInterval">The polling interval, in seconds..</param>
         /// <param name="pollingJobId">The ID of the job used to poll an external repository..</param>
         /// <param name="settingsSourceType">settingsSourceType.</param>
-        /// <param name="triggerType">The type of the trigger..</param>
-        public ContinuousIntegrationTrigger(bool batchChanges = default(bool), List<string> branchFilters = default(List<string>), int maxConcurrentBuildsPerBranch = default(int), List<string> pathFilters = default(List<string>), int pollingInterval = default(int), Guid pollingJobId = default(Guid), int settingsSourceType = default(int), TriggerTypeEnum? triggerType = default(TriggerTypeEnum?))
+        public ContinuousIntegrationTrigger(TriggerTypeEnum? triggerType = default, bool batchChanges = default, List<string> branchFilters = default, int maxConcurrentBuildsPerBranch = default, List<string> pathFilters = default, int pollingInterval = default, Guid pollingJobId = default, int settingsSourceType = default)
         {
+            this.TriggerType = triggerType;
             this.BatchChanges = batchChanges;
             this.BranchFilters = branchFilters;
             this.MaxConcurrentBuildsPerBranch = maxConcurrentBuildsPerBranch;
@@ -122,7 +122,6 @@ namespace Org.OpenAPITools.Model
             this.PollingInterval = pollingInterval;
             this.PollingJobId = pollingJobId;
             this.SettingsSourceType = settingsSourceType;
-            this.TriggerType = triggerType;
         }
 
         /// <summary>
@@ -179,6 +178,7 @@ namespace Org.OpenAPITools.Model
         {
             StringBuilder sb = new StringBuilder();
             sb.Append("class ContinuousIntegrationTrigger {\n");
+            sb.Append("  TriggerType: ").Append(TriggerType).Append("\n");
             sb.Append("  BatchChanges: ").Append(BatchChanges).Append("\n");
             sb.Append("  BranchFilters: ").Append(BranchFilters).Append("\n");
             sb.Append("  MaxConcurrentBuildsPerBranch: ").Append(MaxConcurrentBuildsPerBranch).Append("\n");
@@ -186,7 +186,6 @@ namespace Org.OpenAPITools.Model
             sb.Append("  PollingInterval: ").Append(PollingInterval).Append("\n");
             sb.Append("  PollingJobId: ").Append(PollingJobId).Append("\n");
             sb.Append("  SettingsSourceType: ").Append(SettingsSourceType).Append("\n");
-            sb.Append("  TriggerType: ").Append(TriggerType).Append("\n");
             sb.Append("}\n");
             return sb.ToString();
         }
@@ -201,102 +200,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as ContinuousIntegrationTrigger);
-        }
-
-        /// <summary>
-        /// Returns true if ContinuousIntegrationTrigger instances are equal
-        /// </summary>
-        /// <param name="input">Instance of ContinuousIntegrationTrigger to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(ContinuousIntegrationTrigger input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.BatchChanges == input.BatchChanges ||
-                    this.BatchChanges.Equals(input.BatchChanges)
-                ) && 
-                (
-                    this.BranchFilters == input.BranchFilters ||
-                    this.BranchFilters != null &&
-                    input.BranchFilters != null &&
-                    this.BranchFilters.SequenceEqual(input.BranchFilters)
-                ) && 
-                (
-                    this.MaxConcurrentBuildsPerBranch == input.MaxConcurrentBuildsPerBranch ||
-                    this.MaxConcurrentBuildsPerBranch.Equals(input.MaxConcurrentBuildsPerBranch)
-                ) && 
-                (
-                    this.PathFilters == input.PathFilters ||
-                    this.PathFilters != null &&
-                    input.PathFilters != null &&
-                    this.PathFilters.SequenceEqual(input.PathFilters)
-                ) && 
-                (
-                    this.PollingInterval == input.PollingInterval ||
-                    this.PollingInterval.Equals(input.PollingInterval)
-                ) && 
-                (
-                    this.PollingJobId == input.PollingJobId ||
-                    (this.PollingJobId != null &&
-                    this.PollingJobId.Equals(input.PollingJobId))
-                ) && 
-                (
-                    this.SettingsSourceType == input.SettingsSourceType ||
-                    this.SettingsSourceType.Equals(input.SettingsSourceType)
-                ) && 
-                (
-                    this.TriggerType == input.TriggerType ||
-                    this.TriggerType.Equals(input.TriggerType)
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                hashCode = (hashCode * 59) + this.BatchChanges.GetHashCode();
-                if (this.BranchFilters != null)
-                {
-                    hashCode = (hashCode * 59) + this.BranchFilters.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.MaxConcurrentBuildsPerBranch.GetHashCode();
-                if (this.PathFilters != null)
-                {
-                    hashCode = (hashCode * 59) + this.PathFilters.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.PollingInterval.GetHashCode();
-                if (this.PollingJobId != null)
-                {
-                    hashCode = (hashCode * 59) + this.PollingJobId.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.SettingsSourceType.GetHashCode();
-                hashCode = (hashCode * 59) + this.TriggerType.GetHashCode();
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

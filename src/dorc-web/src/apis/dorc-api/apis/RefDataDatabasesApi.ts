@@ -28,6 +28,11 @@ export interface RefDataDatabasesByPagePutRequest {
     pagedDataOperators?: PagedDataOperators;
 }
 
+export interface RefDataDatabasesByTypeGetRequest {
+    envName?: string;
+    type?: string;
+}
+
 export interface RefDataDatabasesDeleteRequest {
     databaseId?: number;
 }
@@ -63,6 +68,13 @@ export class RefDataDatabasesApi extends BaseAPI {
 
         const headers: HttpHeaders = {
             'Content-Type': 'application/json',
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
         };
 
         const query: HttpQuery = {};
@@ -81,9 +93,48 @@ export class RefDataDatabasesApi extends BaseAPI {
 
     /**
      */
+    refDataDatabasesByTypeGet({ envName, type }: RefDataDatabasesByTypeGetRequest): Observable<DatabaseApiModel>
+    refDataDatabasesByTypeGet({ envName, type }: RefDataDatabasesByTypeGetRequest, opts?: OperationOpts): Observable<AjaxResponse<DatabaseApiModel>>
+    refDataDatabasesByTypeGet({ envName, type }: RefDataDatabasesByTypeGetRequest, opts?: OperationOpts): Observable<DatabaseApiModel | AjaxResponse<DatabaseApiModel>> {
+
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
+        const query: HttpQuery = {};
+
+        if (envName != null) { query['envName'] = envName; }
+        if (type != null) { query['type'] = type; }
+
+        return this.request<DatabaseApiModel>({
+            url: '/RefDataDatabases/ByType',
+            method: 'GET',
+            headers,
+            query,
+        }, opts?.responseOpts);
+    };
+
+    /**
+     */
     refDataDatabasesDelete({ databaseId }: RefDataDatabasesDeleteRequest): Observable<ApiBoolResult>
     refDataDatabasesDelete({ databaseId }: RefDataDatabasesDeleteRequest, opts?: OperationOpts): Observable<AjaxResponse<ApiBoolResult>>
     refDataDatabasesDelete({ databaseId }: RefDataDatabasesDeleteRequest, opts?: OperationOpts): Observable<ApiBoolResult | AjaxResponse<ApiBoolResult>> {
+
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
 
         const query: HttpQuery = {};
 
@@ -92,6 +143,7 @@ export class RefDataDatabasesApi extends BaseAPI {
         return this.request<ApiBoolResult>({
             url: '/RefDataDatabases',
             method: 'DELETE',
+            headers,
             query,
         }, opts?.responseOpts);
     };
@@ -102,6 +154,16 @@ export class RefDataDatabasesApi extends BaseAPI {
     refDataDatabasesGet({ name, server }: RefDataDatabasesGetRequest, opts?: OperationOpts): Observable<AjaxResponse<Array<DatabaseApiModel>>>
     refDataDatabasesGet({ name, server }: RefDataDatabasesGetRequest, opts?: OperationOpts): Observable<Array<DatabaseApiModel> | AjaxResponse<Array<DatabaseApiModel>>> {
 
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         const query: HttpQuery = {};
 
         if (name != null) { query['name'] = name; }
@@ -110,6 +172,7 @@ export class RefDataDatabasesApi extends BaseAPI {
         return this.request<Array<DatabaseApiModel>>({
             url: '/RefDataDatabases',
             method: 'GET',
+            headers,
             query,
         }, opts?.responseOpts);
     };
@@ -119,9 +182,20 @@ export class RefDataDatabasesApi extends BaseAPI {
     refDataDatabasesGetDatabasServerNameslistGet(): Observable<Array<string>>
     refDataDatabasesGetDatabasServerNameslistGet(opts?: OperationOpts): Observable<AjaxResponse<Array<string>>>
     refDataDatabasesGetDatabasServerNameslistGet(opts?: OperationOpts): Observable<Array<string> | AjaxResponse<Array<string>>> {
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         return this.request<Array<string>>({
             url: '/RefDataDatabases/GetDatabasServerNameslist',
             method: 'GET',
+            headers,
         }, opts?.responseOpts);
     };
 
@@ -132,9 +206,20 @@ export class RefDataDatabasesApi extends BaseAPI {
     refDataDatabasesIdGet({ id }: RefDataDatabasesIdGetRequest, opts?: OperationOpts): Observable<DatabaseApiModel | AjaxResponse<DatabaseApiModel>> {
         throwIfNullOrUndefined(id, 'id', 'refDataDatabasesIdGet');
 
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         return this.request<DatabaseApiModel>({
             url: '/RefDataDatabases/{id}'.replace('{id}', encodeURI(id)),
             method: 'GET',
+            headers,
         }, opts?.responseOpts);
     };
 
@@ -146,6 +231,13 @@ export class RefDataDatabasesApi extends BaseAPI {
 
         const headers: HttpHeaders = {
             'Content-Type': 'application/json',
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
         };
 
         return this.request<DatabaseApiModel>({
@@ -164,6 +256,13 @@ export class RefDataDatabasesApi extends BaseAPI {
 
         const headers: HttpHeaders = {
             'Content-Type': 'application/json',
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
         };
 
         const query: HttpQuery = {};

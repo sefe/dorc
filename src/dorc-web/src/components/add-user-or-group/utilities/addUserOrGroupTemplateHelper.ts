@@ -1,16 +1,15 @@
-import { ComboBoxItemModel } from '@vaadin/combo-box';
+import { html } from 'lit';
 import { UserOrGroupSearchResult } from '.././UserOrGroupSearchResult';
 
-export function renderSearchResults(
-  root: HTMLElement,
-  _: HTMLElement,
-  { item }: ComboBoxItemModel<UserOrGroupSearchResult>
-) {
-  const searchResult = item as UserOrGroupSearchResult;
-  root.innerHTML =
-    '<div><b>' +
-    searchResult.DisplayName +
-    '</b><br>' +
-    searchResult.FullLogonName +
-    '</div>';
+/**
+ * Combo-box item for a directory search hit.
+ *
+ * Shared by the Windows and Endur variants, so it stays a free function
+ * rather than a component method — neither reads component state.
+ */
+export function renderSearchResults(searchResult: UserOrGroupSearchResult) {
+  return html`<div>
+    <b>${searchResult.DisplayName}</b><br />
+    ${searchResult.FullLogonName}
+  </div>`;
 }

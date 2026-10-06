@@ -4,6 +4,9 @@
 
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
+**Id** | **int** | Id of the resource | [optional] 
+**Name** | **string** | Name of the linked resource (definition name, controller name, etc.) | [optional] 
+**Url** | **string** | Full http link to the resource | [optional] 
 **Links** | [**ReferenceLinks**](ReferenceLinks.md) |  | [optional] 
 **CreatedDate** | **DateTime** | The date the controller was created. | [optional] 
 **Description** | **string** | The description of the controller. | [optional] 
@@ -11,9 +14,6 @@ Name | Type | Description | Notes
 **Status** | **string** | The status of the controller. | [optional] 
 **UpdatedDate** | **DateTime** | The date the controller was last updated. | [optional] 
 **Uri** | **string** | The controller&#39;s URI. | [optional] 
-**Id** | **int** | Id of the resource | [optional] 
-**Name** | **string** | Name of the linked resource (definition name, controller name, etc.) | [optional] 
-**Url** | **string** | Full http link to the resource | [optional] 
 
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
 

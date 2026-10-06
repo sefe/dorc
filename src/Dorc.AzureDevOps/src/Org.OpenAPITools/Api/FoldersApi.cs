@@ -102,7 +102,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="queryOrder">The order in which folders should be returned. (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>List&lt;Folder&gt;</returns>
-        List<Folder> FoldersList(string organization, string project, string path, string apiVersion, string? queryOrder = default(string?), int operationIndex = 0);
+        List<Folder> FoldersList(string organization, string project, string path, string apiVersion, string? queryOrder = default, int operationIndex = 0);
 
         /// <summary>
         /// 
@@ -118,7 +118,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="queryOrder">The order in which folders should be returned. (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>ApiResponse of List&lt;Folder&gt;</returns>
-        ApiResponse<List<Folder>> FoldersListWithHttpInfo(string organization, string project, string path, string apiVersion, string? queryOrder = default(string?), int operationIndex = 0);
+        ApiResponse<List<Folder>> FoldersListWithHttpInfo(string organization, string project, string path, string apiVersion, string? queryOrder = default, int operationIndex = 0);
         /// <summary>
         /// 
         /// </summary>
@@ -174,7 +174,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of Folder</returns>
-        System.Threading.Tasks.Task<Folder> FoldersCreateAsync(string organization, string project, string path, string apiVersion, Folder body, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<Folder> FoldersCreateAsync(string organization, string project, string path, string apiVersion, Folder body, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
 
         /// <summary>
         /// 
@@ -191,7 +191,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse (Folder)</returns>
-        System.Threading.Tasks.Task<ApiResponse<Folder>> FoldersCreateWithHttpInfoAsync(string organization, string project, string path, string apiVersion, Folder body, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ApiResponse<Folder>> FoldersCreateWithHttpInfoAsync(string organization, string project, string path, string apiVersion, Folder body, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
         /// <summary>
         /// 
         /// </summary>
@@ -206,7 +206,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of void</returns>
-        System.Threading.Tasks.Task FoldersDeleteAsync(string organization, string project, string path, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task FoldersDeleteAsync(string organization, string project, string path, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
 
         /// <summary>
         /// 
@@ -222,7 +222,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse</returns>
-        System.Threading.Tasks.Task<ApiResponse<Object>> FoldersDeleteWithHttpInfoAsync(string organization, string project, string path, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ApiResponse<Object>> FoldersDeleteWithHttpInfoAsync(string organization, string project, string path, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
         /// <summary>
         /// 
         /// </summary>
@@ -238,7 +238,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of List&lt;Folder&gt;</returns>
-        System.Threading.Tasks.Task<List<Folder>> FoldersListAsync(string organization, string project, string path, string apiVersion, string? queryOrder = default(string?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<List<Folder>> FoldersListAsync(string organization, string project, string path, string apiVersion, string? queryOrder = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
 
         /// <summary>
         /// 
@@ -255,7 +255,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse (List&lt;Folder&gt;)</returns>
-        System.Threading.Tasks.Task<ApiResponse<List<Folder>>> FoldersListWithHttpInfoAsync(string organization, string project, string path, string apiVersion, string? queryOrder = default(string?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ApiResponse<List<Folder>>> FoldersListWithHttpInfoAsync(string organization, string project, string path, string apiVersion, string? queryOrder = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
         /// <summary>
         /// 
         /// </summary>
@@ -271,7 +271,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of Folder</returns>
-        System.Threading.Tasks.Task<Folder> FoldersUpdateAsync(string organization, string project, string path, string apiVersion, Folder body, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<Folder> FoldersUpdateAsync(string organization, string project, string path, string apiVersion, Folder body, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
 
         /// <summary>
         /// 
@@ -288,7 +288,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse (Folder)</returns>
-        System.Threading.Tasks.Task<ApiResponse<Folder>> FoldersUpdateWithHttpInfoAsync(string organization, string project, string path, string apiVersion, Folder body, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ApiResponse<Folder>> FoldersUpdateWithHttpInfoAsync(string organization, string project, string path, string apiVersion, Folder body, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
         #endregion Asynchronous Operations
     }
 
@@ -481,6 +481,7 @@ namespace Org.OpenAPITools.Api
             };
 
             var localVarContentType = Org.OpenAPITools.Client.ClientUtils.SelectHeaderContentType(_contentTypes);
+            var localVarMultipartFormData = localVarContentType == "multipart/form-data";
             if (localVarContentType != null)
             {
                 localVarRequestOptions.HeaderParameters.Add("Content-Type", localVarContentType);
@@ -544,7 +545,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of Folder</returns>
-        public async System.Threading.Tasks.Task<Folder> FoldersCreateAsync(string organization, string project, string path, string apiVersion, Folder body, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public async System.Threading.Tasks.Task<Folder> FoldersCreateAsync(string organization, string project, string path, string apiVersion, Folder body, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             Org.OpenAPITools.Client.ApiResponse<Folder> localVarResponse = await FoldersCreateWithHttpInfoAsync(organization, project, path, apiVersion, body, operationIndex, cancellationToken).ConfigureAwait(false);
             return localVarResponse.Data;
@@ -562,7 +563,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse (Folder)</returns>
-        public async System.Threading.Tasks.Task<Org.OpenAPITools.Client.ApiResponse<Folder>> FoldersCreateWithHttpInfoAsync(string organization, string project, string path, string apiVersion, Folder body, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public async System.Threading.Tasks.Task<Org.OpenAPITools.Client.ApiResponse<Folder>> FoldersCreateWithHttpInfoAsync(string organization, string project, string path, string apiVersion, Folder body, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             // verify the required parameter 'organization' is set
             if (organization == null)
@@ -720,6 +721,7 @@ namespace Org.OpenAPITools.Api
             };
 
             var localVarContentType = Org.OpenAPITools.Client.ClientUtils.SelectHeaderContentType(_contentTypes);
+            var localVarMultipartFormData = localVarContentType == "multipart/form-data";
             if (localVarContentType != null)
             {
                 localVarRequestOptions.HeaderParameters.Add("Content-Type", localVarContentType);
@@ -781,7 +783,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of void</returns>
-        public async System.Threading.Tasks.Task FoldersDeleteAsync(string organization, string project, string path, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public async System.Threading.Tasks.Task FoldersDeleteAsync(string organization, string project, string path, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             await FoldersDeleteWithHttpInfoAsync(organization, project, path, apiVersion, operationIndex, cancellationToken).ConfigureAwait(false);
         }
@@ -797,7 +799,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse</returns>
-        public async System.Threading.Tasks.Task<Org.OpenAPITools.Client.ApiResponse<Object>> FoldersDeleteWithHttpInfoAsync(string organization, string project, string path, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public async System.Threading.Tasks.Task<Org.OpenAPITools.Client.ApiResponse<Object>> FoldersDeleteWithHttpInfoAsync(string organization, string project, string path, string apiVersion, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             // verify the required parameter 'organization' is set
             if (organization == null)
@@ -896,7 +898,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="queryOrder">The order in which folders should be returned. (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>List&lt;Folder&gt;</returns>
-        public List<Folder> FoldersList(string organization, string project, string path, string apiVersion, string? queryOrder = default(string?), int operationIndex = 0)
+        public List<Folder> FoldersList(string organization, string project, string path, string apiVersion, string? queryOrder = default, int operationIndex = 0)
         {
             Org.OpenAPITools.Client.ApiResponse<List<Folder>> localVarResponse = FoldersListWithHttpInfo(organization, project, path, apiVersion, queryOrder);
             return localVarResponse.Data;
@@ -913,7 +915,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="queryOrder">The order in which folders should be returned. (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>ApiResponse of List&lt;Folder&gt;</returns>
-        public Org.OpenAPITools.Client.ApiResponse<List<Folder>> FoldersListWithHttpInfo(string organization, string project, string path, string apiVersion, string? queryOrder = default(string?), int operationIndex = 0)
+        public Org.OpenAPITools.Client.ApiResponse<List<Folder>> FoldersListWithHttpInfo(string organization, string project, string path, string apiVersion, string? queryOrder = default, int operationIndex = 0)
         {
             // verify the required parameter 'organization' is set
             if (organization == null)
@@ -950,6 +952,7 @@ namespace Org.OpenAPITools.Api
             };
 
             var localVarContentType = Org.OpenAPITools.Client.ClientUtils.SelectHeaderContentType(_contentTypes);
+            var localVarMultipartFormData = localVarContentType == "multipart/form-data";
             if (localVarContentType != null)
             {
                 localVarRequestOptions.HeaderParameters.Add("Content-Type", localVarContentType);
@@ -1016,7 +1019,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of List&lt;Folder&gt;</returns>
-        public async System.Threading.Tasks.Task<List<Folder>> FoldersListAsync(string organization, string project, string path, string apiVersion, string? queryOrder = default(string?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public async System.Threading.Tasks.Task<List<Folder>> FoldersListAsync(string organization, string project, string path, string apiVersion, string? queryOrder = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             Org.OpenAPITools.Client.ApiResponse<List<Folder>> localVarResponse = await FoldersListWithHttpInfoAsync(organization, project, path, apiVersion, queryOrder, operationIndex, cancellationToken).ConfigureAwait(false);
             return localVarResponse.Data;
@@ -1034,7 +1037,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse (List&lt;Folder&gt;)</returns>
-        public async System.Threading.Tasks.Task<Org.OpenAPITools.Client.ApiResponse<List<Folder>>> FoldersListWithHttpInfoAsync(string organization, string project, string path, string apiVersion, string? queryOrder = default(string?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public async System.Threading.Tasks.Task<Org.OpenAPITools.Client.ApiResponse<List<Folder>>> FoldersListWithHttpInfoAsync(string organization, string project, string path, string apiVersion, string? queryOrder = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             // verify the required parameter 'organization' is set
             if (organization == null)
@@ -1199,6 +1202,7 @@ namespace Org.OpenAPITools.Api
             };
 
             var localVarContentType = Org.OpenAPITools.Client.ClientUtils.SelectHeaderContentType(_contentTypes);
+            var localVarMultipartFormData = localVarContentType == "multipart/form-data";
             if (localVarContentType != null)
             {
                 localVarRequestOptions.HeaderParameters.Add("Content-Type", localVarContentType);
@@ -1262,7 +1266,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of Folder</returns>
-        public async System.Threading.Tasks.Task<Folder> FoldersUpdateAsync(string organization, string project, string path, string apiVersion, Folder body, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public async System.Threading.Tasks.Task<Folder> FoldersUpdateAsync(string organization, string project, string path, string apiVersion, Folder body, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             Org.OpenAPITools.Client.ApiResponse<Folder> localVarResponse = await FoldersUpdateWithHttpInfoAsync(organization, project, path, apiVersion, body, operationIndex, cancellationToken).ConfigureAwait(false);
             return localVarResponse.Data;
@@ -1280,7 +1284,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse (Folder)</returns>
-        public async System.Threading.Tasks.Task<Org.OpenAPITools.Client.ApiResponse<Folder>> FoldersUpdateWithHttpInfoAsync(string organization, string project, string path, string apiVersion, Folder body, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public async System.Threading.Tasks.Task<Org.OpenAPITools.Client.ApiResponse<Folder>> FoldersUpdateWithHttpInfoAsync(string organization, string project, string path, string apiVersion, Folder body, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             // verify the required parameter 'organization' is set
             if (organization == null)

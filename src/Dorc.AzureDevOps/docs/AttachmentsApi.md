@@ -7,7 +7,7 @@ All URIs are relative to *https://dev.azure.com*
 | [**AttachmentsGet**](AttachmentsApi.md#attachmentsget) | **GET** /{organization}/{project}/_apis/build/builds/{buildId}/{timelineId}/{recordId}/attachments/{type}/{name} |  |
 | [**AttachmentsList**](AttachmentsApi.md#attachmentslist) | **GET** /{organization}/{project}/_apis/build/builds/{buildId}/attachments/{type} |  |
 
-<a name="attachmentsget"></a>
+<a id="attachmentsget"></a>
 # **AttachmentsGet**
 > string AttachmentsGet (string organization, string project, int buildId, Guid timelineId, Guid recordId, string type, string name, string apiVersion)
 
@@ -113,7 +113,7 @@ catch (ApiException e)
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-<a name="attachmentslist"></a>
+<a id="attachmentslist"></a>
 # **AttachmentsList**
 > List&lt;Attachment&gt; AttachmentsList (string organization, string project, int buildId, string type, string apiVersion)
 

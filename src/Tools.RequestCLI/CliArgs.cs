@@ -1,6 +1,9 @@
 ﻿using Dorc.ApiModel;
 using System;
+using System.Runtime.CompilerServices;
 using System.Text.Json;
+
+[assembly: InternalsVisibleTo("Tools.RequestCLI.Tests")]
 
 namespace Tools.RequestCLI
 {
@@ -12,10 +15,10 @@ namespace Tools.RequestCLI
             _request = new RequestDto();
             ParseArguments(args);
         }
-        
+
         public RequestDto Request => _request;
         public bool Wait { set; get; }
-        
+
         private void ParseArguments(string[] args)
         {
             _request = new RequestDto();
@@ -31,11 +34,21 @@ namespace Tools.RequestCLI
                 else if (strArgument.ToLower().Contains("/components:"))
                     _request.Components = strArgument.Split(':')[1].Split(';');
                 else if (strArgument.ToLower().Contains("/pinned:"))
-                    _request.Pinned = Boolean.Parse(strArgument.Split(':')[1]); 
+                    _request.Pinned = Boolean.Parse(strArgument.Split(':')[1]);
                 else if (strArgument.ToLower().Contains("/wait:"))
                     Wait = Boolean.Parse(strArgument.Split(':')[1]);
                 else if (strArgument.ToLower().Contains("/builduri:"))
-                    _request.BuildUrl = strArgument.Split(':')[1] + ":" + strArgument.Split(':')[2];
+                {
+                    // Split only on the first ':' so the URL (which may itself contain a
+                    // port or path with further colons) is preserved in full.
+                    var separatorIndex = strArgument.IndexOf(':');
+                    var buildUrl = strArgument.Substring(separatorIndex + 1).Trim();
+                    if (string.IsNullOrWhiteSpace(buildUrl))
+                    {
+                        throw new ArgumentException("Invalid build URI format. Expected format: /builduri:<url>");
+                    }
+                    _request.BuildUrl = buildUrl;
+                }
         }
 
         public override string ToString()

@@ -14,7 +14,7 @@
 import type { Observable } from 'rxjs';
 import type { AjaxResponse } from 'rxjs/ajax';
 import { BaseAPI } from '../runtime';
-import type { OperationOpts } from '../runtime';
+import type { OperationOpts, HttpHeaders } from '../runtime';
 
 /**
  * no description
@@ -26,9 +26,20 @@ export class RefDataRolesApi extends BaseAPI {
     refDataRolesGet(): Observable<Array<string>>
     refDataRolesGet(opts?: OperationOpts): Observable<AjaxResponse<Array<string>>>
     refDataRolesGet(opts?: OperationOpts): Observable<Array<string> | AjaxResponse<Array<string>>> {
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         return this.request<Array<string>>({
             url: '/RefDataRoles',
             method: 'GET',
+            headers,
         }, opts?.responseOpts);
     };
 

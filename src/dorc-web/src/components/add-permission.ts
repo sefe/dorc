@@ -7,24 +7,28 @@ import { html } from 'lit/html.js';
 import type { PermissionDto } from '../apis/dorc-api';
 import { Notification } from '@vaadin/notification';
 import { RefDataPermissionApi } from '../apis/dorc-api';
+import '@vaadin/vertical-layout';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('add-permission')
 export class AddPermission extends LitElement {
-  @property() private displayName = '';
+  private readonly maxFieldLength = 50;
 
-  @property({ type: Boolean }) private displayNameValid = false;
+  @property() displayName = '';
 
-  @property() private permissionName = '';
+  @property({ type: Boolean }) displayNameValid = false;
 
-  @property({ type: Boolean }) private permissionNameValid = false;
+  @property() permissionName = '';
 
-  @property({ type: Boolean }) private valid = false;
+  @property({ type: Boolean }) permissionNameValid = false;
 
-  @property({ type: Object })
-  private permission: PermissionDto = this.getEmptyPermission();
+  @property({ type: Boolean }) valid = false;
 
-  @property() private overlayMessage: any;
-  @property() private errorMessage: any;
+  @property({ type: Object }) permission: PermissionDto =
+    this.getEmptyPermission();
+
+  @property() overlayMessage: any;
+  @property() errorMessage: any;
 
   static get styles() {
     return css`
@@ -32,7 +36,8 @@ export class AddPermission extends LitElement {
         display: flex;
         align-items: center;
         justify-content: center;
-        width: 500px;
+        width: 100%;
+        max-width: 500px;
       }
       .small-loader {
         border: 2px solid #f3f3f3; /* Light grey */
@@ -61,8 +66,9 @@ export class AddPermission extends LitElement {
             class="block"
             id="display-name"
             label="Display Name"
+            maxlength="${this.maxFieldLength}"
+            title="Maximum length: ${this.maxFieldLength} symbols"
             required
-            auto-validate
             @input="${this._displayNameValueChanged}"
             .value="${this.displayName}"
           ></vaadin-text-field>
@@ -70,8 +76,9 @@ export class AddPermission extends LitElement {
             class="block"
             id="permission-name"
             label="Permission Name"
+            maxlength="${this.maxFieldLength}"
+            title="Maximum length: ${this.maxFieldLength} symbols"
             required
-            auto-validate
             @input="${this._daemonNameValueChanged}"
             .value="${this.permissionName}"
           ></vaadin-text-field>
@@ -115,7 +122,7 @@ export class AddPermission extends LitElement {
   }
 
   _submit() {
-    const api = new RefDataPermissionApi();
+    const api = new RefDataPermissionApi(dorcApiConfiguration);
 
     this.permission.DisplayName = this.displayName.trim();
     this.permission.PermissionName = this.permissionName.trim();

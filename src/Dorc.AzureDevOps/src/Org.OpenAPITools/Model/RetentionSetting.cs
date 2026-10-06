@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// Contains the minimum, maximum, and current value for a retention setting.
     /// </summary>
     [DataContract(Name = "RetentionSetting")]
-    public partial class RetentionSetting : IEquatable<RetentionSetting>, IValidatableObject
+    public partial class RetentionSetting : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="RetentionSetting" /> class.
@@ -38,7 +38,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="max">max.</param>
         /// <param name="min">min.</param>
         /// <param name="value">value.</param>
-        public RetentionSetting(int max = default(int), int min = default(int), int value = default(int))
+        public RetentionSetting(int max = default, int min = default, int value = default)
         {
             this.Max = max;
             this.Min = min;
@@ -88,63 +88,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as RetentionSetting);
-        }
-
-        /// <summary>
-        /// Returns true if RetentionSetting instances are equal
-        /// </summary>
-        /// <param name="input">Instance of RetentionSetting to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(RetentionSetting input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.Max == input.Max ||
-                    this.Max.Equals(input.Max)
-                ) && 
-                (
-                    this.Min == input.Min ||
-                    this.Min.Equals(input.Min)
-                ) && 
-                (
-                    this.Value == input.Value ||
-                    this.Value.Equals(input.Value)
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                hashCode = (hashCode * 59) + this.Max.GetHashCode();
-                hashCode = (hashCode * 59) + this.Min.GetHashCode();
-                hashCode = (hashCode * 59) + this.Value.GetHashCode();
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

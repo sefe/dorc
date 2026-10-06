@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// BuildController
     /// </summary>
     [DataContract(Name = "BuildController")]
-    public partial class BuildController : IEquatable<BuildController>, IValidatableObject
+    public partial class BuildController : IValidatableObject
     {
         /// <summary>
         /// The status of the controller.
@@ -56,7 +56,6 @@ namespace Org.OpenAPITools.Model
             /// </summary>
             [EnumMember(Value = "offline")]
             Offline = 3
-
         }
 
 
@@ -69,6 +68,9 @@ namespace Org.OpenAPITools.Model
         /// <summary>
         /// Initializes a new instance of the <see cref="BuildController" /> class.
         /// </summary>
+        /// <param name="id">Id of the resource.</param>
+        /// <param name="name">Name of the linked resource (definition name, controller name, etc.).</param>
+        /// <param name="url">Full http link to the resource.</param>
         /// <param name="links">links.</param>
         /// <param name="createdDate">The date the controller was created..</param>
         /// <param name="description">The description of the controller..</param>
@@ -76,11 +78,11 @@ namespace Org.OpenAPITools.Model
         /// <param name="status">The status of the controller..</param>
         /// <param name="updatedDate">The date the controller was last updated..</param>
         /// <param name="uri">The controller&#39;s URI..</param>
-        /// <param name="id">Id of the resource.</param>
-        /// <param name="name">Name of the linked resource (definition name, controller name, etc.).</param>
-        /// <param name="url">Full http link to the resource.</param>
-        public BuildController(ReferenceLinks links = default(ReferenceLinks), DateTime createdDate = default(DateTime), string description = default(string), bool enabled = default(bool), StatusEnum? status = default(StatusEnum?), DateTime updatedDate = default(DateTime), string uri = default(string), int id = default(int), string name = default(string), string url = default(string))
+        public BuildController(int id = default, string name = default, string url = default, ReferenceLinks links = default, DateTime createdDate = default, string description = default, bool enabled = default, StatusEnum? status = default, DateTime updatedDate = default, string uri = default)
         {
+            this.Id = id;
+            this.Name = name;
+            this.Url = url;
             this.Links = links;
             this.CreatedDate = createdDate;
             this.Description = description;
@@ -88,10 +90,28 @@ namespace Org.OpenAPITools.Model
             this.Status = status;
             this.UpdatedDate = updatedDate;
             this.Uri = uri;
-            this.Id = id;
-            this.Name = name;
-            this.Url = url;
         }
+
+        /// <summary>
+        /// Id of the resource
+        /// </summary>
+        /// <value>Id of the resource</value>
+        [DataMember(Name = "id", EmitDefaultValue = false)]
+        public int Id { get; set; }
+
+        /// <summary>
+        /// Name of the linked resource (definition name, controller name, etc.)
+        /// </summary>
+        /// <value>Name of the linked resource (definition name, controller name, etc.)</value>
+        [DataMember(Name = "name", EmitDefaultValue = false)]
+        public string Name { get; set; }
+
+        /// <summary>
+        /// Full http link to the resource
+        /// </summary>
+        /// <value>Full http link to the resource</value>
+        [DataMember(Name = "url", EmitDefaultValue = false)]
+        public string Url { get; set; }
 
         /// <summary>
         /// Gets or Sets Links
@@ -135,27 +155,6 @@ namespace Org.OpenAPITools.Model
         public string Uri { get; set; }
 
         /// <summary>
-        /// Id of the resource
-        /// </summary>
-        /// <value>Id of the resource</value>
-        [DataMember(Name = "id", EmitDefaultValue = false)]
-        public int Id { get; set; }
-
-        /// <summary>
-        /// Name of the linked resource (definition name, controller name, etc.)
-        /// </summary>
-        /// <value>Name of the linked resource (definition name, controller name, etc.)</value>
-        [DataMember(Name = "name", EmitDefaultValue = false)]
-        public string Name { get; set; }
-
-        /// <summary>
-        /// Full http link to the resource
-        /// </summary>
-        /// <value>Full http link to the resource</value>
-        [DataMember(Name = "url", EmitDefaultValue = false)]
-        public string Url { get; set; }
-
-        /// <summary>
         /// Returns the string presentation of the object
         /// </summary>
         /// <returns>String presentation of the object</returns>
@@ -163,6 +162,9 @@ namespace Org.OpenAPITools.Model
         {
             StringBuilder sb = new StringBuilder();
             sb.Append("class BuildController {\n");
+            sb.Append("  Id: ").Append(Id).Append("\n");
+            sb.Append("  Name: ").Append(Name).Append("\n");
+            sb.Append("  Url: ").Append(Url).Append("\n");
             sb.Append("  Links: ").Append(Links).Append("\n");
             sb.Append("  CreatedDate: ").Append(CreatedDate).Append("\n");
             sb.Append("  Description: ").Append(Description).Append("\n");
@@ -170,9 +172,6 @@ namespace Org.OpenAPITools.Model
             sb.Append("  Status: ").Append(Status).Append("\n");
             sb.Append("  UpdatedDate: ").Append(UpdatedDate).Append("\n");
             sb.Append("  Uri: ").Append(Uri).Append("\n");
-            sb.Append("  Id: ").Append(Id).Append("\n");
-            sb.Append("  Name: ").Append(Name).Append("\n");
-            sb.Append("  Url: ").Append(Url).Append("\n");
             sb.Append("}\n");
             return sb.ToString();
         }
@@ -187,126 +186,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as BuildController);
-        }
-
-        /// <summary>
-        /// Returns true if BuildController instances are equal
-        /// </summary>
-        /// <param name="input">Instance of BuildController to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(BuildController input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.Links == input.Links ||
-                    (this.Links != null &&
-                    this.Links.Equals(input.Links))
-                ) && 
-                (
-                    this.CreatedDate == input.CreatedDate ||
-                    (this.CreatedDate != null &&
-                    this.CreatedDate.Equals(input.CreatedDate))
-                ) && 
-                (
-                    this.Description == input.Description ||
-                    (this.Description != null &&
-                    this.Description.Equals(input.Description))
-                ) && 
-                (
-                    this.Enabled == input.Enabled ||
-                    this.Enabled.Equals(input.Enabled)
-                ) && 
-                (
-                    this.Status == input.Status ||
-                    this.Status.Equals(input.Status)
-                ) && 
-                (
-                    this.UpdatedDate == input.UpdatedDate ||
-                    (this.UpdatedDate != null &&
-                    this.UpdatedDate.Equals(input.UpdatedDate))
-                ) && 
-                (
-                    this.Uri == input.Uri ||
-                    (this.Uri != null &&
-                    this.Uri.Equals(input.Uri))
-                ) && 
-                (
-                    this.Id == input.Id ||
-                    this.Id.Equals(input.Id)
-                ) && 
-                (
-                    this.Name == input.Name ||
-                    (this.Name != null &&
-                    this.Name.Equals(input.Name))
-                ) && 
-                (
-                    this.Url == input.Url ||
-                    (this.Url != null &&
-                    this.Url.Equals(input.Url))
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.Links != null)
-                {
-                    hashCode = (hashCode * 59) + this.Links.GetHashCode();
-                }
-                if (this.CreatedDate != null)
-                {
-                    hashCode = (hashCode * 59) + this.CreatedDate.GetHashCode();
-                }
-                if (this.Description != null)
-                {
-                    hashCode = (hashCode * 59) + this.Description.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.Enabled.GetHashCode();
-                hashCode = (hashCode * 59) + this.Status.GetHashCode();
-                if (this.UpdatedDate != null)
-                {
-                    hashCode = (hashCode * 59) + this.UpdatedDate.GetHashCode();
-                }
-                if (this.Uri != null)
-                {
-                    hashCode = (hashCode * 59) + this.Uri.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.Id.GetHashCode();
-                if (this.Name != null)
-                {
-                    hashCode = (hashCode * 59) + this.Name.GetHashCode();
-                }
-                if (this.Url != null)
-                {
-                    hashCode = (hashCode * 59) + this.Url.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

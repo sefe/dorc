@@ -30,30 +30,30 @@ namespace Org.OpenAPITools.Model
     /// TimelineRecordsUpdatedEvent
     /// </summary>
     [DataContract(Name = "TimelineRecordsUpdatedEvent")]
-    public partial class TimelineRecordsUpdatedEvent : IEquatable<TimelineRecordsUpdatedEvent>, IValidatableObject
+    public partial class TimelineRecordsUpdatedEvent : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="TimelineRecordsUpdatedEvent" /> class.
         /// </summary>
-        /// <param name="timelineRecords">timelineRecords.</param>
         /// <param name="buildId">buildId.</param>
-        public TimelineRecordsUpdatedEvent(List<TimelineRecord> timelineRecords = default(List<TimelineRecord>), int buildId = default(int))
+        /// <param name="timelineRecords">timelineRecords.</param>
+        public TimelineRecordsUpdatedEvent(int buildId = default, List<TimelineRecord> timelineRecords = default)
         {
-            this.TimelineRecords = timelineRecords;
             this.BuildId = buildId;
+            this.TimelineRecords = timelineRecords;
         }
-
-        /// <summary>
-        /// Gets or Sets TimelineRecords
-        /// </summary>
-        [DataMember(Name = "timelineRecords", EmitDefaultValue = false)]
-        public List<TimelineRecord> TimelineRecords { get; set; }
 
         /// <summary>
         /// Gets or Sets BuildId
         /// </summary>
         [DataMember(Name = "buildId", EmitDefaultValue = false)]
         public int BuildId { get; set; }
+
+        /// <summary>
+        /// Gets or Sets TimelineRecords
+        /// </summary>
+        [DataMember(Name = "timelineRecords", EmitDefaultValue = false)]
+        public List<TimelineRecord> TimelineRecords { get; set; }
 
         /// <summary>
         /// Returns the string presentation of the object
@@ -63,8 +63,8 @@ namespace Org.OpenAPITools.Model
         {
             StringBuilder sb = new StringBuilder();
             sb.Append("class TimelineRecordsUpdatedEvent {\n");
-            sb.Append("  TimelineRecords: ").Append(TimelineRecords).Append("\n");
             sb.Append("  BuildId: ").Append(BuildId).Append("\n");
+            sb.Append("  TimelineRecords: ").Append(TimelineRecords).Append("\n");
             sb.Append("}\n");
             return sb.ToString();
         }
@@ -79,63 +79,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as TimelineRecordsUpdatedEvent);
-        }
-
-        /// <summary>
-        /// Returns true if TimelineRecordsUpdatedEvent instances are equal
-        /// </summary>
-        /// <param name="input">Instance of TimelineRecordsUpdatedEvent to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(TimelineRecordsUpdatedEvent input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.TimelineRecords == input.TimelineRecords ||
-                    this.TimelineRecords != null &&
-                    input.TimelineRecords != null &&
-                    this.TimelineRecords.SequenceEqual(input.TimelineRecords)
-                ) && 
-                (
-                    this.BuildId == input.BuildId ||
-                    this.BuildId.Equals(input.BuildId)
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.TimelineRecords != null)
-                {
-                    hashCode = (hashCode * 59) + this.TimelineRecords.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.BuildId.GetHashCode();
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

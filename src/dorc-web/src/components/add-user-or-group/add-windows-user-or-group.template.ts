@@ -1,3 +1,4 @@
+import { comboBoxRenderer } from '@vaadin/combo-box/lit';
 import '@vaadin/button';
 import '@vaadin/combo-box';
 import '@vaadin/text-field';
@@ -8,8 +9,12 @@ import { nothing } from 'lit';
 import { AddWindowsUserOrGroup } from './add-windows-user-or-group';
 
 import { renderSearchResults } from './utilities/addUserOrGroupTemplateHelper';
+import '@vaadin/vertical-layout';
 
 export function addWindowsUserOrGroupTemplate(this: AddWindowsUserOrGroup) {
+
+  const maxFieldLength = 50;
+
   return html` <div>
     <vaadin-vertical-layout>
       <table>
@@ -21,7 +26,7 @@ export function addWindowsUserOrGroupTemplate(this: AddWindowsUserOrGroup) {
               label="Windows ID Filter"
               @keypress="${this.filterKeypressed}"
               required
-              allowed-char-pattern="[a-zA-Z0-9-_.' ()&]"
+              allowed-char-pattern="[a-zA-Z0-9-_.' ()&amp;]"
             ></vaadin-text-field>
           </td>
           <td class="acc-filter__btn-td">
@@ -48,7 +53,7 @@ export function addWindowsUserOrGroupTemplate(this: AddWindowsUserOrGroup) {
         .invalid="${this.isSelectedUserOrGroupValid === false}"
         error-message="${this.selectedUserOrGroupErrorMessage}"
         .disabled="${!this.isUserOrGroupListEnabled}"
-        .renderer="${renderSearchResults}"
+        ${comboBoxRenderer(renderSearchResults, [])}
         .items="${this.searchResults}"
         @change="${this.filteredUserOrGroupSelected}"
       ></vaadin-combo-box>
@@ -56,6 +61,8 @@ export function addWindowsUserOrGroupTemplate(this: AddWindowsUserOrGroup) {
         class="acc-form__block"
         id="team"
         label="Team"
+        maxlength="${maxFieldLength}"
+        title="Maximum length: ${maxFieldLength} symbols"
         .invalid="${this.isTeamNameValid === false}"
         error-message="${this.teamNameErrorMessage}"
         @value-changed="${this.teamNameChanged}"

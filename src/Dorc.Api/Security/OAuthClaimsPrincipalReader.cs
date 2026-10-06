@@ -61,6 +61,40 @@ namespace Dorc.Api.Security
             return GetSamAccountName(claimsPrincipal) ?? GetUserName(user);
         }
 
+        /// <summary>
+        /// Returns a privacy-safe identifier for the user suitable for logging/auditing.
+        /// Prefers non-PII stable identifiers over email addresses.
+        /// </summary>
+        public string GetUserSafeIdentifier(IPrincipal user)
+        {
+            var claimsPrincipal = GetClaimsPrincipal(user);
+
+            if (IsM2MAuthentication(claimsPrincipal))
+            {
+                return GetClientId(claimsPrincipal);
+            }
+
+            var userId = GetUserId(claimsPrincipal);
+            if (!string.IsNullOrEmpty(userId))
+            {
+                return userId;
+            }
+
+            var samAccountName = GetSamAccountName(claimsPrincipal);
+            if (!string.IsNullOrEmpty(samAccountName))
+            {
+                return samAccountName;
+            }
+
+            var email = GetUserEmail(claimsPrincipal);
+            if (!string.IsNullOrEmpty(email))
+            {
+                return RedactEmail(email);
+            }
+
+            return GetUserName(user);
+        }
+
         public string GetUserLogin(IPrincipal user)
         {
             var cUser = GetClaimsPrincipal(user);
@@ -80,6 +114,22 @@ namespace Dorc.Api.Security
         private string? GetSamAccountName(ClaimsPrincipal user)
         {
             return user?.FindFirst(SamAccountNameClaimType)?.Value;
+        }
+
+        private static string RedactEmail(string email)
+        {
+            if (string.IsNullOrEmpty(email))
+            {
+                return string.Empty;
+            }
+
+            var atIndex = email.IndexOf('@');
+            if (atIndex <= 1)
+            {
+                return "REDACTED";
+            }
+
+            return email[0] + new string('*', atIndex - 1) + email.Substring(atIndex);
         }
 
         public List<string> GetSidsForUser(IPrincipal user)

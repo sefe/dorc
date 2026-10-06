@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// Represents information about resources used by builds in the system.
     /// </summary>
     [DataContract(Name = "BuildResourceUsage")]
-    public partial class BuildResourceUsage : IEquatable<BuildResourceUsage>, IValidatableObject
+    public partial class BuildResourceUsage : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="BuildResourceUsage" /> class.
@@ -39,7 +39,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="paidPrivateAgentSlots">The number of paid private agent slots..</param>
         /// <param name="totalUsage">The total usage..</param>
         /// <param name="xamlControllers">The number of XAML controllers..</param>
-        public BuildResourceUsage(int distributedTaskAgents = default(int), int paidPrivateAgentSlots = default(int), int totalUsage = default(int), int xamlControllers = default(int))
+        public BuildResourceUsage(int distributedTaskAgents = default, int paidPrivateAgentSlots = default, int totalUsage = default, int xamlControllers = default)
         {
             this.DistributedTaskAgents = distributedTaskAgents;
             this.PaidPrivateAgentSlots = paidPrivateAgentSlots;
@@ -101,68 +101,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as BuildResourceUsage);
-        }
-
-        /// <summary>
-        /// Returns true if BuildResourceUsage instances are equal
-        /// </summary>
-        /// <param name="input">Instance of BuildResourceUsage to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(BuildResourceUsage input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.DistributedTaskAgents == input.DistributedTaskAgents ||
-                    this.DistributedTaskAgents.Equals(input.DistributedTaskAgents)
-                ) && 
-                (
-                    this.PaidPrivateAgentSlots == input.PaidPrivateAgentSlots ||
-                    this.PaidPrivateAgentSlots.Equals(input.PaidPrivateAgentSlots)
-                ) && 
-                (
-                    this.TotalUsage == input.TotalUsage ||
-                    this.TotalUsage.Equals(input.TotalUsage)
-                ) && 
-                (
-                    this.XamlControllers == input.XamlControllers ||
-                    this.XamlControllers.Equals(input.XamlControllers)
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                hashCode = (hashCode * 59) + this.DistributedTaskAgents.GetHashCode();
-                hashCode = (hashCode * 59) + this.PaidPrivateAgentSlots.GetHashCode();
-                hashCode = (hashCode * 59) + this.TotalUsage.GetHashCode();
-                hashCode = (hashCode * 59) + this.XamlControllers.GetHashCode();
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

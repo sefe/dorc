@@ -9,7 +9,7 @@ All URIs are relative to *https://dev.azure.com*
 | [**PropertiesUpdateBuildProperties**](PropertiesApi.md#propertiesupdatebuildproperties) | **PATCH** /{organization}/{project}/_apis/build/builds/{buildId}/properties |  |
 | [**PropertiesUpdateDefinitionProperties**](PropertiesApi.md#propertiesupdatedefinitionproperties) | **PATCH** /{organization}/{project}/_apis/build/definitions/{definitionId}/properties |  |
 
-<a name="propertiesgetbuildproperties"></a>
+<a id="propertiesgetbuildproperties"></a>
 # **PropertiesGetBuildProperties**
 > PropertiesCollection PropertiesGetBuildProperties (string organization, string project, int buildId, string apiVersion, string? filter = null)
 
@@ -109,7 +109,7 @@ catch (ApiException e)
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-<a name="propertiesgetdefinitionproperties"></a>
+<a id="propertiesgetdefinitionproperties"></a>
 # **PropertiesGetDefinitionProperties**
 > PropertiesCollection PropertiesGetDefinitionProperties (string organization, string project, int definitionId, string apiVersion, string? filter = null)
 
@@ -209,7 +209,7 @@ catch (ApiException e)
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-<a name="propertiesupdatebuildproperties"></a>
+<a id="propertiesupdatebuildproperties"></a>
 # **PropertiesUpdateBuildProperties**
 > PropertiesCollection PropertiesUpdateBuildProperties (string organization, string project, int buildId, string apiVersion, JsonPatchDocument body)
 
@@ -309,7 +309,7 @@ catch (ApiException e)
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-<a name="propertiesupdatedefinitionproperties"></a>
+<a id="propertiesupdatedefinitionproperties"></a>
 # **PropertiesUpdateDefinitionProperties**
 > PropertiesCollection PropertiesUpdateDefinitionProperties (string organization, string project, int definitionId, string apiVersion, JsonPatchDocument body)
 

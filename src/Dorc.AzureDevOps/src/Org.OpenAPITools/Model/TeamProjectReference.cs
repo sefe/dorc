@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// Represents a shallow reference to a TeamProject.
     /// </summary>
     [DataContract(Name = "TeamProjectReference")]
-    public partial class TeamProjectReference : IEquatable<TeamProjectReference>, IValidatableObject
+    public partial class TeamProjectReference : IValidatableObject
     {
         /// <summary>
         /// Project state.
@@ -80,7 +80,6 @@ namespace Org.OpenAPITools.Model
             /// </summary>
             [EnumMember(Value = "deleted")]
             Deleted = 7
-
         }
 
 
@@ -108,7 +107,6 @@ namespace Org.OpenAPITools.Model
             /// </summary>
             [EnumMember(Value = "public")]
             Public = 2
-
         }
 
 
@@ -131,7 +129,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="state">Project state..</param>
         /// <param name="url">Url to the full version of the object..</param>
         /// <param name="visibility">Project visibility..</param>
-        public TeamProjectReference(string abbreviation = default(string), string defaultTeamImageUrl = default(string), string description = default(string), Guid id = default(Guid), DateTime lastUpdateTime = default(DateTime), string name = default(string), long revision = default(long), StateEnum? state = default(StateEnum?), string url = default(string), VisibilityEnum? visibility = default(VisibilityEnum?))
+        public TeamProjectReference(string abbreviation = default, string defaultTeamImageUrl = default, string description = default, Guid id = default, DateTime lastUpdateTime = default, string name = default, long revision = default, StateEnum? state = default, string url = default, VisibilityEnum? visibility = default)
         {
             this.Abbreviation = abbreviation;
             this.DefaultTeamImageUrl = defaultTeamImageUrl;
@@ -233,126 +231,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as TeamProjectReference);
-        }
-
-        /// <summary>
-        /// Returns true if TeamProjectReference instances are equal
-        /// </summary>
-        /// <param name="input">Instance of TeamProjectReference to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(TeamProjectReference input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.Abbreviation == input.Abbreviation ||
-                    (this.Abbreviation != null &&
-                    this.Abbreviation.Equals(input.Abbreviation))
-                ) && 
-                (
-                    this.DefaultTeamImageUrl == input.DefaultTeamImageUrl ||
-                    (this.DefaultTeamImageUrl != null &&
-                    this.DefaultTeamImageUrl.Equals(input.DefaultTeamImageUrl))
-                ) && 
-                (
-                    this.Description == input.Description ||
-                    (this.Description != null &&
-                    this.Description.Equals(input.Description))
-                ) && 
-                (
-                    this.Id == input.Id ||
-                    (this.Id != null &&
-                    this.Id.Equals(input.Id))
-                ) && 
-                (
-                    this.LastUpdateTime == input.LastUpdateTime ||
-                    (this.LastUpdateTime != null &&
-                    this.LastUpdateTime.Equals(input.LastUpdateTime))
-                ) && 
-                (
-                    this.Name == input.Name ||
-                    (this.Name != null &&
-                    this.Name.Equals(input.Name))
-                ) && 
-                (
-                    this.Revision == input.Revision ||
-                    this.Revision.Equals(input.Revision)
-                ) && 
-                (
-                    this.State == input.State ||
-                    this.State.Equals(input.State)
-                ) && 
-                (
-                    this.Url == input.Url ||
-                    (this.Url != null &&
-                    this.Url.Equals(input.Url))
-                ) && 
-                (
-                    this.Visibility == input.Visibility ||
-                    this.Visibility.Equals(input.Visibility)
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.Abbreviation != null)
-                {
-                    hashCode = (hashCode * 59) + this.Abbreviation.GetHashCode();
-                }
-                if (this.DefaultTeamImageUrl != null)
-                {
-                    hashCode = (hashCode * 59) + this.DefaultTeamImageUrl.GetHashCode();
-                }
-                if (this.Description != null)
-                {
-                    hashCode = (hashCode * 59) + this.Description.GetHashCode();
-                }
-                if (this.Id != null)
-                {
-                    hashCode = (hashCode * 59) + this.Id.GetHashCode();
-                }
-                if (this.LastUpdateTime != null)
-                {
-                    hashCode = (hashCode * 59) + this.LastUpdateTime.GetHashCode();
-                }
-                if (this.Name != null)
-                {
-                    hashCode = (hashCode * 59) + this.Name.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.Revision.GetHashCode();
-                hashCode = (hashCode * 59) + this.State.GetHashCode();
-                if (this.Url != null)
-                {
-                    hashCode = (hashCode * 59) + this.Url.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.Visibility.GetHashCode();
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

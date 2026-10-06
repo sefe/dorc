@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// TimelineAttempt
     /// </summary>
     [DataContract(Name = "TimelineAttempt")]
-    public partial class TimelineAttempt : IEquatable<TimelineAttempt>, IValidatableObject
+    public partial class TimelineAttempt : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="TimelineAttempt" /> class.
@@ -38,7 +38,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="attempt">Gets or sets the attempt of the record..</param>
         /// <param name="recordId">Gets or sets the record identifier located within the specified timeline..</param>
         /// <param name="timelineId">Gets or sets the timeline identifier which owns the record representing this attempt..</param>
-        public TimelineAttempt(int attempt = default(int), Guid recordId = default(Guid), Guid timelineId = default(Guid))
+        public TimelineAttempt(int attempt = default, Guid recordId = default, Guid timelineId = default)
         {
             this.Attempt = attempt;
             this.RecordId = recordId;
@@ -91,71 +91,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as TimelineAttempt);
-        }
-
-        /// <summary>
-        /// Returns true if TimelineAttempt instances are equal
-        /// </summary>
-        /// <param name="input">Instance of TimelineAttempt to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(TimelineAttempt input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.Attempt == input.Attempt ||
-                    this.Attempt.Equals(input.Attempt)
-                ) && 
-                (
-                    this.RecordId == input.RecordId ||
-                    (this.RecordId != null &&
-                    this.RecordId.Equals(input.RecordId))
-                ) && 
-                (
-                    this.TimelineId == input.TimelineId ||
-                    (this.TimelineId != null &&
-                    this.TimelineId.Equals(input.TimelineId))
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                hashCode = (hashCode * 59) + this.Attempt.GetHashCode();
-                if (this.RecordId != null)
-                {
-                    hashCode = (hashCode * 59) + this.RecordId.GetHashCode();
-                }
-                if (this.TimelineId != null)
-                {
-                    hashCode = (hashCode * 59) + this.TimelineId.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

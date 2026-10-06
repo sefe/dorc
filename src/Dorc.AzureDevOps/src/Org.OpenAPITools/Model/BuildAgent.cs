@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// BuildAgent
     /// </summary>
     [DataContract(Name = "BuildAgent")]
-    public partial class BuildAgent : IEquatable<BuildAgent>, IValidatableObject
+    public partial class BuildAgent : IValidatableObject
     {
         /// <summary>
         /// Defines Status
@@ -55,7 +55,6 @@ namespace Org.OpenAPITools.Model
             /// </summary>
             [EnumMember(Value = "offline")]
             Offline = 3
-
         }
 
 
@@ -82,7 +81,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="updatedDate">updatedDate.</param>
         /// <param name="uri">uri.</param>
         /// <param name="url">url.</param>
-        public BuildAgent(string buildDirectory = default(string), XamlBuildControllerReference controller = default(XamlBuildControllerReference), DateTime createdDate = default(DateTime), string description = default(string), bool enabled = default(bool), int id = default(int), string messageQueueUrl = default(string), string name = default(string), string reservedForBuild = default(string), XamlBuildServerReference server = default(XamlBuildServerReference), StatusEnum? status = default(StatusEnum?), string statusMessage = default(string), DateTime updatedDate = default(DateTime), string uri = default(string), string url = default(string))
+        public BuildAgent(string buildDirectory = default, XamlBuildControllerReference controller = default, DateTime createdDate = default, string description = default, bool enabled = default, int id = default, string messageQueueUrl = default, string name = default, string reservedForBuild = default, XamlBuildServerReference server = default, StatusEnum? status = default, string statusMessage = default, DateTime updatedDate = default, string uri = default, string url = default)
         {
             this.BuildDirectory = buildDirectory;
             this.Controller = controller;
@@ -222,171 +221,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as BuildAgent);
-        }
-
-        /// <summary>
-        /// Returns true if BuildAgent instances are equal
-        /// </summary>
-        /// <param name="input">Instance of BuildAgent to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(BuildAgent input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.BuildDirectory == input.BuildDirectory ||
-                    (this.BuildDirectory != null &&
-                    this.BuildDirectory.Equals(input.BuildDirectory))
-                ) && 
-                (
-                    this.Controller == input.Controller ||
-                    (this.Controller != null &&
-                    this.Controller.Equals(input.Controller))
-                ) && 
-                (
-                    this.CreatedDate == input.CreatedDate ||
-                    (this.CreatedDate != null &&
-                    this.CreatedDate.Equals(input.CreatedDate))
-                ) && 
-                (
-                    this.Description == input.Description ||
-                    (this.Description != null &&
-                    this.Description.Equals(input.Description))
-                ) && 
-                (
-                    this.Enabled == input.Enabled ||
-                    this.Enabled.Equals(input.Enabled)
-                ) && 
-                (
-                    this.Id == input.Id ||
-                    this.Id.Equals(input.Id)
-                ) && 
-                (
-                    this.MessageQueueUrl == input.MessageQueueUrl ||
-                    (this.MessageQueueUrl != null &&
-                    this.MessageQueueUrl.Equals(input.MessageQueueUrl))
-                ) && 
-                (
-                    this.Name == input.Name ||
-                    (this.Name != null &&
-                    this.Name.Equals(input.Name))
-                ) && 
-                (
-                    this.ReservedForBuild == input.ReservedForBuild ||
-                    (this.ReservedForBuild != null &&
-                    this.ReservedForBuild.Equals(input.ReservedForBuild))
-                ) && 
-                (
-                    this.Server == input.Server ||
-                    (this.Server != null &&
-                    this.Server.Equals(input.Server))
-                ) && 
-                (
-                    this.Status == input.Status ||
-                    this.Status.Equals(input.Status)
-                ) && 
-                (
-                    this.StatusMessage == input.StatusMessage ||
-                    (this.StatusMessage != null &&
-                    this.StatusMessage.Equals(input.StatusMessage))
-                ) && 
-                (
-                    this.UpdatedDate == input.UpdatedDate ||
-                    (this.UpdatedDate != null &&
-                    this.UpdatedDate.Equals(input.UpdatedDate))
-                ) && 
-                (
-                    this.Uri == input.Uri ||
-                    (this.Uri != null &&
-                    this.Uri.Equals(input.Uri))
-                ) && 
-                (
-                    this.Url == input.Url ||
-                    (this.Url != null &&
-                    this.Url.Equals(input.Url))
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.BuildDirectory != null)
-                {
-                    hashCode = (hashCode * 59) + this.BuildDirectory.GetHashCode();
-                }
-                if (this.Controller != null)
-                {
-                    hashCode = (hashCode * 59) + this.Controller.GetHashCode();
-                }
-                if (this.CreatedDate != null)
-                {
-                    hashCode = (hashCode * 59) + this.CreatedDate.GetHashCode();
-                }
-                if (this.Description != null)
-                {
-                    hashCode = (hashCode * 59) + this.Description.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.Enabled.GetHashCode();
-                hashCode = (hashCode * 59) + this.Id.GetHashCode();
-                if (this.MessageQueueUrl != null)
-                {
-                    hashCode = (hashCode * 59) + this.MessageQueueUrl.GetHashCode();
-                }
-                if (this.Name != null)
-                {
-                    hashCode = (hashCode * 59) + this.Name.GetHashCode();
-                }
-                if (this.ReservedForBuild != null)
-                {
-                    hashCode = (hashCode * 59) + this.ReservedForBuild.GetHashCode();
-                }
-                if (this.Server != null)
-                {
-                    hashCode = (hashCode * 59) + this.Server.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.Status.GetHashCode();
-                if (this.StatusMessage != null)
-                {
-                    hashCode = (hashCode * 59) + this.StatusMessage.GetHashCode();
-                }
-                if (this.UpdatedDate != null)
-                {
-                    hashCode = (hashCode * 59) + this.UpdatedDate.GetHashCode();
-                }
-                if (this.Uri != null)
-                {
-                    hashCode = (hashCode * 59) + this.Uri.GetHashCode();
-                }
-                if (this.Url != null)
-                {
-                    hashCode = (hashCode * 59) + this.Url.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

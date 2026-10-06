@@ -22,6 +22,7 @@ export interface UserElementApiModel {
      */
     DisplayName?: string | null;
     /**
+     * @deprecated
      * @type {string}
      * @memberof UserElementApiModel
      */

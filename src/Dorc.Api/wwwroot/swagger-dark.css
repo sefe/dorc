@@ -1,0 +1,375 @@
+/* Swagger UI Dark Mode — scoped to body.swagger-dark */
+
+/* Theme toggle button — icon in topbar */
+.swagger-theme-toggle {
+  background: transparent;
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.3);
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 32px;
+  text-align: center;
+  transition: background 0.2s, border-color 0.2s;
+  flex-shrink: 0;
+  margin-left: 12px;
+}
+.swagger-theme-toggle:hover {
+  background: rgba(255,255,255,0.15);
+  border-color: rgba(255,255,255,0.5);
+}
+
+/* Dark mode styles — only when body has .swagger-dark */
+body.swagger-dark {
+  background-color: #1e1e1e !important;
+  color: #e0e0e0 !important;
+}
+
+body.swagger-dark .swagger-ui {
+  color: #e0e0e0;
+}
+
+/* Topbar */
+body.swagger-dark .swagger-ui .topbar {
+  background-color: #2b2b2b !important;
+}
+
+/* Info section */
+body.swagger-dark .swagger-ui .info .title,
+body.swagger-dark .swagger-ui .info .title small,
+body.swagger-dark .swagger-ui .info li,
+body.swagger-dark .swagger-ui .info p,
+body.swagger-dark .swagger-ui .info table,
+body.swagger-dark .swagger-ui .info a {
+  color: #e0e0e0 !important;
+}
+
+/* Operation summary — endpoint path text */
+body.swagger-dark .swagger-ui .opblock .opblock-summary-path,
+body.swagger-dark .swagger-ui .opblock .opblock-summary-path a,
+body.swagger-dark .swagger-ui .opblock .opblock-summary-path span {
+  color: #ffffff !important;
+}
+
+body.swagger-dark .swagger-ui .opblock .opblock-summary-description {
+  color: #c0c8d0 !important;
+}
+
+body.swagger-dark .swagger-ui .opblock .opblock-section-header {
+  background: #383838 !important;
+  box-shadow: none !important;
+  border-bottom: 1px solid #555 !important;
+}
+
+body.swagger-dark .swagger-ui .opblock .opblock-section-header h4,
+body.swagger-dark .swagger-ui .opblock .opblock-section-header label {
+  color: #e0e0e0 !important;
+}
+
+/* GET */
+body.swagger-dark .swagger-ui .opblock.opblock-get {
+  background: rgba(97, 175, 254, 0.12) !important;
+  border-color: rgba(97, 175, 254, 0.5) !important;
+}
+body.swagger-dark .swagger-ui .opblock.opblock-get .opblock-summary {
+  border-color: rgba(97, 175, 254, 0.3) !important;
+}
+
+/* POST */
+body.swagger-dark .swagger-ui .opblock.opblock-post {
+  background: rgba(73, 204, 144, 0.12) !important;
+  border-color: rgba(73, 204, 144, 0.5) !important;
+}
+body.swagger-dark .swagger-ui .opblock.opblock-post .opblock-summary {
+  border-color: rgba(73, 204, 144, 0.3) !important;
+}
+
+/* PUT */
+body.swagger-dark .swagger-ui .opblock.opblock-put {
+  background: rgba(252, 161, 48, 0.12) !important;
+  border-color: rgba(252, 161, 48, 0.5) !important;
+}
+body.swagger-dark .swagger-ui .opblock.opblock-put .opblock-summary {
+  border-color: rgba(252, 161, 48, 0.3) !important;
+}
+
+/* DELETE */
+body.swagger-dark .swagger-ui .opblock.opblock-delete {
+  background: rgba(249, 62, 62, 0.12) !important;
+  border-color: rgba(249, 62, 62, 0.5) !important;
+}
+body.swagger-dark .swagger-ui .opblock.opblock-delete .opblock-summary {
+  border-color: rgba(249, 62, 62, 0.3) !important;
+}
+
+/* PATCH */
+body.swagger-dark .swagger-ui .opblock.opblock-patch {
+  background: rgba(80, 227, 194, 0.12) !important;
+  border-color: rgba(80, 227, 194, 0.5) !important;
+}
+body.swagger-dark .swagger-ui .opblock.opblock-patch .opblock-summary {
+  border-color: rgba(80, 227, 194, 0.3) !important;
+}
+
+/* Expanded operation body area */
+body.swagger-dark .swagger-ui .opblock .opblock-body {
+  background: #252525 !important;
+}
+
+/* Operation body */
+body.swagger-dark .swagger-ui .opblock-body pre.microlight {
+  background: #2b2b2b !important;
+  color: #c3e88d !important;
+  border: 1px solid #444 !important;
+}
+
+/* Code blocks and example values */
+body.swagger-dark .swagger-ui .opblock-body pre,
+body.swagger-dark .swagger-ui .highlight-code pre {
+  background: #2b2b2b !important;
+  color: #c3e88d !important;
+}
+
+body.swagger-dark .swagger-ui .example {
+  color: #c3e88d !important;
+}
+
+body.swagger-dark .swagger-ui .microlight {
+  background: #2b2b2b !important;
+  color: #c3e88d !important;
+}
+
+/* Try it out / Execute buttons */
+body.swagger-dark .swagger-ui .btn.try-out__btn {
+  background: transparent !important;
+  color: #e0e0e0 !important;
+  border-color: #666 !important;
+}
+
+body.swagger-dark .swagger-ui .btn.execute {
+  background: #4990e2 !important;
+  color: #fff !important;
+  border-color: #4990e2 !important;
+}
+
+/* Response code */
+body.swagger-dark .swagger-ui .response-col_status {
+  color: #e0e0e0 !important;
+}
+
+/* Media type dropdown */
+body.swagger-dark .swagger-ui .response-control-media-type__accept-message {
+  color: #6abf69 !important;
+}
+
+body.swagger-dark .swagger-ui .response-control-media-type select {
+  background: #383838 !important;
+  color: #e0e0e0 !important;
+  border-color: #555 !important;
+}
+
+/* Models */
+body.swagger-dark .swagger-ui section.models {
+  border-color: #444 !important;
+}
+
+body.swagger-dark .swagger-ui section.models h4 {
+  color: #e0e0e0 !important;
+}
+
+body.swagger-dark .swagger-ui section.models .model-container {
+  background: #2b2b2b !important;
+}
+
+body.swagger-dark .swagger-ui .model-title {
+  color: #e0e0e0 !important;
+}
+
+body.swagger-dark .swagger-ui .model {
+  color: #e0e0e0 !important;
+}
+
+body.swagger-dark .swagger-ui .model .property.primitive {
+  color: #c0c8d0 !important;
+}
+
+/* Tables */
+body.swagger-dark .swagger-ui table thead tr td,
+body.swagger-dark .swagger-ui table thead tr th {
+  color: #ffffff !important;
+  border-bottom: 2px solid #555 !important;
+  font-weight: bold !important;
+}
+
+body.swagger-dark .swagger-ui table tbody tr td {
+  border-bottom: 1px solid #3a3a3a !important;
+}
+
+body.swagger-dark .swagger-ui .parameter__name,
+body.swagger-dark .swagger-ui .parameter__type,
+body.swagger-dark .swagger-ui .parameter__in {
+  color: #e0e0e0 !important;
+}
+
+body.swagger-dark .swagger-ui .parameter__name.required::after {
+  color: #f93e3e !important;
+}
+
+/* Inputs */
+body.swagger-dark .swagger-ui input[type=text],
+body.swagger-dark .swagger-ui input[type=password],
+body.swagger-dark .swagger-ui input[type=search],
+body.swagger-dark .swagger-ui input[type=email],
+body.swagger-dark .swagger-ui textarea,
+body.swagger-dark .swagger-ui select {
+  background: #383838 !important;
+  color: #e0e0e0 !important;
+  border-color: #555 !important;
+}
+
+body.swagger-dark .swagger-ui input::placeholder,
+body.swagger-dark .swagger-ui textarea::placeholder {
+  color: #999 !important;
+  opacity: 1 !important;
+}
+
+/* Response section */
+body.swagger-dark .swagger-ui .responses-inner h4,
+body.swagger-dark .swagger-ui .responses-inner h5,
+body.swagger-dark .swagger-ui .response-col_status,
+body.swagger-dark .swagger-ui .response-col_description,
+body.swagger-dark .swagger-ui .response-col_links {
+  color: #e0e0e0 !important;
+}
+
+body.swagger-dark .swagger-ui .response-col_description__inner p,
+body.swagger-dark .swagger-ui .response-col_description__inner div {
+  color: #c0c8d0 !important;
+}
+
+body.swagger-dark .swagger-ui table.responses-table .response p {
+  color: #c0c8d0 !important;
+}
+
+/* Tabs */
+body.swagger-dark .swagger-ui .tab li {
+  color: #c0c8d0 !important;
+}
+
+body.swagger-dark .swagger-ui .tab li.active {
+  color: #e0e0e0 !important;
+}
+
+/* Buttons */
+body.swagger-dark .swagger-ui .btn {
+  color: #e0e0e0 !important;
+  border-color: #555 !important;
+}
+
+body.swagger-dark .swagger-ui .btn:hover {
+  background: #383838 !important;
+}
+
+/* Authorization */
+body.swagger-dark .swagger-ui .dialog-ux .modal-ux {
+  background: #2b2b2b !important;
+  border-color: #444 !important;
+}
+
+body.swagger-dark .swagger-ui .dialog-ux .modal-ux-header h3 {
+  color: #e0e0e0 !important;
+}
+
+body.swagger-dark .swagger-ui .dialog-ux .modal-ux-content p,
+body.swagger-dark .swagger-ui .dialog-ux .modal-ux-content label {
+  color: #c0c8d0 !important;
+}
+
+/* Scheme container */
+body.swagger-dark .swagger-ui .scheme-container {
+  background: #252525 !important;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.3) !important;
+  border-bottom: 1px solid #444 !important;
+}
+
+body.swagger-dark .swagger-ui .scheme-container .schemes > label {
+  color: #e0e0e0 !important;
+}
+
+/* Tag sections */
+body.swagger-dark .swagger-ui .opblock-tag {
+  color: #ffffff !important;
+  border-bottom: 1px solid #444 !important;
+}
+
+body.swagger-dark .swagger-ui .opblock-tag:hover {
+  background: rgba(255,255,255,0.05) !important;
+}
+
+body.swagger-dark .swagger-ui .opblock-tag small {
+  color: #c0c8d0 !important;
+}
+
+/* Markdown content */
+body.swagger-dark .swagger-ui .markdown p,
+body.swagger-dark .swagger-ui .markdown li,
+body.swagger-dark .swagger-ui .renderedMarkdown p {
+  color: #c0c8d0 !important;
+}
+
+/* Loading */
+body.swagger-dark .swagger-ui .loading-container .loading::after {
+  color: #e0e0e0 !important;
+}
+
+/* Copy to clipboard */
+body.swagger-dark .swagger-ui .copy-to-clipboard {
+  background: #383838 !important;
+}
+
+/* Scrollbar */
+body.swagger-dark .swagger-ui ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+body.swagger-dark .swagger-ui ::-webkit-scrollbar-track {
+  background: #1e1e1e;
+}
+
+body.swagger-dark .swagger-ui ::-webkit-scrollbar-thumb {
+  background: #383838;
+  border-radius: 4px;
+}
+
+/* JSON/Example values */
+body.swagger-dark .swagger-ui .highlight-code .microlight {
+  background: #1e1e1e !important;
+  color: #c3e88d !important;
+}
+
+/* Server dropdown */
+body.swagger-dark .swagger-ui .servers > label {
+  color: #e0e0e0 !important;
+}
+
+body.swagger-dark .swagger-ui .servers > label select {
+  background: #1e1e1e !important;
+  color: #e0e0e0 !important;
+  border-color: #444 !important;
+}
+
+/* Lock icon visibility */
+body.swagger-dark .swagger-ui .opblock .opblock-summary .view-line-link,
+body.swagger-dark .swagger-ui .opblock .authorization__btn {
+  filter: invert(0.85);
+}
+
+/* Arrow icons */
+body.swagger-dark .swagger-ui .expand-operation svg,
+body.swagger-dark .swagger-ui .model-toggle::after {
+  filter: invert(0.85);
+}

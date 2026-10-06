@@ -1,5 +1,5 @@
+import { confirmPrompt } from '../confirm-prompt';
 import '@vaadin/button';
-import { Button } from '@vaadin/button';
 import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
 import '@vaadin/password-field';
@@ -8,6 +8,7 @@ import '@vaadin/vaadin-lumo-styles/icons.js';
 import { css, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
+import { live } from 'lit/directives/live.js';
 import { styleMap } from 'lit/directives/style-map.js';
 import { PropertyValuesApi } from '../../apis/dorc-api';
 import type { PropertyValueDto } from '../../apis/dorc-api';
@@ -15,74 +16,93 @@ import { Response } from '../../apis/dorc-api';
 import '../../icons/editor-icons.js';
 import '../../icons/iron-icons.js';
 import { Notification } from '@vaadin/notification';
+import '@vaadin/text-field';
+import '@vaadin/tooltip';
+import { dorcApiConfiguration } from '../../services/dorc-api-configuration';
 
 @customElement('variable-value-controls')
 export class VariableValueControls extends LitElement {
   @property({ type: Object })
   value!: PropertyValueDto;
 
-  @property({ type: Boolean }) editHidden = false;
-
-  @property({ type: Boolean }) saveHidden = true;
-
-  @property({ type: Boolean }) cancelHidden = true;
+  @property({ type: Boolean }) editing = false;
 
   @property({ type: String }) additionalInformation = '';
 
   static get styles() {
     return css`
+      :host {
+        display: flex;
+        align-items: center;
+        flex-wrap: nowrap;
+        gap: var(--lumo-space-xs);
+        width: 100%;
+      }
+      vaadin-text-field,
+      vaadin-password-field {
+        flex: 1;
+        min-width: 0;
+      }
       vaadin-button {
         padding: 0px;
         margin: 0px;
+        flex: 0 0 auto;
       }
       vaadin-button:disabled,
       vaadin-button[disabled] {
-        background-color: #dde2e8;
+        background-color: var(--dorc-border-color);
       }
     `;
   }
 
   render() {
     const editStyles = {
-      color: this.value.UserEditable ? 'cornflowerblue' : 'grey'
+      color: this.value.UserEditable
+        ? 'var(--dorc-link-color)'
+        : 'var(--dorc-text-secondary)'
     };
     const deleteStyles = {
-      color: this.value.UserEditable ? '#FF3131' : 'grey'
+      color: this.value.UserEditable
+        ? 'var(--dorc-error-color)'
+        : 'var(--dorc-text-secondary)'
     };
     return html`
-      ${this.value?.Property?.Secure
-        ? html`<vaadin-password-field
-            id="${`propValue${this.value?.Id}`}"
-            value="Ex@mplePassw0rd"
-            reveal-button-hidden
-            readonly
-            focus-target
-            @value-changed="${(e: CustomEvent) => {
-              const textField = e.detail as TextField;
-              if (this.value) this.value.Value = textField.value;
-            }}"
-            style="width: 80%; padding: 0px"
-          ></vaadin-password-field>`
-        : html` <vaadin-text-field
-            id="${`propValue${this.value?.Id}`}"
-            readonly
-            focus-target
-            .value="${this.value?.Value ?? ''}"
-            @value-changed="${(e: CustomEvent) => {
-              const textField = e.detail as TextField;
-              if (this.value) this.value.Value = textField.value;
-            }}"
-            style="width: 80%; padding: 0px"
-          ></vaadin-text-field>`}
+      ${
+        this.value?.Property?.Secure
+          ? html`<vaadin-password-field
+              id="${`propValue${this.value?.Id}`}"
+              value="Ex@mplePassw0rd"
+              reveal-button-hidden
+              ?readonly="${!this.editing}"
+              focus-target
+              @value-changed="${(e: CustomEvent) => {
+                const textField = e.detail as TextField;
+                if (this.value) this.value.Value = textField.value;
+              }}"
+              style="padding: 0px"
+            ></vaadin-password-field>`
+          : html` <vaadin-text-field
+              id="${`propValue${this.value?.Id}`}"
+              ?readonly="${!this.editing}"
+              focus-target
+              .value="${live(this.value?.Value ?? '')}"
+              @value-changed="${(e: CustomEvent) => {
+                const textField = e.detail as TextField;
+                if (this.value) this.value.Value = textField.value;
+              }}"
+              style="padding: 0px"
+            ></vaadin-text-field>`
+      }
 
       <vaadin-button
         id="edit"
-        title="Edit"
+        aria-label="Edit"
         theme="icon small"
         @click="${this._editClick}"
         ?disabled="${!this.value.UserEditable}"
-        ?hidden="${this.editHidden}"
+        ?hidden="${this.editing}"
       >
+        <vaadin-tooltip slot="tooltip" text="Edit"></vaadin-tooltip>
         <vaadin-icon
           icon="editor:mode-edit"
           style=${styleMap(editStyles)}
@@ -92,50 +112,56 @@ export class VariableValueControls extends LitElement {
         aria-label="Save"
         theme="primary"
         focus-target
-        ?hidden="${this.saveHidden}"
+        ?hidden="${!this.editing}"
         @click="${this._saveClick}"
         >Save</vaadin-button
       >
       <vaadin-button
         aria-label="Cancel"
-        ?hidden="${this.cancelHidden}"
+        ?hidden="${!this.editing}"
         @click="${this._cancelClick}"
         >Cancel</vaadin-button
       >
       <vaadin-button
-        title="Delete Value"
+        aria-label="Delete Value"
         theme="icon small"
         @click="${this.removePropertyValue}"
         ?disabled="${!this.value.UserEditable}"
       >
+        <vaadin-tooltip slot="tooltip" text="Delete Value"></vaadin-tooltip>
         <vaadin-icon
           icon="icons:clear"
           style=${styleMap(deleteStyles)}
         ></vaadin-icon>
       </vaadin-button>
-      ${this.additionalInformation !== ''
-        ? html`<div style="display: inline-block">
-            ${this.additionalInformation}
-          </div>`
-        : html``}
+      ${
+        this.additionalInformation !== ''
+          ? html`<div style="display: inline-block">
+              ${this.additionalInformation}
+            </div>`
+          : html``
+      }
     `;
   }
 
-  removePropertyValue() {
-    const answer = confirm(
-      `Confirm removing value: ${this.value?.Value}?\nfor variable: ${
-        this.value?.Property?.Name
-      }\nwith scope: ${this.value?.PropertyValueFilter}`
+  async removePropertyValue() {
+    // Snapshot before awaiting: this control sits in a recycled grid cell, so
+    // `this.value` can belong to a different row by the time the user answers.
+    const propertyValue = this.value;
+    const answer = await confirmPrompt(
+      `Confirm removing value: ${propertyValue?.Value}?\nfor variable: ${
+        propertyValue?.Property?.Name
+      }\nwith scope: ${propertyValue?.PropertyValueFilter}`
     );
-    if (answer && this.value?.Id) {
-      if (this.value.PropertyValueFilter === '') {
-        this.value.PropertyValueFilter = undefined;
-        this.value.DefaultValue = true;
+    if (answer && propertyValue?.Id) {
+      if (propertyValue.PropertyValueFilter === '') {
+        propertyValue.PropertyValueFilter = undefined;
+        propertyValue.DefaultValue = true;
       }
-      const api = new PropertyValuesApi();
+      const api = new PropertyValuesApi(dorcApiConfiguration);
       api
         .propertyValuesDelete({
-          propertyValueDto: [this.value]
+          propertyValueDto: [propertyValue]
         })
         .subscribe({
           next: (value: Response[]) => {
@@ -168,42 +194,76 @@ export class VariableValueControls extends LitElement {
     if (this.value.Property?.Secure) {
       textField.value = '';
     }
-    textField.readonly = false;
     textField.focus();
-    this.updateButtonsVisibility(true);
+    this.dispatchEvent(
+      new CustomEvent('editing-started', {
+        detail: { id: this.value?.Id },
+        bubbles: true,
+        composed: true
+      })
+    );
   }
 
   updateButtonsVisibility(editing: boolean) {
-    this.editHidden = editing;
-    this.saveHidden = !editing;
-    this.cancelHidden = !editing;
+    this.editing = editing;
   }
 
   _cancelClick() {
-    this.updateButtonsVisibility(false);
-    const edit = this.shadowRoot?.getElementById('edit') as Button;
-    edit.focus();
-
-    const textField = this.shadowRoot?.querySelector(
-      `#propValue${this.value?.Id}`
-    ) as unknown as TextField;
-    if (textField) textField.readonly = true;
+    this.dispatchEvent(
+      new CustomEvent('editing-cancelled', {
+        detail: { id: this.value?.Id },
+        bubbles: true,
+        composed: true
+      })
+    );
   }
 
   _saveClick() {
-    const api = new PropertyValuesApi();
+    const api = new PropertyValuesApi(dorcApiConfiguration);
     api
       .propertyValuesPut({
         propertyValueDto: [this.value]
       })
-      .subscribe(() => {
-        this._cancelClick();
+      .subscribe({
+        next: (responses: Response[]) => {
+          if (responses[0]?.Status !== 'success') {
+            Notification.show(
+              responses[0]?.Status ?? 'Unable to update variable value.',
+              {
+                theme: 'error',
+                position: 'bottom-start',
+                duration: 5000
+              }
+            );
+            return;
+          }
 
-        const textField = this.shadowRoot?.querySelector(
-          `#propValue${this.value?.Id}`
-        ) as unknown as TextField;
-        if (textField) textField.readonly = true;
-        this.showSuccessMessage('Variable value saved successfully!');
+          this.dispatchEvent(
+            new CustomEvent('variable-value-updated', {
+              detail: { data: responses },
+              bubbles: true,
+              composed: true
+            })
+          );
+          this.dispatchEvent(
+            new CustomEvent('editing-cancelled', {
+              detail: { id: this.value?.Id },
+              bubbles: true,
+              composed: true
+            })
+          );
+          this.showSuccessMessage('Variable value saved successfully!');
+        },
+        error: (err: any) => {
+          Notification.show(
+            err?.message ?? 'Unable to update variable value.',
+            {
+              theme: 'error',
+              position: 'bottom-start',
+              duration: 5000
+            }
+          );
+        }
       });
   }
 

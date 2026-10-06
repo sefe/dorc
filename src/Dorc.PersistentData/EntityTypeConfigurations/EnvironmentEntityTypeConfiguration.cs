@@ -55,19 +55,6 @@ namespace Dorc.PersistentData.EntityTypeConfigurations
                         .ToTable("EnvironmentServer", schema: "deploy"));
 
             builder
-                .HasMany(e => e.Users)
-                .WithMany(e => e.Environments)
-                .UsingEntity(
-                    configureRight => configureRight.HasOne(typeof(User))
-                        .WithMany()
-                        .HasForeignKey("UserId"),
-                    configureLeft => configureLeft.HasOne(typeof(Environment))
-                        .WithMany()
-                        .HasForeignKey("EnvId"),
-                    configureJoinEntityType => configureJoinEntityType
-                        .ToTable("EnvironmentDelegatedUser", schema: "deploy"));
-
-            builder
                 .HasOne(e => e.ParentEnvironment)
                 .WithMany(e => e.ChildEnvironments)
                 .HasForeignKey("ParentId")

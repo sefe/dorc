@@ -32,15 +32,18 @@ namespace Dorc.PersistentData.EntityTypeConfigurations
                 .HasMaxLength(250);
 
             builder
-                .HasMany(s => s.Services)
+                .HasMany(s => s.Daemons)
                 .WithMany(d => d.Server)
-                .UsingEntity("SERVER_SERVICE_MAP",
+                .UsingEntity(
                     j => j.HasOne(typeof(Daemon))
                         .WithMany()
-                        .HasForeignKey("Service_ID"),
+                        .HasForeignKey("DaemonId"),
                     j => j.HasOne(typeof(Server))
                         .WithMany()
-                        .HasForeignKey("Server_ID"));
+                        .HasForeignKey("ServerId"),
+                    configureJoinEntityType => configureJoinEntityType
+                        .ToTable("ServerDaemon", schema: "deploy")
+                        .HasKey("ServerId", "DaemonId"));
 
             builder
                 .HasMany(s => s.Environments)

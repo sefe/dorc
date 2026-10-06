@@ -79,18 +79,18 @@ namespace Dorc.Api.Controllers
 
                 _projectsPersistentSource.UpdateProject(refData.Project);
 
-                var updateAndInsertComponents =
+                Action<ComponentApiModel, int, int?, string> updateAndInsertComponents =
                     _manageProjectsPersistentSource.UpdateComponent;
                 updateAndInsertComponents += _manageProjectsPersistentSource.CreateComponent;
 
                 _manageProjectsPersistentSource.TraverseComponents(refData.Components, null,
-                    refData.Project.ProjectId, updateAndInsertComponents);
+                    refData.Project.ProjectId, updateAndInsertComponents, username);
 
                 var flattenedComponents = new List<ComponentApiModel>();
                 _manageProjectsPersistentSource.FlattenApiComponents(refData.Components, flattenedComponents);
 
                 _manageProjectsPersistentSource.DeleteComponents(flattenedComponents,
-                    refData.Project.ProjectId);
+                    refData.Project.ProjectId, username);
 
                 refData.Components = _manageProjectsPersistentSource.GetOrderedComponents(refData.Project.ProjectId);
 
@@ -124,14 +124,15 @@ namespace Dorc.Api.Controllers
 
             _projectsPersistentSource.InsertProject(refData.Project);
 
+            string username = _claimsPrincipalReader.GetUserFullDomainName(User);
+
             _manageProjectsPersistentSource.TraverseComponents(refData.Components, null,
-                refData.Project.ProjectId, _manageProjectsPersistentSource.CreateComponent);
+                refData.Project.ProjectId, _manageProjectsPersistentSource.CreateComponent, username);
 
             refData.Components = _manageProjectsPersistentSource.GetOrderedComponents(refData.Project.ProjectId);
 
             refData.Project = _projectsPersistentSource.GetProject(refData.Project.ProjectId);
 
-            string username = _claimsPrincipalReader.GetUserFullDomainName(User);
             _manageProjectsPersistentSource.InsertRefDataAudit(username, HttpRequestType.Post,
                 refData);
 

@@ -18,7 +18,6 @@
     <Nullable>annotations</Nullable>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Azure.Identity" Version="1.17.0" />
     <PackageReference Include="JsonSubTypes" Version="2.0.1" />
     <PackageReference Include="RestSharp" Version="112.1.0" />
     <PackageReference Include="Polly" Version="8.6.4" />

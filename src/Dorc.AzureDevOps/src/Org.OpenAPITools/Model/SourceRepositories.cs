@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// A set of repositories returned from the source provider.
     /// </summary>
     [DataContract(Name = "SourceRepositories")]
-    public partial class SourceRepositories : IEquatable<SourceRepositories>, IValidatableObject
+    public partial class SourceRepositories : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="SourceRepositories" /> class.
@@ -39,7 +39,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="pageLength">The number of repositories requested for each page.</param>
         /// <param name="repositories">A list of repositories.</param>
         /// <param name="totalPageCount">The total number of pages, or &#39;-1&#39; if unknown.</param>
-        public SourceRepositories(string continuationToken = default(string), int pageLength = default(int), List<SourceRepository> repositories = default(List<SourceRepository>), int totalPageCount = default(int))
+        public SourceRepositories(string continuationToken = default, int pageLength = default, List<SourceRepository> repositories = default, int totalPageCount = default)
         {
             this.ContinuationToken = continuationToken;
             this.PageLength = pageLength;
@@ -101,77 +101,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as SourceRepositories);
-        }
-
-        /// <summary>
-        /// Returns true if SourceRepositories instances are equal
-        /// </summary>
-        /// <param name="input">Instance of SourceRepositories to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(SourceRepositories input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.ContinuationToken == input.ContinuationToken ||
-                    (this.ContinuationToken != null &&
-                    this.ContinuationToken.Equals(input.ContinuationToken))
-                ) && 
-                (
-                    this.PageLength == input.PageLength ||
-                    this.PageLength.Equals(input.PageLength)
-                ) && 
-                (
-                    this.Repositories == input.Repositories ||
-                    this.Repositories != null &&
-                    input.Repositories != null &&
-                    this.Repositories.SequenceEqual(input.Repositories)
-                ) && 
-                (
-                    this.TotalPageCount == input.TotalPageCount ||
-                    this.TotalPageCount.Equals(input.TotalPageCount)
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.ContinuationToken != null)
-                {
-                    hashCode = (hashCode * 59) + this.ContinuationToken.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.PageLength.GetHashCode();
-                if (this.Repositories != null)
-                {
-                    hashCode = (hashCode * 59) + this.Repositories.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.TotalPageCount.GetHashCode();
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

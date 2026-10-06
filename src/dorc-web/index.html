@@ -1,7 +1,16 @@
 <!doctype html>
 <html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <script>
+        // Apply dark theme immediately to prevent flash of white on reload
+        var s = localStorage.getItem('dorc-theme');
+        if (s === 'dark' || (!s && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.setAttribute('theme', 'dark');
+        }
+    </script>
     <title>DOrc</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 
     <base href="/"/>
 
@@ -16,6 +25,7 @@
             href="https://cdn.jsdelivr.net/npm/@yaireo/tagify/dist/tagify.css"
             rel="stylesheet"
             type="text/css"
+            crossorigin="anonymous"
     />
 
     <script
@@ -25,12 +35,16 @@
     ></script>
     <script src="https://cdn.jsdelivr.net/npm/ace-builds@1.38.0/src-min/ext-language_tools.js" type="text/javascript"
             charset="utf-8"></script>
+    <link rel="stylesheet" href="./src/theme/dorc-tokens.css" />
     <style>
         html,
-        body,
         body {
             margin: 0;
             overflow: hidden;
+            background: var(--dorc-bg-primary);
+            color: var(--dorc-text-primary);
+            font-size: 100%;
+            line-height: 1.5;
         }
 
         noscript {

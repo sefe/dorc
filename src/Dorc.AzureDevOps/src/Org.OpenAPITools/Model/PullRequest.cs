@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// Represents a pull request object.  These are retrieved from Source Providers.
     /// </summary>
     [DataContract(Name = "PullRequest")]
-    public partial class PullRequest : IEquatable<PullRequest>, IValidatableObject
+    public partial class PullRequest : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="PullRequest" /> class.
@@ -46,7 +46,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="targetBranchRef">Target branch ref of this pull request.</param>
         /// <param name="targetRepositoryOwner">Owner of the target repository of this pull request.</param>
         /// <param name="title">Title of the pull request..</param>
-        public PullRequest(ReferenceLinks links = default(ReferenceLinks), IdentityRef author = default(IdentityRef), string currentState = default(string), string description = default(string), string id = default(string), string providerName = default(string), string sourceBranchRef = default(string), string sourceRepositoryOwner = default(string), string targetBranchRef = default(string), string targetRepositoryOwner = default(string), string title = default(string))
+        public PullRequest(ReferenceLinks links = default, IdentityRef author = default, string currentState = default, string description = default, string id = default, string providerName = default, string sourceBranchRef = default, string sourceRepositoryOwner = default, string targetBranchRef = default, string targetRepositoryOwner = default, string title = default)
         {
             this.Links = links;
             this.Author = author;
@@ -169,147 +169,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as PullRequest);
-        }
-
-        /// <summary>
-        /// Returns true if PullRequest instances are equal
-        /// </summary>
-        /// <param name="input">Instance of PullRequest to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(PullRequest input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.Links == input.Links ||
-                    (this.Links != null &&
-                    this.Links.Equals(input.Links))
-                ) && 
-                (
-                    this.Author == input.Author ||
-                    (this.Author != null &&
-                    this.Author.Equals(input.Author))
-                ) && 
-                (
-                    this.CurrentState == input.CurrentState ||
-                    (this.CurrentState != null &&
-                    this.CurrentState.Equals(input.CurrentState))
-                ) && 
-                (
-                    this.Description == input.Description ||
-                    (this.Description != null &&
-                    this.Description.Equals(input.Description))
-                ) && 
-                (
-                    this.Id == input.Id ||
-                    (this.Id != null &&
-                    this.Id.Equals(input.Id))
-                ) && 
-                (
-                    this.ProviderName == input.ProviderName ||
-                    (this.ProviderName != null &&
-                    this.ProviderName.Equals(input.ProviderName))
-                ) && 
-                (
-                    this.SourceBranchRef == input.SourceBranchRef ||
-                    (this.SourceBranchRef != null &&
-                    this.SourceBranchRef.Equals(input.SourceBranchRef))
-                ) && 
-                (
-                    this.SourceRepositoryOwner == input.SourceRepositoryOwner ||
-                    (this.SourceRepositoryOwner != null &&
-                    this.SourceRepositoryOwner.Equals(input.SourceRepositoryOwner))
-                ) && 
-                (
-                    this.TargetBranchRef == input.TargetBranchRef ||
-                    (this.TargetBranchRef != null &&
-                    this.TargetBranchRef.Equals(input.TargetBranchRef))
-                ) && 
-                (
-                    this.TargetRepositoryOwner == input.TargetRepositoryOwner ||
-                    (this.TargetRepositoryOwner != null &&
-                    this.TargetRepositoryOwner.Equals(input.TargetRepositoryOwner))
-                ) && 
-                (
-                    this.Title == input.Title ||
-                    (this.Title != null &&
-                    this.Title.Equals(input.Title))
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.Links != null)
-                {
-                    hashCode = (hashCode * 59) + this.Links.GetHashCode();
-                }
-                if (this.Author != null)
-                {
-                    hashCode = (hashCode * 59) + this.Author.GetHashCode();
-                }
-                if (this.CurrentState != null)
-                {
-                    hashCode = (hashCode * 59) + this.CurrentState.GetHashCode();
-                }
-                if (this.Description != null)
-                {
-                    hashCode = (hashCode * 59) + this.Description.GetHashCode();
-                }
-                if (this.Id != null)
-                {
-                    hashCode = (hashCode * 59) + this.Id.GetHashCode();
-                }
-                if (this.ProviderName != null)
-                {
-                    hashCode = (hashCode * 59) + this.ProviderName.GetHashCode();
-                }
-                if (this.SourceBranchRef != null)
-                {
-                    hashCode = (hashCode * 59) + this.SourceBranchRef.GetHashCode();
-                }
-                if (this.SourceRepositoryOwner != null)
-                {
-                    hashCode = (hashCode * 59) + this.SourceRepositoryOwner.GetHashCode();
-                }
-                if (this.TargetBranchRef != null)
-                {
-                    hashCode = (hashCode * 59) + this.TargetBranchRef.GetHashCode();
-                }
-                if (this.TargetRepositoryOwner != null)
-                {
-                    hashCode = (hashCode * 59) + this.TargetRepositoryOwner.GetHashCode();
-                }
-                if (this.Title != null)
-                {
-                    hashCode = (hashCode * 59) + this.Title.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

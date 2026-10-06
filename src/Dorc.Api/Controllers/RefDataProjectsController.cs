@@ -104,7 +104,7 @@ namespace Dorc.Api.Controllers
                 var adSearch = _activeDirectorySearcher.GetUserData(username);
 
                 _accessControlPersistentSource.AddAccessControl(new AccessControlApiModel
-                { Sid = adSearch.Sid, Pid = adSearch.Pid, Name = adSearch.DisplayName, Allow = (int)(AccessLevel.Write | AccessLevel.ReadSecrets), Deny = 0 }, securityObject.ObjectId);
+                { Sid = adSearch.Sid, Pid = adSearch.Pid, Name = adSearch.DisplayName, Allow = (int)(AccessLevel.Write | AccessLevel.ReadSecrets), Deny = 0 }, securityObject.ObjectId, User);
 
                 return StatusCode(StatusCodes.Status200OK, _projectsPersistentSource.GetProject(project.ProjectName));
             }
@@ -130,7 +130,7 @@ namespace Dorc.Api.Controllers
             if (!_securityPrivilegesChecker.CanModifyProject(User, projectApiModel.ProjectName) &&
                 !_rolePrivilegesChecker.IsAdmin(User))
                 return StatusCode(StatusCodes.Status403Forbidden,
-                    "Projects can only be updated by privileged users or Admins!");
+                    "Projects can only be updated by Admins or users with write access!");
 
             if (project.ProjectName == null)
                 return StatusCode(StatusCodes.Status403Forbidden, "Project Name can not be null!");

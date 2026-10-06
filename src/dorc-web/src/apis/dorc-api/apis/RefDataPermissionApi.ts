@@ -43,6 +43,16 @@ export class RefDataPermissionApi extends BaseAPI {
     refDataPermissionDelete({ id }: RefDataPermissionDeleteRequest, opts?: OperationOpts): Observable<void | AjaxResponse<void>>
     refDataPermissionDelete({ id }: RefDataPermissionDeleteRequest, opts?: OperationOpts): Observable<void | AjaxResponse<void>> {
 
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         const query: HttpQuery = {};
 
         if (id != null) { query['id'] = id; }
@@ -50,6 +60,7 @@ export class RefDataPermissionApi extends BaseAPI {
         return this.request<void>({
             url: '/RefDataPermission',
             method: 'DELETE',
+            headers,
             query,
         }, opts?.responseOpts);
     };
@@ -59,9 +70,20 @@ export class RefDataPermissionApi extends BaseAPI {
     refDataPermissionGet(): Observable<Array<PermissionDto>>
     refDataPermissionGet(opts?: OperationOpts): Observable<AjaxResponse<Array<PermissionDto>>>
     refDataPermissionGet(opts?: OperationOpts): Observable<Array<PermissionDto> | AjaxResponse<Array<PermissionDto>>> {
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         return this.request<Array<PermissionDto>>({
             url: '/RefDataPermission',
             method: 'GET',
+            headers,
         }, opts?.responseOpts);
     };
 
@@ -73,6 +95,13 @@ export class RefDataPermissionApi extends BaseAPI {
 
         const headers: HttpHeaders = {
             'Content-Type': 'application/json',
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
         };
 
         return this.request<void>({
@@ -91,6 +120,13 @@ export class RefDataPermissionApi extends BaseAPI {
 
         const headers: HttpHeaders = {
             'Content-Type': 'application/json',
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
         };
 
         const query: HttpQuery = {};

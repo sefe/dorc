@@ -27,39 +27,11 @@ using OpenAPIDateConverter = Org.OpenAPITools.Client.OpenAPIDateConverter;
 namespace Org.OpenAPITools.Model
 {
     /// <summary>
-    /// Represents a reference to a build definition.
+    /// BuildDefinitionReference
     /// </summary>
     [DataContract(Name = "BuildDefinitionReference")]
-    public partial class BuildDefinitionReference : IEquatable<BuildDefinitionReference>, IValidatableObject
+    public partial class BuildDefinitionReference : IValidatableObject
     {
-        /// <summary>
-        /// The quality of the definition document (draft, etc.)
-        /// </summary>
-        /// <value>The quality of the definition document (draft, etc.)</value>
-        [JsonConverter(typeof(StringEnumConverter))]
-        public enum QualityEnum
-        {
-            /// <summary>
-            /// Enum Definition for value: definition
-            /// </summary>
-            [EnumMember(Value = "definition")]
-            Definition = 1,
-
-            /// <summary>
-            /// Enum Draft for value: draft
-            /// </summary>
-            [EnumMember(Value = "draft")]
-            Draft = 2
-
-        }
-
-
-        /// <summary>
-        /// The quality of the definition document (draft, etc.)
-        /// </summary>
-        /// <value>The quality of the definition document (draft, etc.)</value>
-        [DataMember(Name = "quality", EmitDefaultValue = false)]
-        public QualityEnum? Quality { get; set; }
         /// <summary>
         /// A value that indicates whether builds can be queued against this definition.
         /// </summary>
@@ -84,7 +56,6 @@ namespace Org.OpenAPITools.Model
             /// </summary>
             [EnumMember(Value = "disabled")]
             Disabled = 3
-
         }
 
 
@@ -112,7 +83,6 @@ namespace Org.OpenAPITools.Model
             /// </summary>
             [EnumMember(Value = "build")]
             Build = 2
-
         }
 
 
@@ -123,17 +93,35 @@ namespace Org.OpenAPITools.Model
         [DataMember(Name = "type", EmitDefaultValue = false)]
         public TypeEnum? Type { get; set; }
         /// <summary>
+        /// The quality of the definition document (draft, etc.)
+        /// </summary>
+        /// <value>The quality of the definition document (draft, etc.)</value>
+        [JsonConverter(typeof(StringEnumConverter))]
+        public enum QualityEnum
+        {
+            /// <summary>
+            /// Enum Definition for value: definition
+            /// </summary>
+            [EnumMember(Value = "definition")]
+            Definition = 1,
+
+            /// <summary>
+            /// Enum Draft for value: draft
+            /// </summary>
+            [EnumMember(Value = "draft")]
+            Draft = 2
+        }
+
+
+        /// <summary>
+        /// The quality of the definition document (draft, etc.)
+        /// </summary>
+        /// <value>The quality of the definition document (draft, etc.)</value>
+        [DataMember(Name = "quality", EmitDefaultValue = false)]
+        public QualityEnum? Quality { get; set; }
+        /// <summary>
         /// Initializes a new instance of the <see cref="BuildDefinitionReference" /> class.
         /// </summary>
-        /// <param name="links">links.</param>
-        /// <param name="authoredBy">authoredBy.</param>
-        /// <param name="draftOf">draftOf.</param>
-        /// <param name="drafts">The list of drafts associated with this definition, if this is not a draft definition..</param>
-        /// <param name="latestBuild">latestBuild.</param>
-        /// <param name="latestCompletedBuild">latestCompletedBuild.</param>
-        /// <param name="metrics">metrics.</param>
-        /// <param name="quality">The quality of the definition document (draft, etc.).</param>
-        /// <param name="queue">queue.</param>
         /// <param name="createdDate">The date this version of the definition was created..</param>
         /// <param name="id">The ID of the referenced definition..</param>
         /// <param name="name">The name of the referenced definition..</param>
@@ -144,17 +132,17 @@ namespace Org.OpenAPITools.Model
         /// <param name="type">The type of the definition..</param>
         /// <param name="uri">The definition&#39;s URI..</param>
         /// <param name="url">The REST URL of the definition..</param>
-        public BuildDefinitionReference(ReferenceLinks links = default(ReferenceLinks), IdentityRef authoredBy = default(IdentityRef), DefinitionReference draftOf = default(DefinitionReference), List<DefinitionReference> drafts = default(List<DefinitionReference>), Build latestBuild = default(Build), Build latestCompletedBuild = default(Build), List<BuildMetric> metrics = default(List<BuildMetric>), QualityEnum? quality = default(QualityEnum?), AgentPoolQueue queue = default(AgentPoolQueue), DateTime createdDate = default(DateTime), int id = default(int), string name = default(string), string path = default(string), TeamProjectReference project = default(TeamProjectReference), QueueStatusEnum? queueStatus = default(QueueStatusEnum?), int revision = default(int), TypeEnum? type = default(TypeEnum?), string uri = default(string), string url = default(string))
+        /// <param name="links">links.</param>
+        /// <param name="authoredBy">authoredBy.</param>
+        /// <param name="draftOf">draftOf.</param>
+        /// <param name="drafts">The list of drafts associated with this definition, if this is not a draft definition..</param>
+        /// <param name="latestBuild">latestBuild.</param>
+        /// <param name="latestCompletedBuild">latestCompletedBuild.</param>
+        /// <param name="metrics">metrics.</param>
+        /// <param name="quality">The quality of the definition document (draft, etc.).</param>
+        /// <param name="queue">queue.</param>
+        public BuildDefinitionReference(DateTime createdDate = default, int id = default, string name = default, string path = default, TeamProjectReference project = default, QueueStatusEnum? queueStatus = default, int revision = default, TypeEnum? type = default, string uri = default, string url = default, ReferenceLinks links = default, IdentityRef authoredBy = default, DefinitionReference draftOf = default, List<DefinitionReference> drafts = default, Build latestBuild = default, Build latestCompletedBuild = default, List<BuildMetric> metrics = default, QualityEnum? quality = default, AgentPoolQueue queue = default)
         {
-            this.Links = links;
-            this.AuthoredBy = authoredBy;
-            this.DraftOf = draftOf;
-            this.Drafts = drafts;
-            this.LatestBuild = latestBuild;
-            this.LatestCompletedBuild = latestCompletedBuild;
-            this.Metrics = metrics;
-            this.Quality = quality;
-            this.Queue = queue;
             this.CreatedDate = createdDate;
             this.Id = id;
             this.Name = name;
@@ -165,56 +153,16 @@ namespace Org.OpenAPITools.Model
             this.Type = type;
             this.Uri = uri;
             this.Url = url;
+            this.Links = links;
+            this.AuthoredBy = authoredBy;
+            this.DraftOf = draftOf;
+            this.Drafts = drafts;
+            this.LatestBuild = latestBuild;
+            this.LatestCompletedBuild = latestCompletedBuild;
+            this.Metrics = metrics;
+            this.Quality = quality;
+            this.Queue = queue;
         }
-
-        /// <summary>
-        /// Gets or Sets Links
-        /// </summary>
-        [DataMember(Name = "_links", EmitDefaultValue = false)]
-        public ReferenceLinks Links { get; set; }
-
-        /// <summary>
-        /// Gets or Sets AuthoredBy
-        /// </summary>
-        [DataMember(Name = "authoredBy", EmitDefaultValue = false)]
-        public IdentityRef AuthoredBy { get; set; }
-
-        /// <summary>
-        /// Gets or Sets DraftOf
-        /// </summary>
-        [DataMember(Name = "draftOf", EmitDefaultValue = false)]
-        public DefinitionReference DraftOf { get; set; }
-
-        /// <summary>
-        /// The list of drafts associated with this definition, if this is not a draft definition.
-        /// </summary>
-        /// <value>The list of drafts associated with this definition, if this is not a draft definition.</value>
-        [DataMember(Name = "drafts", EmitDefaultValue = false)]
-        public List<DefinitionReference> Drafts { get; set; }
-
-        /// <summary>
-        /// Gets or Sets LatestBuild
-        /// </summary>
-        [DataMember(Name = "latestBuild", EmitDefaultValue = false)]
-        public Build LatestBuild { get; set; }
-
-        /// <summary>
-        /// Gets or Sets LatestCompletedBuild
-        /// </summary>
-        [DataMember(Name = "latestCompletedBuild", EmitDefaultValue = false)]
-        public Build LatestCompletedBuild { get; set; }
-
-        /// <summary>
-        /// Gets or Sets Metrics
-        /// </summary>
-        [DataMember(Name = "metrics", EmitDefaultValue = false)]
-        public List<BuildMetric> Metrics { get; set; }
-
-        /// <summary>
-        /// Gets or Sets Queue
-        /// </summary>
-        [DataMember(Name = "queue", EmitDefaultValue = false)]
-        public AgentPoolQueue Queue { get; set; }
 
         /// <summary>
         /// The date this version of the definition was created.
@@ -272,6 +220,55 @@ namespace Org.OpenAPITools.Model
         public string Url { get; set; }
 
         /// <summary>
+        /// Gets or Sets Links
+        /// </summary>
+        [DataMember(Name = "_links", EmitDefaultValue = false)]
+        public ReferenceLinks Links { get; set; }
+
+        /// <summary>
+        /// Gets or Sets AuthoredBy
+        /// </summary>
+        [DataMember(Name = "authoredBy", EmitDefaultValue = false)]
+        public IdentityRef AuthoredBy { get; set; }
+
+        /// <summary>
+        /// Gets or Sets DraftOf
+        /// </summary>
+        [DataMember(Name = "draftOf", EmitDefaultValue = false)]
+        public DefinitionReference DraftOf { get; set; }
+
+        /// <summary>
+        /// The list of drafts associated with this definition, if this is not a draft definition.
+        /// </summary>
+        /// <value>The list of drafts associated with this definition, if this is not a draft definition.</value>
+        [DataMember(Name = "drafts", EmitDefaultValue = false)]
+        public List<DefinitionReference> Drafts { get; set; }
+
+        /// <summary>
+        /// Gets or Sets LatestBuild
+        /// </summary>
+        [DataMember(Name = "latestBuild", EmitDefaultValue = false)]
+        public Build LatestBuild { get; set; }
+
+        /// <summary>
+        /// Gets or Sets LatestCompletedBuild
+        /// </summary>
+        [DataMember(Name = "latestCompletedBuild", EmitDefaultValue = false)]
+        public Build LatestCompletedBuild { get; set; }
+
+        /// <summary>
+        /// Gets or Sets Metrics
+        /// </summary>
+        [DataMember(Name = "metrics", EmitDefaultValue = false)]
+        public List<BuildMetric> Metrics { get; set; }
+
+        /// <summary>
+        /// Gets or Sets Queue
+        /// </summary>
+        [DataMember(Name = "queue", EmitDefaultValue = false)]
+        public AgentPoolQueue Queue { get; set; }
+
+        /// <summary>
         /// Returns the string presentation of the object
         /// </summary>
         /// <returns>String presentation of the object</returns>
@@ -279,15 +276,6 @@ namespace Org.OpenAPITools.Model
         {
             StringBuilder sb = new StringBuilder();
             sb.Append("class BuildDefinitionReference {\n");
-            sb.Append("  Links: ").Append(Links).Append("\n");
-            sb.Append("  AuthoredBy: ").Append(AuthoredBy).Append("\n");
-            sb.Append("  DraftOf: ").Append(DraftOf).Append("\n");
-            sb.Append("  Drafts: ").Append(Drafts).Append("\n");
-            sb.Append("  LatestBuild: ").Append(LatestBuild).Append("\n");
-            sb.Append("  LatestCompletedBuild: ").Append(LatestCompletedBuild).Append("\n");
-            sb.Append("  Metrics: ").Append(Metrics).Append("\n");
-            sb.Append("  Quality: ").Append(Quality).Append("\n");
-            sb.Append("  Queue: ").Append(Queue).Append("\n");
             sb.Append("  CreatedDate: ").Append(CreatedDate).Append("\n");
             sb.Append("  Id: ").Append(Id).Append("\n");
             sb.Append("  Name: ").Append(Name).Append("\n");
@@ -298,6 +286,15 @@ namespace Org.OpenAPITools.Model
             sb.Append("  Type: ").Append(Type).Append("\n");
             sb.Append("  Uri: ").Append(Uri).Append("\n");
             sb.Append("  Url: ").Append(Url).Append("\n");
+            sb.Append("  Links: ").Append(Links).Append("\n");
+            sb.Append("  AuthoredBy: ").Append(AuthoredBy).Append("\n");
+            sb.Append("  DraftOf: ").Append(DraftOf).Append("\n");
+            sb.Append("  Drafts: ").Append(Drafts).Append("\n");
+            sb.Append("  LatestBuild: ").Append(LatestBuild).Append("\n");
+            sb.Append("  LatestCompletedBuild: ").Append(LatestCompletedBuild).Append("\n");
+            sb.Append("  Metrics: ").Append(Metrics).Append("\n");
+            sb.Append("  Quality: ").Append(Quality).Append("\n");
+            sb.Append("  Queue: ").Append(Queue).Append("\n");
             sb.Append("}\n");
             return sb.ToString();
         }
@@ -312,201 +309,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as BuildDefinitionReference);
-        }
-
-        /// <summary>
-        /// Returns true if BuildDefinitionReference instances are equal
-        /// </summary>
-        /// <param name="input">Instance of BuildDefinitionReference to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(BuildDefinitionReference input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.Links == input.Links ||
-                    (this.Links != null &&
-                    this.Links.Equals(input.Links))
-                ) && 
-                (
-                    this.AuthoredBy == input.AuthoredBy ||
-                    (this.AuthoredBy != null &&
-                    this.AuthoredBy.Equals(input.AuthoredBy))
-                ) && 
-                (
-                    this.DraftOf == input.DraftOf ||
-                    (this.DraftOf != null &&
-                    this.DraftOf.Equals(input.DraftOf))
-                ) && 
-                (
-                    this.Drafts == input.Drafts ||
-                    this.Drafts != null &&
-                    input.Drafts != null &&
-                    this.Drafts.SequenceEqual(input.Drafts)
-                ) && 
-                (
-                    this.LatestBuild == input.LatestBuild ||
-                    (this.LatestBuild != null &&
-                    this.LatestBuild.Equals(input.LatestBuild))
-                ) && 
-                (
-                    this.LatestCompletedBuild == input.LatestCompletedBuild ||
-                    (this.LatestCompletedBuild != null &&
-                    this.LatestCompletedBuild.Equals(input.LatestCompletedBuild))
-                ) && 
-                (
-                    this.Metrics == input.Metrics ||
-                    this.Metrics != null &&
-                    input.Metrics != null &&
-                    this.Metrics.SequenceEqual(input.Metrics)
-                ) && 
-                (
-                    this.Quality == input.Quality ||
-                    this.Quality.Equals(input.Quality)
-                ) && 
-                (
-                    this.Queue == input.Queue ||
-                    (this.Queue != null &&
-                    this.Queue.Equals(input.Queue))
-                ) && 
-                (
-                    this.CreatedDate == input.CreatedDate ||
-                    (this.CreatedDate != null &&
-                    this.CreatedDate.Equals(input.CreatedDate))
-                ) && 
-                (
-                    this.Id == input.Id ||
-                    this.Id.Equals(input.Id)
-                ) && 
-                (
-                    this.Name == input.Name ||
-                    (this.Name != null &&
-                    this.Name.Equals(input.Name))
-                ) && 
-                (
-                    this.Path == input.Path ||
-                    (this.Path != null &&
-                    this.Path.Equals(input.Path))
-                ) && 
-                (
-                    this.Project == input.Project ||
-                    (this.Project != null &&
-                    this.Project.Equals(input.Project))
-                ) && 
-                (
-                    this.QueueStatus == input.QueueStatus ||
-                    this.QueueStatus.Equals(input.QueueStatus)
-                ) && 
-                (
-                    this.Revision == input.Revision ||
-                    this.Revision.Equals(input.Revision)
-                ) && 
-                (
-                    this.Type == input.Type ||
-                    this.Type.Equals(input.Type)
-                ) && 
-                (
-                    this.Uri == input.Uri ||
-                    (this.Uri != null &&
-                    this.Uri.Equals(input.Uri))
-                ) && 
-                (
-                    this.Url == input.Url ||
-                    (this.Url != null &&
-                    this.Url.Equals(input.Url))
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.Links != null)
-                {
-                    hashCode = (hashCode * 59) + this.Links.GetHashCode();
-                }
-                if (this.AuthoredBy != null)
-                {
-                    hashCode = (hashCode * 59) + this.AuthoredBy.GetHashCode();
-                }
-                if (this.DraftOf != null)
-                {
-                    hashCode = (hashCode * 59) + this.DraftOf.GetHashCode();
-                }
-                if (this.Drafts != null)
-                {
-                    hashCode = (hashCode * 59) + this.Drafts.GetHashCode();
-                }
-                if (this.LatestBuild != null)
-                {
-                    hashCode = (hashCode * 59) + this.LatestBuild.GetHashCode();
-                }
-                if (this.LatestCompletedBuild != null)
-                {
-                    hashCode = (hashCode * 59) + this.LatestCompletedBuild.GetHashCode();
-                }
-                if (this.Metrics != null)
-                {
-                    hashCode = (hashCode * 59) + this.Metrics.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.Quality.GetHashCode();
-                if (this.Queue != null)
-                {
-                    hashCode = (hashCode * 59) + this.Queue.GetHashCode();
-                }
-                if (this.CreatedDate != null)
-                {
-                    hashCode = (hashCode * 59) + this.CreatedDate.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.Id.GetHashCode();
-                if (this.Name != null)
-                {
-                    hashCode = (hashCode * 59) + this.Name.GetHashCode();
-                }
-                if (this.Path != null)
-                {
-                    hashCode = (hashCode * 59) + this.Path.GetHashCode();
-                }
-                if (this.Project != null)
-                {
-                    hashCode = (hashCode * 59) + this.Project.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.QueueStatus.GetHashCode();
-                hashCode = (hashCode * 59) + this.Revision.GetHashCode();
-                hashCode = (hashCode * 59) + this.Type.GetHashCode();
-                if (this.Uri != null)
-                {
-                    hashCode = (hashCode * 59) + this.Uri.GetHashCode();
-                }
-                if (this.Url != null)
-                {
-                    hashCode = (hashCode * 59) + this.Url.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

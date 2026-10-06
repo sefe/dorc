@@ -7,14 +7,7 @@
     <IsTestProject>true</IsTestProject>
   </PropertyGroup>
   <ItemGroup>
-	  <Compile Remove="FakesAssemblies\**" />
-	  <EmbeddedResource Remove="FakesAssemblies\**" />
-	  <None Remove="FakesAssemblies\**" />
-  </ItemGroup>
-
-  <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.0.0" />
-	<PackageReference Include="Microsoft.QualityTools.Testing.Fakes" Version="18.1.1" />
     <PackageReference Include="MSTest.TestAdapter" Version="4.0.1" />
     <PackageReference Include="MSTest.TestFramework" Version="4.0.1" />
     <PackageReference Include="coverlet.collector" Version="6.0.4">
@@ -22,7 +15,6 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <PackageReference Include="NSubstitute" Version="5.3.0" />
-	<PackageReference Include="System.DirectoryServices" Version="9.0.10" />
 	<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.10" />
   </ItemGroup>
   <ItemGroup>
@@ -30,14 +22,6 @@
     <ProjectReference Include="..\Dorc.Api\Dorc.Api.csproj" />
     <ProjectReference Include="..\Dorc.Core\Dorc.Core.csproj" />
     <ProjectReference Include="..\Dorc.PersistentData\Dorc.PersistentData.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="Fakes\" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <AdditionalDesignTimeBuildInput Remove="FakesAssemblies\**" />
   </ItemGroup>
 
   <ItemGroup>

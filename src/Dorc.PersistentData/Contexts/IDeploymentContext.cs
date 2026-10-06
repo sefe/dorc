@@ -22,21 +22,28 @@ namespace Dorc.PersistentData.Contexts
         DbSet<DeploymentRequestProcess> DeploymentRequestProcesses { get; set; }
         DbSet<DeploymentRequest> DeploymentRequests { get; set; }
         DbSet<DeploymentResult> DeploymentResults { get; set; }
+        DbSet<DeploymentRequestAttempt> DeploymentRequestAttempts { get; set; }
+        DbSet<DeploymentResultAttempt> DeploymentResultAttempts { get; set; }
         DbSet<Environment> Environments { get; set; }
         DbSet<AccessControl> AccessControls { get; set; }
         DbSet<EnvironmentComponentStatus> EnvironmentComponentStatuses { get; set; }
         DbSet<ConfigValue> ConfigValues { get; set; }
         DbSet<Audit> Audits { get; set; }
         DbSet<AuditProperty> AuditProperties { get; set; }
+        DbSet<AuditScript> AuditScripts { get; set; }
         DbSet<PropertyValueFilter> PropertyValueFilters { get; set; }
         DbSet<RefDataAudit> RefDataAudits { get; set; }
         DbSet<RefDataAuditAction> RefDataAuditActions { get; set; }
+        DbSet<DaemonAudit> DaemonAudits { get; set; }
+        DbSet<DaemonObservation> DaemonObservations { get; set; }
+        DbSet<ServerAudit> ServerAudits { get; set; }
+        DbSet<DatabaseAudit> DatabaseAudits { get; set; }
         DbSet<AdGroup> AdGroups { get; set; }
         DbSet<Database> Databases { get; set; }
         DbSet<EnvironmentHistory> EnvironmentHistories { get; set; }
         DbSet<Permission> Permissions { get; set; }
         DbSet<Server> Servers { get; set; }
-        DbSet<Daemon> Services { get; set; }
+        DbSet<Daemon> Daemons { get; set; }
         DbSet<User> Users { get; set; }
         DbSet<EnvironmentUser> EnvironmentUsers { get; set; }
         DbSet<SqlPort> SqlPorts { get; set; }
@@ -49,6 +56,11 @@ namespace Dorc.PersistentData.Contexts
         DbSet<AnalyticsTimePattern> AnalyticsTimePattern { get; set; }
         DbSet<AnalyticsComponentUsage> AnalyticsComponentUsage { get; set; }
         DbSet<AnalyticsDuration> AnalyticsDuration { get; set; }
+        DbSet<AnalyticsMonthlyOutcome> AnalyticsMonthlyOutcome { get; set; }
+        DbSet<AnalyticsEnvironmentWait> AnalyticsEnvironmentWait { get; set; }
+        DbSet<AnalyticsProjectDuration> AnalyticsProjectDuration { get; set; }
+        DbSet<AnalyticsComponentReliability> AnalyticsComponentReliability { get; set; }
+        DbSet<AnalyticsRecoveryTime> AnalyticsRecoveryTime { get; set; }
         DbSet<BundledRequests> BundledRequests { get; set; }
 
         int SaveChanges();

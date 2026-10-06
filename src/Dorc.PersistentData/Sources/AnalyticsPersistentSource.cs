@@ -1,16 +1,25 @@
 ﻿using Dorc.ApiModel;
 using Dorc.PersistentData.Contexts;
+using Dorc.PersistentData.Model;
 using Dorc.PersistentData.Sources.Interfaces;
+using Microsoft.Extensions.Logging;
+using System.Security.Principal;
 
 namespace Dorc.PersistentData.Sources
 {
     public class AnalyticsPersistentSource : IAnalyticsPersistentSource
     {
         private readonly IDeploymentContextFactory _contextFactory;
+        private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
+        private readonly ILogger<AnalyticsPersistentSource> _logger;
 
-        public AnalyticsPersistentSource(IDeploymentContextFactory contextFactory)
+        public AnalyticsPersistentSource(IDeploymentContextFactory contextFactory,
+            IEnvironmentsPersistentSource environmentsPersistentSource,
+            ILogger<AnalyticsPersistentSource> logger)
         {
             _contextFactory = contextFactory;
+            _environmentsPersistentSource = environmentsPersistentSource;
+            _logger = logger;
         }
 
         public IEnumerable<AnalyticsDeploymentsPerProjectApiModel> GetCountDeploymentsPerProjectMonth()
@@ -35,42 +44,142 @@ namespace Dorc.PersistentData.Sources
             return output;
         }
 
-        public IEnumerable<AnalyticsDeploymentsPerProjectApiModel> GetCountDeploymentsPerProjectDate()
+        public AnalyticsDeploymentSummaryApiModel GetDeploymentSummary()
         {
-            var output = new List<AnalyticsDeploymentsPerProjectApiModel>();
-
-            using (var context = _contextFactory.GetContext())
+            List<DeploymentsByProjectDate> rows;
+            try
             {
-                var spSelectDeploymentsByProject =
-                    context.AnalyticsDeploymentsByProjectDate;
-
-                output.AddRange(spSelectDeploymentsByProject.Select(projectResultDbo =>
-                    new AnalyticsDeploymentsPerProjectApiModel
-                    {
-                        CountOfDeployments = projectResultDbo.CountOfDeployments,
-                        Year = projectResultDbo.Year,
-                        Month = projectResultDbo.Month,
-                        Day = projectResultDbo.Day,
-                        ProjectName = projectResultDbo.ProjectName,
-                        Failed = projectResultDbo.Failed
-                    }));
+                using var context = _contextFactory.GetContext();
+                rows = context.AnalyticsDeploymentsByProjectDate.ToList();
             }
-            return output;
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to retrieve deployment summary data; returning empty summary");
+                return new AnalyticsDeploymentSummaryApiModel();
+            }
+
+            return BuildSummary(rows, DateTime.Today, _logger);
         }
 
-        public IEnumerable<AnalyticsEnvironmentUsageApiModel> GetEnvironmentUsage()
+        /// <summary>
+        /// Pure aggregation of the per-project-per-date rows into the dashboard
+        /// summary. Takes <paramref name="today"/> explicitly so the time-dependent
+        /// arithmetic (this-year filter, average per day) is deterministically testable.
+        /// Each section is independently guarded so a failure in one metric does not
+        /// prevent the remaining metrics from populating.
+        /// </summary>
+        public static AnalyticsDeploymentSummaryApiModel BuildSummary(
+            IReadOnlyCollection<DeploymentsByProjectDate> rows, DateTime today,
+            ILogger? logger = null)
         {
+            var summary = new AnalyticsDeploymentSummaryApiModel();
+            var currentYear = today.Year;
+            List<DeploymentsByProjectDate> thisYear;
+
+            try
+            {
+                thisYear = rows.Where(row => row.Year == currentYear).ToList();
+                summary.TotalDeployments = rows.Sum(row => row.CountOfDeployments);
+                summary.TotalDeploymentsThisYear = thisYear.Sum(row => row.CountOfDeployments);
+                summary.TotalFailedDeploymentsThisYear = thisYear.Sum(row => row.Failed);
+            }
+            catch (Exception ex)
+            {
+                logger?.LogError(ex, "Failed to compute deployment totals");
+                thisYear = new List<DeploymentsByProjectDate>();
+            }
+
+            try
+            {
+                summary.BusiestDeploymentCount = thisYear
+                    .GroupBy(row => new { row.Year, row.Month, row.Day })
+                    .Select(group => group.Sum(row => row.CountOfDeployments))
+                    .DefaultIfEmpty(0)
+                    .Max();
+            }
+            catch (Exception ex)
+            {
+                logger?.LogError(ex, "Failed to compute busiest deployment day");
+            }
+
+            try
+            {
+                summary.PercentFailedThisYear = Percentage(
+                    summary.TotalFailedDeploymentsThisYear, summary.TotalDeploymentsThisYear);
+            }
+            catch (Exception ex)
+            {
+                logger?.LogError(ex, "Failed to compute failure percentage");
+            }
+
+            try
+            {
+                var daysElapsed = (today.Date - new DateTime(currentYear, 1, 1)).Days + 1;
+                summary.AverageDeploymentsPerDay = (int)Math.Round(
+                    (double)summary.TotalDeploymentsThisYear / Math.Max(daysElapsed, 1));
+            }
+            catch (Exception ex)
+            {
+                logger?.LogError(ex, "Failed to compute average deployments per day");
+            }
+
+            try
+            {
+                var projectTotals = thisYear
+                    .GroupBy(row => row.ProjectName ?? string.Empty)
+                    .Select(group => new AnalyticsProjectDeploymentApiModel
+                    {
+                        ProjectName = group.Key,
+                        CountOfDeployments = group.Sum(row => row.CountOfDeployments)
+                    })
+                    .OrderByDescending(project => project.CountOfDeployments)
+                    .ToList();
+
+                summary.TopProjectsThisYear = projectTotals.Take(3).ToList();
+                summary.PercentTop3Projects = Percentage(
+                    summary.TopProjectsThisYear.Sum(project => project.CountOfDeployments),
+                    summary.TotalDeploymentsThisYear);
+            }
+            catch (Exception ex)
+            {
+                logger?.LogError(ex, "Failed to compute top projects");
+            }
+
+            return summary;
+        }
+
+        private static int Percentage(int part, int whole)
+        {
+            return whole > 0 ? (int)Math.Round((double)part / whole * 100) : 0;
+        }
+
+        public IEnumerable<AnalyticsEnvironmentUsageApiModel> GetEnvironmentUsage(IPrincipal user)
+        {
+            // The AnalyticsEnvironmentUsage snapshot is keyed by environment name and
+            // populated by an external job. It is neither access-trimmed nor pruned of
+            // deleted/renamed environments. Intersect it with the caller's accessible
+            // live environments so the analytics view matches what the Environments tab
+            // shows: deleted environments fall away (not in the live set) and non-admin
+            // users only see environments they have access to.
+            var accessibleNames = new HashSet<string>(
+                _environmentsPersistentSource.GetEnvironmentNames(user),
+                StringComparer.OrdinalIgnoreCase);
+
             var output = new List<AnalyticsEnvironmentUsageApiModel>();
             using (var context = _contextFactory.GetContext())
             {
                 output.AddRange(context.AnalyticsEnvironmentUsage
                     .OrderByDescending(env => env.TotalDeployments)
+                    .AsEnumerable()
+                    .Where(env => env.EnvironmentName != null
+                        && accessibleNames.Contains(env.EnvironmentName))
                     .Select(env =>
                         new AnalyticsEnvironmentUsageApiModel
                         {
                             EnvironmentName = env.EnvironmentName,
                             CountOfDeployments = env.TotalDeployments,
-                            Failed = env.FailCount
+                            Failed = env.FailCount,
+                            LastSuccessfulDeployment = env.LastSuccessfulDeployment
                         }));
             }
             return output;
@@ -94,25 +203,35 @@ namespace Dorc.PersistentData.Sources
             return output;
         }
 
+        private static readonly string[] DayNames =
+            { "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday" };
+
         public IEnumerable<AnalyticsTimePatternApiModel> GetTimePatterns()
         {
-            var output = new List<AnalyticsTimePatternApiModel>();
             using (var context = _contextFactory.GetContext())
             {
-                var dayNames = new[] { "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday" };
-                output.AddRange(context.AnalyticsTimePattern
+                // The population proc stores SQL Server WEEKDAY (1-7); convert to
+                // a 0-6 index. Filter out rows outside the valid range server-side
+                // (avoids loading invalid rows and guards against an
+                // IndexOutOfRangeException), then map DayNames in-memory.
+                return context.AnalyticsTimePattern
+                    .Where(pattern => pattern.DayOfWeek >= 1 && pattern.DayOfWeek <= 7)
                     .OrderBy(pattern => pattern.HourOfDay)
                     .ThenBy(pattern => pattern.DayOfWeek)
+                    .AsEnumerable()
                     .Select(pattern =>
-                        new AnalyticsTimePatternApiModel
+                    {
+                        var dayIndex = pattern.DayOfWeek - 1;
+                        return new AnalyticsTimePatternApiModel
                         {
                             HourOfDay = pattern.HourOfDay,
-                            DayOfWeek = pattern.DayOfWeek - 1, // Convert SQL Server WEEKDAY (1-7) to 0-6
-                            DayOfWeekName = dayNames[pattern.DayOfWeek - 1],
+                            DayOfWeek = dayIndex,
+                            DayOfWeekName = DayNames[dayIndex],
                             CountOfDeployments = pattern.DeploymentCount
-                        }));
+                        };
+                    })
+                    .ToList();
             }
-            return output;
         }
 
         public IEnumerable<AnalyticsComponentUsageApiModel> GetComponentUsage()
@@ -120,8 +239,12 @@ namespace Dorc.PersistentData.Sources
             var output = new List<AnalyticsComponentUsageApiModel>();
             using (var context = _contextFactory.GetContext())
             {
+                // Bound the payload server-side: the UI only ever shows the top 15,
+                // so returning the highest-count components with headroom keeps the
+                // response small without relying on the population proc to truncate.
                 output.AddRange(context.AnalyticsComponentUsage
                     .OrderByDescending(component => component.DeploymentCount)
+                    .Take(50)
                     .Select(component =>
                         new AnalyticsComponentUsageApiModel
                         {
@@ -144,8 +267,7 @@ namespace Dorc.PersistentData.Sources
                     {
                         AverageDurationMinutes = 0,
                         MaxDurationMinutes = 0,
-                        MinDurationMinutes = 0,
-                        TotalDeployments = 0
+                        MinDurationMinutes = 0
                     };
                 }
 
@@ -154,9 +276,120 @@ namespace Dorc.PersistentData.Sources
                     AverageDurationMinutes = (double)duration.AverageDurationMinutes,
                     MaxDurationMinutes = (double)duration.LongestDurationMinutes,
                     MinDurationMinutes = (double)duration.ShortestDurationMinutes,
-                    TotalDeployments = 0 // Not stored in table, can be calculated if needed
+                    P50DurationMinutes = (double?)duration.P50DurationMinutes,
+                    P90DurationMinutes = (double?)duration.P90DurationMinutes,
+                    P95DurationMinutes = (double?)duration.P95DurationMinutes
                 };
             }
+        }
+
+        public IEnumerable<AnalyticsMonthlyOutcomeApiModel> GetMonthlyOutcomes()
+        {
+            var output = new List<AnalyticsMonthlyOutcomeApiModel>();
+            using (var context = _contextFactory.GetContext())
+            {
+                output.AddRange(context.AnalyticsMonthlyOutcome
+                    .OrderBy(outcome => outcome.Year)
+                    .ThenBy(outcome => outcome.Month)
+                    .ThenBy(outcome => outcome.IsProd)
+                    .Select(outcome =>
+                        new AnalyticsMonthlyOutcomeApiModel
+                        {
+                            Year = outcome.Year,
+                            Month = outcome.Month,
+                            IsProd = outcome.IsProd,
+                            CountOfDeployments = outcome.CountOfDeployments,
+                            Failed = outcome.Failed,
+                            Cancelled = outcome.Cancelled
+                        }));
+            }
+            return output;
+        }
+
+        public IEnumerable<AnalyticsEnvironmentWaitApiModel> GetEnvironmentWaitTimes()
+        {
+            var output = new List<AnalyticsEnvironmentWaitApiModel>();
+            using (var context = _contextFactory.GetContext())
+            {
+                // Most-contended environments first; bounded for the dashboard.
+                output.AddRange(context.AnalyticsEnvironmentWait
+                    .OrderByDescending(wait => wait.MedianWaitMinutes)
+                    .Take(50)
+                    .Select(wait =>
+                        new AnalyticsEnvironmentWaitApiModel
+                        {
+                            EnvironmentName = wait.EnvironmentName,
+                            AvgWaitMinutes = (double)wait.AvgWaitMinutes,
+                            MedianWaitMinutes = (double)wait.MedianWaitMinutes,
+                            P90WaitMinutes = (double)wait.P90WaitMinutes,
+                            SampleCount = wait.SampleCount
+                        }));
+            }
+            return output;
+        }
+
+        public IEnumerable<AnalyticsProjectDurationApiModel> GetProjectDurations()
+        {
+            var output = new List<AnalyticsProjectDurationApiModel>();
+            using (var context = _contextFactory.GetContext())
+            {
+                // Highest-volume projects first; bounded for the dashboard.
+                output.AddRange(context.AnalyticsProjectDuration
+                    .OrderByDescending(duration => duration.SampleCount)
+                    .Take(50)
+                    .Select(duration =>
+                        new AnalyticsProjectDurationApiModel
+                        {
+                            ProjectName = duration.ProjectName,
+                            MedianDurationMinutes = (double)duration.MedianDurationMinutes,
+                            P90DurationMinutes = (double)duration.P90DurationMinutes,
+                            SampleCount = duration.SampleCount
+                        }));
+            }
+            return output;
+        }
+
+        public IEnumerable<AnalyticsComponentReliabilityApiModel> GetComponentReliability()
+        {
+            var output = new List<AnalyticsComponentReliabilityApiModel>();
+            using (var context = _contextFactory.GetContext())
+            {
+                // Ranked by absolute failure count purely to bound the payload;
+                // the UI re-ranks by failure rate with a minimum-volume filter.
+                output.AddRange(context.AnalyticsComponentReliability
+                    .OrderByDescending(component => component.FailedCount)
+                    .Take(50)
+                    .Select(component =>
+                        new AnalyticsComponentReliabilityApiModel
+                        {
+                            ComponentName = component.ComponentName,
+                            AttemptCount = component.AttemptCount,
+                            FailedCount = component.FailedCount,
+                            RetryAttemptCount = component.RetryAttemptCount
+                        }));
+            }
+            return output;
+        }
+
+        public IEnumerable<AnalyticsRecoveryTimeApiModel> GetRecoveryTimes()
+        {
+            var output = new List<AnalyticsRecoveryTimeApiModel>();
+            using (var context = _contextFactory.GetContext())
+            {
+                // Slowest-to-recover projects first; bounded for the dashboard.
+                output.AddRange(context.AnalyticsRecoveryTime
+                    .OrderByDescending(recovery => recovery.MedianRecoveryHours)
+                    .Take(50)
+                    .Select(recovery =>
+                        new AnalyticsRecoveryTimeApiModel
+                        {
+                            ProjectName = recovery.ProjectName,
+                            MedianRecoveryHours = (double)recovery.MedianRecoveryHours,
+                            AvgRecoveryHours = (double)recovery.AvgRecoveryHours,
+                            SampleCount = recovery.SampleCount
+                        }));
+            }
+            return output;
         }
     }
 }

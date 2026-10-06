@@ -12,7 +12,6 @@ namespace Dorc.ApiModel
         public IEnumerable<EnvironmentContentWindowsServicesApiModel> WindowsServices { set; get; }
         public IEnumerable<EnvironmentContentBuildsApiModel> Builds { set; get; }
         public IEnumerable<UserApiModel> EndurUsers { set; get; }
-        public IEnumerable<UserApiModel> DelegatedUsers { set; get; }
         public IEnumerable<ProjectApiModel> MappedProjects { get; set; }
     }
 }

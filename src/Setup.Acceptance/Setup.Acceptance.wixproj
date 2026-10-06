@@ -10,6 +10,8 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <DefineConstants>TestsAcceptanceDir=$(TestsAcceptanceDir)</DefineConstants>
+    <!-- DacFx 170.x ships native payloads without Win32 language resources, which trips ICE03 (Invalid Language Id) under Release ICE validation. -->
+    <SuppressIces>ICE03</SuppressIces>
   </PropertyGroup>
   <ItemGroup>
     <Content Include="Dependencies.wxi" />
@@ -19,7 +21,7 @@
     </Content>
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="WixJsonFileExtension" Version="6.0.0.47" />
+    <PackageReference Include="WixJsonFileExtension" Version="6.3.2" />
     <PackageReference Include="WixToolset.Heat" Version="6.0.2" />
     <PackageReference Include="WixToolset.Util.wixext" Version="6.0.2" />
     <PackageReference Include="WixToolset.Iis.wixext" Version="6.0.2" />
@@ -34,7 +36,13 @@
       <RefTargetDir>INSTALLFOLDER</RefTargetDir>
     </ProjectReference>
   </ItemGroup>
-  <Target Name="PublishProjects" AfterTargets="BeforeResolveReferences">
+  <!--
+    Local-build fallback only — see the equivalent target in Setup.Dorc.wixproj
+    for the full reasoning. CI runs src\InstallerPayload.proj first and passes
+    DorcPayloadPrepublished=true, which skips this.
+  -->
+  <Target Name="PublishProjects" AfterTargets="BeforeResolveReferences"
+          Condition="'$(DorcPayloadPrepublished)' != 'true'">
     <Exec Command="dotnet publish &quot;$(SolutionDir)Tests.Acceptance\Tests.Acceptance.csproj&quot; -c $(Configuration)" />
   </Target>
   <ItemGroup>

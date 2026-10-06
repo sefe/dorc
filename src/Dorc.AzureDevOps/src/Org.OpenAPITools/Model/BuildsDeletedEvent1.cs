@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// BuildsDeletedEvent1
     /// </summary>
     [DataContract(Name = "BuildsDeletedEvent1")]
-    public partial class BuildsDeletedEvent1 : IEquatable<BuildsDeletedEvent1>, IValidatableObject
+    public partial class BuildsDeletedEvent1 : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="BuildsDeletedEvent1" /> class.
@@ -38,7 +38,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="buildIds">buildIds.</param>
         /// <param name="definitionId">The ID of the definition..</param>
         /// <param name="projectId">The ID of the project..</param>
-        public BuildsDeletedEvent1(List<int> buildIds = default(List<int>), int definitionId = default(int), Guid projectId = default(Guid))
+        public BuildsDeletedEvent1(List<int> buildIds = default, int definitionId = default, Guid projectId = default)
         {
             this.BuildIds = buildIds;
             this.DefinitionId = definitionId;
@@ -90,72 +90,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as BuildsDeletedEvent1);
-        }
-
-        /// <summary>
-        /// Returns true if BuildsDeletedEvent1 instances are equal
-        /// </summary>
-        /// <param name="input">Instance of BuildsDeletedEvent1 to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(BuildsDeletedEvent1 input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.BuildIds == input.BuildIds ||
-                    this.BuildIds != null &&
-                    input.BuildIds != null &&
-                    this.BuildIds.SequenceEqual(input.BuildIds)
-                ) && 
-                (
-                    this.DefinitionId == input.DefinitionId ||
-                    this.DefinitionId.Equals(input.DefinitionId)
-                ) && 
-                (
-                    this.ProjectId == input.ProjectId ||
-                    (this.ProjectId != null &&
-                    this.ProjectId.Equals(input.ProjectId))
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.BuildIds != null)
-                {
-                    hashCode = (hashCode * 59) + this.BuildIds.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.DefinitionId.GetHashCode();
-                if (this.ProjectId != null)
-                {
-                    hashCode = (hashCode * 59) + this.ProjectId.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// Represents system-wide build settings.
     /// </summary>
     [DataContract(Name = "BuildSettings")]
-    public partial class BuildSettings : IEquatable<BuildSettings>, IValidatableObject
+    public partial class BuildSettings : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="BuildSettings" /> class.
@@ -38,7 +38,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="daysToKeepDeletedBuildsBeforeDestroy">The number of days to keep records of deleted builds..</param>
         /// <param name="defaultRetentionPolicy">defaultRetentionPolicy.</param>
         /// <param name="maximumRetentionPolicy">maximumRetentionPolicy.</param>
-        public BuildSettings(int daysToKeepDeletedBuildsBeforeDestroy = default(int), RetentionPolicy defaultRetentionPolicy = default(RetentionPolicy), RetentionPolicy maximumRetentionPolicy = default(RetentionPolicy))
+        public BuildSettings(int daysToKeepDeletedBuildsBeforeDestroy = default, RetentionPolicy defaultRetentionPolicy = default, RetentionPolicy maximumRetentionPolicy = default)
         {
             this.DaysToKeepDeletedBuildsBeforeDestroy = daysToKeepDeletedBuildsBeforeDestroy;
             this.DefaultRetentionPolicy = defaultRetentionPolicy;
@@ -89,71 +89,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as BuildSettings);
-        }
-
-        /// <summary>
-        /// Returns true if BuildSettings instances are equal
-        /// </summary>
-        /// <param name="input">Instance of BuildSettings to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(BuildSettings input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.DaysToKeepDeletedBuildsBeforeDestroy == input.DaysToKeepDeletedBuildsBeforeDestroy ||
-                    this.DaysToKeepDeletedBuildsBeforeDestroy.Equals(input.DaysToKeepDeletedBuildsBeforeDestroy)
-                ) && 
-                (
-                    this.DefaultRetentionPolicy == input.DefaultRetentionPolicy ||
-                    (this.DefaultRetentionPolicy != null &&
-                    this.DefaultRetentionPolicy.Equals(input.DefaultRetentionPolicy))
-                ) && 
-                (
-                    this.MaximumRetentionPolicy == input.MaximumRetentionPolicy ||
-                    (this.MaximumRetentionPolicy != null &&
-                    this.MaximumRetentionPolicy.Equals(input.MaximumRetentionPolicy))
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                hashCode = (hashCode * 59) + this.DaysToKeepDeletedBuildsBeforeDestroy.GetHashCode();
-                if (this.DefaultRetentionPolicy != null)
-                {
-                    hashCode = (hashCode * 59) + this.DefaultRetentionPolicy.GetHashCode();
-                }
-                if (this.MaximumRetentionPolicy != null)
-                {
-                    hashCode = (hashCode * 59) + this.MaximumRetentionPolicy.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

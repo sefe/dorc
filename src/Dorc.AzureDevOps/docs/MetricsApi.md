@@ -7,7 +7,7 @@ All URIs are relative to *https://dev.azure.com*
 | [**MetricsGetDefinitionMetrics**](MetricsApi.md#metricsgetdefinitionmetrics) | **GET** /{organization}/{project}/_apis/build/definitions/{definitionId}/metrics |  |
 | [**MetricsGetProjectMetrics**](MetricsApi.md#metricsgetprojectmetrics) | **GET** /{organization}/{project}/_apis/build/metrics/{metricAggregationType} |  |
 
-<a name="metricsgetdefinitionmetrics"></a>
+<a id="metricsgetdefinitionmetrics"></a>
 # **MetricsGetDefinitionMetrics**
 > List&lt;BuildMetric&gt; MetricsGetDefinitionMetrics (string organization, string project, int definitionId, string apiVersion, DateTime? minMetricsTime = null)
 
@@ -107,7 +107,7 @@ catch (ApiException e)
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-<a name="metricsgetprojectmetrics"></a>
+<a id="metricsgetprojectmetrics"></a>
 # **MetricsGetProjectMetrics**
 > List&lt;BuildMetric&gt; MetricsGetProjectMetrics (string organization, string project, string metricAggregationType, string apiVersion, DateTime? minMetricsTime = null)
 

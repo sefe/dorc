@@ -43,6 +43,16 @@ export class RefDataConfigApi extends BaseAPI {
     refDataConfigDelete({ id }: RefDataConfigDeleteRequest, opts?: OperationOpts): Observable<AjaxResponse<boolean>>
     refDataConfigDelete({ id }: RefDataConfigDeleteRequest, opts?: OperationOpts): Observable<boolean | AjaxResponse<boolean>> {
 
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         const query: HttpQuery = {};
 
         if (id != null) { query['id'] = id; }
@@ -50,6 +60,7 @@ export class RefDataConfigApi extends BaseAPI {
         return this.request<boolean>({
             url: '/RefDataConfig',
             method: 'DELETE',
+            headers,
             query,
         }, opts?.responseOpts);
     };
@@ -59,9 +70,20 @@ export class RefDataConfigApi extends BaseAPI {
     refDataConfigGet(): Observable<Array<ConfigValueApiModel>>
     refDataConfigGet(opts?: OperationOpts): Observable<AjaxResponse<Array<ConfigValueApiModel>>>
     refDataConfigGet(opts?: OperationOpts): Observable<Array<ConfigValueApiModel> | AjaxResponse<Array<ConfigValueApiModel>>> {
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         return this.request<Array<ConfigValueApiModel>>({
             url: '/RefDataConfig',
             method: 'GET',
+            headers,
         }, opts?.responseOpts);
     };
 
@@ -73,6 +95,13 @@ export class RefDataConfigApi extends BaseAPI {
 
         const headers: HttpHeaders = {
             'Content-Type': 'application/json',
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
         };
 
         return this.request<ConfigValueApiModel>({
@@ -91,6 +120,13 @@ export class RefDataConfigApi extends BaseAPI {
 
         const headers: HttpHeaders = {
             'Content-Type': 'application/json',
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
         };
 
         const query: HttpQuery = {};

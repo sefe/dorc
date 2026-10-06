@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// Represents a retention policy for a build definition.
     /// </summary>
     [DataContract(Name = "RetentionPolicy")]
-    public partial class RetentionPolicy : IEquatable<RetentionPolicy>, IValidatableObject
+    public partial class RetentionPolicy : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="RetentionPolicy" /> class.
@@ -42,7 +42,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="deleteBuildRecord">Indicates whether the build record itself should be deleted..</param>
         /// <param name="deleteTestResults">Indicates whether to delete test results associated with the build..</param>
         /// <param name="minimumToKeep">The minimum number of builds to keep..</param>
-        public RetentionPolicy(List<string> artifacts = default(List<string>), List<string> artifactTypesToDelete = default(List<string>), List<string> branches = default(List<string>), int daysToKeep = default(int), bool deleteBuildRecord = default(bool), bool deleteTestResults = default(bool), int minimumToKeep = default(int))
+        public RetentionPolicy(List<string> artifacts = default, List<string> artifactTypesToDelete = default, List<string> branches = default, int daysToKeep = default, bool deleteBuildRecord = default, bool deleteTestResults = default, int minimumToKeep = default)
         {
             this.Artifacts = artifacts;
             this.ArtifactTypesToDelete = artifactTypesToDelete;
@@ -128,98 +128,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as RetentionPolicy);
-        }
-
-        /// <summary>
-        /// Returns true if RetentionPolicy instances are equal
-        /// </summary>
-        /// <param name="input">Instance of RetentionPolicy to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(RetentionPolicy input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.Artifacts == input.Artifacts ||
-                    this.Artifacts != null &&
-                    input.Artifacts != null &&
-                    this.Artifacts.SequenceEqual(input.Artifacts)
-                ) && 
-                (
-                    this.ArtifactTypesToDelete == input.ArtifactTypesToDelete ||
-                    this.ArtifactTypesToDelete != null &&
-                    input.ArtifactTypesToDelete != null &&
-                    this.ArtifactTypesToDelete.SequenceEqual(input.ArtifactTypesToDelete)
-                ) && 
-                (
-                    this.Branches == input.Branches ||
-                    this.Branches != null &&
-                    input.Branches != null &&
-                    this.Branches.SequenceEqual(input.Branches)
-                ) && 
-                (
-                    this.DaysToKeep == input.DaysToKeep ||
-                    this.DaysToKeep.Equals(input.DaysToKeep)
-                ) && 
-                (
-                    this.DeleteBuildRecord == input.DeleteBuildRecord ||
-                    this.DeleteBuildRecord.Equals(input.DeleteBuildRecord)
-                ) && 
-                (
-                    this.DeleteTestResults == input.DeleteTestResults ||
-                    this.DeleteTestResults.Equals(input.DeleteTestResults)
-                ) && 
-                (
-                    this.MinimumToKeep == input.MinimumToKeep ||
-                    this.MinimumToKeep.Equals(input.MinimumToKeep)
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.Artifacts != null)
-                {
-                    hashCode = (hashCode * 59) + this.Artifacts.GetHashCode();
-                }
-                if (this.ArtifactTypesToDelete != null)
-                {
-                    hashCode = (hashCode * 59) + this.ArtifactTypesToDelete.GetHashCode();
-                }
-                if (this.Branches != null)
-                {
-                    hashCode = (hashCode * 59) + this.Branches.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.DaysToKeep.GetHashCode();
-                hashCode = (hashCode * 59) + this.DeleteBuildRecord.GetHashCode();
-                hashCode = (hashCode * 59) + this.DeleteTestResults.GetHashCode();
-                hashCode = (hashCode * 59) + this.MinimumToKeep.GetHashCode();
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

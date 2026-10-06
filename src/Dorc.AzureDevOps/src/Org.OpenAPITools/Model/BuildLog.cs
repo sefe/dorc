@@ -27,50 +27,29 @@ using OpenAPIDateConverter = Org.OpenAPITools.Client.OpenAPIDateConverter;
 namespace Org.OpenAPITools.Model
 {
     /// <summary>
-    /// Represents a build log.
+    /// BuildLog
     /// </summary>
     [DataContract(Name = "BuildLog")]
-    public partial class BuildLog : IEquatable<BuildLog>, IValidatableObject
+    public partial class BuildLog : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="BuildLog" /> class.
         /// </summary>
-        /// <param name="createdOn">The date and time the log was created..</param>
-        /// <param name="lastChangedOn">The date and time the log was last changed..</param>
-        /// <param name="lineCount">The number of lines in the log..</param>
         /// <param name="id">The ID of the log..</param>
         /// <param name="type">The type of the log location..</param>
         /// <param name="url">A full link to the log resource..</param>
-        public BuildLog(DateTime createdOn = default(DateTime), DateTime lastChangedOn = default(DateTime), long lineCount = default(long), int id = default(int), string type = default(string), string url = default(string))
+        /// <param name="createdOn">The date and time the log was created..</param>
+        /// <param name="lastChangedOn">The date and time the log was last changed..</param>
+        /// <param name="lineCount">The number of lines in the log..</param>
+        public BuildLog(int id = default, string type = default, string url = default, DateTime createdOn = default, DateTime lastChangedOn = default, long lineCount = default)
         {
-            this.CreatedOn = createdOn;
-            this.LastChangedOn = lastChangedOn;
-            this.LineCount = lineCount;
             this.Id = id;
             this.Type = type;
             this.Url = url;
+            this.CreatedOn = createdOn;
+            this.LastChangedOn = lastChangedOn;
+            this.LineCount = lineCount;
         }
-
-        /// <summary>
-        /// The date and time the log was created.
-        /// </summary>
-        /// <value>The date and time the log was created.</value>
-        [DataMember(Name = "createdOn", EmitDefaultValue = false)]
-        public DateTime CreatedOn { get; set; }
-
-        /// <summary>
-        /// The date and time the log was last changed.
-        /// </summary>
-        /// <value>The date and time the log was last changed.</value>
-        [DataMember(Name = "lastChangedOn", EmitDefaultValue = false)]
-        public DateTime LastChangedOn { get; set; }
-
-        /// <summary>
-        /// The number of lines in the log.
-        /// </summary>
-        /// <value>The number of lines in the log.</value>
-        [DataMember(Name = "lineCount", EmitDefaultValue = false)]
-        public long LineCount { get; set; }
 
         /// <summary>
         /// The ID of the log.
@@ -94,6 +73,27 @@ namespace Org.OpenAPITools.Model
         public string Url { get; set; }
 
         /// <summary>
+        /// The date and time the log was created.
+        /// </summary>
+        /// <value>The date and time the log was created.</value>
+        [DataMember(Name = "createdOn", EmitDefaultValue = false)]
+        public DateTime CreatedOn { get; set; }
+
+        /// <summary>
+        /// The date and time the log was last changed.
+        /// </summary>
+        /// <value>The date and time the log was last changed.</value>
+        [DataMember(Name = "lastChangedOn", EmitDefaultValue = false)]
+        public DateTime LastChangedOn { get; set; }
+
+        /// <summary>
+        /// The number of lines in the log.
+        /// </summary>
+        /// <value>The number of lines in the log.</value>
+        [DataMember(Name = "lineCount", EmitDefaultValue = false)]
+        public long LineCount { get; set; }
+
+        /// <summary>
         /// Returns the string presentation of the object
         /// </summary>
         /// <returns>String presentation of the object</returns>
@@ -101,12 +101,12 @@ namespace Org.OpenAPITools.Model
         {
             StringBuilder sb = new StringBuilder();
             sb.Append("class BuildLog {\n");
-            sb.Append("  CreatedOn: ").Append(CreatedOn).Append("\n");
-            sb.Append("  LastChangedOn: ").Append(LastChangedOn).Append("\n");
-            sb.Append("  LineCount: ").Append(LineCount).Append("\n");
             sb.Append("  Id: ").Append(Id).Append("\n");
             sb.Append("  Type: ").Append(Type).Append("\n");
             sb.Append("  Url: ").Append(Url).Append("\n");
+            sb.Append("  CreatedOn: ").Append(CreatedOn).Append("\n");
+            sb.Append("  LastChangedOn: ").Append(LastChangedOn).Append("\n");
+            sb.Append("  LineCount: ").Append(LineCount).Append("\n");
             sb.Append("}\n");
             return sb.ToString();
         }
@@ -121,94 +121,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as BuildLog);
-        }
-
-        /// <summary>
-        /// Returns true if BuildLog instances are equal
-        /// </summary>
-        /// <param name="input">Instance of BuildLog to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(BuildLog input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.CreatedOn == input.CreatedOn ||
-                    (this.CreatedOn != null &&
-                    this.CreatedOn.Equals(input.CreatedOn))
-                ) && 
-                (
-                    this.LastChangedOn == input.LastChangedOn ||
-                    (this.LastChangedOn != null &&
-                    this.LastChangedOn.Equals(input.LastChangedOn))
-                ) && 
-                (
-                    this.LineCount == input.LineCount ||
-                    this.LineCount.Equals(input.LineCount)
-                ) && 
-                (
-                    this.Id == input.Id ||
-                    this.Id.Equals(input.Id)
-                ) && 
-                (
-                    this.Type == input.Type ||
-                    (this.Type != null &&
-                    this.Type.Equals(input.Type))
-                ) && 
-                (
-                    this.Url == input.Url ||
-                    (this.Url != null &&
-                    this.Url.Equals(input.Url))
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.CreatedOn != null)
-                {
-                    hashCode = (hashCode * 59) + this.CreatedOn.GetHashCode();
-                }
-                if (this.LastChangedOn != null)
-                {
-                    hashCode = (hashCode * 59) + this.LastChangedOn.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.LineCount.GetHashCode();
-                hashCode = (hashCode * 59) + this.Id.GetHashCode();
-                if (this.Type != null)
-                {
-                    hashCode = (hashCode * 59) + this.Type.GetHashCode();
-                }
-                if (this.Url != null)
-                {
-                    hashCode = (hashCode * 59) + this.Url.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

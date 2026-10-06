@@ -45,7 +45,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="label">Replaces the default text on the left side of the badge. (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>string</returns>
-        string StatusGet(string organization, string project, string definition, string apiVersion, string? branchName = default(string?), string? stageName = default(string?), string? jobName = default(string?), string? configuration = default(string?), string? label = default(string?), int operationIndex = 0);
+        string StatusGet(string organization, string project, string definition, string apiVersion, string? branchName = default, string? stageName = default, string? jobName = default, string? configuration = default, string? label = default, int operationIndex = 0);
 
         /// <summary>
         /// 
@@ -65,7 +65,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="label">Replaces the default text on the left side of the badge. (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>ApiResponse of string</returns>
-        ApiResponse<string> StatusGetWithHttpInfo(string organization, string project, string definition, string apiVersion, string? branchName = default(string?), string? stageName = default(string?), string? jobName = default(string?), string? configuration = default(string?), string? label = default(string?), int operationIndex = 0);
+        ApiResponse<string> StatusGetWithHttpInfo(string organization, string project, string definition, string apiVersion, string? branchName = default, string? stageName = default, string? jobName = default, string? configuration = default, string? label = default, int operationIndex = 0);
         #endregion Synchronous Operations
     }
 
@@ -94,7 +94,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of string</returns>
-        System.Threading.Tasks.Task<string> StatusGetAsync(string organization, string project, string definition, string apiVersion, string? branchName = default(string?), string? stageName = default(string?), string? jobName = default(string?), string? configuration = default(string?), string? label = default(string?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<string> StatusGetAsync(string organization, string project, string definition, string apiVersion, string? branchName = default, string? stageName = default, string? jobName = default, string? configuration = default, string? label = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
 
         /// <summary>
         /// 
@@ -115,7 +115,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse (string)</returns>
-        System.Threading.Tasks.Task<ApiResponse<string>> StatusGetWithHttpInfoAsync(string organization, string project, string definition, string apiVersion, string? branchName = default(string?), string? stageName = default(string?), string? jobName = default(string?), string? configuration = default(string?), string? label = default(string?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ApiResponse<string>> StatusGetWithHttpInfoAsync(string organization, string project, string definition, string apiVersion, string? branchName = default, string? stageName = default, string? jobName = default, string? configuration = default, string? label = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
         #endregion Asynchronous Operations
     }
 
@@ -251,7 +251,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="label">Replaces the default text on the left side of the badge. (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>string</returns>
-        public string StatusGet(string organization, string project, string definition, string apiVersion, string? branchName = default(string?), string? stageName = default(string?), string? jobName = default(string?), string? configuration = default(string?), string? label = default(string?), int operationIndex = 0)
+        public string StatusGet(string organization, string project, string definition, string apiVersion, string? branchName = default, string? stageName = default, string? jobName = default, string? configuration = default, string? label = default, int operationIndex = 0)
         {
             Org.OpenAPITools.Client.ApiResponse<string> localVarResponse = StatusGetWithHttpInfo(organization, project, definition, apiVersion, branchName, stageName, jobName, configuration, label);
             return localVarResponse.Data;
@@ -272,7 +272,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="label">Replaces the default text on the left side of the badge. (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>ApiResponse of string</returns>
-        public Org.OpenAPITools.Client.ApiResponse<string> StatusGetWithHttpInfo(string organization, string project, string definition, string apiVersion, string? branchName = default(string?), string? stageName = default(string?), string? jobName = default(string?), string? configuration = default(string?), string? label = default(string?), int operationIndex = 0)
+        public Org.OpenAPITools.Client.ApiResponse<string> StatusGetWithHttpInfo(string organization, string project, string definition, string apiVersion, string? branchName = default, string? stageName = default, string? jobName = default, string? configuration = default, string? label = default, int operationIndex = 0)
         {
             // verify the required parameter 'organization' is set
             if (organization == null)
@@ -309,6 +309,7 @@ namespace Org.OpenAPITools.Api
             };
 
             var localVarContentType = Org.OpenAPITools.Client.ClientUtils.SelectHeaderContentType(_contentTypes);
+            var localVarMultipartFormData = localVarContentType == "multipart/form-data";
             if (localVarContentType != null)
             {
                 localVarRequestOptions.HeaderParameters.Add("Content-Type", localVarContentType);
@@ -379,7 +380,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of string</returns>
-        public async System.Threading.Tasks.Task<string> StatusGetAsync(string organization, string project, string definition, string apiVersion, string? branchName = default(string?), string? stageName = default(string?), string? jobName = default(string?), string? configuration = default(string?), string? label = default(string?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public async System.Threading.Tasks.Task<string> StatusGetAsync(string organization, string project, string definition, string apiVersion, string? branchName = default, string? stageName = default, string? jobName = default, string? configuration = default, string? label = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             Org.OpenAPITools.Client.ApiResponse<string> localVarResponse = await StatusGetWithHttpInfoAsync(organization, project, definition, apiVersion, branchName, stageName, jobName, configuration, label, operationIndex, cancellationToken).ConfigureAwait(false);
             return localVarResponse.Data;
@@ -401,7 +402,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse (string)</returns>
-        public async System.Threading.Tasks.Task<Org.OpenAPITools.Client.ApiResponse<string>> StatusGetWithHttpInfoAsync(string organization, string project, string definition, string apiVersion, string? branchName = default(string?), string? stageName = default(string?), string? jobName = default(string?), string? configuration = default(string?), string? label = default(string?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public async System.Threading.Tasks.Task<Org.OpenAPITools.Client.ApiResponse<string>> StatusGetWithHttpInfoAsync(string organization, string project, string definition, string apiVersion, string? branchName = default, string? stageName = default, string? jobName = default, string? configuration = default, string? label = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             // verify the required parameter 'organization' is set
             if (organization == null)

@@ -1,4 +1,4 @@
-﻿using Dorc.ApiModel;
+using Dorc.ApiModel;
 using Dorc.ApiModel.Extensions;
 using Dorc.PersistentData.Contexts;
 using Dorc.PersistentData.Extensions;
@@ -87,6 +87,19 @@ namespace Dorc.PersistentData.Sources
             {
                 return context.DeploymentRequests.AsNoTracking()
                     .Where(r => (status1.ToString() == r.Status || status2.ToString() == r.Status || status3.ToString() == r.Status)
+                        && r.IsProd == isProd)
+                    .ToList().Select(MapToDeploymentRequestApiModel)
+                    .Where(r => r != null) // Filter out failed mappings
+                    .ToList();
+            }
+        }
+
+        public IEnumerable<DeploymentRequestApiModel> GetRequestsWithStatus(DeploymentRequestStatus status1, DeploymentRequestStatus status2, DeploymentRequestStatus status3, DeploymentRequestStatus status4, bool isProd)
+        {
+            using (var context = _contextFactory.GetContext())
+            {
+                return context.DeploymentRequests.AsNoTracking()
+                    .Where(r => (status1.ToString() == r.Status || status2.ToString() == r.Status || status3.ToString() == r.Status || status4.ToString() == r.Status)
                         && r.IsProd == isProd)
                     .ToList().Select(MapToDeploymentRequestApiModel)
                     .Where(r => r != null) // Filter out failed mappings
@@ -285,6 +298,18 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
+        public void UpdateRequestStatus(int requestId, DeploymentRequestStatus status, string user, DateTimeOffset CancelledTime)
+        {
+            using (var context = _contextFactory.GetContext())
+            {
+                context.DeploymentRequests
+                    .Where(r => r.Id == requestId)
+                    .ExecuteUpdate(setters => setters
+                        .SetProperty(b => b.Status, status.ToString())
+                        .SetProperty(b => b.CancelledBy, user)
+                        .SetProperty(b => b.CancelledTime, CancelledTime));
+            }
+        }
         public void UpdateRequestStatus(int requestId, DeploymentRequestStatus status, string user)
         {
             using (var context = _contextFactory.GetContext())
@@ -308,7 +333,13 @@ namespace Dorc.PersistentData.Sources
                     .ExecuteUpdate(setters => setters
                         .SetProperty(r => r.Status, toStatus.ToString()));
 
-                deploymentRequests.ForEach(dr => dr.Status = toStatus.ToString());
+                if (rowsAffected > 0)
+                {
+                    foreach (var dr in deploymentRequests)
+                    {
+                        dr.Status = toStatus.ToString();
+                    }
+                }
 
                 return rowsAffected;
             }
@@ -332,7 +363,7 @@ namespace Dorc.PersistentData.Sources
                     { 
                         dr.Status = toStatus.ToString(); 
                         dr.RequestedTime = requestedTime; 
-                    };
+                    }
                 }
 
                 return rowsAffected;
@@ -410,22 +441,26 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        public bool UpdateResultStatus(DeploymentResultApiModel deploymentResultModel, DeploymentResultStatus status)
+        public bool UpdateResultStatus(DeploymentResultApiModel deploymentResultModel, DeploymentResultStatus status,
+            DeploymentResultStatus expectedCurrentStatus)
         {
             using (var context = _contextFactory.GetContext())
             {
-                int updatedResultCount = 0;
+                var now = DateTimeOffset.Now;
+                var isRunning = status == DeploymentResultStatus.Running;
+                var isCompleted = status == DeploymentResultStatus.Complete ||
+                                  status == DeploymentResultStatus.Warning ||
+                                  status == DeploymentResultStatus.Failed ||
+                                  status == DeploymentResultStatus.Cancelled;
 
-                updatedResultCount = context.DeploymentResults
-                    .Where(result => result.Id == deploymentResultModel.Id)
+                var expected = expectedCurrentStatus.ToString();
+
+                int updatedResultCount = context.DeploymentResults
+                    .Where(result => result.Id == deploymentResultModel.Id && result.Status == expected)
                     .ExecuteUpdate(setters => setters
                                             .SetProperty(b => b.Status, status.ToString())
-                                            .SetProperty(r => r.StartedTime, dr => status == DeploymentResultStatus.Running ? DateTimeOffset.Now : dr.StartedTime)
-                                            .SetProperty(r => r.CompletedTime, dr =>
-                                                status == DeploymentResultStatus.Complete ||
-                                                    status == DeploymentResultStatus.Failed ||
-                                                    status == DeploymentResultStatus.Cancelled
-                                                ? DateTimeOffset.Now : dr.CompletedTime));
+                                            .SetProperty(r => r.StartedTime, dr => isRunning ? now : dr.StartedTime)
+                                            .SetProperty(r => r.CompletedTime, dr => isCompleted ? now : dr.CompletedTime));
 
                 if (updatedResultCount == 0)
                 {
@@ -433,6 +468,53 @@ namespace Dorc.PersistentData.Sources
                 }
 
                 deploymentResultModel.Status = status.ToString();
+
+                if (isRunning)
+                {
+                    deploymentResultModel.StartedTime = now;
+                }
+                else if (isCompleted)
+                {
+                    deploymentResultModel.CompletedTime = now;
+                }
+
+                return true;
+            }
+        }
+
+        public bool UpdateResultStatus(DeploymentResultApiModel deploymentResultModel, DeploymentResultStatus status)
+        {
+            using (var context = _contextFactory.GetContext())
+            {
+                var now = DateTimeOffset.Now;
+                var isRunning = status == DeploymentResultStatus.Running;
+                var isCompleted = status == DeploymentResultStatus.Complete ||
+                                  status == DeploymentResultStatus.Warning ||
+                                  status == DeploymentResultStatus.Failed ||
+                                  status == DeploymentResultStatus.Cancelled;
+
+                int updatedResultCount = context.DeploymentResults
+                    .Where(result => result.Id == deploymentResultModel.Id)
+                    .ExecuteUpdate(setters => setters
+                                            .SetProperty(b => b.Status, status.ToString())
+                                            .SetProperty(r => r.StartedTime, dr => isRunning ? now : dr.StartedTime)
+                                            .SetProperty(r => r.CompletedTime, dr => isCompleted ? now : dr.CompletedTime));
+
+                if (updatedResultCount == 0)
+                {
+                    return false;
+                }
+
+                deploymentResultModel.Status = status.ToString();
+
+                if (isRunning)
+                {
+                    deploymentResultModel.StartedTime = now;
+                }
+                else if (isCompleted)
+                {
+                    deploymentResultModel.CompletedTime = now;
+                }
 
                 return true;
             }
@@ -473,6 +555,147 @@ namespace Dorc.PersistentData.Sources
                 var request = context.DeploymentRequests.Add(deploymentRequest);
                 context.SaveChanges();
                 return request.Entity.Id;
+            }
+        }
+
+        public void UpdateRequestDetails(int requestId, string requestDetails)
+        {
+            using (var context = _contextFactory.GetContext())
+            {
+                context.DeploymentRequests
+                    .Where(r => r.Id == requestId)
+                    .ExecuteUpdate(setters => setters
+                        .SetProperty(b => b.RequestDetails, requestDetails));
+            }
+        }
+
+        public void UpdateEnvironmentOwnerEmail(int requestId, string email)
+        {
+            using (var context = _contextFactory.GetContext())
+            {
+                context.DeploymentRequests
+                    .Where(r => r.Id == requestId)
+                    .ExecuteUpdate(setters => setters
+                        .SetProperty(b => b.EnvironmentOwnerEmail, email));
+            }
+        }
+
+        public void ArchiveCurrentAttempt(int requestId)
+        {
+            using (var context = _contextFactory.GetContext())
+            {
+                var request = context.DeploymentRequests.FirstOrDefault(r => r.Id == requestId);
+                if (request == null)
+                    return;
+
+                var componentResults = context.DeploymentResults
+                    .Include(r => r.Component)
+                    .Where(r => r.DeploymentRequest.Id == requestId)
+                    .ToList();
+
+                if (componentResults.Count == 0)
+                    return;
+
+                var currentResultIds = componentResults.Select(r => r.Id).ToList();
+                var alreadyArchived = context.DeploymentResultAttempts
+                    .Any(ra => ra.DeploymentResultId.HasValue
+                        && currentResultIds.Contains(ra.DeploymentResultId.Value));
+
+                if (alreadyArchived)
+                    return;
+
+                var archivedStatus = request.Status switch
+                {
+                    "Running" or "Requesting" or "Restarting" => "Cancelled",
+                    "Cancelling" => "Cancelled",
+                    "Pending" or "Paused" => "Cancelled",
+                    _ => request.Status
+                };
+
+                var maxAttempt = context.DeploymentRequestAttempts
+                    .Where(a => EF.Property<int>(a, "DeploymentRequestId") == requestId)
+                    .Select(a => (int?)a.AttemptNumber)
+                    .Max();
+                var attemptNumber = (maxAttempt ?? 0) + 1;
+
+                var attempt = new DeploymentRequestAttempt
+                {
+                    DeploymentRequest = request,
+                    AttemptNumber = attemptNumber,
+                    StartedTime = request.StartedTime,
+                    CompletedTime = request.CompletedTime ?? DateTimeOffset.UtcNow,
+                    Status = archivedStatus,
+                    Log = request.Log,
+                    UserName = request.UserName
+                };
+
+                context.DeploymentRequestAttempts.Add(attempt);
+                context.SaveChanges();
+
+                foreach (var result in componentResults)
+                {
+                    var resultAttempt = new DeploymentResultAttempt
+                    {
+                        DeploymentRequestAttempt = attempt,
+                        ComponentId = result.Component.Id,
+                        ComponentName = result.Component.Name,
+                        StartedTime = result.StartedTime,
+                        CompletedTime = result.CompletedTime,
+                        Status = result.Status ?? "Unknown",
+                        DeploymentResultId = result.Id
+                    };
+                    context.DeploymentResultAttempts.Add(resultAttempt);
+                }
+
+                context.SaveChanges();
+            }
+        }
+
+        public IEnumerable<DeploymentRequestAttemptApiModel> GetAttemptsForRequest(int requestId)
+        {
+            using (var context = _contextFactory.GetContext())
+            {
+                return context.DeploymentRequestAttempts
+                    .AsNoTracking()
+                    .Include(a => a.DeploymentResultAttempts)
+                    .Where(a => EF.Property<int>(a, "DeploymentRequestId") == requestId)
+                    .OrderBy(a => a.AttemptNumber)
+                    .Select(a => new DeploymentRequestAttemptApiModel
+                    {
+                        Id = a.Id,
+                        DeploymentRequestId = requestId,
+                        AttemptNumber = a.AttemptNumber,
+                        StartedTime = a.StartedTime,
+                        CompletedTime = a.CompletedTime,
+                        Status = a.Status,
+                        Log = a.Log,
+                        UserName = a.UserName,
+                        ComponentResults = a.DeploymentResultAttempts.Select(r => new DeploymentResultAttemptApiModel
+                        {
+                            Id = r.Id,
+                            DeploymentRequestAttemptId = a.Id,
+                            ComponentId = r.ComponentId,
+                            ComponentName = r.ComponentName,
+                            StartedTime = r.StartedTime,
+                            CompletedTime = r.CompletedTime,
+                            Status = r.Status,
+                            DeploymentResultId = r.DeploymentResultId
+                        }).ToList()
+                    })
+                    .ToList();
+            }
+        }
+
+        public int GetNextAttemptNumber(int requestId)
+        {
+            using (var context = _contextFactory.GetContext())
+            {
+                var maxAttempt = context.DeploymentRequestAttempts
+                    .Where(a => EF.Property<int>(a, "DeploymentRequestId") == requestId)
+                    .Select(a => (int?)a.AttemptNumber)
+                    .Max();
+
+                return (maxAttempt ?? 0) + 1;
             }
         }
 
@@ -525,7 +748,10 @@ namespace Dorc.PersistentData.Sources
                 StartedTime = req.StartedTime,
                 Status = status.ToString(),
                 UserName = req.UserName,
-                UncLogPath = req.UncLogPath
+                UncLogPath = req.UncLogPath,
+                CancelledBy = req.CancelledBy,
+                CancelledTime = req.CancelledTime,
+                EnvironmentOwnerEmail = req.EnvironmentOwnerEmail
             };
         }
 

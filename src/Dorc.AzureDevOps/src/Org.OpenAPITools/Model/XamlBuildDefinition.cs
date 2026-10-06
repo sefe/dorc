@@ -30,8 +30,68 @@ namespace Org.OpenAPITools.Model
     /// XamlBuildDefinition
     /// </summary>
     [DataContract(Name = "XamlBuildDefinition")]
-    public partial class XamlBuildDefinition : IEquatable<XamlBuildDefinition>, IValidatableObject
+    public partial class XamlBuildDefinition : IValidatableObject
     {
+        /// <summary>
+        /// A value that indicates whether builds can be queued against this definition.
+        /// </summary>
+        /// <value>A value that indicates whether builds can be queued against this definition.</value>
+        [JsonConverter(typeof(StringEnumConverter))]
+        public enum QueueStatusEnum
+        {
+            /// <summary>
+            /// Enum Enabled for value: enabled
+            /// </summary>
+            [EnumMember(Value = "enabled")]
+            Enabled = 1,
+
+            /// <summary>
+            /// Enum Paused for value: paused
+            /// </summary>
+            [EnumMember(Value = "paused")]
+            Paused = 2,
+
+            /// <summary>
+            /// Enum Disabled for value: disabled
+            /// </summary>
+            [EnumMember(Value = "disabled")]
+            Disabled = 3
+        }
+
+
+        /// <summary>
+        /// A value that indicates whether builds can be queued against this definition.
+        /// </summary>
+        /// <value>A value that indicates whether builds can be queued against this definition.</value>
+        [DataMember(Name = "queueStatus", EmitDefaultValue = false)]
+        public QueueStatusEnum? QueueStatus { get; set; }
+        /// <summary>
+        /// The type of the definition.
+        /// </summary>
+        /// <value>The type of the definition.</value>
+        [JsonConverter(typeof(StringEnumConverter))]
+        public enum TypeEnum
+        {
+            /// <summary>
+            /// Enum Xaml for value: xaml
+            /// </summary>
+            [EnumMember(Value = "xaml")]
+            Xaml = 1,
+
+            /// <summary>
+            /// Enum Build for value: build
+            /// </summary>
+            [EnumMember(Value = "build")]
+            Build = 2
+        }
+
+
+        /// <summary>
+        /// The type of the definition.
+        /// </summary>
+        /// <value>The type of the definition.</value>
+        [DataMember(Name = "type", EmitDefaultValue = false)]
+        public TypeEnum? Type { get; set; }
         /// <summary>
         /// The reasons supported by the template
         /// </summary>
@@ -122,7 +182,6 @@ namespace Org.OpenAPITools.Model
             /// </summary>
             [EnumMember(Value = "all")]
             All = 14
-
         }
 
 
@@ -192,7 +251,6 @@ namespace Org.OpenAPITools.Model
             /// </summary>
             [EnumMember(Value = "all")]
             All = 9
-
         }
 
 
@@ -203,70 +261,18 @@ namespace Org.OpenAPITools.Model
         [DataMember(Name = "triggerType", EmitDefaultValue = false)]
         public TriggerTypeEnum? TriggerType { get; set; }
         /// <summary>
-        /// A value that indicates whether builds can be queued against this definition.
-        /// </summary>
-        /// <value>A value that indicates whether builds can be queued against this definition.</value>
-        [JsonConverter(typeof(StringEnumConverter))]
-        public enum QueueStatusEnum
-        {
-            /// <summary>
-            /// Enum Enabled for value: enabled
-            /// </summary>
-            [EnumMember(Value = "enabled")]
-            Enabled = 1,
-
-            /// <summary>
-            /// Enum Paused for value: paused
-            /// </summary>
-            [EnumMember(Value = "paused")]
-            Paused = 2,
-
-            /// <summary>
-            /// Enum Disabled for value: disabled
-            /// </summary>
-            [EnumMember(Value = "disabled")]
-            Disabled = 3
-
-        }
-
-
-        /// <summary>
-        /// A value that indicates whether builds can be queued against this definition.
-        /// </summary>
-        /// <value>A value that indicates whether builds can be queued against this definition.</value>
-        [DataMember(Name = "queueStatus", EmitDefaultValue = false)]
-        public QueueStatusEnum? QueueStatus { get; set; }
-        /// <summary>
-        /// The type of the definition.
-        /// </summary>
-        /// <value>The type of the definition.</value>
-        [JsonConverter(typeof(StringEnumConverter))]
-        public enum TypeEnum
-        {
-            /// <summary>
-            /// Enum Xaml for value: xaml
-            /// </summary>
-            [EnumMember(Value = "xaml")]
-            Xaml = 1,
-
-            /// <summary>
-            /// Enum Build for value: build
-            /// </summary>
-            [EnumMember(Value = "build")]
-            Build = 2
-
-        }
-
-
-        /// <summary>
-        /// The type of the definition.
-        /// </summary>
-        /// <value>The type of the definition.</value>
-        [DataMember(Name = "type", EmitDefaultValue = false)]
-        public TypeEnum? Type { get; set; }
-        /// <summary>
         /// Initializes a new instance of the <see cref="XamlBuildDefinition" /> class.
         /// </summary>
+        /// <param name="createdDate">The date this version of the definition was created..</param>
+        /// <param name="id">The ID of the referenced definition..</param>
+        /// <param name="name">The name of the referenced definition..</param>
+        /// <param name="path">The folder path of the definition..</param>
+        /// <param name="project">project.</param>
+        /// <param name="queueStatus">A value that indicates whether builds can be queued against this definition..</param>
+        /// <param name="revision">The definition revision number..</param>
+        /// <param name="type">The type of the definition..</param>
+        /// <param name="uri">The definition&#39;s URI..</param>
+        /// <param name="url">The REST URL of the definition..</param>
         /// <param name="links">links.</param>
         /// <param name="batchSize">Batch size of the definition.</param>
         /// <param name="buildArgs">buildArgs.</param>
@@ -279,18 +285,18 @@ namespace Org.OpenAPITools.Model
         /// <param name="repository">repository.</param>
         /// <param name="supportedReasons">The reasons supported by the template.</param>
         /// <param name="triggerType">How builds are triggered from this definition.</param>
-        /// <param name="createdDate">The date this version of the definition was created..</param>
-        /// <param name="id">The ID of the referenced definition..</param>
-        /// <param name="name">The name of the referenced definition..</param>
-        /// <param name="path">The folder path of the definition..</param>
-        /// <param name="project">project.</param>
-        /// <param name="queueStatus">A value that indicates whether builds can be queued against this definition..</param>
-        /// <param name="revision">The definition revision number..</param>
-        /// <param name="type">The type of the definition..</param>
-        /// <param name="uri">The definition&#39;s URI..</param>
-        /// <param name="url">The REST URL of the definition..</param>
-        public XamlBuildDefinition(ReferenceLinks links = default(ReferenceLinks), int batchSize = default(int), string buildArgs = default(string), int continuousIntegrationQuietPeriod = default(int), BuildController controller = default(BuildController), DateTime createdOn = default(DateTime), string defaultDropLocation = default(string), string description = default(string), XamlBuildReference lastBuild = default(XamlBuildReference), BuildRepository repository = default(BuildRepository), SupportedReasonsEnum? supportedReasons = default(SupportedReasonsEnum?), TriggerTypeEnum? triggerType = default(TriggerTypeEnum?), DateTime createdDate = default(DateTime), int id = default(int), string name = default(string), string path = default(string), TeamProjectReference project = default(TeamProjectReference), QueueStatusEnum? queueStatus = default(QueueStatusEnum?), int revision = default(int), TypeEnum? type = default(TypeEnum?), string uri = default(string), string url = default(string))
+        public XamlBuildDefinition(DateTime createdDate = default, int id = default, string name = default, string path = default, TeamProjectReference project = default, QueueStatusEnum? queueStatus = default, int revision = default, TypeEnum? type = default, string uri = default, string url = default, ReferenceLinks links = default, int batchSize = default, string buildArgs = default, int continuousIntegrationQuietPeriod = default, BuildController controller = default, DateTime createdOn = default, string defaultDropLocation = default, string description = default, XamlBuildReference lastBuild = default, BuildRepository repository = default, SupportedReasonsEnum? supportedReasons = default, TriggerTypeEnum? triggerType = default)
         {
+            this.CreatedDate = createdDate;
+            this.Id = id;
+            this.Name = name;
+            this.Path = path;
+            this.Project = project;
+            this.QueueStatus = queueStatus;
+            this.Revision = revision;
+            this.Type = type;
+            this.Uri = uri;
+            this.Url = url;
             this.Links = links;
             this.BatchSize = batchSize;
             this.BuildArgs = buildArgs;
@@ -303,17 +309,62 @@ namespace Org.OpenAPITools.Model
             this.Repository = repository;
             this.SupportedReasons = supportedReasons;
             this.TriggerType = triggerType;
-            this.CreatedDate = createdDate;
-            this.Id = id;
-            this.Name = name;
-            this.Path = path;
-            this.Project = project;
-            this.QueueStatus = queueStatus;
-            this.Revision = revision;
-            this.Type = type;
-            this.Uri = uri;
-            this.Url = url;
         }
+
+        /// <summary>
+        /// The date this version of the definition was created.
+        /// </summary>
+        /// <value>The date this version of the definition was created.</value>
+        [DataMember(Name = "createdDate", EmitDefaultValue = false)]
+        public DateTime CreatedDate { get; set; }
+
+        /// <summary>
+        /// The ID of the referenced definition.
+        /// </summary>
+        /// <value>The ID of the referenced definition.</value>
+        [DataMember(Name = "id", EmitDefaultValue = false)]
+        public int Id { get; set; }
+
+        /// <summary>
+        /// The name of the referenced definition.
+        /// </summary>
+        /// <value>The name of the referenced definition.</value>
+        [DataMember(Name = "name", EmitDefaultValue = false)]
+        public string Name { get; set; }
+
+        /// <summary>
+        /// The folder path of the definition.
+        /// </summary>
+        /// <value>The folder path of the definition.</value>
+        [DataMember(Name = "path", EmitDefaultValue = false)]
+        public string Path { get; set; }
+
+        /// <summary>
+        /// Gets or Sets Project
+        /// </summary>
+        [DataMember(Name = "project", EmitDefaultValue = false)]
+        public TeamProjectReference Project { get; set; }
+
+        /// <summary>
+        /// The definition revision number.
+        /// </summary>
+        /// <value>The definition revision number.</value>
+        [DataMember(Name = "revision", EmitDefaultValue = false)]
+        public int Revision { get; set; }
+
+        /// <summary>
+        /// The definition&#39;s URI.
+        /// </summary>
+        /// <value>The definition&#39;s URI.</value>
+        [DataMember(Name = "uri", EmitDefaultValue = false)]
+        public string Uri { get; set; }
+
+        /// <summary>
+        /// The REST URL of the definition.
+        /// </summary>
+        /// <value>The REST URL of the definition.</value>
+        [DataMember(Name = "url", EmitDefaultValue = false)]
+        public string Url { get; set; }
 
         /// <summary>
         /// Gets or Sets Links
@@ -381,61 +432,6 @@ namespace Org.OpenAPITools.Model
         public BuildRepository Repository { get; set; }
 
         /// <summary>
-        /// The date this version of the definition was created.
-        /// </summary>
-        /// <value>The date this version of the definition was created.</value>
-        [DataMember(Name = "createdDate", EmitDefaultValue = false)]
-        public DateTime CreatedDate { get; set; }
-
-        /// <summary>
-        /// The ID of the referenced definition.
-        /// </summary>
-        /// <value>The ID of the referenced definition.</value>
-        [DataMember(Name = "id", EmitDefaultValue = false)]
-        public int Id { get; set; }
-
-        /// <summary>
-        /// The name of the referenced definition.
-        /// </summary>
-        /// <value>The name of the referenced definition.</value>
-        [DataMember(Name = "name", EmitDefaultValue = false)]
-        public string Name { get; set; }
-
-        /// <summary>
-        /// The folder path of the definition.
-        /// </summary>
-        /// <value>The folder path of the definition.</value>
-        [DataMember(Name = "path", EmitDefaultValue = false)]
-        public string Path { get; set; }
-
-        /// <summary>
-        /// Gets or Sets Project
-        /// </summary>
-        [DataMember(Name = "project", EmitDefaultValue = false)]
-        public TeamProjectReference Project { get; set; }
-
-        /// <summary>
-        /// The definition revision number.
-        /// </summary>
-        /// <value>The definition revision number.</value>
-        [DataMember(Name = "revision", EmitDefaultValue = false)]
-        public int Revision { get; set; }
-
-        /// <summary>
-        /// The definition&#39;s URI.
-        /// </summary>
-        /// <value>The definition&#39;s URI.</value>
-        [DataMember(Name = "uri", EmitDefaultValue = false)]
-        public string Uri { get; set; }
-
-        /// <summary>
-        /// The REST URL of the definition.
-        /// </summary>
-        /// <value>The REST URL of the definition.</value>
-        [DataMember(Name = "url", EmitDefaultValue = false)]
-        public string Url { get; set; }
-
-        /// <summary>
         /// Returns the string presentation of the object
         /// </summary>
         /// <returns>String presentation of the object</returns>
@@ -443,6 +439,16 @@ namespace Org.OpenAPITools.Model
         {
             StringBuilder sb = new StringBuilder();
             sb.Append("class XamlBuildDefinition {\n");
+            sb.Append("  CreatedDate: ").Append(CreatedDate).Append("\n");
+            sb.Append("  Id: ").Append(Id).Append("\n");
+            sb.Append("  Name: ").Append(Name).Append("\n");
+            sb.Append("  Path: ").Append(Path).Append("\n");
+            sb.Append("  Project: ").Append(Project).Append("\n");
+            sb.Append("  QueueStatus: ").Append(QueueStatus).Append("\n");
+            sb.Append("  Revision: ").Append(Revision).Append("\n");
+            sb.Append("  Type: ").Append(Type).Append("\n");
+            sb.Append("  Uri: ").Append(Uri).Append("\n");
+            sb.Append("  Url: ").Append(Url).Append("\n");
             sb.Append("  Links: ").Append(Links).Append("\n");
             sb.Append("  BatchSize: ").Append(BatchSize).Append("\n");
             sb.Append("  BuildArgs: ").Append(BuildArgs).Append("\n");
@@ -455,16 +461,6 @@ namespace Org.OpenAPITools.Model
             sb.Append("  Repository: ").Append(Repository).Append("\n");
             sb.Append("  SupportedReasons: ").Append(SupportedReasons).Append("\n");
             sb.Append("  TriggerType: ").Append(TriggerType).Append("\n");
-            sb.Append("  CreatedDate: ").Append(CreatedDate).Append("\n");
-            sb.Append("  Id: ").Append(Id).Append("\n");
-            sb.Append("  Name: ").Append(Name).Append("\n");
-            sb.Append("  Path: ").Append(Path).Append("\n");
-            sb.Append("  Project: ").Append(Project).Append("\n");
-            sb.Append("  QueueStatus: ").Append(QueueStatus).Append("\n");
-            sb.Append("  Revision: ").Append(Revision).Append("\n");
-            sb.Append("  Type: ").Append(Type).Append("\n");
-            sb.Append("  Uri: ").Append(Uri).Append("\n");
-            sb.Append("  Url: ").Append(Url).Append("\n");
             sb.Append("}\n");
             return sb.ToString();
         }
@@ -479,214 +475,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as XamlBuildDefinition);
-        }
-
-        /// <summary>
-        /// Returns true if XamlBuildDefinition instances are equal
-        /// </summary>
-        /// <param name="input">Instance of XamlBuildDefinition to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(XamlBuildDefinition input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.Links == input.Links ||
-                    (this.Links != null &&
-                    this.Links.Equals(input.Links))
-                ) && 
-                (
-                    this.BatchSize == input.BatchSize ||
-                    this.BatchSize.Equals(input.BatchSize)
-                ) && 
-                (
-                    this.BuildArgs == input.BuildArgs ||
-                    (this.BuildArgs != null &&
-                    this.BuildArgs.Equals(input.BuildArgs))
-                ) && 
-                (
-                    this.ContinuousIntegrationQuietPeriod == input.ContinuousIntegrationQuietPeriod ||
-                    this.ContinuousIntegrationQuietPeriod.Equals(input.ContinuousIntegrationQuietPeriod)
-                ) && 
-                (
-                    this.Controller == input.Controller ||
-                    (this.Controller != null &&
-                    this.Controller.Equals(input.Controller))
-                ) && 
-                (
-                    this.CreatedOn == input.CreatedOn ||
-                    (this.CreatedOn != null &&
-                    this.CreatedOn.Equals(input.CreatedOn))
-                ) && 
-                (
-                    this.DefaultDropLocation == input.DefaultDropLocation ||
-                    (this.DefaultDropLocation != null &&
-                    this.DefaultDropLocation.Equals(input.DefaultDropLocation))
-                ) && 
-                (
-                    this.Description == input.Description ||
-                    (this.Description != null &&
-                    this.Description.Equals(input.Description))
-                ) && 
-                (
-                    this.LastBuild == input.LastBuild ||
-                    (this.LastBuild != null &&
-                    this.LastBuild.Equals(input.LastBuild))
-                ) && 
-                (
-                    this.Repository == input.Repository ||
-                    (this.Repository != null &&
-                    this.Repository.Equals(input.Repository))
-                ) && 
-                (
-                    this.SupportedReasons == input.SupportedReasons ||
-                    this.SupportedReasons.Equals(input.SupportedReasons)
-                ) && 
-                (
-                    this.TriggerType == input.TriggerType ||
-                    this.TriggerType.Equals(input.TriggerType)
-                ) && 
-                (
-                    this.CreatedDate == input.CreatedDate ||
-                    (this.CreatedDate != null &&
-                    this.CreatedDate.Equals(input.CreatedDate))
-                ) && 
-                (
-                    this.Id == input.Id ||
-                    this.Id.Equals(input.Id)
-                ) && 
-                (
-                    this.Name == input.Name ||
-                    (this.Name != null &&
-                    this.Name.Equals(input.Name))
-                ) && 
-                (
-                    this.Path == input.Path ||
-                    (this.Path != null &&
-                    this.Path.Equals(input.Path))
-                ) && 
-                (
-                    this.Project == input.Project ||
-                    (this.Project != null &&
-                    this.Project.Equals(input.Project))
-                ) && 
-                (
-                    this.QueueStatus == input.QueueStatus ||
-                    this.QueueStatus.Equals(input.QueueStatus)
-                ) && 
-                (
-                    this.Revision == input.Revision ||
-                    this.Revision.Equals(input.Revision)
-                ) && 
-                (
-                    this.Type == input.Type ||
-                    this.Type.Equals(input.Type)
-                ) && 
-                (
-                    this.Uri == input.Uri ||
-                    (this.Uri != null &&
-                    this.Uri.Equals(input.Uri))
-                ) && 
-                (
-                    this.Url == input.Url ||
-                    (this.Url != null &&
-                    this.Url.Equals(input.Url))
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.Links != null)
-                {
-                    hashCode = (hashCode * 59) + this.Links.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.BatchSize.GetHashCode();
-                if (this.BuildArgs != null)
-                {
-                    hashCode = (hashCode * 59) + this.BuildArgs.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.ContinuousIntegrationQuietPeriod.GetHashCode();
-                if (this.Controller != null)
-                {
-                    hashCode = (hashCode * 59) + this.Controller.GetHashCode();
-                }
-                if (this.CreatedOn != null)
-                {
-                    hashCode = (hashCode * 59) + this.CreatedOn.GetHashCode();
-                }
-                if (this.DefaultDropLocation != null)
-                {
-                    hashCode = (hashCode * 59) + this.DefaultDropLocation.GetHashCode();
-                }
-                if (this.Description != null)
-                {
-                    hashCode = (hashCode * 59) + this.Description.GetHashCode();
-                }
-                if (this.LastBuild != null)
-                {
-                    hashCode = (hashCode * 59) + this.LastBuild.GetHashCode();
-                }
-                if (this.Repository != null)
-                {
-                    hashCode = (hashCode * 59) + this.Repository.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.SupportedReasons.GetHashCode();
-                hashCode = (hashCode * 59) + this.TriggerType.GetHashCode();
-                if (this.CreatedDate != null)
-                {
-                    hashCode = (hashCode * 59) + this.CreatedDate.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.Id.GetHashCode();
-                if (this.Name != null)
-                {
-                    hashCode = (hashCode * 59) + this.Name.GetHashCode();
-                }
-                if (this.Path != null)
-                {
-                    hashCode = (hashCode * 59) + this.Path.GetHashCode();
-                }
-                if (this.Project != null)
-                {
-                    hashCode = (hashCode * 59) + this.Project.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.QueueStatus.GetHashCode();
-                hashCode = (hashCode * 59) + this.Revision.GetHashCode();
-                hashCode = (hashCode * 59) + this.Type.GetHashCode();
-                if (this.Uri != null)
-                {
-                    hashCode = (hashCode * 59) + this.Uri.GetHashCode();
-                }
-                if (this.Url != null)
-                {
-                    hashCode = (hashCode * 59) + this.Url.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

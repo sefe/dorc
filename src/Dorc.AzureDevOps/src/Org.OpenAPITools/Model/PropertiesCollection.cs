@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// The class represents a property bag as a collection of key-value pairs. Values of all primitive types (any type with a &#x60;TypeCode !&#x3D; TypeCode.Object&#x60;) except for &#x60;DBNull&#x60; are accepted. Values of type Byte[], Int32, Double, DateType and String preserve their type, other primitives are retuned as a String. Byte[] expected as base64 encoded string.
     /// </summary>
     [DataContract(Name = "PropertiesCollection")]
-    public partial class PropertiesCollection : IEquatable<PropertiesCollection>, IValidatableObject
+    public partial class PropertiesCollection : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="PropertiesCollection" /> class.
@@ -39,7 +39,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="item">item.</param>
         /// <param name="keys">The set of keys in the collection..</param>
         /// <param name="values">The set of values in the collection..</param>
-        public PropertiesCollection(int count = default(int), Object item = default(Object), List<string> keys = default(List<string>), List<string> values = default(List<string>))
+        public PropertiesCollection(int count = default, Object item = default, List<string> keys = default, List<string> values = default)
         {
             this.Count = count;
             this.Item = item;
@@ -100,82 +100,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as PropertiesCollection);
-        }
-
-        /// <summary>
-        /// Returns true if PropertiesCollection instances are equal
-        /// </summary>
-        /// <param name="input">Instance of PropertiesCollection to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(PropertiesCollection input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.Count == input.Count ||
-                    this.Count.Equals(input.Count)
-                ) && 
-                (
-                    this.Item == input.Item ||
-                    (this.Item != null &&
-                    this.Item.Equals(input.Item))
-                ) && 
-                (
-                    this.Keys == input.Keys ||
-                    this.Keys != null &&
-                    input.Keys != null &&
-                    this.Keys.SequenceEqual(input.Keys)
-                ) && 
-                (
-                    this.Values == input.Values ||
-                    this.Values != null &&
-                    input.Values != null &&
-                    this.Values.SequenceEqual(input.Values)
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                hashCode = (hashCode * 59) + this.Count.GetHashCode();
-                if (this.Item != null)
-                {
-                    hashCode = (hashCode * 59) + this.Item.GetHashCode();
-                }
-                if (this.Keys != null)
-                {
-                    hashCode = (hashCode * 59) + this.Keys.GetHashCode();
-                }
-                if (this.Values != null)
-                {
-                    hashCode = (hashCode * 59) + this.Values.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

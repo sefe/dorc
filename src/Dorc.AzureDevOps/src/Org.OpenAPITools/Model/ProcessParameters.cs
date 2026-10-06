@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// ProcessParameters
     /// </summary>
     [DataContract(Name = "ProcessParameters")]
-    public partial class ProcessParameters : IEquatable<ProcessParameters>, IValidatableObject
+    public partial class ProcessParameters : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="ProcessParameters" /> class.
@@ -38,7 +38,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="dataSourceBindings">dataSourceBindings.</param>
         /// <param name="inputs">inputs.</param>
         /// <param name="sourceDefinitions">sourceDefinitions.</param>
-        public ProcessParameters(List<DataSourceBindingBase> dataSourceBindings = default(List<DataSourceBindingBase>), List<TaskInputDefinitionBase> inputs = default(List<TaskInputDefinitionBase>), List<TaskSourceDefinitionBase> sourceDefinitions = default(List<TaskSourceDefinitionBase>))
+        public ProcessParameters(List<DataSourceBindingBase> dataSourceBindings = default, List<TaskInputDefinitionBase> inputs = default, List<TaskSourceDefinitionBase> sourceDefinitions = default)
         {
             this.DataSourceBindings = dataSourceBindings;
             this.Inputs = inputs;
@@ -88,78 +88,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as ProcessParameters);
-        }
-
-        /// <summary>
-        /// Returns true if ProcessParameters instances are equal
-        /// </summary>
-        /// <param name="input">Instance of ProcessParameters to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(ProcessParameters input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.DataSourceBindings == input.DataSourceBindings ||
-                    this.DataSourceBindings != null &&
-                    input.DataSourceBindings != null &&
-                    this.DataSourceBindings.SequenceEqual(input.DataSourceBindings)
-                ) && 
-                (
-                    this.Inputs == input.Inputs ||
-                    this.Inputs != null &&
-                    input.Inputs != null &&
-                    this.Inputs.SequenceEqual(input.Inputs)
-                ) && 
-                (
-                    this.SourceDefinitions == input.SourceDefinitions ||
-                    this.SourceDefinitions != null &&
-                    input.SourceDefinitions != null &&
-                    this.SourceDefinitions.SequenceEqual(input.SourceDefinitions)
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.DataSourceBindings != null)
-                {
-                    hashCode = (hashCode * 59) + this.DataSourceBindings.GetHashCode();
-                }
-                if (this.Inputs != null)
-                {
-                    hashCode = (hashCode * 59) + this.Inputs.GetHashCode();
-                }
-                if (this.SourceDefinitions != null)
-                {
-                    hashCode = (hashCode * 59) + this.SourceDefinitions.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

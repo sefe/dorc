@@ -27,33 +27,33 @@ using OpenAPIDateConverter = Org.OpenAPITools.Client.OpenAPIDateConverter;
 namespace Org.OpenAPITools.Model
 {
     /// <summary>
-    /// Deployment information for type \&quot;Test\&quot;
+    /// DeploymentTest
     /// </summary>
     [DataContract(Name = "DeploymentTest")]
-    public partial class DeploymentTest : IEquatable<DeploymentTest>, IValidatableObject
+    public partial class DeploymentTest : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="DeploymentTest" /> class.
         /// </summary>
-        /// <param name="runId">runId.</param>
         /// <param name="type">type.</param>
-        public DeploymentTest(int runId = default(int), string type = default(string))
+        /// <param name="runId">runId.</param>
+        public DeploymentTest(string type = default, int runId = default)
         {
-            this.RunId = runId;
             this.Type = type;
+            this.RunId = runId;
         }
-
-        /// <summary>
-        /// Gets or Sets RunId
-        /// </summary>
-        [DataMember(Name = "runId", EmitDefaultValue = false)]
-        public int RunId { get; set; }
 
         /// <summary>
         /// Gets or Sets Type
         /// </summary>
         [DataMember(Name = "type", EmitDefaultValue = false)]
         public string Type { get; set; }
+
+        /// <summary>
+        /// Gets or Sets RunId
+        /// </summary>
+        [DataMember(Name = "runId", EmitDefaultValue = false)]
+        public int RunId { get; set; }
 
         /// <summary>
         /// Returns the string presentation of the object
@@ -63,8 +63,8 @@ namespace Org.OpenAPITools.Model
         {
             StringBuilder sb = new StringBuilder();
             sb.Append("class DeploymentTest {\n");
-            sb.Append("  RunId: ").Append(RunId).Append("\n");
             sb.Append("  Type: ").Append(Type).Append("\n");
+            sb.Append("  RunId: ").Append(RunId).Append("\n");
             sb.Append("}\n");
             return sb.ToString();
         }
@@ -79,62 +79,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as DeploymentTest);
-        }
-
-        /// <summary>
-        /// Returns true if DeploymentTest instances are equal
-        /// </summary>
-        /// <param name="input">Instance of DeploymentTest to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(DeploymentTest input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.RunId == input.RunId ||
-                    this.RunId.Equals(input.RunId)
-                ) && 
-                (
-                    this.Type == input.Type ||
-                    (this.Type != null &&
-                    this.Type.Equals(input.Type))
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                hashCode = (hashCode * 59) + this.RunId.GetHashCode();
-                if (this.Type != null)
-                {
-                    hashCode = (hashCode * 59) + this.Type.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

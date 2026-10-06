@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// Represents a trigger for a buld definition.
     /// </summary>
     [DataContract(Name = "BuildTrigger")]
-    public partial class BuildTrigger : IEquatable<BuildTrigger>, IValidatableObject
+    public partial class BuildTrigger : IValidatableObject
     {
         /// <summary>
         /// The type of the trigger.
@@ -92,7 +92,6 @@ namespace Org.OpenAPITools.Model
             /// </summary>
             [EnumMember(Value = "all")]
             All = 9
-
         }
 
 
@@ -106,7 +105,7 @@ namespace Org.OpenAPITools.Model
         /// Initializes a new instance of the <see cref="BuildTrigger" /> class.
         /// </summary>
         /// <param name="triggerType">The type of the trigger..</param>
-        public BuildTrigger(TriggerTypeEnum? triggerType = default(TriggerTypeEnum?))
+        public BuildTrigger(TriggerTypeEnum? triggerType = default)
         {
             this.TriggerType = triggerType;
         }
@@ -134,53 +133,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as BuildTrigger);
-        }
-
-        /// <summary>
-        /// Returns true if BuildTrigger instances are equal
-        /// </summary>
-        /// <param name="input">Instance of BuildTrigger to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(BuildTrigger input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.TriggerType == input.TriggerType ||
-                    this.TriggerType.Equals(input.TriggerType)
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                hashCode = (hashCode * 59) + this.TriggerType.GetHashCode();
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

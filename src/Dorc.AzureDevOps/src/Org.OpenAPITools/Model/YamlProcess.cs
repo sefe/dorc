@@ -27,25 +27,32 @@ using OpenAPIDateConverter = Org.OpenAPITools.Client.OpenAPIDateConverter;
 namespace Org.OpenAPITools.Model
 {
     /// <summary>
-    /// Represents a YAML process.
+    /// YamlProcess
     /// </summary>
     [DataContract(Name = "YamlProcess")]
-    public partial class YamlProcess : IEquatable<YamlProcess>, IValidatableObject
+    public partial class YamlProcess : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="YamlProcess" /> class.
         /// </summary>
+        /// <param name="type">The type of the process..</param>
         /// <param name="errors">errors.</param>
         /// <param name="resources">resources.</param>
         /// <param name="yamlFilename">The YAML filename..</param>
-        /// <param name="type">The type of the process..</param>
-        public YamlProcess(List<string> errors = default(List<string>), BuildProcessResources resources = default(BuildProcessResources), string yamlFilename = default(string), int type = default(int))
+        public YamlProcess(int type = default, List<string> errors = default, BuildProcessResources resources = default, string yamlFilename = default)
         {
+            this.Type = type;
             this.Errors = errors;
             this.Resources = resources;
             this.YamlFilename = yamlFilename;
-            this.Type = type;
         }
+
+        /// <summary>
+        /// The type of the process.
+        /// </summary>
+        /// <value>The type of the process.</value>
+        [DataMember(Name = "type", EmitDefaultValue = false)]
+        public int Type { get; set; }
 
         /// <summary>
         /// Gets or Sets Errors
@@ -67,13 +74,6 @@ namespace Org.OpenAPITools.Model
         public string YamlFilename { get; set; }
 
         /// <summary>
-        /// The type of the process.
-        /// </summary>
-        /// <value>The type of the process.</value>
-        [DataMember(Name = "type", EmitDefaultValue = false)]
-        public int Type { get; set; }
-
-        /// <summary>
         /// Returns the string presentation of the object
         /// </summary>
         /// <returns>String presentation of the object</returns>
@@ -81,10 +81,10 @@ namespace Org.OpenAPITools.Model
         {
             StringBuilder sb = new StringBuilder();
             sb.Append("class YamlProcess {\n");
+            sb.Append("  Type: ").Append(Type).Append("\n");
             sb.Append("  Errors: ").Append(Errors).Append("\n");
             sb.Append("  Resources: ").Append(Resources).Append("\n");
             sb.Append("  YamlFilename: ").Append(YamlFilename).Append("\n");
-            sb.Append("  Type: ").Append(Type).Append("\n");
             sb.Append("}\n");
             return sb.ToString();
         }
@@ -99,81 +99,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as YamlProcess);
-        }
-
-        /// <summary>
-        /// Returns true if YamlProcess instances are equal
-        /// </summary>
-        /// <param name="input">Instance of YamlProcess to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(YamlProcess input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.Errors == input.Errors ||
-                    this.Errors != null &&
-                    input.Errors != null &&
-                    this.Errors.SequenceEqual(input.Errors)
-                ) && 
-                (
-                    this.Resources == input.Resources ||
-                    (this.Resources != null &&
-                    this.Resources.Equals(input.Resources))
-                ) && 
-                (
-                    this.YamlFilename == input.YamlFilename ||
-                    (this.YamlFilename != null &&
-                    this.YamlFilename.Equals(input.YamlFilename))
-                ) && 
-                (
-                    this.Type == input.Type ||
-                    this.Type.Equals(input.Type)
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.Errors != null)
-                {
-                    hashCode = (hashCode * 59) + this.Errors.GetHashCode();
-                }
-                if (this.Resources != null)
-                {
-                    hashCode = (hashCode * 59) + this.Resources.GetHashCode();
-                }
-                if (this.YamlFilename != null)
-                {
-                    hashCode = (hashCode * 59) + this.YamlFilename.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.Type.GetHashCode();
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

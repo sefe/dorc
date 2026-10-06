@@ -1,6 +1,9 @@
-﻿using Dorc.Api.Interfaces;
+﻿using System.Text.Json;
+using Dorc.Api.Interfaces;
 using Dorc.ApiModel;
 using Dorc.Core.Interfaces;
+using Dorc.PersistentData;
+using Dorc.PersistentData.Model;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -18,19 +21,28 @@ namespace Dorc.Api.Controllers
         private readonly IDatabasesPersistentSource databasesPersistentSource;
         private readonly IEnvironmentsPersistentSource environmentsPersistentSource;
         private readonly ISecurityPrivilegesChecker securityService;
+        private readonly IServersAuditPersistentSource _serversAuditPersistentSource;
+        private readonly IDatabasesAuditPersistentSource _databasesAuditPersistentSource;
+        private readonly IClaimsPrincipalReader _claimsPrincipalReader;
 
         public RefDataEnvironmentsDetailsController(
             IApiServices apiServices,
             IServersPersistentSource serversPersistentSource,
             IDatabasesPersistentSource databasesPersistentSource,
             IEnvironmentsPersistentSource environmentsPersistentSource,
-            ISecurityPrivilegesChecker securityService)
+            ISecurityPrivilegesChecker securityService,
+            IServersAuditPersistentSource serversAuditPersistentSource,
+            IDatabasesAuditPersistentSource databasesAuditPersistentSource,
+            IClaimsPrincipalReader claimsPrincipalReader)
         {
             this.securityService = securityService;
             this.environmentsPersistentSource = environmentsPersistentSource;
             this.databasesPersistentSource = databasesPersistentSource;
             this.serversPersistentSource = serversPersistentSource;
             this.apiServices = apiServices;
+            _serversAuditPersistentSource = serversAuditPersistentSource;
+            _databasesAuditPersistentSource = databasesAuditPersistentSource;
+            _claimsPrincipalReader = claimsPrincipalReader;
         }
 
         /// <summary>
@@ -134,7 +146,13 @@ namespace Dorc.Api.Controllers
             try
             {
                 var env = apiServices.ChangeEnvComponent<EnvironmentApiModel>(envId, componentId, action, component, User);
-                return env.EnvironmentId > 0 ? new ApiBoolResult { Result = true } : new ApiBoolResult { Result = false };
+                if (env.EnvironmentId > 0)
+                {
+                    WriteComponentAudit(envId, componentId, action, component, environment.EnvironmentName);
+                    return new ApiBoolResult { Result = true };
+                }
+
+                return new ApiBoolResult { Result = false };
             }
             catch (Exception ex)
             {
@@ -180,6 +198,31 @@ namespace Dorc.Api.Controllers
             catch (Exception ex)
             {
                 return new ApiBoolResult { Result = false, Message = ex.Message };
+            }
+        }
+
+        private void WriteComponentAudit(int envId, int componentId, string action, string component, string environmentName)
+        {
+            var username = _claimsPrincipalReader.GetUserFullDomainName(User);
+            var actionType = string.Equals(action, "attach", StringComparison.OrdinalIgnoreCase)
+                ? ActionType.Attach
+                : ActionType.Detach;
+
+            var payload = JsonSerializer.Serialize(
+                new { EnvironmentId = envId, EnvironmentName = environmentName, ComponentId = componentId },
+                new JsonSerializerOptions { WriteIndented = true });
+
+            var fromValue = actionType == ActionType.Detach ? payload : null;
+            var toValue = actionType == ActionType.Attach ? payload : null;
+
+            switch (component.ToLowerInvariant())
+            {
+                case "server":
+                    _serversAuditPersistentSource.InsertServerAudit(username, actionType, componentId, fromValue, toValue);
+                    break;
+                case "database":
+                    _databasesAuditPersistentSource.InsertDatabaseAudit(username, actionType, componentId, fromValue, toValue);
+                    break;
             }
         }
     }

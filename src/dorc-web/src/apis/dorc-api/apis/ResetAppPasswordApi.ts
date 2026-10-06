@@ -14,7 +14,7 @@
 import type { Observable } from 'rxjs';
 import type { AjaxResponse } from 'rxjs/ajax';
 import { BaseAPI } from '../runtime';
-import type { OperationOpts, HttpQuery } from '../runtime';
+import type { OperationOpts, HttpHeaders, HttpQuery } from '../runtime';
 import type {
     ApiBoolResult,
 } from '../models';
@@ -36,6 +36,16 @@ export class ResetAppPasswordApi extends BaseAPI {
     resetAppPasswordForUserPut({ envFilter, envName, username }: ResetAppPasswordForUserPutRequest, opts?: OperationOpts): Observable<AjaxResponse<ApiBoolResult>>
     resetAppPasswordForUserPut({ envFilter, envName, username }: ResetAppPasswordForUserPutRequest, opts?: OperationOpts): Observable<ApiBoolResult | AjaxResponse<ApiBoolResult>> {
 
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         const query: HttpQuery = {};
 
         if (envFilter != null) { query['envFilter'] = envFilter; }
@@ -45,6 +55,7 @@ export class ResetAppPasswordApi extends BaseAPI {
         return this.request<ApiBoolResult>({
             url: '/ResetAppPassword/ForUser',
             method: 'PUT',
+            headers,
             query,
         }, opts?.responseOpts);
     };

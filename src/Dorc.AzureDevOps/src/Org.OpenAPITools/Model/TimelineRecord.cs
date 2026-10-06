@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// Represents an entry in a build&#39;s timeline.
     /// </summary>
     [DataContract(Name = "TimelineRecord")]
-    public partial class TimelineRecord : IEquatable<TimelineRecord>, IValidatableObject
+    public partial class TimelineRecord : IValidatableObject
     {
         /// <summary>
         /// The result.
@@ -74,7 +74,6 @@ namespace Org.OpenAPITools.Model
             /// </summary>
             [EnumMember(Value = "abandoned")]
             Abandoned = 6
-
         }
 
 
@@ -108,7 +107,6 @@ namespace Org.OpenAPITools.Model
             /// </summary>
             [EnumMember(Value = "completed")]
             Completed = 3
-
         }
 
 
@@ -148,7 +146,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="url">The REST URL of the timeline record..</param>
         /// <param name="warningCount">The number of warnings produced by this operation..</param>
         /// <param name="workerName">The name of the agent running the operation..</param>
-        public TimelineRecord(ReferenceLinks links = default(ReferenceLinks), int attempt = default(int), int changeId = default(int), string currentOperation = default(string), TimelineReference details = default(TimelineReference), int errorCount = default(int), DateTime finishTime = default(DateTime), Guid id = default(Guid), string identifier = default(string), List<Issue> issues = default(List<Issue>), DateTime lastModified = default(DateTime), BuildLogReference log = default(BuildLogReference), string name = default(string), int order = default(int), Guid parentId = default(Guid), int percentComplete = default(int), List<TimelineAttempt> previousAttempts = default(List<TimelineAttempt>), int queueId = default(int), ResultEnum? result = default(ResultEnum?), string resultCode = default(string), DateTime startTime = default(DateTime), StateEnum? state = default(StateEnum?), TaskReference task = default(TaskReference), string type = default(string), string url = default(string), int warningCount = default(int), string workerName = default(string))
+        public TimelineRecord(ReferenceLinks links = default, int attempt = default, int changeId = default, string currentOperation = default, TimelineReference details = default, int errorCount = default, DateTime finishTime = default, Guid id = default, string identifier = default, List<Issue> issues = default, DateTime lastModified = default, BuildLogReference log = default, string name = default, int order = default, Guid parentId = default, int percentComplete = default, List<TimelineAttempt> previousAttempts = default, int queueId = default, ResultEnum? result = default, string resultCode = default, DateTime startTime = default, StateEnum? state = default, TaskReference task = default, string type = default, string url = default, int warningCount = default, string workerName = default)
         {
             this.Links = links;
             this.Attempt = attempt;
@@ -397,257 +395,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as TimelineRecord);
-        }
-
-        /// <summary>
-        /// Returns true if TimelineRecord instances are equal
-        /// </summary>
-        /// <param name="input">Instance of TimelineRecord to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(TimelineRecord input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.Links == input.Links ||
-                    (this.Links != null &&
-                    this.Links.Equals(input.Links))
-                ) && 
-                (
-                    this.Attempt == input.Attempt ||
-                    this.Attempt.Equals(input.Attempt)
-                ) && 
-                (
-                    this.ChangeId == input.ChangeId ||
-                    this.ChangeId.Equals(input.ChangeId)
-                ) && 
-                (
-                    this.CurrentOperation == input.CurrentOperation ||
-                    (this.CurrentOperation != null &&
-                    this.CurrentOperation.Equals(input.CurrentOperation))
-                ) && 
-                (
-                    this.Details == input.Details ||
-                    (this.Details != null &&
-                    this.Details.Equals(input.Details))
-                ) && 
-                (
-                    this.ErrorCount == input.ErrorCount ||
-                    this.ErrorCount.Equals(input.ErrorCount)
-                ) && 
-                (
-                    this.FinishTime == input.FinishTime ||
-                    (this.FinishTime != null &&
-                    this.FinishTime.Equals(input.FinishTime))
-                ) && 
-                (
-                    this.Id == input.Id ||
-                    (this.Id != null &&
-                    this.Id.Equals(input.Id))
-                ) && 
-                (
-                    this.Identifier == input.Identifier ||
-                    (this.Identifier != null &&
-                    this.Identifier.Equals(input.Identifier))
-                ) && 
-                (
-                    this.Issues == input.Issues ||
-                    this.Issues != null &&
-                    input.Issues != null &&
-                    this.Issues.SequenceEqual(input.Issues)
-                ) && 
-                (
-                    this.LastModified == input.LastModified ||
-                    (this.LastModified != null &&
-                    this.LastModified.Equals(input.LastModified))
-                ) && 
-                (
-                    this.Log == input.Log ||
-                    (this.Log != null &&
-                    this.Log.Equals(input.Log))
-                ) && 
-                (
-                    this.Name == input.Name ||
-                    (this.Name != null &&
-                    this.Name.Equals(input.Name))
-                ) && 
-                (
-                    this.Order == input.Order ||
-                    this.Order.Equals(input.Order)
-                ) && 
-                (
-                    this.ParentId == input.ParentId ||
-                    (this.ParentId != null &&
-                    this.ParentId.Equals(input.ParentId))
-                ) && 
-                (
-                    this.PercentComplete == input.PercentComplete ||
-                    this.PercentComplete.Equals(input.PercentComplete)
-                ) && 
-                (
-                    this.PreviousAttempts == input.PreviousAttempts ||
-                    this.PreviousAttempts != null &&
-                    input.PreviousAttempts != null &&
-                    this.PreviousAttempts.SequenceEqual(input.PreviousAttempts)
-                ) && 
-                (
-                    this.QueueId == input.QueueId ||
-                    this.QueueId.Equals(input.QueueId)
-                ) && 
-                (
-                    this.Result == input.Result ||
-                    this.Result.Equals(input.Result)
-                ) && 
-                (
-                    this.ResultCode == input.ResultCode ||
-                    (this.ResultCode != null &&
-                    this.ResultCode.Equals(input.ResultCode))
-                ) && 
-                (
-                    this.StartTime == input.StartTime ||
-                    (this.StartTime != null &&
-                    this.StartTime.Equals(input.StartTime))
-                ) && 
-                (
-                    this.State == input.State ||
-                    this.State.Equals(input.State)
-                ) && 
-                (
-                    this.Task == input.Task ||
-                    (this.Task != null &&
-                    this.Task.Equals(input.Task))
-                ) && 
-                (
-                    this.Type == input.Type ||
-                    (this.Type != null &&
-                    this.Type.Equals(input.Type))
-                ) && 
-                (
-                    this.Url == input.Url ||
-                    (this.Url != null &&
-                    this.Url.Equals(input.Url))
-                ) && 
-                (
-                    this.WarningCount == input.WarningCount ||
-                    this.WarningCount.Equals(input.WarningCount)
-                ) && 
-                (
-                    this.WorkerName == input.WorkerName ||
-                    (this.WorkerName != null &&
-                    this.WorkerName.Equals(input.WorkerName))
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.Links != null)
-                {
-                    hashCode = (hashCode * 59) + this.Links.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.Attempt.GetHashCode();
-                hashCode = (hashCode * 59) + this.ChangeId.GetHashCode();
-                if (this.CurrentOperation != null)
-                {
-                    hashCode = (hashCode * 59) + this.CurrentOperation.GetHashCode();
-                }
-                if (this.Details != null)
-                {
-                    hashCode = (hashCode * 59) + this.Details.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.ErrorCount.GetHashCode();
-                if (this.FinishTime != null)
-                {
-                    hashCode = (hashCode * 59) + this.FinishTime.GetHashCode();
-                }
-                if (this.Id != null)
-                {
-                    hashCode = (hashCode * 59) + this.Id.GetHashCode();
-                }
-                if (this.Identifier != null)
-                {
-                    hashCode = (hashCode * 59) + this.Identifier.GetHashCode();
-                }
-                if (this.Issues != null)
-                {
-                    hashCode = (hashCode * 59) + this.Issues.GetHashCode();
-                }
-                if (this.LastModified != null)
-                {
-                    hashCode = (hashCode * 59) + this.LastModified.GetHashCode();
-                }
-                if (this.Log != null)
-                {
-                    hashCode = (hashCode * 59) + this.Log.GetHashCode();
-                }
-                if (this.Name != null)
-                {
-                    hashCode = (hashCode * 59) + this.Name.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.Order.GetHashCode();
-                if (this.ParentId != null)
-                {
-                    hashCode = (hashCode * 59) + this.ParentId.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.PercentComplete.GetHashCode();
-                if (this.PreviousAttempts != null)
-                {
-                    hashCode = (hashCode * 59) + this.PreviousAttempts.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.QueueId.GetHashCode();
-                hashCode = (hashCode * 59) + this.Result.GetHashCode();
-                if (this.ResultCode != null)
-                {
-                    hashCode = (hashCode * 59) + this.ResultCode.GetHashCode();
-                }
-                if (this.StartTime != null)
-                {
-                    hashCode = (hashCode * 59) + this.StartTime.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.State.GetHashCode();
-                if (this.Task != null)
-                {
-                    hashCode = (hashCode * 59) + this.Task.GetHashCode();
-                }
-                if (this.Type != null)
-                {
-                    hashCode = (hashCode * 59) + this.Type.GetHashCode();
-                }
-                if (this.Url != null)
-                {
-                    hashCode = (hashCode * 59) + this.Url.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.WarningCount.GetHashCode();
-                if (this.WorkerName != null)
-                {
-                    hashCode = (hashCode * 59) + this.WorkerName.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

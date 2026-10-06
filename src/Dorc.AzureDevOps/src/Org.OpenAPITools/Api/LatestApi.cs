@@ -42,7 +42,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="branchName">optional parameter that indicates the specific branch to use (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>Build</returns>
-        Build LatestGet(string organization, string project, string definition, string apiVersion, string? branchName = default(string?), int operationIndex = 0);
+        Build LatestGet(string organization, string project, string definition, string apiVersion, string? branchName = default, int operationIndex = 0);
 
         /// <summary>
         /// 
@@ -58,7 +58,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="branchName">optional parameter that indicates the specific branch to use (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>ApiResponse of Build</returns>
-        ApiResponse<Build> LatestGetWithHttpInfo(string organization, string project, string definition, string apiVersion, string? branchName = default(string?), int operationIndex = 0);
+        ApiResponse<Build> LatestGetWithHttpInfo(string organization, string project, string definition, string apiVersion, string? branchName = default, int operationIndex = 0);
         #endregion Synchronous Operations
     }
 
@@ -83,7 +83,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of Build</returns>
-        System.Threading.Tasks.Task<Build> LatestGetAsync(string organization, string project, string definition, string apiVersion, string? branchName = default(string?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<Build> LatestGetAsync(string organization, string project, string definition, string apiVersion, string? branchName = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
 
         /// <summary>
         /// 
@@ -100,7 +100,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse (Build)</returns>
-        System.Threading.Tasks.Task<ApiResponse<Build>> LatestGetWithHttpInfoAsync(string organization, string project, string definition, string apiVersion, string? branchName = default(string?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken));
+        System.Threading.Tasks.Task<ApiResponse<Build>> LatestGetWithHttpInfoAsync(string organization, string project, string definition, string apiVersion, string? branchName = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default);
         #endregion Asynchronous Operations
     }
 
@@ -232,7 +232,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="branchName">optional parameter that indicates the specific branch to use (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>Build</returns>
-        public Build LatestGet(string organization, string project, string definition, string apiVersion, string? branchName = default(string?), int operationIndex = 0)
+        public Build LatestGet(string organization, string project, string definition, string apiVersion, string? branchName = default, int operationIndex = 0)
         {
             Org.OpenAPITools.Client.ApiResponse<Build> localVarResponse = LatestGetWithHttpInfo(organization, project, definition, apiVersion, branchName);
             return localVarResponse.Data;
@@ -249,7 +249,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="branchName">optional parameter that indicates the specific branch to use (optional)</param>
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <returns>ApiResponse of Build</returns>
-        public Org.OpenAPITools.Client.ApiResponse<Build> LatestGetWithHttpInfo(string organization, string project, string definition, string apiVersion, string? branchName = default(string?), int operationIndex = 0)
+        public Org.OpenAPITools.Client.ApiResponse<Build> LatestGetWithHttpInfo(string organization, string project, string definition, string apiVersion, string? branchName = default, int operationIndex = 0)
         {
             // verify the required parameter 'organization' is set
             if (organization == null)
@@ -286,6 +286,7 @@ namespace Org.OpenAPITools.Api
             };
 
             var localVarContentType = Org.OpenAPITools.Client.ClientUtils.SelectHeaderContentType(_contentTypes);
+            var localVarMultipartFormData = localVarContentType == "multipart/form-data";
             if (localVarContentType != null)
             {
                 localVarRequestOptions.HeaderParameters.Add("Content-Type", localVarContentType);
@@ -352,7 +353,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of Build</returns>
-        public async System.Threading.Tasks.Task<Build> LatestGetAsync(string organization, string project, string definition, string apiVersion, string? branchName = default(string?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public async System.Threading.Tasks.Task<Build> LatestGetAsync(string organization, string project, string definition, string apiVersion, string? branchName = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             Org.OpenAPITools.Client.ApiResponse<Build> localVarResponse = await LatestGetWithHttpInfoAsync(organization, project, definition, apiVersion, branchName, operationIndex, cancellationToken).ConfigureAwait(false);
             return localVarResponse.Data;
@@ -370,7 +371,7 @@ namespace Org.OpenAPITools.Api
         /// <param name="operationIndex">Index associated with the operation.</param>
         /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
         /// <returns>Task of ApiResponse (Build)</returns>
-        public async System.Threading.Tasks.Task<Org.OpenAPITools.Client.ApiResponse<Build>> LatestGetWithHttpInfoAsync(string organization, string project, string definition, string apiVersion, string? branchName = default(string?), int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken))
+        public async System.Threading.Tasks.Task<Org.OpenAPITools.Client.ApiResponse<Build>> LatestGetWithHttpInfoAsync(string organization, string project, string definition, string apiVersion, string? branchName = default, int operationIndex = 0, System.Threading.CancellationToken cancellationToken = default)
         {
             // verify the required parameter 'organization' is set
             if (organization == null)

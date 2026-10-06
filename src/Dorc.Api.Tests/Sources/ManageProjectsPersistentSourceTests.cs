@@ -1,8 +1,9 @@
-using Dorc.Api.Tests.Mocks;
+﻿using Dorc.Api.Tests.Mocks;
 using Dorc.ApiModel;
 using Dorc.PersistentData.Contexts;
 using Dorc.PersistentData.Model;
 using Dorc.PersistentData.Sources;
+using Dorc.PersistentData.Security;
 using Dorc.PersistentData.Sources.Interfaces;
 using NSubstitute;
 
@@ -22,12 +23,21 @@ namespace Dorc.Api.Tests.Sources
         private IRequestsPersistentSource _requestsPersistentSource;
         private ManageProjectsPersistentSource _source;
         private IDeploymentContext _context;
+        private IScriptsAuditPersistentSource _scriptsAuditPersistentSource;
+        private ISourceHostAllowList _sourceHostAllowList;
 
         [TestInitialize]
         public void Setup()
         {
             _contextFactory = Substitute.For<IDeploymentContextFactory>();
             _requestsPersistentSource = Substitute.For<IRequestsPersistentSource>();
+            _scriptsAuditPersistentSource = Substitute.For<IScriptsAuditPersistentSource>();
+
+            // Unconfigured by default: matches an estate that has not filled the allow-list in,
+            // and keeps the pre-existing tests testing what they were written to test.
+            _sourceHostAllowList = Substitute.For<ISourceHostAllowList>();
+            _sourceHostAllowList.IsUnconfigured.Returns(true);
+            _sourceHostAllowList.CheckTerraformSource(Arg.Any<string>()).Returns(PolicyDecision.Allow());
             _context = Substitute.For<IDeploymentContext>();
             
             // Setup the context factory to return our mocked context
@@ -42,7 +52,7 @@ namespace Dorc.Api.Tests.Sources
             var projectsDbSet = DbContextMock.GetQueryableMockDbSet(emptyProjects);
             _context.Projects.Returns(projectsDbSet);
             
-            _source = new ManageProjectsPersistentSource(_contextFactory, _requestsPersistentSource);
+            _source = new ManageProjectsPersistentSource(_contextFactory, _requestsPersistentSource, _scriptsAuditPersistentSource, _sourceHostAllowList);
         }
 
         [TestMethod]
@@ -79,7 +89,7 @@ namespace Dorc.Api.Tests.Sources
             };
 
             // Act
-            _source.UpdateComponent(apiComponent, 1, null);
+            _source.UpdateComponent(apiComponent, 1, null, "testuser");
 
             // Assert - Method should return early without calling context
             _contextFactory.DidNotReceive().GetContext();
@@ -125,6 +135,98 @@ namespace Dorc.Api.Tests.Sources
                 {
                     ComponentId = 0, // Use 0 so it doesn't try to validate against database
                     ComponentName = longName,
+                    ScriptPath = "test.ps1"
+                }
+            };
+
+            // Act & Assert
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                _source.ValidateComponents(components, 1, HttpRequestType.Put));
+        }
+
+        [TestMethod]
+        public void ValidateComponents_ComponentNameWithInvalidCharacters_ThrowsException()
+        {
+            // Arrange
+            var components = new List<ComponentApiModel>
+            {
+                new ComponentApiModel
+                {
+                    ComponentId = 0,
+                    ComponentName = "Component\tWith\nTabs",
+                    ScriptPath = "test.ps1"
+                }
+            };
+
+            // Act & Assert
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                _source.ValidateComponents(components, 1, HttpRequestType.Put));
+        }
+
+        [TestMethod]
+        public void ValidateComponents_ComponentNameWithCurlyBraces_NoException()
+        {
+            // Arrange
+            var components = new List<ComponentApiModel>
+            {
+                new ComponentApiModel
+                {
+                    ComponentId = 0,
+                    ComponentName = "Component{Valid}",
+                    ScriptPath = "test.ps1"
+                }
+            };
+
+            // Act & Assert - Should not throw
+            _source.ValidateComponents(components, 1, HttpRequestType.Put);
+        }
+
+        [TestMethod]
+        public void ValidateComponents_ComponentNameWithSquareBrackets_NoException()
+        {
+            // Arrange
+            var components = new List<ComponentApiModel>
+            {
+                new ComponentApiModel
+                {
+                    ComponentId = 0,
+                    ComponentName = "Component[0]",
+                    ScriptPath = "test.ps1"
+                }
+            };
+
+            // Act & Assert - Should not throw
+            _source.ValidateComponents(components, 1, HttpRequestType.Put);
+        }
+
+        [TestMethod]
+        public void ValidateComponents_ComponentNameWithAllowedSpecialChars_NoException()
+        {
+            // Arrange - all allowed special characters
+            var components = new List<ComponentApiModel>
+            {
+                new ComponentApiModel
+                {
+                    ComponentId = 0,
+                    ComponentName = "My-Component_v1.0 (test)",
+                    ScriptPath = "test.ps1"
+                }
+            };
+
+            // Act & Assert - Should not throw
+            _source.ValidateComponents(components, 1, HttpRequestType.Put);
+        }
+
+        [TestMethod]
+        public void ValidateComponents_ComponentNameWithPercent_ThrowsException()
+        {
+            // Arrange
+            var components = new List<ComponentApiModel>
+            {
+                new ComponentApiModel
+                {
+                    ComponentId = 0,
+                    ComponentName = "Component%20Name",
                     ScriptPath = "test.ps1"
                 }
             };
@@ -251,16 +353,134 @@ namespace Dorc.Api.Tests.Sources
             };
 
             var callCount = 0;
-            Action<ComponentApiModel, int, int?> action = (component, projectId, parentId) =>
+            Action<ComponentApiModel, int, int?, string> action = (component, projectId, parentId, username) =>
             {
                 callCount++;
             };
 
             // Act
-            _source.TraverseComponents(components, null, 1, action);
+            _source.TraverseComponents(components, null, 1, action, "testuser");
 
             // Assert
             Assert.AreEqual(2, callCount, "Action should be called for parent and child");
+        }
+        // --- S-010 / S-011: what a component may point at ------------------------------
+
+        private static IList<ComponentApiModel> OneComponent(
+            string scriptPath, ComponentType type = ComponentType.PowerShell) =>
+            new List<ComponentApiModel>
+            {
+                new()
+                {
+                    ComponentId = 0,
+                    ComponentName = "TestComponent",
+                    ScriptPath = scriptPath,
+                    ComponentType = type,
+                    PSVersion = "7.4"
+                }
+            };
+
+        [TestMethod]
+        public void ValidateComponents_AcceptsARelativeScriptPath()
+        {
+            _source.ValidateComponents(OneComponent(@"00 Generic\Deploy.ps1"), 1, HttpRequestType.Post);
+        }
+
+        /// <summary>
+        /// Path.Combine discards the script root when the stored path is rooted, so this does
+        /// not resolve beneath the root - it replaces it, and runs as the deployment account.
+        /// </summary>
+        [TestMethod]
+        public void ValidateComponents_RejectsAnAbsoluteScriptPath()
+        {
+            var refusal = Assert.ThrowsExactly<ArgumentOutOfRangeException>(() =>
+                _source.ValidateComponents(OneComponent(@"\\attacker\share\payload.ps1"), 1, HttpRequestType.Post));
+
+            StringAssert.Contains(refusal.Message, "absolute path");
+        }
+
+        [TestMethod]
+        public void ValidateComponents_RejectsScriptPathTraversal()
+        {
+            Assert.ThrowsExactly<ArgumentOutOfRangeException>(() =>
+                _source.ValidateComponents(OneComponent(@"..\..\payload.ps1"), 1, HttpRequestType.Post));
+        }
+
+        /// <summary>
+        /// A Terraform component's ScriptPath is the source location, not a path relative to
+        /// the script root, and is legitimately absolute. Applying the relativity rule to it
+        /// would reject every Terraform component on the SharedFolder source type.
+        /// </summary>
+        [TestMethod]
+        public void ValidateComponents_AcceptsAnAbsoluteTerraformSourceLocation()
+        {
+            _source.ValidateComponents(
+                OneComponent(@"\\buildserver\terraform\infra", ComponentType.Terraform), 1, HttpRequestType.Post);
+        }
+
+        [TestMethod]
+        public void ValidateComponents_RejectsATerraformSourceHostThatIsNotAllowed()
+        {
+            _sourceHostAllowList.IsUnconfigured.Returns(false);
+            _sourceHostAllowList
+                .CheckTerraformSource(Arg.Any<string>())
+                .Returns(PolicyDecision.Refuse("its host 'attacker' is not permitted."));
+
+            var refusal = Assert.ThrowsExactly<ArgumentOutOfRangeException>(() =>
+                _source.ValidateComponents(
+                    OneComponent(@"\\attacker\terraform\infra", ComponentType.Terraform), 1, HttpRequestType.Post));
+
+            StringAssert.Contains(refusal.Message, "not permitted");
+        }
+
+        [TestMethod]
+        public void CreateComponent_RejectsATerraformSourceHostBeforePersistence()
+        {
+            _sourceHostAllowList.IsUnconfigured.Returns(false);
+            _sourceHostAllowList
+                .CheckTerraformSource(Arg.Any<string>())
+                .Returns(PolicyDecision.Refuse("its host 'attacker' is not permitted."));
+            _contextFactory.ClearReceivedCalls();
+
+            var component = OneComponent(
+                @"\\attacker\terraform\infra", ComponentType.Terraform).Single();
+
+            Assert.ThrowsExactly<ArgumentOutOfRangeException>(() =>
+                _source.CreateComponent(component, 1, null, "testuser"));
+            _contextFactory.DidNotReceive().GetContext();
+        }
+
+        [TestMethod]
+        public void UpdateComponent_RejectsATerraformSourceHostBeforePersistence()
+        {
+            _sourceHostAllowList.IsUnconfigured.Returns(false);
+            _sourceHostAllowList
+                .CheckTerraformSource(Arg.Any<string>())
+                .Returns(PolicyDecision.Refuse("its host 'attacker' is not permitted."));
+            _contextFactory.ClearReceivedCalls();
+
+            var component = OneComponent(
+                @"\\attacker\terraform\infra", ComponentType.Terraform).Single();
+            component.ComponentId = 7;
+
+            Assert.ThrowsExactly<ArgumentOutOfRangeException>(() =>
+                _source.UpdateComponent(component, 1, null, "testuser"));
+            _contextFactory.DidNotReceive().GetContext();
+        }
+
+        /// <summary>
+        /// With no allow-list configured the host check does not apply. Enforcing against an
+        /// unfilled list would reject every project and component edit in every deployment on
+        /// the day this ships.
+        /// </summary>
+        [TestMethod]
+        public void ValidateComponents_DoesNotCheckTerraformHostsWhenNoAllowListIsConfigured()
+        {
+            _source.ValidateComponents(
+                OneComponent(@"\\anywhere\terraform\infra", ComponentType.Terraform), 1, HttpRequestType.Post);
+
+            _sourceHostAllowList.DidNotReceive()
+                .CheckTerraformSource(Arg.Any<string>());
         }
     }
 }

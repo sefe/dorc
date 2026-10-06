@@ -27,6 +27,7 @@ export interface AccessControlApiModel {
      */
     Name?: string | null;
     /**
+     * @deprecated
      * @type {string}
      * @memberof AccessControlApiModel
      */

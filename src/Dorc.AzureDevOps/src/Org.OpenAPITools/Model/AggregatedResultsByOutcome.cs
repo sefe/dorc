@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// AggregatedResultsByOutcome
     /// </summary>
     [DataContract(Name = "AggregatedResultsByOutcome")]
-    public partial class AggregatedResultsByOutcome : IEquatable<AggregatedResultsByOutcome>, IValidatableObject
+    public partial class AggregatedResultsByOutcome : IValidatableObject
     {
         /// <summary>
         /// Defines Outcome
@@ -127,7 +127,6 @@ namespace Org.OpenAPITools.Model
             /// </summary>
             [EnumMember(Value = "notImpacted")]
             NotImpacted = 15
-
         }
 
 
@@ -145,7 +144,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="groupByValue">groupByValue.</param>
         /// <param name="outcome">outcome.</param>
         /// <param name="rerunResultCount">rerunResultCount.</param>
-        public AggregatedResultsByOutcome(int count = default(int), string duration = default(string), string groupByField = default(string), Object groupByValue = default(Object), OutcomeEnum? outcome = default(OutcomeEnum?), int rerunResultCount = default(int))
+        public AggregatedResultsByOutcome(int count = default, string duration = default, string groupByField = default, Object groupByValue = default, OutcomeEnum? outcome = default, int rerunResultCount = default)
         {
             this.Count = count;
             this.Duration = duration;
@@ -213,90 +212,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as AggregatedResultsByOutcome);
-        }
-
-        /// <summary>
-        /// Returns true if AggregatedResultsByOutcome instances are equal
-        /// </summary>
-        /// <param name="input">Instance of AggregatedResultsByOutcome to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(AggregatedResultsByOutcome input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.Count == input.Count ||
-                    this.Count.Equals(input.Count)
-                ) && 
-                (
-                    this.Duration == input.Duration ||
-                    (this.Duration != null &&
-                    this.Duration.Equals(input.Duration))
-                ) && 
-                (
-                    this.GroupByField == input.GroupByField ||
-                    (this.GroupByField != null &&
-                    this.GroupByField.Equals(input.GroupByField))
-                ) && 
-                (
-                    this.GroupByValue == input.GroupByValue ||
-                    (this.GroupByValue != null &&
-                    this.GroupByValue.Equals(input.GroupByValue))
-                ) && 
-                (
-                    this.Outcome == input.Outcome ||
-                    this.Outcome.Equals(input.Outcome)
-                ) && 
-                (
-                    this.RerunResultCount == input.RerunResultCount ||
-                    this.RerunResultCount.Equals(input.RerunResultCount)
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                hashCode = (hashCode * 59) + this.Count.GetHashCode();
-                if (this.Duration != null)
-                {
-                    hashCode = (hashCode * 59) + this.Duration.GetHashCode();
-                }
-                if (this.GroupByField != null)
-                {
-                    hashCode = (hashCode * 59) + this.GroupByField.GetHashCode();
-                }
-                if (this.GroupByValue != null)
-                {
-                    hashCode = (hashCode * 59) + this.GroupByValue.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.Outcome.GetHashCode();
-                hashCode = (hashCode * 59) + this.RerunResultCount.GetHashCode();
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

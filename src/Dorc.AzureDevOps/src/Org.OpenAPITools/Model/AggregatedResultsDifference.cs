@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// AggregatedResultsDifference
     /// </summary>
     [DataContract(Name = "AggregatedResultsDifference")]
-    public partial class AggregatedResultsDifference : IEquatable<AggregatedResultsDifference>, IValidatableObject
+    public partial class AggregatedResultsDifference : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="AggregatedResultsDifference" /> class.
@@ -41,7 +41,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="increaseInOtherTests">increaseInOtherTests.</param>
         /// <param name="increaseInPassedTests">increaseInPassedTests.</param>
         /// <param name="increaseInTotalTests">increaseInTotalTests.</param>
-        public AggregatedResultsDifference(string increaseInDuration = default(string), int increaseInFailures = default(int), int increaseInNonImpactedTests = default(int), int increaseInOtherTests = default(int), int increaseInPassedTests = default(int), int increaseInTotalTests = default(int))
+        public AggregatedResultsDifference(string increaseInDuration = default, int increaseInFailures = default, int increaseInNonImpactedTests = default, int increaseInOtherTests = default, int increaseInPassedTests = default, int increaseInTotalTests = default)
         {
             this.IncreaseInDuration = increaseInDuration;
             this.IncreaseInFailures = increaseInFailures;
@@ -115,82 +115,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as AggregatedResultsDifference);
-        }
-
-        /// <summary>
-        /// Returns true if AggregatedResultsDifference instances are equal
-        /// </summary>
-        /// <param name="input">Instance of AggregatedResultsDifference to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(AggregatedResultsDifference input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.IncreaseInDuration == input.IncreaseInDuration ||
-                    (this.IncreaseInDuration != null &&
-                    this.IncreaseInDuration.Equals(input.IncreaseInDuration))
-                ) && 
-                (
-                    this.IncreaseInFailures == input.IncreaseInFailures ||
-                    this.IncreaseInFailures.Equals(input.IncreaseInFailures)
-                ) && 
-                (
-                    this.IncreaseInNonImpactedTests == input.IncreaseInNonImpactedTests ||
-                    this.IncreaseInNonImpactedTests.Equals(input.IncreaseInNonImpactedTests)
-                ) && 
-                (
-                    this.IncreaseInOtherTests == input.IncreaseInOtherTests ||
-                    this.IncreaseInOtherTests.Equals(input.IncreaseInOtherTests)
-                ) && 
-                (
-                    this.IncreaseInPassedTests == input.IncreaseInPassedTests ||
-                    this.IncreaseInPassedTests.Equals(input.IncreaseInPassedTests)
-                ) && 
-                (
-                    this.IncreaseInTotalTests == input.IncreaseInTotalTests ||
-                    this.IncreaseInTotalTests.Equals(input.IncreaseInTotalTests)
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.IncreaseInDuration != null)
-                {
-                    hashCode = (hashCode * 59) + this.IncreaseInDuration.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.IncreaseInFailures.GetHashCode();
-                hashCode = (hashCode * 59) + this.IncreaseInNonImpactedTests.GetHashCode();
-                hashCode = (hashCode * 59) + this.IncreaseInOtherTests.GetHashCode();
-                hashCode = (hashCode * 59) + this.IncreaseInPassedTests.GetHashCode();
-                hashCode = (hashCode * 59) + this.IncreaseInTotalTests.GetHashCode();
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

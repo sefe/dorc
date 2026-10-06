@@ -30,13 +30,13 @@ namespace Org.OpenAPITools.Model
     /// The class to represent a collection of REST reference links.
     /// </summary>
     [DataContract(Name = "ReferenceLinks")]
-    public partial class ReferenceLinks : IEquatable<ReferenceLinks>, IValidatableObject
+    public partial class ReferenceLinks : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="ReferenceLinks" /> class.
         /// </summary>
         /// <param name="links">The readonly view of the links.  Because Reference links are readonly, we only want to expose them as read only..</param>
-        public ReferenceLinks(Dictionary<string, Object> links = default(Dictionary<string, Object>))
+        public ReferenceLinks(Dictionary<string, Object> links = default)
         {
             this.Links = links;
         }
@@ -71,58 +71,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as ReferenceLinks);
-        }
-
-        /// <summary>
-        /// Returns true if ReferenceLinks instances are equal
-        /// </summary>
-        /// <param name="input">Instance of ReferenceLinks to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(ReferenceLinks input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.Links == input.Links ||
-                    this.Links != null &&
-                    input.Links != null &&
-                    this.Links.SequenceEqual(input.Links)
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.Links != null)
-                {
-                    hashCode = (hashCode * 59) + this.Links.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

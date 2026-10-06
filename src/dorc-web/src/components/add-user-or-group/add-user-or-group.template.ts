@@ -14,6 +14,7 @@ import { LoginType } from './LoginType';
 import './add-windows-user-or-group.ts';
 import './add-sql-user-or-group.ts';
 import './add-endur-user-or-group.ts';
+import '@vaadin/vertical-layout';
 
 export function addUserOrGroupTemplate(this: AddUserOrGroup) {
   return html`

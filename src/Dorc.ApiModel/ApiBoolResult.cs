@@ -9,10 +9,12 @@ namespace Dorc.ApiModel
     {
         public bool Result { set; get; }
         public string Message { set; get; }
+        public bool? RequiresConfirmation { set; get; }
         public void GetObjectData(SerializationInfo info, StreamingContext context)
         {
             info.AddValue("Message", Message);
             info.AddValue("Result", Result);
+            info.AddValue("RequiresConfirmation", RequiresConfirmation);
         }
     }
 }

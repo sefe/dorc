@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// Represents a Subversion mapping entry.
     /// </summary>
     [DataContract(Name = "SvnMappingDetails")]
-    public partial class SvnMappingDetails : IEquatable<SvnMappingDetails>, IValidatableObject
+    public partial class SvnMappingDetails : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="SvnMappingDetails" /> class.
@@ -40,7 +40,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="localPath">The local path..</param>
         /// <param name="revision">The revision..</param>
         /// <param name="serverPath">The server path..</param>
-        public SvnMappingDetails(int depth = default(int), bool ignoreExternals = default(bool), string localPath = default(string), string revision = default(string), string serverPath = default(string))
+        public SvnMappingDetails(int depth = default, bool ignoreExternals = default, string localPath = default, string revision = default, string serverPath = default)
         {
             this.Depth = depth;
             this.IgnoreExternals = ignoreExternals;
@@ -111,85 +111,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as SvnMappingDetails);
-        }
-
-        /// <summary>
-        /// Returns true if SvnMappingDetails instances are equal
-        /// </summary>
-        /// <param name="input">Instance of SvnMappingDetails to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(SvnMappingDetails input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.Depth == input.Depth ||
-                    this.Depth.Equals(input.Depth)
-                ) && 
-                (
-                    this.IgnoreExternals == input.IgnoreExternals ||
-                    this.IgnoreExternals.Equals(input.IgnoreExternals)
-                ) && 
-                (
-                    this.LocalPath == input.LocalPath ||
-                    (this.LocalPath != null &&
-                    this.LocalPath.Equals(input.LocalPath))
-                ) && 
-                (
-                    this.Revision == input.Revision ||
-                    (this.Revision != null &&
-                    this.Revision.Equals(input.Revision))
-                ) && 
-                (
-                    this.ServerPath == input.ServerPath ||
-                    (this.ServerPath != null &&
-                    this.ServerPath.Equals(input.ServerPath))
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                hashCode = (hashCode * 59) + this.Depth.GetHashCode();
-                hashCode = (hashCode * 59) + this.IgnoreExternals.GetHashCode();
-                if (this.LocalPath != null)
-                {
-                    hashCode = (hashCode * 59) + this.LocalPath.GetHashCode();
-                }
-                if (this.Revision != null)
-                {
-                    hashCode = (hashCode * 59) + this.Revision.GetHashCode();
-                }
-                if (this.ServerPath != null)
-                {
-                    hashCode = (hashCode * 59) + this.ServerPath.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

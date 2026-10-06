@@ -30,14 +30,14 @@ namespace Org.OpenAPITools.Model
     /// ResourceRef
     /// </summary>
     [DataContract(Name = "ResourceRef")]
-    public partial class ResourceRef : IEquatable<ResourceRef>, IValidatableObject
+    public partial class ResourceRef : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="ResourceRef" /> class.
         /// </summary>
         /// <param name="id">id.</param>
         /// <param name="url">url.</param>
-        public ResourceRef(string id = default(string), string url = default(string))
+        public ResourceRef(string id = default, string url = default)
         {
             this.Id = id;
             this.Url = url;
@@ -79,66 +79,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as ResourceRef);
-        }
-
-        /// <summary>
-        /// Returns true if ResourceRef instances are equal
-        /// </summary>
-        /// <param name="input">Instance of ResourceRef to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(ResourceRef input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.Id == input.Id ||
-                    (this.Id != null &&
-                    this.Id.Equals(input.Id))
-                ) && 
-                (
-                    this.Url == input.Url ||
-                    (this.Url != null &&
-                    this.Url.Equals(input.Url))
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.Id != null)
-                {
-                    hashCode = (hashCode * 59) + this.Id.GetHashCode();
-                }
-                if (this.Url != null)
-                {
-                    hashCode = (hashCode * 59) + this.Url.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

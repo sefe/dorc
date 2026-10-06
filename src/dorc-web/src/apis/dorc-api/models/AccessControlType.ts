@@ -17,7 +17,7 @@
  * @enum {string}
  */
 export enum AccessControlType {
-    NUMBER_0 = 0,
-    NUMBER_1 = 1
+    Project = 'Project',
+    Environment = 'Environment'
 }
 

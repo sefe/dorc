@@ -14,7 +14,7 @@
 import type { Observable } from 'rxjs';
 import type { AjaxResponse } from 'rxjs/ajax';
 import { BaseAPI } from '../runtime';
-import type { OperationOpts, HttpQuery } from '../runtime';
+import type { OperationOpts, HttpHeaders, HttpQuery } from '../runtime';
 import type {
     EnvironmentApiModelTemplateApiModel,
 } from '../models';
@@ -45,6 +45,16 @@ export class RefDataProjectEnvironmentMappingsApi extends BaseAPI {
     refDataProjectEnvironmentMappingsDelete({ project, environment }: RefDataProjectEnvironmentMappingsDeleteRequest, opts?: OperationOpts): Observable<void | AjaxResponse<void>>
     refDataProjectEnvironmentMappingsDelete({ project, environment }: RefDataProjectEnvironmentMappingsDeleteRequest, opts?: OperationOpts): Observable<void | AjaxResponse<void>> {
 
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         const query: HttpQuery = {};
 
         if (project != null) { query['project'] = project; }
@@ -53,6 +63,7 @@ export class RefDataProjectEnvironmentMappingsApi extends BaseAPI {
         return this.request<void>({
             url: '/RefDataProjectEnvironmentMappings',
             method: 'DELETE',
+            headers,
             query,
         }, opts?.responseOpts);
     };
@@ -63,6 +74,16 @@ export class RefDataProjectEnvironmentMappingsApi extends BaseAPI {
     refDataProjectEnvironmentMappingsGet({ project, includeRead }: RefDataProjectEnvironmentMappingsGetRequest, opts?: OperationOpts): Observable<AjaxResponse<EnvironmentApiModelTemplateApiModel>>
     refDataProjectEnvironmentMappingsGet({ project, includeRead }: RefDataProjectEnvironmentMappingsGetRequest, opts?: OperationOpts): Observable<EnvironmentApiModelTemplateApiModel | AjaxResponse<EnvironmentApiModelTemplateApiModel>> {
 
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         const query: HttpQuery = {};
 
         if (project != null) { query['project'] = project; }
@@ -71,6 +92,7 @@ export class RefDataProjectEnvironmentMappingsApi extends BaseAPI {
         return this.request<EnvironmentApiModelTemplateApiModel>({
             url: '/RefDataProjectEnvironmentMappings',
             method: 'GET',
+            headers,
             query,
         }, opts?.responseOpts);
     };
@@ -81,6 +103,16 @@ export class RefDataProjectEnvironmentMappingsApi extends BaseAPI {
     refDataProjectEnvironmentMappingsPost({ project, environment }: RefDataProjectEnvironmentMappingsPostRequest, opts?: OperationOpts): Observable<void | AjaxResponse<void>>
     refDataProjectEnvironmentMappingsPost({ project, environment }: RefDataProjectEnvironmentMappingsPostRequest, opts?: OperationOpts): Observable<void | AjaxResponse<void>> {
 
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         const query: HttpQuery = {};
 
         if (project != null) { query['project'] = project; }
@@ -89,6 +121,7 @@ export class RefDataProjectEnvironmentMappingsApi extends BaseAPI {
         return this.request<void>({
             url: '/RefDataProjectEnvironmentMappings',
             method: 'POST',
+            headers,
             query,
         }, opts?.responseOpts);
     };

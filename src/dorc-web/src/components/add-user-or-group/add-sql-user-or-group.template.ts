@@ -4,14 +4,20 @@ import '@vaadin/text-field';
 import { html } from 'lit/html.js';
 
 import { AddSqlUserOrGroup } from './add-sql-user-or-group';
+import '@vaadin/vertical-layout';
 
 export function addSqlUserOrGroupTemplate(this: AddSqlUserOrGroup) {
+
+  const maxFieldLength = 50;
+
   return html` <div>
     <vaadin-vertical-layout>
       <vaadin-text-field
         class="acc-form__block"
         id="system-account-id"
         label="System Account Identifier"
+        maxlength="${maxFieldLength}"
+        title="Maximum length: ${maxFieldLength} symbols"
         value="${this.lanId}"
         .invalid="${this.isLanIdValid === false}"
         error-message="${this.lanIdErrorMessage}"
@@ -22,6 +28,8 @@ export function addSqlUserOrGroupTemplate(this: AddSqlUserOrGroup) {
         class="acc-form__block"
         id="displayName"
         label="Display Name"
+        maxlength="${maxFieldLength}"
+        title="Maximum length: ${maxFieldLength} symbols"
         value="${this.displayName}"
         @value-changed="${this.displayNameChanged}"
         .invalid="${this.isDisplayNameValid === false}"
@@ -32,6 +40,8 @@ export function addSqlUserOrGroupTemplate(this: AddSqlUserOrGroup) {
         class="acc-form__block"
         id="team"
         label="Team"
+        maxlength="${maxFieldLength}"
+        title="Maximum length: ${maxFieldLength} symbols"
         .invalid="${this.isTeamNameValid === false}"
         error-message="${this.teamNameErrorMessage}"
         @value-changed="${this.teamNameChanged}"

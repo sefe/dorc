@@ -10,13 +10,11 @@ import '@vaadin/text-area';
 import '@vaadin/text-field';
 import '@vaadin/vertical-layout';
 import '@vaadin/horizontal-layout';
-import { css, LitElement, render } from 'lit';
+import { css, LitElement } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
-import {
-  NotificationOpenedChangedEvent,
-  NotificationRenderer
-} from '@vaadin/notification';
+import { NotificationOpenedChangedEvent } from '@vaadin/notification';
+import { notificationRenderer } from '@vaadin/notification/lit';
 import { DeploymentRequestApiModel } from '../../../apis/dorc-api';
 
 @customElement('successful-deploy-notification')
@@ -25,13 +23,13 @@ export class SuccessfulDeployNotification extends LitElement {
   private notificationOpened = false;
 
   @property({ type: String })
-  private envName = '';
+  envName = '';
 
   @property({ type: String })
-  private selectedBuild = '';
+  selectedBuild = '';
 
   @property({ type: String })
-  private requestedDeploymentId = '';
+  requestedDeploymentId = '';
 
   static get styles() {
     return css`
@@ -52,56 +50,52 @@ export class SuccessfulDeployNotification extends LitElement {
         @opened-changed="${(e: NotificationOpenedChangedEvent) => {
           this.notificationOpened = e.detail.value;
         }}"
-        .renderer="${this.successNotificationRenderer}"
+        ${notificationRenderer(this.successNotificationRenderer, [
+          this.requestedDeploymentId,
+          this.selectedBuild,
+          this.envName
+        ])}
       ></vaadin-notification>
     `;
   }
 
-  successNotificationRenderer: NotificationRenderer = root => {
-    render(
-      html`
-        <vaadin-horizontal-layout>
-          <div style="padding-right: 5px; margin: auto">
-            Started deployment request with ID:
-          </div>
-          <vaadin-button
-            @click="${() => {
-              const req: DeploymentRequestApiModel = {
-                Id: Number.parseInt(this.requestedDeploymentId, 10),
-                BuildNumber: this.selectedBuild.replace(' [PINNED]', ''),
-                EnvironmentName: this.envName
-              };
+  private readonly successNotificationRenderer = () => html`
+    <vaadin-horizontal-layout>
+      <div style="padding-right: 5px; margin: auto">
+        Started deployment request with ID:
+      </div>
+      <vaadin-button
+        @click="${() => {
+          const req: DeploymentRequestApiModel = {
+            Id: Number.parseInt(this.requestedDeploymentId, 10),
+            BuildNumber: this.selectedBuild.replace(' [PINNED]', ''),
+            EnvironmentName: this.envName
+          };
 
-              const event = new CustomEvent('open-monitor-result', {
-                detail: {
-                  request: req,
-                  message: 'Show results for Request'
-                },
-                bubbles: true,
-                composed: true
-              });
-              this.dispatchEvent(event);
-            }}"
-            theme="primary"
-          >
-            <vaadin-icon
-              icon="vaadin:clipboard-pulse"
-              slot="prefix"
-            ></vaadin-icon>
-            ${this.requestedDeploymentId}
-          </vaadin-button>
-          <vaadin-button
-            theme="tertiary-inline"
-            @click="${() => (this.notificationOpened = false)}"
-            aria-label="Close"
-          >
-            <vaadin-icon icon="vaadin:close-small"></vaadin-icon>
-          </vaadin-button>
-        </vaadin-horizontal-layout>
-      `,
-      root
-    );
-  };
+          const event = new CustomEvent('open-monitor-result', {
+            detail: {
+              request: req,
+              message: 'Show results for Request'
+            },
+            bubbles: true,
+            composed: true
+          });
+          this.dispatchEvent(event);
+        }}"
+        theme="primary"
+      >
+        <vaadin-icon icon="vaadin:clipboard-pulse" slot="prefix"></vaadin-icon>
+        ${this.requestedDeploymentId}
+      </vaadin-button>
+      <vaadin-button
+        theme="tertiary-inline"
+        @click="${() => (this.notificationOpened = false)}"
+        aria-label="Close"
+      >
+        <vaadin-icon icon="vaadin:close-small"></vaadin-icon>
+      </vaadin-button>
+    </vaadin-horizontal-layout>
+  `;
 
   public open() {
     this.notificationOpened = true;

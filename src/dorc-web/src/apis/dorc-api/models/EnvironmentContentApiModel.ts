@@ -66,11 +66,6 @@ export interface EnvironmentContentApiModel {
      */
     EndurUsers?: Array<UserApiModel> | null;
     /**
-     * @type {Array<UserApiModel>}
-     * @memberof EnvironmentContentApiModel
-     */
-    DelegatedUsers?: Array<UserApiModel> | null;
-    /**
      * @type {Array<ProjectApiModel>}
      * @memberof EnvironmentContentApiModel
      */

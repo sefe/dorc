@@ -12,6 +12,7 @@ namespace Dorc.PersistentData.Sources.Interfaces
         EnvironmentApiModel GetEnvironment(string environmentName, IPrincipal user);
         bool EnvironmentExists(string rowEnvironment);
         string GetEnvironmentOwnerId(int envId);
+        List<string> GetEnvironmentOwnerIds(int envId);
         bool SetEnvironmentOwner(IPrincipal updatedBy, int envId, UserElementApiModel user);
         EnvironmentApiModel AttachServerToEnv(int envId, int serverId, ClaimsPrincipal user);
         EnvironmentApiModel DetachServerFromEnv(int envId, int serverId, ClaimsPrincipal user);
@@ -38,5 +39,6 @@ namespace Dorc.PersistentData.Sources.Interfaces
         IEnumerable<EnvironmentApiModel> GetPossibleEnvironmentChildren(int id, IPrincipal user);
         void SetParentForEnvironment(int? parentEnvId, int childEnvId, IPrincipal user);
         EnvironmentApiModel MapToEnvironmentApiModel(Environment env, bool userEditable, bool isOwner);
+        EnvironmentApiModel CloneEnvironment(CloneEnvironmentRequest request, ClaimsPrincipal user);
     }
 }

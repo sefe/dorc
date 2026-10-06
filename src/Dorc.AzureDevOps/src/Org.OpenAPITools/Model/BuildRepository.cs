@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// Represents a repository used by a build definition.
     /// </summary>
     [DataContract(Name = "BuildRepository")]
-    public partial class BuildRepository : IEquatable<BuildRepository>, IValidatableObject
+    public partial class BuildRepository : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="BuildRepository" /> class.
@@ -44,7 +44,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="rootFolder">The root folder..</param>
         /// <param name="type">The type of the repository..</param>
         /// <param name="url">The URL of the repository..</param>
-        public BuildRepository(bool checkoutSubmodules = default(bool), string clean = default(string), string defaultBranch = default(string), string id = default(string), string name = default(string), Dictionary<string, string> properties = default(Dictionary<string, string>), string rootFolder = default(string), string type = default(string), string url = default(string))
+        public BuildRepository(bool checkoutSubmodules = default, string clean = default, string defaultBranch = default, string id = default, string name = default, Dictionary<string, string> properties = default, string rootFolder = default, string type = default, string url = default)
         {
             this.CheckoutSubmodules = checkoutSubmodules;
             this.Clean = clean;
@@ -150,126 +150,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as BuildRepository);
-        }
-
-        /// <summary>
-        /// Returns true if BuildRepository instances are equal
-        /// </summary>
-        /// <param name="input">Instance of BuildRepository to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(BuildRepository input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.CheckoutSubmodules == input.CheckoutSubmodules ||
-                    this.CheckoutSubmodules.Equals(input.CheckoutSubmodules)
-                ) && 
-                (
-                    this.Clean == input.Clean ||
-                    (this.Clean != null &&
-                    this.Clean.Equals(input.Clean))
-                ) && 
-                (
-                    this.DefaultBranch == input.DefaultBranch ||
-                    (this.DefaultBranch != null &&
-                    this.DefaultBranch.Equals(input.DefaultBranch))
-                ) && 
-                (
-                    this.Id == input.Id ||
-                    (this.Id != null &&
-                    this.Id.Equals(input.Id))
-                ) && 
-                (
-                    this.Name == input.Name ||
-                    (this.Name != null &&
-                    this.Name.Equals(input.Name))
-                ) && 
-                (
-                    this.Properties == input.Properties ||
-                    this.Properties != null &&
-                    input.Properties != null &&
-                    this.Properties.SequenceEqual(input.Properties)
-                ) && 
-                (
-                    this.RootFolder == input.RootFolder ||
-                    (this.RootFolder != null &&
-                    this.RootFolder.Equals(input.RootFolder))
-                ) && 
-                (
-                    this.Type == input.Type ||
-                    (this.Type != null &&
-                    this.Type.Equals(input.Type))
-                ) && 
-                (
-                    this.Url == input.Url ||
-                    (this.Url != null &&
-                    this.Url.Equals(input.Url))
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                hashCode = (hashCode * 59) + this.CheckoutSubmodules.GetHashCode();
-                if (this.Clean != null)
-                {
-                    hashCode = (hashCode * 59) + this.Clean.GetHashCode();
-                }
-                if (this.DefaultBranch != null)
-                {
-                    hashCode = (hashCode * 59) + this.DefaultBranch.GetHashCode();
-                }
-                if (this.Id != null)
-                {
-                    hashCode = (hashCode * 59) + this.Id.GetHashCode();
-                }
-                if (this.Name != null)
-                {
-                    hashCode = (hashCode * 59) + this.Name.GetHashCode();
-                }
-                if (this.Properties != null)
-                {
-                    hashCode = (hashCode * 59) + this.Properties.GetHashCode();
-                }
-                if (this.RootFolder != null)
-                {
-                    hashCode = (hashCode * 59) + this.RootFolder.GetHashCode();
-                }
-                if (this.Type != null)
-                {
-                    hashCode = (hashCode * 59) + this.Type.GetHashCode();
-                }
-                if (this.Url != null)
-                {
-                    hashCode = (hashCode * 59) + this.Url.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

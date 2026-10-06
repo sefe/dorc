@@ -30,14 +30,14 @@ namespace Org.OpenAPITools.Model
     /// TaskInputValidation
     /// </summary>
     [DataContract(Name = "TaskInputValidation")]
-    public partial class TaskInputValidation : IEquatable<TaskInputValidation>, IValidatableObject
+    public partial class TaskInputValidation : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="TaskInputValidation" /> class.
         /// </summary>
         /// <param name="expression">Conditional expression.</param>
         /// <param name="message">Message explaining how user can correct if validation fails.</param>
-        public TaskInputValidation(string expression = default(string), string message = default(string))
+        public TaskInputValidation(string expression = default, string message = default)
         {
             this.Expression = expression;
             this.Message = message;
@@ -81,66 +81,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as TaskInputValidation);
-        }
-
-        /// <summary>
-        /// Returns true if TaskInputValidation instances are equal
-        /// </summary>
-        /// <param name="input">Instance of TaskInputValidation to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(TaskInputValidation input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.Expression == input.Expression ||
-                    (this.Expression != null &&
-                    this.Expression.Equals(input.Expression))
-                ) && 
-                (
-                    this.Message == input.Message ||
-                    (this.Message != null &&
-                    this.Message.Equals(input.Message))
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.Expression != null)
-                {
-                    hashCode = (hashCode * 59) + this.Expression.GetHashCode();
-                }
-                if (this.Message != null)
-                {
-                    hashCode = (hashCode * 59) + this.Message.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

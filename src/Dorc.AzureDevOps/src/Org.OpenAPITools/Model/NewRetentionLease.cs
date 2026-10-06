@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// NewRetentionLease
     /// </summary>
     [DataContract(Name = "NewRetentionLease")]
-    public partial class NewRetentionLease : IEquatable<NewRetentionLease>, IValidatableObject
+    public partial class NewRetentionLease : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="NewRetentionLease" /> class.
@@ -40,7 +40,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="ownerId">User-provided string that identifies the owner of a retention lease..</param>
         /// <param name="protectPipeline">If set, this lease will also prevent the pipeline from being deleted while the lease is still valid..</param>
         /// <param name="runId">The pipeline run to protect..</param>
-        public NewRetentionLease(int daysValid = default(int), int definitionId = default(int), string ownerId = default(string), bool protectPipeline = default(bool), int runId = default(int))
+        public NewRetentionLease(int daysValid = default, int definitionId = default, string ownerId = default, bool protectPipeline = default, int runId = default)
         {
             this.DaysValid = daysValid;
             this.DefinitionId = definitionId;
@@ -111,77 +111,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as NewRetentionLease);
-        }
-
-        /// <summary>
-        /// Returns true if NewRetentionLease instances are equal
-        /// </summary>
-        /// <param name="input">Instance of NewRetentionLease to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(NewRetentionLease input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.DaysValid == input.DaysValid ||
-                    this.DaysValid.Equals(input.DaysValid)
-                ) && 
-                (
-                    this.DefinitionId == input.DefinitionId ||
-                    this.DefinitionId.Equals(input.DefinitionId)
-                ) && 
-                (
-                    this.OwnerId == input.OwnerId ||
-                    (this.OwnerId != null &&
-                    this.OwnerId.Equals(input.OwnerId))
-                ) && 
-                (
-                    this.ProtectPipeline == input.ProtectPipeline ||
-                    this.ProtectPipeline.Equals(input.ProtectPipeline)
-                ) && 
-                (
-                    this.RunId == input.RunId ||
-                    this.RunId.Equals(input.RunId)
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                hashCode = (hashCode * 59) + this.DaysValid.GetHashCode();
-                hashCode = (hashCode * 59) + this.DefinitionId.GetHashCode();
-                if (this.OwnerId != null)
-                {
-                    hashCode = (hashCode * 59) + this.OwnerId.GetHashCode();
-                }
-                hashCode = (hashCode * 59) + this.ProtectPipeline.GetHashCode();
-                hashCode = (hashCode * 59) + this.RunId.GetHashCode();
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

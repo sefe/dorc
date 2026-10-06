@@ -30,16 +30,16 @@ namespace Org.OpenAPITools.Model
     /// Represents a dependency.
     /// </summary>
     [DataContract(Name = "Dependency")]
-    public partial class Dependency : IEquatable<Dependency>, IValidatableObject
+    public partial class Dependency : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="Dependency" /> class.
         /// </summary>
-        /// <param name="_event">The event. The dependency is satisfied when the referenced object emits this event..</param>
+        /// <param name="varEvent">The event. The dependency is satisfied when the referenced object emits this event..</param>
         /// <param name="scope">The scope. This names the object referenced by the dependency..</param>
-        public Dependency(string _event = default(string), string scope = default(string))
+        public Dependency(string varEvent = default, string scope = default)
         {
-            this.Event = _event;
+            this.Event = varEvent;
             this.Scope = scope;
         }
 
@@ -81,66 +81,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as Dependency);
-        }
-
-        /// <summary>
-        /// Returns true if Dependency instances are equal
-        /// </summary>
-        /// <param name="input">Instance of Dependency to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(Dependency input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.Event == input.Event ||
-                    (this.Event != null &&
-                    this.Event.Equals(input.Event))
-                ) && 
-                (
-                    this.Scope == input.Scope ||
-                    (this.Scope != null &&
-                    this.Scope.Equals(input.Scope))
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.Event != null)
-                {
-                    hashCode = (hashCode * 59) + this.Event.GetHashCode();
-                }
-                if (this.Scope != null)
-                {
-                    hashCode = (hashCode * 59) + this.Scope.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

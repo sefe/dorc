@@ -15,7 +15,7 @@ All URIs are relative to *https://dev.azure.com*
 | [**TagsGetDefinitionTags**](TagsApi.md#tagsgetdefinitiontags) | **GET** /{organization}/{project}/_apis/build/definitions/{DefinitionId}/tags |  |
 | [**TagsGetTags**](TagsApi.md#tagsgettags) | **GET** /{organization}/{project}/_apis/build/tags |  |
 
-<a name="tagsaddbuildtag"></a>
+<a id="tagsaddbuildtag"></a>
 # **TagsAddBuildTag**
 > List&lt;string&gt; TagsAddBuildTag (string organization, string project, int buildId, string tag, string apiVersion)
 
@@ -115,7 +115,7 @@ catch (ApiException e)
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-<a name="tagsaddbuildtags"></a>
+<a id="tagsaddbuildtags"></a>
 # **TagsAddBuildTags**
 > List&lt;string&gt; TagsAddBuildTags (string organization, string project, int buildId, string apiVersion, List<string> body)
 
@@ -215,7 +215,7 @@ catch (ApiException e)
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-<a name="tagsadddefinitiontag"></a>
+<a id="tagsadddefinitiontag"></a>
 # **TagsAddDefinitionTag**
 > List&lt;string&gt; TagsAddDefinitionTag (string organization, string project, int definitionId, string tag, string apiVersion)
 
@@ -315,7 +315,7 @@ catch (ApiException e)
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-<a name="tagsadddefinitiontags"></a>
+<a id="tagsadddefinitiontags"></a>
 # **TagsAddDefinitionTags**
 > List&lt;string&gt; TagsAddDefinitionTags (string organization, string project, int definitionId, string apiVersion, List<string> body)
 
@@ -415,7 +415,7 @@ catch (ApiException e)
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-<a name="tagsdeletebuildtag"></a>
+<a id="tagsdeletebuildtag"></a>
 # **TagsDeleteBuildTag**
 > List&lt;string&gt; TagsDeleteBuildTag (string organization, string project, int buildId, string tag, string apiVersion)
 
@@ -515,7 +515,7 @@ catch (ApiException e)
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-<a name="tagsdeletedefinitiontag"></a>
+<a id="tagsdeletedefinitiontag"></a>
 # **TagsDeleteDefinitionTag**
 > List&lt;string&gt; TagsDeleteDefinitionTag (string organization, string project, int definitionId, string tag, string apiVersion)
 
@@ -615,7 +615,7 @@ catch (ApiException e)
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-<a name="tagsdeletetag"></a>
+<a id="tagsdeletetag"></a>
 # **TagsDeleteTag**
 > List&lt;string&gt; TagsDeleteTag (string organization, string project, string tag, string apiVersion)
 
@@ -714,7 +714,7 @@ catch (ApiException e)
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-<a name="tagsgetbuildtags"></a>
+<a id="tagsgetbuildtags"></a>
 # **TagsGetBuildTags**
 > List&lt;string&gt; TagsGetBuildTags (string organization, string project, int buildId, string apiVersion)
 
@@ -812,7 +812,7 @@ catch (ApiException e)
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-<a name="tagsgetdefinitiontags"></a>
+<a id="tagsgetdefinitiontags"></a>
 # **TagsGetDefinitionTags**
 > List&lt;string&gt; TagsGetDefinitionTags (string organization, string project, int definitionId, string apiVersion, int? revision = null)
 
@@ -912,7 +912,7 @@ catch (ApiException e)
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
-<a name="tagsgettags"></a>
+<a id="tagsgettags"></a>
 # **TagsGetTags**
 > List&lt;string&gt; TagsGetTags (string organization, string project, string apiVersion)
 

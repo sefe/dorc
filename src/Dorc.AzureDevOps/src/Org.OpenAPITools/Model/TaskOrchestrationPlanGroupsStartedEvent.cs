@@ -30,13 +30,13 @@ namespace Org.OpenAPITools.Model
     /// TaskOrchestrationPlanGroupsStartedEvent
     /// </summary>
     [DataContract(Name = "TaskOrchestrationPlanGroupsStartedEvent")]
-    public partial class TaskOrchestrationPlanGroupsStartedEvent : IEquatable<TaskOrchestrationPlanGroupsStartedEvent>, IValidatableObject
+    public partial class TaskOrchestrationPlanGroupsStartedEvent : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="TaskOrchestrationPlanGroupsStartedEvent" /> class.
         /// </summary>
         /// <param name="planGroups">planGroups.</param>
-        public TaskOrchestrationPlanGroupsStartedEvent(List<TaskOrchestrationPlanGroupReference> planGroups = default(List<TaskOrchestrationPlanGroupReference>))
+        public TaskOrchestrationPlanGroupsStartedEvent(List<TaskOrchestrationPlanGroupReference> planGroups = default)
         {
             this.PlanGroups = planGroups;
         }
@@ -70,58 +70,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as TaskOrchestrationPlanGroupsStartedEvent);
-        }
-
-        /// <summary>
-        /// Returns true if TaskOrchestrationPlanGroupsStartedEvent instances are equal
-        /// </summary>
-        /// <param name="input">Instance of TaskOrchestrationPlanGroupsStartedEvent to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(TaskOrchestrationPlanGroupsStartedEvent input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.PlanGroups == input.PlanGroups ||
-                    this.PlanGroups != null &&
-                    input.PlanGroups != null &&
-                    this.PlanGroups.SequenceEqual(input.PlanGroups)
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                if (this.PlanGroups != null)
-                {
-                    hashCode = (hashCode * 59) + this.PlanGroups.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

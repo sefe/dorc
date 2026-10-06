@@ -30,14 +30,14 @@ namespace Org.OpenAPITools.Model
     /// Represents the ability to build forks of the selected repository.
     /// </summary>
     [DataContract(Name = "Forks")]
-    public partial class Forks : IEquatable<Forks>, IValidatableObject
+    public partial class Forks : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="Forks" /> class.
         /// </summary>
         /// <param name="allowSecrets">Indicates whether a build should use secrets when building forks of the selected repository..</param>
         /// <param name="enabled">Indicates whether the trigger should queue builds for forks of the selected repository..</param>
-        public Forks(bool allowSecrets = default(bool), bool enabled = default(bool))
+        public Forks(bool allowSecrets = default, bool enabled = default)
         {
             this.AllowSecrets = allowSecrets;
             this.Enabled = enabled;
@@ -81,58 +81,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as Forks);
-        }
-
-        /// <summary>
-        /// Returns true if Forks instances are equal
-        /// </summary>
-        /// <param name="input">Instance of Forks to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(Forks input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.AllowSecrets == input.AllowSecrets ||
-                    this.AllowSecrets.Equals(input.AllowSecrets)
-                ) && 
-                (
-                    this.Enabled == input.Enabled ||
-                    this.Enabled.Equals(input.Enabled)
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                hashCode = (hashCode * 59) + this.AllowSecrets.GetHashCode();
-                hashCode = (hashCode * 59) + this.Enabled.GetHashCode();
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

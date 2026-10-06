@@ -12,11 +12,14 @@
  */
 
 /**
+ * 
  * @export
  * @enum {string}
  */
 export enum TerraformSourceType {
-    SharedFolder = 0,
-    Git = 1,
-    AzureArtifact = 2
+    SharedFolder = 'SharedFolder',
+    Git = 'Git',
+    AzureArtifact = 'AzureArtifact',
+    GitHubArtifact = 'GitHubArtifact'
 }
+

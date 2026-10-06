@@ -1,13 +1,20 @@
 import type { PropertyValues } from 'lit';
 import { LitElement } from 'lit';
-import type { Route, RouterLocation } from '@vaadin/router';
 import { state } from 'lit/decorators.js';
 import { updateMetadata } from './html-meta-manager';
-import {RouteMeta} from "../router/routes.ts";
+import type { AppRoute, RouteMetadata } from '../router/route-config';
+
+type PageMetadata = RouteMetadata;
+
+/** The subset of the router location that routed pages actually read. */
+export interface PageLocation {
+  route?: AppRoute | null;
+  pathname: string;
+}
 
 export class PageElement extends LitElement {
   @state()
-  protected location = {} as RouterLocation<RouteMeta>;
+  protected location: PageLocation = {} as PageLocation;
 
   updated(_changedProperties: PropertyValues) {
     super.updated(_changedProperties);
@@ -15,7 +22,7 @@ export class PageElement extends LitElement {
     this.updateMetadata();
   }
 
-  protected metadata(route: Route<RouteMeta>) {
+  protected metadata(route: AppRoute): PageMetadata | undefined {
     return route.metadata;
   }
 

@@ -30,7 +30,7 @@ namespace Org.OpenAPITools.Model
     /// Represents information about a build report.
     /// </summary>
     [DataContract(Name = "BuildReportMetadata")]
-    public partial class BuildReportMetadata : IEquatable<BuildReportMetadata>, IValidatableObject
+    public partial class BuildReportMetadata : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="BuildReportMetadata" /> class.
@@ -38,7 +38,7 @@ namespace Org.OpenAPITools.Model
         /// <param name="buildId">The Id of the build..</param>
         /// <param name="content">The content of the report..</param>
         /// <param name="type">The type of the report..</param>
-        public BuildReportMetadata(int buildId = default(int), string content = default(string), string type = default(string))
+        public BuildReportMetadata(int buildId = default, string content = default, string type = default)
         {
             this.BuildId = buildId;
             this.Content = content;
@@ -91,71 +91,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as BuildReportMetadata);
-        }
-
-        /// <summary>
-        /// Returns true if BuildReportMetadata instances are equal
-        /// </summary>
-        /// <param name="input">Instance of BuildReportMetadata to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(BuildReportMetadata input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.BuildId == input.BuildId ||
-                    this.BuildId.Equals(input.BuildId)
-                ) && 
-                (
-                    this.Content == input.Content ||
-                    (this.Content != null &&
-                    this.Content.Equals(input.Content))
-                ) && 
-                (
-                    this.Type == input.Type ||
-                    (this.Type != null &&
-                    this.Type.Equals(input.Type))
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                hashCode = (hashCode * 59) + this.BuildId.GetHashCode();
-                if (this.Content != null)
-                {
-                    hashCode = (hashCode * 59) + this.Content.GetHashCode();
-                }
-                if (this.Type != null)
-                {
-                    hashCode = (hashCode * 59) + this.Type.GetHashCode();
-                }
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

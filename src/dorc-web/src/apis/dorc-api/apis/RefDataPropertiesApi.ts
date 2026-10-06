@@ -14,7 +14,7 @@
 import type { Observable } from 'rxjs';
 import type { AjaxResponse } from 'rxjs/ajax';
 import { BaseAPI } from '../runtime';
-import type { OperationOpts } from '../runtime';
+import type { OperationOpts, HttpHeaders } from '../runtime';
 import type {
     Property,
 } from '../models';
@@ -29,9 +29,20 @@ export class RefDataPropertiesApi extends BaseAPI {
     refDataPropertiesGet(): Observable<Array<Property>>
     refDataPropertiesGet(opts?: OperationOpts): Observable<AjaxResponse<Array<Property>>>
     refDataPropertiesGet(opts?: OperationOpts): Observable<Array<Property> | AjaxResponse<Array<Property>>> {
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         return this.request<Array<Property>>({
             url: '/RefDataProperties',
             method: 'GET',
+            headers,
         }, opts?.responseOpts);
     };
 

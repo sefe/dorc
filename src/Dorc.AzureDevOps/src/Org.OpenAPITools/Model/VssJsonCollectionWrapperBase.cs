@@ -30,13 +30,13 @@ namespace Org.OpenAPITools.Model
     /// VssJsonCollectionWrapperBase
     /// </summary>
     [DataContract(Name = "VssJsonCollectionWrapperBase")]
-    public partial class VssJsonCollectionWrapperBase : IEquatable<VssJsonCollectionWrapperBase>, IValidatableObject
+    public partial class VssJsonCollectionWrapperBase : IValidatableObject
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="VssJsonCollectionWrapperBase" /> class.
         /// </summary>
         /// <param name="count">count.</param>
-        public VssJsonCollectionWrapperBase(int count = default(int))
+        public VssJsonCollectionWrapperBase(int count = default)
         {
             this.Count = count;
         }
@@ -70,53 +70,11 @@ namespace Org.OpenAPITools.Model
         }
 
         /// <summary>
-        /// Returns true if objects are equal
-        /// </summary>
-        /// <param name="input">Object to be compared</param>
-        /// <returns>Boolean</returns>
-        public override bool Equals(object input)
-        {
-            return this.Equals(input as VssJsonCollectionWrapperBase);
-        }
-
-        /// <summary>
-        /// Returns true if VssJsonCollectionWrapperBase instances are equal
-        /// </summary>
-        /// <param name="input">Instance of VssJsonCollectionWrapperBase to be compared</param>
-        /// <returns>Boolean</returns>
-        public bool Equals(VssJsonCollectionWrapperBase input)
-        {
-            if (input == null)
-            {
-                return false;
-            }
-            return 
-                (
-                    this.Count == input.Count ||
-                    this.Count.Equals(input.Count)
-                );
-        }
-
-        /// <summary>
-        /// Gets the hash code
-        /// </summary>
-        /// <returns>Hash code</returns>
-        public override int GetHashCode()
-        {
-            unchecked // Overflow is fine, just wrap
-            {
-                int hashCode = 41;
-                hashCode = (hashCode * 59) + this.Count.GetHashCode();
-                return hashCode;
-            }
-        }
-
-        /// <summary>
         /// To validate all properties of the instance
         /// </summary>
         /// <param name="validationContext">Validation context</param>
         /// <returns>Validation Result</returns>
-        public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(ValidationContext validationContext)
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             yield break;
         }

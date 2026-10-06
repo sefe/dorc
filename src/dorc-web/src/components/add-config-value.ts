@@ -11,6 +11,8 @@ import {
   RefDataConfigApi
 } from '../apis/dorc-api';
 import { retrieveErrorMessage } from '../helpers/errorMessage-retriever';
+import '@vaadin/vertical-layout';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('add-config-value')
 export class AddConfigValue extends LitElement {
@@ -22,16 +24,16 @@ export class AddConfigValue extends LitElement {
 
   @state() private valueValid = false;
 
-  @property({type: Boolean}) private isSecure = false;
+  @property({ type: Boolean }) isSecure = false;
 
-  @property({type: Boolean }) private isForProd: boolean = false;
+  @property({ type: Boolean }) isForProd: boolean = false;
 
-  @property({ type: Boolean }) private valid = false;
+  @property({ type: Boolean }) valid = false;
 
-  @property({ type: Object })
-  private configValue: ConfigValueApiModel = this.getEmptyConfigValue();
+  @property({ type: Object }) configValue: ConfigValueApiModel =
+    this.getEmptyConfigValue();
 
-  @property() private overlayMessage: any;
+  @property() overlayMessage: any;
 
   static get styles() {
     return css`
@@ -39,7 +41,8 @@ export class AddConfigValue extends LitElement {
         display: flex;
         align-items: center;
         justify-content: center;
-        width: 500px;
+        width: 100%;
+        max-width: 500px;
       }
 
       .small-loader {
@@ -64,7 +67,9 @@ export class AddConfigValue extends LitElement {
 
   render() {
     return html`
-      <div style="width:50%;">
+      <div
+        style="padding: var(--lumo-space-s); width: min(500px, calc(100vw - 64px)); box-sizing: border-box;"
+      >
         <vaadin-vertical-layout>
           <vaadin-text-field
             class="block"
@@ -73,7 +78,6 @@ export class AddConfigValue extends LitElement {
             required
             @input="${this._configKeyValueChanged}"
             .value="${this.key}"
-            tabindex="1"
           ></vaadin-text-field>
           <vaadin-text-field
             class="block"
@@ -82,7 +86,6 @@ export class AddConfigValue extends LitElement {
             required
             @input="${this._configValueValueChanged}"
             .value="${this.value}"
-            tabindex="2"
           ></vaadin-text-field>
           <vaadin-checkbox
             id="secure"
@@ -90,7 +93,6 @@ export class AddConfigValue extends LitElement {
             @change="${(e: Event) => {
               this.isSecure = (e.target as HTMLInputElement).checked;
             }}"
-            tabindex="3"
           ></vaadin-checkbox>
           <vaadin-checkbox
             id="for-prod"
@@ -98,16 +100,13 @@ export class AddConfigValue extends LitElement {
             @change="${(e: Event) => {
               this.isForProd = (e.target as HTMLInputElement).checked;
             }}"
-            tabindex="3"
           ></vaadin-checkbox>
-          </vaadin-text-field>
         </vaadin-vertical-layout>
         <div>
           <vaadin-button @click="${this.reset}">Clear</vaadin-button>
-          <vaadin-button .disabled="${!this.valid}" @click="${this._submit}" tabindex="4"
-          >Save
-          </vaadin-button
-          >
+          <vaadin-button .disabled="${!this.valid}" @click="${this._submit}"
+            >Save
+          </vaadin-button>
         </div>
         <span style="color: darkred">${this.overlayMessage}</span>
       </div>
@@ -133,7 +132,7 @@ export class AddConfigValue extends LitElement {
   }
 
   _submit() {
-    const api = new RefDataConfigApi();
+    const api = new RefDataConfigApi(dorcApiConfiguration);
 
     this.configValue.Secure = this.isSecure;
     this.configValue.IsForProd = this.isForProd;

@@ -14,7 +14,7 @@
 import type { Observable } from 'rxjs';
 import type { AjaxResponse } from 'rxjs/ajax';
 import { BaseAPI, throwIfNullOrUndefined, encodeURI } from '../runtime';
-import type { OperationOpts } from '../runtime';
+import type { OperationOpts, HttpHeaders } from '../runtime';
 import type {
     GroupApiModel,
 } from '../models';
@@ -33,9 +33,20 @@ export class RefDataGroupsApi extends BaseAPI {
     refDataGroupsGet(): Observable<Array<GroupApiModel>>
     refDataGroupsGet(opts?: OperationOpts): Observable<AjaxResponse<Array<GroupApiModel>>>
     refDataGroupsGet(opts?: OperationOpts): Observable<Array<GroupApiModel> | AjaxResponse<Array<GroupApiModel>>> {
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         return this.request<Array<GroupApiModel>>({
             url: '/RefDataGroups',
             method: 'GET',
+            headers,
         }, opts?.responseOpts);
     };
 
@@ -46,9 +57,20 @@ export class RefDataGroupsApi extends BaseAPI {
     refDataGroupsNameGet({ name }: RefDataGroupsNameGetRequest, opts?: OperationOpts): Observable<GroupApiModel | AjaxResponse<GroupApiModel>> {
         throwIfNullOrUndefined(name, 'name', 'refDataGroupsNameGet');
 
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
         return this.request<GroupApiModel>({
             url: '/RefDataGroups/{name}'.replace('{name}', encodeURI(name)),
             method: 'GET',
+            headers,
         }, opts?.responseOpts);
     };
 

@@ -73,7 +73,7 @@ namespace Dorc.Core
 
             var environmentShortName = endurDatabase != null
                 ? endurDatabase.Name.Replace("END_DB_", string.Empty)
-                : environment.EnvironmentName.Replace(" ", "_");
+                : GetShortNameFromEnvironmentName(environment.EnvironmentName);
             variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.EnvironmentShortName, environmentShortName);
 
             var databaseApiModels = databasesForEnvId as DatabaseApiModel[] ?? databasesForEnvId.ToArray();
@@ -140,6 +140,13 @@ namespace Dorc.Core
             variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.DatabasePermissions,
                 new VariableValue { Value = databasePermissions, Type = databasePermissions.GetType() });
 
+            var ownerEmails = environment.Details?.EnvironmentOwnerEmails;
+            if (ownerEmails is { Count: > 0 })
+            {
+                var emailsArray = ownerEmails.ToArray();
+                variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.EnvOwnerEmails,
+                    new VariableValue { Value = emailsArray, Type = emailsArray.GetType() });
+            }
         }
 
         private VariableValueDbPerm GetDbPermission(DatabaseApiModel databaseApiModel)
@@ -182,6 +189,19 @@ namespace Dorc.Core
                 else
                     variableResolver.SetPropertyValue($"{PropertyValueScopeOptionsFixed.ServerNames}{sType}", serverType.Value.Single());
             }
+        }
+
+        internal static string GetShortNameFromEnvironmentName(string environmentName)
+        {
+            var parts = environmentName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length >= 2)
+                return parts[^2] + parts[^1];
+
+            parts = environmentName.Split('-', StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length >= 2)
+                return parts[^2] + parts[^1];
+
+            return environmentName;
         }
     }
 

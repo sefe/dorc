@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using NSubstitute;
 using System.Security.Claims;
+using System.Security.Principal;
 
 namespace Dorc.Api.Tests.Controllers
 {
@@ -122,6 +123,61 @@ namespace Dorc.Api.Tests.Controllers
             // Assert
             Assert.AreEqual(StatusCodes.Status400BadRequest, result.StatusCode);
             Assert.AreEqual("EnvironmentName not set", result.Value);
+        }
+
+        [TestMethod]
+        public void DeletingEnvironmentWithoutOwnership_ReturnsForbiddenSayingWhoCanDelete()
+        {
+            // Arrange
+            var model = new EnvironmentApiModel { EnvironmentName = "SomeoneElsesEnvironment" };
+            _securityPrivilegesChecker.IsEnvironmentOwnerOrAdmin(_user, "SomeoneElsesEnvironment").Returns(false);
+
+            // Act
+            var result = _controller.Delete(model) as ObjectResult;
+
+            // Assert
+            Assert.IsNotNull(result);
+            Assert.AreEqual(StatusCodes.Status403Forbidden, result.StatusCode);
+            var message = result.Value as string;
+            Assert.IsNotNull(message);
+            StringAssert.Contains(message, "SomeoneElsesEnvironment");
+            _environmentsPersistentSource.DidNotReceive().DeleteEnvironment(Arg.Any<EnvironmentApiModel>(), Arg.Any<IPrincipal>());
+        }
+
+        [TestMethod]
+        public void DeletingEnvironmentThatIsNotThere_ReturnsNotFound()
+        {
+            // Arrange
+            var model = new EnvironmentApiModel { EnvironmentName = "GoneEnvironment" };
+            _securityPrivilegesChecker.IsEnvironmentOwnerOrAdmin(_user, "GoneEnvironment").Returns(true);
+            _environmentsPersistentSource.DeleteEnvironment(model, _user).Returns(false);
+
+            // Act
+            var result = _controller.Delete(model) as ObjectResult;
+
+            // Assert
+            Assert.IsNotNull(result);
+            Assert.AreEqual(StatusCodes.Status404NotFound, result.StatusCode);
+            var message = result.Value as string;
+            Assert.IsNotNull(message);
+            StringAssert.Contains(message, "GoneEnvironment");
+        }
+
+        [TestMethod]
+        public void DeletingOwnEnvironment_ReturnsTrue()
+        {
+            // Arrange
+            var model = new EnvironmentApiModel { EnvironmentName = "MyEnvironment" };
+            _securityPrivilegesChecker.IsEnvironmentOwnerOrAdmin(_user, "MyEnvironment").Returns(true);
+            _environmentsPersistentSource.DeleteEnvironment(model, _user).Returns(true);
+
+            // Act
+            var result = _controller.Delete(model) as ObjectResult;
+
+            // Assert
+            Assert.IsNotNull(result);
+            Assert.AreEqual(StatusCodes.Status200OK, result.StatusCode);
+            Assert.AreEqual(true, result.Value);
         }
     }
 }
