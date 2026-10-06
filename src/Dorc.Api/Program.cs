@@ -25,6 +25,7 @@ using Microsoft.OpenApi.Models;
 using OpenTelemetry.Logs;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Serilog;
 using Serilog.Extensions.Logging;
 using System.Reflection;
@@ -34,9 +35,12 @@ const string dorcCorsRefDataPolicy = "DOrcCORSRefData";
 const string apiScopeAuthorizationPolicy = "ApiGlobalScopeAuthorizationPolicy";
 
 var builder = WebApplication.CreateBuilder(args);
+var aspNetEnv = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "";
 var configBuilder = new ConfigurationBuilder()
     .AddJsonFile("appsettings.json")
+    .AddJsonFile($"appsettings.{aspNetEnv}.json", optional: true)
     .AddJsonFile("loggerSettings.json", optional:false, reloadOnChange: true)
+    .AddEnvironmentVariables()
     .Build();
 
 var configurationSettings = new ConfigurationSettings(configBuilder);
@@ -302,6 +306,12 @@ static void AddSwaggerGen(IServiceCollection services, IConfigurationSettings co
     });
 }
 
+// Health checks. The SQL check is tagged "ready" so the liveness endpoint can
+// exclude it: the database is serverless with auto-pause, and container probes
+// polling a SQL-backed endpoint would keep it permanently awake.
+builder.Services.AddHealthChecks()
+    .AddSqlServer(configurationSettings.GetDorcConnectionString(), name: "sqlserver", tags: new[] { "ready" });
+
 builder.Services
     .AddControllers(opts =>
     {
@@ -437,7 +447,9 @@ var app = builder.Build();
 
 app.UseIpRateLimiting();
 
+app.UseDefaultFiles();
 app.UseStaticFiles();
+
 app.UseSwagger();
 app.UseSwaggerUI(c =>
 {
@@ -473,5 +485,17 @@ if (authenticationScheme is ConfigAuthScheme.OAuth or ConfigAuthScheme.Both)
 
 // Map SignalR hub
 app.MapHub<DeploymentsHub>("/hubs/deployments");
+
+// Health check endpoints (unauthenticated)
+// Liveness: process-only, no dependency checks — safe for frequent container
+// probes and does not wake the auto-pausing serverless database.
+app.MapHealthChecks("/healthz", new HealthCheckOptions { Predicate = _ => false }).AllowAnonymous();
+
+// Readiness: includes the SQL Server check. Used by deployment verification,
+// not by the recurring container probes.
+app.MapHealthChecks("/healthz/ready", new HealthCheckOptions { Predicate = check => check.Tags.Contains("ready") }).AllowAnonymous();
+
+// SPA fallback - serve index.html for client-side routes
+app.MapFallbackToFile("index.html");
 
 app.Run();

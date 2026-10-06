@@ -31,19 +31,27 @@ using System.Text;
 
 var builder = Host.CreateApplicationBuilder(args);
 
+var aspNetEnv = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "";
 var configurationRoot = new ConfigurationBuilder()
     .AddJsonFile("appsettings.json")
+    .AddJsonFile($"appsettings.{aspNetEnv}.json", optional: true)
     .AddJsonFile("loggerSettings.json", optional: false, reloadOnChange: true)
+    .AddEnvironmentVariables()
     .Build();
 var monitorConfiguration = new MonitorConfiguration(configurationRoot);
 
 builder.Services.AddTransient(s => configurationRoot);
 builder.Services.AddTransient<IMonitorConfiguration>(m => monitorConfiguration);
 
-builder.Services.AddWindowsService(options =>
+var isRunningInContainer = Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER") == "true";
+
+if (!isRunningInContainer)
 {
-    options.ServiceName = monitorConfiguration.ServiceName;
-});
+    builder.Services.AddWindowsService(options =>
+    {
+        options.ServiceName = monitorConfiguration.ServiceName;
+    });
+}
 
 #region Logging Configuration
 Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
@@ -186,11 +194,24 @@ builder.Services.AddTransient<IDeploymentRequestStateProcessor, DeploymentReques
 builder.Services.AddTransient<IPendingRequestProcessor, PendingRequestProcessor>();
 builder.Services.AddTransient<IVariableScopeOptionsResolver, VariableScopeOptionsResolver>();
 
+if (isRunningInContainer)
+{
+    // Container mode: the Monitor can process the request queue, but dispatching a
+    // Runner is not yet supported on Linux — ScriptDispatcher starts the Runner via
+    // Windows-only process/security APIs and the script group transports are
+    // Windows-ACL based. A deployment attempt fails loudly at dispatch time rather
+    // than pretending to succeed. The file writer is registered so DI resolution of
+    // the dispatchers still succeeds.
+    builder.Services.AddTransient<IScriptGroupPipeServer, ScriptGroupFileWriter>();
+}
+else
+{
 #if DEBUG
-builder.Services.AddTransient<IScriptGroupPipeServer, ScriptGroupFileWriter>();
+    builder.Services.AddTransient<IScriptGroupPipeServer, ScriptGroupFileWriter>();
 #else
     builder.Services.AddTransient<IScriptGroupPipeServer, ScriptGroupPipeServer>();
 #endif
+}
 
 builder.Services.AddTransient<ISecurityObjectFilter, SecurityObjectFilter>();
 builder.Services.AddTransient<IRolePrivilegesChecker, RolePrivilegesChecker>();
