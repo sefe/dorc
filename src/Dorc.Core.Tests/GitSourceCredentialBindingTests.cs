@@ -37,6 +37,20 @@ namespace Dorc.Core.Tests
         }
 
         /// <summary>
+        /// A redirect to another path on the same origin is still the repository the deployment
+        /// named, as far as the trust decision goes.
+        /// </summary>
+        [TestMethod]
+        public void SuppliesTheCredentialForAnotherPathOnTheSameOrigin()
+        {
+            var credentials = NewProvider().CreateCredentials(
+                WithPat(), "https://github.corp.example.com/infra/terraform.git/info/refs",
+                isGitHub: true, isAzureDevOps: false);
+
+            Assert.AreEqual("the-pat", credentials.Password);
+        }
+
+        /// <summary>
         /// The redirect case, directly.
         /// </summary>
         [TestMethod]
@@ -49,6 +63,35 @@ namespace Dorc.Core.Tests
                 NewProvider().CreateCredentials(WithPat(), redirected, isGitHub: true, isAzureDevOps: false));
 
             StringAssert.Contains(refusal.Message, "Refusing to authenticate");
+        }
+
+        /// <summary>
+        /// The origin is the trust boundary, not just the host. A same-host redirect from https
+        /// to http would carry the credential across a plaintext connection, and another port on
+        /// the same name is another service.
+        /// </summary>
+        [TestMethod]
+        [DataRow("http://github.corp.example.com/infra/terraform.git")]
+        [DataRow("https://github.corp.example.com:8443/infra/terraform.git")]
+        public void RefusesTheSameHostOnAnotherSchemeOrPort(string redirected)
+        {
+            var refusal = Assert.ThrowsExactly<InvalidOperationException>(() =>
+                NewProvider().CreateCredentials(WithPat(), redirected, isGitHub: true, isAzureDevOps: false));
+
+            StringAssert.Contains(refusal.Message, "Refusing to authenticate");
+        }
+
+        /// <summary>
+        /// An explicit default port is the same origin, not a different one.
+        /// </summary>
+        [TestMethod]
+        public void TreatsAnExplicitDefaultPortAsTheSameOrigin()
+        {
+            var credentials = NewProvider().CreateCredentials(
+                WithPat(), "https://github.corp.example.com:443/infra/terraform.git",
+                isGitHub: true, isAzureDevOps: false);
+
+            Assert.AreEqual("the-pat", credentials.Password);
         }
 
         [TestMethod]
