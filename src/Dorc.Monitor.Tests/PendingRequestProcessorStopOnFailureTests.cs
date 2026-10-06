@@ -1,10 +1,11 @@
-using Dorc.ApiModel;
+﻿using Dorc.ApiModel;
 using Dorc.ApiModel.MonitorRunnerApi;
 using Dorc.Core;
 using Dorc.Core.Events;
 using Dorc.Core.Interfaces;
 using Dorc.Core.VariableResolution;
 using Dorc.Monitor.RequestProcessors;
+using Dorc.PersistentData.Security;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
@@ -84,7 +85,8 @@ namespace Dorc.Monitor.Tests
                 mockConfigValuesPersistentSource,
                 mockPropertyEvaluator,
                 mockEventsPublisher,
-                mockGitHubArtifactDownloader);
+                mockGitHubArtifactDownloader,
+                Substitute.For<IScriptScopeConfigValues>());
         }
 
         private static RequestToProcessDto CreateRequest(List<ComponentApiModel> components)
