@@ -504,12 +504,13 @@ namespace Dorc.Monitor.RequestProcessors
             // attempt to add any other properties that don't need defaults
             foreach (var configValue in configValues)
             {
-                if (_scriptScopeConfigValues.IsWithheld(configValue.Key))
+                if (_scriptScopeConfigValues.IsWithheld(configValue))
                 {
-                    // DOrc's own operating credentials. Every secure value was previously
-                    // decrypted and injected subject only to a coarse production flag, so these
-                    // were delivered in cleartext, as ordinary PowerShell variables, to the
-                    // deployment scripts of every environment the flag admitted.
+                    // Withheld either by the reserved-key list or by the value's own
+                    // classification. Every secure value was previously decrypted and injected
+                    // subject only to a coarse production flag, so DOrc's own operating
+                    // credentials were delivered in cleartext, as ordinary PowerShell variables,
+                    // to the deployment scripts of every environment the flag admitted.
                     continue;
                 }
 
