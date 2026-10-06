@@ -8907,6 +8907,20 @@
           "ArrayName": {
             "type": "string",
             "nullable": true
+          },
+          "LastChecked": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "IsReachable": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "UnreachableSince": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -10496,6 +10510,20 @@
           },
           "ApplicationTags": {
             "type": "string",
+            "nullable": true
+          },
+          "LastChecked": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "IsReachable": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "UnreachableSince": {
+            "type": "string",
+            "format": "date-time",
             "nullable": true
           }
         },

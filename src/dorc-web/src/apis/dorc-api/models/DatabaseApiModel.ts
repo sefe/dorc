@@ -56,4 +56,19 @@ export interface DatabaseApiModel {
      * @memberof DatabaseApiModel
      */
     ArrayName?: string | null;
+    /**
+     * @type {string}
+     * @memberof DatabaseApiModel
+     */
+    LastChecked?: string | null;
+    /**
+     * @type {boolean}
+     * @memberof DatabaseApiModel
+     */
+    IsReachable?: boolean | null;
+    /**
+     * @type {string}
+     * @memberof DatabaseApiModel
+     */
+    UnreachableSince?: string | null;
 }
