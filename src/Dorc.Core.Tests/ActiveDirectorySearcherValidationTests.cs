@@ -1,4 +1,4 @@
-using Dorc.Core;
+using Dorc.Core.Windows;
 
 namespace Dorc.Core.Tests
 {

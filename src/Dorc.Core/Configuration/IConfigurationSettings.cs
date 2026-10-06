@@ -21,6 +21,7 @@ namespace Dorc.Core.Configuration
         string? GetOnePasswordIdentityServerApiSecretItemId();
         bool GetIsUseAdAsSearcher();
         bool GetIsUseAdSidsForAccessControl();
+        bool GetAdFallbackEnabled();
 
         string GetAzureEntraTenantId();
         string GetAzureEntraClientId();
