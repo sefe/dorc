@@ -79,10 +79,7 @@ namespace Dorc.Monitor.TerraformSourceConfig
 
             var repositoryUrl = project.TerraformGitRepoUrl;
 
-            if (!MayReceiveSourceCredentials(repositoryUrl))
-            {
-                return;
-            }
+            RequireMayReceiveSourceCredentials(repositoryUrl);
 
             scriptGroup.TerraformGitRepoUrl = repositoryUrl;
 
@@ -110,29 +107,33 @@ namespace Dorc.Monitor.TerraformSourceConfig
         /// access token issued to DOrc's own application registration. Neither is scoped to a
         /// particular repository, so pointing a project at a host of one's choosing collected
         /// them both.
+        ///
+        /// A refusal throws rather than silently leaving the source unset: the deployment is
+        /// going to fail either way, and failing here puts the policy reason in front of the
+        /// operator instead of a later "repository URL is not configured" from the runner.
         /// </summary>
-        private bool MayReceiveSourceCredentials(string repositoryUrl)
+        private void RequireMayReceiveSourceCredentials(string repositoryUrl)
         {
             if (_sourceHosts.IsTerraformSourceUnconfigured)
             {
-                _logger.LogError(
+                var message =
                     "Refusing Terraform Git source because no source host allow-list is configured"
-                    + " ('{Setting}').",
-                    SourceHostAllowList.TerraformHostsSetting);
-                return false;
+                    + $" ('{SourceHostAllowList.TerraformHostsSetting}').";
+                _logger.LogError(message);
+                throw new InvalidOperationException(message);
             }
 
             var decision = _sourceHosts.CheckTerraformSource(repositoryUrl);
             if (decision.Allowed)
             {
-                return true;
+                return;
             }
 
-            _logger.LogError(
-                "Withholding Git credentials from '{RepositoryUrl}', because {Reason}",
-                LogText.SingleLine(repositoryUrl),
-                LogText.SingleLine(decision.Reason));
-            return false;
+            var refusal =
+                $"Withholding Git credentials from '{LogText.SingleLine(repositoryUrl)}',"
+                + $" because {LogText.SingleLine(decision.Reason)}";
+            _logger.LogError(refusal);
+            throw new InvalidOperationException(refusal);
         }
 
         /// <summary>

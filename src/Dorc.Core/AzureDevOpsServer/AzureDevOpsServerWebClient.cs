@@ -130,13 +130,15 @@ namespace Dorc.Core.AzureDevOpsServer
         private static bool IsConfiguredAzureEndpoint(string azureEndpoint)
         {
             // AzureEndpoint is configured as a bare host ("dev.azure.com") by default but may be
-            // written as a URL, so both sides are reduced to a host before comparing.
+            // written as a URL, so it is reduced to a host before comparing. Subdomains of the
+            // configured host are the same service reached through another name -
+            // myorg.visualstudio.com, vsrm.dev.azure.com, pkgs.dev.azure.com - and take the same
+            // AAD token, so the comparison is host-or-subdomain on the parsed authority, never
+            // a substring of the URL text.
             var configured = SourceHost.Of(azureEndpointUrl) ?? azureEndpointUrl?.Trim();
-            var actual = SourceHost.Of(azureEndpoint);
 
             return !string.IsNullOrWhiteSpace(configured)
-                && actual != null
-                && string.Equals(actual, configured, StringComparison.OrdinalIgnoreCase);
+                && SourceHost.Is(azureEndpoint, configured);
         }
 
         private void RequireDefaultCredentialsPermitted(string azureEndpoint)
