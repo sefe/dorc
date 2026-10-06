@@ -76,6 +76,21 @@ namespace Dorc.Core.Tests
         }
 
         [TestMethod]
+        public void PrimaryThrowsArgumentException_IsADefinitiveAnswer_NoFallback()
+        {
+            // The searcher contract throws ArgumentException for "not found" and for
+            // guard-rejected input. Neither is an availability failure: falling back would
+            // let who-exists vary with Graph health and replay guard-rejected input
+            // against the LDAP path.
+            var primary = new StubSearcher { Throws = new ArgumentException("no such user") };
+            var fallback = new StubSearcher { UserData = new UserElementApiModel { Username = "ghost" } };
+
+            Assert.ThrowsExactly<ArgumentException>(
+                () => Build(primary, fallback).GetUserData("ghost"));
+            Assert.AreEqual(0, fallback.Calls);
+        }
+
+        [TestMethod]
         public void BothThrow_FallbackExceptionPropagates()
         {
             var primary = new StubSearcher { Throws = new InvalidOperationException("graph down") };

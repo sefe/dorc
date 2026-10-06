@@ -6,9 +6,11 @@ namespace Dorc.Core
 {
     // Primary/fallback pair over IActiveDirectorySearcher: every call goes to the primary
     // (Graph) first; the fallback (on-prem AD, Windows-only hosts) is consulted only when
-    // the primary THROWS. A successful-but-empty primary answer is a real answer — "no such
-    // user" from Graph must not become an AD query, or the two directories could disagree
-    // about who exists depending on transient Graph health.
+    // the primary fails for AVAILABILITY reasons. A definitive answer from Graph — empty
+    // results, or the ArgumentException the searcher contract uses for "no such entity" and
+    // for guard-rejected input — is a real answer and must not become an AD query, or the
+    // two directories could disagree about who exists depending on transient Graph health
+    // (and input that failed the injection guard would be replayed against LDAP).
     public class FallbackDirectorySearcher : IActiveDirectorySearcher
     {
         private readonly IActiveDirectorySearcher _primary;
@@ -46,6 +48,14 @@ namespace Dorc.Core
             try
             {
                 return call(_primary);
+            }
+            catch (ArgumentException)
+            {
+                // The searcher contract throws ArgumentException for "entity not found" and
+                // for input rejected by the validation guard. Both are definitive answers,
+                // not availability failures — falling back would let who-exists vary with
+                // Graph health and replay guard-rejected input against the LDAP path.
+                throw;
             }
             catch (Exception primaryEx)
             {

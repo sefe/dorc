@@ -98,7 +98,10 @@ namespace Dorc.Core.Tests.Graph
                 uri?.Query ?? string.Empty,
                 uri == null ? null : FilterOf(uri),
                 uri == null ? null : SelectOf(uri),
-                body));
+                body,
+                request.Headers.TryGetValues("ConsistencyLevel", out var consistency)
+                    ? string.Join(",", consistency)
+                    : null));
 
             var rule = _rules.FirstOrDefault(r => r.Match(request));
             if (rule != null)
@@ -159,5 +162,6 @@ namespace Dorc.Core.Tests.Graph
         string Query,
         string? Filter,
         string? Select,
-        string? Body);
+        string? Body,
+        string? ConsistencyLevel);
 }

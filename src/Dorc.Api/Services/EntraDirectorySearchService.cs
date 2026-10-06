@@ -1,5 +1,4 @@
 using Dorc.ApiModel;
-using Dorc.Core.Configuration;
 using Dorc.Core.Interfaces;
 
 namespace Dorc.Api.Services
@@ -9,18 +8,16 @@ namespace Dorc.Api.Services
     public class EntraDirectorySearchService : IDirectorySearchService
     {
         private readonly IActiveDirectorySearcher _searcher;
-        private readonly string _intraDomainName;
 
-        public EntraDirectorySearchService(IActiveDirectorySearcher searcher, IConfigurationSettings config)
+        public EntraDirectorySearchService(IActiveDirectorySearcher searcher)
         {
             _searcher = searcher;
-            _intraDomainName = config.GetConfigurationDomainNameIntra();
         }
 
         public IList<UserSearchResult> FindUsers(string searchCriteria, string domainName)
         {
             return _searcher.Search(searchCriteria)
-                .Where(e => !e.IsGroup)
+                .Where(e => !e.IsGroup && !IsServicePrincipal(e))
                 .Select(e => new UserSearchResult
                 {
                     DisplayName = e.DisplayName,
@@ -64,6 +61,15 @@ namespace Dorc.Api.Services
                 return at > 0 ? e.Username[..at] : e.Username;
             }
             return e.DisplayName;
+        }
+
+        // The underlying searcher also surfaces service principals (for the ACL picker,
+        // where machine clients are legitimate grantees). They have no meaningful
+        // DOMAIN\logonName, so keep them out of this controller's people picker. A GUID
+        // Username is the service-principal signature: users carry a UPN there.
+        private static bool IsServicePrincipal(UserElementApiModel e)
+        {
+            return Guid.TryParse(e.Username, out _);
         }
     }
 }

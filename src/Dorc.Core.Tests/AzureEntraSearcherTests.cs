@@ -743,6 +743,69 @@ namespace Dorc.Core.Tests
                 new[] { "Bob One", "Bob Two" },
                 results.Select(r => r.DisplayName).ToArray(),
                 "second page of user results was not drained");
+
+            // Advanced queries ($count/eventual) require the ConsistencyLevel header on
+            // every page, not just the first — Graph answers 400 for a bare nextLink GET.
+            var page2 = handler.Captured.Last(c => c.Query.Contains("USERPAGE2"));
+            Assert.AreEqual("eventual", page2.ConsistencyLevel,
+                "the nextLink follow-up request dropped the ConsistencyLevel header");
+        }
+
+        // GetSidsForUser may be handed an email that is NOT the UPN (ClaimsPrincipalReaderFactory
+        // passes GetUserEmail output when IsUseAdSidsForAccessControl is set). Using it as a
+        // path segment 404s out of the membership call, so it must be resolved via mail filter.
+        [TestMethod]
+        public void GetSidsForUser_NonUpnEmail_ResolvesViaMailFilter()
+        {
+            const string objectId = "cccccccc-cccc-cccc-cccc-cccccccccccc";
+            var handler = new MockHttpHandler()
+                .MapFilter(HttpMethod.Get, "/users", "mail eq", $$"""
+                { "value": [{ "id": "{{objectId}}" }] }
+                """)
+                .MapPath(HttpMethod.Get, $"/users/{objectId}/transitiveMemberOf", """
+                { "value": [{ "id": "dddddddd-dddd-dddd-dddd-dddddddddddd",
+                              "onPremisesSecurityIdentifier": "S-1-5-21-9-9-9-500" }] }
+                """)
+                .MapPath(HttpMethod.Get, $"/users/{objectId}", """
+                { "id": "cccccccc-cccc-cccc-cccc-cccccccccccc" }
+                """);
+
+            var sids = NewSearcher(handler).GetSidsForUser("bob.smith@mail.contoso.com");
+
+            CollectionAssert.Contains(sids, "dddddddd-dddd-dddd-dddd-dddddddddddd");
+            CollectionAssert.Contains(sids, "S-1-5-21-9-9-9-500");
+            Assert.IsFalse(
+                handler.Captured.Any(c => c.Path.Contains("bob.smith@", StringComparison.OrdinalIgnoreCase)),
+                "a possibly-non-UPN email must never be used as a Graph path segment");
+        }
+
+        // An ambiguous group name must not grant membership against whichever of two
+        // same-named groups Graph returned first.
+        [TestMethod]
+        public void GetGroupSidIfUserIsMemberRecursive_AmbiguousGroup_RefusesToGuess()
+        {
+            var handler = new MockHttpHandler()
+                .MapFilter(HttpMethod.Get, "/users", "onPremisesSamAccountName", """
+                { "value": [{ "id": "11111111-0000-0000-0000-000000000001" }] }
+                """)
+                .MapPath(HttpMethod.Get, "/groups", """
+                {
+                    "value": [
+                        { "id": "77777777-7777-7777-7777-777777777777" },
+                        { "id": "88888888-8888-8888-8888-888888888888" }
+                    ]
+                }
+                """)
+                .MapPath(HttpMethod.Post, "/checkMemberGroups", """
+                { "value": [ "77777777-7777-7777-7777-777777777777" ] }
+                """);
+
+            var result = NewSearcher(handler).GetGroupSidIfUserIsMemberRecursive("alice", "Admins", "contoso.com");
+
+            Assert.AreEqual(string.Empty, result,
+                "an ambiguous group name must not resolve to an arbitrary group for a membership check");
+            Assert.AreEqual(0, handler.CountFor("/checkMemberGroups"),
+                "no membership check may be issued when the target group is ambiguous");
         }
 
         private static AzureEntraSearcher NewSearcher(MockHttpHandler handler)

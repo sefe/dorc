@@ -37,7 +37,8 @@ namespace Dorc.Core
         private readonly string _clientSecret;
         private readonly ILogger _log;
         private readonly Func<GraphServiceClient>? _graphClientFactory;
-        private GraphServiceClient? _graphClient;
+        private readonly object _clientInitLock = new();
+        private volatile GraphServiceClient? _graphClient;
         private RetryHandler? _customRetryHandler;
 
         public AzureEntraSearcher(IConfigurationSettings config, ILogger<AzureEntraSearcher> log)
@@ -65,12 +66,27 @@ namespace Dorc.Core
             if (_graphClient != null)
                 return _graphClient;
 
-            if (_graphClientFactory != null)
+            // This instance is registered as a singleton serving concurrent requests, so
+            // lazy initialisation must be serialised: an unguarded check-then-set could
+            // build two clients and dispose a RetryHandler that sits in the other client's
+            // live pipeline.
+            lock (_clientInitLock)
             {
-                _graphClient = _graphClientFactory();
-                return _graphClient;
-            }
+                if (_graphClient != null)
+                    return _graphClient;
 
+                if (_graphClientFactory != null)
+                {
+                    _graphClient = _graphClientFactory();
+                    return _graphClient;
+                }
+
+                return _graphClient = BuildGraphClient();
+            }
+        }
+
+        private GraphServiceClient BuildGraphClient()
+        {
             if (string.IsNullOrEmpty(_tenantId)) throw new ArgumentNullException("Azure tenantId is not configured");
             if (string.IsNullOrEmpty(_clientId)) throw new ArgumentNullException("Azure clientId is not configured");
             if (string.IsNullOrEmpty(_clientSecret)) throw new ArgumentNullException("Azure clientSecret is not configured");
@@ -119,15 +135,13 @@ namespace Dorc.Core
                 handlers.Insert(0, _customRetryHandler);
 
                 var httpClient = GraphClientFactory.Create(handlers);
-                _graphClient = new GraphServiceClient(httpClient, authProvider);
+                return new GraphServiceClient(httpClient, authProvider);
             }
             catch (Exception ex)
             {
                 _log.LogError(ex, "Error initializing GraphServiceClient.");
                 throw new InvalidOperationException("Failed to initialize GraphServiceClient.", ex);
             }
-
-            return _graphClient;
         }
 
         private static string EscapeODataString(string s) => s?.Replace("'", "''") ?? string.Empty;
@@ -144,11 +158,12 @@ namespace Dorc.Core
             return name != null && Regex.IsMatch(name, @"\A[a-zA-Z0-9'_. -]+(\(External\))?\z");
         }
 
-        // Graph accepts an object id (GUID) or a UPN as a /users/{x} path segment. A bare
-        // sAMAccountName is neither and yields 400, so callers must resolve it first.
-        private static bool LooksLikeGraphUserIdentifier(string value)
+        // Graph accepts an object id (GUID) as a /users/{x} path segment. Anything else —
+        // a bare sAMAccountName, a DOMAIN\name, a UPN, or an email that is not the UPN —
+        // must be resolved to an object id first (a non-UPN segment yields 400 or 404).
+        private static bool LooksLikeGraphObjectId(string value)
         {
-            return Guid.TryParse(value, out _) || value.Contains('@');
+            return Guid.TryParse(value, out _);
         }
 
         // Broad-search guard. Deliberately wider than IsValidSearchName: this backs the
@@ -217,8 +232,12 @@ namespace Dorc.Core
                     }
 
                     if (string.IsNullOrEmpty(users.OdataNextLink) || ++userPages >= MaxSearchPages) break;
+                    // Advanced queries ($count + $filter on non-indexed properties) require the
+                    // ConsistencyLevel header on EVERY page request, not just the first — without
+                    // it Graph answers 400 for the nextLink follow-up.
                     users = graphClient.Users.WithUrl(users.OdataNextLink)
-                        .GetAsync().GetAwaiter().GetResult();
+                        .GetAsync(req => req.Headers.Add("ConsistencyLevel", "eventual"))
+                        .GetAwaiter().GetResult();
                 }
 
                 // Search for groups
@@ -253,8 +272,11 @@ namespace Dorc.Core
                     }
 
                     if (string.IsNullOrEmpty(groups.OdataNextLink) || ++groupPages >= MaxSearchPages) break;
+                    // Same advanced-query rule as the user pages: the header must accompany
+                    // every nextLink request.
                     groups = graphClient.Groups.WithUrl(groups.OdataNextLink)
-                        .GetAsync().GetAwaiter().GetResult();
+                        .GetAsync(req => req.Headers.Add("ConsistencyLevel", "eventual"))
+                        .GetAwaiter().GetResult();
                 }
 
                 // Service principals (M2M clients). Deleting IdentityServerSearcher removed the
@@ -262,7 +284,7 @@ namespace Dorc.Core
                 // grants could not be made through the UI. Their appId is what
                 // OAuthClaimsPrincipalReader matches against AccessControl.Pid for M2M callers,
                 // so that is what we surface as Pid. Requires Application.Read.All.
-AppendServicePrincipals(graphClient, objectName, output);
+                AppendServicePrincipals(graphClient, objectName, output);
             }
             catch (ApiException ex)
             {
@@ -528,10 +550,12 @@ AppendServicePrincipals(graphClient, objectName, output);
 
             // WinAuthClaimsPrincipalReader passes a bare sAMAccountName here (and
             // ClaimsPrincipalReaderFactory a sAMAccountName-or-email when
-            // IsUseAdSidsForAccessControl is set). Graph only accepts an object id or a UPN
-            // as a path segment and answers 400 for anything else, so resolve first —
-            // the same step GetGroupSidIfUserIsMemberRecursive already performs.
-            var graphUserId = LooksLikeGraphUserIdentifier(userId)
+            // IsUseAdSidsForAccessControl is set). Only an object id is safe as a Graph
+            // path segment: a UPN usually works, but an email that is NOT the UPN 404s,
+            // which would throw out of the transitive-membership call below. Resolve
+            // everything that is not a GUID — the resolver handles UPN, mail, and
+            // sAMAccountName shapes and refuses ambiguous matches.
+            var graphUserId = LooksLikeGraphObjectId(userId)
                 ? userId
                 : ResolveUserIdFromName(graphClient, userId);
 
@@ -642,16 +666,29 @@ AppendServicePrincipals(graphClient, objectName, output);
                 var group = graphClient.Groups
                     .GetAsync(requestConfiguration =>
                     {
+                        // Ask for 2 so an ambiguous group name is detectable, mirroring
+                        // ResolveUserIdFromName: granting membership against whichever of two
+                        // same-named groups Graph returned first would be an authz decision
+                        // made by result ordering.
+                        requestConfiguration.QueryParameters.Top = 2;
                         requestConfiguration.QueryParameters.Filter =
                             $"displayName eq '{safeGroup}' or mailNickname eq '{safeGroup}'";
                         requestConfiguration.QueryParameters.Select = new[] { "id" };
                     }).GetAwaiter().GetResult();
 
-                var targetGroup = group?.Value?.FirstOrDefault();
-                if (targetGroup == null)
+                var groupMatches = group?.Value;
+                if (groupMatches == null || groupMatches.Count == 0)
                 {
                     return string.Empty;
                 }
+
+                if (groupMatches.Count > 1)
+                {
+                    _log.LogError("Group name resolved to multiple Entra groups; refusing to pick one for a membership check");
+                    return string.Empty;
+                }
+
+                var targetGroup = groupMatches[0];
 
                 var requestBody = new CheckMemberGroupsPostRequestBody
                 {
@@ -680,8 +717,8 @@ AppendServicePrincipals(graphClient, objectName, output);
             return string.Empty;
         }
 
-        // P-5 helper: normalises caller input (DOMAIN\name, name(External), bare name, UPN)
-        // and resolves to an Entra object id via onPremisesSamAccountName/userPrincipalName filter.
+        // P-5 helper: normalises caller input (DOMAIN\name, name(External), bare name, UPN,
+        // or a non-UPN email) and resolves to an Entra object id. Refuses ambiguous matches.
 
         // Service principals (M2M clients). Deleting IdentityServerSearcher removed the only
         // searcher that surfaced machine clients in the ACL picker, so new M2M grants could not
@@ -722,7 +759,8 @@ AppendServicePrincipals(graphClient, objectName, output);
 
                     if (string.IsNullOrEmpty(principals.OdataNextLink) || ++pages >= MaxSearchPages) break;
                     principals = graphClient.ServicePrincipals.WithUrl(principals.OdataNextLink)
-                        .GetAsync().GetAwaiter().GetResult();
+                        .GetAsync(req => req.Headers.Add("ConsistencyLevel", "eventual"))
+                        .GetAwaiter().GetResult();
                 }
             }
             catch (ApiException ex)
@@ -758,6 +796,11 @@ AppendServicePrincipals(graphClient, objectName, output);
             if (string.IsNullOrEmpty(name)) return null;
 
             var safe = EscapeODataString(name);
+            // An @-shaped input is a UPN or an email; mail eq covers accounts whose primary
+            // SMTP address differs from their UPN. Anything else is a sAMAccountName shape.
+            var filter = name.Contains('@')
+                ? $"accountEnabled eq true and (userPrincipalName eq '{safe}' or mail eq '{safe}')"
+                : $"accountEnabled eq true and (onPremisesSamAccountName eq '{safe}' or userPrincipalName eq '{safe}')";
             var users = graphClient.Users
                 .GetAsync(req =>
                 {
@@ -766,8 +809,7 @@ AppendServicePrincipals(graphClient, objectName, output);
                     // Ask for 2 so an ambiguous name is detectable rather than silently
                     // collapsed by FirstOrDefault.
                     req.QueryParameters.Top = 2;
-                    req.QueryParameters.Filter =
-                        $"accountEnabled eq true and (onPremisesSamAccountName eq '{safe}' or userPrincipalName eq '{safe}')";
+                    req.QueryParameters.Filter = filter;
                     req.QueryParameters.Select = new[] { "id" };
                 }).GetAwaiter().GetResult();
 
