@@ -1,4 +1,4 @@
-﻿using Dorc.ApiModel;
+using Dorc.ApiModel;
 using Dorc.ApiModel.MonitorRunnerApi;
 using Dorc.Core;
 using Dorc.Core.Events;
@@ -478,7 +478,11 @@ namespace Dorc.Monitor.RequestProcessors
 
             foreach (var propertyPair in properties)
             {
-                _variableResolver.SetPropertyValue(propertyPair.Name, propertyPair.Value);
+                // Supplied on the deployment request, so recorded as such: these values, and
+                // any curated value that interpolates them, must never reach the expression
+                // evaluator. It compiles and runs C# inside this process, which holds both
+                // deployment credential pairs.
+                _variableResolver.SetRequestSuppliedPropertyValue(propertyPair.Name, propertyPair.Value);
             }
         }
 
