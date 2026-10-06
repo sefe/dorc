@@ -5,6 +5,10 @@ popd
 set MYDIR=%CD%
 echo Directory of this batch fil: %MYDIR%
 
+REM ALLOWED.ARTEFACT.HOSTS and ALLOWED.TERRAFORM.SOURCE.HOSTS must be JSON arrays of host
+REM names, e.g. "[""tfs.corp.example.com"", ""dev.azure.com""]". A bare host name is written
+REM into the configuration as a string, which the services reject at startup.
+
 call msiexec /i "%MYDIR%\Setup.Dorc.msi" ^
 SERVICE.IDENTITY="" ^
 SERVICE.PASSWORD="" ^
