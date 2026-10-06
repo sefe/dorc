@@ -15,31 +15,41 @@ namespace Dorc.Monitor.Tests
         [TestMethod]
         public void UnconfiguredAllowListRejectsGitSource()
         {
-            var scriptGroup = Configure(new TestSourceHostAllowList(isUnconfigured: true));
+            var scriptGroup = new ScriptGroup();
 
-            Assert.IsTrue(string.IsNullOrEmpty(scriptGroup.TerraformGitRepoUrl));
-            Assert.IsTrue(string.IsNullOrEmpty(scriptGroup.TerraformGitPat));
-            Assert.IsTrue(string.IsNullOrEmpty(scriptGroup.AzureBearerToken));
+            var refusal = Assert.ThrowsExactly<InvalidOperationException>(() =>
+                Configure(scriptGroup, new TestSourceHostAllowList(isUnconfigured: true)));
+
+            StringAssert.Contains(refusal.Message, "no source host allow-list is configured");
+            AssertNoSourceOrCredentialConfigured(scriptGroup);
         }
 
         [TestMethod]
         public void DisallowedHostRejectsGitSource()
         {
-            var scriptGroup = Configure(new TestSourceHostAllowList(isUnconfigured: false));
+            var scriptGroup = new ScriptGroup();
 
+            var refusal = Assert.ThrowsExactly<InvalidOperationException>(() =>
+                Configure(scriptGroup, new TestSourceHostAllowList(isUnconfigured: false)));
+
+            StringAssert.Contains(refusal.Message, "Withholding Git credentials");
+            AssertNoSourceOrCredentialConfigured(scriptGroup);
+        }
+
+        private static void AssertNoSourceOrCredentialConfigured(ScriptGroup scriptGroup)
+        {
             Assert.IsTrue(string.IsNullOrEmpty(scriptGroup.TerraformGitRepoUrl));
             Assert.IsTrue(string.IsNullOrEmpty(scriptGroup.TerraformGitPat));
             Assert.IsTrue(string.IsNullOrEmpty(scriptGroup.AzureBearerToken));
         }
 
-        private static ScriptGroup Configure(ISourceHostAllowList sourceHosts)
+        private static void Configure(ScriptGroup scriptGroup, ISourceHostAllowList sourceHosts)
         {
             var configurator = new TerraformSourceConfigurator(
                 Substitute.For<ILogger>(),
                 Substitute.For<IConfigurationSettings>(),
                 Substitute.For<IGitHubHostValidator>(),
                 sourceHosts);
-            var scriptGroup = new ScriptGroup();
 
             configurator.ConfigureScriptGroup(
                 scriptGroup,
@@ -50,8 +60,6 @@ namespace Dorc.Monitor.Tests
                     TerraformGitRepoUrl = "https://attacker.example/repository.git"
                 },
                 new Dictionary<string, VariableValue>());
-
-            return scriptGroup;
         }
 
         private sealed class TestSourceHostAllowList(bool isUnconfigured) : ISourceHostAllowList
