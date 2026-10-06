@@ -1,7 +1,7 @@
 ﻿using System.Net.Http.Headers;
 using System.Text.Json;
 
-namespace OnePassword.Connect.Client
+namespace Dorc.Core.Secrets.OnePassword
 {
     public class OnePasswordClient
     {

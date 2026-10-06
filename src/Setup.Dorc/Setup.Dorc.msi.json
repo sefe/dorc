@@ -146,6 +146,26 @@
       "DeployProperty": "DORC_ENFORCE_SCRIPT_PATH_CONFINEMENT"
     },
     {
+      "MSIParameter": "DORC.DEPLOYMENT.CREDENTIALS.FROM.VAULT",
+      "DeployProperty": "DORC_DEPLOYMENT_CREDENTIALS_FROM_VAULT"
+    },
+    {
+      "MSIParameter": "DORC.PROD.DEPLOY.USERNAME.ITEMID",
+      "DeployProperty": "DORC_PROD_DEPLOY_USERNAME_ITEMID"
+    },
+    {
+      "MSIParameter": "DORC.PROD.DEPLOY.PASSWORD.ITEMID",
+      "DeployProperty": "DORC_PROD_DEPLOY_PASSWORD_ITEMID"
+    },
+    {
+      "MSIParameter": "DORC.NONPROD.DEPLOY.USERNAME.ITEMID",
+      "DeployProperty": "DORC_NONPROD_DEPLOY_USERNAME_ITEMID"
+    },
+    {
+      "MSIParameter": "DORC.NONPROD.DEPLOY.PASSWORD.ITEMID",
+      "DeployProperty": "DORC_NONPROD_DEPLOY_PASSWORD_ITEMID"
+    },
+    {
       "MSIParameter": "DORC.OAUTH.AUTHORITY",
       "DeployProperty": "DORC_OAUTH_AUTHORITY"
     },

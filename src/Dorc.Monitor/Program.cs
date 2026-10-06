@@ -1,7 +1,8 @@
-using Dorc.Core;
+﻿using Dorc.Core;
 using Dorc.Core.AzureStorageAccount;
 using Dorc.Core.BuildServer;
 using Dorc.Core.Configuration;
+using Dorc.Core.Secrets;
 using Dorc.Core.Interfaces;
 using Dorc.Core.Security;
 using Dorc.Core.VariableResolution;
@@ -215,6 +216,27 @@ builder.Services.AddTransient<IGitHubArtifactDownloader, GitHubArtifactDownloade
 
 builder.Services.AddTransient<IConfigurationSettings, ConfigurationSettings>();
 
+// Deployment credential resolution. The Monitor registers these itself rather than through the
+// Lamar core registry, which only the API includes.
+//
+// The vault reader is registered here at all because it was relocated out of the API assembly:
+// before that, the Monitor could not have read a credential from the vault even if configured
+// to. Whether these hosts can reach the vault is now a deployment question with a configured
+// answer rather than an architectural dependency.
+builder.Services.AddSingleton<IConfigurationSecretsReader, OnePasswordSecretsReader>();
+builder.Services.AddTransient<ConfigValueDeploymentCredentialSource>();
+builder.Services.AddTransient<VaultDeploymentCredentialSource>();
+builder.Services.AddTransient<IDeploymentCredentialSource>(services =>
+{
+    var configuration = services.GetRequiredService<IConfigurationSettings>();
+
+    // Configuration values remain the default. Switching where the whole estate's deployment
+    // credentials come from is deliberate, not something a release does on an operator's behalf.
+    return configuration.GetDeploymentCredentialsFromVault()
+        ? services.GetRequiredService<VaultDeploymentCredentialSource>()
+        : services.GetRequiredService<ConfigValueDeploymentCredentialSource>();
+});
+
 var connectionString = monitorConfiguration.DOrcConnectionString;
 
 builder.Services.AddTransient<IDeploymentContextFactory>(provider => new DeploymentContextFactory(connectionString));
@@ -244,4 +266,3 @@ builder.Services.AddTransient<IClaimsPrincipalReader, DirectToolClaimsPrincipalR
 
 IHost host = builder.Build();
 host.Run();
-

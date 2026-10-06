@@ -133,13 +133,26 @@ principle. The usernames are script-visible by design and are **not** credential
 
 ### Sequence
 
-1. Rotate the account password in the directory.
-2. Update the corresponding `ConfigValue` through the DOrc UI or API so it is re-encrypted with
-   the current key. **Do not** write to `deploy.ConfigValue` directly — the value is encrypted at
-   rest and a direct write stores plaintext.
-3. Deploy one component to a **non-production** environment and confirm success.
-4. Deploy one component to a **production** environment and confirm success.
-5. Repeat per key.
+1. For `DORC_ProdDeployPassword` and `DORC_NonProdDeployPassword`, check
+   `AppSettings:DeploymentCredentialsFromVault` on the instance being rotated. Record which
+   credential source is active before changing the account.
+2. Rotate the account password in the directory.
+3. Update the active credential store:
+   - when `DeploymentCredentialsFromVault` is `true`, update the 1Password item named by
+     `ProdDeployPasswordItemId` or `NonProdDeployPasswordItemId`, then read it through the
+     configured Connect service to confirm the new value is available;
+   - otherwise, update the corresponding `ConfigValue` through the DOrc UI or API so it is
+     re-encrypted with the current key;
+   - the other four keys in this runbook remain `ConfigValue` entries and are updated through
+     the DOrc UI or API.
+
+   **Do not** write to `deploy.ConfigValue` directly — the value is encrypted at rest and a
+   direct write stores plaintext. Do not update a deployment password in `ConfigValue` when the
+   vault source is active; that changes an inactive copy and leaves deployments using the stale
+   vault value.
+4. Deploy one component to a **non-production** environment and confirm success.
+5. Deploy one component to a **production** environment and confirm success.
+6. Repeat per key.
 
 Rotate one key at a time and verify between each. Rotating all six together makes a failure
 impossible to attribute.
