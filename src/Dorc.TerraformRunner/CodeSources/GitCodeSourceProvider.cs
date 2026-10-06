@@ -69,19 +69,24 @@ namespace Dorc.TerraformRunner.CodeSources
         /// redirected elsewhere therefore collected the Terraform PAT or the Entra access token,
         /// neither of which is scoped to a repository, without the redirect ever appearing in
         /// project configuration for anyone to notice.
+        ///
+        /// The whole origin is compared - scheme, host and port - not just the host. A same-host
+        /// redirect from https to http would otherwise carry the credential across a plaintext
+        /// connection.
         /// </summary>
         internal UsernamePasswordCredentials CreateCredentials(
             ScriptGroup scriptGroup, string url, bool isGitHub, bool isAzureDevOps)
         {
-            var requested = HostOf(url);
-            var expected = HostOf(scriptGroup.TerraformGitRepoUrl);
+            var requested = OriginOf(url);
+            var expected = OriginOf(scriptGroup.TerraformGitRepoUrl);
 
             if (requested == null || expected == null
                 || !string.Equals(requested, expected, StringComparison.OrdinalIgnoreCase))
             {
                 throw new InvalidOperationException(
                     $"Refusing to authenticate to '{url}': it is not the configured Terraform repository"
-                    + " host. Credentials are supplied only to the repository the deployment names.");
+                    + " origin (scheme, host and port). Credentials are supplied only to the repository"
+                    + " the deployment names.");
             }
 
             // For GitHub and Azure DevOps Git, PAT is used as username with empty password
@@ -110,7 +115,23 @@ namespace Dorc.TerraformRunner.CodeSources
 
         internal static bool IsHost(string? url, string host) => SourceHost.Is(url, host);
 
-        private static string? HostOf(string? url) => SourceHost.Of(url);
+        /// <summary>
+        /// The origin - scheme, host and explicit non-default port - or null when the URL names
+        /// no host. Default ports are normalised away, so https://host and https://host:443 are
+        /// the same origin.
+        /// </summary>
+        private static string? OriginOf(string? url)
+        {
+            if (!Uri.TryCreate(url?.Trim(), UriKind.Absolute, out var uri)
+                || string.IsNullOrEmpty(uri.Host))
+            {
+                return null;
+            }
+
+            return uri.IsDefaultPort
+                ? $"{uri.Scheme}://{uri.Host}"
+                : $"{uri.Scheme}://{uri.Host}:{uri.Port}";
+        }
 
         private string SanitizeGitParameter(string parameter)
         {
