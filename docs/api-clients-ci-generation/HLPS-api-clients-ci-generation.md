@@ -144,10 +144,10 @@ committed clients, the committed specs, and the C# API had all drifted apart:
    (An earlier iteration fetched inside `api-gen`; it was moved out because
    it made every build depend on an external resource. Verified at adoption
    time: the committed copy was byte-identical to the official 6.0 spec.)
-7. **The Azure DevOps pipeline (`pipelines/dorc-build.yml`) is unchanged.**
-   It runs on a self-hosted agent whose Java availability cannot be verified
-   from this repo; the GitHub Actions workflow is the enforced path. Mirror
-   the two steps there once the agent is known to have a JRE.
+7. **The retired Azure DevOps build pipeline is not an enforcement path.**
+   `pipelines/dorc-build.yml` was superseded by
+   `.github/workflows/release.yml` and removed. Client generation and the
+   in-sync gate are enforced by GitHub Actions only.
 
 ## Behavioural changes shipped with the reconciliation
 
@@ -178,7 +178,7 @@ committed clients, the committed specs, and the C# API had all drifted apart:
 |---|---------|--------|
 | U-1 | Is the **TypeScript** `azure-devops-build` client still needed? Nothing in the web app imports it. (The **C#** Azure DevOps client is in active use — build numbers and artifact locations — and is not in question.) | RESOLVED — removed (decision 5). |
 | U-2 | Should `swagger.json` itself be generated from the C# build (e.g. Swashbuckle CLI) instead of hand-maintained? | OPEN — would close the remaining C#→spec drift gap; needs API bootstrapping work. |
-| U-3 | Java availability on the ADO self-hosted agent (`TRADING-DOTNET-03`). | OPEN — blocks mirroring the gate into `pipelines/dorc-build.yml`. |
+| U-3 | Java availability on the retired ADO self-hosted build agent (`TRADING-DOTNET-03`). | RESOLVED — obsolete; `pipelines/dorc-build.yml` was retired rather than extended. |
 | U-4 | The generator jar is downloaded from Maven Central per generating job, unpinned by checksum and uncached. A Maven outage reddens unrelated PRs; a compromised artefact would author committed source. | OPEN — mitigations: cache `~/.openapi-generator-cli`, or vendor/pin the jar by hash. |
 | U-5 | **No 401 recovery path. ESCALATED — needs a designed fix, not a patch.** The generated runtime exposes no error seam (`post` middleware runs only on success). Two attempts were made and both reverted after review: (a) redirecting when `user.expired` — wrong, because `expired` is true during normal silent renewal, so it evicts users mid-renewal; (b) calling `signIn()` when silent renewal rejects — worse, and reverted in round 3. Silent renew uses a hidden iframe, so Safari/Firefox third-party-cookie blocking returns `login_required` while the *same* session succeeds top-level: that produces an unbreakable redirect loop with period `expires_in - 60`s, floored at 1s. It also pre-empts oidc-client-ts's own `ErrorTimeout` retry (every 5s, indefinitely), cancelling recovery that already worked. A correct fix must use `events.addSilentRenewError` (which fires only after the library's retry is exhausted), discriminate on `err instanceof ErrorResponse && err.error === 'login_required' \| 'interaction_required'`, drop the duplicate `addAccessTokenExpiring` registration in `OAuthService` (the library registers its own, so `signinSilent()` currently runs twice per expiry), and carry a persisted attempt marker so a renew-fails-immediately-after-sign-in condition cannot loop. Out of scope for this branch. | OPEN — own PR. |
 | U-7 | Nothing enforces that generated APIs are constructed with `dorcApiConfiguration`; `new FooApi()` compiles and silently loses both credentials and bearer token. All 175 sites are correct today. | OPEN — wants a lint rule. |

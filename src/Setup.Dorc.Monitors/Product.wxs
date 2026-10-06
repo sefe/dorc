@@ -1,0 +1,92 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
+	<?include Dependencies.wxi?>
+	<Package Name="DOrc Monitors" Language="1033" Version="$(var.ProductVersion)" Manufacturer="SEFE" UpgradeCode="{2BB79A99-CEA6-40DC-94AB-1C9B9610F8D6}" ProductCode="{DD4E19DF-A851-481B-9B7E-08663DC3E65C}">
+		<!--
+			One cabinet, deliberately. This package is the longest pole in the
+			build - 116.7s of it spent compressing - and a cabinet is compressed
+			by a single thread, so splitting it across several media to get that
+			work in parallel is the obvious move. It was tried, in run
+			30909238019, and it doubled the package: 83 MB to 166 MB, for 7
+			seconds off the build.
+
+			Every payload file ships twice here, into the Prod tree and into
+			NonProd, because both are installed side by side. WiX stores a source
+			file once per cabinet and points both File rows at that entry, so
+			within one cabinet the second copy is nearly free - and separate
+			cabinets make it pay full price. Do not split this.
+		-->
+		<Media Id="1" Cabinet="media1.cab" EmbedCab="yes" />
+
+		<SetDirectory Id="CDrive" Value="C:\" />
+
+		<Feature Id="Monitors" Title="Monitors" Level="1">
+			<ComponentRef Id="RemoveInstallRoot" />
+			<ComponentRef Id="RemoveServicesFolder" />
+
+			<ComponentRef Id="DeployMonitorServiceNonProd.exe" />
+			<ComponentGroupRef Id="NonProdDeployMonitorComGroup" />
+
+			<ComponentRef Id="DeployMonitorServiceDorcRunnerNonProd.exe" />
+			<ComponentGroupRef Id="NonProdDorcRunnerComGroup" />
+
+			<ComponentRef Id="DeployMonitorServiceDeployRunnerNonProd.exe" />
+			<ComponentGroupRef Id="NonProdDeployRunnerComGroup" />
+
+			<ComponentRef Id="DeployMonitorServiceTerrafromRunnerNonProd.exe" />
+			<ComponentGroupRef Id="NonProdTerraformRunnerComGroup" />
+
+			<ComponentRef Id="DeployMonitorServiceProd.exe" />
+			<ComponentGroupRef Id="ProdDeployMonitorComGroup" />
+
+			<ComponentRef Id="DeployMonitorServiceDorcRunnerProd.exe" />
+			<ComponentGroupRef Id="ProdDorcRunnerComGroup" />
+
+			<ComponentRef Id="DeployMonitorServiceDeployRunnerProd.exe" />
+			<ComponentGroupRef Id="ProdDeployRunnerComGroup" />
+
+			<ComponentRef Id="DeployMonitorServiceTerraformRunnerProd.exe" />
+			<ComponentGroupRef Id="ProdTerraformRunnerComGroup" />
+
+			<ComponentRef Id="LogsShare" />
+		</Feature>
+
+		<StandardDirectory Id="ProgramFiles64Folder">
+			<Directory Id="DOrcFolder" Name="DOrc">
+				<!--
+					The install root is shared with the other DOrc packages and owned by
+					none of them, so nothing here may delete recursively. Plain
+					RemoveFolder removes a directory only when it is already empty, so
+					every package can declare it and whichever is uninstalled last is the
+					one that succeeds. Kept identical to the equivalent component in the
+					other packages, deliberately.
+				-->
+				<Directory Id="INSTALLLOCATION" Name="Deploy">
+					<Component Id="RemoveInstallRoot" Guid="{9B04D998-58CC-4FAE-A545-1C464409D564}">
+						<CreateFolder />
+						<RemoveFile Id="Remove.Files" Directory="INSTALLLOCATION" Name="*.*" On="both" />
+						<RemoveFolder Id="Remove.Folder" On="both" />
+					</Component>
+					<!-- Both ActionService trees hang off Services, so this package owns it outright. -->
+					<Directory Id="ServicesFolder" Name="Services">
+						<Component Id="RemoveServicesFolder" Guid="{2BC14E1D-F915-453B-8BA9-74E368B2E1D6}">
+							<CreateFolder />
+							<util:RemoveFolderEx Id="Remove.ServicesFolderEx" Property="ServicesFolder" On="both" />
+							<RemoveFolder Id="Remove.ServicesFolder" On="both" />
+						</Component>
+					</Directory>
+				</Directory>
+			</Directory>
+		</StandardDirectory>
+		<Directory Id="CDrive" Name="CDrive">
+			<Directory Id="LogDir" Name="Log">
+				<Component Id="LogsShare" Guid="{E5D33911-A506-4E57-B2D8-839FBDA79160}" Bitness="always64">
+					<CreateFolder />
+					<util:User Id="Everyone1" Name="Everyone" CreateUser="no" FailIfExists="no" RemoveOnUninstall="no" />
+					<util:FileShare Id="Logs" Description="DOrc Logs" Name="Log">
+						<util:FileSharePermission User="Everyone1" GenericRead="yes" GenericExecute="yes" GenericWrite="no" />
+					</util:FileShare>
+				</Component>
+			</Directory>
+		</Directory>
+	</Package>
+</Wix>

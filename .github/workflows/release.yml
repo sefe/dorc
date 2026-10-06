@@ -152,9 +152,22 @@ jobs:
     - name: Setup MSBuild
       uses: microsoft/setup-msbuild@v3
       
+    # The tool is a fixed version, so it only needs downloading when the cache
+    # misses. Kept as a global install rather than a manifest: the WiX SDK
+    # resolves `wix` from PATH under RunWixToolsOutOfProc, and a local manifest
+    # would not be on it.
+    - name: Cache WiX Toolset
+      id: wix-cache
+      uses: actions/cache@v6
+      with:
+        path: ~/.dotnet/tools
+        key: ${{ runner.os }}-wix-6.0.1
+
     - name: Install WiX Toolset
       run: |
-        dotnet tool install --global wix --version 6.0.1
+        if (-not (Get-Command wix -ErrorAction SilentlyContinue)) {
+          dotnet tool install --global wix --version 6.0.1
+        }
         wix --version
         
     - name: Generate version number
@@ -293,16 +306,31 @@ jobs:
           Write-Host "UpdateVersion.ps1 not found, skipping cmdlet versioning"
         }
       
-    # #797 removed this cache on the argument that it cost more than it saved:
-    # 1m04s to restore plus 10s to save, against a 27s warm restore. The
-    # measurement that mattered was the one not taken — how long an uncached
-    # restore takes. It is 2m04s (run 30751703601) to 2m41s (run 30794820988),
-    # so removing the cache cost 25-100s per build rather than saving 40s.
-    # Restored on that evidence.
-    - name: Cache NuGet packages
-      uses: actions/cache@v6
+    # Restore and save are split because saving is the expensive half and
+    # almost every run was paying it for nothing.
+    #
+    # The key includes every csproj, so any project-file edit mints a new key.
+    # The run then restores an older entry through restore-keys — which counts
+    # as a miss — and re-saves the whole cache in the post-job step. Measured:
+    # restore 1m28s-1m38s and save 1m38s-5m11s, to make `dotnet restore` take
+    # ~16s instead of ~2m04s (runs 30889337127, 30905477688, 30909238019).
+    # Saving 1m48s of restore for up to 6m49s of cache handling is a loss, and
+    # #797 removed the cache entirely on a version of that observation. That
+    # went too far: an uncached restore is 2m04s (run 30751703601) to 2m41s
+    # (run 30794820988), so the restore half does pay for itself.
+    #
+    # Only the save is dropped, and only where it cannot help anyone. A cache
+    # written by a pull request is scoped to that pull request; no other branch
+    # can read it, so it is written once and never used. Caches on main and
+    # develop are readable by everything based on them, which is what makes the
+    # restore above hit at all.
+    - name: Restore NuGet cache
+      id: nuget-cache
+      uses: actions/cache/restore@v6
       with:
-        path: ~/.nuget/packages
+        path: |
+          ~/.nuget/packages
+          !~/.nuget/packages/**/*.nupkg
         key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json', '**/*.csproj') }}
         restore-keys: |
           ${{ runner.os }}-nuget-
@@ -313,6 +341,21 @@ jobs:
     # `dotnet restore` does on the same solution.
     - name: Restore packages
       run: dotnet restore ${{ env.SOLUTION_PATH }} --configfile pipelines/NuGet.config
+
+    # Runs here rather than as a post-job step, so the packages are on disk and
+    # a failure later in the build does not discard the cache. Skipped when the
+    # primary key already matched, since there would be nothing new to write.
+    - name: Save NuGet cache
+      if: >-
+        github.event_name == 'push'
+        && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+        && steps.nuget-cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v6
+      with:
+        path: |
+          ~/.nuget/packages
+          !~/.nuget/packages/**/*.nupkg
+        key: ${{ steps.nuget-cache.outputs.cache-primary-key }}
 
     # Materialise the directories the installers harvest, before anything else
     # builds. SDK-style projects are not directly packageable — the deployable
@@ -349,6 +392,29 @@ jobs:
         name: build-binlog-${{ steps.version.outputs.VERSION }}
         path: build.binlog
         retention-days: 7
+
+    # That the four packages install what the single Setup.Dorc.msi installed
+    # is asserted by Dorc.Installer.Tests in the test step above, not here.
+    # This only puts the baseline where those tests can find it.
+    #
+    # It used to be a PowerShell comparison run from this step. That version
+    # failed eight times in a row on the same thing — collections silently
+    # changing shape across function and pipeline boundaries — and at one point
+    # reported two unrelated packages as identical. The comparison is the same;
+    # the language is one where those failures cannot happen quietly.
+    - name: Fetch installer baseline
+      if: ${{ vars.MSI_BASELINE_RUN_ID != '' }}
+      shell: pwsh
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        $dir = "${{ github.workspace }}\msi-baseline"
+        gh run download ${{ vars.MSI_BASELINE_RUN_ID }} --dir $dir --repo ${{ github.repository }}
+        if ($LASTEXITCODE -ne 0) {
+          Write-Error "Could not download the baseline from run ${{ vars.MSI_BASELINE_RUN_ID }}."
+          exit 1
+        }
+        echo "MSI_BASELINE_PATH=$dir" >> $env:GITHUB_ENV
 
     - name: Run tests
       shell: pwsh
@@ -509,13 +575,34 @@ jobs:
         $target = "$artifactsRoot\Server"
         New-Item -ItemType Directory -Force -Path $target | Out-Null
         
-        $source = "${{ github.workspace }}\src\Setup.Dorc\bin\x64\${{ env.BUILD_CONFIGURATION }}"
+        $source = "${{ github.workspace }}\src\Setup.Dorc.Web\bin\x64\${{ env.BUILD_CONFIGURATION }}"
         if (Test-Path $source) {
           Copy-Item -Path "$source\*.msi" -Destination $target -Force -ErrorAction SilentlyContinue
           Copy-Item -Path "$source\*.json" -Destination $target -Force -ErrorAction SilentlyContinue
-          Write-Host "Copied DOrc MSI installer"
+          Write-Host "Copied DOrc Web MSI installer"
         }
         
+        $source = "${{ github.workspace }}\src\Setup.Dorc.Api\bin\x64\${{ env.BUILD_CONFIGURATION }}"
+        if (Test-Path $source) {
+          Copy-Item -Path "$source\*.msi" -Destination $target -Force -ErrorAction SilentlyContinue
+          Copy-Item -Path "$source\*.json" -Destination $target -Force -ErrorAction SilentlyContinue
+          Write-Host "Copied DOrc API MSI installer"
+        }
+
+        $source = "${{ github.workspace }}\src\Setup.Dorc.Monitors\bin\x64\${{ env.BUILD_CONFIGURATION }}"
+        if (Test-Path $source) {
+          Copy-Item -Path "$source\*.msi" -Destination $target -Force -ErrorAction SilentlyContinue
+          Copy-Item -Path "$source\*.json" -Destination $target -Force -ErrorAction SilentlyContinue
+          Write-Host "Copied DOrc Monitors MSI installer"
+        }
+
+        $source = "${{ github.workspace }}\src\Setup.Dorc.Cli\bin\x64\${{ env.BUILD_CONFIGURATION }}"
+        if (Test-Path $source) {
+          Copy-Item -Path "$source\*.msi" -Destination $target -Force -ErrorAction SilentlyContinue
+          Copy-Item -Path "$source\*.json" -Destination $target -Force -ErrorAction SilentlyContinue
+          Write-Host "Copied DOrc CLI MSI installer"
+        }
+
         $source = "${{ github.workspace }}\src\Setup.Acceptance\bin\x64\${{ env.BUILD_CONFIGURATION }}"
         if (Test-Path $source) {
           Copy-Item -Path "$source\*.msi" -Destination $target -Force -ErrorAction SilentlyContinue

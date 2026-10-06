@@ -1,0 +1,8 @@
+<Include xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <!--
+    The package version comes from the build, not from a file inside the
+    package. Setup.Dorc.Api.wixproj defines BuildVersion from the Version
+    property both pipelines pass.
+  -->
+  <?define ProductVersion="$(var.BuildVersion)" ?>
+</Include>

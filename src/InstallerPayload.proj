@@ -1,7 +1,7 @@
 <Project DefaultTargets="PublishInstallerPayload">
 
   <!--
-    Materialises the payload directories that Setup.Dorc and Setup.Acceptance
+    Materialises the payload directories that the installer packages and Setup.Acceptance
     harvest, as an explicit build stage that runs BEFORE the solution build.
 
     Why this exists
