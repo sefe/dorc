@@ -149,6 +149,43 @@ namespace Dorc.Api.Controllers
         }
 
         /// <summary>
+        /// Sets or clears the deployment execution identity for an environment.
+        /// </summary>
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(EnvironmentApiModel))]
+        [SwaggerResponse(StatusCodes.Status400BadRequest, Type = typeof(string))]
+        [SwaggerResponse(StatusCodes.Status403Forbidden, Type = typeof(string))]
+        [SwaggerResponse(StatusCodes.Status404NotFound, Type = typeof(string))]
+        [Route("{environmentId:int}/ExecutionIdentity")]
+        [HttpPut]
+        public IActionResult PutExecutionIdentity(
+            int environmentId,
+            [FromBody] EnvironmentExecutionIdentityApiModel content)
+        {
+            if (!_rolePrivilegesChecker.IsAdmin(User))
+            {
+                return StatusCode(StatusCodes.Status403Forbidden,
+                    "Only administrators can change an environment's execution identity.");
+            }
+
+            try
+            {
+                var environment = environmentsPersistentSource.SetExecutionIdentityReference(
+                    environmentId,
+                    content?.ExecutionIdentityReference,
+                    User);
+                return StatusCode(StatusCodes.Status200OK, environment);
+            }
+            catch (KeyNotFoundException exception)
+            {
+                return StatusCode(StatusCodes.Status404NotFound, exception.Message);
+            }
+            catch (ArgumentException exception)
+            {
+                return StatusCode(StatusCodes.Status400BadRequest, exception.Message);
+            }
+        }
+
+        /// <summary>
         /// Clone an environment including its variables/properties
         /// </summary>
         /// <param name="request">The clone request containing source environment ID and new environment name</param>
