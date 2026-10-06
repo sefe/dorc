@@ -26,19 +26,25 @@ resource "azurerm_container_app_environment_storage" "shared" {
 }
 
 resource "azurerm_storage_account" "files" {
-  name                            = "${var.project_name}${var.environment}files"
-  resource_group_name             = azurerm_resource_group.rg.name
-  location                        = azurerm_resource_group.rg.location
-  account_tier                    = "Standard"
-  account_replication_type        = "LRS"
-  min_tls_version                 = "TLS1_2"
-  public_network_access_enabled   = false
+  name                     = "${var.project_name}${var.environment}files"
+  resource_group_name      = azurerm_resource_group.rg.name
+  location                 = azurerm_resource_group.rg.location
+  account_tier             = "Standard"
+  account_replication_type = "LRS"
+  min_tls_version          = "TLS1_2"
+  # The Container Apps environment mounts the file share with access-key
+  # auth over the public endpoint, and Terraform creates the share via the
+  # data plane; both fail when public network access is disabled (no private
+  # endpoint exists in this demo).
+  public_network_access_enabled   = true
   allow_nested_items_to_be_public = false
   tags                            = local.tags
 }
 
 resource "azurerm_storage_share" "scriptgroup" {
-  name               = "scriptgroup-files"
-  storage_account_id = azurerm_storage_account.files.id
-  quota              = 1
+  name = "scriptgroup-files"
+  # storage_account_name (not storage_account_id) — the azurerm ~> 3.x
+  # provider pinned in providers.tf requires the name-based reference.
+  storage_account_name = azurerm_storage_account.files.name
+  quota                = 1
 }

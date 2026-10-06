@@ -5,9 +5,12 @@ COPY src/Dorc.Monitor/Dorc.Monitor.csproj Dorc.Monitor/
 COPY src/Dorc.ApiModel/Dorc.ApiModel.csproj Dorc.ApiModel/
 COPY src/Dorc.Core/Dorc.Core.csproj Dorc.Core/
 COPY src/Dorc.PersistentData/Dorc.PersistentData.csproj Dorc.PersistentData/
-COPY src/Dorc.OpenSearchData/Dorc.OpenSearchData.csproj Dorc.OpenSearchData/
 COPY src/Dorc.AzureDevOps/src/Org.OpenAPITools/Org.OpenAPITools.csproj Dorc.AzureDevOps/src/Org.OpenAPITools/
-COPY src/Dorc.Api.Client/Dorc.Api.Client.csproj Dorc.Api.Client/
+COPY src/Dorc.AzureDevOps.Client/Dorc.AzureDevOps.Client.csproj Dorc.AzureDevOps.Client/
+COPY src/Dorc.Kafka.Client/Dorc.Kafka.Client.csproj Dorc.Kafka.Client/
+COPY src/Dorc.Kafka.Events/Dorc.Kafka.Events.csproj Dorc.Kafka.Events/
+COPY src/Dorc.Kafka.ErrorLog/Dorc.Kafka.ErrorLog.csproj Dorc.Kafka.ErrorLog/
+COPY src/Dorc.Kafka.Lock/Dorc.Kafka.Lock.csproj Dorc.Kafka.Lock/
 COPY src/Includes/ Includes/
 RUN dotnet restore Dorc.Monitor/Dorc.Monitor.csproj
 
@@ -15,9 +18,12 @@ COPY src/Dorc.Monitor/ Dorc.Monitor/
 COPY src/Dorc.ApiModel/ Dorc.ApiModel/
 COPY src/Dorc.Core/ Dorc.Core/
 COPY src/Dorc.PersistentData/ Dorc.PersistentData/
-COPY src/Dorc.OpenSearchData/ Dorc.OpenSearchData/
 COPY src/Dorc.AzureDevOps/ Dorc.AzureDevOps/
-COPY src/Dorc.Api.Client/ Dorc.Api.Client/
+COPY src/Dorc.AzureDevOps.Client/ Dorc.AzureDevOps.Client/
+COPY src/Dorc.Kafka.Client/ Dorc.Kafka.Client/
+COPY src/Dorc.Kafka.Events/ Dorc.Kafka.Events/
+COPY src/Dorc.Kafka.ErrorLog/ Dorc.Kafka.ErrorLog/
+COPY src/Dorc.Kafka.Lock/ Dorc.Kafka.Lock/
 RUN dotnet publish Dorc.Monitor/Dorc.Monitor.csproj -c Release -o /app/publish --no-restore
 
 # Stage 2: Runtime

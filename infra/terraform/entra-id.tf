@@ -14,13 +14,14 @@ resource "azuread_application" "api" {
       enabled                    = true
       id                         = "00000000-0000-0000-0000-000000000001"
       type                       = "Admin"
-      value                      = "api://dorc-api-${var.environment}/.default"
+      # Scope values must be simple names; the full URI form
+      # (api://.../<value>) is composed by clients at request time, and
+      # /.default is a request-time construct, not a scope value.
+      value = "user_impersonation"
     }
   }
 
   web {
-    redirect_uris = ["https://${azurerm_container_app.api.ingress[0].fqdn}/swagger/oauth2-redirect.html"]
-
     implicit_grant {
       access_token_issuance_enabled = false
       id_token_issuance_enabled     = false
@@ -42,24 +43,32 @@ resource "azuread_service_principal" "api" {
   owners    = [data.azuread_client_config.current.object_id]
 }
 
+# Kept out of the application resource for the same cycle-avoidance reason as
+# the SPA redirect URIs below.
+resource "azuread_application_redirect_uris" "api_web" {
+  application_id = azuread_application.api.id
+  type           = "Web"
+
+  redirect_uris = ["https://${azurerm_container_app.api.ingress[0].fqdn}/swagger/oauth2-redirect.html"]
+}
+
 resource "azuread_application_password" "api" {
   application_id = azuread_application.api.id
   display_name   = "terraform-managed"
-  end_date       = "2026-12-31T00:00:00Z"
+  # Relative expiry (1 year from creation) instead of a fixed calendar date
+  # that silently passes.
+  end_date_relative = "8760h"
 }
 
 # SPA (UI) App Registration
+#
+# The SPA redirect URIs (which include the Container App's FQDN) live in a
+# standalone azuread_application_redirect_uris resource rather than inline:
+# the API Container App's environment references this application's client ID,
+# so an inline FQDN reference here would create a dependency cycle.
 resource "azuread_application" "ui" {
   display_name = "dorc-ui-${var.environment}"
   owners       = [data.azuread_client_config.current.object_id]
-
-  single_page_application {
-    redirect_uris = [
-      "https://${azurerm_container_app.api.ingress[0].fqdn}/signin-callback.html",
-      "https://${azurerm_container_app.api.ingress[0].fqdn}/signout-callback.html",
-      "http://localhost:8888/signin-callback.html",
-    ]
-  }
 
   required_resource_access {
     resource_app_id = azuread_application.api.client_id
@@ -92,6 +101,17 @@ resource "azuread_application" "ui" {
   }
 }
 
+resource "azuread_application_redirect_uris" "ui_spa" {
+  application_id = azuread_application.ui.id
+  type           = "SPA"
+
+  redirect_uris = [
+    "https://${azurerm_container_app.api.ingress[0].fqdn}/signin-callback.html",
+    "https://${azurerm_container_app.api.ingress[0].fqdn}/signout-callback.html",
+    "http://localhost:8888/signin-callback.html",
+  ]
+}
+
 # Monitor Service Principal (for API access)
 resource "azuread_application" "monitor" {
   display_name = "dorc-monitor-${var.environment}"
@@ -113,7 +133,7 @@ resource "azuread_service_principal" "monitor" {
 }
 
 resource "azuread_application_password" "monitor" {
-  application_id = azuread_application.monitor.id
-  display_name   = "terraform-managed"
-  end_date       = "2026-12-31T00:00:00Z"
+  application_id    = azuread_application.monitor.id
+  display_name      = "terraform-managed"
+  end_date_relative = "8760h"
 }

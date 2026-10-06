@@ -196,9 +196,13 @@ builder.Services.AddTransient<IVariableScopeOptionsResolver, VariableScopeOption
 
 if (isRunningInContainer)
 {
-    // Container mode: always use file-based IPC via shared volume
+    // Container mode: the Monitor can process the request queue, but dispatching a
+    // Runner is not yet supported on Linux — ScriptDispatcher starts the Runner via
+    // Windows-only process/security APIs and the script group transports are
+    // Windows-ACL based. A deployment attempt fails loudly at dispatch time rather
+    // than pretending to succeed. The file writer is registered so DI resolution of
+    // the dispatchers still succeeds.
     builder.Services.AddTransient<IScriptGroupPipeServer, ScriptGroupFileWriter>();
-    builder.Services.AddTransient<IRunnerDispatcher, ContainerRunnerDispatcher>();
 }
 else
 {

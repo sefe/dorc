@@ -9,11 +9,20 @@ SET NOCOUNT ON;
 
 -- ============================================================================
 -- Secure Key (required for property encryption)
+--
+-- Generated at seed time rather than committed to source control: this key
+-- encrypts "secure" properties, and a key checked into a public repository
+-- would make every such value trivially decryptable.
 -- ============================================================================
 IF NOT EXISTS (SELECT 1 FROM [deploy].[SecureKey])
 BEGIN
+    DECLARE @iv VARBINARY(16) = CRYPT_GEN_RANDOM(16);
+    DECLARE @key VARBINARY(32) = CRYPT_GEN_RANDOM(32);
+
     INSERT INTO [deploy].[SecureKey] ([IV], [Key])
-    VALUES ('DEMO_IV_CHANGE_ME_1234567890123456', 'DEMO_KEY_CHANGE_ME_12345678901234567890123456789012345678901234567890');
+    VALUES (
+        CAST(N'' AS XML).value('xs:base64Binary(sql:variable("@iv"))', 'VARCHAR(64)'),
+        CAST(N'' AS XML).value('xs:base64Binary(sql:variable("@key"))', 'VARCHAR(64)'));
 END
 GO
 
@@ -169,15 +178,23 @@ GO
 
 -- ============================================================================
 -- Config Values (DOrc system config)
+--
+-- The deploy-account passwords are random per seeding run, not fixed values
+-- committed to a public repository. Runner dispatch is not supported in the
+-- containerised demo anyway, so nothing needs to know these passwords; they
+-- exist only so the Monitor's credential lookup finds complete config.
 -- ============================================================================
 IF NOT EXISTS (SELECT 1 FROM [deploy].[ConfigValue] WHERE [Name] = 'DORC_NonProdDeployUsername')
 BEGIN
+    DECLARE @nonProdPwd VARBINARY(24) = CRYPT_GEN_RANDOM(24);
+    DECLARE @prodPwd VARBINARY(24) = CRYPT_GEN_RANDOM(24);
+
     INSERT INTO [deploy].[ConfigValue] ([Name], [Value])
     VALUES
         ('DORC_NonProdDeployUsername', 'demo-deploy-user'),
-        ('DORC_NonProdDeployPassword', 'demo-deploy-password'),
+        ('DORC_NonProdDeployPassword', CAST(N'' AS XML).value('xs:base64Binary(sql:variable("@nonProdPwd"))', 'VARCHAR(64)')),
         ('DORC_ProdDeployUsername', 'demo-deploy-user'),
-        ('DORC_ProdDeployPassword', 'demo-deploy-password');
+        ('DORC_ProdDeployPassword', CAST(N'' AS XML).value('xs:base64Binary(sql:variable("@prodPwd"))', 'VARCHAR(64)'));
 END
 GO
 

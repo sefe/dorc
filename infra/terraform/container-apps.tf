@@ -20,6 +20,26 @@ resource "azurerm_container_app" "api" {
         value = "Azure"
       }
       env {
+        name  = "AppSettings__OAuth2__Authority"
+        value = "https://login.microsoftonline.com/${var.entra_tenant_id}/v2.0"
+      }
+      env {
+        name  = "AppSettings__OAuth2__UiClientId"
+        value = azuread_application.ui.client_id
+      }
+      env {
+        name  = "AppSettings__OAuth2__UiRequestedScopes"
+        value = "openid profile offline_access email api://dorc-api-${var.environment}/user_impersonation"
+      }
+      env {
+        name  = "AppSettings__OAuth2__ApiResourceName"
+        value = "api://dorc-api-${var.environment}"
+      }
+      env {
+        name  = "AppSettings__OAuth2__ApiGlobalScope"
+        value = "api://dorc-api-${var.environment}/.default"
+      }
+      env {
         name        = "ConnectionStrings__DOrcConnectionString"
         secret_name = "sql-connection-string"
       }
@@ -32,6 +52,10 @@ resource "azurerm_container_app" "api" {
         value = "true"
       }
 
+      # Probes target the liveness endpoint, which performs no dependency
+      # checks: a SQL-backed probe would keep the serverless database awake
+      # and defeat its auto-pause. /healthz/ready carries the SQL check and
+      # is used by deployment verification instead.
       liveness_probe {
         path             = "/healthz"
         port             = 8080
@@ -80,6 +104,12 @@ resource "azurerm_container_app" "api" {
   secret {
     name  = "signalr-connection-string"
     value = azurerm_signalr_service.signalr.primary_connection_string
+  }
+
+  # CI deploys new image tags with `az containerapp update`; without this a
+  # later `terraform apply` would roll the app back to the tag held in state.
+  lifecycle {
+    ignore_changes = [template[0].container[0].image]
   }
 }
 
@@ -145,59 +175,13 @@ resource "azurerm_container_app" "monitor" {
     name  = "sql-connection-string"
     value = "Server=tcp:${azurerm_mssql_server.sql.fully_qualified_domain_name},1433;Database=${azurerm_mssql_database.db.name};User Id=${var.sql_admin_login};Password=${var.sql_admin_password};Encrypt=True;TrustServerCertificate=False;"
   }
-}
 
-resource "azurerm_container_app_job" "runner" {
-  name                         = "caj-${local.resource_prefix}-runner"
-  location                     = azurerm_resource_group.rg.location
-  container_app_environment_id = azurerm_container_app_environment.env.id
-  resource_group_name          = azurerm_resource_group.rg.name
-  replica_timeout_in_seconds   = 1800
-  replica_retry_limit          = 0
-  tags                         = local.tags
-
-  manual_trigger_config {
-    parallelism              = 1
-    replica_completion_count = 1
-  }
-
-  template {
-    container {
-      name   = "dorc-runner"
-      image  = "${azurerm_container_registry.acr.login_server}/dorc-runner:${var.runner_image_tag}"
-      cpu    = 0.5
-      memory = "1Gi"
-
-      env {
-        name  = "DOTNET_RUNNING_IN_CONTAINER"
-        value = "true"
-      }
-      env {
-        name  = "DORC_SCRIPTGROUP_FILES_PATH"
-        value = "/var/log/dorc/scriptgroup-files/"
-      }
-
-      volume_mounts {
-        name = "scriptgroup-files"
-        path = "/var/log/dorc/scriptgroup-files"
-      }
-    }
-
-    volume {
-      name         = "scriptgroup-files"
-      storage_name = azurerm_container_app_environment_storage.shared.name
-      storage_type = "AzureFile"
-    }
-  }
-
-  registry {
-    server               = azurerm_container_registry.acr.login_server
-    username             = azurerm_container_registry.acr.admin_username
-    password_secret_name = "acr-password"
-  }
-
-  secret {
-    name  = "acr-password"
-    value = azurerm_container_registry.acr.admin_password
+  lifecycle {
+    ignore_changes = [template[0].container[0].image]
   }
 }
+
+# NOTE: no runner Container App Job is provisioned. Dispatching deployment
+# Runners is not yet supported in container mode (the Monitor's dispatch path
+# is Windows-specific); a job that nothing can trigger would only suggest
+# otherwise. The dorc-runner image is still built so the groundwork remains.

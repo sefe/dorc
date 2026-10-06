@@ -1,8 +1,10 @@
 name: Deploy to Azure Demo
 
+# Deliberately manual-only: this deploys (and re-seeds images for) the public
+# demo playground, including a dacpac publish with BlockOnPossibleDataLoss
+# disabled. Triggering it on every push to main would redeploy the demo on
+# unrelated mainline merges.
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 env:
@@ -86,7 +88,7 @@ jobs:
           az sql server firewall-rule create `
             --resource-group ${{ env.RESOURCE_GROUP }} `
             --server sql-dorc-demo `
-            --name github-actions-temp `
+            --name github-actions-${{ github.run_id }} `
             --start-ip-address $ip `
             --end-ip-address $ip
           echo "runner_ip=$ip" >> $env:GITHUB_OUTPUT
@@ -99,12 +101,12 @@ jobs:
             /p:BlockOnPossibleDataLoss=false
 
       - name: Remove GitHub runner IP from SQL firewall
-        if: always()
+        if: always() && steps.firewall.outcome == 'success'
         run: |
           az sql server firewall-rule delete `
             --resource-group ${{ env.RESOURCE_GROUP }} `
             --server sql-dorc-demo `
-            --name github-actions-temp `
+            --name github-actions-${{ github.run_id }} `
             --yes
 
   deploy-apps:
@@ -133,13 +135,6 @@ jobs:
             --resource-group ${{ env.RESOURCE_GROUP }} \
             --image ${{ env.ACR_LOGIN_SERVER }}/dorc-monitor:${{ needs.build-and-push.outputs.image_tag }}
 
-      - name: Update runner job image
-        run: |
-          az containerapp job update \
-            --name caj-dorc-demo-runner \
-            --resource-group ${{ env.RESOURCE_GROUP }} \
-            --image ${{ env.ACR_LOGIN_SERVER }}/dorc-runner:${{ needs.build-and-push.outputs.image_tag }}
-
       - name: Verify API health
         run: |
           API_FQDN=$(az containerapp show \
@@ -147,6 +142,16 @@ jobs:
             --resource-group ${{ env.RESOURCE_GROUP }} \
             --query "properties.configuration.ingress.fqdn" -o tsv)
           echo "API URL: https://$API_FQDN"
-          # Wait for the new revision to become active
-          sleep 30
-          curl -sf "https://$API_FQDN/healthz" || echo "Warning: Health check did not pass (SQL may be auto-paused)"
+          # /healthz/ready includes the SQL check; retry to ride out revision
+          # swap and serverless-SQL resume, then FAIL the deployment if the
+          # API never becomes healthy.
+          for i in $(seq 1 10); do
+            if curl -sf "https://$API_FQDN/healthz/ready"; then
+              echo "Health check passed."
+              exit 0
+            fi
+            echo "Attempt $i failed; retrying in 30s..."
+            sleep 30
+          done
+          echo "ERROR: API did not become healthy."
+          exit 1
