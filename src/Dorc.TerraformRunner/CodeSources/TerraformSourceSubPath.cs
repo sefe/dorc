@@ -75,7 +75,9 @@ namespace Dorc.TerraformRunner.CodeSources
             var workingDirParent = Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(Path.GetFullPath(workingDir)))
                 ?? throw new ArgumentException("workingDir must have a parent directory", nameof(workingDir));
             var tempExtractDir = Path.Join(workingDirParent, $"terraform-extract-{Guid.NewGuid()}");
-            Directory.CreateDirectory(tempExtractDir);
+            // Created with the same restriction as the working directory because it is
+            // moved over the top of it, taking its own DACL with it.
+            RestrictedWorkingDirectory.Create(tempExtractDir);
 
             try
             {

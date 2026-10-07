@@ -3,6 +3,7 @@ using Dorc.Api.Interfaces;
 using Dorc.ApiModel;
 using Dorc.ApiModel.MonitorRunnerApi;
 using Dorc.Core.AzureStorageAccount;
+using Dorc.Core.Configuration;
 using Dorc.Core;
 using Dorc.Core.Interfaces;
 using Dorc.Core.VariableResolution;
@@ -81,7 +82,8 @@ namespace Dorc.Api.Tests.Controllers
                 _requestService,
                 _propertyValues,
                 _variableResolver,
-                _variableScopeOptionsResolver)
+                _variableScopeOptionsResolver,
+                Substitute.For<IConfigurationSettings>())
             {
                 ControllerContext = new ControllerContext
                 {
@@ -169,7 +171,8 @@ namespace Dorc.Api.Tests.Controllers
                 _requestService,
                 _propertyValues,
                 _variableResolver,
-                _variableScopeOptionsResolver)
+                _variableScopeOptionsResolver,
+                Substitute.For<IConfigurationSettings>())
             {
                 ControllerContext = new ControllerContext
                 {

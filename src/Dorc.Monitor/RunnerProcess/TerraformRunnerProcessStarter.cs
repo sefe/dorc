@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Logging;
+using System.Security.Principal;
+using Microsoft.Extensions.Logging;
 using System.ComponentModel;
 using System.Runtime.InteropServices;
 
@@ -64,7 +65,10 @@ namespace Dorc.Monitor.RunnerProcess
                 +" -l \"" + this.RunnerLogPath + "\""
                 +" -t \"" + this.PlanFilePath + "\""
                 +" -c \"" + this.PlanContentFilePath + "\""
-                +" -o " + (int)this.TerraformRunnerOperation;
+                +" -o " + (int)this.TerraformRunnerOperation
+                // See RunnerProcessStarter: the Runner authenticates the pipe by its owner and
+                // has to be told which owner to expect.
+                +" --serverSid=" + WindowsIdentity.GetCurrent().User!.Value;
             if (!string.IsNullOrEmpty(this.LockFilePath))
             {
                 commandLine += " -k \"" + this.LockFilePath + "\"";

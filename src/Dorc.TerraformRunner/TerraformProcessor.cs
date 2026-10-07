@@ -88,11 +88,14 @@ namespace Dorc.TerraformRunner
             this.logger.SetDeploymentResultId(deployResultId);
 
             logger.Information($"TerraformProcessor.PreparePlan called for request' with id '{requestId}', deployment result id '{deployResultId}'.");
-
-            var terraformWorkingDir = await SetupTerraformWorkingDirectoryAsync(requestId, scriptGroupProperties, cancellationToken);
+            
+            var terraformWorkingDir = string.Empty;
 
             try
             {
+                terraformWorkingDir = CreateTerraformWorkingDirectory(requestId);
+                await ProvisionTerraformWorkingDirectoryAsync(terraformWorkingDir, scriptGroupProperties, cancellationToken);
+
                 // Create terraform plan
                 var planContent = await CreateTerraformPlanAsync(properties, terraformWorkingDir, resultFilePath, planContentFilePath, requestId, cancellationToken);
 
@@ -106,7 +109,6 @@ namespace Dorc.TerraformRunner
                 }
 
                 logger.Information($"Terraform plan created for request '{requestId}'. Waiting for confirmation.");
-                DeleteTempTerraformFolder(terraformWorkingDir);
 
                 return true;
             }
@@ -114,6 +116,14 @@ namespace Dorc.TerraformRunner
             {
                 logger.Error(ex, $"Failed to create Terraform plan for request '{requestId}': {ex.Message}");
                 return false;
+            }
+            finally
+            {
+                // The working directory holds terraform.tfvars - every resolved deployment
+                // property in plain text. Deleting it only on the success path left it behind
+                // precisely when a deployment failed, which is when a host is most likely to
+                // be looked at by someone other than the deployment account.
+                DeleteTempTerraformFolder(terraformWorkingDir);
             }
         }
 
@@ -161,19 +171,28 @@ namespace Dorc.TerraformRunner
                 $"Restored .terraform.lock.hcl into working dir from {lockFilePath}");
         }
 
-        private async Task<string> SetupTerraformWorkingDirectoryAsync(
-            int requestId,
-            ScriptGroup scriptGroup,
-            CancellationToken cancellationToken)
+        /// <summary>
+        /// Creates the working directory and returns its path. Separate from provisioning so
+        /// that the caller records the path before anything can be written into it, and can
+        /// therefore delete it whatever provisioning goes on to do.
+        /// </summary>
+        private static string CreateTerraformWorkingDirectory(int requestId)
         {
-            // Create a unique working directory for this deployment
             var workingDir = Path.Join(
                 DorcProgramData.Root,
                 "terraform-workdir",
                 $"{requestId}-terraform-{DateTime.UtcNow:yyyy-MM-dd-HH-mm-ss}");
 
-            Directory.CreateDirectory(workingDir);
+            RestrictedWorkingDirectory.Create(workingDir);
 
+            return workingDir;
+        }
+
+        private async Task ProvisionTerraformWorkingDirectoryAsync(
+            string workingDir,
+            ScriptGroup scriptGroup,
+            CancellationToken cancellationToken)
+        {
             // Get the appropriate provider for the source type
             var provider = _codeSourceFactory.GetProvider(scriptGroup.TerraformSourceType);
 
@@ -231,8 +250,6 @@ namespace Dorc.TerraformRunner
             }
 
             logger.Information($"Terraform working directory has been set up at: {workingDir}");
-
-            return workingDir;
         }
 
         private async Task<string> CreateTerraformPlanAsync(
@@ -424,7 +441,12 @@ namespace Dorc.TerraformRunner
 
             InterpretExitCode(command, process.ExitCode, error);
 
-            logger.Information($"Terraform command {command} completed successfully. Output:{Environment.NewLine}{RedactSensitiveValues(output)}");
+            // Command stdout is not logged. "terraform show" renders variable values, which
+            // include the resolved deployment property set, so echoing output here wrote
+            // secrets into the runner log - whose path is published on the deployment
+            // request. The command and its outcome are enough for diagnosis; the plan itself
+            // remains available through the API to callers authorised for the environment.
+            logger.Information($"Terraform command {command} completed successfully ({output.Length} characters of output, not logged).");
             return output;
         }
 
@@ -487,7 +509,8 @@ namespace Dorc.TerraformRunner
             var terraformWorkingDir = string.Empty;
             try
             {
-                terraformWorkingDir = await SetupTerraformWorkingDirectoryAsync(requestId, scriptGroup, cancellationToken);
+                terraformWorkingDir = CreateTerraformWorkingDirectory(requestId);
+                await ProvisionTerraformWorkingDirectoryAsync(terraformWorkingDir, scriptGroup, cancellationToken);
 
                 // restore the persisted .terraform.lock.hcl into the
                 // working dir before init so apply resolves identical provider
@@ -511,14 +534,16 @@ namespace Dorc.TerraformRunner
 
                 logger.Information($"Terraform apply completed successfully for request ID: {requestId}");
 
-                DeleteTempTerraformFolder(terraformWorkingDir);
-
                 return true;
             }
             catch (Exception ex)
             {
                 logger.Error(ex, $"Terraform apply failed for request ID {requestId}: {ex.Message}");
                 return false;
+            }
+            finally
+            {
+                DeleteTempTerraformFolder(terraformWorkingDir);
             }
         }
 
@@ -527,8 +552,19 @@ namespace Dorc.TerraformRunner
             if (String.IsNullOrEmpty(folderPath) || !Directory.Exists(folderPath))
                 return;
 
-            ResilientDirectoryDeletion.Delete(folderPath);
+            try
+            {
+                ResilientDirectoryDeletion.Delete(folderPath);
+            }
+            // Invoked from a finally block. A directory that will not delete is worth
+            // recording - it is deployment properties left on disk - but it must not displace
+            // the exception that caused the deployment to fail. ResilientDirectoryDeletion has
+            // already retried and wrapped whatever it could not delete in an IOException.
+            catch (IOException ex) { LogUndeletedWorkingDirectory(ex, folderPath); }
+            catch (UnauthorizedAccessException ex) { LogUndeletedWorkingDirectory(ex, folderPath); }
         }
 
+        private void LogUndeletedWorkingDirectory(Exception ex, string folderPath) =>
+            logger.Error(ex, $"Failed to remove the Terraform working directory '{folderPath}': {ex.Message}");
     }
 }

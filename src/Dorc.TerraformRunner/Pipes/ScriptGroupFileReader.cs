@@ -1,7 +1,6 @@
-﻿using Dorc.ApiModel;
+using Dorc.ApiModel;
 using Dorc.ApiModel.Constants;
 using Dorc.ApiModel.MonitorRunnerApi;
-using Dorc.TerraformRunner.Logging;
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
 
@@ -10,17 +9,10 @@ namespace Dorc.TerraformRunner.Pipes
     internal class ScriptGroupFileReader: IScriptGroupPipeClient
     {
         private readonly ILogger logger;
-        private readonly SensitivePropertyRedactor redactor;
 
         internal ScriptGroupFileReader(ILogger logger)
-            : this(logger, new SensitivePropertyRedactor(SensitivePropertyRedactionOptions.Default()))
-        {
-        }
-
-        internal ScriptGroupFileReader(ILogger logger, SensitivePropertyRedactor redactor)
         {
             this.logger = logger;
-            this.redactor = redactor;
         }
 
         public ScriptGroup GetScriptGroupProperties(string pipeName)
@@ -50,9 +42,9 @@ namespace Dorc.TerraformRunner.Pipes
                 logger.LogInformation($"Received from file: {guid}");
                 foreach (var scriptGroupScriptProperty in list)
                 {
-                    var props = redactor.RedactJson(JsonSerializer.Serialize(scriptGroupScriptProperty.Properties));
+                    var propertyNames = string.Join(", ", scriptGroupScriptProperty.Properties.Keys);
 
-                    logger.LogInformation($"Asked to execute: {scriptGroupScriptProperty.ScriptPath} for env {env.Value} with properties {props}");
+                    logger.LogInformation($"Asked to execute: {scriptGroupScriptProperty.ScriptPath} for env {env.Value} with properties: {propertyNames}");
                 }
 
                 logger.LogInformation("Deserialization of ScriptGroup is completed.");

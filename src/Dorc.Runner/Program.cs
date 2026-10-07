@@ -78,7 +78,7 @@ namespace Dorc.Runner
                         scriptGroupReader = new ScriptGroupFileReader(_runnerLogger);
                     }
                     else
-                        scriptGroupReader = new ScriptGroupPipeClient(_runnerLogger);
+                        scriptGroupReader = new ScriptGroupPipeClient(_runnerLogger, options.ServerSid);
 
                     IScriptGroupProcessor scriptGroupProcessor = new ScriptGroupProcessor(
                         _runnerLogger,

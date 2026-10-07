@@ -100,7 +100,7 @@ namespace Dorc.TerraformRunner
                     scriptGroupReader = new ScriptGroupFileReader(fileLogger);
                 }
                 else
-                    scriptGroupReader = new ScriptGroupPipeClient(fileLogger);
+                    scriptGroupReader = new ScriptGroupPipeClient(fileLogger, options.ServerSid);
 
                 // Catalog binding for the runner. The manifests directory
                 // is configurable via Terraform:Catalog:ManifestsDirectory
