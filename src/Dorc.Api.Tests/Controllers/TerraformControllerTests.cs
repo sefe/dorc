@@ -937,6 +937,111 @@ namespace Dorc.Api.Tests.Controllers
                 .CreateComponent(default!, default, default, default!);
         }
 
+        // ---------- Resolution ----------
+
+        private static TerraformTemplateParameter Parameter(string name, bool required, string? @default = null, bool sensitive = false)
+            => new(
+                Name: name,
+                Type: TerraformParameterType.String,
+                Required: required,
+                Description: null,
+                Default: @default,
+                AllowedValues: null,
+                Pattern: null,
+                Min: null,
+                Max: null,
+                Sensitive: sensitive);
+
+        [TestMethod]
+        public async Task ResolveTemplateInputs_ClassifiesEachInputWithoutReturningValues()
+        {
+            GivenTemplateAndProject(Manifest(
+                Parameter("from_env", required: true),
+                Parameter("defaulted", required: false, @default: "S0"),
+                Parameter("missing", required: true),
+                Parameter("optional_unset", required: false),
+                Parameter("secret", required: true, sensitive: true)));
+            _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(true);
+            _variableResolver.LoadProperties().Returns(new Dictionary<string, VariableValue>
+            {
+                ["from_env"] = new VariableValue { Value = "resolved-from-env", Type = typeof(string) },
+                ["secret"] = new VariableValue { Value = "fictional-secret", Type = typeof(string) }
+            });
+
+            var result = await _controller.ResolveTemplateInputs(
+                TemplateName, TemplateVersion, ProjectId, EnvName, CancellationToken.None);
+
+            Assert.IsInstanceOfType(result, typeof(OkObjectResult));
+            var ok = (OkObjectResult)result;
+            Assert.IsInstanceOfType(ok.Value, typeof(TerraformTemplateResolutionApiModel));
+            var body = (TerraformTemplateResolutionApiModel)ok.Value!;
+            Assert.AreEqual(EnvName, body.EnvironmentName);
+            var byName = body.Parameters.ToDictionary(p => p.Name, p => p.Status);
+            Assert.AreEqual(TerraformParameterResolutionStatus.Environment, byName["from_env"]);
+            Assert.AreEqual(TerraformParameterResolutionStatus.Default, byName["defaulted"]);
+            Assert.AreEqual(TerraformParameterResolutionStatus.Missing, byName["missing"]);
+            Assert.AreEqual(TerraformParameterResolutionStatus.Unset, byName["optional_unset"]);
+            Assert.AreEqual(TerraformParameterResolutionStatus.Environment, byName["secret"]);
+            Assert.IsTrue(body.Parameters.Single(p => p.Name == "secret").Sensitive);
+            // Names and statuses only: the response type has no value member,
+            // so a resolved secret can never be serialised back to the browser.
+            Assert.IsFalse(typeof(TerraformParameterResolutionApiModel).GetProperties()
+                .Any(p => p.Name.Contains("Value", StringComparison.OrdinalIgnoreCase)));
+        }
+
+        [TestMethod]
+        public async Task ResolveTemplateInputs_WithoutEnvModifyAuthority_Returns403AndDoesNotResolve()
+        {
+            GivenTemplateAndProject(Manifest(Parameter("from_env", required: true)));
+            _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(false);
+
+            var result = await _controller.ResolveTemplateInputs(
+                TemplateName, TemplateVersion, ProjectId, EnvName, CancellationToken.None);
+
+            AssertForbidden(result);
+            _variableResolver.DidNotReceive().LoadProperties();
+        }
+
+        [TestMethod]
+        public async Task ResolveTemplateInputs_NotProjectOwnerOrAdmin_Returns403()
+        {
+            GivenTemplateAndProject(Manifest(Parameter("from_env", required: true)));
+            _security.IsProjectOwnerOrAdmin(Arg.Any<ClaimsPrincipal>(), ProjectName).Returns(false);
+
+            var result = await _controller.ResolveTemplateInputs(
+                TemplateName, TemplateVersion, ProjectId, EnvName, CancellationToken.None);
+
+            Assert.IsInstanceOfType(result, typeof(ForbidResult));
+            _variableResolver.DidNotReceive().LoadProperties();
+        }
+
+        [TestMethod]
+        public async Task ResolveTemplateInputs_UnmappedEnvironment_Returns400()
+        {
+            GivenTemplateAndProject(Manifest(Parameter("from_env", required: true)));
+            _environments.GetMappedProjects(Arg.Any<string>())
+                .Returns(new List<ProjectApiModel> { new ProjectApiModel { ProjectName = "SomeOtherProject" } });
+            _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(true);
+
+            var result = await _controller.ResolveTemplateInputs(
+                TemplateName, TemplateVersion, ProjectId, EnvName, CancellationToken.None);
+
+            Assert.IsInstanceOfType(result, typeof(BadRequestObjectResult));
+            _variableResolver.DidNotReceive().LoadProperties();
+        }
+
+        [TestMethod]
+        public async Task ResolveTemplateInputs_UnknownTemplate_Returns404()
+        {
+            _catalog.GetAsync(TemplateName, TemplateVersion, Arg.Any<CancellationToken>())
+                .Returns((TerraformTemplateManifest?)null);
+
+            var result = await _controller.ResolveTemplateInputs(
+                TemplateName, TemplateVersion, ProjectId, EnvName, CancellationToken.None);
+
+            Assert.IsInstanceOfType(result, typeof(NotFoundObjectResult));
+        }
+
         // ---------- View ----------
 
         // Refusals are StatusCode(403, message), not Forbid(): the plan

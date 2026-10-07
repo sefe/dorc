@@ -123,6 +123,95 @@ namespace Dorc.Api.Controllers
         }
 
         /// <summary>
+        /// Reports where each input of a stock template would be resolved from
+        /// for a project + environment: an environment property, the manifest
+        /// default, or nothing at all. Names and statuses only; no property
+        /// value ever leaves the server. This is what lets the wizard mark an
+        /// inherited required input as missing before the user submits.
+        /// </summary>
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(TerraformTemplateResolutionApiModel))]
+        [SwaggerResponse(StatusCodes.Status400BadRequest)]
+        [SwaggerResponse(StatusCodes.Status403Forbidden)]
+        [SwaggerResponse(StatusCodes.Status404NotFound)]
+        [HttpGet("templates/{name}/{version}/resolution")]
+        public async Task<IActionResult> ResolveTemplateInputs(
+            string name,
+            string version,
+            [FromQuery] int projectId,
+            [FromQuery] string? environmentName,
+            CancellationToken cancellationToken)
+        {
+            if (projectId <= 0)
+            {
+                return BadRequest("projectId is required and must be a positive integer.");
+            }
+            if (string.IsNullOrWhiteSpace(environmentName))
+            {
+                return BadRequest("environmentName is required.");
+            }
+
+            var manifest = await _templateCatalog.GetAsync(name, version, cancellationToken);
+            if (manifest is null)
+            {
+                return NotFound($"Stock template '{name}@{version}' was not found in the catalog.");
+            }
+
+            var project = FindProject(projectId);
+            if (project is null)
+            {
+                return NotFound($"Project with id {projectId} was not found.");
+            }
+            if (!_apiSecurityService.IsProjectOwnerOrAdmin(User, project.ProjectName))
+            {
+                return Forbid();
+            }
+
+            var environment = _environmentsPersistentSource.GetEnvironment(environmentName.Trim());
+            if (environment is null)
+            {
+                return BadRequest($"Environment '{environmentName}' was not found.");
+            }
+            if (!IsProjectMappedTo(project, environment))
+            {
+                return BadRequest(
+                    $"Project '{project.ProjectName}' is not mapped to environment '{environment.EnvironmentName}'.");
+            }
+            // Same gate as the deploy half of InstantiateTemplate: knowing which
+            // property names an environment defines is only useful to someone
+            // who can deploy into it.
+            if (!_apiSecurityService.CanModifyEnvironment(User, environment.EnvironmentName))
+            {
+                return StatusCode(StatusCodes.Status403Forbidden,
+                    $"Forbidden: caller cannot modify environment '{environment.EnvironmentName}'.");
+            }
+
+            var resolved = LoadEnvironmentProperties(manifest, new Dictionary<string, string?>(), environment);
+            var parameters = manifest.Parameters
+                .Select(p => new TerraformParameterResolutionApiModel
+                {
+                    Name = p.Name,
+                    Required = p.Required,
+                    Sensitive = p.Sensitive,
+                    Status = resolved.TryGetValue(p.Name, out var value)
+                             && Convert.ToString(value?.Value, CultureInfo.InvariantCulture) is not null
+                        ? TerraformParameterResolutionStatus.Environment
+                        : p.Default is not null
+                            ? TerraformParameterResolutionStatus.Default
+                            : p.Required
+                                ? TerraformParameterResolutionStatus.Missing
+                                : TerraformParameterResolutionStatus.Unset
+                })
+                .ToList();
+
+            return Ok(new TerraformTemplateResolutionApiModel
+            {
+                ProjectName = project.ProjectName,
+                EnvironmentName = environment.EnvironmentName,
+                Parameters = parameters
+            });
+        }
+
+        /// <summary>
         /// Instantiates a stock template as a new Catalog-mode component in
         /// the destination project. When an environment is supplied, the
         /// endpoint also validates the effective manifest inputs and submits
@@ -165,23 +254,7 @@ namespace Dorc.Api.Controllers
             // unknown id instead of returning null (despite the nullable
             // return type). Translate that into the declared 404 rather
             // than letting it surface as an opaque 500.
-            ProjectApiModel? project;
-            try
-            {
-                project = _projectsPersistentSource.GetProject(request.ProjectId);
-            }
-            catch (InvalidOperationException ex)
-            {
-                // GetProject resolves via Single() on a fresh context, so the
-                // realistic InvalidOperationException here is "no such id".
-                // Log it so the rare non-not-found case (a Single() invariant
-                // breach) is still visible in telemetry rather than silently
-                // reported to the caller as a 404.
-                _log.LogWarning(ex,
-                    "GetProject({ProjectId}) threw; treating as project-not-found for template instantiation.",
-                    request.ProjectId);
-                project = null;
-            }
+            var project = FindProject(request.ProjectId);
             if (project is null)
             {
                 return NotFound($"Project with id {request.ProjectId} was not found.");
@@ -200,16 +273,10 @@ namespace Dorc.Api.Controllers
                 return BadRequest($"Environment '{request.EnvironmentName}' was not found.");
             }
 
-            if (deployEnvironment is not null)
+            if (deployEnvironment is not null && !IsProjectMappedTo(project, deployEnvironment))
             {
-                var mappedProjects = _environmentsPersistentSource.GetMappedProjects(deployEnvironment.EnvironmentName)
-                    .Select(p => p.ProjectName)
-                    .ToHashSet(StringComparer.OrdinalIgnoreCase);
-                if (!mappedProjects.Contains(project.ProjectName))
-                {
-                    return BadRequest(
-                        $"Project '{project.ProjectName}' is not mapped to environment '{deployEnvironment.EnvironmentName}'.");
-                }
+                return BadRequest(
+                    $"Project '{project.ProjectName}' is not mapped to environment '{deployEnvironment.EnvironmentName}'.");
             }
 
             var componentName = string.IsNullOrWhiteSpace(request.ComponentName)
@@ -457,7 +524,40 @@ namespace Dorc.Api.Controllers
             return Ok(new TerraformTemplateInstantiateResponseApiModel { Component = component });
         }
 
-        private Dictionary<string, string?> BuildValidationInputs(
+        /// <summary>
+        /// GetProject resolves via Single() on a fresh context, so an unknown id
+        /// surfaces as InvalidOperationException rather than null. Translate it
+        /// into null so callers can return their declared 404; the warning keeps
+        /// the rare non-not-found case (a Single() invariant breach) visible.
+        /// </summary>
+        private ProjectApiModel? FindProject(int projectId)
+        {
+            try
+            {
+                return _projectsPersistentSource.GetProject(projectId);
+            }
+            catch (InvalidOperationException ex)
+            {
+                _log.LogWarning(ex,
+                    "GetProject({ProjectId}) threw; treating as project-not-found.",
+                    projectId);
+                return null;
+            }
+        }
+
+        private bool IsProjectMappedTo(ProjectApiModel project, EnvironmentApiModel environment)
+        {
+            return _environmentsPersistentSource.GetMappedProjects(environment.EnvironmentName)
+                .Select(p => p.ProjectName)
+                .Contains(project.ProjectName, StringComparer.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// Resolves the environment-scoped property set the Monitor would see for
+        /// this environment, with any request overrides seeded first so derived
+        /// properties observe them. Values stay inside the API process.
+        /// </summary>
+        private IDictionary<string, VariableValue> LoadEnvironmentProperties(
             TerraformTemplateManifest manifest,
             IDictionary<string, string?> supplied,
             EnvironmentApiModel environment)
@@ -472,7 +572,15 @@ namespace Dorc.Api.Controllers
             {
                 _variableResolver.SetPropertyValue(parameter.Name, supplied[parameter.Name] ?? string.Empty);
             }
-            var resolvedProperties = _variableResolver.LoadProperties();
+            return _variableResolver.LoadProperties();
+        }
+
+        private Dictionary<string, string?> BuildValidationInputs(
+            TerraformTemplateManifest manifest,
+            IDictionary<string, string?> supplied,
+            EnvironmentApiModel environment)
+        {
+            var resolvedProperties = LoadEnvironmentProperties(manifest, supplied, environment);
             var validationInputs = new Dictionary<string, string?>(supplied, StringComparer.Ordinal);
 
             foreach (var parameter in manifest.Parameters)

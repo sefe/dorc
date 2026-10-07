@@ -14,12 +14,13 @@
 import type { Observable } from 'rxjs';
 import type { AjaxResponse } from 'rxjs/ajax';
 import { BaseAPI, throwIfNullOrUndefined, encodeURI } from '../runtime';
-import type { OperationOpts, HttpHeaders } from '../runtime';
+import type { OperationOpts, HttpHeaders, HttpQuery } from '../runtime';
 import type {
     TerraformPlanApiModel,
     TerraformTemplateInstantiateRequestApiModel,
     TerraformTemplateInstantiateResponseApiModel,
     TerraformTemplateManifest,
+    TerraformTemplateResolutionApiModel,
 } from '../models';
 
 export interface TerraformPlanDeploymentResultIdConfirmPostRequest {
@@ -42,6 +43,13 @@ export interface TerraformTemplateInstantiatePostRequest {
 
 export interface TerraformTemplateLatestGetRequest {
     name: string;
+}
+
+export interface TerraformTemplateResolutionGetRequest {
+    name: string;
+    version: string;
+    projectId?: number;
+    environmentName?: string;
 }
 
 export interface TerraformTemplateVersionGetRequest {
@@ -174,6 +182,37 @@ export class TerraformApi extends BaseAPI {
             url: '/Terraform/templates/{name}'.replace('{name}', encodeURI(name)),
             method: 'GET',
             headers,
+        }, opts?.responseOpts);
+    };
+
+    /**
+     */
+    terraformTemplateResolutionGet({ name, version, projectId, environmentName }: TerraformTemplateResolutionGetRequest): Observable<TerraformTemplateResolutionApiModel>
+    terraformTemplateResolutionGet({ name, version, projectId, environmentName }: TerraformTemplateResolutionGetRequest, opts?: OperationOpts): Observable<AjaxResponse<TerraformTemplateResolutionApiModel>>
+    terraformTemplateResolutionGet({ name, version, projectId, environmentName }: TerraformTemplateResolutionGetRequest, opts?: OperationOpts): Observable<TerraformTemplateResolutionApiModel | AjaxResponse<TerraformTemplateResolutionApiModel>> {
+        throwIfNullOrUndefined(name, 'name', 'terraformTemplateResolutionGet');
+        throwIfNullOrUndefined(version, 'version', 'terraformTemplateResolutionGet');
+
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
+        const query: HttpQuery = {};
+
+        if (projectId != null) { query['projectId'] = projectId; }
+        if (environmentName != null) { query['environmentName'] = environmentName; }
+
+        return this.request<TerraformTemplateResolutionApiModel>({
+            url: '/Terraform/templates/{name}/{version}/resolution'.replace('{name}', encodeURI(name)).replace('{version}', encodeURI(version)),
+            method: 'GET',
+            headers,
+            query,
         }, opts?.responseOpts);
     };
 

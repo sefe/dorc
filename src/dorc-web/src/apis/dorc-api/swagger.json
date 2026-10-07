@@ -8263,6 +8263,73 @@
           }
         }
       }
+    },
+    "/Terraform/templates/{name}/{version}/resolution": {
+      "get": {
+        "tags": [
+          "Terraform"
+        ],
+        "operationId": "TerraformTemplateResolutionGet",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "version",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "projectId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "environmentName",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TerraformTemplateResolutionApiModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TerraformTemplateResolutionApiModel"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -11325,6 +11392,62 @@
           "ToValue": {
             "type": "string",
             "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "TerraformParameterResolutionStatus": {
+        "enum": [
+          "Environment",
+          "Default",
+          "Missing",
+          "Unset"
+        ],
+        "type": "string"
+      },
+      "TerraformParameterResolutionApiModel": {
+        "required": [
+          "Name",
+          "Required",
+          "Sensitive",
+          "Status"
+        ],
+        "type": "object",
+        "properties": {
+          "Name": {
+            "type": "string"
+          },
+          "Required": {
+            "type": "boolean"
+          },
+          "Sensitive": {
+            "type": "boolean"
+          },
+          "Status": {
+            "$ref": "#/components/schemas/TerraformParameterResolutionStatus"
+          }
+        },
+        "additionalProperties": false
+      },
+      "TerraformTemplateResolutionApiModel": {
+        "required": [
+          "EnvironmentName",
+          "Parameters",
+          "ProjectName"
+        ],
+        "type": "object",
+        "properties": {
+          "ProjectName": {
+            "type": "string"
+          },
+          "EnvironmentName": {
+            "type": "string"
+          },
+          "Parameters": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TerraformParameterResolutionApiModel"
+            }
           }
         },
         "additionalProperties": false

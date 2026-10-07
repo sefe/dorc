@@ -25,6 +25,7 @@ import {
   RefDataProjectsApi,
   RefDataProjectEnvironmentMappingsApi,
   TerraformApi,
+  TerraformParameterResolutionStatus,
   TerraformSourceType,
   TerraformTemplateManifest,
   TerraformTemplateParameter
@@ -309,7 +310,8 @@ export class DeployFromTemplateDialog extends LitElement {
       border-color: var(--lumo-primary-color);
       box-shadow: 0 0 0 3px var(--lumo-primary-color-10pct);
     }
-    .param[data-invalid='true'] {
+    .param[data-invalid='true'],
+    .param[data-missing='true'] {
       border-color: var(--lumo-error-color);
       box-shadow: 0 0 0 3px var(--lumo-error-color-10pct);
     }
@@ -506,6 +508,16 @@ export class DeployFromTemplateDialog extends LitElement {
   @state() private targetLoading = false;
   @state() private submitting = false;
   @state() private error: string | null = null;
+  /**
+   * Where each input resolves from for the chosen target, by parameter name.
+   * Null until the Inputs step has asked the server; never carries values.
+   */
+  @state() private resolution: Record<
+    string,
+    TerraformParameterResolutionStatus
+  > | null = null;
+  @state() private resolutionLoading = false;
+  @state() private resolutionError: string | null = null;
 
   private projectsApi = new RefDataProjectsApi(dorcApiConfiguration);
   private componentsApi = new RefDataComponentsApi(dorcApiConfiguration);
@@ -535,6 +547,7 @@ export class DeployFromTemplateDialog extends LitElement {
     this.paramValues = {};
     this.step = 0;
     this.error = null;
+    this.clearResolution();
     this.targetLoading = false;
     this.projectsLoading = true;
     this.opened = true;
@@ -571,6 +584,7 @@ export class DeployFromTemplateDialog extends LitElement {
     this.paramValues = {};
     this.createNew = true;
     this.error = null;
+    this.clearResolution();
     this.targetLoading = !!project?.ProjectName;
     if (!project?.ProjectName) return;
     forkJoin({
@@ -632,6 +646,68 @@ export class DeployFromTemplateDialog extends LitElement {
     return Object.keys(this.paramValues).length;
   }
 
+  private get requiredCount() {
+    return this.parameters.filter(p => p.Required).length;
+  }
+
+  private clearResolution() {
+    this.resolution = null;
+    this.resolutionLoading = false;
+    this.resolutionError = null;
+  }
+
+  /**
+   * Asks the server where each input would resolve from for the chosen
+   * target. Names and statuses only: the point is to show "Missing" before
+   * submission, not to pull environment values into the browser.
+   */
+  private loadResolution() {
+    if (!this.template || !this.selectedProject?.ProjectId) return;
+    const token = ++this.requestToken;
+    this.resolutionLoading = true;
+    this.resolutionError = null;
+    this.terraformApi
+      .terraformTemplateResolutionGet({
+        name: this.template.Name,
+        version: this.template.Version,
+        projectId: this.selectedProject.ProjectId,
+        environmentName: this.selectedEnvironmentName
+      })
+      .subscribe({
+        next: data => {
+          if (token !== this.requestToken || !this.opened) return;
+          this.resolution = Object.fromEntries(
+            (data?.Parameters ?? []).map(r => [r.Name, r.Status])
+          );
+          this.resolutionLoading = false;
+        },
+        error: err => {
+          if (token !== this.requestToken || !this.opened) return;
+          this.resolutionLoading = false;
+          this.resolutionError =
+            retrieveErrorMessage(err) ??
+            'The environment could not be checked.';
+        }
+      });
+  }
+
+  private statusOf(
+    p: TerraformTemplateParameter
+  ): TerraformParameterResolutionStatus | null {
+    return this.resolution?.[p.Name] ?? null;
+  }
+
+  /** Required inputs the target cannot supply and the user has not overridden. */
+  private get missingInputs(): string[] {
+    return this.parameters
+      .filter(
+        p =>
+          !(p.Name in this.paramValues) &&
+          this.statusOf(p) === TerraformParameterResolutionStatus.Missing
+      )
+      .map(p => p.Name);
+  }
+
   /** Overrides that currently fail validation, by parameter name. */
   private get invalidOverrides(): string[] {
     return this.parameters
@@ -676,6 +752,10 @@ export class DeployFromTemplateDialog extends LitElement {
   }
 
   private inputError(): string | null {
+    const missing = this.missingInputs;
+    if (missing.length) {
+      return `${missing.join(', ')}: not set in ${this.selectedEnvironmentName}. Override ${missing.length === 1 ? 'it' : 'them'} for this request, or add the environment propert${missing.length === 1 ? 'y' : 'ies'}.`;
+    }
     for (const p of this.parameters) {
       // Omitted inputs are resolved on the server, never fetched into the browser.
       if (!(p.Name in this.paramValues)) continue;
@@ -731,7 +811,10 @@ export class DeployFromTemplateDialog extends LitElement {
           this.projectsLoading,
           this.targetLoading,
           this.submitting,
-          this.error
+          this.error,
+          this.resolution,
+          this.resolutionLoading,
+          this.resolutionError
         ])}
         ${dialogFooterRenderer(this.footerRenderer, [
           this.template,
@@ -739,7 +822,10 @@ export class DeployFromTemplateDialog extends LitElement {
           this.step,
           this.submitting,
           this.projectsLoading,
-          this.targetLoading
+          this.targetLoading,
+          this.resolution,
+          this.resolutionLoading,
+          this.selectedEnvironmentName
         ])}
       ></vaadin-dialog>
     `;
@@ -779,7 +865,9 @@ export class DeployFromTemplateDialog extends LitElement {
         ? this.overrideCount
           ? `${this.overrideCount} override${this.overrideCount === 1 ? '' : 's'}`
           : 'All inherited from the environment'
-        : STEPS[1].hint,
+        : this.step === 1 && this.resolution
+          ? `${this.requiredCount - this.missingInputs.length} of ${this.requiredCount} required resolved`
+          : STEPS[1].hint,
       STEPS[2].hint
     ];
     const identity = this.stateIdentity;
@@ -872,6 +960,7 @@ export class DeployFromTemplateDialog extends LitElement {
           if (name !== this.selectedEnvironmentName) {
             this.selectedEnvironmentName = name;
             this.paramValues = {};
+            this.clearResolution();
           }
         }}
         helper-text="Only mapped environments you can deploy to are listed. Inputs and state belong to this target."
@@ -952,6 +1041,15 @@ export class DeployFromTemplateDialog extends LitElement {
         >
       </p>
       ${
+        this.resolutionError
+          ? html`<div class="notice" role="status">
+              Could not check ${this.selectedEnvironmentName} properties
+              (${this.resolutionError}). Required values will be checked on
+              submission.
+            </div>`
+          : nothing
+      }
+      ${
         required.length
           ? html`<div class="group">
               <div class="group-head required">
@@ -986,25 +1084,56 @@ export class DeployFromTemplateDialog extends LitElement {
     const message = overridden
       ? overrideError(p, this.paramValues[p.Name])
       : null;
+    const status = this.statusOf(p);
+    const missing =
+      !overridden && status === TerraformParameterResolutionStatus.Missing;
+    const env = this.selectedEnvironmentName;
+    const lock = html`<vaadin-icon icon="vaadin:lock"></vaadin-icon>`;
+    const check = html`<vaadin-icon icon="vaadin:check"></vaadin-icon>`;
+    // Labels are built as single strings so the rendered text never carries
+    // template line breaks (tests and screen readers both read textContent).
     const badge = overridden
       ? message
         ? html`<span class="badge badge-invalid">Needs a value</span>`
         : html`<span class="badge badge-override">Override</span>`
-      : p.Sensitive
-        ? html`<span class="badge badge-sensitive"
-            ><vaadin-icon icon="vaadin:lock"></vaadin-icon>Sensitive ·
-            environment</span
+      : missing
+        ? html`<span class="badge badge-invalid"
+            >${p.Sensitive ? lock : nothing}${`Missing in ${env}`}</span
           >`
-        : p.Default != null
-          ? html`<span class="badge badge-default">Default: ${p.Default}</span>`
-          : html`<span class="badge badge-inherit"
-              ><vaadin-icon icon="vaadin:check"></vaadin-icon>Environment</span
-            >`;
+        : status === TerraformParameterResolutionStatus.Unset
+          ? html`<span class="badge badge-default">Not set</span>`
+          : p.Sensitive
+            ? html`<span class="badge badge-sensitive"
+                >${lock}${`Sensitive · ${status === TerraformParameterResolutionStatus.Environment ? env : 'environment'}`}</span
+              >`
+            : status === TerraformParameterResolutionStatus.Environment
+              ? html`<span class="badge badge-inherit"
+                  >${check}${`From ${env}`}</span
+                >`
+              : p.Default != null
+                ? html`<span class="badge badge-default"
+                    >${`Default: ${p.Default}`}</span
+                  >`
+                : html`<span class="badge badge-inherit"
+                    >${check}Environment</span
+                  >`;
+    const source = missing
+      ? `No environment property named ${p.Name} in ${env}. Override it for this request, or add the property.`
+      : status === TerraformParameterResolutionStatus.Unset
+        ? `Not set in ${env} and no module default; the module runs without it.`
+        : p.Sensitive
+          ? 'Supplied via a sensitive environment property; never shown here.'
+          : status === TerraformParameterResolutionStatus.Environment
+            ? `Resolved from the ${env} environment property.`
+            : status === TerraformParameterResolutionStatus.Default
+              ? `No environment property in ${env}; the module default applies.`
+              : 'Resolved from the environment property, otherwise the module default.';
     return html`
       <div
         class="param"
         data-overridden=${overridden ? 'true' : 'false'}
         data-invalid=${message ? 'true' : 'false'}
+        data-missing=${missing ? 'true' : 'false'}
         data-sensitive=${p.Sensitive ? 'true' : 'false'}
       >
         <div class="param-head">
@@ -1041,9 +1170,7 @@ export class DeployFromTemplateDialog extends LitElement {
               `
             : html`
                 <div class="param-source">
-                  <span
-                    >${p.Sensitive ? 'Supplied via a sensitive environment property; never shown here.' : 'Resolved from the environment property, otherwise the module default.'}</span
-                  >
+                  <span>${source}</span>
                   <vaadin-button
                     theme="tertiary small"
                     aria-label="Override ${p.Name} for this request"
@@ -1172,21 +1299,33 @@ export class DeployFromTemplateDialog extends LitElement {
 
   private footerRenderer = () => {
     const invalid = this.step === 1 ? this.invalidOverrides.length : 0;
+    const missing = this.step === 1 ? this.missingInputs.length : 0;
+    const problems = [
+      missing
+        ? `${missing} required input${missing === 1 ? '' : 's'} missing in ${this.selectedEnvironmentName}`
+        : '',
+      invalid
+        ? `${invalid} override${invalid === 1 ? '' : 's'} need${invalid === 1 ? 's' : ''} a value`
+        : ''
+    ].filter(Boolean);
     const status =
       this.step === 1
-        ? invalid
+        ? problems.length
           ? html`<span class="footer-status invalid">
               <vaadin-icon icon="vaadin:exclamation-circle-o"></vaadin-icon>
-              ${invalid} override${invalid === 1 ? '' : 's'}
-              need${invalid === 1 ? 's' : ''} a value
+              ${problems.join(' · ')}
             </span>`
-          : html`<span class="footer-status">
-              ${
-                this.overrideCount
-                  ? `${this.overrideCount} override${this.overrideCount === 1 ? '' : 's'} for this request`
-                  : 'Everything inherits from the environment'
-              }
-            </span>`
+          : this.resolutionLoading
+            ? html`<span class="footer-status"
+                >Checking ${this.selectedEnvironmentName} properties…</span
+              >`
+            : html`<span class="footer-status">
+                ${
+                  this.overrideCount
+                    ? `${this.overrideCount} override${this.overrideCount === 1 ? '' : 's'} for this request`
+                    : 'Everything inherits from the environment'
+                }
+              </span>`
         : html`<span class="footer-status"></span>`;
     return html`
       <vaadin-button
@@ -1231,8 +1370,14 @@ export class DeployFromTemplateDialog extends LitElement {
     this.error =
       this.targetError() ?? (this.step > 0 ? this.inputError() : null);
     if (this.error) return;
-    if (this.step < 2) this.step += 1;
-    else this.submit();
+    if (this.step < 2) {
+      this.step += 1;
+      if (this.step === 1 && !this.resolution && !this.resolutionLoading) {
+        this.loadResolution();
+      }
+    } else {
+      this.submit();
+    }
   }
 
   private close() {

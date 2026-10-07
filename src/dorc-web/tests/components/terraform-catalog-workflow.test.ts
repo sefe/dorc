@@ -1,11 +1,14 @@
-import { of, Subject } from 'rxjs';
+import { of, Subject, throwError } from 'rxjs';
 import { vi } from 'vitest';
 import { page } from 'vitest/browser';
 import { expect, fixture, html, settle } from '../_helpers';
 import type { ComboBox } from '@vaadin/combo-box';
 import type { TextField } from '@vaadin/text-field';
 import type { Notification } from '@vaadin/notification';
-import { TerraformParameterType } from '../../src/apis/dorc-api';
+import {
+  TerraformParameterResolutionStatus,
+  TerraformParameterType
+} from '../../src/apis/dorc-api';
 import type { DeployFromTemplateDialog } from '../../src/components/deploy-from-template-dialog';
 import type { PageStockModules } from '../../src/pages/page-stock-modules';
 import { overrideError } from '../../src/components/deploy-from-template-dialog';
@@ -22,6 +25,7 @@ const mocks = vi.hoisted(() => ({
   components: vi.fn(),
   instantiate: vi.fn(),
   templates: vi.fn(),
+  resolution: vi.fn(),
   navigate: vi.fn()
 }));
 
@@ -40,6 +44,7 @@ vi.mock('../../src/apis/dorc-api', async importOriginal => ({
   TerraformApi: class {
     terraformTemplateInstantiatePost = mocks.instantiate;
     terraformTemplatesGet = mocks.templates;
+    terraformTemplateResolutionGet = mocks.resolution;
   }
 }));
 
@@ -112,6 +117,32 @@ beforeEach(() => {
   mocks.components.mockReturnValue(of({ Items: [] }));
   mocks.templates.mockReturnValue(of([template]));
   mocks.instantiate.mockReturnValue(of({ requestId: 73 }));
+  mocks.resolution.mockReturnValue(
+    of({
+      ProjectName: project.ProjectName,
+      EnvironmentName: environment.EnvironmentName,
+      Parameters: [
+        {
+          Name: 'location',
+          Required: true,
+          Sensitive: false,
+          Status: TerraformParameterResolutionStatus.Environment
+        },
+        {
+          Name: 'enabled',
+          Required: false,
+          Sensitive: false,
+          Status: TerraformParameterResolutionStatus.Unset
+        },
+        {
+          Name: 'credential',
+          Required: true,
+          Sensitive: true,
+          Status: TerraformParameterResolutionStatus.Environment
+        }
+      ]
+    })
+  );
 });
 
 const browserErrors: string[] = [];
@@ -303,6 +334,82 @@ describe('catalog environment deployment workflow', () => {
     expect(host.opened).to.equal(true);
     expect(dialog.textContent).to.contain('No deployment request ID');
     expect(mocks.navigate.mock.calls).to.have.length(0);
+  });
+
+  it('asks the server where inputs resolve from, names only, once the target is fixed', async () => {
+    const { dialog } = await open();
+    expect(mocks.resolution.mock.calls).to.have.length(0);
+    await click(dialog, 'Continue');
+    expect(mocks.resolution.mock.calls[0][0]).to.deep.equal({
+      name: 'storage-account',
+      version: '1.0.0',
+      projectId: 7,
+      environmentName: 'TestEnvironment'
+    });
+    expect(dialog.textContent).to.contain('From TestEnvironment');
+    expect(dialog.textContent).to.contain('Not set');
+    expect(dialog.textContent).not.to.contain('Missing in');
+  });
+
+  it('marks a required input the environment cannot supply as missing and blocks until it is overridden', async () => {
+    mocks.resolution.mockReturnValue(
+      of({
+        ProjectName: project.ProjectName,
+        EnvironmentName: environment.EnvironmentName,
+        Parameters: [
+          {
+            Name: 'location',
+            Required: true,
+            Sensitive: false,
+            Status: TerraformParameterResolutionStatus.Default
+          },
+          {
+            Name: 'enabled',
+            Required: false,
+            Sensitive: false,
+            Status: TerraformParameterResolutionStatus.Unset
+          },
+          {
+            Name: 'credential',
+            Required: true,
+            Sensitive: true,
+            Status: TerraformParameterResolutionStatus.Missing
+          }
+        ]
+      })
+    );
+    const { dialog } = await open();
+    await click(dialog, 'Continue');
+    const credential = Array.from(dialog.querySelectorAll('.param')).find(
+      el => el.getAttribute('data-missing') === 'true'
+    );
+    expect(credential?.textContent).to.contain('credential');
+    expect(credential?.textContent).to.contain('Missing in TestEnvironment');
+    expect(dialog.textContent).to.contain('1 required input missing');
+    await click(dialog, 'Continue');
+    expect(dialog.querySelector('[role="alert"]')?.textContent).to.contain(
+      'credential: not set in TestEnvironment'
+    );
+    expect(dialog.querySelector('h2')?.textContent).to.contain('Inputs');
+    await click(dialog, 'Override credential for this request');
+    dialog.querySelector<TextField>('vaadin-password-field')!.value =
+      'fictional-test-secret';
+    await settle();
+    expect(dialog.querySelector('[data-missing="true"]')).to.equal(null);
+    await click(dialog, 'Continue');
+    expect(dialog.querySelector('h2')?.textContent).to.contain('Review');
+  });
+
+  it('keeps the wizard usable when the resolution check fails', async () => {
+    mocks.resolution.mockReturnValue(
+      throwError(() => ({ response: 'resolution backend down' }))
+    );
+    const { dialog } = await open();
+    await click(dialog, 'Continue');
+    expect(dialog.textContent).to.contain('Could not check TestEnvironment');
+    expect(dialog.textContent).to.contain('resolution backend down');
+    await click(dialog, 'Continue');
+    expect(dialog.textContent).to.contain('Review');
   });
 
   it('fits the target form on a narrow viewport', async () => {
