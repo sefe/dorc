@@ -29,8 +29,8 @@ namespace Dorc.ApiModel.MonitorRunnerApi
             {
                 var hash = 17;
 
-                hash += 23 * Name.GetHashCode();
-                hash += 23 * Tags.GetHashCode();
+                hash += 23 * (Name?.GetHashCode() ?? 0);
+                hash += 23 * (Tags?.GetHashCode() ?? 0);
 
                 return hash;
             }

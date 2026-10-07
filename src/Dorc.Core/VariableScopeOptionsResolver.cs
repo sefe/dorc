@@ -64,7 +64,14 @@ namespace Dorc.Core
                         {
                             Name = s.Name,
                             OsName = s.OsName,
-                            Tags = TagString.Join(s.Tags),
+                            // Coalesced for the same reason as the variable name above, with
+                            // a different failure if it is not: deploy scripts copy this into
+                            // a System.Data.DataRow (see GetServersOfType in the install
+                            // scripts), and PowerShell stores $null in a DataRow as DBNull.
+                            // The next .Split(';') then dies with "[System.DBNull] does not
+                            // contain a method named 'Split'". The delimited column fed this
+                            // field '' for an untagged server, so '' is the payload contract.
+                            Tags = JoinForPayload(s.Tags),
                             Services =
                                 _daemonsPersistentSource.GetDaemonsForServer(s.ServerId).Select(svc => new VariableValueDaemons
                                 { Name = svc.Name, DisplayName = svc.DisplayName, AccountName = svc.AccountName, ServiceType = svc.ServiceType })
@@ -174,12 +181,26 @@ namespace Dorc.Core
         {
             return new VariableValueDbPerm
             {
-                Database = new DatabaseDefinition { Name = databaseApiModel.Name, Tags = TagString.Join(databaseApiModel.Tags) },
+                // JoinForPayload rather than Join: see the EnvironmentServers payload above.
+                Database = new DatabaseDefinition { Name = databaseApiModel.Name, Tags = JoinForPayload(databaseApiModel.Tags) },
                 Users = _userPermsPersistentSource.GetPermissions(databaseApiModel.Id)
                     .GroupBy(u => u.User, u => u.Role)
                     .Select(g => new DbUserRole(g.Key, g.ToArray()))
                     .ToArray()
             };
+        }
+
+        /// <summary>
+        /// The delimited form for the deployment-variable payload. TagString.Join
+        /// renders an empty set as null, which is the right shape for the deprecated
+        /// column but not for anything handed to PowerShell: the delimited columns
+        /// held '' for an untagged entity, so '' is what deploy scripts were written
+        /// against, and a null here becomes DBNull the moment a script copies it into
+        /// a DataRow.
+        /// </summary>
+        private static string JoinForPayload(IEnumerable<string> tags)
+        {
+            return TagString.Join(tags) ?? string.Empty;
         }
 
         private static void AddPropertiesForServerNamesByTag(IVariableResolver variableResolver, IEnumerable<ServerApiModel> serverApiModels)

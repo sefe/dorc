@@ -19,13 +19,19 @@ namespace Dorc.Core.Tests
         private static (VariableScopeOptionsResolver resolver, IVariableResolver variableResolver,
             List<string> calls, Dictionary<string, VariableValue?> values)
             CreateResolver(params DatabaseApiModel[] databases)
+            => CreateResolver(Array.Empty<ServerApiModel>(), databases);
+
+        private static (VariableScopeOptionsResolver resolver, IVariableResolver variableResolver,
+            List<string> calls, Dictionary<string, VariableValue?> values)
+            CreateResolver(ServerApiModel[] environmentServers, params DatabaseApiModel[] databases)
         {
             var properties = Substitute.For<IPropertiesPersistentSource>();
             var servers = Substitute.For<IServersPersistentSource>();
             var daemons = Substitute.For<IDaemonsPersistentSource>();
             var databasesSource = Substitute.For<IDatabasesPersistentSource>();
             var userPerms = Substitute.For<IUserPermsPersistentSource>();
-            servers.GetServersForEnvId(42).Returns(Array.Empty<ServerApiModel>());
+            servers.GetServersForEnvId(42).Returns(environmentServers);
+            daemons.GetDaemonsForServer(Arg.Any<int>()).Returns(Array.Empty<DaemonApiModel>());
             databasesSource.GetDatabasesForEnvironmentName(Arg.Any<string>()).Returns(databases);
 
             var resolver = new VariableScopeOptionsResolver(properties, servers, daemons, databasesSource, userPerms);
@@ -233,6 +239,58 @@ namespace Dorc.Core.Tests
                 Assert.AreEqual(server.Tags, server.ApplicationServerName);
 #pragma warning restore CS0618
             }
+        }
+
+        [TestMethod]
+        public void DatabasePermissions_UntaggedDatabase_CarriesEmptyStringNotNull()
+        {
+            // Regression pinned from a UT deployment (sefe/dorc#779): a deploy script
+            // copied Database.Tags into a System.Data.DataRow and then called .Split.
+            // PowerShell stores $null in a DataRow as DBNull, so the script failed with
+            // "[System.DBNull] does not contain a method named 'Split'". The delimited
+            // column fed this field '' for an untagged database, and that is the
+            // contract — TagString.Join's null-for-empty is right for the column only.
+            var (resolver, variableResolver, _, values) = CreateResolver(
+                new DatabaseApiModel { Id = 1, Name = "Untagged", Tags = Array.Empty<string>(), ServerName = "s1" },
+                new DatabaseApiModel { Id = 2, Name = "NullTags", Tags = null, ServerName = "s2" });
+
+            resolver.SetPropertyValues(variableResolver, Environment42());
+
+            var perms = (VariableValueDbPerm[])values["DatabasePermissions"]!.Value;
+            Assert.AreEqual(2, perms.Length);
+            foreach (var perm in perms)
+            {
+                Assert.IsNotNull(perm.Database.Tags, $"{perm.Database.Name}: Tags must not be null");
+                Assert.AreEqual(string.Empty, perm.Database.Tags);
+#pragma warning disable CS0618 // the superseded spelling must agree
+                Assert.AreEqual(string.Empty, perm.Database.Type);
+#pragma warning restore CS0618
+            }
+        }
+
+        [TestMethod]
+        public void EnvironmentServers_UntaggedServer_CarriesEmptyStringNotNull()
+        {
+            // Same contract as above for the server half of the payload — this is the
+            // shape GetServersOfType in the install scripts copies into a DataRow.
+            var (resolver, variableResolver, _, values) = CreateResolver(
+                new[]
+                {
+                    new ServerApiModel { ServerId = 1, Name = "untagged", OsName = "w", Tags = Array.Empty<string>() },
+                    new ServerApiModel { ServerId = 2, Name = "nulltags", OsName = "w", Tags = null },
+                    new ServerApiModel { ServerId = 3, Name = "tagged", OsName = "w", Tags = new[] { "appserv", "web" } },
+                });
+
+            resolver.SetPropertyValues(variableResolver, Environment42());
+
+            var servers = (VariableValueServers[])values["EnvironmentServers"]!.Value;
+            Assert.AreEqual(3, servers.Length);
+            Assert.AreEqual(string.Empty, servers.Single(s => s.Name == "untagged").Tags);
+            Assert.AreEqual(string.Empty, servers.Single(s => s.Name == "nulltags").Tags);
+            Assert.AreEqual("appserv;web", servers.Single(s => s.Name == "tagged").Tags);
+#pragma warning disable CS0618 // the superseded spelling must agree
+            Assert.IsTrue(servers.All(s => s.Tags == s.ApplicationServerName));
+#pragma warning restore CS0618
         }
 
         [TestMethod]
