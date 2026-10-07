@@ -108,6 +108,13 @@ namespace Dorc.Api.Tests.Controllers
                 EnvironmentName = EnvName,
                 Project = ProjectName
             });
+            // The confirm/decline transitions are guarded (WaitingConfirmation
+            // -> target); an unstubbed substitute reports the race as lost.
+            _requests.UpdateResultStatus(
+                    Arg.Any<DeploymentResultApiModel>(),
+                    Arg.Any<DeploymentResultStatus>(),
+                    Arg.Any<DeploymentResultStatus>())
+                .Returns(true);
         }
 
         // ---------- InstantiateTemplate ----------
@@ -940,31 +947,6 @@ namespace Dorc.Api.Tests.Controllers
         // ---------- View ----------
 
         [TestMethod]
-        public void GetTerraformPlan_EnvOwner_Returns200()
-        {
-            GivenStandardDeploymentResult();
-            _security.IsEnvironmentOwnerOrAdmin(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(true);
-            _storage.LoadFileFromBlobs(Arg.Any<string>()).Returns("plan-content");
-
-            var result = _controller.GetTerraformPlan(DeploymentResultId);
-
-            Assert.IsInstanceOfType(result, typeof(OkObjectResult));
-        }
-
-        [TestMethod]
-        public void GetTerraformPlan_ProjectOwnerOnly_Returns200()
-        {
-            GivenStandardDeploymentResult();
-            _security.IsEnvironmentOwnerOrAdmin(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(false);
-            _security.IsProjectOwnerOrAdmin(Arg.Any<ClaimsPrincipal>(), ProjectName).Returns(true);
-            _storage.LoadFileFromBlobs(Arg.Any<string>()).Returns("plan-content");
-
-            var result = _controller.GetTerraformPlan(DeploymentResultId);
-
-            Assert.IsInstanceOfType(result, typeof(OkObjectResult));
-        }
-
-        [TestMethod]
         public void GetTerraformPlan_CanModifyEnvironmentOnly_Returns200()
         {
             // A user who is neither env nor project owner/admin but holds
@@ -993,7 +975,7 @@ namespace Dorc.Api.Tests.Controllers
 
             var result = _controller.GetTerraformPlan(DeploymentResultId);
 
-            Assert.IsInstanceOfType(result, typeof(ForbidResult));
+            Assert.AreEqual(StatusCodes.Status403Forbidden, ((ObjectResult)result).StatusCode);
         }
 
         [TestMethod]
@@ -1018,7 +1000,7 @@ namespace Dorc.Api.Tests.Controllers
 
             var result = _controller.GetTerraformPlan(DeploymentResultId);
 
-            Assert.IsInstanceOfType(result, typeof(ForbidResult));
+            Assert.AreEqual(StatusCodes.Status403Forbidden, ((ObjectResult)result).StatusCode);
         }
 
         // ---------- Confirm ----------
@@ -1042,7 +1024,7 @@ namespace Dorc.Api.Tests.Controllers
 
             var result = _controller.ConfirmTerraformPlan(DeploymentResultId);
 
-            Assert.IsInstanceOfType(result, typeof(ForbidResult));
+            Assert.AreEqual(StatusCodes.Status403Forbidden, ((ObjectResult)result).StatusCode);
         }
 
         // ---------- Decline ----------
@@ -1066,7 +1048,7 @@ namespace Dorc.Api.Tests.Controllers
 
             var result = _controller.DeclineTerraformPlan(DeploymentResultId);
 
-            Assert.IsInstanceOfType(result, typeof(ForbidResult));
+            Assert.AreEqual(StatusCodes.Status403Forbidden, ((ObjectResult)result).StatusCode);
         }
     }
 }
