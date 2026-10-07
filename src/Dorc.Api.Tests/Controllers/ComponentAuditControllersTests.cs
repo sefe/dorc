@@ -29,7 +29,8 @@ namespace Dorc.Api.Tests.Controllers
 
             var result = controller.Put(Operators, containerId: 5) as ObjectResult;
 
-            Assert.AreEqual(StatusCodes.Status200OK, result!.StatusCode);
+            Assert.IsNotNull(result);
+            Assert.AreEqual(StatusCodes.Status200OK, result.StatusCode);
             Assert.AreSame(PerRecord, result.Value);
             source.DidNotReceive().GetContainerAudit(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<PagedDataOperators>());
         }
@@ -43,7 +44,8 @@ namespace Dorc.Api.Tests.Controllers
 
             var result = controller.Put(Operators) as ObjectResult;
 
-            Assert.AreEqual(StatusCodes.Status200OK, result!.StatusCode);
+            Assert.IsNotNull(result);
+            Assert.AreEqual(StatusCodes.Status200OK, result.StatusCode);
             Assert.AreSame(CrossRecord, result.Value);
             source.DidNotReceive().GetContainerAuditByContainerId(
                 Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<PagedDataOperators>());
@@ -58,7 +60,8 @@ namespace Dorc.Api.Tests.Controllers
 
             var result = controller.Put(Operators, cloudResourceId: 7) as ObjectResult;
 
-            Assert.AreEqual(StatusCodes.Status200OK, result!.StatusCode);
+            Assert.IsNotNull(result);
+            Assert.AreEqual(StatusCodes.Status200OK, result.StatusCode);
             Assert.AreSame(PerRecord, result.Value);
         }
 
@@ -71,7 +74,8 @@ namespace Dorc.Api.Tests.Controllers
 
             var result = controller.Put(Operators) as ObjectResult;
 
-            Assert.AreEqual(StatusCodes.Status200OK, result!.StatusCode);
+            Assert.IsNotNull(result);
+            Assert.AreEqual(StatusCodes.Status200OK, result.StatusCode);
             Assert.AreSame(CrossRecord, result.Value);
         }
 
@@ -84,7 +88,8 @@ namespace Dorc.Api.Tests.Controllers
 
             var result = controller.Put(Operators, apiRegistrationId: 9) as ObjectResult;
 
-            Assert.AreEqual(StatusCodes.Status200OK, result!.StatusCode);
+            Assert.IsNotNull(result);
+            Assert.AreEqual(StatusCodes.Status200OK, result.StatusCode);
             Assert.AreSame(PerRecord, result.Value);
         }
 
@@ -97,7 +102,8 @@ namespace Dorc.Api.Tests.Controllers
 
             var result = controller.Put(Operators) as ObjectResult;
 
-            Assert.AreEqual(StatusCodes.Status200OK, result!.StatusCode);
+            Assert.IsNotNull(result);
+            Assert.AreEqual(StatusCodes.Status200OK, result.StatusCode);
             Assert.AreSame(CrossRecord, result.Value);
         }
     }
