@@ -468,11 +468,13 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
             }
         }
 
-        public EnvironmentApiModel GetEnvironment(int environmentId, ClaimsPrincipal user)
+        public EnvironmentApiModel? GetEnvironment(int environmentId, ClaimsPrincipal user)
         {
             using (var context = contextFactory.GetContext())
             {
                 var environment = EnvironmentUnifier.GetFullEnvironment(context, environmentId);
+                if (environment == null)
+                    return null;
 
                 return MapToEnvironmentApiModel(environment, objectFilter.HasPrivilege(environment, user, AccessLevel.Write),
                     IsEnvironmentOwner(environment.Name, user));

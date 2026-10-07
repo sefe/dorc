@@ -29,12 +29,27 @@ Environments with no attached components produce **exactly** the pre-change vari
 (characterization-tested), so existing deployments are unaffected until someone attaches
 a component.
 
+## Audit pages for the new component types
+Each of the three new entity types gets a read path over its audit trail, mirroring the
+daemons audit feature:
+- API: `PUT /ContainerAudit`, `PUT /CloudResourceAudit`, `PUT /ApiRegistrationAudit`
+  (paged, filterable by user/action, optionally restricted to one record via
+  `containerId`/`cloudResourceId`/`apiRegistrationId`).
+- UI: **Containers Audit**, **Cloud Resources Audit** and **APIs Audit** pages under the
+  navbar's Audit submenu (`/containers/audit`, `/cloud-resources/audit`,
+  `/api-registrations/audit`), with create/delete row colouring and per-character
+  from/to value diffs. Each row on the environment Containers/Cloud/APIs tabs has an
+  Audit button deep-linking to that record's history. Audit rows for deleted components
+  are retained and render as *(deleted)*.
+
 ## Behaviour changes
 - A server with a **null** tag string no longer crashes variable resolution (previously
   an unhandled NullReferenceException aborted the deployment); it now simply yields no
   per-tag variables.
 - Environment deletion now detaches any attached containers/cloud resources/API
   registrations, mirroring servers/databases handling.
+- Attach/detach endpoints now return **404** (previously 500) when the target
+  environment id does not exist.
 
 ## Known follow-ups (out of this change's scope)
 - **Generated web client drift**: the committed `dorc-api` client, committed

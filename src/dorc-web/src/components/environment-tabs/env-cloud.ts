@@ -5,6 +5,9 @@ import '@vaadin/details';
 import '@vaadin/dialog';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/grid/vaadin-grid-sort-column';
+import '@vaadin/icons/vaadin-icons';
+import '@vaadin/icon';
+import '@vaadin/tooltip';
 import { columnBodyRenderer } from '@vaadin/grid/lit';
 import type { DialogOpenedChangedEvent } from '@vaadin/dialog';
 import { dialogRenderer } from '@vaadin/dialog/lit';
@@ -16,6 +19,7 @@ import {
 import '../add-edit-cloud-resource';
 import '../attach-cloud-resource';
 import { dorcApiConfiguration } from '../../services/dorc-api-configuration';
+import { navigate } from '../../router/router';
 import { PageEnvBase } from './page-env-base';
 
 @customElement('env-cloud')
@@ -69,6 +73,45 @@ export class EnvCloud extends PageEnvBase {
         color: var(--dorc-link-color);
         padding: var(--lumo-space-xs);
       }
+      .summary-bar {
+        display: flex;
+        align-items: center;
+        gap: var(--lumo-space-s);
+        font-weight: 600;
+      }
+      .summary-bar vaadin-icon {
+        color: var(--dorc-link-color);
+      }
+      .count-badge {
+        background-color: var(--dorc-link-color);
+        color: var(--dorc-bg-primary);
+        border-radius: 1em;
+        font-size: var(--lumo-font-size-xs);
+        font-weight: 600;
+        padding: 0 var(--lumo-space-s);
+        line-height: 1.6;
+      }
+      .toolbar {
+        display: flex;
+        align-items: center;
+        gap: var(--lumo-space-xs);
+        padding: var(--lumo-space-xs) 0;
+      }
+      .empty-state {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        flex: 1;
+        min-height: 120px;
+        color: var(--dorc-text-secondary);
+        gap: var(--lumo-space-s);
+      }
+      .empty-state vaadin-icon {
+        width: 40px;
+        height: 40px;
+        opacity: 0.5;
+      }
     `;
   }
 
@@ -93,26 +136,44 @@ export class EnvCloud extends PageEnvBase {
     return html`
       <vaadin-details
         opened
-        summary="Cloud Resource Details"
         style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; margin: 0px;"
       >
+        <div slot="summary" class="summary-bar">
+          <vaadin-icon icon="vaadin:cloud" theme="small"></vaadin-icon>
+          Cloud Resource Details
+          <span class="count-badge">${this.cloudResources.length}</span>
+        </div>
         <div class="details-content">
-          <div>
+          <div class="toolbar">
             <vaadin-button
               title="Attach Cloud Resource"
+              theme="primary small"
               .disabled="${this.envReadOnly}"
               @click="${() => (this.attachDialogOpened = true)}"
-              >Attach Cloud Resource</vaadin-button
+            >
+              <vaadin-icon icon="vaadin:link" slot="prefix"></vaadin-icon>
+              Attach Cloud Resource</vaadin-button
             >
             <vaadin-button
               title="New Cloud Resource"
+              theme="small"
               .disabled="${this.envReadOnly}"
               @click="${this.openCreateDialog}"
-              >New Cloud Resource</vaadin-button
             >
+              <vaadin-icon icon="vaadin:plus" slot="prefix"></vaadin-icon>
+              New Cloud Resource</vaadin-button
+            >
+          </div>
+          <div
+            class="empty-state"
+            ?hidden="${this.cloudResources.length !== 0}"
+          >
+            <vaadin-icon icon="vaadin:cloud"></vaadin-icon>
+            <span>No cloud resources attached to this environment yet</span>
           </div>
           <vaadin-grid
             id="cloud-resources-grid"
+            ?hidden="${this.cloudResources.length === 0}"
             .items="${this.cloudResources}"
             theme="compact row-stripes no-row-borders"
           >
@@ -143,7 +204,7 @@ export class EnvCloud extends PageEnvBase {
             <vaadin-grid-column
               ${columnBodyRenderer(this.actionsRenderer, [this.envReadOnly])}
               flex-grow="0"
-              width="180px"
+              width="220px"
             ></vaadin-grid-column>
           </vaadin-grid>
         </div>
@@ -186,6 +247,18 @@ export class EnvCloud extends PageEnvBase {
   private actionsRenderer = (item: CloudResourceApiModel) => html`
     <vaadin-button
       class="row-button"
+      aria-label="View audit history"
+      theme="icon"
+      @click="${() => this.openAudit(item)}"
+    >
+      <vaadin-tooltip slot="tooltip" text="View audit history"></vaadin-tooltip>
+      <vaadin-icon
+        icon="vaadin:calendar-user"
+        style="color: var(--dorc-link-color)"
+      ></vaadin-icon>
+    </vaadin-button>
+    <vaadin-button
+      class="row-button"
       ?disabled="${this.envReadOnly}"
       @click="${() => this.openEditDialog(item)}"
       >Edit</vaadin-button
@@ -197,6 +270,12 @@ export class EnvCloud extends PageEnvBase {
       >Detach</vaadin-button
     >
   `;
+
+  private openAudit(item: CloudResourceApiModel) {
+    const id = item.Id ?? 0;
+    if (id <= 0) return;
+    void navigate(`/cloud-resources/audit?cloudResourceId=${id}`);
+  }
 
   override notifyEnvironmentReady() {
     this.envReadOnly = !this.environment?.UserEditable;

@@ -1,8 +1,10 @@
 using Dorc.Api.Tests.Mocks;
+using Dorc.ApiModel;
 using Dorc.PersistentData.Contexts;
 using Dorc.PersistentData.Model;
 using Dorc.PersistentData.Sources;
 using NSubstitute;
+using RefDataAuditAction = Dorc.PersistentData.Model.RefDataAuditAction;
 
 namespace Dorc.Api.Tests.Sources
 {
@@ -87,6 +89,57 @@ namespace Dorc.Api.Tests.Sources
 
             Assert.AreEqual(1, audits.Count);
             Assert.AreEqual(ActionType.Delete, audits[0].Action.Action);
+        }
+
+        [TestMethod]
+        public void GetContainerAudit_ProjectsRowsAndResolvesNames()
+        {
+            var create = new RefDataAuditAction { RefDataAuditActionId = 1, Action = ActionType.Create };
+            _containerAudits.AddRange(new[]
+            {
+                new ContainerAudit { Id = 1, ContainerId = 5, RefDataAuditActionId = 1, Action = create, Username = @"DOM\alice", Date = new DateTime(2026, 1, 2), ToValue = "{}" },
+                new ContainerAudit { Id = 2, ContainerId = null, RefDataAuditActionId = 1, Action = create, Username = @"DOM\bob", Date = new DateTime(2026, 1, 1), ToValue = "{}" }
+            });
+            var containerSet = DbContextMock.GetQueryableMockDbSet(new List<Container>
+            {
+                new Container { Id = 5, Name = "web" }
+            });
+            _context.Containers.Returns(containerSet);
+            var source = new ContainerAuditPersistentSource(_contextFactory);
+
+            var result = source.GetContainerAudit(50, 1, new PagedDataOperators());
+
+            Assert.AreEqual(2, result.TotalItems);
+            // Default ordering is Date descending.
+            Assert.AreEqual("web", result.Items[0].ComponentName);
+            Assert.AreEqual(5, result.Items[0].ComponentId);
+            Assert.AreEqual("Create", result.Items[0].Action);
+            // Rows for deleted/unknown components keep a null name.
+            Assert.IsNull(result.Items[1].ComponentName);
+        }
+
+        [TestMethod]
+        public void GetContainerAuditByContainerId_FiltersToTheRequestedContainer()
+        {
+            var create = new RefDataAuditAction { RefDataAuditActionId = 1, Action = ActionType.Create };
+            _containerAudits.AddRange(new[]
+            {
+                new ContainerAudit { Id = 1, ContainerId = 5, RefDataAuditActionId = 1, Action = create, Username = @"DOM\alice", Date = DateTime.Now },
+                new ContainerAudit { Id = 2, ContainerId = 6, RefDataAuditActionId = 1, Action = create, Username = @"DOM\bob", Date = DateTime.Now }
+            });
+            var containerSet = DbContextMock.GetQueryableMockDbSet(new List<Container>
+            {
+                new Container { Id = 5, Name = "web" },
+                new Container { Id = 6, Name = "db" }
+            });
+            _context.Containers.Returns(containerSet);
+            var source = new ContainerAuditPersistentSource(_contextFactory);
+
+            var result = source.GetContainerAuditByContainerId(5, 50, 1, new PagedDataOperators());
+
+            Assert.AreEqual(1, result.TotalItems);
+            Assert.AreEqual(5, result.Items[0].ComponentId);
+            Assert.AreEqual("web", result.Items[0].ComponentName);
         }
     }
 }

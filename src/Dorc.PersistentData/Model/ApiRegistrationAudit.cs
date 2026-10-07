@@ -1,10 +1,13 @@
 namespace Dorc.PersistentData.Model
 {
-    public class ApiRegistrationAudit
+    public class ApiRegistrationAudit : IComponentAudit
     {
         public long Id { get; set; }
 
         public int? ApiRegistrationId { get; set; }
+
+        // Explicit implementation so EF model conventions don't map it.
+        int? IComponentAudit.ComponentId => ApiRegistrationId;
 
         public int RefDataAuditActionId { get; set; }
 

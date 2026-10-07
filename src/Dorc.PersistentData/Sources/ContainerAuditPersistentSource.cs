@@ -1,6 +1,8 @@
+using Dorc.ApiModel;
 using Dorc.PersistentData.Contexts;
 using Dorc.PersistentData.Model;
 using Dorc.PersistentData.Sources.Interfaces;
+using Microsoft.EntityFrameworkCore;
 
 namespace Dorc.PersistentData.Sources
 {
@@ -37,6 +39,44 @@ namespace Dorc.PersistentData.Sources
                 });
                 context.SaveChanges();
             }
+        }
+
+        public GetComponentAuditListResponseDto GetContainerAuditByContainerId(int containerId, int limit, int page, PagedDataOperators operators)
+        {
+            using (var context = _contextFactory.GetContext())
+            {
+                // ContainerId is int? (nullable), which the string-based ContainsExpression
+                // helper doesn't support — apply the per-record filter explicitly here and
+                // keep the user-supplied filters inside the shared pipeline (matching
+                // DaemonAuditPersistentSource).
+                var queryable = context.ContainerAudits
+                    .Include(a => a.Action)
+                    .Where(a => a.ContainerId == containerId);
+
+                return ComponentAuditQuery.RunPagedQuery(queryable, limit, page, operators,
+                    ids => ContainerNamesByIds(context, ids));
+            }
+        }
+
+        public GetComponentAuditListResponseDto GetContainerAudit(int limit, int page, PagedDataOperators operators)
+        {
+            using (var context = _contextFactory.GetContext())
+            {
+                var queryable = context.ContainerAudits
+                    .Include(a => a.Action)
+                    .AsQueryable();
+
+                return ComponentAuditQuery.RunPagedQuery(queryable, limit, page, operators,
+                    ids => ContainerNamesByIds(context, ids));
+            }
+        }
+
+        private static Dictionary<int, string> ContainerNamesByIds(IDeploymentContext context, IReadOnlyCollection<int> ids)
+        {
+            return context.Containers
+                .Where(c => ids.Contains(c.Id))
+                .AsNoTracking()
+                .ToDictionary(c => c.Id, c => c.Name);
         }
     }
 }

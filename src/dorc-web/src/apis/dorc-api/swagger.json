@@ -757,6 +757,77 @@
         }
       }
     },
+    "/ApiRegistrationAudit": {
+      "put": {
+        "tags": [
+          "ApiRegistrationAudit"
+        ],
+        "parameters": [
+          {
+            "name": "apiRegistrationId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PagedDataOperators"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PagedDataOperators"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/PagedDataOperators"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetComponentAuditListResponseDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetComponentAuditListResponseDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/": {
       "get": {
         "tags": [
@@ -994,6 +1065,148 @@
               "text/json": {
                 "schema": {
                   "$ref": "#/components/schemas/GetDaemonObservationListResponseDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/CloudResourceAudit": {
+      "put": {
+        "tags": [
+          "CloudResourceAudit"
+        ],
+        "parameters": [
+          {
+            "name": "cloudResourceId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PagedDataOperators"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PagedDataOperators"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/PagedDataOperators"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetComponentAuditListResponseDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetComponentAuditListResponseDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ContainerAudit": {
+      "put": {
+        "tags": [
+          "ContainerAudit"
+        ],
+        "parameters": [
+          {
+            "name": "containerId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PagedDataOperators"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PagedDataOperators"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/PagedDataOperators"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetComponentAuditListResponseDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetComponentAuditListResponseDto"
                 }
               }
             }
@@ -10418,6 +10631,49 @@
         },
         "additionalProperties": false
       },
+      "ComponentAuditApiModel": {
+        "type": "object",
+        "properties": {
+          "Id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "ComponentId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "ComponentName": {
+            "type": "string",
+            "nullable": true
+          },
+          "RefDataAuditActionId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "Action": {
+            "type": "string",
+            "nullable": true
+          },
+          "Username": {
+            "type": "string",
+            "nullable": true
+          },
+          "Date": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "FromValue": {
+            "type": "string",
+            "nullable": true
+          },
+          "ToValue": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "DaemonAuditApiModel": {
         "type": "object",
         "properties": {
@@ -11228,6 +11484,31 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/DaemonObservationApiModel"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "GetComponentAuditListResponseDto": {
+        "type": "object",
+        "properties": {
+          "CurrentPage": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "TotalItems": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "TotalPages": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "Items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ComponentAuditApiModel"
             },
             "nullable": true
           }
