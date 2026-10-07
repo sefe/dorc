@@ -77,7 +77,8 @@ namespace Dorc.Monitor.Tests
                 _configurationSettings,
                 Substitute.For<IRequestsPersistentSource>(),
                 _scriptScopeConfigValues,
-                _credentialSource);
+                _credentialSource,
+                Substitute.For<IScriptsPersistentSource>());
 
         /// <summary>
         /// Dispatch is driven to the point where the Runner's security context is built and no
@@ -267,7 +268,8 @@ namespace Dorc.Monitor.Tests
                 settings,
                 Substitute.For<IRequestsPersistentSource>(),
                 scopeValues,
-                CredentialSourceFor("svc-dorc", "password"));
+                CredentialSourceFor("svc-dorc", "password"),
+                Substitute.For<IScriptsPersistentSource>());
 
             var properties = new Dictionary<string, VariableValue>
             {

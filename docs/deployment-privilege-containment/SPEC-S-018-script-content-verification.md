@@ -2,7 +2,7 @@
 
 | Field       | Value                                                        |
 |-------------|--------------------------------------------------------------|
-| **Status**  | DRAFT                                                        |
+| **Status**  | DELIVERED                                                    |
 | **Step**    | S-018                                                        |
 | **IS**      | IS-deployment-privilege-containment.md                       |
 | **Address** | W-5 (execution half), SD-5, SC-05                            |
@@ -26,7 +26,9 @@ Verification cannot be done at dispatch. Dispatch happens in the Monitor; the ex
 
 ### 2.1 Who records it
 
-**DOrc records it, on first execution of a script whose hash is unrecorded — trust on first use.**
+**DOrc records it, on first dispatch of a script whose hash is unrecorded — trust on first use.**
+
+More precisely: the **Monitor** captures the baseline from the share at dispatch, and the **runner** verifies against it at the point of read. The split matters and is not an implementation detail — see R-2.
 
 Rejected alternatives, and why:
 
@@ -51,7 +53,7 @@ Three states, one setting, `ScriptContentVerification` in AppSettings:
 
 | Value | Unrecorded hash | Mismatch |
 |---|---|---|
-| `Off` | ignored | ignored — no verification at all |
+| `Off` | not recorded | ignored — no verification at all |
 | `Report` *(default)* | recorded | logged against the deployment result; **script executes** |
 | `Enforce` | recorded | **script does not execute**; deployment result fails |
 
@@ -71,27 +73,37 @@ SHA-256 over the **exact bytes read**, not over decoded text. Hashing decoded te
 
 Recorded as lower-case hexadecimal. A string rather than a binary column, because it is compared, displayed and set over an API far more often than it is stored.
 
-### R-2 — Where verification happens
+### R-2 — Where the baseline is captured, and why not in the runner
+
+The Monitor captures it at dispatch. The obvious alternative — the runner records what it is about to execute when it finds no baseline — is worse, and worse in the exact scenario the step is about: a runner recording the bytes in front of it would record *the attacker's* bytes as the baseline and report a match.
+
+Capturing at dispatch and verifying at the point of read means the first deployment after adoption is covered across the dispatch-to-read window too, not merely baselined. Two processes reading the same file at two moments is not a weaker check than one process reading it once — it is a stronger one, provided the comparison happens at the later read. Which is R-3.
+
+Nothing in capture refuses. A share that cannot be read at that moment, or a script that is not there, fails the deployment moments later for its own reasons and with its own message; failing it at capture would replace that message with a worse one.
+
+### R-3 — Where verification happens
 
 Immediately before the script content is handed to PowerShell, in both `Dorc.PowerShell.PowerShellScriptRunner` and `Dorc.NetFramework.PowerShell.PowerShellScriptRunner`. Not earlier: any gap between the read and the execution is the window the check exists to close. The content is read once and both hashed and executed from that single read.
 
-### R-3 — What the runner is told
+### R-4 — What the runner is told
 
 The expected hash travels in the script group, per script, alongside the path it applies to. A script the Monitor has no hash for carries none, which is the unrecorded case.
 
-### R-4 — The Monitor's behaviour when it cannot confirm verification happened
+**The mode travels with it, on the group.** The runner does not read the estate's setting from its own configuration: that would let a deployment host with a stale or edited configuration file quietly execute unverified, and the deployment host is the least trustworthy place to keep the answer.
+
+### R-5 — The Monitor's behaviour when it cannot confirm verification happened
 
 The IS requires this to be defined. **It is defined as: the Monitor does not attempt to confirm it.**
 
-The runner reports the verification outcome in its result, and the Monitor records it against the deployment result. A runner that performed no verification reports none, and the Monitor records that no verification was reported. It does not refuse, and it does not infer that verification passed.
+The runner writes the outcome to the deployment's own log — a warning for an unrecorded baseline or a reported mismatch, an error for a refusal — and an enforced refusal fails the deployment by refusing to execute. The Monitor does not ask whether verification took place and does not infer that it passed; a runner that performed none simply logs none.
 
 Anything stronger is a false claim. The Monitor cannot distinguish "the runner verified and said nothing" from "the runner is an old build" without a protocol version, and a protocol version that an old build also ignores establishes nothing. The genuine guard against a stale runner is the release constraint below, not a runtime check.
 
-### R-5 — Release constraint
+### R-6 — Release constraint
 
 **Lockstep, not additive.** The script group is deserialized by a serializer that ignores unknown members, so an un-upgraded runner would silently ignore the added hash and execute unverified — the criterion unmet, with no signal. All three runners and both dispatchers ship together. They are packaged in a single installer, so this is achievable; it must not be assumed.
 
-### R-6 — Recording is administrator-gated
+### R-7 — Recording is administrator-gated
 
 Setting or clearing a recorded hash is a write to the script record and follows the existing `RefData` authorization, which already requires `IsAdmin`. Trust-on-first-use recording is performed by the deployment path itself, not by a user.
 
@@ -103,7 +115,7 @@ Two changes, in order, because one is safe to ship alone and the other is not.
 
 **S-018a — the record and its API.** Schema column, entity, API model, the hash computation, the mode setting, and the endpoint that sets or clears a recorded hash. **No behaviour change to dispatch or execution**: nothing reads the column yet. Ships independently and is reversible by ignoring the column.
 
-**S-018b — carry and verify.** The hash travels in the script group; both PowerShell runners verify before execution; first-use recording; outcome reported and recorded. **This is the lockstep half** and carries the release constraint of R-5.
+**S-018b — carry and verify.** The Monitor captures a first-seen baseline and puts it in the script group along with the estate's mode; both PowerShell runners verify the bytes they read before executing them. **This is the lockstep half** and carries the release constraint of R-6.
 
 ---
 
