@@ -37,6 +37,6 @@ namespace Dorc.ApiModel
     {
         public string ProjectName { get; set; } = string.Empty;
         public string EnvironmentName { get; set; } = string.Empty;
-        public List<TerraformParameterResolutionApiModel> Parameters { get; set; } = new();
+        public List<TerraformParameterResolutionApiModel> Parameters { get; set; } = new List<TerraformParameterResolutionApiModel>();
     }
 }

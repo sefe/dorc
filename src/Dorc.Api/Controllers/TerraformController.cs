@@ -2,6 +2,7 @@ using Dorc.Api.Interfaces;
 using Dorc.Api.Model;
 using Dorc.Api.Services;
 using Dorc.ApiModel;
+using Dorc.ApiModel.MonitorRunnerApi;
 using Dorc.Core.AzureStorageAccount;
 using Dorc.Core;
 using Dorc.Core.Configuration;
