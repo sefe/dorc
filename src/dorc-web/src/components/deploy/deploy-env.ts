@@ -5,9 +5,11 @@ import '@vaadin/combo-box';
 import { ComboBox } from '@vaadin/combo-box';
 import '@vaadin/details';
 import '@vaadin/dialog';
+import '@vaadin/confirm-dialog';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/horizontal-layout';
+import '@vaadin/icons/vaadin-icons';
 import '@vaadin/notification';
 import '@vaadin/text-field';
 import { TextField } from '@vaadin/text-field';
@@ -24,7 +26,6 @@ import {
   RequestStatusDto
 } from '../../apis/dorc-api';
 import type { ProjectApiModel } from '../../apis/dorc-api';
-import '@vaadin/confirm-dialog';
 import '../hegs-json-viewer';
 import './property-override-controls';
 import { ErrorNotification } from '../notifications/error-notification';
@@ -34,6 +35,10 @@ import { TreeNode } from './component-tree/TreeNode';
 import { SuccessfulDeployNotification } from './notifications/successful-deploy-notification';
 import { HegsJsonViewer } from '../hegs-json-viewer';
 import { dorcApiConfiguration } from '../../services/dorc-api-configuration';
+
+type ConfirmDialogWithOverlay = HTMLElement & {
+  _overlayElement?: HTMLElement;
+};
 
 @customElement('deploy-env')
 export class DeployEnv extends LitElement {
@@ -96,6 +101,22 @@ export class DeployEnv extends LitElement {
         }
       [hidden] {
         display: none !important;
+      }
+      .deploy-dialog-content {
+        min-width: min(560px, 80vw);
+      }
+      .deploy-dialog-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: var(--lumo-space-s);
+        font-size: var(--lumo-font-size-l);
+        font-weight: 600;
+      }
+      .deploy-dialog-actions {
+        display: flex;
+        justify-content: flex-end;
+        margin-top: var(--lumo-space-m);
       }
       .build-defs-section {
         display: flex;
@@ -177,6 +198,14 @@ export class DeployEnv extends LitElement {
   protected firstUpdated(_changedProperties: PropertyValues) {
     super.firstUpdated(_changedProperties);
 
+    const dialog = this.shadowRoot?.getElementById(
+      'dialog'
+    ) as ConfirmDialogWithOverlay | null;
+    dialog?._overlayElement?.addEventListener(
+      'vaadin-overlay-outside-click',
+      this.closeDeployDialog
+    );
+
     const api = new PropertiesApi(dorcApiConfiguration);
     api.propertiesGet().subscribe({
       next: (data: PropertyApiModel[]) => {
@@ -194,14 +223,22 @@ export class DeployEnv extends LitElement {
         theme="deploy-preview"
         header="New deployment"
         confirm-text="Deploy"
-        cancel-theme="primary"
-        cancel-button-visible
         .opened="${this.dialogOpened}"
         @opened-changed="${(e: CustomEvent) => {
           this.dialogOpened = (e.detail as { value: boolean }).value;
         }}"
         @confirm="${this.startDeployment}"
       >
+        <div slot="header" class="deploy-dialog-header">
+          <span>New deployment</span>
+          <vaadin-button
+            theme="tertiary icon"
+            aria-label="Close"
+            @click="${this.deployConfirmDialogClosed}"
+          >
+            <vaadin-icon icon="vaadin:close-small"></vaadin-icon>
+          </vaadin-button>
+        </div>
         <div style="margin-bottom: 5px;">
           Please confirm you want to submit this deployment request?
         </div>
@@ -390,6 +427,10 @@ export class DeployEnv extends LitElement {
   deployConfirmDialogClosed() {
     this.dialogOpened = false;
   }
+
+  private closeDeployDialog = () => {
+    this.dialogOpened = false;
+  };
 
   private setBuilds(data: DeployArtefactDto[]) {
     this.builds = data;

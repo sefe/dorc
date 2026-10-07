@@ -188,8 +188,8 @@ export class DorcApp extends LitElement {
          in a token that clears WCAG 1.4.11's 3:1 in both themes. */
       #splitter {
         position: relative;
-        width: 12px;
-        min-width: 12px;
+        width: 2px;
+        min-width: 2px;
         flex-shrink: 0;
         cursor: ew-resize;
         background-color: transparent;
@@ -200,16 +200,23 @@ export class DorcApp extends LitElement {
         content: '';
         position: absolute;
         inset-block: 0;
-        left: 50%;
-        transform: translateX(-50%);
+        left: 0;
         width: 2px;
-        background-color: var(--dorc-text-secondary);
+        background-color: var(--dorc-bg-secondary);
+      }
+
+      #splitter::after {
+        content: '';
+        position: absolute;
+        inset-block: 0;
+        left: -5px;
+        width: 12px;
       }
 
       #splitter:hover::before,
-      #splitter:focus-visible::before {
-        width: 4px;
-        background-color: var(--dorc-link-color);
+      #splitter:focus-visible::before,
+      :host([resizing]) #splitter::before {
+        background-color: var(--dorc-icon-interactive);
       }
 
       #splitter:focus-visible {

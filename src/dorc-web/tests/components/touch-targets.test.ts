@@ -95,6 +95,10 @@ describe('Touch target structure', () => {
         /min-height:\s*44px/,
         'min-height: 44px should be nested inside @media (max-width: 768px)'
       );
+      expect(nestedCss).to.match(
+        /:not\(\[theme~=['"]drawer-shortcut-close['"]\]\)/,
+        'drawer shortcut close buttons should keep their compact layout'
+      );
 
       // Guard the regression that round-5 fixed: no top-level (non-media)
       // rule should set the 44px floor on icon buttons.

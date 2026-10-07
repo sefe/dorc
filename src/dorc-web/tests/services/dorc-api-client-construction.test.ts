@@ -15,8 +15,9 @@ describe('DOrc API client construction', () => {
     for (const [file, source] of Object.entries(sourceModules)) {
       if (file.includes('/src/apis/')) continue;
 
-      const pattern = /new\s+[A-Za-z0-9_]+Api\s*\(\s*\)/g;
+      const pattern = /new\s+[A-Za-z0-9_]+Api\s*\(\s*([^)]*?)\s*\)/g;
       for (const match of source.matchAll(pattern)) {
+        if (match[1] === 'dorcApiConfiguration') continue;
         const line = source.slice(0, match.index).split(/\r?\n/).length;
         violations.push(`${file}:${line}: ${match[0]}`);
       }

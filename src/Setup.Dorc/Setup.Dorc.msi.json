@@ -126,6 +126,10 @@
       "DeployProperty": "DORC_AUTHENTICATION_SCHEME"
     },
     {
+      "MSIParameter": "DORC.TERRAFORM.SEPARATE.APPROVER.REQUIRED",
+      "DeployProperty": "DORC_TERRAFORM_SEPARATE_APPROVER_REQUIRED"
+    },
+    {
       "MSIParameter": "DORC.OAUTH.AUTHORITY",
       "DeployProperty": "DORC_OAUTH_AUTHORITY"
     },

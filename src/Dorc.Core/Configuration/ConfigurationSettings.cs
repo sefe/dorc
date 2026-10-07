@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Configuration;
 
 namespace Dorc.Core.Configuration
 {
@@ -175,6 +175,17 @@ namespace Dorc.Core.Configuration
         {
             var value = _configuration.GetSection("AppSettings")["PauseDeploymentEnabled"];
             return bool.TryParse(value, out bool enabled) && enabled;
+        }
+
+        public bool? GetTerraformSeparateApproverRequired()
+        {
+            var value = _configuration.GetSection("AppSettings")["TerraformSeparateApproverRequired"];
+
+            // Intentionally not the "TryParse(...) && enabled" pattern used above. That
+            // resolves an absent key to false; for this setting an absent key must mean
+            // "enabled for production", so absence is reported as null and the decision is
+            // left to the caller, which knows the request's tier.
+            return bool.TryParse(value, out bool required) ? required : null;
         }
 
         public bool GetIsProduction()

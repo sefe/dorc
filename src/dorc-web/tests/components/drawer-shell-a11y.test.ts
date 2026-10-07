@@ -149,12 +149,27 @@ describe('P3: app shell accessibility', () => {
       expect(splitter.getAttribute('aria-valuenow')).to.equal('420');
     });
 
+    it('matches the subtle production divider when idle', async () => {
+      setTheme('light');
+      const app = await mountApp(container);
+      const splitter = rootOf(app).getElementById('splitter')!;
+      const line = getComputedStyle(splitter, '::before');
+      const dragTarget = getComputedStyle(splitter, '::after');
+
+      expect(getComputedStyle(splitter).width).to.equal('2px');
+      expect(line.width).to.equal('2px');
+      expect(line.backgroundColor).to.equal('rgb(245, 246, 248)');
+      expect(dragTarget.width).to.equal('12px');
+      expect(dragTarget.left).to.equal('-5px');
+    });
+
     (['light', 'dark'] as DorcTheme[]).forEach(theme => {
-      it(`is visible against its neighbours in ${theme} theme`, async () => {
+      it(`is visible while resizing in ${theme} theme`, async () => {
         setTheme(theme);
         const app = await mountApp(container);
         app.style.background = 'var(--dorc-bg-primary)';
         const splitter = rootOf(app).getElementById('splitter')!;
+        app.setAttribute('resizing', '');
 
         const line = getComputedStyle(splitter, '::before').backgroundColor;
         const ratio = contrastRatio(splitter, line);

@@ -33,7 +33,7 @@ export class ProjectEnvsTab extends LitElement {
       </a>
       <vaadin-button
         class="shortcut-close"
-        theme="icon small"
+        theme="icon small drawer-shortcut-close"
         aria-label="Close ${name} shortcut"
         @click="${this.removeProjEnvs}"
       >
