@@ -15,7 +15,8 @@ vi.mock('../../src/apis/dorc-api/apis/TerraformApi', () => ({
     terraformPlanDeploymentResultIdDeclinePost = mocks.decline;
   }
 }));
-await import('../../src/components/terraform-plan-dialog');
+const { TerraformPlanDialog: PlanDialog } =
+  await import('../../src/components/terraform-plan-dialog');
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -70,4 +71,47 @@ describe('Terraform plan decisions', () => {
       expect(host.opened).to.equal(false);
     });
   }
+});
+
+describe('Terraform plan summary', () => {
+  it('lifts the add/change/destroy counts out of the plan text', () => {
+    expect(
+      PlanDialog.summarisePlan(
+        '  # azurerm_storage_account.this will be created\n\nPlan: 2 to add, 1 to change, 3 to destroy.\n'
+      )
+    ).to.deep.equal({ add: 2, change: 1, destroy: 3 });
+  });
+
+  it('recognises a plan with no changes and stays quiet otherwise', () => {
+    expect(
+      PlanDialog.summarisePlan(
+        'No changes. Your infrastructure matches the configuration.'
+      )
+    ).to.equal('none');
+    expect(PlanDialog.summarisePlan('Error: something broke')).to.equal(null);
+    expect(PlanDialog.summarisePlan(null)).to.equal(null);
+  });
+
+  it('renders the summary chips above the plan body', async () => {
+    mocks.load.mockReturnValue(
+      of({
+        DeploymentResultId: 42,
+        Status: 'WaitingConfirmation',
+        PlanContent:
+          '+ storage account\n\nPlan: 1 to add, 0 to change, 0 to destroy.'
+      })
+    );
+    const host = await fixture<InstanceType<typeof TerraformPlanDialog>>(
+      html`<terraform-plan-dialog></terraform-plan-dialog>`
+    );
+    host.open(42);
+    await settle();
+    const dialog = host.shadowRoot!.querySelector('vaadin-dialog')!;
+    const chips = Array.from(dialog.querySelectorAll('.plan-summary__chip'));
+    expect(
+      chips.map(c => c.textContent?.replace(/\s+/g, ' ').trim())
+    ).to.deep.equal(['1 to add', '0 to change', '0 to destroy']);
+    expect(chips[0].classList.contains('add')).to.equal(true);
+    expect(chips[2].classList.contains('none')).to.equal(true);
+  });
 });

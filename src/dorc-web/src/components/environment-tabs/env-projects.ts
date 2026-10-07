@@ -48,18 +48,6 @@ export class EnvProjects extends PageEnvBase {
         display: block;
         height: 100%;
       }
-      .project-entry {
-        display: flex;
-        flex-direction: column;
-        gap: var(--lumo-space-s);
-      }
-      .project-entry project-card {
-        flex: 1;
-      }
-      .project-entry a {
-        padding: var(--lumo-space-s);
-      }
-
       @media (max-width: 768px) {
         .projects {
           grid-template-columns: 1fr;
@@ -78,14 +66,10 @@ export class EnvProjects extends PageEnvBase {
         <div class="projects">
           ${this.envContent?.MappedProjects?.map(
             proj =>
-              html` <div class="project-entry">
-                <project-card .project="${proj}"></project-card>
-                <a
-                  href=${`/stock-modules?project=${encodeURIComponent(proj.ProjectName ?? '')}&environment=${encodeURIComponent(this.environment?.EnvironmentName ?? this.environmentName)}`}
-                >
-                  Plan Terraform for this environment
-                </a>
-              </div>`
+              html`<project-card
+                .project="${proj}"
+                .catalogHref=${`/stock-modules?project=${encodeURIComponent(proj.ProjectName ?? '')}&environment=${encodeURIComponent(this.environment?.EnvironmentName ?? this.environmentName)}`}
+              ></project-card>`
           )}
         </div>
       </vaadin-details>

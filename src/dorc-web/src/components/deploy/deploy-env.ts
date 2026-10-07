@@ -96,6 +96,41 @@ export class DeployEnv extends LitElement {
 
   static get styles() {
     return css`
+      .catalog-callout {
+        display: flex;
+        align-items: center;
+        gap: var(--lumo-space-s);
+        margin: var(--lumo-space-s);
+        padding: var(--lumo-space-s) var(--lumo-space-m);
+        border: 1px solid var(--dorc-border-color);
+        border-left: 4px solid var(--dorc-icon-interactive);
+        border-radius: var(--lumo-border-radius-m);
+        background: var(--dorc-bg-secondary);
+        flex-wrap: wrap;
+      }
+      .catalog-callout vaadin-icon {
+        color: var(--dorc-icon-interactive);
+        flex-shrink: 0;
+      }
+      .catalog-callout__text {
+        flex: 1 1 240px;
+        min-width: 0;
+        font-size: var(--lumo-font-size-s);
+        color: var(--dorc-text-secondary-strong);
+      }
+      .catalog-callout__text strong {
+        color: var(--dorc-text-primary);
+        margin-right: 4px;
+      }
+      .catalog-callout__link {
+        font-weight: 600;
+        color: var(--dorc-link-color);
+        text-decoration: none;
+        white-space: nowrap;
+        min-height: 44px;
+        display: inline-flex;
+        align-items: center;
+      }
         :host{
             overflow-y: scroll;
         }
@@ -244,14 +279,19 @@ export class DeployEnv extends LitElement {
         </div>
         <hegs-json-viewer id="jsonviewer">{}</hegs-json-viewer>
       </vaadin-confirm-dialog>
-      <p style="margin-left:var(--lumo-space-s)">
+      <div class="catalog-callout">
+        <vaadin-icon icon="vaadin:puzzle-piece"></vaadin-icon>
+        <div class="catalog-callout__text">
+          <strong>Deploying infrastructure?</strong>
+          Plan a stock Terraform module into ${this.envName} without a build
+          artifact.
+        </div>
         <a
+          class="catalog-callout__link"
           href=${`/stock-modules?project=${encodeURIComponent(this.project?.ProjectName ?? '')}&environment=${encodeURIComponent(this.envName)}`}
+          >Open module catalog</a
         >
-          Plan Terraform from the module catalog
-        </a>
-        &mdash; reuse a component without selecting a build artifact.
-      </p>
+      </div>
       <div class="build-defs-section" ?hidden="${this.isFolderProject}">
         <div class="combo-row">
           <vaadin-combo-box

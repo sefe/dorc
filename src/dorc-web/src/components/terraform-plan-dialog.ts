@@ -142,6 +142,56 @@ export class TerraformPlanDialog extends LitElement {
         padding: 20px;
       }
 
+      @keyframes spin {
+        from {
+          transform: rotate(0deg);
+        }
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      .plan-summary {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-bottom: 12px;
+      }
+
+      .plan-summary__chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 12px;
+        border-radius: 999px;
+        font-size: var(--lumo-font-size-s);
+        font-weight: 600;
+      }
+
+      .plan-summary__chip strong {
+        font-size: var(--lumo-font-size-m);
+      }
+
+      .plan-summary__chip.add {
+        background: var(--lumo-success-color-10pct);
+        color: var(--lumo-success-text-color);
+      }
+
+      .plan-summary__chip.change {
+        background: var(--lumo-warning-color-10pct);
+        color: var(--lumo-warning-text-color);
+      }
+
+      .plan-summary__chip.destroy {
+        background: var(--lumo-error-color-10pct);
+        color: var(--lumo-error-text-color);
+      }
+
+      .plan-summary__chip.none {
+        background: var(--lumo-contrast-5pct);
+        color: var(--lumo-secondary-text-color);
+      }
+
       vaadin-button[theme~='primary'] {
         background-color: var(--lumo-success-color);
       }
@@ -221,6 +271,7 @@ export class TerraformPlanDialog extends LitElement {
         </p>
       </div>
 
+      ${this._renderPlanSummary()}
       <div class="plan-content">${this._renderPlanBody()}</div>
 
       <div class="actions">${this._renderActionButtons()}</div>
@@ -265,6 +316,58 @@ export class TerraformPlanDialog extends LitElement {
         >Close</vaadin-button
       >
     `;
+  }
+
+  /**
+   * Terraform's own one-line verdict ("Plan: 2 to add, 0 to change, 1 to
+   * destroy." or "No changes."), lifted out of the plan text so the reader
+   * does not have to scroll to the bottom to learn whether anything is
+   * destroyed.
+   */
+  static summarisePlan(
+    content: string | null | undefined
+  ): { add: number; change: number; destroy: number } | 'none' | null {
+    if (!content) return null;
+    const match = content.match(
+      /Plan:\s*(\d+)\s+to add,\s*(\d+)\s+to change,\s*(\d+)\s+to destroy/
+    );
+    if (match) {
+      return {
+        add: Number(match[1]),
+        change: Number(match[2]),
+        destroy: Number(match[3])
+      };
+    }
+    return /No changes\./.test(content) ? 'none' : null;
+  }
+
+  private _renderPlanSummary() {
+    const summary = TerraformPlanDialog.summarisePlan(this.plan?.PlanContent);
+    if (summary === null) return html``;
+    if (summary === 'none') {
+      return html`<div class="plan-summary" role="status">
+        <span class="plan-summary__chip none">
+          <vaadin-icon
+            icon="vaadin:check"
+            style="width:14px;height:14px"
+          ></vaadin-icon>
+          No changes
+        </span>
+      </div>`;
+    }
+    const chip = (cls: string, count: number, label: string) =>
+      html`<span class="plan-summary__chip ${count ? cls : 'none'}">
+        <strong>${count}</strong> ${label}
+      </span>`;
+    return html`<div
+      class="plan-summary"
+      role="status"
+      aria-label="Plan summary"
+    >
+      ${chip('add', summary.add, 'to add')}
+      ${chip('change', summary.change, 'to change')}
+      ${chip('destroy', summary.destroy, 'to destroy')}
+    </div>`;
   }
 
   // The secret-name pattern below mirrors the server-side

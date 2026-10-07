@@ -4,11 +4,16 @@ import '@vaadin/text-field';
 import '@vaadin/number-field';
 import '@vaadin/password-field';
 import '@vaadin/checkbox';
+import '@vaadin/radio-group';
+import '@vaadin/radio-group/vaadin-radio-button';
 import '@vaadin/dialog';
+import '@vaadin/icon';
+import '@vaadin/icons/vaadin-icons';
 import { dialogRenderer, dialogFooterRenderer } from '@vaadin/dialog/lit';
 import { Notification } from '@vaadin/notification';
-import { css, html, LitElement } from 'lit';
+import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
+import { ifDefined } from 'lit/directives/if-defined.js';
 import { forkJoin } from 'rxjs';
 import { navigate } from '../router/router';
 import {
@@ -32,11 +37,455 @@ export interface TemplateDeploymentContext {
   environmentName?: string;
 }
 
+const STEPS = [
+  { title: 'Target', hint: 'Project, environment and component' },
+  { title: 'Inputs', hint: 'Override only what should differ' },
+  { title: 'Review & submit', hint: 'Generates a plan, applies nothing' }
+] as const;
+
+/**
+ * Validates one override against the manifest's constraints. Mirrors the
+ * server-side ParameterValidator so a typo is caught before the request is
+ * submitted; the server remains the authority.
+ */
+export const overrideError = (
+  p: TerraformTemplateParameter,
+  value: string
+): string | null => {
+  if (value === '') {
+    return p.Required
+      ? 'Enter a value, or use the environment value instead.'
+      : null;
+  }
+  if (p.AllowedValues?.length && !p.AllowedValues.includes(value)) {
+    return `Choose one of: ${p.AllowedValues.join(', ')}.`;
+  }
+  if (p.Type === 'Number') {
+    const number = Number(value);
+    if (!Number.isFinite(number)) return 'Must be a finite number.';
+    if (p.Min != null && number < p.Min) return `Must be at least ${p.Min}.`;
+    if (p.Max != null && number > p.Max) return `Must be at most ${p.Max}.`;
+  }
+  if (p.Pattern) {
+    try {
+      if (!new RegExp(p.Pattern).test(value)) {
+        return `Must match the pattern ${p.Pattern}.`;
+      }
+    } catch {
+      // An unparseable manifest pattern is validated server-side instead.
+    }
+  }
+  return null;
+};
+
 @customElement('deploy-from-template-dialog')
 export class DeployFromTemplateDialog extends LitElement {
   static styles = css`
     :host {
       display: contents;
+    }
+    .wizard {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--lumo-space-l);
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+    .rail {
+      flex: 1 1 220px;
+      max-width: 280px;
+      display: flex;
+      flex-direction: column;
+      gap: var(--lumo-space-l);
+      padding: var(--lumo-space-m);
+      background: var(--dorc-bg-secondary);
+      border: 1px solid var(--dorc-border-color);
+      border-radius: var(--lumo-border-radius-l);
+      box-sizing: border-box;
+    }
+    @media (max-width: 768px) {
+      .rail {
+        max-width: none;
+      }
+    }
+    .module {
+      display: flex;
+      align-items: center;
+      gap: var(--lumo-space-s);
+    }
+    .module-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: var(--lumo-border-radius-m);
+      background: var(--lumo-primary-color-10pct);
+      color: var(--lumo-primary-text-color);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .module-name {
+      font-weight: 700;
+    }
+    .module-version {
+      font-family: var(--dorc-mono-font, ui-monospace, Menlo, monospace);
+      font-size: var(--lumo-font-size-xs);
+      color: var(--dorc-text-secondary-strong);
+    }
+    ol.steps {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .step {
+      display: flex;
+      gap: var(--lumo-space-s);
+      align-items: flex-start;
+      padding: var(--lumo-space-s);
+      border-radius: var(--lumo-border-radius-m);
+      border: 1px solid transparent;
+    }
+    .step[data-status='current'] {
+      background: var(--dorc-bg-primary);
+      border-color: var(--dorc-border-color);
+    }
+    .step-marker {
+      width: 26px;
+      height: 26px;
+      border-radius: 999px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: var(--lumo-font-size-s);
+      font-weight: 700;
+      flex-shrink: 0;
+      box-sizing: border-box;
+      border: 2px solid var(--lumo-contrast-30pct);
+      color: var(--dorc-text-secondary-strong);
+    }
+    .step[data-status='current'] .step-marker {
+      background: var(--lumo-primary-color);
+      border-color: var(--lumo-primary-color);
+      color: var(--lumo-primary-contrast-color);
+    }
+    .step[data-status='done'] .step-marker {
+      background: var(--lumo-success-color);
+      border-color: var(--lumo-success-color);
+      color: var(--lumo-success-contrast-color, #fff);
+    }
+    .step-marker vaadin-icon {
+      width: 14px;
+      height: 14px;
+    }
+    .step-title {
+      font-weight: 600;
+      font-size: var(--lumo-font-size-s);
+    }
+    .step[data-status='upcoming'] .step-title {
+      color: var(--dorc-text-secondary-strong);
+    }
+    .step-hint {
+      font-size: var(--lumo-font-size-xs);
+      color: var(--dorc-text-secondary-strong);
+      line-height: 1.4;
+    }
+    .identity {
+      margin-top: auto;
+      padding: var(--lumo-space-s) var(--lumo-space-m);
+      background: var(--dorc-bg-primary);
+      border: 1px solid var(--dorc-border-color);
+      border-radius: var(--lumo-border-radius-m);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-size: var(--lumo-font-size-xs);
+      color: var(--dorc-text-secondary-strong);
+    }
+    .identity-label {
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .identity-path {
+      font-family: var(--dorc-mono-font, ui-monospace, Menlo, monospace);
+      color: var(--dorc-text-primary);
+      font-size: var(--lumo-font-size-s);
+    }
+    .content {
+      flex: 999 1 360px;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: var(--lumo-space-m);
+    }
+    h2 {
+      margin: 0;
+      font-size: var(--lumo-font-size-xl);
+      font-weight: 700;
+      letter-spacing: -0.01em;
+    }
+    .lead {
+      margin: 0;
+      color: var(--dorc-text-secondary-strong);
+      line-height: 1.5;
+    }
+    .lead a {
+      color: var(--dorc-link-color);
+      font-weight: 600;
+      text-decoration: none;
+    }
+    .alert {
+      padding: var(--lumo-space-s) var(--lumo-space-m);
+      border-radius: var(--lumo-border-radius-m);
+      background: var(--lumo-error-color-10pct);
+      color: var(--lumo-error-text-color);
+      display: flex;
+      gap: var(--lumo-space-s);
+      align-items: flex-start;
+    }
+    .notice {
+      padding: var(--lumo-space-s) var(--lumo-space-m);
+      border-radius: var(--lumo-border-radius-m);
+      background: var(--dorc-warning-bg);
+      color: var(--dorc-warning-text);
+    }
+    .form {
+      display: flex;
+      flex-direction: column;
+      gap: var(--lumo-space-s);
+    }
+    .form vaadin-combo-box,
+    .form vaadin-text-field {
+      width: 100%;
+    }
+    .group {
+      display: flex;
+      flex-direction: column;
+      gap: var(--lumo-space-s);
+    }
+    .group-head {
+      display: flex;
+      align-items: center;
+      gap: var(--lumo-space-s);
+      font-size: var(--lumo-font-size-xs);
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--dorc-text-secondary-strong);
+    }
+    .group-head.required {
+      color: var(--lumo-error-text-color);
+    }
+    .group-head .rule {
+      flex: 1;
+      height: 1px;
+      background: var(--dorc-border-color);
+    }
+    .group-head .count {
+      font-weight: 500;
+      letter-spacing: 0;
+      text-transform: none;
+      color: var(--dorc-text-secondary-strong);
+    }
+    .params {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
+      gap: var(--lumo-space-s);
+    }
+    .param {
+      border: 1px solid var(--dorc-border-color);
+      border-radius: var(--lumo-border-radius-m);
+      padding: var(--lumo-space-s) var(--lumo-space-m);
+      display: flex;
+      flex-direction: column;
+      gap: var(--lumo-space-xs);
+      background: var(--dorc-bg-primary);
+      min-width: 0;
+    }
+    .param[data-overridden='true'] {
+      border-color: var(--lumo-primary-color);
+      box-shadow: 0 0 0 3px var(--lumo-primary-color-10pct);
+    }
+    .param[data-invalid='true'] {
+      border-color: var(--lumo-error-color);
+      box-shadow: 0 0 0 3px var(--lumo-error-color-10pct);
+    }
+    .param[data-sensitive='true'] {
+      background: var(--dorc-warning-bg);
+    }
+    .param[data-sensitive='true'][data-overridden='false'] {
+      border-color: var(--dorc-warning-text);
+    }
+    .param-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--lumo-space-s);
+      flex-wrap: wrap;
+    }
+    .param-name {
+      font-family: var(--dorc-mono-font, ui-monospace, Menlo, monospace);
+      font-weight: 600;
+      font-size: var(--lumo-font-size-s);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .param-name vaadin-icon {
+      width: 14px;
+      height: 14px;
+      color: var(--dorc-warning-text);
+    }
+    .badge {
+      font-size: 11px;
+      font-weight: 700;
+      border-radius: 999px;
+      padding: 2px 9px;
+      white-space: nowrap;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .badge vaadin-icon {
+      width: 10px;
+      height: 10px;
+    }
+    .badge-inherit {
+      background: var(--lumo-success-color-10pct);
+      color: var(--lumo-success-text-color);
+    }
+    .badge-default {
+      background: var(--lumo-contrast-10pct);
+      color: var(--dorc-text-secondary-strong);
+    }
+    .badge-override {
+      background: var(--lumo-primary-color-10pct);
+      color: var(--lumo-primary-text-color);
+    }
+    .badge-invalid {
+      background: var(--lumo-error-color-10pct);
+      color: var(--lumo-error-text-color);
+    }
+    .badge-sensitive {
+      background: var(--dorc-bg-primary);
+      color: var(--dorc-warning-text);
+      border: 1px solid var(--dorc-warning-text);
+    }
+    .param-desc {
+      font-size: var(--lumo-font-size-xs);
+      color: var(--dorc-text-secondary-strong);
+      line-height: 1.4;
+    }
+    .param-source {
+      display: flex;
+      align-items: center;
+      gap: var(--lumo-space-s);
+      font-size: var(--lumo-font-size-s);
+      color: var(--dorc-text-secondary-strong);
+      flex-wrap: wrap;
+    }
+    .param-source vaadin-button,
+    .param-field vaadin-button {
+      margin-left: auto;
+    }
+    .param-field {
+      display: flex;
+      flex-direction: column;
+      gap: var(--lumo-space-xs);
+    }
+    .param-field vaadin-text-field,
+    .param-field vaadin-number-field,
+    .param-field vaadin-password-field,
+    .param-field vaadin-combo-box {
+      width: 100%;
+    }
+    .field-error {
+      font-size: var(--lumo-font-size-xs);
+      color: var(--lumo-error-text-color);
+    }
+    .field-ok {
+      font-size: var(--lumo-font-size-xs);
+      color: var(--lumo-success-text-color);
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(min(100%, 170px), 1fr));
+      gap: var(--lumo-space-s);
+    }
+    .summary-card {
+      border: 1px solid var(--dorc-border-color);
+      border-radius: var(--lumo-border-radius-m);
+      padding: var(--lumo-space-s) var(--lumo-space-m);
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      background: var(--dorc-bg-primary);
+      min-width: 0;
+    }
+    .summary-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--dorc-text-secondary-strong);
+    }
+    .summary-value {
+      font-weight: 600;
+    }
+    .summary-sub {
+      font-size: var(--lumo-font-size-xs);
+      color: var(--dorc-text-secondary-strong);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: var(--lumo-font-size-s);
+    }
+    th {
+      text-align: left;
+      padding: 8px var(--lumo-space-s);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--dorc-text-secondary-strong);
+      border-bottom: 1px solid var(--dorc-border-color);
+    }
+    td {
+      padding: 8px var(--lumo-space-s);
+      border-bottom: 1px solid var(--dorc-border-color);
+      vertical-align: top;
+    }
+    td.name {
+      font-family: var(--dorc-mono-font, ui-monospace, Menlo, monospace);
+      font-weight: 600;
+    }
+    td.muted {
+      color: var(--dorc-text-secondary-strong);
+    }
+    tr[data-overridden='true'] td {
+      background: var(--lumo-primary-color-10pct);
+    }
+    .footer-status {
+      flex: 1;
+      font-size: var(--lumo-font-size-s);
+      color: var(--dorc-text-secondary-strong);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+    }
+    .footer-status.invalid {
+      color: var(--lumo-error-text-color);
+    }
+    .footer-status vaadin-icon {
+      width: 14px;
+      height: 14px;
     }
   `;
 
@@ -175,6 +624,33 @@ export class DeployFromTemplateDialog extends LitElement {
       : (this.selectedComponent?.ComponentName ?? '');
   }
 
+  private get parameters(): TerraformTemplateParameter[] {
+    return this.template?.Parameters ?? [];
+  }
+
+  private get overrideCount() {
+    return Object.keys(this.paramValues).length;
+  }
+
+  /** Overrides that currently fail validation, by parameter name. */
+  private get invalidOverrides(): string[] {
+    return this.parameters
+      .filter(
+        p =>
+          p.Name in this.paramValues &&
+          overrideError(p, this.paramValues[p.Name]) !== null
+      )
+      .map(p => p.Name);
+  }
+
+  private get stateIdentity(): string | null {
+    const project = this.selectedProject?.ProjectName;
+    const component = this.targetComponentName;
+    const environment = this.selectedEnvironmentName;
+    if (!project || !component || !environment) return null;
+    return `${project}/${component}/${environment}.tfstate`;
+  }
+
   private targetError(): string | null {
     if (this.projectsLoading || this.targetLoading)
       return 'Wait for the project targets to load.';
@@ -200,24 +676,11 @@ export class DeployFromTemplateDialog extends LitElement {
   }
 
   private inputError(): string | null {
-    for (const p of this.template?.Parameters ?? []) {
+    for (const p of this.parameters) {
       // Omitted inputs are resolved on the server, never fetched into the browser.
       if (!(p.Name in this.paramValues)) continue;
-      const value = this.paramValues[p.Name];
-      if (p.Required && value === '')
-        return `Enter an override for ${p.Name}, or use its environment value.`;
-      if (value === '') continue;
-      if (p.AllowedValues?.length && !p.AllowedValues.includes(value))
-        return `Choose an allowed value for ${p.Name}.`;
-      if (p.Type === 'Number') {
-        const number = Number(value);
-        if (!Number.isFinite(number))
-          return `${p.Name} must be a finite number.`;
-        if (p.Min != null && number < p.Min)
-          return `${p.Name} must be at least ${p.Min}.`;
-        if (p.Max != null && number > p.Max)
-          return `${p.Name} must be at most ${p.Max}.`;
-      }
+      const message = overrideError(p, this.paramValues[p.Name]);
+      if (message) return `${p.Name}: ${message}`;
     }
     return null;
   }
@@ -251,7 +714,8 @@ export class DeployFromTemplateDialog extends LitElement {
         @opened-changed=${(e: CustomEvent<{ value: boolean }>) => {
           if (!e.detail.value && !this.submitting) this.close();
         }}
-        header-title="Plan infrastructure${this.template ? `: ${this.template.Name} ${this.template.Version}` : ''}"
+        header-title="Plan deployment"
+        theme="wide"
         ${dialogRenderer(this.bodyRenderer, [
           this.template,
           this.projects,
@@ -270,6 +734,8 @@ export class DeployFromTemplateDialog extends LitElement {
           this.error
         ])}
         ${dialogFooterRenderer(this.footerRenderer, [
+          this.template,
+          this.paramValues,
           this.step,
           this.submitting,
           this.projectsLoading,
@@ -280,149 +746,316 @@ export class DeployFromTemplateDialog extends LitElement {
   }
 
   private bodyRenderer = () => html`
-    <div
-      style="display:flex;flex-direction:column;gap:var(--lumo-space-m);min-width:0;overflow-wrap:anywhere;"
-      aria-busy=${this.submitting}
-    >
-      <div role="status" aria-live="polite">
-        Step ${this.step + 1} of 3:
-        <strong>${['Target', 'Inputs', 'Review'][this.step]}</strong>
+    <div class="wizard" aria-busy=${this.submitting}>
+      ${this.railRenderer()}
+      <div class="content">
+        <div role="status" aria-live="polite">
+          <h2>${STEPS[this.step].title}</h2>
+        </div>
+        ${
+          this.error
+            ? html`<div class="alert" role="alert">
+                <vaadin-icon
+                  icon="vaadin:exclamation-circle-o"
+                  style="width:16px;height:16px;flex-shrink:0;margin-top:2px"
+                ></vaadin-icon>
+                <span>${this.error}</span>
+              </div>`
+            : nothing
+        }
+        ${this.step === 0 ? this.targetRenderer() : this.step === 1 ? this.inputsRenderer() : this.reviewRenderer()}
       </div>
-      ${this.error ? html`<div role="alert" style="color:var(--lumo-error-text-color)">${this.error}</div>` : ''}
-      ${this.step === 0 ? this.targetRenderer() : this.step === 1 ? this.inputsRenderer() : this.reviewRenderer()}
     </div>
   `;
 
-  private targetRenderer = () => html`
-    <p style="margin:0">
-      A template defines a reusable project component, not a new DOrc
-      environment. Select an existing mapped environment. Reuse the same
-      component to update its infrastructure there; a new component represents
-      separate infrastructure.
-    </p>
-    <vaadin-combo-box
-      label="Project"
-      item-label-path="ProjectName"
-      item-value-path="ProjectId"
-      .items=${this.projects}
-      .selectedItem=${this.selectedProject ?? undefined}
-      .disabled=${this.projectsLoading}
-      @selected-item-changed=${(
-        e: CustomEvent<{ value: ProjectApiModel | null }>
-      ) => this.onProjectChange(e.detail.value ?? null)}
-      helper-text="Creating or reusing a template here requires project ownership or administrator access."
-      required
-    ></vaadin-combo-box>
-    ${this.projectsLoading || this.targetLoading ? html`<div role="status">Loading project targets...</div>` : ''}
-    <vaadin-combo-box
-      label="DOrc environment"
-      item-label-path="EnvironmentName"
-      item-value-path="EnvironmentName"
-      .items=${this.environments}
-      .value=${this.selectedEnvironmentName}
-      .disabled=${!this.selectedProject || this.targetLoading}
-      @value-changed=${(e: CustomEvent<{ value: string }>) => {
-        const name = e.detail.value ?? '';
-        if (name !== this.selectedEnvironmentName) {
-          this.selectedEnvironmentName = name;
-          this.paramValues = {};
+  private railRenderer() {
+    const status = (index: number) =>
+      index < this.step ? 'done' : index === this.step ? 'current' : 'upcoming';
+    const summaries = [
+      this.step > 0
+        ? `${this.selectedProject?.ProjectName} · ${this.selectedEnvironmentName} · ${this.createNew ? 'new' : 'reuse'} ${this.targetComponentName}`
+        : STEPS[0].hint,
+      this.step > 1
+        ? this.overrideCount
+          ? `${this.overrideCount} override${this.overrideCount === 1 ? '' : 's'}`
+          : 'All inherited from the environment'
+        : STEPS[1].hint,
+      STEPS[2].hint
+    ];
+    const identity = this.stateIdentity;
+    return html`
+      <aside class="rail" aria-label="Progress">
+        <div class="module">
+          <div class="module-icon">
+            <vaadin-icon
+              icon="vaadin:puzzle-piece"
+              style="width:18px;height:18px"
+            ></vaadin-icon>
+          </div>
+          <div style="min-width:0">
+            <div class="module-name">${this.template?.Name}</div>
+            <div class="module-version">v${this.template?.Version}</div>
+          </div>
+        </div>
+        <ol class="steps">
+          ${STEPS.map(
+            (s, i) => html`
+              <li
+                class="step"
+                data-status=${status(i)}
+                aria-current=${i === this.step ? 'step' : 'false'}
+              >
+                <div class="step-marker">
+                  ${
+                    status(i) === 'done'
+                      ? html`<vaadin-icon icon="vaadin:check"></vaadin-icon>`
+                      : i + 1
+                  }
+                </div>
+                <div style="min-width:0">
+                  <div class="step-title">${s.title}</div>
+                  <div class="step-hint">${summaries[i]}</div>
+                </div>
+              </li>
+            `
+          )}
+        </ol>
+        ${
+          identity
+            ? html`<div class="identity">
+                <span class="identity-label">State identity</span>
+                <span class="identity-path">${identity}</span>
+                <span
+                  >${this.createNew ? 'A new component gets its own state.' : 'Reusing this component updates the same infrastructure.'}</span
+                >
+              </div>`
+            : nothing
         }
-      }}
-      helper-text="Only mapped environments with deployment access are listed. Inputs and state belong to this target."
-      required
-    ></vaadin-combo-box>
-    ${
-      this.selectedProject && !this.targetLoading && !this.environments.length
-        ? html`<p role="status">
-            No deployable environments. Map the project to an environment and
-            obtain deployment access first.
-          </p>`
-        : ''
-    }
-    ${
-      this.reusableComponents.length
-        ? html`
-            <vaadin-checkbox
-              label="Create a separate component instead of reusing one"
-              .checked=${this.createNew}
-              @checked-changed=${(e: CustomEvent<{ value: boolean }>) => (this.createNew = e.detail.value)}
-            ></vaadin-checkbox>
-          `
-        : ''
-    }
-    ${
-      this.createNew
-        ? html`
-            <vaadin-text-field
-              label="New component name"
-              .value=${this.componentName}
-              @value-changed=${(e: CustomEvent<{ value: string }>) => (this.componentName = e.detail.value ?? '')}
-              helper-text="Keep this identity stable for subsequent deployments. Component names must be unique."
-              maxlength="64"
-              required
-            ></vaadin-text-field>
-          `
-        : html`
-            <vaadin-combo-box
-              label="Existing component"
-              item-label-path="ComponentName"
-              .items=${this.reusableComponents}
-              .selectedItem=${this.selectedComponent ?? undefined}
-              @selected-item-changed=${(
-          e: CustomEvent<{ value: ComponentApiModel | null }>
-        ) => (this.selectedComponent = e.detail.value ?? null)}
-              helper-text="Enabled components pinned to this exact template version."
-              required
-            ></vaadin-combo-box>
-          `
-    }
+      </aside>
+    `;
+  }
+
+  private targetRenderer = () => html`
+    <p class="lead">
+      A module becomes a project component. Pick the mapped environment it
+      should run in, then reuse an existing component to update its
+      infrastructure or create a new one for separate infrastructure.
+    </p>
+    <div class="form">
+      <vaadin-combo-box
+        label="Project"
+        item-label-path="ProjectName"
+        item-value-path="ProjectId"
+        .items=${this.projects}
+        .selectedItem=${this.selectedProject ?? undefined}
+        .disabled=${this.projectsLoading}
+        @selected-item-changed=${(
+          e: CustomEvent<{ value: ProjectApiModel | null }>
+        ) => this.onProjectChange(e.detail.value ?? null)}
+        helper-text="Requires project ownership or administrator access."
+        required
+      ></vaadin-combo-box>
+      ${
+        this.projectsLoading || this.targetLoading
+          ? html`<div role="status" class="lead">Loading project targets…</div>`
+          : nothing
+      }
+      <vaadin-combo-box
+        label="DOrc environment"
+        item-label-path="EnvironmentName"
+        item-value-path="EnvironmentName"
+        .items=${this.environments}
+        .value=${this.selectedEnvironmentName}
+        .disabled=${!this.selectedProject || this.targetLoading}
+        @value-changed=${(e: CustomEvent<{ value: string }>) => {
+          const name = e.detail.value ?? '';
+          if (name !== this.selectedEnvironmentName) {
+            this.selectedEnvironmentName = name;
+            this.paramValues = {};
+          }
+        }}
+        helper-text="Only mapped environments you can deploy to are listed. Inputs and state belong to this target."
+        required
+      ></vaadin-combo-box>
+      ${
+        this.selectedProject && !this.targetLoading && !this.environments.length
+          ? html`<div class="notice" role="status">
+              No deployable environments. Map the project to an environment and
+              obtain deployment access first.
+            </div>`
+          : nothing
+      }
+      ${
+        this.reusableComponents.length
+          ? html`
+              <vaadin-radio-group
+                label="Component"
+                .value=${this.createNew ? 'create' : 'reuse'}
+                @value-changed=${(e: CustomEvent<{ value: string }>) =>
+                  (this.createNew = e.detail.value === 'create')}
+              >
+                <vaadin-radio-button
+                  value="reuse"
+                  label="Reuse an existing component pinned to this version"
+                ></vaadin-radio-button>
+                <vaadin-radio-button
+                  value="create"
+                  label="Create a separate component"
+                ></vaadin-radio-button>
+              </vaadin-radio-group>
+            `
+          : nothing
+      }
+      ${
+        this.createNew
+          ? html`
+              <vaadin-text-field
+                label="New component name"
+                .value=${this.componentName}
+                @value-changed=${(e: CustomEvent<{ value: string }>) => (this.componentName = e.detail.value ?? '')}
+                helper-text="Keep this identity stable for subsequent deployments. Component names must be unique."
+                maxlength="64"
+                required
+              ></vaadin-text-field>
+            `
+          : html`
+              <vaadin-combo-box
+                label="Existing component"
+                item-label-path="ComponentName"
+                .items=${this.reusableComponents}
+                .selectedItem=${this.selectedComponent ?? undefined}
+                @selected-item-changed=${(
+                  e: CustomEvent<{ value: ComponentApiModel | null }>
+                ) => (this.selectedComponent = e.detail.value ?? null)}
+                helper-text="Enabled components pinned to this exact template version."
+                required
+              ></vaadin-combo-box>
+            `
+      }
+    </div>
   `;
 
-  private inputsRenderer = () => html`
-    <p style="margin:0">
-      Inputs use DOrc properties for
-      <strong>${this.selectedEnvironmentName}</strong>, falling back to module
-      defaults. Override only values that should differ for this request.
-      Overrides do not update environment variables and are cleared if you
-      change the target.
-    </p>
-    <p style="margin:0">
-      Required values are checked on submission. Inherited values, including
-      secrets, are not loaded into this form.
-      <a
-        href="/environment/${encodeURIComponent(this.selectedEnvironmentName)}/variables"
-        target="_blank"
-        rel="noopener"
-      >
-        Manage environment variables
-      </a>
-    </p>
-    ${(this.template?.Parameters ?? []).map(
-      p => html`
-        <div
-          style="display:flex;flex-direction:column;gap:var(--lumo-space-xs);border-top:1px solid var(--lumo-contrast-10pct);padding-top:var(--lumo-space-s)"
+  private inputsRenderer = () => {
+    const required = this.parameters.filter(p => p.Required);
+    const optional = this.parameters.filter(p => !p.Required);
+    return html`
+      <p class="lead">
+        Values come from
+        <strong>${this.selectedEnvironmentName}</strong> environment properties,
+        then module defaults. Override only what should differ for this request.
+        Inherited values, including secrets, are never loaded into this form.
+        <a
+          href="/environment/${encodeURIComponent(this.selectedEnvironmentName)}/variables"
+          target="_blank"
+          rel="noopener"
+          >Manage environment variables</a
         >
-          <strong
-            >${p.Name}${p.Required ? ' (required)' : ''}${p.Sensitive ? ' (sensitive)' : ''}</strong
-          >
-          <span>${p.Description ?? ''}</span>
-          <span
-            style="font-size:var(--lumo-font-size-s);color:var(--lumo-secondary-text-color)"
-          >
-            ${p.Name in this.paramValues ? 'Request override' : 'Environment property, otherwise module default'}
-            ${!p.Sensitive && p.Default != null ? ` (default: ${p.Default})` : ''}
+      </p>
+      ${
+        required.length
+          ? html`<div class="group">
+              <div class="group-head required">
+                Required <span class="rule"></span>
+                <span class="count">${required.length}</span>
+              </div>
+              <div class="params">${required.map(p => this.paramCard(p))}</div>
+            </div>`
+          : nothing
+      }
+      ${
+        optional.length
+          ? html`<div class="group">
+              <div class="group-head">
+                Optional <span class="rule"></span>
+                <span class="count">${optional.length}</span>
+              </div>
+              <div class="params">${optional.map(p => this.paramCard(p))}</div>
+            </div>`
+          : nothing
+      }
+      ${
+        !this.parameters.length
+          ? html`<p class="lead">This module takes no inputs.</p>`
+          : nothing
+      }
+    `;
+  };
+
+  private paramCard(p: TerraformTemplateParameter) {
+    const overridden = p.Name in this.paramValues;
+    const message = overridden
+      ? overrideError(p, this.paramValues[p.Name])
+      : null;
+    const badge = overridden
+      ? message
+        ? html`<span class="badge badge-invalid">Needs a value</span>`
+        : html`<span class="badge badge-override">Override</span>`
+      : p.Sensitive
+        ? html`<span class="badge badge-sensitive"
+            ><vaadin-icon icon="vaadin:lock"></vaadin-icon>Sensitive ·
+            environment</span
+          >`
+        : p.Default != null
+          ? html`<span class="badge badge-default">Default: ${p.Default}</span>`
+          : html`<span class="badge badge-inherit"
+              ><vaadin-icon icon="vaadin:check"></vaadin-icon>Environment</span
+            >`;
+    return html`
+      <div
+        class="param"
+        data-overridden=${overridden ? 'true' : 'false'}
+        data-invalid=${message ? 'true' : 'false'}
+        data-sensitive=${p.Sensitive ? 'true' : 'false'}
+      >
+        <div class="param-head">
+          <span class="param-name">
+            ${p.Sensitive ? html`<vaadin-icon icon="vaadin:lock"></vaadin-icon>` : nothing}
+            ${p.Name}
           </span>
-          <vaadin-checkbox
-            .label=${`Override ${p.Name} for this request`}
-            .checked=${p.Name in this.paramValues}
-            @checked-changed=${(e: CustomEvent<{ value: boolean }>) =>
-            this.setOverride(p, e.detail.value)}
-          ></vaadin-checkbox>
-          ${p.Name in this.paramValues ? this.paramRenderer(p) : ''}
+          ${badge}
         </div>
-      `
-    )}
-  `;
+        ${p.Description ? html`<div class="param-desc">${p.Description}</div>` : nothing}
+        ${
+          overridden
+            ? html`
+                <div class="param-field">
+                  ${this.paramRenderer(p)}
+                  ${
+                    message
+                      ? html`<span class="field-error">${message}</span>`
+                      : html`<span class="field-ok">
+                          <vaadin-icon
+                            icon="vaadin:check"
+                            style="width:10px;height:10px"
+                          ></vaadin-icon>
+                          Will be sent with this request
+                        </span>`
+                  }
+                  <vaadin-button
+                    theme="tertiary small"
+                    aria-label="Use environment value for ${p.Name}"
+                    @click=${() => this.setOverride(p, false)}
+                    >Use environment value</vaadin-button
+                  >
+                </div>
+              `
+            : html`
+                <div class="param-source">
+                  <span
+                    >${p.Sensitive ? 'Supplied via a sensitive environment property; never shown here.' : 'Resolved from the environment property, otherwise the module default.'}</span
+                  >
+                  <vaadin-button
+                    theme="tertiary small"
+                    aria-label="Override ${p.Name} for this request"
+                    @click=${() => this.setOverride(p, true)}
+                    >Override</vaadin-button
+                  >
+                </div>
+              `
+        }
+      </div>
+    `;
+  }
 
   private paramRenderer(p: TerraformTemplateParameter) {
     const value = this.paramValues[p.Name] ?? '';
@@ -465,79 +1098,133 @@ export class DeployFromTemplateDialog extends LitElement {
       .value=${value}
       @value-changed=${changed}
       ?required=${p.Required}
+      pattern=${ifDefined(p.Pattern ?? undefined)}
     ></vaadin-text-field>`;
   }
 
   private reviewRenderer = () => html`
-    <dl
-      style="margin:0;display:grid;grid-template-columns:auto minmax(0,1fr);gap:var(--lumo-space-s)"
-    >
-      <dt>Project</dt>
-      <dd style="margin:0">${this.selectedProject?.ProjectName}</dd>
-      <dt>Environment</dt>
-      <dd style="margin:0">${this.selectedEnvironmentName}</dd>
-      <dt>Component</dt>
-      <dd style="margin:0">
-        ${this.targetComponentName} (${this.createNew ? 'create' : 'reuse'})
-      </dd>
-      <dt>Template</dt>
-      <dd style="margin:0">${this.template?.Name} ${this.template?.Version}</dd>
-    </dl>
-    <p style="margin:0">
-      The project, component and environment identify the Terraform state.
-      Reusing this component in this environment updates the same
-      infrastructure; deploying it to another environment uses separate state.
+    <p class="lead">
+      Submitting creates a deployment request and generates a plan. It does
+      <strong>not</strong> apply changes: review the plan in the deployment
+      result and confirm it explicitly before Terraform applies it.
     </p>
-    <div style="display:flex;flex-direction:column;gap:var(--lumo-space-xs)">
-      ${(this.template?.Parameters ?? []).map(
-        p => html`
-          <div>
-            <strong>${p.Name}:</strong> ${
-          p.Name in this.paramValues
-            ? p.Sensitive
-              ? 'Sensitive override (hidden)'
-              : this.paramValues[p.Name] || '(empty override)'
-            : 'Environment property / module default'
-        }
-          </div>
-        `
-      )}
+    ${
+      this.template?.Deprecated
+        ? html`<div class="notice" role="alert">
+            This template version is deprecated. Review its suitability before
+            proceeding.
+          </div>`
+        : nothing
+    }
+    <div class="summary">
+      <div class="summary-card">
+        <span class="summary-label">Project</span>
+        <span class="summary-value">${this.selectedProject?.ProjectName}</span>
+      </div>
+      <div class="summary-card">
+        <span class="summary-label">Environment</span>
+        <span class="summary-value">${this.selectedEnvironmentName}</span>
+      </div>
+      <div class="summary-card">
+        <span class="summary-label">Component</span>
+        <span class="summary-value"
+          >${`${this.targetComponentName} (${this.createNew ? 'create' : 'reuse'})`}</span
+        >
+        <span class="summary-sub">
+          ${this.createNew ? 'New component, new state' : 'Updates the existing infrastructure'}
+        </span>
+      </div>
+      <div class="summary-card">
+        <span class="summary-label">Template</span>
+        <span class="summary-value">${this.template?.Name}</span>
+        <span class="summary-sub">v${this.template?.Version}</span>
+      </div>
     </div>
-    <p style="margin:0">
-      Submit creates a deployment request and generates a plan. It does
-      <strong>not</strong> apply changes. Review the plan in deployment results
-      and explicitly confirm it before Terraform applies it.
-    </p>
-    ${this.template?.Deprecated ? html`<p role="alert">This template version is deprecated. Review its suitability before proceeding.</p>` : ''}
+    <table aria-label="Inputs">
+      <thead>
+        <tr>
+          <th>Input</th>
+          <th>Value for this request</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${this.parameters.map(
+          p => html`
+            <tr
+              data-overridden=${p.Name in this.paramValues ? 'true' : 'false'}
+            >
+              <td class="name">${p.Name}</td>
+              ${
+                p.Name in this.paramValues
+                  ? html`<td>
+                      ${p.Sensitive ? 'Sensitive override (hidden)' : this.paramValues[p.Name] || '(empty override)'}
+                    </td>`
+                  : html`<td class="muted">
+                      Environment property / module default
+                    </td>`
+              }
+            </tr>
+          `
+        )}
+      </tbody>
+    </table>
   `;
 
-  private footerRenderer = () => html`
-    <vaadin-button
-      theme="tertiary"
-      @click=${() => this.close()}
-      .disabled=${this.submitting}
-      >Cancel</vaadin-button
-    >
-    ${
-      this.step > 0
-        ? html` <vaadin-button
-            @click=${() => {
-        this.step -= 1;
-        this.error = null;
-      }}
-            .disabled=${this.submitting}
-            >Back</vaadin-button
-          >`
-        : ''
-    }
-    <vaadin-button
-      theme="primary"
-      @click=${() => this.advance()}
-      .disabled=${this.submitting || this.projectsLoading || this.targetLoading}
-    >
-      ${this.submitting ? 'Submitting...' : this.step === 2 ? 'Submit plan request' : 'Continue'}
-    </vaadin-button>
-  `;
+  private footerRenderer = () => {
+    const invalid = this.step === 1 ? this.invalidOverrides.length : 0;
+    const status =
+      this.step === 1
+        ? invalid
+          ? html`<span class="footer-status invalid">
+              <vaadin-icon icon="vaadin:exclamation-circle-o"></vaadin-icon>
+              ${invalid} override${invalid === 1 ? '' : 's'}
+              need${invalid === 1 ? 's' : ''} a value
+            </span>`
+          : html`<span class="footer-status">
+              ${
+                this.overrideCount
+                  ? `${this.overrideCount} override${this.overrideCount === 1 ? '' : 's'} for this request`
+                  : 'Everything inherits from the environment'
+              }
+            </span>`
+        : html`<span class="footer-status"></span>`;
+    return html`
+      <vaadin-button
+        theme="tertiary"
+        @click=${() => this.close()}
+        .disabled=${this.submitting}
+        >Cancel</vaadin-button
+      >
+      ${status}
+      ${
+        this.step > 0
+          ? html` <vaadin-button
+              @click=${() => {
+                this.step -= 1;
+                this.error = null;
+              }}
+              .disabled=${this.submitting}
+              >Back</vaadin-button
+            >`
+          : nothing
+      }
+      <vaadin-button
+        theme="primary"
+        @click=${() => this.advance()}
+        .disabled=${this.submitting || this.projectsLoading || this.targetLoading}
+      >
+        ${this.submitting ? 'Submitting…' : this.step === 2 ? 'Submit plan request' : 'Continue'}
+        ${
+          this.submitting || this.step === 2
+            ? nothing
+            : html`<vaadin-icon
+                icon="vaadin:arrow-right"
+                slot="suffix"
+              ></vaadin-icon>`
+        }
+      </vaadin-button>
+    `;
+  };
 
   private advance() {
     if (this.submitting) return;

@@ -3,11 +3,12 @@ import { vi } from 'vitest';
 import { page } from 'vitest/browser';
 import { expect, fixture, html, settle } from '../_helpers';
 import type { ComboBox } from '@vaadin/combo-box';
-import type { Checkbox } from '@vaadin/checkbox';
 import type { TextField } from '@vaadin/text-field';
 import type { Notification } from '@vaadin/notification';
 import { TerraformParameterType } from '../../src/apis/dorc-api';
 import type { DeployFromTemplateDialog } from '../../src/components/deploy-from-template-dialog';
+import type { PageStockModules } from '../../src/pages/page-stock-modules';
+import { overrideError } from '../../src/components/deploy-from-template-dialog';
 import type {
   ComponentApiModelTemplateApiModel,
   EnvironmentApiModelTemplateApiModel,
@@ -92,7 +93,8 @@ function dialogElement(host: InstanceType<typeof DeployFromTemplateDialog>) {
 
 function button(root: ParentNode, label: string) {
   const found = Array.from(root.querySelectorAll('vaadin-button')).find(
-    b => b.textContent?.trim() === label
+    b =>
+      b.textContent?.trim() === label || b.getAttribute('aria-label') === label
   );
   expect(found, `button "${label}" exists`).not.to.equal(undefined);
   return found as HTMLElement;
@@ -209,16 +211,8 @@ describe('catalog environment deployment workflow', () => {
   it('distinguishes an omitted Boolean from an explicit false and masks sensitive review values', async () => {
     const { dialog } = await open();
     await click(dialog, 'Continue');
-    const overrides = Array.from(
-      dialog.querySelectorAll<Checkbox>('vaadin-checkbox')
-    );
-    overrides.find(
-      c => c.label === 'Override enabled for this request'
-    )!.checked = true;
-    overrides.find(
-      c => c.label === 'Override credential for this request'
-    )!.checked = true;
-    await settle();
+    await click(dialog, 'Override enabled for this request');
+    await click(dialog, 'Override credential for this request');
     dialog.querySelector<TextField>('vaadin-password-field')!.value =
       'fictional-test-secret';
     await settle();
@@ -241,8 +235,7 @@ describe('catalog environment deployment workflow', () => {
     );
     const { dialog } = await open();
     await click(dialog, 'Continue');
-    dialog.querySelector<Checkbox>('vaadin-checkbox')!.checked = true;
-    await settle();
+    await click(dialog, 'Override location for this request');
     await click(dialog, 'Back');
     dialog.querySelector<ComboBox>(
       'vaadin-combo-box[label="DOrc environment"]'
@@ -330,18 +323,87 @@ describe('module catalog discovery', () => {
     mocks.templates.mockReturnValue(
       of([template, { ...template, Version: '0.9.0', Deprecated: true }])
     );
-    const host = await fixture(html`<page-stock-modules></page-stock-modules>`);
+    const host = await fixture<PageStockModules>(
+      html`<page-stock-modules></page-stock-modules>`
+    );
     await settle();
-    const grid = host.shadowRoot!.querySelector(
-      'vaadin-grid'
-    ) as HTMLElement & { items: TerraformTemplateManifest[] };
-    expect(grid.items).to.have.length(1);
-    host.shadowRoot!.querySelector<Checkbox>('vaadin-checkbox')!.checked = true;
+    const cards = () =>
+      Array.from(host.shadowRoot!.querySelectorAll('article.card'));
+    expect(cards()).to.have.length(1);
+    expect(host.filteredTemplates.map(t => t.Version)).to.deep.equal(['1.0.0']);
+    host
+      .shadowRoot!.querySelector<HTMLElement>(
+        'vaadin-button[aria-pressed][class="chip"]:last-of-type'
+      )!
+      .click();
     await settle();
-    expect(grid.items).to.have.length(2);
+    expect(cards()).to.have.length(2);
     host.shadowRoot!.querySelector<TextField>('vaadin-text-field')!.value =
       '0.9';
     await settle();
-    expect(grid.items.map(t => t.Version)).to.deep.equal(['0.9.0']);
+    expect(host.filteredTemplates.map(t => t.Version)).to.deep.equal(['0.9.0']);
+    expect(cards()).to.have.length(1);
+  });
+
+  it('opens the inline detail panel with the manifest inputs and a usable code snippet', async () => {
+    const host = await fixture<PageStockModules>(
+      html`<page-stock-modules></page-stock-modules>`
+    );
+    await settle();
+    expect(host.shadowRoot!.querySelector('.detail')).to.equal(null);
+    host
+      .shadowRoot!.querySelector<HTMLElement>(
+        'article.card vaadin-button[theme="tertiary"]'
+      )!
+      .click();
+    await settle();
+    const detail = host.shadowRoot!.querySelector('.detail')!;
+    expect(detail.textContent).to.contain('credential');
+    expect(detail.querySelectorAll('.badge-sensitive')).to.have.length(1);
+    expect(detail.querySelectorAll('.badge-required')).to.have.length(2);
+    button(detail, 'Use in code').click();
+    await settle();
+    expect(detail.querySelector('pre')?.textContent).to.equal(
+      'TerraformSourceType = Catalog\nTerraformTemplateName = storage-account\nTerraformTemplateVersion = 1.0.0'
+    );
+  });
+});
+
+describe('override validation mirrors the manifest constraints', () => {
+  const base = {
+    Name: 'account_name',
+    Type: TerraformParameterType.String,
+    Required: true,
+    Sensitive: false
+  };
+
+  it('rejects values that do not match the manifest pattern', () => {
+    const p = { ...base, Pattern: '^[a-z0-9]{3,24}$' };
+    expect(overrideError(p, 'Trading-Storage')).to.contain('pattern');
+    expect(overrideError(p, 'tradingstorage')).to.equal(null);
+  });
+
+  it('requires a value only when the input is required', () => {
+    expect(overrideError(base, '')).to.contain('Enter a value');
+    expect(overrideError({ ...base, Required: false }, '')).to.equal(null);
+  });
+
+  it('enforces allowed values and numeric bounds', () => {
+    expect(
+      overrideError({ ...base, AllowedValues: ['S0', 'S1'] }, 'S2')
+    ).to.contain('S0, S1');
+    const n = {
+      ...base,
+      Type: TerraformParameterType.Number,
+      Min: 1,
+      Max: 4096
+    };
+    expect(overrideError(n, '0')).to.contain('at least 1');
+    expect(overrideError(n, '5000')).to.contain('at most 4096');
+    expect(overrideError(n, '10')).to.equal(null);
+  });
+
+  it('defers an unparseable pattern to the server', () => {
+    expect(overrideError({ ...base, Pattern: '(' }, 'anything')).to.equal(null);
   });
 });
