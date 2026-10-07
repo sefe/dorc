@@ -32,6 +32,7 @@
 					<Json:JsonFile Id="ScriptRootNonProd" ElementPath="$.AppSettings.ScriptRoot" File="[#NonProdDeployMonitorExeConfig]" Value="[SCRIPT.FOLDER]" />
 					<!-- Empty (unset pipeline property) writes "", which the Monitor reads as false = report only. -->
 					<Json:JsonFile Id="EnforceScriptPathConfinementNonProd" ElementPath="$.AppSettings.EnforceScriptPathConfinement" File="[#NonProdDeployMonitorExeConfig]" Value="[DORC.ENFORCE.SCRIPT.PATH.CONFINEMENT]" />
+					<Json:JsonFile Id="ScriptContentVerificationNonProd" ElementPath="$.AppSettings.ScriptContentVerification" File="[#NonProdDeployMonitorExeConfig]" Value="[DORC.SCRIPT.CONTENT.VERIFICATION]" />
 					<!-- Empty (unset pipeline property) writes "", which reads as false = credentials from configuration values. -->
 					<Json:JsonFile Id="DeploymentCredentialsFromVaultNonProd" ElementPath="$.AppSettings.DeploymentCredentialsFromVault" File="[#NonProdDeployMonitorExeConfig]" Value="[DORC.DEPLOYMENT.CREDENTIALS.FROM.VAULT]" />
 					<Json:JsonFile Id="ProdDeployUsernameItemIdNonProd" ElementPath="$.AppSettings.ProdDeployUsernameItemId" File="[#NonProdDeployMonitorExeConfig]" Value="[DORC.PROD.DEPLOY.USERNAME.ITEMID]" />

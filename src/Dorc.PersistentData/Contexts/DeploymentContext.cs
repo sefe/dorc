@@ -81,6 +81,14 @@ namespace Dorc.PersistentData.Contexts
         public DbSet<DeploymentRequestAttempt> DeploymentRequestAttempts { get; set; }
         public DbSet<DeploymentResultAttempt> DeploymentResultAttempts { get; set; }
 
+        public int RecordScriptContentHashIfUnrecorded(int scriptId, string contentHash)
+        {
+            return Scripts
+                .Where(script => script.Id == scriptId && script.ContentHash == null)
+                .ExecuteUpdate(setters => setters
+                    .SetProperty(script => script.ContentHash, contentHash));
+        }
+
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
             optionsBuilder.UseSqlServer(nameOrConnectionString, sqlOptions =>
