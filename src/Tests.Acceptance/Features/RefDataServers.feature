@@ -1,4 +1,4 @@
-#TestPlanReference(2981)
+﻿#TestPlanReference(2981)
 #TestSuiteReference(2983)
 Feature: RefDataServers
 	Api tests
@@ -22,7 +22,7 @@ Scenario: Add new server to Environment tracker database
 	  "UserEditable": true,
 	  "Name": "autoServerName",
 	  "OsName": "2008 R2 Standard",
-	  "ApplicationTags": "autoTag1;autoTag2"
+	  "Tags": [ "autoTag1", "autoTag2" ]
 	}
 	"""
 	Then The result should contain  ServerApiModel with ServerID greater than '0'

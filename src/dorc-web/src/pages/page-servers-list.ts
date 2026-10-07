@@ -51,7 +51,7 @@ import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 const environmentNames = 'EnvironmentNames';
 const name = 'Name';
 const osName = 'OsName';
-const applicationTags = 'ApplicationTags';
+const tags = 'Tags';
 
 @customElement('page-servers-list')
 export class PageServersList extends ResponsiveMixin(PageElement) {
@@ -75,7 +75,7 @@ export class PageServersList extends ResponsiveMixin(PageElement) {
   environmentNamesFilter: string = '';
   nameFilter: string = '';
   osNameFilter: string = '';
-  applicationTagsFilter: string = '';
+  tagsFilter: string = '';
 
   static get styles() {
     return css`
@@ -221,7 +221,7 @@ export class PageServersList extends ResponsiveMixin(PageElement) {
           ?hidden='${this._narrowScreen}'
         ></vaadin-grid-column>
         <vaadin-grid-column
-          ${columnBodyRenderer(this.applicationTagsRenderer, [])}
+          ${columnBodyRenderer(this.tagsRenderer, [])}
           resizable
           ${columnHeaderRenderer(this.appTagsHeaderRenderer, [])}
           ?hidden='${this._narrowScreen}'
@@ -278,13 +278,10 @@ export class PageServersList extends ResponsiveMixin(PageElement) {
         params.filters.push({ path: 'OsName', value: this.osNameFilter });
       }
 
-      if (
-        this.applicationTagsFilter !== '' &&
-        this.applicationTagsFilter !== undefined
-      ) {
+      if (this.tagsFilter !== '' && this.tagsFilter !== undefined) {
         params.filters.push({
-          path: 'ApplicationTags',
-          value: this.applicationTagsFilter
+          path: 'Tags',
+          value: this.tagsFilter
         });
       }
 
@@ -354,8 +351,8 @@ export class PageServersList extends ResponsiveMixin(PageElement) {
         case osName:
           this.osNameFilter = value;
           break;
-        case applicationTags:
-          this.applicationTagsFilter = value;
+        case tags:
+          this.tagsFilter = value;
           break;
         case environmentNames:
           this.environmentNamesFilter = value;
@@ -550,29 +547,29 @@ export class PageServersList extends ResponsiveMixin(PageElement) {
 
   appTagsHeaderRenderer() {
     return html`<vaadin-grid-sorter
-        path="ApplicationTags"
+        path="Tags"
         style="align-items: normal"
       ></vaadin-grid-sorter>
       <vaadin-text-field
         id="tags-search"
-        placeholder="Application Tags"
+        placeholder="Tags"
         clear-button-visible
         focus-target
         style="width: 200px"
         theme="small"
         @value-changed="${(e: CustomEvent) => {
-          const textField = e.target as TextField;
-          this.dispatchEvent(
-            new CustomEvent('searching-servers-started', {
-              detail: {
-                field: applicationTags,
-                value: textField?.value
-              },
-              bubbles: true,
-              composed: true
-            })
-          );
-        }}"
+            const textField = e.target as TextField;
+            this.dispatchEvent(
+              new CustomEvent('searching-servers-started', {
+                detail: {
+                  field: tags,
+                  value: textField?.value
+                },
+                bubbles: true,
+                composed: true
+              })
+            );
+          }}"
       ></vaadin-text-field> `;
   }
 
@@ -589,15 +586,15 @@ export class PageServersList extends ResponsiveMixin(PageElement) {
               html` <button
                 class="env"
                 @click="${() =>
-                    this.dispatchEvent(
-                      new CustomEvent('open-environment-details', {
-                        detail: {
-                          envName: i
-                        },
-                        bubbles: true,
-                        composed: true
-                      })
-                    )}"
+                  this.dispatchEvent(
+                    new CustomEvent('open-environment-details', {
+                      detail: {
+                        envName: i
+                      },
+                      bubbles: true,
+                      composed: true
+                    })
+                  )}"
                 style="font-size: var(--lumo-font-size-s);"
               >
                 ${i}
@@ -654,9 +651,8 @@ export class PageServersList extends ResponsiveMixin(PageElement) {
     </server-controls>`;
   }
 
-  private applicationTagsRenderer = (item: ServerApiModel) => {
-    const server = item;
-    const appTags = splitTags(server.ApplicationTags);
+  private tagsRenderer = (server: ServerApiModel) => {
+    const appTags = splitTags(server.Tags);
 
     return html`
       ${map(
@@ -665,15 +661,15 @@ export class PageServersList extends ResponsiveMixin(PageElement) {
           html` <button
             class="tag"
             @click="${() =>
-                this.dispatchEvent(
-                  new CustomEvent('filter-tags-server-list', {
-                    detail: {
-                      value
-                    },
-                    bubbles: true,
-                    composed: true
-                  })
-                )}"
+              this.dispatchEvent(
+                new CustomEvent('filter-tags-server-list', {
+                  detail: {
+                    value
+                  },
+                  bubbles: true,
+                  composed: true
+                })
+              )}"
           >
             ${value}
           </button>`
@@ -794,7 +790,7 @@ export class PageServersList extends ResponsiveMixin(PageElement) {
 
   private getEmptyServer(): ServerApiModel {
     return {
-      ApplicationTags: '',
+      Tags: [],
       Name: '',
       OsName: '',
       EnvironmentNames: [],

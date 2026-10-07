@@ -33,7 +33,7 @@ namespace Dorc.PersistentData.Sources
         {
             using (var context = _contextFactory.GetContext())
             {
-                var oldServer = context.Servers.First(s => s.Id == id);
+                var oldServer = context.Servers.Include(s => s.TagLinks).First(s => s.Id == id);
                 var newServer = MapToServer(server, oldServer);
                 context.SaveChanges();
 
@@ -47,6 +47,7 @@ namespace Dorc.PersistentData.Sources
             using (var context = _contextFactory.GetContext())
             {
                 var server = context.Servers
+                    .Include(s => s.TagLinks)
                     .Include(s => s.Environments)
                     .Include(s => s.Daemons)
                     .FirstOrDefault(s => s.Id == serverId);
@@ -77,9 +78,9 @@ namespace Dorc.PersistentData.Sources
         {
             using (var context = _contextFactory.GetContext())
             {
-                var envDetails = context.Environments.Include(aps => aps.Servers).Single(x => x.Name == envName);
+                var envDetails = context.Environments.Include(aps => aps.Servers).ThenInclude(sv => sv.TagLinks).Single(x => x.Name == envName);
                 var endurAppServers =
-                    envDetails.Servers.Where(x => x.ApplicationTags.Contains("appserv")).ToList();
+                    envDetails.Servers.Where(x => x.TagLinks.Any(t => t.Tag.Contains("appserv"))).ToList();
                 return endurAppServers;
             }
         }
@@ -93,7 +94,7 @@ namespace Dorc.PersistentData.Sources
                 var isAdmin = _rolePrivilegesChecker.IsAdmin(user);
 
                 var envPrivilegeInfos = GetEnvironmentPrivInfos(user, context);
-                var reqStatusesQueryable = context.Servers.Include(server => server.Environments).AsQueryable();
+                var reqStatusesQueryable = context.Servers.Include(server => server.Environments).Include(server => server.TagLinks).AsQueryable();
 
                 if (operators.Filters != null && operators.Filters.Any())
                 {
@@ -110,6 +111,14 @@ namespace Dorc.PersistentData.Sources
                             {
                                 filterLambdas.Add(server =>
                                     server.Environments.Any(ed => ed.Name.Contains(pagedDataFilter.FilterValue)));
+                            }
+                            else if (pagedDataFilter.Path == "Tags")
+                            {
+                                // See DatabasesPersistentSource: matched against the tag
+                                // rows so the grid filters the store deployments read
+                                // from, and keeps working when the deprecated column goes.
+                                filterLambdas.Add(server =>
+                                    server.TagLinks.Any(t => t.Tag.Contains(pagedDataFilter.FilterValue)));
                             }
                             else
                             {
@@ -137,6 +146,14 @@ namespace Dorc.PersistentData.Sources
                         if (operators.SortOrders[i].Path == "EnvironmentNames")
                         {
                             operators.SortOrders[i].Path = "Environments";
+                        }
+
+                        if (operators.SortOrders[i].Path == "Tags")
+                        {
+                            Expression<Func<Server, string>> firstTag =
+                                s => s.TagLinks.Select(t => t.Tag).OrderBy(t => t).FirstOrDefault();
+                            orderedQuery = OrderScripts(operators, i, orderedQuery, reqStatusesQueryable, firstTag);
+                            continue;
                         }
 
                         var param = Expression.Parameter(typeof(Server), "Server");
@@ -190,7 +207,7 @@ namespace Dorc.PersistentData.Sources
                     {
                         EnvironmentNames = s.Environments.Select(ed => ed.Name).ToList(),
                         Name = s.Name,
-                        ApplicationTags = s.ApplicationTags,
+                        Tags = s.TagLinks.Select(t => t.Tag).ToArray(),
                         OsName = s.OsName,
                         ServerId = s.Id,
                         UserEditable = (from environmentDetail in s.Environments
@@ -210,7 +227,7 @@ namespace Dorc.PersistentData.Sources
             using (var context = _contextFactory.GetContext())
             {
                 return context.Servers.Select(s => new ServerApiModel
-                { Name = s.Name, ServerId = s.Id, ApplicationTags = s.ApplicationTags, OsName = s.OsName })
+                { Name = s.Name, ServerId = s.Id, Tags = s.TagLinks.Select(t => t.Tag).ToArray(), OsName = s.OsName })
                     .ToList();
             }
         }
@@ -219,7 +236,7 @@ namespace Dorc.PersistentData.Sources
             using (var context = _contextFactory.GetContext())
             {
                 var isAdmin = _rolePrivilegesChecker.IsAdmin(user);
-                var servers = context.Servers
+                var servers = context.Servers.Include(s => s.TagLinks)
                     .Where(server => EF.Functions.Collate(server.Name, DeploymentContext.CaseInsensitiveCollation)
                         == EF.Functions.Collate(serverName, DeploymentContext.CaseInsensitiveCollation)).ToList();
                 var svr = servers.FirstOrDefault();
@@ -231,7 +248,7 @@ namespace Dorc.PersistentData.Sources
                 {
                     EnvironmentNames = svr.Environments.Select(ed => ed.Name).ToList(),
                     Name = svr.Name,
-                    ApplicationTags = svr.ApplicationTags,
+                    Tags = svr.TagLinks.Select(t => t.Tag).ToArray(),
                     OsName = svr.OsName,
                     ServerId = svr.Id,
                 };
@@ -254,7 +271,7 @@ namespace Dorc.PersistentData.Sources
             {
                 var isAdmin = _rolePrivilegesChecker.IsAdmin(user);
 
-                var servers = context.Servers.Where(s => s.Id == serverId).ToList();
+                var servers = context.Servers.Include(s => s.TagLinks).Where(s => s.Id == serverId).ToList();
                 var svr = servers.FirstOrDefault();
                 if (svr == null) return null;
 
@@ -264,7 +281,7 @@ namespace Dorc.PersistentData.Sources
                 {
                     EnvironmentNames = svr.Environments.Select(ed => ed.Name).ToList(),
                     Name = svr.Name,
-                    ApplicationTags = svr.ApplicationTags,
+                    Tags = svr.TagLinks.Select(t => t.Tag).ToArray(),
                     OsName = svr.OsName,
                     ServerId = svr.Id,
                 };
@@ -297,7 +314,7 @@ namespace Dorc.PersistentData.Sources
             var output = new List<string>();
             using (var context = _contextFactory.GetContext())
             {
-                var server = context.Servers.Include(s => s.Environments)
+                var server = context.Servers.Include(s => s.TagLinks).Include(s => s.Environments)
                     .FirstOrDefault(s => s.Id.Equals(serverId));
 
                 if (server == null)
@@ -322,7 +339,7 @@ namespace Dorc.PersistentData.Sources
             {
                 var envDetail = EnvironmentUnifier.GetEnvironment(context, environmentId);
                 if (envDetail == null) return new List<ServerApiModel>();
-                var result = context.Servers
+                var result = context.Servers.Include(s => s.TagLinks)
                     .Where(s => s.Environments.Any(e => e.Id == envDetail.Id))
                     .Select(s => s);
                 return result.ToList().Select(MapToServerApiModel).ToList();
@@ -335,7 +352,7 @@ namespace Dorc.PersistentData.Sources
             {
                 var envDetail = EnvironmentUnifier.GetEnvironment(context, environmentId);
                 if (envDetail == null) return new List<ServerApiModel>();
-                var result = context.Servers
+                var result = context.Servers.Include(s => s.TagLinks)
                     .Where(s => s.Environments.Any(e => e.Id == envDetail.Id))
                     .OrderBy(s => s.Name)
                     .Select(s => s);
@@ -353,15 +370,40 @@ namespace Dorc.PersistentData.Sources
                     Id = server.ServerId,
                     Name = server.Name,
                     OsName = server.OsName,
-                    ApplicationTags = server.ApplicationTags
+                    Tags = TagString.Join(server.Tags),
+                    TagLinks = TagString.Normalize(server.Tags)
+                        .Select(t => new ServerTag { Tag = t }).ToList()
                 };
             }
 
             s.Id = server.ServerId;
             s.Name = server.Name;
             s.OsName = server.OsName;
-            s.ApplicationTags = server.ApplicationTags;
+            SyncTagLinks(s, server.Tags);
             return s;
+        }
+
+        /// <summary>
+        /// Make the server's tag rows match the supplied set, and keep the deprecated
+        /// delimited column in step until the follow-up release drops it. Rows are
+        /// added and removed rather than cleared and rebuilt, so unchanged tags keep
+        /// their identity and the write is a no-op when nothing moved.
+        /// </summary>
+        private static void SyncTagLinks(Server entity, IEnumerable<string> tags)
+        {
+            var wanted = TagString.Normalize(tags);
+
+            var toRemove = entity.TagLinks
+                .Where(link => !wanted.Contains(link.Tag, TagString.Comparer))
+                .ToList();
+            foreach (var link in toRemove)
+                entity.TagLinks.Remove(link);
+
+            var existing = entity.TagLinks.Select(link => link.Tag).ToArray();
+            foreach (var tag in wanted.Where(t => !existing.Contains(t, TagString.Comparer)))
+                entity.TagLinks.Add(new ServerTag { ServerId = entity.Id, Tag = tag });
+
+            entity.Tags = TagString.Join(wanted);
         }
 
         private ServerApiModel MapToServerApiModel(Server server)
@@ -371,7 +413,7 @@ namespace Dorc.PersistentData.Sources
             return new ServerApiModel
             {
                 Name = server.Name,
-                ApplicationTags = server.ApplicationTags,
+                Tags = server.TagLinks != null ? server.TagLinks.Select(t => t.Tag).ToArray() : System.Array.Empty<string>(),
                 OsName = server.OsName,
                 ServerId = server.Id,
                 EnvironmentNames = server.Environments?.Select(ed => ed.Name).ToList()
@@ -385,7 +427,7 @@ namespace Dorc.PersistentData.Sources
             return new ServerApiModel
             {
                 Name = serverData.Server.Name,
-                ApplicationTags = serverData.Server.ApplicationTags,
+                Tags = serverData.Server.TagLinks != null ? serverData.Server.TagLinks.Select(t => t.Tag).ToArray() : System.Array.Empty<string>(),
                 OsName = serverData.Server.OsName,
                 ServerId = serverData.Server.Id,
                 EnvironmentNames = serverData.Server.Environments.Select(ed => ed.Name).ToList(),

@@ -1,15 +1,18 @@
-﻿/*
+/*
 Post-Deployment Script Template							
 --------------------------------------------------------------------------------------
 This file contains SQL statements that will be appended to the build script.		
 Use SQLCMD syntax to include a file in the post-deployment script.			
-Example:      :r .\myfile.sql								
+Example:      :r ./myfile.sql								
 Use SQLCMD syntax to reference a variable in the post-deployment script.		
 Example:      :setvar TableName MyTable							
               SELECT * FROM [$(TableName)]					
 --------------------------------------------------------------------------------------
 */
-:r .\MigrateStagedServicesToDaemons.sql
-:r .\SeedRefDataAuditActions.sql
-:r .\CleanupOrphanedScripts.sql
-:r .\SetFileShareSourceControlType.sql
+:r ./ApplyDeployCasingToRefDataTables.sql
+:r ./RestoreDatabaseIdentityValue.sql
+:r ./MigrateStagedServicesToDaemons.sql
+:r ./SeedRefDataAuditActions.sql
+:r ./CleanupOrphanedScripts.sql
+:r ./SetFileShareSourceControlType.sql
+:r ./PopulateTagTables.sql

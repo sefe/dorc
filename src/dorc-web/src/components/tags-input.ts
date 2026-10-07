@@ -18,7 +18,19 @@ export class TagsInput extends LitElement {
 
   set tags(value: string[]) {
     const oldValue = this._tags;
-    if (this.tagify !== undefined) {
+    // Dirty-check against the live chips: hosts bind freshly-built arrays, so
+    // Lit re-sets this on every render — without the check every keystroke in
+    // a sibling field would tear down and rebuild the chips (and real Tagify
+    // fires add events on programmatic addTags, cascading into the host's
+    // change handling).
+    const current =
+      this.tagify !== undefined
+        ? this.tagify.value.map(tag => tag.value)
+        : this._tags;
+    const unchanged =
+      current.length === value.length &&
+      current.every((tag, i) => tag === value[i]);
+    if (!unchanged && this.tagify !== undefined) {
       this.tagify.removeAllTags();
       this.tagify.addTags(value);
     }
@@ -27,6 +39,9 @@ export class TagsInput extends LitElement {
   }
 
   @property({ type: String }) label = 'Tags';
+
+  /** Optional per-tag pattern; invalid entries are rejected by Tagify. */
+  @property({ type: String }) pattern: string | undefined;
 
   private _tags: string[] = [];
 
@@ -64,10 +79,22 @@ export class TagsInput extends LitElement {
     super.firstUpdated(_changedProperties);
 
     const input = this.shadowRoot?.querySelector('input') as HTMLInputElement;
-    this.tagify = new window.Tagify(input, {});
+    this.tagify = new window.Tagify(
+      input,
+      this.pattern ? { pattern: new RegExp(this.pattern) } : {}
+    );
     if (this.tagify !== null && this._tags.length > 0) {
       this.tagify.removeAllTags();
       this.tagify.addTags(this._tags);
     }
+    // Surface chip edits to hosts that validate as the user types. Guarded:
+    // test shims may not implement Tagify's event API.
+    const notify = () =>
+      this.dispatchEvent(
+        new CustomEvent('tags-changed', { detail: { tags: this.tags } })
+      );
+    (this.tagify as any).on?.('add', notify);
+    (this.tagify as any).on?.('remove', notify);
+    (this.tagify as any).on?.('edit:updated', notify);
   }
 }
