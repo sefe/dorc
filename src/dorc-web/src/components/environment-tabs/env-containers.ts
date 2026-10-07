@@ -93,6 +93,10 @@ export class EnvContainers extends PageEnvBase {
         gap: var(--lumo-space-xs);
         padding: var(--lumo-space-xs) 0;
       }
+      .empty-state[hidden],
+      vaadin-grid[hidden] {
+        display: none;
+      }
       .empty-state {
         display: flex;
         flex-direction: column;
