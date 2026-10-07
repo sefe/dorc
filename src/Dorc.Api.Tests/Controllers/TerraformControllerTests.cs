@@ -939,29 +939,43 @@ namespace Dorc.Api.Tests.Controllers
 
         // ---------- View ----------
 
-        [TestMethod]
-        public void GetTerraformPlan_EnvOwner_Returns200()
+        // Refusals are StatusCode(403, message), not Forbid(): the plan
+        // endpoints return a message body the wizard surfaces to the user.
+        private static void AssertForbidden(IActionResult result)
         {
-            GivenStandardDeploymentResult();
-            _security.IsEnvironmentOwnerOrAdmin(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(true);
-            _storage.LoadFileFromBlobs(Arg.Any<string>()).Returns("plan-content");
-
-            var result = _controller.GetTerraformPlan(DeploymentResultId);
-
-            Assert.IsInstanceOfType(result, typeof(OkObjectResult));
+            Assert.IsInstanceOfType(result, typeof(ObjectResult),
+                "Refusals return 403 with a message body.");
+            Assert.AreEqual(StatusCodes.Status403Forbidden, ((ObjectResult)result).StatusCode);
         }
 
         [TestMethod]
-        public void GetTerraformPlan_ProjectOwnerOnly_Returns200()
+        public void GetTerraformPlan_EnvOwnerWithoutEnvModify_Returns403()
         {
+            // Ownership alone no longer grants plan access: the gate is
+            // env-modify authority, matching who may confirm/decline. The
+            // full authorization matrix lives in
+            // TerraformControllerPlanAuthorizationTests.
             GivenStandardDeploymentResult();
-            _security.IsEnvironmentOwnerOrAdmin(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(false);
-            _security.IsProjectOwnerOrAdmin(Arg.Any<ClaimsPrincipal>(), ProjectName).Returns(true);
-            _storage.LoadFileFromBlobs(Arg.Any<string>()).Returns("plan-content");
+            _security.IsEnvironmentOwnerOrAdmin(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(true);
+            _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), Arg.Any<string>()).Returns(false);
 
             var result = _controller.GetTerraformPlan(DeploymentResultId);
 
-            Assert.IsInstanceOfType(result, typeof(OkObjectResult));
+            AssertForbidden(result);
+            _storage.DidNotReceiveWithAnyArgs().LoadFileFromBlobs(default!);
+        }
+
+        [TestMethod]
+        public void GetTerraformPlan_ProjectOwnerWithoutEnvModify_Returns403()
+        {
+            GivenStandardDeploymentResult();
+            _security.IsProjectOwnerOrAdmin(Arg.Any<ClaimsPrincipal>(), ProjectName).Returns(true);
+            _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), Arg.Any<string>()).Returns(false);
+
+            var result = _controller.GetTerraformPlan(DeploymentResultId);
+
+            AssertForbidden(result);
+            _storage.DidNotReceiveWithAnyArgs().LoadFileFromBlobs(default!);
         }
 
         [TestMethod]
@@ -993,7 +1007,7 @@ namespace Dorc.Api.Tests.Controllers
 
             var result = _controller.GetTerraformPlan(DeploymentResultId);
 
-            Assert.IsInstanceOfType(result, typeof(ForbidResult));
+            AssertForbidden(result);
         }
 
         [TestMethod]
@@ -1018,7 +1032,7 @@ namespace Dorc.Api.Tests.Controllers
 
             var result = _controller.GetTerraformPlan(DeploymentResultId);
 
-            Assert.IsInstanceOfType(result, typeof(ForbidResult));
+            AssertForbidden(result);
         }
 
         // ---------- Confirm ----------
@@ -1028,6 +1042,13 @@ namespace Dorc.Api.Tests.Controllers
         {
             GivenStandardDeploymentResult();
             _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(true);
+            // The transition is guarded (WaitingConfirmation -> Confirmed);
+            // an unmocked bool would read as a lost race and return 409.
+            _requests.UpdateResultStatus(
+                    Arg.Any<DeploymentResultApiModel>(),
+                    Arg.Any<DeploymentResultStatus>(),
+                    Arg.Any<DeploymentResultStatus>())
+                .Returns(true);
 
             var result = _controller.ConfirmTerraformPlan(DeploymentResultId);
 
@@ -1042,7 +1063,7 @@ namespace Dorc.Api.Tests.Controllers
 
             var result = _controller.ConfirmTerraformPlan(DeploymentResultId);
 
-            Assert.IsInstanceOfType(result, typeof(ForbidResult));
+            AssertForbidden(result);
         }
 
         // ---------- Decline ----------
@@ -1052,6 +1073,11 @@ namespace Dorc.Api.Tests.Controllers
         {
             GivenStandardDeploymentResult();
             _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(true);
+            _requests.UpdateResultStatus(
+                    Arg.Any<DeploymentResultApiModel>(),
+                    Arg.Any<DeploymentResultStatus>(),
+                    Arg.Any<DeploymentResultStatus>())
+                .Returns(true);
 
             var result = _controller.DeclineTerraformPlan(DeploymentResultId);
 
@@ -1066,7 +1092,7 @@ namespace Dorc.Api.Tests.Controllers
 
             var result = _controller.DeclineTerraformPlan(DeploymentResultId);
 
-            Assert.IsInstanceOfType(result, typeof(ForbidResult));
+            AssertForbidden(result);
         }
     }
 }
