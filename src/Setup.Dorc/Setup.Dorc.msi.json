@@ -146,6 +146,10 @@
       "DeployProperty": "DORC_ENFORCE_SCRIPT_PATH_CONFINEMENT"
     },
     {
+      "MSIParameter": "DORC.SCRIPT.CONTENT.VERIFICATION",
+      "DeployProperty": "DORC_SCRIPT_CONTENT_VERIFICATION"
+    },
+    {
       "MSIParameter": "DORC.DEPLOYMENT.CREDENTIALS.FROM.VAULT",
       "DeployProperty": "DORC_DEPLOYMENT_CREDENTIALS_FROM_VAULT"
     },
