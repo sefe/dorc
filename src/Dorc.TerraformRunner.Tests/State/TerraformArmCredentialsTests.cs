@@ -105,5 +105,29 @@ namespace Dorc.TerraformRunner.Tests.State
 
             Assert.AreEqual("7c7c1f8f-f295-456c-81e4-5d508579d93e", env["ARM_SUBSCRIPTION_ID"]);
         }
+
+        [TestMethod]
+        public void ResolveAivenApiToken_ReturnsNull_WhenUnset()
+        {
+            Assert.IsNull(TerraformArmCredentials.ResolveAivenApiToken(null));
+            Assert.IsNull(TerraformArmCredentials.ResolveAivenApiToken(new Dictionary<string, VariableValue>()));
+            Assert.IsNull(TerraformArmCredentials.ResolveAivenApiToken(new Dictionary<string, VariableValue>
+            {
+                [TerraformArmCredentials.AivenApiTokenPropertyName] = new VariableValue { Value = "  ", Type = typeof(string) },
+            }));
+        }
+
+        [TestMethod]
+        public void ResolveAivenApiToken_ReturnsTrimmedToken_IndependentOfArmCredentials()
+        {
+            var props = new Dictionary<string, VariableValue>
+            {
+                [TerraformArmCredentials.AivenApiTokenPropertyName] = new VariableValue { Value = " aiven-t0ken== ", Type = typeof(string) },
+            };
+
+            Assert.AreEqual("aiven-t0ken==", TerraformArmCredentials.ResolveAivenApiToken(props));
+            // Token alone must not count as partial ARM credential configuration.
+            Assert.IsNull(TerraformArmCredentials.Resolve(props));
+        }
     }
 }

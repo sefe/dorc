@@ -313,26 +313,44 @@ namespace Dorc.TerraformRunner
         private void ApplyEnvironmentCredentials(ScriptGroup scriptGroup, string? subscriptionId)
         {
             var credentials = TerraformArmCredentials.Resolve(scriptGroup.CommonProperties);
+            Dictionary<string, string> env;
             if (credentials is null)
             {
-                _armEnvironment = string.IsNullOrWhiteSpace(subscriptionId)
+                env = string.IsNullOrWhiteSpace(subscriptionId)
                     ? new Dictionary<string, string>()
                     : new Dictionary<string, string> { ["ARM_SUBSCRIPTION_ID"] = subscriptionId.Trim() };
                 logger.FileLogger.LogInformation(
                     "No per-environment Terraform credentials configured; terraform authenticates with the runner host's ambient Azure identity.");
-                return;
             }
-
-            _armEnvironment = credentials.ToArmEnvironment(subscriptionId);
-
-            if (!_sensitiveValues.Contains(credentials.ClientSecret))
+            else
             {
-                _sensitiveValues = _sensitiveValues.Append(credentials.ClientSecret).ToList();
+                env = new Dictionary<string, string>(credentials.ToArmEnvironment(subscriptionId));
+
+                if (!_sensitiveValues.Contains(credentials.ClientSecret))
+                {
+                    _sensitiveValues = _sensitiveValues.Append(credentials.ClientSecret).ToList();
+                }
+
+                logger.Information(
+                    $"Terraform authenticates as the environment's service principal (client ID '{credentials.ClientId}') from the " +
+                    $"'{TerraformArmCredentials.ClientIdPropertyName}'/'{TerraformArmCredentials.ClientSecretPropertyName}'/'{TerraformArmCredentials.TenantIdPropertyName}' environment properties.");
             }
 
-            logger.Information(
-                $"Terraform authenticates as the environment's service principal (client ID '{credentials.ClientId}') from the " +
-                $"'{TerraformArmCredentials.ClientIdPropertyName}'/'{TerraformArmCredentials.ClientSecretPropertyName}'/'{TerraformArmCredentials.TenantIdPropertyName}' environment properties.");
+            // Optional Aiven API token for modules using the aiven provider;
+            // orthogonal to the Azure credentials above.
+            var aivenToken = TerraformArmCredentials.ResolveAivenApiToken(scriptGroup.CommonProperties);
+            if (aivenToken is not null)
+            {
+                env["AIVEN_TOKEN"] = aivenToken;
+                if (!_sensitiveValues.Contains(aivenToken))
+                {
+                    _sensitiveValues = _sensitiveValues.Append(aivenToken).ToList();
+                }
+                logger.Information(
+                    $"Aiven API token from the '{TerraformArmCredentials.AivenApiTokenPropertyName}' environment property is injected as AIVEN_TOKEN on the terraform process.");
+            }
+
+            _armEnvironment = env;
         }
 
         private async Task<string> CreateTerraformPlanAsync(

@@ -7,6 +7,8 @@ Canonical index of every module under `stock-modules/`. A module is **active** w
 | [`vnet`](../../stock-modules/vnet/) | 1.0.0 | Networking | Active | DOrc platform team | Azure virtual network with a configurable list of subnets. |
 | [`cosmosdb`](../../stock-modules/cosmosdb/) | 1.0.0 | Data | Active | DOrc platform team | Azure Cosmos DB account (SQL API) + single SQL database, public-network-disabled by default. |
 | [`service-bus`](../../stock-modules/service-bus/) | 1.0.0 | Messaging | Active | DOrc platform team | Azure Service Bus namespace + single queue, TLS 1.2 minimum, no SAS keys output. |
+| [`clickhouse-database`](../../stock-modules/clickhouse-database/) | 1.0.0 | Data | Active | DOrc platform team | ClickHouse database on an existing Aiven ClickHouse service; termination protection on by default. |
+| [`kafka-topic`](../../stock-modules/kafka-topic/) | 1.0.0 | Messaging | Active | DOrc platform team | Kafka topic on an existing Aiven Kafka service, named per the SEFE Kafka messaging standard. |
 
 For the contract every module must satisfy, see [`MODULE-CONTRACT.md`](./MODULE-CONTRACT.md). For state ownership, see [`STATE-MODEL.md`](./STATE-MODEL.md).
 
@@ -99,6 +101,14 @@ the bootstrap fallback) is passed as `ARM_SUBSCRIPTION_ID` alongside.
 Grant each environment's service principal RBAC only on that environment's
 subscription; the shared host identity then needs no subscription-level
 rights at all.
+
+Modules using the [Aiven provider](https://registry.terraform.io/providers/aiven/aiven/)
+(`clickhouse-database`, `kafka-topic`) authenticate with an Aiven API token
+instead. Set the optional `TerraformAivenApiToken` environment property
+(**as a secure property**); the runner injects it as `AIVEN_TOKEN` on the
+terraform child process only and redacts the value from logged output. When
+absent, the provider falls back to any `AIVEN_TOKEN` present in the runner
+host's environment.
 
 The API equivalent is
 `POST /Terraform/templates/{name}/{version}/instantiate`, relative to the API

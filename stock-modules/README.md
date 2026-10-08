@@ -9,5 +9,7 @@ Each module satisfies `docs/Terraform/MODULE-CONTRACT.md`: pinned provider versi
 | [`vnet`](./vnet/) | Networking | Active | DOrc platform team |
 | [`cosmosdb`](./cosmosdb/) | Data | Active | DOrc platform team |
 | [`service-bus`](./service-bus/) | Messaging | Active | DOrc platform team |
+| [`clickhouse-database`](./clickhouse-database/) | Data | Active | DOrc platform team |
+| [`kafka-topic`](./kafka-topic/) | Messaging | Active | DOrc platform team |
 
 See `docs/Terraform/MODULES.md` for the canonical index and `docs/Terraform/MODULE-CONTRACT.md` for the contract every module must satisfy.

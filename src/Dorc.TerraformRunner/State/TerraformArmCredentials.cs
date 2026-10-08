@@ -23,6 +23,11 @@ namespace Dorc.TerraformRunner.State
         public const string ClientSecretPropertyName = "TerraformClientSecret";
         public const string TenantIdPropertyName = "TerraformTenantId";
 
+        // Optional secure property holding an Aiven API token for modules
+        // using the aiven/aiven provider. Injected as AIVEN_TOKEN on the
+        // terraform process only; independent of the ARM_* credentials.
+        public const string AivenApiTokenPropertyName = "TerraformAivenApiToken";
+
         public string ClientId { get; }
         public string ClientSecret { get; }
         public string TenantId { get; }
@@ -101,6 +106,13 @@ namespace Dorc.TerraformRunner.State
             }
             return env;
         }
+
+        /// <summary>
+        /// Resolves the optional per-environment Aiven API token. Returns
+        /// null when the property is not set.
+        /// </summary>
+        public static string? ResolveAivenApiToken(IDictionary<string, VariableValue>? properties)
+            => GetValue(properties, AivenApiTokenPropertyName);
 
         private static string? GetValue(IDictionary<string, VariableValue>? properties, string name)
         {

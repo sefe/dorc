@@ -1,0 +1,144 @@
+name: kafka-topic
+version: 1.0.0
+source:
+  kind: git
+  locator: https://github.com/sefe/dorc.git
+  ref: stock-modules/kafka-topic/v1.0.0
+parameters:
+  - name: project
+    type: String
+    required: true
+    description: Aiven console project the Kafka service lives in.
+    pattern: "^[a-z0-9-]+$"
+  - name: service_name
+    type: String
+    required: true
+    description: Name of the existing Aiven Kafka service. Referenced, never managed.
+    pattern: "^[a-z0-9-]+$"
+  - name: business_vertical
+    type: String
+    required: true
+    description: Two-character business vertical code, e.g. tr for Trading.
+    pattern: "^[a-z]{2}$"
+  - name: environment_tier
+    type: String
+    required: true
+    description: Environment tier segment of the topic name.
+    allowed_values:
+      - dv
+      - ut
+      - qa
+      - pp
+      - pr
+  - name: scope
+    type: String
+    required: true
+    description: Topic scope segment.
+    allowed_values:
+      - gbl
+      - lcl
+      - usr
+      - tst
+  - name: data_grouping
+    type: String
+    required: true
+    description: Logical data grouping segment, e.g. an application or domain name.
+    pattern: "^[a-z0-9_-]+$"
+  - name: data_description
+    type: String
+    required: true
+    description: Data description segment, e.g. the message/entity type.
+    pattern: "^[a-z0-9_-]+$"
+  - name: integrity_level
+    type: String
+    required: true
+    description: Data integrity level classification.
+    allowed_values:
+      - il0
+      - il1
+      - il2
+      - il3
+  - name: origin
+    type: String
+    required: false
+    description: Optional three-character origin system code. Leave empty to omit the segment.
+    default: ""
+    pattern: "^([a-z]{3})?$"
+  - name: publisher_identifier
+    type: String
+    required: false
+    description: Optional publisher identifier segment. Leave empty to omit the segment.
+    default: ""
+    pattern: "^[a-z0-9_-]*$"
+  - name: partitions
+    type: Number
+    required: false
+    description: Number of partitions. Can be increased later but never decreased.
+    default: "3"
+    min: 1
+    max: 1000
+  - name: replication
+    type: Number
+    required: false
+    description: Replication factor; Aiven requires at least 2.
+    default: "2"
+    min: 2
+    max: 10
+  - name: cleanup_policy
+    type: String
+    required: false
+    description: Log cleanup policy for the topic.
+    default: delete
+    allowed_values:
+      - delete
+      - compact
+      - compact,delete
+  - name: min_insync_replicas
+    type: Number
+    required: false
+    description: Minimum number of in-sync replicas required to acknowledge a write.
+    default: "2"
+    min: 1
+    max: 10
+  - name: retention_ms
+    type: Number
+    required: false
+    description: Message retention in milliseconds; -1 for unlimited. Default 7 days.
+    default: "604800000"
+    min: -1
+  - name: retention_bytes
+    type: Number
+    required: false
+    description: Maximum partition size before old segments are discarded; -1 for unlimited.
+    default: "-1"
+    min: -1
+  - name: termination_protection
+    type: Bool
+    required: false
+    description: Client-side deletion protection preventing Terraform from destroying the topic. Default true.
+    default: "true"
+outputs:
+  - name: topic_id
+    type: String
+    description: ID of the Kafka topic (project/service_name/topic_name).
+  - name: topic_name
+    type: String
+    description: Full topic name composed per the SEFE naming standard.
+  - name: project
+    type: String
+  - name: service_name
+    type: String
+  - name: partitions
+    type: Number
+description: Kafka topic on an existing Aiven Kafka service, named per the SEFE Kafka messaging standard (business_vertical.environment_tier.scope.data_grouping.data_description.integrity_level[.origin][.publisher_identifier]). Termination protection on by default. Requires an Aiven API token (AIVEN_TOKEN / TerraformAivenApiToken environment property).
+tags:
+  - messaging
+  - aiven
+  - kafka
+category: Messaging
+required_providers:
+  aiven: ">= 4.42.0, < 5.0.0"
+required_terraform_version: ">= 1.5.0"
+owner: DOrc platform team
+deprecated: false
+deprecation_reason: ""
