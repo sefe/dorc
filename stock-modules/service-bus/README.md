@@ -14,7 +14,8 @@ Deploys an Azure Service Bus namespace with a single queue. TLS 1.2 minimum is e
 
 | Name | Type | Required | Description |
 |---|---|:-:|---|
-| `resource_group_name` | string | yes | Existing resource group. |
+| `resource_group_name` | string | yes | Resource group; must exist unless `create_resource_group` is true. |
+| `create_resource_group` | bool | no (`false`) | Create the resource group as part of the module. |
 | `location` | string | yes | Azure region. |
 | `namespace_name` | string | yes | 6-50 chars; letters, numbers, hyphens; globally unique. |
 | `queue_name` | string | yes | 1-260 chars; letters, numbers, `. - _ /`. |

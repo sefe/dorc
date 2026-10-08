@@ -14,7 +14,8 @@ Deploys an Azure Cosmos DB account (SQL/Core API, `GlobalDocumentDB`) with a sin
 
 | Name | Type | Required | Description |
 |---|---|:-:|---|
-| `resource_group_name` | string | yes | Existing resource group. |
+| `resource_group_name` | string | yes | Resource group; must exist unless `create_resource_group` is true. |
+| `create_resource_group` | bool | no (`false`) | Create the resource group as part of the module. |
 | `location` | string | yes | Azure region. |
 | `account_name` | string | yes | 3-44 lowercase alnum + hyphens; globally unique. |
 | `database_name` | string | yes | 1-255 chars; `/ \ # ?` rejected. |

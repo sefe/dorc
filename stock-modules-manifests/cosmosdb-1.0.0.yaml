@@ -8,11 +8,16 @@ parameters:
   - name: resource_group_name
     type: String
     required: true
-    description: Existing resource group name (1-90 characters).
+    description: Resource group name (1-90 characters). Must exist unless create_resource_group is true.
+  - name: create_resource_group
+    type: Bool
+    required: false
+    description: Create the resource group as part of this deployment instead of requiring an existing one. Default false.
+    default: "false"
   - name: location
     type: String
     required: true
-    description: Azure region; must match the resource group.
+    description: Azure region; must match the resource group when it already exists.
   - name: account_name
     type: String
     required: true

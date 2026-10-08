@@ -1,6 +1,12 @@
 variable "resource_group_name" {
-  description = "Name of the resource group the Service Bus namespace is created in."
+  description = "Name of the resource group the Service Bus namespace is created in. Must already exist unless create_resource_group is true."
   type        = string
+}
+
+variable "create_resource_group" {
+  description = "Create the resource group as part of this module instead of requiring an existing one."
+  type        = bool
+  default     = false
 }
 
 variable "location" {
