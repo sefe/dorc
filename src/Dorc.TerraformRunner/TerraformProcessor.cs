@@ -257,7 +257,8 @@ namespace Dorc.TerraformRunner
                 // Per-environment subscription targeting: the well-known
                 // TerraformSubscriptionId environment property pins the
                 // azurerm provider to that environment's subscription (dev
-                // envs -> DV sub, QA/UAT -> NP, prod -> PR). The runner's
+                // envs -> SMT-<DOMAIN>-DV, QA/UAT -> SMT-<DOMAIN>-NP, prod ->
+                // SMT-<DOMAIN>-PR). The runner's
                 // Terraform:DefaultSubscriptionId (SMT-SH-DV for DOrc) is a
                 // bootstrap fallback ONLY for fresh projects/environments not
                 // yet fully configured; established environments must set the

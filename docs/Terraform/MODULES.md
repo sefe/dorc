@@ -63,8 +63,9 @@ Each DOrc environment targets its own Azure subscription via the well-known
 `TerraformSubscriptionId` environment property (a subscription GUID), rendered
 as `subscription_id` in the azurerm provider configuration. Set it per the
 [SEFE subscription standard](https://wiki/spaces/gar/pages/641725927): dev
-environments → the domain's `-DV` subscription, QA/UAT/INT → `-NP`, production
-→ `-PR`. The Terraform state backend is configured separately and is not
+environments → the domain's `SMT-<DOMAIN>-DV` subscription, QA/UAT/INT →
+`SMT-<DOMAIN>-NP`, production → `SMT-<DOMAIN>-PR`. The Terraform state backend
+is configured separately and is not
 affected.
 
 When the property is absent, the runner falls back to its configured
