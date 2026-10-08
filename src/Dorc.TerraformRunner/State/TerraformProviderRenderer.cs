@@ -8,9 +8,10 @@ namespace Dorc.TerraformRunner.State
     // them - but catalog deployments run the module AS the root, so DOrc is
     // the consumer and must render the configuration. azurerm is the only
     // provider needing this in v1: it refuses to plan without an explicit
-    // `features {}` block. Authentication comes from the runner's
-    // environment (ARM_* variables / managed identity), same as every other
-    // source type.
+    // `features {}` block. Authentication comes from per-environment
+    // service-principal properties when configured (see
+    // TerraformArmCredentials) and otherwise from the runner's environment
+    // (ARM_* variables / managed identity), same as every other source type.
     public static class TerraformProviderRenderer
     {
         public const string ProviderFileName = "_dorc_providers.tf";

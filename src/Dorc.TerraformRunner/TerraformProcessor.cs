@@ -32,6 +32,15 @@ namespace Dorc.TerraformRunner
         // operation from the ScriptGroup; empty when nothing is flagged.
         private IReadOnlyList<string> _sensitiveValues = Array.Empty<string>();
 
+        // ARM_* variables injected into every terraform child process for this
+        // operation. Populated from the environment's well-known credential
+        // properties (TerraformClientId/ClientSecret/TenantId +
+        // TerraformSubscriptionId) so each environment/subscription can own
+        // its own service principal; empty when the environment defines none,
+        // leaving authentication to the runner host's ambient identity.
+        private IReadOnlyDictionary<string, string> _armEnvironment =
+            new Dictionary<string, string>();
+
         public TerraformProcessor(
             IRunnerLogger logger,
             IScriptGroupPipeClient scriptGroupPipeClient,
@@ -206,6 +215,33 @@ namespace Dorc.TerraformRunner
 
             logger.Information($"Using Terraform source type: {scriptGroup.TerraformSourceType}");
 
+            // Per-environment subscription targeting: the well-known
+            // TerraformSubscriptionId environment property names the
+            // subscription this environment's deployments run against (dev
+            // envs -> SMT-<DOMAIN>-DV, QA/UAT -> SMT-<DOMAIN>-NP, prod ->
+            // SMT-<DOMAIN>-PR). The runner's Terraform:DefaultSubscriptionId
+            // is a bootstrap fallback ONLY for fresh projects/environments
+            // not yet fully configured; established environments must set the
+            // property. With neither set, the identity's default subscription
+            // applies.
+            string? subscriptionId = null;
+            if (scriptGroup.CommonProperties is not null
+                && scriptGroup.CommonProperties.TryGetValue(
+                    TerraformProviderRenderer.SubscriptionIdPropertyName, out var subscriptionProperty))
+            {
+                subscriptionId = subscriptionProperty?.Value?.ToString();
+            }
+            var subscriptionFromEnvironment = !string.IsNullOrWhiteSpace(subscriptionId);
+            if (!subscriptionFromEnvironment)
+            {
+                subscriptionId = _defaultSubscriptionId;
+            }
+
+            // Per-environment identity: when the environment carries its own
+            // service-principal credential properties, terraform authenticates
+            // as that identity instead of the shared runner host identity.
+            ApplyEnvironmentCredentials(scriptGroup, subscriptionId);
+
             // Provision the code using the selected provider
             await provider.ProvisionCodeAsync(scriptGroup, workingDir, cancellationToken);
 
@@ -254,33 +290,9 @@ namespace Dorc.TerraformRunner
             // on azurerm's mandatory `features {}` block.
             if (scriptGroup.TerraformSourceType == TerraformSourceType.Catalog)
             {
-                // Per-environment subscription targeting: the well-known
-                // TerraformSubscriptionId environment property pins the
-                // azurerm provider to that environment's subscription (dev
-                // envs -> SMT-<DOMAIN>-DV, QA/UAT -> SMT-<DOMAIN>-NP, prod ->
-                // SMT-<DOMAIN>-PR). The runner's
-                // Terraform:DefaultSubscriptionId (SMT-SH-DV for DOrc) is a
-                // bootstrap fallback ONLY for fresh projects/environments not
-                // yet fully configured; established environments must set the
-                // property. With neither set, the runner identity's default
-                // subscription applies.
-                string? subscriptionId = null;
-                if (scriptGroup.CommonProperties is not null
-                    && scriptGroup.CommonProperties.TryGetValue(
-                        TerraformProviderRenderer.SubscriptionIdPropertyName, out var subscriptionProperty))
-                {
-                    subscriptionId = subscriptionProperty?.Value?.ToString();
-                }
-
-                var fromEnvironment = !string.IsNullOrWhiteSpace(subscriptionId);
-                if (!fromEnvironment)
-                {
-                    subscriptionId = _defaultSubscriptionId;
-                }
-
                 TerraformProviderRenderer.WriteAzureRmIfRequired(workingDir, subscriptionId);
 
-                if (fromEnvironment)
+                if (subscriptionFromEnvironment)
                 {
                     logger.Information($"azurerm provider pinned to subscription '{subscriptionId!.Trim()}' from the '{TerraformProviderRenderer.SubscriptionIdPropertyName}' environment property.");
                 }
@@ -291,6 +303,36 @@ namespace Dorc.TerraformRunner
             }
 
             logger.Information($"Terraform working directory has been set up at: {workingDir}");
+        }
+
+        // Resolves per-environment service-principal credentials into the
+        // ARM_* variables terraform processes for this operation run with.
+        // The secret value is appended to the redaction list so it can never
+        // appear in logged terraform error output, independent of whether the
+        // property was flagged sensitive on the request.
+        private void ApplyEnvironmentCredentials(ScriptGroup scriptGroup, string? subscriptionId)
+        {
+            var credentials = TerraformArmCredentials.Resolve(scriptGroup.CommonProperties);
+            if (credentials is null)
+            {
+                _armEnvironment = string.IsNullOrWhiteSpace(subscriptionId)
+                    ? new Dictionary<string, string>()
+                    : new Dictionary<string, string> { ["ARM_SUBSCRIPTION_ID"] = subscriptionId.Trim() };
+                logger.FileLogger.LogInformation(
+                    "No per-environment Terraform credentials configured; terraform authenticates with the runner host's ambient Azure identity.");
+                return;
+            }
+
+            _armEnvironment = credentials.ToArmEnvironment(subscriptionId);
+
+            if (!_sensitiveValues.Contains(credentials.ClientSecret))
+            {
+                _sensitiveValues = _sensitiveValues.Append(credentials.ClientSecret).ToList();
+            }
+
+            logger.Information(
+                $"Terraform authenticates as the environment's service principal (client ID '{credentials.ClientId}') from the " +
+                $"'{TerraformArmCredentials.ClientIdPropertyName}'/'{TerraformArmCredentials.ClientSecretPropertyName}'/'{TerraformArmCredentials.TenantIdPropertyName}' environment properties.");
         }
 
         private async Task<string> CreateTerraformPlanAsync(
@@ -391,6 +433,14 @@ namespace Dorc.TerraformRunner
             // "Arguments = string concatenation" injection surface where paths
             // with spaces or shell metacharacters could split into extra tokens.
             foreach (var arg in commandArgs) process.StartInfo.ArgumentList.Add(arg);
+            // Per-environment identity: credentials resolved from environment
+            // properties are injected into the terraform CHILD process only,
+            // never the host environment, so concurrent deployments for other
+            // environments cannot observe them.
+            foreach (var variable in _armEnvironment)
+            {
+                process.StartInfo.Environment[variable.Key] = variable.Value;
+            }
             process.StartInfo.WorkingDirectory = workingDir;
             process.StartInfo.UseShellExecute = false;
             process.StartInfo.RedirectStandardOutput = true;

@@ -75,6 +75,31 @@ that are not yet fully configured — established environments must set
 `TerraformSubscriptionId`. The runner's credential (service principal or
 managed identity) needs RBAC on every targeted subscription.
 
+### Per-environment credentials
+
+By default terraform authenticates with the runner host's ambient Azure
+identity, shared by every deployment the host runs. Each environment (and
+therefore each subscription) can instead own its own service principal,
+configured directly in DOrc as environment properties:
+
+| Property | Value |
+| --- | --- |
+| `TerraformClientId` | The service principal's application (client) ID GUID |
+| `TerraformClientSecret` | The client secret — **must be a secure property** |
+| `TerraformTenantId` | The Entra tenant ID GUID |
+
+Set all three or none. A partial configuration fails the deployment with an
+error naming the missing properties, rather than silently deploying as the
+shared host identity. The values are injected as `ARM_*` variables on the
+terraform child process only — never the host environment — so concurrent
+deployments for other environments cannot observe them, and the secret value
+is redacted from any logged terraform output. `TerraformSubscriptionId` (or
+the bootstrap fallback) is passed as `ARM_SUBSCRIPTION_ID` alongside.
+
+Grant each environment's service principal RBAC only on that environment's
+subscription; the shared host identity then needs no subscription-level
+rights at all.
+
 The API equivalent is
 `POST /Terraform/templates/{name}/{version}/instantiate`, relative to the API
 base URL. With `EnvironmentName` present, the endpoint validates the mapped
