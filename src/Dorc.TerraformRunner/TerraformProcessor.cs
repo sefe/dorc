@@ -18,6 +18,12 @@ namespace Dorc.TerraformRunner
         private readonly IScriptGroupPipeClient _scriptGroupPipeClient;
         private readonly TerraformCodeSourceProviderFactory _codeSourceFactory;
 
+        // Azure subscription catalog deployments fall back to when the
+        // environment defines no TerraformSubscriptionId property. Comes from
+        // Terraform:DefaultSubscriptionId in the runner's configuration; null
+        // leaves subscription resolution to the runner identity's default.
+        private readonly string? _defaultSubscriptionId;
+
         // Cleartext values of properties the request flagged sensitive, used
         // to scrub terraform command output before it is logged. Terraform
         // masks variables the MODULE marks `sensitive`, but a manifest can
@@ -29,11 +35,13 @@ namespace Dorc.TerraformRunner
         public TerraformProcessor(
             IRunnerLogger logger,
             IScriptGroupPipeClient scriptGroupPipeClient,
-            ITemplateCatalog catalog)
+            ITemplateCatalog catalog,
+            string? defaultSubscriptionId = null)
         {
             this.logger = logger;
             this._scriptGroupPipeClient = scriptGroupPipeClient;
             this._codeSourceFactory = new TerraformCodeSourceProviderFactory(logger, catalog);
+            this._defaultSubscriptionId = defaultSubscriptionId;
         }
 
         // Collects the cleartext values of the flagged-sensitive properties
@@ -246,7 +254,39 @@ namespace Dorc.TerraformRunner
             // on azurerm's mandatory `features {}` block.
             if (scriptGroup.TerraformSourceType == TerraformSourceType.Catalog)
             {
-                TerraformProviderRenderer.WriteAzureRmIfRequired(workingDir);
+                // Per-environment subscription targeting: the well-known
+                // TerraformSubscriptionId environment property pins the
+                // azurerm provider to that environment's subscription (dev
+                // envs -> DV sub, QA/UAT -> NP, prod -> PR). The runner's
+                // Terraform:DefaultSubscriptionId (SMT-SH-DV for DOrc) is a
+                // bootstrap fallback ONLY for fresh projects/environments not
+                // yet fully configured; established environments must set the
+                // property. With neither set, the runner identity's default
+                // subscription applies.
+                string? subscriptionId = null;
+                if (scriptGroup.CommonProperties is not null
+                    && scriptGroup.CommonProperties.TryGetValue(
+                        TerraformProviderRenderer.SubscriptionIdPropertyName, out var subscriptionProperty))
+                {
+                    subscriptionId = subscriptionProperty?.Value?.ToString();
+                }
+
+                var fromEnvironment = !string.IsNullOrWhiteSpace(subscriptionId);
+                if (!fromEnvironment)
+                {
+                    subscriptionId = _defaultSubscriptionId;
+                }
+
+                TerraformProviderRenderer.WriteAzureRmIfRequired(workingDir, subscriptionId);
+
+                if (fromEnvironment)
+                {
+                    logger.Information($"azurerm provider pinned to subscription '{subscriptionId!.Trim()}' from the '{TerraformProviderRenderer.SubscriptionIdPropertyName}' environment property.");
+                }
+                else if (!string.IsNullOrWhiteSpace(subscriptionId))
+                {
+                    logger.Warning($"Environment defines no '{TerraformProviderRenderer.SubscriptionIdPropertyName}' property; falling back to the runner's default subscription '{subscriptionId.Trim()}' (Terraform:DefaultSubscriptionId). Set the environment property to target this environment's own subscription.");
+                }
             }
 
             logger.Information($"Terraform working directory has been set up at: {workingDir}");

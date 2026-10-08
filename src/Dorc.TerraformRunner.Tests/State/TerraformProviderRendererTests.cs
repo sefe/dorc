@@ -124,6 +124,45 @@ namespace Dorc.TerraformRunner.Tests.State
         }
 
         [TestMethod]
+        public void WriteAzureRmIfRequired_SubscriptionIdSupplied_RendersSubscriptionPin()
+        {
+            File.WriteAllText(Path.Join(_tempRoot, "versions.tf"),
+                "terraform { required_providers { azurerm = { source = \"hashicorp/azurerm\" } } }");
+            var subscription = "7F1b3c9e-2a4d-4e6f-8a0b-1c2d3e4f5a6b";
+
+            TerraformProviderRenderer.WriteAzureRmIfRequired(_tempRoot, subscription);
+
+            var content = File.ReadAllText(ProviderFilePath);
+            // Canonicalised to lowercase "D" GUID format regardless of input casing.
+            StringAssert.Contains(content, "subscription_id = \"7f1b3c9e-2a4d-4e6f-8a0b-1c2d3e4f5a6b\"");
+            StringAssert.Contains(content, "features {}");
+        }
+
+        [TestMethod]
+        public void WriteAzureRmIfRequired_NoSubscriptionId_NoSubscriptionLine()
+        {
+            File.WriteAllText(Path.Join(_tempRoot, "versions.tf"),
+                "terraform { required_providers { azurerm = { source = \"hashicorp/azurerm\" } } }");
+
+            TerraformProviderRenderer.WriteAzureRmIfRequired(_tempRoot, null);
+
+            var content = File.ReadAllText(ProviderFilePath);
+            Assert.IsFalse(content.Contains("subscription_id"));
+        }
+
+        [TestMethod]
+        public void WriteAzureRmIfRequired_SubscriptionIdNotAGuid_Throws()
+        {
+            File.WriteAllText(Path.Join(_tempRoot, "versions.tf"),
+                "terraform { required_providers { azurerm = { source = \"hashicorp/azurerm\" } } }");
+
+            // Non-GUID values must never be interpolated into a .tf file.
+            Assert.Throws<ArgumentException>(() =>
+                TerraformProviderRenderer.WriteAzureRmIfRequired(_tempRoot, "SMT-DNA-DV\"; evil = \""));
+            Assert.IsFalse(File.Exists(ProviderFilePath));
+        }
+
+        [TestMethod]
         public void WriteAzureRmIfRequired_PathWithParentSegments_Throws()
         {
             Assert.ThrowsExactly<ArgumentException>(() =>

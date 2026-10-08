@@ -57,6 +57,23 @@ same component in the same environment for later updates; deploy it to another
 mapped environment for separate state. Do not create a new component for every
 deployment. See [the state model](./STATE-MODEL.md) for backend configuration.
 
+### Subscription targeting
+
+Each DOrc environment targets its own Azure subscription via the well-known
+`TerraformSubscriptionId` environment property (a subscription GUID), rendered
+as `subscription_id` in the azurerm provider configuration. Set it per the
+[SEFE subscription standard](https://wiki/spaces/gar/pages/641725927): dev
+environments → the domain's `-DV` subscription, QA/UAT/INT → `-NP`, production
+→ `-PR`. The Terraform state backend is configured separately and is not
+affected.
+
+When the property is absent, the runner falls back to its configured
+`Terraform:DefaultSubscriptionId` (SMT-SH-DV for DOrc instances) and logs a
+warning. The fallback exists only to bootstrap fresh projects/environments
+that are not yet fully configured — established environments must set
+`TerraformSubscriptionId`. The runner's credential (service principal or
+managed identity) needs RBAC on every targeted subscription.
+
 The API equivalent is
 `POST /Terraform/templates/{name}/{version}/instantiate`, relative to the API
 base URL. With `EnvironmentName` present, the endpoint validates the mapped
