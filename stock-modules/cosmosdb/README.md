@@ -21,7 +21,7 @@ Deploys an Azure Cosmos DB account (SQL/Core API, `GlobalDocumentDB`) with a sin
 | `consistency_level` | string | no | Default `Session`; allow-listed. |
 | `throughput` | number | no | Default 400 RU/s; multiple of 100, bounded 400-100000. |
 | `public_network_access_enabled` | bool | no | Default `false`; explicit opt-in. |
-| `local_authentication_disabled` | bool | no | Default `false`; set `true` for Entra-ID-only data-plane auth. |
+| `local_authentication_disabled` | bool | no | Default `true` (Entra-ID-only data-plane auth); set `false` to allow account-key auth. |
 | `tags` | `map(string)` | no | Applied to the account. |
 
 ## Outputs

@@ -63,9 +63,9 @@ variable "public_network_access_enabled" {
 }
 
 variable "local_auth_enabled" {
-  description = "Whether SAS (local) authentication is enabled. Set false for Entra-ID-only auth."
+  description = "Whether SAS (local) authentication is enabled. Disabled by default (Entra ID only); set true to allow SAS."
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "tags" {

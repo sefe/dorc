@@ -57,9 +57,9 @@ variable "public_network_access_enabled" {
 }
 
 variable "local_authentication_disabled" {
-  description = "Disable account key (local) authentication so only Entra ID data-plane auth is accepted."
+  description = "Disable account key (local) authentication so only Entra ID data-plane auth is accepted. Secure by default; set false to allow key-based auth."
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "tags" {

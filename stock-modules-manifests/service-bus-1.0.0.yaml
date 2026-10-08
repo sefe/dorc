@@ -52,8 +52,8 @@ parameters:
   - name: local_auth_enabled
     type: Bool
     required: false
-    description: If true, SAS (local) authentication is enabled. Set false for Entra-ID-only auth. Default true.
-    default: "true"
+    description: If true, SAS (local) authentication is enabled. Default false (Entra ID only); set true to allow SAS.
+    default: "false"
 outputs:
   - name: namespace_id
     type: String

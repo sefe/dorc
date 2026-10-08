@@ -22,7 +22,7 @@ Deploys an Azure Service Bus namespace with a single queue. TLS 1.2 minimum is e
 | `max_delivery_count` | number | no | Default 10; bounded 1-2000. |
 | `enable_partitioning` | bool | no | Default `false`; Basic/Standard only, set at creation. |
 | `public_network_access_enabled` | bool | no | Default `true`; disabling requires Premium + private endpoints. |
-| `local_auth_enabled` | bool | no | Default `true`; set `false` for Entra-ID-only auth. |
+| `local_auth_enabled` | bool | no | Default `false` (Entra-ID-only auth); set `true` to allow SAS. |
 | `tags` | `map(string)` | no | Applied to the namespace. |
 
 ## Outputs
