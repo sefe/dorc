@@ -71,16 +71,15 @@ provider "azurerm" {
   features {}
 }
 
-# Reference the sql-database stock module at a pinned tag.
-module "sql_database" {
-  count  = var.enable_sql_database ? 1 : 0
-  source = "git::https://<repo>//stock-modules/sql-database?ref=stock-modules/sql-database/v1.0.0"
+# Reference the cosmosdb stock module at a pinned tag.
+module "cosmosdb" {
+  count  = var.enable_cosmosdb ? 1 : 0
+  source = "git::https://<repo>//stock-modules/cosmosdb?ref=stock-modules/cosmosdb/v1.0.0"
 
-  resource_group_name    = var.resource_group_name
-  location               = var.location
-  server_name            = var.sql_server_name
-  database_name          = var.database_name
-  administrator_password = var.sql_admin_password
+  resource_group_name = var.resource_group_name
+  location            = var.location
+  account_name        = var.cosmosdb_account_name
+  database_name       = var.database_name
 
   tags = var.tags
 }
@@ -105,28 +104,22 @@ variable "environment" {
   type        = string
 }
 
-variable "enable_sql_database" {
-  description = "Enable SQL Database deployment"
+variable "enable_cosmosdb" {
+  description = "Enable Cosmos DB deployment"
   type        = bool
   default     = false
 }
 
 variable "database_name" {
-  description = "Name of the SQL database"
+  description = "Name of the Cosmos DB SQL database"
   type        = string
   default     = ""
 }
 
-variable "sql_server_name" {
-  description = "Name of the SQL server"
+variable "cosmosdb_account_name" {
+  description = "Name of the Cosmos DB account"
   type        = string
   default     = ""
-}
-
-variable "sql_admin_password" {
-  description = "SQL admin password. Supplied at deploy time by a DOrc sensitive property; never committed."
-  type        = string
-  sensitive   = true
 }
 
 variable "tags" {
@@ -144,10 +137,10 @@ resource_group_name = "rg-myapp-dev"
 location           = "East US"
 environment        = "dev"
 
-# Enable SQL Database for dev
-enable_sql_database = true
-database_name      = "myapp-dev-db"
-sql_server_name    = "myapp-dev-sql"
+# Enable Cosmos DB for dev
+enable_cosmosdb       = true
+database_name         = "myapp-dev-db"
+cosmosdb_account_name = "myapp-dev-cosmos"
 
 # Disable SQL MI for dev (cost optimization)
 enable_sql_mi      = false
@@ -259,19 +252,19 @@ Set up environment-specific properties that DOrc will pass to Terraform:
 - `resource_group_name` = "rg-myapp-dev"
 - `location` = "East US"
 - `environment` = "dev"
-- `enable_sql_database` = "true"
+- `enable_cosmosdb` = "true"
 - `enable_sql_mi` = "false"
 - `database_name` = "myapp-dev-db"
-- `sql_server_name` = "myapp-dev-sql"
+- `cosmosdb_account_name` = "myapp-dev-cosmos"
 
 #### Environment Properties (Production)
 - `resource_group_name` = "rg-myapp-prod"
 - `location` = "East US"
 - `environment` = "prod"
-- `enable_sql_database` = "true"
+- `enable_cosmosdb` = "true"
 - `enable_sql_mi` = "true"
 - `database_name` = "myapp-prod-db"
-- `sql_server_name` = "myapp-prod-sql"
+- `cosmosdb_account_name` = "myapp-prod-cosmos"
 - `sql_mi_name` = "myapp-prod-mi"
 
 ## Deployment Workflow

@@ -100,10 +100,10 @@ deprecated: false
                 $"Expected exactly two shipped manifests in {manifestsDir}; got {manifests.Count}.");
 
             var names = manifests.Select(m => m.Name).ToList();
-            CollectionAssert.Contains(names, "sql-database",
-                "sql-database manifest should load.");
-            CollectionAssert.Contains(names, "storage-account",
-                "storage-account manifest should load.");
+            CollectionAssert.Contains(names, "cosmosdb",
+                "cosmosdb manifest should load.");
+            CollectionAssert.Contains(names, "service-bus",
+                "service-bus manifest should load.");
             CollectionAssert.DoesNotContain(names, "vnet",
                 "vnet was removed in alongside the load-time rules; reinstated in v2 with complex-type runner support.");
 

@@ -21,16 +21,15 @@ provider "azurerm" {
 # In CI/local you can use a relative source; in DOrc, use the Stock Modules
 # page's "Deploy from template" wizard (POST /api/Terraform/templates/
 # {name}/{version}/instantiate) instead - it creates a Terraform component
-# with TerraformSourceType = Catalog and TerraformTemplateName = "sql-database",
+# with TerraformSourceType = Catalog and TerraformTemplateName = "cosmosdb",
 # TerraformTemplateVersion = "1.0.0" (see docs/Terraform/MODULES.md).
-module "sql" {
-  source = "../../../../stock-modules/sql-database"
+module "cosmosdb" {
+  source = "../../../../stock-modules/cosmosdb"
 
-  resource_group_name    = var.resource_group_name
-  location               = var.location
-  server_name            = var.sql_server_name
-  database_name          = var.database_name
-  administrator_password = var.sql_admin_password
+  resource_group_name = var.resource_group_name
+  location            = var.location
+  account_name        = var.cosmosdb_account_name
+  database_name       = var.database_name
 
   tags = var.tags
 }

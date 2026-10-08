@@ -50,8 +50,8 @@ Plus sections: **Inputs**, **Outputs**, **Secret handling**, **Example**, **Vers
 Every module must output the **resource ID of the primary resource** so that downstream modules can compose. Examples:
 
 - `vnet`: `vnet_id` + per-subnet IDs.
-- `sql-database`: `sql_server_id` + `database_id`.
-- `storage-account`: `storage_account_id`.
+- `cosmosdb`: `cosmosdb_account_id` + `database_id`.
+- `service-bus`: `namespace_id` + `queue_id`.
 
 Echoing the input name (e.g. `vnet_name`) is also encouraged for human-readable composition.
 

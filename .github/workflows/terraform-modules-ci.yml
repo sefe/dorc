@@ -55,11 +55,11 @@ jobs:
       matrix:
         module:
           - stock-modules/vnet
-          - stock-modules/sql-database
-          - stock-modules/storage-account
+          - stock-modules/cosmosdb
+          - stock-modules/service-bus
           - stock-modules/vnet/examples/basic
-          - stock-modules/sql-database/examples/basic
-          - stock-modules/storage-account/examples/basic
+          - stock-modules/cosmosdb/examples/basic
+          - stock-modules/service-bus/examples/basic
           - docs/Terraform/examples/terraform-project
     steps:
       - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
@@ -87,8 +87,8 @@ jobs:
       matrix:
         module:
           - stock-modules/vnet
-          - stock-modules/sql-database
-          - stock-modules/storage-account
+          - stock-modules/cosmosdb
+          - stock-modules/service-bus
     steps:
       - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
         with:

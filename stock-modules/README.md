@@ -7,7 +7,7 @@ Each module satisfies `docs/Terraform/MODULE-CONTRACT.md`: pinned provider versi
 | Module | Category | Status | Owner |
 |---|---|---|---|
 | [`vnet`](./vnet/) | Networking | Active | DOrc platform team |
-| [`sql-database`](./sql-database/) | Data | Active | DOrc platform team |
-| [`storage-account`](./storage-account/) | Storage | Active | DOrc platform team |
+| [`cosmosdb`](./cosmosdb/) | Data | Active | DOrc platform team |
+| [`service-bus`](./service-bus/) | Messaging | Active | DOrc platform team |
 
 See `docs/Terraform/MODULES.md` for the canonical index and `docs/Terraform/MODULE-CONTRACT.md` for the contract every module must satisfy.

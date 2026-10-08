@@ -29,7 +29,7 @@ namespace Dorc.TerraformRunner.CodeSources
 
             // Validate and sanitize the ref to prevent command injection. It
             // may name a branch, a tag (the catalog pins module versions as
-            // git tags, e.g. stock-modules/sql-database/v1.0.0), or a commit.
+            // git tags, e.g. stock-modules/cosmosdb/v1.0.0), or a commit.
             var gitRef = SanitizeGitParameter(scriptGroup.TerraformGitBranch ?? "main");
 
             _logger.Information($"Cloning Git repository '{scriptGroup.TerraformGitRepoUrl}' ref '{gitRef}'");

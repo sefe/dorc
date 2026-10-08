@@ -5,8 +5,8 @@ Canonical index of every module under `stock-modules/`. A module is **active** w
 | Module | Latest | Category | Status | Owner | Description |
 |---|---|---|---|---|---|
 | [`vnet`](../../stock-modules/vnet/) | 1.0.0 | Networking | Active | DOrc platform team | Azure virtual network with a configurable list of subnets. |
-| [`sql-database`](../../stock-modules/sql-database/) | 1.0.0 | Data | Active | DOrc platform team | Azure SQL logical server + single user database, public-network-disabled by default. |
-| [`storage-account`](../../stock-modules/storage-account/) | 1.0.0 | Storage | Active | DOrc platform team | Azure storage account with TLS 1.2 minimum and public-network opt-in only. |
+| [`cosmosdb`](../../stock-modules/cosmosdb/) | 1.0.0 | Data | Active | DOrc platform team | Azure Cosmos DB account (SQL API) + single SQL database, public-network-disabled by default. |
+| [`service-bus`](../../stock-modules/service-bus/) | 1.0.0 | Messaging | Active | DOrc platform team | Azure Service Bus namespace + single queue, TLS 1.2 minimum, no SAS keys output. |
 
 For the contract every module must satisfy, see [`MODULE-CONTRACT.md`](./MODULE-CONTRACT.md). For state ownership, see [`STATE-MODEL.md`](./STATE-MODEL.md).
 
