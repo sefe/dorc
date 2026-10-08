@@ -194,10 +194,12 @@ export class TerraformPlanDialog extends LitElement {
 
       vaadin-button[theme~='primary'] {
         background-color: var(--lumo-success-color);
+        color: var(--lumo-success-contrast-color, #fff);
       }
 
       vaadin-button[theme~='error'] {
         background-color: var(--lumo-error-color);
+        color: var(--lumo-error-contrast-color, #fff);
       }
     `;
   }
@@ -390,7 +392,7 @@ export class TerraformPlanDialog extends LitElement {
 ${lines.map(line => {
         const cls = this._classifyPlanLine(line);
         const masked = this._maskSensitiveValues(line);
-        return html`<span class="plan-line ${cls}">${masked} </span>`;
+        return html`<span class="plan-line ${cls}">${`${masked}\n`}</span>`;
       })}</pre>`;
   }
 
