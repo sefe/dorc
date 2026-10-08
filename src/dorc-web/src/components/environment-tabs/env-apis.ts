@@ -77,7 +77,7 @@ export class EnvApis extends PageEnvBase {
         display: flex;
         align-items: center;
         gap: var(--lumo-space-s);
-        font-weight: 600;
+        font-weight: 400;
       }
       .summary-bar vaadin-icon {
         color: var(--dorc-link-color);
@@ -94,8 +94,8 @@ export class EnvApis extends PageEnvBase {
       .toolbar {
         display: flex;
         align-items: center;
-        gap: var(--lumo-space-xs);
-        padding: var(--lumo-space-xs) 0;
+        gap: var(--lumo-space-s);
+        padding: var(--lumo-space-s) 0;
       }
       .empty-state[hidden],
       vaadin-grid[hidden] {
@@ -140,7 +140,7 @@ export class EnvApis extends PageEnvBase {
     return html`
       <vaadin-details
         opened
-        style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; margin: 0px;"
+        style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; padding-right: 4px; margin: 0px; box-sizing: border-box;"
       >
         <div slot="summary" class="summary-bar">
           <vaadin-icon icon="vaadin:connect-o" theme="small"></vaadin-icon>
@@ -151,7 +151,7 @@ export class EnvApis extends PageEnvBase {
           <div class="toolbar">
             <vaadin-button
               title="Attach API"
-              theme="primary small"
+              theme="primary"
               .disabled="${this.envReadOnly}"
               @click="${() => (this.attachDialogOpened = true)}"
             >
@@ -160,7 +160,6 @@ export class EnvApis extends PageEnvBase {
             >
             <vaadin-button
               title="New API"
-              theme="small"
               .disabled="${this.envReadOnly}"
               @click="${this.openCreateDialog}"
             >
