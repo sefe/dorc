@@ -135,11 +135,13 @@ export class EnvContainers extends PageEnvBase {
         opened
         style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; padding-right: 4px; margin: 0px; box-sizing: border-box;"
       >
-        <div slot="summary" class="summary-bar">
-          <vaadin-icon icon="vaadin:package" theme="small"></vaadin-icon>
-          Container Details
-          <span class="count-badge">${this.containers.length}</span>
-        </div>
+        <vaadin-details-summary slot="summary">
+          <div class="summary-bar">
+            <vaadin-icon icon="vaadin:package" theme="small"></vaadin-icon>
+            Container Details
+            <span class="count-badge">${this.containers.length}</span>
+          </div>
+        </vaadin-details-summary>
         <div class="details-content">
           <div class="toolbar">
             <vaadin-button
