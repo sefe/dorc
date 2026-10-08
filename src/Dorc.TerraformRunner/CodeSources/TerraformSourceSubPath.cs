@@ -83,7 +83,7 @@ namespace Dorc.TerraformRunner.CodeSources
             {
                 await DirectoryTreeCopy.CopyAsync(subPathDir, tempExtractDir, cancellationToken);
                 ResilientDirectoryDeletion.Delete(workingDir);
-                Directory.Move(tempExtractDir, workingDir);
+                await MoveIntoPlaceAsync(tempExtractDir, workingDir, cancellationToken);
             }
             catch
             {
@@ -92,6 +92,47 @@ namespace Dorc.TerraformRunner.CodeSources
                     ResilientDirectoryDeletion.Delete(tempExtractDir);
                 }
                 throw;
+            }
+        }
+
+        // Directory.Delete returning does not guarantee the name is free on
+        // Windows: anything holding a handle on the directory with
+        // FILE_SHARE_DELETE (antivirus, search indexer) leaves the deletion
+        // *pending*, and the name lingers until the handle closes. The swap
+        // runs straight after a fresh git clone - exactly what scanners chew
+        // on - so retry the move across the delete-pending window instead of
+        // failing the whole deployment on the first collision.
+        private static async Task MoveIntoPlaceAsync(
+            string sourceDir,
+            string destinationDir,
+            CancellationToken cancellationToken)
+        {
+            const int maxAttempts = 6;
+            const int baseDelayMs = 250;
+
+            for (var attempt = 1; ; attempt++)
+            {
+                try
+                {
+                    Directory.Move(sourceDir, destinationDir);
+                    return;
+                }
+                catch (IOException) when (attempt < maxAttempts)
+                {
+                    await Task.Delay(baseDelayMs * attempt, cancellationToken);
+                    if (Directory.Exists(destinationDir))
+                    {
+                        try
+                        {
+                            ResilientDirectoryDeletion.Delete(destinationDir);
+                        }
+                        catch (IOException)
+                        {
+                            // Still delete-pending or locked; the next move
+                            // attempt (after a longer delay) may succeed.
+                        }
+                    }
+                }
             }
         }
     }
