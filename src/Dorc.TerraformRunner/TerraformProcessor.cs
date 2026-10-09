@@ -692,6 +692,16 @@ namespace Dorc.TerraformRunner
         {
             if (string.IsNullOrWhiteSpace(appliedResourcesFilePath)) return;
 
+            // Defence-in-depth matching PersistLockFile: the path is
+            // Monitor-composed today, but the rejection of parent-directory
+            // segments and relative paths is documented contract.
+            if (appliedResourcesFilePath.Contains("..") || !Path.IsPathRooted(appliedResourcesFilePath))
+            {
+                logger.Warning("Applied-resources path must be absolute without parent-directory segments; registration skipped.");
+                return;
+            }
+            var canonicalAppliedResourcesPath = Path.GetFullPath(appliedResourcesFilePath);
+
             try
             {
                 var stateJson = await RunTerraformCommandAsync(
@@ -703,7 +713,7 @@ namespace Dorc.TerraformRunner
                 var resources = TerraformAppliedResources.ParseShowJson(stateJson);
 
                 File.WriteAllText(
-                    appliedResourcesFilePath,
+                    canonicalAppliedResourcesPath,
                     JsonSerializer.Serialize(resources));
 
                 logger.Information(
