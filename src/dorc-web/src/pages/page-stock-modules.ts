@@ -844,6 +844,16 @@ export class PageStockModules extends PageElement {
                   </td>
                 </tr>
               </table>
+              <p>
+                Aiven modules ignore Azure subscription targeting: Aiven
+                resources are addressed by Aiven project and service name.
+                SEFE's Aiven BYOC infrastructure lives in the historic
+                <code>SMT-NP</code> / <code>SMT-PR</code> subscriptions
+                (<code>rg-np-aiven-1-uks</code> /
+                <code>rg-pr-aiven-1-uks</code>), which predate the
+                <code>SMT-&lt;Vertical&gt;-&lt;Env&gt;</code> model and are
+                not being expanded.
+              </p>
             </div>
             <p>
               Values are injected onto the terraform process for that deployment

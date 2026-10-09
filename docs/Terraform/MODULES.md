@@ -128,6 +128,17 @@ terraform child process only and redacts the value from logged output. When
 absent, the provider falls back to any `AIVEN_TOKEN` present in the runner
 host's environment.
 
+> **Aiven modules ignore the Azure subscription targeting above.** Aiven
+> resources are addressed by Aiven project and service name, not by Azure
+> subscription. SEFE's Aiven BYOC infrastructure sits in the historic flat
+> subscriptions — non-production in **SMT-NP** (`rg-np-aiven-1-uks`) and
+> production in **SMT-PR** (`rg-pr-aiven-1-uks`) — which predate the
+> `SMT-<Vertical>-<Env>` subscription model and are not being expanded.
+> Attaching a `Subscription` cloud resource or `TerraformSubscriptionId`
+> property to an environment has no effect on the `clickhouse-database` and
+> `kafka-topic` modules; where they land is determined solely by the Aiven
+> project/service inputs and the `TerraformAivenApiToken` credential.
+
 The API equivalent is
 `POST /Terraform/templates/{name}/{version}/instantiate`, relative to the API
 base URL. With `EnvironmentName` present, the endpoint validates the mapped
