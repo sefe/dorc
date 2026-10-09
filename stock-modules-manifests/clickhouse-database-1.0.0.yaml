@@ -13,7 +13,7 @@ parameters:
   - name: service_name
     type: String
     required: true
-    description: Name of the existing Aiven ClickHouse service. Referenced, never managed.
+    description: Name of the existing Aiven ClickHouse service. Referenced, never managed. SEFE services run BYOC on Azure uksouth (non-prod in rg-np-aiven-1-uks, prod in rg-pr-aiven-1-uks).
     pattern: "^[a-z0-9-]+$"
   - name: database_name
     type: String

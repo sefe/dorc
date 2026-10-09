@@ -1,6 +1,7 @@
 variable "project" {
   description = "Aiven console project the Kafka service lives in."
   type        = string
+  default     = "trading-traveler"
 
   validation {
     condition     = can(regex("^[a-z0-9-]+$", var.project))
@@ -9,12 +10,13 @@ variable "project" {
 }
 
 variable "service_name" {
-  description = "Name of the existing Aiven Kafka service to create the topic on. The service is referenced, never managed, by this module."
+  description = "SEFE traveler Kafka instance (Aiven BYOC) to create the topic on. Leave empty to select automatically from environment_tier: pr -> traveler-production, ut/qa/pp -> traveler-non-prod, dv -> traveler-unstable-dev. The service is referenced, never managed, by this module."
   type        = string
+  default     = ""
 
   validation {
-    condition     = can(regex("^[a-z0-9-]+$", var.service_name))
-    error_message = "service_name must be lowercase letters, numbers and hyphens."
+    condition     = contains(["", "traveler-production", "traveler-non-prod", "traveler-unstable-dev"], var.service_name)
+    error_message = "service_name must be one of the SEFE traveler Kafka instances (traveler-production, traveler-non-prod, traveler-unstable-dev) or empty to derive it from environment_tier."
   }
 }
 

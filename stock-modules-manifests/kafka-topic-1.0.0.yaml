@@ -7,14 +7,19 @@ source:
 parameters:
   - name: project
     type: String
-    required: true
-    description: Aiven console project the Kafka service lives in.
+    required: false
+    description: Aiven console project the Kafka service lives in. Default trading-traveler.
+    default: trading-traveler
     pattern: "^[a-z0-9-]+$"
   - name: service_name
     type: String
-    required: true
-    description: Name of the existing Aiven Kafka service. Referenced, never managed.
-    pattern: "^[a-z0-9-]+$"
+    required: false
+    description: SEFE traveler Kafka instance (Aiven BYOC). Leave empty to select from environment_tier (pr -> traveler-production, ut/qa/pp -> traveler-non-prod, dv -> traveler-unstable-dev).
+    default: ""
+    allowed_values:
+      - traveler-production
+      - traveler-non-prod
+      - traveler-unstable-dev
   - name: business_vertical
     type: String
     required: true
@@ -130,7 +135,7 @@ outputs:
     type: String
   - name: partitions
     type: Number
-description: Kafka topic on an existing Aiven Kafka service, named per the SEFE Kafka messaging standard (business_vertical.environment_tier.scope.data_grouping.data_description.integrity_level[.origin][.publisher_identifier]). Termination protection on by default. Requires an Aiven API token (AIVEN_TOKEN / TerraformAivenApiToken environment property).
+description: Kafka topic on the SEFE traveler Kafka instances (Aiven BYOC), named per the SEFE Kafka messaging standard (business_vertical.environment_tier.scope.data_grouping.data_description.integrity_level[.origin][.publisher_identifier]). The instance is picked from environment_tier unless set explicitly. Termination protection on by default. Requires an Aiven API token (AIVEN_TOKEN / TerraformAivenApiToken environment property).
 tags:
   - messaging
   - aiven

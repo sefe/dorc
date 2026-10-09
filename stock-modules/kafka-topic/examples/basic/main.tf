@@ -1,8 +1,8 @@
 module "kafka_topic" {
   source = "../.."
 
-  project      = "trading-traveler"
-  service_name = "kafka-traveler-dev"
+  # project defaults to trading-traveler; service_name is derived from
+  # environment_tier (dv -> traveler-unstable-dev).
 
   # Composes topic name: tr.dv.gbl.traveler.trade-events.il2
   business_vertical = "tr"

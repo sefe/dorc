@@ -10,6 +10,17 @@
 
 Creates a ClickHouse database on an **existing** Aiven ClickHouse service. The service itself is referenced, never managed — service provisioning (plan, cloud, networking) stays with the platform team.
 
+## SEFE BYOC placement
+
+SEFE Aiven services run **BYOC** (bring-your-own-cloud) on Azure uksouth. Target a ClickHouse service on the matching custom cloud; its nodes live in SEFE's Azure estate:
+
+| Environment | Custom cloud | Azure resource group |
+|---|---|---|
+| Non-prod | `custom-sefe-nprod-workload-azure-uksouth` | `rg-np-aiven-1-uks` (SMT-NP) |
+| Prod | `custom-sefe-prod-workload-azure-uksouth` | `rg-pr-aiven-1-uks` (SMT-PR) |
+
+The resource groups are informational — Aiven manages the nodes; this module only takes `project`/`service_name`.
+
 ## Authentication
 
 The Aiven provider authenticates with an API token. Per the module contract the module declares no provider block; supply the token via the `AIVEN_TOKEN` environment variable on the runner, or per DOrc environment with the secure `TerraformAivenApiToken` environment property (injected as `AIVEN_TOKEN` on the terraform process only).

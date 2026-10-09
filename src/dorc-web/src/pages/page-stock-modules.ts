@@ -4,7 +4,7 @@ import '@vaadin/icon';
 import '@vaadin/text-field';
 import '@vaadin/tooltip';
 import { Notification } from '@vaadin/notification';
-import { css, html, nothing } from 'lit';
+import { css, html, nothing, svg } from 'lit';
 import { customElement, query, state } from 'lit/decorators.js';
 import { TerraformApi, TerraformTemplateManifest } from '../apis/dorc-api';
 import { PageElement } from '../helpers/page-element';
@@ -35,6 +35,62 @@ const categoryVisual = (category?: string | null) =>
     icon: 'vaadin:puzzle-piece',
     tone: 'contrast'
   };
+
+/**
+ * Brand icons (CC0 paths from the simple-icons project, 24x24 viewBox) so
+ * modules show the toolset they actually provision instead of a generic
+ * category glyph. Rendered inline with fill: currentColor so they follow the
+ * icon-tile tones.
+ */
+const BRAND_ICON_PATHS: Record<string, { path: string; tone: string }> = {
+  kafka: {
+    tone: 'contrast',
+    path: 'M9.71 2.136a1.43 1.43 0 0 0-2.047 0h-.007a1.48 1.48 0 0 0-.421 1.042c0 .41.161.777.422 1.039l.007.007c.257.264.616.426 1.019.426.404 0 .766-.162 1.027-.426l.003-.007c.261-.262.421-.629.421-1.039 0-.408-.159-.777-.421-1.042H9.71zM8.683 22.295c.404 0 .766-.167 1.027-.429l.003-.008c.261-.261.421-.631.421-1.036 0-.41-.159-.778-.421-1.044H9.71a1.42 1.42 0 0 0-1.027-.432 1.4 1.4 0 0 0-1.02.432h-.007c-.26.266-.422.634-.422 1.044 0 .406.161.775.422 1.036l.007.008c.258.262.617.429 1.02.429zm7.89-4.462c.359-.096.683-.33.882-.684l.027-.052a1.47 1.47 0 0 0 .114-1.067 1.454 1.454 0 0 0-.675-.896l-.021-.014a1.425 1.425 0 0 0-1.078-.132c-.36.091-.684.335-.881.686-.2.349-.241.75-.146 1.119.099.363.33.691.675.896h.002c.346.203.737.239 1.101.144zm-6.405-7.342a2.083 2.083 0 0 0-1.485-.627c-.58 0-1.103.242-1.482.627-.378.385-.612.916-.612 1.507s.233 1.124.612 1.514a2.08 2.08 0 0 0 2.967 0c.379-.39.612-.923.612-1.514s-.233-1.122-.612-1.507zm-.835-2.51c.843.141 1.6.552 2.178 1.144h.004c.092.093.182.196.265.299l1.446-.851a3.176 3.176 0 0 1-.047-1.808 3.149 3.149 0 0 1 1.456-1.926l.025-.016a3.062 3.062 0 0 1 2.345-.306c.77.21 1.465.721 1.898 1.482v.002c.431.757.518 1.626.313 2.408a3.145 3.145 0 0 1-1.456 1.928l-.198.118h-.02a3.095 3.095 0 0 1-2.154.201 3.127 3.127 0 0 1-1.514-.944l-1.444.848a4.162 4.162 0 0 1 0 2.879l1.444.846c.413-.47.939-.789 1.514-.944a3.041 3.041 0 0 1 2.371.319l.048.023v.002a3.17 3.17 0 0 1 1.408 1.906 3.215 3.215 0 0 1-.313 2.405l-.026.053-.003-.005a3.147 3.147 0 0 1-1.867 1.436 3.096 3.096 0 0 1-2.371-.318v-.006a3.156 3.156 0 0 1-1.456-1.927 3.175 3.175 0 0 1 .047-1.805l-1.446-.848a3.905 3.905 0 0 1-.265.294l-.004.005a3.938 3.938 0 0 1-2.178 1.138v1.699a3.09 3.09 0 0 1 1.56.862l.002.004c.565.572.914 1.368.914 2.243 0 .873-.35 1.664-.914 2.239l-.002.009a3.1 3.1 0 0 1-2.21.931 3.1 3.1 0 0 1-2.206-.93h-.002v-.009a3.186 3.186 0 0 1-.916-2.239c0-.875.35-1.672.916-2.243v-.004h.002a3.1 3.1 0 0 1 1.558-.862v-1.699a3.926 3.926 0 0 1-2.176-1.138l-.006-.005a4.098 4.098 0 0 1-1.173-2.874c0-1.122.452-2.136 1.173-2.872h.006a3.947 3.947 0 0 1 2.176-1.144V6.289a3.137 3.137 0 0 1-1.558-.864h-.002v-.004a3.192 3.192 0 0 1-.916-2.243c0-.871.35-1.669.916-2.243l.002-.002A3.084 3.084 0 0 1 8.683 0c.861 0 1.641.355 2.21.932v.002h.002c.565.574.914 1.372.914 2.243 0 .876-.35 1.667-.914 2.243l-.002.005a3.142 3.142 0 0 1-1.56.864v1.692zm8.121-1.129l-.012-.019a1.452 1.452 0 0 0-.87-.668 1.43 1.43 0 0 0-1.103.146h.002c-.347.2-.58.529-.677.896-.095.365-.054.768.146 1.119l.007.009c.2.347.519.579.874.673.357.103.755.059 1.098-.144l.019-.009a1.47 1.47 0 0 0 .657-.885 1.493 1.493 0 0 0-.141-1.118'
+  },
+  clickhouse: {
+    tone: 'warning',
+    path: 'M21.333 10H24v4h-2.667ZM16 1.335h2.667v21.33H16Zm-5.333 0h2.666v21.33h-2.666ZM0 22.665V1.335h2.667v21.33zm5.333-21.33H8v21.33H5.333Z'
+  },
+  azure: {
+    tone: 'primary',
+    path: 'M22.379 23.343a1.62 1.62 0 0 0 1.536-2.14v.002L17.35 1.76A1.62 1.62 0 0 0 15.816.657H8.184A1.62 1.62 0 0 0 6.65 1.76L.086 21.204a1.62 1.62 0 0 0 1.536 2.139h4.741a1.62 1.62 0 0 0 1.535-1.103l.977-2.892 4.947 3.675c.28.208.618.32.966.32m-3.084-12.531 3.624 10.739a.54.54 0 0 1-.51.713v-.001h-.03a.54.54 0 0 1-.322-.106l-9.287-6.9h4.853m6.313 7.006c.116-.326.13-.694.007-1.058L9.79 1.76a1.722 1.722 0 0 0-.007-.02h6.034a.54.54 0 0 1 .512.366l6.562 19.445a.54.54 0 0 1-.338.684'
+  },
+  terraform: {
+    tone: 'contrast',
+    path: 'M1.44 0v7.575l6.561 3.79V3.787zm21.12 4.227l-6.561 3.791v7.574l6.56-3.787zM8.72 4.23v7.575l6.561 3.787V8.018zm0 8.405v7.575L15.28 24v-7.578z'
+  }
+};
+
+const brandIconSvg = (key: string) => svg`<svg
+  class="brand-icon"
+  viewBox="0 0 24 24"
+  aria-hidden="true"
+><path d=${BRAND_ICON_PATHS[key].path}></path></svg>`;
+
+/**
+ * Picks the toolset's actual brand mark from the module's tags and required
+ * providers, falling back to the category glyph when no brand matches.
+ */
+const moduleVisual = (t: TerraformTemplateManifest) => {
+  const tags = (t.Tags ?? []).map(tag => tag.toLowerCase());
+  const providers = Object.keys(t.RequiredProviders ?? {}).map(p =>
+    p.toLowerCase()
+  );
+  let brand: string | undefined;
+  if (tags.includes('kafka')) brand = 'kafka';
+  else if (tags.includes('clickhouse')) brand = 'clickhouse';
+  else if (tags.includes('azure') || providers.includes('azurerm'))
+    brand = 'azure';
+  else if (providers.length) brand = 'terraform';
+  if (brand) {
+    return { tone: BRAND_ICON_PATHS[brand].tone, body: brandIconSvg(brand) };
+  }
+  const fallback = categoryVisual(t.Category);
+  return {
+    tone: fallback.tone,
+    body: html`<vaadin-icon icon=${fallback.icon}></vaadin-icon>`
+  };
+};
 
 /** Builds the two "use in code" snippets without inheriting the source file's indentation. */
 export const catalogReference = (t: TerraformTemplateManifest) =>
@@ -224,6 +280,15 @@ export class PageStockModules extends PageElement {
         width: 18px;
         height: 18px;
       }
+      .icon-tile .brand-icon {
+        width: 26px;
+        height: 26px;
+        fill: currentColor;
+      }
+      .icon-tile.small .brand-icon {
+        width: 18px;
+        height: 18px;
+      }
       .tone-primary {
         background: var(--lumo-primary-color-10pct);
         color: var(--lumo-primary-text-color);
@@ -311,6 +376,70 @@ export class PageStockModules extends PageElement {
       .description {
         margin: 0;
         line-height: 1.5;
+        /* Manifest descriptions can contain long dot-separated tokens
+           (e.g. topic naming patterns) with no break opportunities. */
+        overflow-wrap: anywhere;
+      }
+      .setup {
+        margin: var(--lumo-space-l) 0 0;
+        border: 1px solid var(--dorc-border-color);
+        border-left: 4px solid var(--dorc-icon-interactive);
+        border-radius: var(--lumo-border-radius-l);
+        background: var(--dorc-bg-primary);
+      }
+      .setup summary {
+        display: flex;
+        align-items: center;
+        gap: var(--lumo-space-s);
+        padding: var(--lumo-space-m) var(--lumo-space-l);
+        cursor: pointer;
+        font-weight: 600;
+        list-style: none;
+      }
+      .setup summary::-webkit-details-marker {
+        display: none;
+      }
+      .setup summary vaadin-icon {
+        width: 18px;
+        height: 18px;
+        color: var(--dorc-icon-interactive);
+        flex: none;
+      }
+      .setup summary .hint {
+        margin-left: auto;
+        font-weight: 400;
+        font-size: var(--lumo-font-size-s);
+        color: var(--dorc-text-secondary-strong);
+      }
+      .setup-body {
+        padding: 0 var(--lumo-space-l) var(--lumo-space-l);
+        display: grid;
+        gap: var(--lumo-space-m);
+        line-height: 1.5;
+      }
+      .setup-body h3 {
+        margin: 0 0 var(--lumo-space-xs);
+        font-size: var(--lumo-font-size-m);
+      }
+      .setup-body p {
+        margin: 0;
+        color: var(--dorc-text-secondary-strong);
+      }
+      .setup-body table {
+        border-collapse: collapse;
+        font-size: var(--lumo-font-size-s);
+      }
+      .setup-body td {
+        padding: 4px 16px 4px 0;
+        vertical-align: top;
+      }
+      .setup-body code {
+        background: var(--dorc-bg-secondary);
+        border: 1px solid var(--dorc-border-color);
+        border-radius: var(--lumo-border-radius-s);
+        padding: 1px 5px;
+        font-size: 0.85em;
+        white-space: nowrap;
       }
       .tags {
         display: flex;
@@ -662,6 +791,63 @@ export class PageStockModules extends PageElement {
       </header>
 
       <div class="body">
+        <details class="setup">
+          <summary>
+            <vaadin-icon icon="vaadin:key"></vaadin-icon>
+            Before you deploy: set the target environment's cloud credentials
+            <span class="hint">Environment page &rsaquo; Properties</span>
+          </summary>
+          <div class="setup-body">
+            <p>
+              Each DOrc environment authenticates Terraform with its own
+              credentials, configured as properties on the target environment.
+              Secrets must be created as <strong>secure</strong> properties.
+            </p>
+            <div>
+              <h3>Azure modules (azurerm)</h3>
+              <p>
+                Set all three service-principal properties, or none to fall back
+                to the runner host's ambient identity. The service principal
+                needs RBAC on the target subscription only.
+              </p>
+              <table>
+                <tr>
+                  <td><code>TerraformSubscriptionId</code></td>
+                  <td>Subscription GUID the environment deploys into</td>
+                </tr>
+                <tr>
+                  <td><code>TerraformClientId</code></td>
+                  <td>Service principal application (client) ID GUID</td>
+                </tr>
+                <tr>
+                  <td><code>TerraformClientSecret</code></td>
+                  <td>Client secret — <strong>secure property</strong></td>
+                </tr>
+                <tr>
+                  <td><code>TerraformTenantId</code></td>
+                  <td>Entra tenant ID GUID</td>
+                </tr>
+              </table>
+            </div>
+            <div>
+              <h3>Aiven modules (ClickHouse, Kafka topics)</h3>
+              <table>
+                <tr>
+                  <td><code>TerraformAivenApiToken</code></td>
+                  <td>
+                    Aiven API token — <strong>secure property</strong>, passed
+                    to terraform as <code>AIVEN_TOKEN</code>
+                  </td>
+                </tr>
+              </table>
+            </div>
+            <p>
+              Values are injected onto the terraform process for that deployment
+              only and secrets are redacted from logs. See
+              <code>docs/Terraform/MODULES.md</code> for details.
+            </p>
+          </div>
+        </details>
         <div class="toolbar">
           <vaadin-text-field
             placeholder="Search by name, tag or description"
@@ -756,7 +942,7 @@ export class PageStockModules extends PageElement {
   }
 
   private renderCard(t: TerraformTemplateManifest) {
-    const visual = categoryVisual(t.Category);
+    const visual = moduleVisual(t);
     const params = t.Parameters ?? [];
     const required = params.filter(p => p.Required).length;
     const secrets = params.filter(p => p.Sensitive).length;
@@ -764,9 +950,7 @@ export class PageStockModules extends PageElement {
     return html`
       <article class="card" data-selected=${selected ? 'true' : 'false'}>
         <div class="card-head">
-          <div class="icon-tile tone-${visual.tone}">
-            <vaadin-icon icon=${visual.icon}></vaadin-icon>
-          </div>
+          <div class="icon-tile tone-${visual.tone}">${visual.body}</div>
           <div class="card-title">
             <div class="title-row">
               <h2>${t.Name}</h2>
@@ -847,7 +1031,7 @@ export class PageStockModules extends PageElement {
   }
 
   private renderDetail(t: TerraformTemplateManifest) {
-    const visual = categoryVisual(t.Category);
+    const visual = moduleVisual(t);
     const tab = (id: DetailTab, label: string) => html`
       <vaadin-button
         theme="small"
@@ -859,9 +1043,7 @@ export class PageStockModules extends PageElement {
     return html`
       <section class="detail" aria-label="${t.Name} ${t.Version} details">
         <div class="detail-head">
-          <div class="icon-tile small tone-${visual.tone}">
-            <vaadin-icon icon=${visual.icon}></vaadin-icon>
-          </div>
+          <div class="icon-tile small tone-${visual.tone}">${visual.body}</div>
           <div class="detail-name">${t.Name}<span>v${t.Version}</span></div>
           <div class="segmented" role="group" aria-label="Module details">
             ${tab('inputs', `Inputs (${t.Parameters?.length ?? 0})`)}

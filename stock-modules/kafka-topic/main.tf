@@ -11,11 +11,22 @@ locals {
     var.origin,
     var.publisher_identifier,
   ]))
+
+  # SEFE traveler Kafka instances (Aiven BYOC on Azure uksouth). When no
+  # instance is named explicitly, the environment tier picks it.
+  service_by_tier = {
+    dv = "traveler-unstable-dev"
+    ut = "traveler-non-prod"
+    qa = "traveler-non-prod"
+    pp = "traveler-non-prod"
+    pr = "traveler-production"
+  }
+  service_name = var.service_name != "" ? var.service_name : local.service_by_tier[var.environment_tier]
 }
 
 resource "aiven_kafka_topic" "this" {
   project                = var.project
-  service_name           = var.service_name
+  service_name           = local.service_name
   topic_name             = local.topic_name
   partitions             = var.partitions
   replication            = var.replication

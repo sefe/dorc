@@ -14,7 +14,19 @@ Creates a single Kafka topic on an **existing** Aiven Kafka service, composing t
 <business_vertical>.<environment_tier>.<scope>.<data_grouping>.<data_description>.<integrity_level>[.<origin>][.<publisher_identifier>]
 ```
 
-e.g. `tr.dv.gbl.traveler.trade-events.il2`. Optional segments (`origin`, `publisher_identifier`) are omitted when left empty. The Kafka service itself is referenced, never managed. Conventions follow the Trading Core `Traveler.Topics.Terraform` repository.
+e.g. `tr.dv.gbl.traveler.trade-events.il2`. Optional segments (`origin`, `publisher_identifier`) are omitted when left empty. Conventions follow the Trading Core `Traveler.Topics.Terraform` repository.
+
+## Target Kafka instances (SEFE BYOC)
+
+Topics are created on the SEFE **traveler** Kafka instances, which run as Aiven BYOC services on Azure uksouth (custom clouds `custom-sefe-nprod-workload-azure-uksouth` / `custom-sefe-prod-workload-azure-uksouth`). `service_name` is restricted to them; leave it empty and the module selects from `environment_tier`:
+
+| `environment_tier` | Instance |
+|---|---|
+| `dv` | `traveler-unstable-dev` |
+| `ut`, `qa`, `pp` | `traveler-non-prod` |
+| `pr` | `traveler-production` |
+
+The Kafka service itself is referenced, never managed.
 
 ## Authentication
 
@@ -24,8 +36,8 @@ The Aiven provider authenticates with an API token. Per the module contract the 
 
 | Name | Type | Required | Description |
 |---|---|:-:|---|
-| `project` | string | yes | Aiven console project. |
-| `service_name` | string | yes | Existing Kafka service name. |
+| `project` | string | no (`trading-traveler`) | Aiven console project. |
+| `service_name` | string | no (``) | One of the traveler instances; empty = derived from `environment_tier`. |
 | `business_vertical` | string | yes | Two-character vertical code (e.g. `tr`). |
 | `environment_tier` | string | yes | One of `dv`, `ut`, `qa`, `pp`, `pr`. |
 | `scope` | string | yes | One of `gbl`, `lcl`, `usr`, `tst`. |
