@@ -11,7 +11,8 @@ import '../attach-server';
 import '../attached-servers';
 import { Notification } from '@vaadin/notification';
 import { PageEnvBase } from './page-env-base';
-import { ServerApiModel } from '../../apis/dorc-api';
+import { RefDataServersApi, ServerApiModel } from '../../apis/dorc-api';
+import { dorcApiConfiguration } from '../../services/dorc-api-configuration';
 import { dialogFooterRenderer, dialogRenderer } from '@vaadin/dialog/lit';
 
 @customElement('env-servers')
@@ -161,7 +162,7 @@ export class EnvServers extends PageEnvBase {
       );
       return;
     }
-    this.refreshEnvDetails(this.environment);
+    this.loadServers();
   }
 
   _serverAttached(e: CustomEvent) {
@@ -178,12 +179,24 @@ export class EnvServers extends PageEnvBase {
     });
   }
 
-  override notifyEnvironmentContentReady() {
-    this.servers =
-      this.envContent?.AppServers !== null
-        ? this.envContent?.AppServers
-        : undefined;
+  override notifyEnvironmentReady() {
     this.envReadOnly = !this.environment?.UserEditable;
+    this.loadServers();
+  }
+
+  private loadServers() {
+    // The base class assigns `environment` (which fires this hook) before it assigns
+    // `environmentId` on the cold-cache path, so derive the id from the environment.
+    const envId = this.environment?.EnvironmentId ?? this.environmentId;
+    if (!envId || envId <= 0) return;
+    new RefDataServersApi(dorcApiConfiguration)
+      .refDataServersByEnvIdEnvIdGet({ envId })
+      .subscribe({
+        next: (data: ServerApiModel[]) => {
+          this.servers = data;
+        },
+        error: (err: any) => console.error(err)
+      });
   }
 
   private openAttachServerDialog() {

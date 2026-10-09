@@ -23,9 +23,9 @@ namespace Dorc.Monitor.Registry
             collection.AddTransient<IContainersPersistentSource, ContainersPersistentSource>();
             collection.AddTransient<ICloudResourcesPersistentSource, CloudResourcesPersistentSource>();
             collection.AddTransient<IApiRegistrationsPersistentSource, ApiRegistrationsPersistentSource>();
-            collection.AddTransient<IContainerAuditPersistentSource, ContainerAuditPersistentSource>();
+            // Cloud resource audit is written by the Terraform registrar when deployments
+            // register/attach resources; container and API registration audits are API-only.
             collection.AddTransient<ICloudResourceAuditPersistentSource, CloudResourceAuditPersistentSource>();
-            collection.AddTransient<IApiRegistrationAuditPersistentSource, ApiRegistrationAuditPersistentSource>();
             collection.AddTransient<IDaemonObservationPersistentSource, DaemonObservationPersistentSource>();
             collection.AddTransient<IDatabasesPersistentSource, DatabasesPersistentSource>();
             collection.AddTransient<IUserPermsPersistentSource, UserPermsPersistentSource>();

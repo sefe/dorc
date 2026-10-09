@@ -74,6 +74,19 @@ namespace Dorc.Api.Controllers
         }
 
         /// <summary>
+        ///     Returns databases attached to an environment
+        /// </summary>
+        /// <param name="envId">Environment id</param>
+        /// <returns>List of DatabaseApiModel</returns>
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(List<DatabaseApiModel>))]
+        [HttpGet]
+        [Route("ByEnvId/{envId}")]
+        public IActionResult GetByEnvId(int envId)
+        {
+            return Ok(_databasesPersistentSource.GetDatabasesForEnvId(envId).ToList());
+        }
+
+        /// <summary>
         ///     Return database details by environment name and database type
         /// </summary>
         /// <param name="envName">Environment name</param>
