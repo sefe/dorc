@@ -66,20 +66,32 @@ deployment. See [the state model](./STATE-MODEL.md) for backend configuration.
 
 ### Subscription targeting
 
-Each DOrc environment targets its own Azure subscription via the well-known
-`TerraformSubscriptionId` environment property (a subscription GUID), rendered
-as `subscription_id` in the azurerm provider configuration. Set it per the
+Each DOrc environment targets its own Azure subscription, resolved in
+precedence order:
+
+1. **A `Subscription` cloud resource attached to the environment**
+   (environment details → **Cloud** tab): create a cloud resource with
+   resource type `Subscription` and the subscription GUID as its resource
+   identifier (or in its subscription field). The environment model itself
+   then names where its deployments land. Attach exactly one — conflicting
+   subscription cloud resources make targeting ambiguous and fail resolution
+   with a logged warning.
+2. The legacy `TerraformSubscriptionId` environment property (a subscription
+   GUID), for environments not yet carrying cloud resources.
+
+The resolved GUID is rendered as `subscription_id` in the azurerm provider
+configuration. Choose the subscription per the
 [SEFE subscription standard](https://wiki/spaces/gar/pages/641725927): dev
 environments → the domain's `SMT-<DOMAIN>-DV` subscription, QA/UAT/INT →
 `SMT-<DOMAIN>-NP`, production → `SMT-<DOMAIN>-PR`. The Terraform state backend
 is configured separately and is not
 affected.
 
-When the property is absent, the runner falls back to its configured
+When neither is set, the runner falls back to its configured
 `Terraform:DefaultSubscriptionId` (SMT-SH-DV for DOrc instances) and logs a
 warning. The fallback exists only to bootstrap fresh projects/environments
-that are not yet fully configured — established environments must set
-`TerraformSubscriptionId`. The runner's credential (service principal or
+that are not yet fully configured — established environments must designate
+their subscription. The runner's credential (service principal or
 managed identity) needs RBAC on every targeted subscription.
 
 ### Per-environment credentials
@@ -100,8 +112,9 @@ error naming the missing properties, rather than silently deploying as the
 shared host identity. The values are injected as `ARM_*` variables on the
 terraform child process only — never the host environment — so concurrent
 deployments for other environments cannot observe them, and the secret value
-is redacted from any logged terraform output. `TerraformSubscriptionId` (or
-the bootstrap fallback) is passed as `ARM_SUBSCRIPTION_ID` alongside.
+is redacted from any logged terraform output. The resolved target
+subscription (cloud resource, property, or the bootstrap fallback) is passed
+as `ARM_SUBSCRIPTION_ID` alongside.
 
 Grant each environment's service principal RBAC only on that environment's
 subscription; the shared host identity then needs no subscription-level

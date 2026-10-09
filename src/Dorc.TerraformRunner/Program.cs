@@ -116,10 +116,12 @@ namespace Dorc.TerraformRunner
                     new Dorc.TerraformRunner.Logging.TypedLoggerAdapter<Dorc.Terraform.Catalog.GitTemplateCatalog>(fileLogger));
 
                 // Bootstrap-only default subscription for catalog deployments
-                // whose environment sets no TerraformSubscriptionId property
-                // (fresh projects/environments not yet fully configured). For
-                // DOrc instances this should be the SMT-SH-DV (Trading Shared
-                // dev) subscription ID per the SEFE subscription standard.
+                // whose environment designates no subscription (no
+                // 'Subscription' cloud resource and no TerraformSubscriptionId
+                // property - fresh projects/environments not yet fully
+                // configured). For DOrc instances this should be the SMT-SH-DV
+                // (Trading Shared dev) subscription ID per the SEFE
+                // subscription standard.
                 var defaultSubscriptionId = config.GetSection("Terraform")["DefaultSubscriptionId"];
 
                 var terraformProcesor = new TerraformProcessor(runnerLogger, scriptGroupReader, templateCatalog, defaultSubscriptionId);

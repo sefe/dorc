@@ -19,7 +19,8 @@ namespace Dorc.TerraformRunner
         private readonly TerraformCodeSourceProviderFactory _codeSourceFactory;
 
         // Azure subscription catalog deployments fall back to when the
-        // environment defines no TerraformSubscriptionId property. Comes from
+        // environment designates no subscription (neither a 'Subscription'
+        // cloud resource nor a TerraformSubscriptionId property). Comes from
         // Terraform:DefaultSubscriptionId in the runner's configuration; null
         // leaves subscription resolution to the runner identity's default.
         private readonly string? _defaultSubscriptionId;
@@ -215,21 +216,40 @@ namespace Dorc.TerraformRunner
 
             logger.Information($"Using Terraform source type: {scriptGroup.TerraformSourceType}");
 
-            // Per-environment subscription targeting: the well-known
-            // TerraformSubscriptionId environment property names the
-            // subscription this environment's deployments run against (dev
-            // envs -> SMT-<DOMAIN>-DV, QA/UAT -> SMT-<DOMAIN>-NP, prod ->
-            // SMT-<DOMAIN>-PR). The runner's Terraform:DefaultSubscriptionId
-            // is a bootstrap fallback ONLY for fresh projects/environments
-            // not yet fully configured; established environments must set the
-            // property. With neither set, the identity's default subscription
-            // applies.
+            // Per-environment subscription targeting, in precedence order:
+            //  1. A 'Subscription' cloud resource attached to the environment
+            //     (environment details > Cloud tab). The environment model
+            //     itself names the subscription its deployments run against.
+            //  2. The TerraformSubscriptionId environment property, kept for
+            //     environments not yet carrying cloud resources.
+            //  3. The runner's Terraform:DefaultSubscriptionId - a bootstrap
+            //     fallback ONLY for fresh projects/environments not yet fully
+            //     configured. With nothing set, the identity's default
+            //     subscription applies.
             string? subscriptionId = null;
-            if (scriptGroup.CommonProperties is not null
+            string? subscriptionSource = null;
+            var cloudTarget = TerraformCloudTargeting.ResolveSubscription(
+                scriptGroup.CommonProperties, out var cloudTargetingWarning);
+            if (cloudTargetingWarning is not null)
+            {
+                logger.Warning(cloudTargetingWarning);
+            }
+            if (cloudTarget is not null)
+            {
+                subscriptionId = cloudTarget.SubscriptionId;
+                subscriptionSource =
+                    $"the environment's '{cloudTarget.ResourceName}' subscription cloud resource";
+            }
+            if (subscriptionId is null
+                && scriptGroup.CommonProperties is not null
                 && scriptGroup.CommonProperties.TryGetValue(
                     TerraformProviderRenderer.SubscriptionIdPropertyName, out var subscriptionProperty))
             {
                 subscriptionId = subscriptionProperty?.Value?.ToString();
+                if (!string.IsNullOrWhiteSpace(subscriptionId))
+                {
+                    subscriptionSource = $"the '{TerraformProviderRenderer.SubscriptionIdPropertyName}' environment property";
+                }
             }
             var subscriptionFromEnvironment = !string.IsNullOrWhiteSpace(subscriptionId);
             if (!subscriptionFromEnvironment)
@@ -294,11 +314,11 @@ namespace Dorc.TerraformRunner
 
                 if (subscriptionFromEnvironment)
                 {
-                    logger.Information($"azurerm provider pinned to subscription '{subscriptionId!.Trim()}' from the '{TerraformProviderRenderer.SubscriptionIdPropertyName}' environment property.");
+                    logger.Information($"azurerm provider pinned to subscription '{subscriptionId!.Trim()}' from {subscriptionSource}.");
                 }
                 else if (!string.IsNullOrWhiteSpace(subscriptionId))
                 {
-                    logger.Warning($"Environment defines no '{TerraformProviderRenderer.SubscriptionIdPropertyName}' property; falling back to the runner's default subscription '{subscriptionId.Trim()}' (Terraform:DefaultSubscriptionId). Set the environment property to target this environment's own subscription.");
+                    logger.Warning($"Environment carries no '{TerraformCloudTargeting.SubscriptionResourceType}' cloud resource and no '{TerraformProviderRenderer.SubscriptionIdPropertyName}' property; falling back to the runner's default subscription '{subscriptionId.Trim()}' (Terraform:DefaultSubscriptionId). Attach a subscription cloud resource to target this environment's own subscription.");
                 }
             }
 

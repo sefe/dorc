@@ -795,7 +795,7 @@ export class PageStockModules extends PageElement {
           <summary>
             <vaadin-icon icon="vaadin:key"></vaadin-icon>
             Before you deploy: set the target environment's cloud credentials
-            <span class="hint">Environment page &rsaquo; Properties</span>
+            <span class="hint">Environment page &rsaquo; Cloud tab &amp; Properties</span>
           </summary>
           <div class="setup-body">
             <p>
@@ -806,15 +806,19 @@ export class PageStockModules extends PageElement {
             <div>
               <h3>Azure modules (azurerm)</h3>
               <p>
-                Set all three service-principal properties, or none to fall back
-                to the runner host's ambient identity. The service principal
-                needs RBAC on the target subscription only.
+                Name the target subscription by attaching a cloud resource to
+                the environment (Environment page &rsaquo; Cloud tab): resource
+                type <code>Subscription</code> with the subscription GUID as
+                the resource identifier. The legacy
+                <code>TerraformSubscriptionId</code> property is used only when
+                no subscription cloud resource is attached.
+              </p>
+              <p>
+                Then set all three service-principal properties, or none to
+                fall back to the runner host's ambient identity. The service
+                principal needs RBAC on the target subscription only.
               </p>
               <table>
-                <tr>
-                  <td><code>TerraformSubscriptionId</code></td>
-                  <td>Subscription GUID the environment deploys into</td>
-                </tr>
                 <tr>
                   <td><code>TerraformClientId</code></td>
                   <td>Service principal application (client) ID GUID</td>
