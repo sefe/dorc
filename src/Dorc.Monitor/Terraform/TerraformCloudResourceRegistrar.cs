@@ -172,7 +172,7 @@ namespace Dorc.Monitor.Terraform
         /// environment's Databases tab, where operators expect to find them.
         /// The terraform identifier formats are stable provider contracts:
         /// cosmos ids are ARM paths through 'databaseAccounts/{account}',
-        /// Aiven ClickHouse ids are 'project/service/database'.
+        /// Aiven ClickHouse and PostgreSQL ids are 'project/service/database'.
         /// </summary>
         private void RegisterDatabase(CloudResourceApiModel resource, EnvironmentApiModel environment)
         {
@@ -223,13 +223,14 @@ namespace Dorc.Monitor.Terraform
                     };
 
                 case "aiven_clickhouse_database":
+                case "aiven_pg_database":
                     // project/service/database
                     var parts = (resource.ResourceIdentifier ?? string.Empty).Split('/');
                     if (parts.Length < 3) return null;
                     return new DatabaseApiModel
                     {
                         Name = resource.Name,
-                        Type = "ClickHouse",
+                        Type = resource.ResourceType == "aiven_pg_database" ? "PostgreSQL" : "ClickHouse",
                         ServerName = parts[1],
                         AdGroup = string.Empty,
                         ArrayName = string.Empty

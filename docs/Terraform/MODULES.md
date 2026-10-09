@@ -14,6 +14,7 @@ components; **deprecated** when superseded.
 | [`service-bus`](https://github.com/sefe/dorc-terraform-modules/tree/main/stock-modules/service-bus) | 1.0.0 | Messaging | Active | DOrc platform team | Azure Service Bus namespace + single queue, TLS 1.2 minimum, no SAS keys output. |
 | [`clickhouse-database`](https://github.com/sefe/dorc-terraform-modules/tree/main/stock-modules/clickhouse-database) | 1.0.0 | Data | Active | DOrc platform team | ClickHouse database on an existing Aiven ClickHouse service; termination protection on by default. |
 | [`kafka-topic`](https://github.com/sefe/dorc-terraform-modules/tree/main/stock-modules/kafka-topic) | 1.0.0 | Messaging | Active | DOrc platform team | Kafka topic on an existing Aiven Kafka service, named per the SEFE Kafka messaging standard. |
+| [`postgresql-database`](https://github.com/sefe/dorc-terraform-modules/tree/main/stock-modules/postgresql-database) | 1.0.0 | Data | Active | DOrc platform team | PostgreSQL database on an existing Aiven PostgreSQL service; termination protection on by default. |
 
 For the contract every module must satisfy, see [`MODULE-CONTRACT.md`](./MODULE-CONTRACT.md). For state ownership, see [`STATE-MODEL.md`](./STATE-MODEL.md).
 
@@ -111,8 +112,8 @@ a deployment whose apply succeeded.
 
 Database-flavoured resources additionally appear on the environment's
 **Databases** tab: Cosmos DB databases register with type `CosmosDB` and the
-Cosmos account as server, Aiven ClickHouse databases with type `ClickHouse`
-and the Aiven service as server. Existing database entries with the same
+Cosmos account as server, Aiven ClickHouse and PostgreSQL databases with type
+`ClickHouse`/`PostgreSQL` and the Aiven service as server. Existing database entries with the same
 name and server are reused, and re-deployments leave attachments unchanged.
 
 The deployment wizard closes the loop: when the selected environment carries
@@ -149,7 +150,7 @@ subscription; the shared host identity then needs no subscription-level
 rights at all.
 
 Modules using the [Aiven provider](https://registry.terraform.io/providers/aiven/aiven/)
-(`clickhouse-database`, `kafka-topic`) authenticate with an Aiven API token
+(`clickhouse-database`, `kafka-topic`, `postgresql-database`) authenticate with an Aiven API token
 instead. Set the optional `TerraformAivenApiToken` environment property
 (**as a secure property**); the runner injects it as `AIVEN_TOKEN` on the
 terraform child process only and redacts the value from logged output. When
@@ -163,8 +164,8 @@ host's environment.
 > production in **SMT-PR** (`rg-pr-aiven-1-uks`) — which predate the
 > `SMT-<Vertical>-<Env>` subscription model and are not being expanded.
 > Attaching a `Subscription` cloud resource or `TerraformSubscriptionId`
-> property to an environment has no effect on the `clickhouse-database` and
-> `kafka-topic` modules; where they land is determined solely by the Aiven
+> property to an environment has no effect on the `clickhouse-database`,
+> `kafka-topic` and `postgresql-database` modules; where they land is determined solely by the Aiven
 > project/service inputs and the `TerraformAivenApiToken` credential.
 
 The API equivalent is

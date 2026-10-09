@@ -183,26 +183,32 @@ export class EnvCloud extends PageEnvBase {
             theme="compact row-stripes no-row-borders"
           >
             <vaadin-grid-sort-column
+              resizable
               path="Name"
               header="Name"
             ></vaadin-grid-sort-column>
             <vaadin-grid-sort-column
+              resizable
               path="Provider"
               header="Provider"
             ></vaadin-grid-sort-column>
             <vaadin-grid-sort-column
+              resizable
               path="ResourceType"
               header="Resource Type"
             ></vaadin-grid-sort-column>
             <vaadin-grid-sort-column
+              resizable
               path="ResourceIdentifier"
               header="Resource Identifier"
             ></vaadin-grid-sort-column>
             <vaadin-grid-sort-column
+              resizable
               path="Subscription"
               header="Subscription"
             ></vaadin-grid-sort-column>
             <vaadin-grid-sort-column
+              resizable
               path="Tags"
               header="Tags"
             ></vaadin-grid-sort-column>

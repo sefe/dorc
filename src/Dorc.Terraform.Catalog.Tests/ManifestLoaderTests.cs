@@ -96,8 +96,8 @@ deprecated: false
             var catalog = new GitTemplateCatalog(manifestsDir, recordingLogger);
             var manifests = await catalog.ListAsync();
 
-            Assert.AreEqual(4, manifests.Count,
-                $"Expected exactly four shipped manifests in {manifestsDir}; got {manifests.Count}.");
+            Assert.AreEqual(5, manifests.Count,
+                $"Expected exactly five shipped manifests in {manifestsDir}; got {manifests.Count}.");
 
             var names = manifests.Select(m => m.Name).ToList();
             CollectionAssert.Contains(names, "cosmosdb",
@@ -108,6 +108,8 @@ deprecated: false
                 "clickhouse-database manifest should load.");
             CollectionAssert.Contains(names, "kafka-topic",
                 "kafka-topic manifest should load.");
+            CollectionAssert.Contains(names, "postgresql-database",
+                "postgresql-database manifest should load.");
             CollectionAssert.DoesNotContain(names, "vnet",
                 "vnet was removed in alongside the load-time rules; reinstated in v2 with complex-type runner support.");
 

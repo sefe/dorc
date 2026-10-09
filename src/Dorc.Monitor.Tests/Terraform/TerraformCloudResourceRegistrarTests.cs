@@ -257,6 +257,34 @@ namespace Dorc.Monitor.Tests.Terraform
         }
 
         [TestMethod]
+        public void PostgresDatabase_IsRegisteredWithServiceAsServer()
+        {
+            WriteResources(new CloudResourceApiModel
+            {
+                Name = "appdb",
+                Provider = "Aiven",
+                ResourceType = "aiven_pg_database",
+                ResourceIdentifier = "trading-analytics/pg-analytics-dev/appdb",
+                Tags = string.Empty
+            });
+            _cloudResources.GetByName(Arg.Any<string>()).Returns((CloudResourceApiModel?)null);
+            _databases.GetDatabases("appdb", "pg-analytics-dev").Returns(Enumerable.Empty<DatabaseApiModel>());
+            _databases.AddDatabase(Arg.Any<DatabaseApiModel>())
+                .Returns(call =>
+                {
+                    var db = call.Arg<DatabaseApiModel>();
+                    db.Id = 13;
+                    return db;
+                });
+
+            _registrar.RegisterAppliedResources(_file, "Terraform Dev", "user");
+
+            _databases.Received(1).AddDatabase(Arg.Is<DatabaseApiModel>(d =>
+                d.Name == "appdb" && d.Type == "PostgreSQL" && d.ServerName == "pg-analytics-dev"));
+            _environments.Received(1).AttachDatabaseToEnv(2598, 13, Arg.Any<System.Security.Claims.ClaimsPrincipal>());
+        }
+
+        [TestMethod]
         public void ExistingDatabase_IsReusedAndAlreadyAttachedIsBenign()
         {
             WriteResources(new CloudResourceApiModel

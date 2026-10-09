@@ -159,8 +159,39 @@ namespace Dorc.TerraformRunner.Tests.State
 
             Assert.AreEqual(1, resources.Count);
             Assert.AreEqual("random", resources[0].Provider);
-            // No cloud-side name attribute: the config block name is used.
-            Assert.AreEqual("pet", resources[0].Name);
+            // No cloud-side name attribute: the id is more meaningful than the config block name.
+            Assert.AreEqual("agile-koala", resources[0].Name);
+        }
+
+        [TestMethod]
+        public void ParseShowJson_KafkaTopic_UsesTopicNameNotBlockLabel()
+        {
+            var json = """
+            {
+              "values": {
+                "root_module": {
+                  "resources": [
+                    {
+                      "mode": "managed",
+                      "type": "aiven_kafka_topic",
+                      "name": "this",
+                      "provider_name": "registry.terraform.io/aiven/aiven",
+                      "values": {
+                        "topic_name": "tr.dv.tst.dorc.stockmodule-test.il0",
+                        "id": "trading-traveler/traveler-unstable-dev/tr.dv.tst.dorc.stockmodule-test.il0"
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+            """;
+
+            var resources = TerraformAppliedResources.ParseShowJson(json);
+
+            Assert.AreEqual(1, resources.Count);
+            Assert.AreEqual("tr.dv.tst.dorc.stockmodule-test.il0", resources[0].Name);
+            Assert.AreEqual("Aiven", resources[0].Provider);
         }
 
         [TestMethod]

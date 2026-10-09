@@ -89,16 +89,20 @@ namespace Dorc.TerraformRunner.State
             if (resource.TryGetProperty("values", out var values)
                 && values.ValueKind == JsonValueKind.Object)
             {
-                cloudName = GetString(values, "name");
+                // Not every provider calls it "name": Aiven kafka topics use
+                // topic_name, and some resources only carry a database_name.
+                cloudName = GetString(values, "name")
+                    ?? GetString(values, "topic_name")
+                    ?? GetString(values, "database_name");
                 identifier = GetString(values, "id");
             }
 
-            // The address (e.g. module.main.azurerm_resource_group.this) only
-            // identifies the configuration block; without a cloud-side name or
-            // id there is nothing meaningful to register.
+            // Prefer the last segment of the cloud-side id (the resource's
+            // actual name for ARM paths and Aiven project/service/name ids)
+            // over the config block label (usually a meaningless "this"/"main").
             if (string.IsNullOrWhiteSpace(cloudName))
             {
-                cloudName = GetString(resource, "name");
+                cloudName = LastIdentifierSegment(identifier) ?? GetString(resource, "name");
             }
             if (string.IsNullOrWhiteSpace(cloudName) && string.IsNullOrWhiteSpace(identifier)) return null;
 
@@ -139,6 +143,13 @@ namespace Dorc.TerraformRunner.State
 
             var lastSegment = name.Split('/').LastOrDefault();
             return string.IsNullOrWhiteSpace(lastSegment) ? "Terraform" : lastSegment!;
+        }
+
+        private static string? LastIdentifierSegment(string? identifier)
+        {
+            if (string.IsNullOrWhiteSpace(identifier)) return null;
+            var segment = identifier.TrimEnd('/').Split('/').LastOrDefault();
+            return string.IsNullOrWhiteSpace(segment) ? null : segment;
         }
 
         private static string? ExtractSubscription(string? identifier)
