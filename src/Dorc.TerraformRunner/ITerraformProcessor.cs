@@ -15,6 +15,7 @@ namespace Dorc.TerraformRunner
             int requestId,
             string planFile,
             string? lockFilePath,
+            string? appliedResourcesFilePath,
             CancellationToken cancellationToken);
     }
 }

@@ -36,6 +36,7 @@ namespace Dorc.Monitor
         private readonly IAzureStorageAccountWorker _azureStorageAccountWorker;
         private readonly IProjectsPersistentSource _projectsPersistentSource;
         private readonly TerraformSourceConfigurator _sourceConfigurator;
+        private readonly TerraformCloudResourceRegistrar _cloudResourceRegistrar;
 
         private bool isScriptExecutionSuccessful; // This field is needed to be instance-wide since Runner process errors are processed as instance-wide events.
 
@@ -48,7 +49,10 @@ namespace Dorc.Monitor
             IScriptGroupPipeServer scriptGroupPipeServer,
             IAzureStorageAccountWorker azureStorageAccountWorker,
             IProjectsPersistentSource projectsPersistentSource,
-            IGitHubHostValidator gitHubHostValidator)
+            IGitHubHostValidator gitHubHostValidator,
+            ICloudResourcesPersistentSource cloudResourcesPersistentSource,
+            ICloudResourceAuditPersistentSource cloudResourceAuditPersistentSource,
+            IEnvironmentsPersistentSource environmentsPersistentSource)
         {
             this.logger = logger;
             this._requestsPersistentSource = requestsPersistentSource;
@@ -59,6 +63,11 @@ namespace Dorc.Monitor
             this._azureStorageAccountWorker = azureStorageAccountWorker;
             this._projectsPersistentSource = projectsPersistentSource;
             this._sourceConfigurator = new TerraformSourceConfigurator(logger, _configurationSettingsEngine, gitHubHostValidator);
+            this._cloudResourceRegistrar = new TerraformCloudResourceRegistrar(
+                logger,
+                cloudResourcesPersistentSource,
+                cloudResourceAuditPersistentSource,
+                environmentsPersistentSource);
         }
 
         public bool Dispatch(
@@ -220,6 +229,11 @@ namespace Dorc.Monitor
                     // staged in the same restricted directory as the plan.
                     var terraformLockFileName = $"{deploymentResult.Id}.terraform.lock.hcl";
                     var terraformLockFilePath = Path.Join(planStorageDir, terraformLockFileName);
+                    // Written by the runner after a successful apply; read back
+                    // below to register the applied resources on the environment.
+                    var appliedResourcesFilePath = terreformOperation == TerraformRunnerOperations.ApplyPlan
+                        ? Path.Join(planStorageDir, $"{deploymentResult.Id}.applied-resources.json")
+                        : string.Empty;
 
                     if (terreformOperation == TerraformRunnerOperations.ApplyPlan)
                     {
@@ -254,6 +268,7 @@ namespace Dorc.Monitor
                         PlanFilePath = terraformPlanFilePath,
                         PlanContentFilePath = terraformPlanContentFilePath,
                         LockFilePath = terraformLockFilePath,
+                        AppliedResourcesFilePath = appliedResourcesFilePath,
                         TerraformRunnerOperation = terreformOperation
                     };
                     try
@@ -357,6 +372,16 @@ namespace Dorc.Monitor
                             break;
 
                         case TerraformRunnerOperations.ApplyPlan:
+                            // Surface what the apply created on the environment's
+                            // Cloud tab. Best-effort: the infrastructure change
+                            // has already happened, so registration problems are
+                            // logged, never failed.
+                            _cloudResourceRegistrar.RegisterAppliedResources(
+                                appliedResourcesFilePath,
+                                environmentName,
+                                request?.UserName ?? string.Empty);
+                            TryDeleteFile(appliedResourcesFilePath);
+
                             // Update status to WaitingConfirmation
                             _requestsPersistentSource.UpdateResultStatus(
                                 deploymentResult,
@@ -378,6 +403,19 @@ namespace Dorc.Monitor
             }
 
             return isScriptExecutionSuccessful;
+        }
+
+        private void TryDeleteFile(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path)) return;
+            try
+            {
+                if (File.Exists(path)) File.Delete(path);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, $"Could not delete staged terraform file '{path}'.");
+            }
         }
 
         private (string, string) GetProcessCredentials(bool isProduction, string environmentName)

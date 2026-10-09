@@ -17,10 +17,12 @@ import { ifDefined } from 'lit/directives/if-defined.js';
 import { forkJoin } from 'rxjs';
 import { navigate } from '../router/router';
 import {
+  CloudResourceApiModel,
   ComponentApiModel,
   ComponentType,
   EnvironmentApiModel,
   ProjectApiModel,
+  RefDataCloudResourcesApi,
   RefDataComponentsApi,
   RefDataProjectsApi,
   RefDataProjectEnvironmentMappingsApi,
@@ -525,6 +527,9 @@ export class DeployFromTemplateDialog extends LitElement {
     dorcApiConfiguration
   );
   private terraformApi = new TerraformApi(dorcApiConfiguration);
+  private cloudResourcesApi = new RefDataCloudResourcesApi(
+    dorcApiConfiguration
+  );
   private requestToken = 0;
   private context: TemplateDeploymentContext = {};
 
@@ -609,6 +614,7 @@ export class DeployFromTemplateDialog extends LitElement {
           e => e.EnvironmentName === this.context.environmentName
         );
         this.selectedEnvironmentName = environment?.EnvironmentName ?? '';
+        this.prefillFromEnvironmentCloudResources();
       },
       error: err => {
         if (token !== this.requestToken || !this.opened) return;
@@ -654,6 +660,62 @@ export class DeployFromTemplateDialog extends LitElement {
     this.resolution = null;
     this.resolutionLoading = false;
     this.resolutionError = null;
+  }
+
+  /**
+   * Prefills resource_group_name from the environment's Cloud tab when the
+   * template declares that input and the environment carries exactly one
+   * resource-group cloud resource — an unambiguous designation, like the
+   * subscription targeting the server applies. The value lands as a normal
+   * override the user can still edit or clear; any failure or ambiguity
+   * silently leaves the input empty.
+   */
+  private prefillFromEnvironmentCloudResources() {
+    const paramName = 'resource_group_name';
+    const environmentName = this.selectedEnvironmentName;
+    const envId = this.environments.find(
+      e => e.EnvironmentName === environmentName
+    )?.EnvironmentId;
+    if (
+      !envId ||
+      !this.parameters.some(p => p.Name === paramName) ||
+      this.paramValues[paramName] !== undefined
+    ) {
+      return;
+    }
+    const token = this.requestToken;
+    this.cloudResourcesApi
+      .refDataCloudResourcesByEnvIdEnvIdGet({ envId })
+      .subscribe({
+        next: (resources: CloudResourceApiModel[]) => {
+          if (
+            token !== this.requestToken ||
+            !this.opened ||
+            environmentName !== this.selectedEnvironmentName ||
+            this.paramValues[paramName] !== undefined
+          ) {
+            return;
+          }
+          const isResourceGroup = (r: CloudResourceApiModel) => {
+            const type = (r.ResourceType ?? '')
+              .toLowerCase()
+              .replace(/[^a-z0-9]/g, '');
+            return type === 'resourcegroup' || type === 'azurermresourcegroup';
+          };
+          const groups = (resources ?? []).filter(
+            r => isResourceGroup(r) && r.Name
+          );
+          if (groups.length === 1) {
+            this.paramValues = {
+              ...this.paramValues,
+              [paramName]: groups[0].Name!
+            };
+          }
+        },
+        error: () => {
+          // Prefill is a convenience; the user can always type the name.
+        }
+      });
   }
 
   /**
@@ -961,6 +1023,7 @@ export class DeployFromTemplateDialog extends LitElement {
             this.selectedEnvironmentName = name;
             this.paramValues = {};
             this.clearResolution();
+            this.prefillFromEnvironmentCloudResources();
           }
         }}
         helper-text="Only mapped environments you can deploy to are listed. Inputs and state belong to this target."

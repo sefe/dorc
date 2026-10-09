@@ -94,6 +94,28 @@ that are not yet fully configured — established environments must designate
 their subscription. The runner's credential (service principal or
 managed identity) needs RBAC on every targeted subscription.
 
+### Applied resources on the environment's Cloud tab
+
+After a confirmed apply succeeds, DOrc registers each managed resource the
+terraform state reports (resource groups, Cosmos accounts, Service Bus queues,
+Kafka topics, …) as a cloud resource and attaches it to the target
+environment, with the same audit trail as a manual edit on the **Cloud** tab.
+The entry's resource type is the terraform type (e.g.
+`azurerm_resource_group`) — never `Subscription`, so auto-registered entries
+cannot interfere with the subscription targeting above. Existing entries are
+matched by resource identifier and reused; a name collision with a different
+resource is registered under `<name> (<terraform type>)` or skipped with a
+logged warning. Tags on existing entries are operator-owned and preserved.
+Registration is best-effort: a registration problem is logged but never fails
+a deployment whose apply succeeded.
+
+The deployment wizard closes the loop: when the selected environment carries
+exactly one resource-group cloud resource (resource type `ResourceGroup` or
+`azurerm_resource_group`) and the module declares a `resource_group_name`
+input, the wizard prefills that input from the environment — editable like
+any other override, and left empty when the environment has zero or several
+resource groups.
+
 ### Per-environment credentials
 
 By default terraform authenticates with the runner host's ambient Azure

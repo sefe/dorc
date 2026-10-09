@@ -17,6 +17,7 @@ namespace Dorc.Monitor.RunnerProcess
         public string PlanFilePath { get; set; } = string.Empty;
         public string PlanContentFilePath { get; set; } = string.Empty;
         public string LockFilePath { get; set; } = string.Empty;
+        public string AppliedResourcesFilePath { get; set; } = string.Empty;
         public TerraformRunnerOperations TerraformRunnerOperation { get; set; } = TerraformRunnerOperations.None;
 
         private TerraformRunnerProcessStarter() { }
@@ -72,6 +73,10 @@ namespace Dorc.Monitor.RunnerProcess
             if (!string.IsNullOrEmpty(this.LockFilePath))
             {
                 commandLine += " -k \"" + this.LockFilePath + "\"";
+            }
+            if (!string.IsNullOrEmpty(this.AppliedResourcesFilePath))
+            {
+                commandLine += " -r \"" + this.AppliedResourcesFilePath + "\"";
             }
 #if DEBUG
             commandLine += " --useFile=true";

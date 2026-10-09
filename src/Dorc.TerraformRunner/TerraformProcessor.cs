@@ -8,6 +8,7 @@ using Dorc.TerraformRunner.State;
 using Microsoft.Extensions.Logging;
 using System.ComponentModel;
 using System.Text;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 
 namespace Dorc.TerraformRunner
@@ -609,6 +610,7 @@ namespace Dorc.TerraformRunner
             int requestId,
             string planFile,
             string? lockFilePath,
+            string? appliedResourcesFilePath,
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -623,13 +625,14 @@ namespace Dorc.TerraformRunner
             logger.Information($"TerraformProcessor.ExecuteConfirmedPlan called for request' with id '{requestId}', deployment result id '{deployResultId}'.");
 
             // Execute the actual Terraform plan
-            return await ExecuteTerraformPlanAsync(requestId, planFile, lockFilePath, scriptGroupProperties, cancellationToken);
+            return await ExecuteTerraformPlanAsync(requestId, planFile, lockFilePath, appliedResourcesFilePath, scriptGroupProperties, cancellationToken);
         }
 
         private async Task<bool> ExecuteTerraformPlanAsync(
             int requestId,
             string planFile,
             string? lockFilePath,
+            string? appliedResourcesFilePath,
             ScriptGroup scriptGroup,
             CancellationToken cancellationToken)
         {
@@ -663,6 +666,8 @@ namespace Dorc.TerraformRunner
 
                 logger.Information($"Terraform apply completed successfully for request ID: {requestId}");
 
+                await WriteAppliedResourcesAsync(terraformWorkingDir, appliedResourcesFilePath, cancellationToken);
+
                 return true;
             }
             catch (Exception ex)
@@ -673,6 +678,41 @@ namespace Dorc.TerraformRunner
             finally
             {
                 DeleteTempTerraformFolder(terraformWorkingDir);
+            }
+        }
+
+        // Captures what the apply left in state so the Monitor can register the
+        // resources on the environment's Cloud tab. Best-effort by design: the
+        // infrastructure change has already happened, so a failure here is
+        // logged and swallowed rather than failing a completed deployment.
+        private async Task WriteAppliedResourcesAsync(
+            string terraformWorkingDir,
+            string? appliedResourcesFilePath,
+            CancellationToken cancellationToken)
+        {
+            if (string.IsNullOrWhiteSpace(appliedResourcesFilePath)) return;
+
+            try
+            {
+                var stateJson = await RunTerraformCommandAsync(
+                    terraformWorkingDir,
+                    TerraformCommand.Show,
+                    new[] { "show", "-json", "-no-color" },
+                    cancellationToken);
+
+                var resources = TerraformAppliedResources.ParseShowJson(stateJson);
+
+                File.WriteAllText(
+                    appliedResourcesFilePath,
+                    JsonSerializer.Serialize(resources));
+
+                logger.Information(
+                    $"Recorded {resources.Count} applied cloud resource{(resources.Count == 1 ? "" : "s")} for environment registration.");
+            }
+            catch (Exception ex)
+            {
+                logger.Warning(
+                    $"Could not record the applied cloud resources: {RedactSensitiveValues(ex.Message)}. The deployment itself succeeded; the environment's Cloud tab will not be updated for this run.");
             }
         }
 

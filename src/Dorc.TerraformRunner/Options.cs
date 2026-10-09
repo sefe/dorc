@@ -23,6 +23,9 @@ namespace Dorc.TerraformRunner
         [Option('k', "lockFilePath", Required = false, HelpText = "Path of the persisted .terraform.lock.hcl. Written-to after plan; read from before apply.")]
         public string LockFilePath { get; set; }
 
+        [Option('r', "appliedResourcesFilePath", Required = false, HelpText = "Path the runner writes the applied cloud resources JSON to after a successful apply.")]
+        public string AppliedResourcesFilePath { get; set; }
+
         [Option('o', "operation", Required = false, HelpText = "Selected operation")]
         public int Operation { get; set; }
 
