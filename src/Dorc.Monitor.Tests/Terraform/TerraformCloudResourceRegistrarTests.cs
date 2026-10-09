@@ -15,6 +15,7 @@ namespace Dorc.Monitor.Tests.Terraform
         private ICloudResourcesPersistentSource _cloudResources = null!;
         private ICloudResourceAuditPersistentSource _audit = null!;
         private IEnvironmentsPersistentSource _environments = null!;
+        private IDatabasesPersistentSource _databases = null!;
         private TerraformCloudResourceRegistrar _registrar = null!;
         private string _file = null!;
 
@@ -30,8 +31,9 @@ namespace Dorc.Monitor.Tests.Terraform
             _cloudResources = Substitute.For<ICloudResourcesPersistentSource>();
             _audit = Substitute.For<ICloudResourceAuditPersistentSource>();
             _environments = Substitute.For<IEnvironmentsPersistentSource>();
+            _databases = Substitute.For<IDatabasesPersistentSource>();
             _registrar = new TerraformCloudResourceRegistrar(
-                Substitute.For<ILogger>(), _cloudResources, _audit, _environments);
+                Substitute.For<ILogger>(), _cloudResources, _audit, _environments, _databases);
             _file = Path.Combine(Path.GetTempPath(), $"applied-{Guid.NewGuid():N}.json");
 
             _environments.GetEnvironment("Terraform Dev").Returns(Environment);
@@ -195,6 +197,99 @@ namespace Dorc.Monitor.Tests.Terraform
             _registrar.RegisterAppliedResources(_file, "Missing Env", "user");
 
             _cloudResources.DidNotReceiveWithAnyArgs().Add(default!);
+        }
+
+        [TestMethod]
+        public void CosmosDatabase_IsAlsoRegisteredAsEnvironmentDatabase()
+        {
+            WriteResources(new CloudResourceApiModel
+            {
+                Name = "orders-db",
+                Provider = "Azure",
+                ResourceType = "azurerm_cosmosdb_sql_database",
+                ResourceIdentifier = "/subscriptions/7c7c1f8f-f295-456c-81e4-5d508579d93e/resourceGroups/rg/providers/Microsoft.DocumentDB/databaseAccounts/cosmos-sh-dv/sqlDatabases/orders-db",
+                Subscription = "7c7c1f8f-f295-456c-81e4-5d508579d93e",
+                Tags = string.Empty
+            });
+            _cloudResources.GetByName(Arg.Any<string>()).Returns((CloudResourceApiModel?)null);
+            _databases.GetDatabases("orders-db", "cosmos-sh-dv").Returns(Enumerable.Empty<DatabaseApiModel>());
+            _databases.AddDatabase(Arg.Any<DatabaseApiModel>())
+                .Returns(call =>
+                {
+                    var db = call.Arg<DatabaseApiModel>();
+                    db.Id = 11;
+                    return db;
+                });
+
+            _registrar.RegisterAppliedResources(_file, "Terraform Dev", "user");
+
+            _databases.Received(1).AddDatabase(Arg.Is<DatabaseApiModel>(d =>
+                d.Name == "orders-db" && d.Type == "CosmosDB" && d.ServerName == "cosmos-sh-dv"));
+            _environments.Received(1).AttachDatabaseToEnv(2598, 11, Arg.Any<System.Security.Claims.ClaimsPrincipal>());
+        }
+
+        [TestMethod]
+        public void ClickHouseDatabase_IsRegisteredWithServiceAsServer()
+        {
+            WriteResources(new CloudResourceApiModel
+            {
+                Name = "analytics",
+                Provider = "Aiven",
+                ResourceType = "aiven_clickhouse_database",
+                ResourceIdentifier = "trading-traveler/clickhouse-dev/analytics",
+                Tags = string.Empty
+            });
+            _cloudResources.GetByName(Arg.Any<string>()).Returns((CloudResourceApiModel?)null);
+            _databases.GetDatabases("analytics", "clickhouse-dev").Returns(Enumerable.Empty<DatabaseApiModel>());
+            _databases.AddDatabase(Arg.Any<DatabaseApiModel>())
+                .Returns(call =>
+                {
+                    var db = call.Arg<DatabaseApiModel>();
+                    db.Id = 12;
+                    return db;
+                });
+
+            _registrar.RegisterAppliedResources(_file, "Terraform Dev", "user");
+
+            _databases.Received(1).AddDatabase(Arg.Is<DatabaseApiModel>(d =>
+                d.Name == "analytics" && d.Type == "ClickHouse" && d.ServerName == "clickhouse-dev"));
+            _environments.Received(1).AttachDatabaseToEnv(2598, 12, Arg.Any<System.Security.Claims.ClaimsPrincipal>());
+        }
+
+        [TestMethod]
+        public void ExistingDatabase_IsReusedAndAlreadyAttachedIsBenign()
+        {
+            WriteResources(new CloudResourceApiModel
+            {
+                Name = "orders-db",
+                Provider = "Azure",
+                ResourceType = "azurerm_cosmosdb_sql_database",
+                ResourceIdentifier = "/subscriptions/7c7c1f8f-f295-456c-81e4-5d508579d93e/resourceGroups/rg/providers/Microsoft.DocumentDB/databaseAccounts/cosmos-sh-dv/sqlDatabases/orders-db",
+                Tags = string.Empty
+            });
+            _cloudResources.GetByName(Arg.Any<string>()).Returns((CloudResourceApiModel?)null);
+            _databases.GetDatabases("orders-db", "cosmos-sh-dv")
+                .Returns(new[] { new DatabaseApiModel { Id = 11, Name = "orders-db", ServerName = "cosmos-sh-dv" } });
+            _environments.AttachDatabaseToEnv(2598, 11, Arg.Any<System.Security.Claims.ClaimsPrincipal>())
+                .Returns(_ => throw new ArgumentException("The specified database is already attached to the specified environment."));
+
+            _registrar.RegisterAppliedResources(_file, "Terraform Dev", "user");
+
+            _databases.DidNotReceiveWithAnyArgs().AddDatabase(default!);
+            // The cloud-resource half still registered despite the attach throw.
+            _cloudResources.Received(1).Add(Arg.Any<CloudResourceApiModel>());
+        }
+
+        [TestMethod]
+        public void NonDatabaseResource_DoesNotTouchDatabases()
+        {
+            WriteResources(AppliedResourceGroup());
+            _cloudResources.GetByName(Arg.Any<string>()).Returns((CloudResourceApiModel?)null);
+
+            _registrar.RegisterAppliedResources(_file, "Terraform Dev", "user");
+
+            _databases.DidNotReceiveWithAnyArgs().AddDatabase(default!);
+            _environments.DidNotReceiveWithAnyArgs().AttachDatabaseToEnv(default, default, default!);
         }
 
         [TestMethod]

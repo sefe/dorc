@@ -109,6 +109,12 @@ logged warning. Tags on existing entries are operator-owned and preserved.
 Registration is best-effort: a registration problem is logged but never fails
 a deployment whose apply succeeded.
 
+Database-flavoured resources additionally appear on the environment's
+**Databases** tab: Cosmos DB databases register with type `CosmosDB` and the
+Cosmos account as server, Aiven ClickHouse databases with type `ClickHouse`
+and the Aiven service as server. Existing database entries with the same
+name and server are reused, and re-deployments leave attachments unchanged.
+
 The deployment wizard closes the loop: when the selected environment carries
 exactly one resource-group cloud resource (resource type `ResourceGroup` or
 `azurerm_resource_group`) and the module declares a `resource_group_name`

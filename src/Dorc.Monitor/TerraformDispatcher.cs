@@ -52,7 +52,8 @@ namespace Dorc.Monitor
             IGitHubHostValidator gitHubHostValidator,
             ICloudResourcesPersistentSource cloudResourcesPersistentSource,
             ICloudResourceAuditPersistentSource cloudResourceAuditPersistentSource,
-            IEnvironmentsPersistentSource environmentsPersistentSource)
+            IEnvironmentsPersistentSource environmentsPersistentSource,
+            IDatabasesPersistentSource databasesPersistentSource)
         {
             this.logger = logger;
             this._requestsPersistentSource = requestsPersistentSource;
@@ -67,7 +68,8 @@ namespace Dorc.Monitor
                 logger,
                 cloudResourcesPersistentSource,
                 cloudResourceAuditPersistentSource,
-                environmentsPersistentSource);
+                environmentsPersistentSource,
+                databasesPersistentSource);
         }
 
         public bool Dispatch(

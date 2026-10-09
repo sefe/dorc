@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using System.Text.Json;
 using Dorc.ApiModel;
 using Dorc.PersistentData.Model;
@@ -21,17 +22,20 @@ namespace Dorc.Monitor.Terraform
         private readonly ICloudResourcesPersistentSource _cloudResourcesPersistentSource;
         private readonly ICloudResourceAuditPersistentSource _cloudResourceAuditPersistentSource;
         private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
+        private readonly IDatabasesPersistentSource _databasesPersistentSource;
 
         public TerraformCloudResourceRegistrar(
             ILogger logger,
             ICloudResourcesPersistentSource cloudResourcesPersistentSource,
             ICloudResourceAuditPersistentSource cloudResourceAuditPersistentSource,
-            IEnvironmentsPersistentSource environmentsPersistentSource)
+            IEnvironmentsPersistentSource environmentsPersistentSource,
+            IDatabasesPersistentSource databasesPersistentSource)
         {
             this.logger = logger;
             _cloudResourcesPersistentSource = cloudResourcesPersistentSource;
             _cloudResourceAuditPersistentSource = cloudResourceAuditPersistentSource;
             _environmentsPersistentSource = environmentsPersistentSource;
+            _databasesPersistentSource = databasesPersistentSource;
         }
 
         public void RegisterAppliedResources(string appliedResourcesFilePath, string environmentName, string username)
@@ -58,6 +62,15 @@ namespace Dorc.Monitor.Terraform
                     catch (Exception ex)
                     {
                         logger.LogWarning(ex, $"Could not register terraform-applied cloud resource '{resource.Name}' ({resource.ResourceType}) on environment '{environmentName}'.");
+                    }
+
+                    try
+                    {
+                        RegisterDatabase(resource, environment);
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogWarning(ex, $"Could not register terraform-applied database '{resource.Name}' ({resource.ResourceType}) on environment '{environmentName}'.");
                     }
                 }
             }
@@ -152,6 +165,94 @@ namespace Dorc.Monitor.Terraform
             {
                 yield return $"{resource.Name} ({resource.ResourceType})";
             }
+        }
+
+        /// <summary>
+        /// Database-flavoured terraform resources additionally surface on the
+        /// environment's Databases tab, where operators expect to find them.
+        /// The terraform identifier formats are stable provider contracts:
+        /// cosmos ids are ARM paths through 'databaseAccounts/{account}',
+        /// Aiven ClickHouse ids are 'project/service/database'.
+        /// </summary>
+        private void RegisterDatabase(CloudResourceApiModel resource, EnvironmentApiModel environment)
+        {
+            var database = MapDatabase(resource);
+            if (database is null) return;
+
+            var existing = _databasesPersistentSource
+                .GetDatabases(database.Name, database.ServerName)
+                .FirstOrDefault();
+            var persisted = existing ?? _databasesPersistentSource.AddDatabase(database);
+            if (persisted is null)
+            {
+                logger.LogWarning($"Could not add database '{database.Name}' on '{database.ServerName}' for environment '{environment.EnvironmentName}'.");
+                return;
+            }
+
+            try
+            {
+                // The Monitor's IClaimsPrincipalReader is the static direct-tool
+                // reader, so an empty principal is the supported way to say
+                // "this process" for the environment history entry.
+                _environmentsPersistentSource.AttachDatabaseToEnv(
+                    environment.EnvironmentId, persisted.Id, new ClaimsPrincipal());
+            }
+            catch (ArgumentException)
+            {
+                // Already attached - the expected outcome on redeployments.
+            }
+        }
+
+        private static DatabaseApiModel? MapDatabase(CloudResourceApiModel resource)
+        {
+            if (string.IsNullOrWhiteSpace(resource.Name)) return null;
+
+            switch (resource.ResourceType)
+            {
+                case "azurerm_cosmosdb_sql_database":
+                case "azurerm_cosmosdb_mongo_database":
+                    var account = SegmentAfter(resource.ResourceIdentifier, "databaseAccounts");
+                    if (account is null) return null;
+                    return new DatabaseApiModel
+                    {
+                        Name = resource.Name,
+                        Type = "CosmosDB",
+                        ServerName = account,
+                        AdGroup = string.Empty,
+                        ArrayName = string.Empty
+                    };
+
+                case "aiven_clickhouse_database":
+                    // project/service/database
+                    var parts = (resource.ResourceIdentifier ?? string.Empty).Split('/');
+                    if (parts.Length < 3) return null;
+                    return new DatabaseApiModel
+                    {
+                        Name = resource.Name,
+                        Type = "ClickHouse",
+                        ServerName = parts[1],
+                        AdGroup = string.Empty,
+                        ArrayName = string.Empty
+                    };
+
+                default:
+                    return null;
+            }
+        }
+
+        private static string? SegmentAfter(string? identifier, string segment)
+        {
+            if (string.IsNullOrWhiteSpace(identifier)) return null;
+            var parts = identifier.Split('/');
+            for (var i = 0; i < parts.Length - 1; i++)
+            {
+                if (string.Equals(parts[i], segment, StringComparison.OrdinalIgnoreCase)
+                    && !string.IsNullOrWhiteSpace(parts[i + 1]))
+                {
+                    return parts[i + 1];
+                }
+            }
+            return null;
         }
 
         private static bool SameIdentity(CloudResourceApiModel existing, CloudResourceApiModel incoming) =>
