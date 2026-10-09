@@ -1,6 +1,6 @@
 # Module contract
 
-Every module published under `stock-modules/` must satisfy this contract. This is the public agreement between module authors and DOrc engineers consuming the library.
+Every module published under `stock-modules/` in [`sefe/dorc-terraform-modules`](https://github.com/sefe/dorc-terraform-modules) must satisfy this contract. This is the public agreement between module authors and DOrc engineers consuming the library.
 
 ## Required files
 

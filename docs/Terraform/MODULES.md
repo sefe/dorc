@@ -1,24 +1,29 @@
 # Stock modules index
 
-Canonical index of every module under `stock-modules/`. A module is **active** when DOrc engineers should pick it as a starting point for new components; **deprecated** when superseded.
+Canonical index of every stock module. Module source lives in the dedicated
+[`sefe/dorc-terraform-modules`](https://github.com/sefe/dorc-terraform-modules)
+repository (under `stock-modules/<name>/`) and is pulled at deploy time; only
+the catalog manifests (`stock-modules-manifests/`) live in this repo. A module
+is **active** when DOrc engineers should pick it as a starting point for new
+components; **deprecated** when superseded.
 
 | Module | Latest | Category | Status | Owner | Description |
 |---|---|---|---|---|---|
-| [`vnet`](../../stock-modules/vnet/) | 1.0.0 | Networking | Active | DOrc platform team | Azure virtual network with a configurable list of subnets. |
-| [`cosmosdb`](../../stock-modules/cosmosdb/) | 1.0.0 | Data | Active | DOrc platform team | Azure Cosmos DB account (SQL API) + single SQL database, public-network-disabled by default. |
-| [`service-bus`](../../stock-modules/service-bus/) | 1.0.0 | Messaging | Active | DOrc platform team | Azure Service Bus namespace + single queue, TLS 1.2 minimum, no SAS keys output. |
-| [`clickhouse-database`](../../stock-modules/clickhouse-database/) | 1.0.0 | Data | Active | DOrc platform team | ClickHouse database on an existing Aiven ClickHouse service; termination protection on by default. |
-| [`kafka-topic`](../../stock-modules/kafka-topic/) | 1.0.0 | Messaging | Active | DOrc platform team | Kafka topic on an existing Aiven Kafka service, named per the SEFE Kafka messaging standard. |
+| [`vnet`](https://github.com/sefe/dorc-terraform-modules/tree/main/stock-modules/vnet) | 1.0.0 | Networking | Active | DOrc platform team | Azure virtual network with a configurable list of subnets. |
+| [`cosmosdb`](https://github.com/sefe/dorc-terraform-modules/tree/main/stock-modules/cosmosdb) | 1.0.0 | Data | Active | DOrc platform team | Azure Cosmos DB account (SQL API) + single SQL database, public-network-disabled by default. |
+| [`service-bus`](https://github.com/sefe/dorc-terraform-modules/tree/main/stock-modules/service-bus) | 1.0.0 | Messaging | Active | DOrc platform team | Azure Service Bus namespace + single queue, TLS 1.2 minimum, no SAS keys output. |
+| [`clickhouse-database`](https://github.com/sefe/dorc-terraform-modules/tree/main/stock-modules/clickhouse-database) | 1.0.0 | Data | Active | DOrc platform team | ClickHouse database on an existing Aiven ClickHouse service; termination protection on by default. |
+| [`kafka-topic`](https://github.com/sefe/dorc-terraform-modules/tree/main/stock-modules/kafka-topic) | 1.0.0 | Messaging | Active | DOrc platform team | Kafka topic on an existing Aiven Kafka service, named per the SEFE Kafka messaging standard. |
 
 For the contract every module must satisfy, see [`MODULE-CONTRACT.md`](./MODULE-CONTRACT.md). For state ownership, see [`STATE-MODEL.md`](./STATE-MODEL.md).
 
 ## Tag convention
 
-Modules are versioned via Git tags `stock-modules/<name>/v<X.Y.Z>`. To pin a module from a Terraform consumer:
+Modules are versioned via Git tags `stock-modules/<name>/v<X.Y.Z>` in [`sefe/dorc-terraform-modules`](https://github.com/sefe/dorc-terraform-modules). To pin a module from a Terraform consumer:
 
 ```hcl
 module "vnet" {
-  source = "git::https://<repo>//stock-modules/vnet?ref=stock-modules/vnet/v1.0.0"
+  source = "git::https://github.com/sefe/dorc-terraform-modules.git//stock-modules/vnet?ref=stock-modules/vnet/v1.0.0"
   # ...
 }
 ```
@@ -121,9 +126,10 @@ with the same name and template reuses it.
 
 ## Adding a new module
 
-1. Open a PR creating `stock-modules/<name>/` per the contract.
-2. The CI workflow validates structure, formatting, provider lock, and the secret-output rule.
-3. After merge, tag the commit `stock-modules/<name>/v1.0.0` and add the row above.
+1. Open a PR creating `stock-modules/<name>/` per the contract in [`sefe/dorc-terraform-modules`](https://github.com/sefe/dorc-terraform-modules).
+2. That repo's CI validates structure, formatting, provider lock, and the secret-output rule.
+3. After merge, tag the commit `stock-modules/<name>/v1.0.0` in that repo.
+4. In this repo, add a manifest `stock-modules-manifests/<name>-1.0.0.yaml` pointing at the tag, and add the row above.
 
 ## Deprecation
 

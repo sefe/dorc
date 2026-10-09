@@ -2,7 +2,7 @@ name: kafka-topic
 version: 1.0.0
 source:
   kind: git
-  locator: https://github.com/sefe/dorc.git
+  locator: https://github.com/sefe/dorc-terraform-modules.git
   ref: stock-modules/kafka-topic/v1.0.0
 parameters:
   - name: project

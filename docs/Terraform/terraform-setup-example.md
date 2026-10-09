@@ -4,7 +4,7 @@
 > - [`MODULE-CONTRACT.md`](./MODULE-CONTRACT.md) - the contract every stock module must satisfy.
 > - [`MODULES.md`](./MODULES.md) - the index of stock modules engineers can start from.
 > - [`STATE-MODEL.md`](./STATE-MODEL.md) - how DOrc owns Terraform state at deploy time.
-> - [`../../stock-modules/`](../../stock-modules/) - the stock module library.
+> - [`sefe/dorc-terraform-modules`](https://github.com/sefe/dorc-terraform-modules) - the stock module library.
 
 This guide shows you how to set up a project to deploy Terraform infrastructure using DOrc's Terraform Runner functionality.
 
@@ -48,7 +48,7 @@ my-terraform-project/
 └── providers.tf
 ```
 
-Engineers should **reference stock modules** rather than copy them inline. The `stock-modules/` library at the repository root publishes curated modules (see [`MODULES.md`](./MODULES.md)).
+Engineers should **reference stock modules** rather than copy them inline. The [`sefe/dorc-terraform-modules`](https://github.com/sefe/dorc-terraform-modules) repository publishes curated modules (see [`MODULES.md`](./MODULES.md)).
 
 ## Example Configuration Files
 
@@ -74,7 +74,7 @@ provider "azurerm" {
 # Reference the cosmosdb stock module at a pinned tag.
 module "cosmosdb" {
   count  = var.enable_cosmosdb ? 1 : 0
-  source = "git::https://<repo>//stock-modules/cosmosdb?ref=stock-modules/cosmosdb/v1.0.0"
+  source = "git::https://github.com/sefe/dorc-terraform-modules.git//stock-modules/cosmosdb?ref=stock-modules/cosmosdb/v1.0.0"
 
   resource_group_name = var.resource_group_name
   location            = var.location

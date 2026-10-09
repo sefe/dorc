@@ -18,13 +18,14 @@ provider "azurerm" {
 }
 
 # Reference a stock module from the DOrc stock-modules library at a pinned tag.
-# In CI/local you can use a relative source; in DOrc, use the Stock Modules
-# page's "Deploy from template" wizard (POST /api/Terraform/templates/
+# Module source lives in https://github.com/sefe/dorc-terraform-modules and is
+# pulled at use time. In DOrc, use the Stock Modules page's "Deploy from
+# template" wizard (POST /api/Terraform/templates/
 # {name}/{version}/instantiate) instead - it creates a Terraform component
 # with TerraformSourceType = Catalog and TerraformTemplateName = "cosmosdb",
 # TerraformTemplateVersion = "1.0.0" (see docs/Terraform/MODULES.md).
 module "cosmosdb" {
-  source = "../../../../stock-modules/cosmosdb"
+  source = "git::https://github.com/sefe/dorc-terraform-modules.git//stock-modules/cosmosdb?ref=stock-modules/cosmosdb/v1.0.0"
 
   resource_group_name = var.resource_group_name
   location            = var.location

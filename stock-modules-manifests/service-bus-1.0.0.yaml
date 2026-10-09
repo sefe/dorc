@@ -2,7 +2,7 @@ name: service-bus
 version: 1.0.0
 source:
   kind: git
-  locator: https://github.com/sefe/dorc.git
+  locator: https://github.com/sefe/dorc-terraform-modules.git
   ref: stock-modules/service-bus/v1.0.0
 parameters:
   - name: resource_group_name
