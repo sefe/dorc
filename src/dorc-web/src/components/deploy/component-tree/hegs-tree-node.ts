@@ -10,13 +10,15 @@ import { TreeAction } from './TreeAction';
 
 @customElement('hegs-tree-node')
 export class HegsTreeNode extends LitElement {
+  private static nextInstanceId = 0;
+
   @property({ type: Array }) actions: TreeAction[] = [];
 
   @property({ type: Object }) data: TreeNode;
 
   @property({ type: Boolean }) open = false;
 
-  @query('#deployment')
+  @query('input[type="checkbox"]')
   private deploymentInput: HTMLInputElement | undefined;
 
   @state()
@@ -34,6 +36,7 @@ export class HegsTreeNode extends LitElement {
   }
 
   private _indeterminate = false;
+  private readonly instanceId = HegsTreeNode.nextInstanceId++;
 
   @property({ type: Boolean })
   get indeterminate(): boolean {
@@ -65,6 +68,10 @@ export class HegsTreeNode extends LitElement {
   static styles = addHegsTreeNodeStyles;
 
   render = addHegsTreeNodeTemplate;
+
+  protected get deploymentInputId(): string {
+    return `deployment-${this.data?.id ?? this.instanceId}`;
+  }
 
   protected firstUpdated(_changedProperties: PropertyValues) {
     super.firstUpdated(_changedProperties);

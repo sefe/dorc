@@ -22,12 +22,12 @@ export function addHegsTreeNodeTemplate(this: HegsTreeNode) {
           .checked="${this.checked}"
           .indeterminate="${this.indeterminate}"
           type="checkbox"
-          id="deployment"
+          id="${this.deploymentInputId}"
           data-componentId="${this.data?.id}"
           @click="${this.selectComponentForDeployment}"
         />
 
-        <label for="checkbox">${this.data?.name}</label>
+        <label for="${this.deploymentInputId}">${this.data?.name}</label>
 
         ${this.actions && this.actions.length > 0
           ? html`
