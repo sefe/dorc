@@ -148,11 +148,11 @@ public class DatabaseAccessSqlTests
     public void SchemaFileRequiresAnUnqualifiedTableName()
     {
         var path = SchemaFile("DatabaseAccessRole");
-        StringAssert.EndsWith(path, Path.Combine("Dorc.Database", "dbo", "Tables", "DatabaseAccessRole.sql"));
+        StringAssert.EndsWith(path, Path.Join("Dorc.Database", "dbo", "Tables", "DatabaseAccessRole.sql"));
         Assert.IsTrue(File.Exists(path));
         Assert.ThrowsExactly<ArgumentException>(() => SchemaFile(Path.GetFullPath("DatabaseAccessRole")));
-        Assert.ThrowsExactly<ArgumentException>(() => SchemaFile(Path.Combine("..", "DatabaseAccessRole")));
-        Assert.ThrowsExactly<ArgumentException>(() => SchemaFile(Path.Combine("nested", "DatabaseAccessRole")));
+        Assert.ThrowsExactly<ArgumentException>(() => SchemaFile(Path.Join("..", "DatabaseAccessRole")));
+        Assert.ThrowsExactly<ArgumentException>(() => SchemaFile(Path.Join("nested", "DatabaseAccessRole")));
         Assert.ThrowsExactly<ArgumentException>(() => SchemaFile(""));
     }
 
@@ -161,6 +161,6 @@ public class DatabaseAccessSqlTests
         var fileName = Path.GetFileName(name);
         if (string.IsNullOrWhiteSpace(fileName) || fileName != name)
             throw new ArgumentException("A schema table name must not contain a directory or rooted path.", nameof(name));
-        return Path.GetFullPath(Path.Combine(Path.GetDirectoryName(source)!, "..", "Dorc.Database", "dbo", "Tables", fileName + ".sql"));
+        return Path.GetFullPath(Path.Join(Path.GetDirectoryName(source)!, "..", "Dorc.Database", "dbo", "Tables", fileName + ".sql"));
     }
 }
