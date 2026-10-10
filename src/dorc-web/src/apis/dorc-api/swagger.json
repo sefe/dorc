@@ -5,6 +5,120 @@
     "version": "1.0"
   },
   "paths": {
+    "/DatabaseAccess/{envId}/{databaseId}/status": {
+      "get": {
+        "tags": ["DatabaseAccess"],
+        "operationId": "databaseAccessStatus",
+        "parameters": [
+          { "name": "envId", "in": "path", "required": true, "schema": { "type": "integer", "format": "int32" } },
+          { "name": "databaseId", "in": "path", "required": true, "schema": { "type": "integer", "format": "int32" } }
+        ],
+        "responses": { "200": { "description": "OK", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DatabaseAccessStatus" } } } } }
+      }
+    },
+    "/DatabaseAccess/{envId}/{databaseId}": {
+      "get": {
+        "tags": ["DatabaseAccess"],
+        "operationId": "databaseAccessGet",
+        "parameters": [
+          { "name": "envId", "in": "path", "required": true, "schema": { "type": "integer", "format": "int32" } },
+          { "name": "databaseId", "in": "path", "required": true, "schema": { "type": "integer", "format": "int32" } }
+        ],
+        "responses": { "200": { "description": "OK", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DatabaseAccessState" } } } } }
+      },
+      "put": {
+        "tags": ["DatabaseAccess"],
+        "operationId": "databaseAccessSave",
+        "parameters": [
+          { "name": "envId", "in": "path", "required": true, "schema": { "type": "integer", "format": "int32" } },
+          { "name": "databaseId", "in": "path", "required": true, "schema": { "type": "integer", "format": "int32" } }
+        ],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DatabaseAccessState" } } } },
+        "responses": { "200": { "description": "OK", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DatabaseAccessState" } } } } }
+      }
+    },
+    "/DatabaseAccess/{envId}/{databaseId}/preview": {
+      "post": {
+        "tags": ["DatabaseAccess"],
+        "operationId": "databaseAccessPreview",
+        "parameters": [
+          { "name": "envId", "in": "path", "required": true, "schema": { "type": "integer", "format": "int32" } },
+          { "name": "databaseId", "in": "path", "required": true, "schema": { "type": "integer", "format": "int32" } }
+        ],
+        "responses": { "200": { "description": "OK", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DatabaseAccessPreview" } } } } }
+      }
+    },
+    "/DatabaseAccess/{envId}/{databaseId}/apply": {
+      "post": {
+        "tags": ["DatabaseAccess"],
+        "operationId": "databaseAccessApply",
+        "parameters": [
+          { "name": "envId", "in": "path", "required": true, "schema": { "type": "integer", "format": "int32" } },
+          { "name": "databaseId", "in": "path", "required": true, "schema": { "type": "integer", "format": "int32" } }
+        ],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DatabaseAccessConfirmation" } } } },
+        "responses": { "200": { "description": "OK", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DatabaseAccessPreview" } } } } }
+      }
+    },
+    "/DatabaseAccess/{envId}/{databaseId}/directory": {
+      "get": {
+        "tags": ["DatabaseAccess"],
+        "operationId": "databaseAccessDirectory",
+        "parameters": [
+          { "name": "envId", "in": "path", "required": true, "schema": { "type": "integer", "format": "int32" } },
+          { "name": "databaseId", "in": "path", "required": true, "schema": { "type": "integer", "format": "int32" } },
+          { "name": "search", "in": "query", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "OK", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/DatabaseAccessDirectoryIdentity" } } } } } }
+      }
+    },
+    "/DatabaseAccess/{envId}/{databaseId}/directory/resolve": {
+      "get": {
+        "tags": ["DatabaseAccess"],
+        "operationId": "databaseAccessResolve",
+        "parameters": [
+          { "name": "envId", "in": "path", "required": true, "schema": { "type": "integer", "format": "int32" } },
+          { "name": "databaseId", "in": "path", "required": true, "schema": { "type": "integer", "format": "int32" } },
+          { "name": "id", "in": "query", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "OK", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DatabaseAccessDirectoryIdentity" } } } } }
+      }
+    },
+    "/DatabaseAccess/{envId}/{databaseId}/import/preview": {
+      "post": {
+        "tags": ["DatabaseAccess"],
+        "operationId": "databaseAccessImportPreview",
+        "parameters": [
+          { "name": "envId", "in": "path", "required": true, "schema": { "type": "integer", "format": "int32" } },
+          { "name": "databaseId", "in": "path", "required": true, "schema": { "type": "integer", "format": "int32" } }
+        ],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DatabaseAccessImportRequest" } } } },
+        "responses": { "200": { "description": "OK", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DatabaseAccessImportPreview" } } } } }
+      }
+    },
+    "/DatabaseAccess/{envId}/{databaseId}/import": {
+      "post": {
+        "tags": ["DatabaseAccess"],
+        "operationId": "databaseAccessExecuteImport",
+        "parameters": [
+          { "name": "envId", "in": "path", "required": true, "schema": { "type": "integer", "format": "int32" } },
+          { "name": "databaseId", "in": "path", "required": true, "schema": { "type": "integer", "format": "int32" } }
+        ],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DatabaseAccessImportRequest" } } } },
+        "responses": { "200": { "description": "OK", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DatabaseAccessImportPreview" } } } } }
+      }
+    },
+    "/DatabaseAccess/{envId}/{databaseId}/audit": {
+      "get": {
+        "tags": ["DatabaseAccess"],
+        "operationId": "databaseAccessAudit",
+        "parameters": [
+          { "name": "envId", "in": "path", "required": true, "schema": { "type": "integer", "format": "int32" } },
+          { "name": "databaseId", "in": "path", "required": true, "schema": { "type": "integer", "format": "int32" } }
+        ],
+        "responses": { "200": { "description": "OK", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/DatabaseAccessAuditApiModel" } } } } } }
+      }
+    },
     "/AccessControl": {
       "get": {
         "tags": [
@@ -8077,6 +8191,99 @@
   },
   "components": {
     "schemas": {
+      "DatabaseAccessState": {
+        "type": "object", "required": ["DatabaseId", "Revision", "Provider", "Principals", "Roles", "Memberships"],
+        "properties": {
+          "DatabaseId": { "type": "integer", "format": "int32" },
+          "Revision": { "type": "integer", "format": "int64" },
+          "Provider": { "type": "string" },
+          "Principals": { "type": "array", "items": { "$ref": "#/components/schemas/DatabaseAccessPrincipal" } },
+          "Roles": { "type": "array", "items": { "$ref": "#/components/schemas/DatabaseAccessRole" } },
+          "Memberships": { "type": "array", "items": { "$ref": "#/components/schemas/DatabaseAccessMembership" } }
+        }
+      },
+      "DatabaseAccessPrincipal": {
+        "type": "object", "required": ["Name", "Kind", "Present"],
+        "properties": {
+          "Name": { "type": "string" }, "Kind": { "type": "string" },
+          "LoginName": { "type": "string", "nullable": true }, "DirectoryId": { "type": "string", "nullable": true },
+          "Present": { "type": "boolean" }, "LegacyUserId": { "type": "integer", "format": "int32", "nullable": true }
+        }
+      },
+      "DatabaseAccessRole": {
+        "type": "object", "required": ["Name", "Managed", "Present"],
+        "properties": { "Name": { "type": "string" }, "Managed": { "type": "boolean" }, "Present": { "type": "boolean" } }
+      },
+      "DatabaseAccessMembership": {
+        "type": "object", "required": ["Principal", "Role", "Present"],
+        "properties": { "Principal": { "type": "string" }, "Role": { "type": "string" }, "Present": { "type": "boolean" } }
+      },
+      "DatabaseAccessObservedPrincipal": {
+        "type": "object", "required": ["Name", "Kind", "Protected"],
+        "properties": {
+          "Name": { "type": "string" }, "Kind": { "type": "string" }, "Protected": { "type": "boolean" },
+          "LoginName": { "type": "string", "nullable": true }, "DirectoryId": { "type": "string", "nullable": true }
+        }
+      },
+      "DatabaseAccessObservation": {
+        "type": "object", "required": ["Principals", "Roles", "Memberships", "Logins"],
+        "properties": {
+          "Principals": { "type": "array", "items": { "$ref": "#/components/schemas/DatabaseAccessObservedPrincipal" } },
+          "Roles": { "type": "array", "items": { "$ref": "#/components/schemas/DatabaseAccessRole" } },
+          "Memberships": { "type": "array", "items": { "$ref": "#/components/schemas/DatabaseAccessMembership" } },
+          "Logins": { "type": "array", "items": { "$ref": "#/components/schemas/DatabaseAccessObservedPrincipal" } }
+        }
+      },
+      "DatabaseAccessOperation": {
+        "type": "object", "required": ["Action", "Principal", "Role", "Login"],
+        "properties": { "Action": { "type": "string" }, "Principal": { "type": "string" }, "Role": { "type": "string" }, "Login": { "type": "string" } }
+      },
+      "DatabaseAccessPreview": {
+        "type": "object", "required": ["Token", "Revision", "Observed", "Operations", "Errors"],
+        "properties": {
+          "Token": { "type": "string" }, "Revision": { "type": "integer", "format": "int64" },
+          "Observed": { "$ref": "#/components/schemas/DatabaseAccessObservation" },
+          "Operations": { "type": "array", "items": { "$ref": "#/components/schemas/DatabaseAccessOperation" } },
+          "Errors": { "type": "array", "items": { "type": "string" } }
+        }
+      },
+      "DatabaseAccessConfirmation": {
+        "type": "object", "required": ["Token"], "properties": { "Token": { "type": "string" } }
+      },
+      "DatabaseAccessStatus": {
+        "type": "object", "required": ["Enabled", "ExecutionEnabled", "Providers", "Limitations"],
+        "properties": {
+          "Enabled": { "type": "boolean" }, "ExecutionEnabled": { "type": "boolean" },
+          "Providers": { "type": "array", "items": { "type": "string" } },
+          "Limitations": { "type": "array", "items": { "type": "string" } }
+        }
+      },
+      "DatabaseAccessDirectoryIdentity": {
+        "type": "object", "required": ["Id", "DisplayName", "IsGroup", "Status"],
+        "properties": { "Id": { "type": "string" }, "DisplayName": { "type": "string" }, "IsGroup": { "type": "boolean" }, "Status": { "type": "string" } }
+      },
+      "DatabaseAccessImportRequest": {
+        "type": "object", "required": ["RoleMappings", "DirectoryMappings", "Token"],
+        "properties": {
+          "RoleMappings": { "type": "object", "additionalProperties": { "type": "string" } },
+          "DirectoryMappings": { "type": "object", "additionalProperties": { "type": "string" } },
+          "Token": { "type": "string" }
+        }
+      },
+      "DatabaseAccessImportPreview": {
+        "type": "object", "required": ["Token", "Proposed", "Errors", "SourceAssignments"],
+        "properties": {
+          "Token": { "type": "string" }, "Proposed": { "$ref": "#/components/schemas/DatabaseAccessState" },
+          "Errors": { "type": "array", "items": { "type": "string" } }, "SourceAssignments": { "type": "integer", "format": "int32" }
+        }
+      },
+      "DatabaseAccessAuditApiModel": {
+        "type": "object", "required": ["Id", "CreatedUtc", "Actor", "Action", "Status", "Detail"],
+        "properties": {
+          "Id": { "type": "integer", "format": "int64" }, "CreatedUtc": { "type": "string", "format": "date-time" },
+          "Actor": { "type": "string" }, "Action": { "type": "string" }, "Status": { "type": "string" }, "Detail": { "type": "string" }
+        }
+      },
       "AccessControlApiModel": {
         "type": "object",
         "properties": {

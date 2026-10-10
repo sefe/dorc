@@ -8,6 +8,7 @@ import { html } from 'lit/html.js';
 import '../add-edit-database.ts';
 import '../attach-database';
 import '../attached-databases';
+import '../database-access-panel';
 import { Notification } from '@vaadin/notification';
 import { PageEnvBase } from './page-env-base';
 import '@vaadin/dialog';
@@ -102,6 +103,11 @@ export class EnvDatabases extends PageEnvBase {
               .readonly="${this.envReadOnly}"
               @database-detached="${this._dbDetached}"
             ></attached-databases>
+            <database-access-panel
+              .envId="${this.environmentId}"
+              .databases="${this.databases ?? []}"
+              .readonly="${this.envReadOnly}"
+            ></database-access-panel>
           </div>
         </div>
       </vaadin-details>
