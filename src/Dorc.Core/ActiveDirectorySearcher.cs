@@ -175,7 +175,7 @@ namespace Dorc.Core
             using (var dirSearcher = new DirectorySearcher(new DirectoryEntry())
             {
                 SearchScope = SearchScope.Subtree,
-                Filter = $"(objectSid={Encoding.ASCII.GetString(sidBytes)})"
+                Filter = $"(objectSid={EncodeLdapBytes(sidBytes)})"
             })
             {
                 dirSearcher.PropertiesToLoad.Add("mail");        // smtp mail address
@@ -188,7 +188,7 @@ namespace Dorc.Core
                     {
                         var de = sr.GetDirectoryEntry();
 
-                        if (!IsActive(de))
+                        if (de.Properties["objectClass"]?.Contains("user") == true && !IsActive(de))
                         {
                             continue;
                         }
@@ -204,6 +204,9 @@ namespace Dorc.Core
 
             throw new ArgumentException($"Failed to locate an entity with SID: {sid}");
         }
+
+        internal static string EncodeLdapBytes(byte[] bytes) =>
+            string.Concat(bytes.Select(value => $"\\{value:X2}"));
 
         // Allowed characters for a directory search term. NOTE: the hyphen is intentionally last
         // so it is a literal, not a range. A previous version used "'-_" which is a character

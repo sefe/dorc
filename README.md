@@ -193,6 +193,102 @@ npm run ado-build-spec-refresh   # update the committed build.json from upstream
 npm run api-gen                  # regenerate against it
 ```
 
+### Database access management (side-by-side pilot)
+
+The **Database access (new)** panel under environment database details manages
+database-native users, directory-backed database principals, roles and role
+memberships. It does not replace the legacy Users or Permissions controls yet.
+Work is tracked by #945 and its children #946-#953.
+
+Deploy the updated database project before enabling the feature. It adds
+`DatabaseAccessConfiguration`, `DatabaseAccessPrincipal`, `DatabaseAccessRole`,
+`DatabaseAccessMembership` and `DatabaseAccessAudit`; it does not alter or import
+`USERS`, `ENVIRONMENT_USER_MAP` or `PERMISSION`. The provider is stored separately
+from `DATABASE.DB_Type`, which remains an application-tag field.
+
+The API defaults to:
+
+```json
+"DatabaseAccess": {
+  "Enabled": false,
+  "ExecutionEnabled": false,
+  "DatabaseIds": []
+}
+```
+
+An operator must explicitly enable the feature and allowlist database IDs.
+`ExecutionEnabled` independently controls mutations to target databases. Keep it
+false while reviewing/importing desired state. The feature uses new
+`DatabaseAccess/{envId}/{databaseId}` endpoints, not the legacy user contracts.
+Access requires environment modification rights; changes and target discovery
+also require rights on every environment sharing the database.
+
+The first provider is `sql-server`. Additional engines require an
+`IDatabaseAccessProvider` registration; unsupported providers fail explicitly.
+The initial SQL Server capability includes database-user creation/remapping/
+removal against **existing server logins**, custom-role creation/removal, and
+role membership changes. It does not provision server logins or passwords,
+manage object-level grants, or modify protected/system principals and roles.
+`public`, `db_owner`, `db_securityadmin` and `db_accessadmin` are protected.
+Reference-only roles must already exist. Only explicitly managed absent
+principals/roles are removed; objects found through discovery are not adopted
+or deleted implicitly.
+
+Target connections use the API process's Windows identity, encrypted SQL
+connections and certificate validation. Configure trusted SQL Server certificates
+and grant only the permissions needed: `VIEW DEFINITION` for discovery, sufficient
+server-login metadata visibility, and the appropriate `ALTER ANY USER`,
+`ALTER ANY ROLE`/role permissions for approved mutations. Do not grant
+`sysadmin` merely to enable this feature. Existing AD users/groups are resolved
+through the AD searcher; the new principal records store stable SID references
+and database aliases, not directory profile copies. Deleted identities and
+directory outages are reported, not treated as successful empty lookups.
+
+**Migration procedure**
+
+1. Enable a pilot database, leaving target execution disabled.
+2. Open the new panel and preview a legacy import. Supply explicit JSON maps
+   from legacy permission names to existing database role names, for example
+   `{"Read":"db_datareader"}`. Windows records additionally require a map from
+   legacy user IDs to verified AD SIDs. Resolve all reported conflicts.
+3. Confirm the import into desired state. `Endur` and `Sql` accounts become
+   native database principals. No legacy or target data is changed.
+4. Review desired principals/roles and run **Discover and preview target
+   changes**. Review the operations, observed state and errors. Desired edits,
+   legacy edits and target changes invalidate applicable previews.
+5. After operational approval, enable target execution and apply the confirmed
+   preview. SQL Server changes run in one transaction; failures roll back.
+   A database-scoped DOrc lock serializes changes across API instances.
+6. Inspect recent audit records, remaining drift and import divergence.
+   Repeating the same import does not duplicate data. Later legacy edits are
+   not dual-written; removed/remapped assignments are reported for explicit
+   resolution. An audit left `Started` or `FailedOrUncertain` requires target
+   rediscovery before retrying, especially following a connection/process failure.
+
+Disabling `ExecutionEnabled` stops new target mutations, not an in-flight
+transaction and not changes already committed. Disabling the feature removes
+access to the new stack without reverting legacy data. Back up the new metadata
+before maintenance; configured databases have protective foreign keys and
+cannot be deleted while their configuration remains. Keep the legacy stack
+available until the Endur team signs off, migration conflicts and drift are
+resolved, and an agreed observation period shows no remaining legacy usage.
+Production rollout (#952) and removal (#953) are separate operator-approved
+changes. This implementation does not migrate external deployment scripts or
+post-restore consumers automatically; inventory and migrate those consumers
+before legacy decommissioning.
+
+For isolated SQL integration coverage on Windows:
+
+```powershell
+SqlLocalDB create DOrcAccessTests -s
+$env:DORC_ACCESS_TEST_SERVER = '(localdb)\DOrcAccessTests'
+dotnet test .\src\Dorc.Core.Tests\Dorc.Core.Tests.csproj --configuration Release --filter FullyQualifiedName~DatabaseAccess
+```
+
+The SQL test accepts only that named LocalDB instance, creates randomly named
+test databases/logins, and removes them in cleanup. Never point tests at a
+shared production database.
+
 ## Project Structure
 
 ```
