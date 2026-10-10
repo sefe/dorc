@@ -1,12 +1,12 @@
-﻿using Microsoft.EntityFrameworkCore;
-using System.Linq.Expressions;
-using System.Security.Principal;
-using Dorc.ApiModel;
+﻿using Dorc.ApiModel;
 using Dorc.PersistentData.Contexts;
 using Dorc.PersistentData.Extensions;
 using Dorc.PersistentData.Model;
 using Dorc.PersistentData.Sources.Interfaces;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using System.Linq.Expressions;
+using System.Security.Principal;
 
 namespace Dorc.PersistentData.Sources
 {
@@ -75,14 +75,9 @@ namespace Dorc.PersistentData.Sources
                             if (string.IsNullOrEmpty(pagedDataFilter.FilterValue))
                                 continue;
 
-                            // Project + EnvironmentName use prefix (StartsWith) -- SARGable, seeks
-                            // IX_DeploymentRequest_Project / IX_DeploymentRequest_Environment.
-                            // BuildNumber retains substring (Contains); when combined with a
-                            // SARGable Project/Environment predicate the residual scan is bounded
-                            // (HLPS SC2). BuildNumber-only filtering is explicitly out of perf scope.
-                            var predicate = pagedDataFilter.Path == "BuildNumber"
-                                ? reqStatusesQueryable.ContainsExpression(pagedDataFilter.Path, pagedDataFilter.FilterValue)
-                                : reqStatusesQueryable.StartsWithExpression(pagedDataFilter.Path, pagedDataFilter.FilterValue);
+                            // Changed: All three fields now use Contains (substring match)
+                            // to match the behavior of Build#, Components, and Username filters
+                            var predicate = reqStatusesQueryable.ContainsExpression(pagedDataFilter.Path, pagedDataFilter.FilterValue);
                             if (predicate != null)
                             {
                                 if (hasDistinctDetailValues)
@@ -172,7 +167,7 @@ namespace Dorc.PersistentData.Sources
             _log.LogDebug($"Initialising Context...Done");
             _log.LogDebug($"Execute SQL");
             context.DeploymentResults
-            .Where(dr => dr.Id==deploymentResultId)
+            .Where(dr => dr.Id == deploymentResultId)
             .ExecuteUpdate(setters =>
                 setters.SetProperty(u => u.Log, u => u.Log + System.Environment.NewLine + log));
             _log.LogDebug($"Execute SQL...Done");
@@ -211,7 +206,7 @@ namespace Dorc.PersistentData.Sources
                                            UncLogPath = req.UncLogPath,
                                            CancelledBy = req.CancelledBy,
                                            CancelledTime = req.CancelledTime,
-                                           UserEditable = isOwner  || isPermissioned
+                                           UserEditable = isOwner || isPermissioned
                                        };
 
             //var sql = reqStatusesQueryable.ToString();
