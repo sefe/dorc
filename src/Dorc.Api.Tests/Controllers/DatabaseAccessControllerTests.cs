@@ -1,11 +1,13 @@
 using System.Security.Claims;
 using Dorc.Api.Controllers;
 using Dorc.Api.Interfaces;
+using Dorc.Api.Security;
 using Dorc.Api.Tests.Mocks;
 using Dorc.ApiModel;
 using Dorc.Core.Interfaces;
 using Dorc.Core.DatabaseAccess;
 using Dorc.PersistentData.Contexts;
+using Dorc.PersistentData;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
@@ -42,8 +44,9 @@ public class DatabaseAccessControllerTests
             ["DatabaseAccess:ExecutionEnabled"] = execution.ToString(),
             ["DatabaseAccess:DatabaseIds:0"] = "1"
         }).Build();
-        var controller = new DatabaseAccessController(null!, null!, new DatabaseAccessProviders([new SqlServerDatabaseAccessProvider()]), configuration, mapper, privileges, factory,
-            NullLogger<DatabaseAccessController>.Instance)
+        var service = new DatabaseAccessService(null!, null!, null!, null!, NullLogger<DatabaseAccessService>.Instance);
+        var controller = new DatabaseAccessController(service, null!, new DatabaseAccessProviders([new SqlServerDatabaseAccessProvider()]), configuration, mapper, privileges, factory,
+            NullLogger<DatabaseAccessController>.Instance, new OAuthClaimsPrincipalReader(Substitute.For<IUserGroupReader>()))
         {
             ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() }
         };
@@ -90,5 +93,33 @@ public class DatabaseAccessControllerTests
         Assert.IsFalse(result.Enabled);
         Assert.IsFalse(result.ExecutionEnabled);
         factory.DidNotReceive().GetContext();
+    }
+
+    [TestMethod]
+    public void ClientCredentialsIdentityReachesSaveValidationWithoutAUserSubject()
+    {
+        var (controller, _) = Create(true, true);
+        controller.HttpContext.User = new ClaimsPrincipal(new ClaimsIdentity(
+            [new Claim("m2m", "true"), new Claim("client_id", "dorc-cli")], "OAuth"));
+
+        var result = controller.Save(10, 1, new DatabaseAccessState { DatabaseId = 2 });
+
+        var problem = (ProblemDetails)((ObjectResult)result.Result!).Value!;
+        Assert.AreEqual(400, problem.Status);
+        Assert.AreEqual("Database ID does not match the route.", problem.Detail);
+    }
+
+    [TestMethod]
+    public void ClientCredentialsIdentityWithoutClientIdIsRejectedBeforeSave()
+    {
+        var (controller, _) = Create(true, true);
+        controller.HttpContext.User = new ClaimsPrincipal(new ClaimsIdentity(
+            [new Claim("m2m", "true")], "OAuth"));
+
+        var result = controller.Save(10, 1, new DatabaseAccessState { DatabaseId = 2 });
+
+        var problem = (ProblemDetails)((ObjectResult)result.Result!).Value!;
+        Assert.AreEqual(400, problem.Status);
+        Assert.AreEqual("The authenticated identity has no audit identifier.", problem.Detail);
     }
 }

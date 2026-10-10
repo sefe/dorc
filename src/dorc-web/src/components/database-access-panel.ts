@@ -3,6 +3,15 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { firstValueFrom, Observable } from 'rxjs';
 import { AjaxError } from 'rxjs/ajax';
 import '@vaadin/button';
+import '@vaadin/details';
+import '@vaadin/checkbox';
+import '@vaadin/combo-box';
+import '@vaadin/text-field';
+import '@vaadin/text-area';
+import type { ComboBoxValueChangedEvent } from '@vaadin/combo-box';
+import type { TextFieldValueChangedEvent } from '@vaadin/text-field';
+import type { TextAreaValueChangedEvent } from '@vaadin/text-area';
+import type { CheckboxCheckedChangedEvent } from '@vaadin/checkbox';
 import {
   DatabaseAccessApi,
   DatabaseAccessAuditApiModel,
@@ -86,46 +95,96 @@ export class DatabaseAccessPanel extends LitElement {
   static styles = css`
     :host {
       display: block;
-      padding: var(--lumo-space-m);
+      min-width: 0;
       box-sizing: border-box;
+      font-family: var(--lumo-font-family);
+      font-size: var(--lumo-font-size-m);
+      color: var(--dorc-text-primary);
     }
-    details {
-      border-top: 6px solid var(--dorc-link-color);
-      padding: var(--lumo-space-m);
-      background: var(--dorc-bg-secondary);
+    vaadin-details {
+      margin: 0;
+      --divider-color: var(--dorc-border-color);
     }
-    summary {
-      font-weight: 400;
-      cursor: pointer;
+    vaadin-details-summary::part(content) {
+      min-width: 0;
+      white-space: normal;
+      overflow-wrap: anywhere;
+    }
+    .panel {
+      border-top: 1px solid var(--dorc-border-color);
+      margin-top: var(--lumo-space-s);
+    }
+    .content {
+      padding: 0 var(--lumo-space-s) var(--lumo-space-s);
+      min-width: 0;
     }
     .toolbar,
     fieldset {
       display: flex;
       flex-wrap: wrap;
-      gap: var(--lumo-space-m);
-      padding: var(--lumo-space-m);
+      gap: var(--lumo-space-s);
       align-items: end;
     }
-    label {
-      display: flex;
-      flex-direction: column;
-      gap: var(--lumo-space-xs);
+    .toolbar {
+      margin-block: var(--lumo-space-s);
     }
-    input,
-    select,
-    textarea {
-      font: inherit;
-      padding: var(--lumo-space-s);
-      color: var(--dorc-text-primary);
-      background: var(--dorc-bg-secondary);
+    vaadin-text-field,
+    vaadin-combo-box,
+    vaadin-text-area {
+      width: 18rem;
+      max-width: 100%;
+      min-width: 0;
+      --vaadin-input-field-label-color: var(--dorc-text-secondary-strong);
+    }
+    vaadin-combo-box::part(toggle-button) {
+      color: var(--dorc-text-secondary-strong);
+    }
+    #database {
+      width: 32rem;
+    }
+    vaadin-button {
+      flex-shrink: 0;
       max-width: 100%;
     }
+    vaadin-checkbox {
+      align-self: center;
+    }
+    p {
+      margin: var(--lumo-space-s) 0;
+    }
+    .description,
+    .metadata,
+    legend,
+    caption {
+      color: var(--dorc-text-secondary);
+      font-size: var(--lumo-font-size-s);
+    }
+    .notice {
+      padding: var(--lumo-space-s) var(--lumo-space-m);
+      border-left: 3px solid var(--dorc-link-color);
+      background: var(--dorc-bg-secondary);
+      overflow-wrap: anywhere;
+    }
+    .notice p:first-child {
+      margin-top: 0;
+    }
+    .notice p:last-child {
+      margin-bottom: 0;
+    }
     fieldset {
+      min-width: 0;
       border: 1px solid var(--dorc-border-color);
+      border-radius: var(--lumo-border-radius-m);
+      padding: var(--lumo-space-s);
       margin: var(--lumo-space-m) 0;
+    }
+    caption {
+      text-align: left;
+      padding: var(--lumo-space-s);
     }
     table {
       width: 100%;
+      min-width: 36rem;
       border-collapse: collapse;
     }
     th,
@@ -413,212 +472,234 @@ export class DatabaseAccessPanel extends LitElement {
   render() {
     const disabled = this.busy || this.readonly;
     return html`
-      <details>
-        <summary>Database access (new) — SQL users and roles</summary>
-        <p>
-          The legacy Users and Permissions controls above remain unchanged.
-          Saving or importing changes desired state only.
-        </p>
-        <div class="toolbar">
-          <label
-            >Database
-            <select
-              aria-label="Database"
-              .value=${String(this.databaseId)}
+      <vaadin-details class="panel" summary="Database Access">
+        <div class="content">
+          <p class="description">
+            Manage SQL database users and roles. The existing Users and
+            Permissions controls above remain unchanged. Saving or importing
+            records changes the configuration in DOrc only; applying a confirmed
+            preview updates the target database.
+          </p>
+          <div class="toolbar">
+            <vaadin-combo-box
+              id="database"
+              label="Database"
+              placeholder="Select a database"
+              item-label-path="label"
+              item-value-path="value"
+              .items=${this.databases.map(db => ({
+                label: `${db.ServerName} / ${db.Name}`,
+                value: String(db.Id ?? 0)
+              }))}
+              .value=${this.databaseId ? String(this.databaseId) : ''}
               ?disabled=${this.busy}
-              @change=${(e: Event) => {
-                this.databaseId = Number(
-                  (e.currentTarget as HTMLSelectElement).value
-                );
+              @value-changed=${(e: ComboBoxValueChangedEvent) => {
+                const id = Number(e.detail.value);
+                if (id === this.databaseId) return;
+                this.databaseId = id;
                 this.reset();
               }}
+            ></vaadin-combo-box>
+            <vaadin-button
+              ?disabled=${this.busy || !this.databaseId}
+              @click=${this.load}
+              >Load database access</vaadin-button
             >
-              <option value="0">Select a database</option>
-              ${(this.databases ?? []).map(db => html`<option value=${db.Id ?? 0}>${db.ServerName} / ${db.Name}</option>`)}
-            </select>
-          </label>
-          <vaadin-button
-            ?disabled=${this.busy || !this.databaseId}
-            @click=${this.load}
-            >Load database access</vaadin-button
-          >
-        </div>
-        <p role="status">${this.busy ? 'Working…' : this.message}</p>
-        ${this.error ? html`<p role="alert">${this.error}</p>` : nothing}
-        ${this.status && !this.status.Enabled ? html`<p>Not enabled for this database. An operator must enable the pilot allowlist.</p>` : nothing}
-        ${
-          this.desired
-            ? html`
-                <p>
-                  Provider: ${this.desired.Provider} · revision
-                  ${this.desired.Revision} · ${this.desired.Principals.length}
-                  principals · target execution
-                  ${this.status?.ExecutionEnabled ? 'enabled' : 'disabled'}
-                </p>
-                <p>${this.status?.Limitations.join(' ')}</p>
-                <fieldset ?disabled=${disabled}>
-                  <legend>
-                    Add or update a database principal (existing name updates
-                    its login mapping)
-                  </legend>
-                  <label
-                    >Database user name
-                    <input
-                      @input=${(e: Event) => {
-                        this.principalName = (
-                          e.currentTarget as HTMLInputElement
-                        ).value;
+          </div>
+          <div role="status" aria-live="polite">
+            ${this.busy || this.message ? html`<p>${this.busy ? 'Working…' : this.message}</p>` : nothing}
+          </div>
+          ${this.error ? html`<p role="alert">${this.error}</p>` : nothing}
+          ${
+            this.status && !this.status.Enabled
+              ? html` <div class="notice" role="status">
+                  <p>
+                    Database access management is not enabled for this database.
+                  </p>
+                  <p class="description">
+                    A DOrc administrator must enable
+                    <code>DatabaseAccess:Enabled</code> and include database ID
+                    <strong>${this.databaseId}</strong> in
+                    <code>DatabaseAccess:DatabaseIds</code> in the API
+                    configuration. You can continue using the existing Users and
+                    Permissions controls.
+                  </p>
+                </div>`
+              : nothing
+          }
+          ${
+            this.desired
+              ? html`
+                  <p class="metadata">
+                    Provider: ${this.desired.Provider} · revision
+                    ${this.desired.Revision} · ${this.desired.Principals.length}
+                    principals · target execution
+                    ${this.status?.ExecutionEnabled ? 'enabled' : 'disabled'}
+                  </p>
+                  <p class="description">
+                    ${this.status?.Limitations.join(' ')}
+                  </p>
+                  <fieldset ?disabled=${disabled}>
+                    <legend>
+                      Add or update a database principal (existing name updates
+                      its login mapping)
+                    </legend>
+                    <vaadin-text-field
+                      label="Database user name"
+                      ?disabled=${disabled}
+                      .value=${this.principalName}
+                      @value-changed=${(e: TextFieldValueChangedEvent) => {
+                        this.principalName = e.detail.value;
                       }}
-                  /></label>
-                  <label
-                    >Existing SQL server login (native users)
-                    <input
-                      @input=${(e: Event) => {
-                        this.loginName = (
-                          e.currentTarget as HTMLInputElement
-                        ).value;
+                    ></vaadin-text-field>
+                    <vaadin-text-field
+                      label="Existing SQL server login (native users)"
+                      ?disabled=${disabled}
+                      .value=${this.loginName}
+                      @value-changed=${(e: TextFieldValueChangedEvent) => {
+                        this.loginName = e.detail.value;
                       }}
-                  /></label>
-                  <label
-                    >Search AD users/groups
-                    <input
-                      @input=${(e: Event) => {
-                        this.search = (
-                          e.currentTarget as HTMLInputElement
-                        ).value;
+                    ></vaadin-text-field>
+                    <vaadin-text-field
+                      label="Search AD users/groups"
+                      ?disabled=${disabled}
+                      .value=${this.search}
+                      @value-changed=${(e: TextFieldValueChangedEvent) => {
+                        this.search = e.detail.value;
                       }}
-                  /></label>
-                  <vaadin-button
-                    ?disabled=${disabled}
-                    @click=${() =>
-                      this.request(
-                        this.api.databaseAccessDirectory({
-                          ...this.target,
-                          search: this.search
-                        }),
-                        value => {
-                          this.identities = value;
-                          this.directoryId = '';
-                          if (!value.length)
-                            this.message = 'No directory identities found.';
-                        }
-                      )}
-                    >Search AD</vaadin-button
-                  >
-                  <label
-                    >Directory identity (optional)
-                    <select
-                      @change=${(e: Event) => {
-                        this.directoryId = (
-                          e.currentTarget as HTMLSelectElement
-                        ).value;
-                      }}
+                    ></vaadin-text-field>
+                    <vaadin-button
+                      ?disabled=${disabled}
+                      @click=${() =>
+                        this.request(
+                          this.api.databaseAccessDirectory({
+                            ...this.target,
+                            search: this.search
+                          }),
+                          value => {
+                            this.identities = value;
+                            this.directoryId = '';
+                            if (!value.length)
+                              this.message = 'No directory identities found.';
+                          }
+                        )}
+                      >Search AD</vaadin-button
                     >
-                      <option value="">Native database user</option>
-                      ${this.identities.map(i => html`<option value=${i.Id}>${i.DisplayName} (${i.IsGroup ? 'group' : 'user'})</option>`)}
-                    </select>
-                  </label>
-                  <vaadin-button
-                    theme="primary"
-                    ?disabled=${disabled}
-                    @click=${this.addPrincipal}
-                    >Save principal</vaadin-button
-                  >
-                </fieldset>
-                <div class="scroll">
-                  <table>
-                    <caption>
-                      Desired database principals
-                    </caption>
-                    <thead>
-                      <tr>
-                        <th>Name</th>
-                        <th>Type</th>
-                        <th>Login / live directory identity</th>
-                        <th>Desired</th>
-                        <th>Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      ${this.desired.Principals.map(
-                        p =>
-                          html`<tr>
-                            <td>${p.Name}</td>
-                            <td>${p.Kind}</td>
-                            <td>
-                              ${p.DirectoryId ? (this.directoryNames[p.DirectoryId] ?? p.DirectoryId) : p.LoginName}
-                            </td>
-                            <td>${p.Present ? 'Present' : 'Absent'}</td>
-                            <td>
-                              <vaadin-button
-                                ?disabled=${disabled}
-                                @click=${() =>
-                                  this.save(state => {
-                                    const item = state.Principals.find(
-                                      n => n.Name === p.Name
-                                    )!;
-                                    item.Present = !item.Present;
-                                    if (!item.Present)
-                                      state.Memberships.filter(
-                                        m => m.Principal === item.Name
-                                      ).forEach(m => {
-                                        m.Present = false;
-                                      });
-                                  })}
-                                >${p.Present ? 'Mark absent' : 'Restore'}</vaadin-button
-                              >
-                            </td>
-                          </tr>`
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-                ${!this.desired.Principals.length ? html`<p>No managed principals yet. Add one or preview a legacy import.</p>` : nothing}
-                <fieldset ?disabled=${disabled}>
-                  <legend>Add a database role</legend>
-                  <label
-                    >Role name
-                    <input
-                      @input=${(e: Event) => {
-                        this.roleName = (
-                          e.currentTarget as HTMLInputElement
-                        ).value;
+                    <vaadin-combo-box
+                      label="Directory identity (optional)"
+                      placeholder="Native database user"
+                      clear-button-visible
+                      ?disabled=${disabled}
+                      item-label-path="label"
+                      item-value-path="value"
+                      .items=${this.identities.map(i => ({
+                        label: `${i.DisplayName} (${i.IsGroup ? 'group' : 'user'})`,
+                        value: i.Id
+                      }))}
+                      .value=${this.directoryId}
+                      @value-changed=${(e: ComboBoxValueChangedEvent) => {
+                        this.directoryId = e.detail.value;
                       }}
-                  /></label>
-                  <label
-                    ><span>Create/manage custom role</span
-                    ><input
-                      type="checkbox"
-                      @change=${(e: Event) => {
-                        this.managedRole = (
-                          e.currentTarget as HTMLInputElement
-                        ).checked;
+                    ></vaadin-combo-box>
+                    <vaadin-button
+                      theme="primary"
+                      ?disabled=${disabled}
+                      @click=${this.addPrincipal}
+                      >Save principal</vaadin-button
+                    >
+                  </fieldset>
+                  <div class="scroll">
+                    <table>
+                      <caption>
+                        Desired database principals
+                      </caption>
+                      <thead>
+                        <tr>
+                          <th>Name</th>
+                          <th>Type</th>
+                          <th>Login / live directory identity</th>
+                          <th>Desired</th>
+                          <th>Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        ${this.desired.Principals.map(
+                          p =>
+                            html`<tr>
+                              <td>${p.Name}</td>
+                              <td>${p.Kind}</td>
+                              <td>
+                                ${p.DirectoryId ? (this.directoryNames[p.DirectoryId] ?? p.DirectoryId) : p.LoginName}
+                              </td>
+                              <td>${p.Present ? 'Present' : 'Absent'}</td>
+                              <td>
+                                <vaadin-button
+                                  ?disabled=${disabled}
+                                  @click=${() =>
+                                    this.save(state => {
+                                      const item = state.Principals.find(
+                                        n => n.Name === p.Name
+                                      )!;
+                                      item.Present = !item.Present;
+                                      if (!item.Present)
+                                        state.Memberships.filter(
+                                          m => m.Principal === item.Name
+                                        ).forEach(m => {
+                                          m.Present = false;
+                                        });
+                                    })}
+                                  >${p.Present ? 'Mark absent' : 'Restore'}</vaadin-button
+                                >
+                              </td>
+                            </tr>`
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                  ${!this.desired.Principals.length ? html`<p>No managed principals yet. Add one or preview a legacy import.</p>` : nothing}
+                  <fieldset ?disabled=${disabled}>
+                    <legend>Add a database role</legend>
+                    <vaadin-text-field
+                      label="Role name"
+                      ?disabled=${disabled}
+                      .value=${this.roleName}
+                      @value-changed=${(e: TextFieldValueChangedEvent) => {
+                        this.roleName = e.detail.value;
                       }}
-                  /></label>
-                  <vaadin-button
-                    ?disabled=${disabled}
-                    @click=${() =>
-                      this.save(state => {
-                        state.Roles.push({
-                          Name: this.roleName.trim(),
-                          Managed: this.managedRole,
-                          Present: true
-                        });
-                      })}
-                    >Save role</vaadin-button
-                  >
-                </fieldset>
-                <ul>
-                  ${this.desired.Roles.map(
-                    r =>
-                      html`<li>
-                        ${r.Name} (${r.Managed ? 'managed' : 'reference-only'},
-                        ${r.Present ? 'present' : 'absent'})
-                        ${
-                          r.Managed
-                            ? html`<vaadin-button
-                                ?disabled=${disabled}
-                                @click=${() =>
+                    ></vaadin-text-field>
+                    <vaadin-checkbox
+                      label="Create/manage custom role"
+                      ?disabled=${disabled}
+                      .checked=${this.managedRole}
+                      @checked-changed=${(e: CheckboxCheckedChangedEvent) => {
+                        this.managedRole = e.detail.value;
+                      }}
+                    ></vaadin-checkbox>
+                    <vaadin-button
+                      ?disabled=${disabled}
+                      @click=${() =>
+                        this.save(state => {
+                          state.Roles.push({
+                            Name: this.roleName.trim(),
+                            Managed: this.managedRole,
+                            Present: true
+                          });
+                        })}
+                      >Save role</vaadin-button
+                    >
+                  </fieldset>
+                  <ul>
+                    ${this.desired.Roles.map(
+                      r =>
+                        html`<li>
+                          ${r.Name}
+                          (${r.Managed ? 'managed' : 'reference-only'},
+                          ${r.Present ? 'present' : 'absent'})
+                          ${
+                            r.Managed
+                              ? html`<vaadin-button
+                                  ?disabled=${disabled}
+                                  @click=${() =>
                                   this.save(state => {
                                     const item = state.Roles.find(
                                       n => n.Name === r.Name
@@ -631,120 +712,113 @@ export class DatabaseAccessPanel extends LitElement {
                                         m.Present = false;
                                       });
                                   })}
-                                >${r.Present ? 'Mark absent' : 'Restore'}</vaadin-button
-                              >`
-                            : nothing
-                        }
-                      </li>`
-                  )}
-                </ul>
-                <fieldset ?disabled=${disabled}>
-                  <legend>Assign a role</legend>
-                  <label
-                    >Principal
-                    <select
-                      @change=${(e: Event) => {
-                        this.memberPrincipal = (
-                          e.currentTarget as HTMLSelectElement
-                        ).value;
+                                  >${r.Present ? 'Mark absent' : 'Restore'}</vaadin-button
+                                >`
+                              : nothing
+                          }
+                        </li>`
+                    )}
+                  </ul>
+                  <fieldset ?disabled=${disabled}>
+                    <legend>Assign a role</legend>
+                    <vaadin-combo-box
+                      label="Principal"
+                      placeholder="Select principal"
+                      ?disabled=${disabled}
+                      .items=${this.desired.Principals.filter(p => p.Present).map(p => p.Name)}
+                      .value=${this.memberPrincipal}
+                      @value-changed=${(e: ComboBoxValueChangedEvent) => {
+                        this.memberPrincipal = e.detail.value;
                       }}
-                    >
-                      <option value="">Select principal</option>
-                      ${this.desired.Principals.filter(p => p.Present).map(p => html`<option>${p.Name}</option>`)}
-                    </select></label
-                  >
-                  <label
-                    >Role
-                    <select
-                      @change=${(e: Event) => {
-                        this.memberRole = (
-                          e.currentTarget as HTMLSelectElement
-                        ).value;
+                    ></vaadin-combo-box>
+                    <vaadin-combo-box
+                      label="Role"
+                      placeholder="Select role"
+                      ?disabled=${disabled}
+                      .items=${this.desired.Roles.filter(r => r.Present).map(r => r.Name)}
+                      .value=${this.memberRole}
+                      @value-changed=${(e: ComboBoxValueChangedEvent) => {
+                        this.memberRole = e.detail.value;
                       }}
+                    ></vaadin-combo-box>
+                    <vaadin-button
+                      ?disabled=${disabled}
+                      @click=${() =>
+                        this.save(state => {
+                          const existing = state.Memberships.find(
+                            m =>
+                              m.Principal === this.memberPrincipal &&
+                              m.Role === this.memberRole
+                          );
+                          if (existing) existing.Present = true;
+                          else
+                            state.Memberships.push({
+                              Principal: this.memberPrincipal,
+                              Role: this.memberRole,
+                              Present: true
+                            });
+                        })}
+                      >Save assignment</vaadin-button
                     >
-                      <option value="">Select role</option>
-                      ${this.desired.Roles.filter(r => r.Present).map(r => html`<option>${r.Name}</option>`)}
-                    </select></label
-                  >
-                  <vaadin-button
-                    ?disabled=${disabled}
-                    @click=${() =>
-                      this.save(state => {
-                        const existing = state.Memberships.find(
-                          m =>
-                            m.Principal === this.memberPrincipal &&
-                            m.Role === this.memberRole
+                  </fieldset>
+                  <ul>
+                    ${this.desired.Memberships.map(
+                      m =>
+                        html`<li>
+                          ${m.Principal} → ${m.Role}:
+                          ${m.Present ? 'assigned' : 'revoked'}
+                          <vaadin-button
+                            ?disabled=${disabled || !m.Present}
+                            @click=${() =>
+                              this.save(state => {
+                                state.Memberships.find(
+                                  n =>
+                                    n.Principal === m.Principal &&
+                                    n.Role === m.Role
+                                )!.Present = false;
+                              })}
+                            >Revoke desired membership</vaadin-button
+                          >
+                        </li>`
+                    )}
+                  </ul>
+                  <div class="toolbar">
+                    <vaadin-button
+                      ?disabled=${disabled}
+                      @click=${() => {
+                        this.preview = undefined;
+                        void this.request(
+                          this.api.databaseAccessPreview(this.target),
+                          value => {
+                            this.preview = value;
+                          }
                         );
-                        if (existing) existing.Present = true;
-                        else
-                          state.Memberships.push({
-                            Principal: this.memberPrincipal,
-                            Role: this.memberRole,
-                            Present: true
-                          });
-                      })}
-                    >Save assignment</vaadin-button
-                  >
-                </fieldset>
-                <ul>
-                  ${this.desired.Memberships.map(
-                    m =>
-                      html`<li>
-                        ${m.Principal} → ${m.Role}:
-                        ${m.Present ? 'assigned' : 'revoked'}
-                        <vaadin-button
-                          ?disabled=${disabled || !m.Present}
-                          @click=${() =>
-                            this.save(state => {
-                              state.Memberships.find(
-                                n =>
-                                  n.Principal === m.Principal &&
-                                  n.Role === m.Role
-                              )!.Present = false;
-                            })}
-                          >Revoke desired membership</vaadin-button
-                        >
-                      </li>`
-                  )}
-                </ul>
-                <div class="toolbar">
-                  <vaadin-button
-                    ?disabled=${disabled}
-                    @click=${() => {
-                      this.preview = undefined;
-                      void this.request(
-                        this.api.databaseAccessPreview(this.target),
-                        value => {
-                          this.preview = value;
-                        }
-                      );
-                    }}
-                    >Discover and preview target changes</vaadin-button
-                  >
-                  <vaadin-button
-                    theme="primary"
-                    ?disabled=${disabled || !this.status?.ExecutionEnabled || !this.preview || !!this.preview.Errors.length || !this.preview.Operations.length}
-                    @click=${this.apply}
-                    >Apply confirmed preview</vaadin-button
-                  >
-                </div>
-                ${
-                  this.preview
-                    ? html`
-                        <h3>
-                          Target preview: ${this.preview.Operations.length}
-                          changes
-                        </h3>
-                        ${this.preview.Errors.map(e => html`<p role="alert">${e}</p>`)}
-                        <ul>
-                          ${this.preview.Operations.map(o => html`<li>${o.Action}: ${o.Principal} ${o.Role} ${o.Login}</li>`)}
-                        </ul>
-                        ${!this.preview.Operations.length && !this.preview.Errors.length ? html`<p>Managed state matches the target. Unmanaged objects are unchanged.</p>` : nothing}
-                        <details>
-                          <summary>
-                            Observed principals and role memberships
-                          </summary>
-                          <pre>
+                      }}
+                      >Discover and preview target changes</vaadin-button
+                    >
+                    <vaadin-button
+                      theme="primary"
+                      ?disabled=${disabled || !this.status?.ExecutionEnabled || !this.preview || !!this.preview.Errors.length || !this.preview.Operations.length}
+                      @click=${this.apply}
+                      >Apply confirmed preview</vaadin-button
+                    >
+                  </div>
+                  ${
+                    this.preview
+                      ? html`
+                          <h3>
+                            Target preview: ${this.preview.Operations.length}
+                            changes
+                          </h3>
+                          ${this.preview.Errors.map(e => html`<p role="alert">${e}</p>`)}
+                          <ul>
+                            ${this.preview.Operations.map(o => html`<li>${o.Action}: ${o.Principal} ${o.Role} ${o.Login}</li>`)}
+                          </ul>
+                          ${!this.preview.Operations.length && !this.preview.Errors.length ? html`<p>Managed state matches the target. Unmanaged objects are unchanged.</p>` : nothing}
+                          <vaadin-details
+                            summary="Observed principals and role memberships"
+                          >
+                            <pre>
 ${JSON.stringify(
   {
     Principals: this.preview.Observed.Principals,
@@ -754,100 +828,93 @@ ${JSON.stringify(
   null,
   2
 )}</pre>
-                        </details>
-                      `
-                    : nothing
-                }
-                <details>
-                  <summary>Import legacy Endur / SQL users</summary>
-                  <p>
-                    Map each legacy permission name explicitly to an existing
-                    database role. Windows records require a legacy-user-ID to
-                    stable AD-ID mapping. Import does not apply target changes.
-                  </p>
-                  <fieldset ?disabled=${disabled}>
-                    <label
-                      >Permission-to-role mappings (JSON)
-                      <textarea
-                        rows="4"
-                        .value=${this.roleMappings}
-                        @input=${(e: Event) => {
-                          this.roleMappings = (
-                            e.currentTarget as HTMLTextAreaElement
-                          ).value;
-                          this.imported = undefined;
-                        }}
-                      ></textarea>
-                    </label>
-                    <label
-                      >Legacy-user-ID to directory-ID mappings (JSON)
-                      <textarea
-                        rows="4"
-                        .value=${this.directoryMappings}
-                        @input=${(e: Event) => {
-                          this.directoryMappings = (
-                            e.currentTarget as HTMLTextAreaElement
-                          ).value;
-                          this.imported = undefined;
-                        }}
-                      ></textarea>
-                    </label>
-                    <vaadin-button
-                      ?disabled=${disabled}
-                      @click=${this.previewImport}
-                      >Preview legacy import</vaadin-button
-                    >
-                    <vaadin-button
-                      ?disabled=${disabled || !this.imported || !!this.imported.Errors.length}
-                      @click=${this.importLegacy}
-                      >Import confirmed preview</vaadin-button
-                    >
-                  </fieldset>
-                  ${
-                    this.imported
-                      ? html`<p>
-                            ${this.imported.SourceAssignments} legacy
-                            assignments;
-                            ${this.imported.Proposed.Principals.length}
-                            resulting principals.
-                          </p>
-                          ${this.imported.Errors.map(e => html`<p role="alert">${e}</p>`)}
-                          <pre>
-${JSON.stringify(this.imported.Proposed, null, 2)}</pre>`
+                          </vaadin-details>
+                        `
                       : nothing
                   }
-                </details>
-                <details>
-                  <summary>
-                    Recent audit and reconciliation outcomes
-                    (${this.audit.length})
-                  </summary>
-                  <vaadin-button
-                    ?disabled=${this.busy}
-                    @click=${() =>
-                      this.request(
-                        this.api.databaseAccessAudit(this.target),
-                        value => {
-                          this.audit = value;
-                        }
-                      )}
-                    >Refresh audit</vaadin-button
+                  <vaadin-details summary="Import legacy Endur / SQL users">
+                    <p class="description">
+                      Map each legacy permission name explicitly to an existing
+                      database role. Windows records require a legacy-user-ID to
+                      stable AD-ID mapping. Import does not apply target
+                      changes.
+                    </p>
+                    <fieldset ?disabled=${disabled}>
+                      <vaadin-text-area
+                        label="Permission-to-role mappings (JSON)"
+                        ?disabled=${disabled}
+                        .value=${this.roleMappings}
+                        @value-changed=${(e: TextAreaValueChangedEvent) => {
+                          if (this.roleMappings === e.detail.value) return;
+                          this.roleMappings = e.detail.value;
+                          this.imported = undefined;
+                        }}
+                      ></vaadin-text-area>
+                      <vaadin-text-area
+                        label="Legacy-user-ID to directory-ID mappings (JSON)"
+                        ?disabled=${disabled}
+                        .value=${this.directoryMappings}
+                        @value-changed=${(e: TextAreaValueChangedEvent) => {
+                          if (this.directoryMappings === e.detail.value) return;
+                          this.directoryMappings = e.detail.value;
+                          this.imported = undefined;
+                        }}
+                      ></vaadin-text-area>
+                      <vaadin-button
+                        ?disabled=${disabled}
+                        @click=${this.previewImport}
+                        >Preview legacy import</vaadin-button
+                      >
+                      <vaadin-button
+                        ?disabled=${disabled || !this.imported || !!this.imported.Errors.length}
+                        @click=${this.importLegacy}
+                        >Import confirmed preview</vaadin-button
+                      >
+                    </fieldset>
+                    ${
+                      this.imported
+                        ? html`<p>
+                              ${this.imported.SourceAssignments} legacy
+                              assignments;
+                              ${this.imported.Proposed.Principals.length}
+                              resulting principals.
+                            </p>
+                            ${this.imported.Errors.map(e => html`<p role="alert">${e}</p>`)}
+                            <pre>
+${JSON.stringify(this.imported.Proposed, null, 2)}</pre>`
+                        : nothing
+                    }
+                  </vaadin-details>
+                  <vaadin-details
+                    summary=${`Recent audit and reconciliation outcomes (${this.audit.length})`}
                   >
-                  <ul>
-                    ${this.audit.map(
-                      a =>
-                        html`<li>
-                          ${a.CreatedUtc} · ${a.Actor} · ${a.Action}:
-                          ${a.Status}
-                          <pre>${a.Detail}</pre>
-                        </li>`
-                    )}
-                  </ul>
-                </details>
-              `
-            : nothing
-        }
-      </details>
+                    <vaadin-button
+                      ?disabled=${this.busy}
+                      @click=${() =>
+                        this.request(
+                          this.api.databaseAccessAudit(this.target),
+                          value => {
+                            this.audit = value;
+                          }
+                        )}
+                      >Refresh audit</vaadin-button
+                    >
+                    <ul>
+                      ${this.audit.map(
+                        a =>
+                          html`<li>
+                            ${a.CreatedUtc} · ${a.Actor} · ${a.Action}:
+                            ${a.Status}
+                            <pre>${a.Detail}</pre>
+                          </li>`
+                      )}
+                    </ul>
+                  </vaadin-details>
+                `
+              : nothing
+          }
+        </div>
+      </vaadin-details>
     `;
   }
 }

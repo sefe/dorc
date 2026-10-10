@@ -195,7 +195,7 @@ npm run api-gen                  # regenerate against it
 
 ### Database access management (side-by-side pilot)
 
-The **Database access (new)** panel under environment database details manages
+The **Database Access** panel under environment database details manages
 database-native users, directory-backed database principals, roles and role
 memberships. It does not replace the legacy Users or Permissions controls yet.
 Work is tracked by #945 and its children #946-#953.
@@ -217,6 +217,11 @@ The API defaults to:
 ```
 
 An operator must explicitly enable the feature and allowlist database IDs.
+If the panel reports that database access management is not enabled, a DOrc
+administrator must set `DatabaseAccess:Enabled` to `true` and include the DOrc
+database ID shown in the message in `DatabaseAccess:DatabaseIds` in the API
+configuration. This is a feature rollout setting, not a SQL permission error;
+the existing Users and Permissions controls remain available.
 `ExecutionEnabled` independently controls mutations to target databases. Keep it
 false while reviewing/importing desired state. The feature uses new
 `DatabaseAccess/{envId}/{databaseId}` endpoints, not the legacy user contracts.
@@ -243,6 +248,31 @@ server-login metadata visibility, and the appropriate `ALTER ANY USER`,
 through the AD searcher; the new principal records store stable SID references
 and database aliases, not directory profile copies. Deleted identities and
 directory outages are reported, not treated as successful empty lookups.
+
+**CLI and deployment-module integration**
+
+The updated generic `Tools.ApplyPermissionsCLI` in `dorc-cli` consumes this API
+using `/permissions:DatabaseAccess`, `/environment:<name>`, `/instance:<server>`
+and `/database:<name>`. Add `/preview:true` for discovery without apply. It resolves
+the exact attached database, checks both rollout gates, previews, and applies
+that token without retries or a legacy fallback. Machine-to-machine audit entries
+use the authenticated client identity through DOrc's shared claims reader.
+
+The updated `sefe/dorc-ps-deploy-module` exposes
+`Apply-DatabasePermissions -permissionSource DatabaseAccess -previewOnly`.
+The deployment property `DatabasePermissionsMode=DatabaseAccess` opts existing
+callers into the new mode for migrated environments. The wrapper requires the
+new generic CLI's embedded protocol marker, preserves the pre-apply permissions
+backup, passes the environment and API URL, and stops on CLI failure. Production
+applies remain additive-only.
+
+Deploy the schema/API, generic CLI and PowerShell module together before opting
+in. API service-account SQL rights are required even when the deployment runner
+already has SQL access. Do not project this state onto the legacy permission-list
+endpoint or run a legacy reset on a migrated database: the old non-production
+CLI deletes users rather than reconciling only managed objects. Endur, Arc and
+ComOps in-application permissions remain on their existing dedicated paths;
+DatabaseAccess is not a replacement for those workflows.
 
 **Migration procedure**
 

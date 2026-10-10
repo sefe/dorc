@@ -65,9 +65,8 @@ async function load() {
       .databases=${[{ Id: 1, Name: 'App', ServerName: 'Server' }]}
     ></database-access-panel>`
   );
-  const select = panel.shadowRoot!.querySelector('select')!;
+  const select = panel.shadowRoot!.querySelector('vaadin-combo-box')!;
   select.value = '1';
-  select.dispatchEvent(new Event('change'));
   await panel.updateComplete;
   click(panel, 'Load database access');
   await vi.waitFor(() => expect(mocks.status.mock.calls.length).to.equal(1));
@@ -131,12 +130,16 @@ describe('Database access side-by-side panel', () => {
     const panel = await load();
     await vi.waitFor(() =>
       expect(panel.shadowRoot!.textContent).to.contain(
-        'Not enabled for this database'
+        'Database access management is not enabled for this database'
       )
     );
     expect(mocks.get.mock.calls.length).to.equal(0);
-    expect(panel.shadowRoot!.textContent).to.contain(
-      'legacy Users and Permissions'
+    const notice = panel.shadowRoot!.querySelector('.notice')!;
+    expect(notice.textContent).to.contain('DatabaseAccess:Enabled');
+    expect(notice.textContent).to.contain('DatabaseAccess:DatabaseIds');
+    expect(notice.querySelector('strong')?.textContent).to.equal('1');
+    expect(notice.textContent?.replace(/\s+/g, ' ')).to.contain(
+      'existing Users and Permissions'
     );
   });
 
@@ -330,17 +333,13 @@ describe('Database access side-by-side panel', () => {
         'No managed principals yet'
       )
     );
-    const labels = [...panel.shadowRoot!.querySelectorAll('label')];
-    const name = labels
-      .find(l => l.textContent?.includes('Database user name'))!
-      .querySelector('input')!;
-    const login = labels
-      .find(l => l.textContent?.includes('Existing SQL server login'))!
-      .querySelector('input')!;
+    const fields = [...panel.shadowRoot!.querySelectorAll('vaadin-text-field')];
+    const name = fields.find(f => f.label === 'Database user name')!;
+    const login = fields.find(f =>
+      f.label?.includes('Existing SQL server login')
+    )!;
     name.value = 'app';
-    name.dispatchEvent(new Event('input'));
     login.value = 'existing_login';
-    login.dispatchEvent(new Event('input'));
     click(panel, 'Save principal');
     await vi.waitFor(() => expect(mocks.save.mock.calls.length).to.equal(1));
     expect(
@@ -353,6 +352,62 @@ describe('Database access side-by-side panel', () => {
       Present: true
     });
     expect(mocks.apply.mock.calls.length).to.equal(0);
+  });
+
+  it('disables all editor controls when the environment is read-only', async () => {
+    const panel = await load();
+    await vi.waitFor(() =>
+      expect(panel.shadowRoot!.textContent).to.contain(
+        'No managed principals yet'
+      )
+    );
+    panel.readonly = true;
+    await panel.updateComplete;
+    const fields = panel.shadowRoot!.querySelectorAll(
+      'fieldset vaadin-text-field, fieldset vaadin-combo-box, fieldset vaadin-checkbox, fieldset vaadin-text-area'
+    );
+    expect(fields.length).to.be.greaterThan(0);
+    for (const field of fields)
+      expect(field.hasAttribute('disabled')).to.equal(true);
+    click(panel, 'Save principal');
+    expect(mocks.save.mock.calls.length).to.equal(0);
+  });
+
+  it('clears the editor and selection when switching environments', async () => {
+    const panel = await load();
+    await vi.waitFor(() =>
+      expect(panel.shadowRoot!.textContent).to.contain(
+        'No managed principals yet'
+      )
+    );
+    panel.envId = 20;
+    await panel.updateComplete;
+    expect(panel.shadowRoot!.querySelector('vaadin-combo-box')!.value).to.equal(
+      ''
+    );
+    expect(panel.shadowRoot!.querySelector('fieldset')).to.equal(null);
+    click(panel, 'Load database access');
+    expect(mocks.status.mock.calls.length).to.equal(1);
+  });
+
+  it('keeps long section headings and tables inside a narrow panel', async () => {
+    const panel = await load();
+    await vi.waitFor(() =>
+      expect(panel.shadowRoot!.textContent).to.contain(
+        'No managed principals yet'
+      )
+    );
+    panel.style.width = '320px';
+    const details = panel.shadowRoot!.querySelector('vaadin-details')!;
+    details.opened = true;
+    const tableContainer = panel.shadowRoot!.querySelector('.scroll')!;
+    await vi.waitFor(() =>
+      expect(tableContainer.clientWidth).to.be.greaterThan(0)
+    );
+    expect(panel.scrollWidth).to.be.at.most(panel.clientWidth);
+    expect(tableContainer.scrollWidth).to.be.greaterThan(
+      tableContainer.clientWidth
+    );
   });
 
   it('imports only a confirmed dry run and never applies target changes', async () => {
@@ -388,5 +443,41 @@ describe('Database access side-by-side panel', () => {
       }
     });
     expect(mocks.apply.mock.calls.length).to.equal(0);
+  });
+
+  it('invalidates the import preview when mappings are edited', async () => {
+    mocks.importPreview.mockReturnValue(
+      of({
+        Token: 'import-token',
+        Proposed: empty,
+        Errors: [],
+        SourceAssignments: 1
+      })
+    );
+    const panel = await load();
+    await vi.waitFor(() =>
+      expect(panel.shadowRoot!.textContent).to.contain(
+        'No managed principals yet'
+      )
+    );
+    click(panel, 'Preview legacy import');
+    await vi.waitFor(() =>
+      expect(panel.shadowRoot!.textContent?.replace(/\s+/g, ' ')).to.contain(
+        '1 legacy assignments'
+      )
+    );
+    const mappings = panel.shadowRoot!.querySelector('vaadin-text-area')!;
+    mappings.value = '{"Read":"db_datareader"}';
+    await panel.updateComplete;
+    click(panel, 'Import confirmed preview');
+    expect(mocks.import.mock.calls.length).to.equal(0);
+    click(panel, 'Preview legacy import');
+    await vi.waitFor(() =>
+      expect(mocks.importPreview.mock.calls.length).to.equal(2)
+    );
+    expect(
+      mocks.importPreview.mock.calls[1][0].databaseAccessImportRequest
+        .RoleMappings
+    ).to.deep.equal({ Read: 'db_datareader' });
   });
 });

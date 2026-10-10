@@ -2,6 +2,7 @@ using Dorc.Api.Interfaces;
 using Dorc.ApiModel;
 using Dorc.Core.DatabaseAccess;
 using Dorc.Core.Interfaces;
+using Dorc.PersistentData;
 using Dorc.PersistentData.Contexts;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -16,7 +17,7 @@ namespace Dorc.Api.Controllers;
 public sealed class DatabaseAccessController(
     DatabaseAccessService service, DatabaseAccessDirectory directory, DatabaseAccessProviders providers, IConfiguration configuration,
     IEnvironmentMapper mapper, ISecurityPrivilegesChecker privileges, IDeploymentContextFactory factory,
-    ILogger<DatabaseAccessController> logger) : ControllerBase
+    ILogger<DatabaseAccessController> logger, IClaimsPrincipalReader claimsReader) : ControllerBase
 {
     private bool Enabled(int id) => configuration.GetValue<bool>("DatabaseAccess:Enabled")
         && (configuration.GetSection("DatabaseAccess:DatabaseIds").Get<int[]>() ?? []).Contains(id);
@@ -67,10 +68,15 @@ public sealed class DatabaseAccessController(
     public ActionResult<List<DatabaseAccessAuditApiModel>> Audit(int envId, int databaseId) =>
         Execute(envId, databaseId, false, false, () => service.Audit(databaseId));
 
-    private string Actor => User.Identity?.Name
-        ?? User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
-        ?? User.FindFirst("sub")?.Value
-        ?? throw new ArgumentException("The authenticated identity has no audit identifier.");
+    private string Actor
+    {
+        get
+        {
+            var actor = claimsReader.GetUserSafeIdentifier(User);
+            return !string.IsNullOrWhiteSpace(actor) ? actor
+                : throw new ArgumentException("The authenticated identity has no audit identifier.");
+        }
+    }
 
     private ActionResult<T> Execute<T>(int envId, int databaseId, bool modify, bool execute, Func<T> operation, bool requireEnabled = true)
     {
