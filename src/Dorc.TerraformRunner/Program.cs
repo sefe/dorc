@@ -131,7 +131,7 @@ namespace Dorc.TerraformRunner
                         result = await terraformProcesor.PreparePlanAsync(options.PipeName, requestId, options.PlanFilePath, options.PlanContentFilePath, options.LockFilePath, CancellationToken.None);
                         break;
                     case TerraformRunnerOperations.ApplyPlan:
-                        result = await terraformProcesor.ExecuteConfirmedPlanAsync(options.PipeName, requestId, options.PlanFilePath, options.LockFilePath, options.AppliedResourcesFilePath, CancellationToken.None);
+                        result = await terraformProcesor.ExecuteConfirmedPlanAsync(options.PipeName, requestId, options.PlanFilePath, options.LockFilePath, options.AppliedResourcesFilePath, options.SourceArchiveFilePath, CancellationToken.None);
                         break;
                 }
             }

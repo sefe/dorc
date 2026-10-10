@@ -611,6 +611,7 @@ namespace Dorc.TerraformRunner
             string planFile,
             string? lockFilePath,
             string? appliedResourcesFilePath,
+            string? sourceArchiveFilePath,
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -625,7 +626,7 @@ namespace Dorc.TerraformRunner
             logger.Information($"TerraformProcessor.ExecuteConfirmedPlan called for request' with id '{requestId}', deployment result id '{deployResultId}'.");
 
             // Execute the actual Terraform plan
-            return await ExecuteTerraformPlanAsync(requestId, planFile, lockFilePath, appliedResourcesFilePath, scriptGroupProperties, cancellationToken);
+            return await ExecuteTerraformPlanAsync(requestId, planFile, lockFilePath, appliedResourcesFilePath, sourceArchiveFilePath, scriptGroupProperties, cancellationToken);
         }
 
         private async Task<bool> ExecuteTerraformPlanAsync(
@@ -633,6 +634,7 @@ namespace Dorc.TerraformRunner
             string planFile,
             string? lockFilePath,
             string? appliedResourcesFilePath,
+            string? sourceArchiveFilePath,
             ScriptGroup scriptGroup,
             CancellationToken cancellationToken)
         {
@@ -667,6 +669,8 @@ namespace Dorc.TerraformRunner
                 logger.Information($"Terraform apply completed successfully for request ID: {requestId}");
 
                 await WriteAppliedResourcesAsync(terraformWorkingDir, appliedResourcesFilePath, cancellationToken);
+
+                WriteSourceArchive(terraformWorkingDir, sourceArchiveFilePath, scriptGroup, requestId);
 
                 return true;
             }
@@ -723,6 +727,71 @@ namespace Dorc.TerraformRunner
             {
                 logger.Warning(
                     $"Could not record the applied cloud resources: {RedactSensitiveValues(ex.Message)}. The deployment itself succeeded; the environment's Cloud tab will not be updated for this run.");
+            }
+        }
+
+        // Preserves what was deployed: the working directory's terraform
+        // configuration (tfvars redacted; .git/.terraform/state excluded)
+        // plus a provenance record pinning the module reference and the exact
+        // git commit the code came from. Best-effort for the same reason as
+        // WriteAppliedResourcesAsync: the infrastructure change has already
+        // happened, so an archival failure is logged, never fails the run.
+        private void WriteSourceArchive(
+            string terraformWorkingDir,
+            string? sourceArchiveFilePath,
+            ScriptGroup scriptGroup,
+            int requestId)
+        {
+            if (string.IsNullOrWhiteSpace(sourceArchiveFilePath)) return;
+
+            // Defence-in-depth matching PersistLockFile / WriteAppliedResourcesAsync:
+            // the path is Monitor-composed today, but the rejection of
+            // parent-directory segments and relative paths is documented contract.
+            if (sourceArchiveFilePath.Contains("..") || !Path.IsPathRooted(sourceArchiveFilePath))
+            {
+                logger.Warning("Source-archive path must be absolute without parent-directory segments; archival skipped.");
+                return;
+            }
+            var canonicalArchivePath = Path.GetFullPath(sourceArchiveFilePath);
+
+            try
+            {
+                var provenance = new
+                {
+                    RequestId = requestId,
+                    DeploymentResultId = scriptGroup.DeployResultId,
+                    SourceType = scriptGroup.TerraformSourceType.ToString(),
+                    TemplateName = scriptGroup.TerraformTemplateName,
+                    TemplateVersion = scriptGroup.TerraformTemplateVersion,
+                    // For catalog deployments the provider rewrites these to the
+                    // manifest's resolved locator/ref before provisioning, so
+                    // they are the real clone target, not the user input.
+                    GitRepoUrl = scriptGroup.TerraformGitRepoUrl,
+                    GitRef = scriptGroup.TerraformGitBranch,
+                    GitCommitSha = scriptGroup.TerraformResolvedGitSha,
+                    SubPath = scriptGroup.TerraformSubPath,
+                    StateStorageAccount = scriptGroup.TerraformStateStorageAccount,
+                    StateContainerName = scriptGroup.TerraformStateContainerName,
+                    StateKey = scriptGroup.TerraformStateKey,
+                    ArchivedAtUtc = DateTime.UtcNow,
+                };
+
+                var entryCount = TerraformSourceArchive.Create(
+                    terraformWorkingDir,
+                    canonicalArchivePath,
+                    JsonSerializer.Serialize(provenance, new JsonSerializerOptions { WriteIndented = true }),
+                    RedactSensitiveValues);
+
+                logger.Information(
+                    $"Archived the deployed terraform source ({entryCount} entries) " +
+                    $"for module '{scriptGroup.TerraformTemplateName ?? "(ad-hoc)"}@{scriptGroup.TerraformTemplateVersion ?? "-"}' " +
+                    $"at commit {scriptGroup.TerraformResolvedGitSha ?? "(unknown)"}.");
+            }
+            catch (Exception ex)
+            {
+                logger.Warning(
+                    $"Could not archive the deployed terraform source: {RedactSensitiveValues(ex.Message)}. " +
+                    "The deployment itself succeeded; no source archive will be stored for this run.");
             }
         }
 

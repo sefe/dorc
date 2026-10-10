@@ -60,6 +60,13 @@ namespace Dorc.TerraformRunner.CodeSources
                     var repoPath = Repository.Clone(scriptGroup.TerraformGitRepoUrl, workingDir, cloneOptions);
                     using var repo = new Repository(repoPath);
                     CheckoutRef(repo, gitRef);
+
+                    // Record the exact commit the ref resolved to for the
+                    // deployment's provenance record. Captured here because
+                    // sub-path extraction deletes the .git directory, after
+                    // which the revision can no longer be recovered from disk.
+                    scriptGroup.TerraformResolvedGitSha = repo.Head.Tip?.Sha;
+                    _logger.Information($"Checked out '{gitRef}' at commit {scriptGroup.TerraformResolvedGitSha ?? "(unknown)"}.");
                 }
                 catch (Exception ex)
                 {

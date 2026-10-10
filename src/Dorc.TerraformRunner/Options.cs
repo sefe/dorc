@@ -26,6 +26,9 @@ namespace Dorc.TerraformRunner
         [Option('r', "appliedResourcesFilePath", Required = false, HelpText = "Path the runner writes the applied cloud resources JSON to after a successful apply.")]
         public string AppliedResourcesFilePath { get; set; }
 
+        [Option('z', "sourceArchiveFilePath", Required = false, HelpText = "Path the runner writes the deployed terraform source archive (zip) to after a successful apply.")]
+        public string SourceArchiveFilePath { get; set; }
+
         [Option('o', "operation", Required = false, HelpText = "Selected operation")]
         public int Operation { get; set; }
 

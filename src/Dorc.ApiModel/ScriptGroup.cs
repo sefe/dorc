@@ -49,6 +49,14 @@ namespace Dorc.ApiModel
         public string TerraformTemplateName { get; set; }
         public string TerraformTemplateVersion { get; set; }
 
+        // Runner-side provenance capture: the commit SHA the Git code-source
+        // provider actually checked out for this operation. Never sent by the
+        // Monitor; the Git provider records it after checkout (following the
+        // same scriptGroup-mutation pattern the catalog provider uses for the
+        // resolved repo/ref) so the source archive can pin the exact revision
+        // even after sub-path extraction discards the .git directory.
+        public string TerraformResolvedGitSha { get; set; }
+
         // Names of properties the request flags as sensitive (wizard
         // parameters with sensitive: true). Additive: absent in payloads
         // produced before the field existed, which deserializes as the empty

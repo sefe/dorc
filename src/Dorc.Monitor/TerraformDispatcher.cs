@@ -236,6 +236,14 @@ namespace Dorc.Monitor
                     var appliedResourcesFilePath = terreformOperation == TerraformRunnerOperations.ApplyPlan
                         ? Path.Join(planStorageDir, $"{deploymentResult.Id}.applied-resources.json")
                         : string.Empty;
+                    // Written by the runner after a successful apply: the exact
+                    // terraform configuration deployed (tfvars redacted) plus a
+                    // provenance record (module ref + resolved commit SHA).
+                    // Uploaded below to the same blob container as the plan.
+                    var sourceArchiveFileName = $"{deploymentResult.Id}.terraform-source.zip";
+                    var sourceArchiveFilePath = terreformOperation == TerraformRunnerOperations.ApplyPlan
+                        ? Path.Join(planStorageDir, sourceArchiveFileName)
+                        : string.Empty;
 
                     if (terreformOperation == TerraformRunnerOperations.ApplyPlan)
                     {
@@ -271,6 +279,7 @@ namespace Dorc.Monitor
                         PlanContentFilePath = terraformPlanContentFilePath,
                         LockFilePath = terraformLockFilePath,
                         AppliedResourcesFilePath = appliedResourcesFilePath,
+                        SourceArchiveFilePath = sourceArchiveFilePath,
                         TerraformRunnerOperation = terreformOperation
                     };
                     try
@@ -383,6 +392,25 @@ namespace Dorc.Monitor
                                 environmentName,
                                 request?.UserName ?? string.Empty);
                             TryDeleteFile(appliedResourcesFilePath);
+
+                            // Persist the deployed-source archive next to the
+                            // plan artefacts. Best-effort like the resource
+                            // registration: the runner only writes the archive
+                            // when archival itself succeeded, and a missing
+                            // file must not fail a completed deployment.
+                            if (File.Exists(sourceArchiveFilePath))
+                            {
+                                try
+                                {
+                                    _azureStorageAccountWorker.SaveFileToBlobs(sourceArchiveFilePath);
+                                    logger.LogInformation($"Deployed terraform source archived to blob '{sourceArchiveFileName}'.");
+                                }
+                                catch (Exception ex)
+                                {
+                                    logger.LogWarning(ex, $"Could not upload the deployed terraform source archive '{sourceArchiveFileName}'; the deployment itself succeeded.");
+                                }
+                            }
+                            TryDeleteFile(sourceArchiveFilePath);
 
                             // Update status to WaitingConfirmation
                             _requestsPersistentSource.UpdateResultStatus(
