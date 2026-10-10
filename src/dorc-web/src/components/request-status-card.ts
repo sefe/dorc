@@ -49,6 +49,8 @@ export class RequestStatusCard extends LitElement {
   @state()
   buildNumberHref = '';
 
+  private buildNumberHrefProject: string | undefined;
+
   @state()
   dialogOpened = false;
 
@@ -166,7 +168,7 @@ export class RequestStatusCard extends LitElement {
               ></connection-status-indicator>
             </td>
             ${
-              this.deployRequest.Log !== null && this.deployRequest.Log !== '0'
+              this.deployRequest?.Log != null && this.deployRequest?.Log !== '0'
                 ? html` <td style="vertical-align: middle">
                     <vaadin-button
                       aria-label="View Log"
@@ -345,27 +347,27 @@ export class RequestStatusCard extends LitElement {
         </table>
         <request-controls
           style="position: absolute; right: 15px; top: 65px;"
-          .requestId="${this.deployRequest.Id ?? 0}"
+          .requestId="${this.deployRequest?.Id ?? 0}"
           .cancelable="${
-            !!this.deployRequest.UserEditable &&
-            (this.deployRequest.Status === 'Running' ||
-              this.deployRequest.Status === 'Requesting' ||
-              this.deployRequest.Status === 'Pending' ||
-              this.deployRequest.Status === 'Restarting' ||
-              this.deployRequest.Status === 'Paused')
+            !!this.deployRequest?.UserEditable &&
+            (this.deployRequest?.Status === 'Running' ||
+              this.deployRequest?.Status === 'Requesting' ||
+              this.deployRequest?.Status === 'Pending' ||
+              this.deployRequest?.Status === 'Restarting' ||
+              this.deployRequest?.Status === 'Paused')
           }"
           .canRestart="${
-            !!this.deployRequest.UserEditable &&
-            this.deployRequest.Status !== 'Pending' &&
-            this.deployRequest.Status !== 'Paused'
+            !!this.deployRequest?.UserEditable &&
+            this.deployRequest?.Status !== 'Pending' &&
+            this.deployRequest?.Status !== 'Paused'
           }"
           .canPause="${
-            !!this.deployRequest.UserEditable &&
-            this.deployRequest.Status === 'Pending'
+            !!this.deployRequest?.UserEditable &&
+            this.deployRequest?.Status === 'Pending'
           }"
           .canResume="${
-            !!this.deployRequest.UserEditable &&
-            this.deployRequest.Status === 'Paused'
+            !!this.deployRequest?.UserEditable &&
+            this.deployRequest?.Status === 'Paused'
           }"
         ></request-controls>
       </div>
@@ -377,8 +379,8 @@ export class RequestStatusCard extends LitElement {
     api2
       .refDataEnvironmentsGet({
         env:
-          this.deployRequest.EnvironmentName !== null
-            ? this.deployRequest.EnvironmentName
+          this.deployRequest?.EnvironmentName !== null
+            ? this.deployRequest?.EnvironmentName
             : undefined
       })
       .subscribe({
@@ -420,7 +422,7 @@ export class RequestStatusCard extends LitElement {
     tempInput.style.setProperty('position', 'absolute');
     tempInput.style.setProperty('left', '-1000px');
     tempInput.style.setProperty('top', '-1000px');
-    tempInput.value = this.deployRequest.UncLogPath ?? '';
+    tempInput.value = this.deployRequest?.UncLogPath ?? '';
     document.body.appendChild(tempInput);
     tempInput.select();
     document.execCommand('copy');
@@ -471,13 +473,23 @@ export class RequestStatusCard extends LitElement {
     return new Date(dateVal ?? '').toLocaleString();
   }
 
-  protected firstUpdated(_changedProperties: PropertyValues) {
-    super.firstUpdated(_changedProperties);
+  protected willUpdate(_changedProperties: PropertyValues) {
+    super.willUpdate(_changedProperties);
+
+    if (_changedProperties.has('deployRequest')) {
+      this.loadBuildNumberHref();
+    }
+  }
+
+  private loadBuildNumberHref() {
+    const projectName = this.deployRequest?.Project;
+    if (!projectName || projectName === this.buildNumberHrefProject) return;
+    this.buildNumberHrefProject = projectName;
 
     const projectsApi = new RefDataProjectsApi(dorcApiConfiguration);
     projectsApi
       .refDataProjectsProjectNameGet({
-        projectName: this.deployRequest.Project ?? ''
+        projectName: projectName
       })
       .subscribe({
         next: (project: ProjectApiModel) => {
@@ -504,7 +516,7 @@ export class RequestStatusCard extends LitElement {
   }
 
   private viewLog() {
-    this.selectedLog = this.deployRequest.Log ?? '';
+    this.selectedLog = this.deployRequest?.Log ?? '';
     this.dialogOpened = true;
   }
 
