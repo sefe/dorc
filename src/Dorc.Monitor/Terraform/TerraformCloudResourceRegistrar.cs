@@ -216,7 +216,7 @@ namespace Dorc.Monitor.Terraform
                     return new DatabaseApiModel
                     {
                         Name = resource.Name,
-                        Type = "CosmosDB",
+                        Tags = new[] { "CosmosDB" },
                         ServerName = account,
                         AdGroup = string.Empty,
                         ArrayName = string.Empty
@@ -230,7 +230,7 @@ namespace Dorc.Monitor.Terraform
                     return new DatabaseApiModel
                     {
                         Name = resource.Name,
-                        Type = resource.ResourceType == "aiven_pg_database" ? "PostgreSQL" : "ClickHouse",
+                        Tags = new[] { resource.ResourceType == "aiven_pg_database" ? "PostgreSQL" : "ClickHouse" },
                         ServerName = parts[1],
                         AdGroup = string.Empty,
                         ArrayName = string.Empty

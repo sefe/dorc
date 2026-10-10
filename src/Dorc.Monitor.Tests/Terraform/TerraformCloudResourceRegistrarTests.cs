@@ -224,7 +224,7 @@ namespace Dorc.Monitor.Tests.Terraform
             _registrar.RegisterAppliedResources(_file, "Terraform Dev", "user");
 
             _databases.Received(1).AddDatabase(Arg.Is<DatabaseApiModel>(d =>
-                d.Name == "orders-db" && d.Type == "CosmosDB" && d.ServerName == "cosmos-sh-dv"));
+                d.Name == "orders-db" && d.Tags.Contains("CosmosDB") && d.ServerName == "cosmos-sh-dv"));
             _environments.Received(1).AttachDatabaseToEnv(2598, 11, Arg.Any<System.Security.Claims.ClaimsPrincipal>());
         }
 
@@ -252,7 +252,7 @@ namespace Dorc.Monitor.Tests.Terraform
             _registrar.RegisterAppliedResources(_file, "Terraform Dev", "user");
 
             _databases.Received(1).AddDatabase(Arg.Is<DatabaseApiModel>(d =>
-                d.Name == "analytics" && d.Type == "ClickHouse" && d.ServerName == "clickhouse-dev"));
+                d.Name == "analytics" && d.Tags.Contains("ClickHouse") && d.ServerName == "clickhouse-dev"));
             _environments.Received(1).AttachDatabaseToEnv(2598, 12, Arg.Any<System.Security.Claims.ClaimsPrincipal>());
         }
 
@@ -280,7 +280,7 @@ namespace Dorc.Monitor.Tests.Terraform
             _registrar.RegisterAppliedResources(_file, "Terraform Dev", "user");
 
             _databases.Received(1).AddDatabase(Arg.Is<DatabaseApiModel>(d =>
-                d.Name == "appdb" && d.Type == "PostgreSQL" && d.ServerName == "pg-analytics-dev"));
+                d.Name == "appdb" && d.Tags.Contains("PostgreSQL") && d.ServerName == "pg-analytics-dev"));
             _environments.Received(1).AttachDatabaseToEnv(2598, 13, Arg.Any<System.Security.Claims.ClaimsPrincipal>());
         }
 

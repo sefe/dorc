@@ -84,12 +84,12 @@ namespace Dorc.Core.Tests
                 new ServerApiModel
                 {
                     ServerId = 1, Name = "web01", OsName = "Win2022",
-                    ApplicationTags = "appserv;web tier"
+                    Tags = new[] { "appserv", "web tier" }
                 },
                 new ServerApiModel
                 {
                     ServerId = 2, Name = "web02", OsName = "Win2022",
-                    ApplicationTags = "web tier"
+                    Tags = new[] { "web tier" }
                 }
             });
             _daemons.GetDaemonsForServer(1).Returns(new[]
@@ -103,19 +103,19 @@ namespace Dorc.Core.Tests
             _daemons.GetDaemonsForServer(2).Returns(Array.Empty<DaemonApiModel>());
 
             var endurDb = new DatabaseApiModel
-            { Id = 10, Name = "END_DB_DV07", Type = "Endur", ServerName = "sql01" };
+            { Id = 10, Name = "END_DB_DV07", Tags = new[] { "Endur" }, ServerName = "sql01" };
             var reportingDb = new DatabaseApiModel
-            { Id = 11, Name = "REP_DB", Type = "Endur Reporting", ServerName = "sql02" };
-            // Two databases sharing a type exercise the array variants of DbServer_/DbName_.
+            { Id = 11, Name = "REP_DB", Tags = new[] { "Endur Reporting" }, ServerName = "sql02" };
+            // Two databases sharing a tag exercise the array variants of DbServer_/DbName_.
             var auditDb1 = new DatabaseApiModel
-            { Id = 12, Name = "AUD1", Type = "Audit", ServerName = "sql03" };
+            { Id = 12, Name = "AUD1", Tags = new[] { "Audit" }, ServerName = "sql03" };
             var auditDb2 = new DatabaseApiModel
-            { Id = 13, Name = "AUD2", Type = "Audit", ServerName = "sql03" };
+            { Id = 13, Name = "AUD2", Tags = new[] { "Audit" }, ServerName = "sql03" };
             var externalDb = new DatabaseApiModel
-            { Id = 14, Name = "EXT_DB", Type = "Endur External", ServerName = "sql04" };
+            { Id = 14, Name = "EXT_DB", Tags = new[] { "Endur External" }, ServerName = "sql04" };
             _databases.GetDatabasesForEnvironmentName("IAR DV 07")
                 .Returns(new[] { endurDb, reportingDb, auditDb1, auditDb2, externalDb });
-            _databases.GetDatabaseByType(environment, "Endur").Returns(endurDb);
+            _databases.GetDatabaseByTag(environment, "Endur").Returns(endurDb);
 
             _properties.GetConfigurationFilePath(environment).Returns("cfg/path");
 
@@ -237,7 +237,7 @@ namespace Dorc.Core.Tests
             _servers.GetServersForEnvId(42).Returns(Array.Empty<ServerApiModel>());
             _databases.GetDatabasesForEnvironmentName("IAR DV 07")
                 .Returns(Array.Empty<DatabaseApiModel>());
-            _databases.GetDatabaseByType(environment, "Endur").Returns((DatabaseApiModel?)null);
+            _databases.GetDatabaseByTag(environment, "Endur").Returns((DatabaseApiModel?)null);
             _properties.GetConfigurationFilePath(environment).Returns("cfg/path");
 
             CreateResolver().SetPropertyValues(CreateRecordingVariableResolver(), environment);

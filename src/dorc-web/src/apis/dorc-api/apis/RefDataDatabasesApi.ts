@@ -32,9 +32,9 @@ export interface RefDataDatabasesByPagePutRequest {
     pagedDataOperators?: PagedDataOperators;
 }
 
-export interface RefDataDatabasesByTypeGetRequest {
+export interface RefDataDatabasesByTagGetRequest {
     envName?: string;
-    type?: string;
+    tag?: string;
 }
 
 export interface RefDataDatabasesDeleteRequest {
@@ -121,9 +121,9 @@ export class RefDataDatabasesApi extends BaseAPI {
 
     /**
      */
-    refDataDatabasesByTypeGet({ envName, type }: RefDataDatabasesByTypeGetRequest): Observable<DatabaseApiModel>
-    refDataDatabasesByTypeGet({ envName, type }: RefDataDatabasesByTypeGetRequest, opts?: OperationOpts): Observable<AjaxResponse<DatabaseApiModel>>
-    refDataDatabasesByTypeGet({ envName, type }: RefDataDatabasesByTypeGetRequest, opts?: OperationOpts): Observable<DatabaseApiModel | AjaxResponse<DatabaseApiModel>> {
+    refDataDatabasesByTagGet({ envName, tag }: RefDataDatabasesByTagGetRequest): Observable<DatabaseApiModel>
+    refDataDatabasesByTagGet({ envName, tag }: RefDataDatabasesByTagGetRequest, opts?: OperationOpts): Observable<AjaxResponse<DatabaseApiModel>>
+    refDataDatabasesByTagGet({ envName, tag }: RefDataDatabasesByTagGetRequest, opts?: OperationOpts): Observable<DatabaseApiModel | AjaxResponse<DatabaseApiModel>> {
 
         const headers: HttpHeaders = {
             // oauth required
@@ -138,10 +138,10 @@ export class RefDataDatabasesApi extends BaseAPI {
         const query: HttpQuery = {};
 
         if (envName != null) { query['envName'] = envName; }
-        if (type != null) { query['type'] = type; }
+        if (tag != null) { query['tag'] = tag; }
 
         return this.request<DatabaseApiModel>({
-            url: '/RefDataDatabases/ByType',
+            url: '/RefDataDatabases/ByTag',
             method: 'GET',
             headers,
             query,
