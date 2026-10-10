@@ -47,6 +47,7 @@ export class AddEditApiRegistration extends LitElement {
       <vaadin-text-field
         label="Name"
         required
+        placeholder="e.g. trade-capture-api"
         maxlength="${this.maxNameLength}"
         .value="${this._apiRegistration.Name ?? ''}"
         @input="${(e: Event) => this.setField('Name', e)}"
@@ -54,24 +55,28 @@ export class AddEditApiRegistration extends LitElement {
       <vaadin-text-field
         label="Base URL"
         required
+        placeholder="e.g. https://trade-capture-api.ut2.example.com"
         maxlength="${this.maxUrlLength}"
         .value="${this._apiRegistration.BaseUrl ?? ''}"
         @input="${(e: Event) => this.setField('BaseUrl', e)}"
       ></vaadin-text-field>
       <vaadin-text-field
         label="Version"
+        placeholder="e.g. v2"
         maxlength="${this.maxVersionLength}"
         .value="${this._apiRegistration.Version ?? ''}"
         @input="${(e: Event) => this.setField('Version', e)}"
       ></vaadin-text-field>
       <vaadin-text-field
         label="Health Check URL"
+        placeholder="e.g. https://trade-capture-api.ut2.example.com/health"
         maxlength="${this.maxUrlLength}"
         .value="${this._apiRegistration.HealthCheckUrl ?? ''}"
         @input="${(e: Event) => this.setField('HealthCheckUrl', e)}"
       ></vaadin-text-field>
       <vaadin-text-field
         label="Tags"
+        placeholder="e.g. rest;internal"
         helper-text="Semicolon-separated"
         maxlength="${this.maxTagsLength}"
         .value="${this._apiRegistration.Tags ?? ''}"

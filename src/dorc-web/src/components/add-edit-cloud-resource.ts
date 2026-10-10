@@ -45,6 +45,7 @@ export class AddEditCloudResource extends LitElement {
       <vaadin-text-field
         label="Name"
         required
+        placeholder="e.g. service-bus-trading-ut2"
         maxlength="${this.maxFieldLength}"
         .value="${this._cloudResource.Name ?? ''}"
         @input="${(e: Event) => this.setField('Name', e)}"
@@ -52,6 +53,8 @@ export class AddEditCloudResource extends LitElement {
       <vaadin-text-field
         label="Provider"
         required
+        placeholder="e.g. Azure"
+        helper-text="e.g. Azure, Aiven, AWS"
         maxlength="${this.maxFieldLength}"
         .value="${this._cloudResource.Provider ?? ''}"
         @input="${(e: Event) => this.setField('Provider', e)}"
@@ -59,6 +62,8 @@ export class AddEditCloudResource extends LitElement {
       <vaadin-text-field
         label="Resource Type"
         required
+        placeholder="e.g. azurerm_servicebus_namespace"
+        helper-text="Terraform resource type or provider service type"
         maxlength="${this.maxFieldLength}"
         .value="${this._cloudResource.ResourceType ?? ''}"
         @input="${(e: Event) => this.setField('ResourceType', e)}"
@@ -66,18 +71,23 @@ export class AddEditCloudResource extends LitElement {
       <vaadin-text-field
         label="Resource Identifier"
         required
+        placeholder="e.g. /subscriptions/…/resourceGroups/rg-ut2/providers/Microsoft.ServiceBus/namespaces/sb-trading-ut2"
+        helper-text="Azure resource ID, or project/service/name for Aiven"
         maxlength="${this.maxIdentifierLength}"
         .value="${this._cloudResource.ResourceIdentifier ?? ''}"
         @input="${(e: Event) => this.setField('ResourceIdentifier', e)}"
       ></vaadin-text-field>
       <vaadin-text-field
         label="Subscription"
+        placeholder="e.g. 7c7c1f8f-f295-456c-81e4-5d508579d93e"
+        helper-text="Subscription ID or name the resource lives in"
         maxlength="${this.maxFieldLength}"
         .value="${this._cloudResource.Subscription ?? ''}"
         @input="${(e: Event) => this.setField('Subscription', e)}"
       ></vaadin-text-field>
       <vaadin-text-field
         label="Tags"
+        placeholder="e.g. messaging;trading"
         helper-text="Semicolon-separated"
         maxlength="${this.maxFieldLength}"
         .value="${this._cloudResource.Tags ?? ''}"

@@ -46,6 +46,7 @@ export class AddEditContainer extends LitElement {
       <vaadin-text-field
         label="Name"
         required
+        placeholder="e.g. trade-ingest-worker"
         maxlength="${this.maxNameLength}"
         .value="${this._container.Name ?? ''}"
         @input="${(e: Event) => this.setField('Name', e)}"
@@ -53,24 +54,30 @@ export class AddEditContainer extends LitElement {
       <vaadin-text-field
         label="Image"
         required
+        placeholder="e.g. trade-ingest:1.4.2"
+        helper-text="Image name and tag"
         maxlength="${this.maxImageLength}"
         .value="${this._container.Image ?? ''}"
         @input="${(e: Event) => this.setField('Image', e)}"
       ></vaadin-text-field>
       <vaadin-text-field
         label="Registry"
+        placeholder="e.g. myregistry.azurecr.io"
         maxlength="${this.maxFieldLength}"
         .value="${this._container.Registry ?? ''}"
         @input="${(e: Event) => this.setField('Registry', e)}"
       ></vaadin-text-field>
       <vaadin-text-field
         label="Host Server Name"
+        placeholder="e.g. aks-cluster-ut2"
+        helper-text="Server or cluster hosting the container"
         maxlength="${this.maxFieldLength}"
         .value="${this._container.HostServerName ?? ''}"
         @input="${(e: Event) => this.setField('HostServerName', e)}"
       ></vaadin-text-field>
       <vaadin-text-field
         label="Tags"
+        placeholder="e.g. ingest;web tier"
         helper-text="Semicolon-separated"
         maxlength="${this.maxFieldLength}"
         .value="${this._container.Tags ?? ''}"
