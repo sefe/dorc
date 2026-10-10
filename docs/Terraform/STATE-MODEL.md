@@ -41,6 +41,16 @@ Plan and apply for the same logical operation must run against the same provider
 
 The state blob (the `.tfstate` itself) is **never** part of the bundle. It lives forever.
 
+## Deployed-source archive
+
+After every successful apply, the runner archives the exact terraform configuration that was deployed and the Monitor uploads it to the same blob container as the plan artefacts, keyed `{deploymentResultId}.terraform-source.zip`. The archive contains:
+
+- the working directory's terraform configuration (`*.tf`, `.terraform.lock.hcl`, module files), **excluding** `.git/`, `.terraform/` (provider binaries — the lock file pins their versions), and any `*.tfstate*` files;
+- `terraform.tfvars` with flagged-sensitive values redacted to `[REDACTED]` before archiving;
+- `_dorc_provenance.json`: the module `name@version`, source type, resolved git repo/ref, the **exact commit SHA** checked out, sub-path, state-backend coordinates, request/result IDs, and timestamp.
+
+Archival is best-effort end to end: a failure to build or upload the archive is logged and never fails a completed deployment, matching applied-resource registration. The archive answers "what code produced this infrastructure?" for audit and rebuild without re-resolving a git ref that may since have moved.
+
 ## Concurrency [planned]
 
 Plan and apply on the same `(project, component, environment)` triple are serialised in two layers:
