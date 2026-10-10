@@ -63,6 +63,21 @@ namespace Dorc.Api.Tests
             Assert.IsNull(unknownBuild);
         }
 
+        // factory routes catalog-sentinel BuildUrl to CatalogDeployableBuild.
+        [TestMethod]
+        public void CreateInstance_RoutesCatalogSentinel_ToCatalogDeployableBuild()
+        {
+            var project = new ProjectApiModel { ProjectName = "myProject", ArtefactsUrl = "https://tfs/tfs/org/" };
+            _mockedProjectsPds.GetProject(Arg.Any<string>()).Returns(project);
+
+            var factory = CreateFactory();
+            var request = new RequestDto { BuildUrl = "dorc-catalog://", Project = "myProject" };
+            var catalogBuild = factory.CreateInstance(request);
+
+            Assert.IsTrue(catalogBuild is CatalogDeployableBuild,
+                $"BuildUrl=dorc-catalog:// must route to CatalogDeployableBuild; got {catalogBuild?.GetType().Name ?? "null"}.");
+        }
+
         [TestMethod]
         public void CreateInstance_GitHubProject_HttpUrl_ReturnsGitHubBuild()
         {

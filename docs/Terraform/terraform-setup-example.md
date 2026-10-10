@@ -1,5 +1,11 @@
 # Setting Up a Terraform Project with DOrc
 
+> **See also**:
+> - [`MODULE-CONTRACT.md`](./MODULE-CONTRACT.md) - the contract every stock module must satisfy.
+> - [`MODULES.md`](./MODULES.md) - the index of stock modules engineers can start from.
+> - [`STATE-MODEL.md`](./STATE-MODEL.md) - how DOrc owns Terraform state at deploy time.
+> - [`sefe/dorc-terraform-modules`](https://github.com/sefe/dorc-terraform-modules) - the stock module library.
+
 This guide shows you how to set up a project to deploy Terraform infrastructure using DOrc's Terraform Runner functionality.
 
 ## Overview
@@ -34,24 +40,15 @@ my-terraform-project/
 ├── environments/
 │   ├── dev/
 │   │   └── terraform.tfvars
-│   ├── staging/
-│   │   └── terraform.tfvars
 │   └── prod/
 │       └── terraform.tfvars
-├── modules/
-│   ├── sql-database/
-│   │   ├── main.tf
-│   │   ├── variables.tf
-│   │   └── outputs.tf
-│   └── sql-managed-instance/
-│       ├── main.tf
-│       ├── variables.tf
-│       └── outputs.tf
 ├── main.tf
 ├── variables.tf
 ├── outputs.tf
 └── providers.tf
 ```
+
+Engineers should **reference stock modules** rather than copy them inline. The [`sefe/dorc-terraform-modules`](https://github.com/sefe/dorc-terraform-modules) repository publishes curated modules (see [`MODULES.md`](./MODULES.md)).
 
 ## Example Configuration Files
 
@@ -59,43 +56,31 @@ my-terraform-project/
 
 ```hcl
 terraform {
-  required_version = ">= 1.0"
+  required_version = ">= 1.5.0"
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
-      version = "~> 3.0"
+      version = "~> 3.100"
     }
   }
+  # No backend block - DOrc renders the Azure Blob backend at deploy time.
+  # See STATE-MODEL.md. User-checked-in backend blocks are rejected at pre-flight.
 }
 
 provider "azurerm" {
   features {}
 }
 
-# SQL Database module example
-module "sql_database" {
-  count  = var.enable_sql_database ? 1 : 0
-  source = "./modules/sql-database"
-  
-  resource_group_name = var.resource_group_name
-  location           = var.location
-  database_name      = var.database_name
-  server_name        = var.sql_server_name
-  environment        = var.environment
-  
-  tags = var.tags
-}
+# Reference the cosmosdb stock module at a pinned tag.
+module "cosmosdb" {
+  count  = var.enable_cosmosdb ? 1 : 0
+  source = "git::https://github.com/sefe/dorc-terraform-modules.git//stock-modules/cosmosdb?ref=stock-modules/cosmosdb/v1.0.0"
 
-# SQL Managed Instance module example
-module "sql_managed_instance" {
-  count  = var.enable_sql_mi ? 1 : 0
-  source = "./modules/sql-managed-instance"
-  
   resource_group_name = var.resource_group_name
-  location           = var.location
-  instance_name      = var.sql_mi_name
-  environment        = var.environment
-  
+  location            = var.location
+  account_name        = var.cosmosdb_account_name
+  database_name       = var.database_name
+
   tags = var.tags
 }
 ```
@@ -119,32 +104,20 @@ variable "environment" {
   type        = string
 }
 
-variable "enable_sql_database" {
-  description = "Enable SQL Database deployment"
-  type        = bool
-  default     = false
-}
-
-variable "enable_sql_mi" {
-  description = "Enable SQL Managed Instance deployment"
+variable "enable_cosmosdb" {
+  description = "Enable Cosmos DB deployment"
   type        = bool
   default     = false
 }
 
 variable "database_name" {
-  description = "Name of the SQL database"
+  description = "Name of the Cosmos DB SQL database"
   type        = string
   default     = ""
 }
 
-variable "sql_server_name" {
-  description = "Name of the SQL server"
-  type        = string
-  default     = ""
-}
-
-variable "sql_mi_name" {
-  description = "Name of the SQL Managed Instance"
+variable "cosmosdb_account_name" {
+  description = "Name of the Cosmos DB account"
   type        = string
   default     = ""
 }
@@ -164,10 +137,10 @@ resource_group_name = "rg-myapp-dev"
 location           = "East US"
 environment        = "dev"
 
-# Enable SQL Database for dev
-enable_sql_database = true
-database_name      = "myapp-dev-db"
-sql_server_name    = "myapp-dev-sql"
+# Enable Cosmos DB for dev
+enable_cosmosdb       = true
+database_name         = "myapp-dev-db"
+cosmosdb_account_name = "myapp-dev-cosmos"
 
 # Disable SQL MI for dev (cost optimization)
 enable_sql_mi      = false
@@ -279,19 +252,19 @@ Set up environment-specific properties that DOrc will pass to Terraform:
 - `resource_group_name` = "rg-myapp-dev"
 - `location` = "East US"
 - `environment` = "dev"
-- `enable_sql_database` = "true"
+- `enable_cosmosdb` = "true"
 - `enable_sql_mi` = "false"
 - `database_name` = "myapp-dev-db"
-- `sql_server_name` = "myapp-dev-sql"
+- `cosmosdb_account_name` = "myapp-dev-cosmos"
 
 #### Environment Properties (Production)
 - `resource_group_name` = "rg-myapp-prod"
 - `location` = "East US"
 - `environment` = "prod"
-- `enable_sql_database` = "true"
+- `enable_cosmosdb` = "true"
 - `enable_sql_mi` = "true"
 - `database_name` = "myapp-prod-db"
-- `sql_server_name` = "myapp-prod-sql"
+- `cosmosdb_account_name` = "myapp-prod-cosmos"
 - `sql_mi_name` = "myapp-prod-mi"
 
 ## Deployment Workflow

@@ -1,0 +1,59 @@
+name: postgresql-database
+version: 1.0.0
+source:
+  kind: git
+  locator: https://github.com/sefe/dorc-terraform-modules.git
+  ref: stock-modules/postgresql-database/v1.0.0
+parameters:
+  - name: project
+    type: String
+    required: true
+    description: Aiven console project the PostgreSQL service lives in.
+    pattern: "^[a-z0-9-]+$"
+  - name: service_name
+    type: String
+    required: true
+    description: Name of the existing Aiven PostgreSQL service. Referenced, never managed. SEFE services run BYOC on Azure uksouth (non-prod in rg-np-aiven-1-uks, prod in rg-pr-aiven-1-uks).
+    pattern: "^[a-z0-9-]+$"
+  - name: database_name
+    type: String
+    required: true
+    description: PostgreSQL database name; immutable (change forces recreation).
+    pattern: "^[A-Za-z0-9_-]{1,40}$"
+  - name: lc_collate
+    type: String
+    required: false
+    description: Default string sort order (LC_COLLATE); immutable. Default en_US.UTF-8.
+    default: "en_US.UTF-8"
+  - name: lc_ctype
+    type: String
+    required: false
+    description: Default character classification (LC_CTYPE); immutable. Default en_US.UTF-8.
+    default: "en_US.UTF-8"
+  - name: termination_protection
+    type: Bool
+    required: false
+    description: Client-side deletion protection preventing Terraform from destroying the database. Default true.
+    default: "true"
+outputs:
+  - name: database_id
+    type: String
+    description: ID of the PostgreSQL database (project/service_name/database_name).
+  - name: database_name
+    type: String
+  - name: project
+    type: String
+  - name: service_name
+    type: String
+description: PostgreSQL database on an existing Aiven PostgreSQL service. Termination protection on by default; no credentials output. Requires an Aiven API token (AIVEN_TOKEN / TerraformAivenApiToken environment property).
+tags:
+  - data
+  - aiven
+  - postgresql
+category: Data
+required_providers:
+  aiven: ">= 4.1.1, < 5.0.0"
+required_terraform_version: ">= 1.5.0"
+owner: DOrc platform team
+deprecated: false
+deprecation_reason: ""

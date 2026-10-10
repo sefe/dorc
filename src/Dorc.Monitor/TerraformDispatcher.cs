@@ -1,4 +1,4 @@
-﻿using Dorc.ApiModel;
+using Dorc.ApiModel;
 using Dorc.ApiModel.MonitorRunnerApi;
 using Dorc.Core;
 using Dorc.Core.AzureStorageAccount;
@@ -7,6 +7,7 @@ using Dorc.Core.Configuration;
 using Dorc.Monitor.Pipes;
 using Dorc.Monitor.RunnerProcess;
 using Dorc.Monitor.RunnerProcess.Interop.Windows.Kernel32;
+using Dorc.Monitor.Terraform;
 using Dorc.Monitor.Security;
 using Dorc.Monitor.TerraformSourceConfig;
 using Dorc.PersistentData.Sources.Interfaces;
@@ -35,6 +36,7 @@ namespace Dorc.Monitor
         private readonly IAzureStorageAccountWorker _azureStorageAccountWorker;
         private readonly IProjectsPersistentSource _projectsPersistentSource;
         private readonly TerraformSourceConfigurator _sourceConfigurator;
+        private readonly TerraformCloudResourceRegistrar _cloudResourceRegistrar;
 
         private bool isScriptExecutionSuccessful; // This field is needed to be instance-wide since Runner process errors are processed as instance-wide events.
 
@@ -47,7 +49,11 @@ namespace Dorc.Monitor
             IScriptGroupPipeServer scriptGroupPipeServer,
             IAzureStorageAccountWorker azureStorageAccountWorker,
             IProjectsPersistentSource projectsPersistentSource,
-            IGitHubHostValidator gitHubHostValidator)
+            IGitHubHostValidator gitHubHostValidator,
+            ICloudResourcesPersistentSource cloudResourcesPersistentSource,
+            ICloudResourceAuditPersistentSource cloudResourceAuditPersistentSource,
+            IEnvironmentsPersistentSource environmentsPersistentSource,
+            IDatabasesPersistentSource databasesPersistentSource)
         {
             this.logger = logger;
             this._requestsPersistentSource = requestsPersistentSource;
@@ -58,6 +64,12 @@ namespace Dorc.Monitor
             this._azureStorageAccountWorker = azureStorageAccountWorker;
             this._projectsPersistentSource = projectsPersistentSource;
             this._sourceConfigurator = new TerraformSourceConfigurator(logger, _configurationSettingsEngine, gitHubHostValidator);
+            this._cloudResourceRegistrar = new TerraformCloudResourceRegistrar(
+                logger,
+                cloudResourcesPersistentSource,
+                cloudResourceAuditPersistentSource,
+                environmentsPersistentSource,
+                databasesPersistentSource);
         }
 
         public bool Dispatch(
@@ -74,6 +86,27 @@ namespace Dorc.Monitor
             cancellationToken.ThrowIfCancellationRequested();
 
             logger.LogInformation($"TerraformDispatcher.DispatchAsync called for component '{component.ComponentName}' with id '{component.ComponentId}', deployment result id '{deploymentResult.Id}', environment '{environmentName}'.");
+
+            // The request is loaded before the guard because the project name
+            // is part of the state identity: environments are shared across
+            // projects and component names are not globally unique, so
+            // (project, environment, component) is the smallest collision-free
+            // key - see docs/Terraform/STATE-MODEL.md.
+            var request = _requestsPersistentSource.GetRequest(requestId);
+            var projectName = request?.Project ?? string.Empty;
+
+            // serialise plan/apply per (project, environment, component)
+            // within this monitor instance. Acquired once around the whole
+            // Dispatch body; released on scope exit. Cross-monitor concurrency
+            // relies on the azurerm backend's blob-lease state lock under the
+            // hood.
+            using var concurrencyGuard = TryAcquireConcurrencyGuard(
+                projectName, environmentName, component.ComponentName, deploymentResult.Id, terreformOperation);
+            if (concurrencyGuard is null)
+            {
+                isScriptExecutionSuccessful = false;
+                return isScriptExecutionSuccessful;
+            }
 
             // Update status to Running
             _requestsPersistentSource.UpdateResultStatus(
@@ -96,8 +129,8 @@ namespace Dorc.Monitor
                 return isScriptExecutionSuccessful;
             }
 
-            // Get request and project information for Terraform source configuration
-            var request = _requestsPersistentSource.GetRequest(requestId);
+            // Project information for Terraform source configuration (the
+            // request itself was loaded before the concurrency guard).
             ProjectApiModel? project = null;
             if (!string.IsNullOrEmpty(request?.Project))
             {
@@ -118,6 +151,34 @@ namespace Dorc.Monitor
                 component,
                 request,
                 project);
+
+            // Per  : render a platform-managed Azure Blob backend in
+            // the runner working dir before `terraform init`. Configuration is
+            // sourced from appsettings.json under Terraform:State; when any of
+            // the values are missing the runner falls back to the legacy
+            // (no-backend) path. The state key is keyed by environment +
+            // component so plan and apply for the same logical (env, component)
+            // operation share the same state.
+            var stateConfig = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build()
+                .GetSection("Terraform:State");
+            var stateAccount = stateConfig["StorageAccount"];
+            var stateContainer = stateConfig["ContainerName"];
+            var stateRg = stateConfig["ResourceGroup"];
+            if (!string.IsNullOrEmpty(stateAccount) && !string.IsNullOrEmpty(stateContainer))
+            {
+                scriptGroup.TerraformStateStorageAccount = stateAccount;
+                scriptGroup.TerraformStateContainerName = stateContainer;
+                scriptGroup.TerraformStateResourceGroup = stateRg;
+                // {project}/{component}/{environment}.tfstate per
+                // docs/Terraform/STATE-MODEL.md. Project is a mandatory
+                // dimension: environments (e.g. "Prod") are shared across
+                // projects and component names are not globally unique, so
+                // omitting it lets two projects share one state file.
+                scriptGroup.TerraformStateKey =
+                    TerraformStateKeySanitizer.Sanitize(projectName) + "/" +
+                    TerraformStateKeySanitizer.Sanitize(component.ComponentName) + "/" +
+                    TerraformStateKeySanitizer.Sanitize(environmentName) + ".tfstate";
+            }
 
             var domainName = _configurationSettingsEngine.GetConfigurationDomainNameIntra();
             var contextBuilder = new ProcessSecurityContextBuilder(logger)
@@ -165,9 +226,48 @@ namespace Dorc.Monitor
                     var terraformPlanFilePath = Path.Join(planStorageDir, terraformPlanFileName);
                     var terraformPlanContentFileName = deploymentResult.Id.CreateTerraformPlanContentBlobName();
                     var terraformPlanContentFilePath = Path.Join(planStorageDir, terraformPlanContentFileName);
+                    // persist .terraform.lock.hcl across plan+apply so
+                    // both phases resolve identical provider versions. It is
+                    // staged in the same restricted directory as the plan.
+                    var terraformLockFileName = $"{deploymentResult.Id}.terraform.lock.hcl";
+                    var terraformLockFilePath = Path.Join(planStorageDir, terraformLockFileName);
+                    // Written by the runner after a successful apply; read back
+                    // below to register the applied resources on the environment.
+                    var appliedResourcesFilePath = terreformOperation == TerraformRunnerOperations.ApplyPlan
+                        ? Path.Join(planStorageDir, $"{deploymentResult.Id}.applied-resources.json")
+                        : string.Empty;
+                    // Written by the runner after a successful apply: the exact
+                    // terraform configuration deployed (tfvars redacted) plus a
+                    // provenance record (module ref + resolved commit SHA).
+                    // Uploaded below to the same blob container as the plan.
+                    var sourceArchiveFileName = $"{deploymentResult.Id}.terraform-source.zip";
+                    var sourceArchiveFilePath = terreformOperation == TerraformRunnerOperations.ApplyPlan
+                        ? Path.Join(planStorageDir, sourceArchiveFileName)
+                        : string.Empty;
+
                     if (terreformOperation == TerraformRunnerOperations.ApplyPlan)
                     {
                         _azureStorageAccountWorker.DownloadFileFromBlobs(terraformPlanFileName, terraformPlanFilePath);
+                        // Lock-file may not exist yet if the plan ran on the legacy
+                        // path; download is best-effort. Narrow catches: only treat
+                        // file/blob-not-found as the warn-and-continue case;
+                        // anything else propagates so it gets investigated.
+                        try
+                        {
+                            _azureStorageAccountWorker.DownloadFileFromBlobs(terraformLockFileName, terraformLockFilePath);
+                        }
+                        catch (FileNotFoundException ex)
+                        {
+                            logger.LogWarning(ex, $"No persisted .terraform.lock.hcl found for result {deploymentResult.Id}; apply will resolve providers afresh.");
+                        }
+                        catch (DirectoryNotFoundException ex)
+                        {
+                            logger.LogWarning(ex, $"Lock-file path missing for result {deploymentResult.Id}; apply will resolve providers afresh.");
+                        }
+                        catch (Win32Exception ex) when (ex.NativeErrorCode == 2 || ex.NativeErrorCode == 3)
+                        {
+                            logger.LogWarning(ex, $"Lock-file download not-found (Win32 {ex.NativeErrorCode}); apply will resolve providers afresh.");
+                        }
                     }
 
                     var processStarter = new TerraformRunnerProcessStarter(logger)
@@ -177,7 +277,10 @@ namespace Dorc.Monitor
                         RunnerLogPath = runnerLogPath,
                         PlanFilePath = terraformPlanFilePath,
                         PlanContentFilePath = terraformPlanContentFilePath,
-                        TerrafromRunnerOperation = terreformOperation
+                        LockFilePath = terraformLockFilePath,
+                        AppliedResourcesFilePath = appliedResourcesFilePath,
+                        SourceArchiveFilePath = sourceArchiveFilePath,
+                        TerraformRunnerOperation = terreformOperation
                     };
                     try
                     {
@@ -261,6 +364,15 @@ namespace Dorc.Monitor
                             _azureStorageAccountWorker.SaveFileToBlobs(terraformPlanFilePath);
                             // save Terraform human-readable plan file to Azure Storage Account
                             _azureStorageAccountWorker.SaveFileToBlobs(terraformPlanContentFilePath);
+                            // save .terraform.lock.hcl alongside the plan so
+                            // the apply phase resolves identical provider versions.
+                            // Lock file is only present when terraform init wrote
+                            // it (i.e. for projects with required_providers). The
+                            // runner skips persistence cleanly when missing.
+                            if (File.Exists(terraformLockFilePath))
+                            {
+                                _azureStorageAccountWorker.SaveFileToBlobs(terraformLockFilePath);
+                            }
 
                             // Update status to WaitingConfirmation
                             _requestsPersistentSource.UpdateResultStatus(
@@ -271,6 +383,35 @@ namespace Dorc.Monitor
                             break;
 
                         case TerraformRunnerOperations.ApplyPlan:
+                            // Surface what the apply created on the environment's
+                            // Cloud tab. Best-effort: the infrastructure change
+                            // has already happened, so registration problems are
+                            // logged, never failed.
+                            _cloudResourceRegistrar.RegisterAppliedResources(
+                                appliedResourcesFilePath,
+                                environmentName,
+                                request?.UserName ?? string.Empty);
+                            TryDeleteFile(appliedResourcesFilePath);
+
+                            // Persist the deployed-source archive next to the
+                            // plan artefacts. Best-effort like the resource
+                            // registration: the runner only writes the archive
+                            // when archival itself succeeded, and a missing
+                            // file must not fail a completed deployment.
+                            if (File.Exists(sourceArchiveFilePath))
+                            {
+                                try
+                                {
+                                    _azureStorageAccountWorker.SaveFileToBlobs(sourceArchiveFilePath);
+                                    logger.LogInformation($"Deployed terraform source archived to blob '{sourceArchiveFileName}'.");
+                                }
+                                catch (Exception ex)
+                                {
+                                    logger.LogWarning(ex, $"Could not upload the deployed terraform source archive '{sourceArchiveFileName}'; the deployment itself succeeded.");
+                                }
+                            }
+                            TryDeleteFile(sourceArchiveFilePath);
+
                             // Update status to WaitingConfirmation
                             _requestsPersistentSource.UpdateResultStatus(
                                 deploymentResult,
@@ -292,6 +433,19 @@ namespace Dorc.Monitor
             }
 
             return isScriptExecutionSuccessful;
+        }
+
+        private void TryDeleteFile(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path)) return;
+            try
+            {
+                if (File.Exists(path)) File.Delete(path);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, $"Could not delete staged terraform file '{path}'.");
+            }
         }
 
         private (string, string) GetProcessCredentials(bool isProduction, string environmentName)
@@ -327,7 +481,13 @@ namespace Dorc.Monitor
                 DeployResultId = deploymentResultId,
                 ScriptsLocation = scriptsLocation,
                 CommonProperties = properties,
-                ScriptProperties = new List<ScriptProperties>()
+                ScriptProperties = new List<ScriptProperties>(),
+                // Exact names of sensitive wizard parameters, so runner-side
+                // log redaction covers flagged properties whose names don't
+                // match the heuristic pattern.
+                SensitivePropertyNames = RequestPropertyRedaction
+                    .GetSensitivePropertyNames(request?.RequestDetails ?? string.Empty)
+                    .ToList()
             };
 
             // Use the configurator to set Terraform-specific fields based on source type
@@ -336,11 +496,31 @@ namespace Dorc.Monitor
             return scriptGroup;
         }
 
-        private class TerraformExecutionResult
+        private IDisposable? TryAcquireConcurrencyGuard(
+            string projectName,
+            string environmentName,
+            string componentName,
+            int deploymentResultId,
+            TerraformRunnerOperations operation)
         {
-            public bool Success { get; set; }
-            public string? Output { get; set; }
-            public string? ErrorMessage { get; set; }
+            try
+            {
+                // Use a short timeout: by the time this dispatcher is called the
+                // upstream queue has already done its own gating; a wait here
+                // longer than a couple of minutes signals a genuinely stuck
+                // sibling operation and we should refuse rather than queue.
+                return TerraformConcurrencyGuard.Instance.Acquire(
+                    projectName,
+                    environmentName,
+                    componentName,
+                    operationCorrelationId: $"{operation}:{deploymentResultId}");
+            }
+            catch (TerraformConcurrentOperationException ex)
+            {
+                logger.LogError(ex,
+                    $"Refused to start Terraform {operation} for component '{componentName}' on project '{projectName}' / environment '{environmentName}': another operation in flight (correlation '{ex.ContendingOperationId}').");
+                return null;
+            }
         }
 
         private class TerraformPlanInfo

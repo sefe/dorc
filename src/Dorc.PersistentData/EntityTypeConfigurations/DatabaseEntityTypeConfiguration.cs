@@ -1,4 +1,5 @@
-﻿using Dorc.PersistentData.Model;
+﻿using Dorc.ApiModel;
+using Dorc.PersistentData.Model;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Environment = Dorc.PersistentData.Model.Environment;
@@ -10,28 +11,18 @@ namespace Dorc.PersistentData.EntityTypeConfigurations
         public void Configure(EntityTypeBuilder<Database> builder)
         {
             builder.HasKey(e => e.Id);
-            builder.ToTable("DATABASE");
+            builder.ToTable("Database", "deploy");
 
-            builder.HasIndex(e => e.GroupId, "IX_DATABASE_Group_ID");
+            builder.HasIndex(e => e.GroupId, "IX_Database_GroupId");
 
-            builder.HasIndex(e => new { e.ServerName, e.Name }, "IX_DATABASE_Server_Name_DB_Name")
+            builder.HasIndex(e => new { e.ServerName, e.Name }, "IX_Database_ServerName_Name")
                 .IsUnique()
-                .HasFilter("([Server_Name] IS NOT NULL AND [DB_Name] IS NOT NULL)");
+                .HasFilter("([ServerName] IS NOT NULL AND [Name] IS NOT NULL)");
 
-            builder.Property(e => e.Id).HasColumnName("DB_ID");
-            builder.Property(e => e.ArrayName)
-                .HasMaxLength(50)
-                .HasColumnName("Array_Name");
-            builder.Property(e => e.Name)
-                .HasMaxLength(50)
-                .HasColumnName("DB_Name");
-            builder.Property(e => e.Type)
-                .HasMaxLength(50)
-                .HasColumnName("DB_Type");
-            builder.Property(e => e.GroupId).HasColumnName("Group_ID");
-            builder.Property(e => e.ServerName)
-                .HasMaxLength(50)
-            .HasColumnName("Server_Name");
+            builder.Property(e => e.ArrayName).HasMaxLength(50);
+            builder.Property(e => e.Name).HasMaxLength(50);
+            builder.Property(e => e.Tags).HasMaxLength(TagLimits.MaxTagStringLength);
+            builder.Property(e => e.ServerName).HasMaxLength(50);
 
             builder.HasOne(d => d.Group).WithMany(p => p.Databases).HasForeignKey(d => d.GroupId);
 

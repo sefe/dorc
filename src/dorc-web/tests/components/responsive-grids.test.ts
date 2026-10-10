@@ -258,7 +258,7 @@ describe('Responsive grid column hiding (rendered)', () => {
       {
         ServerName: 'srv1',
         Name: 'db1',
-        Type: 'Tag1',
+        Tags: ['Tag1'],
         ArrayName: 'arr1',
         Id: 1,
       },
@@ -281,10 +281,10 @@ describe('Responsive grid column hiding (rendered)', () => {
         (sr.querySelector('vaadin-grid-column[path="Name"]') as HTMLElement).hidden
       ).to.equal(false, 'Name should be visible');
 
-      // Hidden on narrow — Application Tag has no path, select by header
+      // Hidden on narrow — the Tags column has no path, select by header
       expect(
-        (sr.querySelector('vaadin-grid-column[header="Application Tag"]') as HTMLElement).hidden
-      ).to.equal(true, 'Application Tag should be hidden');
+        (sr.querySelector('vaadin-grid-column[header="Tags"]') as HTMLElement).hidden
+      ).to.equal(true, 'Tags should be hidden');
       expect(
         (sr.querySelector('vaadin-grid-column[path="ArrayName"]') as HTMLElement).hidden
       ).to.equal(true, 'ArrayName should be hidden');
@@ -294,7 +294,7 @@ describe('Responsive grid column hiding (rendered)', () => {
   // ── attached-servers ──
   describe('attached-servers', () => {
     const mockServers = [
-      { Name: 'srv1', OsName: 'Windows', ApplicationTags: 'tag1;tag2', Id: 1 },
+      { Name: 'srv1', OsName: 'Windows', Tags: ['tag1', 'tag2'], Id: 1 },
     ];
 
     it('hides secondary columns on narrow screens', async () => {
@@ -316,8 +316,8 @@ describe('Responsive grid column hiding (rendered)', () => {
         (sr.querySelector('vaadin-grid-column[path="OsName"]') as HTMLElement).hidden
       ).to.equal(true, 'OsName should be hidden');
       expect(
-        (sr.querySelector('vaadin-grid-column[header="Application Tags"]') as HTMLElement).hidden
-      ).to.equal(true, 'Application Tags should be hidden');
+        (sr.querySelector('vaadin-grid-column[header="Tags"]') as HTMLElement).hidden
+      ).to.equal(true, 'Tags should be hidden');
     });
   });
 

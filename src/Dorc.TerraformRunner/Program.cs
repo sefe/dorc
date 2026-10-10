@@ -102,14 +102,36 @@ namespace Dorc.TerraformRunner
                 else
                     scriptGroupReader = new ScriptGroupPipeClient(fileLogger, options.ServerSid);
 
-                var terraformProcesor = new TerraformProcessor(runnerLogger, scriptGroupReader);
-                switch (options.TerrafromRunnerOperation)
+                // Catalog binding for the runner. The manifests directory
+                // is configurable via Terraform:Catalog:ManifestsDirectory
+                // and defaults to a sibling directory next to the runner exe.
+                var catalogManifestsDir = config.GetSection("Terraform:Catalog")["ManifestsDirectory"]
+                    ?? System.IO.Path.Join(AppContext.BaseDirectory, "stock-modules-manifests");
+                // Route the catalog's manifest-rejection warnings (its only
+                // diagnostic channel) into the runner's file log; NullLogger
+                // would silently swallow the reason a manifest on disk fails
+                // to resolve.
+                var templateCatalog = new Dorc.Terraform.Catalog.GitTemplateCatalog(
+                    catalogManifestsDir,
+                    new Dorc.TerraformRunner.Logging.TypedLoggerAdapter<Dorc.Terraform.Catalog.GitTemplateCatalog>(fileLogger));
+
+                // Bootstrap-only default subscription for catalog deployments
+                // whose environment designates no subscription (no
+                // 'Subscription' cloud resource and no TerraformSubscriptionId
+                // property - fresh projects/environments not yet fully
+                // configured). For DOrc instances this should be the SMT-SH-DV
+                // (Trading Shared dev) subscription ID per the SEFE
+                // subscription standard.
+                var defaultSubscriptionId = config.GetSection("Terraform")["DefaultSubscriptionId"];
+
+                var terraformProcesor = new TerraformProcessor(runnerLogger, scriptGroupReader, templateCatalog, defaultSubscriptionId);
+                switch (options.TerraformRunnerOperation)
                 {
-                    case TerrafromRunnerOperations.CreatePlan:
-                        result = await terraformProcesor.PreparePlanAsync(options.PipeName, requestId, options.PlanFilePath, options.PlanContentFilePath, CancellationToken.None);
+                    case TerraformRunnerOperations.CreatePlan:
+                        result = await terraformProcesor.PreparePlanAsync(options.PipeName, requestId, options.PlanFilePath, options.PlanContentFilePath, options.LockFilePath, CancellationToken.None);
                         break;
-                    case TerrafromRunnerOperations.ApplyPlan:
-                        result = await terraformProcesor.ExecuteConfirmedPlanAsync(options.PipeName, requestId, options.PlanFilePath, CancellationToken.None);
+                    case TerraformRunnerOperations.ApplyPlan:
+                        result = await terraformProcesor.ExecuteConfirmedPlanAsync(options.PipeName, requestId, options.PlanFilePath, options.LockFilePath, options.AppliedResourcesFilePath, options.SourceArchiveFilePath, CancellationToken.None);
                         break;
                 }
             }

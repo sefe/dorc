@@ -15,8 +15,7 @@ import { DialogOpenedChangedEvent } from '@vaadin/dialog';
 import { dialogFooterRenderer, dialogRenderer } from '@vaadin/dialog/lit';
 import {
   DatabaseApiModel,
-  EnvironmentContentApiModel,
-  RefDataEnvironmentsDetailsApi
+  RefDataDatabasesApi
 } from '../../apis/dorc-api';
 import { dorcApiConfiguration } from '../../services/dorc-api-configuration';
 
@@ -101,6 +100,7 @@ export class EnvDatabases extends PageEnvBase {
               .databases="${this.databases}"
               .readonly="${this.envReadOnly}"
               @database-detached="${this._dbDetached}"
+              @database-tags-updated="${this.refreshDatabases}"
             ></attached-databases>
           </div>
         </div>
@@ -133,29 +133,21 @@ export class EnvDatabases extends PageEnvBase {
   }
 
   refreshDatabases() {
-    if (!this.environmentId || this.environmentId === -1) return;
-    const api = new RefDataEnvironmentsDetailsApi(dorcApiConfiguration);
-    api.refDataEnvironmentsDetailsIdGet({ id: this.environmentId }).subscribe(
-      (data: EnvironmentContentApiModel) => {
-        this.setDatabases(data);
-      },
-      (err: any) => console.error(err),
-      () => console.log('done loading env details')
-    );
+    // The base class assigns `environment` (which fires this hook) before it assigns
+    // `environmentId` on the cold-cache path, so derive the id from the environment.
+    const envId = this.environment?.EnvironmentId ?? this.environmentId;
+    if (!envId || envId <= 0) return;
+    new RefDataDatabasesApi(dorcApiConfiguration)
+      .refDataDatabasesByEnvIdEnvIdGet({ envId })
+      .subscribe({
+        next: (data: DatabaseApiModel[]) => {
+          this.databases = data.sort(this.sortDbs);
+        },
+        error: (err: any) => console.error(err)
+      });
   }
 
-  setDatabases = (data: EnvironmentContentApiModel | undefined) => {
-    console.log(
-      `Setting Databases on env-databases page ${this.environment?.EnvironmentName}`
-    );
-
-    this.databases =
-      data?.DbServers !== null
-        ? data?.DbServers?.sort(this.sortDbs)
-        : undefined;
-  };
-
-  override notifyEnvironmentContentReady() {
+  override notifyEnvironmentReady() {
     this.envReadOnly = !this.environment?.UserEditable;
     this.refreshDatabases();
   }

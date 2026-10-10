@@ -13,6 +13,8 @@
     [TerraformSourceType]  INT                                                NOT NULL DEFAULT 0,
     [TerraformGitBranch]   NVARCHAR(256)                                      NULL,
     [TerraformSubPath]     NVARCHAR (512)                                     NULL,
+    [TerraformTemplateName]    NVARCHAR(256)                                  NULL,
+    [TerraformTemplateVersion] NVARCHAR(64)                                   NULL,
     CONSTRAINT [PK_Component] PRIMARY KEY CLUSTERED ([Id] ASC)
 );
 

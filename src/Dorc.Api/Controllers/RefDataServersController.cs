@@ -94,7 +94,20 @@ namespace Dorc.Api.Controllers
         }
 
         /// <summary>
-        ///     Returns app servers for an environment by environment name, filtered to those with "appserv" in ApplicationTags
+        ///     Returns app servers attached to an environment
+        /// </summary>
+        /// <param name="envId">Environment id</param>
+        /// <returns>List of ServerApiModel</returns>
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(List<ServerApiModel>))]
+        [HttpGet]
+        [Route("ByEnvId/{envId}")]
+        public IActionResult GetByEnvId(int envId)
+        {
+            return Ok(_serversPersistentSource.GetEnvContentAppServersForEnvId(envId).ToList());
+        }
+
+        /// <summary>
+        ///     Returns app servers for an environment by environment name, filtered to those with "appserv" in Tags
         /// </summary>
         /// <param name="envName">Environment name</param>
         /// <returns>List of ServerApiModel</returns>
@@ -109,7 +122,7 @@ namespace Dorc.Api.Controllers
                 ServerId = s.Id,
                 Name = s.Name ?? string.Empty,
                 OsName = s.OsName ?? string.Empty,
-                ApplicationTags = s.ApplicationTags ?? string.Empty
+                Tags = s.TagLinks != null ? s.TagLinks.Select(t => t.Tag).ToArray() : System.Array.Empty<string>()
             }).ToList();
             return Ok(result);
         }

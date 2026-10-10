@@ -41,6 +41,7 @@ namespace Dorc.PersistentData.Contexts
         public DbSet<ConfigValue> ConfigValues { get; set; }
         public DbSet<Daemon> Daemons { get; set; }
         public DbSet<Database> Databases { get; set; }
+        public DbSet<DatabaseTag> DatabaseTags { get; set; }
         public DbSet<DeploymentRequestProcess> DeploymentRequestProcesses { get; set; }
         public DbSet<DeploymentRequest> DeploymentRequests { get; set; }
         public DbSet<DeploymentResult> DeploymentResults { get; set; }
@@ -69,6 +70,12 @@ namespace Dorc.PersistentData.Contexts
         public DbSet<RefDataAudit> RefDataAudits { get; set; }
         public DbSet<RefDataAuditAction> RefDataAuditActions { get; set; }
         public DbSet<DaemonAudit> DaemonAudits { get; set; }
+        public DbSet<Container> Containers { get; set; }
+        public DbSet<CloudResource> CloudResources { get; set; }
+        public DbSet<ApiRegistration> ApiRegistrations { get; set; }
+        public DbSet<ContainerAudit> ContainerAudits { get; set; }
+        public DbSet<CloudResourceAudit> CloudResourceAudits { get; set; }
+        public DbSet<ApiRegistrationAudit> ApiRegistrationAudits { get; set; }
         public DbSet<DaemonObservation> DaemonObservations { get; set; }
         public DbSet<ServerAudit> ServerAudits { get; set; }
         public DbSet<DatabaseAudit> DatabaseAudits { get; set; }
@@ -76,6 +83,7 @@ namespace Dorc.PersistentData.Contexts
         public DbSet<Script> Scripts { get; set; }
         public DbSet<SecureKey> SecureKeys { get; set; }
         public DbSet<Server> Servers { get; set; }
+        public DbSet<ServerTag> ServerTags { get; set; }
         public DbSet<SqlPort> SqlPorts { get; set; }
         public DbSet<User> Users { get; set; }
         public DbSet<DeploymentRequestAttempt> DeploymentRequestAttempts { get; set; }
@@ -177,6 +185,7 @@ namespace Dorc.PersistentData.Contexts
             new ComponentEntityTypeConfiguration().Configure(modelBuilder.Entity<Component>());
             new DaemonEntityTypeConfiguration().Configure(modelBuilder.Entity<Daemon>());
             new DatabaseEntityTypeConfiguration().Configure(modelBuilder.Entity<Database>());
+            new DatabaseTagEntityTypeConfiguration().Configure(modelBuilder.Entity<DatabaseTag>());
             new DeploymentRequestProcessEntityTypeConfiguration().Configure(modelBuilder.Entity<DeploymentRequestProcess>());
             new DeploymentResultEntityTypeConfiguration().Configure(modelBuilder.Entity<DeploymentResult>());
             new EnvironmentComponentStatusEntityTypeConfiguration().Configure(modelBuilder.Entity<EnvironmentComponentStatus>());
@@ -190,12 +199,19 @@ namespace Dorc.PersistentData.Contexts
             new RefDataAuditEntityTypeConfiguration().Configure(modelBuilder.Entity<RefDataAudit>());
             new RefDataAuditActionConfiguration().Configure(modelBuilder.Entity<RefDataAuditAction>());
             new DaemonAuditEntityTypeConfiguration().Configure(modelBuilder.Entity<DaemonAudit>());
+            new ContainerEntityTypeConfiguration().Configure(modelBuilder.Entity<Container>());
+            new CloudResourceEntityTypeConfiguration().Configure(modelBuilder.Entity<CloudResource>());
+            new ApiRegistrationEntityTypeConfiguration().Configure(modelBuilder.Entity<ApiRegistration>());
+            new ContainerAuditEntityTypeConfiguration().Configure(modelBuilder.Entity<ContainerAudit>());
+            new CloudResourceAuditEntityTypeConfiguration().Configure(modelBuilder.Entity<CloudResourceAudit>());
+            new ApiRegistrationAuditEntityTypeConfiguration().Configure(modelBuilder.Entity<ApiRegistrationAudit>());
             new DaemonObservationEntityTypeConfiguration().Configure(modelBuilder.Entity<DaemonObservation>());
             new ServerAuditEntityTypeConfiguration().Configure(modelBuilder.Entity<ServerAudit>());
             new DatabaseAuditEntityTypeConfiguration().Configure(modelBuilder.Entity<DatabaseAudit>());
             new ScriptEntityTypeConfiguration().Configure(modelBuilder.Entity<Script>());
             new SecureKeyEntityTypeConfiguration().Configure(modelBuilder.Entity<SecureKey>());
             new ServerEntityTypeConfiguration().Configure(modelBuilder.Entity<Server>());
+            new ServerTagEntityTypeConfiguration().Configure(modelBuilder.Entity<ServerTag>());
             new SqlPortEntityTypeConfiguration().Configure(modelBuilder.Entity<SqlPort>());
             new UserEntityTypeConfiguration().Configure(modelBuilder.Entity<User>());
             new DeploymentRequestAttemptEntityTypeConfiguration().Configure(modelBuilder.Entity<DeploymentRequestAttempt>());

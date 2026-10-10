@@ -71,6 +71,22 @@ export class DatabaseControls extends LitElement {
       </vaadin-button>
 
       <vaadin-button
+        aria-label="Edit Database Tags"
+        theme="icon"
+        @click="${this.manageDatabaseTags}"
+        ?disabled="${this.readonly}"
+      >
+        <vaadin-tooltip
+          slot="tooltip"
+          text="Edit Database Tags"
+        ></vaadin-tooltip>
+        <vaadin-icon
+          icon="vaadin:tags"
+          style=${styleMap(editStyles)}
+        ></vaadin-icon>
+      </vaadin-button>
+
+      <vaadin-button
         aria-label="Delete database"
         theme="icon"
         @click="${this.deleteDatabase}"
@@ -144,5 +160,17 @@ export class DatabaseControls extends LitElement {
       }
     });
     this.dispatchEvent(event);
+  }
+
+  private manageDatabaseTags() {
+    this.dispatchEvent(
+      new CustomEvent('manage-database-tags', {
+        bubbles: true,
+        composed: true,
+        detail: {
+          database: this.databaseDetails
+        }
+      })
+    );
   }
 }

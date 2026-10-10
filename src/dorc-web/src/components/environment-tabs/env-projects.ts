@@ -48,7 +48,6 @@ export class EnvProjects extends PageEnvBase {
         display: block;
         height: 100%;
       }
-
       @media (max-width: 768px) {
         .projects {
           grid-template-columns: 1fr;
@@ -66,7 +65,11 @@ export class EnvProjects extends PageEnvBase {
       >
         <div class="projects">
           ${this.envContent?.MappedProjects?.map(
-            proj => html`<project-card .project="${proj}"></project-card>`
+            proj =>
+              html`<project-card
+                .project="${proj}"
+                .catalogHref=${`/stock-modules?project=${encodeURIComponent(proj.ProjectName ?? '')}&environment=${encodeURIComponent(this.environment?.EnvironmentName ?? this.environmentName)}`}
+              ></project-card>`
           )}
         </div>
       </vaadin-details>

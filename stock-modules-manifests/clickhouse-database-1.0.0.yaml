@@ -1,0 +1,49 @@
+name: clickhouse-database
+version: 1.0.0
+source:
+  kind: git
+  locator: https://github.com/sefe/dorc-terraform-modules.git
+  ref: stock-modules/clickhouse-database/v1.0.0
+parameters:
+  - name: project
+    type: String
+    required: true
+    description: Aiven console project the ClickHouse service lives in.
+    pattern: "^[a-z0-9-]+$"
+  - name: service_name
+    type: String
+    required: true
+    description: Name of the existing Aiven ClickHouse service. Referenced, never managed. SEFE services run BYOC on Azure uksouth (non-prod in rg-np-aiven-1-uks, prod in rg-pr-aiven-1-uks).
+    pattern: "^[a-z0-9-]+$"
+  - name: database_name
+    type: String
+    required: true
+    description: ClickHouse database name; immutable (change forces recreation).
+    pattern: "^[A-Za-z0-9_-]{1,255}$"
+  - name: termination_protection
+    type: Bool
+    required: false
+    description: Client-side deletion protection preventing Terraform from destroying the database. Default true.
+    default: "true"
+outputs:
+  - name: database_id
+    type: String
+    description: ID of the ClickHouse database (project/service_name/name).
+  - name: database_name
+    type: String
+  - name: project
+    type: String
+  - name: service_name
+    type: String
+description: ClickHouse database on an existing Aiven ClickHouse service. Termination protection on by default; no credentials output. Requires an Aiven API token (AIVEN_TOKEN / TerraformAivenApiToken environment property).
+tags:
+  - data
+  - aiven
+  - clickhouse
+category: Data
+required_providers:
+  aiven: ">= 4.1.1, < 5.0.0"
+required_terraform_version: ">= 1.5.0"
+owner: DOrc platform team
+deprecated: false
+deprecation_reason: ""
