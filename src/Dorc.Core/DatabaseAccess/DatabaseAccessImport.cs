@@ -66,7 +66,7 @@ public static class DatabaseAccessImport
         foreach (var membership in current.Memberships.Where(m => m.Present))
         {
             var principal = current.Principals.Single(p => DatabaseAccessPlanner.Names.Equals(p.Name, membership.Principal));
-            if (principal.LegacyUserId.HasValue && !source.Any(s => s.UserId == principal.LegacyUserId.Value
+            if (principal.LegacyUserId is int legacyUserId && !source.Any(s => s.UserId == legacyUserId
                 && DatabaseAccessPlanner.Names.Equals(s.Login.Trim(), principal.Name)
                 && request.RoleMappings.TryGetValue(s.Role, out var mapped) && DatabaseAccessPlanner.Names.Equals(mapped, membership.Role)))
                 result.Errors.Add($"Imported membership '{membership.Principal}'/'{membership.Role}' is absent from the current legacy mapping. Resolve divergence explicitly.");

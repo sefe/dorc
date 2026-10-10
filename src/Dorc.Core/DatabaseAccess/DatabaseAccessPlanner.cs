@@ -91,9 +91,9 @@ public static class DatabaseAccessPlanner
             .GroupBy(p => p.Kind == "Native" ? "Native:" + p.LoginName : "Directory:" + p.DirectoryId, Names)
             .Any(group => group.Count() > 1))
             result.Errors.Add("SQL Server supports only one database user per server login. Duplicate desired login mappings must be resolved.");
-        foreach (var role in desired.Roles.Where(r => r.Present))
+        foreach (var role in desired.Roles.Where(r => r.Present
+            && !observed.Roles.Any(observedRole => Names.Equals(observedRole.Name, r.Name))))
         {
-            if (observed.Roles.Any(r => Names.Equals(r.Name, role.Name))) continue;
             if (!role.Managed) result.Errors.Add($"Role '{role.Name}' does not exist; it is reference-only.");
             else result.Operations.Add(new() { Action = "CreateRole", Role = role.Name });
         }
@@ -140,9 +140,9 @@ public static class DatabaseAccessPlanner
                 result.Operations.Add(new() { Action = "DropUser", Principal = principal.Name });
             }
         }
-        foreach (var role in desired.Roles.Where(r => r.Managed && !r.Present))
+        foreach (var role in desired.Roles.Where(r => r.Managed && !r.Present
+            && observed.Roles.Any(observedRole => Names.Equals(observedRole.Name, r.Name))))
         {
-            if (!observed.Roles.Any(r => Names.Equals(r.Name, role.Name))) continue;
             if (observed.Memberships.Any(m => Names.Equals(m.Role, role.Name)
                 && !desired.Memberships.Any(d => !d.Present && Names.Equals(d.Principal, m.Principal) && Names.Equals(d.Role, m.Role))))
                 result.Errors.Add($"Role '{role.Name}' still has unmanaged members.");

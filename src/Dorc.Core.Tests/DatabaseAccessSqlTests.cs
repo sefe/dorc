@@ -36,8 +36,9 @@ public class DatabaseAccessSqlTests
             connection.Open();
             Execute(connection, "CREATE TABLE [dbo].[DATABASE] ([DB_ID] INT PRIMARY KEY); INSERT [dbo].[DATABASE] VALUES (1);");
             foreach (var name in new[] { "DatabaseAccessConfiguration", "DatabaseAccessPrincipal", "DatabaseAccessRole", "DatabaseAccessMembership", "DatabaseAccessAudit" })
-                foreach (var batch in System.Text.RegularExpressions.Regex.Split(File.ReadAllText(SchemaFile(name)), @"(?m)^GO\s*$"))
-                    if (!string.IsNullOrWhiteSpace(batch)) Execute(connection, batch);
+                foreach (var batch in System.Text.RegularExpressions.Regex.Split(File.ReadAllText(SchemaFile(name)), @"(?m)^GO\s*$")
+                    .Where(batch => !string.IsNullOrWhiteSpace(batch)))
+                    Execute(connection, batch);
             Execute(connection, "INSERT dbo.DatabaseAccessConfiguration VALUES (1,'sql-server',0);");
             Assert.ThrowsExactly<SqlException>(() => Execute(connection, "INSERT dbo.DatabaseAccessConfiguration VALUES (1,'sql-server',0);"));
             Assert.ThrowsExactly<SqlException>(() => Execute(connection, "INSERT dbo.DatabaseAccessConfiguration VALUES (999,'sql-server',0);"));
@@ -143,6 +144,23 @@ public class DatabaseAccessSqlTests
         return set;
     }
 
-    private static string SchemaFile(string name, [CallerFilePath] string source = "") =>
-        Path.GetFullPath(Path.Combine(Path.GetDirectoryName(source)!, "..", "Dorc.Database", "dbo", "Tables", name + ".sql"));
+    [TestMethod]
+    public void SchemaFileRequiresAnUnqualifiedTableName()
+    {
+        var path = SchemaFile("DatabaseAccessRole");
+        StringAssert.EndsWith(path, Path.Combine("Dorc.Database", "dbo", "Tables", "DatabaseAccessRole.sql"));
+        Assert.IsTrue(File.Exists(path));
+        Assert.ThrowsExactly<ArgumentException>(() => SchemaFile(Path.GetFullPath("DatabaseAccessRole")));
+        Assert.ThrowsExactly<ArgumentException>(() => SchemaFile(Path.Combine("..", "DatabaseAccessRole")));
+        Assert.ThrowsExactly<ArgumentException>(() => SchemaFile(Path.Combine("nested", "DatabaseAccessRole")));
+        Assert.ThrowsExactly<ArgumentException>(() => SchemaFile(""));
+    }
+
+    private static string SchemaFile(string name, [CallerFilePath] string source = "")
+    {
+        var fileName = Path.GetFileName(name);
+        if (string.IsNullOrWhiteSpace(fileName) || fileName != name)
+            throw new ArgumentException("A schema table name must not contain a directory or rooted path.", nameof(name));
+        return Path.GetFullPath(Path.Combine(Path.GetDirectoryName(source)!, "..", "Dorc.Database", "dbo", "Tables", fileName + ".sql"));
+    }
 }

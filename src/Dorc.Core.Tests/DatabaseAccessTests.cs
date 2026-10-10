@@ -204,6 +204,16 @@ public class DatabaseAccessTests
     }
 
     [TestMethod]
+    public void ImportPreservesMembershipsWithoutLegacyProvenance()
+    {
+        var current = Desired();
+        var result = DatabaseAccessImport.Build(current, [], new());
+        Assert.HasCount(0, result.Errors);
+        Assert.HasCount(1, result.Proposed.Memberships);
+        Assert.IsNull(result.Proposed.Principals.Single().LegacyUserId);
+    }
+
+    [TestMethod]
     public void DirectoryResolvesFreshDataAndDoesNotSwallowOutages()
     {
         var provider = Substitute.For<IActiveDirectorySearcher>();
@@ -227,7 +237,7 @@ public class DatabaseAccessTests
         var provider = Substitute.For<IActiveDirectorySearcher>();
         provider.GetUserDataById("S-1-5-21").Returns(new UserElementApiModel { Sid = "S-1-5-21", DisplayName = "Group", IsGroup = true });
         Assert.IsTrue(new DatabaseAccessDirectory(provider).Resolve("S-1-5-21").IsGroup);
-        Assert.AreEqual("\\00\\2A\\FF", ActiveDirectorySearcher.EncodeLdapBytes([0, 42, 255]));
+        Assert.AreEqual("\\00\\28\\29\\2A\\5C\\FF", ActiveDirectorySearcher.EncodeLdapBytes([0, 40, 41, 42, 92, 255]));
         Assert.ThrowsExactly<ArgumentException>(() => new DatabaseAccessDirectory(provider).Search("ab"));
     }
 
