@@ -27,6 +27,16 @@ export interface DatabaseAccessImportRequest {
      */
     DirectoryMappings: { [key: string]: string; };
     /**
+     * @type {Array<number>}
+     * @memberof DatabaseAccessImportRequest
+     */
+    ExcludedLegacyUserIds?: Array<number>;
+    /**
+     * @type {Array<number>}
+     * @memberof DatabaseAccessImportRequest
+     */
+    ApprovedDbOwnerLegacyUserIds?: Array<number>;
+    /**
      * @type {string}
      * @memberof DatabaseAccessImportRequest
      */

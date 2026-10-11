@@ -1,4 +1,4 @@
-CREATE TABLE [dbo].[DatabaseAccessConfiguration] (
+CREATE TABLE [deploy].[DatabaseAccessConfiguration] (
     [DatabaseId] INT NOT NULL,
     [Provider] NVARCHAR(40) NOT NULL,
     [Revision] BIGINT NOT NULL,

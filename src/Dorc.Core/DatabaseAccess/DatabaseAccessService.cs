@@ -58,6 +58,10 @@ public sealed class DatabaseAccessService(
             if (next == null || p.LegacyUserId != next.LegacyUserId || p.Kind != next.Kind
                 || p.DirectoryId != next.DirectoryId)
                 throw new ArgumentException("Keep existing principals and their provenance/identity. Use Present=false for removal.");
+            if (!DatabaseAccessPlanner.Names.Equals(p.LoginName, next.LoginName)
+                && current.Memberships.Any(m => DatabaseAccessPlanner.IsDbOwner(m.Role)
+                    && DatabaseAccessPlanner.Names.Equals(m.Principal, p.Name)))
+                throw new ArgumentException("The login bound to an approved db_owner principal cannot be changed through ordinary desired-state editing.");
         }
         foreach (var r in current.Roles)
         {
@@ -68,6 +72,10 @@ public sealed class DatabaseAccessService(
         foreach (var m in current.Memberships)
             if (!desired.Memberships.Any(n => DatabaseAccessPlanner.Names.Equals(n.Principal, m.Principal) && DatabaseAccessPlanner.Names.Equals(n.Role, m.Role)))
                 throw new ArgumentException("Keep existing memberships; use Present=false for explicit revocation.");
+        if (desired.Memberships.Any(m => m.Present && DatabaseAccessPlanner.IsDbOwner(m.Role)
+            && !current.Memberships.Any(c => c.Present && DatabaseAccessPlanner.IsDbOwner(c.Role)
+                && DatabaseAccessPlanner.Names.Equals(c.Principal, m.Principal))))
+            throw new ArgumentException("Granting or re-enabling db_owner membership requires explicit approval through legacy import.");
         if (desired.Principals.Any(p => !current.Principals.Any(c => DatabaseAccessPlanner.Names.Equals(c.Name, p.Name))
             && (!p.Present || p.LegacyUserId.HasValue)))
             throw new ArgumentException("New principals must be present and cannot claim legacy provenance outside import.");
@@ -142,19 +150,22 @@ public sealed class DatabaseAccessService(
             }
         }
         if (preview.Errors.Count == 0)
-        {
-            var targetPreview = providers.Resolve(preview.Proposed.Provider).Preview(Target(id), preview.Proposed);
-            preview.Errors.AddRange(targetPreview.Errors);
-        }
+            providers.Resolve(preview.Proposed.Provider);
         preview.Token = DatabaseAccessPlanner.Fingerprint(new { preview.Token, preview.Proposed, preview.Errors });
         if (apply)
         {
             if (preview.Token != request.Token || preview.Errors.Count > 0)
                 throw new DatabaseAccessConflictException("Import preview is stale or contains errors. Preview the import again.");
+            var importDetail = preview.ExcludedAccounts.Count == 0 && preview.ApprovedDbOwnerLegacyUserIds.Count == 0 ? null :
+                System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    preview.Proposed, preview.SourceAssignments, preview.ExcludedAccounts, preview.ApprovedDbOwnerLegacyUserIds
+                });
             if (DatabaseAccessPlanner.Fingerprint(Canonical(current)) != DatabaseAccessPlanner.Fingerprint(Canonical(preview.Proposed)))
-                preview.Proposed = DatabaseAccessStore.Save(context, preview.Proposed, actor, "Import");
+                preview.Proposed = DatabaseAccessStore.Save(context, preview.Proposed, actor, "Import", importDetail);
             else
-                DatabaseAccessStore.Audit(context, id, actor, "Import", "NoChanges", "Legacy import matched existing desired state.");
+                DatabaseAccessStore.Audit(context, id, actor, "Import", "NoChanges",
+                    importDetail ?? "Legacy import matched existing desired state.");
         }
         return preview;
     }

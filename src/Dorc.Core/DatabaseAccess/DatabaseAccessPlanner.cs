@@ -22,6 +22,8 @@ public static class DatabaseAccessPlanner
     public static bool ProtectedRole(string name) =>
         new[] { "public", "db_owner", "db_securityadmin", "db_accessadmin" }.Contains(name, Names);
 
+    public static bool IsDbOwner(string name) => Names.Equals(name, "db_owner");
+
     public static void Identifier([System.Diagnostics.CodeAnalysis.NotNull] string? name)
     {
         if (string.IsNullOrWhiteSpace(name) || name.Length > 128 || name != name.Trim() || name.Any(char.IsControl))
@@ -62,7 +64,8 @@ public static class DatabaseAccessPlanner
         foreach (var role in state.Roles)
         {
             Identifier(role.Name);
-            if (!roles.Add(role.Name) || principals.Contains(role.Name) || ProtectedRole(role.Name)
+            if (!roles.Add(role.Name) || principals.Contains(role.Name)
+                || (ProtectedRole(role.Name) && !(IsDbOwner(role.Name) && !role.Managed && role.Present))
                 || (role.Managed && role.Name.StartsWith("db_", StringComparison.OrdinalIgnoreCase))
                 || (!role.Managed && !role.Present))
                 throw new ArgumentException($"Duplicate, conflicting or protected role '{role.Name}'.");
@@ -75,6 +78,9 @@ public static class DatabaseAccessPlanner
             if (!principals.Contains(member.Principal) || !roles.Contains(member.Role)
                 || !memberships.Add(member.Principal + "\0" + member.Role))
                 throw new ArgumentException("Memberships must uniquely reference principals and roles in this database.");
+            if (IsDbOwner(member.Role)
+                && state.Principals.Single(p => Names.Equals(p.Name, member.Principal)).LegacyUserId is not > 0)
+                throw new ArgumentException("db_owner memberships require an explicitly approved legacy import.");
             if (member.Present && (!state.Principals.Single(p => Names.Equals(p.Name, member.Principal)).Present
                 || !state.Roles.Single(r => Names.Equals(r.Name, member.Role)).Present))
                 throw new ArgumentException("A present membership cannot reference an absent principal or role.");

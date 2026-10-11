@@ -12,6 +12,7 @@
  */
 
 import type {
+    DatabaseAccessImportExclusion,
     DatabaseAccessState,
 } from './';
 
@@ -40,4 +41,14 @@ export interface DatabaseAccessImportPreview {
      * @memberof DatabaseAccessImportPreview
      */
     SourceAssignments: number;
+    /**
+     * @type {Array<DatabaseAccessImportExclusion>}
+     * @memberof DatabaseAccessImportPreview
+     */
+    ExcludedAccounts?: Array<DatabaseAccessImportExclusion>;
+    /**
+     * @type {Array<number>}
+     * @memberof DatabaseAccessImportPreview
+     */
+    ApprovedDbOwnerLegacyUserIds?: Array<number>;
 }

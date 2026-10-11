@@ -27,6 +27,11 @@ export interface DatabaseAccessStatus {
      */
     ExecutionEnabled: boolean;
     /**
+     * @type {boolean}
+     * @memberof DatabaseAccessStatus
+     */
+    CanApproveDbOwner?: boolean;
+    /**
      * @type {Array<string>}
      * @memberof DatabaseAccessStatus
      */

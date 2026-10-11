@@ -60,6 +60,12 @@ export interface DatabaseAccessImportPreviewRequest {
     databaseAccessImportRequest: DatabaseAccessImportRequest;
 }
 
+export interface DatabaseAccessLookupRequest {
+    envId: number;
+    databaseId: number;
+    accountName: string;
+}
+
 export interface DatabaseAccessPreviewRequest {
     envId: number;
     databaseId: number;
@@ -249,6 +255,37 @@ export class DatabaseAccessApi extends BaseAPI {
             method: 'POST',
             headers,
             body: databaseAccessImportRequest,
+        }, opts?.responseOpts);
+    };
+
+    /**
+     */
+    databaseAccessLookup({ envId, databaseId, accountName }: DatabaseAccessLookupRequest): Observable<DatabaseAccessDirectoryIdentity>
+    databaseAccessLookup({ envId, databaseId, accountName }: DatabaseAccessLookupRequest, opts?: OperationOpts): Observable<AjaxResponse<DatabaseAccessDirectoryIdentity>>
+    databaseAccessLookup({ envId, databaseId, accountName }: DatabaseAccessLookupRequest, opts?: OperationOpts): Observable<DatabaseAccessDirectoryIdentity | AjaxResponse<DatabaseAccessDirectoryIdentity>> {
+        throwIfNullOrUndefined(envId, 'envId', 'databaseAccessLookup');
+        throwIfNullOrUndefined(databaseId, 'databaseId', 'databaseAccessLookup');
+        throwIfNullOrUndefined(accountName, 'accountName', 'databaseAccessLookup');
+
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
+        const query: HttpQuery = { // required parameters are used directly since they are already checked by throwIfNullOrUndefined
+            'accountName': accountName,
+        };
+
+        return this.request<DatabaseAccessDirectoryIdentity>({
+            url: '/DatabaseAccess/{envId}/{databaseId}/directory/lookup'.replace('{envId}', encodeURI(envId)).replace('{databaseId}', encodeURI(databaseId)),
+            method: 'GET',
+            headers,
+            query,
         }, opts?.responseOpts);
     };
 

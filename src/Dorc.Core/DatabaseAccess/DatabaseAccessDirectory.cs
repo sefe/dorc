@@ -1,5 +1,6 @@
 using Dorc.ApiModel;
 using Dorc.Core.Interfaces;
+using System.Security.Principal;
 
 namespace Dorc.Core.DatabaseAccess;
 
@@ -28,5 +29,25 @@ public sealed class DatabaseAccessDirectory(IActiveDirectorySearcher directory)
         if (!StringComparer.Ordinal.Equals(identity.Id, id))
             throw new ArgumentException("Directory returned a different identity.");
         return identity;
+    }
+
+    public DatabaseAccessDirectoryIdentity Lookup(string accountName)
+    {
+        var parts = accountName?.Split('\\');
+        if (string.IsNullOrWhiteSpace(accountName) || accountName.Length > 256
+            || accountName != accountName.Trim() || accountName.Any(char.IsControl)
+            || parts?.Length != 2 || parts.Any(string.IsNullOrWhiteSpace))
+            throw new ArgumentException("Automatic directory lookup requires an exact DOMAIN\\account name. Choose an identity manually for other name formats.");
+        if (!OperatingSystem.IsWindows())
+            throw new NotSupportedException("Exact Windows account lookup requires a Windows API host.");
+        try
+        {
+            var sid = (SecurityIdentifier)new NTAccount(accountName).Translate(typeof(SecurityIdentifier));
+            return Resolve(sid.Value);
+        }
+        catch (IdentityNotMappedException error)
+        {
+            throw new ArgumentException($"Could not resolve the exact Windows account '{accountName}'. Choose a directory identity or explicitly exclude the account.", nameof(accountName), error);
+        }
     }
 }

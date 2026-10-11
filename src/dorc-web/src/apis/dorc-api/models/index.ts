@@ -34,6 +34,7 @@ export * from './DaemonStatusApiModel';
 export * from './DatabaseAccessAuditApiModel';
 export * from './DatabaseAccessConfirmation';
 export * from './DatabaseAccessDirectoryIdentity';
+export * from './DatabaseAccessImportExclusion';
 export * from './DatabaseAccessImportPreview';
 export * from './DatabaseAccessImportRequest';
 export * from './DatabaseAccessMembership';

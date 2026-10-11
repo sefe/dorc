@@ -45,7 +45,8 @@ public sealed class DatabaseAccessStore(IDeploymentContextFactory factory)
         };
     }
 
-    public static DatabaseAccessState Save(DatabaseAccessContext context, DatabaseAccessState state, string actor, string action)
+    public static DatabaseAccessState Save(DatabaseAccessContext context, DatabaseAccessState state, string actor, string action,
+        string? auditDetail = null)
     {
         using var transaction = context.Database.BeginTransaction();
         var configuration = context.Set<DatabaseAccessConfiguration>().SingleOrDefault(x => x.DatabaseId == state.DatabaseId);
@@ -77,7 +78,7 @@ public sealed class DatabaseAccessStore(IDeploymentContextFactory factory)
             if (row == null) { row = new() { DatabaseId = state.DatabaseId, Principal = item.Principal, Role = item.Role }; context.Add(row); }
             row.Present = item.Present;
         }
-        Audit(context, state.DatabaseId, actor, action, "Succeeded", System.Text.Json.JsonSerializer.Serialize(state));
+        Audit(context, state.DatabaseId, actor, action, "Succeeded", auditDetail ?? System.Text.Json.JsonSerializer.Serialize(state));
         transaction.Commit();
         return Read(context, state.DatabaseId);
     }

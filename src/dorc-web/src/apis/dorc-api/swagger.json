@@ -84,6 +84,18 @@
         "responses": { "200": { "description": "OK", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DatabaseAccessDirectoryIdentity" } } } } }
       }
     },
+    "/DatabaseAccess/{envId}/{databaseId}/directory/lookup": {
+      "get": {
+        "tags": ["DatabaseAccess"],
+        "operationId": "databaseAccessLookup",
+        "parameters": [
+          { "name": "envId", "in": "path", "required": true, "schema": { "type": "integer", "format": "int32" } },
+          { "name": "databaseId", "in": "path", "required": true, "schema": { "type": "integer", "format": "int32" } },
+          { "name": "accountName", "in": "query", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "OK", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DatabaseAccessDirectoryIdentity" } } } } }
+      }
+    },
     "/DatabaseAccess/{envId}/{databaseId}/import/preview": {
       "post": {
         "tags": ["DatabaseAccess"],
@@ -8254,6 +8266,7 @@
         "type": "object", "required": ["Enabled", "ExecutionEnabled", "Providers", "Limitations"],
         "properties": {
           "Enabled": { "type": "boolean" }, "ExecutionEnabled": { "type": "boolean" },
+          "CanApproveDbOwner": { "type": "boolean" },
           "Providers": { "type": "array", "items": { "type": "string" } },
           "Limitations": { "type": "array", "items": { "type": "string" } }
         }
@@ -8267,6 +8280,8 @@
         "properties": {
           "RoleMappings": { "type": "object", "additionalProperties": { "type": "string" } },
           "DirectoryMappings": { "type": "object", "additionalProperties": { "type": "string" } },
+          "ExcludedLegacyUserIds": { "type": "array", "items": { "type": "integer", "format": "int32" } },
+          "ApprovedDbOwnerLegacyUserIds": { "type": "array", "items": { "type": "integer", "format": "int32" } },
           "Token": { "type": "string" }
         }
       },
@@ -8274,7 +8289,17 @@
         "type": "object", "required": ["Token", "Proposed", "Errors", "SourceAssignments"],
         "properties": {
           "Token": { "type": "string" }, "Proposed": { "$ref": "#/components/schemas/DatabaseAccessState" },
-          "Errors": { "type": "array", "items": { "type": "string" } }, "SourceAssignments": { "type": "integer", "format": "int32" }
+          "Errors": { "type": "array", "items": { "type": "string" } }, "SourceAssignments": { "type": "integer", "format": "int32" },
+          "ExcludedAccounts": { "type": "array", "items": { "$ref": "#/components/schemas/DatabaseAccessImportExclusion" } },
+          "ApprovedDbOwnerLegacyUserIds": { "type": "array", "items": { "type": "integer", "format": "int32" } }
+        }
+      },
+      "DatabaseAccessImportExclusion": {
+        "type": "object", "required": ["LegacyUserId", "LoginName", "Permissions", "AssignmentCount"],
+        "properties": {
+          "LegacyUserId": { "type": "integer", "format": "int32" }, "LoginName": { "type": "string" },
+          "Permissions": { "type": "array", "items": { "type": "string" } },
+          "AssignmentCount": { "type": "integer", "format": "int32" }
         }
       },
       "DatabaseAccessAuditApiModel": {

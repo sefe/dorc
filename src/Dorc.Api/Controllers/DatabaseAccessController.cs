@@ -19,54 +19,60 @@ public sealed class DatabaseAccessController(
     IEnvironmentMapper mapper, ISecurityPrivilegesChecker privileges, IDeploymentContextFactory factory,
     ILogger<DatabaseAccessController> logger, IClaimsPrincipalReader claimsReader) : ControllerBase
 {
-    private bool Enabled(int id) => configuration.GetValue<bool>("DatabaseAccess:Enabled")
-        && (configuration.GetSection("DatabaseAccess:DatabaseIds").Get<int[]>() ?? []).Contains(id);
-    private bool ExecutionEnabled => configuration.GetValue<bool>("DatabaseAccess:ExecutionEnabled");
+    private bool Enabled => configuration.GetValue<bool>("DatabaseAccess:Enabled");
 
     [HttpGet("status")]
     public ActionResult<DatabaseAccessStatus> Status(int envId, int databaseId) =>
-        Execute(envId, databaseId, false, false, () => new DatabaseAccessStatus
+        Execute(envId, databaseId, false, () => new DatabaseAccessStatus
         {
-            Enabled = Enabled(databaseId), ExecutionEnabled = Enabled(databaseId) && ExecutionEnabled,
+            Enabled = Enabled, ExecutionEnabled = Enabled,
+            CanApproveDbOwner = Enabled && AttachedEnvironments(databaseId) is { Count: > 0 } environments
+                && environments.All(name => privileges.IsEnvironmentOwnerOrAdmin(User, name)),
             Providers = providers.Names,
-            Limitations = ["Existing server logins only; no password/server-login provisioning.", "Protected roles and system databases cannot be managed.", "AD-backed SQL Server logins require Windows SID references."]
+            Limitations = ["Existing server logins only; no password/server-login provisioning.", "db_owner memberships require explicit legacy import approval from an owner or administrator of every attached environment; protected role definitions and other protected roles remain blocked.", "AD-backed SQL Server logins require Windows SID references."]
         }, requireEnabled: false);
 
     [HttpGet]
     public ActionResult<DatabaseAccessState> Get(int envId, int databaseId) =>
-        Execute(envId, databaseId, false, false, () => service.Get(databaseId));
+        Execute(envId, databaseId, false, () => service.Get(databaseId));
 
     [HttpPut]
     public ActionResult<DatabaseAccessState> Save(int envId, int databaseId, [FromBody] DatabaseAccessState state) =>
-        Execute(envId, databaseId, true, false, () => service.Save(databaseId, state, Actor));
+        Execute(envId, databaseId, true, () => service.Save(databaseId, state, Actor));
 
     [HttpPost("preview")]
     public ActionResult<DatabaseAccessPreview> Preview(int envId, int databaseId) =>
-        Execute(envId, databaseId, true, false, () => service.Preview(databaseId));
+        Execute(envId, databaseId, true, () => service.Preview(databaseId));
 
     [HttpPost("apply")]
     public ActionResult<DatabaseAccessPreview> Apply(int envId, int databaseId, [FromBody] DatabaseAccessConfirmation confirmation) =>
-        Execute(envId, databaseId, true, true, () => service.Apply(databaseId, confirmation.Token, Actor));
+        Execute(envId, databaseId, true, () => service.Apply(databaseId, confirmation.Token, Actor));
 
     [HttpGet("directory")]
     public ActionResult<List<DatabaseAccessDirectoryIdentity>> SearchDirectory(int envId, int databaseId, [FromQuery] string search) =>
-        Execute(envId, databaseId, false, false, () => directory.Search(search));
+        Execute(envId, databaseId, false, () => directory.Search(search));
 
     [HttpGet("directory/resolve")]
     public ActionResult<DatabaseAccessDirectoryIdentity> ResolveDirectory(int envId, int databaseId, [FromQuery] string id) =>
-        Execute(envId, databaseId, false, false, () => directory.Resolve(id));
+        Execute(envId, databaseId, false, () => directory.Resolve(id));
+
+    [HttpGet("directory/lookup")]
+    public ActionResult<DatabaseAccessDirectoryIdentity> LookupDirectory(int envId, int databaseId, [FromQuery] string accountName) =>
+        Execute(envId, databaseId, false, () => directory.Lookup(accountName));
 
     [HttpPost("import/preview")]
     public ActionResult<DatabaseAccessImportPreview> PreviewImport(int envId, int databaseId, [FromBody] DatabaseAccessImportRequest request) =>
-        Execute(envId, databaseId, true, false, () => service.Import(databaseId, request, false, Actor));
+        Execute(envId, databaseId, true, () => service.Import(databaseId, request, false, Actor),
+            approveDbOwner: request.ApprovedDbOwnerLegacyUserIds?.Count > 0);
 
     [HttpPost("import")]
     public ActionResult<DatabaseAccessImportPreview> Import(int envId, int databaseId, [FromBody] DatabaseAccessImportRequest request) =>
-        Execute(envId, databaseId, true, false, () => service.Import(databaseId, request, true, Actor));
+        Execute(envId, databaseId, true, () => service.Import(databaseId, request, true, Actor),
+            approveDbOwner: request.ApprovedDbOwnerLegacyUserIds?.Count > 0);
 
     [HttpGet("audit")]
     public ActionResult<List<DatabaseAccessAuditApiModel>> Audit(int envId, int databaseId) =>
-        Execute(envId, databaseId, false, false, () => service.Audit(databaseId));
+        Execute(envId, databaseId, false, () => service.Audit(databaseId));
 
     private string Actor
     {
@@ -78,23 +84,30 @@ public sealed class DatabaseAccessController(
         }
     }
 
-    private ActionResult<T> Execute<T>(int envId, int databaseId, bool modify, bool execute, Func<T> operation, bool requireEnabled = true)
+    private List<string> AttachedEnvironments(int databaseId)
+    {
+        using var context = factory.GetContext();
+        return context.Databases.Where(d => d.Id == databaseId).SelectMany(d => d.Environments).Select(e => e.Name).ToList();
+    }
+
+    private ActionResult<T> Execute<T>(int envId, int databaseId, bool modify, Func<T> operation,
+        bool requireEnabled = true, bool approveDbOwner = false)
     {
         try
         {
             var environment = mapper.GetEnvironmentByDatabase(envId, databaseId, User);
             if (environment == null) return NotFound();
             if (!privileges.CanModifyEnvironment(User, environment.EnvironmentName)) return Forbid();
-            if (requireEnabled && !Enabled(databaseId)) return NotFound("Database access management is not enabled for this database.");
+            if (requireEnabled && !Enabled) return NotFound("Database access management is disabled.");
             if (modify)
             {
                 // A database can be shared: permission on one attachment must not grant changes to all others.
-                using var context = factory.GetContext();
-                var environments = context.Databases.Where(d => d.Id == databaseId).SelectMany(d => d.Environments).Select(e => e.Name).ToList();
+                var environments = AttachedEnvironments(databaseId);
                 if (environments.Count == 0 || environments.Any(name => !privileges.CanModifyEnvironment(User, name)))
                     return Forbid();
+                if (approveDbOwner && environments.Any(name => !privileges.IsEnvironmentOwnerOrAdmin(User, name)))
+                    return Forbid();
             }
-            if (execute && !ExecutionEnabled) return StatusCode(403, new ProblemDetails { Title = "Target execution is disabled." });
             return Ok(operation());
         }
         catch (Exception e) when (e is ArgumentException or NotSupportedException or DatabaseAccessConflictException or DbUpdateConcurrencyException)

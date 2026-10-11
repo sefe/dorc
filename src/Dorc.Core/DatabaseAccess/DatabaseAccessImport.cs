@@ -11,11 +11,55 @@ public static class DatabaseAccessImport
     {
         if (request.RoleMappings == null || request.DirectoryMappings == null)
             throw new ArgumentException("Role and directory mappings must be supplied.");
+        if (request.ExcludedLegacyUserIds == null)
+            throw new ArgumentException("Excluded legacy user IDs must be supplied as a list.");
+        if (request.ApprovedDbOwnerLegacyUserIds == null)
+            throw new ArgumentException("Approved db_owner legacy user IDs must be supplied as a list.");
         var proposed = System.Text.Json.JsonSerializer.Deserialize<DatabaseAccessState>(
             System.Text.Json.JsonSerializer.Serialize(current))!;
         var result = new DatabaseAccessImportPreview { Proposed = proposed, SourceAssignments = source.Count };
+        var approvedIds = new HashSet<int>();
+        foreach (var id in request.ApprovedDbOwnerLegacyUserIds)
+        {
+            if (id <= 0 || !source.Any(s => s.UserId == id
+                && request.RoleMappings.TryGetValue(s.Role, out var mapped) && DatabaseAccessPlanner.IsDbOwner(mapped)))
+                result.Errors.Add($"Legacy user {id} has no db_owner mapping in this database to approve.");
+            else if (request.ExcludedLegacyUserIds.Contains(id))
+                result.Errors.Add($"Legacy user {id} cannot be both excluded and approved for db_owner.");
+            else if (!approvedIds.Add(id))
+                result.Errors.Add($"Legacy user {id} is approved for db_owner more than once.");
+        }
+        var excludedIds = new HashSet<int>();
+        foreach (var id in request.ExcludedLegacyUserIds)
+        {
+            var assignments = source.Where(s => s.UserId == id).ToList();
+            if (id <= 0 || assignments.Count == 0)
+                result.Errors.Add($"Legacy user {id} cannot be excluded: it has no assignments in this database.");
+            else if (excludedIds.Contains(id))
+                result.Errors.Add($"Legacy user {id} is excluded more than once.");
+            else if (assignments.Any(s => !s.Kind.Trim().Equals("windows", StringComparison.OrdinalIgnoreCase))
+                || assignments.Select(s => s.Login.Trim()).Distinct(DatabaseAccessPlanner.Names).Count() != 1
+                || assignments.Any(s => string.IsNullOrWhiteSpace(s.Login)))
+                result.Errors.Add($"Legacy user {id} cannot be excluded: exclusions require a consistent Windows account.");
+            else if (request.DirectoryMappings.ContainsKey(id))
+                result.Errors.Add($"Legacy user {id} cannot be both mapped to a directory identity and excluded.");
+            else if (current.Principals.Any(p => p.LegacyUserId == id
+                || assignments.Any(s => DatabaseAccessPlanner.Names.Equals(s.Login.Trim(), p.Name))))
+                result.Errors.Add($"Legacy user {id} cannot be excluded: its principal is already in desired state. Resolve it explicitly.");
+            else
+            {
+                excludedIds.Add(id);
+                result.ExcludedAccounts.Add(new()
+                {
+                    LegacyUserId = id, LoginName = assignments[0].Login.Trim(),
+                    Permissions = assignments.Select(s => s.Role).Distinct().OrderBy(r => r, StringComparer.Ordinal).ToList(),
+                    AssignmentCount = assignments.Count
+                });
+            }
+        }
         foreach (var item in source)
         {
+            if (excludedIds.Contains(item.UserId)) continue;
             if (!request.RoleMappings.TryGetValue(item.Role, out var role) || string.IsNullOrWhiteSpace(role))
             {
                 result.Errors.Add($"Permission '{item.Role}' requires an explicit target-role mapping.");
@@ -46,6 +90,16 @@ public static class DatabaseAccessImport
                 result.Errors.Add($"Principal '{name}' conflicts with existing desired state or has diverged.");
                 continue;
             }
+            var ownerMembership = DatabaseAccessPlanner.IsDbOwner(role);
+            var previouslyApproved = current.Principals.Any(p => p.LegacyUserId == item.UserId
+                && DatabaseAccessPlanner.Names.Equals(p.Name, name))
+                && current.Memberships.Any(m => m.Present && DatabaseAccessPlanner.IsDbOwner(m.Role)
+                    && DatabaseAccessPlanner.Names.Equals(m.Principal, name));
+            if (ownerMembership && !previouslyApproved && !approvedIds.Contains(item.UserId))
+            {
+                result.Errors.Add($"Legacy user {item.UserId} requires explicit db_owner membership approval from an environment owner or administrator.");
+                continue;
+            }
             if (existing == null)
                 proposed.Principals.Add(new()
                 {
@@ -58,7 +112,13 @@ public static class DatabaseAccessImport
             var membership = proposed.Memberships.SingleOrDefault(m =>
                 DatabaseAccessPlanner.Names.Equals(m.Principal, name) && DatabaseAccessPlanner.Names.Equals(m.Role, role));
             if (membership == null) proposed.Memberships.Add(new() { Principal = name, Role = role });
-            else if (!membership.Present) result.Errors.Add($"Membership '{name}'/'{role}' has diverged; it is marked absent.");
+            else if (!membership.Present)
+            {
+                if (ownerMembership && approvedIds.Contains(item.UserId)) membership.Present = true;
+                else result.Errors.Add($"Membership '{name}'/'{role}' has diverged; it is marked absent.");
+            }
+            if (ownerMembership && approvedIds.Contains(item.UserId) && !result.ApprovedDbOwnerLegacyUserIds.Contains(item.UserId))
+                result.ApprovedDbOwnerLegacyUserIds.Add(item.UserId);
         }
         var sourceIds = source.Select(s => s.UserId).ToHashSet();
         foreach (var p in proposed.Principals.Where(p => p.LegacyUserId.HasValue && !sourceIds.Contains(p.LegacyUserId.Value)))
@@ -73,7 +133,12 @@ public static class DatabaseAccessImport
         }
         try { DatabaseAccessPlanner.Validate(proposed); }
         catch (ArgumentException e) { result.Errors.Add(e.Message); }
-        result.Token = DatabaseAccessPlanner.Fingerprint(new { current, source, request.RoleMappings, request.DirectoryMappings, proposed, result.Errors });
+        result.Token = DatabaseAccessPlanner.Fingerprint(new
+        {
+            current, source, request.RoleMappings, request.DirectoryMappings, request.ExcludedLegacyUserIds,
+            request.ApprovedDbOwnerLegacyUserIds, proposed, result.ExcludedAccounts,
+            AcknowledgedDbOwnerLegacyUserIds = result.ApprovedDbOwnerLegacyUserIds, result.Errors
+        });
         return result;
     }
 }

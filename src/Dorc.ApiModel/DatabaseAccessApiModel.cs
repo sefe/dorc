@@ -81,6 +81,7 @@ namespace Dorc.ApiModel
     {
         public bool Enabled { get; set; }
         public bool ExecutionEnabled { get; set; }
+        public bool CanApproveDbOwner { get; set; }
         public string[] Providers { get; set; } = Array.Empty<string>();
         public string[] Limitations { get; set; } = Array.Empty<string>();
     }
@@ -97,6 +98,8 @@ namespace Dorc.ApiModel
     {
         public Dictionary<string, string> RoleMappings { get; set; } = new Dictionary<string, string>();
         public Dictionary<int, string> DirectoryMappings { get; set; } = new Dictionary<int, string>();
+        public List<int> ExcludedLegacyUserIds { get; set; } = new List<int>();
+        public List<int> ApprovedDbOwnerLegacyUserIds { get; set; } = new List<int>();
         public string Token { get; set; } = "";
     }
 
@@ -106,6 +109,16 @@ namespace Dorc.ApiModel
         public DatabaseAccessState Proposed { get; set; } = new DatabaseAccessState();
         public List<string> Errors { get; set; } = new List<string>();
         public int SourceAssignments { get; set; }
+        public List<DatabaseAccessImportExclusion> ExcludedAccounts { get; set; } = new List<DatabaseAccessImportExclusion>();
+        public List<int> ApprovedDbOwnerLegacyUserIds { get; set; } = new List<int>();
+    }
+
+    public class DatabaseAccessImportExclusion
+    {
+        public int LegacyUserId { get; set; }
+        public string LoginName { get; set; } = "";
+        public List<string> Permissions { get; set; } = new List<string>();
+        public int AssignmentCount { get; set; }
     }
 
     public class DatabaseAccessAuditApiModel

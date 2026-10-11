@@ -93,6 +93,7 @@ models/DaemonStatusApiModel.ts
 models/DatabaseAccessAuditApiModel.ts
 models/DatabaseAccessConfirmation.ts
 models/DatabaseAccessDirectoryIdentity.ts
+models/DatabaseAccessImportExclusion.ts
 models/DatabaseAccessImportPreview.ts
 models/DatabaseAccessImportRequest.ts
 models/DatabaseAccessMembership.ts

@@ -1,4 +1,4 @@
-CREATE TABLE [dbo].[DatabaseAccessAudit] (
+CREATE TABLE [deploy].[DatabaseAccessAudit] (
     [Id] BIGINT IDENTITY(1,1) NOT NULL,
     [DatabaseId] INT NOT NULL,
     [CreatedUtc] DATETIME2 NOT NULL,
@@ -9,4 +9,4 @@ CREATE TABLE [dbo].[DatabaseAccessAudit] (
     CONSTRAINT [PK_DatabaseAccessAudit] PRIMARY KEY ([Id])
 );
 GO
-CREATE INDEX [IX_DatabaseAccessAudit_DatabaseId_CreatedUtc] ON [dbo].[DatabaseAccessAudit] ([DatabaseId], [CreatedUtc]);
+CREATE INDEX [IX_DatabaseAccessAudit_DatabaseId_CreatedUtc] ON [deploy].[DatabaseAccessAudit] ([DatabaseId], [CreatedUtc]);

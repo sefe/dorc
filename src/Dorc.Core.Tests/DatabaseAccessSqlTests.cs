@@ -34,20 +34,21 @@ public class DatabaseAccessSqlTests
             Execute(master, $"CREATE LOGIN [{login}] WITH PASSWORD = 'Aa1!{Guid.NewGuid():N}';");
             using var connection = new SqlConnection(new SqlConnectionStringBuilder(master.ConnectionString) { InitialCatalog = database }.ConnectionString);
             connection.Open();
+            Execute(connection, "CREATE SCHEMA [deploy];");
             Execute(connection, "CREATE TABLE [dbo].[DATABASE] ([DB_ID] INT PRIMARY KEY); INSERT [dbo].[DATABASE] VALUES (1);");
             foreach (var name in new[] { "DatabaseAccessConfiguration", "DatabaseAccessPrincipal", "DatabaseAccessRole", "DatabaseAccessMembership", "DatabaseAccessAudit" })
                 foreach (var batch in System.Text.RegularExpressions.Regex.Split(File.ReadAllText(SchemaFile(name)), @"(?m)^GO\s*$")
                     .Where(batch => !string.IsNullOrWhiteSpace(batch)))
                     Execute(connection, batch);
-            Execute(connection, "INSERT dbo.DatabaseAccessConfiguration VALUES (1,'sql-server',0);");
-            Assert.ThrowsExactly<SqlException>(() => Execute(connection, "INSERT dbo.DatabaseAccessConfiguration VALUES (1,'sql-server',0);"));
-            Assert.ThrowsExactly<SqlException>(() => Execute(connection, "INSERT dbo.DatabaseAccessConfiguration VALUES (999,'sql-server',0);"));
-            Assert.ThrowsExactly<SqlException>(() => Execute(connection, "INSERT dbo.DatabaseAccessMembership VALUES (1,'missing','missing',1);"));
-            Assert.ThrowsExactly<SqlException>(() => Execute(connection, "INSERT dbo.DatabaseAccessPrincipal VALUES (1,'bad','DirectoryUser','cached-login',NULL,1,NULL);"));
-            Execute(connection, "INSERT [dbo].[DATABASE] VALUES (2); INSERT dbo.DatabaseAccessConfiguration VALUES (2,'sql-server',0);");
-            Execute(connection, "INSERT dbo.DatabaseAccessPrincipal VALUES (1,'one','Native','login',NULL,1,NULL); INSERT dbo.DatabaseAccessRole VALUES (2,'two',0,1);");
-            Assert.ThrowsExactly<SqlException>(() => Execute(connection, "INSERT dbo.DatabaseAccessMembership VALUES (1,'one','two',1);"));
-            Execute(connection, "DELETE dbo.DatabaseAccessPrincipal WHERE Name='one'; DELETE dbo.DatabaseAccessRole WHERE Name='two';");
+            Execute(connection, "INSERT deploy.DatabaseAccessConfiguration VALUES (1,'sql-server',0);");
+            Assert.ThrowsExactly<SqlException>(() => Execute(connection, "INSERT deploy.DatabaseAccessConfiguration VALUES (1,'sql-server',0);"));
+            Assert.ThrowsExactly<SqlException>(() => Execute(connection, "INSERT deploy.DatabaseAccessConfiguration VALUES (999,'sql-server',0);"));
+            Assert.ThrowsExactly<SqlException>(() => Execute(connection, "INSERT deploy.DatabaseAccessMembership VALUES (1,'missing','missing',1);"));
+            Assert.ThrowsExactly<SqlException>(() => Execute(connection, "INSERT deploy.DatabaseAccessPrincipal VALUES (1,'bad','DirectoryUser','cached-login',NULL,1,NULL);"));
+            Execute(connection, "INSERT [dbo].[DATABASE] VALUES (2); INSERT deploy.DatabaseAccessConfiguration VALUES (2,'sql-server',0);");
+            Execute(connection, "INSERT deploy.DatabaseAccessPrincipal VALUES (1,'one','Native','login',NULL,1,NULL); INSERT deploy.DatabaseAccessRole VALUES (2,'two',0,1);");
+            Assert.ThrowsExactly<SqlException>(() => Execute(connection, "INSERT deploy.DatabaseAccessMembership VALUES (1,'one','two',1);"));
+            Execute(connection, "DELETE deploy.DatabaseAccessPrincipal WHERE Name='one'; DELETE deploy.DatabaseAccessRole WHERE Name='two';");
 
             var provider = new SqlServerDatabaseAccessProvider();
             var target = new DatabaseAccessTarget(1, server!, database);
@@ -75,30 +76,91 @@ public class DatabaseAccessSqlTests
                 Assert.AreEqual(1L, DatabaseAccessStore.Read(nextLock, 1).Revision);
 
                 var databases = Set(new[] { new Dorc.PersistentData.Model.Database { Id = 2, Name = database, ServerName = server } });
-                var maps = Set(new[] { new Dorc.PersistentData.Model.EnvironmentUser { DbId = 2, UserId = 42, PermissionId = 7 } });
-                var users = Set(new[] { new Dorc.PersistentData.Model.User { Id = 42, LoginId = login, LoginType = "Endur" } });
-                var permissions = Set(new[] { new Dorc.PersistentData.Model.Permission { Id = 7, Name = "Read" } });
+                var maps = Set(new[] {
+                    new Dorc.PersistentData.Model.EnvironmentUser { DbId = 2, UserId = 42, PermissionId = 7 },
+                    new Dorc.PersistentData.Model.EnvironmentUser { DbId = 2, UserId = 42, PermissionId = 8 },
+                    new Dorc.PersistentData.Model.EnvironmentUser { DbId = 2, UserId = 43, PermissionId = 7 } });
+                var users = Set(new[] {
+                    new Dorc.PersistentData.Model.User { Id = 42, LoginId = login, LoginType = "Endur" },
+                    new Dorc.PersistentData.Model.User { Id = 43, LoginId = "AD\\missing", LoginType = "Windows" } });
+                var permissions = Set(new[] {
+                    new Dorc.PersistentData.Model.Permission { Id = 7, Name = "Read" },
+                    new Dorc.PersistentData.Model.Permission { Id = 8, Name = "db_owner" } });
                 legacy.Databases.Returns(databases);
                 legacy.EnvironmentUsers.Returns(maps);
                 legacy.Users.Returns(users);
                 legacy.Permissions.Returns(permissions);
-                var service = new DatabaseAccessService(store, factory, new DatabaseAccessProviders([provider]),
+                var unavailableProvider = Substitute.For<IDatabaseAccessProvider>();
+                unavailableProvider.Name.Returns(provider.Name);
+                var targetUnavailable = true;
+                unavailableProvider.Preview(Arg.Any<DatabaseAccessTarget>(), Arg.Any<DatabaseAccessState>())
+                    .Returns(_ => targetUnavailable
+                        ? throw new InvalidOperationException("Target is unavailable.")
+                        : new DatabaseAccessPreview { Token = "blocked", Errors = ["Login is not visible."] });
+                var service = new DatabaseAccessService(store, factory, new DatabaseAccessProviders([unavailableProvider]),
                     new DatabaseAccessDirectory(Substitute.For<IActiveDirectorySearcher>()), NullLogger<DatabaseAccessService>.Instance);
-                var import = new DatabaseAccessImportRequest { RoleMappings = new() { ["Read"] = "db_datareader" } };
+                var import = new DatabaseAccessImportRequest
+                {
+                    RoleMappings = new() { ["Read"] = "db_datareader", ["db_owner"] = "db_owner" }, ExcludedLegacyUserIds = [43]
+                };
+                Assert.IsTrue(service.Import(2, import, false, "test").Errors.Any(e => e.Contains("explicit db_owner")));
+                import.ApprovedDbOwnerLegacyUserIds.Add(42);
                 var importPreview = service.Import(2, import, false, "test");
                 Assert.HasCount(0, importPreview.Errors, string.Join("; ", importPreview.Errors));
                 Assert.AreEqual(0L, service.Get(2).Revision);
                 import.Token = importPreview.Token;
+                import.ApprovedDbOwnerLegacyUserIds.Clear();
+                Assert.ThrowsExactly<DatabaseAccessConflictException>(() => service.Import(2, import, true, "test"));
+                import.ApprovedDbOwnerLegacyUserIds.Add(42);
                 service.Import(2, import, true, "test");
                 Assert.AreEqual(1L, service.Get(2).Revision);
                 Assert.AreEqual("Native", service.Get(2).Principals.Single().Kind);
+                var audit = service.Audit(2).Single(a => a.Action == "Import");
+                Assert.AreEqual("Succeeded", audit.Status);
+                var detail = System.Text.Json.JsonSerializer.Deserialize<DatabaseAccessImportPreview>(audit.Detail)!;
+                Assert.AreEqual(43, detail.ExcludedAccounts.Single().LegacyUserId);
+                Assert.AreEqual(3, detail.SourceAssignments);
+                Assert.AreEqual(42, detail.ApprovedDbOwnerLegacyUserIds.Single());
                 import.Token = service.Import(2, import, false, "test").Token;
                 service.Import(2, import, true, "test");
                 Assert.AreEqual(1L, service.Get(2).Revision, "An identical rerun must not revise desired state.");
+                audit = service.Audit(2).First(a => a.Action == "Import");
+                Assert.AreEqual("NoChanges", audit.Status);
+                detail = System.Text.Json.JsonSerializer.Deserialize<DatabaseAccessImportPreview>(audit.Detail)!;
+                Assert.AreEqual("AD\\missing", detail.ExcludedAccounts.Single().LoginName);
+                import.ExcludedLegacyUserIds.Clear();
+                Assert.ThrowsExactly<DatabaseAccessConflictException>(() => service.Import(2, import, true, "test"));
+                import.ExcludedLegacyUserIds.Add(43);
                 import.Token = "stale";
                 Assert.ThrowsExactly<DatabaseAccessConflictException>(() => service.Import(2, import, true, "test"));
                 Assert.IsFalse(provider.Preview(target, state).Observed.Principals.Any(p => p.Name == login),
                     "Import must not create a target database user.");
+                unavailableProvider.DidNotReceiveWithAnyArgs().Preview(default!, default!);
+                unavailableProvider.DidNotReceiveWithAnyArgs().Apply(default!, default!, default!);
+                Assert.ThrowsExactly<InvalidOperationException>(() => service.Preview(2));
+                Assert.ThrowsExactly<InvalidOperationException>(() => service.Apply(2, "token", "test"));
+                targetUnavailable = false;
+                Assert.HasCount(1, service.Preview(2).Errors);
+                Assert.ThrowsExactly<DatabaseAccessConflictException>(() => service.Apply(2, "blocked", "test"));
+                unavailableProvider.DidNotReceiveWithAnyArgs().Apply(default!, default!, default!);
+                Assert.AreEqual(1L, service.Get(2).Revision);
+                service = new DatabaseAccessService(store, factory, new DatabaseAccessProviders([provider]),
+                    new DatabaseAccessDirectory(Substitute.For<IActiveDirectorySearcher>()), NullLogger<DatabaseAccessService>.Instance);
+                var approvedPreview = service.Preview(2);
+                var applied = service.Apply(2, approvedPreview.Token, "test");
+                Assert.IsTrue(applied.Observed.Memberships.Any(m => m.Principal == login && m.Role == "db_owner"));
+                Assert.HasCount(0, service.Preview(2).Operations);
+                Execute(connection, $"ALTER ROLE [db_owner] DROP MEMBER [{login}];");
+                var drift = service.Preview(2);
+                Assert.AreEqual("GrantRole", drift.Operations.Single().Action);
+                Assert.AreEqual("db_owner", drift.Operations.Single().Role);
+                Assert.HasCount(0, service.Apply(2, drift.Token, "test").Operations);
+                var revoked = service.Get(2);
+                foreach (var membership in revoked.Memberships) membership.Present = false;
+                revoked.Principals[0].Present = false;
+                service.Save(2, revoked, "test");
+                var revokePreview = service.Preview(2);
+                Assert.HasCount(0, service.Apply(2, revokePreview.Token, "test").Operations);
             }
             var preview = provider.Preview(target, state);
             Assert.HasCount(0, preview.Errors);
@@ -148,7 +210,7 @@ public class DatabaseAccessSqlTests
     public void SchemaFileRequiresAnUnqualifiedTableName()
     {
         var path = SchemaFile("DatabaseAccessRole");
-        StringAssert.EndsWith(path, Path.Join("Dorc.Database", "dbo", "Tables", "DatabaseAccessRole.sql"));
+        StringAssert.EndsWith(path, Path.Join("Dorc.Database", "deploy", "Tables", "DatabaseAccessRole.sql"));
         Assert.IsTrue(File.Exists(path));
         Assert.ThrowsExactly<ArgumentException>(() => SchemaFile(Path.GetFullPath("DatabaseAccessRole")));
         Assert.ThrowsExactly<ArgumentException>(() => SchemaFile(Path.Join("..", "DatabaseAccessRole")));
@@ -161,6 +223,6 @@ public class DatabaseAccessSqlTests
         var fileName = Path.GetFileName(name);
         if (string.IsNullOrWhiteSpace(fileName) || fileName != name)
             throw new ArgumentException("A schema table name must not contain a directory or rooted path.", nameof(name));
-        return Path.GetFullPath(Path.Join(Path.GetDirectoryName(source)!, "..", "Dorc.Database", "dbo", "Tables", fileName + ".sql"));
+        return Path.GetFullPath(Path.Join(Path.GetDirectoryName(source)!, "..", "Dorc.Database", "deploy", "Tables", fileName + ".sql"));
     }
 }

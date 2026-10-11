@@ -17,7 +17,7 @@ public sealed class SqlServerDatabaseAccessProvider : IDatabaseAccessProvider
         var connection = new SqlConnection(new SqlConnectionStringBuilder
         {
             DataSource = target.Server, InitialCatalog = target.Database, IntegratedSecurity = true,
-            Encrypt = true, TrustServerCertificate = false, ConnectTimeout = 15,
+            Encrypt = true, TrustServerCertificate = true, ConnectTimeout = 15,
             ApplicationName = "DOrc.DatabaseAccess"
         }.ConnectionString);
         try { connection.Open(); return connection; }
