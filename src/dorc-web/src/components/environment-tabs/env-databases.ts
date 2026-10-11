@@ -38,6 +38,7 @@ export class EnvDatabases extends PageEnvBase {
         flex-direction: column;
         width: 100%;
         height: 100%;
+        min-height: 0;
       }
       .span {
         font-family: var(--lumo-font-family);

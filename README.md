@@ -198,6 +198,8 @@ npm run api-gen                  # regenerate against it
 The **Database Access** panel under environment database details manages
 database-native users, directory-backed database principals, roles and role
 memberships. It does not replace the legacy Users or Permissions controls yet.
+Scroll within **Application Database Details** to reach the access panel below
+long database lists; the environment header and tabs stay visible.
 Work is tracked by #945 and its children #946-#953.
 
 Deploy the updated database project before enabling the feature. It adds
