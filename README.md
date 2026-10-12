@@ -330,9 +330,11 @@ Target preview and Apply (not metadata import) use the API process's Windows ide
 and `TrustServerCertificate=true` to support SQL Server instances without
 CA-trusted certificates. Traffic remains encrypted, but the server certificate's
 trust chain and hostname are not validated. Grant only the permissions needed:
-`VIEW DEFINITION` for discovery, sufficient
-server-login metadata visibility, and the appropriate `ALTER ANY USER`,
-`ALTER ANY ROLE`/role permissions for approved mutations. Do not grant
+`VIEW DEFINITION` for discovery, sufficient server-login metadata visibility,
+and membership in `db_owner` on the target database. SQL Server requires
+database-owner-level authority for orphaned-user remapping and changing fixed
+database-role membership, so `ALTER ANY USER`/`ALTER ANY ROLE` alone are not
+sufficient. Do not grant
 `sysadmin` merely to enable this feature. Existing AD users/groups are resolved
 through the AD searcher; the new principal records store stable SID references
 and database aliases, not directory profile copies. Deleted identities and
