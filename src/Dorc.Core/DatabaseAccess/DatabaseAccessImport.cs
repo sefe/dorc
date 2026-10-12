@@ -57,9 +57,8 @@ public static class DatabaseAccessImport
                 });
             }
         }
-        foreach (var item in source)
+        foreach (var item in source.Where(item => !excludedIds.Contains(item.UserId)))
         {
-            if (excludedIds.Contains(item.UserId)) continue;
             if (!request.RoleMappings.TryGetValue(item.Role, out var role) || string.IsNullOrWhiteSpace(role))
             {
                 result.Errors.Add($"Permission '{item.Role}' requires an explicit target-role mapping.");
