@@ -97,8 +97,6 @@ export class AttachedDatabases extends ResponsiveMixin(LitElement) {
         text-decoration: none;
       }
       .database-type-icon {
-        display: block;
-        margin: 0 auto;
         color: var(--dorc-link-color);
       }
       @media (max-width: 768px) {
