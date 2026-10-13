@@ -129,6 +129,7 @@ export class EnvDatabases extends PageEnvBase {
                       header-title="Database Access"
                       resizable
                       draggable
+                      width="min(72rem, calc(100vw - 4rem))"
                       .opened="${this.databaseAccessDialogOpened}"
                       @opened-changed="${(event: DialogOpenedChangedEvent) => {
                         this.databaseAccessDialogOpened = event.detail.value;
@@ -250,7 +251,7 @@ export class EnvDatabases extends PageEnvBase {
 
   private renderDatabaseAccessDialog = () => html`
     <database-access-panel
-      style="width: min(72rem, 85vw)"
+      style="width: 100%"
       .envId="${this.environmentId}"
       .databases="${this.databases ?? []}"
       .readonly="${this.envReadOnly}"
