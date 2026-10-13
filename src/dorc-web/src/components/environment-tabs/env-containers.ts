@@ -1,4 +1,4 @@
-import { css, PropertyValues } from 'lit';
+import { css, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import '@vaadin/details';
@@ -10,11 +10,13 @@ import '@vaadin/icon';
 import '@vaadin/tooltip';
 import { columnBodyRenderer } from '@vaadin/grid/lit';
 import type { DialogOpenedChangedEvent } from '@vaadin/dialog';
-import { dialogRenderer } from '@vaadin/dialog/lit';
+import { dialogFooterRenderer, dialogRenderer } from '@vaadin/dialog/lit';
 import { Notification } from '@vaadin/notification';
 import { ContainerApiModel, RefDataContainersApi } from '../../apis/dorc-api';
 import '../add-edit-container';
 import '../attach-container';
+import '../resource-tags';
+import { joinTags } from '../../helpers/tag-parser';
 import { dorcApiConfiguration } from '../../services/dorc-api-configuration';
 import { navigate } from '../../router/router';
 import { PageEnvBase } from './page-env-base';
@@ -30,6 +32,10 @@ export class EnvContainers extends PageEnvBase {
   @state() private editDialogOpened = false;
 
   @state() private editing: ContainerApiModel = {};
+
+  @state() private tagsDialogOpened = false;
+
+  @state() private tagsItem: ContainerApiModel | undefined;
 
   static get styles() {
     return css`
@@ -118,15 +124,6 @@ export class EnvContainers extends PageEnvBase {
   constructor() {
     super();
     super.loadEnvironmentInfo();
-  }
-
-  protected firstUpdated(_changedProperties: PropertyValues) {
-    super.firstUpdated(_changedProperties);
-    this.addEventListener(
-      'container-attached',
-      this.onMutated as EventListener
-    );
-    this.addEventListener('container-saved', this.onSaved as EventListener);
   }
 
   render() {
@@ -218,45 +215,119 @@ export class EnvContainers extends PageEnvBase {
         @opened-changed="${(e: DialogOpenedChangedEvent) => {
           this.editDialogOpened = e.detail.value;
         }}"
-        ${dialogRenderer(this.editDialogRenderer, [this.editing])}
+        ${dialogRenderer(this.editDialogRenderer, [this.editing, this.environmentId])}
+      ></vaadin-dialog>
+
+      <vaadin-dialog
+        header-title="Edit Container Tags for ${this.tagsItem?.Name ?? ''}"
+        draggable
+        .opened="${this.tagsDialogOpened}"
+        @opened-changed="${(e: DialogOpenedChangedEvent) => {
+          this.tagsDialogOpened = e.detail.value;
+          if (!this.tagsDialogOpened) this.tagsItem = undefined;
+        }}"
+        ${dialogRenderer(this.tagsDialogRenderer, [this.tagsItem])}
+        ${dialogFooterRenderer(this.tagsDialogFooterRenderer, [])}
       ></vaadin-dialog>
     `;
   }
 
   private attachDialogRenderer = () => html`
-    <attach-container .envId="${this.environmentId}"></attach-container>
+    <attach-container
+      .envId="${this.environmentId}"
+      @container-attached="${this.onMutated}"
+    ></attach-container>
   `;
 
   private editDialogRenderer = () => html`
-    <add-edit-container .container="${this.editing}"></add-edit-container>
+    <add-edit-container
+      .container="${this.editing}"
+      .envId="${this.environmentId}"
+      @container-saved="${this.onSaved}"
+    ></add-edit-container>
   `;
 
-  private actionsRenderer = (item: ContainerApiModel) => html`
-    <vaadin-button
-      class="row-button"
-      aria-label="View audit history"
-      theme="icon"
-      @click="${() => this.openAudit(item)}"
-    >
-      <vaadin-tooltip slot="tooltip" text="View audit history"></vaadin-tooltip>
-      <vaadin-icon
-        icon="vaadin:calendar-user"
-        style="color: var(--dorc-link-color)"
-      ></vaadin-icon>
-    </vaadin-button>
-    <vaadin-button
-      class="row-button"
-      ?disabled="${this.envReadOnly}"
-      @click="${() => this.openEditDialog(item)}"
-      >Edit</vaadin-button
-    >
-    <vaadin-button
-      class="row-button"
-      ?disabled="${this.envReadOnly}"
-      @click="${() => this.detach(item)}"
-      >Detach</vaadin-button
+  private tagsDialogRenderer = () =>
+    this.tagsItem
+      ? html`<resource-tags
+          .tags="${this.tagsItem.Tags}"
+          @resource-tags-save="${this.saveTags}"
+        ></resource-tags>`
+      : nothing;
+
+  private tagsDialogFooterRenderer = () => html`
+    <vaadin-button @click="${() => (this.tagsDialogOpened = false)}"
+      >Close</vaadin-button
     >
   `;
+
+  private actionsRenderer = (item: ContainerApiModel) => {
+    const editColor = this.envReadOnly
+      ? 'var(--dorc-text-secondary)'
+      : 'var(--dorc-link-color)';
+    const detachColor = this.envReadOnly
+      ? 'var(--dorc-text-secondary)'
+      : 'var(--dorc-error-color)';
+    return html`
+      <vaadin-button
+        class="row-button"
+        aria-label="View audit history"
+        theme="icon"
+        @click="${() => this.openAudit(item)}"
+      >
+        <vaadin-tooltip
+          slot="tooltip"
+          text="View audit history"
+        ></vaadin-tooltip>
+        <vaadin-icon
+          icon="vaadin:calendar-user"
+          style="color: var(--dorc-link-color)"
+        ></vaadin-icon>
+      </vaadin-button>
+      <vaadin-button
+        class="row-button"
+        aria-label="Edit container"
+        theme="icon"
+        ?disabled="${this.envReadOnly}"
+        @click="${() => this.openEditDialog(item)}"
+      >
+        <vaadin-tooltip slot="tooltip" text="Edit container"></vaadin-tooltip>
+        <vaadin-icon
+          icon="vaadin:edit"
+          style="color: ${editColor}"
+        ></vaadin-icon>
+      </vaadin-button>
+      <vaadin-button
+        class="row-button"
+        aria-label="Edit Container Tags"
+        theme="icon"
+        ?disabled="${this.envReadOnly}"
+        @click="${() => this.openTagsDialog(item)}"
+      >
+        <vaadin-tooltip
+          slot="tooltip"
+          text="Edit Container Tags"
+        ></vaadin-tooltip>
+        <vaadin-icon
+          icon="vaadin:tags"
+          style="color: ${editColor}"
+        ></vaadin-icon>
+      </vaadin-button>
+      <vaadin-button
+        class="row-button"
+        aria-label="Detach container"
+        theme="icon"
+        ?disabled="${this.envReadOnly}"
+        @click="${() => this.detach(item)}"
+      >
+        <vaadin-tooltip slot="tooltip" text="Detach container"></vaadin-tooltip>
+        <vaadin-icon
+          icon="vaadin:unlink"
+          style="color: ${detachColor}"
+        ></vaadin-icon>
+      </vaadin-button>
+    `;
+  };
 
   private openAudit(item: ContainerApiModel) {
     const id = item.Id ?? 0;
@@ -291,6 +362,38 @@ export class EnvContainers extends PageEnvBase {
   private openEditDialog(item: ContainerApiModel) {
     this.editing = item;
     this.editDialogOpened = true;
+  }
+
+  private openTagsDialog(item: ContainerApiModel) {
+    this.tagsItem = item;
+    this.tagsDialogOpened = true;
+  }
+
+  private saveTags(e: CustomEvent) {
+    const item = this.tagsItem;
+    if (!item?.Id) return;
+    new RefDataContainersApi(dorcApiConfiguration)
+      .refDataContainersIdPut({
+        id: item.Id,
+        containerApiModel: { ...item, Tags: joinTags(e.detail.tags) }
+      })
+      .subscribe({
+        next: () => {
+          Notification.show(`Updated tags for container ${item.Name}`, {
+            theme: 'success',
+            position: 'bottom-start',
+            duration: 5000
+          });
+          this.tagsDialogOpened = false;
+          this.loadContainers();
+        },
+        error: (err: any) => {
+          Notification.show(
+            `Failed to update container tags: ${err.response ?? err.message ?? err}`,
+            { theme: 'error', position: 'bottom-start', duration: 5000 }
+          );
+        }
+      });
   }
 
   private detach(item: ContainerApiModel) {

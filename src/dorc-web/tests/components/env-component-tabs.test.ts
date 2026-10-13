@@ -6,9 +6,26 @@ import '../../src/components/add-edit-container.js';
 import '../../src/components/add-edit-cloud-resource.js';
 import '../../src/components/add-edit-api-registration.js';
 import '../../src/components/attach-container.js';
+import '../../src/components/resource-tags.js';
 import type { AddEditContainer } from '../../src/components/add-edit-container.js';
+import type { ResourceTags } from '../../src/components/resource-tags.js';
 import { RefDataContainersApi } from '../../src/apis/dorc-api';
 import { of } from 'rxjs';
+
+// tags-input drives @yaireo/tagify via window.Tagify, which the app loads
+// globally but the test browser does not (same shim as database-tags-ui.test.ts).
+class FakeTagify {
+  value: { value: string }[] = [];
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  constructor(_input: HTMLInputElement, _opts: unknown) {}
+  addTags(tags: string[]) {
+    this.value.push(...tags.map(t => ({ value: t })));
+  }
+  removeAllTags() {
+    this.value = [];
+  }
+}
+(window as any).Tagify = FakeTagify;
 
 // IS S-007 (docs/env-details-component-tabs): the three Components sub-tabs are real
 // grid-based tabs — attach + create controls gated on environment editability, per-type
@@ -26,7 +43,14 @@ const tabCases = [
     tag: 'env-cloud',
     grid: 'cloud-resources-grid',
     attachLabel: 'Attach Cloud Resource',
-    columns: ['Name', 'Provider', 'Resource Type', 'Resource Identifier', 'Subscription', 'Tags']
+    columns: [
+      'Name',
+      'Provider',
+      'Resource Type',
+      'Resource Identifier',
+      'Subscription',
+      'Tags'
+    ]
   },
   {
     tag: 'env-apis',
@@ -61,7 +85,9 @@ for (const c of tabCases) {
       );
       await (el as any).updateComplete;
 
-      const buttons = Array.from(el.shadowRoot!.querySelectorAll('vaadin-button'));
+      const buttons = Array.from(
+        el.shadowRoot!.querySelectorAll('vaadin-button')
+      );
       const titles = buttons.map(b => b.getAttribute('title'));
       expect(titles).to.include(c.attachLabel);
     });
@@ -73,11 +99,15 @@ for (const c of tabCases) {
       (el as any).envReadOnly = true;
       await (el as any).updateComplete;
 
-      const buttons = Array.from(el.shadowRoot!.querySelectorAll('vaadin-button'));
+      const buttons = Array.from(
+        el.shadowRoot!.querySelectorAll('vaadin-button')
+      );
       expect(buttons.length).to.be.greaterThan(0);
       for (const button of buttons) {
-        expect(button.disabled, `${button.textContent?.trim()} should be disabled`).to.be
-          .true;
+        expect(
+          button.disabled,
+          `${button.textContent?.trim()} should be disabled`
+        ).to.be.true;
       }
     });
 
@@ -88,7 +118,9 @@ for (const c of tabCases) {
       (el as any).envReadOnly = false;
       await (el as any).updateComplete;
 
-      const buttons = Array.from(el.shadowRoot!.querySelectorAll('vaadin-button'));
+      const buttons = Array.from(
+        el.shadowRoot!.querySelectorAll('vaadin-button')
+      );
       for (const button of buttons) {
         expect(button.disabled).to.be.false;
       }
@@ -103,18 +135,20 @@ describe('env-containers self-fetch lifecycle', () => {
   // environment itself or a deep link renders a permanently empty grid.
   it('loads items when environment arrives before environmentId (cold cache)', async () => {
     const items = [{ Id: 1, Name: 'web01', Image: 'nginx:1' }];
-    const original = RefDataContainersApi.prototype.refDataContainersByEnvIdEnvIdGet;
+    const original =
+      RefDataContainersApi.prototype.refDataContainersByEnvIdEnvIdGet;
     const calls: number[] = [];
-    (RefDataContainersApi.prototype as any).refDataContainersByEnvIdEnvIdGet = function (
-      req: { envId: number }
-    ) {
-      calls.push(req.envId);
-      return of(items);
-    };
+    (RefDataContainersApi.prototype as any).refDataContainersByEnvIdEnvIdGet =
+      function (req: { envId: number }) {
+        calls.push(req.envId);
+        return of(items);
+      };
 
     try {
       const el = await fixture(
-        document.createElement('env-containers') as unknown as ReturnType<typeof html>
+        document.createElement('env-containers') as unknown as ReturnType<
+          typeof html
+        >
       );
       // Reproduce the base-class cold-path ordering: environment set while
       // environmentId is still the default (-1).
@@ -127,17 +161,22 @@ describe('env-containers self-fetch lifecycle', () => {
       expect(grid.items).to.deep.equal(items);
       expect((el as any).envReadOnly).to.be.false;
     } finally {
-      (RefDataContainersApi.prototype as any).refDataContainersByEnvIdEnvIdGet = original;
+      (RefDataContainersApi.prototype as any).refDataContainersByEnvIdEnvIdGet =
+        original;
     }
   });
 
   it('derives read-only gating from environment.UserEditable', async () => {
-    const original = RefDataContainersApi.prototype.refDataContainersByEnvIdEnvIdGet;
-    (RefDataContainersApi.prototype as any).refDataContainersByEnvIdEnvIdGet = () => of([]);
+    const original =
+      RefDataContainersApi.prototype.refDataContainersByEnvIdEnvIdGet;
+    (RefDataContainersApi.prototype as any).refDataContainersByEnvIdEnvIdGet =
+      () => of([]);
 
     try {
       const el = await fixture(
-        document.createElement('env-containers') as unknown as ReturnType<typeof html>
+        document.createElement('env-containers') as unknown as ReturnType<
+          typeof html
+        >
       );
       (el as any).environment = { EnvironmentId: 42, UserEditable: false };
       await (el as any).updateComplete;
@@ -147,7 +186,8 @@ describe('env-containers self-fetch lifecycle', () => {
       await (el as any).updateComplete;
       expect((el as any).envReadOnly).to.be.false;
     } finally {
-      (RefDataContainersApi.prototype as any).refDataContainersByEnvIdEnvIdGet = original;
+      (RefDataContainersApi.prototype as any).refDataContainersByEnvIdEnvIdGet =
+        original;
     }
   });
 });
@@ -171,7 +211,13 @@ describe('add-edit-container form', () => {
     const values = Array.from(
       el.shadowRoot!.querySelectorAll('vaadin-text-field')
     ).map(f => f.value);
-    expect(values).to.deep.equal(['web01', 'nginx:1', 'reg.local', 'host01', 'edge;web']);
+    expect(values).to.deep.equal([
+      'web01',
+      'nginx:1',
+      'reg.local',
+      'host01',
+      'edge;web'
+    ]);
   });
 
   it('labels the action Create for a new item and Save for an existing one', async () => {
@@ -179,12 +225,14 @@ describe('add-edit-container form', () => {
       <add-edit-container .container="${{}}"></add-edit-container>
     `);
     await fresh.updateComplete;
-    expect(fresh.shadowRoot!.querySelector('vaadin-button')!.textContent!.trim()).to.equal(
-      'Create'
-    );
+    expect(
+      fresh.shadowRoot!.querySelector('vaadin-button')!.textContent!.trim()
+    ).to.equal('Create');
 
     const existing = await fixture<AddEditContainer>(html`
-      <add-edit-container .container="${{ Id: 5, Name: 'x', Image: 'y' }}"></add-edit-container>
+      <add-edit-container
+        .container="${{ Id: 5, Name: 'x', Image: 'y' }}"
+      ></add-edit-container>
     `);
     await existing.updateComplete;
     expect(
@@ -193,14 +241,118 @@ describe('add-edit-container form', () => {
   });
 });
 
+describe('add-edit-container create with environment context', () => {
+  const proto = RefDataContainersApi.prototype as any;
+
+  it('auto-attaches a newly created container to the current environment and fires container-saved', async () => {
+    const originalPost = proto.refDataContainersPost;
+    const originalAttach = proto.refDataContainersIdEnvironmentsEnvIdPut;
+    const attachCalls: Array<{ id: number; envId: number }> = [];
+    proto.refDataContainersPost = () =>
+      of({ Id: 9, Name: 'web01', Image: 'nginx:1' });
+    proto.refDataContainersIdEnvironmentsEnvIdPut = (req: {
+      id: number;
+      envId: number;
+    }) => {
+      attachCalls.push(req);
+      return of({ Result: true });
+    };
+
+    try {
+      const el = await fixture<AddEditContainer>(html`
+        <add-edit-container
+          .container="${{ Name: 'web01', Image: 'nginx:1' }}"
+          .envId="${42}"
+        ></add-edit-container>
+      `);
+      await el.updateComplete;
+
+      let saved = false;
+      el.addEventListener('container-saved', () => {
+        saved = true;
+      });
+      el.shadowRoot!.querySelector('vaadin-button')!.click();
+
+      expect(attachCalls).to.deep.equal([{ id: 9, envId: 42 }]);
+      expect(saved, 'container-saved should fire after create+attach').to.be
+        .true;
+    } finally {
+      proto.refDataContainersPost = originalPost;
+      proto.refDataContainersIdEnvironmentsEnvIdPut = originalAttach;
+    }
+  });
+
+  it('does not attach when no environment context is set or when updating', async () => {
+    const originalPost = proto.refDataContainersPost;
+    const originalPut = proto.refDataContainersIdPut;
+    const originalAttach = proto.refDataContainersIdEnvironmentsEnvIdPut;
+    const attachCalls: unknown[] = [];
+    proto.refDataContainersPost = () =>
+      of({ Id: 9, Name: 'web01', Image: 'nginx:1' });
+    proto.refDataContainersIdPut = () =>
+      of({ Id: 5, Name: 'web01', Image: 'nginx:1' });
+    proto.refDataContainersIdEnvironmentsEnvIdPut = (req: unknown) => {
+      attachCalls.push(req);
+      return of({ Result: true });
+    };
+
+    try {
+      // Create without environment context.
+      const created = await fixture<AddEditContainer>(html`
+        <add-edit-container
+          .container="${{ Name: 'web01', Image: 'nginx:1' }}"
+        ></add-edit-container>
+      `);
+      await created.updateComplete;
+      created.shadowRoot!.querySelector('vaadin-button')!.click();
+
+      // Update with environment context: already attached, must not re-attach.
+      const updated = await fixture<AddEditContainer>(html`
+        <add-edit-container
+          .container="${{ Id: 5, Name: 'web01', Image: 'nginx:1' }}"
+          .envId="${42}"
+        ></add-edit-container>
+      `);
+      await updated.updateComplete;
+      updated.shadowRoot!.querySelector('vaadin-button')!.click();
+
+      expect(attachCalls).to.deep.equal([]);
+    } finally {
+      proto.refDataContainersPost = originalPost;
+      proto.refDataContainersIdPut = originalPut;
+      proto.refDataContainersIdEnvironmentsEnvIdPut = originalAttach;
+    }
+  });
+});
+
+describe('resource-tags editor', () => {
+  it('normalises the delimited tag string and fires resource-tags-save with the tag set', async () => {
+    const el = await fixture<ResourceTags>(html`
+      <resource-tags .tags="${'web; edge;web;'}"></resource-tags>
+    `);
+    await el.updateComplete;
+
+    let detail: { tags: string[] } | undefined;
+    el.addEventListener('resource-tags-save', ((e: CustomEvent) => {
+      detail = e.detail;
+    }) as EventListener);
+
+    el.shadowRoot!.querySelector('vaadin-button')!.click();
+
+    expect(detail?.tags).to.deep.equal(['edge', 'web']);
+  });
+});
+
 describe('attach-container dialog content', () => {
   it('renders a combo box and an attach button', async () => {
-    const el = await fixture(html`<attach-container .envId="${1}"></attach-container>`);
+    const el = await fixture(
+      html`<attach-container .envId="${1}"></attach-container>`
+    );
     await (el as any).updateComplete;
 
     expect(el.shadowRoot!.querySelector('vaadin-combo-box')).to.not.be.null;
-    expect(el.shadowRoot!.querySelector('vaadin-button')!.textContent!.trim()).to.equal(
-      'Attach'
-    );
+    expect(
+      el.shadowRoot!.querySelector('vaadin-button')!.textContent!.trim()
+    ).to.equal('Attach');
   });
 });

@@ -4,14 +4,21 @@ import { html } from 'lit/html.js';
 import '@vaadin/text-field';
 import '@vaadin/button';
 import { Notification } from '@vaadin/notification';
-import { ApiRegistrationApiModel, RefDataApiRegistrationsApi } from '../apis/dorc-api';
+import {
+  ApiRegistrationApiModel,
+  RefDataApiRegistrationsApi
+} from '../apis/dorc-api';
 import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 /**
  * Create/edit form for an API registration. Fires `api-registration-saved`.
+ * When `envId` is set, a newly created registration is attached to that
+ * environment as part of the save.
  */
 @customElement('add-edit-api-registration')
 export class AddEditApiRegistration extends LitElement {
+  @property({ type: Number }) envId = 0;
+
   @property({ type: Object })
   get apiRegistration(): ApiRegistrationApiModel {
     return this._apiRegistration;
@@ -104,22 +111,27 @@ export class AddEditApiRegistration extends LitElement {
     }
 
     const api = new RefDataApiRegistrationsApi(dorcApiConfiguration);
-    const request = this._apiRegistration.Id
+    const isUpdate = !!this._apiRegistration.Id;
+    const request = isUpdate
       ? api.refDataApiRegistrationsIdPut({
-          id: this._apiRegistration.Id,
+          id: this._apiRegistration.Id!,
           apiRegistrationApiModel: this._apiRegistration
         })
-      : api.refDataApiRegistrationsPost({ apiRegistrationApiModel: this._apiRegistration });
+      : api.refDataApiRegistrationsPost({
+          apiRegistrationApiModel: this._apiRegistration
+        });
 
     request.subscribe({
-      next: () => {
+      next: (saved: ApiRegistrationApiModel) => {
+        if (!isUpdate && this.envId > 0 && saved?.Id) {
+          this.attachToEnvironment(api, saved);
+          return;
+        }
         Notification.show(
-          `API registration ${this._apiRegistration.Name} ${this._apiRegistration.Id ? 'updated' : 'created'}`,
+          `API registration ${this._apiRegistration.Name} ${isUpdate ? 'updated' : 'created'}`,
           { theme: 'success', position: 'bottom-start', duration: 5000 }
         );
-        this.dispatchEvent(
-          new CustomEvent('api-registration-saved', { bubbles: true, composed: true })
-        );
+        this.fireSaved();
       },
       error: (err: any) => {
         Notification.show(
@@ -128,5 +140,41 @@ export class AddEditApiRegistration extends LitElement {
         );
       }
     });
+  }
+
+  private attachToEnvironment(
+    api: RefDataApiRegistrationsApi,
+    saved: ApiRegistrationApiModel
+  ) {
+    api
+      .refDataApiRegistrationsIdEnvironmentsEnvIdPut({
+        id: saved.Id!,
+        envId: this.envId
+      })
+      .subscribe({
+        next: () => {
+          Notification.show(
+            `API registration ${saved.Name} created and attached to this environment`,
+            { theme: 'success', position: 'bottom-start', duration: 5000 }
+          );
+          this.fireSaved();
+        },
+        error: (err: any) => {
+          Notification.show(
+            `API registration ${saved.Name} was created but could not be attached: ${err.response ?? err.message ?? err}`,
+            { theme: 'error', position: 'bottom-start', duration: 5000 }
+          );
+          this.fireSaved();
+        }
+      });
+  }
+
+  private fireSaved() {
+    this.dispatchEvent(
+      new CustomEvent('api-registration-saved', {
+        bubbles: true,
+        composed: true
+      })
+    );
   }
 }

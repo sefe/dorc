@@ -4,14 +4,21 @@ import { html } from 'lit/html.js';
 import '@vaadin/text-field';
 import '@vaadin/button';
 import { Notification } from '@vaadin/notification';
-import { CloudResourceApiModel, RefDataCloudResourcesApi } from '../apis/dorc-api';
+import {
+  CloudResourceApiModel,
+  RefDataCloudResourcesApi
+} from '../apis/dorc-api';
 import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 /**
  * Create/edit form for a cloud resource definition. Fires `cloud-resource-saved`.
+ * When `envId` is set, a newly created cloud resource is attached to that
+ * environment as part of the save.
  */
 @customElement('add-edit-cloud-resource')
 export class AddEditCloudResource extends LitElement {
+  @property({ type: Number }) envId = 0;
+
   @property({ type: Object })
   get cloudResource(): CloudResourceApiModel {
     return this._cloudResource;
@@ -111,31 +118,39 @@ export class AddEditCloudResource extends LitElement {
       !this._cloudResource.ResourceType ||
       !this._cloudResource.ResourceIdentifier
     ) {
-      Notification.show('Name, Provider, Resource Type and Resource Identifier are required', {
-        theme: 'error',
-        position: 'bottom-start',
-        duration: 5000
-      });
+      Notification.show(
+        'Name, Provider, Resource Type and Resource Identifier are required',
+        {
+          theme: 'error',
+          position: 'bottom-start',
+          duration: 5000
+        }
+      );
       return;
     }
 
     const api = new RefDataCloudResourcesApi(dorcApiConfiguration);
-    const request = this._cloudResource.Id
+    const isUpdate = !!this._cloudResource.Id;
+    const request = isUpdate
       ? api.refDataCloudResourcesIdPut({
-          id: this._cloudResource.Id,
+          id: this._cloudResource.Id!,
           cloudResourceApiModel: this._cloudResource
         })
-      : api.refDataCloudResourcesPost({ cloudResourceApiModel: this._cloudResource });
+      : api.refDataCloudResourcesPost({
+          cloudResourceApiModel: this._cloudResource
+        });
 
     request.subscribe({
-      next: () => {
+      next: (saved: CloudResourceApiModel) => {
+        if (!isUpdate && this.envId > 0 && saved?.Id) {
+          this.attachToEnvironment(api, saved);
+          return;
+        }
         Notification.show(
-          `Cloud resource ${this._cloudResource.Name} ${this._cloudResource.Id ? 'updated' : 'created'}`,
+          `Cloud resource ${this._cloudResource.Name} ${isUpdate ? 'updated' : 'created'}`,
           { theme: 'success', position: 'bottom-start', duration: 5000 }
         );
-        this.dispatchEvent(
-          new CustomEvent('cloud-resource-saved', { bubbles: true, composed: true })
-        );
+        this.fireSaved();
       },
       error: (err: any) => {
         Notification.show(
@@ -144,5 +159,38 @@ export class AddEditCloudResource extends LitElement {
         );
       }
     });
+  }
+
+  private attachToEnvironment(
+    api: RefDataCloudResourcesApi,
+    saved: CloudResourceApiModel
+  ) {
+    api
+      .refDataCloudResourcesIdEnvironmentsEnvIdPut({
+        id: saved.Id!,
+        envId: this.envId
+      })
+      .subscribe({
+        next: () => {
+          Notification.show(
+            `Cloud resource ${saved.Name} created and attached to this environment`,
+            { theme: 'success', position: 'bottom-start', duration: 5000 }
+          );
+          this.fireSaved();
+        },
+        error: (err: any) => {
+          Notification.show(
+            `Cloud resource ${saved.Name} was created but could not be attached: ${err.response ?? err.message ?? err}`,
+            { theme: 'error', position: 'bottom-start', duration: 5000 }
+          );
+          this.fireSaved();
+        }
+      });
+  }
+
+  private fireSaved() {
+    this.dispatchEvent(
+      new CustomEvent('cloud-resource-saved', { bubbles: true, composed: true })
+    );
   }
 }

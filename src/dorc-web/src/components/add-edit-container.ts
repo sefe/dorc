@@ -9,9 +9,13 @@ import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 /**
  * Create/edit form for a container definition. Fires `container-saved` on success.
+ * When `envId` is set, a newly created container is attached to that
+ * environment as part of the save.
  */
 @customElement('add-edit-container')
 export class AddEditContainer extends LitElement {
+  @property({ type: Number }) envId = 0;
+
   @property({ type: Object })
   get container(): ContainerApiModel {
     return this._container;
@@ -105,22 +109,25 @@ export class AddEditContainer extends LitElement {
     }
 
     const api = new RefDataContainersApi(dorcApiConfiguration);
-    const request = this._container.Id
+    const isUpdate = !!this._container.Id;
+    const request = isUpdate
       ? api.refDataContainersIdPut({
-          id: this._container.Id,
+          id: this._container.Id!,
           containerApiModel: this._container
         })
       : api.refDataContainersPost({ containerApiModel: this._container });
 
     request.subscribe({
-      next: () => {
+      next: (saved: ContainerApiModel) => {
+        if (!isUpdate && this.envId > 0 && saved?.Id) {
+          this.attachToEnvironment(api, saved);
+          return;
+        }
         Notification.show(
-          `Container ${this._container.Name} ${this._container.Id ? 'updated' : 'created'}`,
+          `Container ${this._container.Name} ${isUpdate ? 'updated' : 'created'}`,
           { theme: 'success', position: 'bottom-start', duration: 5000 }
         );
-        this.dispatchEvent(
-          new CustomEvent('container-saved', { bubbles: true, composed: true })
-        );
+        this.fireSaved();
       },
       error: (err: any) => {
         Notification.show(
@@ -129,5 +136,38 @@ export class AddEditContainer extends LitElement {
         );
       }
     });
+  }
+
+  private attachToEnvironment(
+    api: RefDataContainersApi,
+    saved: ContainerApiModel
+  ) {
+    api
+      .refDataContainersIdEnvironmentsEnvIdPut({
+        id: saved.Id!,
+        envId: this.envId
+      })
+      .subscribe({
+        next: () => {
+          Notification.show(
+            `Container ${saved.Name} created and attached to this environment`,
+            { theme: 'success', position: 'bottom-start', duration: 5000 }
+          );
+          this.fireSaved();
+        },
+        error: (err: any) => {
+          Notification.show(
+            `Container ${saved.Name} was created but could not be attached: ${err.response ?? err.message ?? err}`,
+            { theme: 'error', position: 'bottom-start', duration: 5000 }
+          );
+          this.fireSaved();
+        }
+      });
+  }
+
+  private fireSaved() {
+    this.dispatchEvent(
+      new CustomEvent('container-saved', { bubbles: true, composed: true })
+    );
   }
 }
