@@ -159,7 +159,6 @@ export class EnvCloud extends PageEnvBase {
           <div class="toolbar">
             <vaadin-button
               title="Attach Cloud Resource"
-              theme="primary"
               .disabled="${this.envReadOnly}"
               @click="${() => (this.attachDialogOpened = true)}"
             >
@@ -186,7 +185,7 @@ export class EnvCloud extends PageEnvBase {
             id="cloud-resources-grid"
             ?hidden="${this.cloudResources.length === 0}"
             .items="${this.cloudResources}"
-            theme="compact row-stripes no-row-borders"
+            theme="compact row-stripes no-row-borders no-border"
           >
             <vaadin-grid-sort-column
               resizable

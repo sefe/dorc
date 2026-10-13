@@ -155,7 +155,6 @@ export class EnvContainers extends PageEnvBase {
           <div class="toolbar">
             <vaadin-button
               title="Attach Container"
-              theme="primary"
               .disabled="${this.envReadOnly}"
               @click="${() => (this.attachDialogOpened = true)}"
             >
@@ -179,7 +178,7 @@ export class EnvContainers extends PageEnvBase {
             id="containers-grid"
             ?hidden="${this.containers.length === 0}"
             .items="${this.containers}"
-            theme="compact row-stripes no-row-borders"
+            theme="compact row-stripes no-row-borders no-border"
           >
             <vaadin-grid-sort-column
               path="Name"

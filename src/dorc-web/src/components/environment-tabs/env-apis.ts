@@ -159,7 +159,6 @@ export class EnvApis extends PageEnvBase {
           <div class="toolbar">
             <vaadin-button
               title="Attach API"
-              theme="primary"
               .disabled="${this.envReadOnly}"
               @click="${() => (this.attachDialogOpened = true)}"
             >
@@ -186,7 +185,7 @@ export class EnvApis extends PageEnvBase {
             id="api-registrations-grid"
             ?hidden="${this.apiRegistrations.length === 0}"
             .items="${this.apiRegistrations}"
-            theme="compact row-stripes no-row-borders"
+            theme="compact row-stripes no-row-borders no-border"
           >
             <vaadin-grid-sort-column
               path="Name"
