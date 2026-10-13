@@ -36,6 +36,9 @@ export class EnvDatabases extends PageEnvBase {
   private databaseAccessDialogOpened = false;
 
   @state()
+  private databaseAccessId = 0;
+
+  @state()
   private isAdmin = false;
 
   private get canManageDatabaseAccess() {
@@ -113,31 +116,29 @@ export class EnvDatabases extends PageEnvBase {
               .envId="${this.environmentId}"
               .databases="${this.databases}"
               .readonly="${this.envReadOnly}"
+              .canManageDatabaseAccess="${this.canManageDatabaseAccess}"
               @database-detached="${this._dbDetached}"
+              @manage-database-access="${this.openDatabaseAccessDialog}"
             ></attached-databases>
             ${
               this.canManageDatabaseAccess
                 ? html`
-                    <vaadin-button
-                      id="manage-database-access"
-                      title="Manage database access"
-                      @click="${this.openDatabaseAccessDialog}"
-                      >Manage Database Access</vaadin-button
-                    >
                     <vaadin-dialog
                       id="database-access-dialog"
-                      header-title="Database Access"
+                      header-title="${this.databaseAccessDialogTitle}"
                       resizable
                       draggable
                       width="min(72rem, calc(100vw - 4rem))"
                       .opened="${this.databaseAccessDialogOpened}"
                       @opened-changed="${(event: DialogOpenedChangedEvent) => {
                         this.databaseAccessDialogOpened = event.detail.value;
+                        if (!event.detail.value) this.databaseAccessId = 0;
                       }}"
                       ${dialogRenderer(this.renderDatabaseAccessDialog, [
                         this.databases,
                         this.environmentId,
-                        this.envReadOnly
+                        this.envReadOnly,
+                        this.databaseAccessId
                       ])}
                       ${dialogFooterRenderer(
                         this.renderDatabaseAccessFooter,
@@ -255,6 +256,7 @@ export class EnvDatabases extends PageEnvBase {
       .envId="${this.environmentId}"
       .databases="${this.databases ?? []}"
       .readonly="${this.envReadOnly}"
+      .selectedDatabaseId="${this.databaseAccessId}"
     ></database-access-panel>
   `;
 
@@ -264,12 +266,26 @@ export class EnvDatabases extends PageEnvBase {
     >
   `;
 
-  private openDatabaseAccessDialog() {
+  private get databaseAccessDialogTitle() {
+    const database = this.databases?.find(
+      db => db.Id === this.databaseAccessId
+    );
+    return database
+      ? `Database Access - ${database.ServerName} / ${database.Name}`
+      : 'Database Access';
+  }
+
+  private openDatabaseAccessDialog(
+    event: CustomEvent<{ database: DatabaseApiModel }>
+  ) {
+    this.databaseAccessId = event.detail.database.Id ?? 0;
+    if (!this.databaseAccessId) return;
     this.databaseAccessDialogOpened = true;
   }
 
   private closeDatabaseAccessDialog() {
     this.databaseAccessDialogOpened = false;
+    this.databaseAccessId = 0;
   }
 
   private closeAttachDatabaseDialog() {

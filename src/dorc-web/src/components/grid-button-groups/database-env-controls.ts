@@ -1,5 +1,5 @@
 import { confirmPrompt } from '../confirm-prompt';
-import { css, LitElement } from 'lit';
+import { css, LitElement, nothing } from 'lit';
 import '@vaadin/button';
 import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
@@ -22,6 +22,8 @@ export class DatabaseEnvControls extends LitElement {
   envId = 0;
 
   @property({ type: Boolean }) readonly = true;
+
+  @property({ type: Boolean }) canManageDatabaseAccess = false;
 
   static get styles() {
     return css`
@@ -48,6 +50,9 @@ export class DatabaseEnvControls extends LitElement {
       color: this.readonly
         ? 'var(--dorc-text-secondary)'
         : 'var(--dorc-link-color)'
+    };
+    const databaseAccessStyles = {
+      color: 'var(--dorc-link-color)'
     };
     return html`
       <vaadin-button
@@ -91,6 +96,26 @@ export class DatabaseEnvControls extends LitElement {
           style="color: var(--dorc-link-color)"
         ></vaadin-icon>
       </vaadin-button>
+      ${
+        this.canManageDatabaseAccess
+          ? html`
+              <vaadin-button
+                aria-label="Manage database access"
+                theme="icon"
+                @click="${this.manageDatabaseAccess}"
+              >
+                <vaadin-tooltip
+                  slot="tooltip"
+                  text="Manage database access"
+                ></vaadin-tooltip>
+                <vaadin-icon
+                  icon="vaadin:database"
+                  style=${styleMap(databaseAccessStyles)}
+                ></vaadin-icon>
+              </vaadin-button>
+            `
+          : nothing
+      }
     `;
   }
 
@@ -121,6 +146,10 @@ export class DatabaseEnvControls extends LitElement {
 
   view() {
     this.fireViewDbPerms();
+  }
+
+  manageDatabaseAccess() {
+    this.dispatchEvent(new CustomEvent('manage-database-access'));
   }
 
   private fireDbDetachedEvent() {

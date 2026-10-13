@@ -34,6 +34,8 @@ export class AttachedDatabases extends ResponsiveMixin(LitElement) {
 
   @property({ type: Boolean }) readonly = true;
 
+  @property({ type: Boolean }) canManageDatabaseAccess = false;
+
   @property({ type: Array })
   public databases: Array<DatabaseApiModel> | undefined = [];
 
@@ -123,7 +125,8 @@ export class AttachedDatabases extends ResponsiveMixin(LitElement) {
         <vaadin-grid-column
           ${columnBodyRenderer(this.databaseControlsRenderer, [
             this.envId,
-            this.readonly
+            this.readonly,
+            this.canManageDatabaseAccess
           ])}
           resizable
         >
@@ -202,6 +205,7 @@ export class AttachedDatabases extends ResponsiveMixin(LitElement) {
       .dbDetails="${db}"
       .envId="${this.envId}"
       .readonly="${this.readonly}"
+      .canManageDatabaseAccess="${this.canManageDatabaseAccess}"
       @database-detached="${() =>
         this.dispatchEvent(
           new CustomEvent('database-detached', { detail: { db } })
@@ -214,6 +218,12 @@ export class AttachedDatabases extends ResponsiveMixin(LitElement) {
         this.viewDbId = db.Id || 0;
         this.viewPermissionsDialogOpened = true;
       }}"
+      @manage-database-access="${() =>
+        this.dispatchEvent(
+          new CustomEvent('manage-database-access', {
+            detail: { database: db }
+          })
+        )}"
     ></database-env-controls>
   `;
 

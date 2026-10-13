@@ -36,21 +36,50 @@ describe('environment route updates', () => {
 
     afterEach(() => vi.restoreAllMocks());
 
-    it('offers database access management in a dialog only to owners and admins', async () => {
+    it('offers database access management from each database row only to owners and admins', async () => {
+      const database = { Id: 7, Name: 'App', ServerName: 'SQL01' };
       const databases = await fixture<EnvDatabases>(
-        html`<env-databases .databases=${[]}></env-databases>`
+        html`<env-databases .databases=${[database]}></env-databases>`
       );
-      const manage = () =>
-        databases.shadowRoot!.querySelector('#manage-database-access');
-      expect(manage()).to.equal(null);
+      const attached = databases.shadowRoot!.querySelector(
+        'attached-databases'
+      ) as HTMLElement & { canManageDatabaseAccess: boolean };
+      expect(attached.canManageDatabaseAccess).to.equal(false);
       expect(databases.shadowRoot!.querySelector('database-access-panel')).to.be
         .null;
 
       databases.environment = { IsOwner: true } as any;
       await databases.updateComplete;
-      expect(manage()).not.to.equal(null);
-      expect(databases.shadowRoot!.querySelector('database-access-panel')).to.be
-        .null;
+      expect(attached.canManageDatabaseAccess).to.equal(true);
+      expect(
+        databases.shadowRoot!.querySelector('#manage-database-access')
+      ).to.equal(null);
+
+      await vi.waitFor(() => {
+        const controls = attached.shadowRoot!.querySelector(
+          'database-env-controls'
+        ) as HTMLElement & {
+          canManageDatabaseAccess: boolean;
+          updateComplete: Promise<boolean>;
+        };
+        expect(controls?.canManageDatabaseAccess).to.equal(true);
+      });
+      const controls = attached.shadowRoot!.querySelector(
+        'database-env-controls'
+      ) as HTMLElement & { updateComplete: Promise<boolean> };
+      await controls.updateComplete;
+      const manageAccess = controls.shadowRoot!.querySelector(
+        '[aria-label="Manage database access"]'
+      ) as HTMLElement;
+      expect(manageAccess).not.to.equal(null);
+      manageAccess.click();
+      await databases.updateComplete;
+
+      const dialog = databases.shadowRoot!.querySelector(
+        '#database-access-dialog'
+      ) as HTMLElement & { opened: boolean; headerTitle: string };
+      expect(dialog.opened).to.equal(true);
+      expect(dialog.headerTitle).to.equal('Database Access - SQL01 / App');
     });
 
     it('keeps the servers grid within the space below the component tabs', async () => {

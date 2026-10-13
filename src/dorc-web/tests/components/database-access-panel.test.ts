@@ -232,6 +232,28 @@ describe('Database access side-by-side panel', () => {
     mocks.confirm.mockResolvedValue(true);
   });
 
+  it('loads the database selected by its row automatically', async () => {
+    const panel = await fixture<DatabaseAccessPanel>(
+      html`<database-access-panel
+        .envId=${10}
+        .readonly=${false}
+        .databases=${[{ Id: 1, Name: 'App', ServerName: 'Server' }]}
+        .selectedDatabaseId=${1}
+      ></database-access-panel>`
+    );
+
+    await vi.waitFor(() => expect(mocks.status.mock.calls.length).to.equal(1));
+    await vi.waitFor(() => expect(mocks.get.mock.calls.length).to.equal(1));
+    expect(mocks.status.mock.calls[0][0]).to.deep.equal({
+      envId: 10,
+      databaseId: 1
+    });
+    expect(panel.shadowRoot!.querySelector('#database')).to.equal(null);
+    expect(
+      panel.shadowRoot!.querySelector('#selected-database')!.textContent
+    ).to.contain('Server / App');
+  });
+
   it('does not query the new stack until explicitly loaded', async () => {
     await fixture(
       html`<database-access-panel .envId=${10}></database-access-panel>`

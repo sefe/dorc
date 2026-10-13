@@ -62,6 +62,7 @@ export class DatabaseAccessPanel extends LitElement {
   @property({ type: Number }) envId = 0;
   @property({ type: Array }) databases: DatabaseApiModel[] = [];
   @property({ type: Boolean }) readonly = true;
+  @property({ type: Number }) selectedDatabaseId = 0;
   @state() private databaseId = 0;
   @state() private status?: DatabaseAccessStatus;
   @state() private desired?: DatabaseAccessState;
@@ -246,12 +247,46 @@ export class DatabaseAccessPanel extends LitElement {
 
   protected willUpdate(changed: PropertyValues) {
     if (
+      (changed.has('selectedDatabaseId') ||
+        changed.has('envId') ||
+        changed.has('databases')) &&
+      this.selectedDatabaseId &&
+      this.databases.some(db => db.Id === this.selectedDatabaseId)
+    ) {
+      if (this.databaseId !== this.selectedDatabaseId) {
+        this.databaseId = this.selectedDatabaseId;
+        this.reset();
+      }
+      return;
+    }
+    if (
       changed.has('envId') ||
       (changed.has('databases') &&
         !this.databases.some(db => db.Id === this.databaseId))
     ) {
       this.databaseId = 0;
       this.reset();
+    }
+  }
+
+  protected updated(changed: PropertyValues) {
+    if (
+      (changed.has('selectedDatabaseId') ||
+        changed.has('envId') ||
+        changed.has('databases')) &&
+      this.selectedDatabaseId &&
+      this.databaseId === this.selectedDatabaseId &&
+      this.databases.some(db => db.Id === this.selectedDatabaseId)
+    ) {
+      const selectedDatabaseId = this.selectedDatabaseId;
+      queueMicrotask(() => {
+        if (
+          this.isConnected &&
+          this.selectedDatabaseId === selectedDatabaseId &&
+          this.databaseId === selectedDatabaseId
+        )
+          void this.load();
+      });
     }
   }
 
@@ -1483,6 +1518,9 @@ export class DatabaseAccessPanel extends LitElement {
 
   render() {
     const disabled = this.busy || this.readonly;
+    const selectedDatabase = this.databases.find(
+      database => database.Id === this.selectedDatabaseId
+    );
     return html`
       <div class="panel">
         <div class="content">
@@ -1492,29 +1530,42 @@ export class DatabaseAccessPanel extends LitElement {
             not connect to or change the target database.
           </p>
           <div class="toolbar">
-            <vaadin-combo-box
-              id="database"
-              label="Database"
-              placeholder="Select a database"
-              item-label-path="label"
-              item-value-path="value"
-              .items=${this.databases.map(db => ({
-                label: `${db.ServerName} / ${db.Name}`,
-                value: String(db.Id ?? 0)
-              }))}
-              .value=${this.databaseId ? String(this.databaseId) : ''}
-              ?disabled=${this.busy}
-              @value-changed=${(e: ComboBoxValueChangedEvent) => {
-                const id = Number(e.detail.value);
-                if (id === this.databaseId) return;
-                this.databaseId = id;
-                this.reset();
-              }}
-            ></vaadin-combo-box>
+            ${
+              selectedDatabase
+                ? html`<span id="selected-database" class="metadata">
+                    Database:
+                    ${`${selectedDatabase.ServerName} / ${selectedDatabase.Name}`}
+                  </span>`
+                : html`
+                    <vaadin-combo-box
+                      id="database"
+                      label="Database"
+                      placeholder="Select a database"
+                      item-label-path="label"
+                      item-value-path="value"
+                      .items=${this.databases.map(db => ({
+                        label: `${db.ServerName} / ${db.Name}`,
+                        value: String(db.Id ?? 0)
+                      }))}
+                      .value=${this.databaseId ? String(this.databaseId) : ''}
+                      ?disabled=${this.busy}
+                      @value-changed=${(e: ComboBoxValueChangedEvent) => {
+                        const id = Number(e.detail.value);
+                        if (id === this.databaseId) return;
+                        this.databaseId = id;
+                        this.reset();
+                      }}
+                    ></vaadin-combo-box>
+                  `
+            }
             <vaadin-button
               ?disabled=${this.busy || !this.databaseId}
               @click=${this.load}
-              >Load database access</vaadin-button
+              >${
+                selectedDatabase
+                  ? 'Reload database access'
+                  : 'Load database access'
+              }</vaadin-button
             >
           </div>
           <div role="status" aria-live="polite">
