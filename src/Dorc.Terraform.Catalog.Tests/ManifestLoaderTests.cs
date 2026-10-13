@@ -96,8 +96,8 @@ deprecated: false
             var catalog = new GitTemplateCatalog(manifestsDir, recordingLogger);
             var manifests = await catalog.ListAsync();
 
-            Assert.AreEqual(5, manifests.Count,
-                $"Expected exactly five shipped manifests in {manifestsDir}; got {manifests.Count}.");
+            Assert.AreEqual(8, manifests.Count,
+                $"Expected exactly eight shipped manifests in {manifestsDir}; got {manifests.Count}.");
 
             var names = manifests.Select(m => m.Name).ToList();
             CollectionAssert.Contains(names, "cosmosdb",

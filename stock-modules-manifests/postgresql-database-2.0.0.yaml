@@ -1,0 +1,81 @@
+name: postgresql-database
+version: 2.0.0
+source:
+  kind: git
+  locator: https://github.com/sefe/dorc-terraform-modules.git
+  ref: stock-modules/postgresql-database/v2.0.0
+parameters:
+  - name: project
+    type: String
+    required: true
+    description: Aiven console project the PostgreSQL service lives in.
+    pattern: "^[a-z0-9-]+$"
+  - name: create_service
+    type: Bool
+    required: false
+    description: Create the Aiven PostgreSQL service layer as part of this deployment (the default). Set false to re-use an existing service named service_name instead.
+    default: "true"
+  - name: service_name
+    type: String
+    required: true
+    description: Name of the Aiven PostgreSQL service. Created by default; with create_service false it must name an existing service to re-use.
+    pattern: "^[a-z0-9-]+$"
+  - name: cloud_name
+    type: String
+    required: false
+    description: Cloud the service is created on; only used when create_service is true. SEFE BYOC on Azure uksouth - non-prod custom-sefe-nprod-workload-azure-uksouth (default), prod custom-sefe-prod-workload-azure-uksouth.
+    default: custom-sefe-nprod-workload-azure-uksouth
+    pattern: "^[a-z0-9-]+$"
+  - name: plan
+    type: String
+    required: false
+    description: Aiven service plan for the created service; only used when create_service is true.
+    default: startup-4
+    pattern: "^[a-z0-9-]+$"
+  - name: service_termination_protection
+    type: Bool
+    required: false
+    description: Client-side deletion protection on the created service; only used when create_service is true. Default true.
+    default: "true"
+  - name: database_name
+    type: String
+    required: true
+    description: PostgreSQL database name; immutable (change forces recreation).
+    pattern: "^[A-Za-z0-9_-]{1,40}$"
+  - name: lc_collate
+    type: String
+    required: false
+    description: Default string sort order (LC_COLLATE); immutable. Default en_US.UTF-8.
+    default: "en_US.UTF-8"
+  - name: lc_ctype
+    type: String
+    required: false
+    description: Default character classification (LC_CTYPE); immutable. Default en_US.UTF-8.
+    default: "en_US.UTF-8"
+  - name: termination_protection
+    type: Bool
+    required: false
+    description: Client-side deletion protection preventing Terraform from destroying the database. Default true.
+    default: "true"
+outputs:
+  - name: database_id
+    type: String
+    description: ID of the PostgreSQL database (project/service_name/database_name).
+  - name: database_name
+    type: String
+  - name: project
+    type: String
+  - name: service_name
+    type: String
+description: PostgreSQL database on an Aiven PostgreSQL service. The service layer is created by this module by default (SEFE BYOC on Azure uksouth); re-using an existing service is the opt-in path via create_service false. Termination protection on by default; no credentials output. Requires an Aiven API token (AIVEN_TOKEN / TerraformAivenApiToken environment property).
+tags:
+  - data
+  - aiven
+  - postgresql
+category: Data
+required_providers:
+  aiven: ">= 4.1.1, < 5.0.0"
+required_terraform_version: ">= 1.5.0"
+owner: DOrc platform team
+deprecated: false
+deprecation_reason: ""
