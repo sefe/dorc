@@ -47,7 +47,7 @@ import '../pages/page-projects-list.ts';
 import '../pages/page-servers-audit.ts';
 import '../pages/page-scripts-list.ts';
 import '../pages/page-scripts-audit.ts';
-import '../pages/page-stock-modules.ts';
+import '../pages/page-module-catalog.ts';
 import '../pages/page-servers-list.ts';
 import '../pages/page-sql-ports-list.ts';
 import '../pages/page-users-list.ts';
@@ -243,11 +243,21 @@ export const routes: AppRoute[] = [
         }
       },
       {
+        path: '/module-catalog',
+        name: 'module-catalog',
+        component: 'page-module-catalog',
+        metadata: {
+          title: 'Module Catalog',
+          description: 'Browse the curated Terraform modules available in DOrc'
+        }
+      },
+      {
+        // Pre-rename bookmarks; the router preserves the query string.
         path: '/stock-modules',
         name: 'stock-modules',
-        component: 'page-stock-modules',
+        action: (): RouteRedirect => ({ redirect: '/module-catalog' }),
         metadata: {
-          title: 'Stock Terraform modules',
+          title: 'Module Catalog',
           description: 'Browse the curated Terraform modules available in DOrc'
         }
       },

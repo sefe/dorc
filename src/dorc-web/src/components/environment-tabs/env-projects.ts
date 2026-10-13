@@ -68,7 +68,7 @@ export class EnvProjects extends PageEnvBase {
             proj =>
               html`<project-card
                 .project="${proj}"
-                .catalogHref=${`/stock-modules?project=${encodeURIComponent(proj.ProjectName ?? '')}&environment=${encodeURIComponent(this.environment?.EnvironmentName ?? this.environmentName)}`}
+                .catalogHref=${`/module-catalog?project=${encodeURIComponent(proj.ProjectName ?? '')}&environment=${encodeURIComponent(this.environment?.EnvironmentName ?? this.environmentName)}`}
               ></project-card>`
           )}
         </div>

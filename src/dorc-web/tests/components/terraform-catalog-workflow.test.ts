@@ -10,7 +10,7 @@ import {
   TerraformParameterType
 } from '../../src/apis/dorc-api';
 import type { DeployFromTemplateDialog } from '../../src/components/deploy-from-template-dialog';
-import type { PageStockModules } from '../../src/pages/page-stock-modules';
+import type { PageModuleCatalog } from '../../src/pages/page-module-catalog';
 import { overrideError } from '../../src/components/deploy-from-template-dialog';
 import type {
   ComponentApiModelTemplateApiModel,
@@ -49,7 +49,7 @@ vi.mock('../../src/apis/dorc-api', async importOriginal => ({
 }));
 
 await import('../../src/components/deploy-from-template-dialog');
-await import('../../src/pages/page-stock-modules');
+await import('../../src/pages/page-module-catalog');
 await import('../../src/router/style-registrations');
 
 const template: TerraformTemplateManifest = {
@@ -426,18 +426,36 @@ describe('catalog environment deployment workflow', () => {
 });
 
 describe('module catalog discovery', () => {
-  it('filters modules and hides deprecated versions unless requested', async () => {
+  it('groups versions into one card whose selector defaults to the latest active version', async () => {
     mocks.templates.mockReturnValue(
-      of([template, { ...template, Version: '0.9.0', Deprecated: true }])
+      of([
+        template,
+        { ...template, Version: '0.9.0', Deprecated: true },
+        {
+          ...template,
+          Name: 'legacy-module',
+          Version: '0.1.0',
+          Deprecated: true
+        }
+      ])
     );
-    const host = await fixture<PageStockModules>(
-      html`<page-stock-modules></page-stock-modules>`
+    const host = await fixture<PageModuleCatalog>(
+      html`<page-module-catalog></page-module-catalog>`
     );
     await settle();
     const cards = () =>
       Array.from(host.shadowRoot!.querySelectorAll('article.card'));
+    // storage-account's two versions share one card; the fully-deprecated
+    // legacy-module is hidden until the Deprecated filter is enabled.
     expect(cards()).to.have.length(1);
-    expect(host.filteredTemplates.map(t => t.Version)).to.deep.equal(['1.0.0']);
+    const select = host.shadowRoot!.querySelector<HTMLSelectElement>(
+      'select.version-select'
+    )!;
+    expect(select.value).to.equal('1.0.0');
+    expect(Array.from(select.options).map(o => o.value)).to.deep.equal([
+      '1.0.0',
+      '0.9.0'
+    ]);
     host
       .shadowRoot!.querySelector<HTMLElement>(
         'vaadin-button[aria-pressed][class="chip"]:last-of-type'
@@ -448,23 +466,60 @@ describe('module catalog discovery', () => {
     host.shadowRoot!.querySelector<TextField>('vaadin-text-field')!.value =
       '0.9';
     await settle();
-    expect(host.filteredTemplates.map(t => t.Version)).to.deep.equal(['0.9.0']);
+    // Matches the 0.9.0 version of storage-account but nothing on legacy-module.
     expect(cards()).to.have.length(1);
+    expect(host.filteredGroups.map(g => g.name)).to.deep.equal([
+      'storage-account'
+    ]);
   });
 
-  it('opens the inline detail panel with the manifest inputs and a usable code snippet', async () => {
-    const host = await fixture<PageStockModules>(
-      html`<page-stock-modules></page-stock-modules>`
+  it('switches the card and open detail panel to the selected version', async () => {
+    mocks.templates.mockReturnValue(
+      of([template, { ...template, Version: '0.9.0', Deprecated: true }])
+    );
+    const host = await fixture<PageModuleCatalog>(
+      html`<page-module-catalog></page-module-catalog>`
     );
     await settle();
-    expect(host.shadowRoot!.querySelector('.detail')).to.equal(null);
     host
       .shadowRoot!.querySelector<HTMLElement>(
         'article.card vaadin-button[theme="tertiary"]'
       )!
       .click();
     await settle();
+    const select = host.shadowRoot!.querySelector<HTMLSelectElement>(
+      'select.version-select'
+    )!;
+    select.value = '0.9.0';
+    select.dispatchEvent(new Event('change'));
+    await settle();
+    expect(host.filteredGroups[0].manifest.Version).to.equal('0.9.0');
+    const card = host.shadowRoot!.querySelector('article.card')!;
+    expect(card.textContent).to.contain('Deprecated');
     const detail = host.shadowRoot!.querySelector('.detail')!;
+    expect(detail.textContent).to.contain('v0.9.0');
+  });
+
+  it('opens the detail panel inline next to its card and toggles it closed', async () => {
+    const host = await fixture<PageModuleCatalog>(
+      html`<page-module-catalog></page-module-catalog>`
+    );
+    await settle();
+    expect(host.shadowRoot!.querySelector('.detail')).to.equal(null);
+    const toggle = () =>
+      host
+        .shadowRoot!.querySelector<HTMLElement>(
+          'article.card vaadin-button[theme="tertiary"]'
+        )!
+        .click();
+    toggle();
+    await settle();
+    const detail = host.shadowRoot!.querySelector('.detail')!;
+    // The panel renders inside the cards grid, immediately after its card.
+    expect(detail.parentElement?.classList.contains('cards')).to.equal(true);
+    expect(detail.previousElementSibling?.classList.contains('card')).to.equal(
+      true
+    );
     expect(detail.textContent).to.contain('credential');
     expect(detail.querySelectorAll('.badge-sensitive')).to.have.length(1);
     expect(detail.querySelectorAll('.badge-required')).to.have.length(2);
@@ -473,6 +528,9 @@ describe('module catalog discovery', () => {
     expect(detail.querySelector('pre')?.textContent).to.equal(
       'TerraformSourceType = Catalog\nTerraformTemplateName = storage-account\nTerraformTemplateVersion = 1.0.0'
     );
+    toggle();
+    await settle();
+    expect(host.shadowRoot!.querySelector('.detail')).to.equal(null);
   });
 });
 

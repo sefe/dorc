@@ -288,7 +288,7 @@ export class DeployEnv extends LitElement {
         </div>
         <a
           class="catalog-callout__link"
-          href=${`/stock-modules?project=${encodeURIComponent(this.project?.ProjectName ?? '')}&environment=${encodeURIComponent(this.envName)}`}
+          href=${`/module-catalog?project=${encodeURIComponent(this.project?.ProjectName ?? '')}&environment=${encodeURIComponent(this.envName)}`}
           >Open module catalog</a
         >
       </div>

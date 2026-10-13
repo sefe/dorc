@@ -19,6 +19,36 @@ const ALL_CATEGORIES = 'All';
 const UNCATEGORISED = 'Other';
 
 /**
+ * One card per module name; the catalog may ship several versions of the same
+ * module and users pick between them with the card's version selector.
+ */
+export interface ModuleGroup {
+  name: string;
+  /** All published versions, newest first. */
+  versions: TerraformTemplateManifest[];
+  /** The manifest for the version the user currently has selected. */
+  manifest: TerraformTemplateManifest;
+}
+
+/**
+ * Descending semver-ish comparison. Catalog versions are plain dotted
+ * numerics, but fall back to string comparison for anything unexpected so
+ * sorting never throws.
+ */
+export const compareVersionsDesc = (a: string, b: string): number => {
+  const pa = a.split('.').map(Number);
+  const pb = b.split('.').map(Number);
+  if (pa.some(Number.isNaN) || pb.some(Number.isNaN)) {
+    return b.localeCompare(a);
+  }
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const diff = (pb[i] ?? 0) - (pa[i] ?? 0);
+    if (diff !== 0) return diff;
+  }
+  return 0;
+};
+
+/**
  * Icon + tint per manifest category. Falls back to a neutral puzzle piece for
  * categories the catalog has not seen before, so a new manifest never renders
  * without an identity.
@@ -115,8 +145,8 @@ export const moduleSourceSnippet = (t: TerraformTemplateManifest) =>
     '}'
   ].join('\n');
 
-@customElement('page-stock-modules')
-export class PageStockModules extends PageElement {
+@customElement('page-module-catalog')
+export class PageModuleCatalog extends PageElement {
   static get styles() {
     return css`
       :host {
@@ -345,6 +375,12 @@ export class PageStockModules extends PageElement {
         border-radius: var(--lumo-border-radius-s);
         padding: 2px 8px;
       }
+      select.version-select {
+        border: none;
+        cursor: pointer;
+        appearance: auto;
+        padding: 2px 4px 2px 8px;
+      }
       .badge {
         font-size: var(--lumo-font-size-xs);
         font-weight: 600;
@@ -507,6 +543,9 @@ export class PageStockModules extends PageElement {
         font-size: var(--lumo-font-size-s);
       }
       .detail {
+        /* Rendered inside the cards grid directly after its card so the
+           panel opens adjacent to what was clicked, spanning the full row. */
+        grid-column: 1 / -1;
         background: var(--dorc-bg-primary);
         border: 1px solid var(--dorc-border-color);
         border-radius: var(--lumo-border-radius-l);
@@ -694,8 +733,11 @@ export class PageStockModules extends PageElement {
   @state() private search = '';
   @state() private category = ALL_CATEGORIES;
   @state() private showDeprecated = false;
-  @state() private detail: TerraformTemplateManifest | null = null;
+  /** Module name whose inline detail panel is open, if any. */
+  @state() private detailName: string | null = null;
   @state() private detailTab: DetailTab = 'inputs';
+  /** Per-module version picked in the card's selector; defaults to latest. */
+  @state() private selectedVersions: Record<string, string> = {};
 
   @query('deploy-from-template-dialog')
   private deployDialog!: DeployFromTemplateDialog;
@@ -720,21 +762,43 @@ export class PageStockModules extends PageElement {
       },
       error: err => {
         this.error =
-          retrieveErrorMessage(err) ?? 'Failed to load stock modules.';
+          retrieveErrorMessage(err) ?? 'Failed to load the module catalog.';
         this.loading = false;
       }
     });
   }
 
+  /** All modules grouped by name with versions newest-first. */
+  private get moduleGroups(): ModuleGroup[] {
+    const byName = new Map<string, TerraformTemplateManifest[]>();
+    for (const t of this.templates) {
+      const list = byName.get(t.Name) ?? [];
+      list.push(t);
+      byName.set(t.Name, list);
+    }
+    return [...byName.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([name, versions]) => {
+        versions.sort((a, b) => compareVersionsDesc(a.Version, b.Version));
+        const picked =
+          versions.find(v => v.Version === this.selectedVersions[name]) ??
+          versions.find(v => !v.Deprecated) ??
+          versions[0];
+        return { name, versions, manifest: picked };
+      });
+  }
+
   private get categories(): string[] {
     const names = new Set(
-      this.templates.map(t => t.Category?.trim() || UNCATEGORISED)
+      this.moduleGroups.map(g => g.manifest.Category?.trim() || UNCATEGORISED)
     );
     return [...names].sort((a, b) => a.localeCompare(b));
   }
 
+  /** Modules every published version of which is deprecated. */
   private get deprecatedCount() {
-    return this.templates.filter(t => t.Deprecated).length;
+    return this.moduleGroups.filter(g => g.versions.every(v => v.Deprecated))
+      .length;
   }
 
   private get providerNames(): string[] {
@@ -747,15 +811,21 @@ export class PageStockModules extends PageElement {
     return [...names].sort((a, b) => a.localeCompare(b));
   }
 
-  get filteredTemplates() {
+  get filteredGroups(): ModuleGroup[] {
     const query = this.search.trim().toLowerCase();
-    return this.templates.filter(
-      t =>
-        (this.showDeprecated || !t.Deprecated) &&
+    return this.moduleGroups.filter(
+      g =>
+        (this.showDeprecated || g.versions.some(v => !v.Deprecated)) &&
         (this.category === ALL_CATEGORIES ||
-          (t.Category?.trim() || UNCATEGORISED) === this.category) &&
-        [t.Name, t.Version, t.Category, t.Description, ...(t.Tags ?? [])].some(
-          value => value?.toLowerCase().includes(query)
+          (g.manifest.Category?.trim() || UNCATEGORISED) === this.category) &&
+        g.versions.some(t =>
+          [
+            t.Name,
+            t.Version,
+            t.Category,
+            t.Description,
+            ...(t.Tags ?? [])
+          ].some(value => value?.toLowerCase().includes(query))
         )
     );
   }
@@ -766,7 +836,7 @@ export class PageStockModules extends PageElement {
         <div class="hero-inner">
           <div class="hero-text">
             <div class="eyebrow">Infrastructure</div>
-            <h1>Stock modules</h1>
+            <h1>Module catalog</h1>
             <p class="lead">
               Curated, versioned Terraform modules you can plan into any mapped
               environment. Pick a module, choose a target, fill the inputs, and
@@ -777,7 +847,7 @@ export class PageStockModules extends PageElement {
             <div class="stat">
               <span class="stat-label">Modules</span>
               <span class="stat-value"
-                >${this.loading ? '…' : this.templates.length}</span
+                >${this.loading ? '…' : this.moduleGroups.length}</span
               >
             </div>
             <div class="stat">
@@ -801,7 +871,9 @@ export class PageStockModules extends PageElement {
           <summary>
             <vaadin-icon icon="vaadin:key"></vaadin-icon>
             Before you deploy: set the target environment's cloud credentials
-            <span class="hint">Environment page &rsaquo; Cloud tab &amp; Properties</span>
+            <span class="hint"
+              >Environment page &rsaquo; Cloud tab &amp; Properties</span
+            >
           </summary>
           <div class="setup-body">
             <p>
@@ -814,14 +886,14 @@ export class PageStockModules extends PageElement {
               <p>
                 Name the target subscription by attaching a cloud resource to
                 the environment (Environment page &rsaquo; Cloud tab): resource
-                type <code>Subscription</code> with the subscription GUID as
-                the resource identifier. The legacy
+                type <code>Subscription</code> with the subscription GUID as the
+                resource identifier. The legacy
                 <code>TerraformSubscriptionId</code> property is used only when
                 no subscription cloud resource is attached.
               </p>
               <p>
-                Then set all three service-principal properties, or none to
-                fall back to the runner host's ambient identity. The service
+                Then set all three service-principal properties, or none to fall
+                back to the runner host's ambient identity. The service
                 principal needs RBAC on the target subscription only.
               </p>
               <table>
@@ -854,11 +926,12 @@ export class PageStockModules extends PageElement {
                 Aiven modules ignore Azure subscription targeting: Aiven
                 resources are addressed by Aiven project and service name.
                 SEFE's Aiven BYOC infrastructure lives in the historic
-                <code>SMT-NP</code> / <code>SMT-PR</code> subscriptions
-                (<code>rg-np-aiven-1-uks</code> /
-                <code>rg-pr-aiven-1-uks</code>), which predate the
-                <code>SMT-&lt;Vertical&gt;-&lt;Env&gt;</code> model and are
-                not being expanded.
+                <code>SMT-NP</code> / <code>SMT-PR</code> subscriptions (<code
+                  >rg-np-aiven-1-uks</code
+                >
+                / <code>rg-pr-aiven-1-uks</code>), which predate the
+                <code>SMT-&lt;Vertical&gt;-&lt;Env&gt;</code> model and are not
+                being expanded.
               </p>
             </div>
             <p>
@@ -941,8 +1014,8 @@ export class PageStockModules extends PageElement {
         </div>
       `;
     }
-    const items = this.filteredTemplates;
-    if (!items.length) {
+    const groups = this.filteredGroups;
+    if (!groups.length) {
       return html`
         <div class="state" role="status">
           <vaadin-icon icon="vaadin:puzzle-piece"></vaadin-icon>
@@ -950,23 +1023,30 @@ export class PageStockModules extends PageElement {
             >${this.templates.length ? 'No modules match these filters' : 'The catalog is empty'}</strong
           >
           <span
-            >${this.templates.length ? 'Clear the search or pick another category.' : 'Stock modules are published by an administrator from the manifests directory.'}</span
+            >${this.templates.length ? 'Clear the search or pick another category.' : 'Modules are published by an administrator from the manifests directory.'}</span
           >
         </div>
       `;
     }
     return html`
-      <div class="cards">${items.map(t => this.renderCard(t))}</div>
-      ${this.detail ? this.renderDetail(this.detail) : nothing}
+      <div class="cards">
+        ${groups.map(
+          g => html`
+            ${this.renderCard(g)}
+            ${this.detailName === g.name ? this.renderDetail(g.manifest) : nothing}
+          `
+        )}
+      </div>
     `;
   }
 
-  private renderCard(t: TerraformTemplateManifest) {
+  private renderCard(g: ModuleGroup) {
+    const t = g.manifest;
     const visual = moduleVisual(t);
     const params = t.Parameters ?? [];
     const required = params.filter(p => p.Required).length;
     const secrets = params.filter(p => p.Sensitive).length;
-    const selected = this.isSameTemplate(this.detail, t);
+    const selected = this.detailName === g.name;
     return html`
       <article class="card" data-selected=${selected ? 'true' : 'false'}>
         <div class="card-head">
@@ -974,7 +1054,31 @@ export class PageStockModules extends PageElement {
           <div class="card-title">
             <div class="title-row">
               <h2>${t.Name}</h2>
-              <span class="pill">v${t.Version}</span>
+              ${
+                g.versions.length > 1
+                  ? html`<select
+                      class="pill version-select"
+                      aria-label="${g.name} version"
+                      .value=${t.Version}
+                      @change=${(e: Event) =>
+                        this.pickVersion(
+                          g.name,
+                          (e.target as HTMLSelectElement).value
+                        )}
+                    >
+                      ${g.versions.map(
+                        v => html`
+                          <option
+                            value=${v.Version}
+                            ?selected=${v.Version === t.Version}
+                          >
+                            v${v.Version}${v.Deprecated ? ' (deprecated)' : ''}
+                          </option>
+                        `
+                      )}
+                    </select>`
+                  : html`<span class="pill">v${t.Version}</span>`
+              }
               ${
                 t.Deprecated
                   ? html`<span class="badge badge-deprecated">Deprecated</span>`
@@ -1036,10 +1140,13 @@ export class PageStockModules extends PageElement {
           <vaadin-button
             theme="tertiary"
             aria-pressed=${selected ? 'true' : 'false'}
-            @click=${() => this.showDetail(t)}
+            @click=${() => this.toggleDetail(g.name)}
           >
             View inputs &amp; outputs
-            <vaadin-icon icon="vaadin:angle-right" slot="suffix"></vaadin-icon>
+            <vaadin-icon
+              icon=${selected ? 'vaadin:angle-up' : 'vaadin:angle-down'}
+              slot="suffix"
+            ></vaadin-icon>
           </vaadin-button>
           <vaadin-button theme="primary" @click=${() => this.openDeploy(t)}>
             <vaadin-icon icon="vaadin:play" slot="prefix"></vaadin-icon>
@@ -1078,7 +1185,7 @@ export class PageStockModules extends PageElement {
             <vaadin-button
               theme="icon small tertiary"
               aria-label="Close details"
-              @click=${() => (this.detail = null)}
+              @click=${() => (this.detailName = null)}
             >
               <vaadin-icon icon="vaadin:close"></vaadin-icon>
             </vaadin-button>
@@ -1222,17 +1329,19 @@ export class PageStockModules extends PageElement {
     return parts.length ? parts.join(' · ') : '—';
   }
 
-  private isSameTemplate(
-    a: TerraformTemplateManifest | null,
-    b: TerraformTemplateManifest
-  ) {
-    return !!a && a.Name === b.Name && a.Version === b.Version;
+  /** Switches the card (and any open detail panel) to another version. */
+  private pickVersion(name: string, version: string) {
+    this.selectedVersions = { ...this.selectedVersions, [name]: version };
   }
 
-  private async showDetail(t: TerraformTemplateManifest) {
-    this.detail = t;
+  private async toggleDetail(name: string) {
+    if (this.detailName === name) {
+      this.detailName = null;
+      return;
+    }
+    this.detailName = name;
     await this.updateComplete;
-    this.detailPanel?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    this.detailPanel?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
   private openDeploy(t: TerraformTemplateManifest) {

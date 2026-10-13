@@ -19,7 +19,7 @@ provider "azurerm" {
 
 # Reference a stock module from the DOrc stock-modules library at a pinned tag.
 # Module source lives in https://github.com/sefe/dorc-terraform-modules and is
-# pulled at use time. In DOrc, use the Stock Modules page's "Deploy from
+# pulled at use time. In DOrc, use the Module Catalog page's "Deploy from
 # template" wizard (POST /api/Terraform/templates/
 # {name}/{version}/instantiate) instead - it creates a Terraform component
 # with TerraformSourceType = Catalog and TerraformTemplateName = "cosmosdb",

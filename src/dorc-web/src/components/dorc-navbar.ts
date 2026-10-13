@@ -322,12 +322,6 @@ export class DorcNavbar extends LitElement {
           </a>
         </vaadin-tab>
         <vaadin-tab>
-          <a href="${urlForName('users')}">
-            <vaadin-icon icon="vaadin:users" theme="small"></vaadin-icon>
-            Users
-          </a>
-        </vaadin-tab>
-        <vaadin-tab>
           <a href="${urlForName('daemons')}">
             <vaadin-icon icon="vaadin:cogs" theme="small"></vaadin-icon>
             Daemons
@@ -344,9 +338,9 @@ export class DorcNavbar extends LitElement {
         </vaadin-tab>
 
         <vaadin-tab>
-          <a href="${urlForName('stock-modules')}">
+          <a href="${urlForName('module-catalog')}">
             <vaadin-icon icon="vaadin:puzzle-piece" theme="small"></vaadin-icon>
-            Stock modules
+            Module Catalog
           </a>
         </vaadin-tab>
 
@@ -357,6 +351,13 @@ export class DorcNavbar extends LitElement {
               theme="small"
             ></vaadin-icon>
             Variables
+          </a>
+        </vaadin-tab>
+
+        <vaadin-tab>
+          <a href="${urlForName('users')}">
+            <vaadin-icon icon="vaadin:users" theme="small"></vaadin-icon>
+            Users
           </a>
         </vaadin-tab>
 
@@ -466,6 +467,12 @@ export class DorcNavbar extends LitElement {
             </div>
           </a>
         </vaadin-tab>
+        <vaadin-tab>
+          <a href="${urlForName('analytics')}">
+            <vaadin-icon icon="vaadin:chart" theme="small"></vaadin-icon>
+            Analytics
+          </a>
+        </vaadin-tab>
         ${
           this.isAdmin
             ? html`
@@ -481,12 +488,6 @@ export class DorcNavbar extends LitElement {
               `
             : html``
         }
-        <vaadin-tab>
-          <a href="${urlForName('analytics')}">
-            <vaadin-icon icon="vaadin:chart" theme="small"></vaadin-icon>
-            Analytics
-          </a>
-        </vaadin-tab>
       </vaadin-tabs>
       <div
         style="padding: var(--lumo-space-xs); text-align: center; color: var(--dorc-text-secondary-strong); font-size: var(--lumo-font-size-xs); flex-shrink: 0;"
