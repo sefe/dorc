@@ -4,7 +4,10 @@ import { html } from 'lit/html.js';
 import '@vaadin/combo-box';
 import '@vaadin/button';
 import { Notification } from '@vaadin/notification';
-import { CloudResourceApiModel, RefDataCloudResourcesApi } from '../apis/dorc-api';
+import {
+  CloudResourceApiModel,
+  RefDataCloudResourcesApi
+} from '../apis/dorc-api';
 import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 /**
@@ -14,7 +17,8 @@ import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 export class AttachCloudResource extends LitElement {
   @property({ type: Number }) envId = 0;
 
-  @property({ type: Array }) private cloudResources: CloudResourceApiModel[] = [];
+  @property({ type: Array }) private cloudResources: CloudResourceApiModel[] =
+    [];
 
   private selected: CloudResourceApiModel | undefined;
 
@@ -32,14 +36,14 @@ export class AttachCloudResource extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
-    new RefDataCloudResourcesApi(
-      dorcApiConfiguration
-    ).refDataCloudResourcesGet().subscribe({
-      next: (data: CloudResourceApiModel[]) => {
-        this.cloudResources = data;
-      },
-      error: (err: any) => console.error(err)
-    });
+    new RefDataCloudResourcesApi(dorcApiConfiguration)
+      .refDataCloudResourcesGet()
+      .subscribe({
+        next: (data: CloudResourceApiModel[]) => {
+          this.cloudResources = data;
+        },
+        error: (err: any) => console.error(err)
+      });
   }
 
   render() {
@@ -47,12 +51,17 @@ export class AttachCloudResource extends LitElement {
       <vaadin-combo-box
         label="Cloud Resource"
         item-label-path="Name"
+        item-value-path="Name"
         .items="${this.cloudResources}"
         @value-changed="${(e: CustomEvent) => {
-          this.selected = this.cloudResources.find(c => c.Name === e.detail.value);
+          this.selected = this.cloudResources.find(
+            c => c.Name === e.detail.value
+          );
         }}"
       ></vaadin-combo-box>
-      <vaadin-button theme="primary" @click="${this.attach}">Attach</vaadin-button>
+      <vaadin-button theme="primary" @click="${this.attach}"
+        >Attach</vaadin-button
+      >
     `;
   }
 
@@ -83,7 +92,9 @@ export class AttachCloudResource extends LitElement {
         next: () => {
           this.dispatchEvent(
             new CustomEvent('cloud-resource-attached', {
-              detail: { message: `Cloud resource ${this.selected?.Name} attached` },
+              detail: {
+                message: `Cloud resource ${this.selected?.Name} attached`
+              },
               bubbles: true,
               composed: true
             })

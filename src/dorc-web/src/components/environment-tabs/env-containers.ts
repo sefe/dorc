@@ -16,7 +16,8 @@ import { ContainerApiModel, RefDataContainersApi } from '../../apis/dorc-api';
 import '../add-edit-container';
 import '../attach-container';
 import '../resource-tags';
-import { joinTags } from '../../helpers/tag-parser';
+import { joinTags, splitTags } from '../../helpers/tag-parser';
+import { map } from 'lit/directives/map.js';
 import { dorcApiConfiguration } from '../../services/dorc-api-configuration';
 import { navigate } from '../../router/router';
 import { PageEnvBase } from './page-env-base';
@@ -74,6 +75,17 @@ export class EnvContainers extends PageEnvBase {
         font-size: var(--lumo-font-size-s);
         color: var(--dorc-link-color);
         padding: var(--lumo-space-xs);
+      }
+      .tag {
+        font-size: var(--lumo-font-size-s);
+        font-family: monospace;
+        background-color: var(--dorc-chip-bg);
+        color: var(--dorc-chip-text);
+        display: inline-block;
+        padding: 3px;
+        margin: 3px;
+        text-decoration: none;
+        border-radius: 3px;
       }
       .summary-bar {
         display: flex;
@@ -185,10 +197,11 @@ export class EnvContainers extends PageEnvBase {
               path="HostServerName"
               header="Host Server"
             ></vaadin-grid-sort-column>
-            <vaadin-grid-sort-column
-              path="Tags"
+            <vaadin-grid-column
+              ${columnBodyRenderer(this.tagsRenderer, [])}
+              resizable
               header="Tags"
-            ></vaadin-grid-sort-column>
+            ></vaadin-grid-column>
             <vaadin-grid-column
               ${columnBodyRenderer(this.actionsRenderer, [this.envReadOnly])}
               flex-grow="0"
@@ -259,6 +272,13 @@ export class EnvContainers extends PageEnvBase {
     <vaadin-button @click="${() => (this.tagsDialogOpened = false)}"
       >Close</vaadin-button
     >
+  `;
+
+  private tagsRenderer = (item: ContainerApiModel) => html`
+    ${map(
+      splitTags(item.Tags),
+      value => html`<button style="border: 0px" class="tag">${value}</button>`
+    )}
   `;
 
   private actionsRenderer = (item: ContainerApiModel) => {

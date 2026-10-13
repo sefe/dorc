@@ -35,11 +35,11 @@ export class AttachContainer extends LitElement {
     new RefDataContainersApi(dorcApiConfiguration)
       .refDataContainersGet()
       .subscribe({
-      next: (data: ContainerApiModel[]) => {
-        this.containers = data;
-      },
-      error: (err: any) => console.error(err)
-    });
+        next: (data: ContainerApiModel[]) => {
+          this.containers = data;
+        },
+        error: (err: any) => console.error(err)
+      });
   }
 
   render() {
@@ -47,12 +47,15 @@ export class AttachContainer extends LitElement {
       <vaadin-combo-box
         label="Container"
         item-label-path="Name"
+        item-value-path="Name"
         .items="${this.containers}"
         @value-changed="${(e: CustomEvent) => {
           this.selected = this.containers.find(c => c.Name === e.detail.value);
         }}"
       ></vaadin-combo-box>
-      <vaadin-button theme="primary" @click="${this.attach}">Attach</vaadin-button>
+      <vaadin-button theme="primary" @click="${this.attach}"
+        >Attach</vaadin-button
+      >
     `;
   }
 

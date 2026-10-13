@@ -4,7 +4,10 @@ import { html } from 'lit/html.js';
 import '@vaadin/combo-box';
 import '@vaadin/button';
 import { Notification } from '@vaadin/notification';
-import { ApiRegistrationApiModel, RefDataApiRegistrationsApi } from '../apis/dorc-api';
+import {
+  ApiRegistrationApiModel,
+  RefDataApiRegistrationsApi
+} from '../apis/dorc-api';
 import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 /**
@@ -14,7 +17,8 @@ import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 export class AttachApiRegistration extends LitElement {
   @property({ type: Number }) envId = 0;
 
-  @property({ type: Array }) private apiRegistrations: ApiRegistrationApiModel[] = [];
+  @property({ type: Array })
+  private apiRegistrations: ApiRegistrationApiModel[] = [];
 
   private selected: ApiRegistrationApiModel | undefined;
 
@@ -32,14 +36,14 @@ export class AttachApiRegistration extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
-    new RefDataApiRegistrationsApi(
-      dorcApiConfiguration
-    ).refDataApiRegistrationsGet().subscribe({
-      next: (data: ApiRegistrationApiModel[]) => {
-        this.apiRegistrations = data;
-      },
-      error: (err: any) => console.error(err)
-    });
+    new RefDataApiRegistrationsApi(dorcApiConfiguration)
+      .refDataApiRegistrationsGet()
+      .subscribe({
+        next: (data: ApiRegistrationApiModel[]) => {
+          this.apiRegistrations = data;
+        },
+        error: (err: any) => console.error(err)
+      });
   }
 
   render() {
@@ -47,12 +51,17 @@ export class AttachApiRegistration extends LitElement {
       <vaadin-combo-box
         label="API Registration"
         item-label-path="Name"
+        item-value-path="Name"
         .items="${this.apiRegistrations}"
         @value-changed="${(e: CustomEvent) => {
-          this.selected = this.apiRegistrations.find(c => c.Name === e.detail.value);
+          this.selected = this.apiRegistrations.find(
+            c => c.Name === e.detail.value
+          );
         }}"
       ></vaadin-combo-box>
-      <vaadin-button theme="primary" @click="${this.attach}">Attach</vaadin-button>
+      <vaadin-button theme="primary" @click="${this.attach}"
+        >Attach</vaadin-button
+      >
     `;
   }
 
@@ -83,7 +92,9 @@ export class AttachApiRegistration extends LitElement {
         next: () => {
           this.dispatchEvent(
             new CustomEvent('api-registration-attached', {
-              detail: { message: `API registration ${this.selected?.Name} attached` },
+              detail: {
+                message: `API registration ${this.selected?.Name} attached`
+              },
               bubbles: true,
               composed: true
             })

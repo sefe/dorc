@@ -72,7 +72,7 @@ for (const c of tabCases) {
       expect(grid, `${c.grid} should exist`).to.not.be.null;
 
       const headers = Array.from(
-        grid!.querySelectorAll('vaadin-grid-sort-column')
+        grid!.querySelectorAll('vaadin-grid-sort-column, vaadin-grid-column')
       ).map(col => col.getAttribute('header'));
       for (const header of c.columns) {
         expect(headers, `column ${header}`).to.include(header);
@@ -354,5 +354,50 @@ describe('attach-container dialog content', () => {
     expect(
       el.shadowRoot!.querySelector('vaadin-button')!.textContent!.trim()
     ).to.equal('Attach');
+  });
+
+  // Regression: without item-value-path the combo-box value never matched any
+  // item, so Attach always errored with "Select a container to attach".
+  it('attaches the container selected in the combo box', async () => {
+    const containers = [
+      { Id: 7, Name: 'DOrc API' },
+      { Id: 8, Name: 'Other' }
+    ];
+    const originalGet = RefDataContainersApi.prototype.refDataContainersGet;
+    const originalAttach = (RefDataContainersApi.prototype as any)
+      .refDataContainersIdEnvironmentsEnvIdPut;
+    const attachCalls: Array<{ id: number; envId: number }> = [];
+    (RefDataContainersApi.prototype as any).refDataContainersGet = () =>
+      of(containers);
+    (
+      RefDataContainersApi.prototype as any
+    ).refDataContainersIdEnvironmentsEnvIdPut = function (req: {
+      id: number;
+      envId: number;
+    }) {
+      attachCalls.push(req);
+      return of(undefined);
+    };
+
+    try {
+      const el = await fixture(
+        html`<attach-container .envId="${42}"></attach-container>`
+      );
+      await (el as any).updateComplete;
+
+      const combo = el.shadowRoot!.querySelector('vaadin-combo-box') as any;
+      combo.value = 'DOrc API';
+      await (el as any).updateComplete;
+
+      el.shadowRoot!.querySelector('vaadin-button')!.click();
+
+      expect(attachCalls).to.deep.equal([{ id: 7, envId: 42 }]);
+    } finally {
+      (RefDataContainersApi.prototype as any).refDataContainersGet =
+        originalGet;
+      (
+        RefDataContainersApi.prototype as any
+      ).refDataContainersIdEnvironmentsEnvIdPut = originalAttach;
+    }
   });
 });
