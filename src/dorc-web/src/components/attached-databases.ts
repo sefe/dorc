@@ -20,6 +20,7 @@ import { DatabaseApiModel, DatabaseType } from '../apis/dorc-api';
 import { EditDatabasePermissions } from './edit-database-permissions';
 import { ViewDatabasePermissions } from './view-database-permissions';
 import { map } from 'lit/directives/map.js';
+import '../icons/brand-icons';
 
 @customElement('attached-databases')
 export class AttachedDatabases extends ResponsiveMixin(LitElement) {
@@ -238,15 +239,15 @@ export class AttachedDatabases extends ResponsiveMixin(LitElement) {
         label: 'SQL Server'
       },
       [DatabaseType.CosmosDb]: {
-        icon: 'vaadin:cloud',
+        icon: 'brand:azure',
         label: 'Cosmos DB'
       },
       [DatabaseType.ClickHouse]: {
-        icon: 'vaadin:cubes',
+        icon: 'brand:clickhouse',
         label: 'ClickHouse'
       },
       [DatabaseType.PostgreSql]: {
-        icon: 'vaadin:storage',
+        icon: 'brand:postgresql',
         label: 'PostgreSQL'
       }
     }[databaseType];
