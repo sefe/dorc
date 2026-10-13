@@ -30,8 +30,8 @@ public class DatabaseAccessControllerTests
         var privileges = Substitute.For<ISecurityPrivilegesChecker>();
         privileges.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), "Env").Returns(canModify);
         privileges.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), "Shared").Returns(sharedAllowed);
-        privileges.IsEnvironmentOwnerOrAdmin(Arg.Any<ClaimsPrincipal>(), "Env").Returns(owner);
-        privileges.IsEnvironmentOwnerOrAdmin(Arg.Any<ClaimsPrincipal>(), "Shared").Returns(sharedOwner);
+        privileges.IsEnvironmentOwnerOrAdmin(        Arg.Any<ClaimsPrincipal>(), "Env").Returns(owner && canModify);
+                privileges.IsEnvironmentOwnerOrAdmin(Arg.Any<ClaimsPrincipal>(), "Shared").Returns(sharedOwner && sharedAllowed);
         var factory = Substitute.For<IDeploymentContextFactory>();
         var context = Substitute.For<IDeploymentContext>();
         var databases = DbContextMock.GetQueryableMockDbSet(new List<Dorc.PersistentData.Model.Database>
@@ -125,6 +125,17 @@ public class DatabaseAccessControllerTests
     }
 
     [TestMethod]
+    public void WritersWhoAreNotOwnersOrAdminsAreDeniedEveryOperation()
+    {
+        var (controller, _) = Create(true, canModify: true, owner: false);
+        Assert.IsInstanceOfType<ForbidResult>(controller.Get(10, 1).Result);
+        Assert.IsInstanceOfType<ForbidResult>(controller.Save(10, 1, new()).Result);
+        Assert.IsInstanceOfType<ForbidResult>(controller.Preview(10, 1).Result);
+        Assert.IsInstanceOfType<ForbidResult>(controller.Apply(10, 1, new()).Result);
+        Assert.IsInstanceOfType<ForbidResult>(controller.Import(10, 1, new()).Result);
+    }
+
+    [TestMethod]
     public void StatusReportsDisabledWithoutLoadingNewSchema()
     {
         var (controller, factory) = Create(false);
@@ -139,24 +150,27 @@ public class DatabaseAccessControllerTests
     [DataRow(true, false)]
     [DataRow(false, true)]
     [DataRow(true, true)]
-    public void DbOwnerApprovalRequiresOwnershipOfEveryAttachedEnvironment(bool owner, bool sharedOwner)
+    public void ImportsRequireOwnershipOfEveryAttachedEnvironment(bool owner, bool sharedOwner)
     {
         var (controller, _) = Create(true, owner: owner, sharedOwner: sharedOwner);
-        var status = (DatabaseAccessStatus)((OkObjectResult)controller.Status(10, 1).Result!).Value!;
-        Assert.AreEqual(owner && sharedOwner, status.CanApproveDbOwner);
+        var allowed = owner && sharedOwner;
+        if (owner)
+        {
+            var status = (DatabaseAccessStatus)((OkObjectResult)controller.Status(10, 1).Result!).Value!;
+            Assert.AreEqual(allowed, status.CanApproveDbOwner);
+        }
+        else Assert.IsInstanceOfType<ForbidResult>(controller.Status(10, 1).Result);
         controller.HttpContext.User = new ClaimsPrincipal(new ClaimsIdentity(
             [new Claim("m2m", "true")], "OAuth"));
         var request = new DatabaseAccessImportRequest { ApprovedDbOwnerLegacyUserIds = [42] };
-        var results = new[] { controller.PreviewImport(10, 1, request).Result, controller.Import(10, 1, request).Result };
+        var results = new[] { controller.PreviewImport(10, 1, request).Result, controller.Import(10, 1, request).Result,
+            controller.PreviewImport(10, 1, new()).Result };
         foreach (var result in results)
         {
-            if (owner && sharedOwner)
+            if (allowed)
                 Assert.AreEqual(400, ((ProblemDetails)((ObjectResult)result!).Value!).Status);
             else Assert.IsInstanceOfType<ForbidResult>(result);
         }
-        var ordinary = controller.PreviewImport(10, 1, new());
-        Assert.AreEqual(400, ((ProblemDetails)((ObjectResult)ordinary.Result!).Value!).Status,
-            "Ordinary imports still require Modify, not privileged approval rights.");
     }
 
     [TestMethod]

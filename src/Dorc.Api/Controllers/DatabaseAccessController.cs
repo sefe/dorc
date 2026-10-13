@@ -97,13 +97,13 @@ public sealed class DatabaseAccessController(
         {
             var environment = mapper.GetEnvironmentByDatabase(envId, databaseId, User);
             if (environment == null) return NotFound();
-            if (!privileges.CanModifyEnvironment(User, environment.EnvironmentName)) return Forbid();
+            if (!privileges.IsEnvironmentOwnerOrAdmin(User, environment.EnvironmentName)) return Forbid();
             if (requireEnabled && !Enabled) return NotFound("Database access management is disabled.");
             if (modify)
             {
                 // A database can be shared: permission on one attachment must not grant changes to all others.
                 var environments = AttachedEnvironments(databaseId);
-                if (environments.Count == 0 || environments.Any(name => !privileges.CanModifyEnvironment(User, name)))
+                if (environments.Count == 0 || environments.Any(name => !privileges.IsEnvironmentOwnerOrAdmin(User, name)))
                     return Forbid();
                 if (approveDbOwner && environments.Any(name => !privileges.IsEnvironmentOwnerOrAdmin(User, name)))
                     return Forbid();
