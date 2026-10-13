@@ -2,6 +2,8 @@ import '@vaadin/details';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/dialog';
+import '@vaadin/icons/vaadin-icons';
+import '@vaadin/icon';
 import type { DialogOpenedChangedEvent } from '@vaadin/dialog';
 import { css, PropertyValues } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
@@ -41,8 +43,10 @@ export class EnvServers extends PageEnvBase {
         padding: 10px;
       }
       .inline {
-        display: inline-block;
-        vertical-align: middle;
+        display: flex;
+        align-items: center;
+        gap: var(--lumo-space-s);
+        padding: var(--lumo-space-s) 0;
       }
       .buttons {
         font-size: var(--lumo-font-size-s);
@@ -78,6 +82,24 @@ export class EnvServers extends PageEnvBase {
         display: flex;
         flex-direction: column;
       }
+      .summary-bar {
+        display: flex;
+        align-items: center;
+        gap: var(--lumo-space-s);
+        font-weight: 400;
+      }
+      .summary-bar vaadin-icon {
+        color: var(--dorc-link-color);
+      }
+      .count-badge {
+        background-color: var(--dorc-link-color);
+        color: var(--dorc-bg-primary);
+        border-radius: 1em;
+        font-size: var(--lumo-font-size-xs);
+        font-weight: 600;
+        padding: 0 var(--lumo-space-s);
+        line-height: 1.6;
+      }
     `;
   }
 
@@ -85,9 +107,15 @@ export class EnvServers extends PageEnvBase {
     return html`
       <vaadin-details
         opened
-        summary="Application Server Details"
-        style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; margin: 0px;"
+        style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; padding-right: 4px; margin: 0px; box-sizing: border-box;"
       >
+        <vaadin-details-summary slot="summary">
+          <div class="summary-bar">
+            <vaadin-icon icon="vaadin:server" theme="small"></vaadin-icon>
+            Application Server Details
+            <span class="count-badge">${this.servers?.length ?? 0}</span>
+          </div>
+        </vaadin-details-summary>
         <div class="details-content">
           <div class="inline">
             <vaadin-button
@@ -95,6 +123,7 @@ export class EnvServers extends PageEnvBase {
               @click="${this.openAttachServerDialog}"
               .disabled="${this.envReadOnly}"
             >
+              <vaadin-icon icon="vaadin:link" slot="prefix"></vaadin-icon>
               Attach Server
             </vaadin-button>
             <vaadin-dialog

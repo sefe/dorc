@@ -45,6 +45,14 @@ export class AttachedDatabases extends ResponsiveMixin(LitElement) {
 
   static get styles() {
     return css`
+      :host {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        min-height: 0;
+        height: 100%;
+      }
+
       .center {
         margin: 10px 20px 10px;
         width: 50%;
@@ -65,6 +73,8 @@ export class AttachedDatabases extends ResponsiveMixin(LitElement) {
       vaadin-grid#grid {
         overflow: hidden;
         width: calc(100% - 4px);
+        flex: 1;
+        min-height: 0;
         --divider-color: var(--dorc-border-color);
       }
 
@@ -102,7 +112,6 @@ export class AttachedDatabases extends ResponsiveMixin(LitElement) {
         id="grid"
         .items=${this.databases}
         theme="compact row-stripes no-row-borders no-border"
-        all-rows-visible
       >
         <vaadin-grid-column
           path="ServerName"
