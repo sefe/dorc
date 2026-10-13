@@ -21,7 +21,7 @@ namespace Dorc.Api.Tests.Controllers;
 public class DatabaseAccessControllerTests
 {
     private static (DatabaseAccessController Controller, IDeploymentContextFactory Factory) Create(
-        bool enabled, bool canModify = true, bool sharedAllowed = true,
+        bool? enabled, bool canModify = true, bool sharedAllowed = true,
         Dictionary<string, string?>? obsoleteSettings = null, bool owner = true, bool sharedOwner = true)
     {
         var mapper = Substitute.For<IEnvironmentMapper>();
@@ -30,8 +30,8 @@ public class DatabaseAccessControllerTests
         var privileges = Substitute.For<ISecurityPrivilegesChecker>();
         privileges.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), "Env").Returns(canModify);
         privileges.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), "Shared").Returns(sharedAllowed);
-        privileges.IsEnvironmentOwnerOrAdmin(        Arg.Any<ClaimsPrincipal>(), "Env").Returns(owner && canModify);
-                privileges.IsEnvironmentOwnerOrAdmin(Arg.Any<ClaimsPrincipal>(), "Shared").Returns(sharedOwner && sharedAllowed);
+        privileges.IsEnvironmentOwnerOrAdmin(Arg.Any<ClaimsPrincipal>(), "Env").Returns(owner && canModify);
+        privileges.IsEnvironmentOwnerOrAdmin(Arg.Any<ClaimsPrincipal>(), "Shared").Returns(sharedOwner && sharedAllowed);
         var factory = Substitute.For<IDeploymentContextFactory>();
         var context = Substitute.For<IDeploymentContext>();
         var databases = DbContextMock.GetQueryableMockDbSet(new List<Dorc.PersistentData.Model.Database>
@@ -41,10 +41,9 @@ public class DatabaseAccessControllerTests
         });
         context.Databases.Returns(databases);
         factory.GetContext().Returns(context);
-        var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
-        {
-            ["DatabaseAccess:Enabled"] = enabled.ToString()
-        }).AddInMemoryCollection(obsoleteSettings ?? []).Build();
+        var settings = obsoleteSettings ?? [];
+        if (enabled.HasValue) settings["DatabaseAccess:Enabled"] = enabled.Value.ToString();
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection(settings).Build();
         var service = new DatabaseAccessService(null!, null!, null!, null!, NullLogger<DatabaseAccessService>.Instance);
         var controller = new DatabaseAccessController(service, null!, new DatabaseAccessProviders([new SqlServerDatabaseAccessProvider()]), configuration, mapper, privileges, factory,
             NullLogger<DatabaseAccessController>.Instance, new OAuthClaimsPrincipalReader(Substitute.For<IUserGroupReader>()))
@@ -61,6 +60,19 @@ public class DatabaseAccessControllerTests
         var result = controller.Get(10, 1);
         Assert.IsInstanceOfType<NotFoundObjectResult>(result.Result);
         factory.DidNotReceive().GetContext();
+    }
+
+    [TestMethod]
+    public void FeatureDefaultsToEnabledWhenSettingIsMissing()
+    {
+        var (controller, _) = Create(null);
+        var status = (DatabaseAccessStatus)((OkObjectResult)controller.Status(10, 1).Result!).Value!;
+        Assert.IsTrue(status.Enabled);
+        Assert.IsTrue(status.ExecutionEnabled);
+        controller.HttpContext.User = new ClaimsPrincipal(new ClaimsIdentity(
+            [new Claim("m2m", "true")], "OAuth"));
+        var result = controller.Apply(10, 1, new() { Token = "confirmed" });
+        Assert.AreEqual(400, ((ProblemDetails)((ObjectResult)result.Result!).Value!).Status);
     }
 
     [TestMethod]

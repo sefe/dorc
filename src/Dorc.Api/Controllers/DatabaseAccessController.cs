@@ -19,7 +19,7 @@ public sealed class DatabaseAccessController(
     IEnvironmentMapper mapper, ISecurityPrivilegesChecker privileges, IDeploymentContextFactory factory,
     ILogger<DatabaseAccessController> logger, IClaimsPrincipalReader claimsReader) : ControllerBase
 {
-    private bool Enabled => configuration.GetValue<bool>("DatabaseAccess:Enabled");
+    private bool Enabled => configuration.GetValue("DatabaseAccess:Enabled", true);
 
     [HttpGet("status")]
     public ActionResult<DatabaseAccessStatus> Status(int envId, int databaseId) =>

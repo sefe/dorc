@@ -284,12 +284,13 @@ The API defaults to:
 
 ```json
 "DatabaseAccess": {
-  "Enabled": false
+  "Enabled": true
 }
 ```
 
-`DatabaseAccess:Enabled` is the only rollout setting. Setting it to `true` enables
-the feature, including Apply, for all databases the caller is authorized to manage.
+`DatabaseAccess:Enabled` is the only rollout setting. The feature defaults to enabled
+even if the setting is omitted, including Apply, for all databases the caller is
+authorized to manage. Set it to `false` to disable new requests to this feature.
 There is no per-database allowlist or separate execution switch. Remove the obsolete
 `DatabaseAccess:DatabaseIds` and `DatabaseAccess:ExecutionEnabled` settings from
 existing API configuration; they are ignored. **Upgrading an API with `Enabled=true`
@@ -299,7 +300,8 @@ automatically. The status response retains `ExecutionEnabled` for client compati
 but its value always equals `Enabled`.
 
 If the panel reports that database access management is disabled, a DOrc administrator
-must set `DatabaseAccess:Enabled` to `true` in the API configuration. This is a feature
+must remove the explicit `DatabaseAccess:Enabled=false` override or set it to `true`
+in the API configuration. This is a feature
 setting, not a SQL permission error; the existing Users and Permissions controls
 remain available. The feature uses new
 `DatabaseAccess/{envId}/{databaseId}` endpoints, not the legacy user contracts.
@@ -362,8 +364,8 @@ DatabaseAccess is not a replacement for those workflows.
 
 **Migration procedure**
 
-1. Enable `DatabaseAccess:Enabled` after deploying the schema and API. This enables
-   the feature globally, including Apply; restrict the rollout operationally to
+1. Deploy the schema before upgrading the API; the feature is enabled by default
+   globally, including Apply. Restrict the rollout operationally to
    approved targets using existing environment permissions and deployment jobs.
 2. Open the new panel and select **Load legacy access**. Review the suggested role
    mappings and verified directory identities. Resolve reported conflicts or
