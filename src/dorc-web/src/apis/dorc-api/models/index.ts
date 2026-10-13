@@ -38,6 +38,7 @@ export * from './DaemonStatusApiModel';
 export * from './DatabaseApiModel';
 export * from './DatabaseApiModelEnvironmentComponentsDto';
 export * from './DatabaseAuditApiModel';
+export * from './DatabaseType';
 export * from './DeployArtefactDto';
 export * from './DeployComponentDto';
 export * from './DeploymentRequestApiModel';

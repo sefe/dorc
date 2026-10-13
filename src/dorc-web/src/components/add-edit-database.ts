@@ -262,6 +262,7 @@ export class AddEditDatabase extends LitElement {
           databaseApiModel: {
             Id: this._database.Id,
             ServerName: this.DbServerName,
+            DatabaseType: this._database.DatabaseType,
             Name: this.DatabaseName,
             Tags: this.DatabaseTags,
             AdGroup: this.AdGroup,

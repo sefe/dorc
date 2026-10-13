@@ -224,7 +224,8 @@ namespace Dorc.Monitor.Tests.Terraform
             _registrar.RegisterAppliedResources(_file, "Terraform Dev", "user");
 
             _databases.Received(1).AddDatabase(Arg.Is<DatabaseApiModel>(d =>
-                d.Name == "orders-db" && d.Tags.Contains("CosmosDB") && d.ServerName == "cosmos-sh-dv"));
+                d.Name == "orders-db" && d.Tags.Contains("CosmosDB") &&
+                d.ServerName == "cosmos-sh-dv" && d.DatabaseType == DatabaseType.CosmosDb));
             _environments.Received(1).AttachDatabaseToEnv(2598, 11, Arg.Any<System.Security.Claims.ClaimsPrincipal>());
         }
 
@@ -252,7 +253,8 @@ namespace Dorc.Monitor.Tests.Terraform
             _registrar.RegisterAppliedResources(_file, "Terraform Dev", "user");
 
             _databases.Received(1).AddDatabase(Arg.Is<DatabaseApiModel>(d =>
-                d.Name == "analytics" && d.Tags.Contains("ClickHouse") && d.ServerName == "clickhouse-dev"));
+                d.Name == "analytics" && d.Tags.Contains("ClickHouse") &&
+                d.ServerName == "clickhouse-dev" && d.DatabaseType == DatabaseType.ClickHouse));
             _environments.Received(1).AttachDatabaseToEnv(2598, 12, Arg.Any<System.Security.Claims.ClaimsPrincipal>());
         }
 
@@ -280,7 +282,8 @@ namespace Dorc.Monitor.Tests.Terraform
             _registrar.RegisterAppliedResources(_file, "Terraform Dev", "user");
 
             _databases.Received(1).AddDatabase(Arg.Is<DatabaseApiModel>(d =>
-                d.Name == "appdb" && d.Tags.Contains("PostgreSQL") && d.ServerName == "pg-analytics-dev"));
+                d.Name == "appdb" && d.Tags.Contains("PostgreSQL") &&
+                d.ServerName == "pg-analytics-dev" && d.DatabaseType == DatabaseType.PostgreSql));
             _environments.Received(1).AttachDatabaseToEnv(2598, 13, Arg.Any<System.Security.Claims.ClaimsPrincipal>());
         }
 
@@ -304,6 +307,7 @@ namespace Dorc.Monitor.Tests.Terraform
             _registrar.RegisterAppliedResources(_file, "Terraform Dev", "user");
 
             _databases.DidNotReceiveWithAnyArgs().AddDatabase(default!);
+            _databases.Received(1).UpdateDatabaseType(11, DatabaseType.CosmosDb);
             // The cloud-resource half still registered despite the attach throw.
             _cloudResources.Received(1).Add(Arg.Any<CloudResourceApiModel>());
         }

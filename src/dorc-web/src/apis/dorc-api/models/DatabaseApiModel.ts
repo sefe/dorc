@@ -11,6 +11,10 @@
  * Do not edit the class manually.
  */
 
+import type {
+    DatabaseType,
+} from './';
+
 /**
  * @export
  * @interface DatabaseApiModel
@@ -41,6 +45,11 @@ export interface DatabaseApiModel {
      * @memberof DatabaseApiModel
      */
     ServerName?: string | null;
+    /**
+     * @type {DatabaseType}
+     * @memberof DatabaseApiModel
+     */
+    DatabaseType?: DatabaseType;
     /**
      * @type {string}
      * @memberof DatabaseApiModel

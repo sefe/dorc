@@ -11095,6 +11095,9 @@
             "type": "string",
             "nullable": true
           },
+          "DatabaseType": {
+            "$ref": "#/components/schemas/DatabaseType"
+          },
           "AdGroup": {
             "type": "string",
             "nullable": true
@@ -11122,6 +11125,15 @@
           }
         },
         "additionalProperties": false
+      },
+      "DatabaseType": {
+        "enum": [
+          "SqlServer",
+          "CosmosDb",
+          "ClickHouse",
+          "PostgreSql"
+        ],
+        "type": "string"
       },
       "DeployArtefactDto": {
         "type": "object",

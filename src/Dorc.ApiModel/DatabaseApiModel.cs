@@ -14,6 +14,7 @@ namespace Dorc.ApiModel
         public string[] Tags { set; get; } = System.Array.Empty<string>();
 
         public string ServerName { set; get; }
+        public DatabaseType DatabaseType { set; get; } = DatabaseType.SqlServer;
         public string AdGroup { set; get; }
         public int Id { set; get; }
         public string ArrayName { set; get; }

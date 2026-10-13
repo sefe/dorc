@@ -182,6 +182,11 @@ namespace Dorc.Monitor.Terraform
             var existing = _databasesPersistentSource
                 .GetDatabases(database.Name, database.ServerName)
                 .FirstOrDefault();
+            if (existing is not null && existing.DatabaseType != database.DatabaseType)
+            {
+                _databasesPersistentSource.UpdateDatabaseType(existing.Id, database.DatabaseType);
+                existing.DatabaseType = database.DatabaseType;
+            }
             var persisted = existing ?? _databasesPersistentSource.AddDatabase(database);
             if (persisted is null)
             {
@@ -218,6 +223,7 @@ namespace Dorc.Monitor.Terraform
                         Name = resource.Name,
                         Tags = new[] { "CosmosDB" },
                         ServerName = account,
+                        DatabaseType = DatabaseType.CosmosDb,
                         AdGroup = string.Empty,
                         ArrayName = string.Empty
                     };
@@ -232,6 +238,9 @@ namespace Dorc.Monitor.Terraform
                         Name = resource.Name,
                         Tags = new[] { resource.ResourceType == "aiven_pg_database" ? "PostgreSQL" : "ClickHouse" },
                         ServerName = parts[1],
+                        DatabaseType = resource.ResourceType == "aiven_pg_database"
+                            ? DatabaseType.PostgreSql
+                            : DatabaseType.ClickHouse,
                         AdGroup = string.Empty,
                         ArrayName = string.Empty
                     };

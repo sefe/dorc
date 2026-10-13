@@ -102,6 +102,7 @@ models/DaemonStatusApiModel.ts
 models/DatabaseApiModel.ts
 models/DatabaseApiModelEnvironmentComponentsDto.ts
 models/DatabaseAuditApiModel.ts
+models/DatabaseType.ts
 models/DeployArtefactDto.ts
 models/DeployComponentDto.ts
 models/DeploymentRequestApiModel.ts

@@ -16,7 +16,7 @@ import '../components/edit-database-permissions';
 import '../components/database-tags';
 import './grid-button-groups/database-env-controls.ts';
 import '../components/view-database-permissions';
-import { DatabaseApiModel } from '../apis/dorc-api';
+import { DatabaseApiModel, DatabaseType } from '../apis/dorc-api';
 import { EditDatabasePermissions } from './edit-database-permissions';
 import { ViewDatabasePermissions } from './view-database-permissions';
 import { map } from 'lit/directives/map.js';
@@ -96,6 +96,11 @@ export class AttachedDatabases extends ResponsiveMixin(LitElement) {
         cursor: pointer;
         text-decoration: none;
       }
+      .database-type-icon {
+        display: block;
+        margin: 0 auto;
+        color: var(--dorc-link-color);
+      }
       @media (max-width: 768px) {
         vaadin-grid-cell-content {
           white-space: normal;
@@ -122,6 +127,13 @@ export class AttachedDatabases extends ResponsiveMixin(LitElement) {
           path="Name"
           header="Database"
           resizable
+        ></vaadin-grid-column>
+        <vaadin-grid-column
+          ${columnBodyRenderer(this.databaseTypeRenderer, [])}
+          header="Type"
+          width="64px"
+          flex-grow="0"
+          text-align="center"
         ></vaadin-grid-column>
         <vaadin-grid-column
           ${columnBodyRenderer(this.tagsRenderer, [])}
@@ -218,6 +230,35 @@ export class AttachedDatabases extends ResponsiveMixin(LitElement) {
           </button>`
       )}
     `;
+  };
+
+  private databaseTypeRenderer = (database: DatabaseApiModel) => {
+    const databaseType = database.DatabaseType ?? DatabaseType.SqlServer;
+    const display = {
+      [DatabaseType.SqlServer]: {
+        icon: 'vaadin:database',
+        label: 'SQL Server'
+      },
+      [DatabaseType.CosmosDb]: {
+        icon: 'vaadin:cloud',
+        label: 'Cosmos DB'
+      },
+      [DatabaseType.ClickHouse]: {
+        icon: 'vaadin:cubes',
+        label: 'ClickHouse'
+      },
+      [DatabaseType.PostgreSql]: {
+        icon: 'vaadin:storage',
+        label: 'PostgreSQL'
+      }
+    }[databaseType];
+
+    return html`<vaadin-icon
+      class="database-type-icon"
+      icon="${display.icon}"
+      title="${display.label}"
+      aria-label="${display.label}"
+    ></vaadin-icon>`;
   };
 
   private databaseControlsRenderer = (db: DatabaseApiModel) => html`
