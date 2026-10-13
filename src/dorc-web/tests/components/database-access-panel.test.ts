@@ -264,98 +264,26 @@ describe('Database access side-by-side panel', () => {
     );
   });
 
-  it('orders metadata import, target preview and Apply, requiring an explicit target preview', async () => {
+  it('offers only metadata import and saved configuration, with no target preview or apply', async () => {
     const panel = await load();
     await vi.waitFor(() =>
       expect(panel.shadowRoot!.textContent).to.contain(
         'No managed principals yet'
       )
     );
-    const steps = [...panel.shadowRoot!.querySelectorAll('.workflow-step')];
-    expect(
-      steps.map(step => step.querySelector('h3')?.textContent?.trim())
-    ).to.deep.equal([
-      '1. Prepare access in DOrc',
-      '2. Preview target changes',
-      '3. Apply confirmed target changes'
-    ]);
-    expect(steps[0].querySelector('#legacy-import')).not.to.equal(null);
-    expect(steps[0].querySelector('#desired-state-editor')).not.to.equal(null);
-    expect(
-      steps[1].querySelector('vaadin-button')?.textContent?.trim()
-    ).to.equal('Discover and preview target changes');
-    expect(
-      steps[2].querySelector('vaadin-button')?.hasAttribute('disabled')
-    ).to.equal(true);
-    expect(panel.shadowRoot!.textContent?.replace(/\s+/g, ' ')).to.contain(
-      'Migrating records only? Complete step 1 and stop.'
+    expect(panel.shadowRoot!.querySelector('#legacy-import')).not.to.equal(
+      null
     );
+    expect(
+      panel.shadowRoot!.querySelector('#desired-state-editor')
+    ).not.to.equal(null);
+    expect(panel.shadowRoot!.querySelector('.workflow-step h3')).to.equal(null);
+    const text = panel.shadowRoot!.textContent!;
+    expect(text).not.to.contain('Discover and preview target changes');
+    expect(text).not.to.contain('Apply confirmed');
     expect(mocks.legacy.mock.calls.length).to.equal(0);
     expect(mocks.preview.mock.calls.length).to.equal(0);
     expect(mocks.apply.mock.calls.length).to.equal(0);
-    click(panel, 'Discover and preview target changes');
-    await vi.waitFor(() =>
-      expect(panel.shadowRoot!.textContent).to.contain('CreateUser')
-    );
-    click(panel, 'Apply confirmed preview');
-    await vi.waitFor(() => expect(mocks.apply.mock.calls.length).to.equal(1));
-    expect(mocks.apply.mock.calls[0][0]).to.deep.equal({
-      envId: 10,
-      databaseId: 1,
-      databaseAccessConfirmation: { Token: 'preview-1' }
-    });
-  });
-
-  it('does not apply a confirmation after the environment changes', async () => {
-    let confirm!: (value: boolean) => void;
-    mocks.confirm.mockReturnValue(
-      new Promise<boolean>(resolve => {
-        confirm = resolve;
-      })
-    );
-    const panel = await load();
-    await vi.waitFor(() =>
-      expect(panel.shadowRoot!.textContent).to.contain(
-        'No managed principals yet'
-      )
-    );
-    click(panel, 'Discover and preview target changes');
-    await vi.waitFor(() =>
-      expect(panel.shadowRoot!.textContent).to.contain('CreateUser')
-    );
-    click(panel, 'Apply confirmed preview');
-    await vi.waitFor(() => expect(mocks.confirm.mock.calls.length).to.equal(1));
-    panel.envId = 20;
-    await panel.updateComplete;
-    confirm(true);
-    await new Promise(resolve => setTimeout(resolve, 0));
-    expect(mocks.apply.mock.calls.length).to.equal(0);
-  });
-
-  it('keeps reconciliation failures visible instead of clearing them during refresh', async () => {
-    mocks.apply.mockReturnValue(
-      throwError(() => new Error('Target transaction failed'))
-    );
-    const panel = await load();
-    await vi.waitFor(() =>
-      expect(panel.shadowRoot!.textContent).to.contain(
-        'No managed principals yet'
-      )
-    );
-    click(panel, 'Discover and preview target changes');
-    await vi.waitFor(() =>
-      expect(panel.shadowRoot!.textContent).to.contain('CreateUser')
-    );
-    click(panel, 'Apply confirmed preview');
-    await vi.waitFor(() =>
-      expect(
-        panel.shadowRoot!.querySelector('[role="alert"]')?.textContent
-      ).to.contain('Target transaction failed')
-    );
-    expect(mocks.audit.mock.calls.length).to.equal(1);
-    expect(panel.shadowRoot!.textContent).not.to.contain(
-      'reconciliation completed'
-    );
   });
 
   it('loads AD display data live and explicitly marks unresolved identities', async () => {
@@ -386,32 +314,6 @@ describe('Database access side-by-side panel', () => {
       databaseId: 1,
       id: 'stable-sid'
     });
-  });
-
-  it('respects disabled execution reported by older APIs', async () => {
-    mocks.status.mockReturnValue(
-      of({
-        Enabled: true,
-        ExecutionEnabled: false,
-        Providers: ['sql-server'],
-        Limitations: []
-      })
-    );
-    const panel = await load();
-    await vi.waitFor(() =>
-      expect(panel.shadowRoot!.textContent).to.contain(
-        'No managed principals yet'
-      )
-    );
-    click(panel, 'Discover and preview target changes');
-    await vi.waitFor(() =>
-      expect(panel.shadowRoot!.textContent).to.contain('CreateUser')
-    );
-    const apply = [...panel.shadowRoot!.querySelectorAll('vaadin-button')].find(
-      b => b.textContent?.trim() === 'Apply confirmed preview'
-    )!;
-    expect(apply.hasAttribute('disabled')).to.equal(true);
-    expect(mocks.apply.mock.calls.length).to.equal(0);
   });
 
   it('surfaces dependency errors rather than showing an empty success', async () => {
@@ -485,6 +387,47 @@ describe('Database access side-by-side panel', () => {
       Present: true
     });
     expect(mocks.apply.mock.calls.length).to.equal(0);
+  });
+
+  it('saves a role assignment chosen from the principal and role pickers', async () => {
+    const assigned: DatabaseAccessState = {
+      ...empty,
+      Principals: [
+        { Name: 'app', Kind: 'Native', LoginName: 'app', Present: true }
+      ],
+      Roles: [{ Name: 'db_datareader', Managed: false, Present: true }]
+    };
+    mocks.get.mockReturnValue(of(structuredClone(assigned)));
+    mocks.save.mockImplementation(
+      ({ databaseAccessState }: { databaseAccessState: DatabaseAccessState }) =>
+        of({ ...databaseAccessState, Revision: 1 })
+    );
+    const panel = await load();
+    await vi.waitFor(() =>
+      expect(panel.shadowRoot!.textContent).to.contain('Assign a role')
+    );
+    const combos = [...panel.shadowRoot!.querySelectorAll('vaadin-combo-box')];
+    const principal = combos.find(c => c.label === 'Principal')!;
+    const role = combos.find(c => c.label === 'Role')!;
+    expect(principal.disabled).to.equal(false);
+    const assign = [
+      ...panel.shadowRoot!.querySelectorAll('vaadin-button')
+    ].find(b => b.textContent?.trim() === 'Save assignment')!;
+    expect(assign.hasAttribute('disabled')).to.equal(true);
+    principal.value = 'app';
+    role.value = 'db_datareader';
+    await panel.updateComplete;
+    expect(assign.hasAttribute('disabled')).to.equal(false);
+    click(panel, 'Save assignment');
+    await vi.waitFor(() => expect(mocks.save.mock.calls.length).to.equal(1));
+    expect(
+      mocks.save.mock.calls[0][0].databaseAccessState.Memberships
+    ).to.deep.equal([
+      { Principal: 'app', Role: 'db_datareader', Present: true }
+    ]);
+    await vi.waitFor(() =>
+      expect(panel.shadowRoot!.textContent).to.contain('app → db_datareader')
+    );
   });
 
   it('disables all editor controls when the environment is read-only', async () => {
@@ -590,11 +533,7 @@ describe('Database access side-by-side panel', () => {
     await vi.waitFor(() =>
       expect(panel.shadowRoot!.textContent).to.contain('Imported desired state')
     );
-    click(panel, 'Discover and preview target changes');
-    await vi.waitFor(() =>
-      expect(panel.shadowRoot!.textContent).to.contain('Target is unavailable')
-    );
-    expect(mocks.preview.mock.calls.length).to.equal(1);
+    expect(mocks.preview.mock.calls.length).to.equal(0);
     expect(mocks.apply.mock.calls.length).to.equal(0);
   });
 

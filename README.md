@@ -195,22 +195,17 @@ npm run api-gen                  # regenerate against it
 
 ### Database access management (side-by-side pilot)
 
-The **Database Access** panel under environment database details manages
-database-native users, directory-backed database principals, roles and role
-memberships. It does not replace the legacy Users or Permissions controls yet.
-Scroll within **Application Database Details** to reach the access panel below
-long database lists; the environment header and tabs stay visible.
+The **Database Access** dialog manages database-native users, directory-backed
+database principals, roles and role memberships. Open it with **Manage Database
+Access** on the environment's Databases tab; the button is only shown to
+environment owners and administrators. It does not replace the legacy Users or
+Permissions controls yet.
 Work is tracked by #945 and its children #946-#953.
 
-The panel follows three numbered stages, in execution order:
-
-1. **Prepare access in DOrc**: import legacy assignments or review/edit saved
-   desired state. No target connection or target-readiness check occurs.
-   **Metadata-only migration stops here.**
-2. **Preview target changes**: read the target database, validate execution
-   prerequisites and compare it with saved desired state. No target changes occur.
-3. **Apply confirmed target changes**: execute the reviewed SQL changes after a
-   successful target preview and a separate confirmation.
+The dialog prepares access in DOrc only: import legacy assignments or review/edit
+saved desired state. No target connection or target-readiness check occurs.
+Target preview and apply are performed by the CLI / deploy module through the API,
+not from this UI.
 
 For migration, expand **Import legacy Endur / SQL users** and select **Load legacy
 access**. The guided review reads DOrc's existing assignments and suggests same-name
@@ -246,8 +241,7 @@ only DOrc desired state. Loading, import preview and confirmed import do not per
 target discovery or validate target connectivity, logins, roles or SQL permissions.
 Source consistency, directory identity, privileged approval and stale-preview checks
 still apply. A successful import means **metadata migrated**, not **target access verified**.
-SQL reconciliation remains a separate preview/apply operation; target validation errors
-still prevent Apply. **Advanced: generated import JSON** uses the standard
+SQL reconciliation remains a separate preview/apply operation outside this dialog. **Advanced: generated import JSON** uses the standard
 `hegs-json-viewer` for inspecting generated mappings and the proposed configuration;
 users do not need to write JSON. Reloading legacy access replaces unsaved mapping
 selections, including exclusions. Exclusions apply only to the confirmed import,

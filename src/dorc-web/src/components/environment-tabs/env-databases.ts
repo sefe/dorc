@@ -2,7 +2,7 @@ import '@vaadin/button';
 import '@vaadin/details';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/grid/vaadin-grid-sort-column';
-import { css } from 'lit';
+import { css, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import '../add-edit-database.ts';
@@ -20,6 +20,7 @@ import {
   RefDataEnvironmentsDetailsApi
 } from '../../apis/dorc-api';
 import { dorcApiConfiguration } from '../../services/dorc-api-configuration';
+import GlobalCache from '../../global-cache';
 
 @customElement('env-databases')
 export class EnvDatabases extends PageEnvBase {
@@ -30,6 +31,16 @@ export class EnvDatabases extends PageEnvBase {
 
   @state()
   private attachDatabaseDialogOpened = false;
+
+  @state()
+  private databaseAccessDialogOpened = false;
+
+  @state()
+  private isAdmin = false;
+
+  private get canManageDatabaseAccess() {
+    return this.isAdmin || this.environment?.IsOwner === true;
+  }
 
   static get styles() {
     return css`
@@ -104,11 +115,37 @@ export class EnvDatabases extends PageEnvBase {
               .readonly="${this.envReadOnly}"
               @database-detached="${this._dbDetached}"
             ></attached-databases>
-            <database-access-panel
-              .envId="${this.environmentId}"
-              .databases="${this.databases ?? []}"
-              .readonly="${this.envReadOnly}"
-            ></database-access-panel>
+            ${
+              this.canManageDatabaseAccess
+                ? html`
+                    <vaadin-button
+                      id="manage-database-access"
+                      title="Manage database access"
+                      @click="${this.openDatabaseAccessDialog}"
+                      >Manage Database Access</vaadin-button
+                    >
+                    <vaadin-dialog
+                      id="database-access-dialog"
+                      header-title="Database Access"
+                      resizable
+                      draggable
+                      .opened="${this.databaseAccessDialogOpened}"
+                      @opened-changed="${(event: DialogOpenedChangedEvent) => {
+                        this.databaseAccessDialogOpened = event.detail.value;
+                      }}"
+                      ${dialogRenderer(this.renderDatabaseAccessDialog, [
+                        this.databases,
+                        this.environmentId,
+                        this.envReadOnly
+                      ])}
+                      ${dialogFooterRenderer(
+                        this.renderDatabaseAccessFooter,
+                        []
+                      )}
+                    ></vaadin-dialog>
+                  `
+                : nothing
+            }
           </div>
         </div>
       </vaadin-details>
@@ -117,6 +154,18 @@ export class EnvDatabases extends PageEnvBase {
 
   constructor() {
     super();
+
+    const gc = GlobalCache.getInstance();
+    if (gc.userRoles === undefined) {
+      gc.allRolesResp?.subscribe({
+        next: (roles: string[]) => {
+          this.isAdmin = roles.includes('Admin');
+        },
+        error: (err: string) => console.error(err)
+      });
+    } else {
+      this.isAdmin = gc.userRoles.includes('Admin');
+    }
 
     super.loadEnvironmentInfo();
   }
@@ -197,6 +246,29 @@ export class EnvDatabases extends PageEnvBase {
 
   private openAttachDatabaseDialog() {
     this.attachDatabaseDialogOpened = true;
+  }
+
+  private renderDatabaseAccessDialog = () => html`
+    <database-access-panel
+      style="width: min(72rem, 85vw)"
+      .envId="${this.environmentId}"
+      .databases="${this.databases ?? []}"
+      .readonly="${this.envReadOnly}"
+    ></database-access-panel>
+  `;
+
+  private renderDatabaseAccessFooter = () => html`
+    <vaadin-button @click="${this.closeDatabaseAccessDialog}"
+      >Close</vaadin-button
+    >
+  `;
+
+  private openDatabaseAccessDialog() {
+    this.databaseAccessDialogOpened = true;
+  }
+
+  private closeDatabaseAccessDialog() {
+    this.databaseAccessDialogOpened = false;
   }
 
   private closeAttachDatabaseDialog() {

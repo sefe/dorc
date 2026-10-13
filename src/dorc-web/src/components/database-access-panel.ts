@@ -17,7 +17,6 @@ import {
   DatabaseAccessDirectoryIdentity,
   DatabaseAccessImportPreview,
   DatabaseAccessImportRequest,
-  DatabaseAccessPreview,
   DatabaseAccessPrincipal,
   DatabaseAccessState,
   DatabaseAccessStatus,
@@ -66,7 +65,6 @@ export class DatabaseAccessPanel extends LitElement {
   @state() private databaseId = 0;
   @state() private status?: DatabaseAccessStatus;
   @state() private desired?: DatabaseAccessState;
-  @state() private preview?: DatabaseAccessPreview;
   @state() private imported?: DatabaseAccessImportPreview;
   @state() private audit: DatabaseAccessAuditApiModel[] = [];
   @state() private identities: DatabaseAccessDirectoryIdentity[] = [];
@@ -103,8 +101,8 @@ export class DatabaseAccessPanel extends LitElement {
   private search = '';
   private roleName = '';
   private managedRole = false;
-  private memberPrincipal = '';
-  private memberRole = '';
+  @state() private memberPrincipal = '';
+  @state() private memberRole = '';
   private confirmedMappings?: DatabaseAccessImportRequest;
 
   static styles = css`
@@ -266,7 +264,6 @@ export class DatabaseAccessPanel extends LitElement {
     this.epoch++;
     this.status = undefined;
     this.desired = undefined;
-    this.preview = undefined;
     this.imported = undefined;
     this.audit = [];
     this.identities = [];
@@ -357,12 +354,12 @@ export class DatabaseAccessPanel extends LitElement {
   }
 
   private save(change: (state: DatabaseAccessState) => void) {
-    if (!this.desired || this.busy || this.readonly) return;
+    if (!this.desired || this.busy || this.readonly)
+      return Promise.resolve(false);
     const state = structuredClone(this.desired);
     change(state);
-    this.preview = undefined;
     this.invalidateImport();
-    void this.request(
+    return this.request(
       this.api.databaseAccessSave({
         ...this.target,
         databaseAccessState: state
@@ -395,47 +392,6 @@ export class DatabaseAccessPanel extends LitElement {
       if (existing) Object.assign(existing, principal);
       else state.Principals.push(principal);
     });
-  }
-
-  private async apply() {
-    if (
-      !this.preview ||
-      this.busy ||
-      this.readonly ||
-      !this.status?.ExecutionEnabled ||
-      this.preview.Errors.length
-    )
-      return;
-    const target = this.target;
-    const token = this.preview.Token;
-    const epoch = this.epoch;
-    const api = this.api;
-    this.busy = true;
-    const confirmed = await confirmPrompt(
-      'Apply the displayed changes to this target database?'
-    );
-    if (!this.isCurrent(epoch)) return;
-    this.busy = false;
-    if (!confirmed) return;
-    this.preview = undefined;
-    const applied = await this.request(
-      api.databaseAccessApply({
-        ...target,
-        databaseAccessConfirmation: { Token: token }
-      }),
-      value => {
-        this.preview = value;
-        this.message = 'Target database reconciliation completed.';
-      }
-    );
-    if (applied && this.isCurrent(epoch))
-      await this.request(
-        api.databaseAccessAudit(target),
-        value => {
-          this.audit = value;
-        },
-        false
-      );
   }
 
   private invalidateImport(clearApprovals = true) {
@@ -935,12 +891,12 @@ export class DatabaseAccessPanel extends LitElement {
     const api = this.api;
     this.busy = true;
     const confirmed = await confirmPrompt(
-      'Import the preview into the new desired-state stack? Legacy records and target databases are unchanged. Target access has not been checked; run a separate target preview before Apply.' +
+      'Import the preview into the DOrc desired state? Legacy records and target databases are unchanged. Target access has not been checked.' +
         ((this.imported.ExcludedAccounts?.length ?? 0) > 0
           ? ` Exclude these accounts and all their assignments from this import: ${this.imported.ExcludedAccounts!.map(e => `${e.LoginName} (legacy ID ${e.LegacyUserId}, ${e.AssignmentCount} assignments)`).join('; ')}. Their existing SQL access will not be removed or managed.`
           : '') +
         (this.importedDbOwnerNames().length
-          ? ` Manage db_owner membership for: ${this.importedDbOwnerNames().join('; ')}. This grants full database control; a separately confirmed Apply can grant or restore these memberships.`
+          ? ` Manage db_owner membership for: ${this.importedDbOwnerNames().join('; ')}. This grants full database control when the deployment applies it to the target.`
           : '')
     );
     if (!this.isCurrent(epoch)) return;
@@ -953,8 +909,7 @@ export class DatabaseAccessPanel extends LitElement {
       }),
       () => {
         this.message =
-          'Imported desired state. Legacy and target databases were not modified. Target access has not been checked; use Discover and preview target changes before Apply.';
-        this.preview = undefined;
+          'Imported desired state. Legacy and target databases were not modified. Target access has not been checked.';
         this.invalidateImport();
       }
     );
@@ -995,10 +950,10 @@ export class DatabaseAccessPanel extends LitElement {
           DOMAIN\\account name. Accounts that cannot be matched still require
           review. Loading, previewing and importing do not connect to the target
           database. Import saves configuration in DOrc only, without validating
-          target logins, roles or permissions. Target preview and Apply are
-          separate actions. If a Windows account cannot be resolved, explicitly
-          exclude it from this import. Excluding an account skips all its
-          assignments; it does not remove existing SQL access or legacy records.
+          target logins, roles or permissions. If a Windows account cannot be
+          resolved, explicitly exclude it from this import. Excluding an account
+          skips all its assignments; it does not remove existing SQL access or
+          legacy records.
         </p>
         <div class="toolbar">
           <vaadin-button ?disabled=${disabled} @click=${this.prepareImport}
@@ -1025,8 +980,8 @@ export class DatabaseAccessPanel extends LitElement {
                           <table class="import-review" id="import-role-review">
                             <caption>
                               Review permission-to-role mappings. Choose or
-                              enter a role name. Its existence is checked only
-                              during the separate target preview.
+                              enter a role name. Its existence is not checked
+                              against the target database.
                             </caption>
                             <thead>
                               <tr>
@@ -1385,8 +1340,7 @@ export class DatabaseAccessPanel extends LitElement {
                                         </ul>
                                         <p>
                                           Import records the approved desired
-                                          memberships. SQL changes still require
-                                          a separate preview and Apply.
+                                          memberships in DOrc only.
                                         </p>
                                       </div>`
                                     : nothing
@@ -1530,13 +1484,12 @@ export class DatabaseAccessPanel extends LitElement {
   render() {
     const disabled = this.busy || this.readonly;
     return html`
-      <vaadin-details class="panel" summary="Database Access">
+      <div class="panel">
         <div class="content">
           <p class="description">
-            Manage SQL database users and roles. The existing Users and
-            Permissions controls above remain unchanged. Saving or importing
-            records changes the configuration in DOrc only; applying a confirmed
-            preview updates the target database.
+            Manage SQL database users and roles for this environment. Saving or
+            importing records changes the configuration in DOrc only; it does
+            not connect to or change the target database.
           </p>
           <div class="toolbar">
             <vaadin-combo-box
@@ -1587,31 +1540,12 @@ export class DatabaseAccessPanel extends LitElement {
                   <p class="metadata">
                     Provider: ${this.desired.Provider} · revision
                     ${this.desired.Revision} · ${this.desired.Principals.length}
-                    principals · target execution
-                    ${this.status?.ExecutionEnabled ? 'enabled' : 'disabled'}
+                    principals
                   </p>
                   <p class="description">
                     ${this.status?.Limitations.join(' ')}
                   </p>
-                  <div class="notice">
-                    Migrating records only? Complete step 1 and stop. Steps 2
-                    and 3 are separate target operations, not import
-                    prerequisites.
-                  </div>
-                  <section
-                    class="workflow-step"
-                    aria-labelledby="prepare-access-heading"
-                  >
-                    <h3 id="prepare-access-heading">
-                      1. Prepare access in DOrc
-                    </h3>
-                    <p class="description">
-                      For migration, load legacy access, review the mappings,
-                      preview the metadata import, then confirm it. This saves
-                      only DOrc records; it does not connect to the target
-                      database. You can also review or edit already saved
-                      configuration below.
-                    </p>
+                  <section class="workflow-step">
                     ${this.renderLegacyImport(disabled)}
                     <vaadin-details
                       id="desired-state-editor"
@@ -1619,8 +1553,7 @@ export class DatabaseAccessPanel extends LitElement {
                     >
                       <p class="description">
                         These controls update desired state in DOrc only, not
-                        SQL permissions. Changes require a new target preview
-                        before Apply.
+                        SQL permissions.
                       </p>
                       <fieldset ?disabled=${disabled}>
                         <legend>
@@ -1828,9 +1761,10 @@ export class DatabaseAccessPanel extends LitElement {
                           }}
                         ></vaadin-combo-box>
                         <vaadin-button
-                          ?disabled=${disabled}
-                          @click=${() =>
-                            this.save(state => {
+                          theme="primary"
+                          ?disabled=${disabled || !this.memberPrincipal || !this.memberRole}
+                          @click=${async () => {
+                            const saved = await this.save(state => {
                               const existing = state.Memberships.find(
                                 m =>
                                   m.Principal === this.memberPrincipal &&
@@ -1843,7 +1777,12 @@ export class DatabaseAccessPanel extends LitElement {
                                   Role: this.memberRole,
                                   Present: true
                                 });
-                            })}
+                            });
+                            if (saved) {
+                              this.memberPrincipal = '';
+                              this.memberRole = '';
+                            }
+                          }}
                           >Save assignment</vaadin-button
                         >
                       </fieldset>
@@ -1869,87 +1808,6 @@ export class DatabaseAccessPanel extends LitElement {
                         )}
                       </ul>
                     </vaadin-details>
-                  </section>
-                  <section
-                    class="workflow-step"
-                    aria-labelledby="preview-access-heading"
-                  >
-                    <h3 id="preview-access-heading">
-                      2. Preview target changes
-                    </h3>
-                    <p class="description">
-                      Connects to the target database to check logins, roles and
-                      permissions, then compares them with saved DOrc
-                      configuration. This is read-only: no target permissions
-                      are changed. Resolve any reported errors before continuing
-                      to step 3.
-                    </p>
-                    <div class="toolbar">
-                      <vaadin-button
-                        ?disabled=${disabled}
-                        @click=${() => {
-                          this.preview = undefined;
-                          void this.request(
-                            this.api.databaseAccessPreview(this.target),
-                            value => {
-                              this.preview = value;
-                            }
-                          );
-                        }}
-                        >Discover and preview target changes</vaadin-button
-                      >
-                    </div>
-                    ${
-                      this.preview
-                        ? html`
-                            <h3>
-                              Target preview: ${this.preview.Operations.length}
-                              changes
-                            </h3>
-                            ${this.preview.Errors.map(e => html`<p role="alert">${e}</p>`)}
-                            <ul>
-                              ${this.preview.Operations.map(o => html`<li>${o.Action}: ${o.Principal} ${o.Role} ${o.Login}</li>`)}
-                            </ul>
-                            ${!this.preview.Operations.length && !this.preview.Errors.length ? html`<p>Managed state matches the target. Unmanaged objects are unchanged.</p>` : nothing}
-                            <vaadin-details
-                              summary="Observed principals and role memberships"
-                            >
-                              <hegs-json-viewer
-                                .data=${{
-                                  Principals: this.preview.Observed.Principals,
-                                  Roles: this.preview.Observed.Roles,
-                                  Memberships: this.preview.Observed.Memberships
-                                }}
-                              ></hegs-json-viewer>
-                            </vaadin-details>
-                          `
-                        : html`<p class="description">
-                            No target preview is available. Importing metadata
-                            does not verify target readiness.
-                          </p>`
-                    }
-                  </section>
-                  <section
-                    class="workflow-step"
-                    aria-labelledby="apply-access-heading"
-                  >
-                    <h3 id="apply-access-heading">
-                      3. Apply confirmed target changes
-                    </h3>
-                    <p class="description">
-                      Changes SQL users, managed roles and memberships on the
-                      target database. Requires an error-free target preview
-                      with pending changes and a separate confirmation. This is
-                      not required to migrate records into DOrc.
-                    </p>
-                    <div class="toolbar">
-                      <vaadin-button
-                        theme="primary"
-                        ?disabled=${disabled || !this.status?.ExecutionEnabled || !this.preview || !!this.preview.Errors.length || !this.preview.Operations.length}
-                        @click=${this.apply}
-                        >Apply confirmed preview</vaadin-button
-                      >
-                    </div>
                   </section>
                   <vaadin-details
                     summary=${`Recent audit and reconciliation outcomes (${this.audit.length})`}
@@ -1980,7 +1838,7 @@ export class DatabaseAccessPanel extends LitElement {
               : nothing
           }
         </div>
-      </vaadin-details>
+      </div>
     `;
   }
 }
