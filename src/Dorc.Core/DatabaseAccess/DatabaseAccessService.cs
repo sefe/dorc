@@ -81,6 +81,8 @@ public sealed class DatabaseAccessService(
             throw new ArgumentException("New principals must be present and cannot claim legacy provenance outside import.");
         if (desired.Roles.Any(r => !r.Present && !current.Roles.Any(c => DatabaseAccessPlanner.Names.Equals(c.Name, r.Name))))
             throw new ArgumentException("Cannot drop an untracked role.");
+        if (!(desired.ExcludedLegacyUserIds ?? []).Order().SequenceEqual(current.ExcludedLegacyUserIds.Order()))
+            throw new ArgumentException("Migration exclusions can only be changed through legacy import.");
     }
 
     public DatabaseAccessPreview Preview(int id)
@@ -175,7 +177,8 @@ public sealed class DatabaseAccessService(
         state.DatabaseId, state.Provider, state.Revision,
         Principals = state.Principals.OrderBy(p => p.Name, StringComparer.Ordinal),
         Roles = state.Roles.OrderBy(r => r.Name, StringComparer.Ordinal),
-        Memberships = state.Memberships.OrderBy(m => m.Principal, StringComparer.Ordinal).ThenBy(m => m.Role, StringComparer.Ordinal)
+        Memberships = state.Memberships.OrderBy(m => m.Principal, StringComparer.Ordinal).ThenBy(m => m.Role, StringComparer.Ordinal),
+        ExcludedLegacyUserIds = state.ExcludedLegacyUserIds.Order()
     };
 
     public List<DatabaseAccessAuditApiModel> Audit(int id)

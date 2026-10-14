@@ -8211,7 +8211,8 @@
           "Provider": { "type": "string" },
           "Principals": { "type": "array", "items": { "$ref": "#/components/schemas/DatabaseAccessPrincipal" } },
           "Roles": { "type": "array", "items": { "$ref": "#/components/schemas/DatabaseAccessRole" } },
-          "Memberships": { "type": "array", "items": { "$ref": "#/components/schemas/DatabaseAccessMembership" } }
+          "Memberships": { "type": "array", "items": { "$ref": "#/components/schemas/DatabaseAccessMembership" } },
+          "ExcludedLegacyUserIds": { "type": "array", "items": { "type": "integer", "format": "int32" } }
         }
       },
       "DatabaseAccessPrincipal": {

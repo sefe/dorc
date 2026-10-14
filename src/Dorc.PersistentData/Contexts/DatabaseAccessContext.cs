@@ -42,6 +42,13 @@ public sealed class DatabaseAccessContext(DbContextOptions<DatabaseAccessContext
         membership.HasOne<DatabaseAccessRoleRecord>().WithMany()
             .HasForeignKey(x => new { x.DatabaseId, x.Role }).OnDelete(DeleteBehavior.Restrict);
 
+        var exclusion = model.Entity<DatabaseAccessExclusionRecord>();
+        exclusion.ToTable("DatabaseAccessExclusion", "deploy");
+        exclusion.HasKey(x => new { x.DatabaseId, x.LegacyUserId });
+        exclusion.Property(x => x.LegacyUserId).ValueGeneratedNever();
+        exclusion.HasOne<DatabaseAccessConfiguration>().WithMany().HasForeignKey(x => x.DatabaseId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         var audit = model.Entity<DatabaseAccessAudit>();
         audit.ToTable("DatabaseAccessAudit", "deploy");
         audit.HasKey(x => x.Id);

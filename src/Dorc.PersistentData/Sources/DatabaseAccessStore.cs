@@ -41,7 +41,9 @@ public sealed class DatabaseAccessStore(IDeploymentContextFactory factory)
             Roles = context.Set<DatabaseAccessRoleRecord>().Where(x => x.DatabaseId == databaseId).OrderBy(x => x.Name)
                 .Select(x => new DatabaseAccessRole { Name = x.Name, Present = x.Present, Managed = x.Managed }).ToList(),
             Memberships = context.Set<DatabaseAccessMembershipRecord>().Where(x => x.DatabaseId == databaseId).OrderBy(x => x.Principal).ThenBy(x => x.Role)
-                .Select(x => new DatabaseAccessMembership { Principal = x.Principal, Role = x.Role, Present = x.Present }).ToList()
+                .Select(x => new DatabaseAccessMembership { Principal = x.Principal, Role = x.Role, Present = x.Present }).ToList(),
+            ExcludedLegacyUserIds = context.Set<DatabaseAccessExclusionRecord>().Where(x => x.DatabaseId == databaseId)
+                .OrderBy(x => x.LegacyUserId).Select(x => x.LegacyUserId).ToList()
         };
     }
 
@@ -78,6 +80,11 @@ public sealed class DatabaseAccessStore(IDeploymentContextFactory factory)
             if (row == null) { row = new() { DatabaseId = state.DatabaseId, Principal = item.Principal, Role = item.Role }; context.Add(row); }
             row.Present = item.Present;
         }
+        var excluded = (state.ExcludedLegacyUserIds ?? []).ToHashSet();
+        var exclusions = context.Set<DatabaseAccessExclusionRecord>().Where(x => x.DatabaseId == state.DatabaseId).ToList();
+        context.RemoveRange(exclusions.Where(x => !excluded.Contains(x.LegacyUserId)));
+        foreach (var id in excluded.Where(id => exclusions.All(x => x.LegacyUserId != id)))
+            context.Add(new DatabaseAccessExclusionRecord { DatabaseId = state.DatabaseId, LegacyUserId = id });
         Audit(context, state.DatabaseId, actor, action, "Succeeded", auditDetail ?? System.Text.Json.JsonSerializer.Serialize(state));
         transaction.Commit();
         return Read(context, state.DatabaseId);

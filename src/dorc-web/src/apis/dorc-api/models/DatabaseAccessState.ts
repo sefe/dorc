@@ -52,4 +52,9 @@ export interface DatabaseAccessState {
      * @memberof DatabaseAccessState
      */
     Memberships: Array<DatabaseAccessMembership>;
+    /**
+     * @type {Array<number>}
+     * @memberof DatabaseAccessState
+     */
+    ExcludedLegacyUserIds?: Array<number>;
 }

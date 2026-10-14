@@ -132,6 +132,7 @@ public static class DatabaseAccessImport
         }
         try { DatabaseAccessPlanner.Validate(proposed); }
         catch (ArgumentException e) { result.Errors.Add(e.Message); }
+        proposed.ExcludedLegacyUserIds = excludedIds.Order().ToList();
         result.Token = DatabaseAccessPlanner.Fingerprint(new
         {
             current, source, request.RoleMappings, request.DirectoryMappings, request.ExcludedLegacyUserIds,

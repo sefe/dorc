@@ -36,7 +36,7 @@ public class DatabaseAccessSqlTests
             connection.Open();
             Execute(connection, "CREATE SCHEMA [deploy];");
             Execute(connection, "CREATE TABLE [dbo].[DATABASE] ([DB_ID] INT PRIMARY KEY); INSERT [dbo].[DATABASE] VALUES (1);");
-            foreach (var name in new[] { "DatabaseAccessConfiguration", "DatabaseAccessPrincipal", "DatabaseAccessRole", "DatabaseAccessMembership", "DatabaseAccessAudit" })
+            foreach (var name in new[] { "DatabaseAccessConfiguration", "DatabaseAccessPrincipal", "DatabaseAccessRole", "DatabaseAccessMembership", "DatabaseAccessExclusion", "DatabaseAccessAudit" })
                 foreach (var batch in System.Text.RegularExpressions.Regex.Split(File.ReadAllText(SchemaFile(name)), @"(?m)^GO\s*$")
                     .Where(batch => !string.IsNullOrWhiteSpace(batch)))
                     Execute(connection, batch);
@@ -115,6 +115,8 @@ public class DatabaseAccessSqlTests
                 service.Import(2, import, true, "test");
                 Assert.AreEqual(1L, service.Get(2).Revision);
                 Assert.AreEqual("Native", service.Get(2).Principals.Single().Kind);
+                CollectionAssert.AreEqual(new[] { 43 }, service.Get(2).ExcludedLegacyUserIds);
+                Assert.ThrowsExactly<SqlException>(() => Execute(connection, "INSERT deploy.DatabaseAccessExclusion VALUES (2,0);"));
                 var audit = service.Audit(2).Single(a => a.Action == "Import");
                 Assert.AreEqual("Succeeded", audit.Status);
                 var detail = System.Text.Json.JsonSerializer.Deserialize<DatabaseAccessImportPreview>(audit.Detail)!;

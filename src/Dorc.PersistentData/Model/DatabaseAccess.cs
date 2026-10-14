@@ -34,6 +34,12 @@ public class DatabaseAccessMembershipRecord
     public bool Present { get; set; }
 }
 
+public class DatabaseAccessExclusionRecord
+{
+    public int DatabaseId { get; set; }
+    public int LegacyUserId { get; set; }
+}
+
 public class DatabaseAccessAudit
 {
     public long Id { get; set; }

@@ -17,6 +17,7 @@ import '../components/view-database-permissions';
 import { DatabaseApiModel } from '../apis/dorc-api';
 import { EditDatabasePermissions } from './edit-database-permissions';
 import { ViewDatabasePermissions } from './view-database-permissions';
+import type { DatabaseAccessView } from './database-access-panel';
 import { map } from 'lit/directives/map.js';
 
 @customElement('attached-databases')
@@ -35,6 +36,8 @@ export class AttachedDatabases extends ResponsiveMixin(LitElement) {
   @property({ type: Boolean }) readonly = true;
 
   @property({ type: Boolean }) canManageDatabaseAccess = false;
+
+  @property({ type: Array }) unmigratedDatabaseIds: number[] = [];
 
   @property({ type: Array })
   public databases: Array<DatabaseApiModel> | undefined = [];
@@ -126,7 +129,8 @@ export class AttachedDatabases extends ResponsiveMixin(LitElement) {
           ${columnBodyRenderer(this.databaseControlsRenderer, [
             this.envId,
             this.readonly,
-            this.canManageDatabaseAccess
+            this.canManageDatabaseAccess,
+            this.unmigratedDatabaseIds
           ])}
           resizable
         >
@@ -206,6 +210,7 @@ export class AttachedDatabases extends ResponsiveMixin(LitElement) {
       .envId="${this.envId}"
       .readonly="${this.readonly}"
       .canManageDatabaseAccess="${this.canManageDatabaseAccess}"
+      .needsMigration="${this.unmigratedDatabaseIds.includes(db.Id ?? 0)}"
       @database-detached="${() =>
         this.dispatchEvent(
           new CustomEvent('database-detached', { detail: { db } })
@@ -218,10 +223,12 @@ export class AttachedDatabases extends ResponsiveMixin(LitElement) {
         this.viewDbId = db.Id || 0;
         this.viewPermissionsDialogOpened = true;
       }}"
-      @manage-database-access="${() =>
+      @manage-database-access="${(
+        event: CustomEvent<{ view: DatabaseAccessView }>
+      ) =>
         this.dispatchEvent(
           new CustomEvent('manage-database-access', {
-            detail: { database: db }
+            detail: { database: db, view: event.detail.view }
           })
         )}"
     ></database-env-controls>

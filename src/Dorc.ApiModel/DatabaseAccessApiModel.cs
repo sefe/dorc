@@ -11,6 +11,8 @@ namespace Dorc.ApiModel
         public List<DatabaseAccessPrincipal> Principals { get; set; } = new List<DatabaseAccessPrincipal>();
         public List<DatabaseAccessRole> Roles { get; set; } = new List<DatabaseAccessRole>();
         public List<DatabaseAccessMembership> Memberships { get; set; } = new List<DatabaseAccessMembership>();
+        // Legacy accounts deliberately left out of migration; changed only through legacy import.
+        public List<int> ExcludedLegacyUserIds { get; set; } = new List<int>();
     }
 
     public class DatabaseAccessPrincipal

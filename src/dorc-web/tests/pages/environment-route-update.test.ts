@@ -69,9 +69,19 @@ describe('environment route updates', () => {
       ) as HTMLElement & { updateComplete: Promise<boolean> };
       await controls.updateComplete;
       const manageAccess = controls.shadowRoot!.querySelector(
-        '[aria-label="Manage database access"]'
+        '[aria-label="Assign database permissions"]'
       ) as HTMLElement;
       expect(manageAccess).not.to.equal(null);
+      expect(
+        controls.shadowRoot!.querySelector(
+          '[aria-label="Migrate database access"]'
+        )
+      ).not.to.equal(null);
+      expect(
+        controls.shadowRoot!.querySelector(
+          '[aria-label="Database access audit"]'
+        )
+      ).not.to.equal(null);
       manageAccess.click();
       await databases.updateComplete;
 
@@ -79,7 +89,7 @@ describe('environment route updates', () => {
         '#database-access-dialog'
       ) as HTMLElement & { opened: boolean; headerTitle: string };
       expect(dialog.opened).to.equal(true);
-      expect(dialog.headerTitle).to.equal('Database Access - SQL01 / App');
+      expect(dialog.headerTitle).to.equal('Database permissions - SQL01 / App');
     });
 
     it('keeps the servers grid within the space below the component tabs', async () => {

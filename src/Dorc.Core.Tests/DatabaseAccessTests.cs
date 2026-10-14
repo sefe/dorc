@@ -153,6 +153,12 @@ public class DatabaseAccessTests
         desired = Desired();
         desired.Revision--;
         Assert.ThrowsExactly<DatabaseAccessConflictException>(() => DatabaseAccessService.ValidateTransition(current, desired));
+        desired = Desired();
+        desired.ExcludedLegacyUserIds.Add(7);
+        Assert.Contains("legacy import",
+            Assert.ThrowsExactly<ArgumentException>(() => DatabaseAccessService.ValidateTransition(current, desired)).Message);
+        current.ExcludedLegacyUserIds.Add(7);
+        DatabaseAccessService.ValidateTransition(current, desired);
     }
 
     [TestMethod]
@@ -200,6 +206,13 @@ public class DatabaseAccessTests
         Assert.HasCount(0, preview.Errors);
         Assert.AreEqual(3, preview.SourceAssignments);
         Assert.AreEqual("app", preview.Proposed.Principals.Single().Name);
+        CollectionAssert.AreEqual(new[] { 2 }, preview.Proposed.ExcludedLegacyUserIds);
+        request.ExcludedLegacyUserIds.Clear();
+        request.DirectoryMappings[2] = "resolved";
+        Assert.HasCount(0, DatabaseAccessImport.Build(preview.Proposed, source, request).Proposed.ExcludedLegacyUserIds,
+            "A later import that includes the account replaces the stored exclusion.");
+        request.DirectoryMappings.Remove(2);
+        request.ExcludedLegacyUserIds.Add(2);
         Assert.HasCount(1, preview.Proposed.Memberships);
         var excluded = preview.ExcludedAccounts.Single();
         Assert.AreEqual(2, excluded.LegacyUserId);

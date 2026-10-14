@@ -53,7 +53,10 @@ vi.mock('../../src/components/confirm-prompt', () => ({
 }));
 
 import '../../src/components/database-access-panel';
-import type { DatabaseAccessPanel } from '../../src/components/database-access-panel';
+import {
+  hasUnmigratedLegacyAccess,
+  type DatabaseAccessPanel
+} from '../../src/components/database-access-panel';
 
 const empty: DatabaseAccessState = {
   DatabaseId: 1,
@@ -153,6 +156,14 @@ function click(panel: DatabaseAccessPanel, text: string) {
   );
   if (!button) throw new Error(`Missing button: ${text}`);
   (button as HTMLElement).click();
+}
+
+function inclusion(panel: DatabaseAccessPanel, login: string) {
+  const checkbox = [
+    ...panel.shadowRoot!.querySelectorAll<Checkbox>('vaadin-checkbox')
+  ].find(c => c.getAttribute('aria-label') === `Include ${login} in migration`);
+  if (!checkbox) throw new Error(`Missing inclusion checkbox: ${login}`);
+  return checkbox;
 }
 
 async function load() {
@@ -678,9 +689,166 @@ describe('Database access side-by-side panel', () => {
     expect(mocks.import.mock.calls).to.have.length(0);
     expect(mocks.apply.mock.calls).to.have.length(0);
     expect(mocks.preview.mock.calls).to.have.length(0);
-    expect(panel.shadowRoot!.textContent).not.to.contain(
-      'Exclude from migration'
+    const managed = inclusion(panel, 'DOMAIN\\readers');
+    expect(managed.checked).to.equal(true);
+    expect(managed.disabled).to.equal(true);
+    expect(
+      panel
+        .shadowRoot!.querySelector('[data-legacy-user-id="7"]')!
+        .classList.contains('import-ready')
+    ).to.equal(true);
+  });
+
+  it('restores persisted exclusions as unticked accounts without their directory mapping', async () => {
+    mocks.legacy.mockReturnValue(
+      of([
+        { ...legacy, UserLoginId: 'DOMAIN\\readers', UserLoginType: 'Windows' }
+      ])
     );
+    mocks.get.mockReturnValue(
+      of({ ...structuredClone(empty), ExcludedLegacyUserIds: [7] })
+    );
+    mocks.lookup.mockReturnValue(of(directoryIdentity));
+    mocks.importPreview.mockReturnValue(
+      of({
+        Token: 'import-token',
+        Proposed: empty,
+        Errors: [],
+        SourceAssignments: 1,
+        ExcludedAccounts: [
+          {
+            LegacyUserId: 7,
+            LoginName: 'DOMAIN\\readers',
+            Permissions: ['Read'],
+            AssignmentCount: 1
+          }
+        ]
+      })
+    );
+    const panel = await load();
+    await prepareImport(panel);
+    const request = mocks.importPreview.mock.calls[0][0]
+      .databaseAccessImportRequest as DatabaseAccessImportRequest;
+    expect(request.ExcludedLegacyUserIds).to.deep.equal([7]);
+    expect(request.DirectoryMappings).to.deep.equal({});
+    expect(inclusion(panel, 'DOMAIN\\readers').checked).to.equal(false);
+  });
+
+  it('shows only the requested view and loads legacy access automatically when migrating', async () => {
+    mocks.importPreview.mockReturnValue(
+      of({
+        Token: 'import-token',
+        Proposed: empty,
+        Errors: [],
+        SourceAssignments: 1
+      })
+    );
+    const migrate = await fixture<DatabaseAccessPanel>(
+      html`<database-access-panel
+        .envId=${10}
+        .readonly=${false}
+        .databases=${[{ Id: 1, Name: 'App', ServerName: 'Server' }]}
+        .selectedDatabaseId=${1}
+        .view=${'migrate'}
+      ></database-access-panel>`
+    );
+    await vi.waitFor(() =>
+      expect(mocks.importPreview.mock.calls).to.have.length(1)
+    );
+    await migrate.updateComplete;
+    expect(migrate.shadowRoot!.querySelector('#legacy-import')).not.to.equal(
+      null
+    );
+    expect(migrate.shadowRoot!.querySelector('#desired-state-editor')).to.equal(
+      null
+    );
+
+    const audit = await fixture<DatabaseAccessPanel>(
+      html`<database-access-panel
+        .envId=${10}
+        .readonly=${false}
+        .databases=${[{ Id: 1, Name: 'App', ServerName: 'Server' }]}
+        .selectedDatabaseId=${1}
+        .view=${'audit'}
+      ></database-access-panel>`
+    );
+    await vi.waitFor(() =>
+      expect(
+        audit.shadowRoot!.querySelector('#database-access-audit')
+      ).not.to.equal(null)
+    );
+    expect(audit.shadowRoot!.querySelector('#legacy-import')).to.equal(null);
+    expect(audit.shadowRoot!.querySelector('#desired-state-editor')).to.equal(
+      null
+    );
+    expect(mocks.importPreview.mock.calls).to.have.length(1);
+  });
+
+  it('treats legacy accounts as migrated only when imported or excluded', () => {
+    const assignments = [
+      { ...legacy, UserId: 7 },
+      { ...legacy, UserId: 8 }
+    ];
+    const state = {
+      ...empty,
+      Principals: [
+        { Name: 'a', Kind: 'Native', LegacyUserId: 7, Present: true }
+      ]
+    };
+    expect(hasUnmigratedLegacyAccess(assignments, state)).to.equal(true);
+    expect(
+      hasUnmigratedLegacyAccess(assignments, {
+        ...state,
+        ExcludedLegacyUserIds: [8]
+      })
+    ).to.equal(false);
+    expect(hasUnmigratedLegacyAccess([], empty)).to.equal(false);
+  });
+
+  it('unticking a resolved Windows account drops its mapping and reticking restores it', async () => {
+    mocks.legacy.mockReturnValue(
+      of([
+        { ...legacy, UserLoginId: 'DOMAIN\\readers', UserLoginType: 'Windows' }
+      ])
+    );
+    mocks.lookup.mockReturnValue(of(directoryIdentity));
+    mocks.importPreview.mockReturnValue(
+      of({
+        Token: 'import-token',
+        Proposed: empty,
+        Errors: [],
+        SourceAssignments: 1
+      })
+    );
+    const panel = await load();
+    await prepareImport(panel);
+    inclusion(panel, 'DOMAIN\\readers').click();
+    await panel.updateComplete;
+    expect(
+      panel
+        .shadowRoot!.querySelector('[data-legacy-user-id="7"]')!
+        .classList.contains('import-excluded')
+    ).to.equal(true);
+    click(panel, 'Preview legacy import');
+    await vi.waitFor(() =>
+      expect(mocks.importPreview.mock.calls).to.have.length(2)
+    );
+    let request = mocks.importPreview.mock.calls[1][0]
+      .databaseAccessImportRequest as DatabaseAccessImportRequest;
+    expect(request.ExcludedLegacyUserIds).to.deep.equal([7]);
+    expect(request.DirectoryMappings).to.deep.equal({});
+    await panel.updateComplete;
+    inclusion(panel, 'DOMAIN\\readers').click();
+    await panel.updateComplete;
+    click(panel, 'Preview legacy import');
+    await vi.waitFor(() =>
+      expect(mocks.importPreview.mock.calls).to.have.length(3)
+    );
+    request = mocks.importPreview.mock.calls[2][0].databaseAccessImportRequest;
+    expect(request.ExcludedLegacyUserIds).to.deep.equal([]);
+    expect(request.DirectoryMappings).to.deep.equal({
+      '7': directoryIdentity.Id
+    });
   });
 
   it('explicitly excludes unresolved accounts, previews every skipped assignment and confirms without applying SQL', async () => {
@@ -726,7 +894,7 @@ describe('Database access side-by-side panel', () => {
       mocks.importPreview.mock.calls[0][0].databaseAccessImportRequest
         .ExcludedLegacyUserIds
     ).to.deep.equal([]);
-    click(panel, 'Exclude from migration');
+    inclusion(panel, 'DOMAIN\\missing').click();
     await panel.updateComplete;
     expect(panel.shadowRoot!.textContent).to.contain(
       'Excluded from this import'
@@ -775,9 +943,7 @@ describe('Database access side-by-side panel', () => {
     await prepareImport(panel);
     panel.readonly = true;
     await panel.updateComplete;
-    const exclude = [
-      ...panel.shadowRoot!.querySelectorAll('vaadin-button')
-    ].find(b => b.textContent?.trim() === 'Exclude from migration')!;
+    const exclude = inclusion(panel, 'DOMAIN\\missing');
     expect(exclude.disabled).to.equal(true);
     exclude.click();
     await panel.updateComplete;
@@ -786,9 +952,9 @@ describe('Database access side-by-side panel', () => {
     );
     panel.readonly = false;
     await panel.updateComplete;
-    click(panel, 'Exclude from migration');
+    inclusion(panel, 'DOMAIN\\missing').click();
     await panel.updateComplete;
-    click(panel, 'Include in migration');
+    inclusion(panel, 'DOMAIN\\missing').click();
     await panel.updateComplete;
     click(panel, 'Import confirmed preview');
     expect(mocks.import.mock.calls).to.have.length(0);
@@ -801,7 +967,7 @@ describe('Database access side-by-side panel', () => {
         .ExcludedLegacyUserIds
     ).to.deep.equal([]);
     await panel.updateComplete;
-    click(panel, 'Exclude from migration');
+    inclusion(panel, 'DOMAIN\\missing').click();
     await panel.updateComplete;
     click(panel, 'Reload legacy access');
     await vi.waitFor(() =>
@@ -827,7 +993,7 @@ describe('Database access side-by-side panel', () => {
       );
       const panel = await load();
       await prepareImport(panel);
-      click(panel, 'Exclude from migration');
+      inclusion(panel, 'DOMAIN\\missing').click();
       await panel.updateComplete;
       mocks.importPreview.mockReturnValue(
         of({
@@ -1123,7 +1289,11 @@ describe('Database access side-by-side panel', () => {
     expect(panel.shadowRoot!.textContent).to.contain(
       'Exact directory lookup could not resolve this account.'
     );
-    click(panel, 'Choose identity');
+    panel
+      .shadowRoot!.querySelector<HTMLElement>(
+        '[data-legacy-user-id="7"] vaadin-button[aria-label^="Choose directory identity"]'
+      )!
+      .click();
     await vi.waitFor(() => {
       const search = panel.shadowRoot!.querySelector<HTMLElement>(
         '#import-directory-picker vaadin-text-field'

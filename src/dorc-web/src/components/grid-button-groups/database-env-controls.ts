@@ -13,6 +13,7 @@ import {
 import '../../icons/social-icons.js';
 import '@vaadin/tooltip';
 import { dorcApiConfiguration } from '../../services/dorc-api-configuration';
+import type { DatabaseAccessView } from '../database-access-panel';
 
 @customElement('database-env-controls')
 export class DatabaseEnvControls extends LitElement {
@@ -25,6 +26,8 @@ export class DatabaseEnvControls extends LitElement {
 
   @property({ type: Boolean }) canManageDatabaseAccess = false;
 
+  @property({ type: Boolean }) needsMigration = false;
+
   static get styles() {
     return css`
       :host {
@@ -36,6 +39,28 @@ export class DatabaseEnvControls extends LitElement {
       vaadin-button {
         padding: 0px;
         margin: 0px;
+      }
+      .flagged {
+        position: relative;
+        display: inline-flex;
+      }
+      .badge {
+        position: absolute;
+        top: -4px;
+        right: -4px;
+        min-width: 14px;
+        height: 14px;
+        padding: 0 2px;
+        box-sizing: border-box;
+        border: 1px solid var(--dorc-error-color);
+        border-radius: 7px;
+        background: var(--dorc-failure-bg);
+        color: var(--dorc-text-primary);
+        font-size: 11px;
+        font-weight: 700;
+        line-height: 14px;
+        text-align: center;
+        pointer-events: none;
       }
     `;
   }
@@ -99,23 +124,54 @@ export class DatabaseEnvControls extends LitElement {
       ${
         this.canManageDatabaseAccess
           ? html`
-              <vaadin-button
-                aria-label="Manage database access"
-                theme="icon"
-                @click="${this.manageDatabaseAccess}"
-              >
-                <vaadin-tooltip
-                  slot="tooltip"
-                  text="Manage database access"
-                ></vaadin-tooltip>
-                <vaadin-icon
-                  icon="vaadin:database"
-                  style=${styleMap(databaseAccessStyles)}
-                ></vaadin-icon>
-              </vaadin-button>
+              <span class="flagged">
+                ${this.renderDatabaseAccessButton(
+                  'migrate',
+                  this.needsMigration
+                    ? 'Migrate database access (permissions not fully migrated)'
+                    : 'Migrate database access',
+                  'vaadin:database',
+                  databaseAccessStyles
+                )}
+                ${
+                  this.needsMigration
+                    ? html`<span class="badge" aria-hidden="true">!</span>`
+                    : nothing
+                }
+              </span>
+              ${this.renderDatabaseAccessButton(
+                'permissions',
+                'Assign database permissions',
+                'vaadin:key',
+                databaseAccessStyles
+              )}
+              ${this.renderDatabaseAccessButton(
+                'audit',
+                'Database access audit',
+                'vaadin:clipboard-text',
+                databaseAccessStyles
+              )}
             `
           : nothing
       }
+    `;
+  }
+
+  private renderDatabaseAccessButton(
+    view: DatabaseAccessView,
+    label: string,
+    icon: string,
+    styles: Record<string, string>
+  ) {
+    return html`
+      <vaadin-button
+        aria-label="${label}"
+        theme="icon"
+        @click="${() => this.manageDatabaseAccess(view)}"
+      >
+        <vaadin-tooltip slot="tooltip" text="${label}"></vaadin-tooltip>
+        <vaadin-icon icon="${icon}" style=${styleMap(styles)}></vaadin-icon>
+      </vaadin-button>
     `;
   }
 
@@ -148,8 +204,10 @@ export class DatabaseEnvControls extends LitElement {
     this.fireViewDbPerms();
   }
 
-  manageDatabaseAccess() {
-    this.dispatchEvent(new CustomEvent('manage-database-access'));
+  manageDatabaseAccess(view: DatabaseAccessView) {
+    this.dispatchEvent(
+      new CustomEvent('manage-database-access', { detail: { view } })
+    );
   }
 
   private fireDbDetachedEvent() {
