@@ -26,7 +26,17 @@ export class DatabaseEnvControls extends LitElement {
 
   @property({ type: Boolean }) canManageDatabaseAccess = false;
 
-  @property({ type: Boolean }) needsMigration = false;
+  /** Legacy logins not yet imported into DOrc or excluded from migration. */
+  @property({ type: Array }) unmigratedAccounts: string[] = [];
+
+  private get migrateLabel() {
+    const accounts = this.unmigratedAccounts;
+    if (!accounts.length) return 'Migrate database access';
+    const shown = accounts.slice(0, 10).join(', ');
+    const more =
+      accounts.length > 10 ? ` and ${accounts.length - 10} more` : '';
+    return `Migrate database access - ${accounts.length} account(s) not yet migrated or excluded: ${shown}${more}`;
+  }
 
   static get styles() {
     return css`
@@ -127,14 +137,12 @@ export class DatabaseEnvControls extends LitElement {
               <span class="flagged">
                 ${this.renderDatabaseAccessButton(
                   'migrate',
-                  this.needsMigration
-                    ? 'Migrate database access (permissions not fully migrated)'
-                    : 'Migrate database access',
+                  this.migrateLabel,
                   'vaadin:database',
                   databaseAccessStyles
                 )}
                 ${
-                  this.needsMigration
+                  this.unmigratedAccounts.length
                     ? html`<span class="badge" aria-hidden="true">!</span>`
                     : nothing
                 }

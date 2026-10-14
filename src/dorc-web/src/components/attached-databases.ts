@@ -37,7 +37,7 @@ export class AttachedDatabases extends ResponsiveMixin(LitElement) {
 
   @property({ type: Boolean }) canManageDatabaseAccess = false;
 
-  @property({ type: Array }) unmigratedDatabaseIds: number[] = [];
+  @property({ type: Object }) unmigratedAccounts: Record<number, string[]> = {};
 
   @property({ type: Array })
   public databases: Array<DatabaseApiModel> | undefined = [];
@@ -130,7 +130,7 @@ export class AttachedDatabases extends ResponsiveMixin(LitElement) {
             this.envId,
             this.readonly,
             this.canManageDatabaseAccess,
-            this.unmigratedDatabaseIds
+            this.unmigratedAccounts
           ])}
           resizable
         >
@@ -210,7 +210,7 @@ export class AttachedDatabases extends ResponsiveMixin(LitElement) {
       .envId="${this.envId}"
       .readonly="${this.readonly}"
       .canManageDatabaseAccess="${this.canManageDatabaseAccess}"
-      .needsMigration="${this.unmigratedDatabaseIds.includes(db.Id ?? 0)}"
+      .unmigratedAccounts="${this.unmigratedAccounts[db.Id ?? 0] ?? []}"
       @database-detached="${() =>
         this.dispatchEvent(
           new CustomEvent('database-detached', { detail: { db } })

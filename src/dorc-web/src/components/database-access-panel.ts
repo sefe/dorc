@@ -62,15 +62,18 @@ interface ImportDirectoryReview {
 
 export type DatabaseAccessView = 'all' | 'migrate' | 'permissions' | 'audit';
 
-/** True when a legacy account has neither been imported nor deliberately excluded. */
-export function hasUnmigratedLegacyAccess(
+/** Legacy logins that have neither been imported nor deliberately excluded. */
+export function unmigratedLegacyAccounts(
   assignments: UserDbPermissionApiModel[],
   state: DatabaseAccessState
 ) {
   const handled = new Set<number>(state.ExcludedLegacyUserIds ?? []);
   for (const principal of state.Principals)
     if (principal.LegacyUserId) handled.add(principal.LegacyUserId);
-  return assignments.some(a => !a.UserId || !handled.has(a.UserId));
+  const logins = assignments
+    .filter(a => !a.UserId || !handled.has(a.UserId))
+    .map(a => a.UserLoginId?.trim() || `legacy ID ${a.UserId ?? '?'}`);
+  return [...new Set(logins)].sort((a, b) => a.localeCompare(b));
 }
 
 @customElement('database-access-panel')
@@ -1106,15 +1109,15 @@ export class DatabaseAccessPanel extends LitElement {
         ${this.legacyLoaded ? html`<span class="description">Reloading replaces the current mapping selections.</span>` : nothing}
       </div>
       ${
-          this.legacyLoaded
-            ? html`
-                <p class="import-counts">
-                  ${this.legacyAssignmentCount} legacy assignments across
-                  ${this.legacyAccounts.length} accounts.
-                  ${this.excludedLegacyUserIds.length} accounts selected for
-                  exclusion.
-                </p>
-                ${
+        this.legacyLoaded
+          ? html`
+              <p class="import-counts">
+                ${this.legacyAssignmentCount} legacy assignments across
+                ${this.legacyAccounts.length} accounts.
+                ${this.excludedLegacyUserIds.length} accounts selected for
+                exclusion.
+              </p>
+              ${
                   !this.legacyAssignmentCount
                     ? html`<p>
                         No legacy assignments exist for this database.
@@ -1609,9 +1612,9 @@ export class DatabaseAccessPanel extends LitElement {
                         </vaadin-details>
                       `
                 }
-              `
-            : nothing
-        }
+            `
+          : nothing
+      }
     `;
   }
 
@@ -1742,41 +1745,40 @@ export class DatabaseAccessPanel extends LitElement {
           ?disabled=${disabled}
           .value=${this.principalName}
           @value-changed=${(e: TextFieldValueChangedEvent) => {
-                            this.principalName = e.detail.value;
-                          }}
+            this.principalName = e.detail.value;
+          }}
         ></vaadin-text-field>
         <vaadin-text-field
           label="Existing SQL server login (native users)"
           ?disabled=${disabled}
           .value=${this.loginName}
           @value-changed=${(e: TextFieldValueChangedEvent) => {
-                            this.loginName = e.detail.value;
-                          }}
+            this.loginName = e.detail.value;
+          }}
         ></vaadin-text-field>
         <vaadin-text-field
           label="Search AD users/groups"
           ?disabled=${disabled}
           .value=${this.search}
           @value-changed=${(e: TextFieldValueChangedEvent) => {
-                            this.search = e.detail.value;
-                          }}
+            this.search = e.detail.value;
+          }}
         ></vaadin-text-field>
         <vaadin-button
           ?disabled=${disabled}
           @click=${() =>
-                            this.request(
-                              this.api.databaseAccessDirectory({
-                                ...this.target,
-                                search: this.search
-                              }),
-                              value => {
-                                this.identities = value;
-                                this.directoryId = '';
-                                if (!value.length)
-                                  this.message =
-                                    'No directory identities found.';
-                              }
-                            )}
+            this.request(
+              this.api.databaseAccessDirectory({
+                ...this.target,
+                search: this.search
+              }),
+              value => {
+                this.identities = value;
+                this.directoryId = '';
+                if (!value.length)
+                  this.message = 'No directory identities found.';
+              }
+            )}
           >Search AD</vaadin-button
         >
         <vaadin-combo-box
@@ -1787,13 +1789,13 @@ export class DatabaseAccessPanel extends LitElement {
           item-label-path="label"
           item-value-path="value"
           .items=${this.identities.map(i => ({
-                            label: `${i.DisplayName} (${i.IsGroup ? 'group' : 'user'})`,
-                            value: i.Id
-                          }))}
+            label: `${i.DisplayName} (${i.IsGroup ? 'group' : 'user'})`,
+            value: i.Id
+          }))}
           .value=${this.directoryId}
           @value-changed=${(e: ComboBoxValueChangedEvent) => {
-                            this.directoryId = e.detail.value;
-                          }}
+            this.directoryId = e.detail.value;
+          }}
         ></vaadin-combo-box>
         <vaadin-button
           theme="primary"
@@ -1818,18 +1820,18 @@ export class DatabaseAccessPanel extends LitElement {
           </thead>
           <tbody>
             ${this.desired.Principals.map(
-                              p =>
-                                html`<tr>
-                                  <td>${p.Name}</td>
-                                  <td>${p.Kind}</td>
-                                  <td>
-                                    ${p.DirectoryId ? (this.directoryNames[p.DirectoryId] ?? p.DirectoryId) : p.LoginName}
-                                  </td>
-                                  <td>${p.Present ? 'Present' : 'Absent'}</td>
-                                  <td>
-                                    <vaadin-button
-                                      ?disabled=${disabled}
-                                      @click=${() =>
+              p =>
+                html`<tr>
+                  <td>${p.Name}</td>
+                  <td>${p.Kind}</td>
+                  <td>
+                    ${p.DirectoryId ? (this.directoryNames[p.DirectoryId] ?? p.DirectoryId) : p.LoginName}
+                  </td>
+                  <td>${p.Present ? 'Present' : 'Absent'}</td>
+                  <td>
+                    <vaadin-button
+                      ?disabled=${disabled}
+                      @click=${() =>
                                         this.save(state => {
                                           const item = state.Principals.find(
                                             n => n.Name === p.Name
@@ -1842,11 +1844,11 @@ export class DatabaseAccessPanel extends LitElement {
                                               m.Present = false;
                                             });
                                         })}
-                                      >${p.Present ? 'Mark absent' : 'Restore'}</vaadin-button
-                                    >
-                                  </td>
-                                </tr>`
-                            )}
+                      >${p.Present ? 'Mark absent' : 'Restore'}</vaadin-button
+                    >
+                  </td>
+                </tr>`
+            )}
           </tbody>
         </table>
       </div>
@@ -1858,38 +1860,37 @@ export class DatabaseAccessPanel extends LitElement {
           ?disabled=${disabled}
           .value=${this.roleName}
           @value-changed=${(e: TextFieldValueChangedEvent) => {
-                            this.roleName = e.detail.value;
-                          }}
+            this.roleName = e.detail.value;
+          }}
         ></vaadin-text-field>
         <vaadin-checkbox
           label="Create/manage custom role"
           ?disabled=${disabled}
           .checked=${this.managedRole}
           @checked-changed=${(e: CheckboxCheckedChangedEvent) => {
-                            this.managedRole = e.detail.value;
-                          }}
+            this.managedRole = e.detail.value;
+          }}
         ></vaadin-checkbox>
         <vaadin-button
           ?disabled=${disabled}
           @click=${() =>
-                            this.save(state => {
-                              state.Roles.push({
-                                Name: this.roleName.trim(),
-                                Managed: this.managedRole,
-                                Present: true
-                              });
-                            })}
+            this.save(state => {
+              state.Roles.push({
+                Name: this.roleName.trim(),
+                Managed: this.managedRole,
+                Present: true
+              });
+            })}
           >Save role</vaadin-button
         >
       </fieldset>
       <ul>
         ${this.desired.Roles.map(
-                          r =>
-                            html`<li>
-                              ${r.Name}
-                              (${r.Managed ? 'managed' : 'reference-only'},
-                              ${r.Present ? 'present' : 'absent'})
-                              ${
+          r =>
+            html`<li>
+              ${r.Name} (${r.Managed ? 'managed' : 'reference-only'},
+              ${r.Present ? 'present' : 'absent'})
+              ${
                                 r.Managed
                                   ? html`<vaadin-button
                                       ?disabled=${disabled}
@@ -1910,8 +1911,8 @@ export class DatabaseAccessPanel extends LitElement {
                                     >`
                                   : nothing
                               }
-                            </li>`
-                        )}
+            </li>`
+        )}
       </ul>
       <fieldset ?disabled=${disabled}>
         <legend>Assign a role</legend>
@@ -1922,8 +1923,8 @@ export class DatabaseAccessPanel extends LitElement {
           .items=${this.desired.Principals.filter(p => p.Present).map(p => p.Name)}
           .value=${this.memberPrincipal}
           @value-changed=${(e: ComboBoxValueChangedEvent) => {
-                            this.memberPrincipal = e.detail.value;
-                          }}
+            this.memberPrincipal = e.detail.value;
+          }}
         ></vaadin-combo-box>
         <vaadin-combo-box
           label="Role"
@@ -1932,44 +1933,43 @@ export class DatabaseAccessPanel extends LitElement {
           .items=${this.desired.Roles.filter(r => r.Present).map(r => r.Name)}
           .value=${this.memberRole}
           @value-changed=${(e: ComboBoxValueChangedEvent) => {
-                            this.memberRole = e.detail.value;
-                          }}
+            this.memberRole = e.detail.value;
+          }}
         ></vaadin-combo-box>
         <vaadin-button
           theme="primary"
           ?disabled=${disabled || !this.memberPrincipal || !this.memberRole}
           @click=${async () => {
-                            const saved = await this.save(state => {
-                              const existing = state.Memberships.find(
-                                m =>
-                                  m.Principal === this.memberPrincipal &&
-                                  m.Role === this.memberRole
-                              );
-                              if (existing) existing.Present = true;
-                              else
-                                state.Memberships.push({
-                                  Principal: this.memberPrincipal,
-                                  Role: this.memberRole,
-                                  Present: true
-                                });
-                            });
-                            if (saved) {
-                              this.memberPrincipal = '';
-                              this.memberRole = '';
-                            }
-                          }}
+            const saved = await this.save(state => {
+              const existing = state.Memberships.find(
+                m =>
+                  m.Principal === this.memberPrincipal &&
+                  m.Role === this.memberRole
+              );
+              if (existing) existing.Present = true;
+              else
+                state.Memberships.push({
+                  Principal: this.memberPrincipal,
+                  Role: this.memberRole,
+                  Present: true
+                });
+            });
+            if (saved) {
+              this.memberPrincipal = '';
+              this.memberRole = '';
+            }
+          }}
           >Save assignment</vaadin-button
         >
       </fieldset>
       <ul>
         ${this.desired.Memberships.map(
-                          m =>
-                            html`<li>
-                              ${m.Principal} → ${m.Role}:
-                              ${m.Present ? 'assigned' : 'revoked'}
-                              <vaadin-button
-                                ?disabled=${disabled || !m.Present}
-                                @click=${() =>
+          m =>
+            html`<li>
+              ${m.Principal} → ${m.Role}: ${m.Present ? 'assigned' : 'revoked'}
+              <vaadin-button
+                ?disabled=${disabled || !m.Present}
+                @click=${() =>
                                   this.save(state => {
                                     state.Memberships.find(
                                       n =>
@@ -1977,10 +1977,10 @@ export class DatabaseAccessPanel extends LitElement {
                                         n.Role === m.Role
                                     )!.Present = false;
                                   })}
-                                >Revoke desired membership</vaadin-button
-                              >
-                            </li>`
-                        )}
+                >Revoke desired membership</vaadin-button
+              >
+            </li>`
+        )}
       </ul>
     `;
     return this.view === 'all'
@@ -1997,23 +1997,19 @@ export class DatabaseAccessPanel extends LitElement {
       <vaadin-button
         ?disabled=${this.busy}
         @click=${() =>
-                        this.request(
-                          this.api.databaseAccessAudit(this.target),
-                          value => {
-                            this.audit = value;
-                          }
-                        )}
+          this.request(this.api.databaseAccessAudit(this.target), value => {
+            this.audit = value;
+          })}
         >Refresh audit</vaadin-button
       >
       <ul>
         ${this.audit.map(
-                        a =>
-                          html`<li>
-                            ${a.CreatedUtc} · ${a.Actor} · ${a.Action}:
-                            ${a.Status}
-                            <pre>${a.Detail}</pre>
-                          </li>`
-                      )}
+          a =>
+            html`<li>
+              ${a.CreatedUtc} · ${a.Actor} · ${a.Action}: ${a.Status}
+              <pre>${a.Detail}</pre>
+            </li>`
+        )}
       </ul>
     `;
     return this.view === 'all'

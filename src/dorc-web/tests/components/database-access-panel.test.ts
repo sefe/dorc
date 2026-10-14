@@ -54,7 +54,7 @@ vi.mock('../../src/components/confirm-prompt', () => ({
 
 import '../../src/components/database-access-panel';
 import {
-  hasUnmigratedLegacyAccess,
+  unmigratedLegacyAccounts,
   type DatabaseAccessPanel
 } from '../../src/components/database-access-panel';
 
@@ -787,7 +787,8 @@ describe('Database access side-by-side panel', () => {
   it('treats legacy accounts as migrated only when imported or excluded', () => {
     const assignments = [
       { ...legacy, UserId: 7 },
-      { ...legacy, UserId: 8 }
+      { ...legacy, UserId: 8, UserLoginId: 'other' },
+      { ...legacy, UserId: 8, UserLoginId: 'other', PermissionName: 'Write' }
     ];
     const state = {
       ...empty,
@@ -795,14 +796,16 @@ describe('Database access side-by-side panel', () => {
         { Name: 'a', Kind: 'Native', LegacyUserId: 7, Present: true }
       ]
     };
-    expect(hasUnmigratedLegacyAccess(assignments, state)).to.equal(true);
+    expect(unmigratedLegacyAccounts(assignments, state)).to.deep.equal([
+      'other'
+    ]);
     expect(
-      hasUnmigratedLegacyAccess(assignments, {
+      unmigratedLegacyAccounts(assignments, {
         ...state,
         ExcludedLegacyUserIds: [8]
       })
-    ).to.equal(false);
-    expect(hasUnmigratedLegacyAccess([], empty)).to.equal(false);
+    ).to.deep.equal([]);
+    expect(unmigratedLegacyAccounts([], empty)).to.deep.equal([]);
   });
 
   it('unticking a resolved Windows account drops its mapping and reticking restores it', async () => {

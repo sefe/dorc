@@ -25,7 +25,7 @@ import { dorcApiConfiguration } from '../../services/dorc-api-configuration';
 import GlobalCache from '../../global-cache';
 import { firstValueFrom } from 'rxjs';
 import {
-  hasUnmigratedLegacyAccess,
+  unmigratedLegacyAccounts,
   type DatabaseAccessView
 } from '../database-access-panel';
 
@@ -56,7 +56,7 @@ export class EnvDatabases extends PageEnvBase {
   private databaseAccessView: DatabaseAccessView = 'all';
 
   @state()
-  private unmigratedDatabaseIds: number[] = [];
+  private unmigratedAccounts: Record<number, string[]> = {};
 
   @state()
   private isAdmin = false;
@@ -139,7 +139,7 @@ export class EnvDatabases extends PageEnvBase {
               .databases="${this.databases}"
               .readonly="${this.envReadOnly}"
               .canManageDatabaseAccess="${this.canManageDatabaseAccess}"
-              .unmigratedDatabaseIds="${this.unmigratedDatabaseIds}"
+              .unmigratedAccounts="${this.unmigratedAccounts}"
               @database-detached="${this._dbDetached}"
               @manage-database-access="${this.openDatabaseAccessDialog}"
             ></attached-databases>
@@ -368,7 +368,7 @@ export class EnvDatabases extends PageEnvBase {
     const epoch = replace
       ? ++this.migrationCheckEpoch
       : this.migrationCheckEpoch;
-    if (replace) this.unmigratedDatabaseIds = [];
+    if (replace) this.unmigratedAccounts = {};
     const envId = this.environmentId;
     if (!this.canManageDatabaseAccess || !envId || envId === -1) return;
     const api = new DatabaseAccessApi(dorcApiConfiguration);
@@ -376,7 +376,7 @@ export class EnvDatabases extends PageEnvBase {
     for (const database of databases) {
       const databaseId = database.Id;
       if (!databaseId || !database.ServerName || !database.Name) continue;
-      let flagged: boolean;
+      let accounts: string[];
       try {
         const status = await firstValueFrom(
           api.databaseAccessStatus({ envId, databaseId })
@@ -391,7 +391,7 @@ export class EnvDatabases extends PageEnvBase {
             })
           )
         ]);
-        flagged = hasUnmigratedLegacyAccess(assignments ?? [], state);
+        accounts = unmigratedLegacyAccounts(assignments ?? [], state);
       } catch (err) {
         console.warn(
           `Could not check database access migration for ${database.Name}`,
@@ -401,8 +401,10 @@ export class EnvDatabases extends PageEnvBase {
       }
       if (epoch !== this.migrationCheckEpoch || envId !== this.environmentId)
         return;
-      const others = this.unmigratedDatabaseIds.filter(id => id !== databaseId);
-      this.unmigratedDatabaseIds = flagged ? [...others, databaseId] : others;
+      const next = { ...this.unmigratedAccounts };
+      if (accounts.length) next[databaseId] = accounts;
+      else delete next[databaseId];
+      this.unmigratedAccounts = next;
     }
   }
 
