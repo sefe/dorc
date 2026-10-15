@@ -102,7 +102,7 @@ namespace Dorc.Api.Services
                             Id = db.Id,
                             Name = db.Name,
                             ServerName = db.ServerName,
-                            Type = db.Type,
+                            Tags = db.Tags,
                             AdGroup = db.AdGroup,
                             ArrayName = db.ArrayName
                         }

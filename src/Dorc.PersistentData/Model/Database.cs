@@ -9,7 +9,13 @@ namespace Dorc.PersistentData.Model
 
         public string? Name { get; set; }
 
-        public string? Type { get; set; }
+        /// <summary>
+        /// DEPRECATED delimited column, dual-written until the follow-up release
+        /// drops it. <see cref="TagLinks"/> is the source of truth.
+        /// </summary>
+        public string? Tags { get; set; }
+
+        public ICollection<DatabaseTag> TagLinks { get; set; } = new List<DatabaseTag>();
 
         public string? ServerName { get; set; }
 

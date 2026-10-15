@@ -181,8 +181,8 @@ export class AttachedServers extends ResponsiveMixin(LitElement) {
           ?hidden="${this._narrowScreen}"
         ></vaadin-grid-column>
         <vaadin-grid-column
-          ${columnBodyRenderer(this.applicationTagsRenderer, [])}
-          header="Application Tags"
+          ${columnBodyRenderer(this.tagsRenderer, [])}
+          header="Tags"
           resizable
           ?hidden="${this._narrowScreen}"
         ></vaadin-grid-column>
@@ -199,9 +199,8 @@ export class AttachedServers extends ResponsiveMixin(LitElement) {
     `;
   }
 
-  private applicationTagsRenderer = (item: ServerApiModel) => {
-    const server = item;
-    const appTags = splitTags(server.ApplicationTags);
+  private tagsRenderer = (server: ServerApiModel) => {
+    const appTags = splitTags(server.Tags);
 
     return html`
       ${map(

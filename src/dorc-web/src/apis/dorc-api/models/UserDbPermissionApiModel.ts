@@ -52,8 +52,8 @@ export interface UserDbPermissionApiModel {
      */
     DbId?: number;
     /**
-     * @type {string}
+     * @type {Array<string>}
      * @memberof UserDbPermissionApiModel
      */
-    DbType?: string | null;
+    Tags?: Array<string> | null;
 }

@@ -7,8 +7,11 @@
 IF OBJECT_ID('dbo.SERVER', 'U') IS NULL
 BEGIN
     CREATE TABLE [dbo].[SERVER] (
-        [Server_ID] INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
-        [Server_Name] NVARCHAR(32) NULL
+        [Server_ID] INT IDENTITY(1,1) NOT NULL,
+        [Server_Name] NVARCHAR(32) NULL,
+        -- Named to match the estate; an inline (system-named) PK becomes an unnamed
+        -- target-only constraint that fails dacpac plan verification (SQL72031).
+        CONSTRAINT [PK_SERVER] PRIMARY KEY CLUSTERED ([Server_ID] ASC)
     );
 END;
 

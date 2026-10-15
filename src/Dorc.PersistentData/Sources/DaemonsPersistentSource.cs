@@ -43,7 +43,7 @@ namespace Dorc.PersistentData.Sources
             using (var context = _contextFactory.GetContext())
             {
                 var daemon = context.Daemons
-                    .Include(d => d.Server)
+                    .Include(d => d.Server).ThenInclude(s => s.TagLinks)
                     .FirstOrDefault(d => d.Id == daemonId);
 
                 if (daemon == null) return Enumerable.Empty<ServerApiModel>();
@@ -54,7 +54,7 @@ namespace Dorc.PersistentData.Sources
                         ServerId = s.Id,
                         Name = s.Name,
                         OsName = s.OsName,
-                        ApplicationTags = s.ApplicationTags
+                        Tags = s.TagLinks.Select(t => t.Tag).ToArray()
                     })
                     .ToList();
             }

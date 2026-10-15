@@ -1,0 +1,20 @@
+namespace Dorc.ApiModel
+{
+    /// <summary>
+    /// Single backend source for the tag-string capacity.
+    /// The SSDT column widths and the TypeScript mirror
+    /// (dorc-web/src/helpers/tag-limits.ts) must match this value; a web test asserts
+    /// the spec's maxLength against the TS constant.
+    /// </summary>
+    public static class TagLimits
+    {
+        public const int MaxTagStringLength = 4000;
+
+        /// <summary>
+        /// Width of deploy.DatabaseTag.Tag / deploy.ServerTag.Tag — the limit on a
+        /// SINGLE tag now that tags are stored as rows. MaxTagStringLength above is
+        /// the deprecated delimited column's width and goes with it.
+        /// </summary>
+        public const int MaxTagLength = 400;
+    }
+}

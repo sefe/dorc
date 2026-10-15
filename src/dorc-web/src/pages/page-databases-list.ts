@@ -1,3 +1,4 @@
+import { normaliseTags } from '../helpers/tag-parser';
 import { columnBodyRenderer, columnHeaderRenderer } from '@vaadin/grid/lit';
 import '@vaadin/button';
 import '../components/dorc-spinner';
@@ -38,6 +39,7 @@ import { PageElement } from '../helpers/page-element';
 import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import { AttachedDatabases } from '../components/attached-databases';
 import '../components/grid-button-groups/database-controls';
+import '../components/database-tags';
 import '@vaadin/grid/vaadin-grid-sorter';
 import { ErrorNotification } from '../components/notifications/error-notification';
 import { ref } from 'lit/directives/ref.js';
@@ -45,7 +47,7 @@ import { UnsavedChangesGuard } from '../components/unsaved-changes-guard';
 import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 const name = 'Name';
-const type = 'Type';
+const tags = 'Tags';
 const serverName = 'ServerName';
 const environmentNames = 'EnvironmentNames';
 
@@ -62,12 +64,15 @@ export class PageDatabasesList extends ResponsiveMixin(PageElement) {
   @state()
   private addEditDatabaseDialogOpened = false;
 
+  @state()
+  private manageTagsDialogOpened = false;
+
   @property({ type: Object })
   selectedDatabase: DatabaseApiModel | undefined;
 
   environmentNamesFilter: string = '';
   nameFilter: string = '';
-  typeFilter: string = '';
+  tagsFilter: string = '';
   serverNameFilter: string = '';
 
   static get styles() {
@@ -157,6 +162,21 @@ export class PageDatabasesList extends ResponsiveMixin(PageElement) {
         ${dialogRenderer(this.renderAddEditDatabaseDialog, [this.selectedDatabase])}
         ${dialogFooterRenderer(this.renderAddEditDatabaseFooter, [])}
       ></vaadin-dialog>
+      <vaadin-dialog
+        ${ref(this.unsavedChanges.attach)}
+        id='database-tags-dialog'
+        header-title='Edit Database Tags for ${this.selectedDatabase?.Name ?? ''}'
+        .opened='${this.manageTagsDialogOpened}'
+        draggable
+        @opened-changed='${(event: DialogOpenedChangedEvent) => {
+          this.manageTagsDialogOpened = event.detail.value;
+          if (!this.manageTagsDialogOpened) {
+            this.selectedDatabase = undefined;
+          }
+        }}'
+        ${dialogRenderer(this.renderDatabaseTagsDialog, [this.selectedDatabase])}
+        ${dialogFooterRenderer(this.renderDatabaseTagsFooter, [])}
+      ></vaadin-dialog>
       <dorc-spinner ?hidden="${!(this.loading || this.searching)}"></dorc-spinner>
       <vaadin-grid
         id='grid'
@@ -183,7 +203,7 @@ export class PageDatabasesList extends ResponsiveMixin(PageElement) {
           flex-grow='0'
         ></vaadin-grid-column>
         <vaadin-grid-column
-          ${columnBodyRenderer(this.applicationTagsRenderer, [])}
+          ${columnBodyRenderer(this.tagsRenderer, [])}
           resizable
           ${columnHeaderRenderer(this.appTagsHeaderRenderer, [])}
           ?hidden='${this._narrowScreen}'
@@ -236,8 +256,8 @@ export class PageDatabasesList extends ResponsiveMixin(PageElement) {
         params.filters.push({ path: 'Name', value: this.nameFilter });
       }
 
-      if (this.typeFilter !== '' && this.typeFilter !== undefined) {
-        params.filters.push({ path: 'Type', value: this.typeFilter });
+      if (this.tagsFilter !== '' && this.tagsFilter !== undefined) {
+        params.filters.push({ path: 'Tags', value: this.tagsFilter });
       }
 
       if (this.serverNameFilter !== '' && this.serverNameFilter !== undefined) {
@@ -309,8 +329,8 @@ export class PageDatabasesList extends ResponsiveMixin(PageElement) {
         case name:
           this.nameFilter = value;
           break;
-        case type:
-          this.typeFilter = value;
+        case tags:
+          this.tagsFilter = value;
           break;
         case serverName:
           this.serverNameFilter = value;
@@ -341,6 +361,24 @@ export class PageDatabasesList extends ResponsiveMixin(PageElement) {
       >Close</vaadin-button
     >
   `;
+
+  private renderDatabaseTagsDialog = () => html`
+    <database-tags
+      .database="${this.selectedDatabase}"
+      @database-tags-updated="${this.databaseTagsUpdated}"
+    ></database-tags>
+  `;
+
+  private renderDatabaseTagsFooter = () => html`
+    <vaadin-button @click="${() => (this.manageTagsDialogOpened = false)}"
+      >Close</vaadin-button
+    >
+  `;
+
+  private databaseTagsUpdated() {
+    this.manageTagsDialogOpened = false;
+    this.updateGrid();
+  }
 
   private closeAddEditDatabaseDialog() {
     this.addEditDatabaseDialogOpened = false;
@@ -475,29 +513,29 @@ export class PageDatabasesList extends ResponsiveMixin(PageElement) {
 
   appTagsHeaderRenderer() {
     return html`<vaadin-grid-sorter
-        path="Type"
+        path="Tags"
         style="align-items: normal"
       ></vaadin-grid-sorter>
       <vaadin-text-field
         id="tags-search"
-        placeholder="Application Tag"
+        placeholder="Tags"
         clear-button-visible
         focus-target
         style="width: 120px"
         theme="small"
         @value-changed="${(e: CustomEvent) => {
-          const textField = e.target as TextField;
-          this.dispatchEvent(
-            new CustomEvent('searching-databases-started', {
-              detail: {
-                field: type,
-                value: textField?.value
-              },
-              bubbles: true,
-              composed: true
-            })
-          );
-        }}"
+            const textField = e.target as TextField;
+            this.dispatchEvent(
+              new CustomEvent('searching-databases-started', {
+                detail: {
+                  field: tags,
+                  value: textField?.value
+                },
+                bubbles: true,
+                composed: true
+              })
+            );
+          }}"
       ></vaadin-text-field> `;
   }
 
@@ -514,15 +552,15 @@ export class PageDatabasesList extends ResponsiveMixin(PageElement) {
               html` <button
                 class="env"
                 @click="${() =>
-                    this.dispatchEvent(
-                      new CustomEvent('open-environment-details', {
-                        detail: {
-                          envName: i
-                        },
-                        bubbles: true,
-                        composed: true
-                      })
-                    )}"
+                  this.dispatchEvent(
+                    new CustomEvent('open-environment-details', {
+                      detail: {
+                        envName: i
+                      },
+                      bubbles: true,
+                      composed: true
+                    })
+                  )}"
                 style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
               >
                 ${i}
@@ -579,14 +617,8 @@ export class PageDatabasesList extends ResponsiveMixin(PageElement) {
     </database-controls>`;
   }
 
-  private applicationTagsRenderer = (item: DatabaseApiModel) => {
-    const database = item;
-    const appTags =
-      database.Type !== undefined &&
-      database.Type !== null &&
-      database.Type.length > 0
-        ? database.Type?.split(';')
-        : [];
+  private tagsRenderer = (database: DatabaseApiModel) => {
+    const appTags = normaliseTags(database.Tags);
 
     return html`
       ${map(
@@ -596,15 +628,15 @@ export class PageDatabasesList extends ResponsiveMixin(PageElement) {
             style="border: 0px"
             class="tag"
             @click="${() =>
-                this.dispatchEvent(
-                  new CustomEvent('filter-tags-database-list', {
-                    detail: {
-                      value
-                    },
-                    bubbles: true,
-                    composed: true
-                  })
-                )}"
+              this.dispatchEvent(
+                new CustomEvent('filter-tags-database-list', {
+                  detail: {
+                    value
+                  },
+                  bubbles: true,
+                  composed: true
+                })
+              )}"
           >
             ${value}
           </button>`
@@ -693,6 +725,7 @@ export class PageDatabasesList extends ResponsiveMixin(PageElement) {
 
   openManageDatabaseTagsDialog(e: CustomEvent) {
     this.selectedDatabase = e.detail.database;
+    this.manageTagsDialogOpened = true;
   }
 
   databaseUpdated(e: CustomEvent) {
@@ -715,7 +748,7 @@ export class PageDatabasesList extends ResponsiveMixin(PageElement) {
       AdGroup: '',
       ArrayName: '',
       ServerName: '',
-      Type: '',
+      Tags: [],
       Name: '',
       EnvironmentNames: [],
       Id: 0,

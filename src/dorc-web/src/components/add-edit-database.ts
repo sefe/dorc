@@ -17,6 +17,11 @@ import {
   DatabaseApiModel,
   GroupApiModel
 } from '../apis/dorc-api';
+import { Notification } from '@vaadin/notification';
+import './tags-input';
+import { TagsInput } from './tags-input';
+import { normaliseTags } from '../helpers/tag-parser';
+import { MAX_TAG_LENGTH } from '../helpers/tag-limits';
 import '@vaadin/button';
 import '@vaadin/vertical-layout';
 import { dorcApiConfiguration } from '../services/dorc-api-configuration';
@@ -38,7 +43,7 @@ export class AddEditDatabase extends LitElement {
     this._database = JSON.parse(JSON.stringify(value));
 
     this.DatabaseName = this._database.Name ?? '';
-    this.DatabaseType = this._database.Type ?? '';
+    this.DatabaseTags = normaliseTags(this._database.Tags);
     this.DbServerName = this._database.ServerName ?? '';
     this.AdGroup = this._database.AdGroup ?? '';
     this.ArrayName = this._database.ArrayName ?? '';
@@ -69,8 +74,8 @@ export class AddEditDatabase extends LitElement {
   @property({ type: String })
   public DatabaseName = '';
 
-  @property({ type: String })
-  public DatabaseType = '';
+  @property({ type: Array })
+  public DatabaseTags: string[] = [];
 
   @property({ type: String })
   public DbServerName = '';
@@ -146,16 +151,14 @@ export class AddEditDatabase extends LitElement {
             @input="${this._dbNameValueChanged}"
             .value="${this.DatabaseName}"
           ></vaadin-text-field>
-          <vaadin-text-field
+          <tags-input
+            id="db-tags"
             class="block"
-            label="Application Tag"
-            maxlength="${this.maxFieldLength}"
-            title="Maximum length: ${this.maxFieldLength} symbols"
+            label="Tags"
             pattern="^[a-zA-Z0-9&amp;.\\- ]+$"
-            required
-            @input="${this._dbTypeValueChanged}"
-            .value="${this.DatabaseType}"
-          ></vaadin-text-field>
+            .tags="${this.DatabaseTags}"
+            @tags-changed="${this._dbTagsChanged}"
+          ></tags-input>
           <vaadin-text-field
             class="block"
             pattern="^[a-zA-Z0-9_\\-]{1,128}(\\\\[a-zA-Z0-9_\\-]{1,128})?$"
@@ -223,7 +226,7 @@ export class AddEditDatabase extends LitElement {
     if (activeDirectoryGroups) activeDirectoryGroups.clear();
 
     this.DatabaseName = '';
-    this.DatabaseType = '';
+    this.DatabaseTags = [];
     this.DbServerName = '';
     this.ArrayName = '';
     this.AdGroup = '';
@@ -234,6 +237,23 @@ export class AddEditDatabase extends LitElement {
   }
 
   saveDatabase() {
+    // Read the chips at save time and enforce the per-tag limit the API and the
+    // Tag column both apply, so the UI never submits what would 400.
+    const tagsInput = this.shadowRoot?.getElementById(
+      'db-tags'
+    ) as TagsInput | null;
+    if (tagsInput?.tagify !== undefined) {
+      this.DatabaseTags = normaliseTags(tagsInput.tags);
+    }
+    const overLong = this.DatabaseTags.filter(t => t.length > MAX_TAG_LENGTH);
+    if (overLong.length > 0) {
+      Notification.show(
+        `Each tag must be at most ${MAX_TAG_LENGTH} characters (too long: '${overLong[0]}')`,
+        { theme: 'error', position: 'bottom-start', duration: 5000 }
+      );
+      return;
+    }
+
     if (this._database.Id !== undefined && this._database.Id > 0) {
       const api = new RefDataDatabasesApi(dorcApiConfiguration);
       api
@@ -243,7 +263,7 @@ export class AddEditDatabase extends LitElement {
             Id: this._database.Id,
             ServerName: this.DbServerName,
             Name: this.DatabaseName,
-            Type: this.DatabaseType,
+            Tags: this.DatabaseTags,
             AdGroup: this.AdGroup,
             ArrayName: this.ArrayName
           }
@@ -266,7 +286,7 @@ export class AddEditDatabase extends LitElement {
           databaseApiModel: {
             ServerName: this.DbServerName,
             Name: this.DatabaseName,
-            Type: this.DatabaseType,
+            Tags: this.DatabaseTags,
             AdGroup: this.AdGroup,
             ArrayName: this.ArrayName
           }
@@ -305,8 +325,8 @@ export class AddEditDatabase extends LitElement {
     this.checkDBExists();
   }
 
-  _dbTypeValueChanged(data: any) {
-    this.DatabaseType = data.currentTarget.value.trim();
+  _dbTagsChanged(e: CustomEvent) {
+    this.DatabaseTags = normaliseTags(e.detail.tags);
     this.checkDBExists();
   }
 
@@ -435,7 +455,7 @@ export class AddEditDatabase extends LitElement {
       this.checkDatabaseComplete({
         ServerName: this.DbServerName,
         Name: this.DatabaseName,
-        Type: this.DatabaseType,
+        Tags: this.DatabaseTags,
         AdGroup: this.AdGroup
       })
     ) {
@@ -449,7 +469,7 @@ export class AddEditDatabase extends LitElement {
       this.checkDatabaseComplete({
         ServerName: this.DbServerName,
         Name: this.DatabaseName,
-        Type: this.DatabaseType,
+        Tags: this.DatabaseTags,
         AdGroup: this.AdGroup
       })
     ) {
@@ -470,7 +490,7 @@ export class AddEditDatabase extends LitElement {
   checkDatabaseComplete(db: DatabaseApiModel) {
     let nameValid = false;
     let instanceValid = false;
-    let typeValid = false;
+    let tagsValid = false;
 
     if (db.Name && db.Name?.length > 0 && !this.hasWhiteSpace(db.Name ?? '')) {
       nameValid = true;
@@ -482,11 +502,11 @@ export class AddEditDatabase extends LitElement {
     ) {
       instanceValid = true;
     }
-    if (db.Type && db.Type?.length > 0) {
-      typeValid = true;
+    if (db.Tags && db.Tags?.length > 0) {
+      tagsValid = true;
     }
 
-    return nameValid && instanceValid && typeValid;
+    return nameValid && instanceValid && tagsValid;
   }
 
   getEmptyDatabase(): DatabaseApiModel {
@@ -494,7 +514,7 @@ export class AddEditDatabase extends LitElement {
       ArrayName: '',
       Name: '',
       AdGroup: '',
-      Type: '',
+      Tags: [],
       EnvironmentNames: [],
       Id: 0,
       UserEditable: false

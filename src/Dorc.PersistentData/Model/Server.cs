@@ -8,7 +8,13 @@
 
         public string? OsName { get; set; }
 
-        public string? ApplicationTags { get; set; }
+        /// <summary>
+        /// DEPRECATED delimited column, dual-written until the follow-up release
+        /// drops it. <see cref="TagLinks"/> is the source of truth.
+        /// </summary>
+        public string? Tags { get; set; }
+
+        public ICollection<ServerTag> TagLinks { get; set; } = new List<ServerTag>();
 
         public ICollection<Daemon> Daemons { get; set; } = new List<Daemon>();
 

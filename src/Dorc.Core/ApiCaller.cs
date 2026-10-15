@@ -149,7 +149,7 @@ namespace Dorc.Core
             { Endpoints.CopyEnvBuild, "CopyEnvBuild" },
             { Endpoints.RefDataEnvironments, "RefDataEnvironments" },
             { Endpoints.RefDataDatabases, "RefDataDatabases" },
-            { Endpoints.RefDataDatabasesByType, "RefDataDatabases/ByType" },
+            { Endpoints.RefDataDatabasesByTag, "RefDataDatabases/ByTag" },
             { Endpoints.RefDataServers, "RefDataServers" },
             { Endpoints.RefDataServersAppServersByEnvName, "RefDataServers/AppServersByEnvName" },
             { Endpoints.RefDataSqlPorts, "RefDataSqlPorts" },

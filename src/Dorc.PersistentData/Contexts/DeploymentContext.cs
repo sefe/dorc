@@ -41,6 +41,7 @@ namespace Dorc.PersistentData.Contexts
         public DbSet<ConfigValue> ConfigValues { get; set; }
         public DbSet<Daemon> Daemons { get; set; }
         public DbSet<Database> Databases { get; set; }
+        public DbSet<DatabaseTag> DatabaseTags { get; set; }
         public DbSet<DeploymentRequestProcess> DeploymentRequestProcesses { get; set; }
         public DbSet<DeploymentRequest> DeploymentRequests { get; set; }
         public DbSet<DeploymentResult> DeploymentResults { get; set; }
@@ -76,6 +77,7 @@ namespace Dorc.PersistentData.Contexts
         public DbSet<Script> Scripts { get; set; }
         public DbSet<SecureKey> SecureKeys { get; set; }
         public DbSet<Server> Servers { get; set; }
+        public DbSet<ServerTag> ServerTags { get; set; }
         public DbSet<SqlPort> SqlPorts { get; set; }
         public DbSet<User> Users { get; set; }
         public DbSet<DeploymentRequestAttempt> DeploymentRequestAttempts { get; set; }
@@ -177,6 +179,7 @@ namespace Dorc.PersistentData.Contexts
             new ComponentEntityTypeConfiguration().Configure(modelBuilder.Entity<Component>());
             new DaemonEntityTypeConfiguration().Configure(modelBuilder.Entity<Daemon>());
             new DatabaseEntityTypeConfiguration().Configure(modelBuilder.Entity<Database>());
+            new DatabaseTagEntityTypeConfiguration().Configure(modelBuilder.Entity<DatabaseTag>());
             new DeploymentRequestProcessEntityTypeConfiguration().Configure(modelBuilder.Entity<DeploymentRequestProcess>());
             new DeploymentResultEntityTypeConfiguration().Configure(modelBuilder.Entity<DeploymentResult>());
             new EnvironmentComponentStatusEntityTypeConfiguration().Configure(modelBuilder.Entity<EnvironmentComponentStatus>());
@@ -196,6 +199,7 @@ namespace Dorc.PersistentData.Contexts
             new ScriptEntityTypeConfiguration().Configure(modelBuilder.Entity<Script>());
             new SecureKeyEntityTypeConfiguration().Configure(modelBuilder.Entity<SecureKey>());
             new ServerEntityTypeConfiguration().Configure(modelBuilder.Entity<Server>());
+            new ServerTagEntityTypeConfiguration().Configure(modelBuilder.Entity<ServerTag>());
             new SqlPortEntityTypeConfiguration().Configure(modelBuilder.Entity<SqlPort>());
             new UserEntityTypeConfiguration().Configure(modelBuilder.Entity<User>());
             new DeploymentRequestAttemptEntityTypeConfiguration().Configure(modelBuilder.Entity<DeploymentRequestAttempt>());
