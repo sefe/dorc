@@ -9,8 +9,8 @@ type AttachedDatabasesTypeRenderer = HTMLElement & {
 
 describe('attached-databases type icons', () => {
   it.each([
-    [DatabaseType.SqlServer, 'vaadin:database', 'SQL Server'],
-    [DatabaseType.CosmosDb, 'brand:azure', 'Cosmos DB'],
+    [DatabaseType.SqlServer, 'brand:microsoftsqlserver', 'SQL Server'],
+    [DatabaseType.CosmosDb, 'brand:cosmosdb', 'Cosmos DB'],
     [DatabaseType.ClickHouse, 'brand:clickhouse', 'ClickHouse'],
     [DatabaseType.PostgreSql, 'brand:postgresql', 'PostgreSQL']
   ])('renders %s as a compact labelled icon', (databaseType, icon, label) => {
@@ -32,8 +32,13 @@ describe('attached-databases type icons', () => {
 
   it('registers a brand glyph for every brand icon the grid uses', () => {
     const iconset = document.querySelector('vaadin-iconset[name="brand"]');
-    for (const name of ['azure', 'clickhouse', 'postgresql']) {
+    for (const name of ['clickhouse', 'postgresql']) {
       expect(iconset?.querySelector(`g#${name} path`)).not.toBeNull();
+    }
+    for (const name of ['microsoftsqlserver', 'cosmosdb']) {
+      const glyph = iconset?.querySelector(`g#${name}`);
+      expect(glyph?.querySelector('path')).not.toBeNull();
+      expect(glyph?.getAttribute('viewBox')).toBe('0 0 128 128');
     }
   });
 
@@ -46,7 +51,7 @@ describe('attached-databases type icons', () => {
     render(element.databaseTypeRenderer({}) as never, container);
 
     expect(container.querySelector('vaadin-icon')?.getAttribute('icon')).toBe(
-      'vaadin:database'
+      'brand:microsoftsqlserver'
     );
   });
 });

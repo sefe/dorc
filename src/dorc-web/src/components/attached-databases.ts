@@ -235,11 +235,11 @@ export class AttachedDatabases extends ResponsiveMixin(LitElement) {
     const databaseType = database.DatabaseType ?? DatabaseType.SqlServer;
     const display = {
       [DatabaseType.SqlServer]: {
-        icon: 'vaadin:database',
+        icon: 'brand:microsoftsqlserver',
         label: 'SQL Server'
       },
       [DatabaseType.CosmosDb]: {
-        icon: 'brand:azure',
+        icon: 'brand:cosmosdb',
         label: 'Cosmos DB'
       },
       [DatabaseType.ClickHouse]: {
