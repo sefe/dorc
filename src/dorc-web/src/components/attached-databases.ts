@@ -106,26 +106,32 @@ export class AttachedDatabases extends ResponsiveMixin(LitElement) {
         <vaadin-grid-column
           path="ServerName"
           header="Instance"
+          width="220px"
           resizable
         ></vaadin-grid-column>
         <vaadin-grid-column
           path="Name"
           header="Database"
+          width="220px"
           resizable
         ></vaadin-grid-column>
         <vaadin-grid-column
           ${columnBodyRenderer(this.applicationTagsRenderer, [])}
           resizable
+          width="160px"
           header="Application Tag"
           ?hidden="${this._narrowScreen}"
         ></vaadin-grid-column>
         <vaadin-grid-column
           path="ArrayName"
           header="Array Name"
+          width="140px"
           resizable
           ?hidden="${this._narrowScreen}"
         ></vaadin-grid-column>
         <vaadin-grid-column
+          width="${this.canManageDatabaseAccess ? '300px' : '160px'}"
+          flex-grow="0"
           ${columnBodyRenderer(this.databaseControlsRenderer, [
             this.envId,
             this.readonly,

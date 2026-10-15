@@ -36,6 +36,33 @@ describe('environment route updates', () => {
 
     afterEach(() => vi.restoreAllMocks());
 
+    it('scrolls the databases grid horizontally instead of clipping row controls', async () => {
+      await import('../../src/components/attached-databases');
+      const frame = await fixture<HTMLDivElement>(html`
+        <div style="width: 480px;">
+          <attached-databases
+            .databases=${[{ Id: 7, Name: 'App', ServerName: 'SQL01' }]}
+            .canManageDatabaseAccess=${true}
+          ></attached-databases>
+        </div>
+      `);
+      const attached = frame.querySelector('attached-databases')!;
+      const grid = attached.shadowRoot!.querySelector('vaadin-grid')!;
+      const scroller = grid.shadowRoot!.querySelector<HTMLElement>('#table')!;
+      await vi.waitFor(() => {
+        expect(scroller.scrollWidth).to.be.greaterThan(scroller.clientWidth);
+        const controls = attached.shadowRoot!.querySelector(
+          'database-env-controls'
+        )!;
+        const buttons = controls.shadowRoot!.querySelectorAll('vaadin-button');
+        expect(buttons).to.have.length(6);
+        const cell = controls.closest('vaadin-grid-cell-content')!;
+        expect(buttons[5].getBoundingClientRect().right).to.be.at.most(
+          cell.getBoundingClientRect().right + 1
+        );
+      });
+    });
+
     it('offers database access management from each database row only to owners and admins', async () => {
       const database = { Id: 7, Name: 'App', ServerName: 'SQL01' };
       const databases = await fixture<EnvDatabases>(
