@@ -8,7 +8,6 @@ using Dorc.Monitor.Notifications;
 using Dorc.Monitor.RequestProcessors;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 
 namespace Dorc.Monitor.Tests
@@ -161,7 +160,7 @@ namespace Dorc.Monitor.Tests
                 .Returns(true);
 
             // Act
-            sut.Execute(dto, CancellationToken.None, NullLoggerFactory.Instance);
+            sut.Execute(dto, CancellationToken.None, Substitute.For<ILoggerFactory>());
 
             // Assert - comp2 was never deployed because comp1 had StopOnFailure=true
             mockComponentProcessor.DidNotReceive().DeployComponent(
@@ -205,7 +204,7 @@ namespace Dorc.Monitor.Tests
                 .Returns(true);
 
             // Act
-            sut.Execute(dto, CancellationToken.None, NullLoggerFactory.Instance);
+            sut.Execute(dto, CancellationToken.None, Substitute.For<ILoggerFactory>());
 
             // Assert - comp2 WAS deployed because StopOnFailure=false
             mockComponentProcessor.Received().DeployComponent(
@@ -247,7 +246,7 @@ namespace Dorc.Monitor.Tests
                 .Returns(false);
 
             // Act
-            sut.Execute(dto, CancellationToken.None, NullLoggerFactory.Instance);
+            sut.Execute(dto, CancellationToken.None, Substitute.For<ILoggerFactory>());
 
             // Assert - pending result for comp2 was cancelled
             mockRequestsPersistentSource.Received().UpdateResultStatus(
@@ -275,7 +274,7 @@ namespace Dorc.Monitor.Tests
                 .Returns(x => throw new InvalidOperationException("Script failed"));
 
             // Act
-            sut.Execute(dto, CancellationToken.None, NullLoggerFactory.Instance);
+            sut.Execute(dto, CancellationToken.None, Substitute.For<ILoggerFactory>());
 
             // Assert - comp2 was never deployed
             mockComponentProcessor.DidNotReceive().DeployComponent(
@@ -324,7 +323,7 @@ namespace Dorc.Monitor.Tests
                 });
 
             // Act
-            sut.Execute(dto, CancellationToken.None, NullLoggerFactory.Instance);
+            sut.Execute(dto, CancellationToken.None, Substitute.For<ILoggerFactory>());
 
             // Assert — the downloader was consulted for the URL, extraction
             // returned our fake path, and the finally block cleaned it up
@@ -368,7 +367,7 @@ namespace Dorc.Monitor.Tests
                 });
 
             // Act
-            sut.Execute(dto, CancellationToken.None, NullLoggerFactory.Instance);
+            sut.Execute(dto, CancellationToken.None, Substitute.For<ILoggerFactory>());
 
             // Assert — cleanup still fires even though deployment failed
             mockGitHubArtifactDownloader.Received(1).Cleanup(resolvedLocalPath);
@@ -394,7 +393,7 @@ namespace Dorc.Monitor.Tests
             var dto = CreateRequest(components); // DropLocation = "C:\\Drop"
 
             // Act
-            sut.Execute(dto, CancellationToken.None, NullLoggerFactory.Instance);
+            sut.Execute(dto, CancellationToken.None, Substitute.For<ILoggerFactory>());
 
             // Assert — downloader APIs never consulted for a non-UNC/non-URL drop
             mockGitHubArtifactDownloader.DidNotReceive().DownloadAndExtract(Arg.Any<string>());

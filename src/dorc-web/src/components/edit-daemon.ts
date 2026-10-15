@@ -7,6 +7,7 @@ import type { DaemonApiModel } from '../apis/dorc-api';
 import { RefDataDaemonsApi } from '../apis/dorc-api';
 import '@vaadin/vertical-layout';
 import { dorcApiConfiguration } from '../services/dorc-api-configuration';
+import { retrieveErrorMessage } from '../helpers/errorMessage-retriever';
 
 @customElement('edit-daemon')
 export class EditDaemon extends LitElement {
@@ -142,21 +143,12 @@ export class EditDaemon extends LitElement {
         },
         (err: any) => {
           this.isBusy = false;
-          this.overlayMessage =
-            this._extractErrorMessage(err) ?? 'Error updating daemon';
+          this.overlayMessage = retrieveErrorMessage(
+            err,
+            'Error updating daemon'
+          );
         }
       );
-  }
-
-  private _extractErrorMessage(err: any): string | null {
-    if (err?.response) {
-      if (typeof err.response === 'string') return err.response;
-      if (typeof err.response.ExceptionMessage === 'string')
-        return err.response.ExceptionMessage;
-      if (typeof err.response.message === 'string') return err.response.message;
-    }
-    if (err?.message) return err.message;
-    return null;
   }
 
   private getEmptyDaemon(): DaemonApiModel {

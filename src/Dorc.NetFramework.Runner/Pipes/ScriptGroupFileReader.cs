@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
@@ -45,9 +45,9 @@ namespace Dorc.NetFramework.Runner.Pipes
                 logger.LogInformation($"Received from file: {guid}");
                 foreach (var scriptGroupScriptProperty in list)
                 {
-                    var props = JsonSerializer.Serialize(scriptGroupScriptProperty.Properties);
+                    var propertyNames = string.Join(", ", scriptGroupScriptProperty.Properties.Keys);
 
-                    logger.LogInformation($"Asked to execute: {scriptGroupScriptProperty.ScriptPath} for env {env.Value} with properties {props}");
+                    logger.LogInformation($"Asked to execute: {scriptGroupScriptProperty.ScriptPath} for env {env.Value} with properties: {propertyNames}");
                 }
 
                 logger.LogInformation("Deserialization of ScriptGroup is completed.");

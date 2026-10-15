@@ -17,6 +17,7 @@ import {
   getSelectedItem,
   getTextFieldValue
 } from './utilities/vaadinHelper';
+import { retrieveErrorMessage } from '../../helpers/errorMessage-retriever';
 
 type UserOrGroupFoundOrFailureCallback = (errorMessage: string) => void;
 type UserOrGroupNotFoundCallback = () => void;
@@ -186,8 +187,7 @@ export class AddWindowsUserOrGroup extends AddUserOrGroupBase {
         );
       }
     } catch (e) {
-      let errorMessage: string = '';
-      if (e instanceof Error) errorMessage = e.message;
+      const errorMessage = retrieveErrorMessage(e, '');
       this.overlayMessage = errorMessage;
       foundOrInvalidCallback(errorMessage);
     }

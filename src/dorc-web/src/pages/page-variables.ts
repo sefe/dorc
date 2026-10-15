@@ -749,6 +749,12 @@ export class PageVariables extends PageElement {
       this.propertyName = combo.value;
       combo.title = this.propertyName;
 
+      // Column filter text fields are recreated for the new grid instance and
+      // appear empty, but the stale filter values would otherwise still be
+      // applied silently to the newly selected variable's values.
+      this.scopeFilterValue = '';
+      this.valueFilterValue = '';
+
       if (this.newVariableName !== '') {
         const newfoundProp = this.properties?.find(
           value => value.Name === this.newVariableName

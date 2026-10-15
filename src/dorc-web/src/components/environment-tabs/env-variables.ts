@@ -399,6 +399,10 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
       'variable-value-deleted',
       this.variableValueDeleted as EventListener
     );
+    this.addEventListener(
+      'variable-value-updated',
+      this.variableValueUpdated as EventListener
+    );
     this.addEventListener('editing-started', ((e: CustomEvent) => {
       this._editingValueId = e.detail.id;
     }) as EventListener);
@@ -455,6 +459,13 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
   }
 
   variableValueDeleted() {
+    if (this.grid) {
+      this.grid.clearCache();
+      this.loading = true;
+    }
+  }
+
+  private variableValueUpdated() {
     if (this.grid) {
       this.grid.clearCache();
       this.loading = true;
