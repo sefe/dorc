@@ -1,0 +1,104 @@
+name: terraform-modules-ci
+
+# Module source now lives in https://github.com/sefe/dorc-terraform-modules
+# (fmt/validate/tflint/secret-output gates run there). This workflow keeps the
+# gates for what remains in this repo: the catalog manifests and the
+# docs/Terraform example project.
+
+on:
+  pull_request:
+    paths:
+      - 'stock-modules-manifests/**'
+      - 'docs/Terraform/**'
+      - 'scripts/manifest-immutability.sh'
+      - 'src/Tools.TerraformLint/**'
+      - '.github/workflows/terraform-modules-ci.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'stock-modules-manifests/**'
+      - 'docs/Terraform/**'
+      - 'scripts/manifest-immutability.sh'
+      - 'src/Tools.TerraformLint/**'
+      - '.github/workflows/terraform-modules-ci.yml'
+
+permissions:
+  contents: read
+
+env:
+  TF_VERSION: '1.7.5'
+
+jobs:
+  fmt:
+    name: terraform fmt -check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        with:
+          persist-credentials: false
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+      - name: terraform fmt -check -recursive
+        run: terraform fmt -check -recursive docs/Terraform/examples
+
+  validate:
+    name: terraform validate
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        module:
+          - docs/Terraform/examples/terraform-project
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        with:
+          persist-credentials: false
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+      - name: terraform init -backend=false
+        working-directory: ${{ matrix.module }}
+        # init -backend=false avoids needing real Azure credentials in CI;
+        # provider binaries still download from the registry, and the example
+        # fetches the public sefe/dorc-terraform-modules repo at a pinned tag.
+        run: terraform init -backend=false
+      - name: terraform validate
+        working-directory: ${{ matrix.module }}
+        run: terraform validate
+
+  manifest-immutability:
+    name: manifest immutability gate
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - name: self-test
+        run: ./scripts/manifest-immutability.sh --self-test
+      - name: enforce immutability
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: ./scripts/manifest-immutability.sh
+
+  manifest-sensitive-name-lint:
+    name: manifest sensitive-name lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@3e891b0cb619bf60e2c25674b222b8940e2c1c25 # v4.1.0
+        with:
+          dotnet-version: '8.0.x'
+      - name: build
+        run: dotnet build src/Tools.TerraformLint/Tools.TerraformLint.csproj -c Release --nologo
+      - name: self-test
+        run: dotnet src/Tools.TerraformLint/bin/Release/net8.0/Tools.TerraformLint.dll --self-test
+      - name: lint manifests
+        run: dotnet src/Tools.TerraformLint/bin/Release/net8.0/Tools.TerraformLint.dll manifest-sensitive-names stock-modules-manifests/

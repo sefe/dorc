@@ -468,11 +468,13 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
             }
         }
 
-        public EnvironmentApiModel GetEnvironment(int environmentId, ClaimsPrincipal user)
+        public EnvironmentApiModel? GetEnvironment(int environmentId, ClaimsPrincipal user)
         {
             using (var context = contextFactory.GetContext())
             {
                 var environment = EnvironmentUnifier.GetFullEnvironment(context, environmentId);
+                if (environment == null)
+                    return null;
 
                 return MapToEnvironmentApiModel(environment, objectFilter.HasPrivilege(environment, user, AccessLevel.Write),
                     IsEnvironmentOwner(environment.Name, user));
@@ -664,6 +666,15 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
                             context.EnvironmentComponentStatuses
                                 .Where(ecs => EF.Property<int>(ecs, "EnvironmentId") == environment.Id)
                                 .ExecuteDelete();
+
+                            context.Database.ExecuteSqlInterpolated(
+                                $"DELETE FROM [deploy].[EnvironmentContainer] WHERE [EnvId] = {environment.Id}");
+
+                            context.Database.ExecuteSqlInterpolated(
+                                $"DELETE FROM [deploy].[EnvironmentCloudResource] WHERE [EnvId] = {environment.Id}");
+
+                            context.Database.ExecuteSqlInterpolated(
+                                $"DELETE FROM [deploy].[EnvironmentApiRegistration] WHERE [EnvId] = {environment.Id}");
 
                             DetachChildEnvironments(environment, username, context);
 

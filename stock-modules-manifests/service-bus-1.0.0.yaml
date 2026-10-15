@@ -1,0 +1,85 @@
+name: service-bus
+version: 1.0.0
+source:
+  kind: git
+  locator: https://github.com/sefe/dorc-terraform-modules.git
+  ref: stock-modules/service-bus/v1.0.0
+parameters:
+  - name: resource_group_name
+    type: String
+    required: true
+    description: Resource group name (1-90 characters). Must exist unless create_resource_group is true.
+  - name: create_resource_group
+    type: Bool
+    required: false
+    description: Create the resource group as part of this deployment instead of requiring an existing one. Default false.
+    default: "false"
+  - name: location
+    type: String
+    required: true
+    description: Azure region; must match the resource group when it already exists.
+  - name: namespace_name
+    type: String
+    required: true
+    description: Service Bus namespace name. 6-50 chars, letters/numbers/hyphens, starts with a letter, ends with a letter or number; globally unique.
+    pattern: "^[a-zA-Z][a-zA-Z0-9-]{4,48}[a-zA-Z0-9]$"
+  - name: queue_name
+    type: String
+    required: true
+    description: Queue name. 1-260 chars; letters, numbers, periods, hyphens, underscores and slashes.
+    pattern: "^[A-Za-z0-9]([A-Za-z0-9._/-]{0,258}[A-Za-z0-9])?$"
+  - name: sku
+    type: String
+    required: false
+    description: Namespace SKU. Private endpoints require Premium.
+    default: Standard
+    allowed_values:
+      - Basic
+      - Standard
+      - Premium
+  - name: max_delivery_count
+    type: Number
+    required: false
+    description: Maximum delivery attempts before a message is dead-lettered.
+    default: "10"
+    min: 1
+    max: 2000
+  - name: enable_partitioning
+    type: Bool
+    required: false
+    description: Enable partitioning across message brokers (Basic/Standard only; set at creation). Default false.
+    default: "false"
+  - name: public_network_access_enabled
+    type: Bool
+    required: false
+    description: If true, the namespace is reachable from the public network. Default true; disabling requires Premium + private endpoints.
+    default: "true"
+  - name: local_auth_enabled
+    type: Bool
+    required: false
+    description: If true, SAS (local) authentication is enabled. Default false (Entra ID only); set true to allow SAS.
+    default: "false"
+outputs:
+  - name: namespace_id
+    type: String
+    description: Resource ID of the Service Bus namespace.
+  - name: namespace_name
+    type: String
+  - name: namespace_endpoint
+    type: String
+  - name: queue_id
+    type: String
+  - name: queue_name
+    type: String
+description: Azure Service Bus namespace + single queue. TLS 1.2 minimum; no SAS keys or connection strings output.
+tags:
+  - messaging
+  - azure
+  - servicebus
+category: Messaging
+required_providers:
+  azurerm: "~> 3.100"
+required_terraform_version: ">= 1.5.0"
+owner: DOrc platform team
+deprecated: false
+deprecation_reason: ""

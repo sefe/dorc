@@ -121,6 +121,8 @@ namespace Dorc.PersistentData.Sources
                 TerraformSourceType = component.TerraformSourceType,
                 TerraformGitBranch = component.TerraformGitBranch,
                 TerraformSubPath = component.TerraformSubPath,
+                TerraformTemplateName = component.TerraformTemplateName,
+                TerraformTemplateVersion = component.TerraformTemplateVersion,
             };
 
             context.Entry(component)

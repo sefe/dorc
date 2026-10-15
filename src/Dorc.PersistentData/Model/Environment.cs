@@ -16,6 +16,12 @@
         public ICollection<Database> Databases { get; set; } = new List<Database>();
         public ICollection<EnvironmentHistory> Histories { get; set; } = new List<EnvironmentHistory>();
         public ICollection<Server> Servers { get; set; } = new List<Server>();
+
+        public ICollection<Container> Containers { get; set; } = new List<Container>();
+
+        public ICollection<CloudResource> CloudResources { get; set; } = new List<CloudResource>();
+
+        public ICollection<ApiRegistration> ApiRegistrations { get; set; } = new List<ApiRegistration>();
         public ICollection<EnvironmentComponentStatus> ComponentStatus { get; set; } = new List<EnvironmentComponentStatus>();
         public ICollection<Project> Projects { get; set; } = new List<Project>();
         public Environment? ParentEnvironment { get; set; } = null;

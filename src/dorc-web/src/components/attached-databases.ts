@@ -16,10 +16,11 @@ import '../components/edit-database-permissions';
 import '../components/database-tags';
 import './grid-button-groups/database-env-controls.ts';
 import '../components/view-database-permissions';
-import { DatabaseApiModel } from '../apis/dorc-api';
+import { DatabaseApiModel, DatabaseType } from '../apis/dorc-api';
 import { EditDatabasePermissions } from './edit-database-permissions';
 import { ViewDatabasePermissions } from './view-database-permissions';
 import { map } from 'lit/directives/map.js';
+import '../icons/brand-icons';
 
 @customElement('attached-databases')
 export class AttachedDatabases extends ResponsiveMixin(LitElement) {
@@ -45,6 +46,14 @@ export class AttachedDatabases extends ResponsiveMixin(LitElement) {
 
   static get styles() {
     return css`
+      :host {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        min-height: 0;
+        height: 100%;
+      }
+
       .center {
         margin: 10px 20px 10px;
         width: 50%;
@@ -65,6 +74,8 @@ export class AttachedDatabases extends ResponsiveMixin(LitElement) {
       vaadin-grid#grid {
         overflow: hidden;
         width: calc(100% - 4px);
+        flex: 1;
+        min-height: 0;
         --divider-color: var(--dorc-border-color);
       }
 
@@ -86,6 +97,9 @@ export class AttachedDatabases extends ResponsiveMixin(LitElement) {
         cursor: pointer;
         text-decoration: none;
       }
+      .database-type-icon {
+        color: var(--dorc-link-color);
+      }
       @media (max-width: 768px) {
         vaadin-grid-cell-content {
           white-space: normal;
@@ -102,7 +116,6 @@ export class AttachedDatabases extends ResponsiveMixin(LitElement) {
         id="grid"
         .items=${this.databases}
         theme="compact row-stripes no-row-borders no-border"
-        all-rows-visible
       >
         <vaadin-grid-column
           path="ServerName"
@@ -113,6 +126,13 @@ export class AttachedDatabases extends ResponsiveMixin(LitElement) {
           path="Name"
           header="Database"
           resizable
+        ></vaadin-grid-column>
+        <vaadin-grid-column
+          ${columnBodyRenderer(this.databaseTypeRenderer, [])}
+          header="Type"
+          width="64px"
+          flex-grow="0"
+          text-align="center"
         ></vaadin-grid-column>
         <vaadin-grid-column
           ${columnBodyRenderer(this.tagsRenderer, [])}
@@ -209,6 +229,35 @@ export class AttachedDatabases extends ResponsiveMixin(LitElement) {
           </button>`
       )}
     `;
+  };
+
+  private databaseTypeRenderer = (database: DatabaseApiModel) => {
+    const databaseType = database.DatabaseType ?? DatabaseType.SqlServer;
+    const display = {
+      [DatabaseType.SqlServer]: {
+        icon: 'brand:microsoftsqlserver',
+        label: 'SQL Server'
+      },
+      [DatabaseType.CosmosDb]: {
+        icon: 'brand:cosmosdb',
+        label: 'Cosmos DB'
+      },
+      [DatabaseType.ClickHouse]: {
+        icon: 'brand:clickhouse',
+        label: 'ClickHouse'
+      },
+      [DatabaseType.PostgreSql]: {
+        icon: 'brand:postgresql',
+        label: 'PostgreSQL'
+      }
+    }[databaseType];
+
+    return html`<vaadin-icon
+      class="database-type-icon"
+      icon="${display.icon}"
+      title="${display.label}"
+      aria-label="${display.label}"
+    ></vaadin-icon>`;
   };
 
   private databaseControlsRenderer = (db: DatabaseApiModel) => html`

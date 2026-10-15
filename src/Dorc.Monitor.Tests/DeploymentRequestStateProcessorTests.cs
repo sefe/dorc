@@ -20,6 +20,7 @@ namespace Dorc.Monitor.Tests
         private IRequestsPersistentSource mockRequestsPersistentSource = null!;
         private IDeploymentEventsPublisher mockEventPublisher = null!;
         private IDistributedLockService mockDistributedLockService = null!;
+        private ILoggerFactory mockLoggerFactory = null!;
 
         private DeploymentRequestStateProcessor sut = null!;
         private ConcurrentBag<Task> publishTasks = null!;
@@ -33,6 +34,8 @@ namespace Dorc.Monitor.Tests
             mockRequestsPersistentSource = Substitute.For<IRequestsPersistentSource>();
             mockEventPublisher = Substitute.For<IDeploymentEventsPublisher>();
             mockDistributedLockService = Substitute.For<IDistributedLockService>();
+            mockLoggerFactory = Substitute.For<ILoggerFactory>();
+            mockLoggerFactory.CreateLogger(Arg.Any<string>()).Returns(Substitute.For<ILogger>());
 
             mockEventPublisher.PublishRequestStatusChangedAsync(Arg.Any<DeploymentRequestEventData>())
                 .Returns(Task.CompletedTask);
@@ -46,7 +49,7 @@ namespace Dorc.Monitor.Tests
                 mockRequestsPersistentSource,
                 mockEventPublisher,
                 mockDistributedLockService,
-                Substitute.For<ILoggerFactory>());
+                mockLoggerFactory);
             sut.OnPublishTaskCreated = t => publishTasks.Add(t);
         }
 
@@ -458,7 +461,7 @@ namespace Dorc.Monitor.Tests
                 mockRequestsPersistentSource,
                 mockEventPublisher,
                 mockDistributedLockService,
-                Substitute.For<ILoggerFactory>());
+                mockLoggerFactory);
 
             mockDistributedLockService
                 .TryAcquireLockAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>())

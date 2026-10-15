@@ -8,7 +8,7 @@ namespace Dorc.TerraformRunner.Pipes
 {
     internal class ScriptGroupFileReader: IScriptGroupPipeClient
     {
-        private ILogger logger;
+        private readonly ILogger logger;
 
         internal ScriptGroupFileReader(ILogger logger)
         {

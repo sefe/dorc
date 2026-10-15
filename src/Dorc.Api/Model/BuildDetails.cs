@@ -28,9 +28,18 @@ namespace Dorc.Api.Model
         public bool? Pinned { set; get; }
         public SourceControlType SourceControlType { set; get; }
 
+        // sentinel scheme. Catalog-only deploy requests have no build
+        // artifact; the controller substitutes this prefix for the empty
+        // BuildUrl after verifying every component in the request is
+        // Catalog-mode. The sentinel keeps RequestService.CheckRequest's
+        // ArtefactsUrl-fallback bypassed (it only fires on empty URLs) and
+        // routes the request to CatalogDeployableBuild via the factory.
+        public const string CatalogSentinel = "dorc-catalog://";
+
         private BuildType GetBuildType(string url)
         {
             if (string.IsNullOrEmpty(url)) return BuildType.UnknownBuildType;
+            if (url.StartsWith(CatalogSentinel, StringComparison.OrdinalIgnoreCase)) return BuildType.Catalog;
             if (url.StartsWith("file", StringComparison.OrdinalIgnoreCase)) return BuildType.FileShareBuild;
             if (SourceControlType == SourceControlType.FileShare) return BuildType.FileShareBuild;
 
@@ -56,6 +65,9 @@ namespace Dorc.Api.Model
         TfsBuild,
         FileShareBuild,
         GitHubBuild,
-        UnknownBuildType
+        UnknownBuildType,
+        // Catalog-mode deploy requests use a sentinel BuildUrl
+        // (BuildDetails.CatalogSentinel) and dispatch via CatalogDeployableBuild.
+        Catalog
     }
 }

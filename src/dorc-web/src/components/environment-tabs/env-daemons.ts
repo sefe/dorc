@@ -1,8 +1,10 @@
 import '@vaadin/details';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/grid/vaadin-grid-sort-column';
+import '@vaadin/icons/vaadin-icons';
+import '@vaadin/icon';
 import { css } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
+import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import '../application-daemons';
 import { ApplicationDaemons } from '../application-daemons';
@@ -12,6 +14,7 @@ import { PageEnvBase } from './page-env-base';
 export class EnvDaemons extends PageEnvBase {
   @property({ type: Boolean }) daemonsLoading = false;
   @property({ type: Boolean }) discovering = false;
+  @state() private daemonCount = 0;
 
   static get styles() {
     return css`
@@ -20,6 +23,30 @@ export class EnvDaemons extends PageEnvBase {
         height: 100%;
         display: flex;
         flex-direction: column;
+      }
+
+      vaadin-details {
+        overflow: hidden;
+        width: calc(100% - 4px);
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+      }
+
+      vaadin-details::part(content) {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+
+      .details-content {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        min-height: 0;
       }
 
       .lds-ring {
@@ -68,12 +95,39 @@ export class EnvDaemons extends PageEnvBase {
         justify-content: space-between;
         align-items: center;
         width: 100%;
+        padding: var(--lumo-space-s) 0;
       }
 
       .left-buttons {
         display: flex;
         gap: 8px;
         align-items: center;
+      }
+
+      application-daemons {
+        flex: 1;
+        min-height: 0;
+      }
+
+      .summary-bar {
+        display: flex;
+        align-items: center;
+        gap: var(--lumo-space-s);
+        font-weight: 400;
+      }
+
+      .summary-bar vaadin-icon {
+        color: var(--dorc-link-color);
+      }
+
+      .count-badge {
+        background-color: var(--dorc-link-color);
+        color: var(--dorc-bg-primary);
+        border-radius: 1em;
+        font-size: var(--lumo-font-size-xs);
+        font-weight: 600;
+        padding: 0 var(--lumo-space-s);
+        line-height: 1.6;
       }
     `;
   }
@@ -82,47 +136,57 @@ export class EnvDaemons extends PageEnvBase {
     return html`
       <vaadin-details
         opened
-        summary="Application Daemon Details"
         style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; padding-right: 4px; margin: 0px; box-sizing: border-box;"
       >
-        <div class="button-container">
-          <div class="left-buttons">
-            <vaadin-button
-              @click="${this.loadDaemons}"
-              .disabled="${!this.environment?.UserEditable || this.daemonsLoading || this.discovering}"
-              title="Load status of mapped daemons for this environment"
-            >
-              Load Daemons
-            </vaadin-button>
-            ${
-              this.daemonsLoading || this.discovering
-                ? html`
-                    <div class="lds-ring">
-                      <div></div>
-                      <div></div>
-                      <div></div>
-                      <div></div>
-                    </div>
-                  `
-                : html``
-            }
+        <vaadin-details-summary slot="summary">
+          <div class="summary-bar">
+            <vaadin-icon icon="vaadin:cogs" theme="small"></vaadin-icon>
+            Application Daemon Details
+            <span class="count-badge">${this.daemonCount}</span>
           </div>
-          <vaadin-button
-            @click="${this.discoverDaemons}"
-            .disabled="${!this.environment?.UserEditable || this.daemonsLoading || this.discovering}"
-            title="Scan all servers and automatically create daemon-server mappings for discovered services"
+        </vaadin-details-summary>
+        <div class="details-content">
+          <div class="button-container">
+            <div class="left-buttons">
+              <vaadin-button
+                @click="${this.loadDaemons}"
+                .disabled="${!this.environment?.UserEditable || this.daemonsLoading || this.discovering}"
+                title="Load status of mapped daemons for this environment"
+              >
+                <vaadin-icon icon="vaadin:refresh" slot="prefix"></vaadin-icon>
+                Load Daemons
+              </vaadin-button>
+              ${
+                this.daemonsLoading || this.discovering
+                  ? html`
+                      <div class="lds-ring">
+                        <div></div>
+                        <div></div>
+                        <div></div>
+                        <div></div>
+                      </div>
+                    `
+                  : html``
+              }
+            </div>
+            <vaadin-button
+              @click="${this.discoverDaemons}"
+              .disabled="${!this.environment?.UserEditable || this.daemonsLoading || this.discovering}"
+              title="Scan all servers and automatically create daemon-server mappings for discovered services"
+            >
+              <vaadin-icon icon="vaadin:search" slot="prefix"></vaadin-icon>
+              Discover Daemons
+            </vaadin-button>
+          </div>
+          <application-daemons
+            id="app-daemons"
+            .envName="${this.environmentName ?? ''}"
+            .userEditable="${this.environment?.UserEditable ?? false}"
+            @daemons-loaded="${this.daemonsLoaded}"
           >
-            Discover Daemons
-          </vaadin-button>
+          </application-daemons>
         </div>
       </vaadin-details>
-      <application-daemons
-        id="app-daemons"
-        .envName="${this.environmentName ?? ''}"
-        .userEditable="${this.environment?.UserEditable ?? false}"
-        @daemons-loaded="${this.daemonsLoaded}"
-      >
-      </application-daemons>
     `;
   }
 
@@ -132,6 +196,10 @@ export class EnvDaemons extends PageEnvBase {
   }
 
   daemonsLoaded() {
+    const appDaemons = this.shadowRoot?.getElementById(
+      'app-daemons'
+    ) as ApplicationDaemons;
+    this.daemonCount = appDaemons.daemonsAndStatuses?.length ?? 0;
     this.daemonsLoading = false;
     this.discovering = false;
   }

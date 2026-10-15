@@ -81,6 +81,16 @@ export interface ComponentApiModel {
      * @memberof ComponentApiModel
      */
     TerraformSubPath?: string | null;
+    /**
+     * @type {string}
+     * @memberof ComponentApiModel
+     */
+    TerraformTemplateName?: string | null;
+    /**
+     * @type {string}
+     * @memberof ComponentApiModel
+     */
+    TerraformTemplateVersion?: string | null;
 }
 
 

@@ -1,4 +1,4 @@
-﻿using CommandLine;
+using CommandLine;
 using Dorc.TerraformRunner;
 
 namespace Dorc.TerraformRunner
@@ -20,6 +20,15 @@ namespace Dorc.TerraformRunner
         [Option('c', "planContentFilePath", Required = false, HelpText = "Terraform plan constant file path")]
         public string PlanContentFilePath { get; set; }
 
+        [Option('k', "lockFilePath", Required = false, HelpText = "Path of the persisted .terraform.lock.hcl. Written-to after plan; read from before apply.")]
+        public string LockFilePath { get; set; }
+
+        [Option('r', "appliedResourcesFilePath", Required = false, HelpText = "Path the runner writes the applied cloud resources JSON to after a successful apply.")]
+        public string AppliedResourcesFilePath { get; set; }
+
+        [Option('z', "sourceArchiveFilePath", Required = false, HelpText = "Path the runner writes the deployed terraform source archive (zip) to after a successful apply.")]
+        public string SourceArchiveFilePath { get; set; }
+
         [Option('o', "operation", Required = false, HelpText = "Selected operation")]
         public int Operation { get; set; }
 
@@ -29,6 +38,6 @@ namespace Dorc.TerraformRunner
         [Option("serverSid", Required = false, HelpText = "Security identifier the script group pipe must be owned by.")]
         public string ServerSid { get; set; }
 
-        public TerrafromRunnerOperations TerrafromRunnerOperation => (TerrafromRunnerOperations)Operation;
+        public TerraformRunnerOperations TerraformRunnerOperation => (TerraformRunnerOperations)Operation;
     }
 }

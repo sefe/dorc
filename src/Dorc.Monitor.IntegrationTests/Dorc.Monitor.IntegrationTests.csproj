@@ -25,6 +25,9 @@
     <ProjectReference Include="..\Dorc.Core\Dorc.Core.csproj" />
     <ProjectReference Include="..\Dorc.Monitor\Dorc.Monitor.csproj" />
     <ProjectReference Include="..\Dorc.PersistentData\Dorc.PersistentData.csproj" />
+    <ProjectReference Include="..\Dorc.TerraformRunner\Dorc.TerraformRunner.csproj" />
+    <ProjectReference Include="..\Dorc.Terraform.Catalog\Dorc.Terraform.Catalog.csproj" />
+    <ProjectReference Include="..\Dorc.Runner.Logger\Dorc.Runner.Logger.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -1,0 +1,81 @@
+name: cosmosdb
+version: 1.0.0
+source:
+  kind: git
+  locator: https://github.com/sefe/dorc-terraform-modules.git
+  ref: stock-modules/cosmosdb/v1.0.0
+parameters:
+  - name: resource_group_name
+    type: String
+    required: true
+    description: Resource group name (1-90 characters). Must exist unless create_resource_group is true.
+  - name: create_resource_group
+    type: Bool
+    required: false
+    description: Create the resource group as part of this deployment instead of requiring an existing one. Default false.
+    default: "false"
+  - name: location
+    type: String
+    required: true
+    description: Azure region; must match the resource group when it already exists.
+  - name: account_name
+    type: String
+    required: true
+    description: Cosmos DB account name. 3-44 lowercase alnum + hyphens; globally unique.
+    pattern: "^[a-z0-9][a-z0-9-]{1,42}[a-z0-9]$"
+  - name: database_name
+    type: String
+    required: true
+    description: SQL (Core) API database name. 1-255 chars; '/', '\\', '#' and '?' forbidden.
+  - name: consistency_level
+    type: String
+    required: false
+    description: Default consistency level; allow-listed.
+    default: Session
+    allowed_values:
+      - Eventual
+      - ConsistentPrefix
+      - Session
+      - BoundedStaleness
+      - Strong
+  - name: throughput
+    type: Number
+    required: false
+    description: Provisioned throughput (RU/s) for the database; multiple of 100.
+    default: "400"
+    min: 400
+    max: 100000
+  - name: public_network_access_enabled
+    type: Bool
+    required: false
+    description: If true, the account is reachable from the public network. Default false.
+    default: "false"
+  - name: local_authentication_disabled
+    type: Bool
+    required: false
+    description: If true, account key auth is disabled and only Entra ID data-plane auth is accepted. Default true; set false to allow key-based auth.
+    default: "true"
+outputs:
+  - name: cosmosdb_account_id
+    type: String
+    description: Resource ID of the Cosmos DB account.
+  - name: cosmosdb_account_name
+    type: String
+  - name: cosmosdb_endpoint
+    type: String
+  - name: database_id
+    type: String
+  - name: database_name
+    type: String
+description: Azure Cosmos DB account (SQL/Core API) + single SQL database. Public network access disabled by default; no account keys output.
+tags:
+  - data
+  - azure
+  - cosmosdb
+category: Data
+required_providers:
+  azurerm: "~> 3.100"
+required_terraform_version: ">= 1.5.0"
+owner: DOrc platform team
+deprecated: false
+deprecation_reason: ""

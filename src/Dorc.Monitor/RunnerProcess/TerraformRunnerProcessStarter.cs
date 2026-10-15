@@ -1,4 +1,4 @@
-﻿using System.Security.Principal;
+using System.Security.Principal;
 using Microsoft.Extensions.Logging;
 using System.ComponentModel;
 using System.Runtime.InteropServices;
@@ -16,7 +16,10 @@ namespace Dorc.Monitor.RunnerProcess
         public string RunnerLogPath { get; set; } = string.Empty;
         public string PlanFilePath { get; set; } = string.Empty;
         public string PlanContentFilePath { get; set; } = string.Empty;
-        public TerraformRunnerOperations TerrafromRunnerOperation { get; set; } = TerraformRunnerOperations.None;
+        public string LockFilePath { get; set; } = string.Empty;
+        public string AppliedResourcesFilePath { get; set; } = string.Empty;
+        public string SourceArchiveFilePath { get; set; } = string.Empty;
+        public TerraformRunnerOperations TerraformRunnerOperation { get; set; } = TerraformRunnerOperations.None;
 
         private TerraformRunnerProcessStarter() { }
 
@@ -55,15 +58,31 @@ namespace Dorc.Monitor.RunnerProcess
             #endregion
                 
             var runnerFileInfo = new FileInfo(this.RunnerExecutableFullName);
+            // Path-valued arguments are quoted: the runner log / plan / lock
+            // paths live under configurable roots that can contain spaces,
+            // and CommandLineParser would otherwise split them into
+            // separate tokens.
             string commandLine = runnerFileInfo.Name
                 +" -p " + this.ScriptGroupPipeName
-                +" -l " + this.RunnerLogPath
-                +" -t " + this.PlanFilePath
-                +" -c " + this.PlanContentFilePath
-                +" -o " + (int)this.TerrafromRunnerOperation
+                +" -l \"" + this.RunnerLogPath + "\""
+                +" -t \"" + this.PlanFilePath + "\""
+                +" -c \"" + this.PlanContentFilePath + "\""
+                +" -o " + (int)this.TerraformRunnerOperation
                 // See RunnerProcessStarter: the Runner authenticates the pipe by its owner and
                 // has to be told which owner to expect.
                 +" --serverSid=" + WindowsIdentity.GetCurrent().User!.Value;
+            if (!string.IsNullOrEmpty(this.LockFilePath))
+            {
+                commandLine += " -k \"" + this.LockFilePath + "\"";
+            }
+            if (!string.IsNullOrEmpty(this.AppliedResourcesFilePath))
+            {
+                commandLine += " -r \"" + this.AppliedResourcesFilePath + "\"";
+            }
+            if (!string.IsNullOrEmpty(this.SourceArchiveFilePath))
+            {
+                commandLine += " -z \"" + this.SourceArchiveFilePath + "\"";
+            }
 #if DEBUG
             commandLine += " --useFile=true";
 #endif
