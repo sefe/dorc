@@ -44,7 +44,7 @@ namespace Dorc.Core
             using (var searcher = new DirectorySearcher(_activeDirectoryRoot)
                 {
                     // anr (Ambiguous Name Resolution) has some limitations with special characters, have to escape them
-                    Filter = $"(&(anr={EscapeLdapFilter(objectName)})(|(objectCategory=group)(objectCategory=person)))"
+                    Filter = $"(&(anr={LdapFilterEncode(objectName)})(|(objectCategory=group)(objectCategory=person)))"
                 })
             {
                 searcher.PropertiesToLoad.AddRange(adProps);
@@ -79,7 +79,7 @@ namespace Dorc.Core
             return output;
         }
 
-        public static string EscapeLdapFilter(string filter)
+        public static string LdapFilterEncode(string filter)
         {
             if (string.IsNullOrEmpty(filter)) return filter;
 
@@ -175,7 +175,7 @@ namespace Dorc.Core
             using (var dirSearcher = new DirectorySearcher(new DirectoryEntry())
             {
                 SearchScope = SearchScope.Subtree,
-                Filter = $"(objectSid={Encoding.ASCII.GetString(sidBytes)})"
+                Filter = $"(objectSid={EncodeLdapBytes(sidBytes)})"
             })
             {
                 dirSearcher.PropertiesToLoad.Add("mail");        // smtp mail address
@@ -188,7 +188,7 @@ namespace Dorc.Core
                     {
                         var de = sr.GetDirectoryEntry();
 
-                        if (!IsActive(de))
+                        if (de.Properties["objectClass"]?.Contains("user") == true && !IsActive(de))
                         {
                             continue;
                         }
@@ -204,6 +204,9 @@ namespace Dorc.Core
 
             throw new ArgumentException($"Failed to locate an entity with SID: {sid}");
         }
+
+        internal static string EncodeLdapBytes(byte[] bytes) =>
+            string.Concat(bytes.Select(value => $"\\{value:X2}"));
 
         // Allowed characters for a directory search term. NOTE: the hyphen is intentionally last
         // so it is a literal, not a range. A previous version used "'-_" which is a character
@@ -222,7 +225,7 @@ namespace Dorc.Core
 
             // Defence in depth: escape LDAP metacharacters even though validation should have
             // rejected them, so the value can never alter the filter structure.
-            var escapedName = EscapeLdapFilter(name);
+            var escapedName = LdapFilterEncode(name);
             using (var dirSearcher = new DirectorySearcher(new DirectoryEntry())
             {
                 SearchScope = SearchScope.Subtree,
@@ -264,7 +267,7 @@ namespace Dorc.Core
 
             DirectorySearcher ds = new DirectorySearcher();
 
-            ds.Filter = $"(&(objectClass=user)(sAMAccountName={EscapeLdapFilter(name)}))";
+            ds.Filter = $"(&(objectClass=user)(sAMAccountName={LdapFilterEncode(name)}))";
             SearchResult sr = ds.FindOne();
 
             DirectoryEntry user = sr.GetDirectoryEntry();

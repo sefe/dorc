@@ -17,6 +17,7 @@ import '../components/view-database-permissions';
 import { DatabaseApiModel } from '../apis/dorc-api';
 import { EditDatabasePermissions } from './edit-database-permissions';
 import { ViewDatabasePermissions } from './view-database-permissions';
+import type { DatabaseAccessView } from './database-access-panel';
 import { map } from 'lit/directives/map.js';
 
 @customElement('attached-databases')
@@ -33,6 +34,10 @@ export class AttachedDatabases extends ResponsiveMixin(LitElement) {
   envId = 0;
 
   @property({ type: Boolean }) readonly = true;
+
+  @property({ type: Boolean }) canManageDatabaseAccess = false;
+
+  @property({ type: Object }) unmigratedAccounts: Record<number, string[]> = {};
 
   @property({ type: Array })
   public databases: Array<DatabaseApiModel> | undefined = [];
@@ -101,29 +106,37 @@ export class AttachedDatabases extends ResponsiveMixin(LitElement) {
         <vaadin-grid-column
           path="ServerName"
           header="Instance"
+          width="220px"
           resizable
         ></vaadin-grid-column>
         <vaadin-grid-column
           path="Name"
           header="Database"
+          width="220px"
           resizable
         ></vaadin-grid-column>
         <vaadin-grid-column
           ${columnBodyRenderer(this.applicationTagsRenderer, [])}
           resizable
+          width="160px"
           header="Application Tag"
           ?hidden="${this._narrowScreen}"
         ></vaadin-grid-column>
         <vaadin-grid-column
           path="ArrayName"
           header="Array Name"
+          width="140px"
           resizable
           ?hidden="${this._narrowScreen}"
         ></vaadin-grid-column>
         <vaadin-grid-column
+          width="${this.canManageDatabaseAccess ? '300px' : '160px'}"
+          flex-grow="0"
           ${columnBodyRenderer(this.databaseControlsRenderer, [
             this.envId,
-            this.readonly
+            this.readonly,
+            this.canManageDatabaseAccess,
+            this.unmigratedAccounts
           ])}
           resizable
         >
@@ -202,6 +215,8 @@ export class AttachedDatabases extends ResponsiveMixin(LitElement) {
       .dbDetails="${db}"
       .envId="${this.envId}"
       .readonly="${this.readonly}"
+      .canManageDatabaseAccess="${this.canManageDatabaseAccess}"
+      .unmigratedAccounts="${this.unmigratedAccounts[db.Id ?? 0] ?? []}"
       @database-detached="${() =>
         this.dispatchEvent(
           new CustomEvent('database-detached', { detail: { db } })
@@ -214,6 +229,14 @@ export class AttachedDatabases extends ResponsiveMixin(LitElement) {
         this.viewDbId = db.Id || 0;
         this.viewPermissionsDialogOpened = true;
       }}"
+      @manage-database-access="${(
+        event: CustomEvent<{ view: DatabaseAccessView }>
+      ) =>
+        this.dispatchEvent(
+          new CustomEvent('manage-database-access', {
+            detail: { database: db, view: event.detail.view }
+          })
+        )}"
     ></database-env-controls>
   `;
 

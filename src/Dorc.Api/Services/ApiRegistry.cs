@@ -52,6 +52,13 @@ namespace Dorc.Api.Services
             For<ISqlUserPasswordReset>().Use<SqlUserPasswordReset>();
             For<IApiServices>().Use<ApiServices>();
             For<IManageUsers>().Use<ManageUsers>();
+            For<Dorc.PersistentData.Sources.DatabaseAccessStore>().Use<Dorc.PersistentData.Sources.DatabaseAccessStore>();
+            For<Dorc.Core.DatabaseAccess.IDatabaseAccessProvider>().Use<Dorc.Core.DatabaseAccess.SqlServerDatabaseAccessProvider>();
+            For<Dorc.Core.DatabaseAccess.DatabaseAccessProviders>().Use<Dorc.Core.DatabaseAccess.DatabaseAccessProviders>();
+            For<Dorc.Core.DatabaseAccess.DatabaseAccessService>().Use<Dorc.Core.DatabaseAccess.DatabaseAccessService>();
+            For<Dorc.Core.DatabaseAccess.DatabaseAccessDirectory>().Use(context =>
+                new Dorc.Core.DatabaseAccess.DatabaseAccessDirectory(
+                    context.GetInstance<IDirectorySearcherFactory>().GetActiveDirectorySearcher()));
             For<IEnvironmentMapper>().Use<EnvironmentMapper>();
             For<IAccountExistenceChecker>().Use<AccountExistenceChecker>().Scoped();
         }

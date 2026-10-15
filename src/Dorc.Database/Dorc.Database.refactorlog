@@ -35,4 +35,34 @@
     <Property Name="ParentElementType" Value="SqlTable" />
     <Property Name="NewName" Value="ArtefactsSubPaths" />
   </Operation>
+  <Operation Name="Move Schema" Key="46a337af-c753-4b01-b6a1-02588814181e" ChangeDateTime="10/11/2026 16:20:00">
+    <Property Name="ElementName" Value="[dbo].[DatabaseAccessConfiguration]" />
+    <Property Name="ElementType" Value="SqlTable" />
+    <Property Name="NewSchema" Value="deploy" />
+    <Property Name="IsNewSchemaExternal" Value="False" />
+  </Operation>
+  <Operation Name="Move Schema" Key="ac7b288c-6dfa-40f0-b3ca-8192385c1c97" ChangeDateTime="10/11/2026 16:20:00">
+    <Property Name="ElementName" Value="[dbo].[DatabaseAccessPrincipal]" />
+    <Property Name="ElementType" Value="SqlTable" />
+    <Property Name="NewSchema" Value="deploy" />
+    <Property Name="IsNewSchemaExternal" Value="False" />
+  </Operation>
+  <Operation Name="Move Schema" Key="5602db1d-c829-4a90-838c-616e2b457ece" ChangeDateTime="10/11/2026 16:20:00">
+    <Property Name="ElementName" Value="[dbo].[DatabaseAccessRole]" />
+    <Property Name="ElementType" Value="SqlTable" />
+    <Property Name="NewSchema" Value="deploy" />
+    <Property Name="IsNewSchemaExternal" Value="False" />
+  </Operation>
+  <Operation Name="Move Schema" Key="4b76465b-01f8-4e62-8d9e-b07d32e9a4f8" ChangeDateTime="10/11/2026 16:20:00">
+    <Property Name="ElementName" Value="[dbo].[DatabaseAccessMembership]" />
+    <Property Name="ElementType" Value="SqlTable" />
+    <Property Name="NewSchema" Value="deploy" />
+    <Property Name="IsNewSchemaExternal" Value="False" />
+  </Operation>
+  <Operation Name="Move Schema" Key="20db7f85-4157-41a5-9886-a86a725938b9" ChangeDateTime="10/11/2026 16:20:00">
+    <Property Name="ElementName" Value="[dbo].[DatabaseAccessAudit]" />
+    <Property Name="ElementType" Value="SqlTable" />
+    <Property Name="NewSchema" Value="deploy" />
+    <Property Name="IsNewSchemaExternal" Value="False" />
+  </Operation>
 </Operations>

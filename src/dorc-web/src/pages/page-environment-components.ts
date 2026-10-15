@@ -28,10 +28,19 @@ export class PageEnvironmentComponents extends PageElement {
     return css`
       :host {
         height: 100%;
+        min-height: 0;
         width: 100%;
         overflow: hidden;
         display: flex;
         flex-direction: column;
+      }
+      vaadin-tabs {
+        flex-shrink: 0;
+      }
+      .tab-content {
+        flex: 1;
+        min-height: 0;
+        padding: 0;
       }
     `;
   }
@@ -46,7 +55,7 @@ export class PageEnvironmentComponents extends PageElement {
       >
         ${this.tabNames.map(tabName => this.convertUriToHuman(tabName))}
       </vaadin-tabs>
-      <vaadin-vertical-layout style="padding: 0px; height: 100%">
+      <vaadin-vertical-layout class="tab-content">
         <slot @slotchange=${this.handleSlotChange}></slot>
       </vaadin-vertical-layout>
     `;
