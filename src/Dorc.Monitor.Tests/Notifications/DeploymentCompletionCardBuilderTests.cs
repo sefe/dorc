@@ -1,5 +1,7 @@
 using System.Text.Json;
 using Dorc.ApiModel;
+using NSubstitute;
+using Dorc.Monitor;
 using System.Linq;
 using Dorc.Monitor.Notifications.Teams;
 using Microsoft.Extensions.Options;
@@ -11,10 +13,20 @@ namespace Dorc.Monitor.Tests.Notifications
     {
         private static readonly DateTimeOffset StartedTime = new(2026, 8, 1, 10, 0, 0, TimeSpan.Zero);
 
-        private static DeploymentCompletionCardBuilder CreateBuilder(string dorcUiBaseUrl = "")
+        private static DeploymentCompletionCardBuilder CreateBuilder(
+            string dorcUiBaseUrl = "",
+            bool isProduction = true,
+            string environment = "UT2")
         {
+            // Production by default so the existing cases assert the card without the
+            // non-prod instance banner; the banner cases opt in explicitly.
+            var monitorConfiguration = Substitute.For<IMonitorConfiguration>();
+            monitorConfiguration.EnvironmentIsProduction.Returns(isProduction);
+            monitorConfiguration.Environment.Returns(environment);
+
             return new DeploymentCompletionCardBuilder(
-                Options.Create(new TeamsBotOptions { DorcUiBaseUrl = dorcUiBaseUrl }));
+                Options.Create(new TeamsBotOptions { DorcUiBaseUrl = dorcUiBaseUrl }),
+                monitorConfiguration);
         }
 
         private static DeploymentRequestApiModel CreateRequest()
@@ -193,6 +205,46 @@ namespace Dorc.Monitor.Tests.Notifications
         {
             Assert.ThrowsExactly<ArgumentException>(() =>
                 CreateBuilder().BuildBatch(new List<DeploymentRequestApiModel>(), "Cancelled", StartedTime));
+        }
+
+        // ---- Non-prod instance banner ----
+
+        [TestMethod]
+        public void Build_NonProdInstance_ShowsBannerNamingTheEnvironment()
+        {
+            var json = CreateBuilder(isProduction: false, environment: "UT2")
+                .Build(CreateRequest(), "Completed", StartedTime, StartedTime.AddSeconds(5));
+
+            StringAssert.Contains(json, "UT2 - Non-Prod Instance");
+            StringAssert.Contains(json, "Attention");
+        }
+
+        [TestMethod]
+        public void Build_ProductionInstance_OmitsTheBanner()
+        {
+            var json = CreateBuilder(isProduction: true, environment: "PROD")
+                .Build(CreateRequest(), "Completed", StartedTime, StartedTime.AddSeconds(5));
+
+            Assert.IsFalse(json.Contains("Non-Prod Instance"),
+                "A production Monitor must not stamp deployment cards as non-prod.");
+        }
+
+        [TestMethod]
+        public void BuildBatch_NonProdInstance_ShowsBannerToo()
+        {
+            var json = CreateBuilder(isProduction: false, environment: "UT2")
+                .BuildBatch(CreateBatch(3), "Cancelled", StartedTime);
+
+            StringAssert.Contains(json, "UT2 - Non-Prod Instance");
+        }
+
+        [TestMethod]
+        public void BuildBatch_ProductionInstance_OmitsTheBanner()
+        {
+            var json = CreateBuilder(isProduction: true, environment: "PROD")
+                .BuildBatch(CreateBatch(3), "Cancelled", StartedTime);
+
+            Assert.IsFalse(json.Contains("Non-Prod Instance"));
         }
 
     }

@@ -1,4 +1,5 @@
 using Dorc.ApiModel;
+using Dorc.Monitor;
 using Dorc.Core.Interfaces;
 using Dorc.Monitor.Notifications.Teams;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -49,11 +50,21 @@ namespace Dorc.Monitor.Tests.Notifications
                 options,
                 mockSearcher,
                 mockConversationClient,
-                new DeploymentCompletionCardBuilder(options),
+                new DeploymentCompletionCardBuilder(options, CreateProductionMonitorConfiguration()),
                 NullLoggerFactory.Instance)
             {
                 RetryDelayProvider = _ => TimeSpan.Zero
             };
+        }
+
+        private static IMonitorConfiguration CreateProductionMonitorConfiguration()
+        {
+            // Production, so the card carries no non-prod instance banner and these
+            // assertions stay about notification behaviour rather than card chrome.
+            var monitorConfiguration = Substitute.For<IMonitorConfiguration>();
+            monitorConfiguration.EnvironmentIsProduction.Returns(true);
+            monitorConfiguration.Environment.Returns("UT2");
+            return monitorConfiguration;
         }
 
         private static DeploymentRequestApiModel CreateRequest(string? userName = UserName)
