@@ -7,10 +7,18 @@ namespace Dorc.Monitor.Notifications.Teams
     internal sealed class DeploymentCompletionCardBuilder
     {
         private readonly string _dorcUiBaseUrl;
+        private readonly bool _showInstanceBanner;
+        private readonly string _instanceBannerText;
 
-        public DeploymentCompletionCardBuilder(IOptions<TeamsBotOptions> options)
+        public DeploymentCompletionCardBuilder(
+            IOptions<TeamsBotOptions> options,
+            IMonitorConfiguration monitorConfiguration)
         {
             _dorcUiBaseUrl = options.Value.DorcUiBaseUrl;
+
+            var environmentName = (monitorConfiguration.Environment ?? string.Empty).Trim();
+            _instanceBannerText = $"{environmentName} - Non-Prod Instance";
+            _showInstanceBanner = !monitorConfiguration.EnvironmentIsProduction;
         }
 
         public string Build(
@@ -26,38 +34,53 @@ namespace Dorc.Monitor.Notifications.Teams
                 ? $"{(int)duration.TotalSeconds}s"
                 : $"{(int)duration.TotalMinutes}m {duration.Seconds}s";
 
+            var body = new List<object>
+            {
+                new Dictionary<string, object?>
+                {
+                    ["type"]   = "TextBlock",
+                    ["text"]   = $"{emoji} Deployment {finalStatus}",
+                    ["weight"] = "Bolder",
+                    ["size"]   = "Medium",
+                    ["wrap"]   = true
+                }
+            };
+
+            if (_showInstanceBanner)
+            {
+                body.Add(new Dictionary<string, object?>
+                {
+                    ["type"]   = "TextBlock",
+                    ["text"]   = _instanceBannerText,
+                    ["color"]  = "Attention",
+                    ["weight"] = "Bolder",
+                    ["wrap"]   = true
+                });
+            }
+
+            body.Add(new Dictionary<string, object?>
+            {
+                ["type"]  = "FactSet",
+                ["facts"] = new object[]
+                {
+                    new Dictionary<string, object?> { ["title"] = "Request ID",  ["value"] = request.Id.ToString() },
+                    new Dictionary<string, object?> { ["title"] = "Requester",   ["value"] = request.UserName ?? "—" },
+                    new Dictionary<string, object?> { ["title"] = "Project",     ["value"] = request.Project ?? "—" },
+                    new Dictionary<string, object?> { ["title"] = "Environment", ["value"] = request.EnvironmentName ?? "—" },
+                    new Dictionary<string, object?> { ["title"] = "Build",       ["value"] = request.BuildNumber ?? "—" },
+                    new Dictionary<string, object?> { ["title"] = "Status",      ["value"] = finalStatus },
+                    new Dictionary<string, object?> { ["title"] = "Started",     ["value"] = startedTime.ToString("yyyy-MM-dd HH:mm:ss zzz") },
+                    new Dictionary<string, object?> { ["title"] = "Completed",   ["value"] = completedTime.ToString("yyyy-MM-dd HH:mm:ss zzz") },
+                    new Dictionary<string, object?> { ["title"] = "Duration",    ["value"] = durationText }
+                }
+            });
+
             var card = new Dictionary<string, object?>
             {
                 ["type"]         = "AdaptiveCard",
                 ["version"]      = "1.4",
                 ["fallbackText"] = $"{emoji} Deployment {finalStatus} - Request #{request.Id}",
-                ["body"] = new object[]
-                {
-                    new Dictionary<string, object?>
-                    {
-                        ["type"]   = "TextBlock",
-                        ["text"]   = $"{emoji} Deployment {finalStatus}",
-                        ["weight"] = "Bolder",
-                        ["size"]   = "Medium",
-                        ["wrap"]   = true
-                    },
-                    new Dictionary<string, object?>
-                    {
-                        ["type"]  = "FactSet",
-                        ["facts"] = new object[]
-                        {
-                            new Dictionary<string, object?> { ["title"] = "Request ID",  ["value"] = request.Id.ToString() },
-                            new Dictionary<string, object?> { ["title"] = "Requester",   ["value"] = request.UserName ?? "—" },
-                            new Dictionary<string, object?> { ["title"] = "Project",     ["value"] = request.Project ?? "—" },
-                            new Dictionary<string, object?> { ["title"] = "Environment", ["value"] = request.EnvironmentName ?? "—" },
-                            new Dictionary<string, object?> { ["title"] = "Build",       ["value"] = request.BuildNumber ?? "—" },
-                            new Dictionary<string, object?> { ["title"] = "Status",      ["value"] = finalStatus },
-                            new Dictionary<string, object?> { ["title"] = "Started",     ["value"] = startedTime.ToString("yyyy-MM-dd HH:mm:ss zzz") },
-                            new Dictionary<string, object?> { ["title"] = "Completed",   ["value"] = completedTime.ToString("yyyy-MM-dd HH:mm:ss zzz") },
-                            new Dictionary<string, object?> { ["title"] = "Duration",    ["value"] = durationText }
-                        }
-                    }
-                },
+                ["body"] = body,
                 ["$schema"] = "http://adaptivecards.io/schemas/adaptive-card.json"
             };
 
@@ -69,7 +92,7 @@ namespace Dorc.Monitor.Notifications.Teams
                     new Dictionary<string, object?>
                     {
                         ["type"]  = "Action.OpenUrl",
-                        ["title"] = "Open in DOrc",
+                        ["title"] = "Open deploy",
                         ["url"]   = deepLinkUrl
                     }
                 };
@@ -128,14 +151,27 @@ namespace Dorc.Monitor.Notifications.Teams
                         new Dictionary<string, object?> { ["title"] = "Requests",  ["value"] = ordered.Count.ToString() },
                         new Dictionary<string, object?> { ["title"] = "At",        ["value"] = completedTime.ToString("yyyy-MM-dd HH:mm:ss zzz") }
                     }
-                },
-                new Dictionary<string, object?>
-                {
-                    ["type"] = "TextBlock",
-                    ["text"] = string.Join("\r", lines),
-                    ["wrap"] = true
                 }
             };
+
+            if (_showInstanceBanner)
+            {
+                body.Add(new Dictionary<string, object?>
+                {
+                    ["type"]   = "TextBlock",
+                    ["text"]   = _instanceBannerText,
+                    ["color"]  = "Attention",
+                    ["weight"] = "Bolder",
+                    ["wrap"]   = true
+                });
+            }
+
+            body.Add(new Dictionary<string, object?>
+            {
+                ["type"] = "TextBlock",
+                ["text"] = string.Join("\r", lines),
+                ["wrap"] = true
+            });
 
             var card = new Dictionary<string, object?>
             {
@@ -153,7 +189,7 @@ namespace Dorc.Monitor.Notifications.Teams
                     new Dictionary<string, object?>
                     {
                         ["type"]  = "Action.OpenUrl",
-                        ["title"] = "Open in DOrc",
+                        ["title"] = "Open deploy",
                         ["url"]   = $"{_dorcUiBaseUrl.TrimEnd('/')}/monitor-requests"
                     }
                 };
