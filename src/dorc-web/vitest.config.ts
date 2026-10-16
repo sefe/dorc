@@ -34,14 +34,14 @@ export default defineConfig({
     setupFiles: ['./tests/_setup.ts'],
     testTimeout: 30000,
     hookTimeout: 30000,
+    // Pin the browser API to IPv4 so Windows hosts that cannot bind IPv6
+    // localhost can execute the browser suite.
+    api: {
+      host: '127.0.0.1',
+      port: 51234
+    },
     browser: {
       enabled: true,
-      // Pin the browser API to IPv4 so Windows hosts that cannot bind IPv6
-      // localhost can execute the browser suite.
-      api: {
-        host: '127.0.0.1',
-        port: 51234
-      },
       provider: playwright(),
       headless: true,
       instances: BROWSERS.map(browser => ({ browser }))

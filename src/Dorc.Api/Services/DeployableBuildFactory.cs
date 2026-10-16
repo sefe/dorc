@@ -1,4 +1,4 @@
-﻿using Dorc.Api.Interfaces;
+using Dorc.Api.Interfaces;
 using Dorc.Api.Model;
 using Dorc.ApiModel;
 using Dorc.Core.AzureDevOpsServer;
@@ -42,7 +42,7 @@ namespace Dorc.Api.Services
             switch (buildDetail.Type)
             {
                 case BuildType.FileShareBuild:
-                    return new FileShareDeployableBuild(_fileSystemHelper, _deployLibrary, _requestsPersistentSource);
+                    return new FileShareDeployableBuild(_fileSystemHelper, _deployLibrary, _requestsPersistentSource, _projectsPersistentSource);
 
                 case BuildType.TfsBuild:
                     {

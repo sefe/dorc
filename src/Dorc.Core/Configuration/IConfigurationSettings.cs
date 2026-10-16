@@ -1,4 +1,4 @@
-﻿namespace Dorc.Core.Configuration
+namespace Dorc.Core.Configuration
 {
     public interface IConfigurationSettings
     {
@@ -35,6 +35,17 @@
         string GetAzureStorageAccountTerraformBlobsContainerName();
 
         bool GetPauseDeploymentEnabled();
+
+        /// <summary>
+        /// Whether confirming a Terraform plan requires an approver other than the person
+        /// who submitted the request.
+        ///
+        /// Returns null when the setting is absent or unparseable. Callers must treat null
+        /// as "enabled for production-tier requests, disabled otherwise" - deliberately NOT
+        /// the codebase's usual bool.TryParse(...) &amp;&amp; enabled pattern, which resolves an
+        /// absent key to false and would ship this control silently off.
+        /// </summary>
+        bool? GetTerraformSeparateApproverRequired();
         bool GetIsProduction();
     }
 }

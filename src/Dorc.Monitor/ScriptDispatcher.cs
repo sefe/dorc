@@ -1,4 +1,4 @@
-using Dorc.ApiModel;
+﻿using Dorc.ApiModel;
 using Dorc.ApiModel.MonitorRunnerApi;
 using Dorc.Core;
 using Dorc.Core.Configuration;
@@ -90,125 +90,160 @@ namespace Dorc.Monitor
                 using (var pipeCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
                 {
                     string startedScriptGroupPipeName = $"DOrcMonitor-{HostInstanceId.Value}-{requestId}";
-                    Task scriptGroupPipeTask = scriptGroupPipeServer.Start(
-                            startedScriptGroupPipeName,
-                            scriptGroup,
-                            pipeCancellationTokenSource.Token);
-                    logger.LogInformation($"Server named pipe with the name '{startedScriptGroupPipeName}' has started.");
 
-                    var contextBuilder = new ProcessSecurityContextBuilder(logger)
+                    // The script group is made available to the account the Runner will be
+                    // started as, taken from the same credential resolution that builds the
+                    // process security context below rather than assumed to be the Monitor's
+                    // own identity.
+                    var readerIdentity = new ScriptGroupReaderIdentity(domainName, processAccountName);
+
+                    try
                     {
-                        UserName = processAccountName,
-                        Domain = domainName,
-                        Password = processAccountPassword
-                    };
+                        Task scriptGroupPipeTask = scriptGroupPipeServer.Start(
+                                startedScriptGroupPipeName,
+                                scriptGroup,
+                                readerIdentity,
+                                pipeCancellationTokenSource.Token);
+                        logger.LogInformation($"Server named pipe with the name '{startedScriptGroupPipeName}' has started.");
 
-                    using (var securityContext = contextBuilder.Build())
-                    {
-                        var runnerLogPathSetting = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build()
-                        .GetSection("AppSettings")["RunnerLogPath"]!;
-                        var runnerLogPath = runnerLogPathSetting + $"\\{startedScriptGroupPipeName}.txt";
-                        var uncLogPath = runnerLogPath.Replace("c:", @"\\" + System.Environment.GetEnvironmentVariable("COMPUTERNAME"));
-
-                        requestsPersistentSource.UpdateUncLogPath(requestId, uncLogPath);
-
-                        var processStarter = new RunnerProcessStarter(logger)
+                        var contextBuilder = new ProcessSecurityContextBuilder(logger)
                         {
-                            RunnerExecutableFullName = GetDeploymentRunnerFileFullName(
-                                scriptGroup.PowerShellVersionNumber),
-                            ScriptGroupPipeName = startedScriptGroupPipeName,
-                            RunnerLogPath = runnerLogPath
+                            UserName = processAccountName,
+                            Domain = domainName,
+                            Password = processAccountPassword
                         };
 
-                        try
+                        using (var securityContext = contextBuilder.Build())
                         {
-                            Interop.Kernel32.STARTUPINFO startupInfo = new ProcessStartupInfoBuilder(logger).Build();
-                            logger.LogInformation("Starting Runner process.");
+                            var runnerLogPathSetting = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build()
+                            .GetSection("AppSettings")["RunnerLogPath"]!;
+                            var runnerLogPath = runnerLogPathSetting + $"\\{startedScriptGroupPipeName}.txt";
+                            var uncLogPath = runnerLogPath.Replace("c:", @"\\" + System.Environment.GetEnvironmentVariable("COMPUTERNAME"));
 
-                            cancellationToken.ThrowIfCancellationRequested();
+                            requestsPersistentSource.UpdateUncLogPath(requestId, uncLogPath);
 
-                            var process = processStarter.Start(startupInfo, securityContext);
+                            var processStarter = new RunnerProcessStarter(logger)
+                            {
+                                RunnerExecutableFullName = GetDeploymentRunnerFileFullName(
+                                    scriptGroup.PowerShellVersionNumber),
+                                ScriptGroupPipeName = startedScriptGroupPipeName,
+                                RunnerLogPath = runnerLogPath
+                            };
+
                             try
                             {
-                                processesPersistentSource.AssociateProcessWithRequest((int)process.Id, requestId);
-
-                                if (cancellationToken.IsCancellationRequested)
-                                {
-                                    logger.LogDebug("Trying to terminate the Runner process.");
-                                    process.Kill();
-                                    logger.LogInformation("The Runner process is terminated.");
-                                    throw new OperationCanceledException("The Runner process is terminated.");
-                                }
-
-                                logger.LogDebug("Waiting for process to exit.");
-                                using var killOnCancel = cancellationToken.Register(() =>
-                                {
-                                    // This callback can fire SYNCHRONOUSLY on the Kafka
-                                    // rebalance/poll thread: when a distributed lock is lost,
-                                    // KafkaLockCoordinator cancels LockLostToken inline, and this
-                                    // token is linked to it (DeploymentRequestStateProcessor).
-                                    // process.Kill() can block on a slow/zombie child, and blocking
-                                    // the poll thread past max.poll.interval.ms fences the lock
-                                    // consumer and stalls distributed locking fleet-wide (audit CR#1).
-                                    // Offload the blocking termination so the cancellation callback
-                                    // returns immediately — honouring the "callbacks on LockLostToken
-                                    // must be fast/non-blocking" contract documented in
-                                    // KafkaLockCoordinator. Use a DEDICATED thread, not Task.Run: under
-                                    // thread-pool saturation a queued Kill could run arbitrarily late,
-                                    // leaving a runaway Runner executing deployment work after the
-                                    // distributed lock was lost (audit round-2 #6). A dedicated thread
-                                    // runs promptly regardless of pool state.
-                                    logger.LogInformation("Cancellation requested — terminating Runner process for request ID '{RequestId}'.", requestId);
-                                    var killThread = new Thread(() =>
-                                    {
-                                        try
-                                        {
-                                            process.Kill();
-                                        }
-                                        catch (Exception ex)
-                                        {
-                                            logger.LogDebug(ex, "Failed to terminate Runner process (may have already exited).");
-                                        }
-                                    })
-                                    {
-                                        IsBackground = true,
-                                        Name = $"runner-kill-{requestId}"
-                                    };
-                                    killThread.Start();
-                                });
-                                var resultCode = process.WaitForExit();
-                                logger.LogInformation($"Runner finished for request ID '{requestId}' with result code [{resultCode}]");
+                                Interop.Kernel32.STARTUPINFO startupInfo = new ProcessStartupInfoBuilder(logger).Build();
+                                logger.LogInformation("Starting Runner process.");
 
                                 cancellationToken.ThrowIfCancellationRequested();
 
-                                if (resultCode == RunnerProcess.RunnerProcess.ProcessTerminatedExitCode)
+                                var process = processStarter.Start(startupInfo, securityContext);
+                                try
                                 {
-                                    logger.LogInformation("The Runner process is terminated.");
-                                    throw new OperationCanceledException("The Runner process is terminated.");
+                                    processesPersistentSource.AssociateProcessWithRequest((int)process.Id, requestId);
+
+                                    if (cancellationToken.IsCancellationRequested)
+                                    {
+                                        logger.LogDebug("Trying to terminate the Runner process.");
+                                        process.Kill();
+                                        logger.LogInformation("The Runner process is terminated.");
+                                        throw new OperationCanceledException("The Runner process is terminated.");
+                                    }
+
+                                    logger.LogDebug("Waiting for process to exit.");
+                                    using var killOnCancel = cancellationToken.Register(() =>
+                                    {
+                                        // This callback can fire SYNCHRONOUSLY on the Kafka
+                                        // rebalance/poll thread: when a distributed lock is lost,
+                                        // KafkaLockCoordinator cancels LockLostToken inline, and this
+                                        // token is linked to it (DeploymentRequestStateProcessor).
+                                        // process.Kill() can block on a slow/zombie child, and blocking
+                                        // the poll thread past max.poll.interval.ms fences the lock
+                                        // consumer and stalls distributed locking fleet-wide (audit CR#1).
+                                        // Offload the blocking termination so the cancellation callback
+                                        // returns immediately — honouring the "callbacks on LockLostToken
+                                        // must be fast/non-blocking" contract documented in
+                                        // KafkaLockCoordinator. Use a DEDICATED thread, not Task.Run: under
+                                        // thread-pool saturation a queued Kill could run arbitrarily late,
+                                        // leaving a runaway Runner executing deployment work after the
+                                        // distributed lock was lost (audit round-2 #6). A dedicated thread
+                                        // runs promptly regardless of pool state.
+                                        logger.LogInformation("Cancellation requested — terminating Runner process for request ID '{RequestId}'.", requestId);
+                                        var killThread = new Thread(() =>
+                                        {
+                                            try
+                                            {
+                                                process.Kill();
+                                            }
+                                            catch (InvalidOperationException ex)
+                                            {
+                                                logger.LogDebug(ex, "Failed to terminate Runner process (it has already exited).");
+                                            }
+                                            catch (System.ComponentModel.Win32Exception ex)
+                                            {
+                                                logger.LogDebug(ex, "Failed to terminate Runner process (the operating system refused the termination).");
+                                            }
+                                            catch (NotSupportedException ex)
+                                            {
+                                                logger.LogDebug(ex, "Failed to terminate Runner process (termination is not supported for it).");
+                                            }
+                                            catch (SystemException ex)
+                                            {
+                                                // This runs on a dedicated thread: anything that escapes it
+                                                // terminates the Monitor. The three cases above are what
+                                                // Process.Kill documents; this is the backstop that keeps an
+                                                // undocumented one from taking the service down with it.
+                                                logger.LogWarning(ex, "Failed to terminate Runner process.");
+                                            }
+                                        })
+                                        {
+                                            IsBackground = true,
+                                            Name = $"runner-kill-{requestId}"
+                                        };
+                                        killThread.Start();
+                                    });
+                                    var resultCode = process.WaitForExit();
+                                    logger.LogInformation($"Runner finished for request ID '{requestId}' with result code [{resultCode}]");
+
+                                    cancellationToken.ThrowIfCancellationRequested();
+
+                                    if (resultCode == RunnerProcess.RunnerProcess.ProcessTerminatedExitCode)
+                                    {
+                                        logger.LogInformation("The Runner process is terminated.");
+                                        throw new OperationCanceledException("The Runner process is terminated.");
+                                    }
+                                    else if (resultCode != 0)
+                                    {
+                                        isScriptExecutionSuccessful = false;
+                                        logger.LogError($"Runner process for request ID '{requestId}' exited with non-zero exit code {resultCode}.");
+                                    }
+                                    else
+                                    {
+                                        logger.LogInformation($"Runner process for request ID '{requestId}' completed successfully.");
+                                    }
                                 }
-                                else if (resultCode != 0)
+                                finally
                                 {
-                                    isScriptExecutionSuccessful = false;
-                                    logger.LogError($"Runner process for request ID '{requestId}' exited with non-zero exit code {resultCode}.");
-                                }
-                                else
-                                {
-                                    logger.LogInformation($"Runner process for request ID '{requestId}' completed successfully.");
+                                    pipeCancellationTokenSource.Cancel();
+                                    processesPersistentSource.RemoveProcess((int)process.Id);
+                                    process.Dispose();
                                 }
                             }
-                            finally
+                            catch (Exception e)
                             {
                                 pipeCancellationTokenSource.Cancel();
-                                processesPersistentSource.RemoveProcess((int)process.Id);
-                                process.Dispose();
+                                logger.LogError($"Exception is thrown while operating with the Runner process. Exception: {e}");
+                                throw;
                             }
                         }
-                        catch (Exception e)
-                        {
-                            pipeCancellationTokenSource.Cancel();
-                            logger.LogError($"Exception is thrown while operating with the Runner process. Exception: {e}");
-                            throw;
-                        }
+                    }
+                    finally
+                    {
+                        // The bundle carries the resolved deployment properties, secrets
+                        // included. It is needed for the span of one Runner process, so it
+                        // is withdrawn as soon as that process is gone - on the failure and
+                        // cancellation paths as much as the successful one.
+                        scriptGroupPipeServer.Expire(startedScriptGroupPipeName);
                     }
                 }
             }

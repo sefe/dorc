@@ -100,7 +100,7 @@ namespace Dorc.TerraformRunner
                     scriptGroupReader = new ScriptGroupFileReader(fileLogger);
                 }
                 else
-                    scriptGroupReader = new ScriptGroupPipeClient(fileLogger);
+                    scriptGroupReader = new ScriptGroupPipeClient(fileLogger, options.ServerSid);
 
                 var terraformProcesor = new TerraformProcessor(runnerLogger, scriptGroupReader);
                 switch (options.TerrafromRunnerOperation)

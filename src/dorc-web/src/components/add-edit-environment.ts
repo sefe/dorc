@@ -21,6 +21,7 @@ import type { EnvironmentApiModel } from '../apis/dorc-api';
 import { navigate } from '../router/router';
 import '@vaadin/horizontal-layout';
 import { dorcApiConfiguration } from '../services/dorc-api-configuration';
+import { retrieveErrorMessage } from '../helpers/errorMessage-retriever';
 
 @customElement('add-edit-environment')
 export class AddEditEnvironment extends LitElement {
@@ -650,21 +651,6 @@ export class AddEditEnvironment extends LitElement {
   }
 
   private extractErrorMessage(err: any): string {
-    if (err?.response?.ExceptionMessage) {
-      return err.response.ExceptionMessage;
-    }
-    if (err?.response?.Message) {
-      return err.response.Message;
-    }
-    if (typeof err?.response === 'string') {
-      return err.response;
-    }
-    if (err?.message) {
-      return err.message;
-    }
-    if (typeof err === 'string') {
-      return err;
-    }
-    return 'An unexpected error occurred. Please try again or contact support.';
+    return retrieveErrorMessage(err);
   }
 }

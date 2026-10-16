@@ -2,6 +2,7 @@
 using Dorc.PersistentData.Contexts;
 using Dorc.PersistentData.Extensions;
 using Dorc.PersistentData.Model;
+using Dorc.PersistentData.Security;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using System.Linq.Expressions;
@@ -23,12 +24,14 @@ namespace Dorc.PersistentData.Sources
         private readonly IDeploymentContextFactory _contextFactory;
         private readonly IRequestsPersistentSource _requestsPersistentSource;
         private readonly IScriptsAuditPersistentSource _scriptsAuditPersistentSource;
+        private readonly ISourceHostAllowList _sourceHostAllowList;
 
-        public ManageProjectsPersistentSource(IDeploymentContextFactory contextFactory, IRequestsPersistentSource requestsPersistentSource, IScriptsAuditPersistentSource scriptsAuditPersistentSource)
+        public ManageProjectsPersistentSource(IDeploymentContextFactory contextFactory, IRequestsPersistentSource requestsPersistentSource, IScriptsAuditPersistentSource scriptsAuditPersistentSource, ISourceHostAllowList sourceHostAllowList)
         {
             _requestsPersistentSource = requestsPersistentSource;
             _contextFactory = contextFactory;
             _scriptsAuditPersistentSource = scriptsAuditPersistentSource;
+            _sourceHostAllowList = sourceHostAllowList;
         }
 
         public void InsertRefDataAudit(string username, HttpRequestType requestType, RefDataApiModel refDataApiModel)
@@ -331,6 +334,8 @@ namespace Dorc.PersistentData.Sources
                 ValidateComponentIdsDoNotBelongToOtherProject(component, projectId);
                 ValidateComponentNameDoesNotBelongToDifferentProject(component, projectId);
                 ValidateNameLengthRestrictions(component);
+                ValidateScriptPathIsConfined(component);
+                ValidateTerraformSourceHost(component);
             }
 
             ValidateNoDuplicateComponentIdsOrNames(flattenedComponents);
@@ -339,6 +344,9 @@ namespace Dorc.PersistentData.Sources
         public void CreateComponent(ComponentApiModel apiComponent, int projectId, int? parentId, string username)
         {
             if (apiComponent.ComponentId == 0)
+            {
+                ValidateTerraformSourceHost(apiComponent);
+
                 using (var context = _contextFactory.GetContext())
                 {
                     var duplicateComponent =
@@ -405,12 +413,15 @@ namespace Dorc.PersistentData.Sources
                             username, "Insert", projectName);
                     }
                 }
+            }
         }
 
         public void UpdateComponent(ComponentApiModel apiComponent, int projectId, int? parentId, string username)
         {
             if (apiComponent.ComponentId == 0)
                 return;
+
+            ValidateTerraformSourceHost(apiComponent);
 
             using (var context = _contextFactory.GetContext())
             {
@@ -778,6 +789,62 @@ namespace Dorc.PersistentData.Sources
                 throw new ArgumentOutOfRangeException(nameof(component),
                     "Component '" + component.ComponentName +
                     "' contains invalid characters. Only alphanumeric characters, spaces, and the following symbols are allowed: ,./?|:;'\"<>()[]{}_*&$#@!-=+");
+        }
+
+        /// <summary>
+        /// Rejects a script path that could resolve outside the script root once joined to it.
+        ///
+        /// Applies to PowerShell components only. A Terraform component's ScriptPath is not a
+        /// script relative to the root — for the SharedFolder source type it *is* the location,
+        /// and is legitimately an absolute UNC path. Confining it needs a host allow-list rather
+        /// than a relativity rule, which is a different control; see W-5a.
+        ///
+        /// This constrains what is written from here on. It deliberately does not inspect
+        /// stored data: existing components keep working, and remediating them is its own step
+        /// so that enforcement never becomes a flag day.
+        /// </summary>
+        private static void ValidateScriptPathIsConfined(ComponentApiModel component)
+        {
+            if (component.ComponentType != ComponentType.PowerShell)
+            {
+                return;
+            }
+
+            var confinement = ScriptPathConfinement.Check(component.ScriptPath);
+            if (!confinement.Allowed)
+            {
+                throw new ArgumentOutOfRangeException(nameof(component),
+                    "Component '" + component.ComponentName + "' has a script path that cannot be"
+                    + " accepted, because " + confinement.Reason);
+            }
+        }
+
+        /// <summary>
+        /// Rejects a Terraform component naming a source location the deployment is not
+        /// permitted to provision code from.
+        ///
+        /// This is the other half of the script path question. For a PowerShell component the
+        /// path is relative to the script root and confined by that relativity; for a Terraform
+        /// component on the SharedFolder source type it IS the location, legitimately absolute,
+        /// and so needs a host allow-list instead. Same field, same rights to set it, same
+        /// outcome if it is unconstrained - code provisioned from somewhere of the setter's
+        /// choosing and executed as the deployment account.
+        /// </summary>
+        private void ValidateTerraformSourceHost(ComponentApiModel component)
+        {
+            if (component.ComponentType != ComponentType.Terraform
+                || _sourceHostAllowList.IsUnconfigured)
+            {
+                return;
+            }
+
+            var source = _sourceHostAllowList.CheckTerraformSource(component.ScriptPath);
+            if (!source.Allowed)
+            {
+                throw new ArgumentOutOfRangeException(nameof(component),
+                    "Component '" + component.ComponentName + "' has a Terraform source location that"
+                    + " cannot be accepted, because " + source.Reason);
+            }
         }
 
         private static void ValidateNameLengthRestrictions(ComponentApiModel component)
