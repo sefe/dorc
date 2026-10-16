@@ -3,6 +3,7 @@ namespace Dorc.Monitor
     public interface IMonitorConfiguration
     {
         bool IsProduction { get; }
+        bool EnvironmentIsProduction { get; }
         int RequestProcessingIterationDelayMs { get; }
         string ServiceName { get; }
         string DOrcConnectionString { get; }
