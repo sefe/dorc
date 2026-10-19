@@ -144,6 +144,8 @@ namespace Dorc.Monitor.RequestProcessors
                                 requestToExecute.Request.Id,
                                 deploymentRequestStatus,
                                 completedTime);
+                            requestToExecute.Request.Status = deploymentRequestStatus.ToString();
+                            requestToExecute.Request.CompletedTime = completedTime;
 
                             eventsPublisher.PublishRequestStatusChangedAsync(new DeploymentRequestEventData(requestToExecute.Request)
                             {
@@ -198,6 +200,8 @@ namespace Dorc.Monitor.RequestProcessors
                                 requestToExecute.Request.Id,
                                 deploymentRequestStatus,
                                 completedTime);
+                            requestToExecute.Request.Status = deploymentRequestStatus.ToString();
+                            requestToExecute.Request.CompletedTime = completedTime;
 
                             eventsPublisher.PublishRequestStatusChangedAsync(new DeploymentRequestEventData(requestToExecute.Request)
                             {
@@ -317,6 +321,8 @@ namespace Dorc.Monitor.RequestProcessors
                             requestToExecute.Request.Id,
                             deploymentRequestStatus,
                             finalCompletedTime);
+                        requestToExecute.Request.Status = deploymentRequestStatus.ToString();
+                        requestToExecute.Request.CompletedTime = finalCompletedTime;
 
                         eventsPublisher.PublishRequestStatusChangedAsync(new DeploymentRequestEventData(requestToExecute.Request)
                         {
@@ -358,6 +364,8 @@ namespace Dorc.Monitor.RequestProcessors
                             DeploymentRequestStatus.Errored,
                             erroredTime,
                             criticalLogBuilder.ToString());
+                        requestToExecute.Request.Status = DeploymentRequestStatus.Errored.ToString();
+                        requestToExecute.Request.CompletedTime = erroredTime;
 
                         eventsPublisher.PublishRequestStatusChangedAsync(new DeploymentRequestEventData(requestToExecute.Request)
                         {
@@ -386,6 +394,8 @@ namespace Dorc.Monitor.RequestProcessors
                         DeploymentRequestStatus.Errored,
                         erroredTime,
                         criticalLogBuilder.ToString());
+                    requestToExecute.Request.Status = DeploymentRequestStatus.Errored.ToString();
+                    requestToExecute.Request.CompletedTime = erroredTime;
 
                     eventsPublisher.PublishRequestStatusChangedAsync(new DeploymentRequestEventData(requestToExecute.Request)
                     {

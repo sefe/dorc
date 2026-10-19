@@ -682,6 +682,8 @@ namespace Dorc.Monitor
                         DeploymentRequestStatus.Errored,
                         erroredTime,
                         exception.ToString());
+                    requestToExecute.Request.Status = DeploymentRequestStatus.Errored.ToString();
+                    requestToExecute.Request.CompletedTime = erroredTime;
 
                     PublishRequestStatusChangedSafe(new DeploymentRequestEventData(requestToExecute.Request)
                     {

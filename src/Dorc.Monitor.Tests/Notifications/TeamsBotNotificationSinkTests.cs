@@ -1,4 +1,5 @@
 using Dorc.ApiModel;
+using Dorc.Core;
 using Dorc.Monitor;
 using Dorc.PersistentData.Sources.Interfaces;
 using Dorc.Core.Interfaces;
@@ -441,5 +442,163 @@ namespace Dorc.Monitor.Tests.Notifications
             await mockConversationClient.Received(1).SendCardAsync(ConversationId, Arg.Any<string>(), Arg.Any<CancellationToken>());
         }
 
+        // ---- Bundle notifications ----
+
+        private static string CreateBundledRequestDetails(params int[] requestIds)
+        {
+            var serializer = new DeploymentRequestDetailSerializer();
+            return serializer.Serialize(new DeploymentRequestDetail
+            {
+                Properties = new List<PropertyPair>
+                {
+                    new("AllRequestIds", string.Join(",", requestIds))
+                }
+            });
+        }
+
+        private static DeploymentRequestApiModel CreateBundledRequest(
+            int id,
+            string status,
+            DateTimeOffset? completedTime,
+            params int[] bundleIds)
+        {
+            return new DeploymentRequestApiModel
+            {
+                Id = id,
+                UserName = UserName,
+                Project = "TestProject",
+                EnvironmentName = "TestEnv",
+                BuildNumber = "1.2.3",
+                Status = status,
+                CompletedTime = completedTime,
+                RequestDetails = CreateBundledRequestDetails(bundleIds)
+            };
+        }
+
+        [TestMethod]
+        public async Task NotifyBundle_WhenSiblingStillRunning_DefersAndSendsNothing()
+        {
+            var req1 = CreateBundledRequest(101, "Completed", CompletedTime, 101, 102);
+            var req2 = CreateBundledRequest(102, "Running", null, 101, 102);
+            mockRequestsPersistentSource.GetRequest(101).Returns(req1);
+            mockRequestsPersistentSource.GetRequest(102).Returns(req2);
+
+            var sink = CreateSink();
+            await sink.NotifyRequestCompletedAsync(req1, "Completed", StartedTime, CompletedTime);
+
+            await mockConversationClient.DidNotReceiveWithAnyArgs().CreateConversationAsync(default!, default);
+            await mockConversationClient.DidNotReceiveWithAnyArgs().SendCardAsync(default!, default!, default);
+        }
+
+        [TestMethod]
+        public async Task NotifyBundle_WhenLastRequestCompletes_SendsSingleBundleCard()
+        {
+            var t1 = CompletedTime;
+            var t2 = CompletedTime.AddMinutes(1);
+            var req1 = CreateBundledRequest(101, "Completed", t1, 101, 102);
+            var req2 = CreateBundledRequest(102, "Failed", t2, 101, 102);
+            mockRequestsPersistentSource.GetRequest(101).Returns(req1);
+            mockRequestsPersistentSource.GetRequest(102).Returns(req2);
+
+            var sink = CreateSink();
+            string? sentCard = null;
+            await mockConversationClient.SendCardAsync(
+                Arg.Any<string>(),
+                Arg.Do<string>(json => sentCard = json),
+                Arg.Any<CancellationToken>());
+
+            await sink.NotifyRequestCompletedAsync(req2, "Failed", StartedTime, t2);
+
+            await mockConversationClient.Received(1).CreateConversationAsync(AadObjectId, Arg.Any<CancellationToken>());
+            await mockConversationClient.Received(1).SendCardAsync(ConversationId, Arg.Any<string>(), Arg.Any<CancellationToken>());
+            Assert.IsNotNull(sentCard);
+            StringAssert.Contains(sentCard, "Bundle deployment update (2 requests)");
+        }
+
+        [TestMethod]
+        public async Task NotifyBundle_DualMonitorHaRace_OnlyLatestCompletedRequestNotifies()
+        {
+            // Simulate two Monitors (two separate sink instances with no shared memory)
+            // finishing the last two requests in a bundle concurrently so both observe all
+            // siblings in a terminal state when querying the DB.
+            var t1 = CompletedTime;
+            var t2 = CompletedTime.AddSeconds(5);
+            var req1 = CreateBundledRequest(101, "Completed", t1, 101, 102);
+            var req2 = CreateBundledRequest(102, "Completed", t2, 101, 102);
+            mockRequestsPersistentSource.GetRequest(101).Returns(req1);
+            mockRequestsPersistentSource.GetRequest(102).Returns(req2);
+
+            var monitorASink = CreateSink();
+            var monitorBSink = CreateSink();
+
+            await monitorASink.NotifyRequestCompletedAsync(req1, "Completed", StartedTime, t1);
+            await monitorBSink.NotifyRequestCompletedAsync(req2, "Completed", StartedTime, t2);
+
+            // Exactly one bundle card is dispatched across both Monitors.
+            await mockConversationClient.Received(1).CreateConversationAsync(AadObjectId, Arg.Any<CancellationToken>());
+            await mockConversationClient.Received(1).SendCardAsync(ConversationId, Arg.Any<string>(), Arg.Any<CancellationToken>());
+        }
+
+        [TestMethod]
+        public async Task NotifyBundle_DualMonitorSameTimestampTieBreak_OnlyHighestRequestIdNotifies()
+        {
+            var req1 = CreateBundledRequest(101, "Completed", CompletedTime, 101, 102);
+            var req2 = CreateBundledRequest(102, "Completed", CompletedTime, 101, 102);
+            mockRequestsPersistentSource.GetRequest(101).Returns(req1);
+            mockRequestsPersistentSource.GetRequest(102).Returns(req2);
+
+            var monitorASink = CreateSink();
+            var monitorBSink = CreateSink();
+
+            await monitorASink.NotifyRequestCompletedAsync(req1, "Completed", StartedTime, CompletedTime);
+            await monitorBSink.NotifyRequestCompletedAsync(req2, "Completed", StartedTime, CompletedTime);
+
+            await mockConversationClient.Received(1).CreateConversationAsync(AadObjectId, Arg.Any<CancellationToken>());
+            await mockConversationClient.Received(1).SendCardAsync(ConversationId, Arg.Any<string>(), Arg.Any<CancellationToken>());
+        }
+
+        [TestMethod]
+        public async Task NotifyBundle_WhenSiblingMissingFromDb_FallsBackToSingleRequestCard()
+        {
+            var req1 = CreateBundledRequest(101, "Completed", CompletedTime, 101, 999);
+            mockRequestsPersistentSource.GetRequest(101).Returns(req1);
+            mockRequestsPersistentSource.GetRequest(999).Returns((DeploymentRequestApiModel)null!);
+
+            var sink = CreateSink();
+            string? sentCard = null;
+            await mockConversationClient.SendCardAsync(
+                Arg.Any<string>(),
+                Arg.Do<string>(json => sentCard = json),
+                Arg.Any<CancellationToken>());
+
+            await sink.NotifyRequestCompletedAsync(req1, "Completed", StartedTime, CompletedTime);
+
+            // Instead of deferring forever when a sibling is missing, falls through to the single-request card.
+            await mockConversationClient.Received(1).SendCardAsync(ConversationId, Arg.Any<string>(), Arg.Any<CancellationToken>());
+            Assert.IsNotNull(sentCard);
+            StringAssert.Contains(sentCard, "Request #101");
+        }
+
+        [TestMethod]
+        public async Task NotifyBatch_CompletedBundleInBatchSweep_SendsOneBundleCard()
+        {
+            var req1 = CreateBundledRequest(101, "Cancelled", CompletedTime, 101, 102);
+            var req2 = CreateBundledRequest(102, "Cancelled", CompletedTime, 101, 102);
+            mockRequestsPersistentSource.GetRequest(101).Returns(req1);
+            mockRequestsPersistentSource.GetRequest(102).Returns(req2);
+
+            var sink = CreateSink(notifyOnStatuses: "Cancelled");
+            string? sentCard = null;
+            await mockConversationClient.SendCardAsync(
+                Arg.Any<string>(),
+                Arg.Do<string>(json => sentCard = json),
+                Arg.Any<CancellationToken>());
+
+            await sink.NotifyRequestsCompletedAsync(new[] { req1, req2 }, "Cancelled", CompletedTime);
+
+            await mockConversationClient.Received(1).SendCardAsync(ConversationId, Arg.Any<string>(), Arg.Any<CancellationToken>());
+            Assert.IsNotNull(sentCard);
+            StringAssert.Contains(sentCard, "Bundle deployment update (2 requests)");
+        }
     }
 }

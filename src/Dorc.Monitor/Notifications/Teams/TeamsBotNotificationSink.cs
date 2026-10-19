@@ -8,7 +8,6 @@ using Microsoft.Rest;
 using Polly;
 using Polly.Retry;
 using Polly.Timeout;
-using System.Collections.Concurrent;
 
 namespace Dorc.Monitor.Notifications.Teams
 {
@@ -24,10 +23,10 @@ namespace Dorc.Monitor.Notifications.Teams
         private readonly DeploymentCompletionCardBuilder _cardBuilder;
         private readonly ILogger<TeamsBotNotificationSink> _logger;
         private readonly DeploymentRequestDetailSerializer _requestDetailSerializer = new();
-        private readonly ConcurrentDictionary<string, byte> _sentBundleNotifications = new();
 
         private enum BundleNotificationResult
         {
+            NotApplicable,
             Deferred,
             Sent
         }
@@ -92,7 +91,7 @@ namespace Dorc.Monitor.Notifications.Teams
             {
                 if (TryGetBundleRequestIds(request, out var bundleRequestIds) && bundleRequestIds.Count > 1)
                 {
-                    var bundleResult = await TryNotifyBundleAsync(bundleRequestIds, completedTime);
+                    var bundleResult = await TryNotifyBundleAsync(request, finalStatus, bundleRequestIds, completedTime);
                     if (bundleResult is BundleNotificationResult.Sent or BundleNotificationResult.Deferred)
                     {
                         return;
@@ -138,15 +137,61 @@ namespace Dorc.Monitor.Notifications.Teams
                 return;
             }
 
-            foreach (var orphan in requests.Where(r => string.IsNullOrWhiteSpace(r.UserName)))
+            var orphans = new List<DeploymentRequestApiModel>();
+            var standaloneRequests = new List<DeploymentRequestApiModel>();
+            var completedBundles = new Dictionary<string, List<DeploymentRequestApiModel>>(StringComparer.Ordinal);
+
+            foreach (var request in requests)
+            {
+                if (string.IsNullOrWhiteSpace(request.UserName))
+                {
+                    orphans.Add(request);
+                    continue;
+                }
+
+                if (TryGetBundleRequestIds(request, out var bundleRequestIds) && bundleRequestIds.Count > 1)
+                {
+                    var orderedIds = bundleRequestIds.OrderBy(id => id).ToArray();
+                    var bundleKey = string.Join(",", orderedIds);
+                    if (!completedBundles.ContainsKey(bundleKey))
+                    {
+                        var bundleRequests = TryResolveBundleRequests(orderedIds, requests, finalStatus, completedTime);
+                        if (bundleRequests is null)
+                        {
+                            // A sibling could not be loaded; fall back to normal batch handling for this request.
+                            standaloneRequests.Add(request);
+                        }
+                        else if (bundleRequests.All(r => IsTerminalStatus(r.Status)))
+                        {
+                            // Only emit the bundle notification if the last-completed request in the bundle
+                            // is part of the transitions this Monitor instance just won.
+                            var winnerId = SelectBundleWinnerId(bundleRequests);
+                            if (requests.Any(r => r.Id == winnerId))
+                            {
+                                completedBundles[bundleKey] = bundleRequests;
+                            }
+                        }
+                    }
+
+                    continue;
+                }
+
+                standaloneRequests.Add(request);
+            }
+
+            foreach (var orphan in orphans)
             {
                 _logger.LogWarning(
                     "Cannot send Teams notification for request {RequestId}: UserName is empty.",
                     orphan.Id);
             }
 
-            var byRequester = requests
-                .Where(r => !string.IsNullOrWhiteSpace(r.UserName))
+            foreach (var bundleRequests in completedBundles.Values)
+            {
+                await DispatchBundleByRequesterAsync(bundleRequests, completedTime);
+            }
+
+            var byRequester = standaloneRequests
                 .GroupBy(r => r.UserName!, StringComparer.OrdinalIgnoreCase);
 
             // One message per requester. Each recipient is isolated: an unresolvable user or a
@@ -283,35 +328,103 @@ namespace Dorc.Monitor.Notifications.Teams
         }
 
         private async Task<BundleNotificationResult> TryNotifyBundleAsync(
+            DeploymentRequestApiModel currentRequest,
+            string finalStatus,
             IReadOnlyCollection<int> bundleRequestIds,
             DateTimeOffset completedTime)
         {
             var orderedIds = bundleRequestIds.OrderBy(id => id).ToArray();
-            var bundleKey = string.Join(",", orderedIds);
+            var requests = TryResolveBundleRequests(
+                orderedIds,
+                new[] { currentRequest },
+                finalStatus,
+                completedTime);
 
-            if (_sentBundleNotifications.ContainsKey(bundleKey))
-                return BundleNotificationResult.Sent;
-
-            var requests = orderedIds
-                .Select(TryGetRequest)
-                .Where(r => r is not null)
-                .Select(r => r!)
-                .ToList();
-
-            if (requests.Count != orderedIds.Length)
-                return BundleNotificationResult.Deferred;
+            // If any sibling row is missing or cannot be loaded, fall back to a single-request
+            // notification rather than deferring indefinitely and dropping the notification.
+            if (requests is null)
+                return BundleNotificationResult.NotApplicable;
 
             if (!requests.All(r => IsTerminalStatus(r.Status)))
                 return BundleNotificationResult.Deferred;
 
-            if (!_sentBundleNotifications.TryAdd(bundleKey, 0))
-                return BundleNotificationResult.Sent;
+            // Deterministic HA guard: each request in the bundle is transitioned to its terminal
+            // status by at most one Monitor instance. By assigning bundle notification ownership
+            // to the single request with the latest CompletedTime (tie-broken by highest Request.Id),
+            // only the Monitor instance that completed that final request sends the bundle card —
+            // with no in-memory state that could duplicate across HA nodes or leak over time.
+            var winnerId = SelectBundleWinnerId(requests);
+            if (currentRequest.Id != winnerId)
+                return BundleNotificationResult.Deferred;
 
+            await DispatchBundleByRequesterAsync(requests, completedTime);
+
+            return BundleNotificationResult.Sent;
+        }
+
+        private List<DeploymentRequestApiModel>? TryResolveBundleRequests(
+            IReadOnlyCollection<int> orderedIds,
+            IReadOnlyCollection<DeploymentRequestApiModel> justCompletedRequests,
+            string finalStatus,
+            DateTimeOffset completedTime)
+        {
+            var overrides = justCompletedRequests.ToDictionary(r => r.Id);
+            var requests = new List<DeploymentRequestApiModel>(orderedIds.Count);
+
+            foreach (var id in orderedIds)
+            {
+                var loaded = TryGetRequest(id);
+                if (loaded is null)
+                {
+                    if (!overrides.TryGetValue(id, out var fallback))
+                        return null;
+
+                    loaded = new DeploymentRequestApiModel
+                    {
+                        Id = fallback.Id,
+                        UserName = fallback.UserName,
+                        Project = fallback.Project,
+                        EnvironmentName = fallback.EnvironmentName,
+                        BuildNumber = fallback.BuildNumber,
+                        Components = fallback.Components,
+                        RequestDetails = fallback.RequestDetails,
+                        RequestedTime = fallback.RequestedTime,
+                        StartedTime = fallback.StartedTime,
+                        CompletedTime = fallback.CompletedTime ?? completedTime,
+                        Status = finalStatus
+                    };
+                }
+                else if (overrides.ContainsKey(id))
+                {
+                    if (!IsTerminalStatus(loaded.Status))
+                        loaded.Status = finalStatus;
+                    loaded.CompletedTime ??= completedTime;
+                }
+
+                requests.Add(loaded);
+            }
+
+            return requests;
+        }
+
+        private static int SelectBundleWinnerId(IReadOnlyCollection<DeploymentRequestApiModel> requests)
+        {
+            return requests
+                .OrderByDescending(r => r.CompletedTime ?? DateTimeOffset.MinValue)
+                .ThenByDescending(r => r.Id)
+                .First()
+                .Id;
+        }
+
+        private async Task DispatchBundleByRequesterAsync(
+            IReadOnlyCollection<DeploymentRequestApiModel> requests,
+            DateTimeOffset fallbackCompletedTime)
+        {
             var bundleCompletedTime = requests
                 .Select(r => r.CompletedTime)
                 .Where(t => t.HasValue)
                 .Select(t => t!.Value)
-                .DefaultIfEmpty(completedTime)
+                .DefaultIfEmpty(fallbackCompletedTime)
                 .Max();
 
             var byRequester = requests
@@ -347,8 +460,6 @@ namespace Dorc.Monitor.Notifications.Teams
                         userName, string.Join(",", forUser.Select(r => r.Id)));
                 }
             }
-
-            return BundleNotificationResult.Sent;
         }
 
         private bool TryGetBundleRequestIds(DeploymentRequestApiModel request, out List<int> requestIds)
