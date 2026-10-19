@@ -128,6 +128,15 @@ namespace Dorc.Core.Configuration
             return bool.TryParse(isUseIdentityServerAsSearcherConfig, out bool isUseIdentityServerAsSearcher) && isUseIdentityServerAsSearcher;
         }
 
+        public bool GetAdFallbackEnabled()
+        {
+            // Opt-OUT flag: the on-prem AD fallback behind the Graph searcher is available
+            // on Windows hosts unless explicitly disabled, so existing installs keep their
+            // safety net without a config change.
+            var value = _configuration.GetSection("AppSettings")["AdFallbackEnabled"];
+            return !bool.TryParse(value, out bool enabled) || enabled;
+        }
+
         public bool GetIsUseAdSidsForAccessControl()
         {
             var isUseAdSidsForAccessControlConfig = _configuration.GetSection("AppSettings")["IsUseAdSidsForAccessControl"];
