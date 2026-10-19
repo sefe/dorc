@@ -154,9 +154,9 @@ namespace Dorc.Monitor
 
             // Per  : render a platform-managed Azure Blob backend in
             // the runner working dir before `terraform init`. Configuration is
-            // sourced from appsettings.json under Terraform:State; when any of
-            // the values are missing the runner falls back to the legacy
-            // (no-backend) path. The state key is keyed by environment +
+            // sourced from appsettings.json under Terraform:State. Catalog
+            // sources and partial configurations fail closed in the runner.
+            // The state key is keyed by project + environment +
             // component so plan and apply for the same logical (env, component)
             // operation share the same state.
             var stateConfig = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build()
@@ -164,11 +164,13 @@ namespace Dorc.Monitor
             var stateAccount = stateConfig["StorageAccount"];
             var stateContainer = stateConfig["ContainerName"];
             var stateRg = stateConfig["ResourceGroup"];
-            if (!string.IsNullOrEmpty(stateAccount) && !string.IsNullOrEmpty(stateContainer))
+            scriptGroup.TerraformStateStorageAccount = stateAccount;
+            scriptGroup.TerraformStateContainerName = stateContainer;
+            scriptGroup.TerraformStateResourceGroup = stateRg;
+            scriptGroup.TerraformStateSubscriptionId = stateConfig["SubscriptionId"];
+            if (new[] { stateAccount, stateContainer, stateRg, stateConfig["SubscriptionId"] }
+                .Any(value => !string.IsNullOrWhiteSpace(value)))
             {
-                scriptGroup.TerraformStateStorageAccount = stateAccount;
-                scriptGroup.TerraformStateContainerName = stateContainer;
-                scriptGroup.TerraformStateResourceGroup = stateRg;
                 // {project}/{component}/{environment}.tfstate per
                 // docs/Terraform/STATE-MODEL.md. Project is a mandatory
                 // dimension: environments (e.g. "Prod") are shared across
@@ -197,6 +199,7 @@ namespace Dorc.Monitor
                 // as, taken from the same credential resolution that built the process security
                 // context rather than assumed to be the Monitor's own identity.
                 var readerIdentity = new ScriptGroupReaderIdentity(domainName, processAccountName);
+                var stagedFiles = new List<string>();
 
                 try
                 {
@@ -224,6 +227,8 @@ namespace Dorc.Monitor
                         logger);
                     var terraformPlanFileName = deploymentResult.Id.CreateTerraformPlanBlobName();
                     var terraformPlanFilePath = Path.Join(planStorageDir, terraformPlanFileName);
+                    var planSourceArchiveFileName = terraformPlanFileName + ".source.zip";
+                    var planSourceArchiveFilePath = terraformPlanFilePath + ".source.zip";
                     var terraformPlanContentFileName = deploymentResult.Id.CreateTerraformPlanContentBlobName();
                     var terraformPlanContentFilePath = Path.Join(planStorageDir, terraformPlanContentFileName);
                     // persist .terraform.lock.hcl across plan+apply so
@@ -245,29 +250,30 @@ namespace Dorc.Monitor
                         ? Path.Join(planStorageDir, sourceArchiveFileName)
                         : string.Empty;
 
+                    stagedFiles.AddRange(new[]
+                    {
+                        terraformPlanFilePath, terraformPlanContentFilePath, terraformLockFilePath,
+                        planSourceArchiveFilePath, appliedResourcesFilePath, sourceArchiveFilePath
+                    });
+                    // Never let an earlier failed dispatch supply stale artifacts.
+                    foreach (var file in stagedFiles) TryDeleteFile(file);
+
                     if (terreformOperation == TerraformRunnerOperations.ApplyPlan)
                     {
                         _azureStorageAccountWorker.DownloadFileFromBlobs(terraformPlanFileName, terraformPlanFilePath);
-                        // Lock-file may not exist yet if the plan ran on the legacy
-                        // path; download is best-effort. Narrow catches: only treat
-                        // file/blob-not-found as the warn-and-continue case;
-                        // anything else propagates so it gets investigated.
+                        // Required: an approved plan may never be paired with a
+                        // fresh checkout of a mutable ref. Older plans must be recreated.
                         try
                         {
-                            _azureStorageAccountWorker.DownloadFileFromBlobs(terraformLockFileName, terraformLockFilePath);
+                            _azureStorageAccountWorker.DownloadFileFromBlobs(planSourceArchiveFileName, planSourceArchiveFilePath);
                         }
                         catch (FileNotFoundException ex)
                         {
-                            logger.LogWarning(ex, $"No persisted .terraform.lock.hcl found for result {deploymentResult.Id}; apply will resolve providers afresh.");
+                            throw new InvalidOperationException(
+                                "The approved Terraform plan has no persisted source snapshot. Create and approve a new plan before applying.", ex);
                         }
-                        catch (DirectoryNotFoundException ex)
-                        {
-                            logger.LogWarning(ex, $"Lock-file path missing for result {deploymentResult.Id}; apply will resolve providers afresh.");
-                        }
-                        catch (Win32Exception ex) when (ex.NativeErrorCode == 2 || ex.NativeErrorCode == 3)
-                        {
-                            logger.LogWarning(ex, $"Lock-file download not-found (Win32 {ex.NativeErrorCode}); apply will resolve providers afresh.");
-                        }
+                        // The source snapshot includes the authoritative provider
+                        // lock; never replace it with a separately downloaded file.
                     }
 
                     var processStarter = new TerraformRunnerProcessStarter(logger)
@@ -364,6 +370,7 @@ namespace Dorc.Monitor
                             _azureStorageAccountWorker.SaveFileToBlobs(terraformPlanFilePath);
                             // save Terraform human-readable plan file to Azure Storage Account
                             _azureStorageAccountWorker.SaveFileToBlobs(terraformPlanContentFilePath);
+                            _azureStorageAccountWorker.SaveFileToBlobs(planSourceArchiveFilePath);
                             // save .terraform.lock.hcl alongside the plan so
                             // the apply phase resolves identical provider versions.
                             // Lock file is only present when terraform init wrote
@@ -428,6 +435,7 @@ namespace Dorc.Monitor
                     // withdrawn as soon as that process is gone - on the failure and
                     // cancellation paths as much as the successful one.
                     _scriptGroupPipeServer.Expire(startedScriptGroupPipeName);
+                    foreach (var file in stagedFiles) TryDeleteFile(file);
                 }
 
             }

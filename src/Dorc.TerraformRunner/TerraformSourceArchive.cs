@@ -1,18 +1,18 @@
 using System.IO.Compression;
 using System.Text;
+using Dorc.TerraformRunner.CodeSources;
 
 namespace Dorc.TerraformRunner
 {
-    // Builds the deployment source archive: the exact terraform configuration
-    // an apply ran with, zipped for audit/rebuild purposes. The dispatcher
-    // uploads the result to the same blob container as the plan artefacts.
+    // Captures the plan's source once. Apply restores this snapshot and the
+    // dispatcher publishes the same bytes for audit/rebuild purposes.
     //
     // What is EXCLUDED, and why:
     //   - .git/        the full repository history; the provenance record pins
     //                  the resolved commit SHA instead.
-    //   - .terraform/  provider binaries and module caches, hundreds of MB of
-    //                  reproducible downloads; .terraform.lock.hcl (kept) pins
-    //                  the versions needed to re-resolve them.
+    //   - .terraform/  except modules: provider binaries are re-resolved using
+    //                  the lock file; downloaded modules must not be re-fetched
+    //                  from mutable refs between plan and apply.
     //   - *.tfstate*   state never belongs in the archive; it lives in the
     //                  remote backend.
     // tfvars files (every resolved deployment property in cleartext) are kept
@@ -22,7 +22,20 @@ namespace Dorc.TerraformRunner
     {
         public const string ProvenanceEntryName = "_dorc_provenance.json";
 
-        private static readonly string[] ExcludedDirectoryNames = { ".git", ".terraform" };
+        public static string PlanArchivePath(string planFilePath) => planFilePath + ".source.zip";
+
+        public static void RestorePlanSource(string planFilePath, string workingDirectory)
+        {
+            var archivePath = PlanArchivePath(planFilePath);
+            if (!File.Exists(archivePath))
+                throw new FileNotFoundException(
+                    "The approved plan's source archive is missing. Create and approve a new plan; mutable source refs cannot be re-fetched for apply.",
+                    archivePath);
+
+            new ZipArchiveExtractor(new ZipArchiveExtractionOptions()).Extract(archivePath, workingDirectory);
+            if (!File.Exists(Path.Join(workingDirectory, ProvenanceEntryName)))
+                throw new InvalidDataException("The approved plan's source archive has no provenance. Create and approve a new plan.");
+        }
 
         public static int Create(
             string workingDirectory,
@@ -46,6 +59,8 @@ namespace Dorc.TerraformRunner
             {
                 var relativePath = Path.GetRelativePath(root, file).Replace('\\', '/');
                 var fileName = Path.GetFileName(file);
+                if (relativePath.Equals(ProvenanceEntryName, StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidDataException($"Source must not contain reserved file '{ProvenanceEntryName}'.");
 
                 if (IsTfvarsFile(fileName))
                 {
@@ -71,7 +86,11 @@ namespace Dorc.TerraformRunner
                 var relativePath = Path.GetRelativePath(root, file);
                 var segments = relativePath.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
 
-                if (segments.Any(s => ExcludedDirectoryNames.Contains(s, StringComparer.OrdinalIgnoreCase)))
+                if (segments.Any(s => s.Equals(".git", StringComparison.OrdinalIgnoreCase))
+                    || (segments.Any(s => s.Equals(".terraform", StringComparison.OrdinalIgnoreCase))
+                        && !(segments.Length > 2
+                            && segments[0].Equals(".terraform", StringComparison.OrdinalIgnoreCase)
+                            && segments[1].Equals("modules", StringComparison.OrdinalIgnoreCase))))
                 {
                     continue;
                 }

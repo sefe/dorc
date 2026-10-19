@@ -48,6 +48,10 @@
 					<Json:JsonFile Id="AzureStorageAccountClientSecretNonProd" ElementPath="$.AzureStorageAccount.ClientSecret" File="[#NonProdDeployMonitorExeConfig]" Value="[AZURESTORAGEACCOUNT.CLIENTSECRET]" />
 					<Json:JsonFile Id="AzureStorageAccountUriNonProd" ElementPath="$.AzureStorageAccount.StorageAccountUri" File="[#NonProdDeployMonitorExeConfig]" Value="[AZURESTORAGEACCOUNT.URI]" />
 					<Json:JsonFile Id="AzureStorageAccountTerraformBlobsContainerNameNonProd" ElementPath="$.AzureStorageAccount.TerraformBlobsContainerName" File="[#NonProdDeployMonitorExeConfig]" Value="[AZURESTORAGEACCOUNT.TERRAFORMBLOBSCONTAINERNAME]" />
+					<Json:JsonFile Id="TerraformStateAccountNonProd" ElementPath="$.Terraform.State.StorageAccount" File="[#NonProdDeployMonitorExeConfig]" Value="[TERRAFORM.STATE.STORAGEACCOUNT]" />
+					<Json:JsonFile Id="TerraformStateContainerNonProd" ElementPath="$.Terraform.State.ContainerName" File="[#NonProdDeployMonitorExeConfig]" Value="[TERRAFORM.STATE.CONTAINERNAME]" />
+					<Json:JsonFile Id="TerraformStateResourceGroupNonProd" ElementPath="$.Terraform.State.ResourceGroup" File="[#NonProdDeployMonitorExeConfig]" Value="[TERRAFORM.STATE.RESOURCEGROUP]" />
+					<Json:JsonFile Id="TerraformStateSubscriptionNonProd" ElementPath="$.Terraform.State.SubscriptionId" File="[#NonProdDeployMonitorExeConfig]" Value="[TERRAFORM.STATE.SUBSCRIPTIONID]" />
 
 					<Json:JsonFile Id="SetOtelUrlNonProd" ElementPath="$.OpenTelemetry.OtlpEndpoint" Value="[OTEL.COLLECTOR.URL]" File="[#NonProdDeployMonitorExeConfig]" />
 

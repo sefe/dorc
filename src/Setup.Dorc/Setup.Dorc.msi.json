@@ -230,6 +230,22 @@
       "DeployProperty": "AZURESTORAGEACCOUNT_TERRAFORMBLOBSCONTAINERNAME"
     },
     {
+      "MSIParameter": "TERRAFORM.STATE.STORAGEACCOUNT",
+      "DeployProperty": "TERRAFORM_STATE_STORAGEACCOUNT"
+    },
+    {
+      "MSIParameter": "TERRAFORM.STATE.CONTAINERNAME",
+      "DeployProperty": "TERRAFORM_STATE_CONTAINERNAME"
+    },
+    {
+      "MSIParameter": "TERRAFORM.STATE.RESOURCEGROUP",
+      "DeployProperty": "TERRAFORM_STATE_RESOURCEGROUP"
+    },
+    {
+      "MSIParameter": "TERRAFORM.STATE.SUBSCRIPTIONID",
+      "DeployProperty": "TERRAFORM_STATE_SUBSCRIPTIONID"
+    },
+    {
       "MSIParameter": "OTEL.COLLECTOR.URL",
       "DeployProperty": "OTEL_COLLECTOR_URL"
     },

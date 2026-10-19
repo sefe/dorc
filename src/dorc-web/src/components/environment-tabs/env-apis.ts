@@ -1,4 +1,5 @@
 import { css, nothing } from 'lit';
+import { keyed } from 'lit/directives/keyed.js';
 import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import '@vaadin/details';
@@ -258,13 +259,17 @@ export class EnvApis extends PageEnvBase {
     ></attach-api-registration>
   `;
 
-  private editDialogRenderer = () => html`
-    <add-edit-api-registration
-      .apiRegistration="${this.editing}"
-      .envId="${this.environmentId}"
-      @api-registration-saved="${this.onSaved}"
-    ></add-edit-api-registration>
-  `;
+  private editDialogRenderer = () =>
+    html`${keyed(
+      this.editing,
+      html`
+        <add-edit-api-registration
+          .apiRegistration="${this.editing}"
+          .envId="${this.environmentId}"
+          @api-registration-saved="${this.onSaved}"
+        ></add-edit-api-registration>
+      `
+    )}`;
 
   private tagsDialogRenderer = () =>
     this.tagsItem
@@ -391,7 +396,7 @@ export class EnvApis extends PageEnvBase {
   }
 
   private openEditDialog(item: ApiRegistrationApiModel) {
-    this.editing = item;
+    this.editing = { ...item };
     this.editDialogOpened = true;
   }
 

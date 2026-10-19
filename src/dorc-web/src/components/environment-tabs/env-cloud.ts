@@ -21,6 +21,7 @@ import '../attach-cloud-resource';
 import '../resource-tags';
 import { joinTags, splitTags } from '../../helpers/tag-parser';
 import { map } from 'lit/directives/map.js';
+import { keyed } from 'lit/directives/keyed.js';
 import { dorcApiConfiguration } from '../../services/dorc-api-configuration';
 import { navigate } from '../../router/router';
 import { PageEnvBase } from './page-env-base';
@@ -267,13 +268,17 @@ export class EnvCloud extends PageEnvBase {
     ></attach-cloud-resource>
   `;
 
-  private editDialogRenderer = () => html`
-    <add-edit-cloud-resource
-      .cloudResource="${this.editing}"
-      .envId="${this.environmentId}"
-      @cloud-resource-saved="${this.onSaved}"
-    ></add-edit-cloud-resource>
-  `;
+  private editDialogRenderer = () =>
+    html`${keyed(
+      this.editing,
+      html`
+        <add-edit-cloud-resource
+          .cloudResource="${this.editing}"
+          .envId="${this.environmentId}"
+          @cloud-resource-saved="${this.onSaved}"
+        ></add-edit-cloud-resource>
+      `
+    )}`;
 
   private tagsDialogRenderer = () =>
     this.tagsItem
@@ -403,7 +408,7 @@ export class EnvCloud extends PageEnvBase {
   }
 
   private openEditDialog(item: CloudResourceApiModel) {
-    this.editing = item;
+    this.editing = { ...item };
     this.editDialogOpened = true;
   }
 

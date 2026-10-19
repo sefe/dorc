@@ -9,6 +9,9 @@ namespace Dorc.ApiModel
         public bool CopyServerMappings { get; set; } = true;
         public bool CopyDatabaseMappings { get; set; } = true;
         public bool CopyProjectMappings { get; set; } = true;
+        public bool CopyContainerMappings { get; set; }
+        public bool CopyCloudResourceMappings { get; set; }
+        public bool CopyApiRegistrationMappings { get; set; }
         public bool CopyAccessControls { get; set; } = false;
     }
 }

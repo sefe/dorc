@@ -5,6 +5,7 @@ namespace Dorc.TerraformRunner.Tests.State
     [TestClass]
     public class TerraformBackendRendererTests
     {
+        private const string StateSubscription = "11111111-1111-1111-1111-111111111111";
         private string _tempRoot = null!;
 
         [TestInitialize]
@@ -26,10 +27,10 @@ namespace Dorc.TerraformRunner.Tests.State
         {
             var first = TerraformBackendRenderer.RenderAzureBlob(
                 new TerraformBackendRenderer.AzureBlobBackend(
-                    "stdorc01", "tfstate", "TEVO/sql-app/dv11.tfstate", "rg-state"));
+                    "stdorc01", "tfstate", "TEVO/sql-app/dv11.tfstate", "rg-state", StateSubscription));
             var second = TerraformBackendRenderer.RenderAzureBlob(
                 new TerraformBackendRenderer.AzureBlobBackend(
-                    "stdorc01", "tfstate", "TEVO/sql-app/dv11.tfstate", "rg-state"));
+                    "stdorc01", "tfstate", "TEVO/sql-app/dv11.tfstate", "rg-state", StateSubscription));
 
             Assert.AreEqual(first, second);
             StringAssert.Contains(first, "backend \"azurerm\"");
@@ -37,13 +38,16 @@ namespace Dorc.TerraformRunner.Tests.State
             StringAssert.Contains(first, "container_name       = \"tfstate\"");
             StringAssert.Contains(first, "key                  = \"TEVO/sql-app/dv11.tfstate\"");
             StringAssert.Contains(first, "resource_group_name  = \"rg-state\"");
+            StringAssert.Contains(first, "use_azuread_auth     = true");
+            StringAssert.Contains(first, $"subscription_id      = \"{StateSubscription}\"");
+            Assert.IsFalse(first.Contains("access_key"));
         }
 
         [TestMethod]
         public void RenderAzureBlob_OmitsResourceGroupWhenAbsent()
         {
             var rendered = TerraformBackendRenderer.RenderAzureBlob(
-                new TerraformBackendRenderer.AzureBlobBackend("stdorc01", "tfstate", "x.tfstate", null));
+                new TerraformBackendRenderer.AzureBlobBackend("stdorc01", "tfstate", "x.tfstate", null, StateSubscription));
 
             Assert.IsFalse(rendered.Contains("resource_group_name"));
         }
@@ -53,7 +57,7 @@ namespace Dorc.TerraformRunner.Tests.State
         {
             var rendered = TerraformBackendRenderer.RenderAzureBlob(
                 new TerraformBackendRenderer.AzureBlobBackend(
-                    "stdorc01", "tfstate", "k\"with-quote.tfstate", null));
+                    "stdorc01", "tfstate", "k\"with-quote.tfstate", null, StateSubscription));
 
             // The literal `\"` (backslash + quote) must appear in the output;
             // the raw `"` must NOT appear inside the value position.
@@ -65,7 +69,7 @@ namespace Dorc.TerraformRunner.Tests.State
         {
             Assert.ThrowsExactly<ArgumentException>(() =>
                 TerraformBackendRenderer.RenderAzureBlob(
-                    new TerraformBackendRenderer.AzureBlobBackend("", "tfstate", "k.tfstate", null)));
+                    new TerraformBackendRenderer.AzureBlobBackend("", "tfstate", "k.tfstate", null, StateSubscription)));
         }
 
         [TestMethod]
@@ -73,7 +77,7 @@ namespace Dorc.TerraformRunner.Tests.State
         {
             TerraformBackendRenderer.WriteToWorkingDirectory(
                 _tempRoot,
-                new TerraformBackendRenderer.AzureBlobBackend("stdorc01", "tfstate", "k.tfstate", null));
+                new TerraformBackendRenderer.AzureBlobBackend("stdorc01", "tfstate", "k.tfstate", null, StateSubscription));
 
             var path = Path.Join(_tempRoot, TerraformBackendRenderer.BackendFileName);
             Assert.IsTrue(File.Exists(path));

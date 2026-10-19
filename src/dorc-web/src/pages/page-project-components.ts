@@ -14,11 +14,13 @@ import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import {
   RefDataComponentsApi,
   ComponentApiModel,
+  ComponentType,
   RefDataProjectEnvironmentMappingsApi,
   EnvironmentApiModel,
   RefDataProjectBuildsApi,
   EnvironmentContentBuildsApiModel,
-  RefDataProjectsApi
+  RefDataProjectsApi,
+  TerraformSourceType
 } from '../apis/dorc-api';
 import { retrieveErrorMessage } from '../helpers/errorMessage-retriever';
 import '@vaadin/grid/vaadin-grid-column';
@@ -366,7 +368,9 @@ export class PageProjectComponents extends ResponsiveMixin(PageElement) {
       }
 
       this.environmentsLoading = true;
-      const api = new RefDataProjectEnvironmentMappingsApi(dorcApiConfiguration);
+      const api = new RefDataProjectEnvironmentMappingsApi(
+        dorcApiConfiguration
+      );
       api
         .refDataProjectEnvironmentMappingsGet({
           project: this.projectName,
@@ -539,11 +543,16 @@ export class PageProjectComponents extends ResponsiveMixin(PageElement) {
       const hasScript = Boolean(
         component.ScriptPath && component.ScriptPath.trim() !== ''
       );
+      const hasCatalogTemplate =
+        component.ComponentType === ComponentType.Terraform &&
+        component.TerraformSourceType === TerraformSourceType.Catalog &&
+        Boolean(component.TerraformTemplateName?.trim()) &&
+        Boolean(component.TerraformTemplateVersion?.trim());
       const hasChildren = Boolean(
         component.Children && component.Children.length > 0
       );
 
-      if (hasScript) {
+      if (hasScript || hasCatalogTemplate) {
         const deploymentInfo: ComponentDeploymentInfo = {
           ...component,
           displayName: componentName,

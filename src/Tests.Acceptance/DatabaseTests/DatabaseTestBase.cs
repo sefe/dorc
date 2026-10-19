@@ -67,7 +67,9 @@ namespace Tests.Acceptance.DatabaseTests
             MasterConnectionString = builder.ConnectionString;
 
             EphemeralDatabaseName = $"dorc_test_{Guid.NewGuid():N}".Substring(0, 20);
-            ExecuteNonQuery(MasterConnectionString, $"CREATE DATABASE [{EphemeralDatabaseName}]");
+            // Match Dorc.Database.sqlproj rather than inheriting an unrelated server collation.
+            ExecuteNonQuery(MasterConnectionString,
+                $"CREATE DATABASE [{EphemeralDatabaseName}] COLLATE SQL_Latin1_General_CP1_CI_AS");
 
             builder.InitialCatalog = EphemeralDatabaseName;
             EphemeralConnectionString = builder.ConnectionString;

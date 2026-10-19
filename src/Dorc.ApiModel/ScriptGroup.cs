@@ -33,15 +33,15 @@ namespace Dorc.ApiModel
         // Platform-rendered Terraform state backend.
         // Set by the Monitor dispatcher; consumed by the runner to write
         // _dorc_backend.tf into the working directory before `terraform init`.
-        // When TerraformStateKey is null/empty the runner skips backend
-        // rendering (legacy behaviour) - this preserves backward compatibility
-        // until the consolidated lifecycle path is the default.
+        // Catalog deployments require this configuration. Legacy sources may
+        // retain their own backend only when platform state is not configured.
         // Plain `string` (not `string?`) because Dorc.ApiModel targets
         // netstandard2.0 / C# 7.3 - nullable reference types require C# 8+.
         public string TerraformStateStorageAccount { get; set; }
         public string TerraformStateContainerName { get; set; }
         public string TerraformStateKey { get; set; }
         public string TerraformStateResourceGroup { get; set; }
+        public string TerraformStateSubscriptionId { get; set; }
 
         // Catalog reference. When TerraformSourceType=Catalog these identify
         // the stock template the runner should resolve via ITemplateCatalog

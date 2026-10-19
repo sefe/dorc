@@ -1,4 +1,6 @@
 using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using Dorc.ApiModel;
 using Dorc.PersistentData.Model;
@@ -119,10 +121,10 @@ namespace Dorc.Monitor.Terraform
 
         private CloudResourceApiModel? Upsert(CloudResourceApiModel resource, string username)
         {
-            // Names are unique across cloud resources while the terraform
-            // identifier is the real identity, so a name clash with a
-            // different identifier gets one disambiguation attempt before
-            // being skipped.
+            if (string.IsNullOrWhiteSpace(resource.ResourceIdentifier))
+                throw new ArgumentException("Applied cloud resources must have a resource identifier.", nameof(resource));
+            // Preserve existing display names, then fall back to a stable,
+            // identity-qualified name when other environments use the same name.
             foreach (var candidateName in CandidateNames(resource))
             {
                 var existing = _cloudResourcesPersistentSource.GetByName(candidateName);
@@ -154,17 +156,23 @@ namespace Dorc.Monitor.Terraform
                 }
             }
 
-            logger.LogWarning($"Skipping terraform-applied cloud resource '{resource.Name}' ({resource.ResourceType}): a different resource already uses that name.");
-            return null;
+            throw new InvalidOperationException($"All identity-qualified names for cloud resource '{resource.Name}' are occupied by different resources.");
         }
 
         private static IEnumerable<string> CandidateNames(CloudResourceApiModel resource)
         {
-            yield return resource.Name;
+            const int maxNameLength = 250;
+            if (resource.Name.Length <= maxNameLength)
+                yield return resource.Name;
             if (!string.IsNullOrWhiteSpace(resource.ResourceType))
             {
-                yield return $"{resource.Name} ({resource.ResourceType})";
+                var typedName = $"{resource.Name} ({resource.ResourceType})";
+                if (typedName.Length <= maxNameLength)
+                    yield return typedName;
             }
+            var identity = resource.ResourceIdentifier.ToUpperInvariant();
+            var suffix = $" ({Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(identity)))})";
+            yield return resource.Name[..Math.Min(resource.Name.Length, maxNameLength - suffix.Length)] + suffix;
         }
 
         /// <summary>

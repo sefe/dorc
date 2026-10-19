@@ -36,6 +36,7 @@ namespace Dorc.Api.Tests.Controllers
         private IPropertyValuesPersistentSource _propertyValues = null!;
         private IVariableResolver _variableResolver = null!;
         private IVariableScopeOptionsResolver _variableScopeOptionsResolver = null!;
+        private IConfigValuesPersistentSource _configValues = null!;
         private TerraformController _controller = null!;
 
         private const int DeploymentResultId = 42;
@@ -59,6 +60,7 @@ namespace Dorc.Api.Tests.Controllers
             _propertyValues = Substitute.For<IPropertyValuesPersistentSource>();
             _variableResolver = Substitute.For<IVariableResolver>();
             _variableScopeOptionsResolver = Substitute.For<IVariableScopeOptionsResolver>();
+            _configValues = Substitute.For<IConfigValuesPersistentSource>();
 
             _variableResolver.LoadProperties().Returns(new Dictionary<string, VariableValue>());
             _variableResolver.SetPropertyValue(Arg.Any<string>(), Arg.Any<string>());
@@ -83,7 +85,8 @@ namespace Dorc.Api.Tests.Controllers
                 _propertyValues,
                 _variableResolver,
                 _variableScopeOptionsResolver,
-                Substitute.For<IConfigurationSettings>())
+                Substitute.For<IConfigurationSettings>(),
+                _configValues)
             {
                 ControllerContext = new ControllerContext
                 {
@@ -172,7 +175,8 @@ namespace Dorc.Api.Tests.Controllers
                 _propertyValues,
                 _variableResolver,
                 _variableScopeOptionsResolver,
-                Substitute.For<IConfigurationSettings>())
+                Substitute.For<IConfigurationSettings>(),
+                _configValues)
             {
                 ControllerContext = new ControllerContext
                 {
@@ -459,6 +463,137 @@ namespace Dorc.Api.Tests.Controllers
                 Arg.Is<RequestDto>(dto => dto.RequestProperties.Count == 1
                     && dto.RequestProperties.First().PropertyName == "prefix"
                     && dto.RequestProperties.First().PropertyValue == "override"),
+                Arg.Any<ClaimsPrincipal>());
+        }
+
+        private void GivenConfigValueInputs(bool environmentIsProd, bool? configIsForProd)
+        {
+            GivenTemplateAndProject(Manifest(
+                new TerraformTemplateParameter("account_name", TerraformParameterType.String, true,
+                    null, null, null, "^[a-z0-9][a-z0-9-]{1,42}[a-z0-9]$", null, null, false),
+                new TerraformTemplateParameter("location", TerraformParameterType.String, true,
+                    null, null, new[] { "uksouth", "request-region", "scope-region" }, null, null, null, false),
+                new TerraformTemplateParameter("AppCode", TerraformParameterType.String, false,
+                    null, null, null, null, null, null, false)));
+            _environments.GetEnvironment(EnvName).Returns(new EnvironmentApiModel
+            {
+                EnvironmentName = EnvName, EnvironmentIsProd = environmentIsProd
+            });
+            _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(true);
+            _configValues.GetAllConfigValues(true).Returns(new[]
+            {
+                new ConfigValueApiModel { Key = "AppCode", Value = "testapp", IsForProd = configIsForProd },
+                new ConfigValueApiModel { Key = "location", Value = "uksouth", IsForProd = configIsForProd }
+            });
+            _propertyValues.LoadAllPropertiesIntoCache().Returns(new Dictionary<string, PropertyValueDto>
+            {
+                ["account_name"] = new PropertyValueDto { Value = "$AppCode$-cosmos" },
+                ["location"] = new PropertyValueDto { Value = "lower-priority-property" }
+            });
+            _variableResolver = new VariableResolver(
+                _propertyValues, NullLoggerFactory.Instance, new PropertyEvaluator());
+            _requestService.CreateRequest(Arg.Any<RequestDto>(), Arg.Any<ClaimsPrincipal>())
+                .Returns(new RequestStatusDto { Id = 123, Status = "Pending" });
+        }
+
+        [DataTestMethod]
+        [DataRow(false, null)]
+        [DataRow(true, null)]
+        [DataRow(false, false)]
+        [DataRow(true, true)]
+        public async Task InstantiateTemplate_ConfigValuesResolveInheritedCosmosAndDirectInputs(
+            bool environmentIsProd, bool? configIsForProd)
+        {
+            GivenConfigValueInputs(environmentIsProd, configIsForProd);
+            var controller = CreateController(new ParameterValidator());
+
+            var result = await controller.InstantiateTemplate(
+                TemplateName, TemplateVersion,
+                new TerraformTemplateInstantiateRequestApiModel
+                {
+                    ProjectId = ProjectId, EnvironmentName = EnvName
+                }, CancellationToken.None);
+
+            Assert.IsInstanceOfType<OkObjectResult>(result);
+            Assert.AreEqual("testapp-cosmos", _variableResolver.GetPropertyValue("account_name")!.Value);
+            Assert.AreEqual("uksouth", _variableResolver.GetPropertyValue("location")!.Value);
+            _configValues.Received(1).GetAllConfigValues(true);
+            _requestService.Received(1).CreateRequest(
+                Arg.Is<RequestDto>(dto => dto.RequestProperties.Count == 0),
+                Arg.Any<ClaimsPrincipal>());
+        }
+
+        [TestMethod]
+        public async Task ResolveTemplateInputs_ConfigValuesResolveInheritedAndDirectInputsWithoutDisclosingValues()
+        {
+            GivenConfigValueInputs(false, false);
+            var controller = CreateController(new ParameterValidator());
+
+            var result = await controller.ResolveTemplateInputs(
+                TemplateName, TemplateVersion, ProjectId, EnvName, CancellationToken.None);
+
+            Assert.IsInstanceOfType<OkObjectResult>(result);
+            var resolution = (TerraformTemplateResolutionApiModel)((OkObjectResult)result).Value!;
+            Assert.IsTrue(resolution.Parameters.All(p => p.Status == TerraformParameterResolutionStatus.Environment));
+            var json = System.Text.Json.JsonSerializer.Serialize(resolution);
+            Assert.IsFalse(json.Contains("testapp"));
+            Assert.IsFalse(json.Contains("uksouth"));
+            Assert.AreEqual("testapp-cosmos", _variableResolver.GetPropertyValue("account_name")!.Value);
+        }
+
+        [DataTestMethod]
+        [DataRow(false, true)]
+        [DataRow(true, false)]
+        public async Task InstantiateTemplate_ConfigValuesForOtherEnvironmentType_DoNotSatisfyValidation(
+            bool environmentIsProd, bool configIsForProd)
+        {
+            GivenConfigValueInputs(environmentIsProd, configIsForProd);
+
+            var result = await CreateController(new ParameterValidator()).InstantiateTemplate(
+                TemplateName, TemplateVersion,
+                new TerraformTemplateInstantiateRequestApiModel
+                {
+                    ProjectId = ProjectId, EnvironmentName = EnvName
+                }, CancellationToken.None);
+
+            Assert.IsInstanceOfType<BadRequestObjectResult>(result);
+            _manageProjects.DidNotReceiveWithAnyArgs().CreateComponent(default!, default, default, default!);
+            _requestService.DidNotReceiveWithAnyArgs().CreateRequest(default!, default!);
+        }
+
+        [DataTestMethod]
+        [DataRow(false)]
+        [DataRow(true)]
+        public async Task InstantiateTemplate_ScopeAndRequestOverridesWinOverConfigValues(bool requestOverride)
+        {
+            GivenConfigValueInputs(false, null);
+            _variableScopeOptionsResolver.When(x => x.SetPropertyValues(
+                    Arg.Any<IVariableResolver>(), Arg.Any<EnvironmentApiModel>()))
+                .Do(call =>
+                {
+                    var resolver = call.Arg<IVariableResolver>();
+                    resolver.SetPropertyValue("AppCode", "scopeapp");
+                    resolver.SetPropertyValue("location", "scope-region");
+                });
+            var supplied = requestOverride
+                ? new Dictionary<string, string> { ["AppCode"] = "requestapp", ["location"] = "request-region" }
+                : new Dictionary<string, string>();
+
+            var result = await CreateController(new ParameterValidator()).InstantiateTemplate(
+                TemplateName, TemplateVersion,
+                new TerraformTemplateInstantiateRequestApiModel
+                {
+                    ProjectId = ProjectId, EnvironmentName = EnvName, Parameters = supplied
+                }, CancellationToken.None);
+
+            Assert.IsInstanceOfType<OkObjectResult>(result);
+            Assert.AreEqual(requestOverride ? "requestapp-cosmos" : "scopeapp-cosmos",
+                _variableResolver.GetPropertyValue("account_name")!.Value);
+            Assert.AreEqual(requestOverride ? "request-region" : "scope-region",
+                _variableResolver.GetPropertyValue("location")!.Value);
+            _requestService.Received(1).CreateRequest(
+                Arg.Is<RequestDto>(dto => dto.RequestProperties.Count == supplied.Count
+                    && dto.RequestProperties.All(p => supplied[p.PropertyName] == p.PropertyValue)),
                 Arg.Any<ClaimsPrincipal>());
         }
 
@@ -802,6 +937,7 @@ namespace Dorc.Api.Tests.Controllers
                     TerraformSourceType = TerraformSourceType.Catalog,
                     TerraformTemplateName = TemplateName,
                     TerraformTemplateVersion = TemplateVersion,
+                    IsEnabled = true,
                 }
             });
             _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(true);
@@ -841,6 +977,51 @@ namespace Dorc.Api.Tests.Controllers
             var envelope = (TerraformTemplateInstantiateResponseApiModel)ok.Value!;
             Assert.AreEqual(existingComponentId, envelope.Component.ComponentId,
                 "The envelope's component is the reused existing component, not a newly created one.");
+        }
+
+        [TestMethod]
+        public async Task InstantiateTemplate_DisabledIdenticalComponent_RejectsUntilExplicitlyEnabled()
+        {
+            GivenTemplateAndProject(Manifest());
+            var existing = new ComponentApiModel
+            {
+                ComponentId = 55,
+                ComponentName = TemplateName,
+                ComponentType = ComponentType.Terraform,
+                TerraformSourceType = TerraformSourceType.Catalog,
+                TerraformTemplateName = TemplateName,
+                TerraformTemplateVersion = TemplateVersion,
+                IsEnabled = false
+            };
+            _projects.GetComponentsForProject(ProjectName).Returns(new[] { existing });
+            _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(true);
+            _requestService.CreateRequest(Arg.Any<RequestDto>(), Arg.Any<ClaimsPrincipal>())
+                .Returns(new RequestStatusDto { Id = 321, Status = "Pending" });
+            var request = new TerraformTemplateInstantiateRequestApiModel
+            {
+                ProjectId = ProjectId, EnvironmentName = EnvName
+            };
+
+            var rejected = await _controller.InstantiateTemplate(
+                TemplateName, TemplateVersion, request, CancellationToken.None);
+
+            Assert.IsInstanceOfType<BadRequestObjectResult>(rejected);
+            StringAssert.Contains((string)((BadRequestObjectResult)rejected).Value!, "Enable it");
+            Assert.IsFalse(existing.IsEnabled);
+            _requestService.DidNotReceiveWithAnyArgs().CreateRequest(default!, default!);
+            _manageProjects.DidNotReceiveWithAnyArgs().CreateComponent(default!, default, default, default!);
+            _manageProjects.DidNotReceiveWithAnyArgs().UpdateComponent(default!, default, default, default!);
+
+            existing.IsEnabled = true;
+            var retried = await _controller.InstantiateTemplate(
+                TemplateName, TemplateVersion, request, CancellationToken.None);
+
+            Assert.IsInstanceOfType<OkObjectResult>(retried);
+            var response = (TerraformTemplateInstantiateResponseApiModel)((OkObjectResult)retried).Value!;
+            Assert.AreSame(existing, response.Component);
+            Assert.AreEqual(321, response.RequestId);
+            _requestService.Received(1).CreateRequest(Arg.Any<RequestDto>(), Arg.Any<ClaimsPrincipal>());
+            _manageProjects.DidNotReceiveWithAnyArgs().CreateComponent(default!, default, default, default!);
         }
 
         [TestMethod]

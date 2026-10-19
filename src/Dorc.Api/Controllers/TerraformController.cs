@@ -53,6 +53,7 @@ namespace Dorc.Api.Controllers
         private readonly IVariableResolver _variableResolver;
         private readonly IVariableScopeOptionsResolver _variableScopeOptionsResolver;
         private readonly IConfigurationSettings _configurationSettings;
+        private readonly IConfigValuesPersistentSource _configValuesPersistentSource;
 
         public TerraformController(
             ILogger<TerraformController> log,
@@ -69,7 +70,8 @@ namespace Dorc.Api.Controllers
             IPropertyValuesPersistentSource propertyValuesPersistentSource,
             [FromKeyedServices("VariableResolver")] IVariableResolver variableResolver,
             IVariableScopeOptionsResolver variableScopeOptionsResolver,
-            IConfigurationSettings configurationSettings)
+            IConfigurationSettings configurationSettings,
+            IConfigValuesPersistentSource configValuesPersistentSource)
         {
             _log = log;
             _requestsPersistentSource = requestsPersistentSource;
@@ -86,6 +88,7 @@ namespace Dorc.Api.Controllers
             _propertyValuesPersistentSource = propertyValuesPersistentSource;
             _variableResolver = variableResolver;
             _variableScopeOptionsResolver = variableScopeOptionsResolver;
+            _configValuesPersistentSource = configValuesPersistentSource;
         }
 
         /// <summary>
@@ -397,6 +400,11 @@ namespace Dorc.Api.Controllers
                     return Conflict(
                         $"A component named '{componentName}' already exists in project '{project.ProjectName}'. Choose a different component name.");
                 }
+                if (!existingComponent.IsEnabled)
+                {
+                    return BadRequest(
+                        $"Component '{componentName}' in project '{project.ProjectName}' is disabled. Enable it before retrying the deployment.");
+                }
             }
 
             // The parent, when supplied, must belong to the destination
@@ -565,13 +573,25 @@ namespace Dorc.Api.Controllers
         {
             _propertyValuesPersistentSource.AddFilter(PropertyValueFilterTypes.EnvironmentPropertyFilterType, environment.EnvironmentName);
             _variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.EnvironmentName, environment.EnvironmentName);
+
+            // Match PendingRequestProcessor: ConfigValues fill missing values
+            // before environment scope values and request overrides are seeded.
+            foreach (var configValue in _configValuesPersistentSource.GetAllConfigValues(true))
+            {
+                if (_variableResolver.GetPropertyValue(configValue.Key) is null
+                    && (!configValue.IsForProd.HasValue
+                        || configValue.IsForProd.Value == environment.EnvironmentIsProd))
+                {
+                    _variableResolver.SetPropertyValue(configValue.Key, configValue.Value);
+                }
+            }
             _variableScopeOptionsResolver.SetPropertyValues(_variableResolver, environment);
 
             // Derived environment properties must see the same overrides as
             // the Monitor, which seeds request properties before resolution.
             foreach (var parameter in manifest.Parameters.Where(p => supplied.ContainsKey(p.Name)))
             {
-                _variableResolver.SetPropertyValue(parameter.Name, supplied[parameter.Name] ?? string.Empty);
+                _variableResolver.SetRequestSuppliedPropertyValue(parameter.Name, supplied[parameter.Name] ?? string.Empty);
             }
             return _variableResolver.LoadProperties();
         }

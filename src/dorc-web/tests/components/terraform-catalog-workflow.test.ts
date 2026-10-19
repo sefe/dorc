@@ -1,4 +1,4 @@
-import { of, Subject, throwError } from 'rxjs';
+import { from, of, Subject, throwError } from 'rxjs';
 import { vi } from 'vitest';
 import { page } from 'vitest/browser';
 import { expect, fixture, html, settle } from '../_helpers';
@@ -16,6 +16,7 @@ import type {
   ComponentApiModelTemplateApiModel,
   EnvironmentApiModelTemplateApiModel,
   TerraformTemplateInstantiateResponseApiModel,
+  TerraformTemplateResolutionApiModel,
   TerraformTemplateManifest
 } from '../../src/apis/dorc-api';
 
@@ -350,7 +351,93 @@ describe('catalog environment deployment workflow', () => {
     expect(dialog.textContent).to.contain('Not set');
     expect(dialog.textContent).not.to.contain('Missing in');
   });
-
+  for (const staleTiming of [
+    'before B request',
+    'while B loads',
+    'after B resolves'
+  ]) {
+    it(`ignores a deferred A resolution ${staleTiming} after switching environments`, async () => {
+      let resolveA!: (value: TerraformTemplateResolutionApiModel) => void;
+      let resolveB!: (value: TerraformTemplateResolutionApiModel) => void;
+      mocks.environments.mockReturnValue(
+        of({ Items: [environment, { EnvironmentName: 'EnvironmentB' }] })
+      );
+      mocks.resolution
+        .mockReturnValueOnce(
+          from(
+            new Promise<TerraformTemplateResolutionApiModel>(resolve => {
+              resolveA = resolve;
+            })
+          )
+        )
+        .mockReturnValueOnce(
+          from(
+            new Promise<TerraformTemplateResolutionApiModel>(resolve => {
+              resolveB = resolve;
+            })
+          )
+        );
+      const stale = {
+        Parameters: [
+          {
+            Name: 'credential',
+            Required: true,
+            Sensitive: true,
+            Status: TerraformParameterResolutionStatus.Missing
+          }
+        ]
+      } as TerraformTemplateResolutionApiModel;
+      const current = {
+        Parameters: [
+          {
+            Name: 'location',
+            Required: true,
+            Sensitive: false,
+            Status: TerraformParameterResolutionStatus.Environment
+          },
+          {
+            Name: 'credential',
+            Required: true,
+            Sensitive: true,
+            Status: TerraformParameterResolutionStatus.Environment
+          }
+        ]
+      } as TerraformTemplateResolutionApiModel;
+      const { dialog } = await open();
+      await click(dialog, 'Continue');
+      await click(dialog, 'Back');
+      dialog.querySelector<ComboBox>(
+        'vaadin-combo-box[label="DOrc environment"]'
+      )!.value = 'EnvironmentB';
+      await settle();
+      if (staleTiming === 'before B request') {
+        resolveA(stale);
+        await settle();
+      }
+      await click(dialog, 'Continue');
+      expect(mocks.resolution.mock.calls).to.have.length(2);
+      expect(mocks.resolution.mock.calls[1][0].environmentName).to.equal(
+        'EnvironmentB'
+      );
+      if (staleTiming === 'while B loads') {
+        resolveA(stale);
+        await settle();
+        expect(dialog.textContent).to.contain(
+          'Checking EnvironmentB properties'
+        );
+      }
+      resolveB(current);
+      await settle();
+      if (staleTiming === 'after B resolves') {
+        resolveA(stale);
+        await settle();
+      }
+      expect(dialog.textContent).to.contain('From EnvironmentB');
+      expect(dialog.textContent).not.to.contain('Missing in EnvironmentB');
+      await click(dialog, 'Continue');
+      expect(dialog.querySelector('h2')?.textContent).to.contain('Review');
+    });
+  }
   it('marks a required input the environment cannot supply as missing and blocks until it is overridden', async () => {
     mocks.resolution.mockReturnValue(
       of({

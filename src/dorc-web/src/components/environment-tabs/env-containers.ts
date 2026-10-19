@@ -1,4 +1,5 @@
 import { css, nothing } from 'lit';
+import { keyed } from 'lit/directives/keyed.js';
 import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import '@vaadin/details';
@@ -251,13 +252,17 @@ export class EnvContainers extends PageEnvBase {
     ></attach-container>
   `;
 
-  private editDialogRenderer = () => html`
-    <add-edit-container
-      .container="${this.editing}"
-      .envId="${this.environmentId}"
-      @container-saved="${this.onSaved}"
-    ></add-edit-container>
-  `;
+  private editDialogRenderer = () =>
+    html`${keyed(
+      this.editing,
+      html`
+        <add-edit-container
+          .container="${this.editing}"
+          .envId="${this.environmentId}"
+          @container-saved="${this.onSaved}"
+        ></add-edit-container>
+      `
+    )}`;
 
   private tagsDialogRenderer = () =>
     this.tagsItem
@@ -379,7 +384,7 @@ export class EnvContainers extends PageEnvBase {
   }
 
   private openEditDialog(item: ContainerApiModel) {
-    this.editing = item;
+    this.editing = { ...item };
     this.editDialogOpened = true;
   }
 

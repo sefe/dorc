@@ -42,6 +42,7 @@ namespace Dorc.TerraformRunner
         // leaving authentication to the runner host's ambient identity.
         private IReadOnlyDictionary<string, string> _armEnvironment =
             new Dictionary<string, string>();
+        private bool _usesPlatformBackend;
 
         public TerraformProcessor(
             IRunnerLogger logger,
@@ -82,10 +83,18 @@ namespace Dorc.TerraformRunner
         private string RedactSensitiveValues(string text)
         {
             if (string.IsNullOrEmpty(text) || _sensitiveValues.Count == 0) return text;
-            foreach (var value in _sensitiveValues)
+            var representations = _sensitiveValues.SelectMany(value =>
             {
-                text = text.Replace(value, "[REDACTED]");
-            }
+                var jsonEscaped = JsonSerializer.Serialize(value)[1..^1];
+                var jsonNetEscaped = Newtonsoft.Json.JsonConvert.SerializeObject(value)[1..^1];
+                var hclEscaped = value.Replace("${", "$${");
+                hclEscaped = Regex.Replace(hclEscaped, @"(?<!\\)\\(?!\\|\"")", @"\\");
+                hclEscaped = hclEscaped.Replace("\"", "\\\"");
+                hclEscaped = Regex.Replace(hclEscaped, @"^\\{2}", @"\\\\").Replace("\r\n", " ");
+                return new[] { value, jsonEscaped, jsonNetEscaped, hclEscaped };
+            }).Where(value => value.Length > 0).Distinct().OrderByDescending(value => value.Length);
+            foreach (var representation in representations)
+                text = text.Replace(representation, "[REDACTED]");
             return text;
         }
 
@@ -127,6 +136,10 @@ namespace Dorc.TerraformRunner
                     PersistLockFile(terraformWorkingDir, lockFilePath);
                 }
 
+                WriteSourceArchive(
+                    terraformWorkingDir, TerraformSourceArchive.PlanArchivePath(resultFilePath),
+                    scriptGroupProperties, requestId);
+
                 logger.Information($"Terraform plan created for request '{requestId}'. Waiting for confirmation.");
 
                 return true;
@@ -146,10 +159,8 @@ namespace Dorc.TerraformRunner
             }
         }
 
-        // helpers. Per-operation execution-bundle persistence is bound
-        // to .terraform.lock.hcl only at this stage; full .terraform/ tarball
-        // + SHA-256 verification is the follow-up under the consolidated
-        // lifecycle owner.
+        // Retained as a standalone diagnostic artifact as well as in the
+        // required source snapshot. Apply uses the snapshot's copy only.
         private void PersistLockFile(string workingDir, string lockFilePath)
         {
             // Defence-in-depth: reject `..` segments before composing paths.
@@ -172,30 +183,12 @@ namespace Dorc.TerraformRunner
             logger.FileLogger.LogInformation($"Persisted .terraform.lock.hcl to {lockFilePath}");
         }
 
-        private void RestoreLockFile(string workingDir, string lockFilePath)
-        {
-            if (workingDir.Contains("..") || (lockFilePath?.Contains("..") ?? false))
-            {
-                throw new ArgumentException("paths must not contain parent-directory segments");
-            }
-            if (string.IsNullOrEmpty(lockFilePath) || !File.Exists(lockFilePath))
-            {
-                logger.Warning(
-                    $"Persisted .terraform.lock.hcl not found at '{lockFilePath}'; apply will resolve provider versions afresh.");
-                return;
-            }
-            var dest = Path.Join(workingDir, ".terraform.lock.hcl");
-            File.Copy(lockFilePath, dest, true);
-            logger.FileLogger.LogInformation(
-                $"Restored .terraform.lock.hcl into working dir from {lockFilePath}");
-        }
-
         /// <summary>
         /// Creates the working directory and returns its path. Separate from provisioning so
         /// that the caller records the path before anything can be written into it, and can
         /// therefore delete it whatever provisioning goes on to do.
         /// </summary>
-        private static string CreateTerraformWorkingDirectory(int requestId)
+        protected virtual string CreateTerraformWorkingDirectory(int requestId)
         {
             var workingDir = Path.Join(
                 DorcProgramData.Root,
@@ -207,15 +200,10 @@ namespace Dorc.TerraformRunner
             return workingDir;
         }
 
-        private async Task ProvisionTerraformWorkingDirectoryAsync(
-            string workingDir,
-            ScriptGroup scriptGroup,
-            CancellationToken cancellationToken)
+        private (string? SubscriptionId, bool FromEnvironment, string? Source) ConfigureOperation(
+            ScriptGroup scriptGroup)
         {
-            // Get the appropriate provider for the source type
-            var provider = _codeSourceFactory.GetProvider(scriptGroup.TerraformSourceType);
-
-            logger.Information($"Using Terraform source type: {scriptGroup.TerraformSourceType}");
+            _usesPlatformBackend = TerraformStateConfiguration.Resolve(scriptGroup) is not null;
 
             // Per-environment subscription targeting, in precedence order:
             //  1. A 'Subscription' cloud resource attached to the environment
@@ -262,6 +250,18 @@ namespace Dorc.TerraformRunner
             // service-principal credential properties, terraform authenticates
             // as that identity instead of the shared runner host identity.
             ApplyEnvironmentCredentials(scriptGroup, subscriptionId);
+            return (subscriptionId, subscriptionFromEnvironment, subscriptionSource);
+        }
+
+        private async Task ProvisionTerraformWorkingDirectoryAsync(
+            string workingDir,
+            ScriptGroup scriptGroup,
+            CancellationToken cancellationToken)
+        {
+            var (subscriptionId, subscriptionFromEnvironment, subscriptionSource) = ConfigureOperation(scriptGroup);
+            var backend = TerraformStateConfiguration.Resolve(scriptGroup);
+            var provider = _codeSourceFactory.GetProvider(scriptGroup.TerraformSourceType);
+            logger.Information($"Using Terraform source type: {scriptGroup.TerraformSourceType}");
 
             // Provision the code using the selected provider
             await provider.ProvisionCodeAsync(scriptGroup, workingDir, cancellationToken);
@@ -274,17 +274,13 @@ namespace Dorc.TerraformRunner
             }
 
             // "DOrc owns the backend" applies only when DOrc actually renders
-            // one. When the platform state backend is configured (all three
+            // one. When the platform state backend is completely configured
             // settings present) we reject user-checked-in backend blocks and
             // render _dorc_backend.tf in their place. On the legacy path (no
             // platform backend configured) a component's own backend block is
             // the only thing keeping its state remote across throwaway working
             // dirs, so rejecting it would break every pre-existing component.
-            var renderPlatformBackend = !string.IsNullOrEmpty(scriptGroup.TerraformStateKey)
-                && !string.IsNullOrEmpty(scriptGroup.TerraformStateStorageAccount)
-                && !string.IsNullOrEmpty(scriptGroup.TerraformStateContainerName);
-
-            if (renderPlatformBackend)
+            if (backend is not null)
             {
                 // The validator throws with a precise error string identifying
                 // the offending file when the engineer must remove the
@@ -295,11 +291,7 @@ namespace Dorc.TerraformRunner
 
                 TerraformBackendRenderer.WriteToWorkingDirectory(
                     workingDir,
-                    new TerraformBackendRenderer.AzureBlobBackend(
-                        StorageAccount: scriptGroup.TerraformStateStorageAccount,
-                        ContainerName: scriptGroup.TerraformStateContainerName,
-                        Key: scriptGroup.TerraformStateKey,
-                        ResourceGroup: scriptGroup.TerraformStateResourceGroup));
+                    backend);
                 logger.FileLogger.LogInformation(
                     $"Rendered platform backend (key={scriptGroup.TerraformStateKey})");
             }
@@ -459,7 +451,7 @@ namespace Dorc.TerraformRunner
             await File.WriteAllTextAsync(variablesFilePath, variablesContent.ToString(), cancellationToken);
         }
 
-        private async Task<string> RunTerraformCommandAsync(
+        protected virtual async Task<string> RunTerraformCommandAsync(
             string workingDir,
             TerraformCommand command,
             IReadOnlyList<string> commandArgs,
@@ -479,6 +471,13 @@ namespace Dorc.TerraformRunner
             foreach (var variable in _armEnvironment)
             {
                 process.StartInfo.Environment[variable.Key] = variable.Value;
+            }
+            if (_usesPlatformBackend)
+            {
+                // Host-level key/SAS credentials must not override the platform's
+                // explicitly selected data-plane Azure AD authentication.
+                process.StartInfo.Environment.Remove("ARM_ACCESS_KEY");
+                process.StartInfo.Environment.Remove("ARM_SAS_TOKEN");
             }
             process.StartInfo.WorkingDirectory = workingDir;
             process.StartInfo.UseShellExecute = false;
@@ -644,15 +643,21 @@ namespace Dorc.TerraformRunner
             try
             {
                 terraformWorkingDir = CreateTerraformWorkingDirectory(requestId);
-                await ProvisionTerraformWorkingDirectoryAsync(terraformWorkingDir, scriptGroup, cancellationToken);
+                ConfigureOperation(scriptGroup);
+                TerraformSourceArchive.RestorePlanSource(planFile, terraformWorkingDir);
+                _usesPlatformBackend |= File.Exists(Path.Join(terraformWorkingDir, TerraformBackendRenderer.BackendFileName));
 
-                // restore the persisted .terraform.lock.hcl into the
-                // working dir before init so apply resolves identical provider
-                // versions to the plan run.
-                if (!string.IsNullOrEmpty(lockFilePath))
+                if (!string.IsNullOrWhiteSpace(sourceArchiveFilePath))
                 {
-                    RestoreLockFile(terraformWorkingDir, lockFilePath);
+                    if (sourceArchiveFilePath.Contains("..") || !Path.IsPathRooted(sourceArchiveFilePath))
+                        throw new ArgumentException("Source-archive path must be absolute without parent-directory segments.");
+                    // Stage the audit copy before changing infrastructure. Monitor
+                    // publishes it only when apply succeeds, and always cleans it up.
+                    File.Copy(TerraformSourceArchive.PlanArchivePath(planFile), sourceArchiveFilePath, true);
                 }
+
+                // The snapshot's lock file is authoritative. A separate lock
+                // artifact must never overwrite the one approved with the plan.
 
                 await RunTerraformCommandAsync(
                     terraformWorkingDir,
@@ -669,8 +674,6 @@ namespace Dorc.TerraformRunner
                 logger.Information($"Terraform apply completed successfully for request ID: {requestId}");
 
                 await WriteAppliedResourcesAsync(terraformWorkingDir, appliedResourcesFilePath, cancellationToken);
-
-                WriteSourceArchive(terraformWorkingDir, sourceArchiveFilePath, scriptGroup, requestId);
 
                 return true;
             }
@@ -730,12 +733,11 @@ namespace Dorc.TerraformRunner
             }
         }
 
-        // Preserves what was deployed: the working directory's terraform
-        // configuration (tfvars redacted; .git/.terraform/state excluded)
+        // Preserves what was planned: the working directory's terraform
+        // configuration (tfvars redacted; history/provider binaries/state excluded)
         // plus a provenance record pinning the module reference and the exact
-        // git commit the code came from. Best-effort for the same reason as
-        // WriteAppliedResourcesAsync: the infrastructure change has already
-        // happened, so an archival failure is logged, never fails the run.
+        // git commit the code came from. This must succeed before approval:
+        // apply restores this exact source and publishes these exact bytes.
         private void WriteSourceArchive(
             string terraformWorkingDir,
             string? sourceArchiveFilePath,
@@ -749,50 +751,39 @@ namespace Dorc.TerraformRunner
             // parent-directory segments and relative paths is documented contract.
             if (sourceArchiveFilePath.Contains("..") || !Path.IsPathRooted(sourceArchiveFilePath))
             {
-                logger.Warning("Source-archive path must be absolute without parent-directory segments; archival skipped.");
-                return;
+                throw new ArgumentException("Source-archive path must be absolute without parent-directory segments.");
             }
             var canonicalArchivePath = Path.GetFullPath(sourceArchiveFilePath);
 
-            try
+            var provenance = new
             {
-                var provenance = new
-                {
-                    RequestId = requestId,
-                    DeploymentResultId = scriptGroup.DeployResultId,
-                    SourceType = scriptGroup.TerraformSourceType.ToString(),
-                    TemplateName = scriptGroup.TerraformTemplateName,
-                    TemplateVersion = scriptGroup.TerraformTemplateVersion,
-                    // For catalog deployments the provider rewrites these to the
-                    // manifest's resolved locator/ref before provisioning, so
-                    // they are the real clone target, not the user input.
-                    GitRepoUrl = scriptGroup.TerraformGitRepoUrl,
-                    GitRef = scriptGroup.TerraformGitBranch,
-                    GitCommitSha = scriptGroup.TerraformResolvedGitSha,
-                    SubPath = scriptGroup.TerraformSubPath,
-                    StateStorageAccount = scriptGroup.TerraformStateStorageAccount,
-                    StateContainerName = scriptGroup.TerraformStateContainerName,
-                    StateKey = scriptGroup.TerraformStateKey,
-                    ArchivedAtUtc = DateTime.UtcNow,
-                };
+                RequestId = requestId,
+                DeploymentResultId = scriptGroup.DeployResultId,
+                SourceType = scriptGroup.TerraformSourceType.ToString(),
+                TemplateName = scriptGroup.TerraformTemplateName,
+                TemplateVersion = scriptGroup.TerraformTemplateVersion,
+                // Catalog resolution records the real clone target, not user input.
+                GitRepoUrl = scriptGroup.TerraformGitRepoUrl,
+                GitRef = scriptGroup.TerraformGitBranch,
+                GitCommitSha = scriptGroup.TerraformResolvedGitSha,
+                SubPath = scriptGroup.TerraformSubPath,
+                StateStorageAccount = scriptGroup.TerraformStateStorageAccount,
+                StateContainerName = scriptGroup.TerraformStateContainerName,
+                StateKey = scriptGroup.TerraformStateKey,
+                StateSubscriptionId = scriptGroup.TerraformStateSubscriptionId,
+                ArchivedAtUtc = DateTime.UtcNow,
+            };
 
-                var entryCount = TerraformSourceArchive.Create(
-                    terraformWorkingDir,
-                    canonicalArchivePath,
-                    JsonSerializer.Serialize(provenance, new JsonSerializerOptions { WriteIndented = true }),
-                    RedactSensitiveValues);
+            var entryCount = TerraformSourceArchive.Create(
+                terraformWorkingDir,
+                canonicalArchivePath,
+                JsonSerializer.Serialize(provenance, new JsonSerializerOptions { WriteIndented = true }),
+                RedactSensitiveValues);
 
-                logger.Information(
-                    $"Archived the deployed terraform source ({entryCount} entries) " +
-                    $"for module '{scriptGroup.TerraformTemplateName ?? "(ad-hoc)"}@{scriptGroup.TerraformTemplateVersion ?? "-"}' " +
-                    $"at commit {scriptGroup.TerraformResolvedGitSha ?? "(unknown)"}.");
-            }
-            catch (Exception ex)
-            {
-                logger.Warning(
-                    $"Could not archive the deployed terraform source: {RedactSensitiveValues(ex.Message)}. " +
-                    "The deployment itself succeeded; no source archive will be stored for this run.");
-            }
+            logger.Information(
+                $"Archived the planned terraform source ({entryCount} entries) " +
+                $"for module '{scriptGroup.TerraformTemplateName ?? "(ad-hoc)"}@{scriptGroup.TerraformTemplateVersion ?? "-"}' " +
+                $"at commit {scriptGroup.TerraformResolvedGitSha ?? "(unknown)"}.");
         }
 
         private void DeleteTempTerraformFolder(string folderPath)

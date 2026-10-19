@@ -37,6 +37,14 @@ namespace Dorc.PersistentData.Sources
 
                 foreach (var pagedDataFilter in validFilters)
                 {
+                    if (pagedDataFilter.Path == nameof(IComponentAudit.Action))
+                    {
+                        var actions = Enum.GetValues<ActionType>()
+                            .Where(a => a.ToString().Contains(pagedDataFilter.FilterValue, StringComparison.OrdinalIgnoreCase))
+                            .ToArray();
+                        filterLambdas.Add(a => actions.Contains(a.Action.Action));
+                        continue;
+                    }
                     // ContainsExpression returns null for property types other than string/int
                     // (e.g. DateTime, bool); skip those rather than feeding null into WhereAll.
                     var expr = queryable.ContainsExpression(pagedDataFilter.Path, pagedDataFilter.FilterValue);
@@ -66,7 +74,16 @@ namespace Dorc.PersistentData.Sources
                         continue;
 
                     var param = Expression.Parameter(typeof(TAudit), "ComponentAudit");
-                    var prop = Expression.PropertyOrField(param, operators.SortOrders[i].Path);
+                    Expression prop = Expression.PropertyOrField(param, operators.SortOrders[i].Path);
+                    if (operators.SortOrders[i].Path == nameof(IComponentAudit.Action))
+                    {
+                        var action = Expression.Property(prop, nameof(Model.RefDataAuditAction.Action));
+                        prop = Enum.GetValues<ActionType>().Aggregate(
+                            (Expression)Expression.Constant(string.Empty),
+                            (name, value) => Expression.Condition(
+                                Expression.Equal(action, Expression.Constant(value)),
+                                Expression.Constant(value.ToString()), name));
+                    }
 
                     switch (prop.Type)
                     {
@@ -132,7 +149,7 @@ namespace Dorc.PersistentData.Sources
             IOrderedQueryable<TAudit> orderedQuery, IQueryable<TAudit> query,
             Expression<Func<TAudit, T>> expr)
         {
-            if (i == 0)
+            if (orderedQuery == null)
                 switch (operators.SortOrders[i].Direction)
                 {
                     case "asc": orderedQuery = query.OrderBy(expr); break;
@@ -148,7 +165,7 @@ namespace Dorc.PersistentData.Sources
         }
 
         private static Expression<Func<TAudit, R>> GetExpressionForOrdering<TAudit, R>(
-            MemberExpression prop, ParameterExpression param)
+            Expression prop, ParameterExpression param)
         {
             return Expression.Lambda<Func<TAudit, R>>(prop, param);
         }

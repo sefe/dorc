@@ -141,5 +141,68 @@ namespace Dorc.Api.Tests.Sources
             Assert.AreEqual(5, result.Items[0].ComponentId);
             Assert.AreEqual("web", result.Items[0].ComponentName);
         }
+
+        [TestMethod]
+        public void GetContainerAudit_FiltersDisplayedActionNamesBeforePaging()
+        {
+            AddActionAudits();
+            var source = new ContainerAuditPersistentSource(_contextFactory);
+            var result = source.GetContainerAudit(2, 1, new PagedDataOperators
+            {
+                Filters = new() { new() { Path = "Action", FilterValue = "aTtac" } }
+            });
+
+            Assert.AreEqual(1, result.TotalItems);
+            Assert.AreEqual("Attach", result.Items.Single().Action);
+
+            var empty = source.GetContainerAudit(50, 1, new PagedDataOperators
+            {
+                Filters = new() { new() { Path = "Action", FilterValue = "not-an-action" } }
+            });
+            Assert.AreEqual(0, empty.TotalItems);
+        }
+
+        [TestMethod]
+        public void GetContainerAudit_SortsDisplayedActionNamesAndSecondaryColumns()
+        {
+            AddActionAudits();
+            var source = new ContainerAuditPersistentSource(_contextFactory);
+            foreach (var direction in new[] { "asc", "desc" })
+            {
+                var result = source.GetContainerAudit(50, 1, new PagedDataOperators
+                {
+                    SortOrders = new()
+                    {
+                        new() { Path = "Action", Direction = direction },
+                        new() { Path = "Username", Direction = "asc" }
+                    }
+                });
+                var expected = direction == "asc"
+                    ? new[] { "Attach", "Create", "Create", "Delete", "Detach", "Update" }
+                    : new[] { "Update", "Detach", "Delete", "Create", "Create", "Attach" };
+                CollectionAssert.AreEqual(expected, result.Items.Select(a => a.Action).ToArray());
+                CollectionAssert.AreEqual(new[] { "alice", "zoe" },
+                    result.Items.Where(a => a.Action == "Create").Select(a => a.Username).ToArray());
+            }
+        }
+
+        private void AddActionAudits()
+        {
+            foreach (var action in Enum.GetValues<ActionType>())
+            {
+                _containerAudits.Add(new ContainerAudit
+                {
+                    Id = _containerAudits.Count + 1,
+                    Username = "zoe",
+                    Date = new DateTime(2026, 1, 1),
+                    Action = new RefDataAuditAction { Action = action }
+                });
+            }
+            _containerAudits.Add(new ContainerAudit
+            {
+                Id = 6, Username = "alice", Date = new DateTime(2026, 1, 2),
+                Action = new RefDataAuditAction { Action = ActionType.Create }
+            });
+        }
     }
 }

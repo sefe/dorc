@@ -1,4 +1,6 @@
-import { expect, fixture, html } from '../_helpers';
+import { expect, fixture, html, settle } from '../_helpers';
+import type { LitElement } from 'lit';
+import type { TextField } from '@vaadin/text-field';
 import '../../src/components/environment-tabs/env-containers.js';
 import '../../src/components/environment-tabs/env-cloud.js';
 import '../../src/components/environment-tabs/env-apis.js';
@@ -37,12 +39,14 @@ const tabCases = [
     tag: 'env-containers',
     grid: 'containers-grid',
     attachLabel: 'Attach Container',
+    form: 'add-edit-container',
     columns: ['Name', 'Image', 'Registry', 'Host Server', 'Tags']
   },
   {
     tag: 'env-cloud',
     grid: 'cloud-resources-grid',
     attachLabel: 'Attach Cloud Resource',
+    form: 'add-edit-cloud-resource',
     columns: [
       'Name',
       'Provider',
@@ -56,12 +60,48 @@ const tabCases = [
     tag: 'env-apis',
     grid: 'api-registrations-grid',
     attachLabel: 'Attach API',
+    form: 'add-edit-api-registration',
     columns: ['Name', 'Base URL', 'Version', 'Health Check URL', 'Tags']
   }
 ];
 
 for (const c of tabCases) {
   describe(`${c.tag} tab`, () => {
+    it('discards canceled edits on reopening the same row, but retains edits during rerenders', async () => {
+      const el = await fixture<LitElement>(
+        html`${document.createElement(c.tag)}`
+      );
+      const tab = el as unknown as {
+        openEditDialog(item: { Id: number; Name: string }): void;
+        editDialogOpened: boolean;
+      };
+      const row = { Id: 7, Name: 'Original' };
+      const nameField = () =>
+        el
+          .shadowRoot!.querySelector(c.form)!
+          .shadowRoot!.querySelector<TextField>(
+            'vaadin-text-field[label="Name"]'
+          )!;
+      tab.openEditDialog(row);
+      await settle();
+      expect(nameField().value).to.equal('Original');
+      nameField().value = 'Unsaved';
+      nameField().dispatchEvent(
+        new Event('input', { bubbles: true, composed: true })
+      );
+      el.requestUpdate();
+      await settle();
+      expect(nameField().value).to.equal('Unsaved');
+      expect(row.Name).to.equal('Original');
+      tab.editDialogOpened = false;
+      await settle();
+      tab.openEditDialog(row);
+      await settle();
+      expect(nameField().value).to.equal('Original');
+      tab.editDialogOpened = false;
+      await settle();
+    });
+
     it('renders a grid with the per-type columns', async () => {
       const el = await fixture(
         document.createElement(c.tag) as unknown as ReturnType<typeof html>

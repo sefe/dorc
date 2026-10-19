@@ -177,6 +177,50 @@ namespace Dorc.Monitor.Tests.Terraform
         }
 
         [TestMethod]
+        public void SameNameInMultipleProjects_RegistersEveryIdentityAndReusesItOnRedeploy()
+        {
+            var persisted = new Dictionary<string, CloudResourceApiModel>();
+            _cloudResources.GetByName(Arg.Any<string>())
+                .Returns(call => persisted.GetValueOrDefault(call.Arg<string>()));
+            _cloudResources.Add(Arg.Any<CloudResourceApiModel>())
+                .Returns(call =>
+                {
+                    var model = call.Arg<CloudResourceApiModel>();
+                    model.Id = persisted.Count + 1;
+                    persisted.Add(model.Name, model);
+                    return model;
+                });
+            WriteResources(Enumerable.Range(1, 4).Select(i => new CloudResourceApiModel
+            {
+                Name = "defaultdb",
+                Provider = "Aiven",
+                ResourceType = "aiven_pg_database",
+                ResourceIdentifier = $"project-{i}/service/defaultdb"
+            }).ToArray());
+
+            _registrar.RegisterAppliedResources(_file, "Terraform Dev", "user");
+            _registrar.RegisterAppliedResources(_file, "Terraform Dev", "user");
+
+            Assert.AreEqual(4, persisted.Count);
+            Assert.AreEqual(4, persisted.Values.Select(r => r.ResourceIdentifier).Distinct().Count());
+            _cloudResources.Received(4).Add(Arg.Any<CloudResourceApiModel>());
+            _cloudResources.Received(8).AttachToEnvironment(Arg.Any<int>(), 2598);
+        }
+
+        [TestMethod]
+        public void LongResourceName_UsesBoundedStableName()
+        {
+            var resource = AppliedResourceGroup();
+            resource.Name = new string('a', 300);
+            WriteResources(resource);
+
+            _registrar.RegisterAppliedResources(_file, "Terraform Dev", "user");
+
+            _cloudResources.Received(1).Add(Arg.Is<CloudResourceApiModel>(m =>
+                m.Name.Length <= 250 && m.ResourceIdentifier == resource.ResourceIdentifier));
+        }
+
+        [TestMethod]
         public void AlreadyAttached_DoesNotWriteAttachAudit()
         {
             WriteResources(AppliedResourceGroup());

@@ -10795,6 +10795,15 @@
           "CopyProjectMappings": {
             "type": "boolean"
           },
+          "CopyContainerMappings": {
+            "type": "boolean"
+          },
+          "CopyCloudResourceMappings": {
+            "type": "boolean"
+          },
+          "CopyApiRegistrationMappings": {
+            "type": "boolean"
+          },
           "CopyAccessControls": {
             "type": "boolean"
           }

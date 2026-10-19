@@ -10,6 +10,9 @@ using System.Security.Principal;
 using Environment = Dorc.PersistentData.Model.Environment;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Storage;
+using System.Security.Claims;
 
 namespace Dorc.Api.Tests
 {
@@ -52,6 +55,72 @@ namespace Dorc.Api.Tests
 
             _contextFactory.GetContext().Returns(_context);
             _claimsPrincipalReader.GetUserFullDomainName(_user).Returns("testuser@domain.com");
+        }
+
+        [TestMethod]
+        [DataRow(false, false, false)]
+        [DataRow(true, false, false)]
+        [DataRow(false, true, false)]
+        [DataRow(false, false, true)]
+        [DataRow(true, true, true)]
+        public void CloneEnvironment_CopiesNewComponentMappingsOnlyWhenExplicitlyRequested(
+            bool containers, bool cloudResources, bool apiRegistrations)
+        {
+            var original = new Environment
+            {
+                Id = 10, Name = "SOURCE", ObjectId = Guid.NewGuid(),
+                Containers = new List<Container> { new() { Id = 1, Name = "container" } },
+                CloudResources = new List<CloudResource> { new() { Id = 2, Name = "subscription" } },
+                ApiRegistrations = new List<ApiRegistration> { new() { Id = 3, Name = "api" } }
+            };
+            var environments = new List<Environment> { original };
+            var environmentSet = DbContextMock.GetQueryableMockDbSet(environments);
+            var noDuplicateEnvironment = DbContextMock.GetQueryableMockDbSet(new List<Environment>());
+            var accessSet = DbContextMock.GetQueryableMockDbSet(new List<AccessControl>());
+            var historySet = DbContextMock.GetQueryableMockDbSet(new List<EnvironmentHistory>());
+            // The duplicate-name query uses SQL COLLATE, which cannot execute in LINQ-to-Objects.
+            _context.Environments.Returns(environmentSet, noDuplicateEnvironment, environmentSet);
+            _context.AccessControls.Returns(accessSet);
+            _context.EnvironmentHistories.Returns(historySet);
+            using var dbContext = new DbContext(new DbContextOptions<DbContext>());
+            var database = Substitute.For<DatabaseFacade>(dbContext);
+            database.CreateExecutionStrategy().Returns(new DirectExecutionStrategy(dbContext));
+            database.BeginTransaction().Returns(Substitute.For<IDbContextTransaction>());
+            _context.Database.Returns(database);
+
+            _environmentsPersistentSource.CloneEnvironment(new CloneEnvironmentRequest
+            {
+                SourceEnvironmentId = original.Id, NewEnvironmentName = "CLONE",
+                CopyPropertyValues = false,
+                CopyContainerMappings = containers,
+                CopyCloudResourceMappings = cloudResources,
+                CopyApiRegistrationMappings = apiRegistrations
+            }, new ClaimsPrincipal());
+
+            var clone = environments.Single(e => e.Name == "CLONE");
+            Assert.AreEqual(containers ? 1 : 0, clone.Containers.Count);
+            Assert.AreEqual(cloudResources ? 1 : 0, clone.CloudResources.Count);
+            Assert.AreEqual(apiRegistrations ? 1 : 0, clone.ApiRegistrations.Count);
+            if (containers) Assert.AreSame(original.Containers.Single(), clone.Containers.Single());
+            if (cloudResources) Assert.AreSame(original.CloudResources.Single(), clone.CloudResources.Single());
+            if (apiRegistrations) Assert.AreSame(original.ApiRegistrations.Single(), clone.ApiRegistrations.Single());
+            Assert.AreEqual(1, original.CloudResources.Count);
+        }
+
+        private sealed class DirectExecutionStrategy(DbContext context) : IExecutionStrategy
+        {
+            public bool RetriesOnFailure => false;
+
+            public TResult Execute<TState, TResult>(TState state,
+                Func<DbContext, TState, TResult> operation,
+                Func<DbContext, TState, ExecutionResult<TResult>>? verifySucceeded) =>
+                operation(context, state);
+
+            public Task<TResult> ExecuteAsync<TState, TResult>(TState state,
+                Func<DbContext, TState, CancellationToken, Task<TResult>> operation,
+                Func<DbContext, TState, CancellationToken, Task<ExecutionResult<TResult>>>? verifySucceeded,
+                CancellationToken cancellationToken = default) =>
+                operation(context, state, cancellationToken);
         }
 
         private class TestEnvironment

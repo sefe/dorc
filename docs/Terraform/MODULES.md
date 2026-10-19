@@ -105,8 +105,11 @@ The entry's resource type is the terraform type (e.g.
 `azurerm_resource_group`) — never `Subscription`, so auto-registered entries
 cannot interfere with the subscription targeting above. Existing entries are
 matched by resource identifier and reused; a name collision with a different
-resource is registered under `<name> (<terraform type>)` or skipped with a
-logged warning. Tags on existing entries are operator-owned and preserved.
+resource is registered under `<name> (<terraform type>)`, then under a stable
+SHA-256 identity-qualified name if that name is occupied too. Qualified names
+fit the 250-character limit and are reused on redeployment, so identical names
+in additional projects/environments are not silently omitted. Tags on existing
+entries are operator-owned and preserved.
 Registration is best-effort: a registration problem is logged but never fails
 a deployment whose apply succeeded.
 
@@ -157,6 +160,18 @@ input, the wizard prefills that input from the environment — editable like
 any other override, and left empty when the environment has zero or several
 resource groups.
 
+### Cloning environments
+
+The clone dialog offers separate, default-off options for Container, Cloud
+Resource and API Registration mappings. These attach the same existing records
+to the clone; they do not provision or duplicate infrastructure. Cloud mappings
+include Subscription and ResourceGroup records, so selecting that option also
+inherits their targeting. Leave it off when the clone must target different
+infrastructure, then attach the intended targeting resources explicitly.
+API callers opt in through `CopyContainerMappings`,
+`CopyCloudResourceMappings` and `CopyApiRegistrationMappings`; omitted flags
+preserve the previous clone behavior.
+
 ### Verification boundaries
 
 Automated checks cover manifest rejection (including unsupported complex input
@@ -177,6 +192,12 @@ These checks do not substitute for the following live-environment acceptance:
 
 Record the environment, application commit and deployment-result ID when
 performing these checks; a unit-test pass alone is not a live acceptance result.
+Disposable SQL test databases explicitly use the project's
+`SQL_Latin1_General_CP1_CI_AS` collation. Inheriting a different host-server
+collation introduces an unintended column-collation change during legacy tag
+widening, which DacFx correctly refuses with its data-loss guard enabled.
+Existing installations using another collation need a separately reviewed
+collation plan; do not disable the data-loss guard to force this upgrade.
 
 ### Per-environment credentials
 

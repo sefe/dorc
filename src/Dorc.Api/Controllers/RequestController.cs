@@ -585,16 +585,6 @@ namespace Dorc.Api.Controllers
                     }
                 }
 
-                if (string.IsNullOrWhiteSpace(requestDto.BuildText) && string.IsNullOrWhiteSpace(requestDto.BuildUrl))
-                {
-                    return BadRequest("Either BuildText or BuildUrl must be provided.");
-                }
-
-                if (string.IsNullOrWhiteSpace(requestDto.BuildNum))
-                {
-                    return BadRequest("BuildNum must be provided.");
-                }
-
                 var canModifyEnv = _apiSecurityService.CanModifyEnvironment(User, requestDto.Environment);
                 if (!canModifyEnv)
                 {
@@ -630,6 +620,21 @@ namespace Dorc.Api.Controllers
                 {
                     var routingResult = ResolveCatalogOnlyRouting(requestDto);
                     if (routingResult is not null) return routingResult;
+                }
+
+                // Only verified, artifact-free Catalog requests can omit build
+                // metadata. Legacy and artifact-backed requests retain validation.
+                if (requestDto.BuildUrl != Dorc.Api.Model.BuildDetails.CatalogSentinel)
+                {
+                    if (string.IsNullOrWhiteSpace(requestDto.BuildText) && string.IsNullOrWhiteSpace(requestDto.BuildUrl))
+                    {
+                        return BadRequest("Either BuildText or BuildUrl must be provided.");
+                    }
+
+                    if (string.IsNullOrWhiteSpace(requestDto.BuildNum))
+                    {
+                        return BadRequest("BuildNum must be provided.");
+                    }
                 }
 
                 try

@@ -73,6 +73,7 @@ INSERT INTO [dbo].[DATABASE] ([DB_ID], [DB_Name], [DB_Type], [Server_Name], [Gro
 SET IDENTITY_INSERT [dbo].[DATABASE] OFF;
 
 DELETE FROM [dbo].[DATABASE] WHERE [DB_ID] = 500;
+UPDATE [dbo].[DATABASE] SET [Array_Name] = N'legacy-array' WHERE [DB_ID] = 10;
 
 -------------------------------------------------------------------------------
 -- dbo.SERVER, as the estate has it

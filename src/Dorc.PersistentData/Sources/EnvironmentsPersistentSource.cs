@@ -1087,6 +1087,9 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
                             .Include(e => e.Servers)
                             .Include(e => e.Databases)
                             .Include(e => e.Projects)
+                            .Include(e => e.Containers)
+                            .Include(e => e.CloudResources)
+                            .Include(e => e.ApiRegistrations)
                             .SingleOrDefault(e => e.Id == request.SourceEnvironmentId);
 
                         if (sourceEnv == null)
@@ -1193,6 +1196,18 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
                                 newEnv.Projects.Add(project);
                             }
                         }
+
+                        if (request.CopyContainerMappings)
+                            foreach (var container in sourceEnv.Containers)
+                                newEnv.Containers.Add(container);
+
+                        if (request.CopyCloudResourceMappings)
+                            foreach (var resource in sourceEnv.CloudResources)
+                                newEnv.CloudResources.Add(resource);
+
+                        if (request.CopyApiRegistrationMappings)
+                            foreach (var registration in sourceEnv.ApiRegistrations)
+                                newEnv.ApiRegistrations.Add(registration);
 
                         // Add history record
                         EnvironmentHistoryPersistentSource.AddHistoryAction(newEnv, string.Empty,

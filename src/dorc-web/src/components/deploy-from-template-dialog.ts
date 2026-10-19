@@ -531,6 +531,7 @@ export class DeployFromTemplateDialog extends LitElement {
     dorcApiConfiguration
   );
   private requestToken = 0;
+  private resolutionToken = 0;
   private context: TemplateDeploymentContext = {};
 
   open(
@@ -657,6 +658,7 @@ export class DeployFromTemplateDialog extends LitElement {
   }
 
   private clearResolution() {
+    this.resolutionToken += 1;
     this.resolution = null;
     this.resolutionLoading = false;
     this.resolutionError = null;
@@ -725,7 +727,7 @@ export class DeployFromTemplateDialog extends LitElement {
    */
   private loadResolution() {
     if (!this.template || !this.selectedProject?.ProjectId) return;
-    const token = ++this.requestToken;
+    const token = ++this.resolutionToken;
     this.resolutionLoading = true;
     this.resolutionError = null;
     this.terraformApi
@@ -737,14 +739,14 @@ export class DeployFromTemplateDialog extends LitElement {
       })
       .subscribe({
         next: data => {
-          if (token !== this.requestToken || !this.opened) return;
+          if (token !== this.resolutionToken || !this.opened) return;
           this.resolution = Object.fromEntries(
             (data?.Parameters ?? []).map(r => [r.Name, r.Status])
           );
           this.resolutionLoading = false;
         },
         error: err => {
-          if (token !== this.requestToken || !this.opened) return;
+          if (token !== this.resolutionToken || !this.opened) return;
           this.resolutionLoading = false;
           this.resolutionError =
             retrieveErrorMessage(err) ??
@@ -1447,6 +1449,7 @@ export class DeployFromTemplateDialog extends LitElement {
     if (this.submitting) return;
     this.opened = false;
     this.requestToken += 1;
+    this.clearResolution();
     this.paramValues = {};
     this.error = null;
   }

@@ -46,6 +46,7 @@ namespace Dorc.TerraformRunner.Tests
             WriteFile(".terraform.lock.hcl", "provider lock");
             WriteFile(".git/config", "[core]");
             WriteFile(".terraform/providers/provider.bin", "binary");
+            WriteFile(".terraform/modules/child/main.tf", "# approved child module");
             WriteFile("terraform.tfstate", "{}");
             WriteFile("terraform.tfstate.backup", "{}");
 
@@ -58,7 +59,8 @@ namespace Dorc.TerraformRunner.Tests
             Assert.IsTrue(entries.ContainsKey("modules/sub/variables.tf"));
             Assert.IsTrue(entries.ContainsKey(".terraform.lock.hcl"));
             Assert.IsFalse(entries.Keys.Any(k => k.StartsWith(".git/")));
-            Assert.IsFalse(entries.Keys.Any(k => k.StartsWith(".terraform/")));
+            Assert.IsFalse(entries.Keys.Any(k => k.StartsWith(".terraform/providers/")));
+            Assert.AreEqual("# approved child module", entries[".terraform/modules/child/main.tf"]);
             Assert.IsFalse(entries.Keys.Any(k => k.Contains("tfstate")));
             Assert.AreEqual(entries.Count, count);
         }
@@ -81,6 +83,14 @@ namespace Dorc.TerraformRunner.Tests
             // Non-tfvars files are copied verbatim; redaction targets the
             // rendered variables file where resolved properties live.
             StringAssert.Contains(entries["main.tf"], "s3cret");
+        }
+
+        [TestMethod]
+        public void Create_RejectsSourceProvidedProvenanceInsteadOfProducingDuplicateEntries()
+        {
+            WriteFile(TerraformSourceArchive.ProvenanceEntryName, "{\"GitCommitSha\":\"spoofed\"}");
+            Assert.ThrowsExactly<InvalidDataException>(() =>
+                TerraformSourceArchive.Create(_workDir, _archivePath, "{}", s => s));
         }
     }
 }

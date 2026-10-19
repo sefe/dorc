@@ -1,6 +1,6 @@
 # Terraform state model
 
-This document is the canonical reference for how Terraform state is managed by DOrc. State is **platform-owned**: DOrc renders the backend configuration at deploy time, manages the state container's lifecycle, and never relies on user-supplied `backend` blocks.
+This document is the canonical reference for how Terraform state is managed by DOrc. Catalog state is **platform-owned**: DOrc renders the backend configuration at deploy time and requires an operator-provisioned durable backend. Legacy non-catalog sources may retain their own backend when no platform state configuration is supplied.
 
 > **Status of this document.** Sections marked **[planned]** describe behaviour gated behind the `Terraform:UseConsolidatedLifecycle` feature flag.
 
@@ -11,7 +11,8 @@ State lives in an Azure Blob Storage container nominated by DOrc configuration. 
 - **Access level**: `private` (no anonymous access).
 - **Network access**: restricted to the DOrc deployment subnet (or the DOrc service identity's allowed networks).
 - **Authentication**: the runner's Azure identity (managed identity preferred) is granted the `Storage Blob Data Contributor` role on the container only.
-- **SAS tokens** (if used) must default to ≤ 1 hour lifetime. Long-lived SAS tokens must not be committed to source.
+- The generated backend explicitly uses **Azure AD data-plane authentication** (`use_azuread_auth = true`), not storage-key discovery. The deployment identity (including any environment-specific service principal) needs that role. Inherited `ARM_ACCESS_KEY` and `ARM_SAS_TOKEN` are removed for platform-managed operations; there is no key/SAS fallback.
+- **SAS tokens** (legacy self-managed backends only) must default to ≤ 1 hour lifetime. Long-lived SAS tokens must not be committed to source.
 - **Versioning + soft delete**: enabled on the container. State is never hard-deleted by DOrc.
 
 The container name and storage account are operator-provisioned, **not** auto-created by DOrc.
@@ -26,9 +27,13 @@ Every plan/apply targets a deterministic state key:
 
 The triple is read from the DOrc deployment request. The state key never embeds user-supplied free-form values.
 
-## Backend rendering [planned]
+## Backend rendering
 
-Before `terraform init`, DOrc writes a `_dorc_backend.tf` file into the working directory containing only the `terraform { backend "azurerm" { ... } }` block, configured with the resolved storage account, container, and state key.
+Before `terraform init`, DOrc writes a `_dorc_backend.tf` file into the working directory containing only the `terraform { backend "azurerm" { ... } }` block, configured with the resolved storage account, container, state key, and **backend subscription ID**. Configure `Terraform:State:StorageAccount`, `ContainerName`, and `SubscriptionId` in Monitor settings; `ResourceGroup` is optional. See [backend configuration](BACKEND-CONFIGURATION.md) for installer propagation.
+
+Catalog deployments fail before source retrieval or any Terraform command if durable state is absent or incomplete. A partially configured platform backend is an error for every source type; it never silently falls back to local state. Legacy sources with no platform settings retain their existing backend behavior.
+
+The backend's explicit subscription is independent of the workload provider's environment subscription / `ARM_SUBSCRIPTION_ID`. Setting `Terraform:DefaultSubscriptionId` or attaching an environment subscription resource does not configure backend storage discovery.
 
 User-checked-in `backend` blocks anywhere in the source are **rejected at pre-flight** with a precise validation error citing the offending file. The pre-flight rejection is unambiguous: terraform's `_override.tf` mechanism is not reliable for backend blocks.
 
@@ -43,13 +48,13 @@ The state blob (the `.tfstate` itself) is **never** part of the bundle. It lives
 
 ## Deployed-source archive
 
-After every successful apply, the runner archives the exact terraform configuration that was deployed and the Monitor uploads it to the same blob container as the plan artefacts, keyed `{deploymentResultId}.terraform-source.zip`. The archive contains:
+At plan time, the runner archives the exact terraform configuration that produced the plan. Monitor persists this required snapshot beside the binary plan using the existing Azure blob artifact store (`{planBlobName}.source.zip`) **before** marking the plan ready for confirmation. Apply restores this snapshot instead of fetching the source again, so a moved Git ref, changed catalog entry, or unavailable original source cannot change the approved input. After successful apply, the same archive bytes are uploaded as `{deploymentResultId}.terraform-source.zip`; provenance is never reconstructed from the apply request. The archive contains:
 
-- the working directory's terraform configuration (`*.tf`, `.terraform.lock.hcl`, module files), **excluding** `.git/`, `.terraform/` (provider binaries — the lock file pins their versions), and any `*.tfstate*` files;
+- the working directory's terraform configuration (`*.tf`, `.terraform.lock.hcl`, local modules and downloaded `.terraform/modules/`), **excluding** `.git/`, the rest of `.terraform/` (provider binaries — the lock file pins their versions), and any `*.tfstate*` files;
 - `terraform.tfvars` with flagged-sensitive values redacted to `[REDACTED]` before archiving;
 - `_dorc_provenance.json`: the module `name@version`, source type, resolved git repo/ref, the **exact commit SHA** checked out, sub-path, state-backend coordinates, request/result IDs, and timestamp.
 
-Archival is best-effort end to end: a failure to build or upload the archive is logged and never fails a completed deployment, matching applied-resource registration. The archive answers "what code produced this infrastructure?" for audit and rebuild without re-resolving a git ref that may since have moved.
+Creating and storing the plan-time archive is mandatory. A missing/corrupt snapshot fails apply before Terraform is invoked; plans created before this contract must be recreated and approved again. Upload of the successful-apply audit copy remains best-effort, with errors logged. All local staging files are deleted after dispatch on success, failure, and cancellation. The snapshot is not the full provider-cache execution bundle described in the planned section above.
 
 ## Concurrency [planned]
 

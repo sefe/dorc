@@ -8,6 +8,9 @@ import {
   settle
 } from '../_helpers';
 import '../../src/components/clone-environment';
+import { vi } from 'vitest';
+import { NEVER } from 'rxjs';
+import { RefDataEnvironmentsApi } from '../../src/apis/dorc-api';
 
 type CloneDialog = HTMLElement & {
   open(environment: unknown): void;
@@ -15,6 +18,50 @@ type CloneDialog = HTMLElement & {
 };
 
 describe('clone environment dialog reset', () => {
+  it('copies new component mappings only when explicitly selected', async () => {
+    const clone = vi
+      .spyOn(RefDataEnvironmentsApi.prototype, 'refDataEnvironmentsClonePost')
+      .mockReturnValue(NEVER);
+    const el = await fixture<CloneDialog>(
+      html`<clone-environment></clone-environment>`
+    );
+    el.open({ EnvironmentId: 4, EnvironmentName: 'DEV' });
+    await settle();
+    const dialog = el.shadowRoot!.querySelector<HTMLElement>(
+      '#clone-environment-dialog'
+    )!;
+    for (const id of [
+      '#copy-container-mappings',
+      '#copy-cloud-mappings',
+      '#copy-api-mappings'
+    ]) {
+      const checkbox = inDialog(dialog, id) as HTMLElement & {
+        checked: boolean;
+      };
+      expect(checkbox.checked).to.equal(false);
+      checkbox.dispatchEvent(
+        new CustomEvent('checked-changed', { detail: { value: true } })
+      );
+    }
+    inDialog(dialog, '#new-env-name')!.dispatchEvent(
+      new CustomEvent('value-changed', { detail: { value: 'DEV-CLONE' } })
+    );
+    await el.updateComplete;
+    await settle();
+    const button = Array.from(dialog.querySelectorAll('vaadin-button')).find(
+      item => item.textContent?.trim() === 'Clone'
+    ) as HTMLElement;
+    button.click();
+    expect(clone.mock.calls).to.have.length(1);
+    expect(clone.mock.calls[0][0]?.cloneEnvironmentRequest).to.include({
+      SourceEnvironmentId: 4,
+      NewEnvironmentName: 'DEV-CLONE',
+      CopyContainerMappings: true,
+      CopyCloudResourceMappings: true,
+      CopyApiRegistrationMappings: true
+    });
+  });
+
   it('resets the clone form immediately when Escape dismisses it', async () => {
     const el = await fixture<CloneDialog>(
       html`<clone-environment></clone-environment>`
