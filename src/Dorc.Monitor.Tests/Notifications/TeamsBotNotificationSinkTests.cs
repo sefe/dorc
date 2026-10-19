@@ -580,6 +580,37 @@ namespace Dorc.Monitor.Tests.Notifications
         }
 
         [TestMethod]
+        public async Task NotifyBundle_WhenInMemoryRequestDetailsLacksAllRequestIds_ReloadsFromDbAndDefers()
+        {
+            // Simulate the first request in a bundle being picked up by the Monitor before
+            // MakeLikeProdController finished writing AllRequestIds into RequestDetails in the DB.
+            var staleInMemoryReq1 = new DeploymentRequestApiModel
+            {
+                Id = 101,
+                UserName = UserName,
+                Project = "TestProject",
+                EnvironmentName = "TestEnv",
+                BuildNumber = "1.2.3",
+                Status = "Failed",
+                CompletedTime = CompletedTime,
+                RequestDetails = new DeploymentRequestDetailSerializer().Serialize(new DeploymentRequestDetail())
+            };
+
+            var dbReq1 = CreateBundledRequest(101, "Failed", CompletedTime, 101, 102);
+            var dbReq2 = CreateBundledRequest(102, "Pending", null, 101, 102);
+            mockRequestsPersistentSource.GetRequest(101).Returns(dbReq1);
+            mockRequestsPersistentSource.GetRequest(102).Returns(dbReq2);
+
+            var sink = CreateSink();
+            await sink.NotifyRequestCompletedAsync(staleInMemoryReq1, "Failed", StartedTime, CompletedTime);
+
+            // Must recognize that 101 is part of a bundle (via the refreshed DB row) and defer,
+            // rather than sending a premature single-request failure card.
+            await mockConversationClient.DidNotReceiveWithAnyArgs().CreateConversationAsync(default!, default);
+            await mockConversationClient.DidNotReceiveWithAnyArgs().SendCardAsync(default!, default!, default);
+        }
+
+        [TestMethod]
         public async Task NotifyBatch_CompletedBundleInBatchSweep_SendsOneBundleCard()
         {
             var req1 = CreateBundledRequest(101, "Cancelled", CompletedTime, 101, 102);

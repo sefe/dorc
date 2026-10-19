@@ -560,6 +560,17 @@ namespace Dorc.Monitor
                                     $"Request {requestToExecute.Request.Id} status changed to '{currentRequest?.Status ?? "null"}' while waiting for lock. Skipping execution.");
                                 return; // Lock will be released in finally block
                             }
+
+                            // Refresh RequestDetails if it was updated after initial poll (e.g. MakeLikeProdController
+                            // resolving AllRequestIds on bundled requests after creating the individual requests).
+                            if (!string.IsNullOrWhiteSpace(currentRequest.RequestDetails) &&
+                                !string.Equals(currentRequest.RequestDetails, requestToExecute.Request.RequestDetails, StringComparison.Ordinal))
+                            {
+                                requestToExecute.Request.RequestDetails = currentRequest.RequestDetails;
+                                requestToExecute = new RequestToProcessDto(
+                                    requestToExecute.Request,
+                                    this.serializer.Deserialize(currentRequest.RequestDetails));
+                            }
                         }
 
                         // Token decoupling (S-003): the request token is NOT linked to monitorCancellationToken.

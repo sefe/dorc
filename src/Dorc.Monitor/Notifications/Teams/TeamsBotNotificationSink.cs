@@ -465,12 +465,38 @@ namespace Dorc.Monitor.Notifications.Teams
         private bool TryGetBundleRequestIds(DeploymentRequestApiModel request, out List<int> requestIds)
         {
             requestIds = new List<int>();
-            if (string.IsNullOrWhiteSpace(request.RequestDetails))
+            var requestDetails = request.RequestDetails;
+
+            if (!TryParseBundleRequestIds(requestDetails, request.Id, out requestIds))
+            {
+                // MakeLikeProdController updates RequestDetails with AllRequestIds in the DB
+                // after creating all requests in the bundle. If the Monitor picked up the first
+                // request before that update completed, the in-memory RequestDetails on the
+                // processor's DTO will not have AllRequestIds yet — re-check the persisted row.
+                var persistedRequest = TryGetRequest(request.Id);
+                if (persistedRequest is not null
+                    && !string.IsNullOrWhiteSpace(persistedRequest.RequestDetails)
+                    && !string.Equals(persistedRequest.RequestDetails, requestDetails, StringComparison.Ordinal))
+                {
+                    request.RequestDetails = persistedRequest.RequestDetails;
+                    return TryParseBundleRequestIds(persistedRequest.RequestDetails, request.Id, out requestIds);
+                }
+
+                return false;
+            }
+
+            return true;
+        }
+
+        private bool TryParseBundleRequestIds(string? requestDetails, int requestId, out List<int> requestIds)
+        {
+            requestIds = new List<int>();
+            if (string.IsNullOrWhiteSpace(requestDetails))
                 return false;
 
             try
             {
-                var details = _requestDetailSerializer.Deserialize(request.RequestDetails);
+                var details = _requestDetailSerializer.Deserialize(requestDetails);
                 var allRequestIds = details.Properties
                     .FirstOrDefault(p => string.Equals(p.Name, "AllRequestIds", StringComparison.OrdinalIgnoreCase))
                     ?.Value;
@@ -489,7 +515,7 @@ namespace Dorc.Monitor.Notifications.Teams
             }
             catch (Exception ex) when (!FatalExceptions.Is(ex))
             {
-                _logger.LogDebug(ex, "Failed to parse bundle request IDs from request {RequestId} details.", request.Id);
+                _logger.LogDebug(ex, "Failed to parse bundle request IDs from request {RequestId} details.", requestId);
                 return false;
             }
         }
