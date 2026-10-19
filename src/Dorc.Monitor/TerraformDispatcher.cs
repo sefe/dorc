@@ -227,7 +227,6 @@ namespace Dorc.Monitor
                         logger);
                     var terraformPlanFileName = deploymentResult.Id.CreateTerraformPlanBlobName();
                     var terraformPlanFilePath = Path.Join(planStorageDir, terraformPlanFileName);
-                    var planSourceArchiveFileName = terraformPlanFileName + ".source.zip";
                     var planSourceArchiveFilePath = terraformPlanFilePath + ".source.zip";
                     var terraformPlanContentFileName = deploymentResult.Id.CreateTerraformPlanContentBlobName();
                     var terraformPlanContentFilePath = Path.Join(planStorageDir, terraformPlanContentFileName);
@@ -263,15 +262,7 @@ namespace Dorc.Monitor
                         _azureStorageAccountWorker.DownloadFileFromBlobs(terraformPlanFileName, terraformPlanFilePath);
                         // Required: an approved plan may never be paired with a
                         // fresh checkout of a mutable ref. Older plans must be recreated.
-                        try
-                        {
-                            _azureStorageAccountWorker.DownloadFileFromBlobs(planSourceArchiveFileName, planSourceArchiveFilePath);
-                        }
-                        catch (FileNotFoundException ex)
-                        {
-                            throw new InvalidOperationException(
-                                "The approved Terraform plan has no persisted source snapshot. Create and approve a new plan before applying.", ex);
-                        }
+                        TerraformPlanSourceArtifacts.Download(_azureStorageAccountWorker, terraformPlanFilePath);
                         // The source snapshot includes the authoritative provider
                         // lock; never replace it with a separately downloaded file.
                     }
@@ -370,7 +361,7 @@ namespace Dorc.Monitor
                             _azureStorageAccountWorker.SaveFileToBlobs(terraformPlanFilePath);
                             // save Terraform human-readable plan file to Azure Storage Account
                             _azureStorageAccountWorker.SaveFileToBlobs(terraformPlanContentFilePath);
-                            _azureStorageAccountWorker.SaveFileToBlobs(planSourceArchiveFilePath);
+                            TerraformPlanSourceArtifacts.Upload(_azureStorageAccountWorker, terraformPlanFilePath);
                             // save .terraform.lock.hcl alongside the plan so
                             // the apply phase resolves identical provider versions.
                             // Lock file is only present when terraform init wrote
