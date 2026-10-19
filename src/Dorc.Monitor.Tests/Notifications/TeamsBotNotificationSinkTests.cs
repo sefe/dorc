@@ -1,5 +1,6 @@
 using Dorc.ApiModel;
 using Dorc.Monitor;
+using Dorc.PersistentData.Sources.Interfaces;
 using Dorc.Core.Interfaces;
 using Dorc.Monitor.Notifications.Teams;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -21,12 +22,14 @@ namespace Dorc.Monitor.Tests.Notifications
 
         private IActiveDirectorySearcher mockSearcher = null!;
         private ITeamsConversationClient mockConversationClient = null!;
+        private IRequestsPersistentSource mockRequestsPersistentSource = null!;
 
         [TestInitialize]
         public void Setup()
         {
             mockSearcher = Substitute.For<IActiveDirectorySearcher>();
             mockConversationClient = Substitute.For<ITeamsConversationClient>();
+            mockRequestsPersistentSource = Substitute.For<IRequestsPersistentSource>();
 
             mockSearcher.Search(UserName).Returns(new List<UserElementApiModel>
             {
@@ -50,6 +53,7 @@ namespace Dorc.Monitor.Tests.Notifications
                 options,
                 mockSearcher,
                 mockConversationClient,
+                mockRequestsPersistentSource,
                 new DeploymentCompletionCardBuilder(options, CreateProductionMonitorConfiguration()),
                 NullLoggerFactory.Instance)
             {
