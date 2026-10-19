@@ -111,10 +111,44 @@ Registration is best-effort: a registration problem is logged but never fails
 a deployment whose apply succeeded.
 
 Database-flavoured resources additionally appear on the environment's
-**Databases** tab: Cosmos DB databases register with type `CosmosDB` and the
-Cosmos account as server, Aiven ClickHouse and PostgreSQL databases with type
-`ClickHouse`/`PostgreSQL` and the Aiven service as server. Existing database entries with the same
-name and server are reused, and re-deployments leave attachments unchanged.
+**Databases** tab. Their engine is stored separately from tags:
+`CosmosDb`, `ClickHouse`, or `PostgreSql`. Cosmos databases use the globally
+unique Cosmos account name as server. Aiven databases use `project/service`
+as server, not just the service name: two projects can contain identically
+named services and databases. Existing entries with the same database name
+and scoped server are reused, and re-deployments leave attachments unchanged.
+
+Both the environment tab and the main **Databases** page show engine logos
+with accessible names and tooltips. The add/edit dialog allows an explicit
+engine selection; manually created databases default to SQL Server.
+API clients may omit `DatabaseType` (or send `null`): creation defaults to
+`SqlServer`, whereas an update preserves the stored engine. To change an
+engine, send an explicit enum value, including `SqlServer`.
+
+### Upgrading earlier database registrations
+
+All pre-existing estate databases remain SQL Server unless their engine is
+set explicitly or a successful Terraform apply registers their actual type.
+Engine tags are ordinary editable metadata, not a migration source: publishing
+the dacpac never infers or overwrites a database engine from tags. The earlier
+tag-based `BackfillDatabaseTypes.sql` has been removed.
+
+`ScopeAivenDatabases.sql` upgrades earlier ClickHouse/PostgreSQL registrations
+from `service` to `project/service`, preserving database IDs and environment
+links. It requires an already classified engine and matching Aiven cloud-resource
+identifiers attached to the same environment. Already scoped rows are unchanged.
+Conflicting project evidence, duplicate target identities, or an oversized
+scoped server stop the migration with an actionable error rather than guessing.
+Reconcile the affected records and environment links before republishing.
+
+Records with no matching cloud evidence, or those still carrying the old
+`SqlServer` default, are not reclassified automatically. For these, inspect the
+actual provider resource and set the engine and scoped server explicitly in
+the add/edit dialog before reapplying. Aiven identifiers have the form
+`project/service/database`. Do not infer the project or engine from tags.
+If an earlier build already merged two projects into one database record,
+split it into separate scoped records and correct their environment links;
+a name-only migration cannot recover that ownership safely.
 
 The deployment wizard closes the loop: when the selected environment carries
 exactly one resource-group cloud resource (resource type `ResourceGroup` or
@@ -122,6 +156,27 @@ exactly one resource-group cloud resource (resource type `ResourceGroup` or
 input, the wizard prefills that input from the environment — editable like
 any other override, and left empty when the environment has zero or several
 resource groups.
+
+### Verification boundaries
+
+Automated checks cover manifest rejection (including unsupported complex input
+types), manifest immutability and sensitive-name lint self-tests, source ZIP
+contents/provenance and tfvars redaction, request-property redaction, and
+Terraform controller parameter handling. Database acceptance tests publish
+the dacpac into disposable SQL Server databases to exercise upgrade behavior.
+These checks do not substitute for the following live-environment acceptance:
+
+- After a confirmed apply, download `{deploymentResultId}.terraform-source.zip`
+  from the configured plan-artifact container; check the provenance commit
+  against the deployed module and inspect redacted tfvars.
+- Use a non-production module with a synthetic sensitive parameter; verify
+  masking in the wizard, request/result API responses and deployment logs.
+- Confirm the installed API/Monitor/runner identities can read the module
+  source, access the state/plan storage and reach the intended cloud service.
+  Never use a real credential as a test marker.
+
+Record the environment, application commit and deployment-result ID when
+performing these checks; a unit-test pass alone is not a live acceptance result.
 
 ### Per-environment credentials
 

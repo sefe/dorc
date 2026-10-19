@@ -448,7 +448,7 @@ namespace Dorc.PersistentData.Sources
 
                 existingDatabase.Name = database.Name;
                 existingDatabase.ServerName = database.ServerName;
-                existingDatabase.DatabaseType = database.DatabaseType;
+                existingDatabase.DatabaseType = database.DatabaseType ?? existingDatabase.DatabaseType;
                 existingDatabase.ArrayName = database.ArrayName;
                 SyncTagLinks(existingDatabase, database.Tags);
 
@@ -476,7 +476,7 @@ namespace Dorc.PersistentData.Sources
                 Id = db.Id,
                 Name = db.Name,
                 ServerName = db.ServerName,
-                DatabaseType = db.DatabaseType,
+                DatabaseType = db.DatabaseType ?? DatabaseType.SqlServer,
                 Tags = TagString.Join(db.Tags),
                 TagLinks = TagString.Normalize(db.Tags)
                     .Select(t => new DatabaseTag { Tag = t }).ToList(),

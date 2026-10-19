@@ -11096,7 +11096,13 @@
             "nullable": true
           },
           "DatabaseType": {
-            "$ref": "#/components/schemas/DatabaseType"
+            "description": "Omitted or null defaults to SQL Server on create and preserves the stored engine on update. Responses always include the stored engine.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DatabaseType"
+              }
+            ],
+            "nullable": true
           },
           "AdGroup": {
             "type": "string",

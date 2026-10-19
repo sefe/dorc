@@ -230,7 +230,7 @@ namespace Dorc.Monitor.Tests.Terraform
         }
 
         [TestMethod]
-        public void ClickHouseDatabase_IsRegisteredWithServiceAsServer()
+        public void ClickHouseDatabase_IsRegisteredWithProjectAndServiceAsServer()
         {
             WriteResources(new CloudResourceApiModel
             {
@@ -241,7 +241,7 @@ namespace Dorc.Monitor.Tests.Terraform
                 Tags = string.Empty
             });
             _cloudResources.GetByName(Arg.Any<string>()).Returns((CloudResourceApiModel?)null);
-            _databases.GetDatabases("analytics", "clickhouse-dev").Returns(Enumerable.Empty<DatabaseApiModel>());
+            _databases.GetDatabases("analytics", "trading-traveler/clickhouse-dev").Returns(Enumerable.Empty<DatabaseApiModel>());
             _databases.AddDatabase(Arg.Any<DatabaseApiModel>())
                 .Returns(call =>
                 {
@@ -254,12 +254,12 @@ namespace Dorc.Monitor.Tests.Terraform
 
             _databases.Received(1).AddDatabase(Arg.Is<DatabaseApiModel>(d =>
                 d.Name == "analytics" && d.Tags.Contains("ClickHouse") &&
-                d.ServerName == "clickhouse-dev" && d.DatabaseType == DatabaseType.ClickHouse));
+                d.ServerName == "trading-traveler/clickhouse-dev" && d.DatabaseType == DatabaseType.ClickHouse));
             _environments.Received(1).AttachDatabaseToEnv(2598, 12, Arg.Any<System.Security.Claims.ClaimsPrincipal>());
         }
 
         [TestMethod]
-        public void PostgresDatabase_IsRegisteredWithServiceAsServer()
+        public void PostgresDatabase_IsRegisteredWithProjectAndServiceAsServer()
         {
             WriteResources(new CloudResourceApiModel
             {
@@ -270,7 +270,7 @@ namespace Dorc.Monitor.Tests.Terraform
                 Tags = string.Empty
             });
             _cloudResources.GetByName(Arg.Any<string>()).Returns((CloudResourceApiModel?)null);
-            _databases.GetDatabases("appdb", "pg-analytics-dev").Returns(Enumerable.Empty<DatabaseApiModel>());
+            _databases.GetDatabases("appdb", "trading-analytics/pg-analytics-dev").Returns(Enumerable.Empty<DatabaseApiModel>());
             _databases.AddDatabase(Arg.Any<DatabaseApiModel>())
                 .Returns(call =>
                 {
@@ -283,7 +283,7 @@ namespace Dorc.Monitor.Tests.Terraform
 
             _databases.Received(1).AddDatabase(Arg.Is<DatabaseApiModel>(d =>
                 d.Name == "appdb" && d.Tags.Contains("PostgreSQL") &&
-                d.ServerName == "pg-analytics-dev" && d.DatabaseType == DatabaseType.PostgreSql));
+                d.ServerName == "trading-analytics/pg-analytics-dev" && d.DatabaseType == DatabaseType.PostgreSql));
             _environments.Received(1).AttachDatabaseToEnv(2598, 13, Arg.Any<System.Security.Claims.ClaimsPrincipal>());
         }
 
@@ -301,6 +301,7 @@ namespace Dorc.Monitor.Tests.Terraform
             _cloudResources.GetByName(Arg.Any<string>()).Returns((CloudResourceApiModel?)null);
             _databases.GetDatabases("orders-db", "cosmos-sh-dv")
                 .Returns(new[] { new DatabaseApiModel { Id = 11, Name = "orders-db", ServerName = "cosmos-sh-dv" } });
+            _databases.UpdateDatabaseType(11, DatabaseType.CosmosDb).Returns(true);
             _environments.AttachDatabaseToEnv(2598, 11, Arg.Any<System.Security.Claims.ClaimsPrincipal>())
                 .Returns(_ => throw new ArgumentException("The specified database is already attached to the specified environment."));
 
@@ -310,6 +311,78 @@ namespace Dorc.Monitor.Tests.Terraform
             _databases.Received(1).UpdateDatabaseType(11, DatabaseType.CosmosDb);
             // The cloud-resource half still registered despite the attach throw.
             _cloudResources.Received(1).Add(Arg.Any<CloudResourceApiModel>());
+        }
+
+        [TestMethod]
+        public void AivenDatabases_InDifferentProjects_DoNotReuseServiceOnlyOrOtherProjectRecords()
+        {
+            WriteResources(new CloudResourceApiModel
+            {
+                Name = "analytics", Provider = "Aiven", ResourceType = "aiven_clickhouse_database",
+                ResourceIdentifier = "project-b/shared-service/analytics"
+            });
+            _databases.GetDatabases("analytics", "shared-service").Returns(new[]
+            {
+                new DatabaseApiModel { Id = 10, Name = "analytics", ServerName = "shared-service" }
+            });
+            _databases.GetDatabases("analytics", "project-a/shared-service").Returns(new[]
+            {
+                new DatabaseApiModel { Id = 11, Name = "analytics", ServerName = "project-a/shared-service" }
+            });
+            _databases.AddDatabase(Arg.Any<DatabaseApiModel>()).Returns(call =>
+            {
+                var db = call.Arg<DatabaseApiModel>();
+                db.Id = 12;
+                return db;
+            });
+
+            _registrar.RegisterAppliedResources(_file, "Terraform Dev", "user");
+
+            _databases.Received(1).GetDatabases("analytics", "project-b/shared-service");
+            _databases.Received(1).AddDatabase(Arg.Is<DatabaseApiModel>(d =>
+                d.ServerName == "project-b/shared-service"));
+            _environments.Received(1).AttachDatabaseToEnv(2598, 12, Arg.Any<System.Security.Claims.ClaimsPrincipal>());
+            _environments.DidNotReceive().AttachDatabaseToEnv(2598, 10, Arg.Any<System.Security.Claims.ClaimsPrincipal>());
+            _environments.DidNotReceive().AttachDatabaseToEnv(2598, 11, Arg.Any<System.Security.Claims.ClaimsPrincipal>());
+        }
+
+        [TestMethod]
+        public void ExistingScopedAivenDatabase_IsReusedOnRedeploy()
+        {
+            WriteResources(new CloudResourceApiModel
+            {
+                Name = "analytics", Provider = "Aiven", ResourceType = "aiven_clickhouse_database",
+                ResourceIdentifier = "project/shared-service/analytics"
+            });
+            _databases.GetDatabases("analytics", "project/shared-service").Returns(new[]
+            {
+                new DatabaseApiModel
+                {
+                    Id = 11, Name = "analytics", ServerName = "project/shared-service",
+                    DatabaseType = DatabaseType.ClickHouse
+                }
+            });
+
+            _registrar.RegisterAppliedResources(_file, "Terraform Dev", "user");
+
+            _databases.DidNotReceiveWithAnyArgs().AddDatabase(default!);
+            _databases.DidNotReceiveWithAnyArgs().UpdateDatabaseType(default, default);
+            _environments.Received(1).AttachDatabaseToEnv(2598, 11, Arg.Any<System.Security.Claims.ClaimsPrincipal>());
+        }
+
+        [TestMethod]
+        public void InvalidAivenIdentifier_DoesNotRegisterDatabase()
+        {
+            WriteResources(new CloudResourceApiModel
+            {
+                Name = "analytics", Provider = "Aiven", ResourceType = "aiven_clickhouse_database",
+                ResourceIdentifier = "/shared-service/analytics"
+            });
+
+            _registrar.RegisterAppliedResources(_file, "Terraform Dev", "user");
+
+            _databases.DidNotReceiveWithAnyArgs().AddDatabase(default!);
+            _environments.DidNotReceiveWithAnyArgs().AttachDatabaseToEnv(default, default, default!);
         }
 
         [TestMethod]

@@ -182,10 +182,11 @@ namespace Dorc.Monitor.Terraform
             var existing = _databasesPersistentSource
                 .GetDatabases(database.Name, database.ServerName)
                 .FirstOrDefault();
-            if (existing is not null && existing.DatabaseType != database.DatabaseType)
+            if (existing is not null && database.DatabaseType is { } databaseType && existing.DatabaseType != databaseType)
             {
-                _databasesPersistentSource.UpdateDatabaseType(existing.Id, database.DatabaseType);
-                existing.DatabaseType = database.DatabaseType;
+                if (!_databasesPersistentSource.UpdateDatabaseType(existing.Id, databaseType))
+                    throw new InvalidOperationException($"Database '{database.Name}' on '{database.ServerName}' disappeared during type registration.");
+                existing.DatabaseType = databaseType;
             }
             var persisted = existing ?? _databasesPersistentSource.AddDatabase(database);
             if (persisted is null)
@@ -230,14 +231,15 @@ namespace Dorc.Monitor.Terraform
 
                 case "aiven_clickhouse_database":
                 case "aiven_pg_database":
-                    // project/service/database
+                    // Service names are unique only within an Aiven project.
                     var parts = (resource.ResourceIdentifier ?? string.Empty).Split('/');
-                    if (parts.Length < 3) return null;
+                    if (parts.Length != 3 || parts.Any(string.IsNullOrWhiteSpace))
+                        throw new ArgumentException($"Expected Aiven database identifier 'project/service/database', got '{resource.ResourceIdentifier}'.");
                     return new DatabaseApiModel
                     {
                         Name = resource.Name,
                         Tags = new[] { resource.ResourceType == "aiven_pg_database" ? "PostgreSQL" : "ClickHouse" },
-                        ServerName = parts[1],
+                        ServerName = $"{parts[0]}/{parts[1]}",
                         DatabaseType = resource.ResourceType == "aiven_pg_database"
                             ? DatabaseType.PostgreSql
                             : DatabaseType.ClickHouse,

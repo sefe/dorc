@@ -16,11 +16,11 @@ import '../components/edit-database-permissions';
 import '../components/database-tags';
 import './grid-button-groups/database-env-controls.ts';
 import '../components/view-database-permissions';
-import { DatabaseApiModel, DatabaseType } from '../apis/dorc-api';
+import { DatabaseApiModel } from '../apis/dorc-api';
 import { EditDatabasePermissions } from './edit-database-permissions';
 import { ViewDatabasePermissions } from './view-database-permissions';
 import { map } from 'lit/directives/map.js';
-import '../icons/brand-icons';
+import { renderDatabaseType } from '../helpers/database-type';
 
 @customElement('attached-databases')
 export class AttachedDatabases extends ResponsiveMixin(LitElement) {
@@ -96,9 +96,6 @@ export class AttachedDatabases extends ResponsiveMixin(LitElement) {
         color: var(--dorc-badge-text);
         cursor: pointer;
         text-decoration: none;
-      }
-      .database-type-icon {
-        color: var(--dorc-link-color);
       }
       @media (max-width: 768px) {
         vaadin-grid-cell-content {
@@ -231,34 +228,7 @@ export class AttachedDatabases extends ResponsiveMixin(LitElement) {
     `;
   };
 
-  private databaseTypeRenderer = (database: DatabaseApiModel) => {
-    const databaseType = database.DatabaseType ?? DatabaseType.SqlServer;
-    const display = {
-      [DatabaseType.SqlServer]: {
-        icon: 'brand:microsoftsqlserver',
-        label: 'SQL Server'
-      },
-      [DatabaseType.CosmosDb]: {
-        icon: 'brand:cosmosdb',
-        label: 'Cosmos DB'
-      },
-      [DatabaseType.ClickHouse]: {
-        icon: 'brand:clickhouse',
-        label: 'ClickHouse'
-      },
-      [DatabaseType.PostgreSql]: {
-        icon: 'brand:postgresql',
-        label: 'PostgreSQL'
-      }
-    }[databaseType];
-
-    return html`<vaadin-icon
-      class="database-type-icon"
-      icon="${display.icon}"
-      title="${display.label}"
-      aria-label="${display.label}"
-    ></vaadin-icon>`;
-  };
+  private databaseTypeRenderer = renderDatabaseType;
 
   private databaseControlsRenderer = (db: DatabaseApiModel) => html`
     <database-env-controls
